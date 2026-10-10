@@ -11,6 +11,8 @@ use std::io;
 #[cfg(target_os = "linux")]
 pub mod capture;
 pub mod evidence;
+#[cfg(unix)]
+pub mod notice;
 pub mod ownership;
 #[cfg(target_os = "linux")]
 pub mod pcm;

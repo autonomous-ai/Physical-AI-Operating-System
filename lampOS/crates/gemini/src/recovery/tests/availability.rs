@@ -45,7 +45,7 @@ async fn upkeep_harvests_completed_redial_without_consuming_buffered_pcm() {
     rig.0.shutdown();
 }
 
-async fn failed_source(supervisor: &mut Supervisor<FakeConnector>) -> Instant {
+pub(super) async fn failed_source(supervisor: &mut Supervisor<FakeConnector>) -> Instant {
     let Link::Connected(live) = &mut supervisor.link else {
         panic!("connected")
     };
@@ -56,9 +56,10 @@ async fn failed_source(supervisor: &mut Supervisor<FakeConnector>) -> Instant {
     live.connection.observed_state().1
 }
 
-async fn finished_attempt(supervisor: &Supervisor<FakeConnector>) {
+pub(super) async fn finished_attempt(supervisor: &Supervisor<FakeConnector>) {
     for _ in 0..128 {
-        if matches!(&supervisor.link, Link::Connecting { attempt, .. } if attempt.0.is_finished()) {
+        if matches!(&supervisor.link, Link::Connecting { attempt, .. } if attempt.task.is_finished())
+        {
             return;
         }
         tokio::task::yield_now().await;
@@ -66,7 +67,7 @@ async fn finished_attempt(supervisor: &Supervisor<FakeConnector>) {
     panic!("attempt did not finish");
 }
 
-async fn update(supervisor: &mut Supervisor<FakeConnector>) -> LinkUpdate {
+pub(super) async fn update(supervisor: &mut Supervisor<FakeConnector>) -> LinkUpdate {
     for _ in 0..128 {
         if let Some(update) = supervisor.poll_link() {
             return update;
@@ -76,7 +77,7 @@ async fn update(supervisor: &mut Supervisor<FakeConnector>) -> LinkUpdate {
     panic!("expected link update");
 }
 
-async fn unread(generated: bool, policy: RecoveryPolicy) -> (Rig, Instant, Vec<i16>) {
+pub(super) async fn unread(generated: bool, policy: RecoveryPolicy) -> (Rig, Instant, Vec<i16>) {
     let (mut rig, mut first) = connected(policy, config()).await;
     speak(&mut rig, &mut first, 1, true).await;
     let mut expected = Vec::new();
@@ -95,7 +96,7 @@ async fn unread(generated: bool, policy: RecoveryPolicy) -> (Rig, Instant, Vec<i
     (rig, observed, expected)
 }
 
-async fn replacement_without_output(rig: &mut Rig) -> (LinkUpdate, Dial) {
+pub(super) async fn replacement_without_output(rig: &mut Rig) -> (LinkUpdate, Dial) {
     let unavailable = update(&mut rig.0).await;
     assert!(matches!(
         unavailable.kind,

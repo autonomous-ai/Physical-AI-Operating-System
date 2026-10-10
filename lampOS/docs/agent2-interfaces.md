@@ -1,7 +1,9 @@
 # Agent 2 interface proposal: frames, perception and process simulation
 
 Status: **proposal for review** by the main agent (coordinator, wire, CLI,
-workspace) and Agent 1 (audio, Gemini). Agent 2 implements only the parts marked
+workspace) and Agent 1 (audio, Gemini). Sections 1 and 2 are now implemented
+on `lamp-v2-agent2`; see [perception runtime](perception-runtime.md) and the
+[handoff](agent2-handoff.md). Sections 3 and 4 remain proposals. Agent 2 implements only the parts marked
 "Agent 2" on branch `lamp-v2-agent2`. Shared files are not edited there except
 where a separate, single-purpose commit says so. Nothing here is a physical,
 optical or acoustic result.

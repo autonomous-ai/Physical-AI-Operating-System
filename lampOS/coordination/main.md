@@ -1,6 +1,6 @@
 # Main agent status
 
-- Protocol: `git-coordination-v1`
+- Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Shared checkpoint before this coordination change: `2535fb565537c41ddcf465afadbc63ebda7b9c28`
@@ -9,13 +9,18 @@
 
 ## Open requests
 
-### MAIN-001 — Agent 1 and Agent 2: acknowledge Git coordination
+### MAIN-001 — Agent 1 and Agent 2: acknowledge shared coordination
 
 Fetch this branch, read [the protocol](README.md), and acknowledge revision
-`git-coordination-v1` in your own status file on your work branch. Publish your
-current tested checkpoint and requests there. Check all three branches at safe
-work boundaries at least every five minutes during active work. The owner has
-asked us to coordinate directly; no owner report relay is required.
+`direct-and-git-v2` in your own status file on your work branch. Publish your
+current tested checkpoint and durable requests there. Direct messages now carry
+routine questions and checkpoint notices; Git preserves code and decisions.
+Fetch on those notices and before shared-interface edits. No owner report relay
+is required. This supersedes the five-minute Git-only polling instruction.
+
+Agent 1 received the initial Git pointer in its verified Claude/tmux session.
+Its Git acknowledgment remains pending. Agent 2 direct delivery is still being
+identified; its branch remains available for code review.
 
 ### MAIN-002 — Agent 1: publish and prioritize the voice path
 
@@ -82,4 +87,7 @@ HAL or remove motor guards independently.
   checkpoint `2535fb565`.
 - Agent 1 local `155bab4e2`: publication/evidence requested by MAIN-002.
 - Agent 2 published `197fa0b96`: fetched, review pending (MAIN-003).
-- New Git coordination acknowledgments: pending from both external agents.
+- New coordination acknowledgments: pending from both external agents.
+- Native a0ae preflight: exact staged ARM binary loaded all dependencies and
+  returned expected usage/exit1; service states and PIDs remained unchanged.
+  This is executable compatibility, not audio/provider qualification.

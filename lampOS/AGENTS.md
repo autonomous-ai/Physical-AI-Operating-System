@@ -3,9 +3,10 @@
 Treat this directory as the root of a standalone repository. Follow the
 [V2 live interaction scope](docs/architecture.md).
 
-For the three-agent effort, follow [Git coordination](coordination/README.md).
-Read assignments and device reservations from the fetched integration branch,
-and publish checkpoints, requests and acknowledgments on your own work branch.
+For the three-agent effort, follow [agent coordination](coordination/README.md).
+Read assignments and device reservations from the fetched integration branch.
+Use direct session messages for routine coordination; publish code checkpoints,
+durable decisions and acknowledgments on your own work branch.
 The owner does not relay routine agent reports.
 
 - First release: chat with a physical robot beside one person at a desk.

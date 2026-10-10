@@ -116,8 +116,39 @@ final line. Scoring can be repeated on an old ledger with `evaluate`.
 
 A physical attempt is **invalid** (listed, but excluded from every rate and
 latency) when its session transport closes before `session_end`, the relay
-reports an error or hard-deadline kill, or fewer trace lines arrive than the
-relay sent. A trace must contain both `run_start` and `run_end` to be scored.
+reports an error or hard-deadline kill, a relayed line fails framing, or fewer
+trace lines arrive than the relay sent. A trace must contain both `run_start`
+and `run_end` to be scored.
+
+### Relay framing and cleanup
+
+Both relay ends read lines incrementally with a fixed per-line bound and never
+truncate: a line is kept only up to its bound, and an oversized line is consumed
+through its newline without being retained. Oversized, non-UTF-8 and cut-off
+lines are explicit failures. Bounds (`physical/protocol.rs`):
+
+| Stream | Bound | Failure |
+|---|---|---|
+| Relay to runner, one encoded line | 64 KiB | protocol error; attempt invalid |
+| Relay to runner, one session | 96 MiB | reading stops; transport treated as closed |
+| Runtime stdout, one line | 16 KiB (and 64 KiB after JSON encoding) | `stdout_invalid` line and `session_end.error` |
+| `events.jsonl`, whole file | 64 MiB, checked before reading | `session_end.error`, nothing streamed |
+| `events.jsonl`, one record | 63 KiB | streaming stops at that record; `session_end.error` |
+| Runner to relay, one line | 1 KiB | `session_end.error` |
+
+`events_sha256` always covers the whole trace file, including bytes after a
+failure, and a file that changes length while relaying is reported. A final
+record without a newline is reported as cut off, not parsed.
+
+The relay starts `lamp-live` in its own process group. A hard-deadline stop, an
+early relay error and a closed runner transport all kill that group, so workers
+stop with the coordinator. If the runner transport closes before the runtime
+ends, the relay stops the runtime and reports it rather than leaving the
+microphone and speaker in an unattended session. After a normal exit, any process
+still in the group is killed and reported as `stray_processes_stopped` (evidence,
+not an invalid trace). The runner kills its transport, room recorder and players
+if it fails between session start and finish. Tests: `tests/relay_hardening.rs`,
+`physical::framing` and `physical::mac::relay_reader_tests`.
 
 ## Evaluation rules
 

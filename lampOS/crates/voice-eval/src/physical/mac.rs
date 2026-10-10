@@ -11,7 +11,8 @@ use crate::{
     invalid,
     physical::{
         fake_lamp::ROOM_MAX_BYTES,
-        protocol::{RunnerLine, SessionLine},
+        framing::{Frame, LineFramer},
+        protocol::{MAX_LINE_BYTES, MAX_SESSION_BYTES, RunnerLine, SessionLine},
     },
     plan::{ProviderKind, Scenario, Step},
     playback::PlaybackHistory,
@@ -24,7 +25,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     fs,
-    io::{BufRead, BufReader, Write},
+    io::Write,
     os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
@@ -482,6 +483,17 @@ impl<'a> PhysicalBackend<'a> {
                     EventSource::Stdout,
                 )
             }
+            SessionLine::StdoutInvalid { error, .. } => {
+                if session.cue_failed {
+                    return None;
+                }
+                // The unreadable line may have been readiness or a failure report.
+                cue_failure(
+                    session,
+                    format!("relay could not deliver a runtime stdout line: {error}"),
+                    received,
+                )
+            }
             SessionLine::Trace { record } => {
                 if session.trace.len() < crate::physical::protocol::MAX_TRACE_LINES {
                     session.trace.push(record);
@@ -568,6 +580,7 @@ impl<'a> PhysicalBackend<'a> {
                         events_sha256: None,
                         events_lines: 0,
                         error: Some("session transport closed without session_end".into()),
+                        stray_processes_stopped: false,
                     });
                     return Some(Ok(session.end.clone()?));
                 }
@@ -575,6 +588,74 @@ impl<'a> PhysicalBackend<'a> {
             }
         }
     }
+}
+
+/// An error or panic between `begin` and `finish` must not leave the
+/// transport, the room recorder or a player running. Closing the transport's
+/// input makes the Lamp relay stop the runtime; the transport itself is
+/// killed if it has not exited shortly afterwards.
+impl Drop for PhysicalBackend<'_> {
+    fn drop(&mut self) {
+        for playback in &self.playbacks {
+            let _ = fs::write(&playback.cancel_file, b"cancel\n");
+        }
+        if let Some(mut session) = self.session.take() {
+            drop(session.stdin.take());
+            let _ = wait_child(&mut session.child, monotonic_us() + 2_000_000);
+        }
+        if let Some((mut child, _, _)) = self.room.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+/// Frame relay lines with the protocol's per-line and per-session bounds on
+/// a separate thread. Any framing or parse failure becomes a protocol error.
+/// Above the session byte bound the reader stops, so the transport looks
+/// closed and the attempt is invalidated rather than buffered without limit.
+fn relay_reader<R: std::io::Read + Send + 'static>(
+    stdout: R,
+) -> Receiver<std::result::Result<SessionLine, String>> {
+    let (sender, lines) = mpsc::sync_channel(4096);
+    thread::spawn(move || {
+        let mut framer = LineFramer::new(stdout, MAX_LINE_BYTES);
+        let mut total: u64 = 0;
+        loop {
+            let frame = match framer.next_frame() {
+                Ok(Some(frame)) => frame,
+                Ok(None) => break,
+                Err(error) => {
+                    let _ = sender.send(Err(format!("relay transport read failed: {error}")));
+                    break;
+                }
+            };
+            // Count the transport bytes of every frame, newline included.
+            total += match &frame {
+                Frame::Line(line) => line.len() as u64 + 1,
+                Frame::Oversized { bytes, terminated } => bytes + u64::from(*terminated),
+                Frame::InvalidUtf8 { bytes } => *bytes as u64 + 1,
+                Frame::Truncated { bytes } => *bytes as u64,
+            };
+            let parsed = match frame {
+                Frame::Line(line) => serde_json::from_str::<SessionLine>(&line)
+                    .map_err(|e| format!("{e}: {line:.200}")),
+                other => Err(other
+                    .failure("relay transport", MAX_LINE_BYTES)
+                    .unwrap_or_default()),
+            };
+            if total > MAX_SESSION_BYTES {
+                let _ = sender.send(Err(format!(
+                    "relay exceeded {MAX_SESSION_BYTES} bytes in one session; reading stopped"
+                )));
+                break;
+            }
+            if sender.send(parsed).is_err() {
+                break;
+            }
+        }
+    });
+    lines
 }
 
 fn wait_child(child: &mut Child, deadline_us: u64) -> Option<std::process::ExitStatus> {
@@ -742,17 +823,7 @@ impl Backend for PhysicalBackend<'_> {
             .stdout
             .take()
             .ok_or_else(|| invalid("session stdout unavailable"))?;
-        let (sender, lines) = mpsc::sync_channel(4096);
-        thread::spawn(move || {
-            for line in BufReader::new(stdout).lines() {
-                let Ok(line) = line else { break };
-                let parsed = serde_json::from_str::<SessionLine>(&line)
-                    .map_err(|e| format!("{e}: {line:.200}"));
-                if sender.send(parsed).is_err() {
-                    break;
-                }
-            }
-        });
+        let lines = relay_reader(stdout);
         self.session = Some(Session {
             stdin: child.stdin.take(),
             next_ping_us: 0,
@@ -929,9 +1000,14 @@ impl Backend for PhysicalBackend<'_> {
             Some(_) if session.end_synthesized => {
                 Some("session transport closed before session_end; the trace may be partial".into())
             }
-            Some(SessionLine::SessionEnd { killed: true, .. }) => {
-                Some("the relay killed the runtime at its hard deadline".into())
-            }
+            Some(SessionLine::SessionEnd {
+                killed: true,
+                error,
+                ..
+            }) => Some(match error {
+                Some(error) => format!("the relay stopped the runtime: {error}"),
+                None => "the relay killed the runtime at its hard deadline".into(),
+            }),
             Some(SessionLine::SessionEnd {
                 error: Some(error), ..
             }) => Some(format!("relay: {error}")),
@@ -1173,5 +1249,76 @@ mod cue_tests {
         let mut old = cue(3, "speaker_first_write", 1);
         old.playback_sequence = None;
         assert!(order.accept(&old, 32).is_err());
+    }
+}
+
+#[cfg(test)]
+mod relay_reader_tests {
+    use super::*;
+
+    fn read_all(bytes: Vec<u8>) -> Vec<std::result::Result<SessionLine, String>> {
+        relay_reader(std::io::Cursor::new(bytes)).iter().collect()
+    }
+
+    #[test]
+    fn oversized_non_utf8_and_cut_off_lines_are_protocol_errors() {
+        let pong = br#"{"type":"pong","seq":1,"lamp_us":5}"#;
+        let mut bytes = pong.to_vec();
+        bytes.push(b'\n');
+        bytes.extend(vec![b'x'; MAX_LINE_BYTES + 1]);
+        bytes.push(b'\n');
+        bytes.extend(b"\xff\n");
+        bytes.extend(pong);
+        bytes.push(b'\n');
+        bytes.extend(br#"{"type":"pong","#);
+        let items = read_all(bytes);
+        assert_eq!(items.len(), 5, "{items:?}");
+        assert_eq!(items[0], Ok(SessionLine::Pong { seq: 1, lamp_us: 5 }));
+        assert!(
+            items[1]
+                .as_ref()
+                .unwrap_err()
+                .contains("exceeds the 65536-byte limit")
+        );
+        assert!(items[2].as_ref().unwrap_err().contains("not valid UTF-8"));
+        assert!(items[3].is_ok());
+        assert!(
+            items[4]
+                .as_ref()
+                .unwrap_err()
+                .contains("closed inside a line")
+        );
+    }
+
+    /// Endless lines of `width` bytes, generated without storing them.
+    struct Lines {
+        width: usize,
+        position: usize,
+    }
+    impl std::io::Read for Lines {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            for byte in buffer.iter_mut() {
+                *byte = if self.position % (self.width + 1) == self.width {
+                    b'\n'
+                } else {
+                    b'y'
+                };
+                self.position += 1;
+            }
+            Ok(buffer.len())
+        }
+    }
+
+    #[test]
+    fn reading_stops_with_an_error_above_the_session_byte_bound() {
+        // Rejected oversized lines still count, so an endless stream ends.
+        let width = MAX_LINE_BYTES * 4;
+        let items: Vec<_> = relay_reader(Lines { width, position: 0 }).iter().collect();
+        let last = items.last().unwrap().as_ref().unwrap_err();
+        assert!(last.contains("reading stopped"), "{last}");
+        assert_eq!(
+            items.len() as u64,
+            MAX_SESSION_BYTES / (width as u64 + 1) + 1
+        );
     }
 }

@@ -1,10 +1,11 @@
 # Voice development coordination
 
-The latest owner instruction broadens the next work allocation to finish the
-Rust implementation before returning to physical testing. Follow the
-[three-agent completion plan](rust-completion-plan.md) for current file ownership,
-deliverables and integration gates. It supersedes the earlier 24-hour allocation
-below; the delivered history and outstanding findings remain useful evidence.
+Use [Git coordination](../coordination/README.md) for current assignments,
+requests, checkpoints and acknowledgments. The owner has authorized tests on
+two alternate Lamps; the main agent schedules exclusive device access. The
+[three-agent completion plan](rust-completion-plan.md) remains the implementation
+and ownership scope. Earlier no-device instructions below are historical and
+are superseded by the current reservations in `coordination/main.md`.
 
 The owner has prioritized complete voice interaction and requested two external
 Claude Code sessions alongside Codex. This is an ownership plan, not proof of

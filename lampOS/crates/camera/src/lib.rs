@@ -13,8 +13,10 @@
 //! never wait, infer, or perform network I/O while borrowing frame bytes. Any
 //! downstream copy must retain and revalidate the original grant and frame ID.
 //! Privacy cannot retract bytes already exported to another process or provider.
+//! [`frames`] is that bounded, nonblocking cross-process copy.
 
 mod capture;
+pub mod frames;
 mod types;
 
 pub use capture::Capture;

@@ -7,10 +7,12 @@ publish.workspace = true
 
 [dependencies]
 lamp-interaction = { path = "../interaction" }
+rustix = { version = "=1.1.5", features = ["fs", "process"] }
+serde.workspace = true
+serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 lamp-ipc = { path = "../ipc" }
-rustix = { version = "=1.1.5", features = ["fs", "process"] }
 v4l2r = "=0.0.8"
 
 [build-dependencies]

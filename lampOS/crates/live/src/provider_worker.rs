@@ -3283,6 +3283,180 @@ mod tests {
         speaking_speed(180, REPLY_BUFFER, Duration::from_secs(20)).await;
     }
 
+    // ---- Playback stopped with every holder full -------------------------
+
+    /// The answer used to find how long playback may stop. It is long enough
+    /// that, once twenty seconds have been played into a five-second reply
+    /// buffer, the worker's queue and the transport's event queue are full
+    /// and the transport still holds more behind them.
+    const STOPPED_ANSWER: u64 = 90;
+    const STOPPED_AFTER: u64 = 20 * 24_000;
+    const STOPPED_ROOM: usize = 5 * 24_000;
+
+    struct Stopped {
+        /// Samples that reached the speaker's buffer, in order.
+        frames: usize,
+        played: u64,
+        held: Duration,
+        /// Why the worker ended, when it did not finish the answer.
+        error: Option<String>,
+        /// Playback resuming to the worker ending.
+        failed_after_resuming: Option<Duration>,
+    }
+    /// One ninety-second answer whose playback stops once, for `stop`, and
+    /// then resumes. The coordinator stays alive throughout: heartbeats and
+    /// capacity accounting continue, the speaker simply takes nothing.
+    async fn stopped_playback(stop: Duration) -> Stopped {
+        let mut rig = LiveRig::start(quick_policy());
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        let script = long_answer(dial.service, STOPPED_ANSWER);
+        let total = STOPPED_ANSWER * 24_000;
+        let mut speaker = Speaker::new(STOPPED_ROOM);
+        let (mut frames, mut completed, mut resumed) = (0usize, false, None);
+        let started = Instant::now();
+        let error = loop {
+            if rig.worker.is_finished() {
+                break Some((&mut rig.worker).await.unwrap().unwrap_err().to_string());
+            }
+            let hold = speaker.played >= STOPPED_AFTER && speaker.held < stop;
+            if speaker.held >= stop && resumed.is_none() {
+                resumed = Some(Instant::now());
+            }
+            let backlog = speaker.backlog(hold);
+            assert!(backlog <= STOPPED_ROOM, "reply buffer overran: {backlog}");
+            // The worker may close its sockets at any point once it has failed.
+            let alive = rig.heartbeat().is_ok()
+                && rig
+                    .output_flow
+                    .replenish(
+                        REPLY_BUFFER - STOPPED_ROOM + backlog,
+                        &mut rig.parent.control,
+                    )
+                    .is_ok();
+            while alive && let Ok(Some(wire)) = rig.parent.data.receive::<Wire>() {
+                rig.output_flow.received().unwrap();
+                match wire {
+                    Wire::Output(ProviderOutput::Audio {
+                        request: owner,
+                        source_offset,
+                        samples,
+                        ..
+                    }) => {
+                        assert_eq!(owner, request);
+                        // Whatever arrives is the unbroken beginning.
+                        let expected = (frames / LARGEST) as i16;
+                        assert_eq!(source_offset, frames % LARGEST);
+                        assert!(samples.iter().all(|sample| *sample == expected));
+                        frames += samples.len();
+                        speaker.hear(samples.len());
+                    }
+                    Wire::Output(ProviderOutput::GenerationComplete { .. }) => {}
+                    Wire::Output(ProviderOutput::TurnComplete { idle: true, .. }) => {
+                        completed = true;
+                    }
+                    other => panic!("unexpected with playback stopped: {other:?}"),
+                }
+            }
+            if completed && speaker.played == total {
+                break None;
+            }
+            assert!(
+                started.elapsed() < Duration::from_secs(STOPPED_ANSWER + 120) + stop,
+                "neither finished nor failed"
+            );
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        };
+        let failed_after_resuming = error.as_ref().and(resumed).map(|at| at.elapsed());
+        if error.is_none() {
+            rig.parent.control.send(Control::Stop).unwrap();
+            assert!(rig.exit().await.0.is_ok());
+        }
+        script.abort();
+        let stopped = Stopped {
+            frames,
+            played: speaker.played,
+            held: speaker.held,
+            error,
+            failed_after_resuming,
+        };
+        println!(
+            "MEASURED stopped_playback stop_s={} held_ms={} outcome={} delivered_s={:.2} of {STOPPED_ANSWER} played_s={:.2} failed_after_resuming_ms={} (scripted service through output capacity to a local IPC reader and a modeled speaker; every holder full when playback stopped)",
+            stop.as_secs(),
+            stopped.held.as_millis(),
+            stopped.error.as_deref().unwrap_or("complete"),
+            stopped.frames as f64 / 24_000.0,
+            stopped.played as f64 / 24_000.0,
+            stopped
+                .failed_after_resuming
+                .map_or("-".to_owned(), |after| after.as_millis().to_string()),
+        );
+        stopped
+    }
+    fn complete(stopped: &Stopped) {
+        assert_eq!(stopped.error, None);
+        assert_eq!(stopped.frames as u64, STOPPED_ANSWER * 24_000);
+    }
+    /// The delivery bound was passed while playback was stopped. Nobody can
+    /// tell until playback resumes: only then does the worker take from the
+    /// provider again and find the connection gone. What the coordinator,
+    /// the worker and the event queue already held is played; the rest of
+    /// the answer is not, and the session ends.
+    fn cut(stopped: &Stopped) {
+        let error = stopped.error.as_deref().expect("the session ends");
+        assert!(error.contains("Backpressure"), "{error}");
+        assert!((stopped.frames as u64) < STOPPED_ANSWER * 24_000);
+        assert!(stopped.frames as u64 > STOPPED_AFTER);
+    }
+
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn playback_stopped_for_25_seconds_with_every_holder_full_loses_nothing() {
+        complete(&stopped_playback(Duration::from_secs(25)).await);
+    }
+
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn playback_stopped_for_33_seconds_ends_the_session_with_a_cut_answer() {
+        cut(&stopped_playback(Duration::from_secs(33)).await);
+    }
+
+    /// Between those two the outcome depends on where in a two-second provider
+    /// message the stop fell, so these only measure: each must end one way or
+    /// the other, cleanly. Run them together to read the boundary.
+    async fn measured_stop(seconds: u64) {
+        let stopped = stopped_playback(Duration::from_secs(seconds)).await;
+        match stopped.error {
+            None => complete(&stopped),
+            Some(_) => cut(&stopped),
+        }
+    }
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn stopped_playback_boundary_27_seconds() {
+        measured_stop(27).await;
+    }
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn stopped_playback_boundary_28_seconds() {
+        measured_stop(28).await;
+    }
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn stopped_playback_boundary_29_seconds() {
+        measured_stop(29).await;
+    }
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn stopped_playback_boundary_30_seconds() {
+        measured_stop(30).await;
+    }
+    #[tokio::test]
+    #[ignore = "two minutes of real time; run explicitly"]
+    async fn stopped_playback_boundary_31_seconds() {
+        measured_stop(31).await;
+    }
+
     #[tokio::test]
     async fn interrupting_a_capacity_paced_answer_is_not_delayed_by_its_queued_audio() {
         let answer: Vec<_> = (0..20)

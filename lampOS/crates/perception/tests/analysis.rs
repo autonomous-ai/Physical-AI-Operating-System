@@ -10,7 +10,8 @@ use lamp_perception::{
 use std::{fs, os::unix::fs::PermissionsExt, time::Instant};
 
 fn analyzer() -> Analyzer {
-    let bytes = model::read_verified(&model::vendored_directory(), &YUNET).unwrap();
+    let dir = common::installed_model();
+    let bytes = model::read_verified(&dir.0, &YUNET).unwrap();
     Analyzer::new(bytes, &YUNET, INPUT_WIDTH)
 }
 
@@ -20,6 +21,7 @@ fn the_vendored_model_verifies_and_any_altered_copy_is_refused() {
     assert_eq!(model::sha256_hex(&original), YUNET.sha256);
     let dir = common::Private::new("model");
     let path = dir.join(YUNET.file);
+    // A source checkout's own permissions are not part of this check.
     let write = |bytes: &[u8]| {
         let _ = fs::remove_file(&path);
         fs::write(&path, bytes).unwrap();

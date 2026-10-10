@@ -14,10 +14,7 @@ use lamp_live::{
     transport::Channel,
     wire::{Control, WorkerEvent},
 };
-use lamp_perception::{
-    model,
-    observation::{DiscardReason, PerceptionEvent, Presence},
-};
+use lamp_perception::observation::{DiscardReason, PerceptionEvent, Presence};
 use std::{
     num::NonZeroU64,
     process::{Child, Command, Stdio},
@@ -229,14 +226,11 @@ impl Drop for Supervisor {
     }
 }
 
-fn vendored() -> std::path::PathBuf {
-    model::vendored_directory().canonicalize().unwrap()
-}
-
 #[test]
 fn fresh_frames_become_observations_with_their_original_lineage() {
     let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
-    let mut s = Supervisor::spawn("obs", &vendored());
+    let model = common::installed_model();
+    let mut s = Supervisor::spawn("obs", &model.0);
     assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
     let mut camera = s.camera();
     s.run(Some(&mut camera), &jpeg, 1_500_000);
@@ -281,7 +275,8 @@ fn fresh_frames_become_observations_with_their_original_lineage() {
 #[test]
 fn a_frame_from_before_a_privacy_change_is_discarded_not_analysed() {
     let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
-    let mut s = Supervisor::spawn("priv", &vendored());
+    let model = common::installed_model();
+    let mut s = Supervisor::spawn("priv", &model.0);
     assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
     let mut camera = s.camera();
     // Wait for a request without answering it.
@@ -337,7 +332,8 @@ fn a_frame_from_before_a_privacy_change_is_discarded_not_analysed() {
 #[test]
 fn closed_camera_privacy_means_no_requests_and_no_observations() {
     let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
-    let mut s = Supervisor::spawn("closed", &vendored());
+    let model = common::installed_model();
+    let mut s = Supervisor::spawn("closed", &model.0);
     s.owner
         .set_camera_permission(now(), Permission::Denied)
         .unwrap();
@@ -351,7 +347,8 @@ fn closed_camera_privacy_means_no_requests_and_no_observations() {
 #[test]
 fn losing_the_camera_link_is_reported_and_the_worker_keeps_running() {
     let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
-    let mut s = Supervisor::spawn("lost", &vendored());
+    let model = common::installed_model();
+    let mut s = Supervisor::spawn("lost", &model.0);
     assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
     let mut camera = s.camera();
     s.run(Some(&mut camera), &jpeg, 500_000);
@@ -386,7 +383,8 @@ fn losing_the_camera_link_is_reported_and_the_worker_keeps_running() {
 
 #[test]
 fn controller_heartbeat_loss_ends_the_worker() {
-    let mut s = Supervisor::spawn("beat", &vendored());
+    let model = common::installed_model();
+    let mut s = Supervisor::spawn("beat", &model.0);
     assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
     let started = monotonic_us();
     let status = s

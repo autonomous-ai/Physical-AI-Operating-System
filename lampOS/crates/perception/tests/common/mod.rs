@@ -88,6 +88,18 @@ pub fn scene(
     pixels
 }
 
+/// Install the vendored model into a fresh private directory, exactly as a
+/// device is provisioned. Reading straight from the source tree would make
+/// tests depend on the checkout's umask (`git archive` exports 0664 files,
+/// which verification correctly refuses as group-writable).
+pub fn installed_model() -> Private {
+    let dir = Private::new("model");
+    let source =
+        lamp_perception::model::vendored_directory().join(lamp_perception::model::YUNET.file);
+    lamp_perception::model::install(&source, &dir.0, &lamp_perception::model::YUNET).unwrap();
+    dir
+}
+
 pub fn jpeg(pixels: &[u8], width: u32, height: u32) -> Vec<u8> {
     let mut out = Vec::new();
     jpeg_encoder::Encoder::new(&mut out, 85)

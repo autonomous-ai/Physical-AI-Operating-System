@@ -26,12 +26,13 @@ fn run() -> Result<()> {
             lamp_live::camera_inspect::run(Path::new(config), seconds.parse()?, Path::new(output))?;
         }
         #[cfg(target_os = "linux")]
-        [command, role, dir, parent, worker, config, digest] if command == "worker" && role == "camera" => {
+        [command, role, dir, parent, worker, config, digest, flags @ ..] if command == "worker" && role == "camera" => {
             let parent = parse_boot(parent)?;
             let worker = parse_boot(worker)?;
+            let consumers = lamp_live::camera_worker::parse_frame_consumers(flags)?;
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_live::camera_worker::run(channels, parent, worker, Path::new(config), digest)?;
+            lamp_live::camera_worker::run(channels, parent, worker, Path::new(config), digest, Path::new(dir), &consumers)?;
         }
         #[cfg(target_os = "linux")]
         [command, wav, sha256, seconds, output, flags @ ..] if command == "directed-fixture" => {

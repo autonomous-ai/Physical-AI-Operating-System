@@ -44,19 +44,33 @@ impl InspectPort for LinuxPort {
     }
 }
 
+/// `consumers` comes from the parent's `--frame-consumer` flags; empty keeps
+/// the metadata-only behavior. The frame socket is bound in `directory`.
 pub fn run(
     mut channels: WorkerChannels,
     parent: BootId,
     worker: BootId,
     path: &Path,
     digest: &str,
+    directory: &Path,
+    consumers: &[(Role, BootId)],
 ) -> io::Result<()> {
     let (config, _) = CameraConfig::load(path, Some(digest))?;
     let port = LinuxPort::new(config.linux()?);
-    let capture = Capture::new(port, SystemClock, parent, worker, config.capture()?)
+    let capture_config = config.capture()?;
+    let capture = Capture::new(port, SystemClock, parent, worker, capture_config)
         .map_err(io::Error::other)?;
     let mut clock = lamp_ipc::monotonic_us;
     let mut runtime = CameraLoop::new(capture, clock());
+    if !consumers.is_empty() {
+        let frames = FrameServer::bind(
+            &directory.join(FRAME_SOCKET),
+            parent,
+            consumers,
+            config.max_frame_bytes,
+        )?;
+        runtime = runtime.with_frames(frames);
+    }
     // No camera open or permission was obtained to reach this handshake.
     channels.control.send(WorkerEvent::Ready)?;
     loop {

@@ -181,6 +181,9 @@ struct Rig {
 }
 impl Rig {
     fn new() -> Self {
+        Self::build(None)
+    }
+    fn build(frames: Option<lamp_camera::frames::FrameServer>) -> Self {
         let clock = TestClock(Rc::new(Cell::new(1000)));
         let state = Rc::new(RefCell::new(PortState::default()));
         let link = Link::default();
@@ -196,7 +199,10 @@ impl Rig {
             config().capture().unwrap(),
         )
         .unwrap();
-        let runtime = CameraLoop::new(capture, 1000);
+        let mut runtime = CameraLoop::new(capture, 1000);
+        if let Some(frames) = frames {
+            runtime = runtime.with_frames(frames);
+        }
         let owner = Controller::new(boot(1), t(1000));
         Self {
             runtime,
@@ -738,4 +744,178 @@ fn queued_old_progress_cannot_hide_a_current_worker_stall() {
             .is_err()
     );
     assert_eq!(p.report.frames_accepted, 0);
+}
+
+mod frame_link {
+    use super::*;
+    use lamp_camera::frames::{CloseReason, FrameClient, FrameServer, LinkEvent, Role};
+    use std::{os::unix::fs::PermissionsExt, path::PathBuf};
+
+    struct Dir(PathBuf);
+    impl Drop for Dir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    fn dir(label: &str) -> Dir {
+        let path = PathBuf::from(format!("/tmp/lcw-{label}-{}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        Dir(path)
+    }
+    const CONSUMER: u8 = 7;
+
+    fn rig(dir: &Dir) -> (Rig, FrameClient) {
+        let socket = dir.0.join(lamp_live::camera_worker::FRAME_SOCKET);
+        let server =
+            FrameServer::bind(&socket, boot(1), &[(Role::Perception, boot(CONSUMER))], 256)
+                .unwrap();
+        let rig = Rig::build(Some(server));
+        let client = FrameClient::new(&socket, Role::Perception, boot(CONSUMER), boot(1), 256);
+        (rig, client)
+    }
+    fn connect(r: &mut Rig, client: &mut FrameClient) {
+        assert!(client.connect().unwrap());
+        for _ in 0..200 {
+            r.step().unwrap();
+            if r.runtime.frame_link().unwrap().connected(Role::Perception) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        panic!("consumer not accepted");
+    }
+    fn receive(r: &mut Rig, client: &mut FrameClient) -> (lamp_camera::frames::FrameMeta, Vec<u8>) {
+        let mut out = Vec::new();
+        for _ in 0..200 {
+            r.step().unwrap();
+            if let Some(meta) = client.poll(&mut out).unwrap() {
+                return (meta, out);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        panic!("no frame");
+    }
+
+    #[test]
+    fn frames_leave_the_library_only_for_a_waiting_consumer() {
+        let d = dir("wait");
+        let (mut r, mut client) = rig(&d);
+        r.start();
+        connect(&mut r, &mut client);
+        assert!(r.link.events.iter().any(|e| matches!(
+            e,
+            CameraEvent::FrameLink {
+                event: LinkEvent::Connected {
+                    role: Role::Perception,
+                    ..
+                },
+                ..
+            }
+        )));
+        // Captured frames replace the pending slot; none is handed off.
+        r.state.borrow_mut().frames = 3;
+        for _ in 0..3 {
+            r.step().unwrap();
+        }
+        assert!(r.frames().is_empty());
+        let grant = r.owner.camera_grant(t(r.clock.0.get())).unwrap();
+        client.request(200_000).unwrap();
+        r.state.borrow_mut().frames = 1;
+        let (meta, bytes) = receive(&mut r, &mut client);
+        assert_eq!(bytes, [0xff, 0xd8, 0x11, 0x22, 0xff, 0xd9]);
+        assert_eq!(meta.grant, grant);
+        let published = r.frames();
+        assert_eq!(
+            published.len(),
+            1,
+            "metadata is published for the delivered frame"
+        );
+        assert_eq!(published[0].sequence, meta.frame_sequence);
+        assert_eq!(published[0].capture_epoch, meta.capture_epoch);
+        // Without a new request nothing more leaves the library.
+        r.state.borrow_mut().frames = 2;
+        r.step().unwrap();
+        r.step().unwrap();
+        assert_eq!(r.frames().len(), 1);
+    }
+
+    #[test]
+    fn privacy_revoke_closes_the_frame_link_before_the_camera_stops() {
+        let d = dir("privacy");
+        let (mut r, mut client) = rig(&d);
+        r.start();
+        connect(&mut r, &mut client);
+        client.request(200_000).unwrap();
+        r.step().unwrap();
+        let snapshot = r.authority(Permission::Denied);
+        r.send(Control::Authority { snapshot });
+        assert_eq!(r.step().unwrap(), Step::Stopped);
+        let closed = r.link.events.iter().position(|e| {
+            matches!(
+                e,
+                CameraEvent::FrameLink {
+                    event: LinkEvent::Closed {
+                        reason: CloseReason::PrivacyClosed,
+                        ..
+                    },
+                    ..
+                }
+            )
+        });
+        let stopped = r
+            .link
+            .events
+            .iter()
+            .position(|e| matches!(e, CameraEvent::Stopped { .. }));
+        assert!(closed.unwrap() < stopped.unwrap());
+        let mut out = Vec::new();
+        let mut result = Ok(None);
+        for _ in 0..200 {
+            result = client.poll(&mut out);
+            if !matches!(result, Ok(None)) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(
+            result.is_err(),
+            "the consumer sees the link close, not a frame"
+        );
+    }
+
+    #[test]
+    fn a_worker_fault_closes_consumers() {
+        let d = dir("fault");
+        let (mut r, mut client) = rig(&d);
+        r.start();
+        connect(&mut r, &mut client);
+        // A duplicate start is a worker fault.
+        r.send(Control::StartCapture);
+        assert!(r.step().is_err());
+        assert!(!r.runtime.frame_link().unwrap().connected(Role::Perception));
+    }
+
+    #[test]
+    fn consumer_flags_are_strict() {
+        use lamp_live::camera_worker::parse_frame_consumers;
+        let hex = "07".repeat(16);
+        let ok = parse_frame_consumers(&["--frame-consumer".into(), format!("perception={hex}")])
+            .unwrap();
+        assert_eq!(ok, vec![(Role::Perception, boot(7))]);
+        for bad in [
+            vec!["--frame-consumer".to_owned()],
+            vec!["--frame-consumer".into(), format!("vision={hex}")],
+            vec!["--frame-consumer".into(), "perception=00".into()],
+            vec![
+                "--frame-consumer".into(),
+                format!("context={hex}"),
+                "--frame-consumer".into(),
+                format!("context={hex}"),
+            ],
+            vec!["--other".into(), "x".into()],
+        ] {
+            assert!(parse_frame_consumers(&bad).is_err(), "{bad:?}");
+        }
+    }
 }

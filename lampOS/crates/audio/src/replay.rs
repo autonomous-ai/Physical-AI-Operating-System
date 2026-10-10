@@ -774,6 +774,8 @@ struct Segment {
     ns: Vec<i16>,
     aec_processor: EchoProcessor,
     ns_processor: EchoProcessor,
+    /// Evidence for the cancellation the recording itself contains.
+    recorded_observer: crate::evidence::EchoObserver,
 }
 impl Segment {
     fn new(reset: Reset, next_sequence: u64) -> Self {
@@ -796,6 +798,7 @@ impl Segment {
             ns: Vec::new(),
             aec_processor: EchoProcessor::new(false),
             ns_processor: EchoProcessor::new(true),
+            recorded_observer: crate::evidence::EchoObserver::new(),
         }
     }
 }
@@ -933,6 +936,7 @@ fn apply_step(
                 )?;
                 segment.aec_processor.render(&samples)?;
                 segment.ns_processor.render(&samples)?;
+                segment.recorded_observer.render(&samples);
                 line(
                     operations,
                     &json!({"kind":"render_before_capture","dsp_epoch":meta.dsp_epoch,"playback_epoch":reference.playback_epoch,"first_sample":segment.analysed,"end_sample":segment.analysed+240,"first_source_render_record":first_packet,"last_source_render_record":last_packet,"before_capture_record":sequence,"latest_recorded_analysis_at_us":reference.analysed_at_us}),
@@ -971,6 +975,14 @@ fn apply_step(
                     "replayed_internal_alignment_ms": {
                         "aec_only": segment.aec_processor.internal_alignment_ms(),
                         "aec_ns": segment.ns_processor.internal_alignment_ms(),
+                    },
+                    // Measurements, not verdicts; see `crate::evidence`.
+                    // `recorded` compares the microphone with what the
+                    // device's own run produced after cancellation.
+                    "echo_evidence": {
+                        "recorded": segment.recorded_observer.capture(&pre, &post),
+                        "aec_only": segment.aec_processor.evidence(),
+                        "aec_ns": segment.ns_processor.evidence(),
                     }
                 }),
             )?;

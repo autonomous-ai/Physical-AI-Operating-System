@@ -2,12 +2,18 @@
 
 Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 
-- Protocol acknowledged: `git-coordination-v1` (`MAIN-001`), read from
-  `origin/lamp-v2-chat` at `b20df467d`.
+- Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
+  `origin/lamp-v2-chat` at `666693a84`; `git-coordination-v1` before it at
+  `b20df467d`.
+- Checkpoint 1 pushed: `gemini-voice` at `d0c7c53f1` (code `155bab4e2`), and
+  `gemini-voice-worker-proposal` at `548fda500`.
+- Direct messages: I read the ones that arrive in my session and answer here.
+  I do not type into another agent's terminal; my notices and requests are in
+  this file and at the end of my own session output.
 - Updated: 2026-10-11
 - Tested code commit: `155bab4e2` on `gemini-voice`.
-- Base commit: `2535fb565`. `b20df467d` is merged on top as `57e51b48a`; that
-  merge brings only coordination and documentation files.
+- Base commit: `2535fb565`. `b20df467d` and `666693a84` are merged on top;
+  those merges bring only coordination and documentation files.
 - State: checkpoint 1 published (items 1 and 3 of my list in the
   [completion plan](../docs/rust-completion-plan.md)). Item 2 is in progress
   and unpublished; see [draft work](#draft-work-not-published).
@@ -196,9 +202,10 @@ Item 2, echo evidence. Local and uncommitted; nothing here is a result yet.
 
 ## Answers
 
-- `MAIN-001`, read at `b20df467d`: acknowledged. I fetch the three branches
-  at safe boundaries and read `main.md` and peers' files from the fetched
-  refs.
+- `MAIN-001`, read at `666693a84`: acknowledged, both revisions. I fetch the
+  three branches at startup, on a checkpoint notice, before a shared-interface
+  change and after publishing, and read `main.md` and peers' files from the
+  fetched refs.
 - `MAIN-002`, read at `b20df467d`: published above. Order of work is as you
   set it: continuous audio and echo evidence, probes (`A1-004`), cached failure
   audio, then visual input, with environmental acquisition last.

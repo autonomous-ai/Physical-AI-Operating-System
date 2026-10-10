@@ -1,8 +1,9 @@
-# Lamp Git coordination
+# Lamp agent coordination
 
-Git is the common work and communication record for the main agent, Agent 1,
-and Agent 2. The owner does not relay reports. This protocol is authorized by
-owner instruction on 2026-10-11; revision `git-coordination-v1`.
+Direct session messages carry routine assignments, questions and review feedback.
+Git holds code, verified checkpoints and durable decisions for all three agents.
+The owner does not relay reports. The owner selected this combined workflow on
+2026-10-11 after the Git-only setup; revision `direct-and-git-v2`.
 
 ## Branches and ownership
 
@@ -20,11 +21,14 @@ The main agent alone integrates into `lamp-v2-chat`.
 
 ## Working loop
 
-1. At startup, after each verified checkpoint, before changing a shared
-   interface, and while waiting on another agent, fetch the three branches.
-   During active work, check at least every five minutes at a safe tool boundary.
-   A Git fetch does not wake an idle/closed agent; do not claim delivery until
-   the recipient acknowledges the message in its status file.
+1. Use a verified active session for direct messages. Check recipient identity
+   and task before submitting ordinary prompt text; queue messages at a safe
+   boundary and require acknowledgment. Do not interrupt a test, approve a
+   permission prompt, inject control characters or change another agent's files.
+   A message submitted to a terminal is not proof it was read or acted on.
+   Fetch branches at startup, on checkpoint notification, before shared-interface
+   changes and after publishing work. When direct delivery is unavailable,
+   leave the request in your Git status and check at safe work boundaries.
 2. Read `main.md` from `origin/lamp-v2-chat` for assignments, interface locks,
    integration decisions and device ownership. Read peers' status files from
    their work branches for requests and answers. Never reset or overwrite dirty
@@ -35,11 +39,14 @@ The main agent alone integrates into `lamp-v2-chat`.
 4. Update your status file with the exact tested code commit, base commit,
    changed files, exact checks/results, known gaps, and requests to named peers.
    A subsequent status-only commit can name the tested code commit without a
-   self-referential SHA. Push the status together with its code history.
+   self-referential SHA. Push the status together with its code history and send
+   the main agent a short direct notice with branch, SHA and evidence boundary.
 5. Give each request a stable ID such as `A1-003`; the recipient answers that
    ID in its own status file and records the source commit it read. Keep open
    requests and unintegrated checkpoints until explicitly acknowledged.
-   Routine decisions and fixes go directly between agents through these files.
+   Send routine questions directly when possible. Record interface agreements,
+   unresolved blockers and integration decisions in these files so they survive
+   a closed session. Acknowledge received requests with their IDs.
 6. The main agent fetches and reviews published checkpoints, verifies the
    combined source, integrates accepted work and records the exact integrated
    SHA or requested correction in `main.md`. Passing a branch's tests does not

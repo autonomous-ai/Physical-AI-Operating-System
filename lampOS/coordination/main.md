@@ -3,9 +3,9 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated runtime checkpoint: `7dde135af36fb4614f1c4d062fcb5a1d3ef9b6d2`
+- Integrated runtime checkpoint: `5a2f0076bbddd1f4d38c1de743c29531ba327ecd`
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: the opt-in V1-style baseline now completed one physical fixed reply and two consecutive Gemini replies without self-cancellation. The Gemini run still fails conversational quality: its second answer was Spanish after the same English stimulus, and it had one 80 ms accepted-zero playback gap. Natural conversation and acoustic benchmark qualification remain unfinished.
+- State: the 1200 ms V1-style baseline completed ten consecutive physical Gemini replies with no extra admission, split question, cancellation or provider failure. Quality still fails: nine replies had accepted-zero gaps, and reply two was Spanish after the English stimulus. The independent source recorder timed out after all replies and target shutdown, so this run has no accepted room-audio latency. Natural interruption, varied conversation and full choreography remain unfinished.
 
 ## Direct coordination
 
@@ -85,9 +85,8 @@ Main's sequencing mistake was attempting full-duplex admission before porting
 V1's working playback protection, then expanding component hardening before
 closing the physical conversation loop. Immediate priority is repeated real
 conversation with this baseline, followed by one measured correction at a time
-for playback gaps and language handling. A repeated-greeting ten-turn run is
-being prepared as a narrow self-echo/lifecycle check; it cannot stand in for
-varied conversation, natural interruption or multi-speaker acceptance.
+for playback gaps and language handling. The repeated-greeting ten-turn evidence is recorded below; it cannot stand in
+for varied conversation, natural interruption or multi-speaker acceptance.
 The original Harness team context currently returns CHANNEL_NOT_FOUND to Main;
 Git status is the coordination fallback. Do not claim fresh peer acknowledgment.
 
@@ -117,7 +116,8 @@ onset limits and capture faults. Host fmt, strict all-target live Clippy and the
 complete serial live suite passed. Standalone Linux ARM64 release build and
 strict audio/Gemini/live Clippy passed, plus release QEMU checks for the ten
 core regressions, five paired-worker cases and 26 turn-taking tests. Native
-CLI/loader staging passed without audio. Physical qualification remains pending.
+CLI/loader staging passed without audio. The first physical repeated-turn
+result is recorded below; full qualification remains pending.
 Source manifest: `f2218b918b52f43f1932cac9def145abfa2a6dc90c34bb4d7236e3f16ee65d66`.
 ARM binary: `608c2491c71ca9de52e9154a09ce7e64d8fbb248c1e8ae6bac01d1a130717781`.
 Only this status documentation changed after the source export.
@@ -337,3 +337,55 @@ candidate remains physically unqualified; there is no motion grant here.
 - Agent 2 camera/perception checkpoints: reviewed with corrections, not integrated.
 - Agent 2 evaluator subset through `9ed94e42` / status `7edd8d94`: integrated
   as `2a1522eba`; importer changes remain under separate review.
+
+
+## Ten replies completed; playback quality remains the next defect
+
+Run `20261011T070623Z` used endpoint checkpoint `5a2f0076b` (ARM binary
+`608c2491...` above), the unchanged provider configuration `3c52a80e...`, noise
+suppression off, the same cached English greeting and source/target test levels.
+All ten prompts produced exactly ten local endpoints and ten completed replies;
+there were no extra admissions, cancellations or provider failures. The runtime
+exited 0 with its completed-unscored cue. Both target diagnostic streams have
+matching durable completion markers, hashes and coordinator acknowledgments.
+This improves the specific earlier run that split question five; one cohort
+cannot establish general reliability or natural conversation.
+
+Nine replies had 15 accepted-zero intervals totaling 1390 ms, maximum 310 ms.
+These are speaker sample counts, not acoustic measurements. Reply two was
+Spanish and invented a name; all source requests still identify the same
+English cached WAV. Software local-endpoint to first accepted-write values were
+945.445, 1276.742, 1044.011, 987.133, 1066.709, 1144.752, 1093.172, 1121.528,
+1411.532 and 1018.231 ms. They exclude the 1200 ms endpoint wait and cannot be
+reported as speech-end-to-first-word latency.
+
+The source observer failed 62.519 s after the tenth reply and 5.083 s after
+normal target shutdown, during the planned quiet tail. Its local `/voice/status`
+request timed out; the host then correctly rejected stale permission evidence.
+The capture window still had approximately 11 s remaining. Original source PCM
+was discarded, so no room recording from this attempt can be scored. Both
+source and target restoration verified, including target volume 77 and source
+volume 94. The source made 4544 privacy-status requests over 169.184 s; that is
+a possible load contributor, not an established cause of the HAL timeout.
+
+Evidence: `/private/tmp/lamp-rust-v1-ten-evidence-20261011T070623Z`.
+Independent audit JSON SHA256:
+`72fc97defb53286851b1d3ec951af0e5d79471c81db3173848013071a094ef4f`;
+input manifest SHA256:
+`a480842cd2dca5844929fcd0b6e5734372676150eead785041e7afa291cba86c`.
+The observer fault report is
+`/private/tmp/lamp-observer-timeout-review-dcbj1q7k/report.md`.
+No cloud replay or human listening is claimed.
+
+Main is qualifying an optional 0–200 ms reply-start horizon that leaves the
+capture/control loop running while initial audio accumulates. Default zero is
+unchanged; only an explicit 200 ms candidate will be compared next, keeping
+provider, endpoint, DSP and levels fixed. Host formatting, strict all-target
+Clippy for audio/live, and 508 serial tests passed, zero failed, two existing
+ignored. Linux ARM/device qualification is still pending for that candidate.
+A small private recorder diagnostic change preserves the original failed
+request's phase and time; it does not retry or weaken privacy checks.
+
+Peer branches were fetched again on 2026-10-11: Agent 1 `12caf1b38`, Agent 2
+`95029a03d`, with no new checkpoint since the previous integration review.
+Harness direct delivery remains unavailable; Git is the coordination record.

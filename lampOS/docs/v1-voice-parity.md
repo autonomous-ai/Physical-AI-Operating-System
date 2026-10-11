@@ -58,8 +58,11 @@ four replies but split prompt five at a 600 ms low-VAD interval. The baseline
 now ports V1's configured 1.2 s silence fallback. Recorded-score replay retains
 one fifth input; its end remains censored. This adds roughly 600 ms to the
 first four endpoints, and does not port V1's separate endpoint classifier or
-semantic confirmation. It is a conservative correctness step pending a new
-device run, not a latency win or proof of complete V1 parity.
+semantic confirmation. The following run `20261011T070623Z` completed all ten
+questions/replies without splitting or self-cancellation. Playback gaps and one
+wrong-language reply remain; the source recorder failed after target shutdown,
+so no acoustic score is available. This is a conservative correctness step,
+not a latency win or proof of complete V1 parity.
 
 ## Maintained reference designs and provider constraints
 

@@ -62,7 +62,8 @@ Private replay report SHA256:
 `a5c6db828e4fe4d0d713705993dba23fa5c5c8a7b3ddd898eab91f2d1a7f02cd`.
 
 The extra nominal 600 ms is an explicit latency cost of this baseline, not a
-claimed optimization. Physical repeated-turn qualification is pending. A
+claimed optimization. One following device run completed all ten replies without
+splitting a question; broader qualification remains pending. A
 300 ms prefix cannot recover an arbitrarily quiet onset, and pauses beyond
 this window can still split a question. The final conversational target remains
 speech-end to first audible word p50 at most 2 s, with natural interruptions;
@@ -184,7 +185,15 @@ ALSA acceptance was 1,212,722 us and 1,146,240 us; these exclude the 600 ms endp
 silence wait and are not acoustic measurements. Diagnostic/recording identities
 and restoration verified independently. See the [current evidence](../coordination/main.md).
 
-The host tests use synthetic PCM and software events. These two physical trials
+The later 1200 ms endpoint run `20261011T070623Z` completed ten prompts and
+replies without extra admission or cancellation. Both target diagnostics were
+certified, but nine replies contained 1390 ms total accepted-zero gaps and one
+reply was Spanish. The independent source recorder failed after the completed
+conversation, so there is no accepted room-acoustic timing for that run.
+This is a question-integrity improvement over the earlier failed fifth prompt,
+not an acoustic speedup or completed conversational acceptance.
+
+The host tests use synthetic PCM and software events. These physical trials
 establish only their observed bounded lifecycle behavior. No result establishes
 human listening quality, direct-human overlap, TV restraint, acoustic latency
 or general physical parity. Host-read completion is not an ADC timestamp; dispatch,

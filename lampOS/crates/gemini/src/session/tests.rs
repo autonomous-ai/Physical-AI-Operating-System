@@ -893,8 +893,8 @@ async fn no_input_was_written(server: &mut MockSocket) {
 
 #[tokio::test]
 async fn a_stop_with_input_queued_behind_it_writes_none_of_that_input() {
-    // The session takes its ready work in a random order, so one trial can
-    // pass by luck. Forty cannot.
+    // Repeated to exercise different random choices among the session's
+    // ready work. It is not a proof over every scheduling order.
     for _ in 0..40 {
         let (mut connection, mut server) = mock(Timeouts::default()).await;
         let input = connection.input();
@@ -1452,4 +1452,241 @@ async fn resumption_handle_is_kept_only_when_configured_and_never_printed() {
     connection.shutdown();
     assert!(connection.next_event().await.is_none());
     assert!(connection.resumption().is_some());
+}
+
+/// A stop as a fence on the wire. The transport here can hold a write before
+/// or after it has accepted some of it, and can record a stop at the moment
+/// a read returns. The gates are the integrator's, from the review of the
+/// queued-stop fix, which showed both gaps below; the expectations are the
+/// other way round.
+mod stop_fence {
+    use super::*;
+    use std::{
+        pin::Pin,
+        sync::atomic::AtomicUsize,
+        task::{Context, Poll, Waker},
+    };
+    use tokio::io::ReadBuf;
+
+    #[derive(Clone, Default)]
+    struct Controls {
+        /// While set, the transport accepts `allowance` more bytes and then
+        /// holds every write.
+        hold: Arc<AtomicBool>,
+        allowance: Arc<AtomicUsize>,
+        /// A write is being held.
+        held: Arc<Notify>,
+        waker: Arc<Mutex<Option<Waker>>>,
+        /// Bytes the transport has accepted, and how often it was offered any.
+        accepted: Arc<AtomicUsize>,
+        offers: Arc<AtomicUsize>,
+        /// Stop through this sender when the next read returns bytes.
+        stop_on_read: Arc<Mutex<Option<InputSender>>>,
+        stopped_on_read: Arc<AtomicBool>,
+    }
+    impl Controls {
+        fn written(&self) -> (usize, usize) {
+            (
+                self.accepted.load(Ordering::Acquire),
+                self.offers.load(Ordering::Acquire),
+            )
+        }
+        fn release(&self) {
+            self.hold.store(false, Ordering::Release);
+            if let Some(waker) = self.waker.lock().unwrap().take() {
+                waker.wake();
+            }
+        }
+    }
+    struct Controlled {
+        inner: DuplexStream,
+        control: Controls,
+    }
+    impl AsyncRead for Controlled {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            let before = buf.filled().len();
+            let result = Pin::new(&mut self.inner).poll_read(cx, buf);
+            if matches!(result, Poll::Ready(Ok(()))) && buf.filled().len() > before {
+                let input = self.control.stop_on_read.lock().unwrap().take();
+                if let Some(input) = input {
+                    // Recorded before these bytes are handed to the session.
+                    input.shutdown();
+                    self.control.stopped_on_read.store(true, Ordering::Release);
+                }
+            }
+            result
+        }
+    }
+    impl AsyncWrite for Controlled {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bytes: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            self.control.offers.fetch_add(1, Ordering::AcqRel);
+            let mut offered = bytes;
+            if self.control.hold.load(Ordering::Acquire) {
+                let allowance = self.control.allowance.load(Ordering::Acquire);
+                if allowance == 0 {
+                    *self.control.waker.lock().unwrap() = Some(cx.waker().clone());
+                    self.control.held.notify_one();
+                    return Poll::Pending;
+                }
+                offered = &bytes[..allowance.min(bytes.len())];
+            }
+            let result = Pin::new(&mut self.inner).poll_write(cx, offered);
+            if let Poll::Ready(Ok(count)) = result {
+                self.control.accepted.fetch_add(count, Ordering::AcqRel);
+                if self.control.hold.load(Ordering::Acquire) {
+                    self.control.allowance.fetch_sub(count, Ordering::AcqRel);
+                }
+            }
+            result
+        }
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_flush(cx)
+        }
+        fn poll_shutdown(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
+    /// A ready connection over the gated transport. The write deadline is
+    /// the longest allowed, so that a session which ends sooner than that
+    /// after a stop ended because of the stop.
+    async fn controlled() -> (Connection, MockSocket, Controls) {
+        let (client, server) = tokio::io::duplex(MAX_WIRE_BYTES * 2);
+        let control = Controls::default();
+        let client = WebSocketStream::from_raw_socket(
+            Controlled {
+                inner: client,
+                control: control.clone(),
+            },
+            Role::Client,
+            Some(socket_config()),
+        )
+        .await;
+        let mut server =
+            WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+        let connect = tokio::spawn(setup_and_spawn(
+            client,
+            configuration(Timeouts {
+                write: Duration::from_secs(1),
+                ..Timeouts::default()
+            }),
+            SessionId::new(17).unwrap(),
+        ));
+        receive(&mut server).await;
+        send_json(&mut server, json!({"setupComplete":{}})).await;
+        (connect.await.unwrap().unwrap(), server, control)
+    }
+    /// The session ends within half the write deadline of a stop.
+    async fn ended_by_the_stop(connection: &mut Connection) {
+        timeout(Duration::from_millis(500), &mut connection.task)
+            .await
+            .expect("the stop was not serviced while the write was held")
+            .unwrap();
+        assert_eq!(connection.state(), State::Closed);
+    }
+
+    #[tokio::test]
+    async fn a_write_held_at_the_transport_is_abandoned_by_a_stop_and_nothing_follows() {
+        let (mut connection, mut server, control) = controlled().await;
+        let input = connection.input();
+        let request = request(1);
+        input.try_start(request).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        control.hold.store(true, Ordering::Release);
+        input
+            .try_audio(request, 0, Instant::now(), &[321; 160])
+            .unwrap();
+        input.try_end(request).unwrap();
+        timeout(Duration::from_secs(1), control.held.notified())
+            .await
+            .unwrap();
+        // The audio command was taken and its write has reached the
+        // transport, which has accepted none of it. The End is still queued.
+        let before = control.written();
+        connection.shutdown();
+        ended_by_the_stop(&mut connection).await;
+        // Released now, the transport is offered nothing: not the audio that
+        // was waiting on it, and not the End behind that.
+        control.release();
+        no_input_was_written(&mut server).await;
+        assert_eq!(control.written(), before);
+    }
+
+    #[tokio::test]
+    async fn bytes_the_transport_had_accepted_stay_and_not_one_more_follows_a_stop() {
+        let (mut connection, mut server, control) = controlled().await;
+        let input = connection.input();
+        let request = request(1);
+        input.try_start(request).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        let (base, _) = control.written();
+        // The transport takes the first twenty bytes of the audio frame and
+        // then holds.
+        control.allowance.store(20, Ordering::Release);
+        control.hold.store(true, Ordering::Release);
+        input
+            .try_audio(request, 0, Instant::now(), &[321; 160])
+            .unwrap();
+        input.try_end(request).unwrap();
+        timeout(Duration::from_secs(1), control.held.notified())
+            .await
+            .unwrap();
+        let before = control.written();
+        assert_eq!(before.0 - base, 20);
+        connection.shutdown();
+        ended_by_the_stop(&mut connection).await;
+        control.release();
+        // Those twenty bytes cannot be recalled. They are the start of one
+        // frame and never a message; nothing was added to them.
+        no_input_was_written(&mut server).await;
+        assert_eq!(control.written(), before);
+    }
+
+    #[tokio::test]
+    async fn a_held_end_is_not_released_by_a_terminal_read_after_the_stop() {
+        let (mut connection, mut server, control) = controlled().await;
+        ended_turn(&mut connection, &mut server, 1).await;
+        let input = connection.input();
+        let second = request(2);
+        input.try_start(second).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        input.try_end(second).unwrap();
+        timeout(Duration::from_secs(1), async {
+            while input.commands.capacity() != INPUT_QUEUE_CAPACITY {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        // The End is held behind the earlier response, its write not begun.
+        silent(&mut server).await;
+        let before = control.written();
+        *control.stop_on_read.lock().unwrap() = Some(input);
+        // The earlier response's idle completion: what would release it.
+        send_json(&mut server, idle()).await;
+        timeout(Duration::from_secs(2), &mut connection.task)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(control.stopped_on_read.load(Ordering::Acquire));
+        assert_eq!(connection.state(), State::Closed);
+        // Read after the stop, the completion is not acted on: the held End
+        // is never offered to the transport, and no event is made of it.
+        no_input_was_written(&mut server).await;
+        assert_eq!(control.written(), before);
+        assert!(connection.next_event().await.is_none());
+    }
 }

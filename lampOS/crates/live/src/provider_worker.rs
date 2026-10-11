@@ -15,7 +15,8 @@ use crate::{
 };
 use lamp_gemini::{
     BarrierPolicy, Connect, Context, Dialer, Discard, Error, Event, Failure, FailureReason, Notice,
-    RecoveryPolicy, RequestId, Resumption, SessionId, Stage, StartRefusal, State, Supervisor,
+    RecoveryPolicy, RequestId, Resumption, SessionId, Stage, StartRefusal, State, SuccessorStart,
+    Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
@@ -40,6 +41,13 @@ const RESUMPTION: Resumption = Resumption::Retain;
 /// must settle before a successor is committed. Quiet alone cannot attribute
 /// a late answer. The assumption policy remains explicit in transport tests.
 const BARRIER: BarrierPolicy = BarrierPolicy::Require;
+/// Proposed wiring, off. `SuccessorStart::AfterFirstOutput` keeps a next
+/// request's start and opening audio in the transport until the earlier
+/// answer begins or completes, so that a person who goes on before the first
+/// answer is not answered with a barrier timeout. It is not selected until
+/// the same real-service probes pass under it; a session option should
+/// replace this constant when it is.
+const SUCCESSOR: SuccessorStart = SuccessorStart::AtOnce;
 const CONTROL_SLICE: usize = 16;
 const INPUT_SLICE: usize = 8;
 const RETAINED_INPUT_US: u64 = 100_000;
@@ -361,7 +369,9 @@ pub async fn run_with_visual_context(
     let config = ProviderConfig::load(config_path)?
         .into_session_with_camera(visual.is_some())?
         .resumption(RESUMPTION)
-        .barrier_policy(BARRIER);
+        .barrier_policy(BARRIER)
+        .successor_start(SUCCESSOR)
+        .map_err(|error| io::Error::other(format!("provider successor start: {error}")))?;
     let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;
     let options = Options { reporting };
     let visual = visual

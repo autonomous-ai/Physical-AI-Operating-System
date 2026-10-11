@@ -5458,15 +5458,24 @@ mod tests {
 
         impl LiveRig {
             fn start_kept() -> Self {
+                Self::start_kept_reporting(Reporting::Legacy)
+            }
+            /// `Coordinated` is what the command line starts the worker with.
+            fn start_kept_reporting(reporting: Reporting) -> Self {
                 Self::start_all(
                     quick_policy(),
-                    Options {
-                        reporting: Reporting::Legacy,
-                    },
+                    Options { reporting },
                     BARRIER,
                     false,
                     Continuation::KeptStart,
                 )
+            }
+            async fn kept_ready(&mut self, reporting: Reporting) -> Dial {
+                if reporting == Reporting::Coordinated {
+                    self.coordinated_ready().await
+                } else {
+                    self.ready().await
+                }
             }
             /// A person speaks again: a newly admitted request and its
             /// Start. With the start kept the service sees nothing of it.
@@ -5578,8 +5587,18 @@ mod tests {
         #[tokio::test]
         async fn a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered()
          {
-            let mut rig = LiveRig::start_kept();
-            let mut dial = rig.ready().await;
+            resumed_question_kept_and_delivered(Reporting::Legacy).await;
+        }
+
+        /// The same through the contract the command line selects.
+        #[tokio::test]
+        async fn a_resumed_question_is_kept_and_delivered_through_the_coordinated_contract() {
+            resumed_question_kept_and_delivered(Reporting::Coordinated).await;
+        }
+
+        async fn resumed_question_kept_and_delivered(reporting: Reporting) {
+            let mut rig = LiveRig::start_kept_reporting(reporting);
+            let mut dial = rig.kept_ready(reporting).await;
             let cut = rig.speak(&mut dial, false, true).await;
             let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
             assert!(resumed > cut);
@@ -5666,9 +5685,15 @@ mod tests {
 
         #[tokio::test]
         async fn a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it() {
-            for mute in [false, true] {
-                let mut rig = LiveRig::start_kept();
-                let mut dial = rig.ready().await;
+            // Under both contracts: the second is the command line's.
+            for (reporting, mute) in [
+                (Reporting::Legacy, false),
+                (Reporting::Legacy, true),
+                (Reporting::Coordinated, false),
+                (Reporting::Coordinated, true),
+            ] {
+                let mut rig = LiveRig::start_kept_reporting(reporting);
+                let mut dial = rig.kept_ready(reporting).await;
                 rig.speak(&mut dial, false, true).await;
                 let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
                 rig.say(resumed, 1..21, 0).await;
@@ -5701,7 +5726,7 @@ mod tests {
                         .try_receive(Duration::from_millis(50))
                         .await
                         .is_none(),
-                    "mute={mute}"
+                    "{reporting:?} mute={mute}"
                 );
             }
         }

@@ -4,15 +4,17 @@
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Integrated code checkpoint: `a253abe5eb4fd09b666959e059e8249930af5c0a`
-- State: implementing and qualifying alternate devices; release unfinished.
+- State: first audio-only V2 deployment and recorded conversation take priority; release unfinished.
 
 ## Direct coordination
 
 The three existing sessions are members of the Harness team **Lamp Rust
 implementation**. Main and Agent 1 run on office; Agent 2 is the M2 session
 **lampOS voice-eval runner**. Agent 2 has replied through Harness and accepted
-MAIN-005/006. Agent 1 acknowledged the shared protocol in its Git status;
-MAIN-007/008 are queued through Harness pending its next safe boundary.
+MAIN-005/006/014/015. Agent 1 publishes acknowledgments in Git: its session
+cannot obtain a verified Harness team context (`CHANNEL_SCOPE_MISSING`).
+Respect that guard; use its Git status and ordinary messages to the verified
+session. Checkpoint 5 answers MAIN-007/008/011/012; Main is reviewing it.
 No owner report relay is needed. Git retains exact code, evidence and decisions.
 
 MAIN-001 (protocol acknowledgment), MAIN-002 (Agent 1 publication), and MAIN-003
@@ -80,7 +82,22 @@ Agent 2 owns camera, perception and evaluation. Shared edits remain isolated.
 The private priority-provider candidate has 264 distinct focused host tests
 passing, but an independent adversarial audit found the two MAIN-008 blockers.
 Those passing tests do not qualify its combination with newer peer changes.
-Production remains Legacy/Require until corrected combined verification.
+Agent 1 has now supplied the checked start; Main has a private regression fix
+for legitimate failure before Started. Integration and combined verification
+remain pending. Production remains Legacy/Require.
+
+MAIN-013/016: the exact provisional failure schema is now durable in
+[failure-cue-contract.md](failure-cue-contract.md). Agent 2 did not receive the
+first native reply; Main resent it as a new question. Do not infer successful
+delivery from an accepted CLI command.
+
+MAIN-014 priority: Main deploys and records the first finite audio-only run.
+Agent 1 supplies provider fixes; Agent 2 supplies actual directed-runner cues
+and scoring. Optional camera/perception/image changes remain inactive and do
+not gate this first measurement. Agent 2 `b010aa0b8` corrects failure during
+the trigger delay; the attempt-level latch and final dispatch guard follow.
+Its simulated EPIPE/ReferenceLate failures remain simulation evidence pending
+trace review, not measured Lamp failures.
 
 ## Devices and reservations
 
@@ -90,26 +107,35 @@ Production remains Legacy/Require until corrected combined verification.
 | lamp-52e6 | 172.168.20.190 | Main | Repeat checks; preserve existing STT experiment drop-in |
 | lamp-4ace | last known 172.168.20.159 | Main | Not rediscovered in the last authorized scan |
 
-Both alternate C-Media ambient inputs recorded their own speaker tests.
-Temporary capture gain 8/35 with AGC off eliminated clipping at speaker volume
-100; original gain, AGC, volume and software mute states were restored and
-verified. The iMac question was not recognizably captured. The acoustic route
-and new V1-main/Rust conversational latency cohort remain unqualified.
+The iMac source was not recognizably captured by these distant Lamps. A bounded
+cross-Lamp route test now completed: four 44.875-second recordings, both Jieli
+speech inputs and both C-Media ambient inputs, with exclusive capture receipts.
+Both Lamps' original settings were restored and verified. Local cached ASR
+recovered the a0ae-to-52e6 Jieli phrase exactly; the reverse phrase was
+recognizable with substitutions. The ambient channels were less faithful and
+own-speaker ambient recordings clipped. These are installed-V1 speaker-replay
+route observations, not human or V1-main/V2 latency benchmarks.
 
-On a0ae, the staged Rust binary completed a real Gemini connection handshake in
-1.952295 s using the existing device-side credential. Endpoint host:
+On a0ae, the real Gemini handshake took 1.952295 s. Endpoint host:
 `campaign-api.autonomous.ai`; model `gemini-3.8-live-extended-thinking`, voice
-`Kore`, thinking `LOW`. No audio was sent and no microphone, speaker or motor
-opened. Existing service states/PIDs and legacy configuration stayed unchanged.
-This is cold setup timing, not speech-end to first audible word.
+`Kore`, thinking `LOW`. Bounded service probes then observed a resumption handle
+after an answer and accepted it on a replacement connection. The initial
+interrupt-before-output probe was inconclusive: local command coalescing did
+not prove that the first End was sent. Agent 1 corrected that probe. None of
+these probes opened microphone/speaker hardware or measured acoustic latency.
 
-Staged `lamp-live` SHA256:
-`199903b36fd3212df7e6d054adba03c6259fcb6248f60813cc7c27d4e303bf6c`.
-It predates this recovery merge. A separate ARM64 `service_probe` was built from
-`64806f862` with SHA256
-`20942e62a256b002436de44b546ac649b213f21253adf13584de06f8a08544e7`;
-only its offline QEMU fixture has run. It opens no hardware and will use the
-credential on the device for bounded service behavior probes.
+The new ARM64 `lamp-live` build from exact code tree `51bd815e9` is staged on
+a0ae. SHA256:
+`d3318abe080336dbd4c50d9d04e4517eb21cd0b7cec5afaa5d5f62e990b525e7`.
+Offline ARM64 release build, strict all-target live Clippy and 12 provider-flow
+tests under QEMU passed. The staged file's hash matches. This does not yet
+establish a successful Rust conversation on either replacement device.
+
+Main has a temporary key-only maintenance SSH service on a0ae, restricted to
+the authorized Mac source and a two-hour lifetime, leaving the existing SSH
+service unchanged. It retains control while the legacy server is stopped.
+Main owns cleanup and the separate finite audio trial/rollback. Private keys,
+provider credentials and room recordings stay outside Git.
 
 The installed HAL shutdown path can park/release servos. No ordinary HAL stop
 or restart is authorized by this reservation: Main must verify the installed
@@ -120,7 +146,8 @@ private motor candidate remains unintegrated and physically unqualified.
 
 - Earlier `d6b813695` and Agent 2 `3eaa0365`: included before `2535fb565`.
 - Agent 1 `64806f862`: integrated and focused-tested as `a253abe5e`.
-- Agent 1 later code: published separately; review pending.
+- Agent 1 checkpoint 5 `0bf54e63f` / tested `d938a3101`: fetched; review pending.
 - Agent 2 `0239ac27c`: reviewed, six corrections requested and accepted.
-- Agent 2 `6699284d4`: coordination acknowledgment published; code unchanged.
+- Agent 2 `bb7e61aec` and `b010aa0b8`: fetched; six prior corrections confirmed,
+  runner and image privacy follow-ups acknowledged. Not integrated.
 - Provider/coordinator consumer: private, two reproduced blockers; not deployed.

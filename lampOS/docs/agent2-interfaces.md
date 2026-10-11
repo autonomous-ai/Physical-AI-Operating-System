@@ -95,6 +95,12 @@ control never wait for it.
 
 ## 3. Gemini visual context (Agent 1 implements Gemini input; main agent decides policy)
 
+**Update after `A1-006`:** the provider does not receive original camera
+frames. It consumes reduced frames (at most 64 KiB, at most 640 pixels wide,
+at most 2 s old) served by the perception worker at `perception.frames`, as
+implemented and described in [perception runtime](perception-runtime.md#visual-context-frames-for-the-provider-a1-006).
+The text below is the original proposal.
+
 - **Consumer.** The provider worker is the `context` frame consumer: it uses
   `lamp_camera::frames::Consumer` and receives original JPEG bytes plus `FrameMeta`.
 - **Proposed control (main agent's wire).** Add

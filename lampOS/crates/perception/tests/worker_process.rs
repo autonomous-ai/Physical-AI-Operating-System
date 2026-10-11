@@ -48,6 +48,10 @@ struct Supervisor {
 
 impl Supervisor {
     fn spawn(label: &str, model_dir: &std::path::Path) -> Self {
+        Self::spawn_with(label, model_dir, &[])
+    }
+
+    fn spawn_with(label: &str, model_dir: &std::path::Path, extra: &[String]) -> Self {
         let dir = common::Private::new(label);
         let (parent, worker) = (boot(0x31), boot(0x32));
         let control = Channel::bind(&dir.join("perception.c.p"), parent, worker, 100_000).unwrap();
@@ -59,6 +63,7 @@ impl Supervisor {
             .arg("--model-dir")
             .arg(model_dir)
             .args(["--interval-ms", "100"])
+            .args(extra)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .spawn()
@@ -412,4 +417,99 @@ fn a_missing_model_reports_a_fault_and_never_readiness() {
         Some(other) => panic!("{other:?}"),
     }
     assert!(!s.exit_within(2_000_000).unwrap().success());
+}
+
+const CONTEXT: u8 = 0x34;
+
+fn context_client(s: &Supervisor) -> lamp_camera::frames::FrameClient {
+    lamp_camera::frames::FrameClient::new(
+        &s.dir.join("perception.frames"),
+        Role::Context,
+        boot(CONTEXT),
+        s.parent,
+        64 * 1024,
+    )
+}
+
+/// Serve camera frames (when given) and wait for one context frame.
+fn await_context(
+    s: &mut Supervisor,
+    mut camera: Option<&mut FrameServer>,
+    jpeg: &[u8],
+    client: &mut lamp_camera::frames::FrameClient,
+    micros: u64,
+) -> Option<(lamp_camera::frames::FrameMeta, Vec<u8>)> {
+    let until = monotonic_us() + micros;
+    let mut out = Vec::new();
+    while monotonic_us() < until {
+        if !client.is_connected() {
+            client.connect().unwrap();
+        }
+        if client.is_connected() && client.outstanding().is_none() {
+            client.request(2_000_000).unwrap();
+        }
+        if let Some(meta) = client.poll(&mut out).unwrap() {
+            return Some((meta, out));
+        }
+        s.run(camera.as_deref_mut(), jpeg, 3_000);
+    }
+    None
+}
+
+#[test]
+fn context_frames_are_small_fresh_and_keep_the_original_lineage() {
+    let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
+    let model = common::installed_model();
+    let flag = format!("context={}", hex(boot(CONTEXT)));
+    let mut s = Supervisor::spawn_with("ctx", &model.0, &["--frame-consumer".into(), flag]);
+    assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
+    let mut camera = s.camera();
+    let mut client = context_client(&s);
+    let (meta, bytes) = await_context(&mut s, Some(&mut camera), &jpeg, &mut client, 5_000_000)
+        .expect("context frame");
+    assert!(bytes.len() <= 64 * 1024, "{} bytes", bytes.len());
+    let derived = meta.derived.expect("derived image");
+    assert_eq!((derived.source_width, derived.source_height), (1280, 720));
+    assert_eq!((meta.width, meta.height), (640, 360));
+    let decoded = lamp_perception::image::decode_jpeg(&bytes).unwrap();
+    assert_eq!((decoded.width, decoded.height), (640, 360));
+    // Original lineage: the camera worker, a frame the camera actually sent, its grant.
+    assert_eq!(meta.camera_worker, boot(0x33));
+    assert!(meta.frame_sequence >= 1 && meta.frame_sequence <= s.frames);
+    assert_eq!(meta.grant, s.owner.camera_grant(now()).unwrap());
+    assert!(meta.copied_at_us - meta.dequeue_completed_at_us <= 2_000_000);
+    assert!(
+        s.events
+            .iter()
+            .any(|e| matches!(e, PerceptionEvent::ContextLink { .. }))
+    );
+}
+
+#[test]
+fn no_context_frame_from_before_a_privacy_change_is_served() {
+    let jpeg = common::face_jpeg(640.0, 360.0, 150.0);
+    let model = common::installed_model();
+    let flag = format!("context={}", hex(boot(CONTEXT)));
+    let mut s = Supervisor::spawn_with("ctxp", &model.0, &["--frame-consumer".into(), flag]);
+    assert!(matches!(s.startup(), Some(WorkerEvent::Ready)));
+    let mut camera = s.camera();
+    let mut client = context_client(&s);
+    await_context(&mut s, Some(&mut camera), &jpeg, &mut client, 5_000_000).expect("first frame");
+    // Close and reopen camera privacy, then stop supplying camera frames.
+    s.owner
+        .set_camera_permission(now(), Permission::Denied)
+        .unwrap();
+    s.owner
+        .set_camera_permission(now(), Permission::Allowed)
+        .unwrap();
+    s.last_authority = 0;
+    s.heartbeat();
+    assert!(
+        await_context(&mut s, None, &jpeg, &mut client, 800_000).is_none(),
+        "a retained image from the old privacy lineage was served"
+    );
+    // Fresh frames under the new grant are served again.
+    let (meta, _) =
+        await_context(&mut s, Some(&mut camera), &jpeg, &mut client, 5_000_000).expect("new frame");
+    assert_eq!(meta.grant, s.owner.camera_grant(now()).unwrap());
 }

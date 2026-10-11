@@ -16,8 +16,6 @@ lamp-live = { path = "../live" }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 tract-onnx = { version = "=0.23.8", default-features = false }
 zune-jpeg = "=0.5.15"
-
-[dev-dependencies]
 jpeg-encoder = "=0.7.1"
 
 [lints]

@@ -2,8 +2,8 @@
 use crate::{
     attention::{ATTENTION_CONE_DEG, MIN_ATTENTION_FACE_PIXELS, head_yaw_deg, landmarks_in_frame},
     image::{
-        ExposureVerdict, ImageError, decode_jpeg, detector_input, detector_width, input_size,
-        measure_exposure,
+        ExposureVerdict, ImageError, Rgb, decode_jpeg, detector_input, detector_width, input_size,
+        measure_exposure, reduce,
     },
     model::{ModelError, ModelSpec, sha256_hex},
     observation::{
@@ -111,8 +111,25 @@ impl Analyzer {
     pub fn analyze(&mut self, jpeg: &[u8]) -> Result<Analysis, AnalysisError> {
         let started = Instant::now();
         let image = decode_jpeg(jpeg).map_err(AnalysisError::Decode)?;
-        let exposure = measure_exposure(&image);
+        self.analyze_decoded(&image, micros(started))
+    }
+
+    /// Analyse and also return a copy reduced to at most `context_width`
+    /// columns, for a small visual-context image of the same frame.
+    pub fn analyze_for_context(
+        &mut self,
+        jpeg: &[u8],
+        context_width: u32,
+    ) -> Result<(Analysis, Rgb), AnalysisError> {
+        let started = Instant::now();
+        let image = decode_jpeg(jpeg).map_err(AnalysisError::Decode)?;
         let decode_us = micros(started);
+        let analysis = self.analyze_decoded(&image, decode_us)?;
+        Ok((analysis, reduce(&image, context_width)))
+    }
+
+    fn analyze_decoded(&mut self, image: &Rgb, decode_us: u32) -> Result<Analysis, AnalysisError> {
+        let exposure = measure_exposure(image);
         let unusable = match exposure.verdict {
             ExposureVerdict::Usable => None,
             ExposureVerdict::TooDark => Some(UnknownReason::TooDark),
@@ -132,7 +149,7 @@ impl Analyzer {
             });
         }
         let inference = Instant::now();
-        let input = detector_input(&image, self.input_width);
+        let input = detector_input(image, self.input_width);
         self.prepare(image.width, image.height)
             .map_err(AnalysisError::Inference)?;
         let detector = self.detector.as_ref().expect("prepared");

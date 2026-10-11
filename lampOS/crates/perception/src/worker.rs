@@ -7,14 +7,23 @@
 //! the frame arrives and again before publishing, and bounds both frame and
 //! result age. Without a frame there is no observation; nothing is inferred
 //! from silence on the frame link.
+//!
+//! With a `context` consumer (the provider), the worker also serves small
+//! visual-context images: the newest analysed frame reduced to at most
+//! [`CONTEXT_MAX_WIDTH`] columns and re-encoded to at most
+//! [`CONTEXT_MAX_BYTES`], keeping the original frame identity and grant. The
+//! reduced copy is retained only while its grant is current and it is younger
+//! than [`CONTEXT_MAX_AGE_US`]; encoding happens on request, on the inference
+//! thread.
 use crate::{
     analyze::{Analysis, AnalysisError, Analyzer},
+    image::{Rgb, encode_bounded},
     observation::{
         AnalysisTiming, DiscardReason, FrameRef, PerceptionCounts, PerceptionEvent,
         VisualObservation, bounded_text,
     },
 };
-use lamp_camera::frames::{FrameClient, FrameMeta, Role};
+use lamp_camera::frames::{DerivedImage, FrameClient, FrameMeta, FrameServer, Role};
 use lamp_interaction::{
     BootId, BoundaryGuard, CameraGrant, Confidence, Error as AuthorityError, MonoTime, Observation,
     Snapshot,
@@ -37,6 +46,13 @@ pub const TICK: Duration = Duration::from_millis(2);
 /// How long shutdown waits for an in-progress analysis before leaving it to
 /// process exit.
 pub const INFERENCE_JOIN_US: u64 = 2_000_000;
+/// Agent 1's provider bound for one image message (`A1-006`).
+pub const CONTEXT_MAX_BYTES: usize = 64 * 1024;
+pub const CONTEXT_MAX_WIDTH: u32 = 640;
+/// Context images older than this (from original dequeue) are never served.
+pub const CONTEXT_MAX_AGE_US: u64 = 2_000_000;
+/// The context frame link inside the private session directory.
+pub const CONTEXT_SOCKET: &str = "perception.frames";
 
 pub enum PerceptionControl {
     Authority(Snapshot),
@@ -61,6 +77,8 @@ pub struct WorkerOptions {
     /// Bound from host dequeue to publication.
     pub max_result_age_us: u64,
     pub max_frame_bytes: usize,
+    /// The provider's boot and socket, when visual context is served.
+    pub context: Option<(BootId, PathBuf)>,
 }
 
 impl WorkerOptions {
@@ -73,32 +91,71 @@ impl WorkerOptions {
             max_frame_age_us: 200_000,
             max_result_age_us: 1_000_000,
             max_frame_bytes: lamp_camera::MAX_FRAME_BYTES,
+            context: None,
         }
     }
 }
 
-struct Job {
-    meta: FrameMeta,
-    jpeg: Vec<u8>,
-    received_at_us: u64,
+enum Job {
+    Analyse {
+        meta: FrameMeta,
+        jpeg: Vec<u8>,
+        received_at_us: u64,
+        /// Also return a reduced copy for visual context.
+        context: bool,
+    },
+    Encode {
+        meta: FrameMeta,
+        image: Rgb,
+    },
 }
-struct Done {
-    meta: FrameMeta,
-    jpeg: Vec<u8>,
-    received_at_us: u64,
-    analysed_at_us: u64,
-    result: Result<Analysis, AnalysisError>,
+enum Done {
+    Analysed {
+        meta: FrameMeta,
+        jpeg: Vec<u8>,
+        received_at_us: u64,
+        analysed_at_us: u64,
+        result: Result<Analysis, AnalysisError>,
+        reduced: Option<Rgb>,
+    },
+    Encoded {
+        meta: FrameMeta,
+        image: Rgb,
+        jpeg: Option<(Vec<u8>, u8)>,
+    },
 }
 
 fn inference(mut analyzer: Analyzer, jobs: Receiver<Job>, done: SyncSender<Done>) {
     while let Ok(job) = jobs.recv() {
-        let result = analyzer.analyze(&job.jpeg);
-        let finished = Done {
-            meta: job.meta,
-            jpeg: job.jpeg,
-            received_at_us: job.received_at_us,
-            analysed_at_us: monotonic_us(),
-            result,
+        let finished = match job {
+            Job::Analyse {
+                meta,
+                jpeg,
+                received_at_us,
+                context,
+            } => {
+                let (result, reduced) = if context {
+                    match analyzer.analyze_for_context(&jpeg, CONTEXT_MAX_WIDTH) {
+                        Ok((analysis, reduced)) => (Ok(analysis), Some(reduced)),
+                        Err(error) => (Err(error), None),
+                    }
+                } else {
+                    (analyzer.analyze(&jpeg), None)
+                };
+                Done::Analysed {
+                    meta,
+                    jpeg,
+                    received_at_us,
+                    analysed_at_us: monotonic_us(),
+                    result,
+                    reduced,
+                }
+            }
+            Job::Encode { meta, image } => Done::Encoded {
+                jpeg: encode_bounded(&image, CONTEXT_MAX_BYTES),
+                meta,
+                image,
+            },
         };
         if done.send(finished).is_err() {
             return;
@@ -131,6 +188,9 @@ struct State {
     counts: PerceptionCounts,
     last_progress_us: u64,
     spare: Vec<u8>,
+    context: Option<FrameServer>,
+    /// The newest analysed frame, reduced, while its grant is current.
+    context_source: Option<(FrameMeta, Rgb)>,
 }
 
 impl State {
@@ -237,36 +297,85 @@ impl State {
             return self.discard(link, &meta, DiscardReason::Stale);
         }
         let jpeg = std::mem::take(&mut self.spare);
-        jobs.try_send(Job {
+        jobs.try_send(Job::Analyse {
             meta,
             jpeg,
             received_at_us,
+            context: self.context.is_some(),
         })
         .map_err(|_| io::Error::other("perception inference slot unexpectedly busy"))?;
         self.busy = true;
         Ok(())
     }
 
+    /// Drop the retained context image once its grant or age no longer holds,
+    /// keep the context link serviced, and start an encode for a waiting
+    /// consumer.
+    fn serve_context(
+        &mut self,
+        link: &mut impl PerceptionLink,
+        jobs: &SyncSender<Job>,
+    ) -> io::Result<()> {
+        let now = monotonic_us();
+        if let Some((meta, _)) = &self.context_source
+            && (grant_status(&mut self.guard, meta.grant, now).is_some()
+                || now.saturating_sub(meta.dequeue_completed_at_us) > CONTEXT_MAX_AGE_US)
+        {
+            self.context_source = None;
+        }
+        let Some(server) = self.context.as_mut() else {
+            return Ok(());
+        };
+        server.service(now);
+        while let Some(event) = server.take_event() {
+            link.publish(PerceptionEvent::ContextLink { event })?;
+        }
+        if !self.busy
+            && server.wants_frame()
+            && let Some((meta, image)) = self.context_source.take()
+        {
+            jobs.try_send(Job::Encode { meta, image })
+                .map_err(|_| io::Error::other("perception inference slot unexpectedly busy"))?;
+            self.busy = true;
+        }
+        Ok(())
+    }
+
     fn finish(&mut self, link: &mut impl PerceptionLink, done: Done) -> io::Result<()> {
         self.busy = false;
-        self.spare = done.jpeg;
+        let (meta, jpeg, received_at_us, analysed_at_us, result, reduced) = match done {
+            Done::Analysed {
+                meta,
+                jpeg,
+                received_at_us,
+                analysed_at_us,
+                result,
+                reduced,
+            } => (meta, jpeg, received_at_us, analysed_at_us, result, reduced),
+            Done::Encoded { meta, image, jpeg } => return self.encoded(meta, image, jpeg),
+        };
+        self.spare = jpeg;
         let now = monotonic_us();
         // Privacy may have closed while the frame was analysed.
-        if let Some(reason) = grant_status(&mut self.guard, done.meta.grant, now) {
-            return self.discard(link, &done.meta, reason);
+        if let Some(reason) = grant_status(&mut self.guard, meta.grant, now) {
+            return self.discard(link, &meta, reason);
         }
-        if now.saturating_sub(done.meta.dequeue_completed_at_us) > self.options.max_result_age_us {
-            return self.discard(link, &done.meta, DiscardReason::Stale);
+        if now.saturating_sub(meta.dequeue_completed_at_us) > self.options.max_result_age_us {
+            return self.discard(link, &meta, DiscardReason::Stale);
         }
-        let analysis = match done.result {
+        let analysis = match result {
             Ok(analysis) => analysis,
             Err(AnalysisError::Decode(_)) => {
-                return self.discard(link, &done.meta, DiscardReason::DecodeFailed);
+                return self.discard(link, &meta, DiscardReason::DecodeFailed);
             }
             Err(AnalysisError::Inference(_)) => {
-                return self.discard(link, &done.meta, DiscardReason::InferenceFailed);
+                return self.discard(link, &meta, DiscardReason::InferenceFailed);
             }
         };
+        if let Some(reduced) = reduced {
+            self.context_source = Some((meta.clone(), reduced));
+        }
+        let done_meta = meta;
         self.sequence += 1;
         let confidence = analysis
             .best_score
@@ -277,19 +386,19 @@ impl State {
         let provenance = Observation::new(
             self.options.worker,
             NonZeroU64::new(self.sequence).expect("starts at one"),
-            MonoTime::from_micros(done.meta.dequeue_completed_at_us),
+            MonoTime::from_micros(done_meta.dequeue_completed_at_us),
             confidence,
         );
         self.counts.published = self.counts.published.saturating_add(1);
         link.publish(PerceptionEvent::Observation {
             observation: VisualObservation {
                 provenance,
-                frame: FrameRef::from(&done.meta),
+                frame: FrameRef::from(&done_meta),
                 timing: AnalysisTiming {
-                    received_at_us: done.received_at_us,
+                    received_at_us,
                     decode_us: analysis.decode_us,
                     inference_us: analysis.inference_us,
-                    analysed_at_us: done.analysed_at_us,
+                    analysed_at_us,
                     published_at_us: monotonic_us(),
                 },
                 exposure: analysis.exposure,
@@ -300,6 +409,42 @@ impl State {
             },
         })
     }
+
+    /// A context encode finished: recheck lineage and age, then offer it.
+    fn encoded(
+        &mut self,
+        meta: FrameMeta,
+        image: Rgb,
+        jpeg: Option<(Vec<u8>, u8)>,
+    ) -> io::Result<()> {
+        let now = monotonic_us();
+        if grant_status(&mut self.guard, meta.grant, now).is_some()
+            || now.saturating_sub(meta.dequeue_completed_at_us) > CONTEXT_MAX_AGE_US
+        {
+            return Ok(());
+        }
+        let Some((bytes, quality)) = jpeg else {
+            self.counts.context_oversize = self.counts.context_oversize.saturating_add(1);
+            return Ok(());
+        };
+        let mut described = meta.clone();
+        described.derived = Some(DerivedImage {
+            source_width: meta.width,
+            source_height: meta.height,
+            quality,
+        });
+        described.width = image.width;
+        described.height = image.height;
+        if let Some(server) = self.context.as_mut() {
+            let served = server.offer_meta(&described, &bytes, now)?;
+            self.counts.context_served = self.counts.context_served.saturating_add(served as u64);
+        }
+        // A newer analysis may already have replaced the retained source.
+        if self.context_source.is_none() {
+            self.context_source = Some((meta, image));
+        }
+        Ok(())
+    }
 }
 
 /// Run until `Stop`, a fault, or controller heartbeat loss. The caller sends
@@ -309,6 +454,18 @@ pub fn run(
     analyzer: Analyzer,
     options: WorkerOptions,
 ) -> io::Result<()> {
+    let context = options
+        .context
+        .as_ref()
+        .map(|(boot, socket)| {
+            FrameServer::bind(
+                socket,
+                options.controller,
+                &[(Role::Context, *boot)],
+                CONTEXT_MAX_BYTES,
+            )
+        })
+        .transpose()?;
     let (jobs, job_receiver) = mpsc::sync_channel::<Job>(1);
     let (done_sender, done) = mpsc::sync_channel::<Done>(1);
     let handle = thread::Builder::new()
@@ -332,6 +489,8 @@ pub fn run(
         counts: PerceptionCounts::default(),
         last_progress_us: now,
         spare: Vec::new(),
+        context,
+        context_source: None,
         options,
     };
     let result = (|| -> io::Result<()> {
@@ -347,6 +506,7 @@ pub fn run(
                 ));
             }
             state.frames(link, &jobs)?;
+            state.serve_context(link, &jobs)?;
             match done.try_recv() {
                 Ok(finished) => state.finish(link, finished)?,
                 Err(TryRecvError::Empty) => {}
@@ -365,6 +525,10 @@ pub fn run(
         }
     })();
     state.client.disconnect();
+    if let Some(server) = state.context.as_mut() {
+        server.close_all(lamp_camera::frames::CloseReason::Stopped, monotonic_us());
+    }
+    state.context_source = None;
     drop(jobs);
     drop(done);
     let deadline = monotonic_us() + INFERENCE_JOIN_US;

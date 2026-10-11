@@ -336,6 +336,71 @@ pub fn detector_input(image: &Rgb, width: u32) -> DetectorInput {
     }
 }
 
+/// Area-average to at most `max_width` columns, keeping the aspect ratio.
+/// Images already that narrow are copied unchanged.
+pub fn reduce(image: &Rgb, max_width: u32) -> Rgb {
+    if image.width <= max_width {
+        return image.clone();
+    }
+    let width = max_width.max(1);
+    let height = ((u64::from(image.height) * u64::from(width) + u64::from(image.width) / 2)
+        / u64::from(image.width))
+    .max(1) as u32;
+    let span = |o: u32, out: u32, source: u32| -> (usize, usize) {
+        let start = (u64::from(o) * u64::from(source) / u64::from(out)) as usize;
+        let end = ((u64::from(o + 1) * u64::from(source) / u64::from(out)) as usize).max(start + 1);
+        (start, end)
+    };
+    let stride = image.width as usize * 3;
+    let mut pixels = Vec::with_capacity((width * height * 3) as usize);
+    for oy in 0..height {
+        let (y0, y1) = span(oy, height, image.height);
+        for ox in 0..width {
+            let (x0, x1) = span(ox, width, image.width);
+            let mut sum = [0_u32; 3];
+            for y in y0..y1 {
+                for pixel in image.pixels[y * stride + x0 * 3..y * stride + x1 * 3].chunks_exact(3)
+                {
+                    sum[0] += u32::from(pixel[0]);
+                    sum[1] += u32::from(pixel[1]);
+                    sum[2] += u32::from(pixel[2]);
+                }
+            }
+            let count = ((y1 - y0) * (x1 - x0)) as u32;
+            pixels.extend(sum.iter().map(|s| ((s + count / 2) / count) as u8));
+        }
+    }
+    Rgb {
+        width,
+        height,
+        pixels,
+    }
+}
+
+/// JPEG qualities tried, best first, until the encoding fits.
+pub const CONTEXT_QUALITIES: [u8; 4] = [80, 65, 50, 35];
+
+/// Encode `image` as a baseline JPEG of at most `max_bytes`, stepping quality
+/// down. `None` when even the lowest quality does not fit; nothing is cropped.
+pub fn encode_bounded(image: &Rgb, max_bytes: usize) -> Option<(Vec<u8>, u8)> {
+    let width = u16::try_from(image.width).ok()?;
+    let height = u16::try_from(image.height).ok()?;
+    for quality in CONTEXT_QUALITIES {
+        let mut out = Vec::with_capacity(max_bytes);
+        let encoder = jpeg_encoder::Encoder::new(&mut out, quality);
+        if encoder
+            .encode(&image.pixels, width, height, jpeg_encoder::ColorType::Rgb)
+            .is_err()
+        {
+            return None;
+        }
+        if out.len() <= max_bytes {
+            return Some((out, quality));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,6 +454,28 @@ mod tests {
         );
         assert_eq!(detector_width(1280, 320), 320);
         assert_eq!(detector_width(1280, 330), 320);
+    }
+
+    #[test]
+    fn reduction_keeps_aspect_and_colour_and_encoding_respects_the_bound() {
+        let reduced = reduce(&solid(1280, 720, [200, 100, 50]), 640);
+        assert_eq!((reduced.width, reduced.height), (640, 360));
+        assert_eq!(&reduced.pixels[..3], &[200, 100, 50]);
+        assert_eq!(reduce(&solid(320, 240, [1, 2, 3]), 640).width, 320);
+        let (jpeg, quality) = encode_bounded(&reduced, 64 * 1024).unwrap();
+        assert!(jpeg.len() <= 64 * 1024 && quality == 80);
+        let decoded = decode_jpeg(&jpeg).unwrap();
+        assert_eq!((decoded.width, decoded.height), (640, 360));
+        // Noise cannot be squeezed into a tiny bound; nothing is returned.
+        let mut noise = solid(640, 360, [0, 0, 0]);
+        let mut state = 0x2545_f491_u32;
+        for byte in noise.pixels.iter_mut() {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            *byte = state as u8;
+        }
+        assert!(encode_bounded(&noise, 8 * 1024).is_none());
     }
 
     #[test]

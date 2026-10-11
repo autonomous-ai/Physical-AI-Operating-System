@@ -143,6 +143,10 @@ pub struct PerceptionCounts {
     pub decode_failed: u64,
     pub inference_failed: u64,
     pub link_errors: u64,
+    /// Context images handed to the provider's frame link.
+    pub context_served: u64,
+    /// Context images that did not fit the byte bound at any quality.
+    pub context_oversize: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -165,6 +169,10 @@ pub enum PerceptionEvent {
     Progress {
         at_us: u64,
         counts: PerceptionCounts,
+    },
+    /// The provider's context frame link connected or closed.
+    ContextLink {
+        event: lamp_camera::frames::LinkEvent,
     },
 }
 

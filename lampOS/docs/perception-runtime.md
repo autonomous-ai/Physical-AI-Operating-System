@@ -67,6 +67,32 @@ camera worker ──(camera.frames stream, pull + credits)──► perception w
     `unknown`), timings and the model identity.
   - `Discarded`, `CameraLink` and a 1 s `Progress`.
 
+## Visual context frames for the provider (`A1-006`)
+
+The provider never receives camera-sized frames. With
+`--frame-consumer context=PROVIDER_BOOT`, the perception worker binds a second
+frame link, `SESSION_DIR/perception.frames`, for that one consumer.
+
+- **Retained source.** Each analysed frame leaves a copy reduced to at most
+  640 pixels wide (640×360 for 720p), with the original `FrameMeta`. The copy is
+  dropped as soon as its camera grant is no longer current or it is older than
+  2 s from the original host dequeue.
+- **On request.** The inference thread encodes that copy as a baseline JPEG of
+  at most 64 KiB, trying quality 80, 65, 50 and 35. If none fits, nothing is
+  sent and `context_oversize` is counted. The grant and age are checked again
+  before the frame is offered.
+- **Metadata.** `FrameMeta` keeps the original camera worker, capture epoch,
+  frame sequence, grant and dequeue time. `derived` records the source size and
+  quality, and `width`/`height` give the reduced size. The provider's own 2 s
+  bound, two-image limit and single slot apply on its side.
+- **Link events.** These are published as `PerceptionEvent::ContextLink`.
+
+Process tests check three things:
+- the bound, the reduced size, the original lineage and the decodability of a
+  served context image;
+- that a privacy close and reopen with no new camera frames serves nothing;
+- that only fresh frames under the new grant are served afterwards.
+
 ## Meaning and limits of the evidence
 
 - `no_face_detected` describes one frame and one model, not an empty desk.

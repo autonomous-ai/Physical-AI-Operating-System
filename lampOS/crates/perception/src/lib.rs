@@ -13,5 +13,6 @@ pub mod attention;
 pub mod image;
 pub mod model;
 pub mod observation;
+pub mod process;
 pub mod worker;
 pub mod yunet;

@@ -660,6 +660,24 @@ fn forward(
             superseded.map(RequestId::get),
             successor.map(RequestId::get)
         ),
+        // Only a session configured to report its barriers sends these, and
+        // this worker does not configure one. Counts, no audio and no text.
+        Event::Barrier {
+            outcome, report, ..
+        } => eprintln!(
+            "lamp-live provider: barrier {outcome:?}: superseded={:?} successor={:?} waited_ms={} quiet_ms={} successor_input_open={} end_withheld_ms={:?} withheld audio_frames={} text_frames={} generation_complete={} interrupted={} completions_not_idle={}",
+            report.superseded.map(RequestId::get),
+            report.successor.map(RequestId::get),
+            report.waited.as_millis(),
+            report.quiet.as_millis(),
+            report.successor_input_open,
+            report.end_withheld.map(|held| held.as_millis()),
+            report.audio_frames,
+            report.text_frames,
+            report.generation_complete,
+            report.interrupted,
+            report.completions_not_idle
+        ),
     }
     Ok(())
 }

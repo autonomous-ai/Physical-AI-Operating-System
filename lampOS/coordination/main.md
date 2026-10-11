@@ -4,7 +4,7 @@
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Integrated runtime checkpoint: `02148ed4d580046194fe6492ea480bc2502eba5d`
-- Integrated evaluator checkpoint: `2a1522ebaabf796e27a0e9fd1f68b9be656b9339`
+- Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: coordinated runtime has completed a native greeting; evaluator dispatch corrections are integrated. A private playback candidate exposed repeated answer interruptions. Natural conversation and benchmark qualification remain unfinished.
 
 ## Direct coordination
@@ -65,6 +65,17 @@ tests**, zero failures/ignored. An independent audit passed 72 focused execution
 including six reproduced dispatch regressions and drain-budget exhaustion.
 These checks use scripted processes/players, not physical audio.
 
+Receipt-import checkpoint `4127dd2be` adds the reviewed 14-file subset from
+Agent 2 through `a86f2cea`, with its checked frame bounds, exact recorder-receipt
+rebinding, target-render verification and independent importer regressions.
+Root ran workspace fmt, package all-target strict Clippy and the complete
+serial evaluator suite: **197 passed, zero failed or ignored**. The combined
+tree excludes automatic boundary proposals, alignment code and their CLI.
+These are host checks; this checkpoint changes no deployed audio runtime.
+Proposals and unlistened recordings cannot become accepted acoustic timings.
+The receipt file and selected input remain an operator-supplied anchor, not
+an authenticated recording identity.
+
 ## Ownership and decisions
 
 The owner requires V1 main behavior as the rewrite baseline: port useful
@@ -110,6 +121,14 @@ schedules devices.
   with censored replies, not complete physical successes. First native candidate
   trials have no recorded gaps but repeated answer cancellations; do not select
   this policy on gap counts alone.
+- **MAIN-034/036:** integrated the corrected receipt importer and unchanged-in-
+  substance independent red/green regressions. Unbounded frame arithmetic and
+  cached WAV claim substitution now reject without scoring; missing or revoked
+  evidence remains unscored.
+- **MAIN-038:** optional boundary proposals remain excluded. An independently
+  reproduced zero-rate WAV causes a resampling allocation panic in that optional
+  path; Agent 2 owns bounded rate/size validation and production regressions.
+  This does not block the separately reviewed receipt-only importer.
 - **MAIN-032:** Agent 1 is correcting the service probe to distinguish interrupted
   events from the idle completion that actually settles Require. It must count
   extra payload separately from late terminal markers and require a completed

@@ -41,6 +41,28 @@ The speaker also reached the target microphone much louder than the prompt,
 with clipping. More cancellation tuning alone has not resolved the failures.
 See [physical evidence](real-device-audio-pilot.md).
 
+## Maintained reference designs and provider constraints
+
+Reviewed on 2026-10-11: LiveKit documents separate activity, interruption and
+false-interruption recovery behavior. Its adaptive path distinguishes attempted
+interruptions from acknowledgments; its false-interruption handling can resume
+speech instead of permanently discarding it. These are useful behavioral
+references, not measured Lamp results or a reason to add its Python/Node runtime
+to lampOS. Its own documentation says most client interruption options do not
+apply when a realtime provider owns turn detection. Check the actual integration
+contract before copying a configuration knob.
+[LiveKit turns](https://docs.livekit.io/agents/logic/turns/).
+
+Gemini's API specifies that manual activity signals are sent when automatic
+activity detection is disabled; `START_OF_ACTIVITY_INTERRUPTS` causes activity
+start to interrupt the response. Rust currently selects both. Consequently,
+after Lamp has sent Start, a server interruption is not independent proof that
+the microphone contained a genuine user interruption. This is an inference
+from the API contract and our configured request path. Qualify the local
+candidate before that irreversible boundary; a naive copy of V1's
+wait-for-provider-confirmation rule would not preserve its meaning.
+[Gemini Live reference](https://ai.google.dev/api/live.md).
+
 ## Implementation order and acceptance
 
 1. Establish a clearly named V1-style turn-taking baseline in Rust. Retain

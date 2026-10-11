@@ -290,3 +290,248 @@ async fn without_reports_the_event_stream_is_what_it_was() {
         Event::Audio { lineage, .. } if lineage.request == new
     ));
 }
+
+/// The same, with a bound long enough that a loaded host cannot make a
+/// test's own 40 ms of looking outlast it.
+fn at_commit_slow() -> SessionConfig {
+    at_commit(BarrierWait::AtCommit)
+        .timeouts(Timeouts {
+            barrier: Duration::from_millis(300),
+            ..Timeouts::default()
+        })
+        .unwrap()
+}
+
+#[tokio::test]
+async fn a_pause_in_the_next_utterance_is_not_the_wait_and_its_end_starts_it() {
+    let (mut connection, mut server) = mock_with(at_commit_slow()).await;
+    let new = continued(&mut connection, &mut server).await;
+    let input = connection.input();
+    // The person stops for three times the bound without ending, then goes on.
+    tokio::time::sleep(Duration::from_millis(900)).await;
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+    input.try_audio(new, 1, Instant::now(), &[2; 160]).unwrap();
+    sent(&mut server, "audio").await;
+    input.try_end(new).unwrap();
+    silent(&mut server).await;
+    // The earlier response settles inside the bound, counted from that End.
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request(1)
+    ));
+    let (outcome, report) = barrier(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::Settled);
+    assert!(report.waited >= Duration::from_millis(900), "{report:?}");
+    assert!(
+        report.end_withheld.unwrap() < Duration::from_millis(300),
+        "{report:?}"
+    );
+    sent(&mut server, "activityEnd").await;
+    silent(&mut server).await;
+    assert_eq!(connection.state(), State::Ready);
+}
+
+#[tokio::test]
+async fn a_second_continuation_restarts_the_wait_at_its_own_end_and_one_end_is_written() {
+    let (mut connection, mut server) = mock_with(at_commit_slow()).await;
+    let second = continued(&mut connection, &mut server).await;
+    let input = connection.input();
+    input.try_end(second).unwrap();
+    silent(&mut server).await;
+    // Still inside the bound the person goes on: a third request. The
+    // activity the second opened is still open, so no activityStart is
+    // written, and the second request's End never is.
+    let third = request(3);
+    input.try_start(third).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::InputStarted { lineage, waiting_for_barrier: true } if lineage.request == third
+    ));
+    // Twice the bound of speech. Nothing is waiting to be committed, so
+    // the wait that began at the second request's End is over.
+    for sequence in 0..6 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        input
+            .try_audio(third, sequence, Instant::now(), &[3; 160])
+            .unwrap();
+        sent(&mut server, "audio").await;
+    }
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+    input.try_end(third).unwrap();
+    silent(&mut server).await;
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request(1)
+    ));
+    let (outcome, report) = barrier(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::Settled);
+    assert_eq!(
+        (report.superseded, report.successor),
+        (Some(request(1)), Some(third))
+    );
+    assert!(report.waited >= Duration::from_millis(600), "{report:?}");
+    assert!(
+        report.end_withheld.unwrap() < Duration::from_millis(300),
+        "{report:?}"
+    );
+    // One End, and the answer is the third request's.
+    sent(&mut server, "activityEnd").await;
+    send_json(&mut server, audio(33)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, pcm, .. } if lineage.request == third && pcm == [33]
+    ));
+    silent(&mut server).await;
+}
+
+#[tokio::test]
+async fn a_second_continuation_that_never_settles_times_out_from_its_own_end() {
+    let (mut connection, mut server) = mock_with(at_commit_slow()).await;
+    let second = continued(&mut connection, &mut server).await;
+    let input = connection.input();
+    input.try_end(second).unwrap();
+    let third = request(3);
+    input.try_start(third).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::InputStarted { lineage, waiting_for_barrier: true } if lineage.request == third
+    ));
+    input
+        .try_audio(third, 0, Instant::now(), &[3; 160])
+        .unwrap();
+    sent(&mut server, "audio").await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+    input.try_end(third).unwrap();
+    let (outcome, report) = barrier(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::TimedOut);
+    assert_eq!(
+        (report.superseded, report.successor),
+        (Some(request(1)), Some(third))
+    );
+    let withheld = report.end_withheld.unwrap();
+    assert!(
+        (Duration::from_millis(300)..Duration::from_millis(600)).contains(&withheld),
+        "{withheld:?}"
+    );
+    assert_eq!(disconnected(&connection).await, Error::BarrierTimeout);
+    // Neither End was written.
+    while let Ok(Some(Ok(message))) = timeout(Duration::from_millis(40), server.next()).await {
+        if let Ok(value) = serde_json::from_slice::<Value>(&message.into_data()) {
+            assert!(
+                value["realtimeInput"].get("activityEnd").is_none(),
+                "{value}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn an_end_withheld_and_then_cancelled_is_never_written_and_nothing_waits() {
+    let (mut connection, mut server) = mock_with(at_commit(BarrierWait::AtCommit)).await;
+    let new = continued(&mut connection, &mut server).await;
+    let input = connection.input();
+    input.try_end(new).unwrap();
+    input.retire(new);
+    // Three times the bound: nothing is waiting to be committed any more.
+    tokio::time::sleep(Duration::from_millis(180)).await;
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request(1)
+    ));
+    let (outcome, report) = barrier(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::Settled);
+    assert_eq!(
+        (report.superseded, report.successor, report.end_withheld),
+        (Some(request(1)), None, None)
+    );
+    // Settled with a cancelled request behind it: no End, ever.
+    silent(&mut server).await;
+    assert_eq!(connection.state(), State::Ready);
+}
+
+#[tokio::test]
+async fn the_service_closing_under_a_withheld_end_is_that_close_and_no_barrier_outcome() {
+    let (mut connection, mut server) = mock_with(
+        at_commit(BarrierWait::AtCommit)
+            .timeouts(Timeouts {
+                barrier: Duration::from_secs(2),
+                ..Timeouts::default()
+            })
+            .unwrap(),
+    )
+    .await;
+    let new = continued(&mut connection, &mut server).await;
+    connection.input().try_end(new).unwrap();
+    silent(&mut server).await;
+    server
+        .close(Some(tungstenite::protocol::CloseFrame {
+            code: tungstenite::protocol::frame::coding::CloseCode::Away,
+            reason: "".into(),
+        }))
+        .await
+        .unwrap();
+    assert_eq!(
+        disconnected(&connection).await,
+        Error::PeerClosed { code: Some(1001) }
+    );
+    // The close is what ended it: no barrier outcome is invented, and the
+    // request behind the barrier, never committed, is given nothing.
+    while let Some(event) = timeout(Duration::from_secs(2), connection.next_event())
+        .await
+        .unwrap()
+    {
+        assert!(
+            !matches!(
+                event,
+                Event::Barrier { .. } | Event::Audio { .. } | Event::TurnComplete { .. }
+            ),
+            "{event:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn old_output_behind_a_barrier_is_counted_and_never_kept_or_delivered() {
+    let (mut connection, mut server) = mock_with(at_commit_slow()).await;
+    let new = continued(&mut connection, &mut server).await;
+    // A long earlier answer keeps arriving while the person speaks on.
+    for value in 0..300 {
+        send_json(&mut server, audio(value)).await;
+    }
+    send_json(
+        &mut server,
+        json!({"serverContent":{"modelTurn":{"parts":[{"text":"old"}]}}}),
+    )
+    .await;
+    send_json(&mut server, generated()).await;
+    // None of it reaches the caller as output.
+    quiet(&mut connection).await;
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request(1)
+    ));
+    let (outcome, report) = barrier(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::Settled);
+    assert_eq!(
+        (
+            report.audio_frames,
+            report.audio_samples,
+            report.text_frames,
+            report.generation_complete
+        ),
+        (300, 300, 1, 1)
+    );
+    connection.input().try_end(new).unwrap();
+    sent(&mut server, "activityEnd").await;
+    send_json(&mut server, audio(7)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, pcm, .. } if lineage.request == new && pcm == [7]
+    ));
+}

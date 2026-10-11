@@ -74,6 +74,27 @@ impl FromStr for TurnTaking {
     }
 }
 
+/// Endpoint experiment. `smart-turn` confirms V1-baseline pauses with the
+/// pinned Smart Turn model beside the executable and keeps the silence window
+/// as its fallback. It is never a default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Endpoint {
+    #[default]
+    Silence,
+    SmartTurn,
+}
+impl FromStr for Endpoint {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "silence" => Ok(Self::Silence),
+            "smart-turn" => Ok(Self::SmartTurn),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 /// Experimental coordinator horizon; zero preserves immediate dispatch.
 /// This is not an ALSA queue size or a promise of gap-free playback.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -103,6 +124,7 @@ impl FromStr for PlayoutStart {
 pub struct DirectedOptions {
     pub playout_start: PlayoutStart,
     pub turn_taking: TurnTaking,
+    pub endpoint: Endpoint,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -113,6 +135,7 @@ impl DirectedOptions {
         let mut options = Self::default();
         let mut noise_seen = false;
         let mut turn_seen = false;
+        let mut endpoint_seen = false;
         let mut playout_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
@@ -125,6 +148,10 @@ impl DirectedOptions {
                 "--turn-taking" if !turn_seen => {
                     options.turn_taking = required_value(&mut arguments)?.parse()?;
                     turn_seen = true;
+                }
+                "--endpoint" if !endpoint_seen => {
+                    options.endpoint = required_value(&mut arguments)?.parse()?;
+                    endpoint_seen = true;
                 }
                 "--noise-suppression" if !noise_seen => {
                     options.noise_suppression = required_value(&mut arguments)?.parse()?;
@@ -139,6 +166,11 @@ impl DirectedOptions {
                 }
                 _ => return Err(invalid_options()),
             }
+        }
+        // Confirmation is defined against the V1 baseline's silence fallback.
+        if options.endpoint == Endpoint::SmartTurn && options.turn_taking != TurnTaking::V1Baseline
+        {
+            return Err(invalid_options());
         }
         Ok(options)
     }
@@ -296,6 +328,42 @@ mod tests {
     }
 
     #[test]
+    fn smart_turn_endpoint_is_explicit_and_requires_the_v1_baseline() {
+        assert_eq!(
+            SessionOptions::default().directed.endpoint,
+            Endpoint::Silence
+        );
+        let options = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "v1-baseline",
+            "--endpoint",
+            "smart-turn",
+        ]))
+        .unwrap();
+        assert_eq!(options.directed.endpoint, Endpoint::SmartTurn);
+        assert_eq!(
+            serde_json::to_value(options.directed.endpoint).unwrap(),
+            "smart-turn"
+        );
+        for values in [
+            vec!["--endpoint", "smart-turn"],
+            vec!["--turn-taking", "vad-only", "--endpoint", "smart-turn"],
+            vec!["--turn-taking", "v1-baseline", "--endpoint"],
+            vec!["--turn-taking", "v1-baseline", "--endpoint", "Smart-Turn"],
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "silence",
+                "--endpoint",
+                "smart-turn",
+            ],
+        ] {
+            assert!(SessionOptions::parse(&args(&values)).is_err(), "{values:?}");
+        }
+    }
+
+    #[test]
     fn turn_taking_is_explicit_and_default_remains_vad_only() {
         assert_eq!(
             SessionOptions::default().directed.turn_taking,
@@ -419,6 +487,7 @@ mod tests {
                     DirectedOptions {
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
+                        endpoint: Endpoint::Silence,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,

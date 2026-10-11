@@ -205,6 +205,7 @@ fn isolated_signal_child() {
         diagnostic_directory: Some(output.clone()),
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
+        endpoint: crate::options::Endpoint::Silence,
         playout_start: PlayoutStart::default(),
     };
     let mut reply = Some(current);

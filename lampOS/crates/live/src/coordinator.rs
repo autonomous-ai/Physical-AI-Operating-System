@@ -4,7 +4,7 @@
 //! Refuse to present its directed-session results as general desk-conversation
 //! qualification. Every worker failure ends the run and retains a failure trace.
 use crate::{
-    activity::{Activity, ObservedAudio, TurnDetector},
+    activity::{Activity, ConfirmPolicy, ObservedAudio, TurnDetector},
     admission::{
         AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision,
         InputAdmission, Rejection, Step as AdmissionStep, Update as AdmissionUpdate,
@@ -13,8 +13,8 @@ use crate::{
     diagnostic_control::{self, DiagnosticFinished, DiagnosticStream},
     fixture_provider::{CueSink, Fixture, FixtureInfo, FixtureOptions},
     options::{
-        AudioWorkerOptions, DirectedOptions, NoiseSuppression, PlayoutStart, SessionOptions,
-        TurnTaking,
+        AudioWorkerOptions, DirectedOptions, Endpoint, NoiseSuppression, PlayoutStart,
+        SessionOptions, TurnTaking,
     },
     privacy::PrivacyGate,
     process::{SessionDirectory, Worker, new_boot},
@@ -214,6 +214,7 @@ struct Rig {
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
+    endpoint: Endpoint,
     playout_start: PlayoutStart,
 }
 impl Rig {
@@ -1354,6 +1355,7 @@ fn spawn_rig(
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
+        endpoint: options.endpoint,
         playout_start: options.playout_start,
     })
 }
@@ -1477,11 +1479,25 @@ fn conversation(
         TurnTaking::V1Baseline => TurnDetector::v1_baseline(),
         TurnTaking::VadOnly => TurnDetector::default(),
     };
+    if rig.endpoint == Endpoint::SmartTurn {
+        // Loading runs in the background; until it is ready, and after any
+        // failure, every pause uses the unchanged silence window.
+        let asset = lamp_endpoint::SMART_TURN_V3_2;
+        let model = std::env::current_exe()?.with_file_name(asset.file_name);
+        let worker = lamp_endpoint::SmartTurnWorker::spawn(model, asset)?;
+        detector = detector
+            .with_confirmation(Box::new(worker), ConfirmPolicy::default())
+            .map_err(io::Error::other)?;
+    }
+    let confirmation = detector.confirmation_policy();
     record(
         trace,
         json!({"kind":"endpoint_policy","at_us":monotonic_us(),
         "turn_taking":rig.turn_taking,"silence_wait_ms":detector.endpoint_silence_ms(),
-        "basis":"consecutive_low_vad_scores","semantic_confirmation":false}),
+        "basis":if confirmation.is_some() {"smart_turn_with_silence_fallback"} else {"consecutive_low_vad_scores"},
+        "semantic_confirmation":confirmation.is_some(),"confirmation":confirmation,
+        "model":confirmation.map(|_| json!({"file":lamp_endpoint::SMART_TURN_V3_2.file_name,
+            "sha256":lamp_endpoint::SMART_TURN_V3_2.sha256}))}),
     )?;
     let mut admission = InputAdmission::default();
     let mut playback_mask = PlaybackMask::new(rig.turn_taking);
@@ -2000,7 +2016,7 @@ fn conversation(
                     });
                     record(
                         trace,
-                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":detector.endpoint_silence_ms(),"acoustic_speech_end":null}),
+                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),"endpoint":detector.last_endpoint(),"acoustic_speech_end":null}),
                     )?;
                 }
             }
@@ -2854,6 +2870,7 @@ mod tests {
             diagnostic_directory: Some(directory.path.clone()),
             noise_suppression: NoiseSuppression::On,
             turn_taking: TurnTaking::VadOnly,
+            endpoint: Endpoint::Silence,
             playout_start: PlayoutStart::default(),
         };
         let started = Instant::now();

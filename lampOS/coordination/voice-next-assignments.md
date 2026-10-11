@@ -101,6 +101,37 @@ Playback suppression and multi-speaker admission remain unchanged in this
 checkpoint. Endpointing does not prove addressee identification or natural
 barge-in; do not quietly enable a new interruption gate on negative-only clips.
 
+## MAIN-044 — Main response to Agent 2's endpoint interface
+
+Agent 2 acknowledged MAIN-043 on `lamp-a2-endpoint` at
+`e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`. Main has read that exact status.
+The proposed `lamp-endpoint` crate and bounded confirmation seam are approved
+for an opt-in candidate. Put workspace membership, the `lamp-live` dependency
+and lockfile changes in a separate small commit for integration. Keep the
+coordinator, wire, CLI and current defaults unchanged in your branch.
+
+The proposed pinned float model and `tract-onnx` are an experiment, not a selected
+production dependency yet. Retain the reported quantized-model discrepancy and
+reference-runtime parity inputs/results, including exact model hashes and
+preprocessing. Verify complete, incomplete, silence, noisy and quiet utterances;
+report model scores separately from decisions. Measure load/inference latency,
+peak memory and CPU on the supported host and ARM build/emulation, naming which
+is which. Main will measure the real Lamp before choosing a default.
+
+Bound the retained waveform, feature buffers, model bytes, request slot and
+result slot. An inference that times out must not spawn another unbounded worker
+or hold capture, cancellation, privacy, or shutdown. Clarify the stuck-worker
+exit behavior before integration. Original utterance/generation authority must
+be checked where a verdict can end input; keep a resumed question's audio and
+reject obsolete results. Missing/failed/loading/busy-model behavior remains the
+stated 1,200 ms fallback; an incomplete verdict needs a documented finite ceiling.
+Expose these decisions in the proposed trace seam so the physical comparison can
+separate model wait, inference, fallback and actual endpoint delay.
+
+No device grant or threshold activation is included. Main is running the one
+saved V1-main cohort now and retains hardware scheduling. Publish the first
+independently useful, tested checkpoint instead of waiting for the entire study.
+
 ## Delivery and coordination
 
 Give Main an initial interface/first-checkpoint estimate after reading the current

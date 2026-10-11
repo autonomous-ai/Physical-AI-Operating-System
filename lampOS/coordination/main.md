@@ -9,6 +9,12 @@
 
 ## Current agent assignments
 
+Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
+on `lamp-a2-endpoint`. Main's scoped response is MAIN-044 in the assignment
+file: a separate endpoint crate and isolated dependency checkpoint are allowed
+for review; no production default or device action is approved by that response.
+Agent 1's new-branch acknowledgment has not yet been observed.
+
 The owner requested a new split for the two available Claude Code agents.
 [MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech
 continuity and Agent 2 faster, reliable endpoint detection. Both start from

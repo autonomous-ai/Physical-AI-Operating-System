@@ -418,16 +418,17 @@ provider setting. It does not shorten the wait. Whether the plain
 
 ## Integration
 
-Not on this branch. `lamp-a1-playout-integration` is this branch plus one
-commit to your files. Its commit is named in
-[my status](../coordination/agent-1.md):
+Not on this branch. `lamp-a1-playout-integration` is this branch, merged
+with your integration head so that the camera context wiring is kept, plus
+the changes to your files. Its commit is named in
+[my status](../coordination/agent-1.md). Against your head it is this:
 
 | File | Change |
 |---|---|
 | `crates/live/src/options.rs` | `PlayoutStart` carries the choice. `--playout-continuity` selects `Continuity::EVALUATED` and excludes `--playout-start-ms`. `PlayoutStart::gate()` builds the gate, `policy()` reports it. One test |
 | `crates/live/src/coordinator.rs` | `append_provider_audio` calls `start.arrival(at, frames)`. `next_speaker_chunk` calls `start.generation_ended()` on the final block. The reply is built with `playout_start.gate()`. `run_start` and the start receipt gain the policy, the measured lead and the reason |
 | `crates/live/src/main.rs` | The usage line |
-| `crates/live/src/coordinator/tests/playout_continuity.rs` | New: four tests through the production queue |
+| `crates/live/src/coordinator/tests/playout_continuity.rs` | New: eight tests through the production queue |
 
 26 changed lines in `coordinator.rs`. With neither flag, and with
 `--playout-start-ms`, the gate is the plain one and behaves as before; your
@@ -444,6 +445,10 @@ recorded enqueue times:
 | `a_second_generation_is_held_again_through_the_production_queue` | Sixth turn: 140 ms and 80 ms of zeros today, none under continuity, each generation's first block 290 ms after its own first audio, 239 frames of padding after the introduction and no other zero before the story's end |
 | `the_receipt_names_the_policy_the_lead_and_the_reason` | The start receipt, for both gates |
 | `a_continuity_hold_mints_no_permit_and_leaves_the_pcm_alone` | `dispatch_speaker_chunk` sends nothing and changes nothing while held, and sends the first block once the reply is complete |
+| `audio_before_the_final_block_leaves_joins_the_generation_being_played` | Audio that arrives while the previous generation's last block is still queued: no final block, no new hold, one opening receipt, samples in order |
+| `audio_after_the_final_block_left_is_held_from_its_own_arrival` | Audio that arrives between the final block's hand-over and its retirement: nothing leaves before the retirement receipt; retired after 50 ms, the first block leaves 290 ms after the arrival; retired after 400 ms, at once |
+| `cancellation_during_a_continuity_hold_sends_nothing_and_frees_the_next_reply` | `cancel_reply` during the hold: no chunk, no permit, the reply is gone, and the next one is held from its own first audio |
+| `a_complete_or_failed_short_answer_leaves_at_once_under_continuity` | 73 samples: held with no completion, then one final chunk with 167 samples of padding as soon as the turn completes or fails |
 
 With the option off the only visible change is in the trace: the start
 receipt gains `measured_lead_us`, `opened_by` and a null `continuity`, and

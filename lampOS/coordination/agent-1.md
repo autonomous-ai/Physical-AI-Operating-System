@@ -9,16 +9,66 @@ in this same file.
 - Assignment: `MAIN-042`, read from
   `origin/lamp-v2-chat:lampOS/coordination/voice-next-assignments.md` at
   `96eff6b42`. Acknowledged, and delivered as far as offline work goes.
+- `MAIN-046`, read at `2741181d1`: answered in
+  [its own section](#main-046).
 - Work branch: `lamp-a1-playout`, a fresh worktree from the integration code
   you named, `1a089863a`. Nothing from `gemini-voice` was merged into it.
 - Tested code: `01b55fb3a` on `lamp-a1-playout`. The branch head adds only
   this file and corrections to the write-up.
-- Proposal for your files: `lamp-a1-playout-integration` at `993ebaa63`,
-  which is `01b55fb3a` plus one commit.
+- Proposal for your files: `lamp-a1-playout-integration` at `9bd27cbc2`:
+  your integration head `2741181d1`, my three audio commits, the wiring and
+  its tests.
 - Write-up: [continuous reply playout](../docs/playout-continuity.md).
 - This file is my report. I also send a short notice on the team channel
   if it accepts one.
 - No device, no cloud, no deployment. Room and reply audio stayed local.
+
+## MAIN-046
+
+| You asked | State |
+|---|---|
+| Finish the narrow integration proposal and documentation | Done: `lamp-a1-playout-integration` at `9bd27cbc2`, and [the write-up](../docs/playout-continuity.md#integration) |
+| Keep it opt-in, shared changes separate | The option is `--playout-continuity`, off by default. Nothing of yours is touched on `lamp-a1-playout` |
+| Preserve the camera context wiring at `157dbb871` | The proposal branch now merges your head `2741181d1`. One conflict, in the usage line of `main.rs`: I took your line and added the flag to it. `coordinator.rs` and `options.rs` merged without conflict |
+| Multiple provider generations through the real `Reply` path | `a_second_generation_is_held_again_through_the_production_queue` |
+| Audio arriving around the final-chunk handoff | `audio_before_the_final_block_leaves_joins_the_generation_being_played` and `audio_after_the_final_block_left_is_held_from_its_own_arrival` |
+| Cancellation while held | `cancellation_during_a_continuity_hold_sends_nothing_and_frees_the_next_reply` |
+| Complete short answers | `a_complete_or_failed_short_answer_leaves_at_once_under_continuity`, and the complete case of `a_continuity_hold_mints_no_permit_and_leaves_the_pcm_alone` |
+| No default from the replay; the start delay is a physical decision | Agreed. Nothing here selects one |
+| Keep the two-second story transition a separate defect | It is its own section of the write-up, and continuity makes it 290 ms longer, not shorter |
+
+Against your head the proposal is four files under `crates/live`: 26
+changed lines in `coordinator.rs`, the option in `options.rs`, the usage
+line in `main.rs` and one new test file. `git diff 2741181d1 9bd27cbc2 --
+lampOS/crates/live` is the patch.
+
+Two behaviours at the handoff are worth your eye, because they are choices:
+
+- Audio that arrives while the previous generation's last block is still in
+  the queue joins it. There is then no final block for the earlier
+  generation and no new hold. That is what the queue did before; the gate
+  follows it.
+- Audio that arrives after the final block was handed over is held from
+  its own arrival, not from the retirement receipt. If the receipt comes
+  later than the hold, the first block leaves with it.
+
+### The shared ARM64 VM
+
+**`agent1-arm64-verify19` overlapped your container, and that was my
+mistake.** My command listed the running containers and started without
+reading the list; `lamp-combined-u3u_rjk8-visual-tests` was on it. I am
+sorry for the two timeouts it cost you. From `verify22` on, my runs wait,
+read-only, until no other container is running, and I record them here.
+
+| Job | Commit | Other containers when it started | Outcome |
+|---|---|---|---|
+| `agent1-arm64-verify19` | `779542b3a` | `lamp-combined-u3u_rjk8-visual-tests` | passed; overlapped yours |
+| `agent1-arm64-verify20` | `e417a1746` | none | passed |
+| `agent1-arm64-verify21` | `993ebaa63` | none | passed |
+| `agent1-arm64-verify22` | `9bd27cbc2` | none; 18:20:21 to 18:22:52 local | passed |
+
+No job of mine is running now. I have not stopped or touched any container
+but my own.
 
 ## What you asked for, and what there is
 
@@ -97,6 +147,8 @@ those the ocean reply rode out its late burst with 10 ms in hand.
 | `d11d5a300` | `lamp-a1-playout` | `playout.rs`, `main.rs`, `docs/playout-continuity.md` | The three numbers sized for a 30 ms reserve; the write-up |
 | `01b55fb3a` | `lamp-a1-playout` | `main.rs`, `docs/playout-continuity.md` | The plain 600 ms horizon in the replay; corrections to the write-up |
 | `993ebaa63` | `lamp-a1-playout-integration` | `crates/live/src/{options.rs,coordinator.rs,main.rs}`, new `crates/live/src/coordinator/tests/playout_continuity.rs` | The wiring, behind `--playout-continuity`. Your files; a proposal |
+| `2c8794bfa` | `lamp-a1-playout-integration` | merge of `2741181d1`; `crates/live/src/main.rs` resolved | Your camera context wiring under the proposal |
+| `9bd27cbc2` | `lamp-a1-playout-integration` | `crates/live/src/coordinator/tests/playout_continuity.rs` | Four more tests through the real `Reply` path, for `MAIN-046` |
 
 Nothing in `playback.rs`, the provider worker, wire definitions or shared
 events changed on either branch.
@@ -115,7 +167,8 @@ signature or its behaviour.
 | `StartGate::lead_us()`, `continuity()` | For the trace. A plain gate measures the lead too and does not use it |
 | `OpenedBy::Margin`, `OpenedBy::HoldBound` | Two more reasons in the opening receipt |
 
-The proposal changes 26 lines of `coordinator.rs`. With the option off the
+The proposal changes 26 lines of `coordinator.rs`, on your current head as
+on the base. With the option off the
 gate is the plain one, and your twelve `playout_start` tests pass
 unchanged. The only visible change with the option off is in the trace:
 the start receipt gains `measured_lead_us`, `opened_by` and a null
@@ -142,6 +195,18 @@ Each run is on a source-only export of the named commit.
 | | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 1,157 passed, 0 failed, 5 ignored |
 | | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | exit 0 |
 
+And the proposal on your current head:
+
+| Commit | Command | Result |
+|---|---|---|
+| `9bd27cbc2` | `cargo fmt --all -- --check` | exit 0 |
+| | `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | exit 0 |
+| | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 1,196 passed, 0 failed, 5 ignored |
+| | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | exit 0 |
+
+1,196 is your 1,166 with camera context, my 21 in `lamp-audio` and 9 in
+`lamp-live`. The fifth ignored test is my timing printout.
+
 `d11d5a300` was not run through the whole workspace on its own: a first
 attempt overlapped with another of my runs in the same directory and I
 discarded it. `01b55fb3a` adds one test and documentation to it.
@@ -158,7 +223,19 @@ user-mode QEMU on this Mac. Not the lamp.
 | | `cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-live --lib -- playout options --test-threads=1` | 27 passed, 0 failed |
 | | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval --target aarch64-unknown-linux-gnu` | exit 0; `lamp-live` is an aarch64 ELF |
 
-`993ebaa63` is `01b55fb3a` plus the proposal, so this run covers both
+And the proposal on your current head, as `agent1-arm64-verify22`:
+
+| Commit | Command | Result |
+|---|---|---|
+| `9bd27cbc2` | strict Clippy over the workspace, as above | exit 0 |
+| | `lamp-audio` tests, release, as above | 138 passed, 0 failed, 1 ignored |
+| | `lamp-live --lib -- playout options`, release | 31 passed, 0 failed |
+| | release build of `lamp-live` and `lamp-voice-eval` | exit 0; aarch64 ELF |
+
+Only the playout and option tests of `lamp-live` were run under emulation,
+not its whole suite and not the camera tests.
+
+`993ebaa63` is `01b55fb3a` plus the proposal, so that run covers both
 branches' code. The same script passed earlier on the two versions before
 it, `779542b3a` and `e417a1746`.
 

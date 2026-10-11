@@ -1106,6 +1106,45 @@ mod continuation_or_discard {
         rig.stop().await;
     }
 
+    /// Authority changes that the worker reads in one turn of its loop. An
+    /// abandonment followed at once by a new question and its continuation
+    /// must still be an abandonment of what came before.
+    #[tokio::test]
+    async fn an_abandonment_is_not_lost_when_a_new_question_and_its_continuation_follow_at_once() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // Three authority packets with no turn of the worker between them:
+        // no owner, a new question, and that question continued.
+        rig.abandoned("deadline_cancelled");
+        rig.admit(AdmittedInput::NewTurn, session);
+        let last = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 30).await;
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 5 * 160, 0)]);
+        // The first answer begins: the start, and the new question alone.
+        dial.service.send(audio(97, 240)).await;
+        let mut expected = vec!["start".to_owned()];
+        expected.extend(of(30, 3));
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        dial.service.burst([interrupted(), idle()]).await;
+        rig.end(&selected);
+        assert_eq!(rig.heard(&mut dial, QUIET).await, ["end"]);
+        dial.service.send(audio(98, 240)).await;
+        rig.until(true, |rig| {
+            rig.outputs.iter().any(
+                |event| matches!(event, ProviderOutput::Audio { request, .. } if *request == last),
+            )
+        })
+        .await;
+        rig.stop().await;
+    }
+
     #[tokio::test]
     async fn a_mute_while_the_question_is_kept_writes_none_of_it_and_ends_cleanly() {
         let (mut rig, mut dial, selected) = Paired::kept().await;

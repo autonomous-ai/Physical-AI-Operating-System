@@ -15,6 +15,12 @@
 //! `handles-requested`, `resume`, `idle-close`. `fixture` is offline: it only
 //! reports what would be spoken from the WAV file.
 //!
+//! `interrupt-before-output [GAP_MS]` speaks the question, waits `GAP_MS`
+//! (300 if absent, at most 5,000) after its end and speaks it again: a person
+//! who pauses and resumes before any answer. It reports whether the service
+//! confirmed the cut-off request, and keeps listening for eight seconds after
+//! the answer for a second one.
+//!
 //! `image PICTURE.jpg` speaks the question with one JPEG of at most 64 KiB
 //! offered as visual context, and reports how long the image took to write
 //! and what the model said. It is the one probe that prints the model's own
@@ -248,7 +254,12 @@ async fn observe(
     seen
 }
 
-async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<serde_json::Value> {
+async fn probe(
+    config: SessionConfig,
+    speech: &[i16],
+    name: &str,
+    gap: Duration,
+) -> Outcome<serde_json::Value> {
     let timeouts = Timeouts {
         // Observe for as long as the transport allows before assuming.
         barrier: Duration::from_secs(5),
@@ -273,7 +284,7 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
             // End, and record what the service does meanwhile. A trial in
             // which the first answer has already begun is a different case
             // and is labelled as one.
-            let before = observe(&mut connection, first, 0, Duration::from_millis(300)).await;
+            let before = observe(&mut connection, first, 0, gap).await;
             let answered_first = before.iter().any(|event| event["kind"] == "first_audio");
             let resumed = Instant::now();
             say(&connection, 2, speech, true).await?;
@@ -283,7 +294,34 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
             let committed = events
                 .iter()
                 .any(|event| event["kind"] == "input_started_after_committed_request");
-            serde_json::json!({"probe":name,
+            // The service confirmed if it said anything final about request 1
+            // before this probe's own five seconds of silence ran out.
+            let assumed = events
+                .iter()
+                .position(|event| event["kind"] == "no_confirmation_within_barrier")
+                .unwrap_or(events.len());
+            let confirmed = events[..assumed].iter().any(|event| {
+                event["request"] == 1
+                    && [
+                        "interrupted",
+                        "turn_complete_idle",
+                        "turn_complete_in_progress",
+                    ]
+                    .iter()
+                    .any(|kind| event["kind"] == *kind)
+            });
+            // One answer or two? Anything the service still produces now has
+            // no request to belong to and shows up as dropped.
+            let after = observe(&mut connection, resumed, 0, Duration::from_secs(8)).await;
+            let more = after.iter().any(|event| {
+                event["kind"]
+                    .as_str()
+                    .is_some_and(|kind| kind.starts_with("dropped:"))
+            });
+            serde_json::json!({"probe":name,"gap_ms":gap.as_millis() as u64,
+                "service_confirmed_the_cut_off_request":confirmed,
+                "output_after_the_answer":more,
+                "after_answer":after,
                 "first_request_committed_before_second_start":committed,
                 "first_answer_began_before_second_start":answered_first,
                 "trial": match (committed, answered_first) {
@@ -482,15 +520,17 @@ fn main() -> Outcome<()> {
 
 async fn run() -> Outcome<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let (provider, wav, name, picture) = match arguments.as_slice() {
-        [provider, wav, name] if name != "image" => (provider, wav, name, None),
-        [provider, wav, name, picture] if name == "image" => (provider, wav, name, Some(picture)),
-        _ => {
-            return Err(
-                "usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE | ... image PICTURE.jpg"
-                    .into(),
-            );
+    let usage = "usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE | ... image PICTURE.jpg | ... interrupt-before-output GAP_MS";
+    let (provider, wav, name, picture, gap) = match arguments.as_slice() {
+        [provider, wav, name] if name != "image" => (provider, wav, name, None, 300),
+        [provider, wav, name, picture] if name == "image" => {
+            (provider, wav, name, Some(picture), 300)
         }
+        [provider, wav, name, gap] if name == "interrupt-before-output" => {
+            let gap = gap.parse::<u64>().ok().filter(|gap| *gap <= 5_000);
+            (provider, wav, name, None, gap.ok_or(usage)?)
+        }
+        _ => return Err(usage.into()),
     };
     let decoded = speech(Path::new(wav))?;
     let speech = trim(&decoded);
@@ -512,7 +552,15 @@ async fn run() -> Outcome<()> {
             let picture = bounded_regular_file(Path::new(picture), lamp_gemini::MAX_IMAGE_BYTES)?;
             image_probe(session(Path::new(provider))?, speech, &picture).await?
         }
-        None => probe(session(Path::new(provider))?, speech, name).await?,
+        None => {
+            probe(
+                session(Path::new(provider))?,
+                speech,
+                name,
+                Duration::from_millis(gap),
+            )
+            .await?
+        }
     };
     println!("{result}");
     Ok(())

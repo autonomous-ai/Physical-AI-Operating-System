@@ -80,6 +80,14 @@ impl FakeService {
             .await
             .expect("scripted server send");
     }
+    /// As `send`, for a connection the client may already have dropped.
+    /// Returns whether the message was written.
+    pub async fn try_send(&mut self, value: Value) -> bool {
+        self.socket
+            .send(Message::text(value.to_string()))
+            .await
+            .is_ok()
+    }
     /// Write every message before the client can read any of them: the shape
     /// of a burst released by the network after a stall.
     pub async fn burst(&mut self, values: impl IntoIterator<Item = Value>) {

@@ -1,6 +1,7 @@
 use super::*;
 
 mod availability;
+mod barrier;
 mod checked;
 mod context;
 mod drain;

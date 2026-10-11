@@ -1760,4 +1760,124 @@ pub(super) mod stop_fence {
         sent(&mut server, "activityEnd").await;
         assert_eq!(connection.state(), State::Ready);
     }
+
+    // Independent integration review: use the existing production transport
+    // gate and retire after Audio has begun but before it can complete.
+    const REVIEW_KEEPS_START: bool = true;
+    async fn review_controlled() -> (Connection, MockSocket, Controls) {
+        let (client, server) = tokio::io::duplex(MAX_WIRE_BYTES * 2);
+        let control = Controls::default();
+        let client = WebSocketStream::from_raw_socket(
+            Controlled {
+                inner: client,
+                control: control.clone(),
+            },
+            Role::Client,
+            Some(socket_config()),
+        )
+        .await;
+        let mut server =
+            WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+        let config = configuration(Timeouts {
+            write: Duration::from_secs(1),
+            ..Timeouts::default()
+        });
+        let config = config
+            .successor_start(crate::SuccessorStart::AfterFirstOutput {
+                patience: Duration::from_secs(2),
+            })
+            .unwrap();
+        let connect = tokio::spawn(setup_and_spawn(client, config, SessionId::new(17).unwrap()));
+        receive(&mut server).await;
+        send_json(&mut server, json!({"setupComplete":{}})).await;
+        (connect.await.unwrap().unwrap(), server, control)
+    }
+
+    async fn review_retirement_during_audio(retire: bool) {
+        let (mut connection, mut server, control) = review_controlled().await;
+        ended_turn(&mut connection, &mut server, 1).await;
+        let input = connection.input();
+        let successor = request(2);
+        input.try_start(successor).unwrap();
+        assert!(matches!(event(&mut connection).await,
+            Event::InputStarted { lineage, waiting_for_barrier: true }
+            if lineage.request == successor));
+        if !REVIEW_KEEPS_START {
+            sent(&mut server, "activityStart").await;
+        }
+        // Permit exactly one short, masked Start frame on the retained path.
+        // The following Audio then stops at poll_write with zero accepted bytes.
+        // Its full frame stays inside the real WebSocketStream, not our fixture.
+        assert!(wire::ACTIVITY_START.len() < 126);
+        control.allowance.store(
+            if REVIEW_KEEPS_START {
+                wire::ACTIVITY_START.len() + 6
+            } else {
+                0
+            },
+            Ordering::Release,
+        );
+        control.hold.store(true, Ordering::Release);
+        input
+            .try_audio(successor, 0, Instant::now(), &[321; 160])
+            .unwrap();
+        input.try_end(successor).unwrap();
+        if REVIEW_KEEPS_START {
+            // No command can be in flight once this current-thread actor yields:
+            // retained Audio and End contain no pending transport awaits yet.
+            timeout(Duration::from_secs(1), async {
+                while input.commands.capacity() != INPUT_QUEUE_CAPACITY {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+        }
+        send_json(&mut server, idle()).await;
+        timeout(Duration::from_secs(1), control.held.notified())
+            .await
+            .unwrap();
+        if REVIEW_KEEPS_START {
+            sent(&mut server, "activityStart").await;
+        }
+        let transport_before_retirement = control.written();
+        if retire {
+            input.retire(successor);
+            assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 2);
+        }
+        // Local retirement is deliberately not shutdown: the already-accepted
+        // Audio may finish, while this uncommitted request must never get End.
+        control.release();
+        sent(&mut server, "audio").await;
+        if retire {
+            let next = timeout(Duration::from_millis(100), server.next()).await;
+            let received = match next {
+                Ok(Some(Ok(message))) => {
+                    Some(String::from_utf8_lossy(&message.into_data()).into_owned())
+                }
+                Ok(other) => Some(format!("transport ended unexpectedly: {other:?}")),
+                Err(_) => None,
+            };
+            assert!(
+                received.is_none(),
+                "uncommitted successor was retired before Audio completed, but a later frame was sent: {received:?}; before={transport_before_retirement:?}, after={:?}",
+                control.written()
+            );
+        } else {
+            sent(&mut server, "activityEnd").await;
+        }
+        assert_eq!(connection.state(), State::Ready);
+        connection.shutdown();
+        ended_by_the_stop(&mut connection).await;
+    }
+
+    #[tokio::test]
+    async fn review_retirement_during_pending_audio_does_not_commit() {
+        review_retirement_during_audio(true).await;
+    }
+
+    #[tokio::test]
+    async fn review_pending_audio_without_retirement_still_commits() {
+        review_retirement_during_audio(false).await;
+    }
 }

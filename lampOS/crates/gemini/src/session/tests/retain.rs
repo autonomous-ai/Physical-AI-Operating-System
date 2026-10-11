@@ -686,3 +686,46 @@ async fn a_request_cancelled_while_its_kept_start_is_being_written_is_not_commit
 async fn a_request_superseded_while_its_kept_start_is_being_written_is_not_committed() {
     retired_while_the_kept_start_is_being_written(true).await;
 }
+
+/// The limit of that, shown and not hidden. Retirement is read once,
+/// immediately before the End is handed to the WebSocket layer. If the
+/// transport is not taking bytes at that moment the End waits inside that
+/// layer, and a retirement recorded then cannot withdraw it: it goes out
+/// with the next flush. The request has been committed, and is then what a
+/// committed request that is superseded always was.
+#[tokio::test]
+async fn a_retirement_recorded_while_the_end_itself_waits_on_the_transport_comes_too_late() {
+    use super::stop_fence::controlled_with;
+    let (mut connection, mut server, control) = controlled_with(configuration(Timeouts {
+        write: Duration::from_secs(1),
+        ..Timeouts::default()
+    }))
+    .await;
+    let input = connection.input();
+    let first = request(1);
+    input.try_start(first).unwrap();
+    sent(&mut server, "activityStart").await;
+    event(&mut connection).await;
+    speak(&connection, first, 0, 1);
+    heard_in_order(&mut server, [1]).await;
+    // The transport holds the next write, which is this request's End, with
+    // none of it accepted.
+    control.hold.store(true, Ordering::Release);
+    input.try_end(first).unwrap();
+    timeout(Duration::from_secs(1), control.held.notified())
+        .await
+        .unwrap();
+    input.retire(first);
+    control.release();
+    // The End was already inside the WebSocket layer. It is written.
+    sent(&mut server, "activityEnd").await;
+    // And the request, now committed and retired, is interrupted as any
+    // committed request is: its response must settle before the next commit.
+    sent(&mut server, "activityStart").await;
+    input.try_start(request(2)).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::InputStarted { lineage, waiting_for_barrier: true } if lineage.request == request(2)
+    ));
+    assert_eq!(connection.state(), State::Ready);
+}

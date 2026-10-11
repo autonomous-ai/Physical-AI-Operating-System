@@ -1114,7 +1114,25 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         Ok(())
     }
     /// Commit the current request: from here on the service owes it a response.
+    ///
+    /// Retirement is read again here, at the last moment before the End.
+    /// What leads here can have awaited other writes, the kept start and the
+    /// audio behind it above all, and a request retired during one of them
+    /// must not be committed: its End would ask for an answer nobody owns.
+    /// Its audio stays in the open activity, as for any request retired
+    /// before its End. A retirement recorded while the End itself is being
+    /// written comes too late for this and is the ordinary case of a
+    /// committed request being superseded.
     async fn commit(&mut self) -> Result<()> {
+        let retired_through = self.retired_through();
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|turn| turn.lineage.request.get() <= retired_through)
+        {
+            self.current = None;
+            return Ok(());
+        }
         self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
             .await?;
         self.activity_open = false;

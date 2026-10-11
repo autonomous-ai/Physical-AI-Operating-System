@@ -721,6 +721,49 @@ mod tests {
     }
 
     #[test]
+    fn a_reply_fixture_refuses_the_kept_start_and_gemini_chat_accepts_it() {
+        use crate::fixture_provider::FixtureOptions;
+        // The fixture's provider worker takes exactly its WAV and digest:
+        // an extra argument would be read as something else. So the kept
+        // start is refused before any worker is started.
+        assert!(
+            FixtureOptions::parse(&args(&[
+                "--diagnostics",
+                "--provider-continuation",
+                "kept-start",
+            ]))
+            .is_err()
+        );
+        // Off, said or unsaid, is the fixture as it always was, and adds
+        // nothing to its worker's arguments.
+        for flags in [
+            vec!["--diagnostics"],
+            vec!["--diagnostics", "--provider-continuation", "off"],
+        ] {
+            let fixture = FixtureOptions::parse(&args(&flags)).unwrap();
+            assert_eq!(fixture.directed.provider_continuation, Continuation::Off);
+            assert!(
+                fixture
+                    .directed
+                    .provider_continuation
+                    .arguments()
+                    .is_empty()
+            );
+        }
+        // Directed Gemini chat takes it, and is off by default.
+        let chat =
+            SessionOptions::parse(&args(&["--provider-continuation", "kept-start"])).unwrap();
+        assert_eq!(chat.directed.provider_continuation, Continuation::KeptStart);
+        assert_eq!(
+            SessionOptions::parse(&[])
+                .unwrap()
+                .directed
+                .provider_continuation,
+            Continuation::Off
+        );
+    }
+
+    #[test]
     fn reference_recovery_is_explicit_and_needs_a_policy_that_masks_own_playback() {
         assert_eq!(
             SessionOptions::default().directed.reference_recovery,

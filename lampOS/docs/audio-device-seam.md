@@ -1,8 +1,9 @@
 # Audio device seam
 
-Scope: `crates/audio/src/{device,alsa_device,testing,capture}.rs` and the
-capture loop in `crates/live/src/audio_workers.rs`. **The capture half is
-done. The speaker half is not started.**
+Scope: `crates/audio/src/{device,alsa_device,testing,capture,pcm}.rs` and the
+capture and speaker loops in `crates/live/src/audio_workers.rs`. Both
+boundaries are behind the trait. **The two worker loops themselves still have
+no test.**
 
 ## Why
 
@@ -55,6 +56,33 @@ pub trait CaptureDevice: Sized {
   device. `capture` and `capture_with_noise_suppression` call it with
   `AlsaCapture` and are otherwise as they were.
 
+The speaker side has the same shape:
+
+```rust
+pub enum PlaybackOpenError { Fault(DeviceFault), Unsupported(PcmFormat) }
+
+pub trait PlaybackDevice: Sized {
+    fn open(name: &str, clock_mode: bool) -> Result<(Self, PcmFormat), PlaybackOpenError>;
+    fn avail_delay(&mut self) -> Result<(i64, i64), DeviceFault>;   // free space, queued delay
+    fn start(&mut self) -> Result<(), DeviceFault>;
+    fn write(&mut self, samples: &[i16]) -> Result<usize, DeviceFault>;   // one nonblocking write
+    fn drain(&mut self) -> Result<(), DeviceFault>;
+    fn prepare(&mut self) -> Result<(), DeviceFault>;
+    fn discard(&mut self) -> Result<(), DeviceFault>;
+    fn state(&self) -> DeviceState;
+}
+```
+
+- `SpeakerOn<D: PlaybackDevice>` is the boundary: the guard, the ownership
+  ledger, the clock mode, the finish deadline and every discard decision are
+  untouched. `Speaker` is still the ALSA one (`SpeakerOn<AlsaPlayback>`).
+- `AlsaPlayback` makes the same calls in the same order as before, including
+  the negotiation and the start threshold that keeps a clock-mode device from
+  starting on a write.
+- The boundary checks the reported format against its own bounds as well.
+- `speaker_on::<D>` is the speaker worker over any device; `speaker` calls it
+  with `AlsaPlayback`.
+
 ## The scripted device
 
 `lamp_audio::testing::{CaptureControl, ScriptedCapture}`. A test registers a
@@ -64,9 +92,18 @@ fails: push samples, fail the next call of a given name with a given `errno`,
 change the reported stream state, stall the next read, change the format it
 configures to. It counts opens, starts, discards and reads.
 
-It has no clock and no rate. A room or a real-time model belongs on top of
-it; Agent 2's simulation harness is the intended user. Nothing in it is used
-by the runtime.
+`lamp_audio::testing::{PlaybackControl, ScriptedPlayback}` is the speaker
+counterpart. It keeps everything the device **accepted**, in order, which is
+what an echo reference may be built from, and how many frames are still
+queued. Nothing plays by itself: the test says how many frames the device has
+played out. It can limit how much one write takes, fail any call, change the
+reported state and report an out-of-bounds format.
+
+Neither has a clock or a rate. A room or a real-time model belongs on top of
+them: accepted speaker PCM fed back into the scripted microphone at a chosen
+gain and delay is exactly the scene the [echo evidence](echo-evidence.md)
+was tested on, and Agent 2's simulation harness is the intended user. Nothing
+in this module is used by the runtime.
 
 ## Tested
 
@@ -84,21 +121,34 @@ last eight are new behavior coverage that did not exist off Linux:
 | `privacy_lineage_change_discards_an_incomplete_block` | Denied and allowed again inside one snapshot: closed, 40 samples erased |
 | `a_failed_discard_is_reported_and_the_handle_is_still_gone` | The close error is returned and the device is closed regardless |
 
+The speaker boundary over the scripted device,
+`crates/audio/tests/speaker_scripted.rs`, 6 tests, also on the host:
+
+| Test | What it pins |
+|---|---|
+| `only_what_the_device_accepted_is_written_and_a_full_device_is_not_a_fault` | A write the device takes 100 of 240 frames of reports 100 and continues from there; a full queue accepts nothing and is not an error; room returns when the device plays a block out |
+| `cancellation_discards_what_the_device_still_holds` | A cancelled turn's queued audio is dropped at the device, not left to play |
+| `an_underrun_or_a_vanished_speaker_is_a_fault_and_nothing_is_replayed` | A failing write or queue observation discards the queue and latches the boundary closed; the next block never reaches the device |
+| `a_discard_that_fails_latches_the_boundary_closed` | A failed discard is not treated as silence |
+| `the_clock_is_primed_with_accepted_zeros_and_started_only_when_told` | Speech cannot start the clock; two accepted zero blocks prime it; the device is not running until `start_clock`; speech then joins the same cursor; privacy closes it |
+| `a_device_outside_the_accepted_format_is_refused_at_open` | Four out-of-bounds formats, a buffer too small for the clock, a missing device and a failing open |
+
 The existing Linux tests against ALSA's `null` plugin
-(`crates/audio/tests/capture_linux.rs`) still run through `AlsaCapture`.
+(`crates/audio/tests/capture_linux.rs`, `pcm_linux.rs` and the unit tests in
+`pcm.rs`) still run, through `AlsaCapture` and `AlsaPlayback`.
 
 Results are in [Agent 1's status](../coordination/agent-1.md).
 
 ## Not done
 
-- **The speaker half.** `pcm.rs` still calls ALSA directly and is Linux
-  only. The trait for it was published in `A1-007`. Until it exists there is
-  no scripted speaker, no accepted-PCM echo path through a scripted device,
-  and no off-board test of the speaker loop.
-- **The capture loop itself has no test yet.** `capture_on` exists and
-  compiles for the board; nothing drives it. `audio_workers` is compiled only
-  on Linux (`crates/live/src/lib.rs`, the integrator's file), so a test of it
-  runs in a Linux container or needs that gate opened.
+- **The capture and speaker loops themselves have no test yet.**
+  `capture_on` and `speaker_on` exist and compile for the board; nothing
+  drives them. `audio_workers` is compiled only on Linux
+  (`crates/live/src/lib.rs`, the integrator's file), so a test of it runs in a
+  Linux container or needs that gate opened. This is the next piece: both
+  loops over the two scripted devices with the reference link between them,
+  which is also the first place accepted speaker PCM, the canceller and the
+  echo evidence run together off the board.
 - **Nothing here is evidence about a device.** A scripted stall is a sleep; a
   scripted xrun is a number. They prove what the boundary does when the
   device says so, not when or how a real codec says it.

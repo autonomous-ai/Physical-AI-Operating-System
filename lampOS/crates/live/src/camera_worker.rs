@@ -266,6 +266,8 @@ pub enum CameraEvent {
         at_us: u64,
         counts: Counts,
         last_read: Option<Timing>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        startup_discards: Option<lamp_camera::StartupDiscards>,
     },
     /// Local slots/tokens and downstream frame links are sealed. This is not
     /// evidence that STREAMOFF, close or physical sensor shutdown completed.
@@ -277,6 +279,8 @@ pub enum CameraEvent {
         error: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         timestamp_rejection: Option<lamp_camera::TimestampRejection>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        startup_discards: Option<lamp_camera::StartupDiscards>,
     },
     Stopped {
         at_us: u64,
@@ -495,6 +499,7 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
                 at_us,
                 counts: self.capture.counters().into(),
                 last_read: self.last_read,
+                startup_discards: self.capture.startup_discards(),
             })?;
             self.last_progress_us = at_us;
         }
@@ -611,6 +616,7 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
             teardown_deadline_us: deadline,
             error: error.clone(),
             timestamp_rejection: self.capture.timestamp_rejection(),
+            startup_discards: self.capture.startup_discards(),
         }) {
             append_error(&mut error, format!("revocation report: {fault}"));
         }

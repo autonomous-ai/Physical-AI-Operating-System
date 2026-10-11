@@ -208,6 +208,25 @@ pub struct TimestampRejection {
     pub predicate: TimestampPredicate,
 }
 
+/// One otherwise-valid startup frame discarded for known host-clock age.
+/// Exposure meaning remains driver-reported, not independently measured.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StartupDiscard {
+    pub comparison: TimestampRejection,
+    pub age_us: u64,
+}
+
+/// Constant-space startup evidence. No pixels, strings, or per-frame history.
+/// Discards never count as received frames or renew the first-frame deadline.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StartupDiscards {
+    pub count: u64,
+    pub first: StartupDiscard,
+    pub latest: StartupDiscard,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PortFrame {
     pub capture: CaptureId,

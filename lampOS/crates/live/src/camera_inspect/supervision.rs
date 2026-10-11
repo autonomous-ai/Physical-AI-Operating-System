@@ -635,6 +635,7 @@ mod tests {
                 at_us: now_us,
                 counts: Counts::default(),
                 last_read: None,
+                startup_discards: None,
             },
             &mut report,
         )

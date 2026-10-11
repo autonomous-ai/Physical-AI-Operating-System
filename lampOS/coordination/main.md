@@ -3,9 +3,9 @@
 - Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `8feaf64b9` adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
+- Integrated source checkpoint: this checkpoint adds bounded stale-frame discard at camera startup over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: four eight-turn Rust runs on lamp-4ace completed all 32 prompts under conservative V1-baseline turn taking. The latest two runs have zero detected speech-starvation gaps, with no acoustic acceptance or natural-interruption claim. A continuous-session harness startup race stopped the next trial before any prompt; Rust stopped cleanly and rollback verified. Camera startup correction and motor-worker lifecycle fixes remain under qualification. Main coordinates the complete duplex and endpoint workstreams through tmux.
+- State: four eight-turn Rust runs on lamp-4ace completed all 32 prompts under conservative V1-baseline turn taking. The latest two runs have zero detected speech-starvation gaps, with no acoustic acceptance or natural-interruption claim. A continuous-session harness startup race stopped the next trial before any prompt; Rust stopped cleanly and rollback verified. Its corrected fresh-namespace trial is in progress and has no final result yet. Camera startup correction is integrated after host/ARM qualification; native validation is pending. Motor-worker lifecycle corrections remain inactive under review. Main coordinates the complete duplex and endpoint workstreams through tmux.
 
 ## Latest native qualification
 
@@ -28,17 +28,23 @@ race without renewing the original readiness cue or claiming metadata before
 observing it, then retry in a fresh namespace. This is not a completed
 long-session test or evidence that Rust crashed.
 
-Native camera inspection now identifies the startup failure exactly: the first
+Native camera inspection identifies the startup failure exactly: the first
 reported monotonic exposure is 400,929 us old against the unchanged 250,000 us
-limit. Zero frames were accepted. A private correction discards otherwise-valid
-old startup buffers one per poll within the original two-second deadline;
-128 affected host tests pass, with ten additional root-review test executions.
-ARM and native qualification remain pending. No age limit was relaxed.
+limit. Zero frames were accepted. This checkpoint integrates the correction:
+discard otherwise-valid old startup buffers one per poll within the original
+two-second deadline, without exporting them or granting readiness. The first
+accepted frame permanently ends that startup exception for its capture epoch.
+128 affected host tests pass, with ten additional root-review executions.
+Source-only ARM64 fmt, strict affected Clippy, 137 affected tests, release build,
+ELF and CLI checks pass. The new binary is `e3a50dd9...`; its full identity and
+evidence are in [camera runtime](../docs/camera-runtime.md). Native qualification
+remains pending. No age limit was relaxed.
 
 The independent motor worker candidate remains inactive. Review reproduced
 failed priority-send handling, out-of-order fault receipts and leaked child IPC
-paths after a crash. Its author is correcting the complete lifecycle with those
-production-path regressions. No physical motor motion has been performed with this candidate.
+paths after a crash. The corrected private candidate passes 129 motor tests,
+fmt, strict Clippy and worker build; independent re-review is in progress. It is not integrated or
+deployed. No physical motor motion has been performed with this candidate.
 
 ## Current private integration and latency target
 

@@ -142,6 +142,7 @@ mod tests {
             teardown_deadline_us: at + lamp_camera::DRIVER_TEARDOWN_BUDGET_US,
             error: None,
             timestamp_rejection: None,
+            startup_discards: None,
         }
     }
     fn stopped(at: u64) -> CameraEvent {
@@ -223,7 +224,8 @@ mod tests {
                     &CameraEvent::Progress {
                         at_us: 1300,
                         counts: Counts::default(),
-                        last_read: None
+                        last_read: None,
+                        startup_discards: None,
                     },
                     1300
                 )

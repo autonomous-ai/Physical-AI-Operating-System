@@ -19,6 +19,22 @@ status file on its own branch. Read the other agents' files from fetched refs;
 merging their unfinished code is unnecessary for reading a message.
 The main agent alone integrates into `lamp-v2-chat`.
 
+## Direct route
+
+The existing sessions are connected through native Harness team **Lamp Rust
+implementation**, ID `7ab909c63bf648319c8535737bce2a94`, owned by office.
+Use member names `main`, `agent1`, and `agent2`; Agent 2 runs on M2. Team
+introductions provide each session's local member identity and credentials.
+Never put member keys, provider credentials or private recordings in Git.
+
+Use `harness team ... ask`, `reply`, `inbox`, and bounded `wait`. Preserve the
+exchange ID when retrying an uncertain request. A queued message is not an
+acknowledgment; wait for the intended agent's reply. Read pending questions at
+safe work boundaries and answer interface blockers before continuing dependent
+work. Do not interrupt another agent's tools or approve its permission prompts.
+If native delivery is delayed or unavailable, publish the request/answer in the
+agent's Git status without requiring the owner to relay it.
+
 ## Working loop
 
 1. Use a verified active session for direct messages. Check recipient identity

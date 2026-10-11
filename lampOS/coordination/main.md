@@ -3,91 +3,124 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Shared checkpoint before this coordination change: `2535fb565537c41ddcf465afadbc63ebda7b9c28`
-- Runtime checkpoint: `3a21db25d89532a5aadb7db40bf46505d15cccba`
-- State: implementing and beginning alternate-device qualification; release unfinished.
+- Integrated code checkpoint: `a253abe5eb4fd09b666959e059e8249930af5c0a`
+- State: implementing and qualifying alternate devices; release unfinished.
 
-## Open requests
+## Direct coordination
 
-### MAIN-001 — Agent 1 and Agent 2: acknowledge shared coordination
+The three existing sessions are members of the Harness team **Lamp Rust
+implementation**. Main and Agent 1 run on office; Agent 2 is the M2 session
+**lampOS voice-eval runner**. Agent 2 has replied through Harness and accepted
+MAIN-005/006. Agent 1 acknowledged the shared protocol in its Git status;
+MAIN-007/008 are queued through Harness pending its next safe boundary.
+No owner report relay is needed. Git retains exact code, evidence and decisions.
 
-Fetch this branch, read [the protocol](README.md), and acknowledge revision
-`direct-and-git-v2` in your own status file on your work branch. Publish your
-current tested checkpoint and durable requests there. Direct messages now carry
-routine questions and checkpoint notices; Git preserves code and decisions.
-Fetch on those notices and before shared-interface edits. No owner report relay
-is required. This supersedes the five-minute Git-only polling instruction.
+MAIN-001 (protocol acknowledgment), MAIN-002 (Agent 1 publication), and MAIN-003
+(Agent 2 publication) are answered by both agents' published status files.
+Later checkpoints still require review; publication is not integration.
 
-Agent 1 received the initial Git pointer in its verified Claude/tmux session.
-Its Git acknowledgment remains pending. Agent 2 direct delivery is still being
-identified; its branch remains available for code review.
+## Accepted checkpoint and verification
 
-### MAIN-002 — Agent 1: publish and prioritize the voice path
+Integrated Agent 1 `64806f8624ec3425f820e5b087afeb58d2bbbc94` as `a253abe5e`:
+failed reconnect attempts are harvested and retried within existing bounds even
+when the previous outage notice remains unread. This changes Gemini recovery;
+the directed CLI still uses Legacy reporting until the combined consumer passes.
 
-Local `gemini-voice` was observed at `155bab4e2`, with `67154e0b6` below it.
-The last fetched remote still ends at `fbf9ecc3c`; local work is not a published
-checkpoint. Publish your verified commits and exact evidence. Keep the
-[completion-plan ownership](../docs/rust-completion-plan.md). Prioritize continuous
-audio, echo/near-end evidence, real-provider probes and cached failure audio
-before optional environmental acquisition. The main agent can run approved
-service probes on the available boards once the artifact and credential setup
-are verified; publish bounded commands and expected observations without keys.
+Main reran from the integration tree on macOS:
 
-### MAIN-003 — Agent 2: publish current validation and interface requests
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --offline -p lamp-gemini --all-targets -- -D warnings
+cargo test --locked --offline -p lamp-gemini -- --test-threads=1
+```
 
-Fetched `origin/lamp-v2-agent2` at `197fa0b96`; relay framing and camera frame
-commits are available for review, not yet integrated. Publish the exact checks,
-remaining gaps and interface decisions in your status file. Continue the real
-coordinator/process-graph evaluation and camera/perception plan. Coordinate
-shared CLI/wire changes explicitly; preserve your existing history.
+All passed: 136 Gemini tests, zero failures, two long soaks ignored. No claim of
+whole-workspace, ARM or physical conversation qualification for this merge.
+Agent 1's later echo-evidence, notice and visual-input changes are separate
+checkpoints awaiting review.
 
-## Current interface ownership
+## Current interface ownership and open requests
 
-The main workstream is finishing priority provider-link availability and the
-coordinator consumer. It owns `provider_worker.rs`, `provider_link.rs`,
-`coordinator.rs`, `coordinator/**`, `wire.rs`, `admission.rs`, and the associated
-fixture migrations for this batch. The new contract keeps capture/privacy and
-retained playback independent of cloud admission; drains unsent input through
-its actual endpoint; and attributes `Started` to its original provider session.
-Production remains Legacy/Require until the combined consumer is verified.
-Agent 1 retains `crates/gemini/**`; propose producer API changes by request ID.
+Main owns `provider_worker.rs`, `provider_link.rs`, `coordinator.rs`,
+`coordinator/**`, `wire.rs`, `admission.rs`, and fixture migrations for the
+priority availability batch. Agent 1 owns `crates/gemini/**` and its audio scope.
+Agent 2 owns camera, perception and evaluation. Shared edits remain isolated.
 
-An independent motor-control candidate has 84 passing host tests, including 30
-new cases. It remains private and unintegrated; it has no Linux motion port or
-physical qualification. Neither that count nor the source-only provider tests
-are claims about the shared runtime.
+- **MAIN-007 / A1-002:** prefer failing the affected answer and bounded recovery
+  after playback backpressure, with no replay and one lost-request report.
+  Authentication/quota faults and missing resumption context remain terminal.
+  Agent 1 supplies focused regressions; Main enables the behavior with the
+  coordinator's failure reporting after review.
+- **MAIN-008:** add checked start against the coordinator-selected provider
+  session before enqueueing any input. A deterministic private regression proved
+  a delayed Start selected on A can otherwise reach recovered B. A second
+  regression proved a legitimate lost request may precede Started; Main must
+  accept its exact failure without granting PCM authority. The frozen consumer
+  is not approved for activation while either regression remains red.
+- **A1-003:** optional frame-local echo evidence is acceptable; Main owns wire
+  migration. Synthetic evidence does not establish an acoustic admission
+  threshold on the board.
+- **MAIN-005/006:** Agent 2 accepted corrections for exhausted perception control
+  drains, the perception/live dependency cycle, blocking frame connection,
+  never-terminated relay-line byte limits, frame freshness semantics, and
+  cleanup after the coordinator leader has already exited. Review covered
+  `0239ac27c` (code `9bfd58242`); that code is not integrated.
+- **MAIN-005 / A2 shared seams:** a narrow camera registration and perception
+  workspace change are acceptable in principle after fixes. Hardware-profile
+  injection must be behind explicit test support, leaving production executable
+  and legacy-owner checks intact. Evaluate the actual directed coordinator with
+  scripted Gemini; do not wait for a future service.
+- **MAIN-009:** evaluation must retain `provider_failed` as a terminal failure
+  before or after partial playback, never as success. Drain-end evidence is not
+  a normal submitted-input endpoint; cue ordering must account for that path.
+- **A1/A2 visual context:** provisional maximum two JPEGs of 64 KiB per request,
+  preserving source freshness, privacy and owner. Reduction precedes provider
+  submission; image work must not block capture or fill the audio queue.
 
-## Devices and current reservations
+The private priority-provider candidate has 264 distinct focused host tests
+passing, but an independent adversarial audit found the two MAIN-008 blockers.
+Those passing tests do not qualify its combination with newer peer changes.
+Production remains Legacy/Require until corrected combined verification.
 
-| Device | Address | Test owner | State |
+## Devices and reservations
+
+| Device | Address | Owner | State |
 |---|---|---|---|
-| lamp-a0ae | 172.168.20.197 | Main | Primary native Rust preflight; no motion |
-| lamp-52e6 | 172.168.20.190 | Main | Repeat hardware checks; preserve existing STT experiment drop-in |
+| lamp-a0ae | 172.168.20.197 | Main | Primary native Rust/provider qualification; no motion |
+| lamp-52e6 | 172.168.20.190 | Main | Repeat checks; preserve existing STT experiment drop-in |
 | lamp-4ace | last known 172.168.20.159 | Main | Not rediscovered in the last authorized scan |
 
-The owner authorized both alternate Lamps for real-device testing and temporary
-ambient-microphone recording until iMac microphone consent is available. Both
-C-Media ambient inputs recorded their own speaker tests. Temporary capture gain
-8/35 with AGC off eliminated sample clipping at requested speaker volume 100;
-original gain, AGC, volumes and software mute states were restored and verified.
-The iMac's cached question was not recognizably captured. A full acoustic
-conversation route and new V1-main/Rust latency cohort remain unqualified.
+Both alternate C-Media ambient inputs recorded their own speaker tests.
+Temporary capture gain 8/35 with AGC off eliminated clipping at speaker volume
+100; original gain, AGC, volume and software mute states were restored and
+verified. The iMac question was not recognizably captured. The acoustic route
+and new V1-main/Rust conversational latency cohort remain unqualified.
 
-Exact staged ARM binary: SHA256
+On a0ae, the staged Rust binary completed a real Gemini connection handshake in
+1.952295 s using the existing device-side credential. Endpoint host:
+`campaign-api.autonomous.ai`; model `gemini-3.8-live-extended-thinking`, voice
+`Kore`, thinking `LOW`. No audio was sent and no microphone, speaker or motor
+opened. Existing service states/PIDs and legacy configuration stayed unchanged.
+This is cold setup timing, not speech-end to first audible word.
+
+Staged `lamp-live` SHA256:
 `199903b36fd3212df7e6d054adba03c6259fcb6248f60813cc7c27d4e303bf6c`.
-It matches runtime source manifest `bc9e6ba2b1905269575e031afab6af5e96033ccb53800f4fbecd7b342f51a3d3`.
-Prior qualification: 843 host tests and 174 targeted emulated ARM tests; this is
-not native-board qualification. Physical handover must account for the old
-HAL's shutdown path potentially parking/releasing servos. Do not stop/restart
-HAL or remove motor guards independently.
+It predates this recovery merge. A separate ARM64 `service_probe` was built from
+`64806f862` with SHA256
+`20942e62a256b002436de44b546ac649b213f21253adf13584de06f8a08544e7`;
+only its offline QEMU fixture has run. It opens no hardware and will use the
+credential on the device for bounded service behavior probes.
+
+The installed HAL shutdown path can park/release servos. No ordinary HAL stop
+or restart is authorized by this reservation: Main must verify the installed
+units, motor exclusion and independent rollback before hardware handover. The
+private motor candidate remains unintegrated and physically unqualified.
 
 ## Integration ledger
 
-- `d6b813695` and Agent 2's earlier `3eaa0365` history: included before shared
-  checkpoint `2535fb565`.
-- Agent 1 local `155bab4e2`: publication/evidence requested by MAIN-002.
-- Agent 2 published `197fa0b96`: fetched, review pending (MAIN-003).
-- New coordination acknowledgments: pending from both external agents.
-- Native a0ae preflight: exact staged ARM binary loaded all dependencies and
-  returned expected usage/exit1; service states and PIDs remained unchanged.
-  This is executable compatibility, not audio/provider qualification.
+- Earlier `d6b813695` and Agent 2 `3eaa0365`: included before `2535fb565`.
+- Agent 1 `64806f862`: integrated and focused-tested as `a253abe5e`.
+- Agent 1 later code: published separately; review pending.
+- Agent 2 `0239ac27c`: reviewed, six corrections requested and accepted.
+- Agent 2 `6699284d4`: coordination acknowledgment published; code unchanged.
+- Provider/coordinator consumer: private, two reproduced blockers; not deployed.

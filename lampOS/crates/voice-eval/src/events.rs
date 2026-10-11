@@ -58,6 +58,12 @@ pub enum EventKind {
     LocalEndpoint {
         last_block_read_us: Option<u64>,
     },
+    /// The detector end of a submitted request that was abandoned (for
+    /// example drained during a provider outage). Never a normal endpoint:
+    /// it does not start answer latency.
+    InputDiscardedEndpoint {
+        last_block_read_us: Option<u64>,
+    },
     ProviderFirstAudio,
     SpeakerFirstWrite,
     SpeechRetired,
@@ -151,6 +157,7 @@ impl RuntimeEvent {
             EventKind::RingRequested { .. } => "ring_requested",
             EventKind::ProviderInputStarted => "provider_input_started",
             EventKind::LocalEndpoint { .. } => "local_endpoint",
+            EventKind::InputDiscardedEndpoint { .. } => "input_discarded_endpoint",
             EventKind::ProviderFirstAudio => "provider_first_audio",
             EventKind::SpeakerFirstWrite => "speaker_first_write",
             EventKind::SpeechRetired => "speech_retired",
@@ -201,6 +208,11 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
         },
         "provider_input_started" => EventKind::ProviderInputStarted,
         "local_endpoint" => EventKind::LocalEndpoint {
+            last_block_read_us: u64_field(record, "last_block_host_read_us"),
+        },
+        // A submitted request abandoned during a provider outage reaches its
+        // detector end here, not through the normal owned endpoint.
+        "input_discarded_endpoint" => EventKind::InputDiscardedEndpoint {
             last_block_read_us: u64_field(record, "last_block_host_read_us"),
         },
         "provider_first_audio" => EventKind::ProviderFirstAudio,
@@ -401,14 +413,24 @@ pub(crate) fn completion_gaps_match(outcome: &str, gaps: u64) -> bool {
     match outcome {
         "audio_written_unscored" | "no_audio_answer" => gaps == 0,
         "audio_written_with_playback_gaps_unscored" => gaps > 0,
+        // A terminal failure may follow a partial answer with or without gaps.
+        PROVIDER_FAILED => true,
         _ => false,
     }
 }
 
+/// Terminal provider failure (MAIN-009): a failed answer, before audio or
+/// after a partial answer whose played audio was retired. Provisional name
+/// until the coordinator publishes its frozen cue schema.
+pub const PROVIDER_FAILED: &str = "provider_failed";
+
 pub(crate) fn completion_outcome(value: &str) -> bool {
     matches!(
         value,
-        "no_audio_answer" | "audio_written_unscored" | "audio_written_with_playback_gaps_unscored"
+        "no_audio_answer"
+            | "audio_written_unscored"
+            | "audio_written_with_playback_gaps_unscored"
+            | PROVIDER_FAILED
     )
 }
 
@@ -485,6 +507,10 @@ pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
         }
         EventKind::LocalEndpoint { last_block_read_us } => {
             json!({"kind":"local_endpoint","owner":owner,
+            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
+        }
+        EventKind::InputDiscardedEndpoint { last_block_read_us } => {
+            json!({"kind":"input_discarded_endpoint","owner":owner,
             "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
         }
         EventKind::ProviderFirstAudio => json!({"kind":"provider_first_audio"}),

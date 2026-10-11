@@ -91,6 +91,9 @@ pub enum StepStatus {
     TriggerStale,
     /// The player reported that the stimulus was not delivered.
     DeliveryFailed,
+    /// A terminal provider failure was observed while waiting; no stimulus
+    /// is scheduled while the provider is unavailable (MAIN-009).
+    ProviderUnavailable,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

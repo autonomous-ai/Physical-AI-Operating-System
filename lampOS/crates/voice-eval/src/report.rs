@@ -85,6 +85,8 @@ pub struct StratumSummary {
     pub acoustic_unscored: BTreeMap<String, usize>,
     pub missing_answers: usize,
     pub truncated_answers: usize,
+    /// Answers that ended with a terminal provider failure (MAIN-009).
+    pub provider_failed_answers: usize,
     pub duplicate_answers: usize,
     pub playback_gap_answers: usize,
     /// Heard answers (audio started) whose speech-end -> first word could be measured.
@@ -142,6 +144,9 @@ pub fn summarize(scores: &[&AttemptScore]) -> StratumSummary {
                         | AnswerOutcome::CompleteWithGaps
                         | AnswerOutcome::Truncated { .. }
                         | AnswerOutcome::Late
+                        | AnswerOutcome::ProviderFailed {
+                            partial_audio: true
+                        }
                 )
             ) {
                 s.speech_end_opportunities += 1;
@@ -151,6 +156,7 @@ pub fn summarize(scores: &[&AttemptScore]) -> StratumSummary {
                     s.missing_answers += 1
                 }
                 Some(AnswerOutcome::Truncated { .. }) => s.truncated_answers += 1,
+                Some(AnswerOutcome::ProviderFailed { .. }) => s.provider_failed_answers += 1,
                 Some(AnswerOutcome::CompleteWithGaps) => s.playback_gap_answers += 1,
                 _ => {}
             }
@@ -495,6 +501,10 @@ pub fn markdown(report: &Report, targets: &Targets) -> String {
                 s.possible_lost_opening_hypotheses.to_string(),
             ),
             ("Missing answers (no audio)", s.missing_answers.to_string()),
+            (
+                "Answers ended by a provider failure (before or after partial audio)",
+                s.provider_failed_answers.to_string(),
+            ),
             (
                 "Truncated answers (started, not finished)",
                 s.truncated_answers.to_string(),

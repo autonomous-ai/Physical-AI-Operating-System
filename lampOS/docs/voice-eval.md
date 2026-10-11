@@ -120,6 +120,27 @@ reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
 
+### Terminal provider failure (`MAIN-009`, provisional field names)
+
+A `turn_completed` cue or `turn_finished` trace record with outcome
+`provider_failed` ends the turn as a failed answer.
+
+- **Scoring.** It is scored `ProviderFailed { partial_audio }` with a
+  `provider_failed` finding. It counts in the completion denominator and never
+  in its numerator, and it is reported separately from silent missing
+  terminals.
+- **Audio evidence.** Audio already played stays as evidence. Every started
+  playback occurrence must have retired first, otherwise the completion
+  evidence is inconsistent.
+- **Endpoint.** No normal endpoint is required: an abandoned request may end on
+  the drain path, recorded as `input_discarded_endpoint`. That event is never
+  treated as a local endpoint and starts no answer latency.
+- **Runner.** A failed terminal never satisfies a completion trigger. A step
+  waiting on it is recorded as `provider_unavailable`, and nothing is played.
+- **Schema.** Field names follow the main agent's description and will be
+  aligned with its frozen producer schema. Tests: `tests/provider_failed.rs` and
+  the runner's `a_provider_failure_is_never_a_completion_trigger_and_is_reported`.
+
 ### Relay framing and cleanup
 
 Both relay ends read lines incrementally with a fixed per-line bound and never

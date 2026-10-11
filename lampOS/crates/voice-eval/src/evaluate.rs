@@ -55,6 +55,8 @@ pub enum FindingKind {
     RingMismatch,
     OverlapNotAchieved,
     EvidenceMissing,
+    /// The answer ended with a terminal provider failure (MAIN-009).
+    ProviderFailed,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -114,6 +116,11 @@ pub enum AnswerOutcome {
     /// No reply audio was accepted for an admitted request.
     Missing {
         cause: String,
+    },
+    /// The provider failed terminally, before any audio or after a partial
+    /// answer. Always a failed answer; played audio evidence is retained.
+    ProviderFailed {
+        partial_audio: bool,
     },
     NotAdmitted,
     Unsupported {
@@ -403,7 +410,13 @@ fn timeline(events: &[RuntimeEvent]) -> BTreeMap<u64, Turn> {
                         .invalidate("duplicate or conflicting whole-turn termination");
                 }
                 let audio = outcome.starts_with("audio_written");
-                if (audio && !entry.playback.complete()) || (!audio && entry.playback.started()) {
+                // A provider failure may follow a partial answer, but any
+                // started audio must have been retired first.
+                let failed = outcome == crate::events::PROVIDER_FAILED;
+                if (audio && !entry.playback.complete())
+                    || (!audio && !failed && entry.playback.started())
+                    || (failed && entry.playback.started() && !entry.playback.complete())
+                {
                     entry
                         .playback
                         .invalidate("completion lacks a complete matching playback history");
@@ -938,6 +951,21 @@ fn score_answer(
         return (AnswerOutcome::Late, false);
     }
     match t.completed.as_ref().map(|(_, outcome)| outcome.as_str()) {
+        Some(crate::events::PROVIDER_FAILED) => {
+            let partial_audio = t.first_write.is_some();
+            cx.finding(
+                FindingKind::ProviderFailed,
+                Severity::Failure,
+                Some(&step.step),
+                Some(turn),
+                if partial_audio {
+                    "the provider failed after a partial answer; the played audio is retained as evidence".into()
+                } else {
+                    "the provider failed before any answer audio".into()
+                },
+            );
+            (AnswerOutcome::ProviderFailed { partial_audio }, false)
+        }
         Some("audio_written_unscored") => (AnswerOutcome::Complete, true),
         Some("audio_written_with_playback_gaps_unscored") => {
             cx.finding(
@@ -1015,6 +1043,10 @@ fn withheld_status(step: &StepRecord) -> Option<(FindingKind, String)> {
             format!("trigger stale: {reason}"),
         )),
         StepStatus::DeliveryFailed => Some((FindingKind::StimulusNotDelivered, reason)),
+        StepStatus::ProviderUnavailable => Some((
+            FindingKind::ProviderFailed,
+            format!("not stimulated: {reason}"),
+        )),
     }
 }
 

@@ -144,8 +144,10 @@ impl LiveView {
                         | (EventKind::TurnCompleted { .. }, TriggerEvent::TurnCompleted)
                         | (EventKind::TurnCancelled { .. }, TriggerEvent::TurnCancelled)
                 );
-                kind && (after == TriggerEvent::ListeningReady
-                    || event.turn.is_none_or(|turn| turn > known_turn))
+                // A failed terminal is never a completion trigger.
+                kind && !failed_terminal(&event.kind)
+                    && (after == TriggerEvent::ListeningReady
+                        || event.turn.is_none_or(|turn| turn > known_turn))
             })
             .map(|(event, runner_us, method)| TriggerObservation {
                 event: after,
@@ -155,6 +157,16 @@ impl LiveView {
                 runner_us: *runner_us,
                 runner_time_method: method.clone(),
             })
+    }
+
+    /// A terminal provider failure of a turn newer than `known_turn`.
+    fn provider_failed(&self, known_turn: u64, from_index: usize) -> Option<u64> {
+        self.events[from_index.min(self.events.len())..]
+            .iter()
+            .find(|(event, _, _)| {
+                failed_terminal(&event.kind) && event.turn.is_none_or(|turn| turn > known_turn)
+            })
+            .map(|(event, _, _)| event.turn.unwrap_or(0))
     }
 
     /// Whether the reply has started and has no terminal event yet.
@@ -196,6 +208,11 @@ fn observe_next(backend: &mut dyn Backend, view: &mut LiveView, until_us: u64) -
 
 /// Execute the steps of one attempt. Returns step records, live events and an
 /// abort reason when the runner itself could not continue.
+/// Whether an event is a terminal provider failure (MAIN-009).
+fn failed_terminal(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::TurnCompleted { outcome, .. } if outcome == crate::events::PROVIDER_FAILED)
+}
+
 fn execute(
     backend: &mut dyn Backend,
     scenario: &Scenario,
@@ -212,6 +229,14 @@ fn execute(
         let record = &mut steps[index];
         let deadline_us = anchor_us + u64::from(step.trigger.deadline_ms) * 1000;
         let observation = loop {
+            if let Some(turn) = view.provider_failed(known_turn, anchor_index) {
+                // Never schedule a stimulus on a failed terminal.
+                record.status = StepStatus::ProviderUnavailable;
+                record.detail = Some(format!(
+                    "turn {turn} ended with a provider failure; no stimulus while the provider is unavailable"
+                ));
+                return Ok(());
+            }
             if let Some(found) = view.find(step.trigger.after, known_turn, anchor_index) {
                 break Some(found);
             }
@@ -559,5 +584,26 @@ mod occurrence_tests {
             Some(20),
             "legacy occurrence trigger keeps its meaning"
         );
+    }
+
+    #[test]
+    fn a_provider_failure_is_never_a_completion_trigger_and_is_reported() {
+        let mut view = LiveView::default();
+        observe(&mut view, EventKind::SpeakerFirstWrite, Some(1), 10);
+        observe(&mut view, EventKind::SpeechRetired, Some(1), 20);
+        assert!(view.provider_failed(0, 0).is_none());
+        observe(
+            &mut view,
+            EventKind::TurnCompleted {
+                outcome: crate::events::PROVIDER_FAILED.into(),
+                playback_gaps: 0,
+            },
+            None,
+            30,
+        );
+        assert!(view.find(TriggerEvent::TurnCompleted, 0, 0).is_none());
+        assert_eq!(view.provider_failed(0, 0), Some(1));
+        // Already-known turns do not withhold later steps.
+        assert!(view.provider_failed(1, 0).is_none());
     }
 }

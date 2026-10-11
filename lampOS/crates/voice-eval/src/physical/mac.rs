@@ -258,6 +258,24 @@ impl CueOrder {
                     }
                     // Retiring all current PCM is not whole-turn completion.
                     "cancelled" => owner.terminal = true,
+                    // A terminal provider failure needs no normal endpoint (an
+                    // abandoned request ends on the drain path) and may follow
+                    // a partial answer, whose audio must already be retired.
+                    "turn_completed"
+                        if cue.outcome.as_deref() == Some(crate::events::PROVIDER_FAILED)
+                            && !owner.playback.active() =>
+                    {
+                        if owner
+                            .playback
+                            .occurrences
+                            .last()
+                            .and_then(|p| p.retired_us)
+                            .is_some_and(|end| cue.event_us < end)
+                        {
+                            return Err(invalid("provider failure predates playback retirement"));
+                        }
+                        owner.terminal = true;
+                    }
                     "turn_completed" if owner.endpoint && !owner.playback.active() => {
                         let audio = cue.outcome.as_deref() != Some("no_audio_answer");
                         if (audio && !owner.playback.complete())

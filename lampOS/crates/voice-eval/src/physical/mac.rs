@@ -340,6 +340,10 @@ pub struct PhysicalBackend<'a> {
     playbacks: Vec<Playback>,
     attempt_directory: Option<PathBuf>,
     seconds: u16,
+    /// Events drained by the final dispatch check, returned by `next_event`.
+    pending: std::collections::VecDeque<RuntimeEvent>,
+    /// Latched terminal provider failure seen on this attempt's session.
+    provider_failed: Option<String>,
 }
 
 /// End scheduling immediately, retaining the actual trace at finish. This is a
@@ -374,6 +378,22 @@ impl<'a> PhysicalBackend<'a> {
             playbacks: Vec::new(),
             attempt_directory: None,
             seconds: 0,
+            pending: std::collections::VecDeque::new(),
+            provider_failed: None,
+        }
+    }
+
+    /// Latch a terminal provider failure from a live event.
+    fn note(&mut self, event: &RuntimeEvent) {
+        if matches!(&event.kind, EventKind::TurnCompleted { outcome, .. }
+            if outcome == crate::events::PROVIDER_FAILED)
+        {
+            self.provider_failed.get_or_insert_with(|| {
+                format!(
+                    "turn {} ended with a provider failure before dispatch; no stimulus while the provider is unavailable",
+                    event.turn.unwrap_or(0)
+                )
+            });
         }
     }
 
@@ -759,6 +779,8 @@ impl Backend for PhysicalBackend<'_> {
         self.attempt_directory = Some(directory.clone());
         self.seconds = context.scenario.session_seconds;
         self.playbacks.clear();
+        self.pending.clear();
+        self.provider_failed = None;
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -864,6 +886,9 @@ impl Backend for PhysicalBackend<'_> {
         monotonic_us()
     }
     fn next_event(&mut self, until_us: u64) -> Result<Option<RuntimeEvent>> {
+        if let Some(event) = self.pending.pop_front() {
+            return Ok(Some(event));
+        }
         loop {
             let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
                 (s.next_ping_us, s.pings.len() as u64)
@@ -886,6 +911,7 @@ impl Backend for PhysicalBackend<'_> {
             match line {
                 Ok(line) => {
                     if let Some(event) = self.handle(line) {
+                        self.note(&event);
                         return Ok(Some(event));
                     }
                 }
@@ -939,6 +965,31 @@ impl Backend for PhysicalBackend<'_> {
         while monotonic_us() < at_us {
             thread::sleep(Duration::from_micros((at_us - monotonic_us()).min(1_000)));
         }
+        // Final dispatch check: take every line already relayed (keeping the
+        // events for the runner) and refuse to start after a provider failure.
+        while let Some(line) = self.wait_line(monotonic_us()) {
+            match line {
+                Ok(line) => {
+                    if let Some(event) = self.handle(line) {
+                        self.note(&event);
+                        self.pending.push_back(event);
+                    }
+                }
+                Err(error) => {
+                    if let Some(session) = self.session.as_mut() {
+                        session.protocol_errors.push(error);
+                    }
+                }
+            }
+        }
+        if let Some(reason) = self.provider_failed.clone() {
+            return Ok(Injection {
+                started_us: monotonic_us(),
+                receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
+                    "reason": reason}),
+                withheld: Some(reason),
+            });
+        }
         let cancel_file = directory.join(format!("cancel-{}", step.id));
         let requested_us = monotonic_us();
         let handle = self.player.start(
@@ -954,6 +1005,7 @@ impl Backend for PhysicalBackend<'_> {
             handle,
         });
         Ok(Injection {
+            withheld: None,
             started_us: requested_us,
             receipt: json!({"wav_sha256": asset.wav_sha256, "requested_runner_us": requested_us,
                 "late_us": requested_us.saturating_sub(at_us),

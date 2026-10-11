@@ -4,7 +4,7 @@
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Integrated code checkpoint: `a253abe5eb4fd09b666959e059e8249930af5c0a`
-- State: first audio-only V2 deployment and recorded conversation take priority; release unfinished.
+- State: first physical Rust response recorded; content and playback defects remain. Release and benchmark unfinished.
 
 ## Direct coordination
 
@@ -14,7 +14,7 @@ implementation**. Main and Agent 1 run on office; Agent 2 is the M2 session
 MAIN-005/006/014/015. Agent 1 publishes acknowledgments in Git: its session
 cannot obtain a verified Harness team context (`CHANNEL_SCOPE_MISSING`).
 Respect that guard; use its Git status and ordinary messages to the verified
-session. Checkpoint 5 answers MAIN-007/008/011/012; Main is reviewing it.
+session. Checkpoints 5–7 answer MAIN-007/008/011/012/017/019; Main is reviewing the combined provider/audio source.
 No owner report relay is needed. Git retains exact code, evidence and decisions.
 
 MAIN-001 (protocol acknowledgment), MAIN-002 (Agent 1 publication), and MAIN-003
@@ -79,12 +79,13 @@ Agent 2 owns camera, perception and evaluation. Shared edits remain isolated.
   preserving source freshness, privacy and owner. Reduction precedes provider
   submission; image work must not block capture or fill the audio queue.
 
-The private priority-provider candidate has 264 distinct focused host tests
-passing, but an independent adversarial audit found the two MAIN-008 blockers.
-Those passing tests do not qualify its combination with newer peer changes.
-Agent 1 has now supplied the checked start; Main has a private regression fix
-for legitimate failure before Started. Integration and combined verification
-remain pending. Production remains Legacy/Require.
+The two MAIN-008 failures were reproduced and corrected privately. The checked
+Start binds input to the selected session, and a valid failure before Started
+retains endpoint draining without granting PCM authority. The corrected slice
+has 152 focused host tests passing with strict live Clippy and formatting; two
+existing long tests were not rerun. Main is now combining it with Agent 1's
+latest capture/provider source. Canonical integration and combined verification
+remain pending. The physical trial used Legacy/Require.
 
 MAIN-013/016: the exact provisional failure schema is now durable in
 [failure-cue-contract.md](failure-cue-contract.md). Agent 2 did not receive the
@@ -128,8 +129,25 @@ The new ARM64 `lamp-live` build from exact code tree `51bd815e9` is staged on
 a0ae. SHA256:
 `d3318abe080336dbd4c50d9d04e4517eb21cd0b7cec5afaa5d5f62e990b525e7`.
 Offline ARM64 release build, strict all-target live Clippy and 12 provider-flow
-tests under QEMU passed. The staged file's hash matches. This does not yet
-establish a successful Rust conversation on either replacement device.
+tests under QEMU passed. The staged file's hash matches. The first finite
+physical run then produced one answer with legacy services stopped. It failed
+content quality: an English greeting was interpreted as Italian. One 30 ms
+inserted-zero playback gap interrupted the opening voiced segment. Source and
+target diagnostic recordings, hashes and restoration were independently checked.
+Local endpoint to first ALSA write was 1.046792 s for this single turn; acoustic
+first-word latency is unscored. No V1-main comparison or speedup exists yet.
+
+The owner's subsequent same-Lamp check used 52e6's speaker and both its own
+microphones at volume 60. Both recordings recovered the sentence except for
+ASR spelling of “Lamp”; Jieli had no clipping, C-Media still clipped. This was
+an installed-V1 audio-route check, not a Rust conversation. See the exact
+[physical trial evidence and limits](../docs/real-device-audio-pilot.md).
+
+The target returned to software-muted legacy services with the serial guard
+retained. V2 is not the continuously running default yet. Main is pinning test
+stimuli and isolating recognition before a repeated benchmark. MAIN-022 gives
+Agent 1 the actual chunk timing and gap; MAIN-020/021 gives Agent 2 the exact
+failure contract and an offline recording-import/annotation-proposal task.
 
 Main has a temporary key-only maintenance SSH service on a0ae, restricted to
 the authorized Mac source and a two-hour lifetime, leaving the existing SSH
@@ -146,8 +164,7 @@ private motor candidate remains unintegrated and physically unqualified.
 
 - Earlier `d6b813695` and Agent 2 `3eaa0365`: included before `2535fb565`.
 - Agent 1 `64806f862`: integrated and focused-tested as `a253abe5e`.
-- Agent 1 checkpoint 5 `0bf54e63f` / tested `d938a3101`: fetched; review pending.
+- Agent 1 checkpoint 7 `ae4f05db4` / tested `a77bdb0fd`: fetched; combined provider/capture review in progress. Images stay inactive.
 - Agent 2 `0239ac27c`: reviewed, six corrections requested and accepted.
-- Agent 2 `bb7e61aec` and `b010aa0b8`: fetched; six prior corrections confirmed,
-  runner and image privacy follow-ups acknowledged. Not integrated.
-- Provider/coordinator consumer: private, two reproduced blockers; not deployed.
+- Agent 2 `b7fbe352e` / tested `d5b848b3`: fetched; published runner, failure-evidence and image-privacy corrections awaiting combined review. Not integrated.
+- Provider/coordinator consumer: two reproduced blockers corrected in private; combined candidate not yet integrated or deployed.

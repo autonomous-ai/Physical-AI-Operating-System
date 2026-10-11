@@ -295,7 +295,13 @@ impl Error {
             | Self::CompletionTimeout
             | Self::ServerUnavailable
             | Self::ServerGoAway
-            | Self::Transport => Recovery::Reconnect,
+            | Self::Transport
+            // A consumer that took nothing for the delivery bound, or input
+            // that overran its queue. The connection is abandoned with what
+            // it still held, the request in flight is reported lost once,
+            // and a new connection serves the next request. The connection
+            // itself was healthy; reconnecting is how its stuck work is shed.
+            | Self::Backpressure => Recovery::Reconnect,
             // Application close codes observed on the deployment relay for a
             // missing key, an unconfigured route and an exhausted usage limit.
             Self::PeerClosed {
@@ -310,7 +316,6 @@ impl Error {
             | Self::UnsupportedMessage
             | Self::MessageTooLarge
             | Self::InvalidAudio
-            | Self::Backpressure
             | Self::StaleInput
             | Self::InputSequence
             | Self::StaleRequest

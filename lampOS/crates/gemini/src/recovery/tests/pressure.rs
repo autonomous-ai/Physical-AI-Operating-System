@@ -390,3 +390,227 @@ async fn replacements_that_die_on_arrival_end_as_unstable_with_the_first_answer_
         "no attempt after the link was declared unstable"
     );
 }
+
+/// An answer of more events than the event queue holds, on a connection
+/// whose consumer then takes nothing for longer than the delivery bound.
+/// Returns the supervisor with the failure observed and not yet read.
+async fn speaker_stopped_on_a_live_connection(with_handle: bool) -> (Rig, i16) {
+    const BLOCKS: i16 = 40;
+    let (mut rig, mut first) = if with_handle {
+        connected(quick(), config()).await
+    } else {
+        let (dialer, dials) = connector(config());
+        let mut rig = (Supervisor::new(dialer, quick()).unwrap(), dials);
+        let (_, dial, _) = ready(&mut rig).await;
+        (rig, dial)
+    };
+    speak(&mut rig, &mut first, 1, true).await;
+    // Twenty-four seconds of audio in forty messages, generation complete.
+    // The idle completion is withheld, as the service does while it assumes
+    // playback; it is not due before the delivery bound.
+    for value in 1..=BLOCKS {
+        first.service.send(audio(value, 14_400)).await;
+    }
+    first
+        .service
+        .send(json!({"serverContent":{"generationComplete":true}}))
+        .await;
+    let until = Instant::now() + Timeouts::default().deliver + Duration::from_secs(2);
+    while Instant::now() < until && rig.0.is_connected() {
+        first.service.rest(Duration::from_millis(100)).await;
+    }
+    assert!(!rig.0.is_connected(), "the delivery bound never fired");
+    (rig, BLOCKS)
+}
+
+/// What the dead connection still delivers: an unbroken beginning of the
+/// answer, then its one outcome.
+async fn beginning_then_outcome(
+    rig: &mut Rig,
+    blocks: i16,
+) -> (usize, std::result::Result<OutputNotice, Failure>) {
+    let mut heard = Vec::new();
+    let outcome = loop {
+        match timeout(WAIT, rig.0.next_output()).await.unwrap() {
+            Ok(OutputNotice::Event(Event::Audio { pcm, .. })) => heard.push(pcm[0]),
+            Ok(OutputNotice::Event(_)) => {}
+            outcome => break outcome,
+        }
+    };
+    assert!(!heard.is_empty() && heard.len() < blocks as usize);
+    assert_eq!(heard, (1..=heard.len() as i16).collect::<Vec<_>>());
+    (heard.len(), outcome)
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_stopped_speaker_past_the_delivery_bound_costs_the_answer_not_the_session() {
+    let (mut rig, blocks) = speaker_stopped_on_a_live_connection(true).await;
+    let unavailable = update(&mut rig.0).await;
+    assert!(matches!(
+        unavailable.kind,
+        LinkUpdateKind::Unavailable {
+            error: Error::Backpressure
+        }
+    ));
+    // Replaced like any lost connection: once, with the handle, in bounds.
+    let mut second = next_dial(&mut rig.1).await;
+    assert!(second.resumed);
+    second.service.accept().await;
+    finished_attempt(&rig.0).await;
+    let recovered = update(&mut rig.0).await;
+    assert!(
+        matches!(
+            recovered.kind,
+            LinkUpdateKind::Ready {
+                context: Context::Resumed,
+                attempts: 1,
+                after: Some(Error::Backpressure),
+                ..
+            }
+        ),
+        "{recovered:?}"
+    );
+    let (delivered, outcome) = beginning_then_outcome(&mut rig, blocks).await;
+    assert!(delivered <= crate::EVENT_QUEUE_CAPACITY);
+    assert!(
+        matches!(
+            outcome,
+            Ok(OutputNotice::TurnLost {
+                lineage,
+                stage: Stage::Responding,
+                error: Error::Backpressure,
+            }) if lineage.request.get() == 1 && lineage.session.get() == 1
+        ),
+        "{outcome:?}"
+    );
+    // One report, nothing replayed, and the next request is served.
+    assert!(
+        timeout(Duration::from_millis(100), rig.0.next_output())
+            .await
+            .is_err(),
+        "a second outcome for the same request"
+    );
+    assert!(
+        second
+            .service
+            .try_receive(Duration::from_millis(40))
+            .await
+            .is_none(),
+        "the lost request was sent again"
+    );
+    assert_eq!(rig.0.try_start(request(1)), Err(Error::StaleRequest));
+    rig.0.try_start(request(2)).unwrap();
+    assert!(
+        second.service.receive().await["realtimeInput"]
+            .get("activityStart")
+            .is_some()
+    );
+    assert!(rig.1.try_recv().is_err(), "one outage, one replacement");
+    rig.0.shutdown();
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_stopped_speaker_still_ends_a_session_that_cannot_resume_its_context() {
+    // No handle was ever issued, and policy requires one.
+    let (mut rig, blocks) = speaker_stopped_on_a_live_connection(false).await;
+    assert!(matches!(
+        update(&mut rig.0).await.kind,
+        LinkUpdateKind::Unavailable {
+            error: Error::Backpressure
+        }
+    ));
+    let terminal = update(&mut rig.0).await;
+    assert!(
+        matches!(
+            terminal.kind,
+            LinkUpdateKind::Terminal {
+                failure: Failure {
+                    error: Error::Backpressure,
+                    reason: FailureReason::NoResumableContext,
+                    ..
+                }
+            }
+        ),
+        "{terminal:?}"
+    );
+    assert!(rig.1.try_recv().is_err(), "no attempt without context");
+    // The request is still reported, once, before the end.
+    let (_, outcome) = beginning_then_outcome(&mut rig, blocks).await;
+    assert!(matches!(
+        outcome,
+        Ok(OutputNotice::TurnLost {
+            stage: Stage::Responding,
+            ..
+        })
+    ));
+    assert_eq!(
+        rig.0.next_output().await.unwrap_err().reason,
+        FailureReason::NoResumableContext
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn input_that_overruns_its_queue_loses_that_request_and_recovers_the_link() {
+    let (mut rig, mut first) = connected(quick(), config()).await;
+    speak(&mut rig, &mut first, 1, false).await;
+    // More blocks than the queue holds, with no turn given to the connection.
+    let mut refused = None;
+    for sequence in 1..=crate::INPUT_QUEUE_CAPACITY as u64 + 1 {
+        if let Err(error) =
+            rig.0
+                .try_audio(request(1), sequence, std::time::Instant::now(), &[1; 160])
+        {
+            refused = Some((sequence, error));
+            break;
+        }
+    }
+    assert_eq!(
+        refused,
+        Some((crate::INPUT_QUEUE_CAPACITY as u64 + 1, Error::Backpressure))
+    );
+    assert!(matches!(
+        update(&mut rig.0).await.kind,
+        LinkUpdateKind::Unavailable {
+            error: Error::Backpressure
+        }
+    ));
+    let mut second = next_dial(&mut rig.1).await;
+    second.service.accept().await;
+    finished_attempt(&rig.0).await;
+    assert!(matches!(
+        update(&mut rig.0).await.kind,
+        LinkUpdateKind::Ready { .. }
+    ));
+    let lost = loop {
+        match timeout(WAIT, rig.0.next_output()).await.unwrap().unwrap() {
+            OutputNotice::Event(_) => {}
+            outcome => break outcome,
+        }
+    };
+    assert!(
+        matches!(
+            lost,
+            OutputNotice::TurnLost {
+                lineage,
+                stage: Stage::InputOpen,
+                error: Error::Backpressure,
+            } if lineage.request.get() == 1
+        ),
+        "{lost:?}"
+    );
+    // Its remaining input is refused, not carried to the replacement.
+    assert_eq!(
+        rig.0
+            .try_audio(request(1), 99, std::time::Instant::now(), &[1; 160]),
+        Err(Error::StaleRequest)
+    );
+    assert!(
+        second
+            .service
+            .try_receive(Duration::from_millis(40))
+            .await
+            .is_none()
+    );
+    rig.0.try_start(request(2)).unwrap();
+    rig.0.shutdown();
+}

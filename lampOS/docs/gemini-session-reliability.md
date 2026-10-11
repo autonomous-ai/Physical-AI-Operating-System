@@ -924,6 +924,89 @@ What an integrator will notice:
 - Echo-driven false admissions are outside this work and unchanged by it. Each
   one still cancels the answer in progress.
 
+## Where a barrier's wait starts, and what a barrier reports (opt-in)
+
+Two settings on `SessionConfig`, both off by default. Neither changes the
+policy, which stays `Require`, and neither assumes a settlement.
+
+**`barrier_wait(BarrierWait::AtCommit)`.** By default the quiet bound of
+[When the service does not confirm](#when-the-service-does-not-confirm)
+counts from the interruption, so an earlier response that stays silent for
+two seconds ends the connection while the next person is still speaking,
+with their question half uploaded. With `AtCommit` the quiet bound counts
+only while a request's `activityEnd` is being withheld, and from no earlier
+than the moment it was first withheld. While nobody is waiting to be
+committed, only the absolute bound applies.
+
+| | `FromInterruption` (default) | `AtCommit` |
+|---|---|---|
+| Quiet bound starts | At the interruption, then at each event of the earlier response | At the later of those and the moment the next `activityEnd` was withheld |
+| The next person is still speaking | Can time out under them | Cannot, short of the absolute bound |
+| A pause inside their utterance | Counts | Does not count |
+| A second continuation behind the same barrier | Counts on | Restarts at that request's own End |
+| The waiting request is cancelled | Counts on | Nothing waits; only the absolute bound |
+| Absolute bound, `Timeouts::response` (30 s) from the interruption | Kept | Kept |
+| What settles a barrier | The earlier response's idle completion | The same |
+
+What is committed, when, and to whom output is attributed are unchanged.
+Output belongs to the current request only after its `activityEnd` has been
+written, and that End is written only once no barrier stands. Until then
+everything received is the earlier response's: dropped, and counted.
+
+**`barrier_reports(true)`.** One `Event::Barrier` when a barrier ends by
+settling (`Settled`) or by its timeout (`TimedOut`, emitted before the
+`BarrierTimeout` that follows). It carries which request was superseded
+and which waited, how long the barrier stood, how long it had been quiet,
+whether the waiting request was still speaking, how long its End had been
+withheld, and counts of what arrived for the earlier response and was
+dropped: audio frames and samples, text frames, generation completions,
+`interrupted`, and completions that were not idle. Counts only: no audio
+and no text. It is what tells a terminal that never came from one that
+came and was dropped. A stop by the owner and a close by the service end
+the connection as themselves and report no barrier outcome.
+
+### What this does and does not make work
+
+Two real-service runs by the integrator, one each, on synthetic cached
+speech, no microphone or speaker:
+
+| Run | Next request started | What the service sent for the earlier response |
+|---|---|---|
+| `continue-before-output`, 2 s bound | 303 ms after the first End, before any output | Nothing exposed in the 2.0 s the session lasted. `BarrierTimeout`, 27,680 of 58,671 samples uploaded |
+| `continue-during-output`, 2 s bound | 0.8 ms after the first audio was received | `interrupted` 358 ms and the idle completion 363 ms after the start. Settled; the second request was committed and answered |
+
+So, on one attempt each: a response interrupted **while producing** is
+confirmed promptly, and a response interrupted **before it produced
+anything** was not confirmed inside two seconds. The first trace shows no
+terminal exposed in that window. It does not show that none was sent or
+that none would have arrived later, and the service's own voice activity
+notices in it are not acknowledgements of this client's End or Start.
+
+`AtCommit` therefore changes this much and no more:
+
+- A barrier that would settle while the next person is still speaking, or
+  within the bound after they stop, now settles, where before it could end
+  the connection in the middle of their utterance.
+- A barrier that never settles still ends in `BarrierTimeout`, later: the
+  bound after their End, with the whole utterance uploaded and its End
+  never written. The question is lost exactly as before. Nothing here
+  makes an interruption before output succeed.
+
+Whether a terminal for a response interrupted before output arrives late
+or never is not known. The probe's `barrier-ms=5000` watches three seconds
+longer than production and no more.
+
+### On the probe
+
+On a build with this library the strict probe also takes a trailing
+`barrier-wait=at-commit` (after `barrier-ms=N` when both are given), turns
+barrier reports on, and records each as an event row of kind `barrier`
+with the counts above. `barrier_wait` and `barrier_wait_is_default` in the
+result say which was used. A run with `barrier-wait=at-commit` under the
+two second bound can pass and exit 0: that is a pass of this opt-in
+setting, which it would need before being turned on, and not a pass of
+production's default.
+
 ## Two additions to the strict probe (example only)
 
 Neither changes the library. Both exist to answer what the failed run

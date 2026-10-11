@@ -582,6 +582,9 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
         BarrierWait::FromInterruption => "from_interruption",
         BarrierWait::AtCommit => "at_commit",
     });
+    // `at_commit` is an opt-in setting. A pass under it qualifies that
+    // setting and says nothing about the default.
+    result["barrier_wait_is_default"] = json!(wait == BarrierWait::FromInterruption);
     result["dropped_output_counts_available"] = json!(true);
     result["barrier_ms"] = json!(quiet.as_millis());
     // A bound longer than production's watches for a late terminal. It

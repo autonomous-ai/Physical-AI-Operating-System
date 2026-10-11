@@ -3,8 +3,10 @@
 //! Serves Smart Turn v3.2 verdicts for one interaction core over stdin and
 //! stdout (see `lamp_endpoint_ipc::frame`). It verifies the pinned model, runs
 //! one cold inference, reports `Ready` and then answers one request at a time.
-//! It writes no files and keeps no audio between requests. On Linux it dies
-//! with the core that started it; an input end of stream is an ordinary stop.
+//! It writes no files. After each request it zeroes its request and
+//! feature-extraction buffers; freed allocations and the inference runtime's
+//! internal memory are not scrubbed. On Linux it dies with the core that
+//! started it; an input end of stream is an ordinary stop.
 use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, classify};
 use lamp_endpoint_ipc::serve;
 use std::{ffi::OsString, io, path::PathBuf, process::ExitCode, time::Instant};
@@ -53,14 +55,6 @@ fn follow_parent(_parent: Option<u32>) -> Result<(), String> {
     Ok(())
 }
 
-fn sha256_bytes(hex: &str) -> [u8; 32] {
-    let mut bytes = [0; 32];
-    for (index, byte) in bytes.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16).unwrap_or(0);
-    }
-    bytes
-}
-
 fn main() -> ExitCode {
     let mut output = io::stdout().lock();
     let started = Instant::now();
@@ -85,7 +79,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let sha256 = sha256_bytes(SMART_TURN_V3_2.sha256);
+    let sha256 = lamp_endpoint_ipc::sha256_bytes(SMART_TURN_V3_2.sha256);
     if serve::ready(&mut output, load_us, cold, sha256).is_err() {
         return ExitCode::from(5);
     }

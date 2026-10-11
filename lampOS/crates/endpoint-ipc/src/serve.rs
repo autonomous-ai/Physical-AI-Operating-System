@@ -1,9 +1,10 @@
 //! Worker-side serving loop, shared by the real worker and its test doubles.
 //!
-//! One request is read, classified and answered at a time. The audio buffers
-//! are cleared after each answer, so the worker holds no speech between
-//! requests. Any failure is reported once and ends the worker; the core
-//! supervisor decides whether a fresh process may replace it.
+//! One request is read, classified and answered at a time. The request
+//! buffers are zeroed after each answer; buffers inside `classify` are the
+//! caller's to clear, and freed allocations are not scrubbed. Any failure is
+//! reported once and ends the worker; the core supervisor decides whether a
+//! fresh process may replace it.
 use crate::frame::{self, PROTOCOL, Response};
 use lamp_ipc::monotonic_us;
 use std::{

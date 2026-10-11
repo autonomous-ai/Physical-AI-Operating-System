@@ -4,8 +4,8 @@
 //! scripted worker that owns its stdout, otherwise it runs the tests below.
 //! The first sample of each request scripts the worker's behavior.
 use lamp_endpoint_ipc::{
-    Availability, Classifier, Limits, Outcome, ProcessClassifier, Submit, Token, WINDOW_SAMPLES,
-    WorkerCommand,
+    Availability, Classifier, Limits, Outcome, ProcessClassifier, Submit, Teardown, Token,
+    WINDOW_SAMPLES, WorkerCommand,
     frame::{self, PROTOCOL, Response},
     serve,
 };
@@ -24,6 +24,11 @@ const HANG: i16 = 2;
 const GARBAGE: i16 = 3;
 const FAIL: i16 = 4;
 const WRONG_REQUEST: i16 = 5;
+/// Signals receipt through `LAMP_FAKE_RECEIVED`, then answers only after the
+/// test creates `LAMP_FAKE_RELEASE`.
+const HANDSHAKE: i16 = 6;
+/// The identity every scripted worker reports in `Ready`.
+const FAKE_MODEL: [u8; 32] = [7; 32];
 
 fn fake_worker(mode: &str) -> ExitCode {
     let mut out = io::stdout().lock();
@@ -73,6 +78,24 @@ fn fake_worker(mode: &str) -> ExitCode {
                 thread::sleep(Duration::from_secs(60));
                 return ExitCode::SUCCESS;
             }
+            HANDSHAKE => {
+                let received = std::env::var_os("LAMP_FAKE_RECEIVED").unwrap();
+                let release =
+                    std::path::PathBuf::from(std::env::var_os("LAMP_FAKE_RELEASE").unwrap());
+                std::fs::write(received, b"received").unwrap();
+                let deadline = Instant::now() + Duration::from_secs(10);
+                while !release.exists() && Instant::now() < deadline {
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Response::Verdict {
+                    request: request.request,
+                    probability: 0.92,
+                    received_at_us,
+                    features_us: 1,
+                    inference_us: 2,
+                    sent_at_us: monotonic_us(),
+                }
+            }
             FAIL => {
                 let error = Response::Error {
                     request: request.request,
@@ -116,11 +139,22 @@ fn quick() -> Limits {
 }
 
 fn fake(mode: &str, limits: Limits) -> ProcessClassifier {
+    fake_with(mode, limits, FAKE_MODEL, Vec::new())
+}
+
+fn fake_with(
+    mode: &str,
+    limits: Limits,
+    model_sha256: [u8; 32],
+    mut env: Vec<(std::ffi::OsString, std::ffi::OsString)>,
+) -> ProcessClassifier {
+    env.push(("LAMP_FAKE_ENDPOINT".into(), mode.into()));
     ProcessClassifier::spawn(
         WorkerCommand {
             program: std::env::current_exe().unwrap(),
             args: Vec::new(),
-            env: vec![("LAMP_FAKE_ENDPOINT".into(), mode.into())],
+            env,
+            model_sha256,
         },
         limits,
     )
@@ -243,7 +277,10 @@ fn missing_model_is_final_and_never_restarted() {
         submit(&mut classifier, token(1), &script(ANSWER, 1, 0)),
         Submit::Unavailable
     );
-    assert!(classifier.wait_finished(Duration::from_secs(2)));
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(2)),
+        Teardown::Reaped
+    );
     thread::sleep(quick().backoff * 3);
     let report = classifier.report();
     assert_eq!((report.spawned, report.ready, report.kills), (1, 0, 0));
@@ -296,7 +333,11 @@ fn startup_failures_are_final() {
         // so that worker counts as serving and may be replaced.
         if mode != "twice-ready" {
             assert!(reason.contains(expected), "{mode}: {reason}");
-            assert!(classifier.wait_finished(Duration::from_secs(2)), "{mode}");
+            assert_eq!(
+                classifier.wait_finished(Duration::from_secs(2)),
+                Teardown::Reaped,
+                "{mode}"
+            );
             assert_eq!(classifier.report().spawned, 1, "{mode}");
         } else {
             assert!(reason.contains(expected), "{mode}: {reason}");
@@ -368,7 +409,10 @@ fn serving_failures_are_replaced_within_budget() {
         },
     );
     assert!(reason.contains("no replacement left"), "{reason}");
-    assert!(classifier.wait_finished(Duration::from_secs(2)));
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(2)),
+        Teardown::Reaped
+    );
     assert_eq!(classifier.report().spawned, 3);
 }
 
@@ -432,7 +476,10 @@ fn close_during_inference_never_waits() {
         Submit::Unavailable
     );
     // The busy worker cannot see its input close; it is killed after grace.
-    assert!(classifier.wait_finished(Duration::from_secs(2)));
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(2)),
+        Teardown::Reaped
+    );
     assert!(!exists(pid));
     assert_eq!(classifier.report().kills, 1);
     assert!(classifier.poll().is_none());
@@ -469,6 +516,79 @@ fn sustained_requests_stay_bounded() {
     println!("    full-window submit worst case {worst:?}");
 }
 
+fn a_worker_reporting_another_model_is_refused_before_any_request() {
+    let mut classifier = fake_with("ready", quick(), [9; 32], Vec::new());
+    let reason = until(Duration::from_secs(5), "failure", || {
+        match quick_call(|| classifier.availability()) {
+            Availability::Failed(reason) => Some(reason),
+            Availability::Ready => panic!("ready with the wrong model"),
+            _ => None,
+        }
+    });
+    assert!(
+        reason.contains(&format!("worker model {}", "07".repeat(32))),
+        "{reason}"
+    );
+    assert!(
+        reason.contains(&format!("expected {}", "09".repeat(32))),
+        "{reason}"
+    );
+    assert_eq!(
+        submit(&mut classifier, token(1), &script(ANSWER, 900, 0)),
+        Submit::Unavailable
+    );
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(2)),
+        Teardown::Reaped
+    );
+    let report = classifier.report();
+    assert_eq!((report.spawned, report.ready, report.requests), (1, 0, 0));
+    assert_eq!(report.model_sha256, None);
+}
+
+fn no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way() {
+    let directory = std::env::temp_dir().join(format!(
+        "lamp-endpoint-handshake-{}-{}",
+        std::process::id(),
+        monotonic_us()
+    ));
+    std::fs::create_dir_all(&directory).unwrap();
+    let (received, release) = (directory.join("received"), directory.join("release"));
+    let mut classifier = fake_with(
+        "ready",
+        quick(),
+        FAKE_MODEL,
+        vec![
+            ("LAMP_FAKE_RECEIVED".into(), received.clone().into()),
+            ("LAMP_FAKE_RELEASE".into(), release.clone().into()),
+        ],
+    );
+    ready(&classifier);
+    let sent = token(92);
+    assert_eq!(
+        submit(&mut classifier, sent, &script(HANDSHAKE, 0, 0)),
+        Submit::Accepted
+    );
+    // The worker holds the request before the client closes.
+    until(Duration::from_secs(5), "receipt", || {
+        received.exists().then_some(())
+    });
+    quick_call(|| classifier.close());
+    std::fs::write(&release, b"release").unwrap();
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(5)),
+        Teardown::Reaped
+    );
+    assert!(classifier.poll().is_none(), "an outcome after close");
+    assert_eq!(classifier.availability(), Availability::Closed);
+    let report = classifier.report();
+    assert_eq!(report.requests, 1);
+    // The answer either arrived and was discarded, or died with the worker.
+    assert_eq!(report.discarded + report.lost, 1, "{report:?}");
+    assert_eq!(report.verdicts, report.discarded);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
 fn main() -> ExitCode {
     if let Some(mode) = std::env::var_os("LAMP_FAKE_ENDPOINT") {
         return fake_worker(mode.to_str().unwrap_or_default());
@@ -477,7 +597,15 @@ fn main() -> ExitCode {
         .skip(1)
         .filter(|argument| !argument.starts_with('-'))
         .collect();
-    let tests: [(&str, fn()); 9] = [
+    let tests: [(&str, fn()); 11] = [
+        (
+            "a_worker_reporting_another_model_is_refused_before_any_request",
+            a_worker_reporting_another_model_is_refused_before_any_request,
+        ),
+        (
+            "no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way",
+            no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way,
+        ),
         (
             "verdict_carries_identity_and_one_request_at_a_time",
             verdict_carries_identity_and_one_request_at_a_time,

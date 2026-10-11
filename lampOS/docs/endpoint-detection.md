@@ -56,14 +56,19 @@ MAIN-043 candidate and its evidence remain on `lamp-a2-endpoint` (`ee1eaad8`).
   pipe, a reader thread validates answers, and a supervisor thread owns the
   child process.
 - **Privacy and cancellation.** `cancel` drops queued audio and any unread
-  answer. An answer the worker already holds is discarded on arrival. The
-  worker clears its buffers after every answer and writes no files.
+  answer, and `close` does the same for an answer already on its way: no
+  outcome is delivered after either. The worker writes no files and zeroes its
+  request and feature-extraction buffers after every answer. Freed
+  allocations and the inference runtime's internal memory are not scrubbed.
 - **Lifetime.** On Linux the worker is killed if the core exits first
   (`PR_SET_PDEATHSIG`, after checking the parent PID). Closing the client
   closes the worker's input, allows a 300 ms grace period, then kills the
   worker and reaps it on the supervisor thread. Runtime teardown waits within
-  the shared shutdown bound for that reap and records it, so a later service
-  cycle cannot overlap the old worker.
+  the shared shutdown bound (at least 500 ms) for a confirmed reap. Without
+  one, cleanup fails, so no later service cycle can start beside the old
+  worker. Losing the worker while running only means the silence fallback.
+- **Identity.** `WorkerCommand` pins the model SHA256 the worker must report in
+  `Ready`; the core refuses any other identity before sending a request.
 
 ### Failure handling
 
@@ -72,10 +77,13 @@ MAIN-043 candidate and its evidence remain on `lamp-a2-endpoint` (`ee1eaad8`).
 | Worker executable missing | `Failed` at once; every pause uses the baseline window | `missing_executable_fails_at_once` |
 | Model missing or wrong bytes | The worker reports a startup error; `Failed`, never restarted | `worker_process_refuses_missing_or_wrong_models_without_blocking` (real binary), `missing_model_session_ends_on_the_unchanged_silence_fallback` (full session) |
 | Not ready within 10 s, or a crash or protocol violation before ready | `Failed`, never restarted | `startup_failures_are_final` |
+| `Ready` reports a model other than the command's pinned SHA256 | `Failed` before any request is sent; never restarted | `a_worker_reporting_another_model_is_refused_before_any_request` |
 | Crash, malformed or unexpected answer, or inference error while serving | Killed if needed and reaped; the outstanding request returns an error to its own token; a replacement starts after a 1 s backoff, at most twice | `serving_failures_are_replaced_within_budget`, `protocol_violations_are_replaced` |
 | No answer within 2 s | Treated as hung: killed, reaped and replaced within the same budget. The detector has already fallen back after 500 ms | `hung_worker_never_delays_capture_endpoint_or_session_end` (full session) |
 | Close during inference | The core returns at once; the worker is killed after the grace period | `close_during_inference_never_waits` |
 | Cancel with an answer in flight | The answer is discarded; the slot frees when it arrives | `cancelled_answers_are_never_delivered` |
+| Close with an answer on its way | Nothing is delivered after close; the answer counts as discarded or lost | `no_outcome_is_delivered_after_close_even_for_an_answer_on_its_way` |
+| Worker exit not confirmed by a native wait, or not within the teardown bound | No replacement starts; runtime cleanup fails, so a physical mute is not restartable | `unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service`, with the control `confirmed_endpoint_exit_keeps_the_restartable_mute` |
 
 The process tests (`crates/endpoint-ipc/tests/process.rs`) re-execute their
 own binary as a scripted worker, so every path above runs through a real child

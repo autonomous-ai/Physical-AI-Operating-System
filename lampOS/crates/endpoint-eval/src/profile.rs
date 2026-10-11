@@ -2,7 +2,7 @@
 //! measured through the core's client exactly as a session uses it.
 use crate::{Result, audio::read_wav};
 use lamp_endpoint_ipc::{
-    Availability, Classifier, Limits, ProcessClassifier, Submit, Token, WINDOW_SAMPLES,
+    Availability, Classifier, Limits, ProcessClassifier, Submit, Teardown, Token, WINDOW_SAMPLES,
     WorkerCommand,
 };
 use serde_json::{Value, json};
@@ -146,7 +146,7 @@ pub fn run(
     let report = client.report();
     let after = usage(pid);
     client.close();
-    let reaped = client.wait_finished(Duration::from_secs(5));
+    let reaped = client.wait_finished(Duration::from_secs(5)) == Teardown::Reaped;
     let result = json!({
         "host": {"os": std::env::consts::OS, "arch": std::env::consts::ARCH},
         "boundary": "development host or VM; not Lamp hardware",

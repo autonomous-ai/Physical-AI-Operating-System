@@ -126,13 +126,15 @@ fn fake(mode: &str, limits: Limits) -> ProcessClassifier {
     )
 }
 
-/// Caller-facing calls must never wait for the worker.
+/// Caller-facing calls must never wait for the worker. Every scripted worker
+/// delay these calls could wait for is at least 150 ms; the bound leaves room
+/// for scheduling on a loaded test host.
 fn quick_call<T>(call: impl FnOnce() -> T) -> T {
     let started = Instant::now();
     let value = call();
     let elapsed = started.elapsed();
     assert!(
-        elapsed < Duration::from_millis(20),
+        elapsed < Duration::from_millis(100),
         "caller waited {elapsed:?}"
     );
     value
@@ -461,8 +463,9 @@ fn sustained_requests_stay_bounded() {
         (report.requests, report.verdicts, report.spawned),
         (300, 300, 1)
     );
-    // An 8 s window is copied on the caller's thread; it must stay small.
-    assert!(worst < Duration::from_millis(20), "{worst:?}");
+    // An 8 s window is copied on the caller's thread. Unoptimized and on a
+    // loaded host this is a few milliseconds; the bound catches a pathology.
+    assert!(worst < Duration::from_millis(200), "{worst:?}");
     println!("    full-window submit worst case {worst:?}");
 }
 

@@ -171,6 +171,19 @@ impl Shared {
 }
 
 impl Shared {
+    fn wait_finished(&self, limit: Duration) -> bool {
+        let deadline = Instant::now() + limit;
+        let mut state = self.lock();
+        while !state.finished {
+            let now = Instant::now();
+            if now >= deadline {
+                return false;
+            }
+            state = self.wait_for(state, deadline - now);
+        }
+        true
+    }
+
     fn availability(&self) -> Availability {
         let state = self.lock();
         match (&state.phase, &state.fault) {
@@ -216,6 +229,12 @@ impl Monitor {
 
     pub fn availability(&self) -> Availability {
         self.shared.availability()
+    }
+
+    /// For runtime teardown only: waits at most `limit` for the classifier's
+    /// last worker to be reaped after it was closed. Returns whether it was.
+    pub fn wait_finished(&self, limit: Duration) -> bool {
+        self.shared.wait_finished(limit)
     }
 }
 
@@ -276,16 +295,7 @@ impl ProcessClassifier {
     /// For final teardown and tests only: waits at most `limit` for the last
     /// worker to be reaped. Returns whether it was.
     pub fn wait_finished(&self, limit: Duration) -> bool {
-        let deadline = Instant::now() + limit;
-        let mut state = self.shared.lock();
-        while !state.finished {
-            let now = Instant::now();
-            if now >= deadline {
-                return false;
-            }
-            state = self.shared.wait_for(state, deadline - now);
-        }
-        true
+        self.shared.wait_finished(limit)
     }
 }
 

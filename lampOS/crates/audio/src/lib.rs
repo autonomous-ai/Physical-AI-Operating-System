@@ -14,6 +14,7 @@ mod alsa_device;
 pub mod capture;
 #[cfg(unix)]
 pub mod device;
+pub mod drift;
 pub mod evidence;
 #[cfg(unix)]
 pub mod notice;

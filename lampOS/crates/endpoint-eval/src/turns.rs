@@ -205,9 +205,11 @@ fn simulate(
         }
     }
     let ended = final_audible.is_some();
+    // From the start of the first quiet block to the start of the audible
+    // block: the baseline with an instant provider measures exactly 1,200 ms.
     let latency_ms = final_audible.map(|(at, end, silence)| {
-        let last_speech = end + 1 - silence;
-        ((at - last_speech) * 10) as u64
+        let first_quiet = end + 1 - silence;
+        ((at + 1 - first_quiet) * 10) as u64
     });
     Outcome {
         whole_thought: ended && splits == 0 && !lost,

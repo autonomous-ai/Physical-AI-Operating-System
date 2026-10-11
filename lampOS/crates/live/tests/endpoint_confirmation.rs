@@ -3,7 +3,9 @@
 use lamp_endpoint_ipc::{
     Availability, Classifier, Outcome, Submit, Token, Verdict, WINDOW_SAMPLES,
 };
-use lamp_live::activity::{Activity, ConfirmPolicy, EndpointDecision, ObservedAudio, TurnDetector};
+use lamp_live::activity::{
+    Activity, ConfirmPolicy, EarlyEnd, EndpointDecision, EndpointEvent, ObservedAudio, TurnDetector,
+};
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
@@ -421,13 +423,20 @@ fn fallback_ends_every_turn_exactly_where_the_baseline_does() {
         let missing = Scripted::default();
         missing.0.lock().unwrap().availability = Some(Availability::Failed("missing".into()));
         missing.refuse(&[Submit::Unavailable; 400]);
+        // The early end is opt-in and needs a confident verdict, so neither
+        // case may change a single endpoint with it enabled.
+        let early = ConfirmPolicy {
+            early: Some(EarlyEnd::CANDIDATE),
+            ..ConfirmPolicy::default()
+        };
         let mut detector = TurnDetector::v1_baseline()
-            .with_confirmation(Box::new(missing), ConfirmPolicy::default())
+            .with_confirmation(Box::new(missing), early)
             .unwrap();
         assert_eq!(ends(&mut detector, &sequence), baseline, "seed {seed}");
+        assert!(!detector.endpoint_provisional());
         let undecided = Undecided::default();
         let mut detector = TurnDetector::v1_baseline()
-            .with_confirmation(Box::new(undecided), ConfirmPolicy::default())
+            .with_confirmation(Box::new(undecided), early)
             .unwrap();
         assert_eq!(ends(&mut detector, &sequence), baseline, "seed {seed}");
     }
@@ -678,6 +687,220 @@ fn invalid_policies_are_rejected() {
                 .with_confirmation(Box::new(Scripted::default()), policy)
                 .is_err(),
             "{policy:?}"
+        );
+    }
+}
+
+fn early() -> ConfirmPolicy {
+    ConfirmPolicy {
+        early: Some(EarlyEnd::CANDIDATE),
+        ..ConfirmPolicy::default()
+    }
+}
+
+impl Rig {
+    /// Quiet blocks after an endpoint: the detector is idle.
+    fn idle(&mut self, blocks: u16) {
+        for _ in 0..blocks {
+            assert!(
+                matches!(self.push(QUIET), Activity::Quiet),
+                "unexpected activity at block {}",
+                self.sequence
+            );
+        }
+    }
+
+    /// Ends one utterance early: speech, a confident verdict, 500 ms pause.
+    fn end_early(&mut self, speech: usize) {
+        self.speak(speech);
+        self.quiet(20);
+        let token = *self.script.submissions().last().unwrap();
+        self.script.reply(token, 0.97);
+        assert_eq!(self.quiet_until_end(40), Some(30));
+        let decision = self.decision();
+        assert_eq!(decision.basis, "model_early");
+        assert_eq!(decision.silence_ms, 500);
+        assert!(self.detector.endpoint_provisional());
+    }
+}
+
+#[test]
+fn early_end_is_provisional_until_the_baseline_quiet_confirms_it() {
+    let mut rig = Rig::with(early());
+    rig.end_early(50);
+    assert_eq!(rig.detector.take_endpoint_event(), None);
+    // 500 ms of the pause before the end plus 699 ms after it.
+    rig.idle(69);
+    assert!(rig.detector.endpoint_provisional());
+    rig.idle(1);
+    assert!(!rig.detector.endpoint_provisional());
+    assert_eq!(
+        rig.detector.take_endpoint_event(),
+        Some(EndpointEvent::Confirmed {
+            quiet_ms: 1_200,
+            after_ms: 700,
+            bounded: false
+        })
+    );
+    assert_eq!(rig.detector.take_endpoint_event(), None);
+}
+
+#[test]
+fn speech_before_confirmation_continues_the_thought_with_its_opening() {
+    let mut rig = Rig::with(early());
+    rig.end_early(50);
+    rig.idle(30);
+    // The person continues: the onset's first block is the continuation's
+    // first word, and the pre-roll keeps it and the quiet before it.
+    let first_spoken = rig.sequence + 1;
+    let start = (0..6)
+        .map(|_| rig.push(SPEECH))
+        .find_map(|activity| match activity {
+            Activity::Start(prefix) => Some(prefix),
+            _ => None,
+        })
+        .expect("continuation onset");
+    assert!(start.iter().any(|frame| frame.sequence == first_spoken));
+    assert!(start.first().unwrap().sequence < first_spoken);
+    assert!(!rig.detector.endpoint_provisional());
+    assert_eq!(
+        rig.detector.take_endpoint_event(),
+        Some(EndpointEvent::Continued { after_ms: 360 })
+    );
+    // The continuation is a fresh utterance: a fresh check, no stale verdict.
+    let before = rig.script.submissions().len();
+    rig.speak(20);
+    rig.quiet(20);
+    let fresh = *rig.script.submissions().last().unwrap();
+    assert_eq!(rig.script.submissions().len(), before + 1);
+    assert_ne!(fresh.utterance, rig.script.submissions()[0].utterance);
+}
+
+#[test]
+fn speech_scored_blips_hold_confirmation_only_until_the_bound() {
+    let mut rig = Rig::with(early());
+    rig.end_early(50);
+    let mut blocks = 0u16;
+    while rig.detector.endpoint_provisional() {
+        blocks += 1;
+        let probability = if blocks.is_multiple_of(60) {
+            0.5
+        } else {
+            QUIET
+        };
+        assert!(matches!(rig.push(probability), Activity::Quiet));
+        assert!(blocks <= 300, "provisional beyond its bound");
+    }
+    assert_eq!(blocks, 300);
+    assert!(matches!(
+        rig.detector.take_endpoint_event(),
+        Some(EndpointEvent::Confirmed {
+            after_ms: 3_000,
+            bounded: true,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn only_a_confident_verdict_ends_input_early() {
+    for (probability, ended, basis) in [
+        (0.97, 30, "model_early"),
+        (0.9, 30, "model_early"),
+        (0.899, 100, "model_uncertain"),
+        (0.005, 130, "model_incomplete"),
+    ] {
+        let mut rig = Rig::with(early());
+        rig.speak(50);
+        rig.quiet(20);
+        rig.script.reply(rig.script.submissions()[0], probability);
+        assert_eq!(rig.quiet_until_end(200), Some(ended), "{probability}");
+        assert_eq!(rig.decision().basis, basis);
+        assert_eq!(rig.detector.endpoint_provisional(), basis == "model_early");
+    }
+}
+
+#[test]
+fn two_continuations_then_a_genuine_end() {
+    let mut rig = Rig::with(early());
+    for (resume_after, expected_ms) in [(20u16, 260u64), (55, 610)] {
+        rig.end_early(30);
+        rig.idle(resume_after);
+        let mut started = false;
+        for _ in 0..6 {
+            started |= matches!(rig.push(SPEECH), Activity::Start(_));
+        }
+        assert!(started);
+        assert_eq!(
+            rig.detector.take_endpoint_event(),
+            Some(EndpointEvent::Continued {
+                after_ms: expected_ms
+            })
+        );
+        for _ in 0..10 {
+            assert!(matches!(rig.push(SPEECH), Activity::Continue(_)));
+        }
+    }
+    rig.quiet(20);
+    let token = *rig.script.submissions().last().unwrap();
+    rig.script.reply(token, 0.95);
+    // The genuine end is early as well, then confirmed by the quiet.
+    assert_eq!(rig.quiet_until_end(40), Some(30));
+    assert_eq!(rig.decision().basis, "model_early");
+    rig.idle(70);
+    assert!(matches!(
+        rig.detector.take_endpoint_event(),
+        Some(EndpointEvent::Confirmed { bounded: false, .. })
+    ));
+}
+
+#[test]
+fn clearing_input_ends_the_provisional_state_without_an_event() {
+    let mut rig = Rig::with(early());
+    rig.end_early(40);
+    rig.detector.clear_prospective();
+    assert!(!rig.detector.endpoint_provisional());
+    assert_eq!(rig.detector.take_endpoint_event(), None);
+}
+
+#[test]
+fn invalid_early_ends_are_rejected() {
+    let base = EarlyEnd::CANDIDATE;
+    for early in [
+        EarlyEnd {
+            probability: 1.0,
+            ..base
+        },
+        EarlyEnd {
+            probability: f32::NAN,
+            ..base
+        },
+        EarlyEnd {
+            end_blocks: 10,
+            ..base
+        },
+        EarlyEnd {
+            confirm_blocks: 50,
+            ..base
+        },
+        EarlyEnd {
+            confirm_blocks: 121,
+            ..base
+        },
+        EarlyEnd {
+            limit_blocks: 60,
+            ..base
+        },
+    ] {
+        let policy = ConfirmPolicy {
+            early: Some(early),
+            ..ConfirmPolicy::default()
+        };
+        assert!(
+            TurnDetector::v1_baseline()
+                .with_confirmation(Box::new(Scripted::default()), policy)
+                .is_err(),
+            "{early:?}"
         );
     }
 }

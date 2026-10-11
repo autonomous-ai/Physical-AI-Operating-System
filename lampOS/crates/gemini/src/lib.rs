@@ -170,6 +170,20 @@ pub enum Event {
         outcome: BarrierOutcome,
         report: BarrierReport,
     },
+    /// Input up to `through` was abandoned, not continued, while some of it
+    /// was still kept here or already written but not committed. Only with
+    /// [`SuccessorStart::AfterFirstOutput`]. Counts only.
+    InputDiscarded {
+        session: SessionId,
+        /// Every request up to this one.
+        through: RequestId,
+        /// Kept and never handed to the socket: dropped, and never sent.
+        dropped_samples: u64,
+        /// Already handed to the socket in an activity that has no End yet.
+        /// **Not discarded and not recallable:** it stays in that activity,
+        /// and the next request that continues it is heard after it.
+        sent_samples: u64,
+    },
 }
 
 /// How a barrier ended. An assumption is reported as
@@ -224,6 +238,9 @@ pub struct BarrierReport {
     /// says it cannot be while the model is generating. An observation.
     pub resumable_updates: u32,
     pub unresumable_updates: u32,
+    /// Kept samples dropped unsent while the barrier stood, because the
+    /// request they belonged to was abandoned and not continued.
+    pub discarded_samples: u64,
 }
 
 /// What ended the keeping back of a next request's `activityStart`.

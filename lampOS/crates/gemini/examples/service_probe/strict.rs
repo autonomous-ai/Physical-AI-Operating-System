@@ -329,6 +329,19 @@ impl Observed {
                 row["resumable_updates"] = json!(report.resumable_updates);
                 row["unresumable_updates"] = json!(report.unresumable_updates);
             }
+            Event::InputDiscarded {
+                session,
+                through,
+                dropped_samples,
+                sent_samples,
+            } => {
+                // The probe never abandons a request; recorded if it ever is.
+                row["kind"] = json!("input_discarded");
+                row["session"] = json!(session.get());
+                row["through"] = json!(through.get());
+                row["dropped_samples"] = json!(dropped_samples);
+                row["sent_samples"] = json!(sent_samples);
+            }
             Event::Discarded { session, reason } => {
                 row["kind"] = json!("discarded");
                 row["session"] = json!(session.get());

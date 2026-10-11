@@ -751,6 +751,17 @@ fn forward(
             time_left.map(|left| left.as_millis())
         ),
         Event::Discarded { reason, .. } => discards.note(reason),
+        Event::InputDiscarded {
+            through,
+            dropped_samples,
+            sent_samples,
+            ..
+        } => {
+            eprintln!(
+                "lamp-live provider: input through request {} abandoned: dropped_unsent_samples={dropped_samples} already_sent_samples={sent_samples}",
+                through.get()
+            );
+        }
         Event::BarrierAssumed {
             superseded,
             successor,

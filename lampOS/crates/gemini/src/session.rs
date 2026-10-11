@@ -37,6 +37,8 @@ struct Stopped {
 
 struct Shared {
     retired_through: AtomicU64,
+    /// Through which request input was abandoned and not continued.
+    discarded_through: AtomicU64,
     submitted_through: AtomicU64,
     wake: Notify,
     stop: watch::Sender<Option<Stopped>>,
@@ -326,6 +328,23 @@ impl InputSender {
             .fetch_max(request.get(), Ordering::AcqRel);
         self.shared.wake.notify_one();
     }
+    /// Retirement of input that is abandoned, as opposed to continued by a
+    /// newer request. Like [`Self::retire`] it is synchronous and cannot be
+    /// blocked by a full queue.
+    ///
+    /// With [`SuccessorStart::AfterFirstOutput`], whatever of the requests up
+    /// to `request` is still kept here, not yet handed to the socket, is
+    /// dropped and never written, where `retire` leaves it to be written in
+    /// order as the opening of whatever continues it. What has already been
+    /// handed to the socket cannot be recalled and is not dropped: it is
+    /// counted and reported as sent in [`Event::InputDiscarded`]. Without
+    /// that setting nothing is ever kept and this is exactly `retire`.
+    pub fn discard(&self, request: RequestId) {
+        self.shared
+            .discarded_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        self.retire(request);
+    }
     pub fn shutdown(&self) {
         self.shared.fail(Error::Closed);
     }
@@ -529,6 +548,7 @@ where
     let (stop, stop_rx) = watch::channel(None);
     let shared = Arc::new(Shared {
         retired_through: AtomicU64::new(0),
+        discarded_through: AtomicU64::new(0),
         submitted_through: AtomicU64::new(0),
         wake: Notify::new(),
         stop,
@@ -562,6 +582,8 @@ where
         waiting_since: None,
         gated: false,
         purged_through: 0,
+        discard_applied: 0,
+        open_activity_samples: 0,
         shared,
         stop: stop_rx,
         current: None,
@@ -747,6 +769,11 @@ struct Actor<S> {
     waiting_since: Option<Clock>,
     gated: bool,
     purged_through: u64,
+    /// Through which request a discard has been applied.
+    discard_applied: u64,
+    /// Audio samples written into the activity now open, which has no End
+    /// yet: what a request that continues it will be heard after.
+    open_activity_samples: u64,
     shared: Arc<Shared>,
     stop: watch::Receiver<Option<Stopped>>,
     /// The newest request: the only one that accepts input.
@@ -828,6 +855,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 return Err(stop.error);
             }
             self.retire_active().await?;
+            self.apply_discard();
             self.purge_retired();
             self.enforce_barrier().await?;
             self.drain_held().await?;
@@ -1110,6 +1138,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.write(Message::text(wire::ACTIVITY_START), self.timeouts.write)
                 .await?;
             self.activity_open = true;
+            self.open_activity_samples = 0;
         }
         Ok(())
     }
@@ -1136,6 +1165,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
             .await?;
         self.activity_open = false;
+        self.open_activity_samples = 0;
         if let Some(turn) = self.current.as_mut() {
             turn.end_held = false;
             turn.held_at = None;
@@ -1288,6 +1318,51 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     fn holding(&self) -> bool {
         self.held.as_ref().is_some_and(|held| held.holding)
     }
+    /// Apply an abandonment recorded by [`InputSender::discard`]: drop what
+    /// is still kept of the abandoned requests, and say what was dropped and
+    /// what had already gone. Only where something can be kept at all;
+    /// otherwise an abandonment is a retirement and nothing more.
+    fn apply_discard(&mut self) {
+        let through = self.shared.discarded_through.load(Ordering::Acquire);
+        if through <= self.discard_applied {
+            return;
+        }
+        self.discard_applied = through;
+        if !matches!(
+            self.successor_start,
+            SuccessorStart::AfterFirstOutput { .. }
+        ) {
+            return;
+        }
+        let mut dropped = 0;
+        if let Some(held) = self.held.as_mut() {
+            held.audio.retain(|audio| {
+                let abandoned = audio.request.get() <= through;
+                if abandoned {
+                    dropped += audio.samples.len();
+                }
+                !abandoned
+            });
+            held.samples -= dropped;
+        }
+        let dropped = dropped as u64;
+        if let Some(barrier) = self.barrier.as_mut() {
+            barrier.seen.discarded_samples = barrier.seen.discarded_samples.saturating_add(dropped);
+        }
+        // What was handed to the socket before this is in an activity that
+        // has no End: it cannot be taken back and is not called discarded.
+        let sent = self.open_activity_samples;
+        if (dropped > 0 || sent > 0)
+            && let Ok(through) = RequestId::new(through)
+        {
+            self.emit(Event::InputDiscarded {
+                session: self.session,
+                through,
+                dropped_samples: dropped,
+                sent_samples: sent,
+            });
+        }
+    }
     /// Stop keeping the next request's start back: write it, and let what
     /// was kept behind it follow in order. With a barrier still standing
     /// this is the interruption, and its quiet bound counts from here.
@@ -1316,6 +1391,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         // audio is otherwise allowed to be, and no older.
         let bound = MAX_INPUT_AGE + patience;
         for _ in 0..RELEASE_BLOCKS {
+            // An abandonment recorded while the block before this one was
+            // being written is applied before this one is taken.
+            self.apply_discard();
             let Some(held) = self.held.as_mut().filter(|held| !held.holding) else {
                 return Ok(());
             };
@@ -1328,6 +1406,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 .filter(|age| *age < bound)
                 .ok_or(Error::StaleInput)?;
             let deadline = self.timeouts.write.min(bound - age);
+            // Handed to the socket from here: no longer droppable.
+            self.open_activity_samples += audio.samples.len() as u64;
             self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                 .await?;
         }
@@ -1394,6 +1474,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     return Ok(());
                 }
                 let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
+                self.open_activity_samples += audio.samples.len() as u64;
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
             }

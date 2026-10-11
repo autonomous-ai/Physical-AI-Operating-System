@@ -740,6 +740,15 @@ impl<C: Connect> Supervisor<C> {
             live.input.retire(request);
         }
     }
+    /// Retirement of input that is abandoned rather than continued by a
+    /// newer request: see [`InputSender::discard`]. Only the live connection
+    /// can still be keeping any of it.
+    pub fn discard(&self, request: RequestId) {
+        if let Link::Connected(live) = &self.link {
+            live.input.discard(request);
+        }
+        self.retire(request);
+    }
     pub fn shutdown(&mut self) {
         if let Link::Connected(live) = &self.link {
             live.input.shutdown();

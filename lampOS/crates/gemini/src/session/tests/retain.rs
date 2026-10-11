@@ -729,3 +729,221 @@ async fn a_retirement_recorded_while_the_end_itself_waits_on_the_transport_comes
     ));
     assert_eq!(connection.state(), State::Ready);
 }
+
+/// Every command handed in so far has been taken by the session.
+async fn taken(connection: &Connection) {
+    let input = connection.input();
+    timeout(Duration::from_secs(1), async {
+        while input.commands.capacity() != INPUT_QUEUE_CAPACITY {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+async fn discarded(connection: &mut Connection) -> (RequestId, u64, u64) {
+    match event(connection).await {
+        Event::InputDiscarded {
+            through,
+            dropped_samples,
+            sent_samples,
+            ..
+        } => (through, dropped_samples, sent_samples),
+        other => panic!("expected a discard report, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn an_abandoned_kept_request_is_dropped_unsent_and_the_next_one_is_heard_alone() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..5 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    taken(&connection).await;
+    let input = connection.input();
+    // Given up, not continued. Its input is closed as for any retirement.
+    input.discard(next);
+    input.try_end(next).unwrap();
+    assert_eq!(discarded(&mut connection).await, (next, 5 * 320, 0));
+    silent(&mut server).await;
+    // The earlier answer begins and is interrupted: the start, and not one
+    // block of what was abandoned.
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    silent(&mut server).await;
+    let report = confirmed(&mut connection, &mut server).await;
+    assert_eq!(report.discarded_samples, 5 * 320);
+    assert_eq!(
+        (report.superseded, report.successor),
+        (Some(request(1)), None)
+    );
+    // The next question continues an activity that holds nothing else.
+    let third = request(3);
+    input.try_start(third).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::InputStarted { lineage, waiting_for_barrier: false } if lineage.request == third
+    ));
+    speak(&connection, third, 0, 77);
+    heard_in_order(&mut server, [77]).await;
+    input.try_end(third).unwrap();
+    sent(&mut server, "activityEnd").await;
+    silent(&mut server).await;
+}
+
+#[tokio::test]
+async fn abandoning_a_continuation_takes_the_kept_words_it_continued_with_it() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let second = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..3 {
+        speak(&connection, second, sequence, sequence as i16);
+    }
+    connection.input().try_end(second).unwrap();
+    silent(&mut server).await;
+    let third = started(&mut connection, &mut server, 3).await;
+    for sequence in 0..3 {
+        speak(&connection, third, sequence, 100 + sequence as i16);
+    }
+    taken(&connection).await;
+    connection.input().discard(third);
+    connection.input().try_end(third).unwrap();
+    // Both were one uncommitted thought, and it is the thought that is
+    // given up: neither can be committed under the other's End any more.
+    assert_eq!(discarded(&mut connection).await, (third, 6 * 320, 0));
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    silent(&mut server).await;
+}
+
+/// The boundary, exact. A block already handed to the socket when the
+/// abandonment is recorded is not taken back and is not called discarded.
+#[tokio::test]
+async fn what_was_handed_to_the_socket_is_reported_as_sent_and_only_the_rest_is_dropped() {
+    use super::stop_fence::controlled_with;
+    let (mut connection, mut server, control) = controlled_with(keeping_with(
+        Duration::from_secs(2),
+        Timeouts {
+            write: Duration::from_secs(1),
+            ..Timeouts::default()
+        },
+    ))
+    .await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..4 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    taken(&connection).await;
+    // The transport takes the start and the first kept block, then holds
+    // the second with none of it accepted.
+    let block = wire::encode_audio(&[0; 320]).unwrap().len() + 8;
+    control
+        .allowance
+        .store(wire::ACTIVITY_START.len() + 6 + block, Ordering::Release);
+    control.hold.store(true, Ordering::Release);
+    send_json(&mut server, audio(7)).await;
+    timeout(Duration::from_secs(1), control.held.notified())
+        .await
+        .unwrap();
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, [0]).await;
+    // Abandoned while the second block waits inside the socket layer.
+    connection.input().discard(next);
+    control.release();
+    // The second block was already handed over: it is written. The third
+    // and fourth were not: they are dropped.
+    heard_in_order(&mut server, [1]).await;
+    silent(&mut server).await;
+    assert_eq!(discarded(&mut connection).await, (next, 2 * 320, 2 * 320));
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+}
+
+/// The limit this leaves, shown. Once the kept words have been written
+/// there is nothing left to drop: they are in an activity with no End, and
+/// the next question that continues it is heard after them.
+#[tokio::test]
+async fn an_abandonment_after_the_kept_words_were_written_drops_nothing_and_says_so() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..3 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, 0..3).await;
+    let input = connection.input();
+    input.discard(next);
+    input.try_end(next).unwrap();
+    assert_eq!(discarded(&mut connection).await, (next, 0, 3 * 320));
+    let report = confirmed(&mut connection, &mut server).await;
+    assert_eq!(report.discarded_samples, 0);
+    // Never committed by itself.
+    silent(&mut server).await;
+    let third = request(3);
+    input.try_start(third).unwrap();
+    event(&mut connection).await;
+    speak(&connection, third, 0, 77);
+    heard_in_order(&mut server, [77]).await;
+    input.try_end(third).unwrap();
+    // One End, for an activity that holds the abandoned words and then
+    // these. Nothing here pretends otherwise.
+    sent(&mut server, "activityEnd").await;
+}
+
+#[tokio::test]
+async fn an_abandonment_does_not_wait_for_a_full_queue_and_fails_nothing() {
+    use super::stop_fence::controlled_with;
+    let (mut connection, mut server, control) = controlled_with(keeping_with(
+        Duration::from_secs(2),
+        Timeouts {
+            write: Duration::from_secs(1),
+            ..Timeouts::default()
+        },
+    ))
+    .await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..4 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    taken(&connection).await;
+    // The start is held at the transport, so the session takes no more
+    // commands, and the queue behind it fills to the last place.
+    control.hold.store(true, Ordering::Release);
+    send_json(&mut server, audio(7)).await;
+    timeout(Duration::from_secs(1), control.held.notified())
+        .await
+        .unwrap();
+    for sequence in 4..4 + INPUT_QUEUE_CAPACITY as u64 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    // Synchronous, whatever the queue holds.
+    connection.input().discard(next);
+    control.release();
+    sent(&mut server, "activityStart").await;
+    // Not one block: the four kept ones are dropped, and the queued ones
+    // belong to a retired request.
+    silent(&mut server).await;
+    assert_eq!(discarded(&mut connection).await, (next, 4 * 320, 0));
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+}
+
+#[tokio::test]
+async fn without_the_kept_start_an_abandonment_is_exactly_a_retirement() {
+    let (mut connection, mut server) =
+        mock_with(configuration(Timeouts::default()).barrier_reports(true)).await;
+    ended_turn(&mut connection, &mut server, 1).await;
+    let next = request(2);
+    let input = connection.input();
+    input.try_start(next).unwrap();
+    sent(&mut server, "activityStart").await;
+    event(&mut connection).await;
+    speak(&connection, next, 0, 5);
+    heard_in_order(&mut server, [5]).await;
+    input.discard(next);
+    input.try_end(next).unwrap();
+    // No report of a discard: nothing was ever kept to discard.
+    quiet(&mut connection).await;
+    silent(&mut server).await;
+    assert_eq!(connection.state(), State::Ready);
+}

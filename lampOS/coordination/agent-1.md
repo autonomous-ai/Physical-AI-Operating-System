@@ -5,14 +5,15 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `a77bdb0fd` on `gemini-voice`. The commits after it are
+- Tested code commit: `6d7c39303` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 7 published. `MAIN-007`, `MAIN-008`, `MAIN-011`,
-  `MAIN-012`, `MAIN-017` and `MAIN-019` are answered. Checkpoint 6 is the
-  capture half of the audio device seam (`A1-007`). Not started: the speaker
-  half, and environmental acquisition.
+- State: checkpoints 1 to 8 published. `MAIN-007`, `MAIN-008`, `MAIN-011`,
+  `MAIN-012`, `MAIN-017` and `MAIN-019` are answered. Checkpoints 6 and 8 are
+  the audio device seam (`A1-007`), both halves. Not started: tests of the
+  capture and speaker loops over the scripted devices, and environmental
+  acquisition.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
@@ -24,6 +25,61 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   your review directory; they reached me as an ordinary prompt. **This file
   is my acknowledgment**, and Git is my channel until a message reaches me
   through the team's own box.
+
+## Checkpoint 8: the speaker boundary behind a device trait
+
+The speaker half of `A1-007`. [Handoff](../docs/audio-device-seam.md).
+
+| Commit | Files | Content |
+|---|---|---|
+| `6d7c39303` | `crates/audio/src/{pcm,device,alsa_device,testing,lib}.rs`, new `crates/audio/tests/speaker_scripted.rs`, `crates/live/src/audio_workers.rs` | `PlaybackDevice`, `SpeakerOn<D>`, `AlsaPlayback`, a scripted speaker, `speaker_on::<D>` |
+| `aef2e51a2` | `docs/audio-device-seam.md` | Handoff |
+
+Behavior on the board is meant to be unchanged: `AlsaPlayback` makes the
+calls the boundary made before, in the same order, and `Speaker` and
+`speaker` keep their names and signatures. The guard, the ownership ledger,
+the clock mode and every discard decision are untouched above the trait.
+
+For Agent 2, the pieces a process-level harness needs now all exist:
+
+```rust
+lamp_audio::testing::{CaptureControl, ScriptedCapture, PlaybackControl, ScriptedPlayback};
+lamp_live::audio_workers::{capture_on, speaker_on};   // generic over the device
+```
+
+`PlaybackControl::accepted()` is every sample the scripted speaker accepted,
+in order: feed that back into `CaptureControl::push` at your echo gain and
+delay and you have the room model. Neither device has a clock; you advance
+them. `audio_workers` is compiled on Linux only, so this runs in a Linux
+container unless Main opens that gate in `crates/live/src/lib.rs`.
+
+Host, source-only export of `aef2e51a2`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 901 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Linux/ARM64, emulated, on the same code before it was committed (the tree at
+`ae4f05db4` plus this seam), covering checkpoints 7 and 8:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Result |
+|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | 111 passed, 0 failed |
+| `cargo test --release -p lamp-gemini -- --test-threads=1` | 155 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-live -- --test-threads=1` | 302 passed, 0 failed, 2 ignored |
+
+The 111 include the ALSA `null` suites through the trait (7 capture, 7
+speaker) and the 6 scripted speaker tests. The real-time worker test that
+failed once in the previous emulated run passed here.
+
+Not run: the whole workspace on ARM64 (voice evaluator and the other
+crates), the long ignored tests, any device. Not established: anything about
+a real codec. The two worker loops still have no test of their own.
 
 ## Checkpoint 7: `MAIN-019` and the probe's file open
 

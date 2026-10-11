@@ -128,7 +128,15 @@ cover preserved replies, delayed latest-block evidence, a fresh prefix after
 the tail, nonfinal gaps, accepted-stream/outage protection, privacy/lineage
 changes, old-owner receipts and explicit next-epoch reset. Pure bookkeeping
 tests validate partial cursors, stale drain, original read intervals and bounds.
-Linux-only speaker integration still requires native compilation/qualification.
+Root checkpoint `7dde135af` passed standalone workspace fmt, strict all-target
+Clippy and 1,065 host tests (zero failures, four ignored). The identical-source
+rerun permitted local sockets after the sandbox blocked IPC tests. Linux ARM64
+release build and strict audio/Gemini/live Clippy passed, plus release QEMU
+executions of five paired-worker, 26 turn-taking and seven prefix-filter tests
+(the filters overlap). The staged binary passed native CLI/loader startup.
+Its first fixture attempt stopped in source-recorder setup before the Rust
+target launched or any prompt played; rollback restored the settings. Native
+audio behavior and acoustic qualification remain unverified for this policy.
 
 These tests use synthetic PCM and software events. No test result is human
 listening, echo rejection, direct-human overlap, TV restraint, acoustic latency

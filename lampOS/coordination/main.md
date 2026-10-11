@@ -3,9 +3,9 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated runtime checkpoint: `02148ed4d580046194fe6492ea480bc2502eba5d`
+- Integrated runtime checkpoint: `7dde135af36fb4614f1c4d062fcb5a1d3ef9b6d2`
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: coordinated runtime has completed a native greeting; evaluator dispatch corrections are integrated. A private playback candidate exposed repeated answer interruptions. Natural conversation and benchmark qualification remain unfinished.
+- State: the opt-in V1-style turn-taking baseline is integrated and host/ARM gates pass. Its first device attempt aborted during source-recorder setup before target launch or any prompt; rollback and original volumes were verified. Natural conversation and benchmark qualification remain unfinished.
 
 ## Direct coordination
 
@@ -17,7 +17,39 @@ could not obtain its team context (`CHANNEL_SCOPE_MISSING`); do not circumvent
 that guard. Its latest A1-009/010/011 question arrived through Harness and Main
 answered there as MAIN-028. Queued delivery is not proof that an agent read it.
 
-## Integrated checkpoint
+## Current V1 baseline checkpoint
+
+`7dde135af` ports stock V1's conservative own-playback suppression into Rust as
+`--turn-taking v1-baseline`. Default `vad-only` remains unchanged. Capture,
+reference and AEC continue; prospective input cannot replace a reply while
+confirmed speaker output or its declared, unmeasured 100 ms tail is active.
+Original read/write ownership and bounded delayed receipts decide the mask.
+A reproduced delayed-receipt regression also removes old masked pre-roll before
+committing a genuinely fresh onset. See the [baseline contract](../docs/turn-taking-baseline.md).
+This deliberately suppresses overlapping speech and is not a full-duplex fix.
+
+Root verified a standalone source export: workspace fmt, strict all-target
+Clippy and **1,065 tests passed, zero failed, four ignored**. The first sandboxed
+test run failed at local sockets/process setup; the identical source passed
+when local IPC was permitted. Linux ARM64 release build and strict all-target
+audio/Gemini/live Clippy passed. Release QEMU checks passed five paired-worker,
+26 turn-taking and seven prefix-filter test executions (filters overlap).
+Combined source manifest SHA256:
+`83d30b80a0318444ef632b41eb06b370884ecd3c212375bf6679a65dd497e79a`.
+ARM binary SHA256:
+`9a46f270e975f3ff43011682e1172d19efc34b15ee1ae05d65aa049bbe7d0b09`.
+Native staged CLI/loader check passed; that opened no audio device.
+
+The first fixed-reply attempt, `20261011T054535Z`, transferred audio ownership
+on a0ae but aborted in source52's recorder setup before target runtime launch
+or any stimulus. Applying observer controls plus repeated checks exceeded the
+existing 600 ms cooperative guard. Both source capture controls were restored,
+the target rollback verified, and original volumes returned to target 77/source 94.
+It is a retained failed attempt, not self-echo or acoustic evidence. The next
+attempt must use a fresh ownership window after correcting this harness path.
+Recordings remain local. This attempt opened no motor, camera or ring path. The half-duplex baseline still needs physical qualification.
+
+## Prior integrated checkpoint
 
 `02148ed4d` combines Agent 1's `ae4f05db4` capture/Gemini source with Main's
 coordinated worker and consumer. Directed mode now uses `Reporting::Coordinated`.
@@ -81,10 +113,12 @@ an authenticated recording identity.
 The owner requires V1 main behavior as the rewrite baseline: port useful
 safeguards, establish Rust parity, then improve measured behavior. The
 [voice parity plan](../docs/v1-voice-parity.md) distinguishes stock
-turn-taking from optional adaptive live interruption. Neither protection is
-yet active in the current Rust VAD-only directed path. Agent 1 acknowledged
-MAIN-037 and is comparing the actual V1 gate offline; Main owns its Rust
-integration. No successful port or physical interruption result is claimed.
+turn-taking from optional adaptive live interruption. The stock protection is
+now an opt-in Rust candidate in `7dde135af`;
+the default VAD-only path and optional adaptive interruption remain unchanged.
+Agent 1 supplied the actual V1 adaptive-gate comparison and qualified its
+warm-up/onset limits through MAIN-040/041. Main owns integration and physical
+qualification; no successful physical interruption result is claimed.
 
 Main owns `provider_worker.rs`, `provider_link.rs`, `coordinator.rs`,
 `coordinator/**`, `wire.rs`, `admission.rs` and fixture integration. Agent 1 owns

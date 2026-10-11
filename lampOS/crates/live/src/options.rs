@@ -160,11 +160,45 @@ impl FromStr for PlayoutStart {
     }
 }
 
+/// What the capture worker does when it can no longer say which reference
+/// belongs to the capture it holds. `Off` ends the session with the fault,
+/// as always. `Bounded` recovers within a budget and says so. With the
+/// fixed reference that is one thing: a margin used up by the difference
+/// between the two clocks is re-centred. With the capture-clocked reference
+/// it is also loss, overflow and a speaker that paused: the canceller is
+/// not run until fresh reference returns.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReferenceRecovery {
+    #[default]
+    Off,
+    Bounded,
+}
+impl ReferenceRecovery {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Bounded => "bounded",
+        }
+    }
+}
+impl FromStr for ReferenceRecovery {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "off" => Ok(Self::Off),
+            "bounded" => Ok(Self::Bounded),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
     pub playout_start: PlayoutStart,
     pub turn_taking: TurnTaking,
     pub reference_clock: ReferenceClock,
+    pub reference_recovery: ReferenceRecovery,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -177,6 +211,7 @@ impl DirectedOptions {
         let mut turn_seen = false;
         let mut playout_seen = false;
         let mut reference_seen = false;
+        let mut recovery_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
@@ -201,6 +236,10 @@ impl DirectedOptions {
                     options.reference_clock = required_value(&mut arguments)?.parse()?;
                     reference_seen = true;
                 }
+                "--reference-recovery" if !recovery_seen => {
+                    options.reference_recovery = required_value(&mut arguments)?.parse()?;
+                    recovery_seen = true;
+                }
                 "--ring-channel-ceiling" if options.ring_channel_ceiling.is_none() => {
                     let value = required_value(&mut arguments)?
                         .parse::<u16>()
@@ -210,6 +249,14 @@ impl DirectedOptions {
                 }
                 _ => return Err(invalid_options()),
             }
+        }
+        // A recovered canceller starts cold, and an untrusted reference
+        // leaves the lamp's own voice in the microphone uncancelled. A policy
+        // that masks own playback has to be in force: `vad-only` masks nothing.
+        if options.reference_recovery == ReferenceRecovery::Bounded
+            && options.turn_taking == TurnTaking::VadOnly
+        {
+            return Err(invalid_options());
         }
         Ok(options)
     }
@@ -274,6 +321,7 @@ pub struct AudioWorkerOptions {
     pub diagnostic_directory: Option<PathBuf>,
     pub noise_suppression: NoiseSuppression,
     pub reference_clock: ReferenceClock,
+    pub reference_recovery: ReferenceRecovery,
 }
 impl AudioWorkerOptions {
     /// The exact argv tail used by the supervisor. Values remain individual
@@ -295,7 +343,15 @@ impl AudioWorkerOptions {
                     self.reference_clock.as_str().to_owned(),
                 ]);
             }
-        } else if self.reference_clock != ReferenceClock::Fixed {
+            if self.reference_recovery != ReferenceRecovery::Off {
+                arguments.extend([
+                    "--reference-recovery".to_owned(),
+                    self.reference_recovery.as_str().to_owned(),
+                ]);
+            }
+        } else if self.reference_clock != ReferenceClock::Fixed
+            || self.reference_recovery != ReferenceRecovery::Off
+        {
             return Err(invalid_options());
         }
         if let Some(path) = &self.diagnostic_directory {
@@ -331,6 +387,15 @@ impl AudioWorkerOptions {
                 "--reference-clock" if is_capture && !reference_seen => {
                     options.reference_clock = required_value(&mut arguments)?.parse()?;
                     reference_seen = true;
+                }
+                "--reference-recovery"
+                    if is_capture && options.reference_recovery == ReferenceRecovery::Off =>
+                {
+                    options.reference_recovery = required_value(&mut arguments)?.parse()?;
+                    if options.reference_recovery == ReferenceRecovery::Off {
+                        // Never sent: the default argv has no such flag.
+                        return Err(invalid_options());
+                    }
                 }
                 _ => return Err(invalid_options()),
             }
@@ -554,6 +619,114 @@ mod tests {
     }
 
     #[test]
+    fn reference_recovery_is_explicit_and_needs_a_policy_that_masks_own_playback() {
+        assert_eq!(
+            SessionOptions::default().directed.reference_recovery,
+            ReferenceRecovery::Off
+        );
+        // With either reference, under either masking policy.
+        for (policy, clock) in [
+            ("v1-baseline", "fixed"),
+            ("v1-baseline", "capture"),
+            ("duplex", "fixed"),
+            ("duplex", "capture"),
+        ] {
+            let options = DirectedOptions::parse(&args(&[
+                "--turn-taking",
+                policy,
+                "--reference-clock",
+                clock,
+                "--reference-recovery",
+                "bounded",
+            ]))
+            .unwrap();
+            assert_eq!(options.reference_recovery, ReferenceRecovery::Bounded);
+        }
+        assert_eq!(
+            serde_json::to_value(ReferenceRecovery::Bounded).unwrap(),
+            "bounded"
+        );
+        for values in [
+            // `vad-only`, named or by default, masks nothing.
+            vec!["--reference-recovery", "bounded"],
+            vec![
+                "--turn-taking",
+                "vad-only",
+                "--reference-recovery",
+                "bounded",
+            ],
+            vec!["--turn-taking", "v1-baseline", "--reference-recovery"],
+            vec!["--turn-taking", "v1-baseline", "--reference-recovery", "on"],
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--reference-recovery",
+                "off",
+                "--reference-recovery",
+                "bounded",
+            ],
+        ] {
+            assert!(
+                DirectedOptions::parse(&args(&values)).is_err(),
+                "{values:?}"
+            );
+        }
+        // Off, said aloud, is the default and needs nothing.
+        assert_eq!(
+            DirectedOptions::parse(&args(&["--reference-recovery", "off"])).unwrap(),
+            DirectedOptions::default()
+        );
+    }
+
+    #[test]
+    fn reference_recovery_reaches_only_the_capture_worker_and_only_when_chosen() {
+        for clock in [ReferenceClock::Fixed, ReferenceClock::Capture] {
+            let chosen = AudioWorkerOptions {
+                reference_clock: clock,
+                reference_recovery: ReferenceRecovery::Bounded,
+                ..AudioWorkerOptions::default()
+            };
+            let arguments = chosen.child_arguments("plug:device_micro2", true).unwrap();
+            assert_eq!(
+                arguments[arguments.len() - 2..],
+                ["--reference-recovery", "bounded"]
+            );
+            assert_eq!(
+                AudioWorkerOptions::parse(&arguments[1..], true).unwrap(),
+                chosen
+            );
+            assert!(
+                chosen
+                    .child_arguments("plug:device_speaker", false)
+                    .is_err()
+            );
+        }
+        // The default argv has no such flag, and `off` is never sent.
+        assert!(
+            !AudioWorkerOptions::default()
+                .child_arguments("plug:device_micro2", true)
+                .unwrap()
+                .iter()
+                .any(|argument| argument.contains("recovery"))
+        );
+        for values in [
+            vec!["--reference-recovery"],
+            vec!["--reference-recovery", "off"],
+            vec![
+                "--reference-recovery",
+                "bounded",
+                "--reference-recovery",
+                "bounded",
+            ],
+        ] {
+            assert!(AudioWorkerOptions::parse(&args(&values), true).is_err());
+        }
+        assert!(
+            AudioWorkerOptions::parse(&args(&["--reference-recovery", "bounded"]), false).is_err()
+        );
+    }
+
+    #[test]
     fn turn_taking_is_explicit_and_default_remains_vad_only() {
         assert_eq!(
             SessionOptions::default().directed.turn_taking,
@@ -678,6 +851,7 @@ mod tests {
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
                         reference_clock: ReferenceClock::Fixed,
+                        reference_recovery: ReferenceRecovery::Off,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,
@@ -760,6 +934,7 @@ mod tests {
                     diagnostic_directory: directory,
                     noise_suppression: mode,
                     reference_clock: ReferenceClock::Fixed,
+                    reference_recovery: ReferenceRecovery::Off,
                 };
                 let arguments = requested
                     .child_arguments("plug:device_micro2", true)

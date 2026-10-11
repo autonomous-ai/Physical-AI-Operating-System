@@ -1222,4 +1222,40 @@ mod outage_drain_tests {
             })
         ));
     }
+
+    #[test]
+    fn a_dsp_reseed_ends_a_candidate_still_being_decided_and_spares_an_accepted_stream() {
+        // Whatever raised the candidate was heard through a canceller that
+        // has since been reset: it is rejected, and old evidence for it
+        // decides nothing.
+        let mut gate = InputAdmission::default();
+        let mut local = LocalInput::new();
+        let first = candidate(&mut gate, local.context(START), 1, START);
+        local.capture.dsp_epoch += 1;
+        let now = START + 10_000;
+        let update = gate
+            .observe(Activity::Continue(audio(2, now)), local.context(now), now)
+            .unwrap();
+        assert!(matches!(
+            update.rejection,
+            Some(Rejection {
+                reason: RejectReason::CaptureChanged,
+                ..
+            })
+        ));
+        assert!(matches!(
+            gate.decide(evidence(first, 1, now), local.context(now), now)
+                .unwrap(),
+            Decision::Ignored
+        ));
+        assert!(!gate.owns_stream());
+        // A person already admitted is not cut off by it.
+        let (mut gate, mut local, _) = accepted_stream();
+        local.capture.dsp_epoch += 1;
+        let update = gate
+            .observe(Activity::Continue(audio(2, now)), local.context(now), now)
+            .unwrap();
+        assert!(update.rejection.is_none());
+        assert!(gate.owns_stream());
+    }
 }

@@ -107,6 +107,11 @@ pub enum WorkerEvent {
         start_completed_at_us: u64,
     },
     CaptureStopped,
+    /// The capture worker's echo reference changed trust. Not a fault:
+    /// capture goes on, and each frame says whether it was cancelled.
+    ReferenceStatus {
+        status: ReferenceStatus,
+    },
     /// A planned speaker flush resets echo reference, not the user's active turn.
     CaptureDspReset {
         epoch: u64,
@@ -268,9 +273,14 @@ pub struct MicrophoneFrame {
     pub timing: CaptureTiming,
     pub probability: f32,
     /// What the accepted render explains of this block, before and after
-    /// cancellation. Absent from a worker that does not report it.
+    /// cancellation. Absent from a worker that does not report it, and
+    /// while the reference is not trusted.
     #[serde(default)]
     pub echo: Option<lamp_audio::evidence::EchoEvidence>,
+    /// How far the echo reference for this block was known. Anything but
+    /// `trusted` and `warming` means `samples` did not pass the canceller.
+    #[serde(default)]
+    pub reference: ReferenceTrust,
     pub samples: Vec<i16>,
 }
 
@@ -395,6 +405,88 @@ pub struct ReferenceTiming {
     /// fixed mode's report is what it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drift: Option<ReferenceDrift>,
+    /// Present only with bounded reference recovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<RecoveryCounts>,
+}
+
+/// Whether the canceller has the reference for the capture it is given.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReferenceTrust {
+    /// The reference for each capture block is known by count.
+    #[default]
+    Trusted,
+    /// It is not. The canceller is not run and the samples are the
+    /// microphone's own.
+    Untrusted,
+    /// Known again after a reseed, with a canceller that has not yet heard
+    /// enough of the lamp to be believed. Cancelled, without evidence.
+    Warming,
+}
+
+/// Why the reference stopped being trusted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReferenceCause {
+    /// A capture block had no reference waiting for it.
+    Absent,
+    /// By the speaker's own timestamps it accepted nothing for longer than
+    /// its queue can cover: what it played and what was counted have parted.
+    SenderPaused,
+    /// A packet did not arrive.
+    SequenceGap,
+    /// The next packet does not start where the last one ended.
+    CursorGap,
+    /// More arrived at once than may wait.
+    Overflow,
+    /// The microphone had more waiting than a capture block may be late.
+    CaptureBacklog,
+    /// The speaker restarted its clock.
+    ClockRestart,
+    /// Fixed margin only: both sides were alive and on time, and the count
+    /// between them reached its bound. A difference between the two clocks
+    /// does that in minutes.
+    MarginExhausted,
+}
+
+/// One change of trust, as it happened. Counts are since the worker started.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReferenceStatus {
+    pub trust: ReferenceTrust,
+    /// Why trust was lost, on the change that lost it and on the reseed
+    /// that followed.
+    pub cause: Option<ReferenceCause>,
+    pub at_us: u64,
+    pub playback_epoch: u64,
+    pub capture_blocks_processed: u64,
+    pub expected_sequence: u64,
+    pub received_sequence: Option<u64>,
+    pub accepted_through: u64,
+    pub analysed_through: u64,
+    /// On a reseed: how long the reference had been untrusted.
+    pub untrusted_us: Option<u64>,
+    pub counts: RecoveryCounts,
+}
+
+/// What recovery has cost so far. Nothing here is renumbered or forgotten.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryCounts {
+    pub trust: ReferenceTrust,
+    /// Times trust was lost.
+    pub degradations: u32,
+    /// Times the canceller was reset onto a fresh run of reference.
+    pub reseeds: u32,
+    /// Capture blocks that did not pass the canceller.
+    pub bypassed_capture_blocks: u64,
+    /// Accepted reference frames that were never given to the canceller.
+    pub skipped_frames: u64,
+    /// Packets that arrived older than 40 ms and were used, being complete.
+    pub late_packets: u64,
+    /// Packets at or before one already seen, which were not used.
+    pub ignored_packets: u64,
 }
 
 /// How the capture-clocked reference stands. The state of this software,
@@ -428,6 +520,10 @@ pub enum ReferenceFaultKind {
     ClockStopped,
     BarrierTimeout,
     SpeechStarved,
+    /// More reseeds than the recovery budget allows in its window.
+    RecoveryExhausted,
+    /// The reference stayed untrusted for longer than recovery may take.
+    RecoveryTimedOut,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

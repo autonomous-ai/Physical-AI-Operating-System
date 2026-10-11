@@ -726,6 +726,7 @@ fn run_source(
         "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
         "reference_clock":options.reference_clock,
+        "reference_recovery":options.reference_recovery,
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}),
     )?;
@@ -1345,6 +1346,9 @@ impl StartupEvents {
                 (WorkerEvent::CaptureDspReset { .. }, "capture") => self.push(
                     json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
                 )?,
+                (WorkerEvent::ReferenceStatus { status }, "capture") => {
+                    self.push(reference_status_trace(status))?
+                }
                 (
                     WorkerEvent::Ring {
                         report: RingFeedback::Blanked { .. },
@@ -1471,6 +1475,7 @@ fn spawn_rig(
         diagnostic_directory: diagnostic_directory.map(|p| p.join("capture-audio")),
         noise_suppression: options.noise_suppression,
         reference_clock: options.reference_clock,
+        reference_recovery: options.reference_recovery,
     }
     .child_arguments("plug:device_micro2", true)?;
     let speaker_arguments = AudioWorkerOptions {
@@ -3034,6 +3039,9 @@ fn drain_capture_control(
                 trace,
                 json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
             )?,
+            WorkerEvent::ReferenceStatus { status } => {
+                record(trace, reference_status_trace(&status))?
+            }
             WorkerEvent::ReferenceClock { timing } => record(
                 trace,
                 json!({"kind":"reference_clock","at_us":monotonic_us(),"details":timing}),
@@ -3077,6 +3085,15 @@ fn validate_capture_frame(
         );
     }
     Ok(())
+}
+
+/// A change of trust in the capture worker's echo reference. It is a status,
+/// not a fault: the session goes on. While the reference is untrusted the
+/// frames carry no echo evidence and did not pass the canceller, so a policy
+/// that masks own playback is what keeps the lamp's voice from being a turn.
+fn reference_status_trace(status: &crate::wire::ReferenceStatus) -> Value {
+    json!({"kind":"reference_status","at_us":monotonic_us(),"details":status,
+        "boundary":"capture worker's pairing of reference and capture by count; not an acoustic measurement"})
 }
 
 fn record_input_rejection(trace: &mut SessionState, rejection: Rejection) -> Result<()> {
@@ -3533,6 +3550,7 @@ mod tests {
                 read_completed_at_us: at,
                 probability: 0.95,
                 echo: None,
+                reference: Default::default(),
                 samples: vec![123; 160],
                 timing: CaptureTiming {
                     first_read_started_at_us: at,

@@ -6,6 +6,22 @@ checkpoints. Main retains deployment, camera, motor/choreographer integration, t
 coordinator and release decisions. The owner deferred V1 benchmarking; do not
 spend work on that comparison until it is resumed.
 
+## Active broad workstreams — owner update
+
+The owner requested substantial autonomous assignments because both agents
+finished the previous work. **MAIN-050 and MAIN-051 now supersede the smaller
+next-task slices:**
+
+- [Agent 1: continuous hearing and natural interruption](agent-1-duplex-workstream.md).
+- [Agent 2: fast, reliable end-of-turn subsystem](agent-2-turn-taking-workstream.md).
+
+Each agent owns implementation, a complete integration proposal, stress tests and
+documentation through a usable deliverable. They may make routine scoped design
+decisions without Main approving every step. Main owns combined integration,
+physical experiments, social vision, choreography and default selection. Earlier
+delivery evidence and constraints remain valid; do not redo finished studies.
+Direct delivery and acknowledgment will be recorded separately from publication.
+
 ## Shared starting point and evidence
 
 Start from integration code `1a089863a1bfdfa532a11e8967e6ed87f94ea1d5` on

@@ -370,3 +370,29 @@ fn the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailab
         Some(lamp_voice_eval::record::StepStatus::ProviderUnavailable)
     );
 }
+
+/// MAIN-025: a non-terminal event first taken by the backend's final drain
+/// starts nothing; the runner must observe it before a second dispatch.
+#[test]
+fn an_unobserved_event_in_the_final_drain_requires_revalidation() {
+    let rig = Rig::new("disp-revalidate");
+    let ready = json!({"type":"stdout","lamp_received_us":3,
+        "line":"{\"status\":\"listening_ready\"}"});
+    let mut backend = rig.backend(&[start_line()], "0.3", &lines(&[ready]), Then::StayOpen);
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 800_000;
+    let injection = rig.inject(&mut backend, at);
+    assert_eq!(rig.started(), 0);
+    assert_eq!(injection.receipt["withheld_cause"], "revalidate");
+    assert_eq!(injection.receipt["unobserved_events"], 1);
+    let now = backend.now_us();
+    let event = backend.next_event(now).unwrap();
+    assert!(matches!(
+        event.map(|e| e.kind),
+        Some(EventKind::ListeningReady)
+    ));
+    let now = backend.now_us();
+    let injection = rig.inject(&mut backend, now);
+    assert!(injection.withheld.is_none(), "{}", injection.receipt);
+    assert_eq!(rig.started(), 1);
+}

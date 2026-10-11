@@ -55,6 +55,10 @@ pub enum Withheld {
     /// The cue or relay protocol failed; nothing trustworthy remains to
     /// schedule against.
     ProtocolFailed(String),
+    /// The backend's final drain took events the runner has not observed;
+    /// nothing started. The runner observes them, rechecks eligibility and
+    /// may dispatch again. Never recorded as a step outcome by itself.
+    Revalidate,
 }
 
 impl Withheld {
@@ -63,6 +67,7 @@ impl Withheld {
             Self::ProviderFailed(_) => "provider_failed",
             Self::SessionEnded(_) => "session_ended",
             Self::ProtocolFailed(_) => "protocol_failed",
+            Self::Revalidate => "revalidate",
         }
     }
     pub fn reason(&self) -> &str {
@@ -70,6 +75,9 @@ impl Withheld {
             Self::ProviderFailed(reason)
             | Self::SessionEnded(reason)
             | Self::ProtocolFailed(reason) => reason,
+            Self::Revalidate => {
+                "events arrived during the final dispatch drain and must be observed first"
+            }
         }
     }
     /// Only a provider failure is provider unavailability; a protocol
@@ -78,6 +86,7 @@ impl Withheld {
         match self {
             Self::ProviderFailed(_) => StepStatus::ProviderUnavailable,
             Self::SessionEnded(_) | Self::ProtocolFailed(_) => StepStatus::SessionEnded,
+            Self::Revalidate => StepStatus::TriggerStale,
         }
     }
 }
@@ -100,6 +109,10 @@ pub struct Finished {
 /// A trigger later than this cannot start its stimulus at the planned phase;
 /// the step is withheld instead of being played late.
 pub const MAX_TRIGGER_LATENESS_US: u64 = 100_000;
+/// Events taken in one final dispatch drain before the step is withheld.
+const MAX_FINAL_DRAIN_EVENTS: usize = 256;
+/// Final dispatch checks repeated because the backend's drain found events.
+const MAX_DISPATCH_ATTEMPTS: u32 = 8;
 
 pub trait Backend {
     fn describe(&self) -> Value;
@@ -236,6 +249,41 @@ impl LiveView {
     }
 }
 
+/// Every condition a planned stimulus needs at the moment of dispatch. When
+/// one fails, the step records why nothing was played and this returns true.
+fn ineligible(
+    backend: &mut dyn Backend,
+    view: &LiveView,
+    step: &Step,
+    record: &mut StepRecord,
+    target_us: u64,
+) -> bool {
+    if view.ended {
+        record.status = StepStatus::SessionEnded;
+        return true;
+    }
+    if provider_unavailable(view, record) {
+        return true;
+    }
+    let now_us = backend.now_us();
+    if now_us > target_us + MAX_TRIGGER_LATENESS_US {
+        record.status = StepStatus::TriggerStale;
+        record.detail = Some(format!(
+            "planned start passed {} ms before the trigger could act",
+            (now_us - target_us) / 1000
+        ));
+        return true;
+    }
+    if step.trigger.require_lamp_speaking && !view.speaking(record.bound_turn) {
+        // The overlap condition no longer holds; playing now would test
+        // something else, so nothing is played and the gap is recorded.
+        record.status = StepStatus::PreconditionLost;
+        record.detail = Some("the triggering reply was no longer playing".into());
+        return true;
+    }
+    false
+}
+
 fn observe_next(backend: &mut dyn Backend, view: &mut LiveView, until_us: u64) -> Result<bool> {
     match backend.next_event(until_us)? {
         Some(mut event) => {
@@ -318,53 +366,56 @@ fn execute(
             && view.provider_failure().is_none()
             && observe_next(backend, view, target_us)?
         {}
-        if view.ended {
-            record.status = StepStatus::SessionEnded;
-            return Ok(());
-        }
-        if provider_unavailable(view, record) {
-            return Ok(());
-        }
-        let now_us = backend.now_us();
-        if now_us > target_us + MAX_TRIGGER_LATENESS_US {
-            record.status = StepStatus::TriggerStale;
-            record.detail = Some(format!(
-                "planned start passed {} ms before the trigger could act",
-                (now_us - target_us) / 1000
-            ));
-            return Ok(());
-        }
-        if step.trigger.require_lamp_speaking && !view.speaking(record.bound_turn) {
-            // The overlap condition no longer holds; playing now would test
-            // something else, so nothing is played and the gap is recorded.
-            record.status = StepStatus::PreconditionLost;
-            record.detail = Some("the triggering reply was no longer playing".into());
-            return Ok(());
-        }
-        // Take anything already delivered, then check once more immediately
-        // before playback: no stimulus after a failed terminal or session end.
-        let now_us = backend.now_us();
-        while observe_next(backend, view, now_us)? {}
-        if view.ended {
-            record.status = StepStatus::SessionEnded;
-            return Ok(());
-        }
-        if provider_unavailable(view, record) {
-            return Ok(());
-        }
-        let started_us = match (&step.scene, &timings[index]) {
-            (Some(scene), Some(timing)) => {
-                let injection = backend.inject(step, scene, timing, target_us)?;
-                record.timing = Some(timing.clone());
-                record.receipt = injection.receipt;
-                if let Some(withheld) = injection.withheld {
+        // Final dispatch: take everything already delivered, then recheck
+        // every condition that made this stimulus valid. When the backend's
+        // own final drain consumed further events, nothing started; observe
+        // them and check again (MAIN-023, MAIN-025). Both loops are bounded.
+        let mut dispatched = None;
+        for attempt in 0..MAX_DISPATCH_ATTEMPTS {
+            let now_us = backend.now_us();
+            let mut drained = 0;
+            while drained < MAX_FINAL_DRAIN_EVENTS && observe_next(backend, view, now_us)? {
+                drained += 1;
+            }
+            if drained == MAX_FINAL_DRAIN_EVENTS {
+                record.status = StepStatus::TriggerStale;
+                record.detail = Some(format!(
+                    "events kept arriving at dispatch: {MAX_FINAL_DRAIN_EVENTS} taken without settling"
+                ));
+                return Ok(());
+            }
+            if ineligible(backend, view, step, record, target_us) {
+                return Ok(());
+            }
+            let (Some(scene), Some(timing)) = (&step.scene, &timings[index]) else {
+                dispatched = Some(backend.now_us());
+                break;
+            };
+            let injection = backend.inject(step, scene, timing, target_us)?;
+            record.timing = Some(timing.clone());
+            record.receipt = injection.receipt;
+            match injection.withheld {
+                None => {
+                    if attempt > 0 {
+                        record.receipt["revalidations"] = json!(attempt);
+                    }
+                    dispatched = Some(injection.started_us);
+                    break;
+                }
+                Some(Withheld::Revalidate) => continue,
+                Some(withheld) => {
                     record.status = withheld.status();
                     record.detail = Some(format!("{}: {}", withheld.cause(), withheld.reason()));
                     return Ok(());
                 }
-                injection.started_us
             }
-            _ => backend.now_us(),
+        }
+        let Some(started_us) = dispatched else {
+            record.status = StepStatus::TriggerStale;
+            record.detail = Some(format!(
+                "events kept arriving during {MAX_DISPATCH_ATTEMPTS} final dispatch checks"
+            ));
+            return Ok(());
         };
         record.started_us = Some(started_us);
         record.status = StepStatus::Injected;
@@ -660,11 +711,20 @@ mod occurrence_tests {
         );
     }
 
+    /// One scripted live event: time, kind and owning turn.
+    type Scripted = (u64, EventKind, Option<u64>);
+
     /// A virtual-clock backend that replays scripted live events.
     struct Script {
         now: u64,
         events: std::collections::VecDeque<(u64, EventKind, Option<u64>)>,
         injected: Vec<(String, u64)>,
+        /// Events the backend's own final drain takes when a step dispatches.
+        held: Vec<(String, Scripted)>,
+        /// Drained events not yet returned to the runner.
+        pending: std::collections::VecDeque<Scripted>,
+        /// Every dispatch drains one more harmless event.
+        endless: bool,
     }
     impl Backend for Script {
         fn describe(&self) -> Value {
@@ -689,6 +749,12 @@ mod occurrence_tests {
             self.now
         }
         fn next_event(&mut self, until_us: u64) -> Result<Option<RuntimeEvent>> {
+            if let Some((at, kind, turn)) = self.pending.pop_front() {
+                let mut event =
+                    RuntimeEvent::new(kind, turn, at, ClockDomain::Virtual, EventSource::Fake);
+                event.playback_sequence = turn.map(|_| 1);
+                return Ok(Some(event));
+            }
             match self.events.front() {
                 Some((at, _, _)) if *at <= until_us => {
                     let (at, kind, turn) = self.events.pop_front().expect("checked");
@@ -715,6 +781,27 @@ mod occurrence_tests {
             at_us: u64,
         ) -> Result<Injection> {
             self.now = self.now.max(at_us);
+            if self.endless {
+                let text = "queued work".to_owned();
+                let kind = EventKind::InputTranscript {
+                    text,
+                    finished: false,
+                };
+                self.pending.push_back((self.now, kind, None));
+            }
+            let (drained, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.held)
+                .into_iter()
+                .partition(|(id, _)| *id == step.id);
+            self.held = kept;
+            self.pending
+                .extend(drained.into_iter().map(|(_, event)| event));
+            if !self.pending.is_empty() {
+                return Ok(Injection {
+                    withheld: Some(Withheld::Revalidate),
+                    started_us: self.now,
+                    receipt: json!({"dispatched": false}),
+                });
+            }
             self.injected.push((step.id.clone(), self.now));
             Ok(Injection {
                 withheld: None,
@@ -741,6 +828,16 @@ mod occurrence_tests {
         scenario_id: &str,
         adjust: impl FnOnce(&mut Scenario),
         events: Vec<(u64, EventKind, Option<u64>)>,
+    ) -> (Vec<StepRecord>, Vec<(String, u64)>) {
+        run_script_held(scenario_id, adjust, events, Vec::new(), false)
+    }
+
+    fn run_script_held(
+        scenario_id: &str,
+        adjust: impl FnOnce(&mut Scenario),
+        events: Vec<(u64, EventKind, Option<u64>)>,
+        held: Vec<(String, Scripted)>,
+        endless: bool,
     ) -> (Vec<StepRecord>, Vec<(String, u64)>) {
         let catalog = StimulusCatalog::load().unwrap();
         let plan = crate::plan::LoadedPlan::default_plan(&catalog).unwrap();
@@ -771,6 +868,9 @@ mod occurrence_tests {
             now: 0,
             events: events.into(),
             injected: Vec::new(),
+            held,
+            pending: Default::default(),
+            endless,
         };
         let mut view = LiveView::default();
         execute(&mut backend, scenario, &timings, &mut steps, &mut view).unwrap();
@@ -1009,5 +1109,89 @@ mod occurrence_tests {
         // Latched for the attempt: no re-ready cue exists yet.
         observe(&mut view, EventKind::SpeakerFirstWrite, Some(2), 40);
         assert_eq!(view.provider_failure(), Some(1));
+    }
+
+    fn speaking_reply() -> Vec<(u64, EventKind, Option<u64>)> {
+        vec![
+            (1_000, EventKind::ListeningReady, None),
+            (
+                1_000_000,
+                EventKind::InputAdmitted {
+                    prefix_first_read_us: None,
+                    candidate: None,
+                    basis: None,
+                },
+                Some(1),
+            ),
+            (
+                1_500_000,
+                EventKind::LocalEndpoint {
+                    last_block_read_us: Some(1_499_000),
+                },
+                Some(1),
+            ),
+            (2_000_000, EventKind::SpeakerFirstWrite, Some(1)),
+        ]
+    }
+
+    /// MAIN-025: harmless events taken by the backend's final drain are
+    /// observed, eligibility is rechecked, and the stimulus starts once.
+    #[test]
+    fn a_backend_revalidation_with_harmless_events_dispatches_once() {
+        let text = "partial".to_owned();
+        let held = vec![(
+            "story".to_owned(),
+            (
+                500_000,
+                EventKind::InputTranscript {
+                    text,
+                    finished: false,
+                },
+                None,
+            ),
+        )];
+        let (steps, injected) =
+            run_script_held("topic-change", |_| {}, speaking_reply(), held, false);
+        assert_eq!(injected.len(), 2, "{injected:?}");
+        assert_eq!(steps[0].status, StepStatus::Injected);
+        assert_eq!(steps[0].receipt["revalidations"], 1);
+    }
+
+    /// MAIN-025: a retirement first taken by the backend's own final drain
+    /// ends the overlap condition; the interruption is not played.
+    #[test]
+    fn a_retirement_taken_by_the_backend_drain_is_precondition_lost() {
+        let held = vec![(
+            "change".to_owned(),
+            (3_000_000, EventKind::SpeechRetired, Some(1)),
+        )];
+        let (steps, injected) =
+            run_script_held("topic-change", |_| {}, speaking_reply(), held, false);
+        assert_eq!(
+            injected
+                .iter()
+                .map(|(id, _)| id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["story"]
+        );
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+    }
+
+    /// MAIN-025: dispatch that never settles is withheld after its bound,
+    /// with the reason recorded.
+    #[test]
+    fn a_dispatch_that_never_settles_is_withheld_after_its_bound() {
+        let (steps, injected) =
+            run_script_held("quick-chat", |_| {}, speaking_reply(), Vec::new(), true);
+        assert!(injected.is_empty(), "{injected:?}");
+        assert_eq!(steps[0].status, StepStatus::TriggerStale);
+        assert!(
+            steps[0]
+                .detail
+                .as_deref()
+                .is_some_and(|d| d.contains("final dispatch checks")),
+            "{:?}",
+            steps[0].detail
+        );
     }
 }

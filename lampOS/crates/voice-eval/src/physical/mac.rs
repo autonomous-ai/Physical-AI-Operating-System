@@ -1030,11 +1030,18 @@ impl Backend for PhysicalBackend<'_> {
             self.unavailable
                 .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
         }
-        if let Some(withheld) = self.unavailable.clone() {
+        // Never start while the runner has not observed every consumed
+        // event: one may end the overlap or the session (MAIN-025).
+        let withheld = self
+            .unavailable
+            .clone()
+            .or_else(|| (!self.pending.is_empty()).then_some(Withheld::Revalidate));
+        if let Some(withheld) = withheld {
             return Ok(Injection {
                 started_us: monotonic_us(),
                 receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
-                    "withheld_cause": withheld.cause(), "reason": withheld.reason()}),
+                    "withheld_cause": withheld.cause(), "reason": withheld.reason(),
+                    "unobserved_events": self.pending.len()}),
                 withheld: Some(withheld),
             });
         }

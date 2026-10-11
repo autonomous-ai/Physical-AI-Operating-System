@@ -120,12 +120,26 @@ reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
 
-### Final dispatch check (`MAIN-023`)
+### Final dispatch check (`MAIN-023`, `MAIN-025`)
 
-Immediately before a stimulus starts, the physical backend takes every relay
-line already delivered and keeps those events for the runner. The first
-terminal cause seen on the attempt is latched, and no stimulus starts after it.
-This includes a cause first seen in this final drain.
+**Runner.** At the planned start, the runner takes every event already
+delivered (at most 256) and then rechecks every condition the stimulus needs:
+- the session is open;
+- the provider is available;
+- the start is within the 100 ms lateness bound (`trigger_stale`);
+- for overlap steps, Lamp is still playing the triggering reply
+  (`precondition_lost`).
+
+**Backend.** Immediately before a stimulus starts, the physical backend takes
+every relay line already delivered and keeps those events for the runner.
+- If any taken event has not yet been observed by the runner, nothing starts.
+  The backend returns `revalidate`, and the runner observes those events,
+  rechecks and dispatches again.
+- After 8 such rounds, or a drain that does not settle, the step is withheld
+  as `trigger_stale` with the reason.
+- The first terminal cause seen on the attempt is latched, and no stimulus
+  starts after it. This includes a cause first seen in the backend's final
+  drain.
 
 | Cause | Latched from | Step status | Receipt `withheld_cause` |
 |---|---|---|---|
@@ -136,8 +150,14 @@ This includes a cause first seen in this final drain.
 The step's `detail` and the receipt's `reason` name the exact cause, for
 example the relay's exit status or the rejected cue. A relay framing error
 also ends live scheduling as a protocol stop, because the lost line may have
-been a cue or the session's end. Tests: `tests/final_dispatch.rs`, which uses
-the real backend, a local pipe transport and a recording-only player.
+been a cue or the session's end.
+
+**Tests.**
+- `tests/final_dispatch.rs` uses the real backend, a local pipe transport and
+  a recording-only player.
+- Root's review regressions are `tests/audit_final_dispatch.rs` and
+  `tests/audit_runner_dispatch.rs`.
+- The runner's scripted cases are in `runner::occurrence_tests`.
 
 ### Terminal provider failure (`MAIN-009`, provisional field names)
 

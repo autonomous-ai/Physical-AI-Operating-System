@@ -1,5 +1,6 @@
 //! Explicit local experiment settings. AEC is mandatory. Turn-taking changes
 //! prospective admission only, not provider settings, gains, or hard authority.
+use crate::provider_worker::Continuation;
 use serde::{Deserialize, Serialize};
 use std::{io, path::PathBuf, str::FromStr};
 
@@ -199,6 +200,9 @@ pub struct DirectedOptions {
     pub turn_taking: TurnTaking,
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
+    /// Explicit opt-in for a person who goes on before the first answer has
+    /// begun. Off leaves the provider worker's arguments as they were.
+    pub provider_continuation: Continuation,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -212,6 +216,7 @@ impl DirectedOptions {
         let mut playout_seen = false;
         let mut reference_seen = false;
         let mut recovery_seen = false;
+        let mut continuation_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
@@ -239,6 +244,12 @@ impl DirectedOptions {
                 "--reference-recovery" if !recovery_seen => {
                     options.reference_recovery = required_value(&mut arguments)?.parse()?;
                     recovery_seen = true;
+                }
+                Continuation::FLAG if !continuation_seen => {
+                    options.provider_continuation = required_value(&mut arguments)?
+                        .parse()
+                        .map_err(|_| invalid_options())?;
+                    continuation_seen = true;
                 }
                 "--ring-channel-ceiling" if options.ring_channel_ceiling.is_none() => {
                     let value = required_value(&mut arguments)?
@@ -667,6 +678,49 @@ mod tests {
     }
 
     #[test]
+    fn provider_continuation_is_explicit_and_reaches_only_the_provider_worker() {
+        let default = SessionOptions::default().directed;
+        assert_eq!(default.provider_continuation, Continuation::Off);
+        // Off adds nothing to the worker's command line.
+        assert!(default.provider_continuation.arguments().is_empty());
+        let chosen = DirectedOptions::parse(&args(&["--provider-continuation", "kept-start"]))
+            .unwrap()
+            .provider_continuation;
+        assert_eq!(chosen, Continuation::KeptStart);
+        let worker = chosen.arguments();
+        assert_eq!(worker, ["--provider-continuation", "kept-start"]);
+        // The worker takes exactly that off the front of its flags and
+        // leaves the rest, such as the camera context, as they were.
+        let mut flags = worker.clone();
+        flags.push("--camera-context".to_owned());
+        let (taken, rest) = Continuation::take(&flags).unwrap();
+        assert_eq!((taken, rest.len()), (Continuation::KeptStart, 1));
+        let (taken, rest) = Continuation::take(&flags[2..]).unwrap();
+        assert_eq!((taken, rest.len()), (Continuation::Off, 1));
+        assert_eq!(
+            DirectedOptions::parse(&args(&["--provider-continuation", "off"]))
+                .unwrap()
+                .provider_continuation,
+            Continuation::Off
+        );
+        for bad in [
+            vec!["--provider-continuation"],
+            vec!["--provider-continuation", "on"],
+            vec!["--provider-continuation=kept-start"],
+            vec![
+                "--provider-continuation",
+                "kept-start",
+                "--provider-continuation",
+                "off",
+            ],
+        ] {
+            assert!(DirectedOptions::parse(&args(&bad)).is_err(), "{bad:?}");
+        }
+        assert!(Continuation::take(&args(&["--provider-continuation"])).is_err());
+        assert!(Continuation::take(&args(&["--provider-continuation", "on"])).is_err());
+    }
+
+    #[test]
     fn reference_recovery_is_explicit_and_needs_a_policy_that_masks_own_playback() {
         assert_eq!(
             SessionOptions::default().directed.reference_recovery,
@@ -900,6 +954,7 @@ mod tests {
                         turn_taking: TurnTaking::VadOnly,
                         reference_clock: ReferenceClock::Fixed,
                         reference_recovery: ReferenceRecovery::Off,
+                        provider_continuation: Continuation::Off,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,

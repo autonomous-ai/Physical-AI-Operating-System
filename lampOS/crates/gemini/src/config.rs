@@ -53,7 +53,7 @@ pub struct Timeouts {
     pub read: Duration,
     /// Longest silence of an earlier response, after it was asked to stop,
     /// before its idle completion. Only the next request's activityEnd waits
-    /// for it; that request's audio is never held.
+    /// for it. Audio is held only by the explicit `SuccessorStart` policy.
     pub barrier: Duration,
     /// Ended input to the first output of its response.
     pub response: Duration,

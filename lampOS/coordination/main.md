@@ -1,12 +1,98 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 19:29 UTC
+- Updated: 2026-10-11 22:02 UTC
 - Branch: `lamp-v2-chat`
-- Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
-- Integration source: optional owned failure notices (`e63f3152`) plus reviewed Gemini Stop fence (`53f303c7e`); composed binary `b1c61a22...643edbd`, not deployed. Native-qualified installation remains unchanged.
+- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, **8/8 complete replies** in one provider session, zero extra inputs/cancellations/reported playback gaps. Continuous room recording and one local ASR pass corroborate all eight. Earlier failed attempts and the older 16/16 sustained check remain separate. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
+
+## Current stopped pilot installation
+
+The tested `e9bdcea28` / `b1c61a22…643edbd` voice-and-ring build is now the
+installed stopped default. [Native installation evidence](../docs/verification/pilot-promotion-20261011/README.md)
+records 41 successful administrative commands, exact new effective argv and
+unchanged legacy PIDs, provider/credential identity, actual gains and stationary
+mute/motor protections. The installation did not start a service or enable boot
+activation. Physical mute/reopen and human acceptance remain pending.
+
+Agent 1's reviewed retained-successor code through `b19cadd09` is now composed
+with the integration branch, behind `--provider-continuation off|kept-start`
+(default off). The post-await retirement fix, fixture rejection and coordinated
+worker tests are included. Main's combined source passed format, strict package
+Clippy, 697 host library tests (six existing ignored), 42 emulated ARM tests and
+release build. [Exact evidence and limits](../docs/verification/provider-continuation-integration-20261011/README.md)
+record the uninstalled artifact. The ordinary-conversation native control is
+being prepared. Explicit discard versus continuation remains separate work;
+accepted transport bytes and already-taken cancelled audio are not claimed to
+be retractable. Three service-only synthetic probes on the original proposal
+are complete: immediate Start timed out with no answer; retained Start settled
+and answered both the before-output and during-output cases. The before-output
+case held Start for 717 ms; the during-output case did not need to hold it.
+Each is one trial, using direct cached input rather than microphones or speakers.
+They do not exercise the known cancellation defect and cannot qualify integration.
+[Independent evidence review](../docs/verification/continuation-service-20261011/README.md)
+verified one timeout and two strict passes, exact input/artifact identities,
+complete aftermath for the passes, cleanup and configuration preservation.
+No production runtime change is qualified by these service-only probes.
+
+Agent 2's R2 fault matrix `4505ccbe` and F1 progress deadline are now integrated
+as an exact four-file composition. Main's host gates passed format, strict live
+all-target Clippy and 507 serial live-library tests, with four existing ignored.
+ARM emulation passed strict Clippy, all 30 fault tests and release build. The
+first ARM selector matched zero tests and was rejected by the count gate; the
+corrected run is retained separately. [Integration evidence](../docs/verification/pilot-fault-integration-20261011/results.json)
+records the exported artifact. Nothing from either proposal is installed.
+
+The controller's stale player launch now has a separately verified fix. Main
+integrated Agent 2's corrected prepared player `82d5fa46`; format, strict package
+Clippy, all 243 observer/evaluator tests and the release build pass. Native iMac
+checks refused an expired grant with zero source frames and completed a fresh
+100 ms grant, starting source submission after 9.527 ms. See
+[the exact delivery evidence](../docs/verification/prepared-player-20261011/results.json).
+The new eight-question controller prepares output before the original readiness
+check; no prompt replay or deadline widening is allowed. Its actual conversation
+completed 8/8 below. Agent 2's `e3250a31` evaluator/readiness-cue proposal remains
+separate. Root reproduced a startup-cue freshness failure and sent it directly
+for correction within the reusable long serve-session runner workstream.
+
+## Eight-turn installed conversation completed
+
+The [new prepared-player run](../docs/verification/installed-eight-turn-20261011/README.md)
+completed all eight cached questions once, in a single provider session: greeting,
+ocean follow-up and correction, stressful-morning discussion, workload, a
+10-minute constraint and a concise-answer preference. Provider transcripts and
+one unseeded local room-ASR pass agree on the connected replies. All original
+100 ms grants were respected at the first source copy; three expired read-only
+checks were retained and played nothing. No prompt was replayed.
+
+The audit verifies 8,652 contiguous acknowledged service events, zero reported
+playback gaps/cancellations/extra inputs, 3,762 original ring request/receipt
+pairs, all six observed process identities gone, and unchanged stationary muted
+restoration with matching actual mixers. The 180-second room WAV and callback
+ledger are complete; recordings remain local. Stop request to verified inactive
+was 295.209 ms. The installed stopped template and runtime bytes are unchanged.
+
+Across eight samples, endpoint to first speaker write was median **1.123123 s**
+(range 1.024696–1.314028 s), excluding the configured 1.2 s endpoint wait.
+Adding that wait gives about **2.32 s**, an estimate rather than an accepted
+acoustic boundary. Provider-first-audio median was 929.330 ms after endpoint.
+Initial service readiness took 2.075478 s. The test supports connected scripted
+chat, not real-human interruption, background addressing or overall release
+acceptance. `human_listened=false`; acoustic scores remain null.
+
+## Retained connected-attempt failure
+
+The [eight-slot installed connected attempt](../docs/verification/installed-connected-20261011/README.md)
+ended at the host player's post-spawn freshness check. Only slot 1 has a complete
+player receipt and owned reply; slot 2's brief output is unknown, and slots 3–8
+were withheld. The runtime recorded no extra input, gap, cancellation or fault.
+Local ASR corroborates the first exchange but cannot prove zero second playback.
+All 776 metadata events and healthy finish ACK, 331 ring pairs, six exited
+identities, empty owners/cgroup, stationary rollback and mixer restoration
+verify. The 180-second room WAV/ledger is intact. This is a retained lab failure,
+not an eight-turn pass or a new acoustic score. The installed template is unchanged.
 
 ## Native05 completed
 
@@ -54,8 +140,39 @@ and local ASR corroborates both complete replies. Stop request to verified clean
 state was 185.413 ms; coordinator SIGTERM event to run_end was 25.786 ms.
 Stationary muted rollback and actual mixer readbacks match. The unit is stopped
 and not boot-enabled. See [native evidence](../docs/verification/installed-service-20261011/README.md)
-and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, optical
-choreography and actual facilitator handoff remain unqualified.
+and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen and actual
+facilitator handoff remain unqualified.
+
+The subsequent [installed-ring check](../docs/verification/installed-ring-20261011/README.md)
+completed 2/2 cached exchanges on the same `55d7af98e` / `738503…5b8d0` binary,
+with zero gaps/cancellations and 877/877 original ring request/receipt pairs at
+ceiling 12. Endpoint → first ALSA write was 1.255596/1.113529 s, excluding the
+1.2 s endpoint wait. All 2,055 metadata events and finish ACK match; all six
+process identities are gone. Stop request → verified clean state was 229.963 ms;
+coordinator SIGTERM → run_end was 22.215 ms. The exact override was removed and
+stationary rollback/mixers verified. The 180-second observer is continuous;
+local ASR corroborates both complete replies. Two retained stills show an
+illuminated ring during reply and a visibly unilluminated ring after Stop;
+optical timing/color and full-motion clearance remain unqualified.
+`human_listened=false`, acoustic score null. Raw audio/photos stay local.
+The newer `e9bdcea28` / `b1c61a22…643edbd` composition was not deployed in this
+run; it receives no physical qualification from this evidence.
+
+The [latest-candidate attempts](../docs/verification/latest-runtime-20261011/README.md)
+retain both earlier exit-2 failures on exact `e9bdcea28` / `b1c61a22…643edbd`:
+zero prompts dispatched in the first; one completed greeting and a withheld
+second prompt in the next. R3 then completed **2/2** with zero reported gaps,
+cancellations or extra input. It waited for original completion plus observed
+post-tail availability before slot 2's fresh check. All 2,098 service events and
+finish ACK, 891 original ring pairs, seven exited identities, clean Stop,
+override removal and stationary mixer restoration verify. Endpoint → first ALSA
+write was 1,295.211/1,054.337 ms, excluding the 1.2 s endpoint wait. The continuous
+180-second recording and two local ASR hypotheses corroborate both replies.
+Model still review shows ring illuminated during reply and unilluminated after
+Stop; color, optical timing and full clearances remain unqualified. Motors and
+notices stayed off. `human_listened=false`, acoustic scores null. This finite
+check supports the exact candidate; the trial itself did not promote the stopped
+template or qualify physical mute/reopen or real-human duplex/addressing.
 
 Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
 Keep the fixed baseline for the first attended sessions: its candidate saves at
@@ -93,9 +210,9 @@ rig stall; 60 ms stalls pass. This supports a scheduling explanation but does
 not recover the first lost panic text or qualify before-output continuation.
 
 Agent 1 completed its Stop gate and confirmed a quiet host/VM window for Main.
-Main's composed gate has finished; no build is running. A finite voice-plus-ring
-run is under final review, using the unchanged native-qualified binary and a
-low ceiling of 12. Motors remain inhibited. Agent 2 published the first 12
+Main's composed gate has finished. The finite voice-plus-ring run on the
+unchanged native-qualified binary passed the scoped check recorded above;
+motors remained inhibited. Agent 2 published the first 12
 pilot fault scenarios at `lamp-a2-pilot-faults` `ff22184a`, with one deliberately
 ignored failing reproduction for a stalled speaker under `vad-only`. The pilot
 uses V1-baseline, which bounds that same fault. Main reviewed the harness and
@@ -105,7 +222,7 @@ while Agent 2 completes the remaining matrix. No device/office-VM grant exists.
 The composed Stop source passed format and strict Gemini/live all-target Clippy,
 219 host tests (four existing ignored) and seven emulated ARM Stop tests; the
 ARM64 release binary linked and its exported digest verified. No full-workspace
-or device gate is claimed for this composition. Exact source/receipt/artifact
+gate is claimed; its three limited native attempts are recorded above. Exact source/receipt/artifact
 identities and commands are in [the integration evidence](../docs/gemini-session-reliability.md#integration-verification-2026-10-11).
 Agent 1's before-output continuation and early endpointing remain separate.
 

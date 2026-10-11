@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "status": "composed_source_verified_not_deployed",
+  "integration_parent": "7bb962d12b53836906f80acde564d23bb64ad1e5",
+  "source_base": "c234b7b449332aaf42cddaeed83bb538c861a13b",
+  "agent_checkpoint": "8ab02d2c6abf665037111f7a4bd8b223effeaafc",
+  "agent_tested_code": "b19cadd09",
+  "source_manifest_sha256": "db80ab36e66e3f5542659f2bb623f922e5a08bc0b0bf66d94c8874af8db5f9b1",
+  "source_file_count": 426,
+  "changed_paths": [
+    "docs/gemini-session-reliability.md",
+    "crates/gemini/examples/service_probe.rs",
+    "crates/gemini/src/session.rs",
+    "crates/gemini/src/config.rs",
+    "crates/gemini/src/lib.rs",
+    "crates/gemini/src/testing.rs",
+    "crates/gemini/src/wire.rs",
+    "crates/gemini/examples/service_probe/strict.rs",
+    "crates/gemini/examples/service_probe/strict_tests.rs",
+    "crates/gemini/src/session/tests.rs",
+    "crates/gemini/src/session/tests/continuation.rs",
+    "crates/gemini/src/session/tests/retain.rs",
+    "crates/live/src/fixture_provider.rs",
+    "crates/live/src/options.rs",
+    "crates/live/src/coordinator.rs",
+    "crates/live/src/main.rs",
+    "crates/live/src/provider_worker.rs"
+  ],
+  "integration_notes": [
+    "Preserves canonical F1 and prepared player",
+    "Omits private shell probe wrapper and documents direct Rust commands",
+    "Clarifies audio-hold timeout comment; no policy edit"
+  ],
+  "defaults": {
+    "provider_continuation": "off",
+    "kept_start_patience_ms": 2500,
+    "barrier_policy": "Require",
+    "barrier_wait_when_enabled": "AtCommit",
+    "barrier_reports_when_enabled": true,
+    "held_audio_sample_bound": 96000,
+    "held_audio_age_extension_ms_when_enabled": 2500,
+    "capture_hand_in_age_bound_ms": 1000,
+    "new_replay": false,
+    "new_retry": false
+  },
+  "review_fixes": [
+    "Re-read request retirement after awaited retained writes before handing End to WebSocket",
+    "Reject kept-start in reply-fixture options before starting workers",
+    "Cover kept question and Stop/mute through the actual Coordinated worker reporting contract",
+    "Preserve canonical F1 speaker acknowledgment guard and prepared-player source"
+  ],
+  "host": {
+    "commands": [
+      {
+        "argv": [
+          "/Users/autonomous/.cargo/bin/cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit": 0,
+        "elapsed_s": 1.6195681691169739,
+        "log": "01-fmt.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "/Users/autonomous/.cargo/bin/cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "-p",
+          "lamp-gemini",
+          "-p",
+          "lamp-live",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit": 0,
+        "elapsed_s": 19.696614821907133,
+        "log": "02-clippy.log",
+        "log_sha256": "a3c78288fb806956c1233d0698ed25220316d8abf0dca4f80a7aaa560da8e58c"
+      },
+      {
+        "argv": [
+          "/Users/autonomous/.cargo/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "lamp-gemini",
+          "-p",
+          "lamp-live",
+          "--lib",
+          "--",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "elapsed_s": 345.74996688915417,
+        "log": "03-test.log",
+        "log_sha256": "9e0effde98c9be6000a826619070e1353b103fe2c9aa43b8af8bdfe1bd792e7f",
+        "test_counts": [
+          {
+            "passed": 178,
+            "failed": 0,
+            "ignored": 2
+          },
+          {
+            "passed": 519,
+            "failed": 0,
+            "ignored": 4
+          }
+        ]
+      }
+    ],
+    "passed": 697,
+    "failed": 0,
+    "ignored": 6,
+    "serial": true,
+    "scope": "Gemini and live libraries; strict all-target package Clippy; not a fresh full-workspace pass"
+  },
+  "arm_emulated": {
+    "receipt_sha256": "c4e42a332d452bb7a1fa4dafad3efc9d2cde14ed7e903cc820d1e358b7524a40",
+    "fmt": true,
+    "strict_clippy_packages": [
+      "lamp-gemini",
+      "lamp-live"
+    ],
+    "strict_clippy_all_targets": true,
+    "selected_tests": {
+      "kept-start": 10,
+      "fixture-rejection": 1,
+      "retirement-regression": 1,
+      "pilot-faults": 30
+    },
+    "passed": 42,
+    "failed": 0,
+    "ignored": 0,
+    "release_build": true,
+    "elf": "AArch64 little-endian ELF64",
+    "device": false
+  },
+  "artifact": {
+    "sha256": "96d5a03ad4931ac1fedc9a3ac8ff76e33c160ccc348dd7256f97f490fa4fc44b",
+    "bytes": 8753928,
+    "export_receipt_sha256": "19876be39b4e1561fffdc70e484040c584c8de1f763f754c52e9cc3f3b65d43c"
+  },
+  "evidence_boundaries": {
+    "source_only_export": true,
+    "root_combined_cloud_calls": 0,
+    "root_combined_device_runs": 0,
+    "existing_service_trials": "continuation-service-20261011; one observation per case on earlier proposal, not this integrated runtime",
+    "installed_default_unchanged": true
+  },
+  "remaining_limits": [
+    "Retirement observed before End handover prevents that commit; already-handed WebSocket bytes cannot be recalled",
+    "Genuinely cancelled retained audio already taken by the session can still join a later open activity; explicit discard versus continuation is separate work",
+    "Kept-start remains opt-in; no native microphone/speaker continuation or latency qualification",
+    "Barrier reports are stderr observations, not typed coordinator events",
+    "No addressee, physical mute/reopen, motion or acoustic quality qualification from these software gates"
+  ]
+}

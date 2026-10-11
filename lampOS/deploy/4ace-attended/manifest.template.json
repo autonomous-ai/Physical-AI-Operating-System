@@ -9,11 +9,11 @@
     "observed_at_utc": null
   },
   "runtime": {
-    "packaging_base_commit": "55d7af98e149591eed7882b9ace7741486daa842",
-    "build_source_manifest_sha256": "b0bada56b63e5c8887965fd0108f18c79b6dc83a9c8213cc4b6ab9298873cdb8",
-    "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
-    "installed_binary": "/opt/lampOS/releases/738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0/lamp-live",
-    "unit_template_sha256": null,
+    "packaging_base_commit": "e9bdcea282be7b787abb0568eb46a5c7958a6cce",
+    "build_source_manifest_sha256": "8565c7d5b6b7eadb0e7cbf4e24c77b00bc698850f9f81c54ce3d14459a851c8b",
+    "binary_sha256": "b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd",
+    "installed_binary": "/opt/lampOS/releases/b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd/lamp-live",
+    "unit_template_sha256": "513e313d72dae248be35058f75ada844db011bb93dedc3c086b0fcbabd8918b8",
     "native_dependency_report_sha256": null,
     "policy": {
       "command": "serve",
@@ -23,11 +23,16 @@
       "reference_recovery": "off",
       "playout_start_ms": 200,
       "camera": false,
-      "ring": false,
+      "ring": true,
       "motors": false,
       "raw_audio_diagnostics": false,
-      "external_cue_listener": false
-    }
+      "external_cue_listener": false,
+      "ring_channel_ceiling": 12,
+      "failure_notices": false,
+      "failure_notice_asset": null
+    },
+    "binary_bytes": 8681808,
+    "arm_qualification_receipt_sha256": "87fbabb32ce10100d42c278eae0a337f71ccaf9e48ebabbe8cfc6b02b1ce98e4"
   },
   "private_provider": {
     "config_path": "/etc/lampOS/pilot-4ace/provider.json",
@@ -112,11 +117,48 @@
       "valid_mac_recordings": 3,
       "physical_mute_reopen_qualified": false,
       "acoustic_quality_scored": false
+    },
+    "native05_runtime_code_commit": "55d7af98e149591eed7882b9ace7741486daa842",
+    "native05_binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+    "native05_scope": "Historical earlier binary; do not attribute its 16 replies or duration to this candidate.",
+    "candidate_native_check": {
+      "status": "pending",
+      "source_commit": "e9bdcea282be7b787abb0568eb46a5c7958a6cce",
+      "binary_sha256": "b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd",
+      "result_sha256": null,
+      "owned_replies_completed": null,
+      "clean_stop_verified": null,
+      "ring_software_verified": null,
+      "stationary_rollback_verified": null,
+      "mixers_unchanged": null,
+      "instruction": "Main must independently accept the exact two-prompt candidate check before promotion. This manual field does not enforce that gate."
     }
   },
   "operator_progress": {
     "stopped_unit_installed": false,
     "start_preflight_verified": false,
     "facilitator_handoff_verified": false
+  },
+  "previous_installation": {
+    "runtime_code_commit": "55d7af98e149591eed7882b9ace7741486daa842",
+    "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+    "unit_template_sha256": "c805c2f425dccc053a5ddd582eee524c4f99de5dfbd00e17810ca0454cacc9ca",
+    "staging_manifest_path": "/var/lib/lampOS/pilot-4ace/staging-manifest-20261011.json",
+    "staging_manifest_sha256": "62234c35f39886dd29c6bb7583c578807a5dc60c1b96ec8628184606e88c4b30",
+    "provider_config_sha256": "0f899a012a76077f1370fd66fd88c5790ff07d3e6ccc3843153713110b147477",
+    "instruction": "Historical identity only. Preserve old binaries and staging evidence unchanged; store exact template/provider/manifest backups privately before stopped-template promotion."
+  },
+  "installation_receipt": {
+    "operation": "stopped_template_promotion",
+    "receipt_path": null,
+    "receipt_sha256": null,
+    "backup_directory": null,
+    "template_backup_sha256": null,
+    "provider_backup_sha256": null,
+    "previous_manifest_backup_sha256": null,
+    "service_started": false,
+    "boot_enabled": false,
+    "legacy_stopped": false,
+    "instruction": "Write a new private installation receipt and manifest copy. Never update the prior staging manifest in place. This template does not install, start or restore anything."
   }
 }

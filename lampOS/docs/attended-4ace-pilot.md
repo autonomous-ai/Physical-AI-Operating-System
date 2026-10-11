@@ -1,19 +1,35 @@
 # Attended 4ace pilot package
 
-This package directly runs the existing Rust `lamp-live serve` on **lamp-4ace**.
-Its source base is `55d7af98e`; its binary is
-`738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0`.
-Native05 passed: **16/16 owned replies over 1,295.074642 seconds**, clean Stop,
-exit 0, verified stationary rollback, and all three Mac recordings valid. Results
-were published in `6691132718b3bf3f1adc2a6c3ada26d08a027e6a`, at
-`lampOS/docs/verification/native05-20261011/README.md`. Acoustic quality remains
-unscored; that run did not qualify physical mute/reopen or all-day reliability.
-A later [installed-service check](verification/installed-service-20261011/README.md)
-completed two more exchanges, then verified all five observed processes gone,
-empty cgroup/hardware owners, clean metadata finish and stationary restoration.
-The 180-second room recording is valid; offline ASR corroborates both replies.
-Physical mute/reopen and acoustic listening acceptance remain separate gates.
-This is an attended desk pilot, not an unattended or boot-enabled release.
+The installed stopped template runs Rust `lamp-live serve` on **lamp-4ace** from
+source `e9bdcea282be7b787abb0568eb46a5c7958a6cce`, binary
+`b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd`, with voice
+and ring channel ceiling 12. The [latest installed conversation](verification/installed-eight-turn-20261011/README.md)
+completed **8/8** context-linked exchanges in one provider session, with zero
+reported playback gaps, 3,762 matching ring receipts, clean Stop and verified
+stationary restoration. A continuous room recording and one local ASR pass
+corroborate all eight replies. Endpoint to first speaker write was median
+1.123123 s across eight replies, excluding the configured 1.2 s silence wait;
+this is software timing, not accepted acoustic latency. Human-listened
+acceptance and physical mute/reopen remain pending.
+
+The [earlier incomplete eight-slot attempt](verification/installed-connected-20261011/README.md)
+remains retained: one completed greeting, one stale host-player spawn with brief
+output unknown, and six withheld slots. The corrected prepared player now arms
+before the original readiness check and enforces its expiry at the first source
+copy. This host-side fix enabled the new eight-turn check without changing the
+Lamp runtime or replaying a question. Historical attempts are not pooled.
+
+The [stopped-template installation](verification/pilot-promotion-20261011/README.md)
+passed native validation and preservation checks. No service was started by that
+operation. The older `55d7af98e` / `738503…5b8d0` binary separately completed
+[16 exchanges over 21.6 minutes](verification/native05-20261011/README.md), the
+[installed-service check](verification/installed-service-20261011/README.md) and
+the [installed-ring check](verification/installed-ring-20261011/README.md).
+Those historical results are not measurements of the new binary.
+
+Use the [first-user session guide](first-user-session.md) after the physical
+privacy and audibility checks. This is a supervised desk-chat pilot; natural
+interruption, addressee detection, camera context and motion are unqualified.
 
 Remote staging and installation of the **stopped unit** are already authorized
 and do not require onsite attendance. Starting needs exclusive device ownership
@@ -29,8 +45,9 @@ lab harness, parent-repository file, HAL bridge or background helper is shipped.
 
 ## Prerequisites and explicit boundaries
 
-- Keep Lamp stationary. This command has no camera, ring or motor worker, and
-  issues no serial, torque, home or park command. The serial namespace mask is
+- Keep Lamp stationary. This command enables the ring worker at channel ceiling 12,
+  with no camera or motor worker. It issues no serial, torque, home or park
+  command. The serial namespace mask is
   only an additional access restriction; it does not stop an already moving
   joint or establish safe placement.
 - Keep verified administrative access available for stop and manual restoration.
@@ -44,7 +61,8 @@ lab harness, parent-repository file, HAL bridge or background helper is shipped.
 - The release needs a compatible Linux ARM64 loader/C runtime, `libasound` and
   its configured plugins, `/usr/bin/systemctl`, normal DNS/network access to the
   approved provider, `/dev/urandom`, writable `/tmp`, and the qualified sound and
-  GPIO devices. It does not need Cargo, Python, Go, model downloads, libclang or
+  GPIO devices plus `/dev/spidev3.0` for the ring. It does not need Cargo,
+  Python, Go, model downloads, libclang or
   development headers at runtime. Verify the binary's actual dependency list;
   this package does not guess the installed library versions.
 - Voice input is `plug:device_micro2` (Jieli), output `plug:device_speaker`
@@ -96,7 +114,7 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
    sha256sum /etc/asound.conf
    amixer -c device_micro2 contents
    amixer -c device_cmedia contents
-   stat -Lc '%F %u:%g %a %t:%T' /dev/gpiochip1 /dev/ttyACM0
+   stat -Lc '%F %u:%g %a %t:%T' /dev/gpiochip1 /dev/spidev3.0 /dev/ttyACM0
    readlink -f /sys/class/sound/card*/device
    ```
 
@@ -108,13 +126,13 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
    `STAGED_BINARY` to that **explicit local path**, not a URL or shell download.
 
    ```sh
-   SHA=738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0
+   SHA=b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd
    RELEASE=/opt/lampOS/releases/$SHA
    printf '%s  %s\n' "$SHA" "$STAGED_BINARY" | sha256sum --check --status
    test ! -e "$RELEASE"
    test ! -L "$RELEASE"
    install -d -m 0755 -o root -g root "$RELEASE"
-   install -m 0755 -o root -g root "$STAGED_BINARY" "$RELEASE/lamp-live"
+   install -m 0555 -o root -g root "$STAGED_BINARY" "$RELEASE/lamp-live"
    printf '%s  %s\n' "$SHA" "$RELEASE/lamp-live" | sha256sum --check --status
    readelf -l "$RELEASE/lamp-live"
    readelf -d "$RELEASE/lamp-live"
@@ -208,6 +226,10 @@ main-PID stop. Neither was established by static package checks.
 
 V1-baseline deliberately suppresses prospective input during observed own
 playback plus its declared tail; this is not qualified natural interruption.
+Cached loudspeaker runs do not qualify real-human addressing, coworker speech,
+laptop/call rejection or duplex behavior. Before-answer continuation remains a
+separate provider-settlement limitation. The optional failure notice has no
+approved production asset and is not enabled on this installed runtime.
 No wake-word, addressee recognition, software mute/volume API, tap-to-talk or
 touch-button support is exposed here. Use physical mute and the service stop.
 Rotating local metadata may contain transcripts; it is bounded best-effort

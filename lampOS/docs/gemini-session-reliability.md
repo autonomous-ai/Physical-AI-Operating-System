@@ -1457,14 +1457,20 @@ turns the setting on for one run. The barrier row gains `start_held_ms`,
 `keep_start_ms` and `successor_start_is_default`. A pass under it is a
 pass of this setting and not of the default.
 
-`crates/gemini/examples/service_probe/lamp-cases.sh` runs the seven
-cases that matter, one connection each, on a machine that already holds
-the provider file and its credential:
+Build the Rust probe and run each case explicitly on a machine that already
+holds the provider file and its credential. The private seven-case wrapper is
+not part of standalone LampOS. For example, these are separate connections;
+retain each result and exit status without automatically replaying a prompt:
 
 ```sh
 cargo build --locked --release -p lamp-gemini --example service_probe
-lamp-cases.sh ./service_probe /path/to/provider.json FIRST.wav SECOND.wav /path/to/empty/out
+./target/release/examples/service_probe /path/to/provider.json FIRST.wav continue-before-output SECOND.wav 300 barrier-wait=at-commit keep-start-ms=2500
+./target/release/examples/service_probe /path/to/provider.json FIRST.wav continue-during-output SECOND.wav barrier-wait=at-commit keep-start-ms=2500
 ```
+
+The remaining cases are the default before-output control, its observation-only
+five-second wait, retained before-output at 0 and 800 ms, and retained
+`repeat-before-output 300`. The examples use only cached synthetic speech.
 
 The credential is read in place and never copied or printed. The audio is
 cached synthetic speech; no microphone or speaker is opened. The control
@@ -1535,3 +1541,12 @@ was received. Keep speculative early endpointing disabled: the required settleme
 behavior is not qualified. The [sanitized result and limits](verification/strict-continuation-20261011/README.md)
 distinguish observed public events from unavailable wire acknowledgements and
 explain why this functional probe is not a latency benchmark.
+
+## Main integration verification, 2026-10-11
+
+The opt-in worker/CLI path and both review corrections are composed with Main's
+speaker-acknowledgment safeguard. Main's standalone host gates pass 697 combined
+Gemini/live library tests (six existing ignored); emulated ARM gates pass 42
+selected tests and the release build. Defaults remain off and the installed
+pilot is unchanged. See [exact integration evidence](verification/provider-continuation-integration-20261011/README.md)
+and its explicit transport and cancelled-audio limits.

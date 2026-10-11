@@ -1,0 +1,314 @@
+{
+  "schema": 1,
+  "status": "incomplete_host_dispatch_failure",
+  "attempt_id": "r5dgrcvo",
+  "result_sha256": "20d0aa1a4ed0765017a3d391d9c69ad480cfb237d09c94af1224566156f806d9",
+  "runtime": {
+    "source": "e9bdcea282be7b787abb0568eb46a5c7958a6cce",
+    "binary_sha256": "b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd",
+    "installed_template_sha256": "513e313d72dae248be35058f75ada844db011bb93dedc3c086b0fcbabd8918b8",
+    "invocation": "db407b6cfd204d718bf394de03e278a4",
+    "temporary_override": false
+  },
+  "counts": {
+    "planned": 8,
+    "verified_full_player_deliveries": 1,
+    "stale_spawn_attempts_with_unknown_brief_output": 1,
+    "withheld_without_dispatch": 6,
+    "input_candidates": 1,
+    "admitted": 1,
+    "endpoints": 1,
+    "replies_whole_turn_completed": 1,
+    "playback_occurrences_retired": 1,
+    "playback_gaps": 0,
+    "cancel_events": 0,
+    "runtime_fault_events": 0,
+    "service_events": 776
+  },
+  "attempts": [
+    {
+      "slot": 1,
+      "text": "Lamp, how are you doing today?",
+      "status": "spoken_reply_completed_unscored",
+      "source_sha256": "991819cd1f568ec46179310676b58e446ad0f8f0aa05a20929cf49b5d6dde8ae",
+      "playback": "completed_delivery_checks"
+    },
+    {
+      "slot": 2,
+      "text": "Lamp, tell me one interesting fact about the ocean.",
+      "status": "attempt_incomplete",
+      "source_sha256": "618944dbbceb8f993934d47d4711f02c5a42fa07347c18dbdfcb73a92891c3ff",
+      "playback": "spawn_attempt_cancelled_no_player_receipt_brief_output_unknown"
+    },
+    {
+      "slot": 3,
+      "text": "How deep is the ocean at its deepest point? Keep it brief.",
+      "status": "withheld",
+      "source_sha256": "5176bf4819eba740c5079fa1f3093d4eb2f4f30f10b995d3605f4585c48d32cb",
+      "playback": "withheld_no_dispatch"
+    },
+    {
+      "slot": 4,
+      "text": "Actually, I meant its average depth, not the deepest point.",
+      "status": "withheld",
+      "source_sha256": "7b446f874ec31e259304e165877993f71d7daf74214d326df507344ff5add125",
+      "playback": "withheld_no_dispatch"
+    },
+    {
+      "slot": 5,
+      "text": "Let's change the subject. I've had a stressful morning. Could you listen for a minute?",
+      "status": "withheld",
+      "source_sha256": "f13d1dfa079caa6f646345b290428005e21ff272ecc5db12c58a0963c45fcdaf",
+      "playback": "withheld_no_dispatch"
+    },
+    {
+      "slot": 6,
+      "text": "It's my workload. What's one small thing I can do next?",
+      "status": "withheld",
+      "source_sha256": "5ec6aec7dbb0ddd79f2180042faee8c125616d5cef70eadc9015d541a2bc831b",
+      "playback": "withheld_no_dispatch"
+    },
+    {
+      "slot": 7,
+      "text": "I only have ten minutes before a meeting. Can you make that smaller?",
+      "status": "withheld",
+      "source_sha256": "ae1316d061a297f5153ee0cb4622b49fceb5fabb5a43f95c375b0c38c0131ba2",
+      "playback": "withheld_no_dispatch"
+    },
+    {
+      "slot": 8,
+      "text": "Thanks. Please keep your answers short while I'm working.",
+      "status": "withheld",
+      "source_sha256": "e0e6aa837716e4fc15cf97b7ca12ff968e2b25aec86bcf633f3fd6bf5099480f",
+      "playback": "withheld_no_dispatch"
+    }
+  ],
+  "failure": {
+    "message": "TimeoutError: Playback dispatch returned stale; brief output cannot be excluded",
+    "checks": [
+      {
+        "slot": 1,
+        "number": 1,
+        "status": "fresh",
+        "sent_host_ns": 2279412289937889,
+        "received_host_ns": 2279412356901831,
+        "finished_host_ns": 2279412357250208,
+        "expires_host_ns": 2279412389937889,
+        "receive_elapsed_ms": 66.963942,
+        "completed_check_elapsed_ms": 67.312319
+      },
+      {
+        "slot": 2,
+        "number": 1,
+        "status": "received_expired",
+        "sent_host_ns": 2279419914819453,
+        "received_host_ns": 2279420025992875,
+        "finished_host_ns": 2279420026918202,
+        "expires_host_ns": 2279420014819453,
+        "receive_elapsed_ms": 111.173422,
+        "completed_check_elapsed_ms": 112.098749
+      },
+      {
+        "slot": 2,
+        "number": 2,
+        "status": "received_expired",
+        "sent_host_ns": 2279420032010009,
+        "received_host_ns": 2279420144223288,
+        "finished_host_ns": 2279420144702641,
+        "expires_host_ns": 2279420132010009,
+        "receive_elapsed_ms": 112.213279,
+        "completed_check_elapsed_ms": 112.692632
+      },
+      {
+        "slot": 2,
+        "number": 3,
+        "status": "fresh",
+        "sent_host_ns": 2279420148628346,
+        "received_host_ns": 2279420233424218,
+        "finished_host_ns": 2279420234296389,
+        "expires_host_ns": 2279420248628346,
+        "receive_elapsed_ms": 84.795872,
+        "completed_check_elapsed_ms": 85.668043
+      }
+    ],
+    "slot2_last_check_headroom_ms": 14.331957,
+    "dispatch_detail_limit": "Slot2 entered Popen while the final check was current, then returned at/after the unchanged expiry (proven by the precise source branch and cancel sentinel). Exception prevented launch timestamps/process status from being returned/persisted. Exact Popen duration, overshoot and causal scheduler/OS component are unavailable. No player artifact proves delivery or non-delivery."
+  },
+  "turn": {
+    "owner": {
+      "boot": [
+        94,
+        118,
+        109,
+        108,
+        102,
+        63,
+        144,
+        59,
+        85,
+        255,
+        53,
+        178,
+        36,
+        24,
+        20,
+        81
+      ],
+      "generation": 3,
+      "turn": 1
+    },
+    "admission_us": 45229389298,
+    "endpoint_us": 45232227588,
+    "endpoint_includes_silence_wait_ms": 1200,
+    "provider_first_audio_us": 45233110295,
+    "first_alsa_us": 45233503602,
+    "final_retirement_us": 45236202799,
+    "completion_us": 45236205159,
+    "availability_us": 45236304186,
+    "endpoint_to_provider_audio_ms": 882.707,
+    "endpoint_to_alsa_ms": 1276.014,
+    "provider_audio_to_alsa_ms": 393.307,
+    "retirement_to_availability_ms": 101.387,
+    "final_cursor": {
+      "epoch": 1,
+      "frame": 224160
+    },
+    "provider_input_transcript_session_scoped": [
+      "Ma'am, how are you doing today?"
+    ],
+    "provider_output": "I'm doing well, thank you. How are you doing today?",
+    "software_only": true
+  },
+  "cleanup": {
+    "runtime_signal_to_end_ms": 19.585,
+    "relay_stop_to_verified_ms": 191.802,
+    "observed_identities": 6,
+    "all_observed_gone": true,
+    "cgroup_empty": true,
+    "hardware_owners_empty": true,
+    "writer_events": 776,
+    "healthy_finish_ack": true,
+    "rollback_verified": true,
+    "mixers_restored": true,
+    "software_mutes_restored": true,
+    "template_unchanged": true,
+    "instance_override_already_absent": true,
+    "host_final_helper_exit_not_retained": true
+  },
+  "ring": {
+    "requested": 331,
+    "presented": 331,
+    "rejected": 0,
+    "fault": null,
+    "pending": false,
+    "shutdown_black_receipt": true,
+    "request_to_spi_return_ms": [
+      1.519,
+      4.813
+    ],
+    "optical_claim": null
+  },
+  "recording": {
+    "duration_s": 180,
+    "frames": 8640000,
+    "rate": 48000,
+    "channels": 1,
+    "format": "float32",
+    "callbacks_verified": 16875,
+    "dropped_or_clipped_or_nonfinite_samples": 0,
+    "wav_sha256": "4a5b31082d31f67b9f95d69c97dacd6839b5f916c792bce858e7d237f1d8cf33",
+    "pcm_sha256": "3609a4bdd23048dd7352111de59820340f14b83ee4349eefb8f333532b024acc",
+    "ledger_sha256": "aa60c1eddc5005b4df2f201a1ba4671b6cef8b0951cef1d98a07a9b654a2d15a"
+  },
+  "local_asr": {
+    "status": "offline_asr_hypothesis",
+    "hypothesis": "Lam, how are you doing today? I'm doing well, thank you. How are you doing today?",
+    "crop_room_seconds": [
+      4.32,
+      14.48
+    ],
+    "model": "small.en",
+    "model_sha256": "f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872",
+    "python": "3.12.9",
+    "numpy": "1.26.4",
+    "torch": "2.2.2",
+    "cpu_threads": 2,
+    "known_text_prompt": null,
+    "network_blocked": true,
+    "human_listened": false,
+    "accepted_acoustic_timing": null,
+    "second_prompt_finding": "No ocean-question words decoded in the selected window. This does not prove zero brief playback: no slot-2 native player receipt or persisted dispatch-return timestamp exists.",
+    "comparison": "The first reply hypothesis matches the provider output; the greeting vocative is decoded Lam rather than the cached Lamp."
+  },
+  "archive": {
+    "archive_path": "/var/lib/lampos-4ace-installed-check-connected-r5dgrcvo/qualification-evidence.tar",
+    "bytes": 890880,
+    "sha256": "5e9c7072d20aab2517a02a2f5a6ccef360c1b2c5a6bb122c2385cce506e55fb4",
+    "files": [
+      {
+        "path": "stage-receipt.json",
+        "bytes": 5345,
+        "sha256": "aabc648273dcf91756c97683dc0a81dcd2730eb412f932f0ecd1ab37b763e223"
+      },
+      {
+        "path": "cutover-receipt.json",
+        "bytes": 15204,
+        "sha256": "9f3e6b97f19a132b55015145dcf81d9bb88d4f70242e426f379a17b4f6edb8ef"
+      },
+      {
+        "path": "rollback-receipt.json",
+        "bytes": 6570,
+        "sha256": "2869e9ec8691fb08b99e86a2cd199050c6314a11734e1a1f1a36c528a6422269"
+      },
+      {
+        "path": "relay-result.json",
+        "bytes": 8043,
+        "sha256": "925d4f33ee0ad368b1056c3d1b883da1e6afd34ba01e4101cd1ff20e50d7db26"
+      },
+      {
+        "path": "journal.jsonl",
+        "bytes": 3133,
+        "sha256": "2f7b143cc51039279a6ce1b1fc93b061fc326d6ad5050cfbc8be3f55889d1477"
+      },
+      {
+        "path": "runtime/metadata/health.json",
+        "bytes": 407,
+        "sha256": "8ce73ff6a3bbaf6400f976287816759a5a431db32957fb6aa44c1b5ca60ec196"
+      },
+      {
+        "path": "runtime/metadata/events-0.jsonl",
+        "bytes": 825494,
+        "sha256": "1c234e1be36c82d55a3ea71adf128b5785870c3d2965c33de0bd61e98e2d5364"
+      },
+      {
+        "path": "runtime/metadata/events-1.jsonl",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "runtime/metadata/events-2.jsonl",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "runtime/metadata/events-3.jsonl",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "audit": {
+    "input_manifest_sha256": "f4e4b7c8614be0f441af29df8a30d7d28678f4a1aa63d01b3353ce50c4e2d2d2",
+    "report_sha256": "f09f66cdf50492625ec3d4dfcf8b40ef46a0cd2bc720d76af68072fb8288db80",
+    "local_asr_sha256": "f4ff803899c1264f899496775e8251c6c0d99317d0388d5ce6d3b242c781a48a"
+  },
+  "human_listened": false,
+  "acoustic_score": null,
+  "limits": [
+    "One complete exchange, not eight-turn qualification.",
+    "No slot-2 player receipt: brief output remains unknown despite no decoded ocean words.",
+    "Serve metadata only; no native raw PCM seal.",
+    "No causal attribution of Popen delay or acoustic/optical timing.",
+    "All earlier run outcomes remain separate."
+  ]
+}

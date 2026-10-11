@@ -3,7 +3,7 @@ use crate::{
     activity::SpeechProbability,
     diagnostic_control::{DiagnosticFinished, DiagnosticStarted},
     diagnostics::{self, EndReason, Recorder, ResetMeta, ResetReason, StreamKind},
-    options::{NoiseSuppression, SoftwareProcessing},
+    options::{AudioWorkerOptions, NoiseSuppression, ReferenceClock, SoftwareProcessing},
     playback::SpeechPlayback,
     reference::{PRIME_FRAMES, ReferenceAssembly, accepted_write_survived},
     transport::{ReferenceChannels, WorkerChannels},
@@ -186,12 +186,36 @@ pub fn capture_with_noise_suppression(
         device,
         diagnostic_directory,
         noise_suppression,
+        ReferenceClock::Fixed,
+    )
+}
+
+/// The capture worker as the supervisor configured it: the noise suppression
+/// and the way the echo reference is kept beside the microphone.
+pub fn capture_with_options(
+    channels: WorkerChannels,
+    controller: BootId,
+    worker: BootId,
+    directory: &Path,
+    device: &str,
+    options: &AudioWorkerOptions,
+) -> Result<()> {
+    capture_on::<AlsaCapture>(
+        channels,
+        controller,
+        worker,
+        directory,
+        device,
+        options.diagnostic_directory.as_deref(),
+        options.noise_suppression,
+        options.reference_clock,
     )
 }
 
 /// The capture worker over any capture device. The entry points above are the
 /// board's and use ALSA. A process-level test names a scripted device instead
 /// and runs this same loop: nothing in it knows which one it has.
+#[allow(clippy::too_many_arguments)]
 pub fn capture_on<D: CaptureDevice>(
     mut channels: WorkerChannels,
     controller: BootId,
@@ -200,6 +224,7 @@ pub fn capture_on<D: CaptureDevice>(
     device: &str,
     diagnostic_directory: Option<&Path>,
     noise_suppression: NoiseSuppression,
+    reference_clock: ReferenceClock,
 ) -> Result<()> {
     let mut recording = Recording::start(
         diagnostic_directory,
@@ -216,6 +241,7 @@ pub fn capture_on<D: CaptureDevice>(
         directory,
         &mut recording,
         noise_suppression,
+        reference_clock,
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
     let close = microphone.control_lost();
@@ -245,12 +271,19 @@ fn capture_loop<D: CaptureDevice>(
     directory: &Path,
     recording: &mut Option<Recording>,
     noise_suppression: NoiseSuppression,
+    reference_clock: ReferenceClock,
 ) -> Result<EndReason> {
     let mut link: Option<ReferenceChannels> = None;
     let mut prepare_requested = false;
     let mut capture_prepared = false;
     let mut privacy = 0;
-    let mut reference = ReferenceAssembly::default();
+    // The fixed margin is the default and the fallback. The capture-clocked
+    // reference follows the difference between the two USB clocks; loss,
+    // reordering and staleness fault exactly as they do in the fixed mode.
+    let mut reference = match reference_clock {
+        ReferenceClock::Fixed => ReferenceAssembly::default(),
+        ReferenceClock::Capture => ReferenceAssembly::capture_clocked(),
+    };
     let mut echo = EchoProcessor::new(noise_suppression.enabled());
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
@@ -513,6 +546,9 @@ fn capture_loop<D: CaptureDevice>(
                     reference: timing,
                 },
                 probability,
+                // What the render explains of this very block, for a
+                // coordinator that listens while the lamp speaks.
+                echo: echo.evidence(),
                 samples: clean.to_vec(),
             })?;
             if monotonic_us().saturating_sub(last_diagnostic) >= 1_000_000 {

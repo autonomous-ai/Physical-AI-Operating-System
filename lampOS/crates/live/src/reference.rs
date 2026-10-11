@@ -14,8 +14,8 @@
 //!   the clocks within `lamp_audio::drift::MAX_PPM`. Packet order, cursor
 //!   continuity, privacy, freshness and both bounds fault exactly as before.
 use crate::wire::{
-    ClockPrimed, ReferenceFault, ReferenceFaultKind as Kind, ReferenceTiming, RenderPayload,
-    RenderReference,
+    ClockPrimed, ReferenceDrift, ReferenceFault, ReferenceFaultKind as Kind, ReferenceTiming,
+    RenderPayload, RenderReference,
 };
 use lamp_audio::{
     CAPTURE_RATE, EchoProcessor, RENDER_RATE, RENDER_SAMPLES, RenderBlock,
@@ -136,7 +136,14 @@ impl ReferenceAssembly {
     }
 
     pub fn timing(&self) -> ReferenceTiming {
-        self.timing
+        ReferenceTiming {
+            drift: self.drift().map(|drift| ReferenceDrift {
+                rate_ppm: drift.ppm as f32,
+                learned_ppm: drift.steady_ppm as f32,
+                unread_frames: u32::try_from(drift.unread_frames).unwrap_or(u32::MAX),
+            }),
+            ..self.timing
+        }
     }
 
     pub fn fault(&self, reason: Kind, now: u64) -> ReferenceFault {
@@ -146,7 +153,7 @@ impl ReferenceAssembly {
             expected_sequence: self.sequence.saturating_add(1),
             received_sequence: None,
             received_first_sample: None,
-            timing: self.timing,
+            timing: self.timing(),
         }
     }
 
@@ -1088,7 +1095,28 @@ mod tests {
                 timing.accepted_through - timing.analysed_through,
                 drift.unread_frames as u64
             );
+            // The periodic report carries the same state to the trace.
+            let reported = timing.drift.unwrap();
+            assert_eq!(reported.unread_frames as usize, drift.unread_frames);
+            assert_eq!(reported.learned_ppm, drift.steady_ppm as f32);
+            assert_eq!(reported.rate_ppm, drift.ppm as f32);
         }
+    }
+
+    #[test]
+    fn the_fixed_reference_reports_exactly_what_it_did() {
+        let mut state = ReferenceAssembly::default();
+        let (blocks, fault) = session(&mut state, 0.0, 500, |_| true);
+        assert_eq!((blocks, fault), (500, None));
+        assert!(state.drift().is_none() && state.timing().drift.is_none());
+        let report = serde_json::to_value(state.timing()).unwrap();
+        assert!(report.get("drift").is_none(), "{report}");
+        // And a report without the field still reads back.
+        let read: ReferenceTiming = serde_json::from_value(report).unwrap();
+        assert!(read.drift.is_none());
+        // A fault from the capture-clocked reference says where it stood.
+        let clocked = ReferenceAssembly::capture_clocked();
+        assert!(clocked.fault(Kind::ReferenceLate, 1).timing.drift.is_some());
     }
 
     #[test]

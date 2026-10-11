@@ -349,8 +349,13 @@ impl InputSender {
     /// counted and reported as sent in [`Event::InputDiscarded`]. Without
     /// that setting nothing is ever kept and this is exactly `retire`.
     pub fn discard(&self, request: RequestId) {
+        // Retirement is published first. From that store on no audio of the
+        // request is accepted or taken, so that when the session sees the
+        // abandonment and drops what it kept, nothing of the request can
+        // still arrive behind that. Published the other way round, a block
+        // accepted between the two stores outlived the drop and was written.
         self.shared
-            .discarded_through
+            .retired_through
             .fetch_max(request.get(), Ordering::AcqRel);
         #[cfg(test)]
         {
@@ -365,7 +370,10 @@ impl InputSender {
                 pause.proceed.recv().unwrap();
             }
         }
-        self.retire(request);
+        self.shared
+            .discarded_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        self.shared.wake.notify_one();
     }
     pub fn shutdown(&self) {
         self.shared.fail(Error::Closed);
@@ -607,7 +615,7 @@ where
         gated: false,
         purged_through: 0,
         discard_applied: 0,
-        open_activity_samples: 0,
+        open_activity: VecDeque::new(),
         shared,
         stop: stop_rx,
         current: None,
@@ -796,8 +804,9 @@ struct Actor<S> {
     /// Through which request a discard has been applied.
     discard_applied: u64,
     /// Audio samples written into the activity now open, which has no End
-    /// yet: what a request that continues it will be heard after.
-    open_activity_samples: u64,
+    /// yet, by the request they belong to and in order: what a request that
+    /// continues the activity will be heard after. One entry per request.
+    open_activity: VecDeque<(u64, u64)>,
     shared: Arc<Shared>,
     stop: watch::Receiver<Option<Stopped>>,
     /// The newest request: the only one that accepts input.
@@ -1162,7 +1171,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.write(Message::text(wire::ACTIVITY_START), self.timeouts.write)
                 .await?;
             self.activity_open = true;
-            self.open_activity_samples = 0;
+            self.open_activity.clear();
         }
         Ok(())
     }
@@ -1189,7 +1198,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
             .await?;
         self.activity_open = false;
-        self.open_activity_samples = 0;
+        self.open_activity.clear();
         if let Some(turn) = self.current.as_mut() {
             turn.end_held = false;
             turn.held_at = None;
@@ -1342,13 +1351,22 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     fn holding(&self) -> bool {
         self.held.as_ref().is_some_and(|held| held.holding)
     }
+    /// A block is handed to the socket in the open activity.
+    fn note_sent(&mut self, audio: &Audio) {
+        let (request, samples) = (audio.request.get(), audio.samples.len() as u64);
+        match self.open_activity.back_mut() {
+            Some((last, total)) if *last == request => *total += samples,
+            _ => self.open_activity.push_back((request, samples)),
+        }
+    }
     /// Apply an abandonment recorded by [`InputSender::discard`]: drop what
     /// is still kept of the abandoned requests, and say what was dropped and
     /// what had already gone. Only where something can be kept at all;
     /// otherwise an abandonment is a retirement and nothing more.
     fn apply_discard(&mut self) {
         let through = self.shared.discarded_through.load(Ordering::Acquire);
-        if through <= self.discard_applied {
+        let applied = self.discard_applied;
+        if through <= applied {
             return;
         }
         self.discard_applied = through;
@@ -1375,7 +1393,15 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         // What was handed to the socket before this is in an activity that
         // has no End: it cannot be taken back and is not called discarded.
-        let sent = self.open_activity_samples;
+        // Only the abandoned requests' own samples, and only those not
+        // already reported by an earlier abandonment: a newer request's
+        // audio in the same activity is not theirs.
+        let sent: u64 = self
+            .open_activity
+            .iter()
+            .filter(|(request, _)| *request > applied && *request <= through)
+            .map(|(_, samples)| samples)
+            .sum();
         if (dropped > 0 || sent > 0)
             && let Ok(through) = RequestId::new(through)
         {
@@ -1430,8 +1456,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 .filter(|age| *age < bound)
                 .ok_or(Error::StaleInput)?;
             let deadline = self.timeouts.write.min(bound - age);
+            // An abandoned request's block cannot be here: its retirement
+            // was published before its abandonment, so none was accepted
+            // after the drop. Were one here all the same, it is not written.
+            if audio.request.get() <= self.discard_applied {
+                continue;
+            }
             // Handed to the socket from here: no longer droppable.
-            self.open_activity_samples += audio.samples.len() as u64;
+            self.note_sent(&audio);
             self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                 .await?;
         }
@@ -1498,7 +1530,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     return Ok(());
                 }
                 let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
-                self.open_activity_samples += audio.samples.len() as u64;
+                self.note_sent(&audio);
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
             }

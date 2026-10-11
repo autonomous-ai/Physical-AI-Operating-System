@@ -974,21 +974,33 @@ async fn discard_publication_race_cannot_leave_a_later_kept_frame_alive() {
         proceed: proceed_rx,
     });
     let mut release = ResumeDiscardOnDrop(Some(proceed_tx));
+    // A block accepted just before the abandonment and still in the queue:
+    // the session may take it before or after it learns of the retirement.
+    speak(&connection, next, 1, 22);
     let publisher = input.clone();
     let thread = std::thread::spawn(move || publisher.discard(next));
     published_rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    // The actor has consumed the discard watermark, but the producer has
-    // not yet published retirement. Nothing has been handed to the socket.
-    assert_eq!(discarded(&mut connection).await, (next, 320, 0));
-    assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 1);
-    assert_eq!(input.shared.discarded_through.load(Ordering::Acquire), 2);
-    // This is normal API submission while discard is still in progress.
-    // Its permanent cancellation must survive after discard returns.
-    speak(&connection, next, 1, 22);
+    // Paused between the two publications. The order is now retirement
+    // first: the abandonment is not published yet, so nothing has been
+    // dropped, and nothing has been handed to the socket.
+    assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 2);
+    assert_eq!(input.shared.discarded_through.load(Ordering::Acquire), 0);
     taken(&connection).await;
+    quiet(&mut connection).await;
+    // Normal API submission while the discard is still in progress is
+    // refused at the door: the request is already retired.
+    assert_eq!(
+        input.try_audio(next, 2, Instant::now(), &[33; 320]),
+        Err(Error::StaleRequest)
+    );
     release.0.take().unwrap().send(()).unwrap();
     thread.join().unwrap();
-    assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 2);
+    assert_eq!(input.shared.discarded_through.load(Ordering::Acquire), 2);
+    // Everything kept is dropped: the first block for certain, and the
+    // queued one too if the session took it before the retirement.
+    let (through, dropped, sent_before) = discarded(&mut connection).await;
+    assert_eq!((through, sent_before), (next, 0));
+    assert!(dropped == 320 || dropped == 640, "{dropped}");
     input.try_end(next).unwrap();
     taken(&connection).await;
     send_json(&mut server, audio(7)).await;
@@ -1032,4 +1044,67 @@ async fn discard_publication_complete_control_drops_kept_audio_and_refuses_late_
     sent(&mut server, "activityStart").await;
     silent(&mut server).await;
     assert_eq!(connection.state(), State::Ready);
+}
+
+/// An abandonment can arrive late, after a newer request has continued the
+/// same activity. It is the older request's own audio that is reported and
+/// dropped, never the newer request's, which is not abandoned at all.
+#[tokio::test]
+async fn a_late_abandonment_of_an_older_request_does_not_touch_or_claim_the_newer_ones_audio() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let second = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..5 {
+        speak(&connection, second, sequence, sequence as i16);
+    }
+    connection.input().try_end(second).unwrap();
+    silent(&mut server).await;
+    let third = started(&mut connection, &mut server, 3).await;
+    for sequence in 0..3 {
+        speak(&connection, third, sequence, 100 + sequence as i16);
+    }
+    // The first answer begins: all of it goes out, the second request's
+    // words and then the third's.
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, (0..5).chain(100..103)).await;
+    // Only now does the abandonment of the second request arrive.
+    connection.input().discard(second);
+    assert_eq!(discarded(&mut connection).await, (second, 0, 5 * 320));
+    // The third request is untouched: more of it is written, and after the
+    // earlier response settles its End commits.
+    speak(&connection, third, 3, 103);
+    heard_in_order(&mut server, [103]).await;
+    let report = confirmed(&mut connection, &mut server).await;
+    assert_eq!(report.successor, Some(third));
+    connection.input().try_end(third).unwrap();
+    sent(&mut server, "activityEnd").await;
+    send_json(&mut server, audio(33)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, pcm, .. } if lineage.request == third && pcm == [33]
+    ));
+}
+
+/// The same while the newer request's words are still kept: the older
+/// request's kept blocks are dropped and the newer one's stay.
+#[tokio::test]
+async fn a_late_abandonment_drops_the_older_requests_kept_blocks_and_keeps_the_newer_ones() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let second = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..5 {
+        speak(&connection, second, sequence, sequence as i16);
+    }
+    connection.input().try_end(second).unwrap();
+    silent(&mut server).await;
+    let third = started(&mut connection, &mut server, 3).await;
+    for sequence in 0..3 {
+        speak(&connection, third, sequence, 100 + sequence as i16);
+    }
+    taken(&connection).await;
+    connection.input().discard(second);
+    assert_eq!(discarded(&mut connection).await, (second, 5 * 320, 0));
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, 100..103).await;
+    silent(&mut server).await;
 }

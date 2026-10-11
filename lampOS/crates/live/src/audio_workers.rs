@@ -445,6 +445,7 @@ fn capture_loop<D: CaptureDevice>(
             && let Some(frame) = microphone.try_read()?
         {
             let delay = reference.before_capture(frame.timing.delayed_frames, monotonic_us())?;
+            reference.render_for_capture(monotonic_us(), &mut echo)?;
             let clean = echo.capture(&frame.samples, delay)?;
             reference.captured(frame.timing.read_completed_at_us, monotonic_us())?;
             let probability = speech.analyze(&clean);

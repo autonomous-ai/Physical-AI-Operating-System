@@ -35,9 +35,11 @@ const RING: usize = 4_096;
 
 /// The furthest the read rate may be moved from one frame per frame.
 pub const MAX_PPM: f64 = 500.0;
-/// Frames the controller tries to keep unread after a block has been taken:
-/// three blocks, 30 ms. From there two packets in a row can be late, which
-/// is what the fixed margin allowed.
+/// Frames the controller tries to keep in hand after a block has been taken:
+/// three blocks, 30 ms, counting the part of the next packet the speaker has
+/// already accepted. The ring itself then holds two and a half blocks on
+/// average, and two packets in a row can be late, which is what the fixed
+/// margin allowed.
 pub const TARGET_FRAMES: usize = RENDER_SAMPLES * 3;
 /// Most frames the ring will hold unread: eight blocks, as the fixed margin
 /// allowed before.
@@ -253,8 +255,18 @@ pub struct Controller {
 
 impl Controller {
     /// Call once per block taken, with [`Resampler::unread`] after it.
-    pub fn observe(&mut self, unread_frames: usize) -> f64 {
-        let unread = unread_frames as f64;
+    ///
+    /// Packets arrive a block at a time, so the count alone is a sawtooth as
+    /// wide as a block that repeats as the two clocks slide past each other.
+    /// A caller that knows how long ago the last packet was accepted can add
+    /// the frames the speaker has accepted since and not yet sent; the
+    /// controller then sees a steady figure and holds a steady rate.
+    pub fn observe(&mut self, unread_frames: f64) -> f64 {
+        let unread = if unread_frames.is_finite() {
+            unread_frames.max(0.0)
+        } else {
+            TARGET_FRAMES as f64
+        };
         let smoothed = self.smoothed.get_or_insert(unread);
         *smoothed += (unread - *smoothed) / SMOOTHING_BLOCKS;
         let error = *smoothed - TARGET_FRAMES as f64;
@@ -483,7 +495,9 @@ mod tests {
             }
             least = least.min(resampler.unread());
             most = most.max(resampler.unread());
-            resampler.set_ppm(controller.observe(resampler.unread()));
+            // What a caller with packet times would add: the part of the
+            // next packet the speaker has already accepted.
+            resampler.set_ppm(controller.observe(resampler.unread() as f64 + owed));
         }
         (least, most, controller)
     }
@@ -519,9 +533,11 @@ mod tests {
         // Bookkeeping only, so that it runs in a debug build.
         for skew in [98.0, -98.0] {
             let (least, most, controller) = run(|_| skew, 4 * 360_000, false);
-            assert!(least >= RENDER_SAMPLES, "{skew}: least {least}");
+            // Never dry in 1.44 million blocks, with one packet in sixteen
+            // late and now and then two in a row.
+            assert!(least > 0, "{skew}: least {least}");
             assert!(most <= RENDER_SAMPLES * 5, "{skew}: most {most}");
-            assert!((controller.steady_ppm() - skew).abs() < 10.0);
+            assert!((controller.steady_ppm() - skew).abs() < 5.0);
         }
     }
 
@@ -530,7 +546,7 @@ mod tests {
         // A clock that warms up: +120 ppm falling to -80 ppm over a minute.
         let skew = |block: u64| 120.0 - 200.0 * (block.min(6_000) as f64 / 6_000.0);
         let (least, most, controller) = run(skew, 90_000, false);
-        assert!(least >= RENDER_SAMPLES && most <= RENDER_SAMPLES * 5);
+        assert!(least > 0 && most <= RENDER_SAMPLES * 5, "{least} to {most}");
         assert!((controller.steady_ppm() + 80.0).abs() < 15.0);
     }
 

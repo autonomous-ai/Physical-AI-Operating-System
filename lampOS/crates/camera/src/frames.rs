@@ -42,7 +42,8 @@ pub const REQUEST_BYTES: usize = 16;
 /// Magic, request id (u64), metadata length (u16), zero (u16), JPEG length (u32).
 pub const FRAME_HEADER_BYTES: usize = 20;
 pub const MAX_META_BYTES: usize = 2048;
-pub const MAX_REQUEST_AGE_US: u32 = 1_000_000;
+/// The provider accepts context images up to 2 s old (`A1-006`).
+pub const MAX_REQUEST_AGE_US: u32 = 2_000_000;
 pub const HELLO_DEADLINE_US: u64 = 100_000;
 pub const STALL_DEADLINE_US: u64 = 500_000;
 pub const MAX_PENDING_CONNECTIONS: usize = 4;
@@ -144,8 +145,21 @@ pub struct FrameMeta {
     pub driver_timestamp: Option<WireTimestamp>,
     pub dequeue_started_at_us: u64,
     pub dequeue_completed_at_us: u64,
-    /// When the camera worker copied the frame into this consumer's buffer.
+    /// When the producer copied the frame into this consumer's buffer.
     pub copied_at_us: u64,
+    /// Present when the bytes are a re-encoded reduction of the original
+    /// camera frame (identity, grant and times above stay the original's).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived: Option<DerivedImage>,
+}
+
+/// A reduced copy of an original frame, for example a small context image.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DerivedImage {
+    pub source_width: u32,
+    pub source_height: u32,
+    pub quality: u8,
 }
 
 impl FrameMeta {
@@ -165,6 +179,7 @@ impl FrameMeta {
             dequeue_started_at_us: observation.dequeue.started_at.as_micros(),
             dequeue_completed_at_us: observation.dequeue.completed_at.as_micros(),
             copied_at_us,
+            derived: None,
         }
     }
 }
@@ -613,13 +628,21 @@ impl FrameServer {
         jpeg: &[u8],
         now_us: u64,
     ) -> io::Result<usize> {
+        self.offer_meta(&FrameMeta::new(observation, 0, now_us), jpeg, now_us)
+    }
+
+    /// Like [`offer`](Self::offer) for a frame described by `meta` (for
+    /// example a derived image that keeps the original identity and grant).
+    /// The request id and copy time are filled in per consumer; age is
+    /// measured from the original host dequeue completion.
+    pub fn offer_meta(&mut self, meta: &FrameMeta, jpeg: &[u8], now_us: u64) -> io::Result<usize> {
         if self.closed {
             return Ok(0);
         }
         if jpeg.len() + FRAME_HEADER_BYTES + MAX_META_BYTES > self.capacity {
             return Err(io_error("frame exceeds the frame link bound"));
         }
-        let age_us = now_us.saturating_sub(observation.dequeue.completed_at.as_micros());
+        let age_us = now_us.saturating_sub(meta.dequeue_completed_at_us);
         let mut taken = 0;
         for index in 0..self.slots.len() {
             let Some(slot) = self.slots[index].as_mut() else {
@@ -635,20 +658,22 @@ impl FrameServer {
                 bump(&mut self.counts.too_old);
                 continue;
             }
-            let meta = serde_json::to_vec(&FrameMeta::new(observation, request.id, now_us))
-                .map_err(io::Error::other)?;
-            if meta.len() > MAX_META_BYTES {
+            let mut described = meta.clone();
+            described.request = request.id;
+            described.copied_at_us = now_us;
+            let encoded = serde_json::to_vec(&described).map_err(io::Error::other)?;
+            if encoded.len() > MAX_META_BYTES {
                 return Err(io_error("frame metadata exceeds its bound"));
             }
             slot.out.clear();
             slot.out.extend_from_slice(&FRAME_MAGIC);
             slot.out.extend_from_slice(&request.id.to_le_bytes());
             slot.out
-                .extend_from_slice(&u16::try_from(meta.len()).expect("bounded").to_le_bytes());
+                .extend_from_slice(&u16::try_from(encoded.len()).expect("bounded").to_le_bytes());
             slot.out.extend_from_slice(&[0, 0]);
             slot.out
                 .extend_from_slice(&u32::try_from(jpeg.len()).expect("bounded").to_le_bytes());
-            slot.out.extend_from_slice(&meta);
+            slot.out.extend_from_slice(&encoded);
             slot.out.extend_from_slice(jpeg);
             slot.sent = 0;
             slot.out_since_us = now_us;

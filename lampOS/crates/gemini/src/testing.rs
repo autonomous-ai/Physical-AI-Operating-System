@@ -111,6 +111,17 @@ pub fn audio(value: i16, samples: usize) -> Value {
         "mimeType":"audio/pcm;rate=24000","data":STANDARD.encode(bytes)}}]}}})
 }
 
+/// `bytes` of filler between JPEG start and end markers: enough for the
+/// transport, which checks the markers and the size and decodes nothing. It
+/// is not a picture.
+pub fn jpeg(bytes: usize, fill: u8) -> Vec<u8> {
+    assert!(bytes >= 4);
+    let mut image = vec![fill; bytes];
+    image[..3].copy_from_slice(&[0xFF, 0xD8, 0xFF]);
+    image[bytes - 2..].copy_from_slice(&[0xFF, 0xD9]);
+    image
+}
+
 /// A client connection attempt and the scripted service at its other end. The
 /// attempt completes only after the service acknowledges setup.
 pub async fn pair(

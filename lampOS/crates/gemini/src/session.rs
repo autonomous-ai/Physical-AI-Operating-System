@@ -1,7 +1,9 @@
 use crate::{
-    BarrierPolicy, Discard, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY, Lineage,
-    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId, Result, Resumption,
-    ResumptionHandle, SessionConfig, SessionId, State, Timeouts, wire,
+    BarrierPolicy, Discard, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger,
+    ImageOffer, ImageReceipt, ImageRefusal, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES,
+    MAX_IMAGES_PER_REQUEST, MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE,
+    RequestId, Result, Resumption, ResumptionHandle, SessionConfig, SessionId, State, Timeouts,
+    wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -41,6 +43,38 @@ struct Shared {
     // An invalidation can arrive on a resumed connection before it issues a
     // local handle. Retain that fact for the supervisor's inherited point.
     resumption_invalidated: AtomicBool,
+    /// Highest request whose End has been queued.
+    ended_through: AtomicU64,
+    images: Mutex<Images>,
+}
+
+/// How long one image write may take. Commands that arrive meanwhile are
+/// held, in order, and sent afterwards; audio must stay well inside
+/// [`MAX_INPUT_AGE`].
+const IMAGE_WRITE: Duration = Duration::from_millis(400);
+/// Commands held during one image write, beyond the command queue itself.
+const HELD_COMMANDS: usize = 64;
+
+struct PendingImage {
+    request: RequestId,
+    frame: u64,
+    captured_at: Instant,
+    offered_at: Clock,
+    jpeg: Vec<u8>,
+}
+#[derive(Default)]
+struct Images {
+    /// One slot. The newest image of the current request wins.
+    pending: Option<PendingImage>,
+    /// The request being counted and how many of its images were accepted.
+    counted: (u64, u8),
+    ledger: ImageLedger,
+}
+
+/// Complete by its markers: start of image and end of image. Nothing in
+/// between is parsed here.
+fn is_jpeg(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && bytes.starts_with(&[0xFF, 0xD8, 0xFF]) && bytes.ends_with(&[0xFF, 0xD9])
 }
 
 /// The latest point from which the service said this session can be resumed.
@@ -68,6 +102,9 @@ impl ResumptionPoint {
     }
 }
 impl Shared {
+    fn images(&self) -> std::sync::MutexGuard<'_, Images> {
+        self.images.lock().unwrap_or_else(PoisonError::into_inner)
+    }
     /// The first failure is kept. A local close always takes precedence, so a
     /// privacy stop still drops output queued behind an earlier remote failure.
     fn fail(&self, error: Error) {
@@ -142,7 +179,86 @@ impl InputSender {
         }))
     }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
-        self.enqueue(Command::End(request))
+        self.enqueue(Command::End(request))?;
+        self.shared
+            .ended_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        Ok(())
+    }
+    /// Offer one JPEG as visual context for `request`, which must be the
+    /// request now speaking. `frame` is the caller's own token and comes
+    /// back in the [`ImageReceipt`]. The image never enters the audio queue:
+    /// it waits in one slot, is sent after audio already queued, inside the
+    /// request's own activity, and is dropped unsent if the request ends or
+    /// is cancelled first. A refusal changes nothing else.
+    pub fn try_image(
+        &self,
+        request: RequestId,
+        frame: u64,
+        captured_at: Instant,
+        jpeg: &[u8],
+    ) -> std::result::Result<ImageOffer, ImageRefusal> {
+        if self.ensure_ready().is_err() {
+            return Err(ImageRefusal::NotConnected);
+        }
+        if jpeg.len() > MAX_IMAGE_BYTES {
+            return Err(ImageRefusal::TooLarge);
+        }
+        if !is_jpeg(jpeg) {
+            return Err(ImageRefusal::NotJpeg);
+        }
+        if Instant::now()
+            .checked_duration_since(captured_at)
+            .is_none_or(|age| age >= MAX_IMAGE_AGE)
+        {
+            return Err(ImageRefusal::TooOld);
+        }
+        let id = request.get();
+        if id != self.shared.submitted_through.load(Ordering::Acquire)
+            || id <= self.shared.retired_through.load(Ordering::Acquire)
+            || id <= self.shared.ended_through.load(Ordering::Acquire)
+        {
+            return Err(ImageRefusal::NotCurrent);
+        }
+        let mut images = self.shared.images();
+        if images.counted.0 != id {
+            images.counted = (id, 0);
+        }
+        let replacing = match images.pending.as_ref().map(|pending| pending.request) {
+            Some(pending) if pending == request => true,
+            // An unsent image of an earlier request has nowhere to go.
+            Some(_) => {
+                images.ledger.dropped += 1;
+                false
+            }
+            None => false,
+        };
+        if replacing {
+            images.ledger.replaced += 1;
+        } else if images.counted.1 >= MAX_IMAGES_PER_REQUEST {
+            return Err(ImageRefusal::LimitReached);
+        } else {
+            images.counted.1 += 1;
+        }
+        images.ledger.accepted += 1;
+        images.pending = Some(PendingImage {
+            request,
+            frame,
+            captured_at,
+            offered_at: Clock::now(),
+            jpeg: jpeg.to_vec(),
+        });
+        drop(images);
+        self.shared.wake.notify_one();
+        Ok(if replacing {
+            ImageOffer::ReplacedUnsent
+        } else {
+            ImageOffer::Queued
+        })
+    }
+    /// What became of the images offered on this connection.
+    pub fn image_ledger(&self) -> ImageLedger {
+        self.shared.images().ledger
     }
     /// Permanent local retirement is synchronous and cannot be blocked by a full
     /// audio queue. Network interruption follows asynchronously. This does not
@@ -361,6 +477,8 @@ where
         stop,
         resumption: Mutex::new(None),
         resumption_invalidated: AtomicBool::new(false),
+        ended_through: AtomicU64::new(0),
+        images: Mutex::new(Images::default()),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -606,6 +724,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.enforce_barrier().await?;
             self.flush();
             self.check_deadlines()?;
+            self.send_image().await?;
             if self.go_away
                 && self.current.is_none()
                 && self.barrier.is_none()
@@ -653,6 +772,68 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 }
             }
         }
+    }
+    /// Send the waiting image, if there is one and it still belongs to the
+    /// request now speaking. Audio already queued goes first. While the image
+    /// is being written, commands that arrive are held and sent afterwards in
+    /// order, so a slow write cannot overflow the command queue.
+    async fn send_image(&mut self) -> Result<()> {
+        if self.shared.images().pending.is_none() || !self.commands.is_empty() {
+            return Ok(());
+        }
+        let Some(image) = self.shared.images().pending.take() else {
+            return Ok(());
+        };
+        let retired_through = self.retired_through();
+        let current = self.activity_open
+            && image.request.get() > retired_through
+            && self.current.as_ref().is_some_and(|turn| {
+                turn.lineage.request == image.request && turn.input.open && !turn.retired
+            });
+        let fresh = Instant::now()
+            .checked_duration_since(image.captured_at)
+            .is_some_and(|age| age < MAX_IMAGE_AGE);
+        if !current || !fresh {
+            self.shared.images().ledger.dropped += 1;
+            return Ok(());
+        }
+        let message = Message::text(wire::encode_image(&image.jpeg)?);
+        let started = Clock::now();
+        let mut held = VecDeque::new();
+        let mut open = true;
+        let written = {
+            let write = send(&mut self.socket, message, IMAGE_WRITE);
+            tokio::pin!(write);
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut write => break result,
+                    command = self.commands.recv(), if open && held.len() < HELD_COMMANDS => {
+                        match command {
+                            Some(command) => held.push_back(command),
+                            None => open = false,
+                        }
+                    }
+                }
+            }
+        };
+        written?;
+        let now = Clock::now();
+        {
+            let mut images = self.shared.images();
+            images.ledger.sent += 1;
+            images.ledger.last_sent = Some(ImageReceipt {
+                request: image.request,
+                frame: image.frame,
+                bytes: image.jpeg.len() as u32,
+                waited: now.duration_since(image.offered_at),
+                written_in: now.duration_since(started),
+            });
+        }
+        for command in held {
+            self.command(command).await?;
+        }
+        Ok(())
     }
     fn delivery_expired(&self) -> bool {
         self.waiting_since

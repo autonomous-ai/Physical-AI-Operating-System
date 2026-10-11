@@ -12,6 +12,7 @@ use tokio_tungstenite::tungstenite::protocol::{
 };
 
 mod followups;
+mod images;
 mod playback;
 
 type MockSocket = WebSocketStream<DuplexStream>;

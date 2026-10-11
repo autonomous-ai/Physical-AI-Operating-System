@@ -8,8 +8,9 @@
 //! survives only through a server-issued resumption handle; a reconnect
 //! without one is reported as fresh, never presented as continuity.
 use crate::{
-    Connection, Error, Event, InputSender, Lineage, Recovery, RequestId, Result, ResumptionHandle,
-    ResumptionPoint, SessionConfig, SessionId, State,
+    Connection, Error, Event, ImageLedger, ImageOffer, ImageRefusal, InputSender, Lineage,
+    Recovery, RequestId, Result, ResumptionHandle, ResumptionPoint, SessionConfig, SessionId,
+    State,
 };
 use futures_util::FutureExt;
 use std::{
@@ -635,6 +636,29 @@ impl<C: Connect> Supervisor<C> {
             self.tracked.set(Some(tracked));
         }
         Ok(())
+    }
+    /// See [`InputSender::try_image`]. Accepted only for the request that was
+    /// submitted on the connection that is live now. An image belongs to its
+    /// connection: it is never carried over to a replacement or sent again.
+    pub fn try_image(
+        &self,
+        request: RequestId,
+        frame: u64,
+        captured_at: std::time::Instant,
+        jpeg: &[u8],
+    ) -> std::result::Result<ImageOffer, ImageRefusal> {
+        let (input, session) = self.input().map_err(|_| ImageRefusal::NotConnected)?;
+        if self.submitted.get() != Some(Lineage { session, request }) {
+            return Err(ImageRefusal::NotCurrent);
+        }
+        input.try_image(request, frame, captured_at, jpeg)
+    }
+    /// What became of the images offered on the live connection, if any.
+    pub fn image_ledger(&self) -> Option<ImageLedger> {
+        match &self.link {
+            Link::Connected(live) => Some(live.input.image_ledger()),
+            _ => None,
+        }
     }
     /// Synchronous local retirement. It is remembered across a reconnect,
     /// applies to output still held by a failed connection, and never waits

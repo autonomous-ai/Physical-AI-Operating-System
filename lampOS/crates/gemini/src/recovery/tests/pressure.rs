@@ -119,6 +119,70 @@ async fn unread_outage_notice_does_not_lift_the_attempt_or_budget_bounds() {
     rig.0.shutdown();
 }
 
+#[tokio::test]
+async fn image_is_refused_during_an_outage_and_never_carried_to_the_replacement() {
+    use crate::{ImageOffer, ImageRefusal, testing::jpeg};
+    let (mut rig, mut first) = connected(quick(), config()).await;
+    let picture = jpeg(4_000, 9);
+    let now = std::time::Instant::now;
+    assert_eq!(
+        rig.0.try_image(request(1), 5, now(), &picture),
+        Err(ImageRefusal::NotCurrent),
+        "nothing is speaking yet"
+    );
+    speak(&mut rig, &mut first, 1, false).await;
+    assert_eq!(
+        rig.0.try_image(request(1), 5, now(), &picture),
+        Ok(ImageOffer::Queued)
+    );
+    assert!(
+        first.service.receive().await["realtimeInput"]
+            .get("video")
+            .is_some()
+    );
+    let ledger = rig.0.image_ledger().unwrap();
+    assert_eq!((ledger.accepted, ledger.sent), (1, 1));
+    assert_eq!(ledger.last_sent.unwrap().frame, 5);
+
+    first.service.close(1011, "outage").await;
+    failed_source(&mut rig.0).await;
+    assert_eq!(
+        rig.0.try_image(request(1), 6, now(), &picture),
+        Err(ImageRefusal::NotConnected)
+    );
+    let (_, mut second) = replacement_without_output(&mut rig).await;
+    // The request it belonged to did not move to the new connection.
+    assert_eq!(
+        rig.0.try_image(request(1), 6, now(), &picture),
+        Err(ImageRefusal::NotCurrent)
+    );
+    assert_eq!(rig.0.image_ledger().unwrap().accepted, 0);
+    assert!(
+        second
+            .service
+            .try_receive(Duration::from_millis(40))
+            .await
+            .is_none(),
+        "nothing of the old request is sent again"
+    );
+    rig.0.try_start(request(2)).unwrap();
+    assert_eq!(
+        rig.0.try_image(request(2), 7, now(), &picture),
+        Ok(ImageOffer::Queued)
+    );
+    assert!(
+        second.service.receive().await["realtimeInput"]
+            .get("activityStart")
+            .is_some()
+    );
+    assert!(
+        second.service.receive().await["realtimeInput"]
+            .get("video")
+            .is_some()
+    );
+    rig.0.shutdown();
+}
+
 /// The transport gives up audio it still holds once its consumer has taken
 /// nothing for `Timeouts::deliver`, on a failed connection as on a live one.
 /// Returns the blocks delivered afterwards and how the request ended.

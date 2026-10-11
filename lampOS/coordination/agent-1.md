@@ -5,21 +5,222 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `9e95cbf1e` on `gemini-voice`. The commits after it are
+- Tested code commit: `d15c3571b` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 11 published. `MAIN-022`, `MAIN-024` and
-  `MAIN-028` are answered below. Environmental acquisition stays deferred.
-- **Waiting on you:** `A1-009`, your review of the start gate. Nothing else.
+- State: checkpoints 1 to 13 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
+  `MAIN-031`, `MAIN-032` and `MAIN-033` are answered below. Environmental
+  acquisition stays deferred.
+- **Waiting on you:** nothing. `A1-009` is with your review, and your own
+  adaptation of the gate supersedes my proposal branch.
 - **Not building:** the continuation start (`A1-010`), as you decided.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
 - Harness team: the team's own introduction reached my session after
-  checkpoint 8, with a working route. I asked one question there
-  (`A1-009` / `A1-010`) and read your answer, `MAIN-028`. Git is still where
-  my results are.
+  checkpoint 8, with a working route. I read `MAIN-028`, `MAIN-031`,
+  `MAIN-032` and `MAIN-033` there and replied to the two that were
+  questions. My reply to `MAIN-031` was recorded late: the question had
+  expired while I was working. Git is still where my results are.
+
+## Checkpoint 13: `MAIN-033`, the replies that interrupted themselves
+
+[The analysis](../docs/self-echo-admission.md). No code. Host only: your two
+certified bundles replayed with `lamp-audio replay-aec`, their capture
+metadata, and your `SpeechProbability` in a scratch test that is not in the
+tree. No device, no cloud, no upload, no provider transcript used as
+evidence.
+
+**Self-echo or room speech.** All four admissions that cancelled a reply are
+explained by the lamp's own voice: render active in 20 to 50 of the last 50
+blocks, the microphone explained 89 % to 99 % by the accepted render, and
+the detector firing as the canceller's output rose. For trial 1 that is
+established from the target's signals alone: at most -35 dB of that
+microphone was anything but playback, and the prompt arrives at about
+-24 dB. For trial 2's three it is the sufficient explanation and I cannot
+exclude a prompt-level talker underneath from the target's signals, because
+the echo there is at -5 dB to -9 dB and clipped. Your room audit decides
+those.
+
+**The reference timing is right.** One playback epoch and one DSP epoch per
+run, no stale packets, the reference analysed 0.1 ms to 4.2 ms before each
+capture block was read and 20 ms of audio ahead of it throughout, the
+canceller's alignment steady at 104 ms and 112 ms. I found no fault in what
+I own.
+
+**Why the canceller leaves it.**
+
+| | |
+|---|---|
+| The lamp's voice at its own microphone | -3.5 dB to -13 dB, samples at full scale in every reply |
+| The prompt at the same microphone | about -22 dB to -26 dB |
+| The echo against the reference the canceller is given | 9.6 dB and 9.9 dB louder at the median, up to 13 dB |
+| Left by the best fixed linear filter, fitted afterwards per stretch | -13 dB to -33 dB |
+| Left by the device in the admitted windows | -12.6 dB to -63.8 dB |
+| Detector score on a cancelled signal at -50 dB | 0.87 to 0.99 |
+
+After the best linear cancellation the lamp's own voice is as loud as the
+person it is listening for. The rest is suppression, which mutes or lets
+through by guessing, and the detector fires at any level.
+
+**Tried offline, none proposed.** The replay scored with your detector
+reproduces three of the four device admissions at the same block, so a
+correction can be tried without a device. Transparent mode `Hmm`: no change,
+block for block. Noise suppression on, the reference 6, 12 and 18 dB louder,
+the capture 12 dB quieter going in: each still leaves two to four of seven
+replies with six detector blocks at 0.80 or more, and moves which ones. The
+louder reference was my best guess, from the canceller's source: it assumes
+a path gain of one where this path has three. It did not hold up. None of
+this is in the tree.
+
+**Proposed.**
+
+1. No change to the canceller or the reference.
+2. The level is the lever: +10 dB to +20 dB of own voice over the prompt at
+   the microphone, with clipping. It can be read from any bundle before a
+   conversation is tried. While it holds, nothing measured at the microphone
+   can see the person, and my evidence cannot either.
+3. Speech probability alone cannot admit a turn while the lamp is speaking.
+   The four false admissions had render active; the two correct ones had
+   none. `render_active_blocks` is not an echo threshold. What admission does
+   with it is yours.
+4. The offline check is yours to adopt if you want it: the scratch test is
+   twenty lines in your crate. Say so and I send it as a proposal.
+
+**Limits.** Two trials, one lamp, one room, volume 100. Nothing at another
+volume. No recording with a person speaking over the lamp. The replay
+differs from the device in 1.7 % to 2.5 % of samples with noise suppression
+off and does not reproduce trial 2's third admission. I have not established
+what makes the path non-linear.
+
+## Checkpoint 12: your two reviews, `MAIN-031` and `MAIN-032`
+
+| Commit | Files | Content |
+|---|---|---|
+| `eaf7ce62f` | `crates/gemini/examples/service_probe.rs`, `crates/gemini/Cargo.toml`, `crates/gemini/src/{lib,session}.rs`, `session/tests.rs`, new `session/tests/drops.rs` | The probe scores what settles the barrier apart from what does not, and output apart from markers; `InputSender::drop_ledger()`; 14 tests |
+| `7014e568c` | `crates/audio/src/playout.rs`, `crates/audio/tests/playout_replay.rs` | The withheld last block is no longer audio in hand in the replay; the replay is labelled counterfactual |
+| `d15c3571b` | the same two files | The coordinated build's reply, with its stall in the middle, as a regression of its own |
+
+**`MAIN-032`, 1: the source attribution. You are right and I was wrong.**
+`51bd815e9` builds the `Supervisor` and selects `Reporting::Legacy`; in that
+mode a lost turn is returned as an error and the process exits. I had written
+"the worker had no supervisor" from the text on standard error without
+reading `provider_worker.rs` at that commit. Corrected in
+[the handoff](../docs/gemini-unconfirmed-interruption.md) and in checkpoint
+10 below.
+
+**`MAIN-032`, 2: the probe. Both errors were real.**
+
+- The Boolean was true for an interruption notice or any completion, and
+  `Require` releases only on a completion that is idle. It is gone. The probe
+  now reports `interruption_seen`, `completion_without_idle_seen`,
+  `idle_completion_settled` and `probe_assumed_after_silence` separately,
+  each only for the cut-off request and only before the probe stopped
+  waiting.
+- "Output after the answer" was any dropped event. A discard event does not
+  say whether the message carried output: with no request in progress a stray
+  completion and stray audio are both `UnownedOutput`. So the connection now
+  counts what it drops by what it carried, and the probe reads the counts.
+  `after_answer` is present only if request 2 reached its own idle
+  completion; it reports `output_messages` and `marker_only_messages`
+  apart. Without that completion the probe does not listen on and scores
+  nothing.
+- Raw observations are all still printed: `before_second_start`, `events`,
+  `after_answer_events`.
+
+One accessor is new, and additive: `InputSender::drop_ledger() -> DropLedger`
+with `retired_output`, `unowned_output` and `unowned_markers`. No `Event` or
+`Discard` variant changed, since your worker matches both. It changes nothing
+that is delivered. `Require` is untouched and there is no continuation.
+
+Regressions, all in the normal gate (`crates/gemini/Cargo.toml` now builds
+the example's tests):
+
+| Where | Tests | What they pin |
+|---|---|---|
+| `service_probe.rs`, scoring | 8 | An interruption notice alone, a non-idle completion, an idle completion after the probe had assumed, and the second request's own events each leave `idle_completion_settled` false; an idle completion in time sets it; nothing after the answer is scored without a completed second request; markers are not output |
+| `service_probe.rs`, the whole trial against a scripted service, paused clock | 5 | A silent service; a notice with a non-idle completion, then a late empty completion after the answer (0 output, 1 marker); a service that settles; one that answers twice (5 output, 2 markers); an answer that never completes (`after_answer` absent) |
+| `session/tests/drops.rs` | 1 | Output of a retired request, a stray completion and stray audio are counted where they belong; a delivered answer counts nowhere |
+
+A trap I fell into while writing them: a completion with no interaction
+status decodes as idle. A non-idle one has to say `IN_PROGRESS`.
+
+The probe has still never spoken to the service.
+
+**`MAIN-031`: the playout replay.**
+
+- **Relabelled.** [The handoff](../docs/playout-start.md) and the test file
+  now say at the top that every "with the gate" figure is counterfactual: a
+  replay of the arrivals each trace retained, with completion assumed at the
+  last retained arrival because the traces carry no completion or
+  cancellation time. Not qualified physical turns, not a held-out set. The
+  horizon was chosen on the same replies.
+- **The withheld block.** My model made your reviewer's mistake too: it
+  counted the last 240 frames as audio in hand. It no longer does, and it
+  asks the gate only when a block can be handed over. `StartGate::open` says
+  so in its documentation. Every figure moved by one block:
+
+  | Seventeen replies, counterfactual | Before | Corrected |
+  |---|---|---|
+  | Replies with zeros at the start, with the gate | 2 | 2 |
+  | Their zeros | 300 ms | 280 ms |
+  | First speech, mean and most added | 64 ms, 160 ms | 70 ms, 170 ms |
+  | End of reply, mean and most added | 14 ms, 60 ms | 19 ms, 70 ms |
+  | First Rust pilot reply: first speech, end | +50 ms, +20 ms | +60 ms, +30 ms |
+  | Smallest horizon that covers that reply | 180 ms | 170 ms |
+  | Your NS-off trial 2 | 260 ms to 110 ms | 260 ms to 100 ms |
+
+- **My proposal branch is superseded.** `b4782eda1` asks the gate before the
+  withheld block is checked, as your reviewer found. I have not changed it:
+  you have your own corrected adaptation and asked me to keep my changes
+  apart from your candidate.
+- I read `/private/tmp/lamp-nscheck-room-review-20261011/report.md`. Its
+  trial 2, 260 ms at reply offset 40 ms to 300 ms, is the reply already in
+  the replay as `ns-off/2`.
+- **The first stall in the middle of a reply.** Your coordinated build's
+  reply (`lamp-rust-coordinated-evidence-20261011T030937Z`) is the first of
+  eighteen in which the service itself fell behind: about 95 ms ahead of
+  real time for thirteen events, then 705 ms to the fourteenth, with 2,700 ms
+  delivered and 2,910 ms gone. Its 140 ms of zeros at 2.77 s had only the
+  withheld block queued. That is the unavoidable kind `MAIN-022` asked me to
+  tell apart. My model agrees with what you measured for your adaptation:
+  110 ms later to first speech, the opening gap gone, the later gap still
+  there at 110 ms instead of 130 ms in the model, the same end. I kept the
+  reply out of the seventeen: the horizon was not chosen with it, and it is
+  a regression of its own. In the trace it shows as a need set by an arrival
+  2.9 s in, nowhere near the start.
+
+Host, source-only export of `7014e568c`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 939 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+The 939 are the 925 of checkpoint 11 and 14 new: 13 in the probe, 1 for the
+drop ledger.
+
+Host, source-only export of `d15c3571b`, which adds one test and one
+comment: `cargo fmt --all -- --check` and the workspace Clippy pass;
+`cargo test --locked --offline -p lamp-audio -- --test-threads=1`,
+114 passed, 0 failed.
+
+Linux/ARM64, emulated:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Commit | Result |
+|---|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | `7014e568c` | pass |
+| `cargo test --release -p lamp-gemini -- --test-threads=1` | `7014e568c` | 171 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | `7014e568c` | 133 passed, 0 failed |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | `7014e568c` | pass |
+| `cargo clippy -p lamp-audio --all-targets -- -D warnings` | `d15c3571b` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | `d15c3571b` | 134 passed, 0 failed |
+
+Not run: the whole workspace for `d15c3571b`; the live crate's tests on
+ARM64 for either commit, which they do not touch; any device; any cloud.
 
 ## Checkpoint 11: the echo evidence on a real recording, and two more replies
 
@@ -177,8 +378,9 @@ the next request inherits the doubt. Only a new socket sets the count to
 zero. The supervisor already does this, and the regression pins it: one
 `TurnLost` for request 2 at `AwaitingResponse`, nothing for request 1, a
 resumed connection, and an answer the old connection sends afterwards
-reaching nobody. On `51bd815e9` the worker had no supervisor, which is why
-the process ended.
+reaching nobody. **Corrected (`MAIN-032`):** I wrote here that `51bd815e9`
+had no supervisor. It builds one and selects `Reporting::Legacy`, where a
+lost turn ends the process.
 
 **It will not stay rare.** It takes an endpoint and then more speech before
 the first audio of the answer, about a second later. A person who pauses
@@ -188,9 +390,11 @@ the first audio of the answer, about a second later. A person who pauses
 
 1. Keep `Require`. Treat `TurnLost` after `BarrierTimeout` as one lost
    question, answered with the turn-lost cue.
-2. Do not submit a continuation as a new question. `A1-010`.
+2. Do not submit a continuation as a new question. `A1-010`. **Rejected in
+   `MAIN-028`.**
 3. Run `service_probe ... interrupt-before-output 241` once you have the
-   cloud. Two fields decide between the options.
+   cloud. **Its scoring was wrong as published here and is corrected in
+   checkpoint 12.**
 
 I am not proposing `AssumeAfterQuiet`. It would have answered this run after
 its own two seconds of silence, on the assumption `Require` exists to avoid.
@@ -1130,4 +1334,6 @@ Fixed in checkpoint 11. Kept inactive for admission, as you said.
   kept separate; `A1-010` rejected and closed; `A1-011` fixed in checkpoint
   11 and inactive for admission. Your second NS-off reply is in the playout
   replay.
+- `MAIN-031` and `MAIN-032`, read from the team channel: checkpoint 12.
+- `MAIN-033`, read from the team channel: checkpoint 13.
 - Device ownership: yours. I take no device action.

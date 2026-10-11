@@ -225,5 +225,8 @@ cargo test --locked -p lamp-live --lib
 | `33a86363`, Linux ARM64 VM | fmt and strict workspace Clippy clean. Workspace tests exit 0. Stalls: V1 "speaker write evidence expired" 204 ms, `vad-only` "speaker acknowledgment expired" 199 ms. `pilot_faults` 24/24 in 3 of 3 runs, with the peer's longest privacy gap 7.9, 32.1 and 10.0 ms. Full `lamp-live` library 501 passed, 0 failed, 4 ignored, in 3 of 3 runs |
 | `33a86363`, macOS | Clippy clean; the two stall tests in 6 of 6 runs with the reasons above; full `lamp-live` library 500 passed and 1 failed (O1) in one parallel run |
 
+| `95523a26` (r2), Linux ARM64 VM | fmt and strict workspace Clippy clean. `pilot_faults` 30/30 in 3 of 3 runs, with the peer's longest privacy gap 6.9–8.9 ms. Every stall control ended 199–210 ms after the stall with its expected reason. Full `lamp-live` library 507 passed, 0 failed, 4 ignored, in 2 of 2 runs |
+| `95523a26` content, macOS | Clippy clean; `pilot_faults` 30/30 in 5 of 5 serial runs, with the peer's longest privacy gap 14.5–32.6 ms |
+
 Earlier failures, all retained: FL1 (2), FL2 (1) and O1 (1), above. The
 `ff22184a` gates are in its checkpoint.

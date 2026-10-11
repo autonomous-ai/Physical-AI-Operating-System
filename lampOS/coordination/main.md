@@ -3,9 +3,9 @@
 - Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `157dbb871` adds opt-in camera context over the inactive guarded motor core/port at `46a9d6275`. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
+- Integrated source checkpoint: `8feaf64b9` adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` is staged on 4ace; prior physical audio evidence remains on `6e6c58b42` / `0aa2387a...` until new trials finish.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: two context-linked eight-turn Rust runs on lamp-4ace completed all 16 prompts with no extra admissions or cancellations under the conservative V1-baseline policy. Local room ASR corroborates both sides. Three short audio gaps and extended-model introductions remain defects; no acoustic acceptance or natural-interruption claim. See [the physical result](../docs/connected-conversation-20261011.md). The combined continuous-service/camera/continuity candidate passed strict ARM Clippy and audio tests, but two closed-peer fixture assertions failed in the ARM live suite; diagnosis is in progress before deployment. Main coordinates the large duplex and end-of-turn workstreams through tmux.
+- State: two context-linked eight-turn Rust runs on lamp-4ace completed all 16 prompts with no extra admissions or cancellations under the conservative V1-baseline policy. Local room ASR corroborates both sides. Three short audio gaps and extended-model introductions remain defects; no acoustic acceptance or natural-interruption claim. See [the physical result](../docs/connected-conversation-20261011.md). The combined continuous-service/camera/continuity candidate now passes ARM gates after a test-only child-exec synchronization correction. Native loader/CLI verification passes; physical qualification is underway. Main coordinates the large duplex and end-of-turn workstreams through tmux.
 
 ## Current private integration and latency target
 
@@ -19,12 +19,31 @@ root's 565 passing affected tests. MAIN-049 keeps Agent 2's current endpoint
 policy experimental, requests an independent inference process and full-turn
 human replay. Neither candidate has a measured hardware speedup.
 
-The current combined private source composes camera teardown and timestamp
+The combined source is integrated at `8feaf64b9`: camera teardown/timestamp
 diagnostics, opt-in continuity, continuous service/mute-reopen, settled terminal
-provider exit, and optional-ring failure containment. Host component gates and
-ARM strict Clippy/audio tests pass; the ARM live suite found two closed-peer
-fixture failures. Do not deploy until those are resolved. The connected script
-has now run twice; all 16 attempts are retained. No V1 benchmark is active.
+provider exit, and optional-ring containment. Source-only ARM gates pass: strict
+all-target audio/camera/live Clippy, 138 audio tests (one existing ignored),
+75 camera tests, and 515 live tests (two existing ignored), followed by release
+build and AArch64 loader verification. Host component gates also passed.
+
+The first ARM live run failed two test assertions: fixture children briefly
+retained their inherited peer socket descriptors under QEMU. A descriptor probe
+reproduced this; a bounded test-only exec marker removes the race. Production
+transport and the strict first-send failure assertions are unchanged. Original
+failures remain recorded. This does not establish optical or acoustic behavior.
+
+Frozen compiled source manifest SHA256:
+`6150f1a1500de04b24c3b0437258b1b77d9386c87fc7b210bf7850a3863ba481`.
+Native binary SHA256:
+`7acfabcd6f38e4cf1d9a8f145c8b3c1ab479118a8bc1edc97897d0e767d9871c`.
+Root gate/extraction receipts live under
+`/private/tmp/lamp-camera-diagnostic-composed-1_21tfw9/arm/`.
+All compiled files match the canonical tree; newer coordination/product docs
+were preserved. Staging verified native usage for serve and continuity; it did
+not activate either policy. The connected script has already run twice on the
+old binary, with all 16 attempts retained. Eight exact stimuli are additionally
+preserved in ignored `.cache/acoustic/connected-desk-20261011/`. No V1 benchmark
+is active.
 
 Native camera correction `a4cac2dd...` safely revoked and exited without a forced
 kill; driver teardown took 50.227 ms in this attempt. Inspection still failed

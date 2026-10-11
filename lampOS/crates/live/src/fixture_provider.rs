@@ -858,6 +858,8 @@ impl CueSink {
             {
                 self.emit(CueKind::ProviderLink, event, sent_us)
             }
+            // A current-state publication is never history: strict bound.
+            Some("provider_link_current") => self.emit(CueKind::ProviderLink, event, sent_us),
             Some("input_candidate") => self.emit(CueKind::InputCandidate, event, sent_us),
             _ => {}
         }
@@ -978,6 +980,14 @@ impl CueSink {
                     (CueKind::ProviderLink, Some("provider_ready")) => Some("ready"),
                     (CueKind::ProviderLink, Some("provider_unavailable")) => Some("unavailable"),
                     (CueKind::ProviderLink, Some("provider_terminal")) => Some("terminal"),
+                    (CueKind::ProviderLink, Some("provider_link_current")) => {
+                        match event["state"].as_str() {
+                            Some("ready") => Some("ready"),
+                            Some("unavailable") => Some("unavailable"),
+                            Some("terminal") => Some("terminal"),
+                            _ => return Err(invalid("current link record has no valid state")),
+                        }
+                    }
                     _ => None,
                 },
             };

@@ -135,3 +135,78 @@ fn a_future_stamped_startup_record_is_still_rejected() {
     flush_cues(&mut trace, &mut cues);
     assert_eq!(cues.unwrap().fault(), Some("cue_invalid_or_unavailable"));
 }
+
+/// What `conversation()` records at readiness: the link state it was just
+/// validated against, then listening readiness, at the same tick.
+fn readiness_records(at: u64) -> [Value; 2] {
+    [
+        json!({"kind":"provider_link_current","at_us":at,"state":"ready","session":1,
+            "basis":"coordinator link register at listening readiness"}),
+        json!({"kind":"listening_ready","at_us":at,"scope":"test"}),
+    ]
+}
+
+#[test]
+fn after_a_slow_startup_the_current_link_state_is_published_fresh() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, mut provider) = pair(&directory, "provider");
+    provider
+        .control
+        .send(WorkerEvent::ProviderLink {
+            link: ready_link(1, 1),
+        })
+        .unwrap();
+    let mut retained = StartupEvents::default();
+    retained.poll(&mut parent, "provider").unwrap();
+    std::thread::sleep(Duration::from_millis(120));
+    let path = directory.path.join("cue.sock");
+    let socket = UnixDatagram::bind(&path).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    socket.set_nonblocking(true).unwrap();
+    let mut cues = Some(CueSink::connect(&path).unwrap());
+    cues.as_mut().unwrap().set_boot(new_boot().unwrap());
+    let mut trace = SessionState::finite();
+    for event in retained.events {
+        record(&mut trace, event).unwrap();
+    }
+    for event in readiness_records(monotonic_us()) {
+        record(&mut trace, event).unwrap();
+    }
+    flush_cues(&mut trace, &mut cues);
+    let entered = Entered {
+        _directory: directory,
+        socket,
+        cues,
+        trace,
+    };
+    assert_eq!(entered.sink().fault(), None);
+    let received = entered.received();
+    assert_eq!(kinds(&received), ["provider_link", "listening_ready"]);
+    assert_eq!(received[0]["link"], "ready");
+    // Its own fresh time, not the retained Ready's.
+    assert_eq!(received[0]["event_us"], received[1]["event_us"]);
+    assert_eq!(entered.sink().historical_state_skipped(), 1);
+}
+
+#[test]
+fn a_current_link_record_keeps_the_strict_bound_and_shape() {
+    let directory = SessionDirectory::create().unwrap();
+    let path = directory.path.join("cue.sock");
+    let socket = UnixDatagram::bind(&path).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    socket.set_nonblocking(true).unwrap();
+    for record_value in [
+        // Current state is never history: too old to send is a fault.
+        json!({"kind":"provider_link_current","at_us":monotonic_us() - 150_000,"state":"ready"}),
+        json!({"kind":"provider_link_current","at_us":monotonic_us(),"state":"maybe"}),
+    ] {
+        let mut cues = Some(CueSink::connect(&path).unwrap());
+        cues.as_mut().unwrap().set_boot(new_boot().unwrap());
+        let mut trace = SessionState::finite();
+        record(&mut trace, record_value).unwrap();
+        flush_cues(&mut trace, &mut cues);
+        assert_eq!(cues.unwrap().fault(), Some("cue_invalid_or_unavailable"));
+    }
+    let mut bytes = [0; 512];
+    assert!(socket.recv(&mut bytes).is_err(), "nothing was published");
+}

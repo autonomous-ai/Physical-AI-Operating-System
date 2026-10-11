@@ -425,6 +425,38 @@ fn no_recorded_start_is_held_past_the_bound() {
     assert_eq!(least, 720);
 }
 
+/// A plain horizon is the same gate with no margin to wait for. Held again
+/// for each generation, 600 ms also starves none of the recorded replies, at
+/// the same average cost. It holds some starts longer and leaves less to
+/// spare, because audio in hand is not how far behind playout runs.
+#[test]
+fn a_600_ms_horizon_for_each_generation_also_starves_none() {
+    let horizon = |_: &Recorded| {
+        StartGate::continuous(Continuity {
+            margin_us: 0,
+            hold_us: 0,
+            cover_us: 600_000,
+        })
+    };
+    let (mut added, mut least) = (Vec::new(), usize::MAX);
+    for reply in recorded() {
+        let before = phases(&reply, current);
+        let after = phases(&reply, horizon);
+        for played in &after {
+            assert_eq!(played.starved, [], "{}", reply.name);
+            least = least.min(played.least_in_hand);
+        }
+        if reply.after_us.is_none() {
+            let most = before.iter().zip(&after);
+            added.push(most.map(|(b, a)| a.first_us - b.first_us).max().unwrap() / 1_000);
+        }
+    }
+    added.sort_unstable();
+    assert_eq!(added.iter().sum::<u64>(), 3_040, "138 ms on average");
+    assert_eq!(added[19..], [210, 240, 240]);
+    assert_eq!(least, 240, "10 ms to spare at the worst slot");
+}
+
 /// The sixth turn: an introduction, a pause of more than two seconds and a
 /// story, as two generations through one gate.
 fn sixth_turn(gate: StartGate, origin_us: u64) -> (u64, u64, Vec<(usize, usize)>, usize) {

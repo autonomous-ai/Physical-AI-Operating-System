@@ -10,9 +10,10 @@ runtime; the wiring is a [separate proposal](#integration).
 
 1. **The four gaps were late supply, and the lateness has a fixed size.**
    The service keeps a reply only 13 ms to 110 ms ahead of real time. Now
-   and then one burst arrives about 300 ms later than that, and playout that
-   started less than 300 ms behind the first audio runs dry. Coffee, ocean
-   and the story's second gap are each one such burst.
+   and then one burst arrives about 300 ms later than that, and playout
+   runs dry unless it started far enough behind the first audio to make up
+   the difference. Coffee, ocean and the story's second gap are each one
+   such burst.
 2. **A start that waits for a measured margin rides every recorded one out.**
    On 23 recorded replies the current 200 ms gate runs dry in 9 and the
    continuity start in none. The cost is the first block: 137 ms later on
@@ -55,7 +56,7 @@ and the recorded runs of zeros, with the SHA-256 of each bundle's
 `runtime/events.jsonl`. It has no audio and no text.
 
 Times are the coordinator's enqueue times. In the six-turn run the provider
-worker stamped each event 1 ms to 28 ms earlier. Nothing here sees the
+worker had stamped each piece up to 28 ms earlier. Nothing here sees the
 socket or the service.
 
 ### The lead
@@ -65,7 +66,7 @@ reply's first audio. That is what would still be in hand when the burst
 arrived, had playout begun with the first audio. I call it the service's
 lead.
 
-It settles within the first half second of a reply and then barely moves:
+It settles within the first second of a reply and then barely moves:
 in the eight-second `six/3` it stays between 42 ms and 65 ms for 23 bursts.
 The median over each reply is 13 ms to 110 ms across the 23. Sixteen of
 them are between 91 ms and 110 ms. The seven smaller ones all belong to
@@ -89,8 +90,8 @@ Nothing fell between 172 ms and 295 ms. The eight large ones are 295, 299,
 several hours. I do not know what in the service produces that figure.
 
 A start can also stall before there is a lead to speak of: `ten/3`
-delivered 50 ms of audio and then nothing until 349 ms after it, and
-`ns2/1` 50 ms and then nothing until 303 ms.
+delivered 50 ms of audio and then nothing more until 349 ms after the
+first, and `ns2/1` 50 ms and then nothing more until 303 ms.
 
 ### The four gaps
 
@@ -128,11 +129,13 @@ does not make them device results.
 ## V1 at `d5efe9d7b`
 
 Read at the pinned commit. V1 has no start buffer to bring across.
+`voice_service.py` and `tts/service.py` are under `hal/drivers/voice/`;
+`base.py` and `gemini_live.py` are under `hal/realtime/voice_agent/`.
 
 | | V1 | Rust, integration `1a089863a` |
 |---|---|---|
 | Start | The first chunk is written as soon as the speaker is claimed: `voice_service.py:1739` to `1750`. No prebuffer, no target lead | Optional horizon, 0 ms to 200 ms |
-| Reply queue | Unbounded: `realtime/voice_agent/base.py:59`. A 30 s cap applies only while the speaker cannot be claimed: `voice_service.py:1733` | Bounded reply queue |
+| Reply queue | Unbounded: `base.py:59`. A 30 s cap applies only while the speaker cannot be claimed: `voice_service.py:1733` | Bounded reply queue |
 | Device | PortAudio stream asked for at least 120 ms of latency: `tts/service.py:70`, `360` to `372`. Blocking writes in 40 ms slices: `:66`, `:107`, `:1382` | ALSA, 10 ms blocks, one chunk outstanding |
 | Nothing to write | Nothing is written. The device underruns, and that is logged: `tts/service.py:149` to `154`. The idle keepalive stays out of the way while speaking: `:403` to `:409` | Zeros are accepted every slot and each run is traced with the queue's state |
 | End of a reply | `generation_complete` ends it without waiting for `turn_complete`: `gemini_live.py:1617` to `1621`. No drain | Generation complete marks the final block, and its retirement is a receipt |
@@ -183,8 +186,8 @@ sent back to back.
 
 A start released by the hold bound has not seen its lead yet. It then has
 290 ms plus whatever the service turns out to lead by. That assumes a lead
-of at least 44 ms, which held in every recorded reply and is not a
-guarantee.
+of at least 44 ms. It held in every recorded reply that had its audio by
+then, and it is not a guarantee.
 
 ### What does not change
 
@@ -198,8 +201,8 @@ guarantee.
   caller's to mark and pad. The gate only learns that it left.
 - **Memory.** The gate is 128 bytes of counters and allocates nothing. The
   hold adds at most 380 ms of audio to the queue before the first block.
-  The largest queue in the replay is the same 23,521 frames with either
-  gate.
+  The largest queue in the replay is 24,000 frames, one second, against
+  23,521 with the current gate.
 - **The plain gate.** `StartGate::new(horizon)` behaves as before. It
   ignores generation ends, and measures the lead without using it.
 
@@ -289,8 +292,8 @@ run. On all 23 replies, with the same replay:
 | Plain 200 ms, as deployed | 9 | 1,190 ms | 0 | 0 | 0 | not held | 0 |
 | Plain 200 ms, each generation held | 9 | 1,030 ms | 0 | 0 | 0 | 160 ms later | 0 |
 | Plain 400 ms, each generation held | 7 | 330 ms | 68 ms | 200 ms | 0 | 200 ms later | 0 |
-| Plain 500 ms, each generation held | 3 | 120 ms | not computed | 210 ms | 1 | 300 ms later | 0 |
-| Plain 600 ms, story not held | 1 | 220 ms | 138 ms | 240 ms | 3 | not held | |
+| Plain 500 ms, each generation held | 3 | 120 ms | 95 ms | 210 ms | 1 | 300 ms later | 0 |
+| Plain 600 ms, story not held | 1 | 220 ms | 138 ms | 240 ms | 3 | not held | 0 |
 | Plain 600 ms, each generation held | 0 | 0 | 138 ms | 240 ms | 3 | 310 ms later | 10 ms |
 | Continuity, 340 / 290 / 380 | 0 | 0 | 137 ms | 210 ms | 1 | 290 ms later | 30 ms |
 
@@ -308,7 +311,9 @@ longest hold is 380 ms against 600 ms.
 
 If you prefer the plain rule, the same code gives it:
 `Continuity { margin_us: 0, hold_us: 0, cover_us: 600_000 }` is a 600 ms
-horizon that is held again for each generation.
+horizon that is held again for each generation. The regression runs that
+setting too, in `a_600_ms_horizon_for_each_generation_also_starves_none`.
+The other plain rows of the table are from the Python model only.
 
 ## Measured and not built: longer pauses in place of a longer start
 
@@ -429,7 +434,7 @@ watched on a device before the policy is tried.
 
 | | Host, x86_64, release | Linux ARM64, emulated, release |
 |---|---|---|
-| One call to the gate | 2.0 ns | 28 ns |
+| One call to the gate | 2.0 ns | 24 ns and 28 ns in two runs |
 | Calls per second of speech | about 125: one decision per slot and about 25 arrivals | |
 | The gate | 128 bytes, no allocation | the same |
 

@@ -97,11 +97,17 @@ impl Player for RoomPlayer {
                         "runner_requested_host_monotonic_ns": requested * 1000});
                 };
                 let (first_sample, onset_us) = match started {
-                    Notice::Started { mic_sample, host_us, .. } => (mic_sample, host_us),
+                    Notice::Started {
+                        mic_sample,
+                        host_us,
+                        ..
+                    } => (mic_sample, host_us),
                     Notice::Rejected { reason, .. } => {
                         return json!({"valid": false, "status": "rejected", "error": reason});
                     }
-                    other => return json!({"valid": false, "status": "unexpected notice", "notice": other}),
+                    other => {
+                        return json!({"valid": false, "status": "unexpected notice", "notice": other});
+                    }
                 };
                 let deadline = onset_us + duration_us + FINISH_GRACE_US;
                 let mut finished = None;
@@ -114,13 +120,21 @@ impl Player for RoomPlayer {
                             )
                         });
                     }
-                    if let Some(notice) = wait_notice(&socket, id, (monotonic_us() + 100_000).min(deadline)) {
+                    if let Some(notice) =
+                        wait_notice(&socket, id, (monotonic_us() + 100_000).min(deadline))
+                    {
                         finished = Some(notice);
                         break;
                     }
                 }
                 match finished {
-                    Some(Notice::Finished { mic_sample, host_us, samples, cancelled, .. }) => json!({
+                    Some(Notice::Finished {
+                        mic_sample,
+                        host_us,
+                        samples,
+                        cancelled,
+                        ..
+                    }) => json!({
                         "valid": !cancelled,
                         "status": if cancelled { "cancelled" } else { "room_delivered" },
                         // Digital onset: first block handed to the microphone loopback.
@@ -131,8 +145,10 @@ impl Player for RoomPlayer {
                         "room_finished_host_monotonic_ns": host_us * 1000,
                         "samples": samples,
                         "boundary": "loopback hand-off of the first and last blocks; digital, not acoustic"}),
-                    _ => json!({"valid": false, "status": "room did not report the end of the stimulus",
-                        "start_requested_host_monotonic_ns": onset_us * 1000}),
+                    _ => {
+                        json!({"valid": false, "status": "room did not report the end of the stimulus",
+                        "start_requested_host_monotonic_ns": onset_us * 1000})
+                    }
                 }
             })();
             let _ = fs::remove_file(&reply_path);

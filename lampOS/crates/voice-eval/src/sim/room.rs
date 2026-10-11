@@ -109,9 +109,9 @@ pub enum Notice {
 impl Notice {
     pub fn id(&self) -> u64 {
         match self {
-            Notice::Started { id, .. } | Notice::Finished { id, .. } | Notice::Rejected { id, .. } => {
-                *id
-            }
+            Notice::Started { id, .. }
+            | Notice::Finished { id, .. }
+            | Notice::Rejected { id, .. } => *id,
         }
     }
 }
@@ -175,9 +175,11 @@ impl RoomCore {
             reason: reason.into(),
         };
         if pcm.is_empty() || pcm.len() > MAX_STIMULUS_SAMPLES {
-            self.pending.push((reply, reject("stimulus length out of bounds")));
+            self.pending
+                .push((reply, reject("stimulus length out of bounds")));
         } else if self.active.len() >= MAX_ACTIVE {
-            self.pending.push((reply, reject("too many concurrent stimuli")));
+            self.pending
+                .push((reply, reject("too many concurrent stimuli")));
         } else if self.active.iter().any(|a| a.id == id) {
             self.pending.push((reply, reject("duplicate stimulus id")));
         } else {
@@ -223,7 +225,9 @@ impl RoomCore {
                     active.position += 1;
                 }
             }
-            *sample = value.round().clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16;
+            *sample = value
+                .round()
+                .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16;
         }
         self.mic_samples += out.len() as u64;
         for active in &mut self.active {
@@ -355,7 +359,11 @@ mod tests {
         room.mix(&block(0), &mut out, 30);
         assert_eq!(&out[89..91], &[30_000, 0]);
         let notices: Vec<Notice> = room.take_notices().into_iter().map(|(_, n)| n).collect();
-        assert!(notices.contains(&Notice::Started { id: 1, mic_sample: 160, host_us: 20 }));
+        assert!(notices.contains(&Notice::Started {
+            id: 1,
+            mic_sample: 160,
+            host_us: 20
+        }));
         assert!(notices.contains(&Notice::Finished {
             id: 2,
             mic_sample: 320,
@@ -386,7 +394,9 @@ mod tests {
         room.mix(&block(0), &mut out, 5);
         room.cancel(1, 6);
         let notices: Vec<Notice> = room.take_notices().into_iter().map(|(_, n)| n).collect();
-        assert!(matches!(&notices[0], Notice::Rejected { id: 1, reason } if reason.contains("duplicate")));
+        assert!(
+            matches!(&notices[0], Notice::Rejected { id: 1, reason } if reason.contains("duplicate"))
+        );
         assert!(matches!(&notices[1], Notice::Rejected { id: 2, .. }));
         assert!(notices.contains(&Notice::Finished {
             id: 1,
@@ -395,18 +405,42 @@ mod tests {
             samples: 160,
             cancelled: true
         }));
-        assert!(Echo { gain: 1.5, delay_ms: 0 }.validate().is_err());
-        assert!(Echo { gain: 0.5, delay_ms: 501 }.validate().is_err());
+        assert!(
+            Echo {
+                gain: 1.5,
+                delay_ms: 0
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            Echo {
+                gain: 0.5,
+                delay_ms: 501
+            }
+            .validate()
+            .is_err()
+        );
     }
 
     #[test]
     fn changing_the_echo_path_never_replays_old_speaker_audio() {
-        let mut room = RoomCore::new(Echo { gain: 1.0, delay_ms: 10 });
+        let mut room = RoomCore::new(Echo {
+            gain: 1.0,
+            delay_ms: 10,
+        });
         let mut out = block(0);
         room.mix(&block(700), &mut out, 1);
-        room.set_echo(Echo { gain: 1.0, delay_ms: 10 });
+        room.set_echo(Echo {
+            gain: 1.0,
+            delay_ms: 10,
+        });
         room.mix(&block(0), &mut out, 2);
-        assert_eq!(out, block(0), "the pre-change speaker block must not return");
+        assert_eq!(
+            out,
+            block(0),
+            "the pre-change speaker block must not return"
+        );
     }
 
     #[test]

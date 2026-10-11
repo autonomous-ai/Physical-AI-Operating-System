@@ -140,9 +140,11 @@ pub fn run(options: &RoomOptions) -> Result<()> {
     mic_io.writei(&silence)?;
     speaker.start()?;
     let started_us = monotonic_us();
-    record(json!({"kind":"room_start","at_us":started_us,"rate":RATE,"block":BLOCK,
+    record(
+        json!({"kind":"room_start","at_us":started_us,"rate":RATE,"block":BLOCK,
         "echo":options.echo,"speaker_in":options.speaker_in,"mic_out":options.mic_out,
-        "scope":"digital loopback room; not acoustic"}))?;
+        "scope":"digital loopback room; not acoustic"}),
+    )?;
     let reply = UnixDatagram::unbound()?;
     let mut input = [0_i16; BLOCK];
     let mut output = [0_i16; BLOCK];
@@ -155,7 +157,9 @@ pub fn run(options: &RoomOptions) -> Result<()> {
             Ok(frames) => input[frames..].fill(0),
             Err(error) => {
                 xruns += 1;
-                record(json!({"kind":"speaker_xrun","at_us":monotonic_us(),"error":error.to_string()}))?;
+                record(
+                    json!({"kind":"speaker_xrun","at_us":monotonic_us(),"error":error.to_string()}),
+                )?;
                 speaker.prepare()?;
                 speaker.start()?;
                 input.fill(0);
@@ -171,7 +175,9 @@ pub fn run(options: &RoomOptions) -> Result<()> {
             let command: Command = match serde_json::from_slice(&datagram[..count]) {
                 Ok(command) => command,
                 Err(error) => {
-                    record(json!({"kind":"command_rejected","at_us":now,"error":error.to_string()}))?;
+                    record(
+                        json!({"kind":"command_rejected","at_us":now,"error":error.to_string()}),
+                    )?;
                     continue;
                 }
             };
@@ -187,11 +193,15 @@ pub fn run(options: &RoomOptions) -> Result<()> {
                 Command::Cancel { id } => room.cancel(id, now),
                 Command::Echo { echo } => match echo.validate() {
                     Ok(echo) => room.set_echo(echo),
-                    Err(error) => record(json!({"kind":"command_rejected","at_us":now,"error":error}))?,
+                    Err(error) => {
+                        record(json!({"kind":"command_rejected","at_us":now,"error":error}))?
+                    }
                 },
                 Command::Privacy { muted } => {
                     let Some(pull) = &options.privacy_pull else {
-                        record(json!({"kind":"command_rejected","at_us":now,"error":"no privacy line configured"}))?;
+                        record(
+                            json!({"kind":"command_rejected","at_us":now,"error":"no privacy line configured"}),
+                        )?;
                         continue;
                     };
                     fs::write(pull, if muted { "pull-down" } else { "pull-up" })?;
@@ -214,7 +224,9 @@ pub fn run(options: &RoomOptions) -> Result<()> {
         room.mix(&input, &mut output, handed_us);
         if let Err(error) = mic_io.writei(&output) {
             xruns += 1;
-            record(json!({"kind":"microphone_xrun","at_us":monotonic_us(),"error":error.to_string()}))?;
+            record(
+                json!({"kind":"microphone_xrun","at_us":monotonic_us(),"error":error.to_string()}),
+            )?;
             mic.prepare()?;
             mic_io.writei(&silence)?;
             mic_io.writei(&output)?;
@@ -232,7 +244,9 @@ pub fn run(options: &RoomOptions) -> Result<()> {
             }
         }
         if monotonic_us().saturating_sub(started_us) >= max_us {
-            record(json!({"kind":"room_stop","at_us":monotonic_us(),"reason":"max_seconds","xruns":xruns}))?;
+            record(
+                json!({"kind":"room_stop","at_us":monotonic_us(),"reason":"max_seconds","xruns":xruns}),
+            )?;
             speaker_wav.finalize()?;
             mic_wav.finalize()?;
             return Ok(());

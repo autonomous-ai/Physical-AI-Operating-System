@@ -757,7 +757,9 @@ fn sim_room(arguments: &[String]) -> Result<i32> {
         }
     }
     if !options.control.is_absolute() || options.out.as_os_str().is_empty() {
-        return Err(invalid("sim-room needs an absolute --control and a new --out"));
+        return Err(invalid(
+            "sim-room needs an absolute --control and a new --out",
+        ));
     }
     options.echo = options.echo.validate().map_err(|e| invalid(&e))?;
     linux::run(&options).map_err(|e| invalid(&e.to_string()))?;

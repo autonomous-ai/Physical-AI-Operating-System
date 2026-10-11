@@ -8,7 +8,7 @@ use lamp_voice_eval::{
     evaluate::{self, FindingKind, Outcome},
     events::{EventKind, EventSource},
     physical::mac::{FakeRoomPlayer, LampMode, PhysicalBackend, PhysicalConfig},
-    plan::LoadedPlan,
+    plan::{LoadedPlan, TriggerEvent},
     record::{AttemptStatus, StepStatus, Stratum},
     runner::{Backend, SuiteOptions, run_suite},
     stimulus::{AssetIndex, StimulusCatalog},
@@ -699,11 +699,12 @@ fn missing_or_stale_whole_completion_withholds_followup_after_valid_retirement()
     }
 }
 
-/// The live cue contract today: lamp-live's cue sink sends no input
-/// availability or provider link, so a physical next-turn wait is refused at
-/// once and recorded, never timed out or replaced by a delay.
+/// lamp-live's own cue sink now sends input availability, the provider link
+/// and candidates, so a physical next-turn wait follows real readiness cues
+/// through the relay: it starts only after the turn completed and the
+/// runtime reported availability and a ready link.
 #[test]
-fn physical_next_turn_ready_is_unavailable_until_lamp_live_cues_readiness() {
+fn physical_next_turn_ready_follows_lamp_live_readiness_cues() {
     let mut source: serde_json::Value =
         serde_json::from_str(lamp_voice_eval::plan::DEFAULT_PLAN).unwrap();
     for scenario in source["scenarios"].as_array_mut().unwrap() {
@@ -719,19 +720,29 @@ fn physical_next_turn_ready_is_unavailable_until_lamp_live_cues_readiness() {
         22,
         None,
     );
-    assert_eq!(record.steps[0].status, StepStatus::Injected);
-    let followup = &record.steps[1];
-    assert_eq!(
-        followup.status,
-        StepStatus::TriggerUnavailable,
-        "{followup:?}"
-    );
+    assert_directed_receipts(&record);
     assert!(
-        followup
-            .detail
-            .as_ref()
-            .unwrap()
-            .contains("no input availability or provider link")
+        record
+            .steps
+            .iter()
+            .all(|s| s.status == StepStatus::Injected)
     );
-    assert_eq!(followup.started_us, None);
+    let followup = &record.steps[1];
+    let trigger = followup.trigger.as_ref().unwrap();
+    assert_eq!(trigger.event, TriggerEvent::NextTurnReady);
+    assert_eq!(trigger.turn, Some(1));
+    let completed = cue_time(&record, "turn_completed", 1);
+    assert!(trigger.event_at_us.unwrap() >= completed);
+    let kinds: Vec<_> = record.evidence["cue_receipts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["accepted"] == true)
+        .map(|r| r["cue"]["kind"].as_str().unwrap().to_owned())
+        .collect();
+    for kind in ["input_availability", "provider_link"] {
+        assert!(kinds.iter().any(|k| k == kind), "{kind} missing: {kinds:?}");
+    }
+    // The new turn starts only after the follow-up was played.
+    assert!(cue_time(&record, "input_admitted", 2) > completed);
 }

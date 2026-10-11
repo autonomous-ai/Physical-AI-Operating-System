@@ -79,8 +79,9 @@ recordings and independent review.
 ## Proposed readiness cues
 
 The runner's `next_turn_ready` wait needs three more schema-1 kinds from
-`fixture_provider::CueSink::observe_event`. lamp-live does not send them yet.
-The runner already accepts them, strictly. All three are unowned: no `turn`
+`fixture_provider::CueSink::observe_event`. They are proposed in a separate
+lamp-live commit with no coordinator change (branch `lamp-a2-readiness-cues`)
+and are not yet integrated. The runner accepts them strictly. All three are unowned: no `turn`
 and no `generation`, and the existing envelope, sequence, boot and freshness
 checks apply.
 
@@ -93,9 +94,13 @@ checks apply.
 `available` is valid only on `input_availability`, and `link` only on
 `provider_link`.
 
-Each producer record already has `at_us`. A provider link uses the provider
-worker's observation time, so the runner orders by cue sequence, not by
-timestamp. lamp-live already records availability and the link before
+Each producer record already has `at_us`. A provider link record's `at_us`
+is the provider worker's own observation, which can be older than the cue
+freshness bound. Its cue therefore uses the record's
+`coordinator_observed_at_us`, when the coordinator learned it. The runner
+orders by cue sequence, not by timestamp. A `turn_taking_availability` record
+without `prospective_input_available` latches the usual cue fault; it is never
+guessed. lamp-live already records availability and the link before
 `listening_ready`, so a runtime that sends these cues is recognized from the
 start of every attempt. Deploy the producer and the runner together, as for
 the other schema-1 kinds.

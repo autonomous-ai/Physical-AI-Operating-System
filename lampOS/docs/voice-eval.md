@@ -164,8 +164,9 @@ Rules:
 - The fake runtime reports both before `listening_ready`, as lamp-live does.
 - Live physical sessions need the cue kinds proposed in
   [the cue contract](voice-eval-directed-cues.md#proposed-readiness-cues).
-  Until lamp-live sends them, a physical `next_turn_ready` step is
-  `trigger_unavailable` (`tests/physical_loopback.rs`).
+  Without them a physical `next_turn_ready` step is `trigger_unavailable`.
+  With the proposed lamp-live cue sink, `tests/physical_loopback.rs` runs a
+  physical follow-up through the real relay on those cues.
 - Existing plans keep their `turn_completed` triggers and hashes.
 
 **Tests.**

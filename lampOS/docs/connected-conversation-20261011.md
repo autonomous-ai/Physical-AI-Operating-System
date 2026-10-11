@@ -132,3 +132,43 @@ All raw recordings and credentials stay local. Artifact paths on the test iMac:
 words, not prosody, emotional quality or exact acoustic word boundaries. Numeric
 analysis used supported Python 3.12 / NumPy environments. No recordings were
 uploaded or used to tune an echo gate in this audit.
+
+
+## Continuous service qualification, attempt 02
+
+The first attempt stopped before any prompt because the private test harness
+treated pending asynchronous metadata as failure. A narrowly corrected harness
+retained the original readiness cue and added a bounded wait for metadata. The
+second attempt used a fresh namespace and the same `7acfabcd...` Rust binary,
+plain Live provider, V1-baseline turn taking and 1.2-second endpoint wait.
+
+Eight scheduled prompts each reached one endpoint and one completed reply.
+The qualification then failed on an unexpected input during the idle interval:
+264.509 s after capture start, 169.607 s after reply eight retired. The harness
+requested Stop 7.694 ms later. No endpoint, provider start, transcript or audio
+for that ninth input was observed. Planned prompts 9–16 were withheld. The
+165-second room recording had already ended, so the source is unknown; this
+is not established self-echo or an incorrect audible response.
+
+The runtime exited 0 after requested Stop, with healthy final metadata closure
+and verified stationary, muted restoration. Controller, provider, capture, DSP
+and reference identities remained unchanged through the retained observations.
+Clean Stop does not turn this into a successful 16-turn qualification.
+
+Endpoint to first ALSA acceptance ranged from 1.126 to 1.573 s for these eight
+replies, excluding the preceding endpoint wait. Turn four reported 2,880 accepted
+zero frames during speech, or 120 ms at 24 kHz; the other seven reported none.
+This service mode retains metadata rather than raw runtime PCM, so the gap
+report has no independent accepted-PCM verification. No acoustic timing or
+human-listening score was accepted, and no room ASR was performed for this run.
+
+Across five distinct conversation cohorts, 40 scheduled replies have completed
+in software. That count excludes withheld prompts and does not mean all five
+qualifications passed. Do not pool their latency distributions. The next
+continuous-session check requires room recording through the entire idle period.
+
+Local evidence: `/private/tmp/lamp-serve-native-20261011-02`. The independent
+audit is `/private/tmp/lamp-serve02-audit-81e2mntu/report.json`, SHA-256
+`632e862f51d0de25f478d7c21cc6a49d6267a5fa76fafbcb9a8c5dd3a512dcd4`.
+All 70 audit inputs were reverified; input-manifest SHA-256
+`ce13592261e068d8deeb4ab497001768d8baaaa2409c0881ed5b0a9ed51b38e4`.

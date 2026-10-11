@@ -1,7 +1,9 @@
 # Microphone topology and processing qualification
 
-Updated 2026-10-10 from the owner's relayed hardware-team layout, the pinned
-parts list, manufacturer material, and a read-only check on lamp-4ace.
+Updated 2026-10-11. Kyle's layout and listening report were relayed again by the
+owner; they agree with the hardware-team information already recorded here.
+Other evidence is the pinned parts list, manufacturer material and a read-only
+check on lamp-4ace. This update adds attribution, not new hardware measurements.
 
 ## Three physical capsules, two active capture devices
 
@@ -73,7 +75,7 @@ remain separate evidence for attention and orientation.
 
 ## Direct speech versus loudspeaker replay
 
-The owner relayed an additional team listening observation: direct human speech
+The owner relayed Kyle's listening observation: direct human speech
 recorded through mic2 sounded clear, while speech played through a loudspeaker
 and recorded again through mic2 sounded muffled. No paired WAVs, matching gain,
 placement, loudspeaker response or DSP configuration accompanied that report.
@@ -108,8 +110,9 @@ recordings and pre/post-software-AEC diagnostics remain useful with their limits
 4. Measure preserved opening words, echo-only false admissions, overlap speech
    intelligibility, interruption-to-silence, final speech-to-answer, clipping and
    processing/queue delay. Quiet output alone is not a success criterion.
-5. Keep the hardware treatment identical between V1-main and V2 for the primary
-   runtime comparison; report microphone/DSP A/B experiments separately.
+5. The owner has deferred V1 benchmarking. For any later V1/V2 comparison, keep
+   the hardware treatment identical; report microphone/DSP A/B experiments
+   separately. Current work remains focused on V2.
 
 Multiple synthetic voices from one iMac loudspeaker do not qualify direction
 finding or spatial separation. The team drawing supplies relative placement,

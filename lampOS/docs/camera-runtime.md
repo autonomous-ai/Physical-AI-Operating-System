@@ -660,6 +660,27 @@ Receipts are retained locally under
 `/private/tmp/lamp-camera-startup-arm-k3enp1fi/evidence-final/`.
 Main independently verified all frozen source hashes and executed ten focused
 startup regressions on the host. These are additional executions of existing
-cases, not ten additional unique tests. This checkpoint has not yet run the
-corrected camera path on a device. The unchanged native inspection above remains
-required; no visual readiness, hardware speedup or motion claim follows.
+cases, not ten additional unique tests. The subsequent native inspection is
+recorded below; it does not qualify visual answers or motion.
+
+
+### Native camera inspection after the correction
+
+The five-second inspection on 4ace, using `e3a50dd9...` and the unchanged
+320×240 MJPEG mode, accepted 31 frames with no sequence gaps. It ended with
+`completed_metadata_only`, native exit 0, no forced termination and verified
+stationary, muted restoration. The original exposure-to-dequeue ages were
+112.173–118.216 ms, under the unchanged 250 ms freshness limit.
+
+Parent Stop to local camera revocation was 2.013 ms. Driver teardown took
+46.548 ms; the parent observed camera exit 55.515 ms after Stop. These are
+single-run software observations, not guaranteed bounds or optical measurements.
+The first accepted driver sequence was 2, but `startup_discards` was absent.
+This run therefore does not establish that the new discard branch executed or
+that sequences 0 and 1 were discarded by it. The synthetic regressions establish
+that branch's behavior separately.
+
+No images were saved or transmitted. Scene visibility, Gemini image use and
+movement remain unqualified. The native result is retained locally at
+`/private/tmp/lamp-v2-native-camera-diagnostic-vo3wgia7/result.json`, SHA-256
+`815d65ccebc5dcda064e6db5d352c6b438a0722190ce7248642802d70a6cb176`.

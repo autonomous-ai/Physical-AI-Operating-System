@@ -3,9 +3,9 @@
 - Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: this checkpoint adds bounded stale-frame discard at camera startup over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
+- Integrated source checkpoint: `6d81ab49f` adds an inactive isolated motor worker over the camera startup correction at `e566db156`, over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: four eight-turn Rust runs on lamp-4ace completed all 32 prompts under conservative V1-baseline turn taking. The latest two runs have zero detected speech-starvation gaps, with no acoustic acceptance or natural-interruption claim. A continuous-session harness startup race stopped the next trial before any prompt; Rust stopped cleanly and rollback verified. Its corrected fresh-namespace trial is in progress and has no final result yet. Camera startup correction is integrated after host/ARM qualification; native validation is pending. Motor-worker lifecycle corrections remain inactive under review. Main coordinates the complete duplex and endpoint workstreams through tmux.
+- State: five distinct physical conversation cohorts contain 40 software-completed scheduled replies. The latest continuous qualification failed after eight replies on an unexpected idle input; its source is unknown because room recording had ended. Eight later prompts were withheld. A five-second native camera check accepted 31 frames and shut down cleanly. Motor worker host/ARM checks pass, but motion is inactive. Main is integrating optional-ring startup containment and coordinating the complete duplex and endpoint workstreams through tmux. No natural-interruption or acoustic-latency acceptance is claimed.
 
 ## Latest native qualification
 
@@ -23,10 +23,19 @@ The first continuous `serve` qualification attempt
 listening readiness and acknowledged clean Stop with runtime exit 0, but the
 private harness treated not-yet-published asynchronous metadata as a runtime
 failure. It stopped at 2.189 s. All sixteen planned prompts are retained as
-withheld; stationary muted rollback verified. Correct the harness publication
-race without renewing the original readiness cue or claiming metadata before
-observing it, then retry in a fresh namespace. This is not a completed
+withheld; stationary muted rollback verified. The corrected harness added a
+bounded metadata-publication wait without renewing the original readiness cue,
+then ran once in a fresh namespace. The original attempt is not a completed
 long-session test or evidence that Rust crashed.
+
+The corrected second attempt completed eight replies, then stopped on an
+unexpected input during idle at 264.509 s, 169.607 s after the last reply. Its
+room WAV ends at 165 s, so the source cannot be classified. No ninth endpoint
+or reply was observed before requested Stop; eight later prompts were withheld.
+Runtime exit 0 and verified rollback do not make the qualification pass. Turn
+four also reports a 120 ms accepted-zero gap. The next continuous test must
+cover the full idle interval with room recording. See the conversation evidence
+above for exact identities and boundaries.
 
 Native camera inspection identifies the startup failure exactly: the first
 reported monotonic exposure is 400,929 us old against the unchanged 250,000 us
@@ -37,14 +46,22 @@ accepted frame permanently ends that startup exception for its capture epoch.
 128 affected host tests pass, with ten additional root-review executions.
 Source-only ARM64 fmt, strict affected Clippy, 137 affected tests, release build,
 ELF and CLI checks pass. The new binary is `e3a50dd9...`; its full identity and
-evidence are in [camera runtime](../docs/camera-runtime.md). Native qualification
-remains pending. No age limit was relaxed.
+evidence are in [camera runtime](../docs/camera-runtime.md). The subsequent
+native inspection accepted 31 frames with no gaps and native
+exit 0; Stop-to-local-revocation was 2.013 ms, driver teardown 46.548 ms. No
+forced kill was needed and rollback verified. No startup-discard summary was
+present, so this run does not prove that branch executed. Images were neither
+saved nor transmitted; visual conversation is the next test. No age limit was
+relaxed.
 
-The independent motor worker candidate remains inactive. Review reproduced
-failed priority-send handling, out-of-order fault receipts and leaked child IPC
-paths after a crash. The corrected private candidate passes 129 motor tests,
-fmt, strict Clippy and worker build; independent re-review is in progress. It is not integrated or
-deployed. No physical motor motion has been performed with this candidate.
+The independent motor worker is integrated but inactive at `6d81ab49f`. Review
+corrections cover failed priority delivery, original stop-time reporting and
+owned child socket cleanup after reap. Host format, strict Clippy, 129 tests and
+worker build pass; independent review passed 40 focused executions. Root's
+source-only ARM64 format/strict Clippy/release build and 134 QEMU tests pass.
+The extracted worker is `a1377c0f...`; exact source and artifact identities are
+in [motor worker](../docs/motor-worker.md). `lamp-live` does not launch it, and
+no physical motor motion has been performed with it.
 
 ## Current private integration and latency target
 
@@ -77,8 +94,8 @@ Native binary SHA256:
 `7acfabcd6f38e4cf1d9a8f145c8b3c1ab479118a8bc1edc97897d0e767d9871c`.
 Root gate/extraction receipts live under
 `/private/tmp/lamp-camera-diagnostic-composed-1_21tfw9/arm/`.
-All compiled files match the canonical tree; newer coordination/product docs
-were preserved. Staging verified native usage for serve and continuity; it did
+All compiled files matched the corresponding canonical checkpoint; newer
+coordination/product docs were preserved. Staging verified native usage for serve and continuity; it did
 not activate either policy. The connected script has already run twice on the
 old binary, with all 16 attempts retained. Eight exact stimuli are additionally
 preserved in ignored `.cache/acoustic/connected-desk-20261011/`. No V1 benchmark
@@ -145,6 +162,24 @@ trusted remote tmux terminal input, and observed `turn_started`. No claim that i
 new implementation is complete follows from that delivery. Both briefs include
 code, integration, stress tests and documentation; neither agent should wait for
 another small assignment after a single component or audit.
+
+Agent 1's published duplex proposal is `feb560767`; its shared-file proposal
+is separate at `6f30dadfc`. Host and affected emulated ARM checks are reported
+passing, but held-out/paced evaluation is still in progress. Root has not
+activated its new mode or promoted its longer admission hold.
+
+Agent 2 published `350bd5722`, with tested implementation `611128325`: an
+independent endpoint process, conservative three-band policy and fallback.
+Root has fetched it for independent review, not integrated or deployed it.
+Its held-out digital human cohort reports only 200 ms maximum endpoint saving
+for the conservative policy; the faster policy introduces many new splits.
+MAIN-052 continues that complete workstream on a new proposal branch: recover
+speech that resumes after early endpointing but before an audible answer,
+validate full utterance/output ownership with the actual provider contract,
+and keep the previous checkpoint immutable. Agent 1 retains duplex/reference
+and playback ownership. No cloud behavior, device timing or natural interruption
+is inferred from those offline results. MAIN-052 was sent through the verified
+M2 tmux route; delivery alone does not establish implementation or completion.
 
 [Coordination](README.md) names the verified routes and guards. Routine messages
 use tmux; Git retains code and durable evidence. Previous Harness team context

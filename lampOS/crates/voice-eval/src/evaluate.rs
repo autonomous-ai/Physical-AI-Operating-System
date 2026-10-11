@@ -1048,9 +1048,13 @@ fn withheld_status(step: &StepRecord) -> Option<(FindingKind, String)> {
             FindingKind::PreconditionLost,
             format!("overlap precondition lost: {reason}"),
         )),
-        StepStatus::SessionEnded => Some((
+        StepStatus::SessionEnded if reason.is_empty() => Some((
             FindingKind::SessionEnded,
             "runtime session ended before the trigger".into(),
+        )),
+        StepStatus::SessionEnded => Some((
+            FindingKind::SessionEnded,
+            format!("not stimulated, runtime session unavailable: {reason}"),
         )),
         StepStatus::Withheld => Some((
             FindingKind::NotReached,

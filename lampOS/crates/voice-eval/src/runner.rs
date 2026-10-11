@@ -38,9 +38,48 @@ pub struct Injection {
     /// Best evidence of the actual start in the runner domain.
     pub started_us: u64,
     pub receipt: Value,
-    /// The backend's final dispatch check refused to start the stimulus
-    /// (for example a provider failure that arrived at dispatch time).
-    pub withheld: Option<String>,
+    /// The backend's final dispatch check refused to start the stimulus.
+    pub withheld: Option<Withheld>,
+}
+
+/// Why a backend's final dispatch check refused to start a stimulus. The
+/// first terminal cause seen on the attempt is latched (MAIN-009, MAIN-023).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Withheld {
+    /// A turn ended with a terminal provider failure; there is no
+    /// authoritative re-ready, so the provider stays unavailable.
+    ProviderFailed(String),
+    /// The runtime session ended: relayed `session_end`, a `run_end` cue, or
+    /// the transport closed.
+    SessionEnded(String),
+    /// The cue or relay protocol failed; nothing trustworthy remains to
+    /// schedule against.
+    ProtocolFailed(String),
+}
+
+impl Withheld {
+    pub fn cause(&self) -> &'static str {
+        match self {
+            Self::ProviderFailed(_) => "provider_failed",
+            Self::SessionEnded(_) => "session_ended",
+            Self::ProtocolFailed(_) => "protocol_failed",
+        }
+    }
+    pub fn reason(&self) -> &str {
+        match self {
+            Self::ProviderFailed(reason)
+            | Self::SessionEnded(reason)
+            | Self::ProtocolFailed(reason) => reason,
+        }
+    }
+    /// Only a provider failure is provider unavailability; a protocol
+    /// failure already ends the live schedule as a run end.
+    pub fn status(&self) -> StepStatus {
+        match self {
+            Self::ProviderFailed(_) => StepStatus::ProviderUnavailable,
+            Self::SessionEnded(_) | Self::ProtocolFailed(_) => StepStatus::SessionEnded,
+        }
+    }
 }
 
 pub struct Finished {
@@ -318,9 +357,9 @@ fn execute(
                 let injection = backend.inject(step, scene, timing, target_us)?;
                 record.timing = Some(timing.clone());
                 record.receipt = injection.receipt;
-                if let Some(reason) = injection.withheld {
-                    record.status = StepStatus::ProviderUnavailable;
-                    record.detail = Some(reason);
+                if let Some(withheld) = injection.withheld {
+                    record.status = withheld.status();
+                    record.detail = Some(format!("{}: {}", withheld.cause(), withheld.reason()));
                     return Ok(());
                 }
                 injection.started_us

@@ -120,6 +120,25 @@ reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
 
+### Final dispatch check (`MAIN-023`)
+
+Immediately before a stimulus starts, the physical backend takes every relay
+line already delivered and keeps those events for the runner. The first
+terminal cause seen on the attempt is latched, and no stimulus starts after it.
+This includes a cause first seen in this final drain.
+
+| Cause | Latched from | Step status | Receipt `withheld_cause` |
+|---|---|---|---|
+| Provider failure | `turn_completed` with `provider_failed` | `provider_unavailable` | `provider_failed` |
+| Session ended | relayed `session_end`, a `run_end` cue, or the transport closing without `session_end` | `session_ended` | `session_ended` |
+| Protocol failure | an invalid or rejected cue, an unreadable stdout line, or any relay framing error | `session_ended` | `protocol_failed` |
+
+The step's `detail` and the receipt's `reason` name the exact cause, for
+example the relay's exit status or the rejected cue. A relay framing error
+also ends live scheduling as a protocol stop, because the lost line may have
+been a cue or the session's end. Tests: `tests/final_dispatch.rs`, which uses
+the real backend, a local pipe transport and a recording-only player.
+
 ### Terminal provider failure (`MAIN-009`, provisional field names)
 
 A `turn_completed` cue or `turn_finished` trace record with outcome

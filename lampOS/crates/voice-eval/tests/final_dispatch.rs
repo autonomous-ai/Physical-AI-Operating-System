@@ -1,0 +1,372 @@
+//! MAIN-023: the physical backend's final dispatch check, driven through a
+//! real local pipe transport. A shell script stands in for the Lamp relay and
+//! writes scripted relay lines; a recording-only player shows whether audio
+//! would have started. Nothing is played.
+mod common;
+
+use lamp_voice_eval::{
+    events::EventKind,
+    physical::{
+        mac::{LampMode, PhysicalBackend, PhysicalConfig, Player},
+        protocol::SCHEMA,
+    },
+    plan::LoadedPlan,
+    record::StimulusSource,
+    runner::{AttemptContext, Backend, Begin, Injection},
+    stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
+};
+use serde_json::{Value, json};
+use std::{
+    fs,
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    thread::{self, JoinHandle},
+};
+
+const SCENARIO: &str = "fixed-reply-echo-only";
+
+struct Recording(Arc<AtomicUsize>);
+
+impl Player for Recording {
+    fn start(
+        &mut self,
+        _wav: &Path,
+        _timing: &SceneTiming,
+        _report_directory: &Path,
+        _cancel_file: &Path,
+    ) -> lamp_voice_eval::Result<JoinHandle<Value>> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Ok(thread::spawn(
+            || json!({"valid": true, "status": "recorded_only"}),
+        ))
+    }
+    fn describe(&self) -> Value {
+        json!({"player": "recording only"})
+    }
+}
+
+fn start_line() -> Value {
+    json!({"type":"session_start","schema":SCHEMA,"lamp_us":1,"mode":"fixture",
+        "cue_socket":true,"runtime_argv":[]})
+}
+
+fn session_end() -> Value {
+    json!({"type":"session_end","lamp_us":9,"exit_code":1,"killed":false,
+        "events_sha256":null,"events_lines":0,"error":"runtime exited with status 1"})
+}
+
+fn cue_invalid() -> Value {
+    json!({"type":"cue_invalid","lamp_received_us":5,"error":"cue boot changed"})
+}
+
+fn run_end_cue() -> Value {
+    json!({"type":"cue","lamp_received_us":1002,"cue":{"schema":1,"sequence":1,
+        "kind":"run_end","boot":[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        "event_us":1000,"sent_us":1001,"expires_us":101000}})
+}
+
+fn lines(values: &[Value]) -> String {
+    values.iter().map(|v| format!("{v}\n")).collect()
+}
+
+/// What the stand-in relay does after its delayed lines.
+enum Then {
+    /// Keep the transport open (no end of stream).
+    StayOpen,
+    /// Exit, closing the transport without a `session_end`.
+    Close,
+}
+
+struct Rig {
+    dir: common::Private,
+    _catalog: StimulusCatalog,
+    plan: LoadedPlan,
+    assets: AssetIndex,
+    starts: Arc<AtomicUsize>,
+}
+
+impl Rig {
+    fn new(label: &str) -> Self {
+        let catalog = StimulusCatalog::load().unwrap();
+        let plan = LoadedPlan::default_plan(&catalog).unwrap();
+        let dir = common::Private::new(label);
+        let scene = plan.scenario(SCENARIO).unwrap().steps[0]
+            .scene
+            .clone()
+            .unwrap();
+        let tones = vec![(scene.as_str(), common::tone_scene(&catalog, &scene, 0.3))];
+        let manifest = common::synthetic_cache(&dir.path, &catalog, &tones);
+        let assets = AssetIndex::load(&dir.join("cache"), &[manifest], &catalog).unwrap();
+        Self {
+            dir,
+            _catalog: catalog,
+            plan,
+            assets,
+            starts: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// A backend whose transport writes `now`, then after `delay` writes
+    /// `later` (raw text, so framing errors can be scripted) and then `then`.
+    fn backend(&self, now: &[Value], delay: &str, later: &str, then: Then) -> PhysicalBackend<'_> {
+        fs::write(self.dir.join("now.jsonl"), lines(now)).unwrap();
+        fs::write(self.dir.join("later.jsonl"), later).unwrap();
+        let end = match then {
+            Then::StayOpen => "exec sleep 30",
+            Then::Close => "exit 0",
+        };
+        let script = format!(
+            "cat '{now}'; sleep {delay}; cat '{later}'; {end}",
+            now = self.dir.join("now.jsonl").display(),
+            later = self.dir.join("later.jsonl").display(),
+        );
+        let lamp_root = self.dir.join("lamp");
+        fs::create_dir_all(&lamp_root).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: vec!["/bin/sh".into(), "-c".into(), script, "relay".into()],
+            lamp_work_root: lamp_root.display().to_string(),
+            mode: LampMode::Fixture {
+                reply: "/nonexistent/reply.wav".into(),
+                sha256: "0".repeat(64),
+            },
+            noise_suppression: "on".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 10,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+        };
+        PhysicalBackend::new(
+            config,
+            &self.assets,
+            Box::new(Recording(self.starts.clone())),
+        )
+    }
+
+    fn begin(&self, backend: &mut PhysicalBackend<'_>) {
+        let run = self.dir.join("run");
+        lamp_voice_eval::ledger::create_run_directory(&run).unwrap();
+        let scenario = self.plan.scenario(SCENARIO).unwrap();
+        let context = AttemptContext {
+            attempt_id: "a0".into(),
+            run_id: "dispatch".into(),
+            scenario,
+            repetition: 0,
+            order: 0,
+            seed: 1,
+            run_directory: run,
+        };
+        assert!(matches!(backend.begin(&context).unwrap(), Begin::Ready));
+    }
+
+    /// Final dispatch of the scenario's first stimulus at `at_us`.
+    fn inject(&self, backend: &mut PhysicalBackend<'_>, at_us: u64) -> Injection {
+        let step = &self.plan.scenario(SCENARIO).unwrap().steps[0];
+        let scene = step.scene.clone().unwrap();
+        let timing = backend.timing(&self._catalog, &scene).unwrap();
+        backend.inject(step, &scene, &timing, at_us).unwrap()
+    }
+
+    fn started(&self) -> usize {
+        self.starts.load(Ordering::SeqCst)
+    }
+}
+
+/// Read live events until a run end is seen, as a runner would.
+fn until_run_end(backend: &mut PhysicalBackend<'_>) {
+    let deadline = backend.now_us() + 5_000_000;
+    while backend.now_us() < deadline {
+        if let Some(event) = backend.next_event(deadline).unwrap()
+            && matches!(event.kind, EventKind::RunEnd { .. })
+        {
+            return;
+        }
+    }
+    panic!("no run end within 5 s");
+}
+
+fn assert_withheld(rig: &Rig, injection: &Injection, cause: &str) {
+    assert_eq!(rig.started(), 0, "the player must not start");
+    assert!(injection.withheld.is_some(), "dispatch must be withheld");
+    assert_eq!(injection.receipt["dispatched"], false);
+    assert_eq!(
+        injection.receipt["withheld_cause"], cause,
+        "{}",
+        injection.receipt
+    );
+    assert!(
+        injection.receipt["reason"]
+            .as_str()
+            .is_some_and(|r| !r.is_empty()),
+        "a precise reason is required: {}",
+        injection.receipt
+    );
+}
+
+#[test]
+fn a_known_session_end_withholds_dispatch() {
+    let rig = Rig::new("disp-end");
+    let mut backend = rig.backend(&[start_line(), session_end()], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    until_run_end(&mut backend);
+    let now = backend.now_us();
+    let injection = rig.inject(&mut backend, now);
+    assert_withheld(&rig, &injection, "session_ended");
+    assert!(
+        injection.receipt["reason"]
+            .as_str()
+            .unwrap()
+            .contains("status 1")
+    );
+}
+
+#[test]
+fn a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure() {
+    let rig = Rig::new("disp-cue");
+    let mut backend = rig.backend(&[start_line(), cue_invalid()], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    until_run_end(&mut backend);
+    let now = backend.now_us();
+    let injection = rig.inject(&mut backend, now);
+    assert_withheld(&rig, &injection, "protocol_failed");
+    assert!(
+        injection.receipt["reason"]
+            .as_str()
+            .unwrap()
+            .contains("cue boot changed")
+    );
+}
+
+#[test]
+fn a_known_run_end_cue_withholds_dispatch() {
+    let rig = Rig::new("disp-runend");
+    let mut backend = rig.backend(&[start_line(), run_end_cue()], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    until_run_end(&mut backend);
+    let now = backend.now_us();
+    let injection = rig.inject(&mut backend, now);
+    assert_withheld(&rig, &injection, "session_ended");
+}
+
+#[test]
+fn a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept() {
+    let rig = Rig::new("disp-late-end");
+    let mut backend = rig.backend(
+        &[start_line()],
+        "0.3",
+        &lines(&[session_end()]),
+        Then::StayOpen,
+    );
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 800_000;
+    let injection = rig.inject(&mut backend, at);
+    assert_withheld(&rig, &injection, "session_ended");
+    // The drained end is still delivered to the runner.
+    let now = backend.now_us();
+    let next = backend.next_event(now).unwrap();
+    assert!(matches!(
+        next.map(|e| e.kind),
+        Some(EventKind::RunEnd { .. })
+    ));
+}
+
+#[test]
+fn an_invalid_cue_first_seen_in_the_final_drain_withholds() {
+    let rig = Rig::new("disp-late-cue");
+    let mut backend = rig.backend(
+        &[start_line()],
+        "0.3",
+        &lines(&[cue_invalid()]),
+        Then::StayOpen,
+    );
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 800_000;
+    let injection = rig.inject(&mut backend, at);
+    assert_withheld(&rig, &injection, "protocol_failed");
+}
+
+#[test]
+fn a_relay_framing_error_first_seen_in_the_final_drain_withholds() {
+    let rig = Rig::new("disp-late-frame");
+    let mut backend = rig.backend(&[start_line()], "0.3", "not a relay line\n", Then::StayOpen);
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 800_000;
+    let injection = rig.inject(&mut backend, at);
+    assert_withheld(&rig, &injection, "protocol_failed");
+}
+
+#[test]
+fn a_transport_closed_during_the_final_drain_withholds() {
+    let rig = Rig::new("disp-late-close");
+    let mut backend = rig.backend(&[start_line()], "0.3", "", Then::Close);
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 800_000;
+    let injection = rig.inject(&mut backend, at);
+    assert_withheld(&rig, &injection, "session_ended");
+    assert!(
+        injection.receipt["reason"]
+            .as_str()
+            .unwrap()
+            .contains("transport closed")
+    );
+}
+
+#[test]
+fn a_healthy_session_still_dispatches_once() {
+    let rig = Rig::new("disp-ok");
+    let mut backend = rig.backend(&[start_line()], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    let at = backend.now_us() + 200_000;
+    let injection = rig.inject(&mut backend, at);
+    assert!(injection.withheld.is_none(), "{}", injection.receipt);
+    assert_eq!(rig.started(), 1);
+}
+
+fn cue(sequence: u64, kind: &str, owner: Option<(u64, u64)>, extra: Value) -> Value {
+    const LAMP: u64 = 50_000_000;
+    let event = LAMP + sequence * 10;
+    let mut cue = json!({"schema":1,"sequence":sequence,"kind":kind,
+        "boot":[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        "event_us":event,"sent_us":event + 1,"expires_us":event + 100_000});
+    if let Some((turn, generation)) = owner {
+        cue["turn"] = json!(turn);
+        cue["generation"] = json!(generation);
+    }
+    if let (Some(cue), Some(extra)) = (cue.as_object_mut(), extra.as_object()) {
+        cue.extend(extra.clone());
+    }
+    json!({"type":"cue","lamp_received_us":event + 2,"cue":cue})
+}
+
+#[test]
+fn the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable() {
+    let rig = Rig::new("disp-provider");
+    let now = [
+        start_line(),
+        // Answers the backend's first ping, so owned cues have a clock map.
+        json!({"type":"pong","seq":1,"lamp_us":50_000_000}),
+        cue(1, "listening_ready", None, json!({})),
+        cue(2, "input_admitted", Some((1, 1)), json!({})),
+        cue(
+            3,
+            "turn_completed",
+            Some((1, 1)),
+            json!({"outcome":"provider_failed","playback_gaps":0}),
+        ),
+        session_end(),
+    ];
+    let mut backend = rig.backend(&now, "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    until_run_end(&mut backend);
+    let now = backend.now_us();
+    let injection = rig.inject(&mut backend, now);
+    assert_withheld(&rig, &injection, "provider_failed");
+    assert_eq!(
+        injection.withheld.map(|w| w.status()),
+        Some(lamp_voice_eval::record::StepStatus::ProviderUnavailable)
+    );
+}

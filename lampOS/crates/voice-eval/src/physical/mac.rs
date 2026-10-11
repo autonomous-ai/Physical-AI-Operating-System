@@ -17,7 +17,7 @@ use crate::{
     plan::{ProviderKind, Scenario, Step},
     playback::PlaybackHistory,
     record::{ClockMapping, StimulusSource, Stratum},
-    runner::{AttemptContext, Backend, Begin, Finished, Injection},
+    runner::{AttemptContext, Backend, Begin, Finished, Injection, Withheld},
     stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
 };
 use lamp_ipc::monotonic_us;
@@ -29,7 +29,7 @@ use std::{
     os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
-    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
     thread::{self, JoinHandle},
     time::Duration,
 };
@@ -342,9 +342,13 @@ pub struct PhysicalBackend<'a> {
     seconds: u16,
     /// Events drained by the final dispatch check, returned by `next_event`.
     pending: std::collections::VecDeque<RuntimeEvent>,
-    /// Latched terminal provider failure seen on this attempt's session.
-    provider_failed: Option<String>,
+    /// The first terminal cause seen on this attempt's session; no stimulus
+    /// starts after it.
+    unavailable: Option<Withheld>,
 }
+
+/// Run-end status of a runner-generated protocol stop.
+const CUE_PROTOCOL_INVALID: &str = "cue_protocol_invalid";
 
 /// End scheduling immediately, retaining the actual trace at finish. This is a
 /// runner-generated protocol stop, not a Lamp failure or an acoustic event.
@@ -353,7 +357,7 @@ fn cue_failure(session: &mut Session, reason: String, received_us: u64) -> Runti
     session.protocol_errors.push(reason.clone());
     RuntimeEvent::new(
         EventKind::RunEnd {
-            status: Some("cue_protocol_invalid".into()),
+            status: Some(CUE_PROTOCOL_INVALID.into()),
             error: Some(reason),
         },
         None,
@@ -379,22 +383,77 @@ impl<'a> PhysicalBackend<'a> {
             attempt_directory: None,
             seconds: 0,
             pending: std::collections::VecDeque::new(),
-            provider_failed: None,
+            unavailable: None,
         }
     }
 
-    /// Latch a terminal provider failure from a live event.
+    /// Latch the first terminal cause from a live event: a provider failure,
+    /// the session's end, or a cue/relay protocol failure.
     fn note(&mut self, event: &RuntimeEvent) {
-        if matches!(&event.kind, EventKind::TurnCompleted { outcome, .. }
-            if outcome == crate::events::PROVIDER_FAILED)
-        {
-            self.provider_failed.get_or_insert_with(|| {
-                format!(
+        if self.unavailable.is_some() {
+            return;
+        }
+        self.unavailable = match &event.kind {
+            EventKind::TurnCompleted { outcome, .. }
+                if outcome == crate::events::PROVIDER_FAILED =>
+            {
+                Some(Withheld::ProviderFailed(format!(
                     "turn {} ended with a provider failure before dispatch; no stimulus while the provider is unavailable",
                     event.turn.unwrap_or(0)
+                )))
+            }
+            EventKind::RunEnd { status, error }
+                if status.as_deref() == Some(CUE_PROTOCOL_INVALID) =>
+            {
+                Some(Withheld::ProtocolFailed(format!(
+                    "cue or relay protocol failed before dispatch: {}",
+                    error.as_deref().unwrap_or("no detail")
+                )))
+            }
+            EventKind::RunEnd { .. } if event.source == EventSource::Cue => Some(
+                Withheld::SessionEnded("the runtime sent its run_end cue before dispatch".into()),
+            ),
+            EventKind::RunEnd { .. } => Some(Withheld::SessionEnded(
+                match self.session.as_ref().and_then(|s| s.end.as_ref()) {
+                    Some(SessionLine::SessionEnd {
+                        exit_code,
+                        killed,
+                        error,
+                        ..
+                    }) => format!(
+                        "the relay ended the session before dispatch (exit status {}{}{})",
+                        exit_code.map_or("unknown".into(), |c| c.to_string()),
+                        if *killed { ", killed" } else { "" },
+                        error.as_deref().map_or(String::new(), |e| format!(": {e}"))
+                    ),
+                    _ => "the runtime session ended before dispatch".into(),
+                },
+            )),
+            _ => None,
+        };
+    }
+
+    /// Convert one relayed line, live or in the final dispatch drain, and
+    /// latch any terminal cause. A relay framing error is a protocol failure:
+    /// the lost line may have been a cue or the session's end.
+    fn take(&mut self, line: std::result::Result<SessionLine, String>) -> Option<RuntimeEvent> {
+        let event = match line {
+            Ok(line) => self.handle(line)?,
+            Err(error) => {
+                let session = self.session.as_mut()?;
+                if session.cue_failed {
+                    session.protocol_errors.push(error);
+                    return None;
+                }
+                cue_failure(
+                    session,
+                    format!("relay protocol failure: {error}"),
+                    monotonic_us(),
                 )
-            });
-        }
+            }
+        };
+        self.note(&event);
+        Some(event)
     }
 
     fn send_ping(&mut self, seq: u64) -> Result<()> {
@@ -599,13 +658,17 @@ impl<'a> PhysicalBackend<'a> {
     fn wait_line(&mut self, until_us: u64) -> Option<std::result::Result<SessionLine, String>> {
         let session = self.session.as_mut()?;
         let now = monotonic_us();
-        if now >= until_us {
-            return session.lines.try_recv().ok();
-        }
-        match session
-            .lines
-            .recv_timeout(Duration::from_micros(until_us - now))
-        {
+        let received = if now >= until_us {
+            session.lines.try_recv().map_err(|error| match error {
+                TryRecvError::Empty => RecvTimeoutError::Timeout,
+                TryRecvError::Disconnected => RecvTimeoutError::Disconnected,
+            })
+        } else {
+            session
+                .lines
+                .recv_timeout(Duration::from_micros(until_us - now))
+        };
+        match received {
             Ok(line) => Some(line),
             Err(RecvTimeoutError::Timeout) => None,
             Err(RecvTimeoutError::Disconnected) => {
@@ -780,7 +843,7 @@ impl Backend for PhysicalBackend<'_> {
         self.seconds = context.scenario.session_seconds;
         self.playbacks.clear();
         self.pending.clear();
-        self.provider_failed = None;
+        self.unavailable = None;
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -908,18 +971,8 @@ impl Backend for PhysicalBackend<'_> {
                 }
                 continue;
             };
-            match line {
-                Ok(line) => {
-                    if let Some(event) = self.handle(line) {
-                        self.note(&event);
-                        return Ok(Some(event));
-                    }
-                }
-                Err(error) => {
-                    if let Some(session) = self.session.as_mut() {
-                        session.protocol_errors.push(error);
-                    }
-                }
+            if let Some(event) = self.take(line) {
+                return Ok(Some(event));
             }
             if monotonic_us() >= until_us {
                 return Ok(None);
@@ -966,28 +1019,23 @@ impl Backend for PhysicalBackend<'_> {
             thread::sleep(Duration::from_micros((at_us - monotonic_us()).min(1_000)));
         }
         // Final dispatch check: take every line already relayed (keeping the
-        // events for the runner) and refuse to start after a provider failure.
+        // events for the runner) and refuse to start after any terminal cause
+        // latched on this attempt, including one first seen in this drain.
         while let Some(line) = self.wait_line(monotonic_us()) {
-            match line {
-                Ok(line) => {
-                    if let Some(event) = self.handle(line) {
-                        self.note(&event);
-                        self.pending.push_back(event);
-                    }
-                }
-                Err(error) => {
-                    if let Some(session) = self.session.as_mut() {
-                        session.protocol_errors.push(error);
-                    }
-                }
+            if let Some(event) = self.take(line) {
+                self.pending.push_back(event);
             }
         }
-        if let Some(reason) = self.provider_failed.clone() {
+        if self.session.is_none() {
+            self.unavailable
+                .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
+        }
+        if let Some(withheld) = self.unavailable.clone() {
             return Ok(Injection {
                 started_us: monotonic_us(),
                 receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
-                    "reason": reason}),
-                withheld: Some(reason),
+                    "withheld_cause": withheld.cause(), "reason": withheld.reason()}),
+                withheld: Some(withheld),
             });
         }
         let cancel_file = directory.join(format!("cancel-{}", step.id));

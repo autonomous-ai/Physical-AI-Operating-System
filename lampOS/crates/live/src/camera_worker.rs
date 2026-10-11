@@ -23,6 +23,27 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::run;
 
+/// The worker process loop for any port: announce the closed loop, then step
+/// at the cooperative poll target until stop or fault. The Linux entry and
+/// simulation harnesses share this driver; only the port differs.
+pub fn serve<P: InspectPort, C: Clock>(
+    channels: &mut WorkerChannels,
+    mut runtime: CameraLoop<P, C>,
+) -> io::Result<()> {
+    // No camera open or permission was obtained to reach this handshake.
+    channels.control.send(crate::wire::WorkerEvent::Ready)?;
+    let mut clock = lamp_ipc::monotonic_us;
+    loop {
+        if runtime.step(channels, &mut clock)? == Step::Stopped {
+            return Ok(());
+        }
+        // This is a cooperative target, not a scheduler/kernel guarantee.
+        std::thread::sleep(std::time::Duration::from_micros(
+            lamp_camera::POLL_TARGET_US,
+        ));
+    }
+}
+
 pub const CONTROL_BUDGET: usize = 16;
 pub const PROGRESS_INTERVAL_US: u64 = 10_000;
 pub const PROGRESS_DEADLINE_US: u64 = 30_000;

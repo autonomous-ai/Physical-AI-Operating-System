@@ -1,8 +1,8 @@
 use super::*;
-use crate::{camera_config::CameraConfig, wire::WorkerEvent};
+use crate::camera_config::CameraConfig;
 use lamp_camera::linux::{ControlReading, ControlState, IntervalStatus, LinuxPort, SystemClock};
 use serde_json::json;
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 impl InspectPort for LinuxPort {
     fn metadata(&self) -> PortMetadata {
@@ -60,8 +60,7 @@ pub fn run(
     let capture_config = config.capture()?;
     let capture = Capture::new(port, SystemClock, parent, worker, capture_config)
         .map_err(io::Error::other)?;
-    let mut clock = lamp_ipc::monotonic_us;
-    let mut runtime = CameraLoop::new(capture, clock());
+    let mut runtime = CameraLoop::new(capture, lamp_ipc::monotonic_us());
     if !consumers.is_empty() {
         let frames = FrameServer::bind(
             &directory.join(FRAME_SOCKET),
@@ -71,13 +70,5 @@ pub fn run(
         )?;
         runtime = runtime.with_frames(frames);
     }
-    // No camera open or permission was obtained to reach this handshake.
-    channels.control.send(WorkerEvent::Ready)?;
-    loop {
-        if runtime.step(&mut channels, &mut clock)? == Step::Stopped {
-            return Ok(());
-        }
-        // This is a cooperative target, not a scheduler/kernel guarantee.
-        std::thread::sleep(Duration::from_micros(lamp_camera::POLL_TARGET_US));
-    }
+    serve(&mut channels, runtime)
 }

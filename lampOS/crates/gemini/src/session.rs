@@ -2,8 +2,9 @@ use crate::{
     BarrierOutcome, BarrierPolicy, BarrierReport, BarrierWait, Discard, EVENT_QUEUE_CAPACITY,
     Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger, ImageOffer, ImageReceipt, ImageRefusal,
     ImageRevocation, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST,
-    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId, Result, Resumption,
-    ResumptionHandle, SessionConfig, SessionId, State, Timeouts, wire,
+    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_RETAINED_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId,
+    Result, Resumption, ResumptionHandle, SessionConfig, SessionId, StartRelease, State,
+    SuccessorStart, Timeouts, wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -550,6 +551,8 @@ where
         policy: config.barrier,
         wait: config.barrier_wait,
         reports: config.barrier_reports,
+        successor_start: config.successor_start,
+        held: None,
         output_buffer: config.output_buffer,
         commands,
         events: events_tx,
@@ -707,6 +710,19 @@ impl Barrier {
             .saturating_add(u32::from(content.turn_complete && !content.idle));
     }
 }
+/// A next request's `activityStart`, and its audio in order behind it, kept
+/// here because the response they would interrupt has produced nothing yet.
+struct Held {
+    since: Clock,
+    /// The start is still kept back. Once it is written, what remains is
+    /// audio waiting its turn on the wire; new audio queues behind it.
+    holding: bool,
+    audio: VecDeque<Audio>,
+    samples: usize,
+}
+/// Kept audio written per turn of the session loop once the start is out,
+/// so that commands, incoming messages and a stop stay live while it drains.
+const RELEASE_BLOCKS: usize = 32;
 struct Actor<S> {
     socket: WebSocketStream<S>,
     session: SessionId,
@@ -715,6 +731,10 @@ struct Actor<S> {
     policy: BarrierPolicy,
     wait: BarrierWait,
     reports: bool,
+    successor_start: SuccessorStart,
+    /// A next request's start and audio kept back, or still being written
+    /// out after being kept back.
+    held: Option<Held>,
     output_buffer: usize,
     commands: mpsc::Receiver<Command>,
     events: mpsc::Sender<Event>,
@@ -810,6 +830,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.retire_active().await?;
             self.purge_retired();
             self.enforce_barrier().await?;
+            self.drain_held().await?;
             self.flush();
             self.check_deadlines()?;
             self.send_image().await?;
@@ -877,6 +898,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     /// abandoned either way and never used again.
     async fn send_image(&mut self) -> Result<()> {
         if self.shared.images().pending.is_none() || !self.commands.is_empty() {
+            return Ok(());
+        }
+        if self.held.is_some() {
+            // Behind the kept start and audio: it waits with them, under
+            // its own age and revocation rules.
             return Ok(());
         }
         let retired_through = self.retired_through();
@@ -1114,8 +1140,24 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             // Committed: its response becomes the earlier stream that must
             // settle. Explicit activityStart is the only interruption request
             // available with provider activity detection disabled.
+            let produced = turn.first_output_at.is_some();
             self.barrier = Some(Barrier::new(Some(turn.lineage)));
             self.current = None;
+            if matches!(
+                self.successor_start,
+                SuccessorStart::AfterFirstOutput { .. }
+            ) && !produced
+            {
+                // Nothing to interrupt yet, and an interruption of nothing
+                // is not confirmed. Keep the start back until there is.
+                self.held = Some(Held {
+                    since: Clock::now(),
+                    holding: true,
+                    audio: VecDeque::new(),
+                    samples: 0,
+                });
+                return Ok(());
+            }
             return self.start_activity().await;
         }
         if turn.input.open {
@@ -1138,6 +1180,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             // request would never be committed.
             self.report_barrier(BarrierOutcome::TimedOut);
             return Err(Error::BarrierTimeout);
+        }
+        if let Some(held) = self.held.as_ref().filter(|held| held.holding) {
+            // The earlier response has not been asked to stop yet, so
+            // there is no silence after an interruption to count. Only the
+            // patience runs, and past it the start is written anyway.
+            let expired = matches!(
+                self.successor_start,
+                SuccessorStart::AfterFirstOutput { patience } if held.since.elapsed() >= patience
+            );
+            if expired {
+                self.release_start(StartRelease::Patience).await?;
+            }
+            return Ok(());
         }
         // The quiet bound counts from the earlier response's last event. With
         // `AtCommit` it counts only while a request's End is being withheld,
@@ -1204,8 +1259,67 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     }
     /// The earlier response has settled: a withheld End may go out now.
     async fn release(&mut self) -> Result<()> {
-        if self.current.as_ref().is_some_and(|turn| turn.end_held) {
+        if self.barrier.is_none()
+            && self.held.is_none()
+            && self.current.as_ref().is_some_and(|turn| turn.end_held)
+        {
             self.commit().await?;
+        }
+        Ok(())
+    }
+    fn holding(&self) -> bool {
+        self.held.as_ref().is_some_and(|held| held.holding)
+    }
+    /// Stop keeping the next request's start back: write it, and let what
+    /// was kept behind it follow in order. With a barrier still standing
+    /// this is the interruption, and its quiet bound counts from here.
+    async fn release_start(&mut self, by: StartRelease) -> Result<()> {
+        let Some(held) = self.held.as_mut().filter(|held| held.holding) else {
+            return Ok(());
+        };
+        held.holding = false;
+        let (kept, samples) = (held.since.elapsed(), held.samples as u64);
+        if let Some(barrier) = self.barrier.as_mut() {
+            barrier.last_event_at = Clock::now();
+            barrier.seen.start_held = Some(kept);
+            barrier.seen.start_released_by = Some(by);
+            barrier.seen.retained_samples = samples;
+        }
+        self.start_activity().await?;
+        self.drain_held().await
+    }
+    /// Write kept audio, oldest first, a bounded number of blocks at a time.
+    /// When none is left, a withheld End may go out if nothing else holds it.
+    async fn drain_held(&mut self) -> Result<()> {
+        let SuccessorStart::AfterFirstOutput { patience } = self.successor_start else {
+            return Ok(());
+        };
+        // Kept here on purpose for up to `patience`: that much older than
+        // audio is otherwise allowed to be, and no older.
+        let bound = MAX_INPUT_AGE + patience;
+        for _ in 0..RELEASE_BLOCKS {
+            let Some(held) = self.held.as_mut().filter(|held| !held.holding) else {
+                return Ok(());
+            };
+            let Some(audio) = held.audio.pop_front() else {
+                break;
+            };
+            held.samples -= audio.samples.len();
+            let age = Instant::now()
+                .checked_duration_since(audio.captured_at)
+                .filter(|age| *age < bound)
+                .ok_or(Error::StaleInput)?;
+            let deadline = self.timeouts.write.min(bound - age);
+            self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
+                .await?;
+        }
+        if self
+            .held
+            .as_ref()
+            .is_some_and(|held| !held.holding && held.audio.is_empty())
+        {
+            self.held = None;
+            return self.release().await;
         }
         Ok(())
     }
@@ -1228,7 +1342,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 // continues. It cannot receive a response of its own.
                 self.retire_active().await?;
                 self.current = Some(Turn::new(lineage));
-                self.start_activity().await?;
+                if !self.holding() {
+                    self.start_activity().await?;
+                }
                 self.emit(Event::InputStarted {
                     lineage,
                     waiting_for_barrier: self.barrier.is_some(),
@@ -1245,6 +1361,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     .ok_or(Error::StaleRequest)?;
                 turn.input.accept(&audio)?;
                 let age = check_age(audio.captured_at)?;
+                if let Some(held) = self.held.as_mut() {
+                    // Behind the kept start, or behind kept audio that is
+                    // still being written: in order either way.
+                    held.samples += audio.samples.len();
+                    held.audio.push_back(audio);
+                    if held.samples > MAX_RETAINED_SAMPLES {
+                        if !held.holding {
+                            // Being written out and still not keeping up.
+                            return Err(Error::Backpressure);
+                        }
+                        self.release_start(StartRelease::Overflow).await?;
+                    }
+                    return Ok(());
+                }
                 let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
@@ -1262,9 +1392,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     // for a response nobody owns; leave the activity open for
                     // the next admitted request to continue.
                     self.current = None;
-                } else if self.barrier.is_some() {
+                } else if self.barrier.is_some() || self.held.is_some() {
                     // Withheld until the earlier response settles, so output
-                    // after this End can only belong to this request.
+                    // after this End can only belong to this request; and
+                    // until every block kept before it has been written.
                     turn.end_held = true;
                     turn.held_at = Some(Clock::now());
                 } else {
@@ -1298,6 +1429,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             return Err(Error::UnexpectedResponse);
         }
         if let Some(update) = frame.resumption {
+            if let Some(barrier) = self.barrier.as_mut() {
+                let count = if update.resumable {
+                    &mut barrier.seen.resumable_updates
+                } else {
+                    &mut barrier.seen.unresumable_updates
+                };
+                *count = count.saturating_add(1);
+            }
             self.shared
                 .resumption_invalidated
                 .store(update.handle.is_none(), Ordering::Release);
@@ -1379,6 +1518,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 finished: transcript.finished,
             });
         }
+        if content.waiting_for_input
+            && let Some(barrier) = self.barrier.as_mut()
+        {
+            barrier.seen.waiting_for_input = barrier.seen.waiting_for_input.saturating_add(1);
+        }
         let transcript = content.output_transcript.take();
         let payload = !content.audio.is_empty() || !content.text.is_empty();
         let terminal = content.interrupted || content.turn_complete;
@@ -1440,12 +1584,28 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             });
         }
         if settled {
+            if self.holding()
+                && let Some(barrier) = self.barrier.as_mut()
+            {
+                // Completed with nothing to interrupt: recorded before the
+                // report, written after the barrier is down.
+                barrier.seen.start_held = self.held.as_ref().map(|held| held.since.elapsed());
+                barrier.seen.start_released_by = Some(StartRelease::Completion);
+                barrier.seen.retained_samples =
+                    self.held.as_ref().map_or(0, |held| held.samples as u64);
+            }
             self.report_barrier(BarrierOutcome::Settled);
             if self.barrier.take().is_some() {
+                self.release_start(StartRelease::Completion).await?;
                 self.release().await?;
             }
         } else if let Some(barrier) = self.barrier.as_mut() {
             barrier.last_event_at = now;
+            if producing {
+                // The earlier response has begun: now there is something
+                // to interrupt, and an interruption that is confirmed.
+                self.release_start(StartRelease::FirstOutput).await?;
+            }
         } else if producing {
             // A response is still producing after its barrier, or with none
             // on record. Hold the next commit until it settles, exactly as

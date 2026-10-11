@@ -14,8 +14,9 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, Resumption, ResumptionHandle,
-    SessionConfig, ThinkingLevel, Timeouts,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_RETAINED_SAMPLES,
+    MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig, SuccessorStart,
+    ThinkingLevel, Timeouts,
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
@@ -208,6 +209,35 @@ pub struct BarrierReport {
     pub interrupted: u32,
     /// Completions that did not settle it: `turnComplete` without idle.
     pub completions_not_idle: u32,
+    /// How long the next request's `activityStart` was kept back, when
+    /// [`SuccessorStart::AfterFirstOutput`] kept it back at all.
+    pub start_held: Option<Duration>,
+    /// What ended that.
+    pub start_released_by: Option<StartRelease>,
+    /// Samples of the next request that were being kept when it ended.
+    pub retained_samples: u64,
+    /// Messages carrying the documented `waitingForInput` while the barrier
+    /// stood. An observation: nothing is decided on it.
+    pub waiting_for_input: u32,
+    /// Session resumption updates while the barrier stood, by whether they
+    /// said the session could be resumed at that point. The documentation
+    /// says it cannot be while the model is generating. An observation.
+    pub resumable_updates: u32,
+    pub unresumable_updates: u32,
+}
+
+/// What ended the keeping back of a next request's `activityStart`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StartRelease {
+    /// The earlier response produced its first output and was interrupted.
+    FirstOutput,
+    /// The earlier response completed idle; nothing was interrupted.
+    Completion,
+    /// Neither came within the patience. Written anyway: from there the
+    /// default behavior, including its strict wait and its failure.
+    Patience,
+    /// More audio than may be kept. Written anyway, as for patience.
+    Overflow,
 }
 
 /// Why an image was not accepted. None of these affects the connection or

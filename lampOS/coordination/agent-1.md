@@ -75,6 +75,11 @@ during playback in 9 of 32 synthetic runs.
 So checkpoint 14's "with the onset kept" below is withdrawn. It held for a
 fast-rising synthetic talker with no warm-up.
 
+One clause of my team reply went further than the measurement: that a late
+crossing loses "most of a normal onset". Nothing of the kind was measured.
+The note says only that the earlier part is lost and that no slow onset was
+tested.
+
 Nothing was tuned. No device, no cloud. The detector proposal is unchanged
 on its branch at `9ea6e32d4`.
 

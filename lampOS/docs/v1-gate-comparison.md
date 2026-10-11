@@ -112,9 +112,8 @@ of the 32 runs.
   arithmetic at 64 ms frames, it needs four frames over the threshold and
   replays 300 ms, so it reaches 108 ms before the first frame over the
   threshold and no further. A talker who stays under the threshold for
-  longer than that before crossing it loses the earlier part, and with the
-  threshold where it is at this volume that is most of an ordinary onset. No
-  such talker was tested.
+  longer than that before crossing it loses the earlier part. No such talker
+  was tested, so how much of an ordinary onset that is, I have not measured.
 - In the one opening under the warm-up, the first burst was refused and the
   gate opened 1,856 ms after the talker's first sample. The first 1,492 ms
   of the talker, 93 % of the clip's energy, never reached the uplink.

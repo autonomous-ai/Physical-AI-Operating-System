@@ -296,9 +296,15 @@ Shared files are in separate commits for Main to compose:
 
 ```sh
 cargo build --locked --release -p lamp-live -p lamp-endpoint
-crates/endpoint/fetch-model.sh target/release      # pinned bytes, SHA256-checked
+curl -fsSL --max-filesize 33000000 -o target/release/smart-turn-v3.2-gpu.onnx \
+  https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx
+target/release/lamp-endpoint-worker --check-model target/release/smart-turn-v3.2-gpu.onnx
 target/release/lamp-live directed CONFIG SECONDS OUT --turn-taking v1-baseline --endpoint smart-turn
 ```
+
+Delete the file if `--check-model` reports a mismatch. The worker refuses any
+other bytes at runtime as well, and lampOS ships no download script: the
+owner's rule is that every source file and script in lampOS is Rust.
 
 - **Model.** `pipecat-ai/smart-turn-v3` revision
   `f766f81d3cfdf7737ac64aad813d91bbfd56bf93`, `smart-turn-v3.2-gpu.onnx`:

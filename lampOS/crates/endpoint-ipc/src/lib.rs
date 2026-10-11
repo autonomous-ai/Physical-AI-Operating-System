@@ -12,8 +12,8 @@ pub mod serve;
 
 pub use client::{Limits, Monitor, ProcessClassifier, Report, WorkerCommand};
 
-/// The worker's pinned model file, fetched by `crates/endpoint/fetch-model.sh`
-/// and installed under this name. The worker verifies these exact bytes.
+/// The worker's pinned model file, installed under this name beside the worker
+/// (docs/endpoint-detection.md, Installation). The worker verifies these bytes.
 pub const SMART_TURN_MODEL_FILE: &str = "smart-turn-v3.2-gpu.onnx";
 pub const SMART_TURN_MODEL_SHA256: &str =
     "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be";

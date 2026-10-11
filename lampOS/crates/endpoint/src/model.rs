@@ -5,7 +5,8 @@ use std::{fs::File, io::Read, path::Path, sync::Arc};
 use tract_onnx::prelude::*;
 
 /// A model file pinned by size and SHA256. It is fetched separately and never
-/// committed; `crates/endpoint/fetch-model.sh` downloads exactly this object.
+/// committed; docs/endpoint-detection.md gives the download and the
+/// `lamp-endpoint-worker --check-model` verification.
 #[derive(Clone, Copy, Debug)]
 pub struct ModelAsset {
     pub file_name: &'static str,

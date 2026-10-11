@@ -1,7 +1,8 @@
 //! Rust features and tract inference versus Pipecat's pinned reference, and
 //! the real `lamp-endpoint-worker` process behind the core's client.
-//! Model tests are ignored by default: run `crates/endpoint/fetch-model.sh`
-//! first, then `cargo test -p lamp-endpoint -- --include-ignored`.
+//! Model tests are ignored by default: install the pinned model under
+//! `.cache/endpoint/` (or set `LAMP_SMART_TURN_MODEL`), then run
+//! `cargo test -p lamp-endpoint -- --include-ignored`.
 use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, WINDOW_SAMPLES};
 use lamp_endpoint_ipc::{
     Availability, Classifier, Limits, ProcessClassifier, Submit, Token, WorkerCommand,
@@ -24,7 +25,7 @@ fn xorshift(seed: u32) -> impl FnMut() -> u32 {
     }
 }
 
-/// The same integer signals as `fixtures/make_reference.py`.
+/// The integer signals recorded in `fixtures/README.md`.
 fn signal(name: &str) -> Vec<i16> {
     let noise = |seed, count, modulus: u32, offset: i32| {
         let mut next = xorshift(seed);
@@ -98,7 +99,7 @@ fn features_match_pipecat_reference() {
 }
 
 #[test]
-#[ignore = "requires the pinned model; run crates/endpoint/fetch-model.sh"]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
 fn tract_probability_matches_onnx_runtime_reference() {
     let model = SmartTurn::load(&model_path(), &SMART_TURN_V3_2).unwrap();
     let mut extractor = FeatureExtractor::default();
@@ -180,7 +181,7 @@ fn worker_process_refuses_missing_or_wrong_models_without_blocking() {
 }
 
 #[test]
-#[ignore = "requires the pinned model; run crates/endpoint/fetch-model.sh"]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
 fn worker_process_matches_reference_and_reports_stage_costs() {
     let mut classifier = worker(&model_path());
     assert_eq!(

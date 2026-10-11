@@ -1,4 +1,5 @@
 //! `lamp-endpoint-worker --model PATH [--parent PID]`
+//! `lamp-endpoint-worker --check-model PATH` (installation check only)
 //!
 //! Serves Smart Turn v3.2 verdicts for one interaction core over stdin and
 //! stdout (see `lamp_endpoint_ipc::frame`). It verifies the pinned model, runs
@@ -61,10 +62,38 @@ fn sha256_bytes(hex: &str) -> [u8; 32] {
     bytes
 }
 
+/// Verifies an installed model's pinned size and SHA256, and that tract can
+/// load it, without speaking the worker protocol.
+fn check_model(path: &OsString) -> ExitCode {
+    let path = PathBuf::from(path);
+    match SmartTurn::load(&path, &SMART_TURN_V3_2) {
+        Ok(_) => {
+            println!(
+                "{}: verified {} ({} bytes, SHA256 {})",
+                path.display(),
+                SMART_TURN_V3_2.file_name,
+                SMART_TURN_V3_2.bytes,
+                SMART_TURN_V3_2.sha256
+            );
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{}: {error}", path.display());
+            ExitCode::from(2)
+        }
+    }
+}
+
 fn main() -> ExitCode {
+    let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
+    if let [flag, path] = arguments.as_slice()
+        && flag == "--check-model"
+    {
+        return check_model(path);
+    }
     let mut output = io::stdout().lock();
     let started = Instant::now();
-    let setup = parse(std::env::args_os().skip(1)).and_then(|arguments| {
+    let setup = parse(arguments.into_iter()).and_then(|arguments| {
         follow_parent(arguments.parent)?;
         SmartTurn::load(&arguments.model, &SMART_TURN_V3_2)
             .map_err(|error| format!("model {}: {error}", arguments.model.display()))

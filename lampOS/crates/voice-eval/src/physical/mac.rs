@@ -17,7 +17,9 @@ use crate::{
     plan::{ProviderKind, Scenario, Step},
     playback::PlaybackHistory,
     record::{ClockMapping, StimulusSource, Stratum},
-    runner::{AttemptContext, Backend, Begin, Finished, Injection, Withheld},
+    runner::{
+        AttemptContext, Backend, Begin, Finished, Injection, MAX_TRIGGER_LATENESS_US, Withheld,
+    },
     stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
 };
 use lamp_ipc::monotonic_us;
@@ -174,6 +176,10 @@ pub struct PhysicalConfig {
     /// Loudspeaker replay or direct human speech; never pooled.
     pub stimulus_source: StimulusSource,
 }
+
+/// Relay lines taken in one final dispatch drain before the backend asks the
+/// runner to revalidate instead of starting.
+const MAX_DISPATCH_DRAIN_LINES: usize = 1024;
 
 /// Keep refining the clock map during the session, within a bound.
 const PING_INTERVAL_US: u64 = 250_000;
@@ -437,6 +443,13 @@ impl<'a> PhysicalBackend<'a> {
     /// latch any terminal cause. A relay framing error is a protocol failure:
     /// the lost line may have been a cue or the session's end.
     fn take(&mut self, line: std::result::Result<SessionLine, String>) -> Option<RuntimeEvent> {
+        // The relay streams the final trace only after the runtime exited or
+        // was killed: live admission closes at the first record (MAIN-030).
+        if matches!(line, Ok(SessionLine::Trace { .. })) && self.unavailable.is_none() {
+            self.unavailable = Some(Withheld::SessionEnded(
+                "the runtime has exited; the relay is streaming its final trace".into(),
+            ));
+        }
         let event = match line {
             Ok(line) => self.handle(line)?,
             Err(error) => {
@@ -1016,12 +1029,19 @@ impl Backend for PhysicalBackend<'_> {
             .clone()
             .ok_or_else(|| invalid("no attempt directory"))?;
         while monotonic_us() < at_us {
-            thread::sleep(Duration::from_micros((at_us - monotonic_us()).min(1_000)));
+            let remaining = at_us.saturating_sub(monotonic_us());
+            thread::sleep(Duration::from_micros(remaining.min(1_000)));
         }
-        // Final dispatch check: take every line already relayed (keeping the
-        // events for the runner) and refuse to start after any terminal cause
-        // latched on this attempt, including one first seen in this drain.
-        while let Some(line) = self.wait_line(monotonic_us()) {
+        // Final dispatch check: take the lines already relayed, within a
+        // budget (keeping the events for the runner), and refuse to start
+        // after any terminal cause latched on this attempt, including one
+        // first seen in this drain.
+        let mut exhausted = true;
+        for _ in 0..MAX_DISPATCH_DRAIN_LINES {
+            let Some(line) = self.wait_line(monotonic_us()) else {
+                exhausted = false;
+                break;
+            };
             if let Some(event) = self.take(line) {
                 self.pending.push_back(event);
             }
@@ -1030,23 +1050,38 @@ impl Backend for PhysicalBackend<'_> {
             self.unavailable
                 .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
         }
+        let refuse = |withheld: Withheld, pending: usize, exhausted: bool| {
+            let now = monotonic_us();
+            Injection {
+                started_us: now,
+                receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
+                    "withheld_cause": withheld.cause(), "reason": withheld.reason(),
+                    "unobserved_events": pending, "drain_exhausted": exhausted,
+                    "late_us": now.saturating_sub(at_us)}),
+                withheld: Some(withheld),
+            }
+        };
         // Never start while the runner has not observed every consumed
-        // event: one may end the overlap or the session (MAIN-025).
+        // event, or while lines remain undrained: one may end the overlap or
+        // the session (MAIN-025, MAIN-030).
         let withheld = self
             .unavailable
             .clone()
-            .or_else(|| (!self.pending.is_empty()).then_some(Withheld::Revalidate));
+            .or_else(|| (exhausted || !self.pending.is_empty()).then_some(Withheld::Revalidate));
         if let Some(withheld) = withheld {
-            return Ok(Injection {
-                started_us: monotonic_us(),
-                receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
-                    "withheld_cause": withheld.cause(), "reason": withheld.reason(),
-                    "unobserved_events": self.pending.len()}),
-                withheld: Some(withheld),
-            });
+            return Ok(refuse(withheld, self.pending.len(), exhausted));
         }
         let cancel_file = directory.join(format!("cancel-{}", step.id));
+        // The original target's lateness bound holds at the side effect
+        // itself, even when no new event surfaced (MAIN-030).
         let requested_us = monotonic_us();
+        if requested_us > at_us.saturating_add(MAX_TRIGGER_LATENESS_US) {
+            let stale = Withheld::Stale(format!(
+                "planned start passed {} ms before the player could start",
+                (requested_us - at_us) / 1000
+            ));
+            return Ok(refuse(stale, 0, false));
+        }
         let handle = self.player.start(
             &asset.wav,
             timing,

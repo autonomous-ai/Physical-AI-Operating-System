@@ -55,6 +55,9 @@ pub enum Withheld {
     /// The cue or relay protocol failed; nothing trustworthy remains to
     /// schedule against.
     ProtocolFailed(String),
+    /// The planned start passed its lateness bound at the backend's final
+    /// side-effect boundary; nothing started (MAIN-030).
+    Stale(String),
     /// The backend's final drain took events the runner has not observed;
     /// nothing started. The runner observes them, rechecks eligibility and
     /// may dispatch again. Never recorded as a step outcome by itself.
@@ -67,6 +70,7 @@ impl Withheld {
             Self::ProviderFailed(_) => "provider_failed",
             Self::SessionEnded(_) => "session_ended",
             Self::ProtocolFailed(_) => "protocol_failed",
+            Self::Stale(_) => "trigger_stale",
             Self::Revalidate => "revalidate",
         }
     }
@@ -74,7 +78,8 @@ impl Withheld {
         match self {
             Self::ProviderFailed(reason)
             | Self::SessionEnded(reason)
-            | Self::ProtocolFailed(reason) => reason,
+            | Self::ProtocolFailed(reason)
+            | Self::Stale(reason) => reason,
             Self::Revalidate => {
                 "events arrived during the final dispatch drain and must be observed first"
             }
@@ -86,7 +91,7 @@ impl Withheld {
         match self {
             Self::ProviderFailed(_) => StepStatus::ProviderUnavailable,
             Self::SessionEnded(_) | Self::ProtocolFailed(_) => StepStatus::SessionEnded,
-            Self::Revalidate => StepStatus::TriggerStale,
+            Self::Stale(_) | Self::Revalidate => StepStatus::TriggerStale,
         }
     }
 }

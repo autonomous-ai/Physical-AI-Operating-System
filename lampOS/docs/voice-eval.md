@@ -120,7 +120,7 @@ reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
 
-### Final dispatch check (`MAIN-023`, `MAIN-025`)
+### Final dispatch check (`MAIN-023`, `MAIN-025`, `MAIN-030`)
 
 **Runner.** At the planned start, the runner takes every event already
 delivered (at most 256) and then rechecks every condition the stimulus needs:
@@ -135,8 +135,16 @@ every relay line already delivered and keeps those events for the runner.
 - If any taken event has not yet been observed by the runner, nothing starts.
   The backend returns `revalidate`, and the runner observes those events,
   rechecks and dispatches again.
+- The backend's drain is bounded at 1024 relay lines. When the budget runs
+  out, it also returns `revalidate` (receipt `drain_exhausted`).
 - After 8 such rounds, or a drain that does not settle, the step is withheld
   as `trigger_stale` with the reason.
+- Immediately before the player starts, the original target's 100 ms
+  lateness bound is checked again on the local clock, even when no new event
+  surfaced. A missed bound returns `trigger_stale`.
+- The relay streams the runtime's final trace only after the runtime has
+  exited or been killed. The first relayed trace record therefore latches
+  `session_ended`, while the trace is still kept as evidence.
 - The first terminal cause seen on the attempt is latched, and no stimulus
   starts after it. This includes a cause first seen in the backend's final
   drain.

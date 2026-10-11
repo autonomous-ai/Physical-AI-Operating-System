@@ -2,93 +2,315 @@
 
 Owner: Agent 1 (audio and Gemini). This file on `lamp-a1-continuation` is
 the status of `MAIN-056`. Reference recovery (`MAIN-053`, `054`, `058`) is
-on `lamp-a1-reference` at `f167b94a1` with its own status there. Duplex
+on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-11
-- **`MAIN-056` is started: one finding and a proposed contract. No code
-  yet.** Branch from your `235f50297`.
-- No cloud, no device. I read your probe's published result and your
-  source audit; I ran nothing against the service.
+- Updated: 2026-10-11, 18:35 UTC
+- **`MAIN-056`: the conservative part is built and opt-in. Its host pass
+  had one failure, in a test this branch does not touch; see
+  [Verification](#verification).
+  It does not make a continuation before output succeed, and on the
+  evidence so far nothing strict on this protocol can without a decision
+  that is yours.** See [the finding](#what-the-protocol-does-not-give).
+- No cloud and no device from me. Every service result below is yours.
+- Two faults of mine in the probe, both found by you, both fixed:
+  [below](#my-faults-here).
 
-## The assignment as it reached me
+## Branches
 
-Through my terminal, not in Git: make committed-input continuation
-reliable in `crates/gemini`, provider worker changes as a separate
-proposal; keep `Require`; do not port V1's force-commit, do not treat
-voice-activity notices as settlement, do not switch to
-`AssumeAfterQuiet`; say so if the protocol cannot safely support it.
+Three, so that each can be taken or left by itself.
 
-## Finding: moving the timer does not make this case succeed
+| Branch | Head | Base | What |
+|---|---|---|---|
+| `lamp-a1-continuation-probe` | `7ab7e30b9` | your `235f50297` | Example only. During-output mode, the observation bound, the exit rule |
+| `lamp-a1-stop-queued` | `9c6c1637a` | your `55d7af98e` | Two commits: `5479f9b2b` adds two regressions that fail, `9c6c1637a` is the three-line fix. Nothing to do with continuation |
+| `lamp-a1-continuation` | this commit | both of the above merged, so it contains `55d7af98e` | The library: `BarrierWait::AtCommit` and barrier reports, their tests, the probe's settings for them, the document. One separate proposal commit for `provider_worker.rs`, `a25e68a52` |
 
-From `docs/verification/strict-continuation-20261011/result.json`, times
-since the first start was queued:
+## What the service did, twice
 
-| At | What |
+Your two runs, one attempt each, synthetic cached speech, no microphone or
+speaker. Times are since the first start was queued.
+
+| | `continue-before-output` | `continue-during-output` |
+|---|---|---|
+| First `End` queued | 5.027 s | 4.984 s |
+| Service activity notice `End` | 5.602 s | 5.552 s, audio offset 4.334 s |
+| First audio of request 1 | none | 6.412 s, 1.428 s after its End |
+| Second `Start` queued | 5.330 s, 303 ms after the End | 6.413 s, 0.8 ms after that audio |
+| Service activity notice `Start` | 5.691 s | 6.771 s, audio offset 4.334 s |
+| `interrupted` for request 1 | none exposed | 6.771 s, 358 ms after the Start and 23 µs after the notice |
+| Idle completion for request 1 | none exposed | 6.776 s, 363 ms after the Start |
+| Outcome | `BarrierTimeout` at 7.331 s, 27,680 of 58,671 samples uploaded, End never written | Settled. End written 10.615 s, first audio 11.752 s, idle 13.956 s |
+
+Read with care:
+
+- One attempt each. Neither is a rate.
+- The first run shows no terminal **exposed** for request 1 in the 2.0 s
+  the session lasted after the second Start. It does not show that none
+  was sent, or that none would have come later.
+- The activity notices are the service's own. In the second run their
+  audio offsets equal the uploaded audio exactly (69,337 samples is
+  4.334 s) and the `Start` notice arrives with `interrupted`. That is an
+  observation about two runs. They are not acknowledgements of this
+  client's writes and nothing here treats them as settlement.
+
+## What is built
+
+All in `crates/gemini`, all off by default, policy `Require` throughout.
+The document section is "Where a barrier's wait starts, and what a barrier
+reports" in `docs/gemini-session-reliability.md`.
+
+1. **`SessionConfig::barrier_wait(BarrierWait::AtCommit)`.** The quiet
+   bound counts only while a request's `activityEnd` is withheld, from no
+   earlier than that. The absolute bound, `Timeouts::response` from the
+   interruption, is kept. What is committed, when, and whose the output is
+   are unchanged.
+2. **`SessionConfig::barrier_reports(true)`.** `Event::Barrier` when a
+   barrier settles or times out, with counts of what arrived for the
+   earlier response and was dropped. Counts only.
+
+On its own branch, `lamp-a1-stop-queued`, because it is not opt-in and is
+not about continuation:
+
+3. **A stop wins over input queued behind it.** The session loop checks
+   for a stop at the top of each turn, then takes whichever of its ready
+   work comes up, in a random order. A command already in the queue when
+   the stop was recorded could be taken first and written: one block of
+   microphone audio, or an `activityEnd`. At most one, and then the stop
+   took effect. The image path already refused this; the main loop did
+   not. Before the fix both regressions failed in 8 runs of 8, each
+   showing a queued audio block on the wire after the stop. With it they
+   passed in 25 runs of 25, each run being two tests of 40 trials.
+   **This changes default behavior**, in the direction of writing less.
+
+### The regression list you gave
+
+| Case | Test | |
+|---|---|---|
+| Long successor upload | `a_person_still_speaking_is_not_cut_off_by_the_quiet_bound` | Four times the bound of speech; the wait starts at their End |
+| Pause and resume before audio | `a_pause_in_the_next_utterance_is_not_the_wait_and_its_end_starts_it` | Three times the bound of silence inside the utterance |
+| Repeated continuation | `a_second_continuation_restarts_the_wait_at_its_own_end_and_one_end_is_written`, `a_second_continuation_that_never_settles_times_out_from_its_own_end` | One `activityEnd` in all, never the superseded request's |
+| Old output arriving | `a_terminal_while_the_end_is_withheld_commits_it_and_old_output_is_never_the_new_requests`, `old_output_behind_a_barrier_is_counted_and_never_kept_or_delivered` | 300 frames counted, none delivered |
+| No terminal | `a_person_still_speaking…` ends in `TimedOut`; `the_absolute_bound_still_ends_a_barrier_nothing_settles` | End never written |
+| Final terminal | `a_terminal_during_the_next_utterance_settles_and_its_end_commits_at_once` | |
+| Disconnect | `the_service_closing_under_a_withheld_end_is_that_close_and_no_barrier_outcome` | The close code, no invented outcome |
+| Cancellation | `a_cancelled_successor_leaves_nothing_waiting_and_a_later_one_waits_strictly`, `an_end_withheld_and_then_cancelled_is_never_written_and_nothing_waits` | |
+| Stop or privacy under queued input | `a_stop_under_a_withheld_end_is_the_stop_and_not_a_timeout`; on the stop branch `a_stop_with_input_queued_behind_it_writes_none_of_that_input`, `a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input` | The last two found a defect: see 3 above |
+| Bounded memory and time | Old output is counted in fixed-size counters and dropped; the successor's audio is written through and never held; the absolute bound is unchanged | |
+| Defaults unchanged | `the_same_person_is_cut_off_as_before_without_the_setting`, `without_reports_the_event_stream_is_what_it_was` | |
+
+These run against the in-memory service in `crates/gemini`. None of them
+is a run on the real service, and none goes through `provider_worker`.
+
+## What the protocol does not give
+
+**A response interrupted before it has produced anything gave no sign
+that it had stopped.** With manual activity control this client has two
+confirmations and no others: `interrupted` and the idle completion. In
+your second run both came promptly for a response that was producing. In
+your first, for one that was not, neither was exposed.
+
+If that holds on repetition, then for a continuation before output:
+
+- Waiting longer, or starting the wait later (`AtCommit`), does not make
+  it succeed. It makes the failure come after the person has finished,
+  with a report saying nothing arrived.
+- Any design that commits the second request anyway is a guess about
+  whose the next output is. That is `AssumeAfterQuiet`, and it stays out.
+
+What does not guess, and what each costs:
+
+| | How | Cost, and what it needs |
+|---|---|---|
+| **Hold the interruption until the earlier response produces** | Keep the second `activityStart` and its audio back until request 1's first output, then interrupt a producing response, which your second run shows being confirmed | The audio waits, and it is not fresh to begin with. In the one run that shows it, first output came 1.43 s after the End, so a person who resumes 0.3 s after the cut has their audio held about 1.1 s. `MAX_INPUT_AGE` is 1 s and audio older than that is refused; a request opens with retained pre-roll that keeps its original read time, so it is already aged when the request starts. So this needs audio well over a second old to be uploaded: the 1.1 s of that example plus the age of the pre-roll, which I have not measured. **That is a production bound and I have not touched it.** Also unprobed: an interruption followed at once by a burst of held audio |
+| **Leave the connection** | On a continuation before output, open a new session for the second request; ownership is by session and absolute | A reconnect inside the utterance, and the model's context is whatever the handle restores: the cut-off first part may not be in it. Unprobed. Mostly `provider_worker` |
+| **Do not commit early** | Keep the speculative early endpoint off | It is off. A person who resumes in the 1.4 s between an ordinary endpoint and the first audio still meets this |
+
+I have built none of the three. The first is the one I would build, and
+it cannot be built inside the 1 s bound: with the bound kept it fails on
+the opening audio of exactly the requests it is for. Widening it is not
+mine to decide.
+
+## The held interruption, as a proposal with its ownership argument
+
+Not built. Separate from every default. Written down because you asked
+for the proposal to carry its proof, and so that the age decision can be
+made against something exact.
+
+**Rule.** When a committed request is superseded and its response has
+produced nothing yet, the next request's `activityStart` is not written.
+Its audio is kept, in order, in a buffer bounded in samples. Then the
+first of these happens:
+
+| Event | What is written |
 |---|---|
-| 5.027 s | First `End` queued: request 1 committed |
-| 5.330 s | Second `Start` queued. `waiting_for_barrier: true` |
-| 5.602 s | The service's own `voice_activity` End, at the first input's last sample |
-| 5.691 s | Its `voice_activity` Start |
-| 7.331 s | `BarrierTimeout`. Nothing else arrived |
+| First output of the earlier response | `activityStart`, then the kept audio in order, then audio as it comes. The barrier's quiet bound counts from here |
+| Idle completion of the earlier response with no output | The barrier is down. `activityStart`, the kept audio, and the End as soon as it is asked for |
+| The patience bound, or the buffer bound | `activityStart` and the kept audio now. From here it is today's behavior exactly, including its failure |
+| A stop, a close, any failure | Nothing. The kept audio is dropped unsent |
 
-The two activity notices say the service took the first `activityEnd` and,
-89 ms later, the second `activityStart`. It had 89 ms in which request 1
-was committed and not yet interrupted, which is far less than it takes to
-start an answer. In the 1.64 s that followed it sent no `interrupted`, no
-completion and no output for request 1.
+A response that has already produced output when it is superseded is
+interrupted at once, as now.
 
-So in this run, **interrupting a response before it has produced anything
-gets no terminal at all.** The barrier is waiting for something the
-service gave no sign of sending.
+**What it changes.** Only when bytes are written. The same
+`activityStart`, the same audio in the same order and the same single
+`activityEnd` go out as today; none is added, dropped or reordered, short
+of a stop. A request superseded or cancelled before its End keeps its
+audio in the activity its successor continues, as now.
 
-Your audit's correction, which I agree with as far as it goes, is to stop
-the two-second quiet bound running while the next person is still
-speaking, and start the strict wait at their `End`. That stops the
-session ending in the middle of an utterance. It does not make this case
-succeed: at the second `End` the barrier would still be waiting for a
-terminal, and two seconds later it would be `BarrierTimeout` all the
-same, with the question lost. Unless a terminal arrives later than
-1.64 s, which this run cannot say because it ended.
+**Whose the output is.** The argument is the existing one, and holding
+the interruption does not touch it:
 
-## What can be strict and still succeed
+1. Output is attributed to a request only if that request is current and
+   its `activityEnd` has been written (`content()` routes on
+   `ended_at`). Everything else goes to `earlier()`: dropped, counted
+   under the earlier request's own name.
+2. A request's `activityEnd` is written only when no barrier stands
+   (`Command::End`, `release()`).
+3. A barrier is taken down only by the earlier response's idle
+   completion (`earlier()`, `settled`), under `Require`.
+4. While the interruption is held, the next request is current and not
+   committed, and the barrier stands from the moment of supersession. So
+   by 1 nothing received in that time, before or after the held
+   `activityStart` is written, can be attributed to it.
+5. Therefore the first output attributed to the next request arrives
+   after its End, which was written after the earlier response's idle
+   completion.
 
-Only two things do not guess:
+That leaves exactly the assumptions the transport already makes and this
+does not add to: that the idle completion is the last thing a response
+sends, and that the service produces nothing for an activity before its
+End. A stray `interrupted` after the commit is already dropped as late.
 
-1. **Fail, at the right time and with evidence.** The timer change above,
-   an absolute bound kept, and a bounded count of what was received and
-   dropped while the barrier stood, so that an absent terminal can be told
-   from a filtered one.
-2. **Do not interrupt a response that has not started.** When the next
-   request starts while the committed one has produced nothing, hold the
-   next request's `activityStart` and keep its audio in a bounded buffer.
-   When the earlier response shows its first output, send the
-   `activityStart` then: an interruption of a response that is producing.
-   When it shows an idle completion instead, it has settled by itself.
-   Either way the buffered audio follows at once, in order, and the next
-   `End` commits once the earlier response's terminal is in. If the
-   earlier response shows nothing at all, that is the response timeout it
-   would have met anyway.
+**What it does not prove.** That the service confirms an interruption
+that is followed at once by a burst of kept audio. Your second run had no
+burst. That needs its own probe run before this could be turned on.
 
-The second rests on one premise I cannot test: **that the service does
-send `interrupted` or an idle completion for a response interrupted while
-it is producing.** Every ordinary barge-in so far that was then answered
-suggests it does. No probe has recorded it.
+**Bounds.** Patience and the buffer are both fixed and small; the
+absolute bound from supersession, `Timeouts::response`, is kept, so the
+whole is no longer than today. An image offered while the interruption
+is held would wait with it, subject to its own age and revocation rules.
 
-It also has a cost to say plainly: the service does begin answering the
-first, partial request, and that partial answer is in the model's context
-when it answers the whole thought. Its audio is never played: the request
-is retired locally the moment the next one starts, as now.
+**Why it is not built.** The kept audio is written late by design, and
+`send_audio` refuses anything older than `MAX_INPUT_AGE`. See the table
+above and `A1-023`.
 
 ## For you
 
 | Id | |
 |---|---|
-| `A1-021` | **One probe before I build the second option**: `interrupt-during-output` on the real service, which the probe tool already labels. Does a response interrupted after its first audio get `interrupted` and an idle completion, and how long after? If it does not, the second option is dead too and the protocol cannot support strict continuation at all |
-| `A1-022` | **In the failed run, did anything arrive for request 1 after 7.331 s?** It could not: the session ended. A rerun with the quiet bound lifted for the probe only, watching for 8 s, would say whether a terminal comes late or never |
+| `A1-021` | Done by you: one during-output attempt, confirmed in 363 ms. Thank you |
+| `A1-022` | Still open. `barrier-ms=5000` is now accepted and watches 3 s longer than production. The existing `interrupt-before-output` probe already watches for 5 s under `AssumeAfterQuiet` and then commits, so it also shows what arrives **after** a commit nobody confirmed: one answer or two. As observation only, that is the more useful of the two |
+| `A1-023` | **The decision above**: for a held-back interruption, may audio older than `MAX_INPUT_AGE` be uploaded when this library itself held it, with its true capture time and dropped unsent on any stop? My estimate of the figure is 2 s; it is an estimate, not a measurement. If no, the first option is out and the choice is between leaving the connection and accepting the failure |
+| `A1-024` | Before `AtCommit` is turned on anywhere: the during-output probe once more with `barrier-wait=at-commit`, which needs this branch's library |
 
-## Next, without waiting
+A longer observation than 5 s, without widening any bound, is possible
+on this branch and is **not built**: under `AtCommit` a probe that holds
+its own End back stays connected up to the 30 s absolute bound. I doubt
+it tells more than the 5 s runs: I would not expect the service to
+produce for request 1 while activity 2 is open. That is an expectation,
+not an observation. Say if you want it.
 
-The first option: the timer placement behind an explicit setting, the
-absolute bound, the bounded evidence, and its regressions against the
-in-memory service. Defaults unchanged.
+## My faults here
+
+- **The probe's `barrier-ms` accepted 10 s and the library refuses more
+  than 5.** Your `A1-022` run ended in 0.014 s with `InvalidConfiguration`
+  and never reached the service. I had tested the parser and not the
+  configuration it feeds. Fixed in `cfdd6e742`: the range is the
+  library's, and a test builds a configuration from every accepted bound.
+- **The probe exited 1 on the new during-output success label.** Fixed in
+  `b01c3054a`: one tested function decides, and an observation-only run
+  never exits 0.
+
+## Verification
+
+Code is verified at `b0f21f5a9`; the commit that adds this file changes
+nothing else.
+
+**Host**, from a source-only export of each commit, one after the other:
+`cargo fmt --all -- --check`, `cargo clippy --locked --offline --workspace
+--all-targets -- -D warnings`, `cargo test --locked --offline --workspace
+--no-fail-fast -- --test-threads=1`, `cargo build --locked --offline
+--release -p lamp-live -p lamp-voice-eval`.
+
+| Commit | Format | Clippy | Tests | Release build |
+|---|---|---|---|---|
+| `9c6c1637a`, stop branch | clean | clean | 1,445 passed, 0 failed, 7 ignored | ok |
+| `b0f21f5a9`, this branch | clean | clean | **1,458 passed, 1 failed**, 7 ignored | ok |
+
+**The one failure**, kept as it happened:
+`provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity`
+panicked at `provider_worker.rs:4693:71`, which is the test rig's
+`self.parent.data.receive::<Wire>().unwrap()`. I did not keep the message.
+I first reported it to you as the capacity counter on the next line; that
+was wrong. `Channel::receive` fails on a datagram error, a decode error,
+or `ReceiveOrder::accept`, which includes the channel's 100 ms age bound.
+Another agent's `cargo test -j2 -p lamp-live --lib failure_notice` was
+running on the host when the pass began. This branch changes none of
+`transport.rs`, `wire.rs` or that rig.
+
+**Two trees compared, with counters.** Your `55d7af98e` and this branch's
+`b0f21f5a9`, each exported to scratch and patched there only, nothing
+committed: `Channel::receive` records each packet's age and puts it in its
+error, and the rig's playback loop records its longest gap between turns
+and can be made to stand still once (`std::thread::sleep`) after its
+hundredth packet. One run at a time, the trees alternating, two cargo
+jobs at most for the builds.
+
+Unforced, six runs each:
+
+| | Passed | Oldest packet, per run | Longest rig gap, per run |
+|---|---|---|---|
+| `55d7af98e` | 6 of 6 | 20, 69, 21, 21, 20, 21 ms | 50, 69, 51, 51, 53, 50 ms |
+| `b0f21f5a9` | 5 of 6 | 20, 39, 21, 23, 21, 23 ms | **153**, 50, 52, 68, 53, 53 ms |
+
+The run that failed is the one whose rig stood still for 153 ms. Its
+output: `lamp-live provider: connection lost (Gemini Live BarrierTimeout)`,
+then the rig's heartbeat failing on `ConnectionReset` at
+`provider_worker.rs:2824`. The channel and the heartbeat's lease are both
+bounded at 100 ms.
+
+One deliberate stall, one run each:
+
+| Stall | `55d7af98e` | `b0f21f5a9` |
+|---|---|---|
+| 150 ms | **Fails**: the same `BarrierTimeout` line, then `ConnectionReset` at the same heartbeat call (`:2806` there) | **Fails**, identically (`:2824`) |
+| 60 ms | Passes, longest gap 71 ms | Passes, longest gap 74 ms |
+
+So a rig that stands still for longer than the 100 ms bound fails this
+test in your tree exactly as in mine, and one that stays under it passes
+in both. That is what the comparison establishes. What it does not: the
+message of the first failure is lost, so that it was this is an inference
+from the same test failing after the same kind of stall; and how the
+stall becomes a `BarrierTimeout` (my reading: the lease lapses, the worker
+retires the request, the session interrupts, and the scripted service
+never confirms) I read and did not trace. Gaps of 50 to 70 ms occurred in
+every unforced run in both trees, so this test runs with 30 to 50 ms to
+spare under its 100 ms bound. Whether those gaps are the host or the
+test's own work on its one thread I have not determined.
+
+**Emulated Linux/ARM64**, `agent1-arm64-verify29`, 18:19:44Z to 18:20:59Z,
+`b0f21f5a9`, nothing else running in the VM. All steps exit 0: strict
+Clippy `-p lamp-gemini -p lamp-live --all-targets`; `lamp-gemini` release
+tests single-threaded, 153 passed, 0 failed, 2 ignored, with 6, 12 and 20
+in its other targets; release build of `lamp-live` and of the probe
+example, both aarch64 ELF. It is an emulated run, not the device.
+
+**The stop regression**, on `lamp-a1-stop-queued`: red 8 runs of 8 at
+`5479f9b2b`, green 25 runs of 25 at `9c6c1637a`, each run two tests of 40
+trials.
+
+**The probe branch**, `7ab7e30b9`: `cargo test -p lamp-gemini
+--all-targets` 137 passed, 0 failed, 2 ignored, with 6, 12 and 17; strict
+Clippy for the crate; release build of the example.
+
+## Not done
+
+- Nothing here has run against the real service or on a lamp from my side.
+- `provider_worker` does not select `AtCommit` or consume the report
+  beyond the proposed log line in `a25e68a52`. Activation is yours.
+- `A1-017`, explicit yield intervals for duplex: your `55d7af98e` already
+  records each one as `duplex_yield_end` with its owner, times and frame
+  sequences, so I have added nothing. Say if something is still missing.
+- From `MAIN-053`, still owed: recovery under owner change, shutdown and
+  physical privacy exercised through the coordinator.

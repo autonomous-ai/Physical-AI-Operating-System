@@ -106,8 +106,29 @@ fn run_mode(
     lamp_voice_eval::record::AttemptRecord,
     evaluate::AttemptScore,
 ) {
+    run_plan(
+        lamp_voice_eval::plan::DEFAULT_PLAN,
+        scenario,
+        scenes,
+        mode,
+        seconds,
+        fault,
+    )
+}
+
+fn run_plan(
+    source: &str,
+    scenario: &str,
+    scenes: &[&str],
+    mode: LampMode,
+    seconds: u16,
+    fault: Option<&str>,
+) -> (
+    lamp_voice_eval::record::AttemptRecord,
+    evaluate::AttemptScore,
+) {
     let catalog = StimulusCatalog::load().unwrap();
-    let plan = LoadedPlan::default_plan(&catalog).unwrap();
+    let plan = LoadedPlan::parse(source, &catalog).unwrap();
     let dir = common::Private::new("loop");
     let tones: Vec<_> = scenes
         .iter()
@@ -676,4 +697,41 @@ fn missing_or_stale_whole_completion_withholds_followup_after_valid_retirement()
         assert_eq!(record.evidence["playbacks"].as_array().unwrap().len(), 1);
         assert_ne!(score.outcome, Outcome::Passed);
     }
+}
+
+/// The live cue contract today: lamp-live's cue sink sends no input
+/// availability or provider link, so a physical next-turn wait is refused at
+/// once and recorded, never timed out or replaced by a delay.
+#[test]
+fn physical_next_turn_ready_is_unavailable_until_lamp_live_cues_readiness() {
+    let mut source: serde_json::Value =
+        serde_json::from_str(lamp_voice_eval::plan::DEFAULT_PLAN).unwrap();
+    for scenario in source["scenarios"].as_array_mut().unwrap() {
+        if scenario["id"] == "rapid-follow-up" {
+            scenario["steps"][1]["trigger"]["after"] = serde_json::json!("next_turn_ready");
+        }
+    }
+    let (record, _) = run_plan(
+        &source.to_string(),
+        "rapid-follow-up",
+        &["mid-sentence-address", "rapid-followup"],
+        directed(),
+        22,
+        None,
+    );
+    assert_eq!(record.steps[0].status, StepStatus::Injected);
+    let followup = &record.steps[1];
+    assert_eq!(
+        followup.status,
+        StepStatus::TriggerUnavailable,
+        "{followup:?}"
+    );
+    assert!(
+        followup
+            .detail
+            .as_ref()
+            .unwrap()
+            .contains("no input availability or provider link")
+    );
+    assert_eq!(followup.started_us, None);
 }

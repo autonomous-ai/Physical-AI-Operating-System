@@ -99,6 +99,18 @@ pub enum EventKind {
     RuntimeFault {
         reason: String,
     },
+    /// Whether the turn-taking policy would currently retain new input
+    /// (`turn_taking_availability`). Recorded on change only: V1-baseline
+    /// turns it off while Lamp's own playback is owed and on again after its
+    /// tail; `vad-only` reports it once, available.
+    InputAvailability {
+        available: bool,
+    },
+    /// The provider link as the coordinator observed it: `ready`,
+    /// `unavailable` (an outage that may recover) or `terminal`.
+    ProviderLink {
+        state: String,
+    },
     RunEnd {
         status: Option<String>,
         error: Option<String>,
@@ -200,6 +212,8 @@ impl RuntimeEvent {
             EventKind::InputTranscript { .. } => "input_transcript",
             EventKind::OutputTranscript { .. } => "output_transcript",
             EventKind::RuntimeFault { .. } => "runtime_fault",
+            EventKind::InputAvailability { .. } => "input_availability",
+            EventKind::ProviderLink { .. } => "provider_link",
             EventKind::RunEnd { .. } => "run_end",
         }
     }
@@ -303,6 +317,18 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
                 reason: "audio_diagnostics_invalid".into(),
             }
         }
+        "turn_taking_availability" => EventKind::InputAvailability {
+            available: record.get("prospective_input_available")?.as_bool()?,
+        },
+        "provider_ready" => EventKind::ProviderLink {
+            state: "ready".into(),
+        },
+        "provider_unavailable" => EventKind::ProviderLink {
+            state: "unavailable".into(),
+        },
+        "provider_terminal" => EventKind::ProviderLink {
+            state: "terminal".into(),
+        },
         "run_end" => EventKind::RunEnd {
             status: text("status"),
             error: text("error"),
@@ -392,6 +418,12 @@ pub struct Cue {
     pub outcome: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playback_gaps: Option<u64>,
+    /// `input_availability` only: the policy's prospective input availability.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub available: Option<bool>,
+    /// `provider_link` only: `ready`, `unavailable` or `terminal`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
 }
 
 pub fn parse_cue(bytes: &[u8]) -> Result<Cue> {
@@ -400,7 +432,10 @@ pub fn parse_cue(bytes: &[u8]) -> Result<Cue> {
     }
     let cue: Cue = serde_json::from_slice(bytes)?;
     let owned = match cue.kind.as_str() {
-        "listening_ready" | "run_end" => false,
+        // Unowned readiness evidence proposed for lamp-live's cue sink: the
+        // runner needs it to wait for the next turn by event, not by delay.
+        "listening_ready" | "run_end" | "input_availability" | "provider_link"
+        | "input_candidate" => false,
         "input_admitted"
         | "local_endpoint"
         | "speaker_first_write"
@@ -435,6 +470,13 @@ pub fn parse_cue(bytes: &[u8]) -> Result<Cue> {
             .reason
             .as_ref()
             .is_some_and(|s| cue.kind != "cancelled" || s.is_empty())
+        || (cue.kind == "input_availability") != cue.available.is_some()
+        || (cue.kind == "provider_link")
+            != cue
+                .link
+                .as_deref()
+                .is_some_and(|l| matches!(l, "ready" | "unavailable" | "terminal"))
+        || (cue.kind != "provider_link" && cue.link.is_some())
     {
         return Err(invalid("unsupported or inconsistent cue identity/times"));
     }
@@ -491,6 +533,16 @@ impl Cue {
             "run_end" => EventKind::RunEnd {
                 status: None,
                 error: None,
+            },
+            "input_availability" => EventKind::InputAvailability {
+                available: self.available?,
+            },
+            "provider_link" => EventKind::ProviderLink {
+                state: self.link.clone()?,
+            },
+            // The cue carries no candidate identity; the final trace does.
+            "input_candidate" => EventKind::InputCandidate {
+                candidate: Value::Null,
             },
             _ => return None,
         };
@@ -575,6 +627,9 @@ pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
             json!({"kind":"transcript","text":text,"finished":finished})
         }
         EventKind::RuntimeFault { reason } => json!({"kind":reason}),
+        EventKind::InputAvailability { available } => json!({"kind":"turn_taking_availability",
+            "prospective_input_available":available,"hard_capture_authority_unchanged":true}),
+        EventKind::ProviderLink { state } => json!({"kind":format!("provider_{state}")}),
         EventKind::RunEnd { status, error } => {
             json!({"kind":"run_end","status":status,"error":error})
         }
@@ -611,6 +666,84 @@ mod tests {
 {"kind":"input_admitted","owner":{"boot":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"turn":2,"generation":3},"turn":2,"at_us":101,"authority_issued_at_us":100,"prefix_first_host_read_us":40,"candidate":{"controller":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"serial":4},"admission_basis":"directed_session_vad_only"}
 {"kind":"input_candidate_rejected","candidate":{"controller":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"serial":5},"reason":"deadline","at_us":120}
 {"kind":"ring_requested","at_us":130,"owner":{"boot":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"turn":2,"generation":3},"phase":"listening","ceiling":24,"permit_expires_at_us":230}"#;
+
+    #[test]
+    fn readiness_records_map_from_the_trace() {
+        let text = r#"{"kind":"turn_taking_availability","at_us":10,"policy":"v1_baseline","prospective_input_available":false,"hard_capture_authority_unchanged":true}
+{"kind":"provider_ready","at_us":11,"at_us_upper":11,"at_us_role":"host_native","coordinator_observed_at_us":12,"link":{},"setup_us":5}
+{"kind":"provider_unavailable","at_us":13,"link":{}}
+{"kind":"provider_terminal","at_us":14,"link":{}}
+{"kind":"turn_taking_availability","at_us":15,"prospective_input_available":true}
+{"kind":"turn_taking_availability","at_us":16}"#;
+        let (events, unmapped) = parse_trace(text).unwrap();
+        // A record without the availability value is not guessed.
+        assert_eq!(unmapped, 1);
+        let kinds: Vec<_> = events.iter().map(|e| e.kind.clone()).collect();
+        assert_eq!(
+            kinds,
+            [
+                EventKind::InputAvailability { available: false },
+                EventKind::ProviderLink {
+                    state: "ready".into()
+                },
+                EventKind::ProviderLink {
+                    state: "unavailable".into()
+                },
+                EventKind::ProviderLink {
+                    state: "terminal".into()
+                },
+                EventKind::InputAvailability { available: true },
+            ]
+        );
+        assert_eq!(events[0].at_us, Some(10));
+        assert_eq!(events[1].at_us, Some(11));
+        for event in &events {
+            let round = from_trace(&to_trace(event, None)).unwrap();
+            assert_eq!(round.kind, event.kind);
+        }
+    }
+
+    #[test]
+    fn proposed_readiness_cues_parse_strictly_and_carry_no_owner() {
+        let boot = [7_u8; 16];
+        let base = json!({"schema":1,"sequence":3,"boot":boot,"turn":null,"generation":null,
+            "capture_epoch":1,"reference_epoch_context":1,"event_us":100,"sent_us":101,"expires_us":100_100});
+        let cue = |extra: Value| {
+            let mut value = base.clone();
+            for (key, field) in extra.as_object().unwrap() {
+                value[key] = field.clone();
+            }
+            parse_cue(&serde_json::to_vec(&value).unwrap())
+        };
+        let available = cue(json!({"kind":"input_availability","available":true})).unwrap();
+        assert_eq!(
+            available.event().unwrap().kind,
+            EventKind::InputAvailability { available: true }
+        );
+        let link = cue(json!({"kind":"provider_link","link":"terminal"})).unwrap();
+        assert_eq!(
+            link.event().unwrap().kind,
+            EventKind::ProviderLink {
+                state: "terminal".into()
+            }
+        );
+        let candidate = cue(json!({"kind":"input_candidate"})).unwrap();
+        assert!(matches!(
+            candidate.event().unwrap().kind,
+            EventKind::InputCandidate { .. }
+        ));
+        for bad in [
+            json!({"kind":"input_availability"}),
+            json!({"kind":"input_availability","available":true,"turn":1,"generation":1}),
+            json!({"kind":"provider_link"}),
+            json!({"kind":"provider_link","link":"maybe"}),
+            json!({"kind":"listening_ready","available":true}),
+            json!({"kind":"listening_ready","link":"ready"}),
+            json!({"kind":"input_candidate","turn":2,"generation":2}),
+        ] {
+            assert!(cue(bad.clone()).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn candidate_and_ring_vocabulary_maps_with_turns_and_ids() {

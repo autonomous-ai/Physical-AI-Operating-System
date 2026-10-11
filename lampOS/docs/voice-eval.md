@@ -120,6 +120,71 @@ reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
 
+### Next-turn readiness (`next_turn_ready`)
+
+Whole-turn completion is not listening readiness. Under V1-baseline, input
+stays unavailable for the playback tail after the final sample retires (Main's
+native run measured 100.865 ms), and the availability update can arrive after
+the completion. A `turn_completed` trigger cannot see that; with a short
+delay the next question starts while input is still withheld.
+
+A step with `"after": "next_turn_ready"` therefore waits by event. It is ready
+at the first event after which all of these hold:
+
+- every turn admitted since the previous step's dispatch (newer than every
+  turn then known) has finished, completed or cancelled, and at least one did;
+- the latest reported input availability is true;
+- the latest reported provider link is `ready`.
+
+Each condition is the latest event-reported state at that point. A value cached
+when the turn finished is never used: an unavailable state waits for its
+update, and an available state reported once (`vad-only` never withdraws it)
+holds. The delay counts from readiness.
+
+| Situation | Result |
+| --- | --- |
+| Any input candidate or admission after those turns finished | `precondition_lost` ("unplanned input during the next-turn wait"); a whole extra turn is not waited out |
+| Input, lost availability or a non-ready link between readiness and the planned start (final dispatch check) | `precondition_lost` |
+| Provider link reported `terminal` | `provider_unavailable`, latched for the attempt |
+| Provider link `unavailable` | Waits for `ready` by event, within the step deadline, else `trigger_missed` |
+| A turn admitted or finished twice, or resumed after it finished | `session_ended` ("runtime owner evidence inconsistent"); on the live cue path `CueOrder` already rejects these as a protocol failure |
+| The attempt's events carry no availability or link at all | `trigger_unavailable` at once; nothing waits on evidence the runtime does not send |
+
+Rules:
+
+- `next_turn_ready` may follow only a step that expects an admitted turn.
+- Its scene must declare a "Lamp speech ended" trigger.
+- Withheld steps stay in the ledger; nothing is replayed.
+
+**Sources.**
+
+- Traces map `turn_taking_availability` (`prospective_input_available`) to
+  `input_availability`, and `provider_ready`, `provider_unavailable` and
+  `provider_terminal` to `provider_link`.
+- The fake runtime reports both before `listening_ready`, as lamp-live does.
+- Live physical sessions need the cue kinds proposed in
+  [the cue contract](voice-eval-directed-cues.md#proposed-readiness-cues).
+  Until lamp-live sends them, a physical `next_turn_ready` step is
+  `trigger_unavailable` (`tests/physical_loopback.rs`).
+- Existing plans keep their `turn_completed` triggers and hashes.
+
+**Tests.**
+
+- `runner::occurrence_tests`:
+  - the native e9/b1 timeline (completion, then availability 100.865 ms
+    later);
+  - availability never withdrawn;
+  - a cancelled finish;
+  - an extra candidate or extra turn in the wait;
+  - input or lost availability before dispatch;
+  - terminal and recovering links;
+  - a duplicate finish;
+  - missing evidence;
+  - an audit case showing a zero-delay `turn_completed` trigger starts inside
+    the reopen window.
+- `events::tests` covers trace and cue parsing; `cue_tests` covers sequencing.
+- `tests/next_turn_ready.rs` covers plan rules and the fake runtime end to end.
+
 ### Final dispatch check (`MAIN-023`, `MAIN-025`, `MAIN-030`)
 
 **Runner.** At the planned start, the runner takes every event already

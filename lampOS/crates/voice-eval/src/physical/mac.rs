@@ -1285,8 +1285,29 @@ mod cue_tests {
                 .then_some(1),
             outcome: (kind == "turn_completed").then(|| "audio_written_unscored".into()),
             playback_gaps: (kind == "turn_completed").then_some(0),
+            available: None,
+            link: None,
         }
     }
+    #[test]
+    fn readiness_cues_are_unowned_but_still_sequenced() {
+        let unowned = |sequence: u64, kind: &str| {
+            let mut value = cue(sequence, kind, 1);
+            value.turn = None;
+            value.generation = None;
+            value.available = (kind == "input_availability").then_some(true);
+            value.link = (kind == "provider_link").then(|| "ready".into());
+            value
+        };
+        let mut order = CueOrder::default();
+        order.accept(&unowned(1, "provider_link"), 12).unwrap();
+        order.accept(&unowned(2, "input_availability"), 22).unwrap();
+        order.accept(&unowned(3, "input_candidate"), 32).unwrap();
+        order.accept(&cue(4, "input_admitted", 1), 42).unwrap();
+        // A gap in the sequence is still a protocol failure.
+        assert!(order.accept(&unowned(6, "input_availability"), 62).is_err());
+    }
+
     #[test]
     fn cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners() {
         let mut order = CueOrder::default();

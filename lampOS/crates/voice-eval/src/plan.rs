@@ -151,6 +151,13 @@ pub enum TriggerEvent {
     TurnCompleted,
     /// A reply revoked for any reason (lamp-live's `cancelled` cue).
     TurnCancelled,
+    /// Ready for the next turn: every turn admitted since the previous step
+    /// has finished, and the runtime then reports prospective input available
+    /// and its provider link ready, with no other input candidate since that
+    /// finish. Completion alone is not readiness: V1-baseline reopens input
+    /// only after its playback tail. Needs the input-availability and
+    /// provider-link evidence of `docs/voice-eval.md`.
+    NextTurnReady,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -487,6 +494,23 @@ impl Scenario {
             if (index == 0) != (trigger.after == TriggerEvent::ListeningReady) {
                 return Err(fail("only the first step may follow listening_ready"));
             }
+            // The next-turn wait follows the turn the previous step admitted;
+            // a step that expects no turn leaves nothing to finish first.
+            if trigger.after == TriggerEvent::NextTurnReady
+                && !index.checked_sub(1).is_some_and(|previous| {
+                    matches!(
+                        self.steps[previous].expect,
+                        Expectation::Answer
+                            | Expectation::InterruptAndAnswer
+                            | Expectation::HonestFailure
+                            | Expectation::RecoverAndAnswer
+                    )
+                })
+            {
+                return Err(fail(
+                    "next_turn_ready must follow a step that expects an admitted turn",
+                ));
+            }
             if trigger.require_lamp_speaking && trigger.after != TriggerEvent::SpeakerFirstWrite {
                 return Err(fail(
                     "an overlap precondition needs a speaker_first_write trigger",
@@ -553,6 +577,9 @@ impl Scenario {
                     }
                     // A fresh question after a revocation is declared as a scene start.
                     TriggerEvent::TurnCancelled => (TriggerKind::SceneStart, 0),
+                    // The delay counts from readiness, which follows the end of
+                    // Lamp's speech by the runtime's own reopen time.
+                    TriggerEvent::NextTurnReady => (TriggerKind::LampSpeechEnded, trigger.delay_ms),
                 };
                 if expected != actual {
                     return Err(fail(&format!(

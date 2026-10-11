@@ -247,6 +247,15 @@ impl FakeRuntime {
         if !self.ready {
             if self.now_us >= self.ready_at_us {
                 self.ready = true;
+                // As lamp-live records them before readiness. `vad-only`
+                // never withdraws availability, so it is reported once.
+                self.emit(
+                    EventKind::ProviderLink {
+                        state: "ready".into(),
+                    },
+                    None,
+                );
+                self.emit(EventKind::InputAvailability { available: true }, None);
                 self.emit(EventKind::ListeningReady, None);
             }
             return;

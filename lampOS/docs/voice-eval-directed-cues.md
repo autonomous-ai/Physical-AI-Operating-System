@@ -76,6 +76,30 @@ cannot qualify microphone pickup, speech quality, source identity, semantic
 correctness, audibility, or end-to-end latency. Those still require valid room
 recordings and independent review.
 
+## Proposed readiness cues
+
+The runner's `next_turn_ready` wait needs three more schema-1 kinds from
+`fixture_provider::CueSink::observe_event`. lamp-live does not send them yet.
+The runner already accepts them, strictly. All three are unowned: no `turn`
+and no `generation`, and the existing envelope, sequence, boot and freshness
+checks apply.
+
+| Kind | From trace record | Extra field |
+| --- | --- | --- |
+| `input_availability` | `turn_taking_availability` | `available`: its `prospective_input_available` (required) |
+| `provider_link` | `provider_ready`, `provider_unavailable`, `provider_terminal` | `link`: `ready`, `unavailable` or `terminal` (required) |
+| `input_candidate` | `input_candidate` | none; the candidate identity stays in the final trace |
+
+`available` is valid only on `input_availability`, and `link` only on
+`provider_link`.
+
+Each producer record already has `at_us`. A provider link uses the provider
+worker's observation time, so the runner orders by cue sequence, not by
+timestamp. lamp-live already records availability and the link before
+`listening_ready`, so a runtime that sends these cues is recognized from the
+start of every attempt. Deploy the producer and the runner together, as for
+the other schema-1 kinds.
+
 ## Offline regression path
 
 `tests/physical_loopback.rs` starts the real `lamp-session` subprocess and a

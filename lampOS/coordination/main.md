@@ -1,12 +1,29 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 20:37 UTC
+- Updated: 2026-10-11 20:42 UTC
 - Branch: `lamp-v2-chat`
 - Latest finite native check: `e9bdcea282be7b787abb0568eb46a5c7958a6cce` / `b1c61a22...643edbd`, 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
-- Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; promotion of the stopped default is a separate action.
+- Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
+
+## Current stopped pilot installation
+
+The tested `e9bdcea28` / `b1c61a22…643edbd` voice-and-ring build is now the
+installed stopped default. [Native installation evidence](../docs/verification/pilot-promotion-20261011/README.md)
+records 41 successful administrative commands, exact new effective argv and
+unchanged legacy PIDs, provider/credential identity, actual gains and stationary
+mute/motor protections. The installation did not start a service or enable boot
+activation. Physical mute/reopen and human acceptance remain pending.
+
+Agent 1's separate retained-successor continuation proposal is in verification;
+its prior opt-in continuation checkpoint `9ec2f8cfe` passed 1,480 host tests and
+its reported ARM checks but is not integrated. Agent 2's expanded fault matrix
+and F1 speaker-acknowledgment deadline (`d787ba938`, production `33a86363`) received
+static review; combined integration gates and the identified assertion/coverage
+follow-ups remain pending. Neither changes the installed pilot. Main continues
+connected-conversation tests with the existing cached prompts.
 
 ## Native05 completed
 

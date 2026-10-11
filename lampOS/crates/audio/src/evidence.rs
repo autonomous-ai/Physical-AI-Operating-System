@@ -14,9 +14,11 @@
 //! The second share is the one a speech detector cannot see for itself: a
 //! detector fed the cancelled signal fires on leaked playback exactly as it
 //! fires on a person. A high share says that what remains is still mostly
-//! Lamp's own voice. A low share says it is something the render does not
-//! explain: a person, another device, or noise. Which of those it is, and
-//! whether Lamp was being addressed, this module cannot know.
+//! Lamp's own voice. A low share says little: on a device, what a canceller
+//! leaves is mostly what no linear fit explains, playback included. The
+//! floor reported beside it does not depend on fitting the cancelled signal
+//! at all. Whether a person spoke, and whether Lamp was being addressed,
+//! this module cannot know.
 //!
 //! No alignment, no claim: while the render is silent, or active but not yet
 //! matched, the echo part of the evidence is absent rather than guessed.
@@ -46,6 +48,24 @@ const SWEEP: i64 = 32;
 /// A window quieter than this RMS, in 16-bit sample units, is silence
 /// (-60 dB relative to full scale).
 const SILENT_RMS: u64 = 33;
+/// Render samples fitted together to one capture window. A speaker beside a
+/// microphone is not one delay: on the first device recording the path's
+/// energy was spread over about three milliseconds, and one delayed copy
+/// explained 40 % of a capture that was all playback.
+const TAPS: usize = 16;
+/// Of those, how many lie at a shorter delay than the alignment itself.
+const EARLIER: i64 = 5;
+/// Render samples one fit reads: a window for each of its copies.
+const SPAN: usize = WINDOW + TAPS - 1;
+/// Rival alignments are fitted beside the held one, this far either side of
+/// it and this far apart: 10 ms and 1.25 ms. A voice repeats every few
+/// milliseconds, and an alignment one pitch period from the true one
+/// explains a steady vowel as well. It fails where the voice changes, and a
+/// rival that does not is taken instead.
+const RIVAL_REACH: i64 = 40;
+const RIVAL_STEP: i64 = 5;
+/// Rivals fitted per capture block. All of them are visited in four blocks.
+const RIVALS: i64 = 4;
 /// Share of capture energy an alignment must explain to be adopted, and to
 /// count as still holding, in percent.
 pub const MATCH_PERCENT: u8 = 50;
@@ -83,9 +103,19 @@ pub struct EchoMatch {
     /// Percent of the capture's energy, before cancellation, explained by
     /// the render at this alignment.
     pub capture_explained: u8,
-    /// The same for the signal after cancellation: how much of what the
-    /// speech detector and the provider receive is still playback.
+    /// The same for the signal after cancellation. On a device this is a
+    /// lower figure than the truth and often a much lower one: what a
+    /// canceller leaves is what a linear fit could not remove, and a second
+    /// linear fit explains little of it. A high value says playback is left.
+    /// A low value says nothing.
     pub residual_explained: u8,
+    /// Percent of the cancelled signal's energy that has to be playback by
+    /// accounting alone: the cancelled signal cannot hold more of anything
+    /// else than the capture did, and all but `capture_explained` of the
+    /// capture is the most that can be anything else. Zero when that much
+    /// would cover the whole cancelled signal, or when it is silent. It
+    /// holds only while nothing after the canceller amplifies.
+    pub residual_playback_floor: u8,
     /// Capture blocks since this alignment last explained at least
     /// [`MATCH_PERCENT`] of the capture. Zero means this block.
     pub alignment_age_blocks: u16,
@@ -191,6 +221,8 @@ pub struct EchoObserver {
     /// How far the search has got: steps behind the newest render while
     /// nothing is matched, steps outward from the alignment once one is.
     sweep: i64,
+    /// Which rivals of the held alignment are fitted next.
+    rival: i64,
     latest: Option<EchoEvidence>,
 }
 impl Default for EchoObserver {
@@ -205,6 +237,26 @@ struct Compared {
     render: f64,
     /// Percent of the capture's energy the render explains.
     explained: u8,
+}
+
+/// The render around one alignment, factored once and fitted to as many
+/// capture windows as are compared with it.
+struct Taps {
+    /// The render read by the fit, oldest first: entry `index + tap` is what
+    /// copy `tap` pairs with capture sample `index`.
+    span: [i16; SPAN],
+    sums: [i64; TAPS],
+    lower: [[f64; TAPS]; TAPS],
+    /// Render energy about its mean at the alignment itself.
+    energy: f64,
+}
+
+/// One alignment fitted to the raw capture, kept so that the cancelled
+/// signal can be fitted against the same render without factoring it again.
+struct Fitted {
+    offset: i64,
+    raw: Compared,
+    taps: Option<Taps>,
 }
 
 const SILENT_ENERGY: f64 = (SILENT_RMS * SILENT_RMS * WINDOW as u64) as f64;
@@ -228,6 +280,7 @@ impl EchoObserver {
             activity: 0,
             alignment: None,
             sweep: 0,
+            rival: 0,
             latest: None,
         }
     }
@@ -249,6 +302,11 @@ impl EchoObserver {
             self.render.push(reduced);
         }
         let active = energy >= SILENT_RMS * SILENT_RMS * BLOCK as u64;
+        if active && self.alignment.is_none() && self.activity & ((1 << ACTIVITY_BLOCKS) - 1) == 0 {
+            // The speaker starts after a silence with nothing matched: its
+            // echo is at the short delays first, so look there first.
+            self.sweep = 0;
+        }
         self.activity = (self.activity << 1) | u64::from(active);
     }
 
@@ -317,52 +375,119 @@ impl EchoObserver {
         Compared { render, explained }
     }
 
-    /// As [`Self::compare`], with the render allowed one analysis sample
-    /// either side of `offset` as well. A true delay is rarely a whole number
-    /// of samples, and a single alignment would then understate the share.
-    /// The three are fitted together by least squares; the share reported is
-    /// the capture energy that fit accounts for.
-    fn fit(&self, capture: &Window, energy: f64, offset: i64, low: i64, newest: i64) -> Compared {
-        if offset - 1 < low || offset + 1 > newest {
-            return self.compare(capture, energy, offset);
+    /// The render around `offset` prepared for fitting: [`TAPS`] delayed
+    /// copies, [`EARLIER`] of them at a shorter delay, moved inward where the
+    /// searched range ends. `None` where the range is narrower than that or
+    /// the render there cannot be solved for.
+    fn taps(&self, offset: i64, low: i64, newest: i64) -> Option<Taps> {
+        let top = (offset + EARLIER).min(newest);
+        let bottom = top - (TAPS as i64 - 1);
+        if bottom < low || offset < bottom {
+            return None;
         }
-        let first = (self.captured as i64 - WINDOW as i64 + offset - 1) as u64;
-        let (mut cross, mut sums, mut products) = ([0i64; 3], [0i64; 3], [[0i64; 3]; 3]);
-        for (index, &sample) in capture.samples.iter().enumerate() {
-            let taps: [i64; 3] =
-                std::array::from_fn(|tap| self.render.at(first + (index + tap) as u64));
-            for row in 0..3 {
-                cross[row] += i64::from(sample) * taps[row];
-                sums[row] += taps[row];
-                for column in row..3 {
-                    products[row][column] += taps[row] * taps[column];
+        let first = (self.captured as i64 - WINDOW as i64 + bottom) as u64;
+        let span: [i16; SPAN] =
+            std::array::from_fn(|index| self.render.at(first + index as u64) as i16);
+        let at = |index: usize| i64::from(span[index]);
+        // Products of the window with itself at every pair of delays. The
+        // first row is summed; each later entry follows from its diagonal
+        // neighbour by dropping one product and adding one.
+        let (mut sums, mut products) = ([0i64; TAPS], [[0i64; TAPS]; TAPS]);
+        for index in 0..WINDOW {
+            let sample = at(index);
+            sums[0] += sample;
+            for (column, product) in products[0].iter_mut().enumerate() {
+                *product += sample * at(index + column);
+            }
+        }
+        for row in 1..TAPS {
+            sums[row] = sums[row - 1] - at(row - 1) + at(WINDOW + row - 1);
+            for column in row..TAPS {
+                products[row][column] = products[row - 1][column - 1]
+                    - at(row - 1) * at(column - 1)
+                    + at(WINDOW + row - 1) * at(WINDOW + column - 1);
+            }
+        }
+        let mut render = [[0f64; TAPS]; TAPS];
+        let mut trace = 0.0;
+        for row in 0..TAPS {
+            for column in row..TAPS {
+                render[row][column] = centred(products[row][column], sums[row], sums[column]);
+            }
+            trace += render[row][row];
+        }
+        let own = (offset - bottom) as usize;
+        let energy = render[own][own];
+        // A touch of ridge keeps a nearly periodic render solvable.
+        let ridge = trace * 1e-6 + 1.0;
+        // Cholesky factor, in place in the lower triangle.
+        let mut lower = [[0f64; TAPS]; TAPS];
+        for row in 0..TAPS {
+            for column in 0..=row {
+                let sum: f64 = (0..column).map(|k| lower[row][k] * lower[column][k]).sum();
+                if row == column {
+                    let pivot = render[row][row] + ridge - sum;
+                    if pivot <= 0.0 {
+                        return None;
+                    }
+                    lower[row][column] = pivot.sqrt();
+                } else {
+                    lower[row][column] = (render[column][row] - sum) / lower[column][column];
                 }
             }
         }
-        let capture_sum = capture.sum();
-        let wanted: [f64; 3] =
-            std::array::from_fn(|row| centred(cross[row], capture_sum, sums[row]));
-        let mut render = [[0f64; 3]; 3];
-        for row in 0..3 {
-            for column in row..3 {
-                render[row][column] = centred(products[row][column], sums[row], sums[column]);
-                render[column][row] = render[row][column];
+        Some(Taps {
+            span,
+            sums,
+            lower,
+            energy,
+        })
+    }
+
+    /// Percent of `capture`'s energy that the prepared render accounts for
+    /// when its copies are fitted to it together by least squares.
+    fn share(taps: &Taps, capture: &Window, energy: f64) -> u8 {
+        if energy <= 0.0 {
+            return 0;
+        }
+        let mut cross = [0i64; TAPS];
+        for (index, &sample) in capture.samples.iter().enumerate() {
+            let sample = i64::from(sample);
+            for (cross, &render) in cross.iter_mut().zip(&taps.span[index..]) {
+                *cross += sample * i64::from(render);
             }
         }
-        let centre = render[1][1];
-        // A touch of ridge keeps a nearly periodic render solvable.
-        let ridge = (render[0][0] + render[1][1] + render[2][2]) * 1e-6 + 1.0;
-        let Some(accounted) = accounted_for(render, wanted, ridge) else {
-            return self.compare(capture, energy, offset);
-        };
-        let explained = if energy <= 0.0 {
-            0
-        } else {
-            (accounted / energy * 100.0).round().clamp(0.0, 100.0) as u8
-        };
-        Compared {
-            render: centre,
-            explained,
+        let capture_sum = capture.sum();
+        // Forward substitution: |solve(lower, wanted)|^2 is the energy the
+        // fit accounts for.
+        let mut solved = [0f64; TAPS];
+        let mut accounted = 0.0;
+        for row in 0..TAPS {
+            let wanted = centred(cross[row], capture_sum, taps.sums[row]);
+            let sum: f64 = (0..row).map(|k| taps.lower[row][k] * solved[k]).sum();
+            solved[row] = (wanted - sum) / taps.lower[row][row];
+            accounted += solved[row] * solved[row];
+        }
+        (accounted / energy * 100.0).round().clamp(0.0, 100.0) as u8
+    }
+
+    /// The raw capture against the render around `offset`: the fit of
+    /// [`Self::taps`] where there is room for it, one copy where there is not.
+    fn fitted(&self, energy: f64, offset: i64, low: i64, newest: i64) -> Fitted {
+        match self.taps(offset, low, newest) {
+            Some(taps) => Fitted {
+                offset,
+                raw: Compared {
+                    render: taps.energy,
+                    explained: Self::share(&taps, &self.raw, energy),
+                },
+                taps: Some(taps),
+            },
+            None => Fitted {
+                offset,
+                raw: self.compare(&self.raw, energy, offset),
+                taps: None,
+            },
         }
     }
 
@@ -403,16 +528,20 @@ impl EchoObserver {
                 self.sweep = 0;
             }
         }
+        let mut fitted = None;
         // A silent capture matches nothing and must not unseat an alignment.
         if raw_energy >= SILENT_ENERGY {
-            // Follow slow clock drift around the alignment already held.
-            let held = self.alignment.as_ref().and_then(|alignment| {
+            // Follow slow clock drift around the alignment already held. One
+            // delayed copy says where to look; whether the render there
+            // explains the capture is decided by the fit.
+            let near = self.alignment.as_ref().and_then(|alignment| {
                 let near = alignment.offset - 1..=alignment.offset + 1;
                 self.best(
                     raw_energy,
                     near.filter(|offset| (low..=newest).contains(offset)),
                 )
             });
+            let held = near.map(|(offset, _)| self.fitted(raw_energy, offset, low, newest));
             // Keep looking elsewhere as well: the first match may be a weaker
             // reflection, and a restarted stream moves the true alignment.
             let mut tried = [None; SWEEP as usize];
@@ -426,79 +555,113 @@ impl EchoObserver {
                 Some(_) => self.sweep + SWEEP,
                 None => 0,
             };
-            let found = self.best(raw_energy, tried.into_iter().flatten());
-            let adopt = match (held, found) {
-                (Some((_, held)), Some((offset, found)))
-                    if found >= MATCH_PERCENT
-                        && found >= held.saturating_add(REPLACE_MARGIN_PERCENT) =>
-                {
-                    Some(offset)
+            let found = self
+                .best(raw_energy, tried.into_iter().flatten())
+                // A challenger has to beat the held alignment with one copy
+                // before it is worth fitting.
+                .filter(|&(_, one)| near.is_none_or(|(_, held)| one > held))
+                .map(|(offset, _)| self.fitted(raw_energy, offset, low, newest));
+            // Rivals near the held alignment, a few each block, while the
+            // held one leaves room for a rival to be taken.
+            let contestable =
+                |held: &&Fitted| held.raw.explained.saturating_add(REPLACE_MARGIN_PERCENT) <= 100;
+            let rival = held.as_ref().filter(contestable).and_then(|held| {
+                let steps = 2 * RIVAL_REACH / RIVAL_STEP;
+                (0..RIVALS)
+                    .map(|index| {
+                        let step = (self.rival + index) % steps;
+                        // -reach, +reach, -reach + step, +reach - step, ...
+                        let away = RIVAL_REACH - step / 2 * RIVAL_STEP;
+                        held.offset + if step % 2 == 0 { -away } else { away }
+                    })
+                    .filter(|offset| (low..=newest).contains(offset))
+                    .map(|offset| self.fitted(raw_energy, offset, low, newest))
+                    .filter(|rival| rival.raw.render >= SILENT_ENERGY)
+                    .max_by_key(|rival| rival.raw.explained)
+            });
+            self.rival = (self.rival + RIVALS) % (2 * RIVAL_REACH / RIVAL_STEP);
+            let found = match (found, rival) {
+                (Some(found), Some(rival)) if rival.raw.explained > found.raw.explained => {
+                    Some(rival)
                 }
-                (Some((offset, held)), _) if held >= MATCH_PERCENT => Some(offset),
-                (None, Some((offset, found))) if found >= MATCH_PERCENT => Some(offset),
-                _ => None,
+                (found, rival) => found.or(rival),
+            }
+            .map(|found| {
+                if found.raw.explained < MATCH_PERCENT {
+                    return found;
+                }
+                // Record the match at its strongest single copy, so that
+                // following it a sample at a time has a peak to follow.
+                let span = found.offset - (TAPS as i64 - 1 - EARLIER)..=found.offset + EARLIER;
+                match self.best(
+                    raw_energy,
+                    span.filter(|offset| (low..=newest).contains(offset)),
+                ) {
+                    Some((peak, _)) if peak != found.offset => {
+                        self.fitted(raw_energy, peak, low, newest)
+                    }
+                    _ => found,
+                }
+            });
+            let adopted = match (held, found) {
+                (Some(held), Some(found))
+                    if found.raw.explained >= MATCH_PERCENT
+                        && found.raw.explained
+                            >= held.raw.explained.saturating_add(REPLACE_MARGIN_PERCENT) =>
+                {
+                    Some(found)
+                }
+                (Some(held), _) if held.raw.explained >= MATCH_PERCENT => Some(held),
+                (None, Some(found)) if found.raw.explained >= MATCH_PERCENT => Some(found),
+                (held, _) => {
+                    // Not matched this block. Its fit still serves the report
+                    // if it is the alignment's own.
+                    fitted = held;
+                    None
+                }
             };
-            if let Some(offset) = adopt {
+            if let Some(adopted) = adopted {
                 if self
                     .alignment
                     .as_ref()
-                    .is_none_or(|held| (held.offset - offset).abs() > 1)
+                    .is_none_or(|held| (held.offset - adopted.offset).abs() > 1)
                 {
                     self.sweep = 0;
                 }
                 self.alignment = Some(Alignment {
-                    offset,
+                    offset: adopted.offset,
                     age_blocks: 0,
                 });
+                fitted = Some(adopted);
             }
         }
         let alignment = self.alignment.as_ref()?;
-        let raw = self.fit(&self.raw, raw_energy, alignment.offset, low, newest);
-        if raw.render < SILENT_ENERGY {
+        let fitted = fitted
+            .filter(|fitted| fitted.offset == alignment.offset)
+            .unwrap_or_else(|| self.fitted(raw_energy, alignment.offset, low, newest));
+        if fitted.raw.render < SILENT_ENERGY {
             return None;
         }
-        let clean = self.fit(
-            &self.clean,
-            self.clean.energy(),
-            alignment.offset,
-            low,
-            newest,
-        );
+        let clean_energy = self.clean.energy();
+        let residual_explained = match &fitted.taps {
+            Some(taps) => Self::share(taps, &self.clean, clean_energy),
+            None => {
+                self.compare(&self.clean, clean_energy, alignment.offset)
+                    .explained
+            }
+        };
+        let other = raw_energy * f64::from(100 - fitted.raw.explained) / 100.0;
+        let residual_playback_floor = if clean_energy < SILENT_ENERGY {
+            0
+        } else {
+            ((1.0 - other / clean_energy) * 100.0).clamp(0.0, 100.0) as u8
+        };
         Some(EchoMatch {
-            render_level: Level::of(raw.render),
-            capture_explained: raw.explained,
-            residual_explained: clean.explained,
+            render_level: Level::of(fitted.raw.render),
+            capture_explained: fitted.raw.explained,
+            residual_explained,
+            residual_playback_floor,
             alignment_age_blocks: alignment.age_blocks,
         })
     }
-}
-
-/// `wanted' * inverse(render + ridge) * wanted` for a symmetric positive
-/// matrix, by Cholesky factorization. `None` when it is not positive.
-fn accounted_for(mut render: [[f64; 3]; 3], wanted: [f64; 3], ridge: f64) -> Option<f64> {
-    for (index, row) in render.iter_mut().enumerate() {
-        row[index] += ridge;
-    }
-    let mut lower = [[0f64; 3]; 3];
-    for row in 0..3 {
-        for column in 0..=row {
-            let sum: f64 = (0..column).map(|k| lower[row][k] * lower[column][k]).sum();
-            if row == column {
-                let pivot = render[row][row] - sum;
-                if pivot <= 0.0 {
-                    return None;
-                }
-                lower[row][column] = pivot.sqrt();
-            } else {
-                lower[row][column] = (render[row][column] - sum) / lower[column][column];
-            }
-        }
-    }
-    // Forward substitution: |solve(lower, wanted)|^2 is the quadratic form.
-    let mut solved = [0f64; 3];
-    for row in 0..3 {
-        let sum: f64 = (0..row).map(|k| lower[row][k] * solved[k]).sum();
-        solved[row] = (wanted[row] - sum) / lower[row][row];
-    }
-    Some(solved.iter().map(|value| value * value).sum())
 }

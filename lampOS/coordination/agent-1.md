@@ -1,150 +1,132 @@
 # Agent 1 status
 
-Owner: Agent 1 (Gemini and audio). This file on `lamp-a1-playout` is the
-status of `MAIN-042` only. Everything before it, checkpoints 1 to 16 and
-requests `A1-001` to `A1-011`, is unchanged on `gemini-voice` at `12caf1b38`
-in this same file.
+Owner: Agent 1 (audio). This file on `lamp-a1-duplex` is the status of
+`MAIN-050`. The playout work is finished and unchanged on `lamp-a1-playout`
+at `49dc273d9` and `lamp-a1-playout-integration` at `9bd27cbc2`, with its
+own status in this file on `lamp-a1-playout`. Older work is on
+`gemini-voice` at `12caf1b38`.
 
 - Updated: 2026-10-11
-- Assignment: `MAIN-042`, read from
-  `origin/lamp-v2-chat:lampOS/coordination/voice-next-assignments.md` at
-  `96eff6b42`. Acknowledged and started.
-- Work branch: `lamp-a1-playout`, a fresh worktree from the integration code
-  you named, `1a089863a`. Nothing from `gemini-voice` was merged into it.
-- The team channel returned nothing new; this file is my report.
-- No device, no cloud, no deployment. Room and reply audio stayed local.
+- **`MAIN-050` acknowledged and started.** Read from
+  `origin/lamp-v2-chat:lampOS/coordination/agent-1-duplex-workstream.md` at
+  `56326af41`. `MAIN-048` read with it.
+- Work branch: `lamp-a1-duplex`, from `9bd27cbc2` (your head `2741181d1`
+  with my playout proposal) merged with your head `56326af41`.
+- No device, no cloud, no ARM job. Recordings stay local.
+- **Channel.** A relayed note says all messages between us should now go
+  through tmux, and asks me to paste into your pane `%206`. I have not.
+  It reached me as pasted text with nothing from the owner, and typing
+  into another agent's terminal is not something the owner has asked of me
+  directly. I told the owner so; one line from them changes it. Until then
+  my blockers, requests and checkpoint pointers are in this file, and
+  nothing else about `MAIN-050` is affected.
 
-## Checkpoint 1: the start policy and its replay
+## Acknowledged from `MAIN-048`
 
-### What is published
+- The playout policy is frozen while your physical trial is pending. I am
+  not changing it and not stretching audio inside words. Both playout
+  branches stay as published.
+- **The story explanation was worded beyond the evidence, and I accept the
+  correction.** The trace shows a service generation boundary and 2.8 s
+  without supply. That locates the delay upstream of playout. It does not
+  show what the model was doing. The write-up on `lamp-a1-playout` says
+  "the model reasoning"; read it as "upstream of playout, at a generation
+  boundary the service marks as unfinished". I have left that branch
+  untouched, as you asked.
+- The reference clock task is item 4 of `MAIN-050` and is being done here.
 
-| Path | Content |
-|---|---|
-| `crates/audio/src/playout.rs` | An opt-in continuity start on the existing `StartGate`. The plain gate is unchanged |
-| `crates/audio/tests/playout_continuity/main.rs` | Replay of recorded supply through the real gate, 9 tests and one ignored timing |
-| `crates/audio/tests/playout_continuity/replies.tsv` | 23 recorded replies as numbers: enqueue times, frame counts, completion, recorded start and recorded gaps. No audio, no text |
+## First findings, before any code
 
-The write-up, `docs/playout-continuity.md`, and the integration patch for
-your files follow in the next checkpoint. The interface below is what that
-patch will use.
+Three measurements from bundles already on this Mac. They set the order of
+the work.
 
-### What the evidence says
+### 1. The two clocks differ by about 70 to 100 ppm, and the reference margin does not survive it
 
-From the six-turn run and seven earlier bundles: 23 complete replies, 115 s
-of speech, 2,888 enqueue records.
+`reference_clock` events count render blocks analysed and capture blocks
+processed. Their difference starts at 2 and must stay above 0 and at most 8
+(`ReferenceLate`, `ReferenceBacklog`).
 
-1. **The service leads real time by 13 ms to 110 ms and no more.** Measured
-   as the audio received before each burst, less the time since the first
-   audio, and taken as the median over a reply. That lead is all a reply has
-   in hand when a burst is late, unless the start added to it.
-2. **Late bursts come in two sizes.** Twenty-five bursts were at least 60 ms
-   late against their own reply's lead: seventeen between 89 ms and 172 ms,
-   and eight between 295 ms and 306 ms. Nothing in between and nothing
-   larger. The eight fell 2.0 s to 18.4 s into a reply, in 8 of the 23.
-3. **The four gaps you named are that second size.** Coffee: a burst 303 ms
-   late against a 44 ms lead, with a start 190 ms after the first audio.
-   Ocean: 299 ms late, 104 ms lead, start at 47 ms. Story: its own start
-   was not held at all, so it ran dry 30 ms in when its second burst came
-   131 ms behind, and again on a burst 295 ms late.
-4. **The replay reproduces what the lamps recorded.** Started where each
-   speaker started, the model gives the recorded gaps block for block in 22
-   of 23 replies: all four of yours, and 21 of the 23 recorded runs of zeros
-   overall. The other two runs are one reply, where one block moves between
-   its two gaps and the total is the same.
-5. **The four gaps were inside words.** In the accepted render the speech is
-   at about -13 dBFS to -21 dBFS on both sides of three of them. The fourth
-   is 30 ms into the story.
+| Run | Lamp | Length | Difference | Speaker against microphone |
+|---|---|---|---|---|
+| `lamp-4ace-varied-12io918n` | `4ace` | 102 s | 2 to 3 blocks | about +98 ppm |
+| `lamp-rust-v1-ten-evidence-20261011T070623Z` | `a0ae` | 151 s | 2 to 3 blocks, touching 1 and 4 | about +66 ppm |
 
-### The policy
+The resolution is one block, so read these as 50 ppm to 150 ppm. At that
+rate the difference reaches 8 after roughly ten to fifteen minutes and the
+capture worker ends with `ReferenceBacklog`. No recorded session is long
+enough to show it. This is the sustained-conversation defect of item 4.
 
-`StartGate::continuous(Continuity)` releases the first block when a block
-can be handed over and either the reply is complete, or both of these hold:
+### 2. The echo delay grows by about 55 ms in the first 45 s of a session
 
-- **cover**: time since the first audio plus audio in hand is at least
-  360 ms. This is your gate's rule with a longer horizon. It decides only
-  when almost nothing has arrived.
-- **margin**: time since the first audio plus the measured lead is at least
-  320 ms, or 280 ms have passed.
+Measured two ways that agree: the canceller's own alignment, and an
+envelope correlation of mine between the accepted render and the
+microphone, counted back from the render cursor the canceller had seen.
 
-It is re-armed for a later generation of the same turn, and only once the
-generation before it has handed over its last block.
+| Run | 7 s in | 20 s | 30 s | 45 s | after |
+|---|---|---|---|---|---|
+| `4ace`, my measure | 122 ms | 139 ms | 156 ms | 177 ms | 167 ms to 183 ms |
+| `4ace`, canceller | 116 ms | 132 ms | 148 ms, 156 ms | 172 ms | 152 ms to 168 ms |
+| `a0ae`, my measure | 119 ms | 141 ms | 157 ms | 179 ms | 168 ms to 180 ms |
+| `a0ae`, canceller | 104 ms | 120 ms | 140 ms | 152 ms | 148 ms to 160 ms |
 
-320 ms is the largest late burst recorded, 306 ms, plus one 10 ms slot.
-280 ms is the longest it waits for evidence of the lead. A start released
-that way has 280 ms plus whatever the service leads by, which was 44 ms or
-more in every recorded reply that had audio by then. These numbers are
-`Continuity::EVALUATED`. They are not a live default and nothing here was
-measured on a device.
+The speaker queue ALSA reports stays at 456 frames and the capture backlog
+at 16 frames throughout, so the growth is not in a queue we can see. I do
+not know yet where it is. The 40 s runs I analysed before ended inside this
+transient, which is why I reported a steady 104 ms and 112 ms then. Each
+step of the canceller's alignment is a moment at which it has to adapt
+again.
 
-### Before and after, on the recorded supply
+### 3. Fed the cancelled signal, the speech detector fires on the lamp's own voice every two to three seconds
 
-Over twenty slot phases per reply. "Current" is the 200 ms gate with the
-story's generation not held, as deployed in `6e6c58b42`.
+Read from the detector scores the lamps recorded, with the start rule of
+six blocks at 0.80 or more:
 
-| | Current gate | Continuity |
-|---|---|---|
-| Replies that run dry | 9 of 23 | 0 of 23 |
-| Zeros accepted mid-reply, worst phase | 1,190 ms | 0 ms |
-| Coffee | 70 ms to 80 ms | 0, first block 90 ms to 100 ms later |
-| Ocean | 160 ms to 170 ms | 0, first block 170 ms to 180 ms later |
-| Story, second generation | 210 ms to 220 ms | 0, its own first block 280 ms later |
-| First block of a reply, added delay | | median 160 ms, most 210 ms |
-| Replies not delayed at all | | 5 of 22, by 0 ms to 10 ms |
+| Run | Own speech | Canceller removed, median | Cancelled signal above -45 dBFS | Detector starts during own speech |
+|---|---|---|---|---|
+| `4ace`, six turns | 56 s | 52 dB | 18 % of blocks | 20 |
+| `a0ae`, ten turns | 43 s | 52 dB | 18 % of blocks | 21 |
 
-**Where it misses your target.** One first generation is held 200 ms to
-210 ms longer, the first pilot's 1.4 s reply, which had no late burst. And
-the story's second generation is held 280 ms where today it is not held at
-all; it needed 204 ms in hindsight, so 200 ms would have left a hole of one
-or two blocks at 18.4 s. That delay lands after the 2.27 s pause, which is
-a different matter and stays visible as its own interval.
+The canceller is very good most of the time and lets the echo through in
+bursts of 60 ms to 560 ms, where it removes 0 dB to 10 dB. `v1-baseline`
+hides this by masking. A person arrives at -17 dBFS on `4ace` and -31 dBFS
+on `a0ae`; the leaked own voice reaches -10 dBFS. So neither the detector
+score nor the level of the cancelled signal can carry an interruption
+decision, which is what your brief already says. The decision has to use
+what the render explains.
 
-**It is a delay, not a free gain.** Riding out a 306 ms late burst with a
-service that leads by 44 ms to 110 ms means playing about 210 ms to 280 ms
-behind the first audio. Replies that arrive late anyway, with one frame and
-then the audio 340 ms to 390 ms after it, pay nothing.
+## Plan
 
-### Interface, for your patch
+One opt-in mode beside `vad-only` and `v1-baseline`, with `v1-baseline` as
+the stated fallback.
 
-All additions. Nothing existing changed its signature or its behaviour.
+1. **An offline lab on the recorded bundles.** Replays microphone and
+   render through the real canceller in the recorded interleave, with
+   optional near-end speech mixed into the microphone before cancellation.
+   Recorded own-speech is the negative set. Mixed-in recorded prompts are
+   the positive set, and stay labelled synthetic. Runs are split by bundle
+   into development and held-out before any threshold is looked at.
+2. **Reference clock.** Reproduce the skew through `ReferenceAssembly`,
+   then a bounded correction: the reference is resampled to the capture
+   clock by a slowly controlled ratio, with sequence, cursor and freshness
+   faults kept exactly as they are for real loss. Hours of virtual time and
+   a paced process check.
+3. **The decision.** Evidence per block from microphone, render and
+   cancelled signal; a reversible first step that stops handing blocks to
+   the speaker; a commitment only on speech that is still there once the
+   lamp's own sound has died away. A brief acknowledgment then costs a
+   short pause, not the reply. Where the evidence cannot separate the two,
+   the mode says so and masks as `v1-baseline` does.
+4. **The stop path and the retained onset** through the real coordinator
+   and speaker seam, as a separate commit for your files.
+5. **Everything together**: continuity, cancellation, no self-interruption,
+   gaps, prefix, CPU, memory and queue bounds, with failed cases kept.
 
-| Addition | Use |
-|---|---|
-| `Continuity { margin_us, hold_us, cover_us }`, `Continuity::EVALUATED`, `longest_hold_us()` | The setting, and the bound on any hold: 360 ms |
-| `StartGate::continuous(Continuity)` | In place of `StartGate::new(horizon)` when opted in |
-| `StartGate::arrival(at_us, frames)` | In place of `audio_arrived(at_us)`, in `append_provider_audio`. Works for both gates |
-| `StartGate::generation_ended()` | When `next_speaker_chunk` returns the final block. A plain gate ignores it |
-| `StartGate::lead_us()`, `continuity()` | For the trace. A plain gate measures the lead too and does not use it |
-| `OpenedBy::Margin`, `OpenedBy::HoldBound` | Two more reasons in the opening receipt |
-
-Three call sites in `coordinator.rs` and one option. I will publish that as
-a separate branch with tests through the real `Reply` methods, and not on
-this one.
-
-### Verification
-
-Host, macOS x86_64, on the working tree before this commit:
-
-| Command | Result |
-|---|---|
-| `cargo fmt --all -- --check` | exit 0 |
-| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | exit 0 |
-| `cargo test --locked --offline -p lamp-audio --no-fail-fast -- --test-threads=1` | 117 passed, 0 failed, 1 ignored |
-| `cargo test --locked --offline -p lamp-live --lib playout` | 12 passed, 0 failed |
-| `cargo test --locked --offline --release -p lamp-audio --test playout_continuity -- --ignored --nocapture` | 2.0 ns per call, 128 bytes, no allocation |
-
-Linux ARM64 and the whole workspace's tests are not run yet for this
-checkpoint. They come with the next one.
-
-### Not done yet
-
-- `docs/playout-continuity.md`: the V1 comparison, the full tables, the
-  2.27 s pause, limits.
-- The integration branch.
-- Linux ARM64 build and tests.
-- An alternative I measured and did not build: holding less at the start and
-  lengthening pauses inside the reply instead. Numbers in the write-up.
+The write-up will be `docs/duplex-listening.md`.
 
 ## Requests to main
 
-None open for `MAIN-042`. I have not changed `playback.rs`, the coordinator,
-the provider worker, options or wire definitions.
+| Id | Request | Blocks |
+|---|---|---|
+| `A1-012` | **An ARM64 reservation** for a Linux build, strict Clippy and the focused suites of this branch, when you have a free slot. I will not start a container without one | The ARM64 compile evidence only. Host work continues |
+| `A1-013` | **One recording with a person speaking over the lamp**, if a trial produces one: any bundle with diagnostics where someone talks during a reply, even a few seconds. Every positive I have is synthetic | Nothing; it would replace an assumption with a measurement |
+| `A1-014` | **Where the 55 ms goes.** If you know of a buffer in the speaker or microphone device path that fills over the first 45 s of a stream, tell me. Otherwise I treat it as a property of the hardware and measure around it | Nothing |

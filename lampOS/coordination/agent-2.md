@@ -3,6 +3,86 @@
 Owner: Agent 2 (end-of-turn and whole-thought workstream), on M2.
 Communication with Main and Agent 1 is tmux only.
 
+## MAIN-059: inherited limit fix and A733 check inputs
+
+- **Branch.** `lamp-a2-pilot-limits`: `ace53633` on `lamp-a2-pilot`
+  `ad517f07` (base `892ec0a1`). `lamp-a2-pilot` is unchanged for review.
+- **Decision recorded.** Main keeps the fixed baseline for the first attended
+  sessions. `smart-turn` is a labelled experiment; `smart-turn-early` stays
+  absent.
+- **Finding.** `bound_resources` capped only the inherited hard limit, so an
+  inherited soft `RLIMIT_AS` of 96 MiB under a hard limit of at least
+  256 MiB became 256 MiB.
+- **Fix** (`ace53633`, worker only). Each bounded limit is now the lowest of
+  the finite inherited soft limit, the finite inherited hard limit and the
+  worker's cap. It is set as both soft and hard. Nothing else changed;
+  coordinator and options were not rebased.
+- **Regression.**
+  - The real-child test `inherited_lower_address_space_limits_are_kept` (Linux,
+    needs the model) re-executes the test binary. The child lowers only its
+    soft `RLIMIT_AS` and then execs `lamp-endpoint-worker --check-model`.
+  - Before the fix, on the VM: an inherited 200 MiB soft limit was reported
+    as `262144` KiB (raised), so the test failed.
+  - After: the check reports `204800` KiB and passes. Under 96 MiB the check
+    fails instead of running.
+  - Unit test `inherited_lower_limits_are_never_raised` covers the pure rule.
+- **Gates on `ace53633`, M2 Linux ARM64 VM** (Rust 1.96.0, Debian bookworm
+  glibc 2.36):
+  - fmt and strict workspace Clippy are clean; workspace tests exit 0;
+  - `lamp-endpoint` with the model, 11/11 plus the unit test;
+  - `lamp-endpoint-ipc` 12/12;
+  - `endpoint_session` 12/12 with the real worker.
+- **Gates on `ace53633`, macOS:** fmt and strict workspace Clippy clean,
+  `lamp-endpoint` 9/9 with the model, plus the unit test and `lamp-endpoint-ipc` 12/12.
+- **Release worker artifact.** Built on the VM from `ace53633` with
+  `cargo build --locked --release -p lamp-endpoint`, and stored on M2 at
+  `lampOS/.cache/endpoint/artifacts/ace53633/lamp-endpoint-worker`:
+  - 24,216,008 bytes, SHA256
+    `4dab6d9cf145f468f726d1da5c68c0e88d726aa45137caf01b865b90d6d40a30`;
+  - aarch64 Linux, needs glibc 2.34 or later.
+  - Embedded build paths may change the hash of another build of the same
+    commit.
+- **Verified model.** `lampOS/.cache/endpoint/smart-turn-v3.2-gpu.onnx` on M2:
+  32,411,198 bytes, SHA256
+  `ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be`.
+- **Artifact self-check on the VM**, three runs right after the gate: load
+  188–214 ms, warm median 101–106 ms, warm max 107–121 ms, 102–107 ms CPU per
+  check, VmPeak 116,176 KiB.
+
+### A733 `--check-model` (for root to schedule)
+
+Preconditions:
+
+- The Lamp is idle, with no conversation running; record whether services
+  are up.
+- Both files are copied into one directory and hashed on the device. Expect
+  `4dab6d9c…0a30` and `ab8dc64b…39be`.
+- `uname -m` is `aarch64`, and `ldd --version` reports glibc 2.34 or later.
+- The check runs as the service user under the service's limits.
+
+```sh
+cat /proc/loadavg; cat /proc/self/limits | grep -E "address space|core file"
+sha256sum lamp-endpoint-worker smart-turn-v3.2-gpu.onnx
+for i in 1 2 3; do ./lamp-endpoint-worker --check-model ./smart-turn-v3.2-gpu.onnx; echo "exit $?"; done
+```
+
+What the check does and does not do:
+
+- It writes nothing but stdout and stderr, and uses no audio, network or
+  motor.
+- Each run is one model load and ten classifications.
+
+Reading the result:
+
+| Result | Meaning |
+| --- | --- |
+| exit 0 | One JSON line of costs |
+| exit 2 | A named mismatch or load failure |
+| exit 134 | The address-space limit is below the worker's peak |
+
+The pilot precondition is `warm_max_ms` below 400. Delete the two files to
+undo.
+
 ## MAIN-057: conservative endpoint pilot package
 
 - **Branch.** `lamp-a2-pilot`, base `lamp-v2-chat` `892ec0a1`.

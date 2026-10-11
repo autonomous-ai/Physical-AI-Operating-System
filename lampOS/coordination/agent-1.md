@@ -5,9 +5,10 @@ the status of `MAIN-056`. Reference recovery (`MAIN-053`, `054`, `058`) is
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-11, 18:35 UTC
-- **`MAIN-056`: the conservative part is built and opt-in. Its host pass
-  had one failure, in a test this branch does not touch; see
+- Updated: 2026-10-11, 20:15 UTC
+- **`MAIN-056`: the conservative part is built and opt-in.** Its latest
+  host pass, on your `e9bdcea28`, is clean. An earlier pass had one
+  failure in a test this branch does not touch; both are in
   [Verification](#verification).
   It does not make a continuation before output succeed, and on the
   evidence so far nothing strict on this protocol can without a decision
@@ -18,13 +19,14 @@ on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 
 ## Branches
 
-Three, so that each can be taken or left by itself.
+Three, so that each can be taken or left by itself. You have taken the
+second: `e9bdcea28` on `lamp-v2-chat` carries its three files.
 
 | Branch | Head | Base | What |
 |---|---|---|---|
 | `lamp-a1-continuation-probe` | `7ab7e30b9` | your `235f50297` | Example only. During-output mode, the observation bound, the exit rule |
-| `lamp-a1-stop-queued` | `9c6c1637a` | your `55d7af98e` | Two commits: `5479f9b2b` adds two regressions that fail, `9c6c1637a` is the three-line fix. Nothing to do with continuation |
-| `lamp-a1-continuation` | this commit | both of the above merged, so it contains `55d7af98e` | The library: `BarrierWait::AtCommit` and barrier reports, their tests, the probe's settings for them, the document. One separate proposal commit for `provider_worker.rs`, `a25e68a52` |
+| `lamp-a1-stop-queued` | `53f303c7e` | your `55d7af98e` | Six commits. `5479f9b2b` two regressions that fail, `9c6c1637a` the queue guard; then, after your review, `2bec36350` three more that fail, `e70324912` the fence, `2fd77a417` its document, `53f303c7e` your wording corrections. Nothing to do with continuation |
+| `lamp-a1-continuation` | this commit | the probe branch and your `e9bdcea28` merged in | The library: `BarrierWait::AtCommit` and barrier reports, their tests, the probe's settings for them, the document. One separate proposal commit for `provider_worker.rs`, `a25e68a52` |
 
 ## What the service did, twice
 
@@ -82,6 +84,19 @@ not about continuation:
    showing a queued audio block on the wire after the stop. With it they
    passed in 25 runs of 25, each run being two tests of 40 trials.
    **This changes default behavior**, in the direction of writing less.
+4. **A stop is a fence on every write.** Your review of 3 showed two
+   paths it did not cover: an End held behind a barrier was still written
+   when the stop was recorded as the releasing completion was read, and a
+   write already waiting on the transport completed after the stop. Now
+   every write after setup, the image path apart, goes through one
+   `Actor::write`: none begins after a stop, one that is waiting is
+   abandoned, and a message read after a stop is not acted on. Limits, as
+   the document states them: bytes the transport had accepted, a whole
+   frame included, cannot be recalled; a poll in progress on another
+   thread may finish its one message; nothing below this session's
+   transport is controlled or measured. On your gates with the
+   expectations inverted: red before, 3 runs of 3; with the fix, the
+   seven stop tests green 20 runs of 20. No timeout value changed.
 
 ### The regression list you gave
 
@@ -95,7 +110,7 @@ not about continuation:
 | Final terminal | `a_terminal_during_the_next_utterance_settles_and_its_end_commits_at_once` | |
 | Disconnect | `the_service_closing_under_a_withheld_end_is_that_close_and_no_barrier_outcome` | The close code, no invented outcome |
 | Cancellation | `a_cancelled_successor_leaves_nothing_waiting_and_a_later_one_waits_strictly`, `an_end_withheld_and_then_cancelled_is_never_written_and_nothing_waits` | |
-| Stop or privacy under queued input | `a_stop_under_a_withheld_end_is_the_stop_and_not_a_timeout`; on the stop branch `a_stop_with_input_queued_behind_it_writes_none_of_that_input`, `a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input` | The last two found a defect: see 3 above |
+| Stop or privacy under queued input | `a_stop_under_a_withheld_end_is_the_stop_and_not_a_timeout`; from the stop branch `a_stop_with_input_queued_behind_it_writes_none_of_that_input`, `a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input`, and the five `stop_fence` tests | Two defects found and one more shown by your review: see 3 and 4 above |
 | Bounded memory and time | Old output is counted in fixed-size counters and dropped; the successor's audio is written through and never held; the absolute bound is unchanged | |
 | Defaults unchanged | `the_same_person_is_cut_off_as_before_without_the_setting`, `without_reports_the_event_stream_is_what_it_was` | |
 
@@ -224,8 +239,12 @@ not an observation. Say if you want it.
 
 ## Verification
 
-Code is verified at `b0f21f5a9`; the commit that adds this file changes
-nothing else.
+Code is verified at `9ba8883d0`, which is `b0f21f5a9` with your
+`e9bdcea28` merged: the stop fence and your failure-notice runtime. Later
+commits change this file only. Against `e9bdcea28` this branch differs in
+`crates/gemini` (`config.rs`, `lib.rs`, `session.rs`, the `continuation`
+tests and the probe example), in the reliability document, in this file,
+and by the 18 proposed lines in `provider_worker.rs`.
 
 **Host**, from a source-only export of each commit, one after the other:
 `cargo fmt --all -- --check`, `cargo clippy --locked --offline --workspace
@@ -235,10 +254,16 @@ nothing else.
 
 | Commit | Format | Clippy | Tests | Release build |
 |---|---|---|---|---|
-| `9c6c1637a`, stop branch | clean | clean | 1,445 passed, 0 failed, 7 ignored | ok |
-| `b0f21f5a9`, this branch | clean | clean | **1,458 passed, 1 failed**, 7 ignored | ok |
+| `9c6c1637a`, stop branch, queue guard | clean | clean | 1,445 passed, 0 failed, 7 ignored | ok |
+| `2fd77a417`, stop branch, fence | clean | clean | 1,450 passed, 0 failed, 7 ignored | ok |
+| `b0f21f5a9`, this branch before the fence | clean | clean | **1,458 passed, 1 failed**, 7 ignored | ok |
+| `9ba8883d0`, this branch on `e9bdcea28` | clean | clean | 1,480 passed, 0 failed, 7 ignored | ok |
 
-**The one failure**, kept as it happened:
+The last row ran 19:58:10Z to 20:12:02Z with nothing else building on
+the host. Two earlier starts of it were stopped by me for your recording
+windows and are not counted.
+
+**The one failure**, in the pass of `b0f21f5a9`, kept as it happened:
 `provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity`
 panicked at `provider_worker.rs:4693:71`, which is the test rig's
 `self.parent.data.receive::<Wire>().unwrap()`. I did not keep the message.
@@ -289,16 +314,29 @@ every unforced run in both trees, so this test runs with 30 to 50 ms to
 spare under its 100 ms bound. Whether those gaps are the host or the
 test's own work on its one thread I have not determined.
 
-**Emulated Linux/ARM64**, `agent1-arm64-verify29`, 18:19:44Z to 18:20:59Z,
-`b0f21f5a9`, nothing else running in the VM. All steps exit 0: strict
+**Emulated Linux/ARM64**, `agent1-arm64-verify31`, 19:41:13Z to 19:42:27Z,
+`9ba8883d0`, this branch on `e9bdcea28`, nothing else running in the VM:
+the same steps as below, all exit 0, `lamp-gemini` release tests 158
+passed, 0 failed, 2 ignored, with 6, 12 and 20.
+
+Earlier, `agent1-arm64-verify29`, 18:19:44Z to 18:20:59Z,
+`b0f21f5a9`, before the fence was merged, nothing else running in the VM. All steps exit 0: strict
 Clippy `-p lamp-gemini -p lamp-live --all-targets`; `lamp-gemini` release
 tests single-threaded, 153 passed, 0 failed, 2 ignored, with 6, 12 and 20
 in its other targets; release build of `lamp-live` and of the probe
 example, both aarch64 ELF. It is an emulated run, not the device.
 
-**The stop regression**, on `lamp-a1-stop-queued`: red 8 runs of 8 at
-`5479f9b2b`, green 25 runs of 25 at `9c6c1637a`, each run two tests of 40
-trials.
+**The stop regressions**, on `lamp-a1-stop-queued`. Queue guard: red 8
+runs of 8 at `5479f9b2b`, green 25 runs of 25 at `9c6c1637a`, each run two
+tests of 40 trials. Fence: at `2bec36350` its three tests red 3 runs of 3;
+with that commit's `session.rs` and the final tests, four fail and the
+no-stop control passes; at `e70324912` the seven stop tests green 20 runs
+of 20. The stop branch's tested code is `2fd77a417`; `53f303c7e` after it
+changes comments and the document only, and for it I reran format,
+Clippy for the crate and the seven stop tests, not the whole suite.
+Emulated ARM64 for the fence: `agent1-arm64-verify30`, 18:53:17Z to
+18:54:25Z, `2fd77a417`, alone in the VM, same steps as below, 144 passed,
+0 failed, 2 ignored with 6, 12 and 10, all exit 0.
 
 **The probe branch**, `7ab7e30b9`: `cargo test -p lamp-gemini
 --all-targets` 137 passed, 0 failed, 2 ignored, with 6, 12 and 17; strict

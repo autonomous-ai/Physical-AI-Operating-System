@@ -1586,12 +1586,15 @@ mod stop_fence {
         send_json(&mut server, json!({"setupComplete":{}})).await;
         (connect.await.unwrap().unwrap(), server, control)
     }
-    /// The session ends within half the write deadline of a stop.
-    async fn ended_by_the_stop(connection: &mut Connection) {
+    /// The session ends within half the write deadline.
+    async fn ended(connection: &mut Connection) {
         timeout(Duration::from_millis(500), &mut connection.task)
             .await
             .expect("the stop was not serviced while the write was held")
             .unwrap();
+    }
+    async fn ended_by_the_stop(connection: &mut Connection) {
+        ended(connection).await;
         assert_eq!(connection.state(), State::Closed);
     }
 
@@ -1688,5 +1691,64 @@ mod stop_fence {
         no_input_was_written(&mut server).await;
         assert_eq!(control.written(), before);
         assert!(connection.next_event().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_failure_recorded_while_a_write_is_held_ends_it_as_a_stop_does() {
+        let (mut connection, mut server, control) = controlled().await;
+        let input = connection.input();
+        let request = request(1);
+        input.try_start(request).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        control.hold.store(true, Ordering::Release);
+        input
+            .try_audio(request, 0, Instant::now(), &[321; 160])
+            .unwrap();
+        timeout(Duration::from_secs(1), control.held.notified())
+            .await
+            .unwrap();
+        let before = control.written();
+        // The transport stays held, the caller keeps speaking, and the
+        // queue behind the held write fills: the session's own failure.
+        for sequence in 1..=INPUT_QUEUE_CAPACITY as u64 {
+            input
+                .try_audio(request, sequence, Instant::now(), &[321; 160])
+                .unwrap();
+        }
+        assert_eq!(
+            input.try_audio(request, 99, Instant::now(), &[321; 160]),
+            Err(Error::Backpressure)
+        );
+        ended(&mut connection).await;
+        assert_eq!(connection.state(), State::Disconnected(Error::Backpressure));
+        control.release();
+        no_input_was_written(&mut server).await;
+        assert_eq!(control.written(), before);
+    }
+
+    #[tokio::test]
+    async fn a_held_write_released_with_no_stop_completes_in_order() {
+        let (mut connection, mut server, control) = controlled().await;
+        let input = connection.input();
+        let request = request(1);
+        input.try_start(request).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        control.allowance.store(20, Ordering::Release);
+        control.hold.store(true, Ordering::Release);
+        input
+            .try_audio(request, 0, Instant::now(), &[321; 160])
+            .unwrap();
+        input.try_end(request).unwrap();
+        timeout(Duration::from_secs(1), control.held.notified())
+            .await
+            .unwrap();
+        // No stop: the fence is not in the way. The frame is finished and
+        // the End follows it.
+        control.release();
+        sent(&mut server, "audio").await;
+        sent(&mut server, "activityEnd").await;
+        assert_eq!(connection.state(), State::Ready);
     }
 }

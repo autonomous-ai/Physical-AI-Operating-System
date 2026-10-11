@@ -3,7 +3,7 @@
 - Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `6d81ab49f` adds an inactive isolated motor worker over the camera startup correction at `e566db156`, over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
+- Integrated source checkpoint: `892ec0a1b` adds the strict continuation probe and actual failed service result over optional-ring startup containment at `c09325aa8`. The motor worker at `6d81ab49f` remains inactive. Earlier continuous serve, camera, privacy and playout work remains integrated. The latest deployed audio binary is still `7acfabcd...`; the newer ring-startup ARM binary `1f4c117a...` is not deployed. Runtime, laboratory probe and deployment identities are distinct.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: the owner requests a supervised real-user pilot within 12 hours, target 2026-10-12 about 03:18 UTC. Short conversation blocks work, but the latest continuous native run completed eight replies then failed on reference_backlog at 378.6 seconds. Whole-room coverage and stationary rollback are verified. Agent 1 owns the reference blocker, Agent 2 the endpoint/whole-thought workstream, Main integration and native qualification. Optional-ring startup containment now passes host/ARM gates. Motor worker is integrated but inactive; duplex remains experimental. No acoustic speedup or all-day readiness is claimed.
 
@@ -21,6 +21,37 @@ strict live all-target Clippy and release build; the extracted runtime is
 `1f4c117a...` and has not yet been deployed. The full artifact/gate identities are
 in [worker startup](../docs/worker-startup.md). The latest continuous failure is
 recorded in [conversation evidence](../docs/connected-conversation-20261011.md).
+
+## Current integration work, 2026-10-11 16:15 UTC
+
+A real strict continuation service probe failed while the resumed sentence was
+still uploading: 27,680 of 58,671 successor samples accepted, no successor End,
+no reply audio, then `BarrierTimeout`. The reusable probe and sanitized result
+are pushed at `892ec0a1b`; host format, all ten probe tests and strict all-target
+Gemini Clippy pass. See [the result and its boundaries](../docs/verification/strict-continuation-20261011/README.md).
+No office recording was uploaded, and this is not a latency measurement.
+MAIN-056 gives Agent 1 the bounded upload/strict settlement workstream after its
+reference repair. Do not enable speculative early endpointing on offline results.
+
+Agent 1's `a39d04d84` reference-recovery proposal is fetched but not deployed.
+Independent review reproduces the native counter drift at about 157.235 ppm
+from 377 records, and three counterexamples: fixed-margin recovery using stale
+capture-backlog evidence; capture-clock reseeding after its original deadline;
+and future queue timestamps being accepted. Exact production-call red tests
+were delivered directly through tmux as MAIN-058. Main is composing a private
+candidate with the ring-startup fix and the separately reviewed duplex fallback
+correction; defaults remain unchanged pending the repaired integration gates.
+The native follow-up is one bounded 20-minute conversation/idle/conversation
+run with full local room recording, followed by verified stationary rollback.
+
+Agent 2's `052eb703` worker corrections and `a86546cf` continuation checkpoint
+are fetched. Independent tests now confirm the model pin, closed-result rejection,
+confirmed reap and conservative missing/hung-worker fallback; local inference
+has not been run in that independent review. MAIN-057, delivered through the
+verified M2 tmux route with an observed turn start, requests the conservative
+endpoint pilot package. Its early mode remains separate and disabled. Main alone
+owns native scheduling; no agent received a device grant. Shared ARM reservations
+continue through tmux, without requiring owner relay.
 
 ## Latest native qualification
 

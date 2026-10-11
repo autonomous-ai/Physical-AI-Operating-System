@@ -56,3 +56,18 @@ the fixed 1.2-second silence wait to recent endpoint-to-first-speaker-write medi
 This is a software estimate, not accepted first-audible-word latency. No new V1
 benchmark is planned. Reliability and truthful pilot limits take priority over
 turning an unqualified timing improvement into the default.
+
+## Continuation prerequisite
+
+The real service probe on 2026-10-11 failed the strict continuation prerequisite:
+the previous response's settlement timer expired while the successor question
+was still uploading. The [full evidence](verification/strict-continuation-20261011/README.md)
+is functional and not acoustic. Keep `smart-turn-early` disabled until the actual
+whole-thought path qualifies; a simulated provider settling interrupted requests
+is insufficient. Conservative endpointing remains a separate optional candidate.
+
+The reference repair likewise remains a candidate: independent review found
+incorrect drift classification for a delayed capture read and bounded-recovery
+edge cases. Correct those before the next native soak. Passing the soak proves
+that run's continuity and cleanup; it does not certify general conversational
+latency, interruptions, addressee recognition or unattended use.

@@ -461,6 +461,21 @@ async fn trial(
     })
 }
 
+/// Whether a result passes the strict contract: the earlier response was
+/// confirmed finished and the successor was answered, before output or after
+/// it, under production's bound. A run under a longer bound observes and
+/// passes nothing, whatever it saw.
+pub(super) fn passed(result: &Value) -> bool {
+    let confirmed = matches!(
+        result["outcome"].as_str(),
+        Some(
+            "strict_barrier_confirmed_and_answered"
+                | "strict_barrier_confirmed_after_audio_and_answered"
+        )
+    );
+    confirmed && result["observation_only"] == false
+}
+
 pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     let mut arguments = arguments.to_vec();
     let quiet = observed_barrier(&mut arguments)?;

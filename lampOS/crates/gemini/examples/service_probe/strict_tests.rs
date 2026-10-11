@@ -478,3 +478,40 @@ fn a_longer_barrier_bound_is_parsed_bounded_and_removed() {
         assert!(observed_barrier(&mut arguments).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn only_a_confirmed_answer_under_the_production_bound_passes() {
+    let result = |outcome: &str, observation_only: bool| json!({"outcome": outcome, "observation_only": observation_only});
+    // Both confirmed outcomes pass: before output, and after it.
+    assert!(passed(&result(
+        "strict_barrier_confirmed_and_answered",
+        false
+    )));
+    assert!(passed(&result(
+        "strict_barrier_confirmed_after_audio_and_answered",
+        false
+    )));
+    // A longer bound than production's observes and passes nothing.
+    assert!(!passed(&result(
+        "strict_barrier_confirmed_and_answered",
+        true
+    )));
+    assert!(!passed(&result(
+        "strict_barrier_confirmed_after_audio_and_answered",
+        true
+    )));
+    for outcome in [
+        "strict_barrier_timeout",
+        "answered_other_case",
+        "completed_without_audio",
+        "answer_completed_but_observation_incomplete",
+        "incomplete",
+        "setup_failed",
+    ] {
+        assert!(!passed(&result(outcome, false)), "{outcome}");
+    }
+    // A result that does not say which bound it ran under does not pass.
+    assert!(!passed(
+        &json!({"outcome": "strict_barrier_confirmed_and_answered"})
+    ));
+}

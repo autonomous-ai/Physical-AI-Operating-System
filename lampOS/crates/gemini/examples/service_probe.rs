@@ -502,7 +502,10 @@ async fn run() -> Outcome<()> {
     if strict::requested(&arguments) {
         let result = strict::run(&arguments).await?;
         println!("{result}");
-        if result["outcome"] != "strict_barrier_confirmed_and_answered" {
+        if result["observation_only"] == true {
+            return Err("observation only: this bound is not production's, so the run passes nothing; see its JSON".into());
+        }
+        if !strict::passed(&result) {
             return Err("strict probe is failed or inconclusive; see its JSON outcome".into());
         }
         return Ok(());

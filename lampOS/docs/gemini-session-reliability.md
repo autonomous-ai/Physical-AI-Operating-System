@@ -957,6 +957,14 @@ service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barr
 The second line is the failed run again with ten seconds, not two, in
 which a terminal for the first request may show itself.
 
+**Exit status.** The probe exits 0 only for
+`strict_barrier_confirmed_and_answered` or
+`strict_barrier_confirmed_after_audio_and_answered` under production's two
+second bound. A run with `barrier-ms` other than 2000 always exits non-zero
+and says it is observation only, whatever it saw, so that a gate reading
+exit status cannot be satisfied by a longer wait than production allows.
+Its JSON is still printed in full.
+
 ## Actual strict continuation probe, 2026-10-11
 
 The first real service run of `continue-before-output` with a 300 ms continuation

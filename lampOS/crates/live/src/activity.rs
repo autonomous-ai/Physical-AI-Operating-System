@@ -2,6 +2,10 @@
 //! This detector does not identify a speaker or an addressee. Its thresholds
 //! are initial experiment settings, not socially qualified release defaults.
 use lamp_audio::{CAPTURE_RATE, CAPTURE_SAMPLES, CaptureBlock};
+use lamp_endpoint_ipc::{
+    Availability, Classifier, Outcome, Submit, Token, Verdict, WINDOW_SAMPLES,
+};
+use serde::Serialize;
 use sonora_agc2::vad_wrapper::VoiceActivityDetectorWrapper;
 use std::collections::VecDeque;
 
@@ -12,6 +16,8 @@ pub const END_SILENCE_BLOCKS: u16 = 60;
 /// separate Silero endpoint classifier or optional semantic confirmation.
 pub const V1_END_SILENCE_BLOCKS: u16 = 120;
 pub const MAX_UTTERANCE_BLOCKS: u32 = 12_000;
+/// Scores below this are a low-activity block for every endpoint policy.
+const SILENCE_PROBABILITY: f32 = 0.35;
 
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,
@@ -68,6 +74,8 @@ pub struct TurnDetector {
     active_blocks: u32,
     active: bool,
     last: Option<(u64, u64)>,
+    confirmation: Option<Confirmation>,
+    decision: Option<EndpointDecision>,
 }
 
 impl Default for TurnDetector {
@@ -80,6 +88,8 @@ impl Default for TurnDetector {
             active_blocks: 0,
             active: false,
             last: None,
+            confirmation: None,
+            decision: None,
         }
     }
 }
@@ -94,8 +104,39 @@ impl TurnDetector {
         }
     }
 
+    /// Confirm earlier endpoints with a classifier. Without a usable verdict
+    /// the detector still ends after this detector's silence window.
+    pub fn with_confirmation(
+        mut self,
+        classifier: Box<dyn Classifier>,
+        mut policy: ConfirmPolicy,
+    ) -> Result<Self, &'static str> {
+        policy.fallback_blocks = self.end_silence_blocks;
+        policy.validate()?;
+        self.confirmation = Some(Confirmation::new(classifier, policy));
+        Ok(self)
+    }
+
+    /// Configured silence window; with confirmation it is the fallback.
     pub fn endpoint_silence_ms(&self) -> u64 {
         u64::from(self.end_silence_blocks) * 10
+    }
+
+    pub fn confirmation_policy(&self) -> Option<ConfirmPolicy> {
+        self.confirmation
+            .as_ref()
+            .map(|confirmation| confirmation.policy)
+    }
+
+    pub fn classifier_availability(&self) -> Option<Availability> {
+        self.confirmation
+            .as_ref()
+            .map(|confirmation| confirmation.classifier.availability())
+    }
+
+    /// How the most recent `Activity::End` was decided.
+    pub fn last_endpoint(&self) -> Option<&EndpointDecision> {
+        self.decision.as_ref()
     }
 
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
@@ -108,15 +149,18 @@ impl TurnDetector {
                 self.reset();
                 return Activity::Fault("utterance exceeded 120 second bound");
             }
-            self.silence_count = if probability < 0.35 {
-                self.silence_count + 1
-            } else {
-                0
+            let speech = probability >= SILENCE_PROBABILITY;
+            self.silence_count = if speech { 0 } else { self.silence_count + 1 };
+            let decision = match self.confirmation.as_mut() {
+                Some(confirmation) => confirmation.observe(&frame.samples, speech),
+                None => (self.silence_count >= self.end_silence_blocks)
+                    .then(|| EndpointDecision::silence(self.silence_count)),
             };
-            if self.silence_count >= self.end_silence_blocks {
+            if let Some(decision) = decision {
                 self.active = false;
                 self.start_count = 0;
                 self.silence_count = 0;
+                self.decision = Some(decision);
                 return Activity::End(frame);
             }
             return Activity::Continue(frame);
@@ -134,6 +178,9 @@ impl TurnDetector {
             self.active = true;
             self.active_blocks = self.prefix.len() as u32;
             self.silence_count = 0;
+            if let Some(confirmation) = self.confirmation.as_mut() {
+                confirmation.begin(&self.prefix);
+            }
             return Activity::Start(self.prefix.drain(..).collect());
         }
         Activity::Quiet
@@ -175,6 +222,7 @@ impl TurnDetector {
         self.silence_count = 0;
         self.active_blocks = 0;
         self.active = false;
+        self.cancel_confirmation();
     }
 
     pub fn reset(&mut self) {
@@ -184,6 +232,14 @@ impl TurnDetector {
         self.active_blocks = 0;
         self.active = false;
         self.last = None;
+        self.cancel_confirmation();
+    }
+
+    /// Pending and late verdicts can never end a later utterance.
+    fn cancel_confirmation(&mut self) {
+        if let Some(confirmation) = self.confirmation.as_mut() {
+            confirmation.cancel();
+        }
     }
 
     /// A changed DSP history must not relabel an old inactive prefix. Preserve
@@ -192,6 +248,330 @@ impl TurnDetector {
         if !self.active {
             self.prefix.clear();
             self.start_count = 0;
+        }
+    }
+}
+
+/// Model-confirmed endpoint policy in 10 ms capture blocks.
+///
+/// Smart Turn is calibrated for a short silence after speech, and its verdict
+/// on the same speech drifts as more trailing silence is appended. The policy
+/// therefore classifies the utterance once per pause with exactly
+/// `check_blocks` of trailing pause, then decides when to act on that verdict:
+/// a complete verdict ends at `commit_blocks`, a clearly incomplete one holds
+/// until the finite `incomplete_blocks`, and anything between, or no usable
+/// verdict at all, ends on the detector's own silence window.
+///
+/// The default is the "parity" profile selected on labelled human clips
+/// (docs/endpoint-detection.md): people often pause after a finished sentence
+/// and continue, and the model cannot tell that pause from a finished turn,
+/// so an earlier commit adds cutoffs. Holding clearly unfinished speech longer
+/// offsets the few cutoffs a 1 s commit adds. It is an opt-in experiment, not
+/// a default of the interaction core.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct ConfirmPolicy {
+    /// Pause length classified with the utterance (Pipecat's VAD stop is 200 ms).
+    pub check_blocks: u16,
+    /// A complete verdict ends the turn once the pause is at least this long.
+    pub commit_blocks: u16,
+    /// A verdict at or above this probability is complete.
+    pub complete_probability: f32,
+    /// A verdict below this probability is clearly incomplete.
+    pub incomplete_probability: f32,
+    /// A clearly incomplete verdict holds the turn open until this pause length.
+    pub incomplete_blocks: u16,
+    /// A verdict later than this after submission is ignored for this pause.
+    pub result_timeout_blocks: u16,
+    /// Pause endpoint without a decisive verdict: the detector's own window.
+    pub fallback_blocks: u16,
+}
+
+impl Default for ConfirmPolicy {
+    fn default() -> Self {
+        Self {
+            check_blocks: 20,
+            commit_blocks: 100,
+            complete_probability: 0.9,
+            incomplete_probability: 0.01,
+            incomplete_blocks: 150,
+            result_timeout_blocks: 50,
+            fallback_blocks: V1_END_SILENCE_BLOCKS,
+        }
+    }
+}
+
+impl ConfirmPolicy {
+    /// Ends a confident verdict after 400 ms. On labelled human speech this
+    /// adds cutoffs at pauses between sentences; it is for evaluation with a
+    /// path that lets the person continue, never a default.
+    pub fn responsive() -> Self {
+        Self {
+            commit_blocks: 40,
+            ..Self::default()
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let valid = self.check_blocks > 0
+            && self.check_blocks <= self.commit_blocks
+            && self.commit_blocks < self.fallback_blocks
+            && self.fallback_blocks <= self.incomplete_blocks
+            && self.result_timeout_blocks > 0
+            && self.complete_probability > 0.0
+            && self.complete_probability < 1.0
+            && self.incomplete_probability >= 0.0
+            && self.incomplete_probability <= self.complete_probability;
+        if valid {
+            Ok(())
+        } else {
+            Err("invalid endpoint confirmation policy")
+        }
+    }
+}
+
+/// Recorded with each local endpoint; not an acoustic speech-end measurement.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct EndpointDecision {
+    /// `silence`, `model_complete`, `model_incomplete`, `model_uncertain`
+    /// (a verdict between the thresholds, ended on the silence window) or
+    /// `silence_fallback` (no usable verdict).
+    pub basis: &'static str,
+    /// Pause length at the decision, including this block. Without
+    /// confirmation it is the consecutive low-score run.
+    pub silence_ms: u64,
+    pub probability: Option<f32>,
+    /// Why no verdict could decide this pause, for `silence_fallback`.
+    pub fallback: Option<&'static str>,
+    /// The verdict this decision used.
+    pub verdict: Option<VerdictTrace>,
+}
+
+impl EndpointDecision {
+    fn silence(blocks: u16) -> Self {
+        Self {
+            basis: "silence",
+            silence_ms: u64::from(blocks) * 10,
+            probability: None,
+            fallback: None,
+            verdict: None,
+        }
+    }
+}
+
+/// Provenance and stage costs of one verdict. Pause lengths are in this
+/// detector's 10 ms blocks; the microsecond costs come from the classifier.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct VerdictTrace {
+    pub worker: u64,
+    pub request: u64,
+    /// Pause length when the request was submitted, and before the block in
+    /// which the detector first polled its verdict.
+    pub submitted_at_ms: u64,
+    pub heard_at_ms: u64,
+    pub snapshot_us: u64,
+    pub delivery_us: u64,
+    pub features_us: u64,
+    pub inference_us: u64,
+    pub return_us: u64,
+    pub round_trip_us: u64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Heard {
+    probability: f32,
+    trace: VerdictTrace,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Pause {
+    Listening,
+    /// The classifier slot is occupied; retry each block until the fallback.
+    Busy,
+    Waiting {
+        token: Token,
+        submitted: u16,
+    },
+    Heard(Heard),
+    Unavailable(&'static str),
+}
+
+struct Confirmation {
+    classifier: Box<dyn Classifier>,
+    policy: ConfirmPolicy,
+    /// The latest model window of this utterance: pre-roll and resumed speech.
+    audio: VecDeque<i16>,
+    utterance: u64,
+    generation: u64,
+    pause: Pause,
+    pause_blocks: u16,
+}
+
+impl Confirmation {
+    fn new(classifier: Box<dyn Classifier>, policy: ConfirmPolicy) -> Self {
+        Self {
+            classifier,
+            policy,
+            audio: VecDeque::with_capacity(WINDOW_SAMPLES),
+            utterance: 0,
+            generation: 0,
+            pause: Pause::Listening,
+            pause_blocks: 0,
+        }
+    }
+
+    fn begin(&mut self, prefix: &VecDeque<ObservedAudio>) {
+        self.cancel();
+        for frame in prefix {
+            self.retain(&frame.samples);
+        }
+    }
+
+    fn cancel(&mut self) {
+        // Drop queued audio and unread results; a verdict already being
+        // computed is discarded when it arrives.
+        self.classifier.cancel();
+        self.utterance = self.utterance.wrapping_add(1);
+        self.generation = 0;
+        self.pause = Pause::Listening;
+        self.pause_blocks = 0;
+        self.audio.clear();
+    }
+
+    fn retain(&mut self, samples: &CaptureBlock) {
+        let excess = (self.audio.len() + samples.len()).saturating_sub(WINDOW_SAMPLES);
+        self.audio.drain(..excess.min(self.audio.len()));
+        self.audio.extend(samples.iter().copied());
+    }
+
+    fn accept(&mut self, outcome: Outcome) {
+        let Pause::Waiting { token, submitted } = self.pause else {
+            return;
+        };
+        if outcome.token != token {
+            return;
+        }
+        let ms = |blocks: u16| u64::from(blocks) * 10;
+        self.pause = match outcome.result {
+            Ok(verdict) => {
+                let Verdict {
+                    probability,
+                    snapshot_us,
+                    delivery_us,
+                    features_us,
+                    inference_us,
+                    return_us,
+                    round_trip_us,
+                } = verdict;
+                Pause::Heard(Heard {
+                    probability,
+                    trace: VerdictTrace {
+                        worker: outcome.worker,
+                        request: outcome.request,
+                        submitted_at_ms: ms(submitted),
+                        heard_at_ms: ms(self.pause_blocks),
+                        snapshot_us,
+                        delivery_us,
+                        features_us,
+                        inference_us,
+                        return_us,
+                        round_trip_us,
+                    },
+                })
+            }
+            Err(_) => Pause::Unavailable("failed"),
+        };
+    }
+
+    /// Submits the utterance with exactly `check_blocks` of trailing pause,
+    /// even when a busy slot delayed the submission.
+    fn submit(&mut self) {
+        let token = Token {
+            utterance: self.utterance,
+            generation: self.generation,
+            check: 0,
+        };
+        let late = usize::from(self.pause_blocks - self.policy.check_blocks) * CAPTURE_SAMPLES;
+        let audio = self.audio.make_contiguous();
+        let snapshot = &audio[..audio.len().saturating_sub(late)];
+        self.pause = match self.classifier.submit(token, snapshot) {
+            Submit::Accepted => Pause::Waiting {
+                token,
+                submitted: self.pause_blocks,
+            },
+            Submit::Busy => Pause::Busy,
+            Submit::Unavailable => Pause::Unavailable(self.classifier.availability().reason()),
+        };
+    }
+
+    /// Never blocks: one non-blocking poll and at most one non-blocking submit.
+    ///
+    /// A pause is a run of consecutive low-score blocks, counted exactly like
+    /// the baseline silence window, so the fallback without a usable verdict is
+    /// the baseline itself. Any speech-scored block ends the pause and makes
+    /// every verdict about it obsolete; the turn never ends on such a block.
+    fn observe(&mut self, samples: &CaptureBlock, speech: bool) -> Option<EndpointDecision> {
+        self.retain(samples);
+        if let Some(outcome) = self.classifier.poll() {
+            self.accept(outcome);
+        }
+        if speech {
+            if !matches!(self.pause, Pause::Listening) {
+                self.generation = self.generation.wrapping_add(1);
+                self.pause = Pause::Listening;
+            }
+            self.pause_blocks = 0;
+            return None;
+        }
+        self.pause_blocks = self.pause_blocks.saturating_add(1);
+        let policy = self.policy;
+        let pause = self.pause_blocks;
+        match self.pause {
+            Pause::Listening if pause >= policy.check_blocks => self.submit(),
+            Pause::Busy => self.submit(),
+            Pause::Waiting { submitted, .. }
+                if pause.saturating_sub(submitted) >= policy.result_timeout_blocks =>
+            {
+                self.pause = Pause::Unavailable("timeout");
+            }
+            _ => {}
+        }
+        let decide = |basis, heard: Option<Heard>, fallback| EndpointDecision {
+            basis,
+            silence_ms: u64::from(pause) * 10,
+            probability: heard.map(|heard| heard.probability),
+            fallback,
+            verdict: heard.map(|heard| heard.trace),
+        };
+        match self.pause {
+            Pause::Heard(heard)
+                if heard.probability >= policy.complete_probability
+                    && pause >= policy.commit_blocks =>
+            {
+                Some(decide("model_complete", Some(heard), None))
+            }
+            Pause::Heard(heard)
+                if heard.probability < policy.incomplete_probability
+                    && pause >= policy.incomplete_blocks =>
+            {
+                Some(decide("model_incomplete", Some(heard), None))
+            }
+            Pause::Heard(heard)
+                if heard.probability >= policy.incomplete_probability
+                    && heard.probability < policy.complete_probability
+                    && pause >= policy.fallback_blocks =>
+            {
+                Some(decide("model_uncertain", Some(heard), None))
+            }
+            Pause::Unavailable(reason) if pause >= policy.fallback_blocks => {
+                Some(decide("silence_fallback", None, Some(reason)))
+            }
+            Pause::Busy if pause >= policy.fallback_blocks => {
+                Some(decide("silence_fallback", None, Some("busy")))
+            }
+            Pause::Waiting { .. } if pause >= policy.fallback_blocks => {
+                Some(decide("silence_fallback", None, Some("timeout")))
+            }
+            _ => None,
         }
     }
 }

@@ -59,6 +59,23 @@ Times are the coordinator's enqueue times. In the six-turn run the provider
 worker had stamped each piece up to 28 ms earlier. Nothing here sees the
 socket or the service.
 
+The fixture is generated, and regenerating it gives the same bytes
+(SHA-256 `21b1d50d0e068b450c5ea278d12fd8bf70698bd75a4cd4a382a4263e4edeb3a3`):
+
+```sh
+python3.12 -I extract_all.py all.json six=RUNTIME_DIR ten=RUNTIME_DIR ...
+python3.12 -I fixture.py all.json replies.tsv
+```
+
+| Script | SHA-256 |
+|---|---|
+| `extract_all.py` | `85d7c6843d50bc0d1ea537e6ac7b84f9611212c6a27d5077083587eb3d1afaf8` |
+| `fixture.py` | `c812069f6f4acb148eb21092a33089b2f95b58375a8bc3a642366664186eb590` |
+
+The scripts and `all.json` stay outside Git: the intermediate file also
+holds a 10 ms level envelope of each reply, which the pause model below
+uses. Where they are is in [my status](../coordination/agent-1.md).
+
 ### The lead
 
 Take the audio received before a burst and subtract the time since the
@@ -366,9 +383,11 @@ playing.
 **Likely origin: the model's background reasoning.** Three things point
 the same way.
 
-- The session runs `gemini-3.8-live-extended-thinking` at thinking level
-  `LOW`. Google describes that model as adding background reasoning
-  ([configuration notes](gemini-comparison-config.md)).
+- The physical comparison is set up for
+  `gemini-3.8-live-extended-thinking` at thinking level `LOW`, and Google
+  describes that model as adding background reasoning
+  ([configuration notes](gemini-comparison-config.md)). The bundle itself
+  does not record which model answered.
 - The service closed the acknowledgement with a completion that says the
   interaction is still in progress. V1 calls an utterance of this kind a
   filler (`gemini_live.py:952`) and keeps output that follows a completion
@@ -426,9 +445,11 @@ recorded enqueue times:
 | `the_receipt_names_the_policy_the_lead_and_the_reason` | The start receipt, for both gates |
 | `a_continuity_hold_mints_no_permit_and_leaves_the_pcm_alone` | `dispatch_speaker_chunk` sends nothing and changes nothing while held, and sends the first block once the reply is complete |
 
-In the trace a plain gate now reports `measured_lead_us` as well. That is
-the one visible change with the option off, and it is how the lead can be
-watched on a device before the policy is tried.
+With the option off the only visible change is in the trace: the start
+receipt gains `measured_lead_us`, `opened_by` and a null `continuity`, and
+`run_start` a null `playout_continuity`. A plain gate reports the lead it
+measured, so the lead can be watched on a device before the policy is
+tried.
 
 ## Cost
 
@@ -437,9 +458,10 @@ watched on a device before the policy is tried.
 | One call to the gate | 2.0 ns | 24 ns and 28 ns in two runs |
 | Calls per second of speech | about 125: one decision per slot and about 25 arrivals | |
 | The gate | 128 bytes, no allocation | the same |
+| The reply queue before a start | at most 380 ms more audio, 18 KB of PCM | |
 
 The lamp's own processor was not measured. The emulated figure is user-mode
-QEMU on this Mac, which is slower than the device.
+QEMU on this Mac and says nothing precise about the lamp.
 
 ## Verification
 
@@ -454,7 +476,9 @@ under emulation. Emulation is not the lamp.
   later start does to a conversation, is your physical A/B.
 - **That the next late burst is no larger than 306 ms.** Eight samples of
   one size, cause unknown. A larger one runs dry under any bounded start.
-- **That the service keeps at least 44 ms of lead.** It did in 23 replies.
+- **That a start released by the hold bound leads by at least 44 ms.** It
+  did in these 23. Two replies led by only 13 ms and 14 ms; their audio
+  came too late for the bound to matter.
 - **Supply on another day, network or model.** All 23 replies are from one
   day, two lamps, one model.
 - **Timing below the slot.** The replay has nominal 10 ms slots and no

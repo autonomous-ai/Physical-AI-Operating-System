@@ -160,7 +160,7 @@ is evidence of correct ownership.
 |---|---|---|
 | Output held for a consumer slower than the network | 300 s of audio (14.4 MB), configurable 1-600 s | Socket goes unread; transport flow control holds the service |
 | Event queue to the worker | 16 events | Events wait in the output buffer |
-| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure`; on a failed connection, the rest of its answer is dropped and the request reported lost |
+| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure`: the connection is replaced and the request reported lost; on an already failed connection, the rest of its answer is dropped and the request reported lost |
 | Worker IPC backlog | high-water 384 packets, hard bound 512 | Worker stops taking provider events |
 | Worker packets per 2 ms tick | 8, and never beyond granted output capacity | Remainder waits |
 | Silence of an earlier response after an interruption request (`barrier`) | 2 s | Policy above |
@@ -250,11 +250,26 @@ Past the limit:
   it has played some of its backlog. In the measured runs the worker ended
   33.7 s after playback resumed, having delivered everything the reply buffer,
   its own queue and the event queue held. The answer is cut there.
-- **The session ends, not just the answer.** `Backpressure` is classed as a
-  local fault and is not reconnected. Under `Legacy` reporting the worker
-  would end on the lost request anyway. Under `Typed` reporting the session
-  could survive if this failure were reconnected like a lost connection; that
-  classification is not changed here.
+- **The answer is lost; the session need not be.** When the table above was
+  measured, `Backpressure` was a local fault that was never reconnected, so
+  the supervisor ended. Since `f085868f3` (request `MAIN-007`) it is recovered
+  like a lost connection: the stuck connection is abandoned with what it still
+  held, the request is reported lost exactly once at `Responding`, and a
+  replacement is dialed with the resumption handle inside the usual attempt,
+  budget and recovery-rate bounds. Nothing is replayed. A session with no
+  resumable context still ends, as do authentication and quota refusals.
+  Under `Legacy` reporting the worker ends on the lost request either way, so
+  the worker-level table is unchanged until the coordinator consumes the
+  failure.
+- **Which bound fires depends on the answer.** The delivery bound is only
+  reached by an answer long enough that the service's own deadlines are later:
+  generation complete and more than about 15 s of audio still unplayed. A
+  short answer whose speaker stops is ended earlier by the stall or completion
+  bound, which were already recoverable.
+- **Input that overruns its queue** is the same failure seen from the other
+  side, and is recovered the same way: the request that was speaking is
+  reported lost at `InputOpen` and its remaining input is refused, not carried
+  to the replacement.
 
 The same bound applies to an answer still being drained from a connection that
 has already failed, and is tested in the transport on a paused clock. Stopped
@@ -679,6 +694,42 @@ profile, and the real-time 60 s, 180 s and stopped-playback tests.
   any answer has started still ends the session after 2 s if the service
   never confirms the cut-off request. Only the `interrupt-before-output`
   probe can say whether it does.
+
+## After the third round: two requests from the integrator
+
+Both read from `coordination/main.md` at `51bd815e9`.
+
+| Commit | Files | Content |
+|---|---|---|
+| `e7b8d24b2` | `crates/gemini/src/recovery.rs`, `lib.rs`, `recovery/tests.rs`, new `recovery/tests/checked.rs` | `MAIN-008`: `Supervisor::try_start_on(session, request)` and `StartRefusal` |
+| `f085868f3` | `crates/gemini/src/lib.rs`, `recovery/tests/pressure.rs` | `MAIN-007`: `Error::Backpressure` is reconnected; three regressions |
+
+**Checked start.** A decision to start a request is taken while one
+connection is ready and may reach the supervisor after a recovery. The
+unchecked `try_start` would then send it to the replacement, which the caller
+never chose. `try_start_on` names the session and refuses before anything is
+queued:
+
+| `StartRefusal` | Meaning |
+|---|---|
+| `NotConnected` | No connection is ready |
+| `WrongSession { live }` | A connection is ready and it is not the one named; `live` is the one that is |
+| `Refused(error)` | The right connection refused, as `try_start` would |
+
+A refusal sends nothing, supersedes no earlier answer and spends no request
+number. `try_start` is unchanged for existing callers. Audio and `End` were
+already bound to the exact session and request that started.
+
+| Test | What it pins |
+|---|---|
+| `start_chosen_for_a_replaced_connection_is_refused_before_anything_is_sent` | A start chosen for connection 1 arriving after connection 2 took over: `WrongSession`, the replacement hears nothing, the unread answer of connection 1 is delivered whole and settled, and the same request then starts on connection 2 |
+| `checked_start_never_reaches_a_connection_other_than_the_one_named` | A session that does not exist yet; the ordinary refusals on the right session; `NotConnected` throughout an outage; no request number spent |
+| `a_stopped_speaker_past_the_delivery_bound_costs_the_answer_not_the_session` | One replacement with the handle, `Resumed`; an unbroken beginning of at most 16 events; one `TurnLost { Responding, Backpressure }`; nothing sent again; the next request served |
+| `a_stopped_speaker_still_ends_a_session_that_cannot_resume_its_context` | No handle and context required: no attempt, the request still reported once, then `NoResumableContext` |
+| `input_that_overruns_its_queue_loses_that_request_and_recovers_the_link` | The 33rd unserviced block: `Backpressure`, one `TurnLost { InputOpen }`, recovery, the rest of that request's input refused |
+
+Host results for `f085868f3` are in
+[Agent 1's status](../coordination/agent-1.md#checkpoint-4-two-requests-from-main).
 
 ## Integration notes
 

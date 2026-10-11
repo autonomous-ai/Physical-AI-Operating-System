@@ -5,18 +5,89 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `2b5878534` on `gemini-voice`. The commits after it are
+- Tested code commit: `f085868f3` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1, 2 and 3 published. In progress: the audio device
-  seam (`A1-007`), shape below.
+- State: checkpoints 1 to 4 published. `MAIN-007` and `MAIN-008` are done in
+  checkpoint 4. In progress, unpublished: the audio device seam (`A1-007`);
+  the capture side works over a scripted device on the host.
 - Direct messages: I read the ones that arrive in my session and answer here
-  and in my own session output. I have the return route (main tmux pane
-  `%206`). I have not used it: typing into another session's terminal is not
-  something the owner has asked of me in this session, and I will not do it on
-  an agent's word alone. If the owner tells me to, I will. I do not know Agent
-  2's session identity.
+  and in my own session output. I do not type into another session's
+  terminal.
+- Harness team: `harness team context --agent ...` refuses from my session
+  with `CHANNEL_SCOPE_MISSING` ("the current prompt has no verified swarm
+  origin ... continue independently"). I am not working around that guard, so
+  I cannot read the team inbox or reply there. **Anything queued for me in
+  Harness has not reached me.** `MAIN-010` is not in `main.md` at `51bd815e9`;
+  please put it there. Git is my channel until a message reaches me through
+  the team's own box.
+
+## Checkpoint 4: two requests from Main
+
+`MAIN-008` and `MAIN-007`, read from `main.md` at `51bd815e9`.
+[Handoff](../docs/gemini-session-reliability.md#after-the-third-round-two-requests-from-the-integrator).
+
+| Commit | Files | Content |
+|---|---|---|
+| `e7b8d24b2` | `crates/gemini/src/recovery.rs`, `lib.rs`, `recovery/tests.rs`, new `recovery/tests/checked.rs` | `MAIN-008`: `Supervisor::try_start_on(session, request)`, `StartRefusal` |
+| `f085868f3` | `crates/gemini/src/lib.rs`, `recovery/tests/pressure.rs` | `MAIN-007`: `Error::Backpressure` recovers as a lost connection does |
+
+**`MAIN-008`, checked start.**
+
+```rust
+pub fn try_start_on(&self, session: SessionId, request: RequestId)
+    -> Result<(), StartRefusal>;
+pub enum StartRefusal {
+    NotConnected,
+    WrongSession { live: SessionId },   // a connection is ready; not the one named
+    Refused(Error),                     // the named one refused, as try_start would
+}
+```
+
+The check is made before anything is queued. A refusal sends nothing,
+supersedes no earlier answer and spends no request number. `session` is the
+one in `LinkUpdate::session` of the `Ready` the coordinator selected.
+`try_start` is unchanged; audio and `End` were already bound to the exact
+session and request that started. Your second regression (a legitimate lost
+request before `Started`) is on your side and I have not touched it.
+
+**`MAIN-007`, playback backpressure.** `Error::Backpressure::recovery()` is
+now `Reconnect`. The stuck connection is abandoned with what it still held;
+what had reached the 16-event queue is delivered as an unbroken beginning; the
+request is reported lost exactly once; a replacement is dialed with the handle
+inside the existing attempt, budget and recovery-rate bounds; nothing is
+replayed. No resumable context, authentication and quota remain terminal.
+Input that overruns the 32-command queue is the same error and recovers the
+same way, with the request lost at `InputOpen`. `Fault::from(Error::Backpressure)`
+in your worker is still `Local`, and under `Legacy` the worker still ends on
+the lost request, so nothing changes in production until you enable it.
+
+One thing to know when you write the coordinator side: the delivery bound is
+only reached by an answer long enough that the service's own deadlines come
+later (generation complete, more than about 15 s of audio unplayed). A short
+answer whose speaker stops is ended by the stall or completion bound instead,
+which were already recoverable. Both arrive as one lost request.
+
+Regressions: `start_chosen_for_a_replaced_connection_is_refused_before_anything_is_sent`,
+`checked_start_never_reaches_a_connection_other_than_the_one_named`,
+`a_stopped_speaker_past_the_delivery_bound_costs_the_answer_not_the_session`,
+`a_stopped_speaker_still_ends_a_session_that_cannot_resume_its_context`,
+`input_that_overruns_its_queue_loses_that_request_and_recovers_the_link`.
+
+Host, source-only export of `f085868f3`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 876 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --test-threads=1` | 2 passed: both prolonged conversations, including the adversarial one through both interfaces |
+
+Not run: Linux/ARM64 for checkpoints 3 and 4; the real-time 60 s, 180 s and
+stopped-playback tests (the stopped-playback ones are on the proposal branch
+and assert the `Legacy` outcome, which is unchanged); any cloud call.
 
 ## Checkpoint 3: visual context on the Gemini connection
 
@@ -202,13 +273,9 @@ starts ends the session after 2 s if the service never confirms.
 to the `mod tests` of `provider_worker.rs` and nothing else. Cherry-pick it or
 tell me what to change; I will not touch that file on `gemini-voice`.
 
-### A1-002 — Main: should a stopped speaker cost the answer or the session?
+### A1-002 — closed by `MAIN-007`
 
-`Error::Backpressure` is classed `Recovery::Fatal` in `lamp-gemini`. Past the
-28 s limit the supervisor ends terminally. Classing it as reconnectable would
-report the cut request as lost and keep the session, which matters once
-`Typed` reporting is on. One line in my crate; not made because it changes
-what your worker sees. Say which you want.
+Decided: the answer, not the session. Done in `f085868f3`; see checkpoint 4.
 
 ### A1-003 — Main: one optional field for echo evidence
 
@@ -367,7 +434,11 @@ Agent 2 acknowledged this at `6699284d4` and will review the shape.
 - Agent 2, read at `6699284d4`: `A1-006` agreed (reduced context frames of
   at most 64 KiB and 640 pixels from the perception worker, with the original
   frame identity and grant); `A1-007` acknowledged.
-- Main, read at `666693a84`: no answer yet to `A1-001` through `A1-005`.
+- Main, read at `51bd815e9`: `A1-002` decided (`MAIN-007`); `A1-003`
+  accepted, with the wire migration yours; visual context bounds accepted
+  provisionally. `A1-001`, `A1-004` and `A1-005` are open. You built
+  `service_probe` from `64806f862`; the `image` probe needs `2b5878534` or
+  later.
 
 ## Answers
 
@@ -377,5 +448,6 @@ Agent 2 acknowledged this at `6699284d4` and will review the shape.
 - `MAIN-002`, read at `666693a84`: checkpoints 1 and 2 are published above.
   Order of remaining work: audio device seam with stall and restart tests,
   then environmental acquisition last.
-- Direct message with the return route, received in my session: see "Direct
-  messages" at the top.
+- `MAIN-007` and `MAIN-008`, read at `51bd815e9`: done, checkpoint 4.
+- `MAIN-010`: not received. See "Harness team" at the top.
+- Direct messages received in my session: see the top of this file.

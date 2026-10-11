@@ -1,10 +1,10 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 18:59 UTC
+- Updated: 2026-10-11 19:29 UTC
 - Branch: `lamp-v2-chat`
 - Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
-- Integration code: `e63f3152bb2f60e2a9ea511826bff4c0cd0aad78` adds optional owned failure notices; not yet deployed.
+- Integration source: optional owned failure notices (`e63f3152`) plus reviewed Gemini Stop fence (`53f303c7e`); composed binary `b1c61a22...643edbd`, not deployed. Native-qualified installation remains unchanged.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
 
@@ -25,8 +25,8 @@ ASR corroborates all 16 question/reply windows; the three WAVs and ledgers were
 independently verified. Recordings are not uploaded.
 
 Agent 1 received the completed native results through its verified tmux pane.
-Its before-output continuation and separately reviewable queued-Stop fixes remain
-pending review; `smart-turn-early` stays off. The real-service during-output probe
+Its before-output continuation remains pending; the Stop fence is now
+composed and verified below. `smart-turn-early` stays off. The real-service during-output probe
 succeeded once; the 10-second observation attempt failed local configuration,
 and its example-only repair at `cfdd6e742` is separate from this runtime.
 
@@ -81,10 +81,10 @@ and notices for unowned/unavailable input remain separate work.
 Agent 2's inherited-limit correction is fetched at `lamp-a2-pilot-limits`
 `cd97b1c4` (code `ace53633`) for review. Its artifact/model identities and
 self-check plan are available; no endpoint worker or model has been installed
-here. The fixed baseline remains the attended-pilot decision. Agent 1's queued
-Stop correction is not integrated. Independent review proved that the first
-four-line queue guard still allowed held End and selected pending writes after
-Stop. Agent 1's fuller correction is undergoing its gates on a separate branch.
+here. The fixed baseline remains the attended-pilot decision. Agent 1's fuller Stop
+correction is now integrated after independent review reproduced held End and
+selected pending writes after Stop in the first four-line queue guard. The
+new fence closes both gaps; accepted transport bytes still cannot be recalled.
 
 Correction to the earlier continuation report: the lost original failure was an
 IPC receive panic, not an established output-capacity failure. Agent 1's bounded
@@ -92,11 +92,22 @@ two-tree comparison makes both main and its branch fail under an imposed 150 ms
 rig stall; 60 ms stalls pass. This supports a scheduling explanation but does
 not recover the first lost panic text or qualify before-output continuation.
 
-Agent 1's quiet hold was released after the native run. It reserved the office
-ARM VM for its Stop gate; Main has no VM job. Agent 2 received the broader pilot
-fault/privacy qualification workstream through its verified M2 tmux terminal,
-with a new turn observed. It owns new test/report files and separately reviewed
-fix proposals; no device or office-VM grant was given.
+Agent 1 completed its Stop gate and confirmed a quiet host/VM window for Main.
+Main's composed gate has finished; no build is running. A finite voice-plus-ring
+run is under final review, using the unchanged native-qualified binary and a
+low ceiling of 12. Motors remain inhibited. Agent 2 published the first 12
+pilot fault scenarios at `lamp-a2-pilot-faults` `ff22184a`, with one deliberately
+ignored failing reproduction for a stalled speaker under `vad-only`. The pilot
+uses V1-baseline, which bounds that same fault. Main reviewed the harness and
+requested stronger boundary/identity assertions plus a separate minimal fix,
+while Agent 2 completes the remaining matrix. No device/office-VM grant exists.
+
+The composed Stop source passed format and strict Gemini/live all-target Clippy,
+219 host tests (four existing ignored) and seven emulated ARM Stop tests; the
+ARM64 release binary linked and its exported digest verified. No full-workspace
+or device gate is claimed for this composition. Exact source/receipt/artifact
+identities and commands are in [the integration evidence](../docs/gemini-session-reliability.md#integration-verification-2026-10-11).
+Agent 1's before-output continuation and early endpointing remain separate.
 
 One synthetic Gemini failure-notice generation remains pending explicit owner
 approval after automatic approval review rejected the credential-access/cloud

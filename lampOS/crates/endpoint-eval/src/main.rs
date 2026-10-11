@@ -3,6 +3,7 @@
 //! - `probe`: model scores at every pause of labelled human clips.
 //! - `replay`: the production detector over the same clips for each profile.
 //! - `cases`: the synthetic `say` stress cohort, kept apart from human clips.
+//! - `profile`: startup, stage latency and resource use of the real worker.
 //!
 //! Results are classification and replay evidence on a development host. They
 //! are not room recordings, device timing or direct-human acceptance.
@@ -12,6 +13,7 @@ mod audio;
 mod cases;
 mod corpus;
 mod probe;
+mod profile;
 mod replay;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
@@ -128,6 +130,14 @@ fn main() -> Result<()> {
                 arguments.required("out")?.as_ref(),
             )
         }
+        "profile" => profile::run(
+            arguments.required("worker")?.as_ref(),
+            arguments.required("model")?.as_ref(),
+            arguments.required("speech")?.as_ref(),
+            arguments.get("requests").map_or(Ok(100), str::parse)?,
+            arguments.get("starts").map_or(Ok(5), str::parse)?,
+            arguments.required("out")?.as_ref(),
+        ),
         "cases" => cases::run(
             arguments.required("cases")?.as_ref(),
             arguments.required("cache")?.as_ref(),
@@ -140,7 +150,7 @@ fn main() -> Result<()> {
             arguments.required("out")?.as_ref(),
         ),
         _ => Err(
-            "usage: lamp-endpoint-eval probe|replay|cases --model M --out O [options] DIR..."
+            "usage: lamp-endpoint-eval probe|replay|cases|profile --model M --out O [options] DIR..."
                 .into(),
         ),
     }

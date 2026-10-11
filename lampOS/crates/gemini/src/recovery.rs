@@ -12,7 +12,17 @@ use crate::{
     ResumptionPoint, SessionConfig, SessionId, State,
 };
 use futures_util::FutureExt;
-use std::{cell::Cell, collections::VecDeque, fmt, pin::Pin, time::Duration};
+use std::{
+    cell::Cell,
+    collections::VecDeque,
+    fmt,
+    pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 // The runtime clock, so scripted tests can cover long outages exactly.
 use tokio::{sync::watch, task::JoinHandle, time::Instant};
 
@@ -299,21 +309,35 @@ struct AttemptResult {
     result: Result<Connection>,
     completed_at: Instant,
 }
-struct Dialing(JoinHandle<AttemptResult>);
+struct Dialing {
+    task: JoinHandle<AttemptResult>,
+    /// The attempt has ended in failure. A failure announces nothing, so it
+    /// can be acted on while an earlier update is still unread; a completed
+    /// setup cannot, and stays with its task until then.
+    failed: Arc<AtomicBool>,
+}
 impl Dialing {
     fn start(attempt: Attempt) -> Self {
-        Self(tokio::spawn(async move {
+        let failed = Arc::new(AtomicBool::new(false));
+        let flag = failed.clone();
+        let task = tokio::spawn(async move {
             let result = attempt.await;
+            let completed_at = Instant::now();
+            flag.store(result.is_err(), Ordering::Release);
             AttemptResult {
                 result,
-                completed_at: Instant::now(),
+                completed_at,
             }
-        }))
+        });
+        Self { task, failed }
+    }
+    fn failed(&self) -> bool {
+        self.failed.load(Ordering::Acquire)
     }
 }
 impl Drop for Dialing {
     fn drop(&mut self) {
-        self.0.abort();
+        self.task.abort();
     }
 }
 enum Link {
@@ -370,14 +394,14 @@ async fn progress(link: &mut Link, policy: &RecoveryPolicy) -> Progress {
             let (session, number, started, outage) = (*session, *number, *started, *outage);
             let joined = match outage {
                 // The first connection is bounded by its own timeouts.
-                None => (&mut attempt.0).await,
+                None => (&mut attempt.task).await,
                 Some(outage) => {
                     let deadline = outage.since + policy.outage_budget;
                     // Harvest completed attempts before examining the current
                     // clock; the retained completion stamp decides the budget.
                     tokio::select! {
                         biased;
-                        joined = &mut attempt.0 => joined,
+                        joined = &mut attempt.task => joined,
                         _ = tokio::time::sleep_until(deadline) => {
                             return Progress::BudgetExhausted { number, outage };
                         }
@@ -647,9 +671,14 @@ impl<C: Connect> Supervisor<C> {
     }
 
     /// Nonblocking upkeep shared by legacy and split consumers. At most one
-    /// link transition is applied. A single pending notification stops further
-    /// application of link transitions, never the already spawned dial task.
-    /// Consume it with `poll_link` or `next`; no PCM is read here.
+    /// link transition is applied. While one notification is unread, nothing
+    /// that would need a second one is applied: a completed setup stays with
+    /// its task, stamped, and a failed live connection stays where it is.
+    /// Retry work announces nothing and is not held back, because the outage
+    /// budget is spent by the clock and not by whoever reads the notification:
+    /// a failed attempt is still harvested, backed off and redialled within
+    /// the same attempt and budget bounds.
+    /// Consume the notification with `poll_link` or `next`; no PCM is read here.
     pub fn maintain(&mut self) {
         // A queued Ready can become false before its consumer polls. Never
         // reopen admission using it; retain the real failure observation instead.
@@ -661,6 +690,23 @@ impl<C: Connect> Supervisor<C> {
             self.pending_link = None;
         }
         if self.pending_link.is_some() {
+            let unannounced = match &self.link {
+                Link::Waiting { .. } => true,
+                Link::Connecting {
+                    attempt,
+                    outage: Some(_),
+                    ..
+                } => attempt.failed(),
+                _ => false,
+            };
+            if unannounced && let Some(step) = progress(&mut self.link, &self.policy).now_or_never()
+            {
+                debug_assert!(!matches!(
+                    step,
+                    Progress::Connected { .. } | Progress::Disconnected
+                ));
+                self.apply(step);
+            }
             return;
         }
         match &self.link {

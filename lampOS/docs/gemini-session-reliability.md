@@ -8,6 +8,10 @@ for the combined source, repeat-disconnect fix, startup behavior and new gates.
 The verification tables below retain Agent 1's earlier source and evidence;
 they are not results for the later shared tree.
 
+Work since then, on top of shared checkpoint `2535fb565`, is in
+[the third round](#third-round): a recovery defect found and fixed, the
+stopped-playback limit measured, and what remains.
+
 Evidence in this document comes from four separate places. They are never
 combined:
 
@@ -156,7 +160,7 @@ is evidence of correct ownership.
 |---|---|---|
 | Output held for a consumer slower than the network | 300 s of audio (14.4 MB), configurable 1-600 s | Socket goes unread; transport flow control holds the service |
 | Event queue to the worker | 16 events | Events wait in the output buffer |
-| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure` |
+| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure`; on a failed connection, the rest of its answer is dropped and the request reported lost |
 | Worker IPC backlog | high-water 384 packets, hard bound 512 | Worker stops taking provider events |
 | Worker packets per 2 ms tick | 8, and never beyond granted output capacity | Remainder waits |
 | Silence of an earlier response after an interruption request (`barrier`) | 2 s | Policy above |
@@ -223,15 +227,45 @@ back to the service:
 | Event queue to the worker | 16 events |
 | Transport output buffer | 300 s; beyond it the socket goes unread |
 
+### A stopped speaker
+
 At speaking speed the worker's queue falls below its high-water mark, and so
-takes one more event from the transport, about every 2 s: the playing time of
-the largest message. The `deliver` bound of 30 s therefore tolerates playback
-stopping for up to about 28 s with every holder full. Longer than that is
-treated as a consumer that has stopped: the connection ends with
-`Backpressure`, which is not recovered, and audio the transport still held is
-dropped. Holds of 4, 10 and 20 s are tested through the worker in real time.
-The 30 s bound itself is tested in the transport on a paused clock; the
-derived 28 s figure is not.
+takes one more event from the transport, once per message's worth of playback:
+every 2 s for the largest message. Stopping playback for a time *H* stretches
+one of those gaps to *H* plus one message. The transport gives up the audio it
+still holds once nothing has been taken for `deliver` (30 s), so with 2 s
+messages the limit is 28 s of stopped playback. It is now measured through the
+worker in real time, with a 90 s answer, a 5 s reply buffer and playback
+stopped once after 20 s, when every holder is full:
+
+| Playback stopped for | Result |
+|---|---|
+| 25, 27, 28 s | Complete: all 90 s delivered in order |
+| 29, 30, 31, 33 s | `Backpressure`. 58.64 s of the 90 s reached the speaker |
+
+Past the limit:
+
+- **Nobody can tell until playback resumes.** The worker reads the supervisor
+  only when its own queue has room, so it learns of the dead connection once
+  it has played some of its backlog. In the measured runs the worker ended
+  33.7 s after playback resumed, having delivered everything the reply buffer,
+  its own queue and the event queue held. The answer is cut there.
+- **The session ends, not just the answer.** `Backpressure` is classed as a
+  local fault and is not reconnected. Under `Legacy` reporting the worker
+  would end on the lost request anyway. Under `Typed` reporting the session
+  could survive if this failure were reconnected like a lost connection; that
+  classification is not changed here.
+
+The same bound applies to an answer still being drained from a connection that
+has already failed, and is tested in the transport on a paused clock. Stopped
+for 29 s, a 40-message answer is delivered whole and reported `Settled`.
+Stopped for 31 s, only what had reached the 16-event queue is delivered, as an
+unbroken beginning, and the request is reported `TurnLost { Responding }`. A
+cut answer is never reported complete, and the replacement connection is
+untouched.
+
+Holds of 4, 10 and 20 s inside long answers are tested separately (see
+[verification](#verification)).
 
 ## Connection loss
 
@@ -267,6 +301,36 @@ Context survives only through the service's resumption handle
 (`Resumption::Retain`: initial setup unchanged, handle kept in memory, never
 logged or persisted). With `require_context` on and no handle, the worker does
 not continue with a session that has forgotten the conversation.
+
+### Recovery does not wait for its reader
+
+The supervisor can be read in two ways. `next()` returns link changes and
+answer events through one call. `poll_link()` and `next_output()` return them
+separately, so that a consumer with no room for audio can still learn that the
+link changed; see [provider availability](provider-availability.md). Either
+way one link update is held at a time, and nothing that would need a second
+one is applied while the first is unread.
+
+Retry work announces nothing, so it is not held back. That was a defect in the
+shared tree: with an outage update unread, a refused replacement attempt was
+never retried. The outage budget ran out on the clock and the link ended as
+`BudgetExhausted` when the update was finally read. The provider worker reads
+nothing from the supervisor while its queue is above its high-water mark, so a
+stopped speaker put it in exactly that position. `Supervisor::maintain` now
+harvests a failed attempt, backs off and redials inside the same attempt and
+budget bounds, whether or not anything is being read.
+
+Two limits remain for a consumer that reads no link update for longer than
+the outage budget (15 s):
+
+- A replacement that completes setup and then dies is noticed only once the
+  earlier update has been read. If that is more than the budget after it died,
+  the link ends as `BudgetExhausted`.
+- A replacement that completes setup stays unannounced, and input stays
+  refused, until the earlier update has been read.
+
+Reading the link on the control tick, independently of output, removes both.
+The worker does not do that yet; it still uses `next()`.
 
 ### Reporting to the coordinator
 
@@ -475,6 +539,130 @@ speed in this harness.
 In every scripted conversation each request ended in exactly one outcome, no
 audio was delivered under another request's name, and the service received
 each request's input exactly once across all sessions.
+
+## Third round
+
+Base: shared checkpoint `2535fb565` of `lamp-v2-chat`, fast-forwarded.
+Assignment: items 1 and 3 of Agent 1's list in the
+[completion plan](rust-completion-plan.md).
+
+### What changed
+
+| Commit | Branch | Files | Content |
+|---|---|---|---|
+| `67154e0b6` | `gemini-voice` | `crates/gemini/src/recovery.rs`, `recovery/tests.rs`, `recovery/tests/availability.rs`, new `recovery/tests/pressure.rs` | Retry work is no longer held back by an unread link update; five regressions |
+| `155bab4e2` | `gemini-voice` | `crates/gemini/src/recovery/tests/soak.rs` | Adversarial conversations through both supervisor interfaces |
+| `548fda500` | `gemini-voice-worker-proposal` | `crates/live/src/provider_worker.rs` (tests only) | Stopped-playback measurement. A proposal: that file is under the main agent's lock |
+
+Behavior change, one: [recovery does not wait for its
+reader](#recovery-does-not-wait-for-its-reader). Nothing else in the runtime
+is altered. `Dialing` became a struct with a failure flag; a test helper reads
+`attempt.task` where it read `attempt.0`.
+
+The defect was found by the adversarial conversation, not by reading. The
+first runs of that test failed in a scenario that must recover: a speaker held
+for longer than the outage budget while the first replacement attempt was
+refused. Two focused tests reproduce it on the shared tree (one attempt made
+where two, and three, were due) and pass with the fix.
+
+### Review of `poll_link` / `next_output`
+
+Read in full, with its tests. No defect was found by inspection other than
+the one above. Points an integrator should know:
+
+- `next_output` returns nothing while a link update is unread. A split
+  consumer that stops polling the link therefore stops its own audio. That is
+  the documented contract; it is an ordering guarantee and a liveness
+  coupling at once.
+- A `Ready` that became false before it was read is dropped, so a consumer
+  can see two `Unavailable` in a row. Revisions skip and never go back.
+- A request can be accepted on a connection whose `Ready` nobody has read
+  yet. If that connection then dies, the request is reported lost exactly
+  once, with that connection's session, and the next recovery is reported as
+  `ResumedBeforeLatest`. Tested.
+- An unread `Settled` or `TurnLost` can in principle outlive a local
+  cancellation of the same request, which would report a cancelled request as
+  lost. On the single-threaded runtime the worker uses, nothing can run
+  between the two steps involved, so this was not reproduced and is not
+  changed. It would matter on a multi-threaded runtime.
+
+### Regressions added
+
+| Test | What it pins |
+|---|---|
+| `refused_attempt_is_retried_while_the_outage_notice_is_still_unread` | The fix: two attempts, recovery stamped inside the budget, answer intact |
+| `unread_outage_notice_does_not_lift_the_attempt_or_budget_bounds` | The fix does not loosen policy: three attempts of three, then `AttemptsExhausted`, stamped when it happened |
+| `answer_of_a_dead_connection_survives_a_stopped_speaker_only_up_to_the_delivery_bound` | 29 s: whole answer, `Settled`. 31 s: an unbroken beginning, `TurnLost`, never `Settled` |
+| `request_accepted_before_its_connection_was_announced_is_lost_exactly_once` | Third point above |
+| `replacements_that_die_on_arrival_end_as_unstable_with_the_first_answer_intact` | Three dials for three allowed recoveries, then `Unstable`; the first answer whole, settled once |
+| `adversarial_recoveries_account_for_every_request_through_both_interfaces` | 60 turns under the production `Require` policy, see below |
+| `prolonged_adversarial_recoveries_account_for_every_request` (ignored) | Four seeds of 400 turns |
+
+The adversarial conversation uses the same ledger as the earlier one: every
+request's audio carries that request's own sample value, every accepted
+request must end in exactly one outcome with every sample that arrived, and
+its input must reach the service exactly once. It adds, chosen at random per
+turn: a replacement that is refused once, is acknowledged up to 3 s late,
+issues no new handle, or dies before anything is said on it; a speaker that
+stops taking output for up to 20 s; a person who speaks into the outage, with
+and without cancelling what was owed; an interruption of an answer whose
+connection is already gone; and a handle the service withdraws. The service
+answers connection attempts when they are made, as a real one does. Each
+`Ready` must carry the context a model of the handle's provenance predicts.
+The same seed is run through `next()` and through `poll_link()` with
+`next_output()`, and both must produce the same row for every request.
+
+The consumer that uses `next()` is held for at most 12 s, not 20: it cannot
+read the link while its speaker is stopped, and past the outage budget the
+second [remaining limit](#recovery-does-not-wait-for-its-reader) ends the
+link. That is the limit, stated, not a tolerance in the test.
+
+### Host results
+
+macOS x86_64, Rust 1.96.0, source-only export of `548fda500` outside the
+repository, fresh target directory. That commit is `gemini-voice` plus the
+worker measurement, so one run covers both branches; the measurement adds
+only ignored tests.
+
+| Gate | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 849 passed, 0 failed, 11 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --nocapture --test-threads=1` | 2 passed in 553 s: the earlier prolonged conversation with unchanged tallies, and the adversarial one |
+| `cargo test --locked --offline -p lamp-live --lib follows_output_capacity -- --ignored --nocapture --test-threads=1` | 2 passed in 270 s: the 60 s answer finished playing at 70.03 s, the 180 s answer at 200.05 s |
+| `cargo test --locked --offline -p lamp-live --lib stopped -- --ignored --nocapture --test-threads=7` | 7 passed in 118 s; see [a stopped speaker](#a-stopped-speaker) |
+
+`lamp-gemini` contributes 136 of the 849 (118 unit, 6 setup, 12 codec). The
+eleven ignored tests are the two prolonged conversations, the 60 s and 180 s
+answers and the seven stopped-playback trials.
+
+| Measurement (virtual clock unless marked) | Result |
+|---|---|
+| 60 adversarial turns, seed 1, each interface | 13.3 and 13.8 min; 23 completed, 18 cancelled, 5 settled, 14 lost, 13 refused, 59 recoveries, 12 refused attempts, 11 dead on arrival, 10 speaker holds |
+| 4 x 400 adversarial turns, seeds 2, 3, 5, 8, each interface | 343 and 352 min in total; 679 completed, 386 cancelled, 225 settled, 309 lost, 249 refused, 1,453 recoveries, 234 refused attempts, 231 dead on arrival, 341 speaker holds; identical rows through both interfaces |
+| Playback stopped with every holder full (real time) | See [a stopped speaker](#a-stopped-speaker) |
+
+### Not run for this round
+
+- **Linux/ARM64.** Not built or tested for these commits.
+- **Cloud.** Nothing. The five probes are unchanged and still have not run.
+- **Device.** Nothing.
+- The real coordinator. Every test here drives the supervisor or the worker
+  directly.
+
+### Open after this round
+
+- The two [remaining limits](#recovery-does-not-wait-for-its-reader) of a
+  consumer that does not read the link. They disappear when the worker polls
+  the link on its control tick.
+- A stopped speaker past 28 s [ends the session](#a-stopped-speaker), and the
+  failure surfaces only after playback resumes.
+- Production keeps `BarrierPolicy::Require`. A person who continues before
+  any answer has started still ends the session after 2 s if the service
+  never confirms the cut-off request. Only the `interrupt-before-output`
+  probe can say whether it does.
 
 ## Integration notes
 

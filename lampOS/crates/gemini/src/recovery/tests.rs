@@ -3,6 +3,7 @@ use super::*;
 mod availability;
 mod context;
 mod drain;
+mod pressure;
 mod soak;
 use crate::{
     Credential, GOOGLE_ENDPOINT, Resumption, Timeouts,

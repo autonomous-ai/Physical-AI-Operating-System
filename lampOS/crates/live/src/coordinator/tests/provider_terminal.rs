@@ -82,6 +82,7 @@ fn run_with_notice_policy(
         noise_suppression: NoiseSuppression::On,
         turn_taking: policy,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let (mut owner, mut reply) = if matches!(case, Case::Idle | Case::OpenInput) {
         (Controller::new(new_boot().unwrap(), now()), None)

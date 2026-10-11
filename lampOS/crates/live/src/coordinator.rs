@@ -3553,6 +3553,7 @@ fn handle_playback_gap(
 mod tests {
     mod duplex;
     mod failure_notice;
+    mod pilot_faults;
     mod playout_continuity;
     mod playout_start;
     mod provider_pair;

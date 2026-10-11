@@ -13,7 +13,7 @@
 //!
 //! The detector, model and VAD are the production code. The provider timing
 //! and settlement are assumptions, reported for each value, not measurements.
-use crate::{Result, audio::BLOCK, corpus::Clip, probe, replay::virtual_classifier};
+use crate::{Result, audio::BLOCK, replay::virtual_classifier};
 use lamp_endpoint::{SMART_TURN_V3_2, SmartTurn};
 use lamp_live::activity::{
     Activity, ConfirmPolicy, EarlyEnd, EndpointEvent, ObservedAudio, SpeechProbability,
@@ -228,9 +228,16 @@ fn percentile(values: &mut [u64], q: f64) -> Option<u64> {
     (!values.is_empty()).then(|| values[((values.len() - 1) as f64 * q).round() as usize])
 }
 
-/// Turn outcomes for every clip, profile, provider latency and settlement.
+/// One fixture: whether it ends a finished turn, and how to compose it.
+pub struct Item {
+    pub id: String,
+    pub label: bool,
+}
+
+/// Turn outcomes for every item, profile, provider latency and settlement.
 pub fn run(
-    clips: &[Clip],
+    clips: &[Item],
+    load: &(dyn Fn(usize) -> Result<Vec<i16>> + Sync),
     model: &Path,
     verdict_latency_blocks: u16,
     latencies_ms: &[u64],
@@ -250,7 +257,7 @@ pub fn run(
                     let Some(clip) = clips.get(index) else {
                         return;
                     };
-                    let result = probe::compose(clip, 0.0).and_then(|pcm| {
+                    let result = load(index).and_then(|pcm| {
                         profiles
                             .iter()
                             .map(|(_, policy)| {

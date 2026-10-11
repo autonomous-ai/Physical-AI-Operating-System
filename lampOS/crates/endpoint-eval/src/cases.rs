@@ -126,6 +126,27 @@ fn summary(results: &[Value]) -> Value {
     })
 }
 
+/// The cohort as end-to-end turn fixtures: a fragment is unfinished; single
+/// turns and the ambiguous cases end finished.
+pub fn turn_items(cases: &Path, cache: &Path) -> Result<Vec<(crate::turns::Item, Vec<i16>)>> {
+    let cases: Cases = serde_json::from_slice(&fs::read(cases)?)?;
+    if cases.version != 1 {
+        return Err("unsupported case file".into());
+    }
+    cases
+        .cases
+        .iter()
+        .map(|case| {
+            let (pcm, _) = compose(case, cache)?;
+            let item = crate::turns::Item {
+                id: case.id.clone(),
+                label: case.expect != "fragment",
+            };
+            Ok((item, pcm))
+        })
+        .collect()
+}
+
 pub fn run(
     cases: &Path,
     cache: &Path,

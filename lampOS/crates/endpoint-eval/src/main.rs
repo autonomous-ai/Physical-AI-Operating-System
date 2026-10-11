@@ -141,22 +141,42 @@ fn main() -> Result<()> {
             arguments.required("out")?.as_ref(),
         ),
         "turns" => {
-            let directories: Vec<PathBuf> =
-                arguments.positional.iter().map(PathBuf::from).collect();
-            let every = arguments.get("every").map_or(Ok(1), str::parse::<usize>)?;
-            let clips: Vec<_> = corpus::load(&directories, arguments.flag("synthetic"))?
-                .into_iter()
-                .step_by(every.max(1))
-                .collect();
             let latencies = arguments
                 .get("provider-ms")
                 .unwrap_or("300,600,1100,1500")
                 .split(',')
                 .map(str::parse::<u64>)
                 .collect::<std::result::Result<Vec<_>, _>>()?;
-            eprintln!("turns: {} clips, {threads} threads", clips.len());
+            // Either the synthetic `say` cohort or extracted human shards.
+            type Loader = Box<dyn Fn(usize) -> Result<Vec<i16>> + Sync>;
+            let (items, loader): (Vec<turns::Item>, Loader) =
+                if let Some(cases) = arguments.get("cases") {
+                    let (items, pcm): (Vec<_>, Vec<_>) =
+                        cases::turn_items(cases.as_ref(), arguments.required("cache")?.as_ref())?
+                            .into_iter()
+                            .unzip();
+                    (items, Box::new(move |index| Ok(pcm[index].clone())))
+                } else {
+                    let directories: Vec<PathBuf> =
+                        arguments.positional.iter().map(PathBuf::from).collect();
+                    let every = arguments.get("every").map_or(Ok(1), str::parse::<usize>)?;
+                    let clips: Vec<_> = corpus::load(&directories, arguments.flag("synthetic"))?
+                        .into_iter()
+                        .step_by(every.max(1))
+                        .collect();
+                    let items = clips
+                        .iter()
+                        .map(|clip| turns::Item {
+                            id: clip.id.clone(),
+                            label: clip.label,
+                        })
+                        .collect();
+                    (items, Box::new(move |index| probe::compose(&clips[index], 0.0)))
+                };
+            eprintln!("turns: {} items, {threads} threads", items.len());
             turns::run(
-                &clips,
+                &items,
+                loader.as_ref(),
                 arguments.required("model")?.as_ref(),
                 arguments
                     .get("latency-ms")

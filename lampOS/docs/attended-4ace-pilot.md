@@ -21,7 +21,21 @@ ring illuminated during reply and visibly unilluminated after Stop, without
 qualifying color, optical timing or continuous choreography. That run still used
 `55d7af98e` / `738503a803d3…5b8d0`; newer `e9bdcea28` / `b1c61a22…643edbd`
 was not deployed. The installed template below remains audio-only.
-This is an attended desk pilot, not an unattended or boot-enabled release.
+The [latest-candidate record](verification/latest-runtime-20261011/README.md)
+retains two earlier incomplete attempts, then R3's finite **2/2** native check on
+`e9bdcea28` / `b1c61a22…643edbd`: zero reported gaps/cancellations, 891 matching
+ring pairs, seven observed identities gone, clean Stop and verified restoration.
+The complete 180-second recording and two local ASR hypotheses corroborate both
+replies. Model still review shows the ring illuminated during reply and visibly
+unilluminated after Stop; full clearances and optical calibration remain open.
+Motors and notices stayed off; no human-listening or acoustic score is claimed.
+The trial removed its instance override and left the old template/default below
+unchanged. Promotion is a separate stopped-unit action and does not replace the
+physical mute/reopen, audibility and real-human interaction gates.
+
+Use the [first-user session guide](first-user-session.md) for the supervised
+facilitator flow after these gates. This is an attended desk pilot, not an
+unattended or boot-enabled release.
 
 Remote staging and installation of the **stopped unit** are already authorized
 and do not require onsite attendance. Starting needs exclusive device ownership

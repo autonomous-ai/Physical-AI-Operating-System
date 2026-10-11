@@ -1,10 +1,10 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 19:44 UTC
+- Updated: 2026-10-11 20:37 UTC
 - Branch: `lamp-v2-chat`
-- Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
-- Integration source: optional owned failure notices (`e63f3152`) plus reviewed Gemini Stop fence (`53f303c7e`); composed binary `b1c61a22...643edbd`, not deployed. Native-qualified installation remains unchanged.
+- Latest finite native check: `e9bdcea282be7b787abb0568eb46a5c7958a6cce` / `b1c61a22...643edbd`, 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; promotion of the stopped default is a separate action.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
 
@@ -72,6 +72,22 @@ optical timing/color and full-motion clearance remain unqualified.
 The newer `e9bdcea28` / `b1c61a22…643edbd` composition was not deployed in this
 run; it receives no physical qualification from this evidence.
 
+The [latest-candidate attempts](../docs/verification/latest-runtime-20261011/README.md)
+retain both earlier exit-2 failures on exact `e9bdcea28` / `b1c61a22…643edbd`:
+zero prompts dispatched in the first; one completed greeting and a withheld
+second prompt in the next. R3 then completed **2/2** with zero reported gaps,
+cancellations or extra input. It waited for original completion plus observed
+post-tail availability before slot 2's fresh check. All 2,098 service events and
+finish ACK, 891 original ring pairs, seven exited identities, clean Stop,
+override removal and stationary mixer restoration verify. Endpoint → first ALSA
+write was 1,295.211/1,054.337 ms, excluding the 1.2 s endpoint wait. The continuous
+180-second recording and two local ASR hypotheses corroborate both replies.
+Model still review shows ring illuminated during reply and unilluminated after
+Stop; color, optical timing and full clearances remain unqualified. Motors and
+notices stayed off. `human_listened=false`, acoustic scores null. This finite
+check supports the exact candidate; the trial itself did not promote the stopped
+template or qualify physical mute/reopen or real-human duplex/addressing.
+
 Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
 Keep the fixed baseline for the first attended sessions: its candidate saves at
 most 200 ms and added six held-out sentence splits in 1,167 clips. Before-output
@@ -120,7 +136,7 @@ while Agent 2 completes the remaining matrix. No device/office-VM grant exists.
 The composed Stop source passed format and strict Gemini/live all-target Clippy,
 219 host tests (four existing ignored) and seven emulated ARM Stop tests; the
 ARM64 release binary linked and its exported digest verified. No full-workspace
-or device gate is claimed for this composition. Exact source/receipt/artifact
+gate is claimed; its three limited native attempts are recorded above. Exact source/receipt/artifact
 identities and commands are in [the integration evidence](../docs/gemini-session-reliability.md#integration-verification-2026-10-11).
 Agent 1's before-output continuation and early endpointing remain separate.
 

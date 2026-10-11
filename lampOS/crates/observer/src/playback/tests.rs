@@ -371,6 +371,7 @@ fn pre_cancel_and_invalid_wav_leave_final_failure_without_device_access() {
         wav: temp.0.join("missing.wav"),
         output: temp.0.join("cancelled"),
         cancel_file: Some(cancel),
+        prepared_start_ms: None,
     };
     let report = play(&options).unwrap();
     assert_eq!(report["status"], "cancelled_before_prepare");
@@ -381,10 +382,373 @@ fn pre_cancel_and_invalid_wav_leave_final_failure_without_device_access() {
     let invalid = PlayOptions {
         output: temp.0.join("invalid"),
         cancel_file: None,
+        prepared_start_ms: None,
         ..options
     };
     let report = play(&invalid).unwrap();
     assert_eq!(report["status"], "failed");
     assert_eq!(report["audio_stream_opened"], false);
     assert_eq!(report["valid"], false);
+}
+
+// Prepared two-phase start, through the production callback (`render`) and
+// controller (`wait_for_grant`, `StartGate`, grant reader); CPAL's callback
+// delivery is the only simulated part.
+
+const ATTEMPT: &str = "attempt-7";
+
+fn armed() -> Renderer {
+    let renderer = renderer();
+    renderer.shared.armed.store(true, Ordering::Release);
+    renderer
+}
+
+fn grant(expires: u64) -> GrantInput {
+    GrantInput::Line(format!(
+        r#"{{"schema":1,"kind":"start","attempt_id":"{ATTEMPT}","expires_monotonic_ns":{expires}}}"#
+    ))
+}
+
+/// Renders one callback into a buffer that starts nonzero, so any source
+/// copy or missed zero-fill is visible.
+fn callback(renderer: &mut Renderer, index: u64) -> [f32; 4] {
+    let mut output = [9.0; 4];
+    renderer.render(&mut output, time(index), false);
+    output
+}
+
+/// Waits through the production controller on a fake clock that advances
+/// 1 ms per call, delivering `inputs` one per wait step.
+fn wait(
+    renderer: &Renderer,
+    gate: &mut StartGate,
+    start_ns: u64,
+    max_wait_ns: u64,
+    inputs: Vec<GrantInput>,
+    cancel: bool,
+) -> GrantWait {
+    let clock = std::cell::Cell::new(start_ns);
+    let mut inputs = inputs.into_iter();
+    wait_for_grant(
+        &renderer.shared,
+        gate,
+        max_wait_ns,
+        || {
+            clock.set(clock.get() + 1_000_000);
+            clock.get()
+        },
+        || inputs.next(),
+        || Ok(cancel),
+    )
+    .unwrap()
+}
+
+/// A never-started attempt: silent buffers, no source copied, cursor at 0.
+fn assert_never_played(renderer: &mut Renderer, from: u64) {
+    for index in from..from + 3 {
+        assert_eq!(callback(renderer, index), [0.0; 4]);
+    }
+    let state = renderer.shared.snapshot();
+    assert_eq!(state.submitted_frames, 0);
+    assert_eq!(state.source_started_host_ns, 0);
+    assert_eq!(renderer.cursor, 0);
+}
+
+#[test]
+fn grant_reader_bounds_lines_and_reports_malformed_and_closed_input() {
+    let read = |bytes: Vec<u8>| {
+        let (sender, receiver) = sync_channel(MAX_GRANT_LINES + 1);
+        read_grant_lines(std::io::Cursor::new(bytes), &sender);
+        drop(sender);
+        receiver.iter().collect::<Vec<_>>()
+    };
+    let mut oversized = b"first\n".to_vec();
+    oversized.extend(vec![b'x'; MAX_GRANT_LINE_BYTES + 10]);
+    oversized.push(b'\n');
+    assert_eq!(
+        read(oversized),
+        [GrantInput::Line("first".into()), GrantInput::Malformed]
+    );
+    assert_eq!(read(b"no newline".to_vec()), [GrantInput::Malformed]);
+    assert_eq!(read(Vec::new()), [GrantInput::Closed]);
+    assert_eq!(read(vec![0xff, b'\n']), [GrantInput::Malformed]);
+    let many = read("line\n".repeat(20).into_bytes());
+    assert_eq!(many.len(), MAX_GRANT_LINES, "bounded queue and reads");
+}
+
+#[test]
+fn the_gate_accepts_one_original_grant_and_refuses_everything_else() {
+    let now = 1_000_000_000;
+    let decide = |input: GrantInput| StartGate::new(ATTEMPT).input(input, now).unwrap();
+    assert_eq!(
+        decide(grant(now + 50_000_000)),
+        GateDecision::Start {
+            expires_ns: now + 50_000_000
+        }
+    );
+    let line = |text: &str| GrantInput::Line(text.into());
+    for (input, reason) in [
+        (grant(now), "grant_expired_on_receipt"),
+        (grant(now - 1), "grant_expired_on_receipt"),
+        (
+            grant(now + MAX_GRANT_HORIZON_NS + 1),
+            "grant_horizon_exceeds_bound",
+        ),
+        (
+            line(
+                r#"{"schema":1,"kind":"start","attempt_id":"other","expires_monotonic_ns":2000000000}"#,
+            ),
+            "grant_for_another_attempt",
+        ),
+        (
+            line(
+                r#"{"schema":2,"kind":"start","attempt_id":"attempt-7","expires_monotonic_ns":1050000000}"#,
+            ),
+            "grant_malformed",
+        ),
+        (
+            line(
+                r#"{"schema":1,"kind":"stop","attempt_id":"attempt-7","expires_monotonic_ns":1050000000}"#,
+            ),
+            "grant_malformed",
+        ),
+        (
+            line(
+                r#"{"schema":1,"kind":"start","attempt_id":"attempt-7","expires_monotonic_ns":1050000000,"x":1}"#,
+            ),
+            "grant_malformed",
+        ),
+        (line("not json"), "grant_malformed"),
+        (GrantInput::Malformed, "grant_malformed"),
+        (GrantInput::Closed, "stopped_before_grant"),
+    ] {
+        assert_eq!(decide(input), GateDecision::Refuse(reason), "{reason}");
+    }
+    // One original line decides. Nothing after it can start or restart.
+    let mut gate = StartGate::new(ATTEMPT);
+    assert!(gate.input(line("bad"), now).is_some());
+    assert_eq!(gate.input(grant(now + 50_000_000), now), None);
+    assert_eq!(gate.duplicates, 1);
+}
+
+#[test]
+fn positive_control_stays_silent_until_granted_then_plays_from_frame_zero() {
+    let mut renderer = armed();
+    // The stream runs before the grant: silent, no source.
+    for index in 0..3 {
+        assert_eq!(callback(&mut renderer, index), [0.0; 4]);
+    }
+    assert_eq!(renderer.shared.snapshot().armed_zero_frames, 12);
+    let mut gate = StartGate::new(ATTEMPT);
+    let received = time(3).host_ns - 2_000_000;
+    let outcome = wait(
+        &renderer,
+        &mut gate,
+        received - 5_000_000,
+        1_000_000_000,
+        vec![grant(received + 100_000_000)],
+        false,
+    );
+    let GrantWait::Granted {
+        expires_ns,
+        received_ns,
+    } = outcome
+    else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(expires_ns, received + 100_000_000);
+    assert!(received_ns < expires_ns && received_ns < time(3).host_ns);
+    assert_eq!(renderer.shared.snapshot().grant_expires_ns, expires_ns);
+    let first = callback(&mut renderer, 3);
+    assert_eq!(first, renderer.prepared.samples[..4]);
+    for index in 4..=7 {
+        callback(&mut renderer, index);
+    }
+    let state = renderer.shared.snapshot();
+    assert_eq!(state.source_started_host_ns, time(3).host_ns);
+    assert_eq!(state.submitted_frames, 6);
+    assert!(state.complete(6));
+    assert_eq!(
+        stop_decision(&state, 6, 750_000, 0, time(7).host_ns, false),
+        Some("frames_submitted_and_estimated_drain_checked")
+    );
+    // A later grant line is a counted duplicate and changes nothing.
+    assert_eq!(gate.input(grant(u64::MAX), time(8).host_ns), None);
+    assert_eq!(gate.duplicates, 1);
+    assert_eq!(callback(&mut renderer, 8), [0.0; 4]);
+    assert_eq!(renderer.shared.snapshot().submitted_frames, 6);
+}
+
+#[test]
+fn a_grant_that_expires_before_the_first_submission_never_copies_source() {
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    let mut gate = StartGate::new(ATTEMPT);
+    // Accepted while still valid, but the next callback comes after expiry:
+    // a late process or device start cannot play the stimulus late.
+    let expires = time(1).host_ns - 1;
+    let outcome = wait(
+        &renderer,
+        &mut gate,
+        expires - 10_000_000,
+        1_000_000_000,
+        vec![grant(expires)],
+        false,
+    );
+    assert!(matches!(outcome, GrantWait::Granted { .. }), "{outcome:?}");
+    assert_never_played(&mut renderer, 1);
+    let state = renderer.shared.snapshot();
+    assert!(state.start_expired);
+    assert_eq!(
+        stop_decision(&state, 6, 750_000, 0, time(4).host_ns, false),
+        Some("start_expired_at_first_submission")
+    );
+}
+
+#[test]
+fn a_grant_already_expired_on_receipt_is_refused_and_never_installed() {
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    let mut gate = StartGate::new(ATTEMPT);
+    let outcome = wait(
+        &renderer,
+        &mut gate,
+        5_000,
+        1_000_000_000,
+        vec![grant(5_000)],
+        false,
+    );
+    assert_eq!(
+        outcome,
+        GrantWait::NotStarted {
+            status: "grant_refused",
+            reason: Some("grant_expired_on_receipt")
+        }
+    );
+    assert_eq!(renderer.shared.snapshot().grant_expires_ns, 0);
+    assert_never_played(&mut renderer, 1);
+}
+
+#[test]
+fn stop_cancel_malformed_and_timeout_before_a_grant_never_play() {
+    let start = time(0).host_ns;
+    let cases: [(Vec<GrantInput>, bool, &str); 4] = [
+        (vec![GrantInput::Closed], false, "stopped_before_grant"),
+        (
+            vec![grant(start + 50_000_000)],
+            true,
+            "cancelled_before_grant",
+        ),
+        (vec![GrantInput::Malformed], false, "grant_refused"),
+        (Vec::new(), false, "grant_timeout"),
+    ];
+    for (inputs, cancel, expected) in cases {
+        let mut renderer = armed();
+        callback(&mut renderer, 0);
+        let mut gate = StartGate::new(ATTEMPT);
+        let outcome = wait(&renderer, &mut gate, start, 20_000_000, inputs, cancel);
+        assert!(
+            matches!(outcome, GrantWait::NotStarted { status, .. } if status == expected),
+            "{expected}: {outcome:?}"
+        );
+        // The controller then latches cancellation for the callback.
+        renderer.shared.cancelled.store(true, Ordering::Release);
+        assert_never_played(&mut renderer, 1);
+    }
+}
+
+#[test]
+fn stream_faults_or_a_stall_before_the_grant_end_the_wait_without_playing() {
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    renderer.shared.note_error(4);
+    let mut gate = StartGate::new(ATTEMPT);
+    let outcome = wait(
+        &renderer,
+        &mut gate,
+        time(0).host_ns,
+        1_000_000_000,
+        Vec::new(),
+        false,
+    );
+    assert_eq!(
+        outcome,
+        GrantWait::NotStarted {
+            status: "failed_before_grant",
+            reason: Some("callback_or_stream_fault")
+        }
+    );
+    assert_never_played(&mut renderer, 1);
+    let renderer = armed();
+    let mut stalled = renderer;
+    callback(&mut stalled, 0);
+    let outcome = wait(
+        &stalled,
+        &mut StartGate::new(ATTEMPT),
+        time(0).host_ns + 2_000_000_000,
+        10_000_000_000,
+        Vec::new(),
+        false,
+    );
+    assert_eq!(
+        outcome,
+        GrantWait::NotStarted {
+            status: "failed_before_grant",
+            reason: Some("callback_stall")
+        }
+    );
+}
+
+#[test]
+fn cancel_after_the_grant_but_before_the_first_frame_never_plays() {
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    let mut gate = StartGate::new(ATTEMPT);
+    let outcome = wait(
+        &renderer,
+        &mut gate,
+        time(0).host_ns,
+        1_000_000_000,
+        vec![grant(time(0).host_ns + 500_000_000)],
+        false,
+    );
+    assert!(matches!(outcome, GrantWait::Granted { .. }));
+    renderer.shared.cancelled.store(true, Ordering::Release);
+    assert_never_played(&mut renderer, 1);
+}
+
+#[test]
+fn prepared_and_default_entry_points_refuse_each_others_options() {
+    let temp = Temp::new();
+    let options = PlayOptions {
+        output_device: OUTPUT_NAME.into(),
+        wav: temp.0.join("missing.wav"),
+        output: temp.0.join("default"),
+        cancel_file: None,
+        prepared_start_ms: Some(1000),
+    };
+    assert!(play(&options).is_err());
+    let (_sender, inputs) = sync_channel(1);
+    let mut ready = |_: &Value| Ok(());
+    let default = PlayOptions {
+        prepared_start_ms: None,
+        ..options.clone()
+    };
+    assert!(
+        play_prepared(
+            &default,
+            PreparedIo {
+                ready: &mut ready,
+                inputs
+            }
+        )
+        .is_err()
+    );
+    for bad in [0, MAX_PREPARED_WAIT_MS + 1] {
+        let invalid = PlayOptions {
+            prepared_start_ms: Some(bad),
+            ..options.clone()
+        };
+        assert!(invalid.validate().is_err());
+    }
 }

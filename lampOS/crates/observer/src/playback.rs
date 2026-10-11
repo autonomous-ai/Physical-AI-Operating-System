@@ -5,13 +5,16 @@ mod macos;
 mod tests;
 
 use crate::{CPAL_REVISION, Result, files};
+#[cfg(any(target_os = "macos", test))]
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{self, Read},
+    io::{self, BufRead, Read},
     path::{Path, PathBuf},
+    sync::mpsc::{Receiver, SyncSender, sync_channel},
 };
 
 #[cfg(any(target_os = "macos", test))]
@@ -21,6 +24,13 @@ use std::sync::{
 };
 
 pub const OUTPUT_NAME: &str = "iMac Speakers";
+/// Longest wait for a start grant after the ready receipt (`--prepared-start`).
+pub const MAX_PREPARED_WAIT_MS: u32 = 120_000;
+/// A start grant may expire at most this long after it is received.
+pub const MAX_GRANT_HORIZON_NS: u64 = 2_000_000_000;
+/// Largest grant line, and how many lines are read before input is ignored.
+pub const MAX_GRANT_LINE_BYTES: usize = 512;
+pub const MAX_GRANT_LINES: usize = 8;
 pub const MAX_WAV_BYTES: u64 = 32 * 1024 * 1024;
 pub const MAX_SECONDS: u32 = 120;
 #[cfg(any(target_os = "macos", test))]
@@ -42,6 +52,10 @@ pub struct PlayOptions {
     pub wav: PathBuf,
     pub output: PathBuf,
     pub cancel_file: Option<PathBuf>,
+    /// Opt-in two-phase start: prepare and open the output, publish a ready
+    /// receipt, then wait at most this many milliseconds for one start grant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prepared_start_ms: Option<u32>,
 }
 
 impl PlayOptions {
@@ -53,10 +67,13 @@ impl PlayOptions {
                 .cancel_file
                 .as_ref()
                 .is_some_and(|p| p.as_os_str().is_empty())
+            || self
+                .prepared_start_ms
+                .is_some_and(|ms| !(1..=MAX_PREPARED_WAIT_MS).contains(&ms))
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "require WAV and fresh report directory paths",
+                "require WAV and fresh report directory paths, and a 1..120000 ms prepared wait",
             )
             .into());
         }
@@ -110,6 +127,39 @@ pub fn inspect_output(name: &str) -> Result<Value> {
 }
 
 pub fn play(options: &PlayOptions) -> Result<Value> {
+    if options.prepared_start_ms.is_some() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "prepared start needs play_prepared and its grant input",
+        )
+        .into());
+    }
+    play_inner(options, None)
+}
+
+/// The prepared mode's control input: one ready receipt out, start grant
+/// lines in. The caller owns where they travel (stdout and stdin for the CLI).
+pub struct PreparedIo<'a> {
+    pub ready: &'a mut dyn FnMut(&Value) -> io::Result<()>,
+    pub inputs: Receiver<GrantInput>,
+}
+
+/// Two-phase playback: validate, cache and prepare the source and start the
+/// output in silence, publish one ready receipt through `ready`, then play
+/// only on one original start grant from `inputs` whose CLOCK_MONOTONIC
+/// expiry has not passed when the first source frame would be submitted.
+pub fn play_prepared(options: &PlayOptions, io: PreparedIo<'_>) -> Result<Value> {
+    if options.prepared_start_ms.is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "play_prepared needs --prepared-start",
+        )
+        .into());
+    }
+    play_inner(options, Some(io))
+}
+
+fn play_inner(options: &PlayOptions, prepared: Option<PreparedIo<'_>>) -> Result<Value> {
     options.validate()?;
     let attempt =
         files::Attempt::create_diagnostic(&options.output, &serde_json::to_value(options)?)?;
@@ -129,20 +179,33 @@ pub fn play(options: &PlayOptions) -> Result<Value> {
         "source_starvation": "source is fully pre-rendered; no streaming producer or refill queue",
         "started_host_monotonic_ns": lamp_ipc::monotonic_ns()
     });
+    if let Some(wait) = options.prepared_start_ms {
+        report["prepared_start"] = json!({
+            "max_wait_ms": wait,
+            "clock": GRANT_CLOCK,
+            "grant_input": "one JSON line; later lines are counted and never start playback",
+            "expiry_enforced_at": "first source-frame submission in the output callback"
+        });
+    }
+    let attempt_id = attempt.id.clone();
     let result = (|| -> Result<()> {
         if cancellation_requested(options.cancel_file.as_deref())? {
-            report["status"] = json!("cancelled_before_prepare");
+            report["status"] = json!(if prepared.is_some() {
+                "cancelled_before_grant"
+            } else {
+                "cancelled_before_prepare"
+            });
             return Ok(());
         }
         let source = load_source(&options.wav)?;
         report["source"] = serde_json::to_value(&source.info)?;
         #[cfg(target_os = "macos")]
         {
-            macos::play(options, source, &mut report)
+            macos::play(options, source, &mut report, prepared, &attempt_id)
         }
         #[cfg(not(target_os = "macos"))]
         {
-            let _ = source.samples;
+            let _ = (source.samples, prepared, attempt_id);
             Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "cached WAV output supports macOS only",
@@ -158,6 +221,124 @@ pub fn play(options: &PlayOptions) -> Result<Value> {
     report["completed_host_monotonic_ns"] = json!(lamp_ipc::monotonic_ns());
     attempt.finish(&report)?;
     Ok(report)
+}
+
+/// The clock of every grant expiry and ready receipt time.
+pub const GRANT_CLOCK: &str = "CLOCK_MONOTONIC (clock_gettime), nanoseconds; on macOS Python must use \
+time.clock_gettime_ns(time.CLOCK_MONOTONIC), not time.monotonic_ns() (mach_absolute_time)";
+
+/// One control-channel item for a prepared player.
+#[derive(Debug, PartialEq)]
+pub enum GrantInput {
+    Line(String),
+    /// A line longer than `MAX_GRANT_LINE_BYTES`, or not UTF-8.
+    Malformed,
+    /// The parent closed the channel: a stop before any grant.
+    Closed,
+}
+
+/// Reads at most `MAX_GRANT_LINES` bounded lines from `input` on its own
+/// thread. The queue holds at most that many items; nothing is retried.
+pub fn spawn_grant_reader(input: impl Read + Send + 'static) -> Receiver<GrantInput> {
+    let (sender, receiver) = sync_channel(MAX_GRANT_LINES + 1);
+    std::thread::spawn(move || read_grant_lines(input, &sender));
+    receiver
+}
+
+fn read_grant_lines(input: impl Read, sender: &SyncSender<GrantInput>) {
+    let mut input = io::BufReader::new(input);
+    for _ in 0..MAX_GRANT_LINES {
+        let mut line = Vec::new();
+        let read = (&mut input)
+            .take(MAX_GRANT_LINE_BYTES as u64 + 1)
+            .read_until(b'\n', &mut line);
+        let item = match read {
+            Ok(0) => GrantInput::Closed,
+            // Oversized, or cut off by end of input: never parsed as a grant.
+            Ok(_) if line.last() != Some(&b'\n') => GrantInput::Malformed,
+            Ok(_) => match String::from_utf8(line) {
+                Ok(text) => GrantInput::Line(text.trim_end_matches(['\n', '\r']).to_owned()),
+                Err(_) => GrantInput::Malformed,
+            },
+            Err(_) => GrantInput::Closed,
+        };
+        let last = !matches!(item, GrantInput::Line(_));
+        if sender.send(item).is_err() || last {
+            return;
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Grant {
+    schema: u8,
+    kind: String,
+    attempt_id: String,
+    expires_monotonic_ns: u64,
+}
+
+/// What the first control line decides; later lines decide nothing.
+#[cfg(any(target_os = "macos", test))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum GateDecision {
+    Start { expires_ns: u64 },
+    Refuse(&'static str),
+}
+
+/// Accepts exactly one original grant, for this attempt, not yet expired and
+/// no further ahead than `MAX_GRANT_HORIZON_NS`. Every later line is counted
+/// as a duplicate and never starts or restarts playback.
+#[cfg(any(target_os = "macos", test))]
+pub(crate) struct StartGate {
+    attempt_id: String,
+    decided: Option<GateDecision>,
+    pub(crate) duplicates: u64,
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl StartGate {
+    pub(crate) fn new(attempt_id: &str) -> Self {
+        Self {
+            attempt_id: attempt_id.to_owned(),
+            decided: None,
+            duplicates: 0,
+        }
+    }
+    pub(crate) fn input(&mut self, input: GrantInput, now_ns: u64) -> Option<GateDecision> {
+        if self.decided.is_some() {
+            self.duplicates += 1;
+            return None;
+        }
+        let decision = match input {
+            GrantInput::Closed => GateDecision::Refuse("stopped_before_grant"),
+            GrantInput::Malformed => GateDecision::Refuse("grant_malformed"),
+            GrantInput::Line(line) => self.decide(&line, now_ns),
+        };
+        self.decided = Some(decision);
+        Some(decision)
+    }
+    fn decide(&self, line: &str, now_ns: u64) -> GateDecision {
+        let Ok(grant) = serde_json::from_str::<Grant>(line) else {
+            return GateDecision::Refuse("grant_malformed");
+        };
+        if grant.schema != 1 || grant.kind != "start" {
+            return GateDecision::Refuse("grant_malformed");
+        }
+        if grant.attempt_id != self.attempt_id {
+            return GateDecision::Refuse("grant_for_another_attempt");
+        }
+        if grant.expires_monotonic_ns <= now_ns {
+            return GateDecision::Refuse("grant_expired_on_receipt");
+        }
+        if grant.expires_monotonic_ns - now_ns > MAX_GRANT_HORIZON_NS {
+            return GateDecision::Refuse("grant_horizon_exceeds_bound");
+        }
+        GateDecision::Start {
+            expires_ns: grant.expires_monotonic_ns,
+        }
+    }
 }
 
 fn cancellation_requested(path: Option<&Path>) -> io::Result<bool> {
@@ -478,6 +659,16 @@ fn prepare(
 #[derive(Default)]
 struct Shared {
     cancelled: AtomicBool,
+    /// Prepared mode: no source frame is submitted before a grant.
+    armed: AtomicBool,
+    /// The accepted grant's CLOCK_MONOTONIC expiry; zero until then.
+    grant_expires_ns: AtomicU64,
+    /// Latched when the first submission came after the grant expired.
+    start_expired: AtomicBool,
+    /// Host time of the callback that submitted the first source frame.
+    source_started_host_ns: AtomicU64,
+    /// Silent frames written while armed, before any source frame.
+    armed_zero_frames: AtomicU64,
     callbacks: AtomicU64,
     submitted_frames: AtomicU64,
     tail_callbacks: AtomicU64,
@@ -500,6 +691,11 @@ struct Shared {
 #[derive(Debug, Serialize)]
 struct Snapshot {
     cancelled: bool,
+    armed: bool,
+    grant_expires_ns: u64,
+    start_expired: bool,
+    source_started_host_ns: u64,
+    armed_zero_frames: u64,
     callbacks: u64,
     submitted_frames: u64,
     tail_callbacks: u64,
@@ -524,6 +720,11 @@ impl Shared {
         let read = |value: &AtomicU64| value.load(Ordering::Acquire);
         Snapshot {
             cancelled: self.cancelled.load(Ordering::Acquire),
+            armed: self.armed.load(Ordering::Acquire),
+            grant_expires_ns: read(&self.grant_expires_ns),
+            start_expired: self.start_expired.load(Ordering::Acquire),
+            source_started_host_ns: read(&self.source_started_host_ns),
+            armed_zero_frames: read(&self.armed_zero_frames),
             callbacks: read(&self.callbacks),
             submitted_frames: read(&self.submitted_frames),
             tail_callbacks: read(&self.tail_callbacks),
@@ -644,6 +845,26 @@ impl Renderer {
                 .fetch_add(frames as u64, Ordering::Release);
             return;
         }
+        if self.cursor == 0 && self.shared.armed.load(Ordering::Acquire) {
+            // The grant's expiry is enforced here, at the first source-frame
+            // submission, not when the parent's request returned.
+            let expires = self.shared.grant_expires_ns.load(Ordering::Acquire);
+            if expires != 0
+                && time.host_ns > expires
+                && !self.shared.start_expired.load(Ordering::Acquire)
+            {
+                self.shared.start_expired.store(true, Ordering::Release);
+            }
+            if expires == 0 || self.shared.start_expired.load(Ordering::Acquire) {
+                self.shared
+                    .armed_zero_frames
+                    .fetch_add(frames as u64, Ordering::Relaxed);
+                return;
+            }
+            self.shared
+                .source_started_host_ns
+                .store(time.host_ns, Ordering::Release);
+        }
         let remaining = self.prepared.samples.len() - self.cursor;
         let copied = remaining.min(output.len());
         output[..copied].copy_from_slice(&self.prepared.samples[self.cursor..self.cursor + copied]);
@@ -684,6 +905,9 @@ fn stop_decision(
     if state.faults != 0 {
         return Some("callback_or_stream_fault");
     }
+    if state.start_expired {
+        return Some("start_expired_at_first_submission");
+    }
     if state.complete(target) {
         return Some("frames_submitted_and_estimated_drain_checked");
     }
@@ -697,4 +921,70 @@ fn stop_decision(
         return Some("callback_stall");
     }
     None
+}
+
+/// How a prepared player's wait for its grant ended.
+#[cfg(any(target_os = "macos", test))]
+#[derive(Debug, PartialEq)]
+enum GrantWait {
+    /// The grant is installed for the output callback.
+    Granted { expires_ns: u64, received_ns: u64 },
+    /// Nothing is played; the status names why.
+    NotStarted {
+        status: &'static str,
+        reason: Option<&'static str>,
+    },
+}
+
+/// The prepared controller between the ready receipt and the grant. The
+/// output stream is already running in silence. `next` waits at most a few
+/// milliseconds for one control item; `cancelled` checks the sentinel. The
+/// grant's expiry is only installed here; the callback enforces it.
+#[cfg(any(target_os = "macos", test))]
+fn wait_for_grant(
+    shared: &Shared,
+    gate: &mut StartGate,
+    max_wait_ns: u64,
+    mut now_ns: impl FnMut() -> u64,
+    mut next: impl FnMut() -> Option<GrantInput>,
+    mut cancelled: impl FnMut() -> io::Result<bool>,
+) -> io::Result<GrantWait> {
+    let began = now_ns();
+    loop {
+        let not_started = |status, reason| Ok(GrantWait::NotStarted { status, reason });
+        if cancelled()? {
+            return not_started("cancelled_before_grant", None);
+        }
+        let state = shared.snapshot();
+        if state.faults != 0 {
+            return not_started("failed_before_grant", Some("callback_or_stream_fault"));
+        }
+        let now = now_ns();
+        if now.saturating_sub(state.last_host_ns) >= 2_000_000_000 {
+            return not_started("failed_before_grant", Some("callback_stall"));
+        }
+        if let Some(input) = next() {
+            let received = now_ns();
+            match gate.input(input, received) {
+                Some(GateDecision::Start { expires_ns }) => {
+                    shared.grant_expires_ns.store(expires_ns, Ordering::Release);
+                    return Ok(GrantWait::Granted {
+                        expires_ns,
+                        received_ns: received,
+                    });
+                }
+                Some(GateDecision::Refuse(reason)) => {
+                    let status = if reason == "stopped_before_grant" {
+                        "stopped_before_grant"
+                    } else {
+                        "grant_refused"
+                    };
+                    return not_started(status, Some(reason));
+                }
+                None => {}
+            }
+        } else if now.saturating_sub(began) >= max_wait_ns {
+            return not_started("grant_timeout", None);
+        }
+    }
 }

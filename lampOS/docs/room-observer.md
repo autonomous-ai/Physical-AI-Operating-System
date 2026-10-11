@@ -313,6 +313,117 @@ first audible answer, quality and complete reply. Keep all incomplete/failed
 playback attempts visible in the experiment ledger. Offline tests do not establish
 route audibility, realtime callback cadence or acoustic acceptance.
 
+## Prepared two-phase start (opt-in)
+
+A remote readiness check gives a stimulus about 100 ms to start. Process launch
+and CoreAudio setup can spend all of that, so a player started only after the
+check returns arrives too late and is cancelled. `--prepared-start` moves the
+slow work first and keeps only one bounded start for the deadline. Without the
+flag, `play` behaves exactly as before.
+
+```sh
+lamp-observer play --output 'iMac Speakers' --wav CACHED.wav --out NEW_DIR \
+  --cancel-file PATH --prepared-start MAX_WAIT_MS        # 1..120000
+```
+
+**Sequence.**
+
+1. **Before readiness is claimed.** The player validates, loads and prepares
+   the source exactly as above. It then opens and starts the selected output
+   *in silence*. The callback writes zeros and submits no source frame.
+2. **Ready receipt.** After the first callback, it prints exactly one JSON line
+   on stdout:
+
+   ```json
+   {"schema":1,"kind":"prepared_ready","attempt_id":"…","ready_monotonic_ns":…,
+    "clock":"CLOCK_MONOTONIC …","source_sha256":"…","prepared_sha256_float32_le":"…",
+    "output":{"name":"iMac Speakers","id":"…"},"output_config":{…},
+    "max_wait_ms":…,"max_grant_horizon_ns":2000000000,"grant":{…template…}}
+   ```
+
+3. **Grant.** It then waits at most `MAX_WAIT_MS` for one line on stdin:
+
+   ```json
+   {"schema":1,"kind":"start","attempt_id":"<from the receipt>","expires_monotonic_ns":<absolute ns>}
+   ```
+
+4. **Start.** A valid grant arms the callback. In the first callback after it,
+   the expiry is checked against that callback's host `CLOCK_MONOTONIC` time
+   *before the first source frame is copied*. If the time has passed, the
+   attempt latches `start_expired` and plays nothing, now or later.
+5. **End.** The final report is printed after playback, as for a default
+   `play`, and written to `metadata.json`.
+
+**The grant is refused, and nothing ever plays, when** (the report's
+`prepared_start.grant` records why):
+
+| Case | Status (reason) |
+| --- | --- |
+| Not valid JSON, an unknown field, schema not `1`, kind not `start` | `grant_refused` (`grant_malformed`) |
+| Longer than 512 bytes, not UTF-8, or without a final newline | `grant_refused` (`grant_malformed`) |
+| Another attempt's `attempt_id` | `grant_refused` (`grant_for_another_attempt`) |
+| Expiry at or before receipt | `grant_refused` (`grant_expired_on_receipt`) |
+| Expiry more than 2 s after receipt | `grant_refused` (`grant_horizon_exceeds_bound`) |
+| stdin closed before a grant | `stopped_before_grant` |
+| The cancel sentinel exists before a grant | `cancelled_before_grant` |
+| No grant within `MAX_WAIT_MS` | `grant_timeout` |
+| A stream fault, a 2 s callback stall, no first callback within 5 s, or the ready line cannot be written | `failed_before_grant` or `ready_not_published` |
+
+Further rules:
+
+- **One original grant.** Only the first line decides. At most eight lines
+  are read, into a queue of nine.
+- **Later lines.** Lines after the decision, including duplicate grants, are
+  counted (`duplicate_grant_lines`, `control_lines_after_decision`). They
+  never start, restart or replay anything.
+- **Cancellation after the grant** still stops before the first frame.
+- **Unscored.** Every not-started or `start_expired` attempt has
+  `valid: false` and exit `2`. It is never delivery evidence.
+- **No copy.** Tests prove no source sample is copied on any of these paths:
+  silent buffers, zero submitted frames, cursor at zero.
+
+**Clock.** Every grant and receipt time is `CLOCK_MONOTONIC` from
+`clock_gettime`, in nanoseconds (`lamp_ipc::monotonic_ns`). On this Mac,
+Python's `time.monotonic_ns()` is `mach_absolute_time` (`CLOCK_UPTIME_RAW`);
+it excludes sleep and differed by 4,609 s when checked. A Python parent must
+use `time.clock_gettime_ns(time.CLOCK_MONOTONIC)`. Both processes must be on
+the same host; the CPAL stream clock is never compared with it.
+
+**Minimal parent** (Python, same host):
+
+```python
+import json, subprocess, time
+mono = lambda: time.clock_gettime_ns(time.CLOCK_MONOTONIC)   # never time.monotonic_ns()
+p = subprocess.Popen([OBSERVER, "play", "--output", "iMac Speakers", "--wav", WAV,
+                      "--out", OUT, "--cancel-file", CANCEL, "--prepared-start", "30000"],
+                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+ready = json.loads(p.stdout.readline())        # bound this read in the parent
+assert ready["kind"] == "prepared_ready" and ready["source_sha256"] == EXPECTED_SHA256
+# ... wait for the Lamp readiness event and validate its receipt ...
+grant = {"schema": 1, "kind": "start", "attempt_id": ready["attempt_id"],
+         "expires_monotonic_ns": RECEIPT_EXPIRY_CLOCK_MONOTONIC_NS}
+p.stdin.write(json.dumps(grant) + "\n"); p.stdin.flush()
+report = json.loads(p.stdout.read()); p.wait()  # status, prepared_start.grant, counters
+```
+
+The parent passes the receipt's own remaining budget as the expiry. It should
+not add slack: the player enforces the expiry at the first source frame, not
+when the parent's write returns. To stop before a grant, close stdin or create
+the cancel sentinel. Keep every ready receipt, grant and final report with the
+attempt.
+
+**Verified, and not.**
+
+- The production callback (`Renderer::render`) and controller
+  (`wait_for_grant`, `StartGate`, the grant reader) are tested in
+  `src/playback/tests.rs`. Covered: the positive control; expiry before the
+  first submission; expiry on receipt; malformed, foreign and duplicate
+  grants; stop, cancel, timeout, stream faults and stalls; cancel after the
+  grant.
+- CoreAudio's callback delivery is the only simulated part. The CPAL wiring
+  in `src/playback/macos.rs` has not been run against the iMac speakers here,
+  to keep host audio off. Run it on the office Mac before relying on it.
+
 ## Dependency provenance and validation
 
 This Mac test tool uses CPAL's pre-release `0.19.0` at exact upstream commit

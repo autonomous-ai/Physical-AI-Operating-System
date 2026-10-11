@@ -14,7 +14,8 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, Credential, GOOGLE_ENDPOINT, Resumption, ResumptionHandle, SessionConfig,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_RETAINED_SAMPLES,
+    MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig, SuccessorStart,
     ThinkingLevel, Timeouts,
 };
 pub use recovery::{
@@ -162,6 +163,81 @@ pub enum Event {
         superseded: Option<RequestId>,
         successor: Option<RequestId>,
     },
+    /// A barrier ended: the earlier response settled, or the wait for it ran
+    /// out. Counts only; no audio and no text.
+    Barrier {
+        session: SessionId,
+        outcome: BarrierOutcome,
+        report: BarrierReport,
+    },
+}
+
+/// How a barrier ended. An assumption is reported as
+/// [`Event::BarrierAssumed`], as before.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BarrierOutcome {
+    /// The earlier response's idle completion arrived.
+    Settled,
+    /// It did not within the bound, and the connection is about to fail
+    /// with [`Error::BarrierTimeout`].
+    TimedOut,
+}
+
+/// What stood behind a barrier while it stood: enough to tell a terminal
+/// that never came from one that came and was dropped. Everything counted
+/// here was received for the earlier response and withheld from the caller.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BarrierReport {
+    /// The response asked to stop. Unknown when the barrier was raised by
+    /// stray output with no response on record.
+    pub superseded: Option<RequestId>,
+    /// The request waiting behind it, if any.
+    pub successor: Option<RequestId>,
+    /// From the interruption to this report.
+    pub waited: Duration,
+    /// From the earlier response's last event, or the interruption, to this
+    /// report.
+    pub quiet: Duration,
+    /// Whether the successor was still being spoken when the barrier ended.
+    pub successor_input_open: bool,
+    /// How long the successor's `activityEnd` had been withheld.
+    pub end_withheld: Option<Duration>,
+    pub audio_frames: u32,
+    pub audio_samples: u64,
+    pub text_frames: u32,
+    pub generation_complete: u32,
+    pub interrupted: u32,
+    /// Completions that did not settle it: `turnComplete` without idle.
+    pub completions_not_idle: u32,
+    /// How long the next request's `activityStart` was kept back, when
+    /// [`SuccessorStart::AfterFirstOutput`] kept it back at all.
+    pub start_held: Option<Duration>,
+    /// What ended that.
+    pub start_released_by: Option<StartRelease>,
+    /// Samples of the next request that were being kept when it ended.
+    pub retained_samples: u64,
+    /// Messages carrying the documented `waitingForInput` while the barrier
+    /// stood. An observation: nothing is decided on it.
+    pub waiting_for_input: u32,
+    /// Session resumption updates while the barrier stood, by whether they
+    /// said the session could be resumed at that point. The documentation
+    /// says it cannot be while the model is generating. An observation.
+    pub resumable_updates: u32,
+    pub unresumable_updates: u32,
+}
+
+/// What ended the keeping back of a next request's `activityStart`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StartRelease {
+    /// The earlier response produced its first output and was interrupted.
+    FirstOutput,
+    /// The earlier response completed idle; nothing was interrupted.
+    Completion,
+    /// Neither came within the patience. Written anyway: from there the
+    /// default behavior, including its strict wait and its failure.
+    Patience,
+    /// More audio than may be kept. Written anyway, as for patience.
+    Overflow,
 }
 
 /// Why an image was not accepted. None of these affects the connection or

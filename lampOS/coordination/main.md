@@ -1,9 +1,9 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 21:25 UTC
+- Updated: 2026-10-11 22:02 UTC
 - Branch: `lamp-v2-chat`
-- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, incomplete: one completed reply, one stale player spawn with brief output unknown, six withheld. Last completed finite check: 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, **8/8 complete replies** in one provider session, zero extra inputs/cancellations/reported playback gaps. Continuous room recording and one local ASR pass corroborate all eight. Earlier failed attempts and the older 16/16 sustained check remain separate. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
@@ -17,13 +17,16 @@ unchanged legacy PIDs, provider/credential identity, actual gains and stationary
 mute/motor protections. The installation did not start a service or enable boot
 activation. Physical mute/reopen and human acceptance remain pending.
 
-Agent 1's retained-successor proposal `55ccc4a1a` remains separate. Independent
-review reproduced a new cancellation race: retiring a kept question while its
-last audio write was pending still allowed its End to be sent. The e9 baseline
-passed both controls; the candidate passed the positive and failed cancellation.
-Agent 1 published narrow fix `04dcb8f6c`; independent focused red/green review
-passes under the documented WebSocket handover boundary. Whole provider
-integration remains pending. Three service-only synthetic probes on the original proposal
+Agent 1's reviewed retained-successor code through `b19cadd09` is now composed
+with the integration branch, behind `--provider-continuation off|kept-start`
+(default off). The post-await retirement fix, fixture rejection and coordinated
+worker tests are included. Main's combined source passed format, strict package
+Clippy, 697 host library tests (six existing ignored), 42 emulated ARM tests and
+release build. [Exact evidence and limits](../docs/verification/provider-continuation-integration-20261011/README.md)
+record the uninstalled artifact. The ordinary-conversation native control is
+being prepared. Explicit discard versus continuation remains separate work;
+accepted transport bytes and already-taken cancelled audio are not claimed to
+be retractable. Three service-only synthetic probes on the original proposal
 are complete: immediate Start timed out with no answer; retained Start settled
 and answered both the before-output and during-output cases. The before-output
 case held Start for 717 ms; the during-output case did not need to hold it.
@@ -42,12 +45,42 @@ first ARM selector matched zero tests and was rejected by the count gate; the
 corrected run is retained separately. [Integration evidence](../docs/verification/pilot-fault-integration-20261011/results.json)
 records the exported artifact. Nothing from either proposal is installed.
 
-The controller missed its deadline starting the iMac's second prompt. Agent 2
-owns a separate opt-in Rust player change to prepare output before the original
-readiness check and enforce that check at the first source-frame boundary.
-No prompt is replayed and no scheduling deadline is widened. Its new evaluator
-readiness proposal `af731346` is also separate; a matching runtime cue proposal
-is still needed.
+The controller's stale player launch now has a separately verified fix. Main
+integrated Agent 2's corrected prepared player `82d5fa46`; format, strict package
+Clippy, all 243 observer/evaluator tests and the release build pass. Native iMac
+checks refused an expired grant with zero source frames and completed a fresh
+100 ms grant, starting source submission after 9.527 ms. See
+[the exact delivery evidence](../docs/verification/prepared-player-20261011/results.json).
+The new eight-question controller prepares output before the original readiness
+check; no prompt replay or deadline widening is allowed. Its actual conversation
+completed 8/8 below. Agent 2's `e3250a31` evaluator/readiness-cue proposal remains
+separate. Root reproduced a startup-cue freshness failure and sent it directly
+for correction within the reusable long serve-session runner workstream.
+
+## Eight-turn installed conversation completed
+
+The [new prepared-player run](../docs/verification/installed-eight-turn-20261011/README.md)
+completed all eight cached questions once, in a single provider session: greeting,
+ocean follow-up and correction, stressful-morning discussion, workload, a
+10-minute constraint and a concise-answer preference. Provider transcripts and
+one unseeded local room-ASR pass agree on the connected replies. All original
+100 ms grants were respected at the first source copy; three expired read-only
+checks were retained and played nothing. No prompt was replayed.
+
+The audit verifies 8,652 contiguous acknowledged service events, zero reported
+playback gaps/cancellations/extra inputs, 3,762 original ring request/receipt
+pairs, all six observed process identities gone, and unchanged stationary muted
+restoration with matching actual mixers. The 180-second room WAV and callback
+ledger are complete; recordings remain local. Stop request to verified inactive
+was 295.209 ms. The installed stopped template and runtime bytes are unchanged.
+
+Across eight samples, endpoint to first speaker write was median **1.123123 s**
+(range 1.024696–1.314028 s), excluding the configured 1.2 s endpoint wait.
+Adding that wait gives about **2.32 s**, an estimate rather than an accepted
+acoustic boundary. Provider-first-audio median was 929.330 ms after endpoint.
+Initial service readiness took 2.075478 s. The test supports connected scripted
+chat, not real-human interruption, background addressing or overall release
+acceptance. `human_listened=false`; acoustic scores remain null.
 
 ## Retained connected-attempt failure
 

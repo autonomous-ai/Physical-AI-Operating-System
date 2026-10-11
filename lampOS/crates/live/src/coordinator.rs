@@ -763,6 +763,7 @@ fn run_source(
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
         "reference_clock":options.reference_clock,
         "reference_recovery":options.reference_recovery,
+        "provider_continuation":options.provider_continuation,
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}),
     )?;
@@ -1517,6 +1518,8 @@ fn spawn_rig(
     let executable = std::env::current_exe()?;
     let provider_boot = new_boot()?;
     let mut arguments = source.arguments()?;
+    // Before the camera context, which the worker reads as the rest.
+    arguments.extend(options.provider_continuation.arguments());
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());
     }

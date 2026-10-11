@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "base": "1f7dc14d5a089b056d5c138c1b22a455fe15c631",
+  "proposal": "82d5fa46f207e9ece6cadec94e7924582a0750e1",
+  "source_manifest_sha256": "29d1af4dddf3da0393fdf4a55e987a3ac81a497d6fedd2b416897647b691e636",
+  "gates_sha256": "9e0958a99cd1e5b7941e1089f6e3b2c91778853defc9d626969b421313dfb0b2",
+  "host": {
+    "fmt": "pass",
+    "strict_observer_eval_all_target_clippy": "pass",
+    "tests": {
+      "passed": 243,
+      "failed": 0,
+      "ignored": 0,
+      "single_threaded": true
+    },
+    "release_build": "pass"
+  },
+  "artifact": {
+    "sha256": "d51eb60f36234f1e9df0bce9f8a660f2a4b6903bec856d12efe1f5ed418890aa",
+    "bytes": 1371568
+  },
+  "native": [
+    {
+      "case": "expired",
+      "pass": true,
+      "receipt_sha256": "09b2e60dd88cb5404aeb3028ae8942412fc3292e2ce2c88c2f58ff81f3c9cb3c",
+      "exit": 2,
+      "status": "grant_refused",
+      "submitted_frames": 0,
+      "source_started_host_ns": 0,
+      "backend_xruns": 0,
+      "timestamp_gaps": 0,
+      "faults": 0,
+      "forced_signals": []
+    },
+    {
+      "case": "valid",
+      "pass": true,
+      "receipt_sha256": "96ffaa8b7709a0cba6bfd078cb4bdb523cdaf744d1f66384ccc442cf988e4e25",
+      "exit": 0,
+      "status": "completed_delivery_checks",
+      "submitted_frames": 92673,
+      "source_started_host_ns": 2281920726430000,
+      "backend_xruns": 0,
+      "timestamp_gaps": 0,
+      "faults": 0,
+      "forced_signals": [],
+      "prepared_frames": 92673,
+      "sample_rate_hz": 48000,
+      "original_grant_ms": 100,
+      "first_copy_ms_after_original_grant_start": 9.527,
+      "first_copy_ms_before_expiry": 90.473
+    }
+  ],
+  "scope": "Prepared iMac player output delivery/refusal only; no acoustic latency or Lamp conversation qualification"
+}

@@ -475,3 +475,21 @@ cargo fmt -p lamp-observer --check
 cargo clippy -p lamp-observer --all-targets --locked -- -D warnings
 cargo test -p lamp-observer --locked
 ```
+
+
+## Main integration and native output checks, 2026-10-11
+
+Main composed the six prepared-player paths from `82d5fa46` onto `1f7dc14d5`
+in a source-only export. Format, strict observer/evaluator all-target Clippy,
+all 243 package tests (zero failed or ignored, serial) and the release build
+passed. Source and artifact identities are in the
+[integration evidence](verification/prepared-player-20261011/results.json).
+
+The resulting `d51eb60f...18890aa` executable then ran two separate native
+CoreAudio checks on the office iMac. An expired grant was refused with zero
+source frames submitted. A valid original 100 ms grant submitted its first
+source frame after 9.527 ms and delivered all 92,673 prepared frames at 48 kHz,
+with zero reported xruns, timestamp gaps or stream faults. Both children exited
+without forced signals. This qualifies the prepared output path on that host;
+it does not measure audibility, hearing by Lamp or conversational latency.
+The eight-question Lamp run is a separate check.

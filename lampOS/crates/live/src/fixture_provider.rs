@@ -158,6 +158,13 @@ impl FixtureOptions {
                 "camera context is supported only by directed Gemini chat",
             ));
         }
+        if directed.provider_continuation != crate::provider_worker::Continuation::Off {
+            // A reply fixture has no Gemini session to apply it to, and its
+            // worker takes no such argument.
+            return Err(invalid(
+                "provider continuation is supported only by directed Gemini chat",
+            ));
+        }
         if !directed.diagnostics {
             return Err(invalid(
                 "fixture experiments require explicit --diagnostics",

@@ -102,6 +102,18 @@ impl FakeService {
     }
 }
 
+/// The samples of one client `realtimeInput.audio` message, if it is one.
+pub fn sent_audio(message: &Value) -> Option<Vec<i16>> {
+    let data = message["realtimeInput"]["audio"]["data"].as_str()?;
+    let bytes = STANDARD.decode(data).ok()?;
+    Some(
+        bytes
+            .chunks_exact(2)
+            .map(|pair| i16::from_le_bytes([pair[0], pair[1]]))
+            .collect(),
+    )
+}
+
 /// One server message carrying 24 kHz PCM, every sample equal to `value`.
 pub fn audio(value: i16, samples: usize) -> Value {
     let bytes: Vec<u8> = std::iter::repeat_n(value.to_le_bytes(), samples)

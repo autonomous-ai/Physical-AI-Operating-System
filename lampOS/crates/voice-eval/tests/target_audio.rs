@@ -229,3 +229,25 @@ fn pcm_changed_after_verification_is_refused_on_read() {
     fs::write(&path, bytes).unwrap();
     assert!(target_audio::read_pcm(render, "render_accepted.pcm16le").is_err());
 }
+
+/// MAIN-034: a correctly hashed but absurd completion marker frame count is
+/// unverified evidence, never an arithmetic panic.
+#[test]
+fn an_absurd_marker_frame_count_is_unverified_not_a_panic() {
+    let dir = common::Private::new("ta-overflow");
+    let (runtime, mut trace) = runtime(&dir, &reply());
+    let path = runtime.join("render-audio/complete.json");
+    let mut marker: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    marker["render_frames"] = json!(u64::MAX);
+    let bytes = serde_json::to_vec(&marker).unwrap();
+    fs::write(&path, &bytes).unwrap();
+    let digest = sha2::Digest::finalize(<sha2::Sha256 as sha2::Digest>::new_with_prefix(&bytes));
+    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    trace[2]["receipt"]["completion_sha256"] = json!(hex);
+    let audio = target_audio::verify(&runtime, &trace);
+    assert!(
+        render_error(&audio).contains("frame count"),
+        "{}",
+        render_error(&audio)
+    );
+}

@@ -404,39 +404,42 @@ fn check_receipt_claims(verified: &VerifiedRoom, frames: u64, pcm_sha256: &str) 
     Ok(())
 }
 
-/// Room evidence from a plain WAV and the source recorder's receipt
-/// (`MAIN-021`). The receipt is validated for one named input, and the WAV's
-/// bytes, format, length and PCM digest must all match it. An invalid
-/// receipt is retained as invalid evidence: the attempt stays and its
-/// acoustic boundaries stay unmeasured. Only bounded, nonsecret fields are
-/// kept; recorder times stay in the recorder's own clock domains and are
-/// never ADC or acoustic times.
-pub fn receipt_room_evidence(receipt_path: &Path, input: &str, independent: bool) -> Value {
-    let mut evidence = json!({
-        "format": "recorder_receipt",
-        "source": std::path::absolute(receipt_path).ok().and_then(|p| p.to_str().map(str::to_owned)),
-        "input": input,
-        "independent_of_lamp": independent,
-        "valid": false,
-        "sha256": null,
-        "status": "receipt_invalid",
-        "capture_requested_runner_us": null,
-        "verification_version": 1,
-    });
-    let result = (|| -> Result<(VerifiedRoom, u64, String)> {
-        let (mut file, before) = open_regular(receipt_path, 2, MAX_RECEIPT_BYTES)?;
-        let mut bytes = Vec::with_capacity(before.len() as usize);
-        (&mut file)
-            .take(MAX_RECEIPT_BYTES + 1)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() as u64 != before.len() {
-            return Err(invalid("recorder receipt changed during bounded read"));
-        }
-        evidence["receipt_sha256"] = json!(hash(&bytes));
-        let receipt: Value = serde_json::from_slice(&bytes)?;
-        let inner = &receipt["receipt"];
-        let capture = &inner["captures"][input];
-        let received = &receipt["captures"][input];
+/// One input's validated claims from a recorder receipt.
+struct ReceiptClaim {
+    frames: u64,
+    pcm_sha256: String,
+    wav: std::path::PathBuf,
+    wav_sha256: String,
+}
+
+/// Read a receipt within its bound; returns its bytes and SHA-256.
+fn read_receipt(path: &Path) -> Result<(Vec<u8>, String)> {
+    let (mut file, before) = open_regular(path, 2, MAX_RECEIPT_BYTES)?;
+    let mut bytes = Vec::with_capacity(before.len() as usize);
+    (&mut file)
+        .take(MAX_RECEIPT_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 != before.len() {
+        return Err(invalid("recorder receipt changed during bounded read"));
+    }
+    let sha256 = hash(&bytes);
+    Ok((bytes, sha256))
+}
+
+/// Parse and validate one input of a receipt, at import and again at review,
+/// so the receipt-to-WAV relationship is always derived from the receipt
+/// itself. When `retained` is given, bounded nonsecret fields are copied in.
+fn receipt_claim(
+    receipt_path: &Path,
+    bytes: &[u8],
+    input: &str,
+    retained: Option<&mut Value>,
+) -> Result<ReceiptClaim> {
+    let receipt: Value = serde_json::from_slice(bytes)?;
+    let inner = &receipt["receipt"];
+    let capture = &inner["captures"][input];
+    let received = &receipt["captures"][input];
+    if let Some(evidence) = retained {
         evidence["receipt"] = json!({
             "kind": inner["kind"], "valid": inner["valid"], "failure": bounded_text(&inner["failure"]),
             "privacy_revoked": inner["privacy_revoked"], "privacy_checks": inner["privacy_checks"],
@@ -465,81 +468,120 @@ pub fn receipt_room_evidence(receipt_path: &Path, input: &str, independent: bool
             "command_started_host_monotonic_s": receipt["command_started_host_monotonic_s"],
             "completed_host_monotonic_s": receipt["completed_host_monotonic_s"],
         });
-        if inner["kind"] != "done"
-            || inner["valid"] != true
-            || !inner["failure"].is_null()
-            || inner["privacy_revoked"] != false
-        {
-            return Err(invalid(&format!(
-                "recorder receipt is not a valid completed capture: {}",
-                inner["failure"].as_str().unwrap_or("no failure text")
-            )));
-        }
-        if received["valid"] != true {
-            return Err(invalid(&format!(
-                "the recorder marked the {input} capture invalid: {}",
-                received["disposition"].as_str().unwrap_or("no disposition")
-            )));
-        }
-        if receipt["rate_hz"] != RECEIPT_RATE
-            || receipt["channels"] != 1
-            || receipt["sample_format"] != "S16_LE"
-        {
-            return Err(invalid("recorder format is not mono 16 kHz S16_LE"));
-        }
-        let frames = capture["frames"]
-            .as_u64()
-            .filter(|frames| *frames > 0)
-            .ok_or_else(|| invalid("recorder receipt has no frame count"))?;
-        let pcm = capture["pcm_sha256"]
-            .as_str()
-            .filter(|text| is_sha256(text))
-            .ok_or_else(|| invalid("recorder receipt has no PCM digest"))?;
-        if capture["pcm_bytes"].as_u64() != Some(frames * 2)
-            || received["frames_received"].as_u64() != Some(frames)
-            || received["pcm_bytes_received"].as_u64() != Some(frames * 2)
-            || received["pcm_sha256_received"].as_str() != Some(pcm)
-        {
-            return Err(invalid("recorder frame counts or PCM digests disagree"));
-        }
-        if capture["forced_kill"] != false || capture["owned_stop_requested"] != true {
-            return Err(invalid(
-                "recorder did not stop through its owned, graceful stop",
-            ));
-        }
-        let name = received["wav"]
-            .as_str()
-            .filter(|name| {
-                !name.is_empty()
-                    && Path::new(name).file_name().and_then(|f| f.to_str()) == Some(*name)
-                    && name.ends_with(".wav")
-            })
-            .ok_or_else(|| invalid("receipt names no plain sibling .wav file"))?;
-        let wav_sha = received["wav_sha256"]
-            .as_str()
-            .filter(|text| is_sha256(text))
-            .ok_or_else(|| invalid("receipt has no WAV digest"))?;
-        let wav = std::path::absolute(
-            receipt_path
-                .parent()
-                .unwrap_or_else(|| Path::new("."))
-                .join(name),
-        )?;
+    }
+    if inner["kind"] != "done"
+        || inner["valid"] != true
+        || !inner["failure"].is_null()
+        || inner["privacy_revoked"] != false
+    {
+        return Err(invalid(&format!(
+            "recorder receipt is not a valid completed capture: {}",
+            inner["failure"].as_str().unwrap_or("no failure text")
+        )));
+    }
+    if received["valid"] != true {
+        return Err(invalid(&format!(
+            "the recorder marked the {input} capture invalid: {}",
+            received["disposition"].as_str().unwrap_or("no disposition")
+        )));
+    }
+    if receipt["rate_hz"] != RECEIPT_RATE
+        || receipt["channels"] != 1
+        || receipt["sample_format"] != "S16_LE"
+    {
+        return Err(invalid("recorder format is not mono 16 kHz S16_LE"));
+    }
+    // Bounded before any arithmetic: a room recording is at most 600 s.
+    let max_frames = u64::from(RECEIPT_RATE) * u64::from(MAX_ROOM_SECONDS);
+    let frames = capture["frames"]
+        .as_u64()
+        .filter(|frames| (1..=max_frames).contains(frames))
+        .ok_or_else(|| invalid("recorder receipt frame count is missing or exceeds 600 s"))?;
+    let bytes_expected = frames
+        .checked_mul(2)
+        .ok_or_else(|| invalid("recorder receipt frame count overflows"))?;
+    let pcm = capture["pcm_sha256"]
+        .as_str()
+        .filter(|text| is_sha256(text))
+        .ok_or_else(|| invalid("recorder receipt has no PCM digest"))?;
+    if capture["pcm_bytes"].as_u64() != Some(bytes_expected)
+        || received["frames_received"].as_u64() != Some(frames)
+        || received["pcm_bytes_received"].as_u64() != Some(bytes_expected)
+        || received["pcm_sha256_received"].as_str() != Some(pcm)
+    {
+        return Err(invalid("recorder frame counts or PCM digests disagree"));
+    }
+    if capture["forced_kill"] != false || capture["owned_stop_requested"] != true {
+        return Err(invalid(
+            "recorder did not stop through its owned, graceful stop",
+        ));
+    }
+    let name = received["wav"]
+        .as_str()
+        .filter(|name| {
+            !name.is_empty()
+                && Path::new(name).file_name().and_then(|f| f.to_str()) == Some(*name)
+                && name.ends_with(".wav")
+        })
+        .ok_or_else(|| invalid("receipt names no plain sibling .wav file"))?;
+    let wav_sha256 = received["wav_sha256"]
+        .as_str()
+        .filter(|text| is_sha256(text))
+        .ok_or_else(|| invalid("receipt has no WAV digest"))?;
+    let wav = std::path::absolute(
+        receipt_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(name),
+    )?;
+    Ok(ReceiptClaim {
+        frames,
+        pcm_sha256: pcm.to_owned(),
+        wav,
+        wav_sha256: wav_sha256.to_owned(),
+    })
+}
+
+/// Room evidence from a plain WAV and the source recorder's receipt
+/// (`MAIN-021`). The receipt is validated for one named input, and the WAV's
+/// bytes, format, length and PCM digest must all match it. An invalid
+/// receipt is retained as invalid evidence: the attempt stays and its
+/// acoustic boundaries stay unmeasured. Only bounded, nonsecret fields are
+/// kept; recorder times stay in the recorder's own clock domains and are
+/// never ADC or acoustic times.
+pub fn receipt_room_evidence(receipt_path: &Path, input: &str, independent: bool) -> Value {
+    let mut evidence = json!({
+        "format": "recorder_receipt",
+        "source": std::path::absolute(receipt_path).ok().and_then(|p| p.to_str().map(str::to_owned)),
+        "input": input,
+        "independent_of_lamp": independent,
+        "valid": false,
+        "sha256": null,
+        "status": "receipt_invalid",
+        "capture_requested_runner_us": null,
+        "verification_version": 2,
+    });
+    let result = (|| -> Result<(VerifiedRoom, ReceiptClaim)> {
+        let (bytes, sha256) = read_receipt(receipt_path)?;
+        evidence["receipt_sha256"] = json!(sha256);
+        let claim = receipt_claim(receipt_path, &bytes, input, Some(&mut evidence))?;
         evidence["wav_path"] = json!(
-            wav.to_str()
+            claim
+                .wav
+                .to_str()
                 .ok_or_else(|| invalid("room WAV path cannot be retained as UTF-8 JSON"))?
         );
-        evidence["sha256"] = json!(wav_sha);
-        let verified = verify_room_wav(&wav, wav_sha)?;
-        check_receipt_claims(&verified, frames, pcm)?;
-        Ok((verified, frames, pcm.to_owned()))
+        evidence["sha256"] = json!(claim.wav_sha256);
+        let verified = verify_room_wav(&claim.wav, &claim.wav_sha256)?;
+        check_receipt_claims(&verified, claim.frames, &claim.pcm_sha256)?;
+        Ok((verified, claim))
     })();
     match result {
-        Ok((verified, frames, pcm)) => {
+        Ok((verified, claim)) => {
             evidence["valid"] = json!(true);
             evidence["status"] = json!("captured_unscored");
-            evidence["expected_frames"] = json!(frames);
-            evidence["expected_pcm_sha256"] = json!(pcm);
+            evidence["expected_frames"] = json!(claim.frames);
+            evidence["expected_pcm_sha256"] = json!(claim.pcm_sha256);
             evidence["verified_wav"] = json!(verified);
         }
         Err(error) => evidence["verification_error"] = json!(error.to_string()),
@@ -547,8 +589,10 @@ pub fn receipt_room_evidence(receipt_path: &Path, input: &str, independent: bool
     evidence
 }
 
-/// Revalidate receipt-based room evidence at review time: the receipt file
-/// must be unchanged and the WAV must still match it.
+/// Revalidate receipt-based room evidence at review time. The receipt must be
+/// byte-identical, and the WAV path, digests and frame count are re-derived
+/// from the receipt's selected input, never taken from the cached evidence;
+/// cached claims that disagree with the receipt are refused (MAIN-034).
 fn verify_receipt_evidence(evidence: &Value) -> Result<VerifiedRoom> {
     if evidence["valid"] != true || evidence["status"] != "captured_unscored" {
         return Err(invalid(&format!(
@@ -561,28 +605,25 @@ fn verify_receipt_evidence(evidence: &Value) -> Result<VerifiedRoom> {
     let source = evidence["source"]
         .as_str()
         .ok_or_else(|| invalid("room evidence has no receipt path"))?;
-    let (mut file, before) = open_regular(Path::new(source), 2, MAX_RECEIPT_BYTES)?;
-    let mut bytes = Vec::with_capacity(before.len() as usize);
-    (&mut file)
-        .take(MAX_RECEIPT_BYTES + 1)
-        .read_to_end(&mut bytes)?;
-    if evidence["receipt_sha256"].as_str() != Some(hash(&bytes).as_str()) {
+    let input = evidence["input"]
+        .as_str()
+        .ok_or_else(|| invalid("room evidence names no receipt input"))?;
+    let (bytes, sha256) = read_receipt(Path::new(source))?;
+    if evidence["receipt_sha256"].as_str() != Some(sha256.as_str()) {
         return Err(invalid("recorder receipt changed since import"));
     }
-    let path = evidence["wav_path"]
-        .as_str()
-        .ok_or_else(|| invalid("room recording has no WAV path for integrity verification"))?;
-    let sha = evidence["sha256"]
-        .as_str()
-        .ok_or_else(|| invalid("room recording has no retained hash"))?;
-    let frames = evidence["expected_frames"]
-        .as_u64()
-        .ok_or_else(|| invalid("room evidence has no expected frame count"))?;
-    let pcm = evidence["expected_pcm_sha256"]
-        .as_str()
-        .ok_or_else(|| invalid("room evidence has no expected PCM digest"))?;
-    let verified = verify_room_wav(Path::new(path), sha)?;
-    check_receipt_claims(&verified, frames, pcm)?;
+    let claim = receipt_claim(Path::new(source), &bytes, input, None)?;
+    if evidence["wav_path"].as_str() != claim.wav.to_str()
+        || evidence["sha256"].as_str() != Some(claim.wav_sha256.as_str())
+        || evidence["expected_frames"].as_u64() != Some(claim.frames)
+        || evidence["expected_pcm_sha256"].as_str() != Some(claim.pcm_sha256.as_str())
+    {
+        return Err(invalid(
+            "cached room evidence does not match the recorder receipt's selected input",
+        ));
+    }
+    let verified = verify_room_wav(&claim.wav, &claim.wav_sha256)?;
+    check_receipt_claims(&verified, claim.frames, &claim.pcm_sha256)?;
     Ok(verified)
 }
 

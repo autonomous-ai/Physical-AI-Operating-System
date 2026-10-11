@@ -344,3 +344,69 @@ fn an_invalid_receipt_keeps_the_attempt_with_unmeasured_acoustics() {
     let scored = annotations.score(&record);
     assert!(scored.iter().all(|s| s.measurement().is_none()));
 }
+
+/// MAIN-034 (1): an absurd frame count is invalid evidence, never a panic,
+/// and the attempt is still imported with unmeasured acoustics.
+#[test]
+fn an_absurd_receipt_frame_count_is_invalid_evidence_not_a_panic() {
+    let f = Fixture::new("rcpt-overflow");
+    f.rewrite(|r| {
+        r["receipt"]["captures"]["voice"]["frames"] = json!(u64::MAX);
+        r["receipt"]["captures"]["voice"]["pcm_bytes"] = json!(u64::MAX);
+        r["captures"]["voice"]["frames_received"] = json!(u64::MAX);
+        r["captures"]["voice"]["pcm_bytes_received"] = json!(u64::MAX);
+    });
+    let evidence = f.evidence();
+    assert_eq!(evidence["valid"], false);
+    assert!(
+        error(&evidence).contains("frame count"),
+        "{}",
+        error(&evidence)
+    );
+    let record = import(&f);
+    assert_eq!(record.status, AttemptStatus::Completed);
+    assert_eq!(record.evidence["room_audio"]["valid"], false);
+}
+
+/// MAIN-034 (2): review rebinds the WAV to the receipt's own selected record.
+/// Cached evidence that names a different, internally valid WAV is refused
+/// even though the receipt bytes are unchanged.
+#[test]
+fn review_rebinds_the_wav_to_the_receipt_not_to_cached_claims() {
+    let f = Fixture::new("rcpt-rebind");
+    let mut record = import(&f);
+    assert_eq!(record.evidence["room_audio"]["valid"], true);
+    let other = f.dir.join("other.wav");
+    let (other_sha, other_pcm) = write_wav(&other, 16_000, 999);
+    let room = &mut record.evidence["room_audio"];
+    room["wav_path"] = json!(other.to_str().unwrap());
+    room["sha256"] = json!(other_sha);
+    room["expected_pcm_sha256"] = json!(other_pcm);
+    let failure = verify_room_evidence(&record.evidence["room_audio"])
+        .unwrap_err()
+        .to_string();
+    assert!(failure.contains("receipt"), "{failure}");
+    let annotations = Annotations {
+        schema: 1,
+        run_id: record.run_id.clone(),
+        annotator: "synthetic test".into(),
+        method: "synthetic".into(),
+        attempts: BTreeMap::from([(
+            record.attempt_id.clone(),
+            AttemptAnnotation {
+                room_recording_sha256: Some(other_sha),
+                listened: true,
+                steps: BTreeMap::from([(
+                    "greet".into(),
+                    StepAnnotation {
+                        user_speech_end_s: Some(0.25),
+                        first_substantive_answer_word_s: Some(1.25),
+                        ..StepAnnotation::default()
+                    },
+                )]),
+                notes: None,
+            },
+        )]),
+    };
+    assert!(annotations.score(&record)[0].measurement().is_none());
+}

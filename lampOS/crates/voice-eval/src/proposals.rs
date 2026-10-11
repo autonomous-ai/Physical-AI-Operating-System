@@ -89,7 +89,7 @@ pub fn read_stimulus(path: &Path) -> Result<Stimulus> {
 fn reply_segments(spans: &[RenderSpan]) -> Vec<(Option<u64>, u64, u64)> {
     let mut segments: Vec<(Option<u64>, u64, u64)> = Vec::new();
     for span in spans.iter().filter(|s| s.silence.is_none() && s.frames > 0) {
-        let end = span.offset_frames + span.frames;
+        let end = span.offset_frames.saturating_add(span.frames);
         match segments.last_mut() {
             Some((turn, _, last))
                 if *turn == span.turn && (span.turn.is_some() || *last == span.offset_frames) =>

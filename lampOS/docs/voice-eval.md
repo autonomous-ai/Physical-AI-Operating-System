@@ -255,8 +255,17 @@ kept. The room recording comes from one of two sources:
 
 **Retention.** Only bounded, nonsecret receipt fields are kept: recorder
 stderr is never copied. Recorder times stay in the recorder's own clock domain
-and are not ADC or acoustic times. At review time, the receipt must be
-byte-identical to the imported one and the WAV is re-read.
+and are not ADC or acoustic times.
+
+**Review time.** The receipt must be byte-identical to the imported one, and
+the selected input is parsed and validated again (`MAIN-034`). The WAV path,
+its digests and its frame count are re-derived from the receipt, never taken
+from the cached ledger evidence; cached values that disagree are refused.
+The WAV is then re-read and checked against the receipt's claims.
+
+**Bounds.** Frame counts are bounded before any arithmetic: at most 600 s for
+a receipt, and at most the stream byte bound for a diagnostics marker. An
+absurd count is invalid evidence, never a panic.
 
 **Invalid recordings.** An invalid or missing recording is retained as
 invalid evidence, and that attempt's acoustic boundaries stay unmeasured.

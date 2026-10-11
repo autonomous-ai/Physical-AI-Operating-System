@@ -157,9 +157,13 @@ fn verify_stream(
         return Err(invalid("completion marker changed after certification"));
     }
     let marker: Value = serde_json::from_slice(&marker_bytes)?;
+    // Bounded before any arithmetic, even for a correctly hashed marker.
     let frames = marker[frames_key]
         .as_u64()
-        .ok_or_else(|| invalid("completion marker has no frame count"))?;
+        .filter(|frames| *frames <= MAX_STREAM_BYTES / 2)
+        .ok_or_else(|| {
+            invalid("completion marker frame count is missing or exceeds the stream bound")
+        })?;
     let (capture_bytes, render_bytes) = match stream {
         DiagnosticStream::Render => (0, frames * 2),
         DiagnosticStream::Capture => (frames * 2, 0),
@@ -238,6 +242,10 @@ fn render_spans(records: &[u8], frames: u64) -> Result<Vec<RenderSpan>> {
                 .as_u64()
                 .ok_or_else(|| invalid(&format!("render record has no {name}")))
         };
+        let end = next
+            .checked_add(count)
+            .filter(|end| *end <= frames)
+            .ok_or_else(|| invalid("render records exceed the certified frame count"))?;
         spans.push(RenderSpan {
             offset_frames: next,
             frames: count,
@@ -249,7 +257,7 @@ fn render_spans(records: &[u8], frames: u64) -> Result<Vec<RenderSpan>> {
             silence: record["accepted_silence_kind"].as_str().map(str::to_owned),
             turn: meta["owner"]["turn"].as_u64(),
         });
-        next += count;
+        next = end;
     }
     if next != frames {
         return Err(invalid(

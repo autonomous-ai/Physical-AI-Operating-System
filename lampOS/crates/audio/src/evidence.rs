@@ -73,6 +73,8 @@ pub const MATCH_PERCENT: u8 = 50;
 const REPLACE_MARGIN_PERCENT: u8 = 15;
 /// Blocks of recent render activity that are remembered: 500 ms.
 pub const ACTIVITY_BLOCKS: u8 = 50;
+/// The most [`EchoEvidence::render_quiet_blocks`] reports: 640 ms or longer.
+pub const QUIET_BLOCKS_CEILING: u8 = 64;
 
 /// RMS level in tenths of a decibel relative to full scale, measured in the
 /// analysis band (below about 2 kHz) over the last 120 ms and about the mean.
@@ -84,6 +86,10 @@ impl Level {
     pub const FLOOR: Self = Self(-960);
     pub fn tenths_of_db(self) -> i16 {
         self.0
+    }
+    /// A level given in tenths of a decibel, no lower than [`Level::FLOOR`].
+    pub fn from_tenths_of_db(tenths: i16) -> Self {
+        Self(tenths.max(Self::FLOOR.0))
     }
     /// From the energy of one analysis window about its mean.
     fn of(energy: f64) -> Self {
@@ -129,6 +135,9 @@ pub struct EchoEvidence {
     pub blocks: u32,
     /// Of the last [`ACTIVITY_BLOCKS`] render blocks, how many were not silent.
     pub render_active_blocks: u8,
+    /// Render blocks since the last one that was not silent, up to
+    /// [`QUIET_BLOCKS_CEILING`]. Zero while the speaker is being given sound.
+    pub render_quiet_blocks: u8,
     /// Capture level before cancellation, over the last 120 ms.
     pub capture_level: Level,
     /// Level after cancellation, over the same 120 ms.
@@ -331,6 +340,7 @@ impl EchoObserver {
         let evidence = EchoEvidence {
             blocks: self.blocks,
             render_active_blocks: (self.activity & ((1 << ACTIVITY_BLOCKS) - 1)).count_ones() as u8,
+            render_quiet_blocks: self.activity.trailing_zeros().min(64) as u8,
             capture_level: Level::of(raw_energy),
             residual_level: Level::of(clean_energy),
             echo,

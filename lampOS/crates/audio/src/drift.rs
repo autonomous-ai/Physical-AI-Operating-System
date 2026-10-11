@@ -36,11 +36,12 @@ const RING: usize = 4_096;
 /// The furthest the read rate may be moved from one frame per frame.
 pub const MAX_PPM: f64 = 500.0;
 /// Frames the controller tries to keep in hand after a block has been taken:
-/// three blocks, 30 ms, counting the part of the next packet the speaker has
-/// already accepted. The ring itself then holds two and a half blocks on
-/// average, and two packets in a row can be late, which is what the fixed
-/// margin allowed.
-pub const TARGET_FRAMES: usize = RENDER_SAMPLES * 3;
+/// five blocks, 50 ms, counting the part of the next packet the speaker has
+/// already accepted. The ring itself then holds four and a half blocks on
+/// average, and four packets in a row can be late: 40 ms, which is as old as
+/// the caller lets a reference be in any case. The fixed margin allowed
+/// between one and seven, depending on how far the clocks had drifted.
+pub const TARGET_FRAMES: usize = RENDER_SAMPLES * 5;
 /// Most frames the ring will hold unread: eight blocks, as the fixed margin
 /// allowed before.
 pub const CAPACITY_FRAMES: usize = RENDER_SAMPLES * 8;
@@ -468,7 +469,7 @@ mod tests {
     ) -> (usize, usize, Controller) {
         let mut resampler = Resampler::new();
         let mut controller = Controller::default();
-        // The two blocks of the speaker's prime, behind one block of the
+        // The two blocks of the speaker's prime, behind three blocks of the
         // silence that came before it: the ring starts at its target.
         resampler.push(&[0; TARGET_FRAMES]).unwrap();
         let (mut least, mut most) = (usize::MAX, 0);
@@ -510,7 +511,7 @@ mod tests {
             // Never dry, or `run` would have stopped. With two packets late
             // in a row the ring may be nearly empty after a take.
             assert!(least > 0, "{skew}: least {least}");
-            assert!(most <= RENDER_SAMPLES * 5, "{skew}: most {most}");
+            assert!(most <= RENDER_SAMPLES * 7, "{skew}: most {most}");
             assert!(
                 (controller.steady_ppm() - skew).abs() < 25.0,
                 "{skew}: learned {:.1}",
@@ -536,7 +537,7 @@ mod tests {
             // Never dry in 1.44 million blocks, with one packet in sixteen
             // late and now and then two in a row.
             assert!(least > 0, "{skew}: least {least}");
-            assert!(most <= RENDER_SAMPLES * 5, "{skew}: most {most}");
+            assert!(most <= RENDER_SAMPLES * 7, "{skew}: most {most}");
             assert!((controller.steady_ppm() - skew).abs() < 5.0);
         }
     }
@@ -546,7 +547,7 @@ mod tests {
         // A clock that warms up: +120 ppm falling to -80 ppm over a minute.
         let skew = |block: u64| 120.0 - 200.0 * (block.min(6_000) as f64 / 6_000.0);
         let (least, most, controller) = run(skew, 90_000, false);
-        assert!(least > 0 && most <= RENDER_SAMPLES * 5, "{least} to {most}");
+        assert!(least > 0 && most <= RENDER_SAMPLES * 7, "{least} to {most}");
         assert!((controller.steady_ppm() + 80.0).abs() < 15.0);
     }
 

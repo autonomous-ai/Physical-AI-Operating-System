@@ -1105,7 +1105,7 @@ mod tests {
             // The last packet was accepted 10 s in. Its 40 ms of freshness and
             // the frames in hand allow two to four more capture blocks.
             assert!(
-                (1_002..=1_004).contains(&blocks),
+                (1_002..=1_005).contains(&blocks),
                 "clocked {clocked}: {blocks}"
             );
         }
@@ -1131,17 +1131,17 @@ mod tests {
         let mut state = ReferenceAssembly::capture_clocked();
         let mut echo = EchoProcessor::new(false);
         state.prime(prime(1, None), 10_002, 2, &mut echo).unwrap();
-        // The ring holds eight blocks: the lead, the prime and five more.
-        for sequence in 1..=5 {
+        // The ring holds eight blocks: the lead, the prime and three more.
+        for sequence in 1..=3 {
             let packet = reference(sequence, 480 + (sequence - 1) * 240, 240);
             state.accept(packet, 10_102, 2, &mut echo).unwrap();
         }
         assert_fault(
-            state.accept(reference(6, 1_680, 240), 10_102, 2, &mut echo),
+            state.accept(reference(4, 1_200, 240), 10_102, 2, &mut echo),
             Kind::ReferenceBacklog,
         );
         // The refused packet changed nothing.
-        assert_eq!(state.timing().accepted_through, 1_680);
+        assert_eq!(state.timing().accepted_through, 1_200);
         assert_eq!(state.drift().unwrap().unread_frames, 1_920);
     }
 

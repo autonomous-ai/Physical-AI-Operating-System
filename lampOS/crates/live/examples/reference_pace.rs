@@ -71,8 +71,17 @@ fn speaker(own: &Path, peer: &Path, seconds: u64, skew_ppm: f64) -> Result<()> {
     let blocks = (seconds as f64 * 100.0 * (1.0 + skew_ppm * 1e-6)) as u64 + 200;
     for block in 1..=blocks {
         let due = started + period.mul_f64(block as f64);
-        if let Some(wait) = due.checked_duration_since(Instant::now()) {
+        // Sleep most of the way and spin the last millisecond: a desktop
+        // kernel may wake a sleeping background process tens of milliseconds
+        // late, which a speaker's write loop on the lamp is not.
+        if let Some(wait) = due
+            .checked_duration_since(Instant::now())
+            .and_then(|wait| wait.checked_sub(Duration::from_millis(1)))
+        {
             sleep(wait);
+        }
+        while Instant::now() < due {
+            std::hint::spin_loop();
         }
         let at = monotonic_us();
         let packet = RenderReference {
@@ -150,14 +159,17 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
     let silence = [0; CAPTURE_SAMPLES];
     let (mut blocks, mut busy, mut worst_late) = (0_u64, Duration::ZERO, Duration::ZERO);
     let (mut least, mut most) = (usize::MAX, 0);
+    let (mut last_packet_at, mut worst_packet_gap) = (0_u64, 0_u64);
     let mut fault = None;
     'run: for block in 1..=seconds * 100 {
         // Half a block after the speaker's, as a device's phase might be.
         let due = begun + Duration::from_micros(5_000 + block * 10_000);
-        match due.checked_duration_since(Instant::now()) {
-            Some(wait) => sleep(wait),
-            None => worst_late = worst_late.max(Instant::now() - due),
+        if let Some(wait) = due.checked_duration_since(Instant::now()) {
+            sleep(wait);
         }
+        // How late this process itself was woken: a stall of the host, which
+        // on a lamp would be a stall of the audio devices too.
+        worst_late = worst_late.max(Instant::now().saturating_duration_since(due));
         let work = Instant::now();
         let step = (|| -> Result<()> {
             loop {
@@ -167,6 +179,11 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
                     Err(error) => return Err(error.into()),
                 };
                 let packet: RenderReference = serde_json::from_slice(&buffer[..length])?;
+                if last_packet_at > 0 {
+                    worst_packet_gap =
+                        worst_packet_gap.max(packet.accepted_at_us.saturating_sub(last_packet_at));
+                }
+                last_packet_at = packet.accepted_at_us;
                 state.accept(packet, monotonic_us(), 2, &mut echo)?;
             }
             let delay = state.before_capture(16, monotonic_us())?;
@@ -213,7 +230,9 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
             "ring_frames_least_most": drift.map(|_| [least, most]),
             "rendered_blocks": drift.map(|drift| drift.rendered_blocks),
             "busy_us_per_block": busy.as_micros() as f64 / blocks.max(1) as f64,
-            "worst_late_us": worst_late.as_micros() as u64,
+            "worst_wake_late_us": worst_late.as_micros() as u64,
+            "worst_gap_between_packets_us": worst_packet_gap,
+            "last_packet_age_us_at_end": monotonic_us().saturating_sub(last_packet_at),
             "resident_kib": resident,
             "boundary": "two host processes, real clock and scheduler, no audio device",
         }))?

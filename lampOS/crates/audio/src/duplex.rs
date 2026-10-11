@@ -1,0 +1,533 @@
+//! Hearing a person while the lamp itself is speaking.
+//!
+//! A speech detector fed the cancelled microphone signal fires on the lamp's
+//! own voice whenever the canceller lets some through, which on the lamps
+//! measured is every two to three seconds of a reply. The level of what it
+//! fires on is no help either: leaked playback is as loud as a person. What
+//! does tell them apart is the render. [`Hearing`] reads one capture block's
+//! detector score together with the [`EchoEvidence`] for the same block and
+//! says which of six things the block is. It needs both: a score alone or a
+//! level alone decides nothing here.
+//!
+//! [`Interruption`] turns a run of such blocks into at most three moments. A
+//! person heard over the lamp makes it **yield**: the caller stops handing
+//! reply audio to the speaker, which costs nothing that cannot be taken back.
+//! Once the lamp's own sound has died away, speech that is still there is a
+//! person beyond doubt, and the lamp **commits** to the interruption. If there
+//! is none, it **resumes**. A brief acknowledgment, or a mistake by the first
+//! step, therefore costs a short pause and never the reply.
+//!
+//! What this cannot do is hear a person the canceller has already removed.
+//! When the lamp's own voice reaches its microphone far louder than the
+//! person does, the canceller suppresses both, and nothing downstream of it
+//! sees the person until the lamp stops. [`Margin`] measures how far apart the
+//! two are so that this limit is reported and not guessed at.
+//!
+//! No clock, no allocation, no I/O. Thresholds are [`Hearing::EVALUATED`] and
+//! [`Confirmation::EVALUATED`]: chosen on development recordings, not a
+//! device default, and never chosen on the lamp's own voice alone.
+use crate::evidence::EchoEvidence;
+
+/// What one 10 ms capture block holds, as far as it can be told.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Heard {
+    /// Nothing speech-like, and nothing of the lamp's still sounding.
+    Still,
+    /// Speech, and nothing of the lamp's still sounding: not the lamp.
+    Clear,
+    /// Nothing speech-like while the lamp is sounding.
+    Under,
+    /// Speech-like while the lamp is sounding, and the render accounts for
+    /// it: the lamp's own voice, let through by the canceller.
+    Own,
+    /// Speech-like while the lamp is sounding, and the render does not
+    /// account for it: someone is speaking over the lamp.
+    Over,
+    /// Speech-like while the lamp is sounding, with no alignment between
+    /// render and microphone to judge by. Not evidence of anything.
+    Unknown,
+}
+
+impl Heard {
+    /// Whether the block counts towards a person speaking.
+    pub fn person(self) -> bool {
+        matches!(self, Self::Clear | Self::Over)
+    }
+}
+
+/// How a block is read.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Hearing {
+    /// Detector score from which a block is speech-like.
+    pub speech: f32,
+    /// A block the render explains more of than this, in percent of the
+    /// microphone's energy before cancellation, is the lamp's own voice.
+    pub explained_percent: u8,
+    /// So is a block whose cancelled signal must be playback by more than
+    /// this, in percent, by energy accounting.
+    pub floor_percent: u8,
+    /// Render blocks of silence after which nothing of the lamp's is still
+    /// arriving at the microphone.
+    pub clear_after_blocks: u8,
+}
+
+impl Hearing {
+    /// Chosen on the development half of two recorded sessions and their
+    /// synthetic overlaps; see `docs/duplex-listening.md`. The 300 ms is the
+    /// longest the microphone took to fall back to its floor after a reply,
+    /// 270 ms over sixteen recorded stops, with one block more.
+    pub const EVALUATED: Self = Self {
+        speech: 0.5,
+        explained_percent: 75,
+        floor_percent: 80,
+        clear_after_blocks: 30,
+    };
+
+    pub fn heard(&self, probability: f32, evidence: &EchoEvidence) -> Heard {
+        let speech = probability.is_finite() && probability >= self.speech;
+        if evidence.render_quiet_blocks >= self.clear_after_blocks {
+            return if speech { Heard::Clear } else { Heard::Still };
+        }
+        if !speech {
+            return Heard::Under;
+        }
+        match evidence.echo {
+            None => Heard::Unknown,
+            Some(echo)
+                if echo.capture_explained <= self.explained_percent
+                    && echo.residual_playback_floor <= self.floor_percent =>
+            {
+                Heard::Over
+            }
+            Some(_) => Heard::Own,
+        }
+    }
+
+    /// The score to give a detector that starts a turn on consecutive speech
+    /// blocks, so that it starts on a person and not on the lamp. The lamp's
+    /// own voice and what cannot be judged count as no speech. A person over
+    /// the lamp counts as speech, whatever the cancelled signal scored: the
+    /// canceller has usually taken some of the person with the echo.
+    /// Everything heard with the lamp silent keeps its own score.
+    pub fn detector_score(heard: Heard, probability: f32) -> f32 {
+        match heard {
+            Heard::Over => 1.0,
+            Heard::Own | Heard::Unknown => 0.0,
+            Heard::Still | Heard::Clear | Heard::Under => probability,
+        }
+    }
+}
+
+/// When a yield becomes an interruption, and when it is given up.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Confirmation {
+    /// Consecutive [`Heard::Over`] blocks that make the lamp yield.
+    pub onset_blocks: u8,
+    /// [`Heard::Clear`] blocks, after the lamp's own sound has gone, that
+    /// make the yield an interruption.
+    pub speech_blocks: u8,
+    /// Consecutive [`Heard::Still`] blocks that end the yield with the reply
+    /// resumed.
+    pub silence_blocks: u8,
+    /// Blocks after which an undecided yield is given up.
+    pub deadline_blocks: u16,
+}
+
+impl Confirmation {
+    /// 60 ms to yield, 60 ms of speech in the clear to commit, 150 ms of
+    /// stillness or 600 ms in all to resume.
+    pub const EVALUATED: Self = Self {
+        onset_blocks: 6,
+        speech_blocks: 6,
+        silence_blocks: 15,
+        deadline_blocks: 60,
+    };
+}
+
+/// What the caller should do after a block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Step {
+    /// Nothing changes.
+    Carry,
+    /// Stop handing reply audio to the speaker. Keep everything.
+    Yield,
+    /// The person went on speaking once the lamp was silent: an interruption.
+    Commit,
+    /// Nobody went on speaking: hand reply audio to the speaker again.
+    Resume,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum State {
+    Listening { over: u8 },
+    Yielded { blocks: u16, speech: u8, still: u8 },
+}
+
+/// One reply's worth of yielding. Counts are kept for the trace.
+#[derive(Clone, Copy, Debug)]
+pub struct Interruption {
+    rule: Confirmation,
+    state: State,
+    yields: u32,
+    commits: u32,
+    resumes: u32,
+}
+
+impl Interruption {
+    pub const fn new(rule: Confirmation) -> Self {
+        Self {
+            rule,
+            state: State::Listening { over: 0 },
+            yields: 0,
+            commits: 0,
+            resumes: 0,
+        }
+    }
+
+    /// One capture block. `speaking` is whether the lamp has reply audio it
+    /// would otherwise be handing to the speaker; without it there is nothing
+    /// to yield and a person is an ordinary new turn.
+    pub fn block(&mut self, heard: Heard, speaking: bool) -> Step {
+        match &mut self.state {
+            State::Listening { over } => {
+                *over = if speaking && heard == Heard::Over {
+                    over.saturating_add(1)
+                } else {
+                    0
+                };
+                if *over < self.rule.onset_blocks.max(1) {
+                    return Step::Carry;
+                }
+                self.state = State::Yielded {
+                    blocks: 0,
+                    speech: 0,
+                    still: 0,
+                };
+                self.yields += 1;
+                Step::Yield
+            }
+            State::Yielded {
+                blocks,
+                speech,
+                still,
+            } => {
+                *blocks = blocks.saturating_add(1);
+                match heard {
+                    Heard::Clear => {
+                        *speech = speech.saturating_add(1);
+                        *still = 0;
+                    }
+                    Heard::Still => *still = still.saturating_add(1),
+                    // The lamp's own sound is still dying away: no evidence.
+                    Heard::Under | Heard::Own | Heard::Over | Heard::Unknown => {}
+                }
+                if *speech >= self.rule.speech_blocks.max(1) {
+                    self.state = State::Listening { over: 0 };
+                    self.commits += 1;
+                    Step::Commit
+                } else if *still >= self.rule.silence_blocks.max(1)
+                    || *blocks >= self.rule.deadline_blocks
+                {
+                    self.state = State::Listening { over: 0 };
+                    self.resumes += 1;
+                    Step::Resume
+                } else {
+                    Step::Carry
+                }
+            }
+        }
+    }
+
+    /// Whether reply audio is being withheld from the speaker.
+    pub fn yielded(&self) -> bool {
+        matches!(self.state, State::Yielded { .. })
+    }
+
+    /// Blocks since the yield began, while one is in force.
+    pub fn yielded_blocks(&self) -> Option<u16> {
+        match self.state {
+            State::Yielded { blocks, .. } => Some(blocks),
+            State::Listening { .. } => None,
+        }
+    }
+
+    /// Yields, commits and resumes since construction.
+    pub fn counts(&self) -> (u32, u32, u32) {
+        (self.yields, self.commits, self.resumes)
+    }
+
+    /// Forget a yield in force, for a reply that ended or was cancelled
+    /// another way. The counts stay.
+    pub fn clear(&mut self) {
+        self.state = State::Listening { over: 0 };
+    }
+}
+
+/// How loud a person is at the microphone against the lamp's own voice.
+///
+/// Both are slow averages of the level before cancellation, in decibels: the
+/// person's over blocks heard in the clear, the lamp's over blocks that were
+/// its own voice. Their difference is the margin. At about -6 dB and above a
+/// person over the lamp was heard in most synthetic trials. Below about
+/// -12 dB the canceller removed the person with the echo and none of the
+/// evidence here could see them. A margin is not available until both have
+/// been heard.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Margin {
+    person_db: Option<f32>,
+    own_db: Option<f32>,
+}
+
+impl Margin {
+    /// Blocks each average takes to move most of the way: two seconds.
+    const BLOCKS: f32 = 200.0;
+
+    pub fn observe(&mut self, heard: Heard, evidence: &EchoEvidence) {
+        let level = f32::from(evidence.capture_level.tenths_of_db()) / 10.0;
+        let slot = match heard {
+            Heard::Clear => &mut self.person_db,
+            Heard::Own => &mut self.own_db,
+            _ => return,
+        };
+        let average = slot.get_or_insert(level);
+        *average += (level - *average) / Self::BLOCKS;
+    }
+
+    pub fn person_db(&self) -> Option<f32> {
+        self.person_db
+    }
+
+    pub fn own_db(&self) -> Option<f32> {
+        self.own_db
+    }
+
+    /// The person's level less the lamp's own, in decibels.
+    pub fn db(&self) -> Option<f32> {
+        Some(self.person_db? - self.own_db?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::evidence::{EchoMatch, Level};
+
+    fn level(db: f32) -> Level {
+        Level::from_tenths_of_db((db * 10.0) as i16)
+    }
+
+    /// Evidence for a block: render blocks since the lamp last sounded, and
+    /// the two shares the observer reports when it has an alignment.
+    fn evidence(quiet: u8, shares: Option<(u8, u8)>) -> EchoEvidence {
+        EchoEvidence {
+            blocks: 1_000,
+            render_active_blocks: if quiet == 0 { 50 } else { 0 },
+            render_quiet_blocks: quiet,
+            capture_level: level(-20.0),
+            residual_level: level(-30.0),
+            echo: shares.map(|(capture_explained, residual_playback_floor)| EchoMatch {
+                render_level: level(-18.0),
+                capture_explained,
+                residual_explained: 10,
+                residual_playback_floor,
+                alignment_age_blocks: 0,
+            }),
+        }
+    }
+
+    const HEARING: Hearing = Hearing::EVALUATED;
+
+    #[test]
+    fn a_score_alone_decides_nothing_while_the_lamp_is_sounding() {
+        // The same high score, four different blocks.
+        let own = HEARING.heard(0.99, &evidence(0, Some((97, 10))));
+        let own_by_accounting = HEARING.heard(0.99, &evidence(0, Some((60, 92))));
+        let over = HEARING.heard(0.99, &evidence(0, Some((40, 0))));
+        let unknown = HEARING.heard(0.99, &evidence(0, None));
+        assert_eq!(
+            (own, own_by_accounting, over, unknown),
+            (Heard::Own, Heard::Own, Heard::Over, Heard::Unknown)
+        );
+        // And a level alone decides nothing either: the same block, louder.
+        let mut loud = evidence(0, Some((97, 10)));
+        loud.residual_level = level(-8.0);
+        assert_eq!(HEARING.heard(0.99, &loud), Heard::Own);
+    }
+
+    #[test]
+    fn the_thresholds_are_the_boundaries_they_say() {
+        assert_eq!(
+            HEARING.heard(0.5, &evidence(0, Some((75, 80)))),
+            Heard::Over
+        );
+        assert_eq!(HEARING.heard(0.5, &evidence(0, Some((76, 80)))), Heard::Own);
+        assert_eq!(HEARING.heard(0.5, &evidence(0, Some((75, 81)))), Heard::Own);
+        assert_eq!(
+            HEARING.heard(0.49, &evidence(0, Some((10, 0)))),
+            Heard::Under
+        );
+        assert_eq!(
+            HEARING.heard(f32::NAN, &evidence(0, Some((10, 0)))),
+            Heard::Under
+        );
+        // 290 ms after the render stopped the lamp may still be sounding.
+        assert_eq!(HEARING.heard(0.9, &evidence(29, None)), Heard::Unknown);
+        assert_eq!(HEARING.heard(0.9, &evidence(30, None)), Heard::Clear);
+        assert_eq!(HEARING.heard(0.1, &evidence(30, None)), Heard::Still);
+        assert_eq!(
+            HEARING.heard(0.9, &evidence(64, Some((99, 99)))),
+            Heard::Clear
+        );
+    }
+
+    #[test]
+    fn the_detector_is_told_of_a_person_and_not_of_the_lamp() {
+        assert_eq!(Hearing::detector_score(Heard::Over, 0.55), 1.0);
+        assert_eq!(Hearing::detector_score(Heard::Own, 0.99), 0.0);
+        assert_eq!(Hearing::detector_score(Heard::Unknown, 0.99), 0.0);
+        for heard in [Heard::Still, Heard::Clear, Heard::Under] {
+            assert_eq!(Hearing::detector_score(heard, 0.62), 0.62);
+        }
+        assert!(Heard::Over.person() && Heard::Clear.person());
+        assert!(!Heard::Own.person() && !Heard::Unknown.person() && !Heard::Under.person());
+    }
+
+    fn run(interruption: &mut Interruption, blocks: &[(Heard, usize)]) -> Vec<(usize, Step)> {
+        let mut steps = Vec::new();
+        let mut index = 0;
+        for &(heard, count) in blocks {
+            for _ in 0..count {
+                match interruption.block(heard, true) {
+                    Step::Carry => {}
+                    step => steps.push((index, step)),
+                }
+                index += 1;
+            }
+        }
+        steps
+    }
+
+    #[test]
+    fn a_person_who_goes_on_speaking_is_yielded_to_and_then_committed_to() {
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        // Own voice, then a person over it. The lamp yields on the sixth
+        // block. Its own sound takes 330 ms to go; the person is then heard
+        // in the clear and the sixth such block commits.
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Own, 40),
+                (Heard::Over, 6),
+                (Heard::Over, 10),
+                (Heard::Unknown, 23),
+                (Heard::Clear, 6),
+            ],
+        );
+        assert_eq!(steps, [(45, Step::Yield), (84, Step::Commit)]);
+        assert!(!interruption.yielded());
+        assert_eq!(interruption.counts(), (1, 1, 0));
+    }
+
+    #[test]
+    fn an_acknowledgment_costs_a_pause_and_not_the_reply() {
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        // 250 ms of "mm-hm" over the lamp, then nobody.
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Over, 25),
+                (Heard::Under, 14),
+                (Heard::Still, 15),
+                (Heard::Own, 50),
+            ],
+        );
+        assert_eq!(steps, [(5, Step::Yield), (53, Step::Resume)]);
+        assert_eq!(interruption.counts(), (1, 0, 1));
+        // The pause was 480 ms: from the yield to the resume.
+        assert_eq!(steps[1].0 - steps[0].0, 48);
+    }
+
+    #[test]
+    fn the_lamps_own_voice_never_yields_however_long_or_loud() {
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Own, 500),
+                (Heard::Unknown, 200),
+                (Heard::Under, 100),
+                // Five blocks of a person and one of own voice, repeated: never six in a row.
+                (Heard::Over, 5),
+                (Heard::Own, 1),
+                (Heard::Over, 5),
+                (Heard::Own, 1),
+            ],
+        );
+        assert_eq!(steps, []);
+        assert_eq!(interruption.counts(), (0, 0, 0));
+    }
+
+    #[test]
+    fn a_yield_that_nothing_settles_is_given_up_at_its_deadline() {
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        // After the yield nothing is ever clear: the render never goes quiet.
+        let steps = run(
+            &mut interruption,
+            &[(Heard::Over, 6), (Heard::Unknown, 200)],
+        );
+        assert_eq!(steps, [(5, Step::Yield), (65, Step::Resume)]);
+        // And speech in the clear that stops short of 60 ms does not commit.
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Over, 6),
+                (Heard::Unknown, 30),
+                (Heard::Clear, 5),
+                (Heard::Still, 15),
+            ],
+        );
+        assert_eq!(steps, [(5, Step::Yield), (55, Step::Resume)]);
+    }
+
+    #[test]
+    fn with_nothing_to_yield_a_person_is_only_a_person() {
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        for _ in 0..100 {
+            assert_eq!(interruption.block(Heard::Over, false), Step::Carry);
+        }
+        // A reply begins: the count starts from there.
+        for _ in 0..5 {
+            assert_eq!(interruption.block(Heard::Over, true), Step::Carry);
+        }
+        assert_eq!(interruption.block(Heard::Over, true), Step::Yield);
+        assert_eq!(interruption.yielded_blocks(), Some(0));
+        interruption.clear();
+        assert!(!interruption.yielded());
+        assert_eq!(interruption.counts(), (1, 0, 0));
+    }
+
+    #[test]
+    fn the_margin_is_the_person_against_the_lamp_once_both_were_heard() {
+        let mut margin = Margin::default();
+        assert_eq!(margin.db(), None);
+        let mut own = evidence(0, Some((97, 10)));
+        own.capture_level = level(-11.0);
+        for _ in 0..50 {
+            margin.observe(Heard::Own, &own);
+        }
+        assert_eq!((margin.own_db(), margin.db()), (Some(-11.0), None));
+        let mut person = evidence(64, None);
+        person.capture_level = level(-31.0);
+        for _ in 0..50 {
+            margin.observe(Heard::Clear, &person);
+        }
+        // As on the lamp where nothing was heard over its own voice.
+        assert_eq!(margin.db(), Some(-20.0));
+        // Other blocks say nothing about either level.
+        for heard in [Heard::Over, Heard::Unknown, Heard::Under, Heard::Still] {
+            margin.observe(heard, &evidence(0, None));
+        }
+        assert_eq!(margin.db(), Some(-20.0));
+    }
+}

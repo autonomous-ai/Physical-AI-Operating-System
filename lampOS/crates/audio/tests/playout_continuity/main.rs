@@ -154,6 +154,9 @@ struct Played {
     lead_us: u64,
     /// The largest number of frames the queue held.
     most_queued: usize,
+    /// The fewest frames that could still be handed over, seen at any slot
+    /// between the start and the completion: what was to spare.
+    least_in_hand: usize,
 }
 
 impl Played {
@@ -169,7 +172,7 @@ fn play(reply: &Recorded, gate: StartGate, origin_us: u64) -> Played {
     let mut first = None;
     let mut starved: Vec<(usize, usize)> = Vec::new();
     let mut dry = false;
-    let mut most_queued = 0;
+    let (mut most_queued, mut least_in_hand) = (0, usize::MAX);
     // Sixty seconds bounds the replay. It is not a runtime deadline.
     for slot in 0..6_000 {
         let now = origin_us + slot * SLOT_US;
@@ -181,7 +184,12 @@ fn play(reply: &Recorded, gate: StartGate, origin_us: u64) -> Played {
         if now >= reply.complete_us && next == reply.arrivals.len() {
             queue.generation_done = true;
         }
-        if !queue.may_start(now) {
+        let in_hand = queue.pcm.len().saturating_sub(BLOCK);
+        let open = queue.may_start(now);
+        if (open || first.is_some()) && !queue.generation_done {
+            least_in_hand = least_in_hand.min(in_hand);
+        }
+        if !open {
             if first.is_some() {
                 match starved.last_mut().filter(|_| dry) {
                     Some(run) => run.1 += 1,
@@ -211,6 +219,7 @@ fn play(reply: &Recorded, gate: StartGate, origin_us: u64) -> Played {
                 starved,
                 lead_us: queue.start.lead_us(),
                 most_queued,
+                least_in_hand,
             };
         }
     }
@@ -302,28 +311,28 @@ fn every_recorded_gap_is_reproduced_from_the_recorded_start() {
 /// milliseconds.
 const BEFORE_AND_AFTER: &[(&str, u64, u64, u64)] = &[
     ("six/1", 0, 0, 0),
-    ("six/2", 0, 150, 150),
+    ("six/2", 0, 160, 160),
     ("six/3", 0, 0, 0),
-    ("six/4", 80, 90, 100),
-    ("six/5", 170, 170, 180),
-    ("six/6", 0, 160, 170),
-    ("six/7", 220, 280, 280),
-    ("ten/1", 0, 190, 190),
-    ("ten/2", 120, 180, 180),
-    ("ten/3", 160, 160, 160),
-    ("ten/4", 70, 130, 130),
-    ("ten/5", 0, 170, 180),
-    ("ten/6", 120, 190, 190),
-    ("ten/7", 0, 190, 190),
-    ("ten/8", 0, 150, 150),
+    ("six/4", 80, 100, 110),
+    ("six/5", 170, 190, 200),
+    ("six/6", 0, 170, 180),
+    ("six/7", 220, 290, 290),
+    ("ten/1", 0, 200, 200),
+    ("ten/2", 120, 190, 190),
+    ("ten/3", 160, 180, 180),
+    ("ten/4", 70, 140, 140),
+    ("ten/5", 0, 180, 190),
+    ("ten/6", 120, 200, 200),
+    ("ten/7", 0, 200, 200),
+    ("ten/8", 0, 160, 160),
     ("ten/9", 0, 0, 0),
-    ("ten/10", 0, 130, 130),
+    ("ten/10", 0, 140, 140),
     ("pilot/1", 0, 200, 210),
     ("ns1/1", 0, 0, 0),
     ("ns2/1", 120, 150, 160),
-    ("coord/1", 130, 180, 180),
+    ("coord/1", 130, 190, 190),
     ("play1/2", 0, 0, 10),
-    ("play2/4", 0, 160, 170),
+    ("play2/4", 0, 180, 190),
 ];
 
 #[test]
@@ -363,7 +372,12 @@ fn the_current_gate_starves_nine_of_the_replies_and_continuity_none() {
     // What it costs a reply's first generation.
     added_most.sort_unstable();
     assert_eq!(added_most.len(), 22);
-    assert_eq!(added_most[11], 160, "the median");
+    assert_eq!(
+        (added_most[10], added_most[11]),
+        (160, 180),
+        "the middle two"
+    );
+    assert_eq!(added_most.iter().sum::<u64>(), 3_010, "137 ms on average");
     assert_eq!(*added_most.last().unwrap(), 210);
     assert_eq!(added_most.iter().filter(|&&ms| ms > 200).count(), 1);
     assert_eq!(added_most.iter().filter(|&&ms| ms <= 10).count(), 5);
@@ -372,8 +386,8 @@ fn the_current_gate_starves_nine_of_the_replies_and_continuity_none() {
 #[test]
 fn no_recorded_start_is_held_past_the_bound() {
     let bound = Continuity::EVALUATED.longest_hold_us();
-    assert_eq!(bound, 360_000);
-    let mut by = [0; 4];
+    assert_eq!(bound, 380_000);
+    let (mut by, mut least) = ([0; 4], usize::MAX);
     for reply in recorded() {
         // The first slot at which a block could be handed over at all.
         let mut frames = 0;
@@ -393,6 +407,7 @@ fn no_recorded_start_is_held_past_the_bound() {
                 reply.name
             );
             assert!(played.most_queued <= 24_000, "{}", reply.name);
+            least = least.min(played.least_in_hand);
             by[match played.opened.by {
                 OpenedBy::Margin => 0,
                 OpenedBy::HoldBound => 1,
@@ -406,6 +421,8 @@ fn no_recorded_start_is_held_past_the_bound() {
     // the time a block could leave, and 300 were released by the hold bound
     // before their lead had been measured.
     assert_eq!(by, [160, 300, 0, 0]);
+    // At the worst slot of the worst reply, 30 ms could still be handed over.
+    assert_eq!(least, 720);
 }
 
 /// The sixth turn: an introduction, a pause of more than two seconds and a
@@ -496,8 +513,8 @@ fn a_second_generation_is_held_again_and_every_sample_is_played_once() {
 
         let (introduction, story, starved, padding) =
             sixth_turn(StartGate::continuous(Continuity::EVALUATED), origin);
-        assert!((280_000..290_000).contains(&introduction));
-        assert!((280_000..290_000).contains(&story));
+        assert!((290_000..300_000).contains(&introduction));
+        assert!((290_000..300_000).contains(&story));
         assert_eq!(starved, []);
         assert_eq!(padding, 239);
     }
@@ -544,7 +561,7 @@ fn a_short_reply_that_is_complete_is_not_held() {
     let played = play(&reply, StartGate::continuous(Continuity::EVALUATED), 0);
     assert_eq!(
         (played.first_us, played.opened.by),
-        (280_000, OpenedBy::HoldBound)
+        (290_000, OpenedBy::HoldBound)
     );
 }
 
@@ -570,19 +587,19 @@ fn a_burst_later_than_the_margin_still_starves_and_playout_resumes() {
     );
     assert_eq!(
         (played.first_us, played.opened.by),
-        (220_000, OpenedBy::Margin)
+        (240_000, OpenedBy::Margin)
     );
     assert_eq!(played.lead_us, 100_000);
     assert_eq!(played.starved, []);
     // 700 ms late: nothing bounded covers it, and nothing here pretends to.
-    // The 320 ms margin, less the withheld block, shortens the hole to 390 ms.
+    // The 340 ms margin, less the withheld block, shortens the hole to 370 ms.
     let played = play(
         &steady(700_000),
         StartGate::continuous(Continuity::EVALUATED),
         0,
     );
-    assert_eq!(played.starved, [(199, 39)]);
-    // The current gate started 220 ms earlier and loses that much more.
+    assert_eq!(played.starved, [(199, 37)]);
+    // The current gate started 240 ms earlier and loses that much more.
     let played = play(&steady(700_000), StartGate::new(START_HORIZON_US), 0);
     assert_eq!(played.first_us, 0);
     assert_eq!(played.starved, [(199, 61)]);
@@ -611,8 +628,8 @@ fn a_reply_cancelled_while_held_has_handed_nothing_over() {
     queue.start.reset();
     // The next reply is held from its own first audio.
     queue.append(4_800, 5_000_000);
-    assert!(!queue.may_start(5_279_999));
-    assert!(queue.may_start(5_280_000));
+    assert!(!queue.may_start(5_289_999));
+    assert!(queue.may_start(5_290_000));
 }
 
 /// Not a pass or fail: prints what one decision costs. Run with

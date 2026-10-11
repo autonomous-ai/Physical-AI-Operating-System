@@ -58,10 +58,17 @@ pub struct Continuity {
 impl Continuity {
     /// Evaluated offline on 23 recorded replies. Not a live default, and not
     /// measured on a device.
+    ///
+    /// The margin is the largest late burst recorded, 306 ms, with the
+    /// withheld block, one 10 ms slot and 14 ms for local hand-over. The hold
+    /// is that margin less the smallest lead recorded in a reply that had
+    /// audio by then, 44 ms. The cover bridges the longest recorded stall at
+    /// a start, 50 ms of audio and then nothing until 349 ms: with 50 ms in
+    /// hand it releases the first block at 330 ms.
     pub const EVALUATED: Self = Self {
-        margin_us: 320_000,
-        hold_us: 280_000,
-        cover_us: 360_000,
+        margin_us: 340_000,
+        hold_us: 290_000,
+        cover_us: 380_000,
     };
 
     /// The longest a start can be held after the first audio once a block
@@ -411,10 +418,11 @@ mod tests {
         assert!(!gate.open(212_000, 7_680, false));
         burst(&mut gate, 213_000, 3_840);
         assert_eq!(gate.lead_us(), 107_000);
-        // 213 ms held and 107 ms of lead are the 320 ms margin.
-        assert!(gate.open(213_750, 11_520, false));
+        // 233 ms held and 107 ms of lead are the 340 ms margin.
+        assert!(!gate.open(232_999, 11_520, false));
+        assert!(gate.open(233_000, 11_520, false));
         let opened = gate.opened().unwrap();
-        assert_eq!((opened.by, opened.held_us), (OpenedBy::Margin, 213_750));
+        assert_eq!((opened.by, opened.held_us), (OpenedBy::Margin, 233_000));
     }
 
     #[test]
@@ -424,9 +432,9 @@ mod tests {
         let mut gate = StartGate::continuous(POLICY);
         gate.arrival(0, 1);
         burst(&mut gate, 185_000, 4_800);
-        assert!(!gate.open(279_999, 4_801, false));
+        assert!(!gate.open(289_999, 4_801, false));
         assert_eq!(gate.lead_us(), 0);
-        assert!(gate.open(280_000, 4_801, false));
+        assert!(gate.open(290_000, 4_801, false));
         assert_eq!(gate.opened().unwrap().by, OpenedBy::HoldBound);
         // What arrives after the opening is still measured, for the record.
         burst(&mut gate, 307_000, 5_760);
@@ -436,22 +444,22 @@ mod tests {
 
     #[test]
     fn a_start_with_almost_nothing_in_hand_waits_for_cover_and_no_longer() {
-        // 40 ms arrived and then nothing: past the hold bound, 280 ms held
-        // and 40 ms in hand still fall short of the 360 ms cover.
+        // 40 ms arrived and then nothing: past the hold bound, 290 ms held
+        // and 40 ms in hand still fall short of the 380 ms cover.
         let mut gate = StartGate::continuous(POLICY);
         burst(&mut gate, 0, PIECE);
-        assert!(!gate.open(280_000, PIECE, false));
-        assert!(!gate.open(319_999, PIECE, false));
-        assert!(gate.open(320_000, PIECE, false));
+        assert!(!gate.open(290_000, PIECE, false));
+        assert!(!gate.open(339_999, PIECE, false));
+        assert!(gate.open(340_000, PIECE, false));
         // By then the hold alone is the margin, whatever the service leads by.
         assert_eq!(gate.opened().unwrap().by, OpenedBy::Margin);
         // A single frame in hand is released when the cover is reached.
         let mut gate = StartGate::continuous(POLICY);
         gate.arrival(0, 1);
-        assert!(!gate.open(359_957, 1, false));
-        assert!(gate.open(359_959, 1, false));
-        assert_eq!(gate.opened().unwrap().held_us, 359_959);
-        assert_eq!(POLICY.longest_hold_us(), 360_000);
+        assert!(!gate.open(379_957, 1, false));
+        assert!(gate.open(379_959, 1, false));
+        assert_eq!(gate.opened().unwrap().held_us, 379_959);
+        assert_eq!(POLICY.longest_hold_us(), 380_000);
     }
 
     #[test]
@@ -508,7 +516,7 @@ mod tests {
     fn a_later_generation_is_held_again_only_after_the_one_before_it_ended() {
         let mut gate = StartGate::continuous(POLICY);
         burst(&mut gate, 0, 4_800);
-        assert!(gate.open(280_000, 4_800, false));
+        assert!(gate.open(290_000, 4_800, false));
         // More audio while the first generation is still being played joins it.
         burst(&mut gate, 900_000, 4_800);
         assert!(gate.open(900_000, 4_800, false));
@@ -522,10 +530,10 @@ mod tests {
         assert_eq!(gate.lead_us(), 0, "the lead is measured again");
         assert!(!gate.open(4_000_000, PIECE, false));
         burst(&mut gate, 4_170_000, 3_840);
-        assert!(!gate.open(4_279_999, 4_800, false));
-        assert!(gate.open(4_280_000, 4_800, false));
+        assert!(!gate.open(4_289_999, 4_800, false));
+        assert!(gate.open(4_290_000, 4_800, false));
         let opened = gate.opened().unwrap();
-        assert_eq!((opened.held_us, opened.by), (280_000, OpenedBy::HoldBound));
+        assert_eq!((opened.held_us, opened.by), (290_000, OpenedBy::HoldBound));
         // One end is one new start.
         burst(&mut gate, 4_600_000, PIECE);
         assert!(gate.open(4_600_000, PIECE, false));
@@ -559,8 +567,8 @@ mod tests {
         assert_eq!(gate.continuity(), Some(POLICY));
         assert_eq!(gate.horizon_us(), POLICY.cover_us);
         burst(&mut gate, 1_000_000, 4_800);
-        assert!(!gate.open(1_279_999, 4_800, false));
-        assert!(gate.open(1_280_000, 4_800, false));
+        assert!(!gate.open(1_289_999, 4_800, false));
+        assert!(gate.open(1_290_000, 4_800, false));
     }
 
     #[test]

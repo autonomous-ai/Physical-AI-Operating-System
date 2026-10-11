@@ -5,6 +5,7 @@ use crate::{
     receipt_history::ReceiptHistory,
     service_trace::{self, ServiceTrace},
 };
+use lamp_interaction::TurnOwner;
 use serde_json::{Value, json};
 use std::{
     io,
@@ -14,10 +15,21 @@ use std::{
 
 pub(crate) const MAX_FINITE_EVENTS: usize = 20_000;
 const MAX_BATCH_EVENTS: usize = 256;
+/// Coordinator withholding evidence only: no admission/output authority.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct YieldInterval {
+    pub owner: Option<TurnOwner>,
+    pub started_at_us: u64,
+    pub first_frame_sequence: u64,
+    pub first_read_completed_at_us: u64,
+    pub last_frame_sequence: u64,
+    pub missing_evidence_since: Option<u64>,
+}
 #[derive(Default)]
 pub(crate) struct SessionState {
     events: Vec<Value>,
     pub(crate) receipts: ReceiptHistory,
+    pub(crate) yield_interval: Option<YieldInterval>,
     continuous: bool,
     writer: Option<ServiceTrace>,
     dropped: u64,
@@ -143,6 +155,7 @@ impl Clone for SessionState {
         Self {
             events: self.events.clone(),
             receipts: self.receipts.clone(),
+            yield_interval: self.yield_interval,
             ..Self::default()
         }
     }
@@ -159,7 +172,9 @@ impl std::fmt::Debug for SessionState {
 #[cfg(test)]
 impl PartialEq for SessionState {
     fn eq(&self, other: &Self) -> bool {
-        self.events == other.events && self.receipts == other.receipts
+        self.events == other.events
+            && self.receipts == other.receipts
+            && self.yield_interval == other.yield_interval
     }
 }
 #[cfg(test)]

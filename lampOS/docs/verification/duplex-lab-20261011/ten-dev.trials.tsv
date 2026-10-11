@@ -1,0 +1,76 @@
+run	part	gain_db	seed	reply	onset	seg_end	first_yield	yield_delay_ms	first_outcome	first_outcome_delay_ms	commit_wall	commit_delay_ms	yields	note
+ten	dev	6	1	0	875	952			never				0	
+ten	dev	6	1	2	2934	3011			never				0	
+ten	dev	6	1	4	4616	4678			never				0	
+ten	dev	6	1	6	6644	6723			never				0	
+ten	dev	6	1	8	8327	8397			never				0	
+ten	dev	6	2	0	1034	1103			never				0	
+ten	dev	6	2	2	2803	2872	2866	630	resume	1110			1	
+ten	dev	6	2	4	4702	4774			never				0	
+ten	dev	6	2	6	6511	6582			never				0	
+ten	dev	6	2	8	8336	8417			never				0	
+ten	dev	6	3	0	1016	1093			never				0	
+ten	dev	6	3	2	2819	2881	2860	410	resume	780			1	
+ten	dev	6	3	4	4648	4727			never				0	
+ten	dev	6	3	6	6669	6739			never				0	
+ten	dev	6	3	8	8297	8374			never				0	
+ten	dev	0	1	0	875	952			never				0	
+ten	dev	0	1	2	2934	3011			never				0	
+ten	dev	0	1	4	4616	4678			never				0	
+ten	dev	0	1	6	6644	6723			never				0	
+ten	dev	0	1	8	8327	8397			never				0	
+ten	dev	0	2	0	1034	1103			never				0	
+ten	dev	0	2	2	2803	2872	2869	660	resume	1140			1	
+ten	dev	0	2	4	4702	4774			never				0	
+ten	dev	0	2	6	6511	6582			never				0	
+ten	dev	0	2	8	8336	8417			never				0	
+ten	dev	0	3	0	1016	1093			never				0	
+ten	dev	0	3	2	2819	2881			never				0	
+ten	dev	0	3	4	4648	4727			never				0	
+ten	dev	0	3	6	6669	6739			never				0	
+ten	dev	0	3	8	8297	8374			never				0	
+ten	dev	-6	1	0	875	952			never				0	
+ten	dev	-6	1	2	2934	3011			never				0	
+ten	dev	-6	1	4	4616	4678			never				0	
+ten	dev	-6	1	6	6644	6723			never				0	
+ten	dev	-6	1	8	8327	8397			never				0	
+ten	dev	-6	2	0	1034	1103			never				0	
+ten	dev	-6	2	2	2803	2872	2869	660	resume	1140			1	
+ten	dev	-6	2	4	4702	4774			never				0	
+ten	dev	-6	2	6	6511	6582			never				0	
+ten	dev	-6	2	8	8336	8417			never				0	
+ten	dev	-6	3	0	1016	1093			never				0	
+ten	dev	-6	3	2	2819	2881	2874	550	resume	1030			1	
+ten	dev	-6	3	4	4648	4727			never				0	
+ten	dev	-6	3	6	6669	6739			never				0	
+ten	dev	-6	3	8	8297	8374			never				0	
+ten	dev	-12	1	0	875	952			never				0	
+ten	dev	-12	1	2	2934	3011			never				0	
+ten	dev	-12	1	4	4616	4678			never				0	
+ten	dev	-12	1	6	6644	6723			never				0	
+ten	dev	-12	1	8	8327	8397			never				0	
+ten	dev	-12	2	0	1034	1103			never				0	
+ten	dev	-12	2	2	2803	2872			never				0	
+ten	dev	-12	2	4	4702	4774			never				0	
+ten	dev	-12	2	6	6511	6582			never				0	
+ten	dev	-12	2	8	8336	8417			never				0	
+ten	dev	-12	3	0	1016	1093			never				0	
+ten	dev	-12	3	2	2819	2881			never				0	
+ten	dev	-12	3	4	4648	4727			never				0	
+ten	dev	-12	3	6	6669	6739			never				0	
+ten	dev	-12	3	8	8297	8374			never				0	
+ten	dev	-18	1	0	875	952			never				0	
+ten	dev	-18	1	2	2934	3011			never				0	
+ten	dev	-18	1	4	4616	4678			never				0	
+ten	dev	-18	1	6	6644	6723			never				0	
+ten	dev	-18	1	8	8327	8397			never				0	
+ten	dev	-18	2	0	1034	1103			never				0	
+ten	dev	-18	2	2	2803	2872			never				0	
+ten	dev	-18	2	4	4702	4774			never				0	
+ten	dev	-18	2	6	6511	6582			never				0	
+ten	dev	-18	2	8	8336	8417			never				0	
+ten	dev	-18	3	0	1016	1093			never				0	
+ten	dev	-18	3	2	2819	2881			never				0	
+ten	dev	-18	3	4	4648	4727			never				0	
+ten	dev	-18	3	6	6669	6739			never				0	
+ten	dev	-18	3	8	8297	8374			never				0	

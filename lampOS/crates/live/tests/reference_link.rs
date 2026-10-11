@@ -1,7 +1,7 @@
 use lamp_live::{
     process::{SessionDirectory, new_boot},
     transport::ReferenceChannels,
-    wire::ReferenceControl,
+    wire::{PreparedPrime, PrimeDisposition, ReferenceControl},
 };
 use std::io;
 
@@ -50,15 +50,22 @@ fn direct_control_remains_usable_when_actual_render_socket_is_full() {
     capture
         .control
         .send(ReferenceControl::ReferencePrimed {
-            playback_epoch: 3,
-            analysed_through: 480,
+            prepared: PreparedPrime {
+                playback_epoch: 3,
+                privacy_generation: 2,
+                prepared_through: 480,
+                analysed_through: 480,
+                disposition: PrimeDisposition::Analysed,
+            },
         })
         .unwrap();
     assert!(matches!(
         speaker.control.receive::<ReferenceControl>().unwrap(),
         Some(ReferenceControl::ReferencePrimed {
-            playback_epoch: 3,
-            ..
+            prepared: PreparedPrime {
+                playback_epoch: 3,
+                ..
+            }
         })
     ));
 }
@@ -113,8 +120,13 @@ fn terminal_notice_survives_capture_closing_first_without_relaxing_live_sends() 
         speaker
             .control
             .send(ReferenceControl::ReferencePrimed {
-                playback_epoch: 2,
-                analysed_through: 480,
+                prepared: PreparedPrime {
+                    playback_epoch: 2,
+                    privacy_generation: 2,
+                    prepared_through: 480,
+                    analysed_through: 480,
+                    disposition: PrimeDisposition::Analysed,
+                },
             })
             .is_err(),
         "a closed peer must still fail ordinary live control delivery"
@@ -173,8 +185,13 @@ fn terminal_notice_never_connects_an_unconnected_control_socket() {
         speaker
             .control
             .send(ReferenceControl::ReferencePrimed {
-                playback_epoch: 2,
-                analysed_through: 480,
+                prepared: PreparedPrime {
+                    playback_epoch: 2,
+                    privacy_generation: 2,
+                    prepared_through: 480,
+                    analysed_through: 480,
+                    disposition: PrimeDisposition::Analysed,
+                },
             })
             .unwrap_err()
             .kind(),

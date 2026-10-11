@@ -1,0 +1,7 @@
+plain [all] replies 8 of 8, room at block 7306
+  NEGATIVES 34.4 s of own speech: yields 0, committed 0, pauses ms []
+  OVERLAP +6 dB: 24 trials; yielded 24 (delay ms median 105, 90th 348, worst 930); committed at first yield 21, in the end 21 (delay ms median 510, worst 850); never yielded 0; excluded 0
+  OVERLAP +0 dB: 24 trials; yielded 24 (delay ms median 265, 90th 826, worst 1000); committed at first yield 18, in the end 18 (delay ms median 580, worst 1000); never yielded 0; excluded 0
+  OVERLAP -6 dB: 24 trials; yielded 18 (delay ms median 355, 90th 610, worst 1070); committed at first yield 14, in the end 14 (delay ms median 730, worst 890); never yielded 6; excluded 0
+  OVERLAP -12 dB: 24 trials; yielded 12 (delay ms median 390, 90th 946, worst 1030); committed at first yield 8, in the end 8 (delay ms median 685, worst 890); never yielded 12; excluded 0
+  OVERLAP -18 dB: 24 trials; yielded 8 (delay ms median 505, 90th 1061, worst 1110); committed at first yield 4, in the end 4 (delay ms median 725, worst 780); never yielded 16; excluded 0

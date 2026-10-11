@@ -1,0 +1,20 @@
+{
+  "accepted_through": 1366800,
+  "analysed_through": 1366800,
+  "boundary": "two host processes, real clock and scheduler, no audio device",
+  "busy_us_per_block": 76.302460456942,
+  "capture_blocks": 5690,
+  "fault": "ReferenceLate",
+  "last_packet_age_us_at_end": 48940,
+  "learned_ppm": null,
+  "mode": "fixed",
+  "rate_ppm": null,
+  "rendered_blocks": null,
+  "resident_kib": 3084,
+  "ring_frames_least_most": null,
+  "seconds_asked": 300,
+  "skew_ppm": 400.0,
+  "wait": "spin",
+  "worst_gap_between_packets_us": 11644,
+  "worst_wake_late_us": 27621
+}

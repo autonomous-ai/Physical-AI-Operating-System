@@ -1,0 +1,810 @@
+//! Production dispatch and receipt handlers with owned local IPC; no audio device.
+use super::*;
+use crate::provider_worker::{FailedStage, Fault};
+use lamp_audio::ownership::PlaybackCursor;
+
+fn failed_reply(before_started: bool) -> (Controller, Option<Reply>, SessionState) {
+    let (mut owner, mut current, _) = active_reply();
+    owner
+        .playback_ended(now(), current.playback.take().unwrap())
+        .unwrap();
+    current.pcm.clear();
+    current.had_audio = false;
+    if before_started {
+        current.cloud = CloudRequest::new(1).unwrap();
+        current
+            .cloud
+            .submitted(&ProviderInput::Start {
+                session: 1,
+                request: current.owner.turn(),
+                privacy_generation: 1,
+            })
+            .unwrap();
+    }
+    let request = current.owner.turn();
+    let mut reply = Some(current);
+    observe_provider_output(
+        &mut CloudAvailability::default(),
+        &mut reply,
+        &ProviderOutput::TurnFailed {
+            request,
+            stage: if before_started {
+                FailedStage::NotDelivered
+            } else {
+                FailedStage::AwaitingResponse
+            },
+            reason: Fault::Transport,
+        },
+    )
+    .unwrap();
+    let mut trace = SessionState::default();
+    trace
+        .receipts
+        .admitted(reply.as_ref().unwrap().owner, monotonic_us())
+        .unwrap();
+    (owner, reply, trace)
+}
+
+struct Receipts {
+    events: VecDeque<WorkerEvent>,
+}
+impl SpeakerControlIo for Receipts {
+    fn next_speaker_event(&mut self) -> io::Result<Option<WorkerEvent>> {
+        Ok(self.events.pop_front())
+    }
+    fn publish_speaker_snapshot(&mut self, _: Snapshot) -> io::Result<()> {
+        Ok(())
+    }
+}
+fn accepted(chunk: &SpeakerChunk, offset: u64, frames: usize) -> WorkerEvent {
+    let at = monotonic_us();
+    WorkerEvent::Playback {
+        owner: chunk.permit.owner(),
+        turn: chunk.permit.owner().turn(),
+        sequence: chunk.chunk_sequence,
+        first_sample: PlaybackCursor {
+            epoch: 1,
+            frame: offset,
+        },
+        end_sample: PlaybackCursor {
+            epoch: 1,
+            frame: offset + frames as u64,
+        },
+        queue_observed_at_us: at,
+        queued_frames: 0,
+        accepted_frames: frames,
+        observed_at_us: at,
+    }
+}
+
+#[test]
+fn failure_notice_before_started_uses_real_permits_and_exact_partial_final_receipts() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, mut speaker) = pair(&directory, "speaker");
+    let (mut owner, mut reply, mut trace) = failed_reply(true);
+    let mut pending = None;
+    let catalog = FailureNotices::synthetic();
+    select_failure_notice(&catalog, &mut reply, &pending, &mut trace).unwrap();
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+    let mut sequence = 0;
+    let mut last_publish = 0;
+    let mut cursor = 0;
+    let mut attempts = 0;
+    let original_owner = reply.as_ref().unwrap().owner;
+    let mut first_zero = true;
+    for _ in 0..30 {
+        let attempt = dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut mask,
+        )
+        .unwrap();
+        attempts += usize::from(attempt.is_some());
+        let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        assert_eq!(chunk.samples, vec![321; 240]);
+        assert_eq!(chunk.permit.owner(), original_owner);
+        assert!(
+            !reply.as_ref().unwrap().cloud.started,
+            "no invented provider Started"
+        );
+        trace.receipts.dispatched(original_owner, sequence).unwrap();
+        if first_zero {
+            let mut receipts = Receipts {
+                events: vec![accepted(&chunk, cursor, 0)].into(),
+            };
+            service_speaker_control(
+                &mut receipts,
+                &mut owner,
+                &mut reply,
+                &mut pending,
+                &mut mask,
+                &mut snapshot,
+                &mut last_publish,
+                &mut 16,
+                &mut trace,
+            )
+            .unwrap();
+            assert!(reply.as_ref().unwrap().playback.is_none());
+            assert!(pending.is_some());
+            assert!(
+                dispatch_speaker_chunk(
+                    &mut owner,
+                    &mut reply,
+                    &mut parent.data,
+                    &mut pending,
+                    &mut sequence,
+                    &mut snapshot,
+                    &mut mask
+                )
+                .unwrap()
+                .is_none()
+            );
+            assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+            first_zero = false;
+        }
+        let mut receipts = Receipts {
+            events: vec![
+                accepted(&chunk, cursor, 120),
+                accepted(&chunk, cursor + 120, 120),
+            ]
+            .into(),
+        };
+        service_speaker_control(
+            &mut receipts,
+            &mut owner,
+            &mut reply,
+            &mut pending,
+            &mut mask,
+            &mut snapshot,
+            &mut last_publish,
+            &mut 16,
+            &mut trace,
+        )
+        .unwrap();
+        cursor += 240;
+        assert!(pending.is_none());
+        if chunk.end_of_speech {
+            assert_eq!(cursor, 7200);
+            assert!(!reply.as_ref().unwrap().notice.settled());
+            assert!(reply.as_ref().unwrap().playback.is_some());
+            assert!(
+                dispatch_speaker_chunk(
+                    &mut owner,
+                    &mut reply,
+                    &mut parent.data,
+                    &mut pending,
+                    &mut sequence,
+                    &mut snapshot,
+                    &mut mask
+                )
+                .unwrap()
+                .is_none()
+            );
+            let token = reply.as_ref().unwrap().playback.unwrap();
+            // The local notice must not retire on a matching chunk number with
+            // the wrong epoch/frame, or on another chunk's final receipt.
+            for (bad_sequence, bad_epoch, bad_cursor) in [
+                (chunk.chunk_sequence + 1, 1, cursor),
+                (chunk.chunk_sequence, 2, cursor),
+                (chunk.chunk_sequence, 1, cursor + 1),
+            ] {
+                let mut malformed = Receipts {
+                    events: vec![WorkerEvent::SpeechRetired {
+                        owner: original_owner,
+                        sequence: bad_sequence,
+                        final_sample: PlaybackCursor {
+                            epoch: bad_epoch,
+                            frame: bad_cursor,
+                        },
+                        observed_at_us: monotonic_us(),
+                    }]
+                    .into(),
+                };
+                assert!(
+                    service_speaker_control(
+                        &mut malformed,
+                        &mut owner,
+                        &mut reply,
+                        &mut pending,
+                        &mut mask,
+                        &mut snapshot,
+                        &mut last_publish,
+                        &mut 16,
+                        &mut trace,
+                    )
+                    .is_err()
+                );
+                assert!(!reply.as_ref().unwrap().notice.settled());
+                assert_eq!(reply.as_ref().unwrap().playback, Some(token));
+            }
+            let mut receipts = Receipts {
+                events: vec![WorkerEvent::SpeechRetired {
+                    owner: original_owner,
+                    sequence: chunk.chunk_sequence,
+                    final_sample: PlaybackCursor {
+                        epoch: 1,
+                        frame: cursor,
+                    },
+                    observed_at_us: monotonic_us(),
+                }]
+                .into(),
+            };
+            service_speaker_control(
+                &mut receipts,
+                &mut owner,
+                &mut reply,
+                &mut pending,
+                &mut mask,
+                &mut snapshot,
+                &mut last_publish,
+                &mut 16,
+                &mut trace,
+            )
+            .unwrap();
+            assert!(reply.as_ref().unwrap().notice.settled());
+            assert!(reply.as_ref().unwrap().playback.is_none());
+            let mut duplicate = Receipts {
+                events: vec![WorkerEvent::SpeechRetired {
+                    owner: original_owner,
+                    sequence: chunk.chunk_sequence,
+                    final_sample: PlaybackCursor {
+                        epoch: 1,
+                        frame: cursor,
+                    },
+                    observed_at_us: monotonic_us(),
+                }]
+                .into(),
+            };
+            assert!(
+                service_speaker_control(
+                    &mut duplicate,
+                    &mut owner,
+                    &mut reply,
+                    &mut pending,
+                    &mut mask,
+                    &mut snapshot,
+                    &mut last_publish,
+                    &mut 16,
+                    &mut trace,
+                )
+                .is_err()
+            );
+            assert_eq!(
+                trace
+                    .iter()
+                    .find(|e| e["kind"] == "failure_notice_final_sample_retired")
+                    .unwrap()["playback_sequence"],
+                token.sequence()
+            );
+        }
+    }
+    select_failure_notice(&catalog, &mut reply, &pending, &mut trace).unwrap();
+    assert_eq!(attempts, 1);
+    assert!(!reply.as_ref().unwrap().had_audio);
+    assert_eq!(
+        reply.as_ref().unwrap().delivery_outcome(),
+        "provider_failed"
+    );
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "failure_notice_first_write")
+            .count(),
+        1
+    );
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "speaker_first_write" || e["kind"] == "provider_first_audio")
+    );
+}
+
+#[test]
+fn failure_notice_cancelled_while_selected_or_dispatched_never_revives() {
+    for (dispatched, reason) in [
+        (false, "user_interrupted"),
+        (true, "user_interrupted"),
+        (false, "service_stopped"),
+        (true, "service_stopped"),
+        (false, "privacy_muted"),
+        (true, "privacy_muted"),
+    ] {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&directory, "speaker");
+        let (mut owner, mut reply, mut trace) = failed_reply(false);
+        let catalog = FailureNotices::synthetic();
+        let mut pending = None;
+        let mut sequence = 0;
+        let mut snapshot = owner.snapshot(now()).unwrap();
+        let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+        select_failure_notice(&catalog, &mut reply, &pending, &mut trace).unwrap();
+        let old = reply.as_ref().unwrap().owner;
+        if dispatched {
+            dispatch_speaker_chunk(
+                &mut owner,
+                &mut reply,
+                &mut parent.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+                &mut mask,
+            )
+            .unwrap();
+            let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+            trace.receipts.dispatched(old, sequence).unwrap();
+            let mut receipts = Receipts {
+                events: vec![accepted(&chunk, 0, 120)].into(),
+            };
+            service_speaker_control(
+                &mut receipts,
+                &mut owner,
+                &mut reply,
+                &mut pending,
+                &mut mask,
+                &mut snapshot,
+                &mut 0,
+                &mut 16,
+                &mut trace,
+            )
+            .unwrap();
+            assert!(reply.as_ref().unwrap().playback.is_some());
+        }
+        cancel_reply(&mut owner, &mut reply, &mut trace, reason).unwrap();
+        pending = None;
+        let successor = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+        assert_ne!(old, successor);
+        select_failure_notice(&catalog, &mut reply, &pending, &mut trace).unwrap();
+        assert!(
+            dispatch_speaker_chunk(
+                &mut owner,
+                &mut reply,
+                &mut parent.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+                &mut mask
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        let finished = trace.iter().find(|e| e["kind"] == "turn_finished").unwrap();
+        assert_eq!(finished["outcome"], reason);
+        assert_eq!(
+            finished["failure_notice"]["state"],
+            if dispatched { "attempted" } else { "selected" }
+        );
+        assert_eq!(owner.snapshot(now()).unwrap().owner(), Some(successor));
+    }
+}
+
+#[test]
+fn failure_notice_privacy_or_owner_revocation_is_checked_before_cursor_reservation() {
+    for privacy in [false, true] {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&directory, "speaker");
+        let (mut owner, mut reply, mut trace) = failed_reply(false);
+        let mut pending = None;
+        let mut sequence = 0;
+        let mut snapshot = owner.snapshot(now()).unwrap();
+        select_failure_notice(
+            &FailureNotices::synthetic(),
+            &mut reply,
+            &pending,
+            &mut trace,
+        )
+        .unwrap();
+        if privacy {
+            owner
+                .set_microphone_permission(now(), Permission::Denied)
+                .unwrap();
+        } else {
+            owner
+                .cancel_turn(now(), reply.as_ref().unwrap().owner)
+                .unwrap();
+        }
+        assert!(
+            dispatch_speaker_chunk(
+                &mut owner,
+                &mut reply,
+                &mut parent.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+                &mut PlaybackMask::new(TurnTaking::VadOnly)
+            )
+            .is_err()
+        );
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        assert_eq!(
+            reply.as_ref().unwrap().notice.evidence()["reserved_frames"],
+            0
+        );
+        assert_eq!(
+            reply.as_ref().unwrap().notice.evidence()["state"],
+            "selected"
+        );
+    }
+}
+
+#[test]
+fn failure_notice_ignores_old_request_and_does_not_weaken_duplicate_failure_fault() {
+    let (mut owner, mut current, _) = active_reply();
+    owner
+        .playback_ended(now(), current.playback.take().unwrap())
+        .unwrap();
+    current.pcm.clear();
+    let old_id = current.owner.turn();
+    owner.cancel_turn(now(), current.owner).unwrap();
+    current.owner = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+    current.plan = owner
+        .plan_output(now(), current.owner, OutputKind::Speech, None)
+        .unwrap();
+    owner.input_ended(now(), current.owner).unwrap();
+    let id = current.owner.turn();
+    let mut reply = Some(current);
+    let mut cloud = CloudAvailability::default();
+    let mut trace = SessionState::default();
+    let catalog = FailureNotices::synthetic();
+    let old = ProviderOutput::TurnFailed {
+        request: old_id,
+        stage: FailedStage::AwaitingResponse,
+        reason: Fault::Transport,
+    };
+    observe_provider_output(&mut cloud, &mut reply, &old).unwrap();
+    select_failure_notice(&catalog, &mut reply, &None, &mut trace).unwrap();
+    assert!(matches!(
+        reply.as_ref().unwrap().notice,
+        NoticeDelivery::Unselected
+    ));
+    let event = ProviderOutput::TurnFailed {
+        request: id,
+        stage: FailedStage::AwaitingResponse,
+        reason: Fault::Transport,
+    };
+    observe_provider_output(&mut cloud, &mut reply, &event).unwrap();
+    select_failure_notice(&catalog, &mut reply, &None, &mut trace).unwrap();
+    assert!(observe_provider_output(&mut cloud, &mut reply, &event).is_err());
+    select_failure_notice(&catalog, &mut reply, &None, &mut trace).unwrap();
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "failure_notice_selected")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn failure_notice_retains_raw_gap_without_tainting_provider_answer_metrics() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, mut speaker) = pair(&directory, "speaker");
+    let (mut owner, mut reply, mut trace) = failed_reply(false);
+    let mut pending = None;
+    let mut sequence = 0;
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+    select_failure_notice(
+        &FailureNotices::synthetic(),
+        &mut reply,
+        &pending,
+        &mut trace,
+    )
+    .unwrap();
+    dispatch_speaker_chunk(
+        &mut owner,
+        &mut reply,
+        &mut parent.data,
+        &mut pending,
+        &mut sequence,
+        &mut snapshot,
+        &mut mask,
+    )
+    .unwrap();
+    let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+    trace
+        .receipts
+        .dispatched(chunk.permit.owner(), sequence)
+        .unwrap();
+    let mut receipts = Receipts {
+        events: vec![accepted(&chunk, 0, 240)].into(),
+    };
+    service_speaker_control(
+        &mut receipts,
+        &mut owner,
+        &mut reply,
+        &mut pending,
+        &mut mask,
+        &mut snapshot,
+        &mut 0,
+        &mut 16,
+        &mut trace,
+    )
+    .unwrap();
+    let gap = crate::wire::PlaybackGap {
+        owner: chunk.permit.owner(),
+        first_sample: PlaybackCursor {
+            epoch: 1,
+            frame: 240,
+        },
+        end_sample: PlaybackCursor {
+            epoch: 1,
+            frame: 480,
+        },
+        started_at_us: 11,
+        last_zero_accepted_at_us: 11,
+        zero_frames: 240,
+    };
+    handle_playback_gap(
+        &mut reply,
+        None,
+        &mut trace,
+        WorkerEvent::PlaybackGap {
+            phase: PlaybackGapPhase::Started,
+            gap,
+            observed_at_us: 11,
+        },
+    )
+    .unwrap();
+    assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
+    assert_eq!(
+        reply.as_ref().unwrap().notice.evidence()["playback_gaps"],
+        1
+    );
+    assert_eq!(
+        reply.as_ref().unwrap().delivery_outcome(),
+        "provider_failed"
+    );
+    let raw = trace.iter().find(|e| e["kind"] == "playback_gap").unwrap();
+    assert_eq!(raw["origin"], "failure_notice");
+    assert_eq!(raw["gap"]["zero_frames"], 240);
+    assert_eq!(raw["gap"]["first_sample"]["frame"], 240);
+    let mut malformed = gap;
+    malformed.zero_frames = 239;
+    assert!(
+        handle_playback_gap(
+            &mut reply,
+            None,
+            &mut trace,
+            WorkerEvent::PlaybackGap {
+                phase: PlaybackGapPhase::Started,
+                gap: malformed,
+                observed_at_us: 11
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(
+        reply.as_ref().unwrap().notice.evidence()["playback_gaps"],
+        1
+    );
+    cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
+    let (_, next, _) = active_reply();
+    assert_ne!(next.owner, gap.owner);
+    reply = Some(next);
+    handle_playback_gap(
+        &mut reply,
+        None,
+        &mut trace,
+        WorkerEvent::PlaybackGap {
+            phase: PlaybackGapPhase::Cancelled,
+            gap,
+            observed_at_us: 12,
+        },
+    )
+    .unwrap();
+    assert_eq!(reply.as_ref().unwrap().playback_gaps, 0);
+    assert_eq!(trace.last().unwrap()["origin"], serde_json::Value::Null);
+}
+
+#[test]
+fn failure_notice_failed_transport_keeps_attempt_then_uses_existing_cancellation() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, speaker) = pair(&directory, "speaker");
+    let (mut owner, mut reply, mut trace) = failed_reply(false);
+    let mut pending = None;
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    select_failure_notice(
+        &FailureNotices::synthetic(),
+        &mut reply,
+        &pending,
+        &mut trace,
+    )
+    .unwrap();
+    drop(speaker);
+    assert!(
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut 0,
+            &mut snapshot,
+            &mut PlaybackMask::new(TurnTaking::VadOnly)
+        )
+        .is_err()
+    );
+    assert!(pending.is_none());
+    assert_eq!(
+        reply.as_ref().unwrap().notice.evidence()["state"],
+        "attempted"
+    );
+    assert_eq!(
+        reply.as_ref().unwrap().notice.evidence()["reserved_frames"],
+        240
+    );
+    // conversation propagates this error; finish_active_run uses this same
+    // cancellation before cleanup. No provider retry or second dispatch occurs.
+    cancel_reply(&mut owner, &mut reply, &mut trace, "runtime_failed").unwrap();
+    assert!(reply.is_none());
+    let terminal = trace.iter().find(|e| e["kind"] == "turn_finished").unwrap();
+    assert_eq!(terminal["failure_notice"]["state"], "attempted");
+    assert_eq!(terminal["outcome"], "runtime_failed");
+}
+
+#[test]
+fn independent_notice_revocation_after_first_complete_chunk_blocks_next_reservation() {
+    for privacy in [false, true] {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&directory, "speaker");
+        let (mut owner, mut reply, mut trace) = failed_reply(false);
+        let mut pending = None;
+        let mut snapshot = owner.snapshot(now()).unwrap();
+        let mut mask = PlaybackMask::new(TurnTaking::V1Baseline);
+        let mut sequence = 0;
+        select_failure_notice(
+            &FailureNotices::synthetic(),
+            &mut reply,
+            &pending,
+            &mut trace,
+        )
+        .unwrap();
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut mask,
+        )
+        .unwrap();
+        let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        trace
+            .receipts
+            .dispatched(chunk.permit.owner(), sequence)
+            .unwrap();
+        let mut receipts = Receipts {
+            events: vec![accepted(&chunk, 0, 240)].into(),
+        };
+        service_speaker_control(
+            &mut receipts,
+            &mut owner,
+            &mut reply,
+            &mut pending,
+            &mut mask,
+            &mut snapshot,
+            &mut 0,
+            &mut 16,
+            &mut trace,
+        )
+        .unwrap();
+        assert!(reply.as_ref().unwrap().playback.is_some());
+        assert!(pending.is_none());
+        if privacy {
+            owner
+                .set_microphone_permission(now(), Permission::Denied)
+                .unwrap();
+        } else {
+            owner.cancel_turn(now(), chunk.permit.owner()).unwrap();
+        }
+        assert!(
+            dispatch_speaker_chunk(
+                &mut owner,
+                &mut reply,
+                &mut parent.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+                &mut mask
+            )
+            .is_err()
+        );
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        assert_eq!(
+            reply.as_ref().unwrap().notice.evidence()["reserved_frames"],
+            240
+        );
+        assert_eq!(
+            reply.as_ref().unwrap().delivery_outcome(),
+            "provider_failed"
+        );
+    }
+}
+
+#[test]
+fn independent_notice_late_original_acceptance_cannot_revive_cancelled_owner() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, mut speaker) = pair(&directory, "speaker");
+    let (mut owner, mut reply, mut trace) = failed_reply(false);
+    let mut pending = None;
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    let mut mask = PlaybackMask::new(TurnTaking::V1Baseline);
+    let mut sequence = 0;
+    select_failure_notice(
+        &FailureNotices::synthetic(),
+        &mut reply,
+        &pending,
+        &mut trace,
+    )
+    .unwrap();
+    dispatch_speaker_chunk(
+        &mut owner,
+        &mut reply,
+        &mut parent.data,
+        &mut pending,
+        &mut sequence,
+        &mut snapshot,
+        &mut mask,
+    )
+    .unwrap();
+    let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+    trace
+        .receipts
+        .dispatched(chunk.permit.owner(), sequence)
+        .unwrap();
+    // This acceptance happened before cancellation, but its receipt is delayed.
+    let receipt = accepted(&chunk, 0, 240);
+    cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
+    pending = None;
+    let successor = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+    trace.receipts.admitted(successor, monotonic_us()).unwrap();
+    let mut receipts = Receipts {
+        events: vec![receipt].into(),
+    };
+    service_speaker_control(
+        &mut receipts,
+        &mut owner,
+        &mut reply,
+        &mut pending,
+        &mut mask,
+        &mut snapshot,
+        &mut 0,
+        &mut 16,
+        &mut trace,
+    )
+    .unwrap();
+    assert_eq!(owner.snapshot(now()).unwrap().owner(), Some(successor));
+    assert!(reply.is_none());
+    assert!(
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut mask
+        )
+        .unwrap()
+        .is_none()
+    );
+    assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "turn_finished")
+            .count(),
+        1
+    );
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "failure_notice_first_write")
+    );
+}

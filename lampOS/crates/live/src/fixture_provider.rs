@@ -146,7 +146,13 @@ impl FixtureOptions {
             directed,
             cue_socket,
             camera_config,
+            failure_notices,
         } = SessionOptions::parse(arguments)?;
+        if failure_notices.is_some() {
+            return Err(invalid(
+                "local failure notices are only for Gemini chat, never reply fixtures",
+            ));
+        }
         if camera_config.is_some() {
             return Err(invalid(
                 "camera context is supported only by directed Gemini chat",

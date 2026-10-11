@@ -1,39 +1,125 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11
+- Updated: 2026-10-11 19:29 UTC
 - Branch: `lamp-v2-chat`
-- Integrated source: this checkpoint adds reviewed capture-clock/reference recovery, experimental duplex with the root prefix-retention correction, and the typed prime-handshake repair over `235f50297`. Defaults are unchanged. Native05 uses source manifest `b0bada56...73cdb8` and binary `738503a803d3...5b8d0`; native startup and three initial replies are observed, sustained qualification pending. Motor remains inactive. Runtime, laboratory probe and deployment identities are distinct.
-- Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: supervised pilot target remains 2026-10-12 about 03:18 UTC. Native03 exposed fixed-clock drift after 378.6 s; Native04 exposed the capture-clock startup mismatch before any prompt. Both failures remain recorded. The corrected Native05 conversation/idle/conversation run is underway. Agent 1 owns provider continuation, Agent 2 conservative endpointing, Main integration and native qualification. No acoustic speedup, natural interruption or all-day readiness is claimed.
+- Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
+- Integration source: optional owned failure notices (`e63f3152`) plus reviewed Gemini Stop fence (`53f303c7e`); composed binary `b1c61a22...643edbd`, not deployed. Native-qualified installation remains unchanged.
+- Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
+- Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
 
-## Current checkpoint, 2026-10-11 17:10 UTC
+## Native05 completed
 
-The reviewed 63-file reference/duplex/prime composition is integrated. Its 283
-non-documentation files match the qualified `b0bada56` source exactly. Host prime
-checks pass 42/42; emulated Linux/ARM64 format, strict audio/live all-target
-Clippy, 120 targeted tests and release build pass. Native `--help` and the actual
-prime startup are verified on 4ace. The bounded Native05 run remains in progress,
-with recovery and duplex off, physical room recording and independent stationary
-rollback. See [pilot evidence and limits](../docs/supervised-pilot.md#native04-failure-and-native05-candidate).
+All 16 planned exchanges completed in one 21.6-minute session, with the second
+eight after 20 minutes. No extra admission, reference fault, DSP reset or provider
+reconnection was recorded. Runtime exit 0, cooperative cleanup and stationary
+rollback verified. Three valid 600-second Mac recordings cover the whole target
+window, with no dropped/clipped frames. Metadata has 3,406 contiguous events and
+a clean coordinator finish ACK. Four replies still report 10–110 ms accepted-zero
+playback gaps; acoustics are unscored. See [the complete evidence boundary](../docs/verification/native05-20261011/README.md).
 
-Agent 1 received the real-service during-output result directly in tmux: one
-strictly confirmed cut-off and answered successor. The 10-second observation
-probe failed local configuration, not the service; its example-only repair is
-published separately at `cfdd6e742` and is not part of this runtime. Earlier
-before-output failure remains unresolved. Early endpointing stays off.
+The sustained-run software median is 1.145450 s from endpoint to first speaker write,
+excluding the 1.2 s endpoint wait. About 2.35 s with that wait is an estimate,
+not first-audible-word timing or a causal speedup claim. Independent local room
+ASR corroborates all 16 question/reply windows; the three WAVs and ledgers were
+independently verified. Recordings are not uploaded.
 
-Agent 2 continues MAIN-057. A nonessential Native04 update through the remote
-terminal route was rejected by automatic approval review; its assignment was
-already delivered and work is not blocked. Installed-source review confirms
-ordinary messages use guarded tmux input, but M2's current implementation still
-needs confirmation before claiming the rejected update delivered. No fallback
-team/channel message was sent.
+Agent 1 received the completed native results through its verified tmux pane.
+Its before-output continuation remains pending; the Stop fence is now
+composed and verified below. `smart-turn-early` stays off. The real-service during-output probe
+succeeded once; the 10-second observation attempt failed local configuration,
+and its example-only repair at `cfdd6e742` is separate from this runtime.
 
-The remaining sections retain earlier checkpoint evidence and limitations;
-the current source/runtime identity and active run are stated above.
+Agent 2's existing paired terminal route was rechecked against current M2
+metadata: Claude, expected worktree, sole tmux runtime `%37`. The normal guarded
+terminal submission delivered MAIN-057's update and a new turn start was observed.
+The earlier rejected Native04 update was not sent; no team/channel bypass was
+used. Agent 2 continues the conservative endpoint pilot package.
 
-## Pilot deadline and current blockers
+Host prime checks passed 42/42. The frozen runtime passed emulated Linux/ARM64
+format, strict audio/live all-target Clippy, 120 targeted tests and release build.
+No fresh full-workspace gate is claimed. Native04's startup mismatch and invalid
+observer remain retained. The local-notice integration now passes its combined verification; the
+standalone service package subsequently passed the two-turn installed-unit
+check below without replacing the tested binary.
+
+## Installed pilot and endpoint decision
+
+The qualified binary is installed under `/opt/lampOS/releases`, with private
+standalone provider files and a systemd template. The installed service now
+completed 2/2 iMac exchanges and clean Stop: five observed process identities
+gone, cgroup/hardware owners empty, 272 metadata events and healthy finish ACK.
+No playback gap was reported. A valid 180-second room recording covers the run,
+and local ASR corroborates both complete replies. Stop request to verified clean
+state was 185.413 ms; coordinator SIGTERM event to run_end was 25.786 ms.
+Stationary muted rollback and actual mixer readbacks match. The unit is stopped
+and not boot-enabled. See [native evidence](../docs/verification/installed-service-20261011/README.md)
+and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, optical
+choreography and actual facilitator handoff remain unqualified.
+
+Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
+Keep the fixed baseline for the first attended sessions: its candidate saves at
+most 200 ms and added six held-out sentence splits in 1,167 clips. Before-output
+provider settlement is still unresolved. MAIN-059 delivered this decision and
+the inherited soft-resource-limit review finding through verified M2 tmux, with
+an observed turn start. No endpoint mode is integrated or activated here.
+
+## Owned failure notice integration
+
+The optional cached `turn_lost` notice uses the existing speaker owner, privacy
+permits, cancellation, acceptance and retirement checks. No notice is counted
+as a successful answer or answer latency. Defaults stay off; there is no
+approved production voice recording in this checkpoint. Independent host review
+and the composed Linux/ARM64 emulated gate pass: format, strict audio/live
+all-target Clippy, 229 selected tests and release build. Source manifest
+`38f9f212...13c5e`, binary `e37505d7...ecba2`; exact commands and evidence are in
+[failure notices](../docs/failure-notices.md#integration-verification-2026-10-11).
+The installed pilot is unchanged; native notice audibility, cancellation timing
+and the 20 ms dispatch target are not yet measured. Terminal provider recovery
+and notices for unowned/unavailable input remain separate work.
+
+Agent 2's inherited-limit correction is fetched at `lamp-a2-pilot-limits`
+`cd97b1c4` (code `ace53633`) for review. Its artifact/model identities and
+self-check plan are available; no endpoint worker or model has been installed
+here. The fixed baseline remains the attended-pilot decision. Agent 1's fuller Stop
+correction is now integrated after independent review reproduced held End and
+selected pending writes after Stop in the first four-line queue guard. The
+new fence closes both gaps; accepted transport bytes still cannot be recalled.
+
+Correction to the earlier continuation report: the lost original failure was an
+IPC receive panic, not an established output-capacity failure. Agent 1's bounded
+two-tree comparison makes both main and its branch fail under an imposed 150 ms
+rig stall; 60 ms stalls pass. This supports a scheduling explanation but does
+not recover the first lost panic text or qualify before-output continuation.
+
+Agent 1 completed its Stop gate and confirmed a quiet host/VM window for Main.
+Main's composed gate has finished; no build is running. A finite voice-plus-ring
+run is under final review, using the unchanged native-qualified binary and a
+low ceiling of 12. Motors remain inhibited. Agent 2 published the first 12
+pilot fault scenarios at `lamp-a2-pilot-faults` `ff22184a`, with one deliberately
+ignored failing reproduction for a stalled speaker under `vad-only`. The pilot
+uses V1-baseline, which bounds that same fault. Main reviewed the harness and
+requested stronger boundary/identity assertions plus a separate minimal fix,
+while Agent 2 completes the remaining matrix. No device/office-VM grant exists.
+
+The composed Stop source passed format and strict Gemini/live all-target Clippy,
+219 host tests (four existing ignored) and seven emulated ARM Stop tests; the
+ARM64 release binary linked and its exported digest verified. No full-workspace
+or device gate is claimed for this composition. Exact source/receipt/artifact
+identities and commands are in [the integration evidence](../docs/gemini-session-reliability.md#integration-verification-2026-10-11).
+Agent 1's before-output continuation and early endpointing remain separate.
+
+One synthetic Gemini failure-notice generation remains pending explicit owner
+approval after automatic approval review rejected the credential-access/cloud
+step. It was not executed; no room audio would be sent. Normal authorized
+on-device conversation testing continued independently. The iMac camera also
+works through the approved Camera Test app's LaunchServices route; the earlier
+direct-executable permission error is retained, and no TCC reset was used.
+
+The sections below preserve earlier checkpoints; the current identity and result
+are stated above.
+
+## Earlier pilot deadline and blocker checkpoint
 
 The owner set a 12-hour target at approximately 15:18 UTC on 2026-10-11.
 See [the supervised pilot plan](../docs/supervised-pilot.md). MAIN-054 was sent

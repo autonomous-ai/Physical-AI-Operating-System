@@ -262,6 +262,38 @@ impl DirectedOptions {
     }
 }
 
+/// Optional local failure speech. Both values are explicit; this grants no
+/// output authority and never creates or downloads recordings.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NoticeOptions {
+    directory: PathBuf,
+    language: String,
+}
+impl NoticeOptions {
+    pub fn new(directory: PathBuf, language: String) -> io::Result<Self> {
+        if !directory.is_absolute()
+            || language.is_empty()
+            || language.len() > 35
+            || !language
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            || language.split('-').any(str::is_empty)
+        {
+            return Err(invalid_options());
+        }
+        Ok(Self {
+            directory,
+            language,
+        })
+    }
+    pub(crate) fn directory(&self) -> &std::path::Path {
+        &self.directory
+    }
+    pub(crate) fn language(&self) -> &str {
+        &self.language
+    }
+}
+
 /// Optional observation of a finite conversation. Cues contain lifecycle
 /// metadata only; enabling them does not enable microphone PCM diagnostics.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -270,6 +302,7 @@ pub struct SessionOptions {
     pub cue_socket: Option<PathBuf>,
     /// Opt-in direct camera context; absent means no camera process or device.
     pub camera_config: Option<PathBuf>,
+    pub failure_notices: Option<NoticeOptions>,
 }
 impl SessionOptions {
     pub fn validate_serve(&self) -> io::Result<()> {
@@ -286,13 +319,20 @@ impl SessionOptions {
         let mut remaining = Vec::new();
         let mut cue_socket = None;
         let mut camera_config = None;
+        let mut notice_directory = None;
+        let mut notice_language = None;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
-            if matches!(argument.as_str(), "--cue-socket" | "--camera-config") {
+            if matches!(
+                argument.as_str(),
+                "--cue-socket" | "--camera-config" | "--failure-notice-dir"
+            ) {
                 let slot = if argument == "--cue-socket" {
                     &mut cue_socket
-                } else {
+                } else if argument == "--camera-config" {
                     &mut camera_config
+                } else {
+                    &mut notice_directory
                 };
                 if slot.is_some() {
                     return Err(invalid_options());
@@ -302,14 +342,22 @@ impl SessionOptions {
                     return Err(invalid_options());
                 }
                 *slot = Some(path);
+            } else if argument == "--failure-notice-language" && notice_language.is_none() {
+                notice_language = Some(required_value(&mut arguments)?.to_owned());
             } else {
                 remaining.push(argument.clone());
             }
         }
+        let failure_notices = match (notice_directory, notice_language) {
+            (None, None) => None,
+            (Some(directory), Some(language)) => Some(NoticeOptions::new(directory, language)?),
+            _ => return Err(invalid_options()),
+        };
         Ok(Self {
             directed: DirectedOptions::parse(&remaining)?,
             cue_socket,
             camera_config,
+            failure_notices,
         })
     }
 }
@@ -963,5 +1011,66 @@ mod tests {
             AudioWorkerOptions::parse(&arguments[1..], false).unwrap(),
             render
         );
+    }
+}
+
+#[cfg(test)]
+mod notice_tests {
+    use super::*;
+    fn parse(args: &[&str]) -> io::Result<SessionOptions> {
+        SessionOptions::parse(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+    #[test]
+    fn failure_notice_is_explicit_paired_bounded_and_not_forwarded_to_workers() {
+        assert!(SessionOptions::default().failure_notices.is_none());
+        let options = parse(&[
+            "--failure-notice-dir",
+            "/tmp/local notices",
+            "--failure-notice-language",
+            "en-US",
+        ])
+        .unwrap();
+        let notices = options.failure_notices.unwrap();
+        assert_eq!(
+            notices.directory(),
+            std::path::Path::new("/tmp/local notices")
+        );
+        assert_eq!(notices.language(), "en-US");
+        for args in [
+            vec!["--failure-notice-dir", "/tmp/local"],
+            vec!["--failure-notice-language", "en-US"],
+            vec![
+                "--failure-notice-dir",
+                "relative",
+                "--failure-notice-language",
+                "en-US",
+            ],
+            vec![
+                "--failure-notice-dir",
+                "/tmp/local",
+                "--failure-notice-language",
+                "en--US",
+            ],
+            vec![
+                "--failure-notice-dir",
+                "/tmp/local",
+                "--failure-notice-language",
+                "en-US",
+                "--failure-notice-language",
+                "en-US",
+            ],
+        ] {
+            assert!(parse(&args).is_err(), "{args:?}");
+        }
+        assert!(NoticeOptions::new("/tmp/local".into(), "a".repeat(36)).is_err());
+        let args = [
+            "--failure-notice-dir",
+            "/tmp/local",
+            "--failure-notice-language",
+            "en-US",
+        ]
+        .map(String::from);
+        assert!(AudioWorkerOptions::parse(&args, true).is_err());
+        assert!(crate::fixture_provider::FixtureOptions::parse(&args).is_err());
     }
 }

@@ -1,8 +1,9 @@
 # Spoken failure notices
 
-Scope: `crates/audio/src/notice.rs` and the `lamp-audio notices` check. This
-is a loader and a provisioning contract. It plays nothing, and no notice is
-packaged in this source.
+Scope: `crates/audio/src/notice.rs`, the `lamp-audio notices` check, and the
+optional same-owner integration in `lamp-live`. The loader plays nothing by
+itself. Live playback requires explicit configuration and a still-valid owned
+failed turn. No recording is packaged in this source.
 
 ## The rule
 
@@ -143,4 +144,102 @@ refusing only itself; format, length and silence checks at both bounds; a
 linked asset; malformed names and text.
 
 Not done: no approved wording, no approved voice, no recorded asset, no
-provisioning on any device, and nothing that plays a notice.
+provisioning on any device, and no native qualification of the optional live playback integration.
+
+## Optional same-owner live integration
+
+`lamp-live directed` and `lamp-live serve` accept the paired options
+`--failure-notice-dir ABS_PATH --failure-notice-language TAG`. Both must be
+explicit. Omission preserves silent failure behavior. Fixture-provider and
+child-worker commands reject these options. This integration selects only
+`turn_lost` in the exact requested language, requires `approval: production`,
+and loads it once before starting audio workers. It never synthesizes,
+downloads, resamples, or opens a second speaker. A missing or refused recording
+is visible in `failure_notice_capability`; active ticks perform no asset I/O.
+No production recording or approved wording is supplied by this source.
+
+A validated failure of the current owned request may select one notice only
+after the real input endpoint and retirement of all prior provider audio.
+A failed Start does not become a fake provider `Started` receipt: local notice
+PCM has a distinct origin. Provider PCM retains its existing Started check.
+The original Controller speech plan, short permits, speaker writer and exact
+acceptance/final-retirement receipts govern both sources. The notice creates
+another playback occurrence under the same owner, never another model request.
+Its attempted latch is set before transport dispatch. A failed or ambiguous
+send is not retried. No worker or cue queue is added.
+
+`failure_notice_selected`, `failure_notice_attempted`,
+`failure_notice_first_write` and `failure_notice_final_sample_retired` describe
+local notice delivery. Selection grants no output authority; ALSA acceptance
+and retirement are not proof of audibility. Final notice retirement must match
+the fully accepted final chunk, playback epoch and sample cursor exactly. The failed turn retains
+`provider_failed`; notice audio is excluded from provider arrivals, answer
+first-write events and answer gap counts. Raw playback gap evidence is retained
+with its output origin while the matching reply is retained, and notice gaps
+are recorded separately. Late gaps after owner retirement remain raw evidence
+with unknown origin; they cannot taint a successor’s answer metrics. Cancellation
+retains the selected/attempted evidence rather than treating the notice as an
+answer. Observation loss cannot authorize playback or repeat the notice.
+
+Privacy, Stop, hard authority expiry and a new admitted owner invalidate old
+notice permits just as they invalidate an answer. A cancelled notice is never
+restored after unmute, a later owner or process restart. This is at most one
+local notice attempt for a still-owned failed turn, not exactly-once audible
+speech. The existing baseline own-playback mask still suppresses prospective
+input over the notice; this change does not qualify natural barge-in.
+
+Already-unavailable input has no TurnOwner and receives no notice in this
+batch. A successful complete reply, idle link event, old-owner failure or
+reconnect alone does not trigger speech. A missing asset produces one skipped
+result and permits normal failed-turn retirement. The local scheduling target
+is first notice dispatch within 20 ms after all eligibility conditions hold
+(real endpoint, prior retirement, available owner and no pending chunk),
+excluding the failed provider wait. This is a target, not a measured hardware
+latency; the active path adds no file/network I/O or deliberate delay. Mandatory audio/privacy/
+reference faults still terminate safely. Terminal provider output still ends
+serve after retained obligations settle; provider replacement and truthful
+fresh-context recovery are separate work. No new readiness promise is made.
+
+Qualification for this integration uses test-only PCM, the production
+coordinator/dispatcher and local IPC. Test PCM is never a production-approved
+asset. Hardware audibility, native cancellation timing, approved voice quality
+and production asset provisioning remain unverified until separately measured.
+
+
+## Integration verification, 2026-10-11
+
+The composed source was checked from a source-only standalone export on macOS
+and Linux/ARM64 emulation. The proposal's host gate passed 221 focused tests;
+independent review added regressions for cancellation between chunks, late
+acceptance after cancellation, and provider audio followed by one notice through
+the real baseline conversation loop. The combined ARM gate passed 229 selected
+tests: coordinator 189, options 17, playback 9, fixture provider 2, notice loader
+7, and process/privacy 5. None failed or was ignored in this selection. This is
+an affected-path gate, not a new full-workspace or real-Lamp result.
+
+Commands, from the exported `lampOS` root (Rust 1.96.0):
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live -p lamp-audio --all-targets -- -D warnings
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib coordinator:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib options:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib playback:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib fixture_provider:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-audio --test notice -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --test process --test privacy_state -- --test-threads=1
+cargo build --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --bin lamp-live
+```
+
+The 407-file source manifest is
+`38f9f212bd1701129cb4e36df89d4f1316bbe7961e4ce0cf22e7ba3eeb313c5e`.
+The ARM receipt is
+`172900fda694afb5826b217db2af5678246a33e252e070510a84c87284ec683c`;
+private logs are under `/private/tmp/lamp-notice-integrated-2evnkvbr/arm` on the
+integration Mac. The resulting 8,678,808-byte AArch64 binary is
+`e37505d747f6aca3f4e86fbd5f04d12569eb6068d93dc09f60523f918f0ecba2`.
+Source hashes were checked before and after the gate; extraction matches the
+built artifact. Documentation was updated afterwards. This artifact has not
+been deployed by this checkpoint. The installed stopped pilot still uses the
+previously qualified `738503a803d3...` binary. Notice speech remains disabled
+until a real approved voice asset is provisioned and the native path is checked.

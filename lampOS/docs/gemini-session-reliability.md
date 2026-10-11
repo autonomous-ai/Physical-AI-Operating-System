@@ -242,6 +242,41 @@ review that found the held End and the waiting write still uncovered
 after the first fix. Before the fence the first four `stop_fence` tests
 fail and the control passes.
 
+### Integration verification, 2026-10-11
+
+Main composed Agent 1's reviewed `53f303c7e` Stop change with integration
+`ff683e665` (failure-notice runtime `e63f3152`), using a source-only export.
+The two reproduced transport gaps and the queue guard are covered; the
+before-output continuation proposal is not included. Runtime defaults and
+response deadlines are unchanged.
+
+| Combined-source check | Result |
+|---|---|
+| `cargo fmt --all -- --check` | passed |
+| `cargo clippy --locked --offline -p lamp-gemini -p lamp-live --all-targets -- -D warnings` | passed on macOS and emulated Linux/ARM64 |
+| `cargo test --locked --offline -p lamp-gemini --lib -- --test-threads=1` | 144 passed, 0 failed, 2 existing ignored |
+| `cargo test --locked --offline -p lamp-live --lib failure_notice -- --test-threads=1` | 13 passed, 0 failed |
+| `cargo test --locked --offline -p lamp-live --lib provider_worker -- --test-threads=1` | 62 passed, 0 failed, 2 existing ignored |
+| ARM64 release `lamp-gemini --lib` filtered to `stop_fence` and `a_stop_with` | 7 passed, 0 failed, 0 ignored |
+| ARM64 release build of `lamp-live` | linked as little-endian AArch64 ELF |
+
+This is 219 passing host tests and seven focused emulated ARM tests, not a new
+full-workspace pass or physical Stop measurement. Agent 1's separate
+full-workspace gate was on `2fd77a417`; its final checkpoint changes only
+comments and documentation after that gate.
+
+The private source manifest is
+`8565c7d5b6b7eadb0e7cbf4e24c77b00bc698850f9f81c54ce3d14459a851c8b`
+(409 files, before this verification prose). The exact ARM receipt is
+`87fbabb32ce10100d42c278eae0a337f71ccaf9e48ebabbe8cfc6b02b1ce98e4`; the 8,681,808-byte executable is
+`b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd`. The copied artifact matches the
+build digest. Source, logs and artifact are retained locally at
+`/private/tmp/lamp-stop-composed-9_evluok`; no executable is committed.
+
+The installed Lamp remains on the separately qualified `55d7af98e` runtime.
+These checks do not prove acoustic interruption latency, physical mute/reopen,
+or when Gemini stops receiving already-accepted bytes.
+
 ## Speaking speed
 
 The service generates faster than a speaker plays. The transport therefore

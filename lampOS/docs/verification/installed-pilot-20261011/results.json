@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "scope": "Stopped standalone pilot installation; no cutover or voice run",
+  "device": "lamp-4ace",
+  "boot_id": "76a7af25-a1aa-4f3d-bbcd-eddf947227ca",
+  "runtime_commit": "55d7af98e149591eed7882b9ace7741486daa842",
+  "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+  "unit_sha256": "c805c2f425dccc053a5ddd582eee524c4f99de5dfbd00e17810ca0454cacc9ca",
+  "config_sha256": "0f899a012a76077f1370fd66fd88c5790ff07d3e6ccc3843153713110b147477",
+  "stopped_unit_verified": true,
+  "runtime_started": false,
+  "boot_enabled": false,
+  "legacy_state_and_pids_unchanged": true,
+  "mixers_unchanged": true,
+  "stationary_guard_preserved": true,
+  "private_files_root_owned_0600": true,
+  "private_directories_root_owned_0700": true,
+  "systemd_analyze_verify_exit": 0,
+  "empty_execstop_and_execstoppost": "D-Bus a(sasbttttuii) arrays, each length zero",
+  "effective": {
+    "restart": "no",
+    "kill_mode": "mixed",
+    "stop_timeout_seconds": 5,
+    "uid": 0,
+    "umask": "0077",
+    "slice": "system.slice",
+    "serial_inaccessible": "/dev/ttyACM0"
+  },
+  "provider_check": {
+    "audio_sent": false,
+    "microphone_opened": false,
+    "setup_us": 1948866,
+    "status": "setup_complete"
+  },
+  "provider_check_is_conversation_readiness": false,
+  "unqualified": [
+    "physical mute/reopen",
+    "installed-unit main-PID stop and empty cgroup",
+    "natural interruption",
+    "addressee recognition",
+    "audio/vision/ring/motor integration",
+    "all-day operation"
+  ],
+  "receipts": {
+    "lamp-attended-native-preflight-20261011.json": "ffe159ad713537569dfc29c94d57e8b8e3c07e689f4cfa416da56a4745186f5f",
+    "lamp-stage-stopped-pilot-20261011-result.json": "4291725794b92a2afd86c5b02bee8fd9606aaadc1dedc7f9eeda7417abee5d69",
+    "lamp-reconcile-stopped-pilot-20261011-result.json": "419a5c4ae4b3edf799c5d63180bf6099c58502e1bfd5fbfaa52ef1b814a5284e",
+    "lamp-reconcile-stopped-pilot-20261011-02-result.json": "deb0e2a0f18354877cb0bebc1c21456190a3b78dcf093b24c4f79ec8b89dc431",
+    "lamp-installed-provider-check-20261011-result.json": "d4eddfae6c82f91c12e49f63c6611d744d1ffaf1e26eea21b3ea768485ad4251"
+  },
+  "previous_checks": "Two administrative checks failed because systemctl omitted empty ExecStop arrays, even with --all. All files were retained. Read-only reconciliation verified empty arrays through systemd D-Bus; no reinstall or runtime start occurred.",
+  "independent_package_receipt_sha256": "83e087e0bfc1bcc015bf712e67d5b511422077419d3a85e10865b429bfe9013e"
+}

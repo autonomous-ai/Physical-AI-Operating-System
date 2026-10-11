@@ -901,9 +901,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             }
         };
         let now = Clock::now();
-        {
+        // Completion and revocation meet under this lock, and only here. A
+        // revocation that found the image in flight has told its caller the
+        // connection is abandoned; that holds even if the write then finished
+        // in the same instant. Whichever takes the lock first decides: either
+        // the image is no longer in flight and the revocation finds nothing,
+        // or the abandonment is latched and the write does not count.
+        let written = {
             let mut images = self.shared.images();
             images.in_flight = None;
+            let written = if std::mem::take(&mut images.abandon) {
+                Err(Error::InputCancelled)
+            } else {
+                written
+            };
             match written {
                 Ok(()) => {
                     images.ledger.sent += 1;
@@ -918,7 +929,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 Err(Error::InputCancelled) => images.ledger.revoked += 1,
                 Err(_) => {}
             }
-        }
+            written
+        };
         // An abandoned write ends the connection here. What was held behind
         // it is dropped with `held`, unsent.
         written?;

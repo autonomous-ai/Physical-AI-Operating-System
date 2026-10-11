@@ -416,3 +416,125 @@ async fn revoking_the_grant_of_an_image_being_written_abandons_its_connection() 
     // The connection is replaced like any lost one; the request is lost once.
     assert_eq!(Error::InputCancelled.recovery(), crate::Recovery::Reconnect);
 }
+
+/// A transport that revokes the camera grant from inside the last flush of
+/// the image write: after the connection has looked for a revocation in that
+/// poll, and before it learns the write succeeded. The integrator's audit
+/// built this to show the write winning; it is kept as the regression.
+struct RevokeAtImageFlush {
+    inner: DuplexStream,
+    input: Arc<Mutex<Option<InputSender>>>,
+    outcome: Arc<Mutex<Option<ImageRevocation>>>,
+    fired: bool,
+}
+impl AsyncRead for RevokeAtImageFlush {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buffer: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_read(cx, buffer)
+    }
+}
+impl AsyncWrite for RevokeAtImageFlush {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bytes: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.inner).poll_write(cx, bytes)
+    }
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        let result = std::pin::Pin::new(&mut self.inner).poll_flush(cx);
+        if !self.fired && matches!(result, std::task::Poll::Ready(Ok(()))) {
+            let input = self.input.lock().unwrap().clone();
+            if let Some(input) = input
+                && input.shared.images().in_flight.is_some()
+            {
+                self.fired = true;
+                *self.outcome.lock().unwrap() = Some(input.revoke_images(1));
+            }
+        }
+        result
+    }
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+#[tokio::test]
+async fn a_revocation_that_lands_as_the_image_write_completes_still_abandons_the_connection() {
+    let (client, server) = tokio::io::duplex(4_096);
+    let slot = Arc::new(Mutex::new(None));
+    let outcome = Arc::new(Mutex::new(None));
+    let client = WebSocketStream::from_raw_socket(
+        RevokeAtImageFlush {
+            inner: client,
+            input: slot.clone(),
+            outcome: outcome.clone(),
+            fired: false,
+        },
+        Role::Client,
+        Some(socket_config()),
+    )
+    .await;
+    let mut server =
+        WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+    let connect = tokio::spawn(setup_and_spawn(
+        client,
+        configuration(Timeouts::default()),
+        SessionId::new(17).unwrap(),
+    ));
+    receive(&mut server).await;
+    send_json(&mut server, json!({"setupComplete":{}})).await;
+    let mut connection = connect.await.unwrap().unwrap();
+    let request = speaking(&mut connection, &mut server, 1).await;
+    let input = connection.input();
+    *slot.lock().unwrap() = Some(input.clone());
+    input
+        .try_image(request, 901, 1, Instant::now(), &jpeg(MAX_IMAGE_BYTES, 7))
+        .unwrap();
+    timeout(Duration::from_secs(1), async {
+        while input.shared.images().in_flight.is_none() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    input
+        .try_audio(request, 1, Instant::now(), &[1234; 160])
+        .unwrap();
+    input.try_end(request).unwrap();
+    timeout(Duration::from_secs(1), async {
+        while input.commands.capacity() != crate::INPUT_QUEUE_CAPACITY {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    // The peer reads, so the image write runs to its final flush, where the
+    // revocation lands.
+    let after = received_until_closed(&mut server).await;
+    assert_eq!(
+        *outcome.lock().unwrap(),
+        Some(ImageRevocation::AbandonedInFlight)
+    );
+    // The image itself may be complete on the wire by then; that cannot be
+    // undone. Nothing behind it may follow, and it is not counted as sent.
+    assert!(
+        !after.iter().any(|kind| *kind != "video"),
+        "sent after revocation: {after:?}"
+    );
+    assert_eq!(
+        connection.state(),
+        State::Disconnected(Error::InputCancelled)
+    );
+    let ledger = input.image_ledger();
+    assert_eq!((ledger.sent, ledger.revoked), (0, 1));
+}

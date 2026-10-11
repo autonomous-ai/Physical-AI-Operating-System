@@ -27,10 +27,14 @@
 //! trial with the successor started only once the first request's own audio
 //! has actually been received, `GAP_MS` after it and at once by default: an
 //! interruption of a response that is producing. A trailing `barrier-ms=N`,
-//! 2000 to 20000, lengthens the barrier's quiet bound to watch whether a
+//! 2000 to 5000, lengthens the barrier's quiet bound to watch whether a
 //! terminal arrives late. That is observation only: the policy is still
-//! Require, nothing is assumed, and the result says the bound is not
-//! production's. They print bounded model/input transcript observations for
+//! Require, nothing is assumed, the result says the bound is not
+//! production's, and the probe exits non-zero whatever it saw. A trailing
+//! `barrier-wait=at-commit`, after `barrier-ms=N` when both are given, runs
+//! the trial with the library's opt-in wait; every barrier's end is recorded
+//! as a `barrier` row of counts. They print
+//! bounded model/input transcript observations for
 //! private review; input transcripts remain session-scoped. These modes use
 //! exact mono16k PCM16 without trimming. See the session reliability document
 //! for their public-API and semantic limits.

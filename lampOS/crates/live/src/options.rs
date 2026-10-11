@@ -76,17 +76,44 @@ impl FromStr for TurnTaking {
 
 /// Experimental coordinator horizon; zero preserves immediate dispatch.
 /// This is not an ALSA queue size or a promise of gap-free playback.
+///
+/// The continuity start is the other choice, not an addition to a horizon:
+/// its own cover takes the horizon's place. Neither is selected by default.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct PlayoutStart(u16);
+pub struct PlayoutStart {
+    horizon_ms: u16,
+    continuity: bool,
+}
 impl PlayoutStart {
     pub fn new(milliseconds: u16) -> io::Result<Self> {
         if milliseconds > 200 {
             return Err(invalid_options());
         }
-        Ok(Self(milliseconds))
+        Ok(Self {
+            horizon_ms: milliseconds,
+            continuity: false,
+        })
     }
+    /// The offline-evaluated continuity start. Not a measured device setting.
+    pub const fn continuity() -> Self {
+        Self {
+            horizon_ms: 0,
+            continuity: true,
+        }
+    }
+    pub fn policy(self) -> Option<lamp_audio::playout::Continuity> {
+        self.continuity
+            .then_some(lamp_audio::playout::Continuity::EVALUATED)
+    }
+    /// The plain horizon, or the continuity start's cover.
     pub fn as_micros(self) -> u64 {
-        u64::from(self.0) * 1_000
+        self.gate().horizon_us()
+    }
+    pub fn gate(self) -> lamp_audio::playout::StartGate {
+        match self.policy() {
+            Some(policy) => lamp_audio::playout::StartGate::continuous(policy),
+            None => lamp_audio::playout::StartGate::new(u64::from(self.horizon_ms) * 1_000),
+        }
     }
 }
 impl FromStr for PlayoutStart {
@@ -120,6 +147,10 @@ impl DirectedOptions {
                 "--diagnostics" if !options.diagnostics => options.diagnostics = true,
                 "--playout-start-ms" if !playout_seen => {
                     options.playout_start = required_value(&mut arguments)?.parse()?;
+                    playout_seen = true;
+                }
+                "--playout-continuity" if !playout_seen => {
+                    options.playout_start = PlayoutStart::continuity();
                     playout_seen = true;
                 }
                 "--turn-taking" if !turn_seen => {
@@ -293,6 +324,51 @@ mod tests {
         }
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), true).is_err());
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), false).is_err());
+    }
+
+    #[test]
+    fn continuity_is_explicit_and_takes_the_place_of_a_horizon() {
+        use lamp_audio::playout::Continuity;
+        let default = SessionOptions::default().directed.playout_start;
+        assert_eq!(
+            (default.policy(), default.gate().continuity()),
+            (None, None)
+        );
+        for ms in [0_u16, 200] {
+            let plain = PlayoutStart::new(ms).unwrap();
+            assert_eq!(plain.policy(), None);
+            assert_eq!(plain.gate().horizon_us(), u64::from(ms) * 1_000);
+        }
+        let parsed = SessionOptions::parse(&args(&[
+            "--playout-continuity",
+            "--turn-taking",
+            "v1-baseline",
+        ]))
+        .unwrap()
+        .directed;
+        assert_eq!(parsed.playout_start, PlayoutStart::continuity());
+        assert_eq!(parsed.playout_start.policy(), Some(Continuity::EVALUATED));
+        assert_eq!(
+            parsed.playout_start.gate().continuity(),
+            Some(Continuity::EVALUATED)
+        );
+        // The trace's horizon field reports the cover that replaced it.
+        assert_eq!(
+            parsed.playout_start.as_micros(),
+            Continuity::EVALUATED.cover_us
+        );
+        assert_eq!(parsed.turn_taking, TurnTaking::V1Baseline);
+        for flags in [
+            vec!["--playout-continuity", "--playout-continuity"],
+            vec!["--playout-continuity", "--playout-start-ms", "200"],
+            vec!["--playout-start-ms", "0", "--playout-continuity"],
+            vec!["--playout-continuity", "on"],
+            vec!["--playout-continuity=on"],
+        ] {
+            assert!(SessionOptions::parse(&args(&flags)).is_err(), "{flags:?}");
+        }
+        assert!(AudioWorkerOptions::parse(&args(&["--playout-continuity"]), true).is_err());
+        assert!(AudioWorkerOptions::parse(&args(&["--playout-continuity"]), false).is_err());
     }
 
     #[test]

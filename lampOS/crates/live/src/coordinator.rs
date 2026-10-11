@@ -108,7 +108,10 @@ struct Reply {
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
-        self.start.audio_arrived(received_at_us);
+        // The gate counts frames to measure the service's lead. A plain gate
+        // only records it; a continuity gate starts a new hold with the first
+        // audio after a generation's final block left.
+        self.start.arrival(received_at_us, samples.len());
         self.need.arrival(received_at_us, samples.len());
         // Generation completion is not turn completion. A new generation may
         // arrive while the previous generation's accepted final PCM is still
@@ -148,7 +151,19 @@ impl Reply {
         let opened = self.start.opened();
         json!({
             "horizon_us":self.start.horizon_us(),
-            "scope":"first_dispatchable_chunk_of_reply; later generations do not rebuffer",
+            "continuity":self.start.continuity().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
+            "measured_lead_us":self.start.lead_us(),
+            "opened_by":opened.map(|event| match event.by {
+                lamp_audio::playout::OpenedBy::Covered => "covered",
+                lamp_audio::playout::OpenedBy::Complete => "complete",
+                lamp_audio::playout::OpenedBy::Margin => "margin",
+                lamp_audio::playout::OpenedBy::HoldBound => "hold_bound",
+            }),
+            "scope":if self.start.continuity().is_some() {
+                "first_dispatchable_chunk_of_each_generation; a later generation is held again once the previous final block left"
+            } else {
+                "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+            },
             "opened_at_us":opened.map(|event| event.at_us),
             "age_since_first_audio_us":opened.map(|event| event.held_us),
             "queued_frames_at_open":opened.map(|event| event.buffered_frames),
@@ -169,6 +184,9 @@ impl Reply {
             return None;
         }
         let final_chunk = self.generation_done && self.pcm.len() <= 240;
+        if final_chunk {
+            self.start.generation_ended();
+        }
         let mut samples = Vec::with_capacity(240);
         for _ in 0..240 {
             match self.pcm.pop_front() {
@@ -580,6 +598,7 @@ fn run_source(
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
+        "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}));
@@ -2257,7 +2276,7 @@ fn commit_admitted_input(
         final_chunk: None,
         playback_gaps: 0,
         last_provider_audio_at_us: None,
-        start: StartGate::new(playout_start.as_micros()),
+        start: playout_start.gate(),
         need: StartNeed::default(),
     };
     for audio in prefix {
@@ -2736,6 +2755,7 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod playout_continuity;
     mod playout_start;
     mod provider_pair;
     mod termination;

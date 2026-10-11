@@ -65,6 +65,7 @@ fn run(case: Case) -> (SessionState, Evidence) {
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let (mut owner, mut reply) = if matches!(case, Case::Idle | Case::OpenInput) {
         (Controller::new(new_boot().unwrap(), now()), None)

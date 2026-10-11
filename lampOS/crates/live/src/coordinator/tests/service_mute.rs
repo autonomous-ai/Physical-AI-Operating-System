@@ -21,6 +21,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let (mut controller, current, _) = active_reply();
     let mut reply = Some(current);
@@ -153,6 +154,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let (mut controller, current, permit) = active_reply();
     let mut reply = Some(current);

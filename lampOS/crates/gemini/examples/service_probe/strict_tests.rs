@@ -741,3 +741,135 @@ async fn a_barrier_that_times_out_reports_what_arrived_before_it_did() {
     // Nothing arrived for two seconds: that, and no terminal, ended it.
     assert!(row["quiet_ms"].as_u64().unwrap() >= 2_000);
 }
+
+async fn mock_at_commit() -> (Connection, FakeService) {
+    let config = config(offline(), BARRIER, BarrierWait::AtCommit).unwrap();
+    let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;
+    let connecting = tokio::spawn(connecting);
+    service.accept().await;
+    (connecting.await.unwrap().unwrap(), service)
+}
+
+#[test]
+fn a_held_end_is_parsed_last_bounded_and_removed() {
+    let arguments = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+    };
+    let mut plain = arguments(&["p", "a.wav", "continue-before-output", "b.wav"]);
+    assert_eq!(end_hold(&mut plain).unwrap(), Duration::ZERO);
+    assert_eq!(plain.len(), 4);
+    let mut held = arguments(&[
+        "p",
+        "a.wav",
+        "continue-before-output",
+        "b.wav",
+        "barrier-wait=at-commit",
+        "hold-end-ms=8000",
+    ]);
+    assert_eq!(end_hold(&mut held).unwrap(), Duration::from_secs(8));
+    assert_eq!(barrier_wait(&mut held).unwrap(), BarrierWait::AtCommit);
+    assert_eq!(held.len(), 4);
+    for bad in ["hold-end-ms=0", "hold-end-ms=20001", "hold-end-ms=long"] {
+        let mut arguments = arguments(&["p", "a.wav", "repeat-before-output", bad]);
+        assert!(end_hold(&mut arguments).is_err(), "{bad}");
+    }
+}
+
+#[tokio::test]
+async fn a_held_end_without_the_at_commit_wait_is_refused_before_any_file_is_opened() {
+    let arguments = [
+        "/nonexistent/provider.json",
+        "/nonexistent/a.wav",
+        "continue-before-output",
+        "/nonexistent/b.wav",
+        "hold-end-ms=8000",
+    ]
+    .map(String::from);
+    let error = run(&arguments).await.unwrap_err().to_string();
+    assert!(error.contains("barrier-wait=at-commit"), "{error}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_held_end_keeps_watching_and_sees_a_terminal_later_than_any_quiet_bound() {
+    let (connection, mut service) = mock_at_commit().await;
+    let first = vec![111; 8_000];
+    let second = vec![222; 16_000];
+    let client = trial_holding(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+        Duration::from_millis(6_500),
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        // Seven seconds with nothing for the earlier response: longer than
+        // the longest quiet bound. No End is written meanwhile.
+        let late = Instant::now() + Duration::from_secs(7);
+        while let Some(left) = late.checked_duration_since(Instant::now()) {
+            if left.is_zero() {
+                break;
+            }
+            if let Some(message) = service.try_receive(left).await {
+                assert!(message["realtimeInput"].get("activityEnd").is_none());
+            }
+        }
+        service
+            .send(json!({"serverContent":{"interrupted":true}}))
+            .await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(333, 240)).await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_confirmed_and_answered");
+    let start = report["inputs"][1]["start_queued_us"].as_u64().unwrap();
+    assert!(report["idle_observed_us"][0].as_u64().unwrap() >= start + 7_000_000);
+    // The End was the probe's to keep back: one second of upload, then six
+    // and a half held.
+    assert!(report["inputs"][1]["end_queued_us"].as_u64().unwrap() >= start + 7_500_000);
+    let rows = barrier_rows(&report);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["outcome"], "Settled");
+    assert_eq!(rows[0]["successor_input_open"], true);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_held_end_with_no_terminal_times_out_only_after_the_end_is_asked_for() {
+    let (connection, mut service) = mock_at_commit().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 16_000];
+    let client = trial_holding(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+        Duration::from_secs(8),
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        while let Some(message) = service.try_receive(Duration::from_secs(12)).await {
+            assert!(message["realtimeInput"].get("activityEnd").is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_timeout");
+    let rows = barrier_rows(&report);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["outcome"], "TimedOut");
+    assert_eq!(rows[0]["audio_frames"], 0);
+    assert_eq!(rows[0]["interrupted"], 0);
+    // One second of upload, eight held, then the two second bound.
+    let waited = rows[0]["waited_ms"].as_u64().unwrap();
+    assert!((11_000..12_000).contains(&waited), "{waited}");
+    let withheld = rows[0]["end_withheld_ms"].as_u64().unwrap();
+    assert!((2_000..2_100).contains(&withheld), "{withheld}");
+}

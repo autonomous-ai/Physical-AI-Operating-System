@@ -83,6 +83,9 @@ const BARRIER: Duration = Duration::from_secs(2);
 /// The longest quiet bound the library accepts. The probe asks for no more:
 /// a longer one would mean widening what production may be configured with.
 const LONGEST_BARRIER: Duration = Duration::from_secs(5);
+/// The longest the probe keeps its own second End back. With the longest
+/// upload and the longest quiet bound this still ends inside the trial.
+const LONGEST_HOLD: Duration = Duration::from_secs(20);
 
 /// Always `Require`. `quiet` is the barrier's quiet bound: two seconds in
 /// production. A probe may ask for longer to watch whether a terminal comes
@@ -117,6 +120,26 @@ fn barrier_wait(arguments: &mut Vec<String>) -> Outcome<BarrierWait> {
     };
     arguments.pop();
     Ok(wait)
+}
+
+/// A trailing `hold-end-ms=N`, removed from `arguments`: how long the probe
+/// keeps its own second End back after the last sample. Under
+/// `barrier-wait=at-commit` nothing is waiting to be committed meanwhile, so
+/// the connection stays up, to the absolute bound, and whatever arrives for
+/// the first request is recorded as it comes. Observation only.
+fn end_hold(arguments: &mut Vec<String>) -> Outcome<Duration> {
+    let Some(value) = arguments
+        .last()
+        .and_then(|last| last.strip_prefix("hold-end-ms="))
+    else {
+        return Ok(Duration::ZERO);
+    };
+    let hold = Duration::from_millis(value.parse::<u64>()?);
+    if hold.is_zero() || hold > LONGEST_HOLD {
+        return Err("hold-end-ms must be 1 to 20000".into());
+    }
+    arguments.pop();
+    Ok(hold)
 }
 
 /// A trailing `barrier-ms=N`, removed from `arguments`.
@@ -340,6 +363,7 @@ async fn send(
     sent: &mut Sent,
     samples: &[i16],
     since: Instant,
+    hold: Duration,
 ) -> Result<(), String> {
     let request = RequestId::new(sent.request).map_err(|e| format!("{e:?}"))?;
     input.try_start(request).map_err(|e| format!("{e:?}"))?;
@@ -352,6 +376,10 @@ async fn send(
         sent.accepted_samples += block.len();
         // No catch-up burst following a delayed scheduler tick.
         tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    if !hold.is_zero() {
+        // The End is kept back. The wire stays as the last sample left it.
+        tokio::time::sleep(hold).await;
     }
     input.try_end(request).map_err(|e| format!("{e:?}"))?;
     sent.end_queued_us = Some(elapsed_us(since));
@@ -380,11 +408,23 @@ async fn drive<F: Future>(
 }
 
 async fn trial(
+    connection: Connection,
+    first: &[i16],
+    second: &[i16],
+    gap: Duration,
+    name: &str,
+) -> Value {
+    trial_holding(connection, first, second, gap, name, Duration::ZERO).await
+}
+
+/// `hold` keeps the second request's End back after its last sample.
+async fn trial_holding(
     mut connection: Connection,
     first: &[i16],
     second: &[i16],
     gap: Duration,
     name: &str,
+    hold: Duration,
 ) -> Value {
     let mut seen = Observed::new();
     let since = seen.since;
@@ -417,11 +457,16 @@ async fn trial(
                 .await?;
             }
             let input = connection.input();
+            let hold = if sent.request == 2 {
+                hold
+            } else {
+                Duration::ZERO
+            };
             if let Err(error) = drive(
                 &mut connection,
                 &mut seen,
                 deadline,
-                send(input, sent, samples, since),
+                send(input, sent, samples, since, hold),
             )
             .await?
             {
@@ -524,10 +569,17 @@ pub(super) fn passed(result: &Value) -> bool {
 
 pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     let mut arguments = arguments.to_vec();
-    // Trailing settings, in this order when both are given:
-    // `barrier-ms=N barrier-wait=at-commit`.
+    // Trailing settings, in this order when more than one is given:
+    // `barrier-ms=N barrier-wait=at-commit hold-end-ms=N`.
+    let hold = end_hold(&mut arguments)?;
     let wait = barrier_wait(&mut arguments)?;
     let quiet = observed_barrier(&mut arguments)?;
+    if !hold.is_zero() && wait != BarrierWait::AtCommit {
+        return Err(
+            "hold-end-ms needs barrier-wait=at-commit: without it the quiet bound ends the run first"
+                .into(),
+        );
+    }
     let (provider, first_path, name, second_path, gap) = match arguments.as_slice() {
         [provider, first, name] if name == "repeat-before-output" => (provider, first, name, first, None),
         [provider, first, name, gap] if name == "repeat-before-output" => (provider, first, name, first, Some(gap)),
@@ -535,7 +587,7 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
         [provider, first, name, second, gap] if name == "continue-before-output" => (provider, first, name, second, Some(gap)),
         [provider, first, name, second] if name == "continue-during-output" => (provider, first, name, second, None),
         [provider, first, name, second, gap] if name == "continue-during-output" => (provider, first, name, second, Some(gap)),
-        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] | ... PRIVATE_PROVIDER FIRST.wav continue-during-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit]".into()),
+        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [hold-end-ms=N] | ... PRIVATE_PROVIDER FIRST.wav continue-during-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [hold-end-ms=N] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [hold-end-ms=N]".into()),
     };
     // Before output the gap follows the first End. During output it follows
     // the first audio actually received, and is nothing unless asked for.
@@ -565,12 +617,13 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     let connecting = Instant::now();
     let mut result = match lamp_gemini::connect(config, SessionId::new(1)?).await {
         Ok(connection) => {
-            trial(
+            trial_holding(
                 connection,
                 &first,
                 &second,
                 Duration::from_millis(gap),
                 name,
+                hold,
             )
             .await
         }
@@ -590,7 +643,10 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     // A bound longer than production's watches for a late terminal. It
     // authorizes nothing: the policy is still `Require`.
     result["barrier_bound_is_production"] = json!(quiet == BARRIER);
-    result["observation_only"] = json!(quiet != BARRIER);
+    // So does a held End: the run is not what a caller would do.
+    result["end_hold_ms"] = json!(hold.as_millis());
+    result["absolute_barrier_bound_ms"] = json!(Timeouts::default().response.as_millis());
+    result["observation_only"] = json!(quiet != BARRIER || !hold.is_zero());
     result["total_observed_ms"] = json!(connecting.elapsed().as_millis());
     result["source_files"] = json!([first_path, second_path]);
     result["input_transform"] = json!("none; exact mono16k PCM16");

@@ -421,7 +421,7 @@ cargo run --locked -p lamp-gemini --example service_probe -- \
 
 | Probe | Question it answers | Decides |
 |---|---|---|
-| `interrupt-before-output` | After `activityEnd` and before any output, does `activityStart` produce `interrupted`, a completion, or nothing? | Whether pause-and-resume ever takes the assumed path |
+| `interrupt-before-output [GAP_MS]` | After `activityEnd` and before any output, does `activityStart` produce `interrupted`, a completion, or nothing? And does one answer follow, or two? | Whether pause-and-resume ever takes the assumed path, and whether a continued question could be answered safely. See [the device run](gemini-unconfirmed-interruption.md) |
 | `handles` | Are resumption handles issued without being requested? | Whether recovery is available on this endpoint as configured |
 | `handles-requested` | Is `sessionResumption: {}` accepted in setup? | Whether to switch to `Resumption::Request` |
 | `resume` | Is a handle accepted on a new connection, and does that session answer? | Whether context survives a reconnect at all |
@@ -693,7 +693,8 @@ profile, and the real-time 60 s, 180 s and stopped-playback tests.
 - Production keeps `BarrierPolicy::Require`. A person who continues before
   any answer has started still ends the session after 2 s if the service
   never confirms the cut-off request. Only the `interrupt-before-output`
-  probe can say whether it does.
+  probe can say whether it does. **A device run on 2026-10-11 did exactly
+  this**: [what happened, the safe recovery and a proposal](gemini-unconfirmed-interruption.md).
 
 ## After the third round: two requests from the integrator
 

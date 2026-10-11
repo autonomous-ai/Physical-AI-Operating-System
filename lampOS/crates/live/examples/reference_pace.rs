@@ -12,8 +12,15 @@
 //! lamp: there is no USB clock here and no ALSA.
 //!
 //! ```text
-//! reference_pace SECONDS SKEW_PPM fixed|clocked
+//! reference_pace SECONDS SKEW_PPM fixed|clocked [spin]
 //! ```
+//!
+//! Both processes sleep until a block is due. A desktop kernel wakes a
+//! sleeping background process tens of milliseconds late a few times a
+//! minute, and a reference that old is a fault by design, in either mode.
+//! With `spin` both wait by reading the clock instead, each on a core of
+//! its own: the pacing and the two processes are as real, and the host's
+//! timers are out of the measurement. Run it both ways.
 use lamp_audio::{CAPTURE_SAMPLES, EchoProcessor, RENDER_SAMPLES};
 use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES, monotonic_us};
 use lamp_live::{
@@ -33,28 +40,46 @@ use std::{
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 fn usage() -> io::Error {
-    io::Error::other("usage: reference_pace SECONDS SKEW_PPM fixed|clocked")
+    io::Error::other("usage: reference_pace SECONDS SKEW_PPM fixed|clocked [spin]")
 }
 
 fn main() -> Result<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     match arguments.as_slice() {
-        [role, own, peer, seconds, skew] if role == "--speaker" => speaker(
+        [role, own, peer, seconds, skew, wait] if role == "--speaker" => speaker(
             Path::new(own),
             Path::new(peer),
             seconds.parse()?,
             skew.parse()?,
+            wait == "spin",
         ),
         [seconds, skew, mode] if mode == "fixed" || mode == "clocked" => {
-            capture(seconds.parse()?, skew.parse()?, mode == "clocked")
+            capture(seconds.parse()?, skew.parse()?, mode == "clocked", false)
+        }
+        [seconds, skew, mode, wait] if (mode == "fixed" || mode == "clocked") && wait == "spin" => {
+            capture(seconds.parse()?, skew.parse()?, mode == "clocked", true)
         }
         _ => Err(usage().into()),
     }
 }
 
+/// Wait for `due`: asleep for all but the last millisecond, or not at all.
+fn wait_until(due: Instant, spin: bool) {
+    if !spin
+        && let Some(wait) = due
+            .checked_duration_since(Instant::now())
+            .and_then(|wait| wait.checked_sub(Duration::from_millis(1)))
+    {
+        sleep(wait);
+    }
+    while Instant::now() < due {
+        std::hint::spin_loop();
+    }
+}
+
 /// One block per 10 ms of a clock `skew_ppm` fast, from the moment the
 /// capture side says it has primed.
-fn speaker(own: &Path, peer: &Path, seconds: u64, skew_ppm: f64) -> Result<()> {
+fn speaker(own: &Path, peer: &Path, seconds: u64, skew_ppm: f64, spin: bool) -> Result<()> {
     let mut link = Endpoint::bind(own)?;
     link.connect(peer)?;
     let mut buffer = [0; MAX_DATAGRAM_BYTES];
@@ -70,19 +95,7 @@ fn speaker(own: &Path, peer: &Path, seconds: u64, skew_ppm: f64) -> Result<()> {
     let period = Duration::from_secs_f64(0.01 / (1.0 + skew_ppm * 1e-6));
     let blocks = (seconds as f64 * 100.0 * (1.0 + skew_ppm * 1e-6)) as u64 + 200;
     for block in 1..=blocks {
-        let due = started + period.mul_f64(block as f64);
-        // Sleep most of the way and spin the last millisecond: a desktop
-        // kernel may wake a sleeping background process tens of milliseconds
-        // late, which a speaker's write loop on the lamp is not.
-        if let Some(wait) = due
-            .checked_duration_since(Instant::now())
-            .and_then(|wait| wait.checked_sub(Duration::from_millis(1)))
-        {
-            sleep(wait);
-        }
-        while Instant::now() < due {
-            std::hint::spin_loop();
-        }
+        wait_until(started + period.mul_f64(block as f64), spin);
         let at = monotonic_us();
         let packet = RenderReference {
             playback_epoch: 1,
@@ -106,7 +119,7 @@ fn speaker(own: &Path, peer: &Path, seconds: u64, skew_ppm: f64) -> Result<()> {
     Ok(())
 }
 
-fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
+fn capture(seconds: u64, skew_ppm: f64, clocked: bool, spin: bool) -> Result<()> {
     let directory = SessionDirectory::create()?;
     let (own, peer) = (
         directory.path.join("capture"),
@@ -119,6 +132,7 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
         .arg(&own)
         .arg(seconds.to_string())
         .arg(skew_ppm.to_string())
+        .arg(if spin { "spin" } else { "sleep" })
         .stdin(Stdio::null())
         .spawn()?;
     // The child binds before it can be connected to.
@@ -164,9 +178,7 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
     'run: for block in 1..=seconds * 100 {
         // Half a block after the speaker's, as a device's phase might be.
         let due = begun + Duration::from_micros(5_000 + block * 10_000);
-        if let Some(wait) = due.checked_duration_since(Instant::now()) {
-            sleep(wait);
-        }
+        wait_until(due, spin);
         // How late this process itself was woken: a stall of the host, which
         // on a lamp would be a stall of the audio devices too.
         worst_late = worst_late.max(Instant::now().saturating_duration_since(due));
@@ -219,6 +231,7 @@ fn capture(seconds: u64, skew_ppm: f64, clocked: bool) -> Result<()> {
         "{}",
         serde_json::to_string_pretty(&json!({
             "mode": if clocked { "clocked" } else { "fixed" },
+            "wait": if spin { "spin" } else { "sleep" },
             "skew_ppm": skew_ppm,
             "seconds_asked": seconds,
             "capture_blocks": blocks,

@@ -212,6 +212,73 @@ service/mute lifetimes in separate private candidates. Do not expand MAIN-042
 or MAIN-043 into Harness, memory or a generic supervisor rewrite. Git publication
 records the assignment; acknowledgment is still required before claiming delivery.
 
+## MAIN-048 — Agent 1 delivery review and sustained audio follow-through
+
+Main fetched `lamp-a1-playout` at `49dc273d9` (tested `01b55fb3a`) and the
+integration proposal `9bd27cbc2`. The eight code/doc paths were independently
+composed on `d21cd0eac`; root fmt, strict audio/live all-target Clippy and affected
+serial tests passed: 565 passed, zero failed, three ignored. Main accepts this
+as an opt-in physical candidate, not a default. Combined camera/service/ring
+integration and physical A/B remain root-owned. Do not change the policy again
+or stretch in-word audio while that trial is pending.
+
+Qualify the story explanation: the observed service generation boundary and
+2.8 s supply pause locate the delay upstream of playout. They do not expose
+the model's internal reasoning. Root confirmed the device uses extended
+thinking/LOW, and will test plain Live separately. No acoustic improvement has
+been measured for your candidate yet.
+
+Next, keep the same audio ownership and address sustained-conversation risk:
+audit capture/playback clock drift in `crates/audio/src/reference.rs` and its
+tests. The reference uses a fixed small frame margin, while the microphones and
+speaker have separate USB clocks. First reproduce a gradual bounded clock skew
+through the production reference path; distinguish it from a real missing,
+stale or reordered accepted-playback reference. Inspect V1 and maintained DSP
+clock-alignment practice before proposing a correction. Do not silently rebase
+sample counters, drop accepted reference samples or enlarge buffers without a
+measured bound. Deliver the narrowest tested proposal on a new branch from the
+current integration checkpoint; shared wire/worker/coordinator changes remain
+separate proposals. Existing playout artifacts remain immutable. No device or
+cloud grant. Main owns the next ARM reservation; avoid timed tests overlapping
+its combined build. This task is about keeping a conversation alive, not new
+agentic or memory infrastructure.
+
+## MAIN-049 — Agent 2 completion review and endpoint evidence correction
+
+MAIN-047 remains your next task: move inference into its own supervised process
+and keep the coordinator independent. Preserve the tested model, preprocessing
+parity, branch history and full failed cohort. Publish a first small worker
+checkpoint and a separate integration seam before a broad policy revision.
+Missing-model full-session behavior is part of that checkpoint, not optional.
+
+The report's claim that speech rather than the candidate is the main reason
+for failure goes beyond the evidence. Reference parity rules out the Rust
+port as that discrepancy's source; it does not absolve a policy that cuts off
+speech. Synthetic splices have artificial final intonation, so label them, but
+keep them as regression stress tests. The 538 human clip-end classifications
+are not whole-turn pause/correction tests and do not establish that this policy
+works on real people. Do not label unmeasured A733 timing as slower than the VM.
+
+Retain the authorized upstream human fixtures and add complete policy replay
+with real within-utterance pauses and continuations, alongside complete short
+replies. Report false splits, never-ended turns, actual last-speech-to-endpoint
+delay, dropped opening/continuation samples and missing/slow/failed-model paths.
+Pin inputs and separate development from held-out results; do not choose a
+threshold only on the reported test shard. No model or room audio upload.
+The owner has already authorized this testing; changing to appropriately
+sourced human fixtures does not need another owner permission question.
+
+The target is in [conversation latency](../docs/conversation-latency.md): ordinary
+reply p50 300–500 ms and p95 at most 1 s, with no added conversational cutoffs.
+These are targets, not current results or a promise that endpointing alone can
+reach them. Main will measure cold/warm A733 execution and real conversations
+when the isolated candidate and its fallback are reviewable. No device action
+is delegated by this assignment.
+
+Main rechecked the direct Harness route today: team/member listings are readable,
+but its own scoped context still returns `CHANNEL_NOT_FOUND`. These Git updates
+are the durable fallback, not proof that either agent has acknowledged them.
+
 ## Delivery and coordination
 
 Give Main an initial interface/first-checkpoint estimate after reading the current

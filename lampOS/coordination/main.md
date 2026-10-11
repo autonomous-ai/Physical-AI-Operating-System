@@ -7,6 +7,31 @@
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
+## Current private integration and latency target
+
+Owner's latest question clarified the target as natural connected conversation.
+[Conversation latency](../docs/conversation-latency.md) records the human
+reference, 300–500 ms typical / 1 s p95 engineering targets, and the present
+roughly 3 s unaccepted acoustic estimates. The earlier 2 s target is interim.
+
+MAIN-048 accepts Agent 1's continuity patch for a physical experiment after
+root's 565 passing affected tests. MAIN-049 keeps Agent 2's current endpoint
+policy experimental, requests an independent inference process and full-turn
+human replay. Neither candidate has a measured hardware speedup.
+
+The current combined private source composes camera teardown, opt-in continuity,
+continuous service/mute-reopen and optional-ring failure containment. Host
+component gates are green; combined gates and ARM/native qualification remain.
+A fresh connected eight-turn iMac script is being prepared with event-triggered
+follow-ups, a correction and a topic change. No V1 benchmark is active.
+
+Native camera correction `a4cac2dd...` safely revoked and exited without a forced
+kill; driver teardown took 50.227 ms in this attempt. Inspection still failed
+before any accepted frame with `InvalidDriverTimestamp`. This is not a camera
+success. A bounded diagnostic record is being added to identify the rejected
+timestamp predicate without weakening privacy or freshness rules. Stationary,
+muted legacy restoration was verified after that attempt.
+
 ## Camera integration checkpoint
 
 The opt-in camera context is integrated locally and has passed combined host

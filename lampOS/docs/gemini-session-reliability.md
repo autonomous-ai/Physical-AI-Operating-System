@@ -1209,15 +1209,14 @@ interrupted at once, as before. With `barrier_reports` on, the barrier's
 report says how long the start was kept, what ended it and how many
 samples were kept.
 
-**It changes when bytes are written and never which.** The same
-`activityStart`, the same audio in the same order and the same single
-`activityEnd` go out as on the default path. A request superseded before
-its End keeps its audio in the activity its successor continues. A
-request cancelled before its End is never committed; what the session had
-already taken from it is still written in order, as on the default path
-where it would already be on the wire. Dropping it instead would mean
-telling a cancellation from a continuation, which the session cannot do,
-and guessing wrong would lose the person's words.
+**For a request that is continued it changes when bytes are written and
+never which.** The same `activityStart`, the same audio in the same order
+and the same single `activityEnd` go out as on the default path. A
+request superseded before its End keeps its audio in the activity its
+successor continues. A request that is abandoned is different, and is
+told apart from one that is continued: what is still kept of it is
+dropped and never written. See
+[Continued or abandoned](#continued-or-abandoned-what-becomes-of-kept-input).
 
 ### Bounds and outcomes
 
@@ -1340,41 +1339,109 @@ with its own capture times:
 | Stop while being written out | `a_stop_while_the_kept_question_is_being_written_ends_the_writing` |
 | The service closes for quota while kept: nothing written, nothing replayed to a new connection | `the_service_closing_while_the_question_is_kept_writes_none_of_it_and_replays_none` |
 | No first answer: patience, then the strict timeout, no End | `with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` |
-| A cancelled kept question: see below | `a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one` |
+| An abandoned kept question, and the boundary once its words are out: see "Continued or abandoned" below | `an_abandoned_kept_question_is_dropped_unsent_and_the_next_one_is_heard_alone`, `an_abandonment_after_the_words_were_written_is_reported_as_sent_not_discarded` |
 | Without the option, as before | `without_the_option_a_resumed_question_is_written_at_once_as_before` |
 
 The other cases run under the legacy contract only. Overflow is not among them and cannot be reached through the worker at
 the rate speech arrives: the buffer holds 6 s and the patience ends at
 2.5 s. It is tested in the session.
 
-**The limitation, shown and not hidden.** When the coordinator gives a
-kept request up, the worker retires it and closes its input, exactly as
-it does when a newer request supersedes it. The session cannot tell the
-two apart. So, as that test shows on the wire:
+### Continued or abandoned: what becomes of kept input
 
-- the cancelled request is never committed: no End is written for it;
-- the audio the session had already taken from it is still written when
-  the first answer begins, in order, behind the start;
-- the activity stays open, and the next request's audio continues it, so
-  the service hears the cancelled audio as the beginning of that next
-  question, under that request's End.
+Only with `--provider-continuation kept-start`. Without it nothing is
+ever kept and none of this changes anything.
 
-On the default path the same audio reaches the service too, only sooner:
-this is not new, but keeping makes it avoidable and the present contract
-does not avoid it. Treating cancelled input as current would be wrong,
-and so would dropping kept words on a guess. What would settle it is the
-coordinator saying which it is:
+A request that is retired before its End was either continued or given
+up, and the two must not be treated alike: a person who goes on speaking
+must keep their words, and a request the coordinator has abandoned must
+not have its kept audio sent after the fact.
 
-> **Proposed.** A provider input `void { request }`, sent when an
-> admitted input is abandoned and not continued. The worker passes it to
-> the session, which drops whatever of that request it still holds and
-> never writes it. Audio already written cannot be taken back, and the
-> start that interrupts the earlier answer is still written. A request
-> merely superseded keeps its words, as now.
+**Where the difference comes from.** The coordinator ends every turn in
+one function, `cancel_reply`, with a reason, and the authority it then
+publishes already says which case it is:
 
-That needs a message the coordinator does not send today and is not
-built. Until it is, a cancelled kept request costs what a cancelled
-request on the default path already costs.
+| The coordinator | Authority the worker then receives | Meaning |
+|---|---|---|
+| `commit_admitted_input`: cancels as `user_interrupted` and admits the new input at once, publishing nothing in between | a newer owner | **continued**: the person went on, or corrected themselves |
+| `cancel_reply` for `deadline_cancelled`, `provider_interrupted`, `playback_discarded`, `service_stopped`, a runtime failure, or `user_interrupted` when the new input could not be given to the cloud | no owner | **abandoned** |
+| `complete_turn` | no owner | finished; nothing of it is kept by then |
+
+No new message from the coordinator is needed. The worker already
+derives retirement from that authority; it now also notes whether a
+retirement came with a newer owner or with none, and tells the transport
+`retire` for the first and `discard` for the second.
+
+**What the transport does.**
+
+| | Continued (`retire`) | Abandoned (`discard`) |
+|---|---|---|
+| Audio still kept, not yet handed to the socket | Stays, in order, as the opening of what continues it | **Dropped. Never written** |
+| Audio already handed to the socket, in an activity with no End | Stays | **Stays. Cannot be recalled, and is not called discarded** |
+| Its End | Never written for it | Never written for it |
+| The start that interrupts the earlier answer | Written when that answer begins | The same: the earlier answer still has to be stopped |
+| Reported | nothing | `InputDiscarded` with `dropped_samples` and `sent_samples`, to the coordinator's trace as `provider_input_discarded` |
+
+Abandoning a request also abandons the kept words it had continued: they
+were one uncommitted thought, and neither part can be committed under the
+other's End any more. `discard` is synchronous like `retire` and does not
+wait for queue space. Order, capture times, both queue bounds, `Require`,
+every timeout and the Stop fence are unchanged, and nothing is replayed.
+
+**The transport boundary, exactly.** A block is droppable until it is
+handed to the socket and not after. An abandonment recorded while a block
+is waiting inside the socket layer does not take that block back: it is
+written, counted in `sent_samples`, and the blocks behind it are dropped.
+When `sent_samples` is not zero, those samples are in an open activity,
+and the next request that continues that activity is heard after them,
+under its own End. That is reported as it is. The connection is healthy
+and is not abandoned to hide it, and no retry rule is changed.
+
+> **Proposed separately, not built.** If audio of an abandoned request
+> must never be heard at all, the only way once any of it has been sent
+> is to replace the connection before the next request. The typed outcome
+> above is what would trigger that: `sent_samples > 0`. It costs a
+> reconnect and whatever context the handle does not restore, and it is a
+> decision for the coordinator, not something the transport should do
+> quietly.
+
+Tests, at three levels:
+
+| Level | Tests |
+|---|---|
+| Session, in-memory service, gated transport for the boundary | `retain::an_abandoned_kept_request_is_dropped_unsent_and_the_next_one_is_heard_alone`, `abandoning_a_continuation_takes_the_kept_words_it_continued_with_it`, `what_was_handed_to_the_socket_is_reported_as_sent_and_only_the_rest_is_dropped`, `an_abandonment_after_the_kept_words_were_written_drops_nothing_and_says_so`, `an_abandonment_does_not_wait_for_a_full_queue_and_fails_nothing`, `without_the_kept_start_an_abandonment_is_exactly_a_retirement` |
+| Provider worker's own loop | `kept_start::an_abandoned_kept_question_is_dropped_unsent_and_the_next_one_is_heard_alone`, `an_abandonment_after_the_words_were_written_is_reported_as_sent_not_discarded` |
+| **The coordinator's own `cancel_reply`, authority and `flush_provider_input`, with the Coordinated worker and Supervisor over IPC** (`provider_pair::continuation_or_discard`) | `continued_twice_the_words_are_one_question_in_order_and_nothing_is_discarded`, `abandoned_while_kept_none_of_it_is_sent_and_the_next_question_is_heard_alone`, `continued_then_abandoned_then_a_new_question_only_the_new_one_is_sent`, `abandoned_after_the_words_were_written_the_outcome_says_sent_and_not_discarded`, `abandoned_with_no_first_answer_only_the_start_is_written_and_late_output_is_nobodys`, `abandoned_with_no_output_credit_it_is_dropped_at_once_and_reported_when_credit_returns`, `a_stop_after_an_abandonment_writes_nothing_and_ends_cleanly` |
+
+**Compatibility and migration.**
+
+- Default off. With `--provider-continuation off` the worker's calls
+  reach a session that keeps nothing: `discard` is `retire`, no
+  `InputDiscarded` is ever produced, and the wire is byte for byte what it
+  was.
+- One new provider output, `input_discarded`, appears only with
+  `kept-start`. A coordinator built without the arm for it would fail to
+  decode it: the arm and the option must be integrated together. They are
+  one shared commit, `f932d1155`, plus the tests in `ffd5a1e64`.
+- The earlier candidate wrote a cancelled kept request's audio when the
+  first answer began. This one does not. Nothing else about `kept-start`
+  changes.
+
+**What remains, after this.**
+
+- Audio of an abandoned request that was already sent is still heard
+  with the next request. Reported, not prevented.
+- The coordinator's own queue of input not yet given to the worker is
+  cleared on every cancellation, continued or not, as before: words still
+  in that queue when a person goes on are the coordinator's to keep or
+  drop, and this does not change what it does.
+- Whether an owner follows a cancellation is read from authority in the
+  order it is published. A coordinator that published an ownerless
+  authority between cancelling and admitting a continuation would have
+  that continuation treated as an abandonment. `commit_admitted_input`
+  does not; the property is the coordinator's to keep.
+- Mute while kept is tested through the worker under both contracts, not
+  through the coordinator pair.
+- No real-service run abandons a kept request.
 
 Known limits of this candidate: the barrier report is a line on standard
 error and not a typed event the coordinator records; the patience is a

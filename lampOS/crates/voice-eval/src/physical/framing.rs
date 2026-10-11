@@ -58,7 +58,13 @@ pub struct LineFramer<R> {
     line: Vec<u8>,
     /// Bytes of an oversized line consumed so far.
     discarding: Option<u64>,
+    /// Raw bytes consumed, counted before framing.
+    consumed: u64,
+    limit: Option<u64>,
 }
+
+/// Error text when a stream exceeds its total byte bound.
+pub const STREAM_LIMIT: &str = "stream exceeded its total byte bound";
 
 impl<R: Read> LineFramer<R> {
     pub fn new(reader: R, max: usize) -> Self {
@@ -67,7 +73,32 @@ impl<R: Read> LineFramer<R> {
             max,
             line: Vec::new(),
             discarding: None,
+            consumed: 0,
+            limit: None,
         }
+    }
+
+    /// Also bound the whole stream. Raw bytes are counted as they are
+    /// consumed, so an endless line without a newline still ends with an
+    /// error (`STREAM_LIMIT`) instead of being skipped forever.
+    pub fn with_total_limit(reader: R, max: usize, limit: u64) -> Self {
+        Self {
+            limit: Some(limit),
+            ..Self::new(reader, max)
+        }
+    }
+
+    pub fn consumed(&self) -> u64 {
+        self.consumed
+    }
+
+    fn consume(&mut self, count: usize) -> io::Result<()> {
+        self.reader.consume(count);
+        self.consumed += count as u64;
+        if self.limit.is_some_and(|limit| self.consumed > limit) {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, STREAM_LIMIT));
+        }
+        Ok(())
     }
 
     /// The next frame, or `None` after a clean end of input.
@@ -97,7 +128,7 @@ impl<R: Read> LineFramer<R> {
             let consumed = newline.map_or(content, |i| i + 1);
             if let Some(count) = self.discarding.as_mut() {
                 *count += content as u64;
-                self.reader.consume(consumed);
+                self.consume(consumed)?;
                 if newline.is_some() {
                     let bytes = self.discarding.take().unwrap_or_default();
                     return Ok(Some(Frame::Oversized {
@@ -110,7 +141,7 @@ impl<R: Read> LineFramer<R> {
             if self.line.len() + content > self.max {
                 let bytes = (self.line.len() + content) as u64;
                 self.line.clear();
-                self.reader.consume(consumed);
+                self.consume(consumed)?;
                 if newline.is_some() {
                     return Ok(Some(Frame::Oversized {
                         bytes,
@@ -121,7 +152,7 @@ impl<R: Read> LineFramer<R> {
                 continue;
             }
             self.line.extend_from_slice(&available[..content]);
-            self.reader.consume(consumed);
+            self.consume(consumed)?;
             if newline.is_none() {
                 continue;
             }
@@ -324,6 +355,28 @@ mod tests {
         assert_eq!(hash, lamp_acoustic::hash(data));
         let (whole, _) = HashingReader::new(&data[..]).finish().unwrap();
         assert_eq!(whole, hash);
+    }
+
+    #[test]
+    fn the_total_bound_counts_raw_bytes_even_inside_an_endless_line() {
+        // 100 bytes of one unterminated oversized line, bound at 50.
+        let data = [b'q'; 100];
+        let mut framer = LineFramer::with_total_limit(
+            Pieces {
+                data: &data,
+                step: 7,
+            },
+            8,
+            50,
+        );
+        let error = framer.next_frame().unwrap_err();
+        assert_eq!(error.to_string(), STREAM_LIMIT);
+        assert!(framer.consumed() > 50 && framer.consumed() <= 50 + 7);
+        // Complete lines within the bound are delivered as usual.
+        let mut framer = LineFramer::with_total_limit(&b"a\nb\n"[..], 8, 4);
+        assert_eq!(framer.next_frame().unwrap(), Some(Frame::Line("a".into())));
+        assert_eq!(framer.next_frame().unwrap(), Some(Frame::Line("b".into())));
+        assert_eq!(framer.next_frame().unwrap(), None);
     }
 
     #[test]

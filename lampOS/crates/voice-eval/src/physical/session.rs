@@ -18,10 +18,11 @@ use crate::{
     events::parse_cue,
     invalid,
     physical::{
-        framing::{Frame, HashingReader, LineFramer},
+        framing::{Frame, HashingReader, LineFramer, STREAM_LIMIT},
         protocol::{
-            MAX_LINE_BYTES, MAX_RUNNER_LINE_BYTES, MAX_STDOUT_LINE_BYTES, MAX_TRACE_BYTES,
-            MAX_TRACE_LINES, MAX_TRACE_RECORD_BYTES, RunnerLine, SCHEMA, SessionLine,
+            MAX_LINE_BYTES, MAX_RUNNER_LINE_BYTES, MAX_RUNNER_TOTAL_BYTES, MAX_STDOUT_LINE_BYTES,
+            MAX_STDOUT_TOTAL_BYTES, MAX_TRACE_BYTES, MAX_TRACE_LINES, MAX_TRACE_RECORD_BYTES,
+            RunnerLine, SCHEMA, SessionLine,
         },
     },
 };
@@ -232,16 +233,21 @@ type Framed = std::result::Result<String, String>;
 fn line_reader<R: Read + Send + 'static>(
     source: R,
     max: usize,
+    total: u64,
     what: &'static str,
 ) -> Receiver<Framed> {
     let (sender, receiver) = mpsc::sync_channel(256);
     thread::spawn(move || {
-        let mut framer = LineFramer::new(source, max);
+        let mut framer = LineFramer::with_total_limit(source, max, total);
         loop {
             let (item, last) = match framer.next_frame() {
                 Ok(None) => break,
                 Ok(Some(Frame::Line(line))) => (Ok(line), false),
                 Ok(Some(frame)) => (Err(frame.failure(what, max).unwrap_or_default()), false),
+                Err(error) if error.to_string() == STREAM_LIMIT => (
+                    Err(format!("{what} exceeded {total} bytes; reading stopped")),
+                    true,
+                ),
                 Err(error) => (Err(format!("{what} read failed: {error}")), true),
             };
             if sender.send(item).is_err() || last {
@@ -288,6 +294,8 @@ fn cue_line(lamp_received_us: u64, datagram: &[u8]) -> Result<SessionLine> {
 }
 
 /// Stop the runtime and every process still in its group, then reap it.
+/// Safe after the runtime has exited: the group outlives its leader while any
+/// worker remains, and reaping an already reaped child is a no-op error.
 fn kill(child: &mut Child) {
     let _ = rustix::process::kill_process_group(
         rustix::process::Pid::from_child(child),
@@ -298,16 +306,16 @@ fn kill(child: &mut Child) {
 }
 
 /// Ensures an early error (for example a closed relay transport) never leaves
-/// the runtime running or the cue socket behind.
+/// the runtime, any of its workers, or the cue socket behind. The process
+/// group is killed even when the runtime itself has already exited: its
+/// workers may still be running in that group.
 struct Cleanup {
     child: Option<Child>,
     socket: Option<PathBuf>,
 }
 impl Drop for Cleanup {
     fn drop(&mut self) {
-        if let Some(child) = self.child.as_mut()
-            && matches!(child.try_wait(), Ok(None))
-        {
+        if let Some(child) = self.child.as_mut() {
             kill(child);
         }
         if let Some(path) = &self.socket {
@@ -447,9 +455,15 @@ pub fn run<R: Read + Send + 'static>(
             .take()
             .ok_or_else(|| invalid("runtime stdout unavailable"))?,
         MAX_STDOUT_LINE_BYTES,
+        MAX_STDOUT_TOTAL_BYTES,
         "runtime stdout",
     );
-    let input = line_reader(input, MAX_RUNNER_LINE_BYTES, "runner transport");
+    let input = line_reader(
+        input,
+        MAX_RUNNER_LINE_BYTES,
+        MAX_RUNNER_TOTAL_BYTES,
+        "runner transport",
+    );
     let deadline = monotonic_us()
         + (u64::from(options.seconds) + u64::from(options.allowance_seconds)) * 1_000_000;
     let mut buffer = [0_u8; 1024];

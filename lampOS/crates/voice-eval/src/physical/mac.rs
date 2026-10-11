@@ -11,7 +11,7 @@ use crate::{
     invalid,
     physical::{
         fake_lamp::ROOM_MAX_BYTES,
-        framing::{Frame, LineFramer},
+        framing::{Frame, LineFramer, STREAM_LIMIT},
         protocol::{MAX_LINE_BYTES, MAX_SESSION_BYTES, RunnerLine, SessionLine},
     },
     plan::{ProviderKind, Scenario, Step},
@@ -619,23 +619,23 @@ fn relay_reader<R: std::io::Read + Send + 'static>(
 ) -> Receiver<std::result::Result<SessionLine, String>> {
     let (sender, lines) = mpsc::sync_channel(4096);
     thread::spawn(move || {
-        let mut framer = LineFramer::new(stdout, MAX_LINE_BYTES);
-        let mut total: u64 = 0;
+        // Raw bytes are counted before framing, so even one endless line
+        // without a newline ends the session at the bound.
+        let mut framer = LineFramer::with_total_limit(stdout, MAX_LINE_BYTES, MAX_SESSION_BYTES);
         loop {
             let frame = match framer.next_frame() {
                 Ok(Some(frame)) => frame,
                 Ok(None) => break,
+                Err(error) if error.to_string() == STREAM_LIMIT => {
+                    let _ = sender.send(Err(format!(
+                        "relay exceeded {MAX_SESSION_BYTES} bytes in one session; reading stopped"
+                    )));
+                    break;
+                }
                 Err(error) => {
                     let _ = sender.send(Err(format!("relay transport read failed: {error}")));
                     break;
                 }
-            };
-            // Count the transport bytes of every frame, newline included.
-            total += match &frame {
-                Frame::Line(line) => line.len() as u64 + 1,
-                Frame::Oversized { bytes, terminated } => bytes + u64::from(*terminated),
-                Frame::InvalidUtf8 { bytes } => *bytes as u64 + 1,
-                Frame::Truncated { bytes } => *bytes as u64,
             };
             let parsed = match frame {
                 Frame::Line(line) => serde_json::from_str::<SessionLine>(&line)
@@ -644,12 +644,6 @@ fn relay_reader<R: std::io::Read + Send + 'static>(
                     .failure("relay transport", MAX_LINE_BYTES)
                     .unwrap_or_default()),
             };
-            if total > MAX_SESSION_BYTES {
-                let _ = sender.send(Err(format!(
-                    "relay exceeded {MAX_SESSION_BYTES} bytes in one session; reading stopped"
-                )));
-                break;
-            }
             if sender.send(parsed).is_err() {
                 break;
             }
@@ -1309,6 +1303,26 @@ mod relay_reader_tests {
         }
     }
 
+    /// An endless stream with no newline at all.
+    struct NoNewline;
+    impl std::io::Read for NoNewline {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            buffer.fill(b'z');
+            Ok(buffer.len())
+        }
+    }
+
+    #[test]
+    fn a_never_terminated_line_still_ends_at_the_session_byte_bound() {
+        let lines = relay_reader(NoNewline);
+        let item = lines
+            .recv_timeout(Duration::from_secs(60))
+            .expect("the reader kept consuming an unterminated line without limit");
+        let error = item.unwrap_err();
+        assert!(error.contains("reading stopped"), "{error}");
+        assert!(lines.recv_timeout(Duration::from_secs(5)).is_err());
+    }
+
     #[test]
     fn reading_stops_with_an_error_above_the_session_byte_bound() {
         // Rejected oversized lines still count, so an endless stream ends.
@@ -1316,6 +1330,7 @@ mod relay_reader_tests {
         let items: Vec<_> = relay_reader(Lines { width, position: 0 }).iter().collect();
         let last = items.last().unwrap().as_ref().unwrap_err();
         assert!(last.contains("reading stopped"), "{last}");
+        // Every complete line before the bound, then the stop.
         assert_eq!(
             items.len() as u64,
             MAX_SESSION_BYTES / (width as u64 + 1) + 1

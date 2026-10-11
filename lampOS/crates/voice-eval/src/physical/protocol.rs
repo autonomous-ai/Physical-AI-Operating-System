@@ -15,6 +15,10 @@ pub const MAX_TRACE_RECORD_BYTES: usize = MAX_LINE_BYTES - 1024;
 pub const MAX_STDOUT_LINE_BYTES: usize = 16 * 1024;
 /// One runner line (pings are tens of bytes).
 pub const MAX_RUNNER_LINE_BYTES: usize = 1024;
+/// Everything the runner may send in one session (at most 400 pings).
+pub const MAX_RUNNER_TOTAL_BYTES: u64 = 4 * 1024 * 1024;
+/// Everything the runtime may print on stdout in one session.
+pub const MAX_STDOUT_TOTAL_BYTES: u64 = 16 * 1024 * 1024;
 /// Everything one session may relay to the runner: the trace plus cues,
 /// stdout and pongs. The runner stops reading and invalidates the attempt above it.
 pub const MAX_SESSION_BYTES: u64 = MAX_TRACE_BYTES + 32 * 1024 * 1024;

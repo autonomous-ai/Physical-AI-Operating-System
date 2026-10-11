@@ -263,3 +263,66 @@ fn a_clean_session_reports_no_relay_failure() {
     assert_eq!((error, events, killed, stray), (None, 2, false, false));
     assert!(sha.is_some());
 }
+
+/// The first write (session_start) succeeds; later writes fail like a broken
+/// SSH pipe, after a delay that lets the runtime exit first.
+struct BrokenAfter {
+    writes: usize,
+}
+impl std::io::Write for BrokenAfter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.writes += 1;
+        if self.writes > 1 {
+            std::thread::sleep(Duration::from_millis(300));
+            return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe));
+        }
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn an_early_relay_error_after_the_runtime_exited_still_stops_its_workers() {
+    let dir = common::Private::new("rse");
+    let pid_file = dir.join("worker.pid");
+    // The runtime leaves a worker behind, prints a line and exits at once.
+    let script = format!(
+        "sleep 30 &\necho $! > {}\necho '{{\"status\":\"listening_ready\"}}'",
+        pid_file.display()
+    );
+    let work = dir.join("work");
+    let arguments: Vec<String> = [
+        "--runtime",
+        "/bin/sh",
+        "--runtime-prefix-arg",
+        "-c",
+        "--runtime-prefix-arg",
+        &script,
+        "--runtime-prefix-arg",
+        "fake-lamp-live",
+        "--work",
+        &work.display().to_string(),
+        "--seconds",
+        "5",
+        "--allowance-seconds",
+        "5",
+        "--fixture-reply",
+        "/nonexistent/reply.wav",
+        "--fixture-sha256",
+        &"0".repeat(64),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let options = SessionOptions::parse(&arguments).unwrap();
+    let (input, _runner) = UnixStream::pair().unwrap();
+    // Only the session_start line is written; relaying the stdout line fails.
+    let mut out = BrokenAfter { writes: 0 };
+    assert!(run(&options, input, &mut out).is_err());
+    assert!(
+        process_gone(read_pid(&pid_file)),
+        "a worker survived the relay's early return"
+    );
+}

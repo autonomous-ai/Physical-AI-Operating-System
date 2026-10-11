@@ -76,6 +76,34 @@ pub struct TurnDetector {
     last: Option<(u64, u64)>,
     confirmation: Option<Confirmation>,
     decision: Option<EndpointDecision>,
+    provisional: Option<Provisional>,
+    event: Option<EndpointEvent>,
+}
+
+/// After an early end of input: the policy, consecutive quiet counted from
+/// the original pause, and blocks since the early end.
+#[derive(Clone, Copy, Debug)]
+struct Provisional {
+    early: EarlyEnd,
+    quiet: u16,
+    since: u16,
+}
+
+/// What became of an early end of input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EndpointEvent {
+    /// The pause reached the confirmation window (`bounded: false`), or the
+    /// bound after the early end passed while speech-scored blips kept
+    /// resetting it (`bounded: true`).
+    Confirmed {
+        quiet_ms: u64,
+        after_ms: u64,
+        bounded: bool,
+    },
+    /// Speech started again before confirmation. The `Activity::Start`
+    /// returned with this event continues the same person's thought.
+    Continued { after_ms: u64 },
 }
 
 impl Default for TurnDetector {
@@ -90,6 +118,8 @@ impl Default for TurnDetector {
             last: None,
             confirmation: None,
             decision: None,
+            provisional: None,
+            event: None,
         }
     }
 }
@@ -139,6 +169,18 @@ impl TurnDetector {
         self.decision.as_ref()
     }
 
+    /// True after an early end of input until it is confirmed or the person
+    /// continues. Reply output must not start meanwhile. The state lasts at
+    /// most `EarlyEnd::limit_blocks` capture blocks.
+    pub fn endpoint_provisional(&self) -> bool {
+        self.provisional.is_some()
+    }
+
+    /// The latest early-end outcome not yet taken, for traces and callers.
+    pub fn take_endpoint_event(&mut self) -> Option<EndpointEvent> {
+        self.event.take()
+    }
+
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
         if let Err(reason) = self.validate(&frame, probability) {
             return Activity::Fault(reason);
@@ -160,10 +202,39 @@ impl TurnDetector {
                 self.active = false;
                 self.start_count = 0;
                 self.silence_count = 0;
+                if decision.basis == "model_early" {
+                    let early = self
+                        .confirmation
+                        .as_ref()
+                        .and_then(|confirmation| confirmation.policy.early);
+                    self.provisional = early.map(|early| Provisional {
+                        early,
+                        quiet: (decision.silence_ms / 10) as u16,
+                        since: 0,
+                    });
+                }
                 self.decision = Some(decision);
                 return Activity::End(frame);
             }
             return Activity::Continue(frame);
+        }
+        if let Some(provisional) = self.provisional.as_mut() {
+            provisional.since = provisional.since.saturating_add(1);
+            provisional.quiet = if probability >= SILENCE_PROBABILITY {
+                0
+            } else {
+                provisional.quiet.saturating_add(1)
+            };
+            let early = provisional.early;
+            if provisional.quiet >= early.confirm_blocks || provisional.since >= early.limit_blocks
+            {
+                self.event = Some(EndpointEvent::Confirmed {
+                    quiet_ms: u64::from(provisional.quiet) * 10,
+                    after_ms: u64::from(provisional.since) * 10,
+                    bounded: provisional.quiet < early.confirm_blocks,
+                });
+                self.provisional = None;
+            }
         }
         if self.prefix.len() == PRE_ROLL_BLOCKS {
             self.prefix.pop_front();
@@ -175,6 +246,11 @@ impl TurnDetector {
             0
         };
         if self.start_count >= START_BLOCKS {
+            if let Some(provisional) = self.provisional.take() {
+                self.event = Some(EndpointEvent::Continued {
+                    after_ms: u64::from(provisional.since) * 10,
+                });
+            }
             self.active = true;
             self.active_blocks = self.prefix.len() as u32;
             self.silence_count = 0;
@@ -222,10 +298,12 @@ impl TurnDetector {
         self.silence_count = 0;
         self.active_blocks = 0;
         self.active = false;
+        self.provisional = None;
         self.cancel_confirmation();
     }
 
     pub fn reset(&mut self) {
+        self.provisional = None;
         self.prefix.clear();
         self.start_count = 0;
         self.silence_count = 0;
@@ -284,6 +362,40 @@ pub struct ConfirmPolicy {
     pub result_timeout_blocks: u16,
     /// Pause endpoint without a decisive verdict: the detector's own window.
     pub fallback_blocks: u16,
+    /// Opt-in recoverable early end of input; `None` keeps every endpoint final.
+    pub early: Option<EarlyEnd>,
+}
+
+/// Ends input early on a confident verdict while the endpoint stays
+/// provisional. The provider can start answering sooner. Reply output must
+/// wait for confirmation, and speech that starts again before then is
+/// reported as a continuation of the same thought.
+///
+/// Recovering a continuation depends on the provider settling the earlier
+/// request it interrupts (docs/endpoint-detection.md); this is opt-in.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct EarlyEnd {
+    /// A verdict at or above this probability ends input early.
+    pub probability: f32,
+    /// Pause length at which a confident verdict ends input.
+    pub end_blocks: u16,
+    /// Consecutive quiet, counted from the start of the original pause, that
+    /// confirms the endpoint. Never longer than the silence fallback.
+    pub confirm_blocks: u16,
+    /// Blocks after the early end at which it is confirmed even while
+    /// speech-scored blips keep resetting the quiet count.
+    pub limit_blocks: u16,
+}
+
+impl EarlyEnd {
+    /// The evaluated candidate: a verdict of at least 0.9 ends input at
+    /// 500 ms, confirmed by the baseline's own 1.2 s of quiet within 3 s.
+    pub const CANDIDATE: Self = Self {
+        probability: 0.9,
+        end_blocks: 50,
+        confirm_blocks: V1_END_SILENCE_BLOCKS,
+        limit_blocks: 300,
+    };
 }
 
 impl Default for ConfirmPolicy {
@@ -296,6 +408,7 @@ impl Default for ConfirmPolicy {
             incomplete_blocks: 150,
             result_timeout_blocks: 50,
             fallback_blocks: V1_END_SILENCE_BLOCKS,
+            early: None,
         }
     }
 }
@@ -320,7 +433,15 @@ impl ConfirmPolicy {
             && self.complete_probability > 0.0
             && self.complete_probability < 1.0
             && self.incomplete_probability >= 0.0
-            && self.incomplete_probability <= self.complete_probability;
+            && self.incomplete_probability <= self.complete_probability
+            && self.early.is_none_or(|early| {
+                early.probability > 0.0
+                    && early.probability < 1.0
+                    && self.check_blocks <= early.end_blocks
+                    && early.end_blocks < early.confirm_blocks
+                    && early.confirm_blocks <= self.fallback_blocks
+                    && early.limit_blocks >= early.confirm_blocks - early.end_blocks
+            });
         if valid {
             Ok(())
         } else {
@@ -332,8 +453,9 @@ impl ConfirmPolicy {
 /// Recorded with each local endpoint; not an acoustic speech-end measurement.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct EndpointDecision {
-    /// `silence`, `model_complete`, `model_incomplete`, `model_uncertain`
-    /// (a verdict between the thresholds, ended on the silence window) or
+    /// `silence`, `model_early` (provisional; see `EarlyEnd`),
+    /// `model_complete`, `model_incomplete`, `model_uncertain` (a verdict
+    /// between the thresholds, ended on the silence window) or
     /// `silence_fallback` (no usable verdict).
     pub basis: &'static str,
     /// Pause length at the decision, including this block. Without
@@ -543,6 +665,13 @@ impl Confirmation {
             verdict: heard.map(|heard| heard.trace),
         };
         match self.pause {
+            Pause::Heard(heard)
+                if policy.early.is_some_and(|early| {
+                    heard.probability >= early.probability && pause >= early.end_blocks
+                }) =>
+            {
+                Some(decide("model_early", Some(heard), None))
+            }
             Pause::Heard(heard)
                 if heard.probability >= policy.complete_probability
                     && pause >= policy.commit_blocks =>

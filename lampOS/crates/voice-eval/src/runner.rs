@@ -206,13 +206,30 @@ fn observe_next(backend: &mut dyn Backend, view: &mut LiveView, until_us: u64) -
     }
 }
 
-/// Execute the steps of one attempt. Returns step records, live events and an
-/// abort reason when the runner itself could not continue.
 /// Whether an event is a terminal provider failure (MAIN-009).
 fn failed_terminal(kind: &EventKind) -> bool {
     matches!(kind, EventKind::TurnCompleted { outcome, .. } if outcome == crate::events::PROVIDER_FAILED)
 }
 
+/// Mark the step withheld when a terminal provider failure has been seen.
+fn provider_unavailable(
+    view: &LiveView,
+    known_turn: u64,
+    anchor_index: usize,
+    record: &mut StepRecord,
+) -> bool {
+    let Some(turn) = view.provider_failed(known_turn, anchor_index) else {
+        return false;
+    };
+    record.status = StepStatus::ProviderUnavailable;
+    record.detail = Some(format!(
+        "turn {turn} ended with a provider failure; no stimulus while the provider is unavailable"
+    ));
+    true
+}
+
+/// Execute the steps of one attempt. Returns step records, live events and an
+/// abort reason when the runner itself could not continue.
 fn execute(
     backend: &mut dyn Backend,
     scenario: &Scenario,
@@ -229,12 +246,8 @@ fn execute(
         let record = &mut steps[index];
         let deadline_us = anchor_us + u64::from(step.trigger.deadline_ms) * 1000;
         let observation = loop {
-            if let Some(turn) = view.provider_failed(known_turn, anchor_index) {
-                // Never schedule a stimulus on a failed terminal.
-                record.status = StepStatus::ProviderUnavailable;
-                record.detail = Some(format!(
-                    "turn {turn} ended with a provider failure; no stimulus while the provider is unavailable"
-                ));
+            // Never schedule a stimulus on a failed terminal.
+            if provider_unavailable(view, known_turn, anchor_index, record) {
                 return Ok(());
             }
             if let Some(found) = view.find(step.trigger.after, known_turn, anchor_index) {
@@ -260,11 +273,17 @@ fn execute(
         record.bound_turn = observation.turn;
         record.trigger = Some(observation);
         record.target_us = Some(target_us);
-        while !view.ended && backend.now_us() < target_us && observe_next(backend, view, target_us)?
-        {
-        }
+        // A failure during the configured delay cancels the stimulus too.
+        while !view.ended
+            && backend.now_us() < target_us
+            && view.provider_failed(known_turn, anchor_index).is_none()
+            && observe_next(backend, view, target_us)?
+        {}
         if view.ended {
             record.status = StepStatus::SessionEnded;
+            return Ok(());
+        }
+        if provider_unavailable(view, known_turn, anchor_index, record) {
             return Ok(());
         }
         let now_us = backend.now_us();
@@ -281,6 +300,17 @@ fn execute(
             // something else, so nothing is played and the gap is recorded.
             record.status = StepStatus::PreconditionLost;
             record.detail = Some("the triggering reply was no longer playing".into());
+            return Ok(());
+        }
+        // Take anything already delivered, then check once more immediately
+        // before playback: no stimulus after a failed terminal or session end.
+        let now_us = backend.now_us();
+        while observe_next(backend, view, now_us)? {}
+        if view.ended {
+            record.status = StepStatus::SessionEnded;
+            return Ok(());
+        }
+        if provider_unavailable(view, known_turn, anchor_index, record) {
             return Ok(());
         }
         let started_us = match (&step.scene, &timings[index]) {
@@ -584,6 +614,221 @@ mod occurrence_tests {
             Some(20),
             "legacy occurrence trigger keeps its meaning"
         );
+    }
+
+    /// A virtual-clock backend that replays scripted live events.
+    struct Script {
+        now: u64,
+        events: std::collections::VecDeque<(u64, EventKind, Option<u64>)>,
+        injected: Vec<(String, u64)>,
+    }
+    impl Backend for Script {
+        fn describe(&self) -> Value {
+            json!({})
+        }
+        fn stratum(&self, _: &Scenario) -> Stratum {
+            Stratum::FakeTiming
+        }
+        fn source(&self) -> StimulusSource {
+            StimulusSource::DeclaredTiming
+        }
+        fn domain(&self) -> ClockDomain {
+            ClockDomain::Virtual
+        }
+        fn unsupported(&self, _: &Scenario) -> Option<String> {
+            None
+        }
+        fn begin(&mut self, _: &AttemptContext) -> Result<Begin> {
+            Ok(Begin::Ready)
+        }
+        fn now_us(&mut self) -> u64 {
+            self.now
+        }
+        fn next_event(&mut self, until_us: u64) -> Result<Option<RuntimeEvent>> {
+            match self.events.front() {
+                Some((at, _, _)) if *at <= until_us => {
+                    let (at, kind, turn) = self.events.pop_front().expect("checked");
+                    self.now = self.now.max(at);
+                    let mut event =
+                        RuntimeEvent::new(kind, turn, at, ClockDomain::Virtual, EventSource::Fake);
+                    event.playback_sequence = turn.map(|_| 1);
+                    Ok(Some(event))
+                }
+                _ => {
+                    self.now = self.now.max(until_us);
+                    Ok(None)
+                }
+            }
+        }
+        fn runner_time(&self, event: &RuntimeEvent) -> (u64, String) {
+            (event.at_us.unwrap_or(0), "virtual".into())
+        }
+        fn inject(
+            &mut self,
+            step: &Step,
+            _: &str,
+            _: &SceneTiming,
+            at_us: u64,
+        ) -> Result<Injection> {
+            self.now = self.now.max(at_us);
+            self.injected.push((step.id.clone(), self.now));
+            Ok(Injection {
+                started_us: self.now,
+                receipt: json!({}),
+            })
+        }
+        fn finish(&mut self, _: &AttemptContext) -> Result<Finished> {
+            Err(crate::invalid("not used"))
+        }
+        fn reproduce(&self, _: &AttemptContext) -> String {
+            String::new()
+        }
+    }
+
+    fn run_script(
+        scenario_id: &str,
+        events: Vec<(u64, EventKind, Option<u64>)>,
+    ) -> (Vec<StepRecord>, Vec<(String, u64)>) {
+        let catalog = StimulusCatalog::load().unwrap();
+        let plan = crate::plan::LoadedPlan::default_plan(&catalog).unwrap();
+        let scenario = plan
+            .plan
+            .scenarios
+            .iter()
+            .find(|s| s.id == scenario_id)
+            .unwrap();
+        let timings: Vec<Option<SceneTiming>> = scenario
+            .steps
+            .iter()
+            .map(|s| {
+                s.scene
+                    .as_ref()
+                    .map(|scene| catalog.estimate(scene).unwrap())
+            })
+            .collect();
+        let mut steps: Vec<StepRecord> = scenario
+            .steps
+            .iter()
+            .map(|s| StepRecord::planned(s, StepStatus::Withheld))
+            .collect();
+        let mut backend = Script {
+            now: 0,
+            events: events.into(),
+            injected: Vec::new(),
+        };
+        let mut view = LiveView::default();
+        execute(&mut backend, scenario, &timings, &mut steps, &mut view).unwrap();
+        (steps, backend.injected)
+    }
+
+    fn completed(outcome: &str) -> EventKind {
+        EventKind::TurnCompleted {
+            outcome: outcome.into(),
+            playback_gaps: 0,
+        }
+    }
+
+    /// MAIN-014 review repro: a valid trigger, then `provider_failed` 200 ms
+    /// into the configured delay. The stimulus must not be injected.
+    #[test]
+    fn a_failure_during_the_trigger_delay_withholds_the_stimulus() {
+        let first = 1_000_000;
+        let (steps, injected) = run_script(
+            "follow-up-chain",
+            vec![
+                (0, EventKind::ListeningReady, None),
+                (
+                    first,
+                    EventKind::InputAdmitted {
+                        prefix_first_read_us: None,
+                        candidate: None,
+                        basis: None,
+                    },
+                    Some(1),
+                ),
+                (first + 1_000_000, EventKind::SpeakerFirstWrite, Some(1)),
+                (first + 2_000_000, EventKind::SpeechRetired, Some(1)),
+                // The follow-up trigger (completion), with a 500 ms delay ...
+                (
+                    first + 2_100_000,
+                    completed("audio_written_unscored"),
+                    Some(1),
+                ),
+                // ... and a terminal provider failure 200 ms into it.
+                (
+                    first + 2_300_000,
+                    completed(crate::events::PROVIDER_FAILED),
+                    None,
+                ),
+                (
+                    first + 30_000_000,
+                    EventKind::RunEnd {
+                        status: None,
+                        error: None,
+                    },
+                    None,
+                ),
+            ],
+        );
+        assert_eq!(
+            injected.len(),
+            1,
+            "only the first step may play: {injected:?}"
+        );
+        assert_eq!(
+            steps[1].status,
+            StepStatus::ProviderUnavailable,
+            "{:?}",
+            steps[1]
+        );
+        assert!(
+            steps[1].trigger.is_some(),
+            "the valid trigger is still recorded"
+        );
+        assert_eq!(steps[1].started_us, None);
+    }
+
+    #[test]
+    fn a_failure_already_delivered_at_playback_time_withholds_the_stimulus() {
+        let first = 1_000_000;
+        // The failure carries the same time as the planned start.
+        let (steps, injected) = run_script(
+            "follow-up-chain",
+            vec![
+                (0, EventKind::ListeningReady, None),
+                (
+                    first,
+                    EventKind::InputAdmitted {
+                        prefix_first_read_us: None,
+                        candidate: None,
+                        basis: None,
+                    },
+                    Some(1),
+                ),
+                (first + 1_000_000, EventKind::SpeakerFirstWrite, Some(1)),
+                (first + 2_000_000, EventKind::SpeechRetired, Some(1)),
+                (
+                    first + 2_100_000,
+                    completed("audio_written_unscored"),
+                    Some(1),
+                ),
+                (
+                    first + 2_600_000,
+                    completed(crate::events::PROVIDER_FAILED),
+                    None,
+                ),
+                (
+                    first + 30_000_000,
+                    EventKind::RunEnd {
+                        status: None,
+                        error: None,
+                    },
+                    None,
+                ),
+            ],
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::ProviderUnavailable);
     }
 
     #[test]

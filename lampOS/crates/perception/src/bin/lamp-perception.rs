@@ -1,19 +1,15 @@
-//! Perception worker and model provisioning.
+//! Model provisioning and single-frame diagnostics.
 //!
 //! ```text
-//! lamp-perception worker perception DIR CONTROLLER_BOOT WORKER_BOOT --model-dir ABS_DIR
-//!     [--interval-ms 100..5000] [--frame-size WxH]
 //! lamp-perception models verify ABS_DIR
 //! lamp-perception models install SOURCE_FILE ABS_DIR
 //! lamp-perception analyze --model-dir ABS_DIR FRAME.jpg
 //! ```
 //!
-//! The worker role is `lamp_perception::process::run_worker`.
-use lamp_live::process::parse_boot;
+//! The worker role itself is hosted by `lamp-live worker perception ...`.
 use lamp_perception::{
     analyze::{Analyzer, INPUT_WIDTH},
     model::{self, YUNET},
-    process::run_worker,
 };
 use std::{
     io,
@@ -22,7 +18,7 @@ use std::{
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-const USAGE: &str = "usage: lamp-perception worker perception DIR CONTROLLER_BOOT WORKER_BOOT --model-dir ABS_DIR [--interval-ms N] [--frame-size WxH] | models verify ABS_DIR | models install SOURCE ABS_DIR | analyze --model-dir ABS_DIR FRAME.jpg";
+const USAGE: &str = "usage: lamp-perception models verify ABS_DIR | models install SOURCE ABS_DIR | analyze --model-dir ABS_DIR FRAME.jpg";
 
 fn main() {
     if let Err(error) = run() {
@@ -47,12 +43,6 @@ fn run() -> Result<()> {
         .collect::<Vec<_>>()
         .as_slice()
     {
-        ["worker", "perception", dir, parent, worker, rest @ ..] => run_worker(
-            Path::new(dir),
-            parse_boot(parent)?,
-            parse_boot(worker)?,
-            rest,
-        ),
         ["models", "verify", dir] => {
             let bytes = model::read_verified(&absolute(dir)?, &YUNET)?;
             println!(

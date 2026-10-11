@@ -8,11 +8,15 @@
 //! "nobody is there". Facing the camera is attention evidence, not proof that
 //! speech addressed Lamp. This crate has no audio dependency, so a perception
 //! fault cannot block hearing, admission or playback.
+//!
+//! The library does not depend on the runtime: `lamp-live` hosts the worker
+//! role (`perception_worker`) and consumes [`observation::PerceptionEvent`].
 pub mod analyze;
 pub mod attention;
 pub mod image;
 pub mod model;
 pub mod observation;
-pub mod process;
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod worker;
 pub mod yunet;

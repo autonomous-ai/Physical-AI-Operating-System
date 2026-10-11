@@ -12,11 +12,18 @@ sha2.workspace = true
 lamp-interaction = { path = "../interaction" }
 lamp-camera = { path = "../camera" }
 lamp-ipc = { path = "../ipc" }
-lamp-live = { path = "../live" }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 tract-onnx = { version = "=0.23.8", default-features = false }
 zune-jpeg = "=0.5.15"
 jpeg-encoder = "=0.7.1"
+
+[features]
+# Drawn test scenes and a provisioned model directory, for this crate's tests
+# and for runtime tests that host the worker. Never needed by the runtime.
+testing = []
+
+[dev-dependencies]
+lamp-perception = { path = ".", features = ["testing"] }
 
 [lints]
 workspace = true

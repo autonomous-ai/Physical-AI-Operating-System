@@ -253,8 +253,17 @@ fn a_different_frame_size_rebuilds_the_plan() {
 /// machine. Lamp's ARM CPU will be slower; this is not a device measurement.
 #[test]
 fn measured_host_analysis_time() {
-    let mut analyzer = analyzer();
+    let dir = common::installed_model();
+    let started = Instant::now();
+    let bytes = model::read_verified(&dir.0, &YUNET).unwrap();
+    let verified_us = started.elapsed().as_micros();
+    let mut analyzer = Analyzer::new(bytes, &YUNET, INPUT_WIDTH);
     analyzer.prepare(1280, 720).unwrap();
+    println!(
+        "MEASURED perception_model_load verify_us={verified_us} verify_and_plan_us={} (debug={})",
+        started.elapsed().as_micros(),
+        cfg!(debug_assertions)
+    );
     let frame = common::face_jpeg(640.0, 360.0, 150.0);
     let mut decode = Vec::new();
     let mut inference = Vec::new();
@@ -340,90 +349,4 @@ fn a_frame_without_its_end_marker_is_refused() {
     for cut in [frame.len() / 3, frame.len() - 1] {
         assert!(decode_jpeg(&frame[..cut]).is_err(), "cut at {cut}");
     }
-}
-
-#[test]
-fn the_largest_observation_fits_one_runtime_datagram() {
-    use lamp_camera::frames::{WireDomain, WirePoint, WireTimestamp};
-    use lamp_interaction::{BootId, Confidence, Controller, MonoTime, Observation, Permission};
-    use lamp_perception::observation::*;
-    let mut controller = Controller::new(BootId::new([9; 16]).unwrap(), MonoTime::from_micros(0));
-    controller
-        .set_camera_permission(MonoTime::from_micros(1), Permission::Allowed)
-        .unwrap();
-    let face = FaceEvidence {
-        score_per_mille: 1000,
-        bounds: [10_000; 4],
-        landmarks: [[10_000; 2]; 5],
-        yaw_tenths: Some(900),
-    };
-    let event = PerceptionEvent::Observation {
-        observation: VisualObservation {
-            provenance: Observation::new(
-                BootId::new([255; 16]).unwrap(),
-                std::num::NonZeroU64::new(u64::MAX).unwrap(),
-                MonoTime::from_micros(u64::MAX),
-                Confidence::per_mille(1000).unwrap(),
-            ),
-            frame: FrameRef {
-                camera_worker: BootId::new([255; 16]).unwrap(),
-                capture_epoch: u64::MAX,
-                frame_sequence: u64::MAX,
-                grant: controller.camera_grant(MonoTime::from_micros(1)).unwrap(),
-                width: 1280,
-                height: 720,
-                driver_timestamp: Some(WireTimestamp {
-                    micros: u64::MAX,
-                    domain: WireDomain::HostMonotonic,
-                    point: WirePoint::StartOfExposure,
-                }),
-                dequeue_completed_at_us: u64::MAX,
-            },
-            timing: AnalysisTiming {
-                received_at_us: u64::MAX,
-                decode_us: u32::MAX,
-                inference_us: u32::MAX,
-                analysed_at_us: u64::MAX,
-                published_at_us: u64::MAX,
-            },
-            exposure: lamp_perception::image::Exposure {
-                mean_luma: 255,
-                dark_per_mille: 1000,
-                bright_per_mille: 1000,
-                verdict: lamp_perception::image::ExposureVerdict::Overexposed,
-            },
-            presence: Presence::Faces {
-                count: 255,
-                best_per_mille: 1000,
-            },
-            faces: vec![face; MAX_FACES],
-            attention: Attention::Away {
-                face: 255,
-                yaw_tenths: 900,
-            },
-            model: ModelRef {
-                id: "yunet-2023mar".into(),
-                sha256_prefix: "8f2383e4dd3cfbb4".into(),
-                input_width: 1280,
-                input_height: 1280,
-            },
-        },
-    };
-    let envelope = lamp_live::wire::Envelope {
-        boot: BootId::new([255; 16]).unwrap(),
-        sequence: u64::MAX,
-        sent_at_us: u64::MAX,
-        payload: &event,
-    };
-    let encoded = lamp_live::wire::encode(&envelope).unwrap();
-    assert!(
-        encoded.len() < lamp_ipc::MAX_DATAGRAM_BYTES / 2,
-        "{} bytes",
-        encoded.len()
-    );
-    let decoded: lamp_live::wire::Envelope<PerceptionEvent> =
-        lamp_live::wire::decode(&encoded).unwrap();
-    assert_eq!(decoded.payload, event);
-    // Diagnostic text is bounded too.
-    assert_eq!(bounded_text(&"x".repeat(10_000)).len(), 160);
 }

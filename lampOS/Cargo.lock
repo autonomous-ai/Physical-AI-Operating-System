@@ -920,7 +920,7 @@ dependencies = [
  "lamp-camera",
  "lamp-interaction",
  "lamp-ipc",
- "lamp-live",
+ "lamp-perception",
  "rustix",
  "serde",
  "serde_json",

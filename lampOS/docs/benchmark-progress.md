@@ -1,6 +1,6 @@
 # Physical benchmark progress
 
-Checkpoint: 2026-10-10. **No accepted paired V1-main/V2 p50, p95, or speedup yet.**
+Checkpoint: 2026-10-11. **No accepted paired V1-main/V2 p50, p95, or speedup yet.**
 The primary boundary is final iMac speech sound to Lamp's first substantive
 answer sound in continuous room audio. Process exit zero is not an answer pass.
 These pilots use loudspeaker replay from the iMac. A new team report of clearer
@@ -133,7 +133,24 @@ constant across the primary runtime benchmark and report DSP A/B tests separatel
 
 The isolated phase-accounting correction (source `b65b2c46d3e80b7272c4958abe4172c01fb487176dc6b73f2ddd7defb4424d92`) passed 397 native ARM64 tests, strict clippy, formatting and release build. It adds start-call request/completion bounds and counts only reads strictly before the request as the initial phase offset. It changes neither gain, VAD thresholds nor software noise suppression. The host serial live suite passed 91 tests; a default-parallel run had two diagnostic-writer finish timeouts under host load, which remain recorded. See [microphone control experiments](microphone-control-experiments.md) for the separate 11 physical capture trials and [offline processing](microphone-experiments.md) for the AEC/NS replay tool.
 
-## Latest completed greeting
+## Latest 4ace exchange and observer access
+
+The 2026-10-11 `onsite-trial-03` run on Rust `6e6c58b42` completed the cached
+iMac greeting and a relevant 3.120 s Lamp reply without a playback gap. The owner
+heard the live answer and confirmed the recorded replay contains both voices
+clearly. Proposed speech-end to first-word delay is 2.65–2.75 s, still awaiting
+manual boundary confirmation. Do not treat that proposal as an accepted result
+or compare it with historical percentiles. A second input near the finite test
+end was deadline-cancelled after 210 ms; it remains incomplete.
+
+A separate 15 s check verified iMac microphone capture, explicit speaker playback
+and a fresh camera image while the screen was locked. The exact cached stimulus
+is present in the room WAV. No new permission is pending for that setup.
+See [the current evidence and identities](../coordination/main.md#4ace-restored-real-exchange-and-locked-screen-access).
+The owner requests one stored V1-main benchmark. Existing source identity must
+be checked before reusing an old cohort or starting another baseline run.
+
+## Earlier completed greeting
 
 `directed-pilot-5koru8e0` ran 45 seconds and restored the installed runtime with
 motors inhibited. The full reply in the room ASR hypothesis agrees with the

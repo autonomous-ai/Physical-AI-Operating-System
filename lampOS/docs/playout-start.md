@@ -111,3 +111,32 @@ staging also passed, without opening audio. Source manifest SHA256:
 ARM binary SHA256:
 `a30055ba007d1e425205a771cfd022520ac702dea405adf8c654cbc53a75cf3c`.
 These checks do not establish a physical playback improvement.
+
+
+## Physical comparison on 2026-10-11
+
+The first explicit 200 ms attempt ended after eight completed replies because
+the private test runner rejected a legitimate second playback occurrence in
+turn eight. Its forced termination left unsealed diagnostics. That attempt is
+retained as a runner failure, not a dropped eighth answer or a qualified run.
+
+After fixing only that matcher, `20261011T075239Z` completed ten repeated
+cached English greetings on the exact `a30055ba...` binary. Both target
+completion certificates and both source WAV identities verify. There were no
+extra inputs or cancellations. Seven replies had no accepted-zero starvation
+gap; the other three had 320, 50 and 70 ms, totaling 440 ms. The earlier zero
+horizon run had 15 gaps totaling 1390 ms, but generated content and duration
+changed. This is a descriptive comparison, not a causal improvement estimate.
+
+Quality still fails: two output transcripts are Spanish and another reply is
+irrelevant. One turn waited 10.755097 s from local endpoint to first accepted
+write; 10.655587 s elapsed before provider first audio. A separate model
+comparison addresses that uncertainty. The 200 ms horizon is still an opt-in
+candidate; the default remains zero.
+
+All ten gate queue/age observations match the actual enqueue trace. One turn
+initially received one sample, then waited 389.623 ms for another packet, so
+its approximately 390 ms gate age is not all buffer-added latency. No actual
+added-start latency or acoustic first-word boundary is claimed. Source and
+target settings were restored. Detailed evidence identities are in the
+[coordination result](../coordination/main.md#completed-buffered-run-and-next-model-comparison).

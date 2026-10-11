@@ -6,6 +6,27 @@ plain `gemini-3.8-live` / `Kore` request, manual activity boundaries, transcript
 requests, instructions and absence of tools are unchanged. These setup options do
 not change audio scheduling, admission, endpointing or runtime latency directly.
 
+## Native-audio language and next latency comparison
+
+Rechecked against Google's [Live capabilities guide](https://ai.google.dev/gemini-api/docs/live-api/capabilities)
+on 2026-10-11: native-audio models choose their response language automatically;
+Google does not document explicit language-code selection as supported for those
+models. The protocol field below remains useful for reproducing an exact
+historical setup, but successful setup with `language_code` is not proof that it
+constrains speech. The fixed Lamp instruction already requests English; the
+observed wrong-language replies show that this is not a deterministic guarantee.
+Do not present an `en-US` setup-only probe as a language fix.
+
+Google recommends plain `gemini-3.8-live` for most low-latency voice uses and
+Extended Thinking for additional background reasoning. Lamp's current physical
+comparison retains Extended Thinking/LOW to match the V1 pilot. A separate
+plain-model setup-only probe succeeded using the same endpoint, credential
+source and Kore voice, with the unsupported thinking-level field absent. It sent
+no microphone audio and measured no conversational latency. The next model
+comparison must retain the same runtime, endpoint policy, playback horizon,
+levels and cached inputs, and keep every failed turn. Model choice remains an
+experiment; no speedup has been established.
+
 ## Explicit setup
 
 Select the model before requesting its thinking level:

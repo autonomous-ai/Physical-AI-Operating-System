@@ -3,9 +3,9 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated runtime checkpoint: `5a2f0076bbddd1f4d38c1de743c29531ba327ecd`
+- Integrated runtime checkpoint: `6e6c58b42` (cooperative termination), now exercised on lamp-4ace; ARM binary `0aa2387a...`.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: the 1200 ms V1-style baseline completed ten consecutive physical Gemini replies with no extra admission, split question, cancellation or provider failure. Quality still fails: nine replies had accepted-zero gaps, and reply two was Spanish after the English stimulus. The independent source recorder timed out after all replies and target shutdown, so this run has no accepted room-audio latency. Natural interruption, varied conversation and full choreography remain unfinished.
+- State: lamp-4ace is available again. One real Rust exchange was heard by the owner and captured by the iMac microphone; its complete 3.12 s reply has zero playback gaps. Microphone, explicit speakers and a fresh camera capture also work with the iMac locked. This is a finite audio trial, not an installed continuous V2 service. Natural interruption, varied conversation and full choreography remain unfinished. See the latest evidence below.
 
 ## Direct coordination
 
@@ -270,7 +270,7 @@ schedules devices.
 |---|---|---|---|
 | lamp-a0ae | 172.168.20.197 | Main | Primary finite native qualification; no motion |
 | lamp-52e6 | 172.168.20.190 | Main | Cached stimulus and independent recordings; preserve existing STT drop-in |
-| lamp-4ace | last known 172.168.20.159 | Main | Not rediscovered in the last authorized scan |
+| lamp-4ace | 172.168.20.159 | Main | Rediscovered and real Rust audio trial completed; installed legacy restored stationary and software-muted between runs |
 
 The first spare-Lamp physical runs used old source `51bd815e9`, binary SHA
 `d3318abe080336dbd4c50d9d04e4517eb21cd0b7cec5afaa5d5f62e990b525e7`.
@@ -395,3 +395,112 @@ request's phase and time; it does not retry or weaken privacy checks.
 Peer branches were fetched again on 2026-10-11: Agent 1 `12caf1b38`, Agent 2
 `95029a03d`, with no new checkpoint since the previous integration review.
 Harness direct delivery remains unavailable; Git is the coordination record.
+
+
+## Completed buffered run and next model comparison
+
+The first `a30055ba...` / 200 ms run, `20261011T073625Z`, completed eight
+actual replies. The private runner rejected turn eight's legitimate second
+playback occurrence under the same owner. Its forced cleanup left unsealed
+recordings; this remains a failed attempt. The parser now accepts one or more
+ordered, uniquely identified, fully retired playback occurrences before the
+single turn completion. Actual retained cues reproduced the defect before the
+fix and pass through both production caller paths afterward. Fresh ownership,
+nonce, clock, privacy and rollback checks remain intact.
+
+The rerun, `20261011T075239Z`, completed ten inputs, ten endpoints and ten
+replies, each with one playback occurrence. No extra input, cancellation or
+provider failure event appeared. Both target completion markers and coordinator
+ACKs verify, as do both source WAVs (179.875 s each). The source and target
+returned to their saved settings, including volumes 94 and 77. The runtime,
+provider configuration, 1200 ms endpoint, noise-suppression setting, cached
+English greeting and levels were unchanged from the first buffered attempt.
+
+Three accepted-zero gaps total 440 ms: turn two 320 ms, turn five 50 ms and
+turn seven 70 ms. Seven replies have no such gap. Provider output transcripts
+for turns six and seven are Spanish; turn two does not answer the greeting.
+Turn four's local-endpoint-to-first-ALSA interval is 10.755097 s, including
+10.655587 s before provider first audio. The ten software intervals have median
+1.3898665 s and nearest-rank p95 10.755097 s. These exclude the 1200 ms endpoint
+wait and are not speech-end-to-first-audible-word measurements.
+
+Compared descriptively with `20261011T070623Z`, gaps change from 15 / 1390 ms
+to three / 440 ms; maximum gap changes from 310 to 320 ms. Reply duration and
+content differ, so no causal buffer win or acoustic speedup is established.
+The start-gate records match actual enqueue history and all ten select 200 ms.
+Turn eight receives one sample before a 389.623 ms packet delay; its gate age
+is not entirely added delay. Keep `added_latency_us` unmeasured.
+
+Independent report: `/private/tmp/lamp-v1-ten200-complete-audit-3_bmsbbb/report.json`,
+SHA256 `43b9bcee3a9e2728f5c8ce045ac4fa10c71b9a52e5ba03562079dfbf6ebfd62e`;
+41-input manifest SHA256
+`8582622bc359bd37026817d294130d0264a2af96b4c09dc2db66d0bb0d219858`.
+All recordings stay local. No human listening or acoustic acceptance is claimed.
+
+The subsequent regular-Live attempt, `20261011T080421Z`, played eight prompts
+but admitted only seven; the eighth had high-VAD blocks without a new admission.
+The old whole-process-group termination left no final coordinator trace. This
+is a retained failed comparison, not a model winner. The later 4ace trial below
+returns to Extended Thinking/LOW for the V1 pilot comparison.
+
+Separately, `6e6c58b42` adds cooperative SIGINT/SIGTERM handling through existing
+reply cancellation, privacy denial, worker shutdown and failed-trace writing.
+Root fmt, strict live Clippy and all 415 serial live tests passed (zero failed,
+two existing ignored). Standalone ARM release/strict Clippy and 73 focused QEMU
+tests passed. It was absent from those spare-Lamp comparisons and is now
+exercised in the later 4ace trial below. Signal the coordinator first; a whole-group signal cannot promise
+worker acknowledgements. See the [termination contract](../docs/directed-termination.md).
+
+
+## 4ace restored: real exchange and locked-screen access
+
+On 2026-10-11, the iMac explicitly played the cached Daniel/190 question,
+"Lamp, how are you doing today?" Lamp-4ace, running Rust `6e6c58b42`, answered,
+"I'm doing great, thanks for asking. How are you doing?" The owner heard Lamp,
+then heard the replay of the iMac microphone recording and confirmed both voices
+were clear. Cached local ASR independently recovered the answer. No recorded
+room audio was uploaded.
+
+The first reply contains 74,880 accepted samples at 24 kHz (3.120 s), 312
+contiguous chunks, zero accepted-zero gaps, a complete provider outcome and
+matching final retirement. Capture and render completion certificates match
+the actual coordinator acknowledgements. A second input near the finite test
+end received only 210 ms before `deadline_cancelled`; keep it incomplete.
+Local endpoint to first ALSA write was 1.346475 s. The proposed acoustic gap is
+2.65–2.75 s, pending manual boundary confirmation: this is neither an accepted
+latency measurement nor a p50/p95 result. Owner confirmation establishes
+intelligibility, not timing annotation or full-duplex behavior.
+
+Runtime SHA256:
+`0aa2387a4c382ea25568f5099e11427f5a05b8caa93ea01beff23836aaccb822`.
+The run uses `v1-baseline`, NS off, 1200 ms endpoint and 200 ms playback horizon,
+with Extended Thinking/LOW and Kore. The finite session has ended; legacy is
+restored with the permanent serial guard and both software mutes confirmed.
+No motor movement or complete choreography was tested. Three legacy restorations
+reopened the microphone at startup; strict cleanup reported each failure.
+Explicit mute and fresh readback restored the required state. Those failures
+remain recorded; a private bench-helper correction is not yet deployed.
+
+Evidence stays local:
+
+- Exchange: `/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-4ace-real-exchange-b8hpwyqg`.
+  Room WAV SHA256 `e2a87aa932a8a3c1e82357f963d93d29cc2ddbbd4d953e63eb5cdc9011a510dd`.
+- Independent audit: `/private/tmp/lamp-imac-native03-match-g1xwnbj7/report.md`.
+  Report SHA256 `279651877d3501b27324e847ceb5eb433743282d0a92fdd963bfce9085da83a8`;
+  input manifest SHA256 `01e009f50e868d3f1f3332eaf4fb6a6526b3ca2fc0010f1ad9c6a799bd3b9ed5`.
+- Locked-screen check: `/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-imac-locked-check-r2pgum03`.
+  Screen lock was confirmed before and after. Explicit iMac Speakers playback
+  is valid; exact iMac Microphone recording retains all 720,000 frames (15 s at
+  48 kHz) with zero clipping, drops, stream errors or discontinuities. The
+  cached question matches that recording and local ASR recovers it. A fresh
+  photo was visually inspected and shows Lamp with its red ring and full base.
+- Locked audio audit: `/private/tmp/lamp-locked-audio-audit-9q7PSa/report.md`,
+  SHA256 `422e3e07e0832c431bb3553ef33fc14df1da7919eff0bc87ba68a38acb16e9b0`.
+  WAV SHA256 `abb2f65b6d760f4d6121c93ea4a04bdd832a44693d3a2fbb7df412b89ef762ad`.
+
+No additional OS consent is pending for this tested setup. Retain the existing
+approved app identities. A 24-hour system-sleep inhibitor began at
+08:50:29 UTC; it permits display sleep and locking. Locking worked in this check;
+logging out, shutting down or future permission changes are separate conditions.
+The owner requests a single stored V1-main benchmark; inspect existing source
+provenance before starting any additional baseline run.

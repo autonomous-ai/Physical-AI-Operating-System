@@ -7,12 +7,19 @@ The broader goal remains unfinished; this document is not release acceptance.
 
 ## Resumed work after export
 
+- Latest device checkpoint, 2026-10-11: lamp-4ace is back at 172.168.20.159.
+  Rust `6e6c58b42` completed a real iMac-to-Lamp exchange; the owner heard the
+  answer and the independent room-recording replay. iMac microphone, speakers
+  and fresh camera capture also passed while locked. No mic-consent step is
+  pending. The finite Rust trial ended and legacy was restored stationary and
+  muted. Read [current state and evidence](coordination/main.md#4ace-restored-real-exchange-and-locked-screen-access)
+  before using any historical access or restoration instructions below.
 - The owner requested direct coordination through Git. Follow
   [the protocol](coordination/README.md) and read each agent's status from its
   own fetched branch. Routine handoffs do not require owner relay.
 - Two alternate Lamps are available: `lamp-52e6` and `lamp-a0ae`. The owner
   authorized real-device Rust testing and temporary ambient-microphone
-  monitoring while iMac microphone consent is pending. See
+  monitoring before iMac microphone consent was completed. See
   [current reservations and evidence](coordination/main.md). Earlier no-device
   restrictions in this historical handoff are superseded for those authorized
   tests. This does not authorize unverified motion or concurrent hardware owners.

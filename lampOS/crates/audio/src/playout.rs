@@ -58,6 +58,11 @@ impl StartGate {
     /// Whether a block may be handed over now. Once open it stays open until
     /// `reset`, however little is in hand later.
     ///
+    /// `buffered_frames` is what could be handed over: a caller that
+    /// withholds its last block until the reply is complete does not count
+    /// that block, and asks only when it has a block to hand over. Otherwise
+    /// the opening is recorded before anything can leave.
+    ///
     /// A gate that was never told of an arrival starts its horizon at the
     /// first question asked with audio in hand, so a missed `audio_arrived`
     /// costs one bounded hold and never a silent reply.

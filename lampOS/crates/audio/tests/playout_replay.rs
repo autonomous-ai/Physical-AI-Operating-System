@@ -4,11 +4,18 @@
 //! arrived, measured from the reply's first, and how many 24 kHz frames it
 //! carried. They hold no audio and no words.
 //!
+//! **Everything here is counterfactual.** Each schedule is the arrivals a
+//! trace retained for one reply, and the traces carry no completion or
+//! cancellation time, so the model takes the reply to be complete at its last
+//! retained arrival. These are not qualified physical turns and not a
+//! held-out set: the horizon was chosen on the same replies.
+//!
 //! `play` is a model of the hand-over, not the coordinator and not the speaker
 //! loop. It keeps their two rules: the queue gives up one block per 10 ms slot
 //! of a clock that never stops and withholds its last block until the reply is
-//! complete, and a slot with no speech in hand is filled with zeros. The first
-//! test checks that model against the gaps the devices recorded.
+//! complete, and a slot with no speech in hand is filled with zeros. The
+//! withheld block is not counted as audio in hand. The first test checks the
+//! model against the gaps the devices recorded.
 use lamp_audio::{
     RENDER_SAMPLES,
     playout::{START_HORIZON_US, StartGate, StartNeed},
@@ -63,10 +70,16 @@ fn play_until(
             queued += frames;
             next += 1;
         }
-        // The generation's completion follows its last audio.
+        // The traces carry no completion time. The model puts it at the last
+        // arrival they retained.
         let complete = next == arrivals.len();
-        let ready = queued > BLOCK || (complete && queued > 0);
-        if ready && gate.open(slot, queued as usize, complete) {
+        // The last block is withheld until then, so it is not audio in hand.
+        let playable = if complete {
+            queued
+        } else {
+            queued.saturating_sub(BLOCK)
+        };
+        if playable > 0 && gate.open(slot, playable as usize, complete) {
             let frames = queued.min(BLOCK);
             queued -= frames;
             played += frames;
@@ -531,10 +544,10 @@ fn the_horizon_plays_the_first_rust_pilot_reply_whole_at_every_clock_phase() {
     for phase in (0..SLOT_US).step_by(250) {
         let run = play(FIRST_RUST_ENQUEUED, START_HORIZON_US, phase);
         assert_eq!(run.gaps, [], "phase {phase}");
-        // 130 ms in hand 16.7 ms after the first audio: held to 70 ms after
-        // it, then the next slot.
+        // 130 ms in hand 16.7 ms after the first audio, the last 10 ms of it
+        // withheld: held to 80 ms after it, then the next slot.
         assert!(
-            (72_000..82_000).contains(&run.first_speech_us),
+            (82_000..92_000).contains(&run.first_speech_us),
             "phase {phase}: {}",
             run.first_speech_us
         );
@@ -544,12 +557,12 @@ fn the_horizon_plays_the_first_rust_pilot_reply_whole_at_every_clock_phase() {
         START_HORIZON_US,
         FIRST_RUST_FIRST_WRITE_US % SLOT_US,
     );
-    assert_eq!(held.first_speech_us, recorded.first_speech_us + 50_000);
-    assert_eq!(held.end_us, recorded.end_us + 20_000);
+    assert_eq!(held.first_speech_us, recorded.first_speech_us + 60_000);
+    assert_eq!(held.end_us, recorded.end_us + 30_000);
 }
 
 #[test]
-fn the_smallest_horizon_that_covers_the_first_rust_pilot_reply_is_180_ms() {
+fn the_smallest_horizon_that_covers_the_first_rust_pilot_reply_is_170_ms() {
     let worst = |horizon_us| {
         (0..SLOT_US)
             .step_by(250)
@@ -559,7 +572,7 @@ fn the_smallest_horizon_that_covers_the_first_rust_pilot_reply_is_180_ms() {
     };
     assert_eq!(
         [0, 100_000, 150_000, 160_000, 170_000, 180_000, 200_000].map(worst),
-        [30, 30, 30, 20, 10, 0, 0]
+        [30, 30, 20, 10, 0, 0, 0]
     );
 }
 
@@ -583,8 +596,8 @@ fn the_horizon_removes_every_recorded_startup_gap_but_the_two_the_service_stalle
         // and 302.7 ms after 50 ms. No start within the horizon covers that;
         // the gap is shorter.
         match reply.run {
-            "rubc3c4q/5" => assert_eq!((worst_without, worst_with), (310, 190)),
-            "ns-off/2" => assert_eq!((worst_without, worst_with), (270, 120)),
+            "rubc3c4q/5" => assert_eq!((worst_without, worst_with), (310, 180)),
+            "ns-off/2" => assert_eq!((worst_without, worst_with), (270, 110)),
             _ => assert_eq!(worst_with, 0, "{}", reply.run),
         }
     }
@@ -609,7 +622,7 @@ fn the_horizon_removes_every_recorded_startup_gap_but_the_two_the_service_stalle
 }
 
 #[test]
-fn a_190_ms_horizon_is_the_edge_and_180_ms_is_short() {
+fn a_180_ms_horizon_is_short_by_one_reply() {
     let gapped = |horizon_us| {
         RECORDED
             .iter()
@@ -620,17 +633,8 @@ fn a_190_ms_horizon_is_the_edge_and_180_ms_is_short() {
             .map(|reply| reply.run)
             .collect::<Vec<_>>()
     };
-    assert_eq!(
-        gapped(180_000),
-        [
-            "rubc3c4q/4",
-            "rubc3c4q/5",
-            "fvackatg/1",
-            "5koru8e0/1",
-            "ns-off/2"
-        ]
-    );
-    assert_eq!(gapped(190_000), ["rubc3c4q/4", "rubc3c4q/5", "ns-off/2"]);
+    assert_eq!(gapped(180_000), ["rubc3c4q/4", "rubc3c4q/5", "ns-off/2"]);
+    assert_eq!(gapped(190_000), ["rubc3c4q/5", "ns-off/2"]);
     assert_eq!(gapped(START_HORIZON_US), ["rubc3c4q/5", "ns-off/2"]);
 }
 
@@ -652,7 +656,7 @@ fn the_hold_costs_the_start_what_the_gap_cost_the_middle() {
             "{}",
             reply.run
         );
-        assert!(added <= 160_000, "{}: {added}", reply.run);
+        assert!(added <= 170_000, "{}: {added}", reply.run);
         // No start is later than the horizon plus the enqueue and one slot,
         // unless the reply had nothing to play until later than that anyway.
         assert!(
@@ -668,9 +672,9 @@ fn the_hold_costs_the_start_what_the_gap_cost_the_middle() {
         latest_with = latest_with.max(with.first_speech_us);
         latest_without = latest_without.max(without.first_speech_us);
     }
-    // Over the seventeen replies: 64 ms later to the first speech on average,
-    // 14 ms later to the end.
-    assert_eq!((added_ms, end_ms), (1_080, 230));
+    // Over the seventeen replies: 70 ms later to the first speech on average,
+    // 19 ms later to the end.
+    assert_eq!((added_ms, end_ms), (1_190, 320));
     // The slowest start is one the service already produced without a hold.
     assert_eq!(latest_with, latest_without);
 }
@@ -697,13 +701,13 @@ fn a_stall_later_in_the_reply_is_a_gap_under_any_start_and_is_not_held_again() {
     assert_eq!(
         with.gaps,
         [Gap {
-            start_us: 444_775,
-            zero_frames: 5_760,
+            start_us: 454_775,
+            zero_frames: 5_520,
         }]
     );
     // Speech resumes in the first slot after the late audio, and the reply
     // ends when it would have ended anyway.
-    let resumed = with.gaps[0].start_us + 5_760 / BLOCK * SLOT_US;
+    let resumed = with.gaps[0].start_us + 5_520 / BLOCK * SLOT_US;
     assert!(resumed - 678_219 < SLOT_US);
     assert_eq!(with.end_us, without.end_us);
 }

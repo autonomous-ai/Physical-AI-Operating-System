@@ -32,6 +32,10 @@ The owner does not relay routine agent reports.
   [voice parity plan](docs/v1-voice-parity.md).
 - Keep capture and interruption independent of cloud, vision inference and
   presentation. Bound queues, buffers, worker counts and retry work.
+- Keep the interaction core small. Heavy inference runs in independent supervised
+  processes. Optional camera, light or sensor failure must not terminate healthy
+  voice. Inhibit failed outputs before bounded teardown, verify old-worker exit
+  before replacement, and retain truthful readiness and cleanup evidence.
 - One interaction owner coordinates voice, head, body and ring. Validate
   ownership, freshness, privacy and cancellation at the final output boundary.
   Keep exactly one writer for each actuator bus.
@@ -43,7 +47,8 @@ The owner does not relay routine agent reports.
 - Camera and microphone privacy controls remain authoritative. Never show
   listening readiness unless input can actually be retained.
 - Keep Harness, agent sessions, browsing and new long-term memory infrastructure
-  out of this release.
+  out of this release. Preserve only the future task and shared-context boundaries
+  in the architecture; do not implement them or make live chat depend on them.
 - Owner instruction: all code comments, documentation, and notes are English
   only. Keep documentation in this directory, normally `docs/`. This explicit
   instruction overrides any inherited translation requirements.

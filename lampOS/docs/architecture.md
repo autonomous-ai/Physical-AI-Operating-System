@@ -1,32 +1,29 @@
 # lampOS V2: live interaction release
 
-Owner scope, 2026-10-10. **Rust ownership, IPC, audio, ring, Gemini transport and
-fixture components are implemented. Early physical pilots give provisional reply
-gaps of 4.4 seconds for pinned V1-main and 2.0 seconds for V2, each n=1 with
-unmatched Gemini settings. Later V2 pilots exposed false interruption and
-playback-reference starvation during speech gaps. There is no validated speedup,
-p50/p95, or repeated-turn reliability. V2 has not replaced HAL. Full camera,
-sensor, motor and social interaction integration remains.**
+Owner scope reaffirmed 2026-10-11: **first deliver natural, responsive live
+interaction with a physical Lamp. Long-running tasks and new memory services are
+future subsystems, not requirements or dependencies of this first release.**
 
-The [environmental snapshot component](environment-snapshots.md) now provides
-typed units, fixed-size latest state and per-field freshness/fault handling.
-It does not acquire sensors or establish that any sensor is installed. The
-resumed source has host verification only; the earlier 518-test native
-checkpoint does not qualify this new component.
+Current implementation has separate capture/DSP, speaker, physical privacy and
+Gemini provider processes, optional ring output, and opt-in camera context.
+Six varied real-Lamp conversation turns completed on the conservative playback
+suppression baseline, with four playback gaps and an unnecessary story preamble.
+That baseline suppresses overlapping input; natural interruption and social
+admission remain unfinished. Camera integration has combined host/ARM checks; a
+native traced inspection captured 31 frames but failed bounded driver teardown.
+Sight is not yet qualified. Motor core/port code is present but inactive; the
+motor worker and continuous-service changes remain unintegrated candidates.
 
-The [first connected choreography slice](ring-choreography.md) adds an optional
-supervised ring worker driven by actual admitted-input and playback transitions.
-It has host verification only. The prototype's static phase cues are not a
-finished character performance or a physical synchronization measurement.
+Separate processes do not yet provide complete failure isolation: optional ring
+faults still end the conversation, ordinary mute ends the finite run, and camera
+teardown needs correction. These are implementation gaps against the requirements
+below. There is no qualified all-day service or complete embodied performance.
 
-The [input admission boundary](input-admission.md) now separates candidate
-retention from destructive turn replacement. Directed runs still use immediate
-VAD-only acceptance; a production interruption classifier remains unqualified.
-Voice completion, follow-ups and interruption are the immediate development
-priority. Environmental acquisition remains in the release scope but is deferred.
-
-See [benchmark progress](benchmark-progress.md) for the retained trials and current blockers.
-Source home: [top-level lampOS/](../README.md).
+The owner deferred V1 benchmarking. Preserve existing results in
+[benchmark progress](benchmark-progress.md); continue V2 implementation and
+physical acceptance tests. V1 source remains a reference for useful safeguards.
+Source home: [top-level lampOS/](../README.md). Suggested human ownership, based
+on V1 history, is in [team ownership](team-ownership.md).
 
 ## Product boundary
 
@@ -107,29 +104,77 @@ measured scheduling remain explicit design obligations.
 
 ## Runtime responsibilities
 
+The entry point is `lamp-live`. The target is a small interaction/supervision
+core over Linux, with independent component workers. It is not a new kernel.
+The I/O-free `lamp-interaction` crate defines ownership, privacy and cancellation;
+`lamp-live` integrates that policy with workers. A crate is a code boundary, not
+automatically a process. Different worker roles can share an executable while
+running as separate processes with their own lifetime and resource bounds.
+
 ```text
-Microphone / camera / sensors
-          |
-  fresh, bounded observations
-          |
-Rust interaction owner <----> Gemini Live
-          |
-  one local choreographer
-          |
-Voice output / head / body / ring
+Linux / service supervisor
+            |
+      lamp-live core
+      lifecycle, capabilities, turn ownership,
+      admission, privacy and one choreographer
+            |
+      bounded control and observations
+            |
+   +--------+-----------+-----------+-----------+
+   |        |           |           |           |
+capture   speaker    Gemini       camera      privacy /
+DSP/VAD   playback   transport    acquisition physical controls
+   ^        |                       |
+   +--------+                   perception
+ accepted render                    |
+ reference                    fresh evidence
+
+Additional independent workers:
+  ring output | head/body motor bus | enabled sensors
+  end-of-turn inference (candidate; outside the core)
+
+Future, outside the live interaction path:
+  task adapter -> Harness
+  shared memory/context service
 ```
 
-Continuous capture and local speaker cancellation have a dedicated execution
-path. Listening and speaking can overlap; they must not be mutually exclusive
-states that discard the start of an interruption. Heavy vision inference and
-cloud I/O cannot run inside audio or motor timing loops. Run microphone capture, speaker playback, camera acquisition, vision inference,
-ring output, physical controls and each enabled environmental sensor in their
-own supervised processes, with explicit bounded communication. The five servos
-share one motor process because they share a serialized bus. Keep one writer
-for that bus and coordinate head/body motion there. The directed runtime now implements separate capture, speaker, physical privacy
-and provider processes, plus an optional ring process. Camera, sensor and motor
-processes are not yet integrated into that runtime. The earlier IPC measurement used separate test
-processes; it is not a measurement of these hardware workers.
+Keep continuous capture, echo processing and local cancellation independent of
+network calls, inference, presentation and persistent storage. The capture
+worker may contain its tightly coupled DSP/VAD stages; this does not require one
+process per function. Camera acquisition and heavy perception run separately.
+End-of-turn model inference also belongs in a supervised worker, not a thread
+inside the core. One motor worker owns the serialized five-servo bus; each
+actuator bus has exactly one writer. Do not create competing hardware owners
+to make a diagram look more modular.
+
+The core handles small bounded state transitions and scheduling decisions.
+It does not decode images, execute models, wait for disk writes, wait for child
+exit in a live loop, or carry out cloud/tool calls. Logging is diagnostic
+evidence, not the authoritative conversation state. Audio and image payloads
+have bounded data paths; privacy, stop and cancellation have independent priority
+control. Capacity, deadlines, drop/refusal behavior and worker generations are
+explicit contracts. Increasing queues is not a substitute for meeting them.
+
+### Failure containment requirements
+
+These are release requirements; current gaps are listed above.
+
+| Failure | Required effect |
+|---|---|
+| Camera, perception or an optional environmental sensor | Mark that capability unavailable; retain healthy audio. Never reuse stale observations as current evidence. |
+| Ring | Inhibit further ring output and record degraded presentation; retain healthy conversation. A missing light cannot claim readiness. |
+| Motor | Reject further motion, perform only the qualified local safety action, and retain voice. Do not claim the mechanism physically stopped without evidence. |
+| End-of-turn inference | Use the documented bounded silence fallback; never block capture, privacy or cancellation. |
+| Microphone/audio integrity | Stop accepting input and remove listening readiness; preserve safe controls and report unavailability through a working permitted output. |
+| Gemini transport | Preserve local privacy and controls, report affected turn outcomes, and recover only under the provider's explicit session contract. |
+| Core | Worker authority expires locally, outputs take their safe state, and the OS supervisor may restart a fresh core. Stale callbacks cannot regain authority. |
+
+Inhibit a failed capability before starting teardown. Recovery has bounded
+attempts and requires actual old-worker exit, a new identity, fresh permissions
+and verified readiness. A cancellation request, a process kill and a completed
+hardware stop are different observations. Never restart a second bus owner
+while the first may still hold the device. Standard Linux scheduling and Rust
+alone do not establish hard real-time behavior; verify service tails under load.
 
 Code enforces privacy, output ownership, expiry, cancellation, readiness and
 motion bounds. Gemini supplies meaning, language and optional expressive intent.
@@ -139,11 +184,45 @@ Each observation carries its age and uncertainty. Each output retains its turn
 and playback ownership through the final write. A newer turn invalidates old
 speech and conversational gestures without requiring a model-generated stop.
 
+## Future task and memory boundaries
+
+These are architectural placeholders only. Do not add idle services, mock
+production APIs, model dependencies or release gates for them in this phase.
+The live interaction release must start, converse and handle interruptions
+without either subsystem installed or reachable.
+
+**Task service:** reserve an independent adapter to Harness for long-running
+work. Reuse Harness's task/session registry, routing, execution and recovery
+contracts after inspecting their then-current implementation. Do not build a
+duplicate agent manager now. A task has a durable identity and lifetime separate
+from the current spoken turn. A topic change or interruption of speech does not
+implicitly delete a task or its result. Completion is an event that the
+interaction owner schedules appropriately; Harness or an agent never writes
+directly to the speaker, lights or motors. Agent-engine selection is deferred.
+
+**Memory/context service:** reserve one shared boundary for useful information
+from both conversations and task outcomes. Treat Gemini's active conversation
+context as temporary working context, not Lamp's durable source of truth.
+Do not assume that an engine's session history is automatically shared across
+engines or constitutes an owner memory system. The future service should provide
+a bounded, ready-to-use context snapshot to the conversation layer and relevant
+context to tasks, with provenance and explicit correction/deletion behavior.
+Extraction, persistence and larger retrieval happen outside the live audio path.
+Ordinary conversation must not wait for a memory search on every turn.
+
+Ownership of durable facts, use of Harness's existing memory, storage technology,
+retention and context refresh/reconnection semantics remain to be designed.
+Hindsight is not a selected dependency of this release. Review and reuse working
+Harness capabilities before deciding whether another memory system is needed.
+For now, keep the current conversation and explicit interaction configuration;
+do not claim that a preference was saved for future sessions when it was not.
+
 ## Qualification
 
-These are targets and planned tests, not measured V2 improvements. Compare only
-pinned V1 main and Rust V2 using the [comparison protocol](comparison-protocol.md).
-Live conversation on the physical Lamp is the primary evidence: cached speech
+These are V2 acceptance targets, not measured improvements. The owner deferred
+the [V1 comparison protocol](comparison-protocol.md); do not run that comparison
+until it is resumed. Live conversation on the physical Lamp is the primary
+evidence: cached speech
 from the iMac speaker, Lamp's real microphones and Gemini, and the answer from
 Lamp's speaker. A continuous independent room recording establishes the audible
 boundaries. Modified V1 is excluded from the comparison. Component measurements
@@ -182,8 +261,9 @@ qualification. An audio-only demo does not complete this release.
 The `lamp-acoustic` crate contains a versioned catalog of 20 desk scenarios and
 24 reusable utterances. Ownership, transport and audio processing now have Rust
 implementations as described below. Gemini transport and a directed voice process
-integration are described in [live runtime](live-runtime.md). This slice has no
-addressee classifier, camera or motor integration; its optional ring cues do not qualify the
+integration are described in [live runtime](live-runtime.md). The directed runtime
+still has no qualified addressee classifier or integrated
+motor choreography. Its opt-in camera context and ring cues do not qualify the
 complete desk experience. Native checks run in an isolated build directory on
 Lamp; installed HAL services have not been replaced.
 

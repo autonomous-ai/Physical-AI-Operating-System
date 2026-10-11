@@ -7,6 +7,17 @@ The broader goal remains unfinished; this document is not release acceptance.
 
 ## Resumed work after export
 
+- The owner requested direct coordination through Git. Follow
+  [the protocol](coordination/README.md) and read each agent's status from its
+  own fetched branch. Routine handoffs do not require owner relay.
+- Two alternate Lamps are available: `lamp-52e6` and `lamp-a0ae`. The owner
+  authorized real-device Rust testing and temporary ambient-microphone
+  monitoring while iMac microphone consent is pending. See
+  [current reservations and evidence](coordination/main.md). Earlier no-device
+  restrictions in this historical handoff are superseded for those authorized
+  tests. This does not authorize unverified motion or concurrent hardware owners.
+
+
 See [voice workstream ownership](docs/development-workstreams.md) before making
 parallel edits or integrating another agent's changes.
 

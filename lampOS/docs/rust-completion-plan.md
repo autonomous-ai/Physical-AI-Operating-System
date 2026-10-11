@@ -1,9 +1,10 @@
 # Complete the Rust implementation: next 24-hour work allocation
 
 Owner instruction: implement everything possible without the physical Lamp,
-integrate the three workstreams, then test on the real device. This is an
-implementation plan, not a claim that the rewrite or natural interaction is
-finished. The target is a complete Rust candidate; the actual outcome after
+integrate the three workstreams, then test on the real device. The owner subsequently authorized alternate-device tests; follow
+[Git coordination](../coordination/README.md) for active reservations, requests
+and checkpoints. This is an implementation plan, not a claim that the rewrite
+or natural interaction is finished. The target is a complete Rust candidate; the actual outcome after
 24 hours must list any unfinished code explicitly.
 
 Starting shared checkpoint: `3a21db25d89532a5aadb7db40bf46505d15cccba` on

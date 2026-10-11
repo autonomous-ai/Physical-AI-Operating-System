@@ -173,6 +173,8 @@ pub struct PhysicalConfig {
     pub ring_channel_ceiling: Option<u16>,
     /// Loudspeaker replay or direct human speech; never pooled.
     pub stimulus_source: StimulusSource,
+    /// The runtime runs on kernel-simulated hardware with a digital room.
+    pub simulated: bool,
 }
 
 /// Keep refining the clock map during the session, within a bound.
@@ -742,6 +744,9 @@ impl Backend for PhysicalBackend<'_> {
         })
     }
     fn stratum(&self, _: &Scenario) -> Stratum {
+        if self.config.simulated {
+            return Stratum::ProcessSimulation;
+        }
         match self.config.mode {
             LampMode::Fixture { .. } => Stratum::PhysicalFixture,
             LampMode::Directed { .. } => Stratum::PhysicalGemini,

@@ -23,6 +23,7 @@ mod playback;
 pub mod record;
 pub mod report;
 pub mod runner;
+pub mod sim;
 pub mod stats;
 pub mod stimulus;
 

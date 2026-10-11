@@ -22,6 +22,10 @@ pub enum Stratum {
     PhysicalGemini,
     /// An existing lamp-live trace scored against a declared scenario.
     ImportedTrace,
+    /// The real runtime and worker processes on kernel-simulated hardware
+    /// (ALSA loopback, gpio-sim) with a digital room. Real code and runtime
+    /// timestamps; no device, acoustic or human evidence.
+    ProcessSimulation,
 }
 impl Stratum {
     pub fn is_physical(self) -> bool {
@@ -39,6 +43,9 @@ impl Stratum {
             Self::PhysicalFixture => "physical Lamp, cached fixed reply",
             Self::PhysicalGemini => "physical Lamp, Gemini",
             Self::ImportedTrace => "imported lamp-live trace, declared attribution",
+            Self::ProcessSimulation => {
+                "real lamp-live processes on simulated hardware, digital room (not acoustic, not a device)"
+            }
         }
     }
 }

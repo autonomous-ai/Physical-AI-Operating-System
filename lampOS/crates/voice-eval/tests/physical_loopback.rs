@@ -70,6 +70,7 @@ fn config_with_fault(
         allowance_seconds: 10,
         ring_channel_ceiling: None,
         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+        simulated: false,
     }
 }
 

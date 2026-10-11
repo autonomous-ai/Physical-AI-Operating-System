@@ -18,5 +18,8 @@ lamp-ipc = { path = "../ipc" }
 lamp-live = { path = "../live" }
 lamp-observer = { path = "../observer" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+alsa = "=0.12.1"
+
 [lints]
 workspace = true

@@ -40,7 +40,10 @@ const USAGE: &str = "usage:
       [--scenario ID]... [--repetitions N] [--seed N] [--attempt-seed N] [--execute]
   lamp-voice-eval lamp-session --runtime LAMP_LIVE --work NEW_ABS_DIR --seconds N
       (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE) [--noise-suppression on|off]
-      [--diagnostics] [--allowance-seconds N]";
+      [--diagnostics] [--allowance-seconds N]
+  lamp-voice-eval sim-room --control ABS_SOCKET --out NEW_DIR [--speaker-in PCM] [--mic-out PCM]
+      [--echo-gain 0..1] [--echo-delay-ms N] [--privacy-pull GPIO_SIM_PULL_FILE] [--max-seconds N]
+  lamp-voice-eval sim-room-send --control ABS_SOCKET COMMAND_JSON";
 
 fn main() {
     match run() {
@@ -179,6 +182,21 @@ fn run() -> Result<i32> {
             return session::run(&options, std::io::stdin(), &mut stdout.lock());
         }
         "fake-lamp-live" => return fake_lamp::run(&all),
+        "sim-room-send" => {
+            let [flag, control, text] = all.as_slice() else {
+                return Err(invalid("sim-room-send --control ABS_SOCKET COMMAND_JSON"));
+            };
+            if flag != "--control" {
+                return Err(invalid("sim-room-send --control ABS_SOCKET COMMAND_JSON"));
+            }
+            // Validate before sending; the room logs and ignores invalid input.
+            let command: lamp_voice_eval::sim::room::Command = serde_json::from_str(text)?;
+            std::os::unix::net::UnixDatagram::unbound()?
+                .send_to(&serde_json::to_vec(&command)?, control)?;
+            return Ok(0);
+        }
+        #[cfg(target_os = "linux")]
+        "sim-room" => return sim_room(&all),
         _ => {}
     }
     let mut args = Args { values: all };
@@ -512,6 +530,11 @@ struct PhysicalFile {
     allowance_seconds: u16,
     #[serde(default)]
     ring_channel_ceiling: Option<u16>,
+    /// Process simulation: the room control socket of a running `sim-room`.
+    /// The stimulus source is then `digital_mix` and the stratum
+    /// `process_simulation`; nothing is played on a real speaker.
+    #[serde(default)]
+    room_control: Option<String>,
 }
 fn default_source() -> StimulusSource {
     StimulusSource::LoudspeakerSynthetic
@@ -529,15 +552,24 @@ impl PhysicalFile {
                 "lamp_command must be nonempty and lamp_work_root absolute",
             ));
         }
-        let player: Box<dyn Player> = match self.stimulus_source {
-            StimulusSource::LoudspeakerSynthetic => {
+        let simulated = self.room_control.is_some();
+        let stimulus_source = if simulated {
+            StimulusSource::DigitalMix
+        } else {
+            self.stimulus_source
+        };
+        let player: Box<dyn Player> = match (&self.room_control, self.stimulus_source) {
+            (Some(control), _) => Box::new(lamp_voice_eval::sim::player::RoomPlayer::new(
+                PathBuf::from(control),
+            )?),
+            (None, StimulusSource::LoudspeakerSynthetic) => {
                 let output_device = self
                     .output_device
                     .ok_or_else(|| invalid("loudspeaker replay needs output_device"))?;
                 lamp_observer::playback::validate_output_name(&output_device)?;
                 Box::new(ObserverPlayer { output_device })
             }
-            StimulusSource::DirectHuman => Box::new(HumanPrompter {
+            (None, StimulusSource::DirectHuman) => Box::new(HumanPrompter {
                 speaker_label: self.human_speaker.unwrap_or_else(|| "person-1".into()),
             }),
             _ => {
@@ -570,7 +602,8 @@ impl PhysicalFile {
                 room_independent: self.room_independent,
                 allowance_seconds: self.allowance_seconds,
                 ring_channel_ceiling: self.ring_channel_ceiling,
-                stimulus_source: self.stimulus_source,
+                stimulus_source,
+                simulated,
             },
             player,
         ))
@@ -689,4 +722,44 @@ fn trust_exit(self_test: &[CanaryResult]) -> i32 {
         eprintln!("lamp-voice-eval: evaluator self-test failed; the report is marked UNTRUSTED");
         2
     }
+}
+
+#[cfg(target_os = "linux")]
+fn sim_room(arguments: &[String]) -> Result<i32> {
+    use lamp_voice_eval::sim::{linux, room::Echo};
+    let mut options = linux::RoomOptions {
+        speaker_in: "plug:room_speaker_in".into(),
+        mic_out: "plug:room_mic_out".into(),
+        control: PathBuf::new(),
+        out: PathBuf::new(),
+        echo: Echo {
+            gain: 0.0,
+            delay_ms: 0,
+        },
+        privacy_pull: None,
+        max_seconds: 1800,
+    };
+    let mut iter = arguments.iter();
+    while let Some(flag) = iter.next() {
+        let value = iter
+            .next()
+            .ok_or_else(|| invalid(&format!("{flag} needs a value")))?;
+        match flag.as_str() {
+            "--control" => options.control = PathBuf::from(value),
+            "--out" => options.out = PathBuf::from(value),
+            "--speaker-in" => options.speaker_in = value.clone(),
+            "--mic-out" => options.mic_out = value.clone(),
+            "--echo-gain" => options.echo.gain = value.parse()?,
+            "--echo-delay-ms" => options.echo.delay_ms = value.parse()?,
+            "--privacy-pull" => options.privacy_pull = Some(PathBuf::from(value)),
+            "--max-seconds" => options.max_seconds = value.parse()?,
+            _ => return Err(invalid(&format!("unknown sim-room option {flag}"))),
+        }
+    }
+    if !options.control.is_absolute() || options.out.as_os_str().is_empty() {
+        return Err(invalid("sim-room needs an absolute --control and a new --out"));
+    }
+    options.echo = options.echo.validate().map_err(|e| invalid(&e))?;
+    linux::run(&options).map_err(|e| invalid(&e.to_string()))?;
+    Ok(0)
 }

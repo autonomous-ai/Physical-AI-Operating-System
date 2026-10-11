@@ -943,6 +943,7 @@ dependencies = [
 name = "lamp-voice-eval"
 version = "0.1.0"
 dependencies = [
+ "alsa",
  "hound",
  "lamp-acoustic",
  "lamp-audio",

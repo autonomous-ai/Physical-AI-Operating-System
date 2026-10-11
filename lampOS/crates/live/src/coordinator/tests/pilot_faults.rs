@@ -1457,13 +1457,12 @@ fn stalled_speaker_during_output_is_bounded_and_never_completes_the_answer() {
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }
 
-/// Finding F1, retained as a failing reproducer. Not the pilot policy:
-/// `vad-only` (the option default) has no speaker write-evidence lease, so a
-/// speaker that keeps reading control but stops acknowledging chunks leaves
-/// the answer open until something else ends the run. Under V1-baseline the
-/// same stall ends the run in about 200 ms.
+/// F1. Not the pilot policy: `vad-only`, the option default, has no
+/// write-evidence lease. Before the speaker progress bound, a speaker that
+/// keeps reading control but stops acknowledging chunks left the answer open
+/// until something else ended the run (only the 12 s scenario limit here).
+/// The bound now ends it like V1-baseline's own lease, in the same window.
 #[test]
-#[ignore = "finding F1: unbounded stalled speaker under vad-only; see docs/pilot-faults.md"]
 fn stalled_speaker_under_vad_only_is_bounded_too() {
     let _one = one_session();
     let run = run(Script {
@@ -1472,8 +1471,14 @@ fn stalled_speaker_under_vad_only_is_bounded_too() {
     }
     .then(When::Accepted(3), Act::StallSpeaker));
     run.assert_invariants();
-    let outcome = &run.outcomes()[&first(&run)];
-    assert_ne!(outcome[0], "audio_written_unscored", "{outcome:?}");
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let error = run.result.as_ref().unwrap_err().to_string();
+    assert!(error.contains("speaker acknowledgment expired"), "{error}");
+    let stalled = run.fired_at(Act::StallSpeaker);
+    let ended = run.events("turn_finished")[0]["at_us"].as_u64().unwrap();
+    let after_ms = (ended - stalled) / 1_000;
+    eprintln!("stall to turn end {after_ms} ms");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }
 
 /// Not the pilot policy: without the V1-baseline playback mask, speech over
@@ -1793,4 +1798,29 @@ fn sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss(
         "{finish_wait:?}"
     );
     assert!(shutdown_ms < 1_000, "{shutdown_ms} ms");
+}
+
+#[test]
+fn speaker_progress_is_due_strictly_after_lease_plus_report_age() {
+    let (mut owner, reply, permit) = active_reply();
+    let _ = (&mut owner, reply);
+    let pending = PendingSpeaker {
+        origin: SpeechOrigin::Provider,
+        sequence: 1,
+        permit,
+        accepted: 0,
+        final_chunk: false,
+        report_due_us: 1_000 + SPEAKER_PERMIT_LEASE_US + SPEAKER_REPORT_AGE_US,
+    };
+    let due = pending.report_due_us;
+    assert!(check_speaker_progress(None, u64::MAX).is_ok());
+    assert!(check_speaker_progress(Some(&pending), due).is_ok());
+    let error = check_speaker_progress(Some(&pending), due + 1).unwrap_err();
+    assert_eq!(error.to_string(), "speaker acknowledgment expired");
+    // Equal to V1-baseline's write-evidence budget, so that lease reports
+    // first whenever it applies.
+    assert_eq!(
+        SPEAKER_PERMIT_LEASE_US + SPEAKER_REPORT_AGE_US,
+        crate::admission::DECISION_BUDGET_US
+    );
 }

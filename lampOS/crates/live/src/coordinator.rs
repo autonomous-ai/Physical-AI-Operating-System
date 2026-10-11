@@ -241,6 +241,33 @@ struct PendingSpeaker {
     permit: OutputPermit,
     accepted: usize,
     final_chunk: bool,
+    /// See [`check_speaker_progress`].
+    report_due_us: u64,
+}
+
+/// The output lease requested for each speaker chunk. Its permit may expire
+/// sooner (it never outlives the input lease), never later.
+const SPEAKER_PERMIT_LEASE_US: u64 = 100_000;
+/// Every worker channel refuses a packet older than this (the age bound in
+/// `transport.rs`), so a speaker's report reaches the coordinator within it of
+/// being produced.
+const SPEAKER_REPORT_AGE_US: u64 = 100_000;
+
+/// A chunk handed to the speaker is settled (written in full, refused or
+/// discarded) within its permit's lease, after which the speaker may no
+/// longer write it, and the speaker's report then arrives within the channel
+/// packet age. A speaker that stays connected but has reported nothing that
+/// settles the chunk by then has stopped making progress. This holds under
+/// every turn-taking policy; it is checked after each capture block, once
+/// that block's policy checks have run, so a stricter policy bound keeps
+/// reporting first.
+fn check_speaker_progress(pending: Option<&PendingSpeaker>, now_us: u64) -> io::Result<()> {
+    match pending {
+        Some(pending) if now_us > pending.report_due_us => {
+            Err(io::Error::other("speaker acknowledgment expired"))
+        }
+        _ => Ok(()),
+    }
 }
 struct Rig {
     provider: Worker,
@@ -2340,6 +2367,7 @@ fn conversation(
                     .try_into()
                     .map_err(|_| io::Error::other("invalid capture block"))?,
             };
+            let observed_at_us = monotonic_us();
             let (update, input_ended) = observe_prospective_input(
                 &mut playback_mask,
                 &mut detector,
@@ -2348,8 +2376,9 @@ fn conversation(
                 observation,
                 frame.timing.first_read_started_at_us,
                 heard,
-                monotonic_us(),
+                observed_at_us,
             )?;
+            check_speaker_progress(speaker_pending.as_ref(), observed_at_us)?;
             let discarded_endpoint = submission_draining && input_ended;
             if discarded_endpoint {
                 submission_draining = false;
@@ -3171,7 +3200,7 @@ fn dispatch_speaker_chunk(
     {
         return Ok(None);
     }
-    let permit = owner.issue_output(now(), current.plan, 100_000)?;
+    let permit = owner.issue_output(now(), current.plan, SPEAKER_PERMIT_LEASE_US)?;
     let (samples, final_chunk, first_notice) = if origin == SpeechOrigin::FailureNotice {
         current.notice.reserve_chunk(monotonic_us())?
     } else {
@@ -3199,6 +3228,7 @@ fn dispatch_speaker_chunk(
         permit,
         accepted: 0,
         final_chunk,
+        report_due_us: dispatch_at + SPEAKER_PERMIT_LEASE_US + SPEAKER_REPORT_AGE_US,
     });
     Ok(first_notice.then(|| (current.owner, current.notice.evidence())))
 }

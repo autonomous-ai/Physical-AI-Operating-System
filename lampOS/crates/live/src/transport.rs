@@ -78,7 +78,14 @@ impl WorkerChannels {
     ) -> io::Result<Self> {
         if !matches!(
             role,
-            "capture" | "speaker" | "privacy" | "provider" | "ring" | "probe" | "camera"
+            "capture"
+                | "speaker"
+                | "privacy"
+                | "provider"
+                | "ring"
+                | "probe"
+                | "camera"
+                | "perception"
         ) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,

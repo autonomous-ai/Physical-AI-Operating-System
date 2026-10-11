@@ -13,6 +13,14 @@ completed two more exchanges, then verified all five observed processes gone,
 empty cgroup/hardware owners, clean metadata finish and stationary restoration.
 The 180-second room recording is valid; offline ASR corroborates both replies.
 Physical mute/reopen and acoustic listening acceptance remain separate gates.
+The later [installed-ring check](verification/installed-ring-20261011/README.md)
+completed two exchanges with zero playback gaps and 877/877 matching ring
+receipts at ceiling 12. Six process identities exited cleanly; the instance-only
+override was removed before verified stationary rollback. Local stills show the
+ring illuminated during reply and visibly unilluminated after Stop, without
+qualifying color, optical timing or continuous choreography. That run still used
+`55d7af98e` / `738503a803d3…5b8d0`; newer `e9bdcea28` / `b1c61a22…643edbd`
+was not deployed. The installed template below remains audio-only.
 This is an attended desk pilot, not an unattended or boot-enabled release.
 
 Remote staging and installation of the **stopped unit** are already authorized
@@ -208,6 +216,10 @@ main-PID stop. Neither was established by static package checks.
 
 V1-baseline deliberately suppresses prospective input during observed own
 playback plus its declared tail; this is not qualified natural interruption.
+Cached loudspeaker runs do not qualify real-human addressing, coworker speech,
+laptop/call rejection or duplex behavior. Before-answer continuation remains a
+separate provider-settlement limitation. The optional failure notice has no
+approved production asset and is not enabled on this installed runtime.
 No wake-word, addressee recognition, software mute/volume API, tap-to-talk or
 touch-button support is exposed here. Use physical mute and the service stop.
 Rotating local metadata may contain transcripts; it is bounded best-effort

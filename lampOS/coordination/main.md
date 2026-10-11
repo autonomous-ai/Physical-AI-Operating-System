@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 19:29 UTC
+- Updated: 2026-10-11 19:44 UTC
 - Branch: `lamp-v2-chat`
 - Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
 - Integration source: optional owned failure notices (`e63f3152`) plus reviewed Gemini Stop fence (`53f303c7e`); composed binary `b1c61a22...643edbd`, not deployed. Native-qualified installation remains unchanged.
@@ -54,8 +54,23 @@ and local ASR corroborates both complete replies. Stop request to verified clean
 state was 185.413 ms; coordinator SIGTERM event to run_end was 25.786 ms.
 Stationary muted rollback and actual mixer readbacks match. The unit is stopped
 and not boot-enabled. See [native evidence](../docs/verification/installed-service-20261011/README.md)
-and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, optical
-choreography and actual facilitator handoff remain unqualified.
+and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen and actual
+facilitator handoff remain unqualified.
+
+The subsequent [installed-ring check](../docs/verification/installed-ring-20261011/README.md)
+completed 2/2 cached exchanges on the same `55d7af98e` / `738503…5b8d0` binary,
+with zero gaps/cancellations and 877/877 original ring request/receipt pairs at
+ceiling 12. Endpoint → first ALSA write was 1.255596/1.113529 s, excluding the
+1.2 s endpoint wait. All 2,055 metadata events and finish ACK match; all six
+process identities are gone. Stop request → verified clean state was 229.963 ms;
+coordinator SIGTERM → run_end was 22.215 ms. The exact override was removed and
+stationary rollback/mixers verified. The 180-second observer is continuous;
+local ASR corroborates both complete replies. Two retained stills show an
+illuminated ring during reply and a visibly unilluminated ring after Stop;
+optical timing/color and full-motion clearance remain unqualified.
+`human_listened=false`, acoustic score null. Raw audio/photos stay local.
+The newer `e9bdcea28` / `b1c61a22…643edbd` composition was not deployed in this
+run; it receives no physical qualification from this evidence.
 
 Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
 Keep the fixed baseline for the first attended sessions: its candidate saves at
@@ -93,9 +108,9 @@ rig stall; 60 ms stalls pass. This supports a scheduling explanation but does
 not recover the first lost panic text or qualify before-output continuation.
 
 Agent 1 completed its Stop gate and confirmed a quiet host/VM window for Main.
-Main's composed gate has finished; no build is running. A finite voice-plus-ring
-run is under final review, using the unchanged native-qualified binary and a
-low ceiling of 12. Motors remain inhibited. Agent 2 published the first 12
+Main's composed gate has finished. The finite voice-plus-ring run on the
+unchanged native-qualified binary passed the scoped check recorded above;
+motors remained inhibited. Agent 2 published the first 12
 pilot fault scenarios at `lamp-a2-pilot-faults` `ff22184a`, with one deliberately
 ignored failing reproduction for a stalled speaker under `vad-only`. The pilot
 uses V1-baseline, which bounds that same fault. Main reviewed the harness and

@@ -62,6 +62,13 @@ Extended added two introductions with substantive reply writes at 5.342 s and
 remain across the sixteen turns. Keep the physical continuity A/B separate from
 this provider comparison; natural interruption is still a different workstream.
 
+The subsequent same-binary playback comparison completed another sixteen turns.
+The 200 ms coverage and continuity settings both had zero accepted-zero speech
+gaps, with endpoint-to-first-ALSA medians of 1.475 s and 1.647 s (eight turns each).
+This pair demonstrates no gap-reduction benefit or causal speedup. Keep it
+separate from the older model comparison and from acoustic first-word estimates.
+The fixed 1.2-second endpoint wait still precedes both distributions.
+
 Agent 1's opt-in continuity policy eliminates starvation in its 23-reply recorded
 supply replay, while adding 137 ms average first-start delay. It is not a latency
 win. Agent 2's first endpointer has seven new synthetic false splits and remains

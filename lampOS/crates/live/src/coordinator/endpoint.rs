@@ -11,7 +11,7 @@ use crate::{
 };
 use lamp_endpoint_ipc::{
     Availability, Classifier, Limits, Monitor, ProcessClassifier, Report, SMART_TURN_MODEL_FILE,
-    SMART_TURN_MODEL_SHA256, WORKER_EXECUTABLE, WorkerCommand,
+    SMART_TURN_MODEL_SHA256, Teardown, WORKER_EXECUTABLE, WorkerCommand,
 };
 use lamp_ipc::monotonic_us;
 use serde_json::{Value, json};
@@ -145,14 +145,35 @@ impl EndpointRig {
     /// Runtime teardown, never the live loop: closes a client the session did
     /// not take, then waits at most `limit` for its last worker to be reaped,
     /// so a later runtime cannot overlap it. Returns the final record.
-    pub(super) fn finish(mut self, limit: Duration) -> Option<Value> {
+    ///
+    /// Returns the record, and an error unless every worker process was
+    /// confirmed reaped: an unconfirmed exit must keep a later runtime, such
+    /// as a service cycle after a physical mute, from starting.
+    pub(super) fn finish(mut self, limit: Duration) -> Option<(Value, io::Result<()>)> {
         drop(self.classifier.take());
         let monitor = self.monitor?;
-        let reaped = monitor.wait_finished(limit);
-        Some(
-            json!({"kind":"endpoint_worker_final","at_us":monotonic_us(),
-            "reaped":reaped,"availability":availability_json(&monitor.availability()),
-            "report":report_json(&monitor.report())}),
-        )
+        let teardown = monitor.wait_finished(limit);
+        let (reaped, result) = match &teardown {
+            Teardown::Reaped => (true, Ok(())),
+            Teardown::Pending => (
+                false,
+                Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!(
+                        "endpoint worker exit not confirmed within {} ms",
+                        limit.as_millis()
+                    ),
+                )),
+            ),
+            Teardown::Unreaped(reason) => (
+                false,
+                Err(io::Error::other(format!("endpoint worker {reason}"))),
+            ),
+        };
+        let event = json!({"kind":"endpoint_worker_final","at_us":monotonic_us(),
+            "reaped":reaped,"teardown":format!("{teardown:?}"),
+            "availability":availability_json(&monitor.availability()),
+            "report":report_json(&monitor.report())});
+        Some((event, result))
     }
 }

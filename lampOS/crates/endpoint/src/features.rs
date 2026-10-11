@@ -54,6 +54,16 @@ impl Default for FeatureExtractor {
 }
 
 impl FeatureExtractor {
+    /// Zeroes the reused buffers that hold the last request's normalized
+    /// waveform, FFT frames and power spectra. The returned features, freed
+    /// temporaries and the model runtime's own memory are not scrubbed.
+    pub fn clear(&mut self) {
+        self.waveform.fill(0.0);
+        self.frame.fill(Complex::default());
+        self.scratch.fill(Complex::default());
+        self.power.fill(0.0);
+    }
+
     /// Returns `[MELS][FRAMES]` row-major features for the latest 8 s of PCM.
     pub fn compute(&mut self, pcm: &[i16]) -> Vec<f32> {
         let pcm = &pcm[pcm.len().saturating_sub(WINDOW_SAMPLES)..];
@@ -180,6 +190,25 @@ fn mel_filters() -> Vec<MelFilter> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clear_zeroes_every_reused_buffer() {
+        let mut extractor = FeatureExtractor::default();
+        let loud: Vec<i16> = (0..32_000)
+            .map(|i| ((i * 37) % 20_000) as i16 - 10_000)
+            .collect();
+        extractor.compute(&loud);
+        assert!(extractor.waveform.iter().any(|&v| v != 0.0));
+        assert!(extractor.power.iter().any(|&v| v != 0.0));
+        extractor.clear();
+        assert!(extractor.waveform.iter().all(|&v| v == 0.0));
+        assert!(extractor.frame.iter().all(|v| v.re == 0.0 && v.im == 0.0));
+        assert!(extractor.scratch.iter().all(|v| v.re == 0.0 && v.im == 0.0));
+        assert!(extractor.power.iter().all(|&v| v == 0.0));
+        // Clearing never changes the next result.
+        let mut fresh = FeatureExtractor::default();
+        assert_eq!(extractor.compute(&loud), fresh.compute(&loud));
+    }
 
     #[test]
     fn silence_maps_to_the_floor_without_nan() {

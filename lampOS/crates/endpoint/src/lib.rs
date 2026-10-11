@@ -28,6 +28,8 @@ pub fn classify(
 ) -> std::result::Result<lamp_endpoint_ipc::serve::Classified, String> {
     let started = Instant::now();
     let features = extractor.compute(pcm);
+    // The waveform and spectra are not needed once the features exist.
+    extractor.clear();
     let features_us = elapsed_us(started);
     let started = Instant::now();
     let probability = model

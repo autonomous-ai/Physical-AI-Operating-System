@@ -520,14 +520,19 @@ impl Rig {
             failure = Some(error);
         }
         // The endpoint client closed when the session's detector dropped. Its
-        // worker is optional: record whether it was reaped, never fail on it.
+        // loss while running only meant the silence fallback, but a worker
+        // whose exit is not confirmed must keep this cleanup from succeeding,
+        // so no later runtime can start beside it.
         let remaining = deadline.saturating_duration_since(Instant::now());
-        if let Some(event) = self
+        if let Some((event, teardown)) = self
             .endpoint
             .take()
             .and_then(|endpoint| endpoint.finish(remaining.max(Duration::from_millis(500))))
         {
             let _ = record(trace, event);
+            if let Err(error) = teardown {
+                failure = Some(error);
+            }
         }
         if let Some(directory) = &self.diagnostic_directory {
             for (index, worker, leaf) in [

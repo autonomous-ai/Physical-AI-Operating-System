@@ -10,7 +10,7 @@ pub mod client;
 pub mod frame;
 pub mod serve;
 
-pub use client::{Limits, Monitor, ProcessClassifier, Report, WorkerCommand};
+pub use client::{Limits, Monitor, ProcessClassifier, Report, Teardown, WorkerCommand};
 
 /// The worker's pinned model file, installed under this name beside the worker
 /// (docs/endpoint-detection.md, Installation). The worker verifies these bytes.
@@ -19,6 +19,19 @@ pub const SMART_TURN_MODEL_SHA256: &str =
     "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be";
 /// The worker executable, installed beside `lamp-live`.
 pub const WORKER_EXECUTABLE: &str = "lamp-endpoint-worker";
+
+/// Parses a 64-digit SHA256 hex constant; invalid digits become zero, which
+/// never matches a real digest.
+pub fn sha256_bytes(hex: &str) -> [u8; 32] {
+    let mut bytes = [0; 32];
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        *byte = hex
+            .get(index * 2..index * 2 + 2)
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+            .unwrap_or(0);
+    }
+    bytes
+}
 
 pub const SAMPLE_RATE: usize = 16_000;
 /// The classifier analyzes at most the last 8 s of a turn.

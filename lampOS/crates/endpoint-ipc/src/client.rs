@@ -33,10 +33,13 @@ pub struct WorkerCommand {
     pub args: Vec<OsString>,
     /// The worker starts with an empty environment plus these entries.
     pub env: Vec<(OsString, OsString)>,
+    /// The model identity the worker must report in `Ready`. Any other
+    /// identity is a startup failure; no request is ever sent to it.
+    pub model_sha256: [u8; 32],
 }
 
 impl WorkerCommand {
-    /// The `lamp-endpoint-worker` executable serving a pinned model file. On
+    /// The `lamp-endpoint-worker` executable serving the pinned model file. On
     /// Linux the worker is killed if this process exits first.
     pub fn smart_turn(program: PathBuf, model: PathBuf) -> Self {
         Self {
@@ -48,8 +51,20 @@ impl WorkerCommand {
                 std::process::id().to_string().into(),
             ],
             env: Vec::new(),
+            model_sha256: crate::sha256_bytes(crate::SMART_TURN_MODEL_SHA256),
         }
     }
+}
+
+/// Whether the classifier's worker processes are confirmed gone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Teardown {
+    /// Not finished within the wait: a worker may still exist.
+    Pending,
+    /// Every worker this classifier started was reaped, or none started.
+    Reaped,
+    /// A worker's exit could not be confirmed; its process may still exist.
+    Unreaped(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -144,6 +159,8 @@ struct State {
     fault: Option<Fault>,
     closing: bool,
     finished: bool,
+    /// Set when a worker's exit could not be confirmed by a native wait.
+    unreaped: Option<String>,
     /// The latest worker whose reader has seen the end of its output.
     drained: u64,
     report: Report,
@@ -171,17 +188,20 @@ impl Shared {
 }
 
 impl Shared {
-    fn wait_finished(&self, limit: Duration) -> bool {
+    fn wait_finished(&self, limit: Duration) -> Teardown {
         let deadline = Instant::now() + limit;
         let mut state = self.lock();
         while !state.finished {
             let now = Instant::now();
             if now >= deadline {
-                return false;
+                return Teardown::Pending;
             }
             state = self.wait_for(state, deadline - now);
         }
-        true
+        match &state.unreaped {
+            Some(reason) => Teardown::Unreaped(reason.clone()),
+            None => Teardown::Reaped,
+        }
     }
 
     fn availability(&self) -> Availability {
@@ -232,8 +252,8 @@ impl Monitor {
     }
 
     /// For runtime teardown only: waits at most `limit` for the classifier's
-    /// last worker to be reaped after it was closed. Returns whether it was.
-    pub fn wait_finished(&self, limit: Duration) -> bool {
+    /// last worker to be reaped after it was closed.
+    pub fn wait_finished(&self, limit: Duration) -> Teardown {
         self.shared.wait_finished(limit)
     }
 }
@@ -252,6 +272,7 @@ impl ProcessClassifier {
                 fault: None,
                 closing: false,
                 finished: false,
+                unreaped: None,
                 drained: 0,
                 report: Report::default(),
             }),
@@ -280,7 +301,8 @@ impl ProcessClassifier {
     }
 
     /// Starts an orderly stop and returns at once: the worker's input closes,
-    /// it gets the grace period to exit, then it is killed and reaped.
+    /// it gets the grace period to exit, then it is killed and reaped. No
+    /// outcome is delivered after this, including an answer already on its way.
     pub fn close(&mut self) {
         let mut state = self.shared.lock();
         if !state.closing {
@@ -288,13 +310,18 @@ impl ProcessClassifier {
             state.phase = Phase::Closed;
             state.queued = None;
             state.result = None;
+            match state.in_flight.as_mut() {
+                Some(in_flight) if in_flight.sent => in_flight.cancelled = true,
+                Some(_) => state.in_flight = None,
+                None => {}
+            }
             self.shared.wake.notify_all();
         }
     }
 
     /// For final teardown and tests only: waits at most `limit` for the last
-    /// worker to be reaped. Returns whether it was.
-    pub fn wait_finished(&self, limit: Duration) -> bool {
+    /// worker to be reaped.
+    pub fn wait_finished(&self, limit: Duration) -> Teardown {
         self.shared.wait_finished(limit)
     }
 }
@@ -355,7 +382,12 @@ impl Classifier for ProcessClassifier {
     }
 
     fn poll(&mut self) -> Option<Outcome> {
-        self.shared.lock().result.take()
+        let mut state = self.shared.lock();
+        if state.closing {
+            state.result = None;
+            return None;
+        }
+        state.result.take()
     }
 
     fn availability(&self) -> Availability {
@@ -408,14 +440,30 @@ fn write_requests(shared: &Shared, worker: u64, mut stdin: ChildStdin) {
     }
 }
 
-fn read_responses(shared: &Shared, worker: u64, stdout: ChildStdout, spawned_at: Instant) {
-    read_until_stop(shared, worker, stdout, spawned_at);
+fn read_responses(
+    shared: &Shared,
+    worker: u64,
+    stdout: ChildStdout,
+    spawned_at: Instant,
+    model_sha256: [u8; 32],
+) {
+    read_until_stop(shared, worker, stdout, spawned_at, model_sha256);
     let mut state = shared.lock();
     state.drained = state.drained.max(worker);
     shared.wake.notify_all();
 }
 
-fn read_until_stop(shared: &Shared, worker: u64, stdout: ChildStdout, spawned_at: Instant) {
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn read_until_stop(
+    shared: &Shared,
+    worker: u64,
+    stdout: ChildStdout,
+    spawned_at: Instant,
+    expected_model: [u8; 32],
+) {
     let mut input = BufReader::new(stdout);
     loop {
         let response = frame::read_response(&mut input);
@@ -440,6 +488,15 @@ fn read_until_stop(shared: &Shared, worker: u64, stdout: ChildStdout, spawned_at
                         format!("worker protocol {protocol}, expected {PROTOCOL}"),
                         false,
                     ))
+                } else if model_sha256 != expected_model {
+                    Some((
+                        format!(
+                            "worker model {}, expected {}",
+                            hex(&model_sha256),
+                            hex(&expected_model)
+                        ),
+                        false,
+                    ))
                 } else {
                     state.phase = Phase::Ready;
                     let report = &mut state.report;
@@ -447,8 +504,7 @@ fn read_until_stop(shared: &Shared, worker: u64, stdout: ChildStdout, spawned_at
                     report.load_us = Some(load_us);
                     report.cold_us = Some(cold_us);
                     report.ready_after_us = Some(elapsed_us(spawned_at));
-                    report.model_sha256 =
-                        Some(model_sha256.iter().map(|b| format!("{b:02x}")).collect());
+                    report.model_sha256 = Some(hex(&model_sha256));
                     None
                 }
             }
@@ -514,24 +570,47 @@ fn read_until_stop(shared: &Shared, worker: u64, stdout: ChildStdout, spawned_at
     }
 }
 
-/// Watches one worker until it exits, killing it when required. Always reaps.
+/// How one worker ended. `reaped` is true only after a native wait
+/// returned its exit status.
+struct Exit {
+    text: String,
+    reaped: bool,
+}
+
+impl Exit {
+    fn reaped(text: String) -> Self {
+        Self { text, reaped: true }
+    }
+
+    fn unreaped(text: String) -> Self {
+        Self {
+            text,
+            reaped: false,
+        }
+    }
+}
+
+/// Watches one worker until it exits, killing it when required, and waits for
+/// its exit status. A failed wait is reported, never treated as an exit.
 fn monitor(
     shared: &Shared,
     worker: u64,
     child: &mut Child,
     spawned_at: Instant,
     limits: Limits,
-) -> String {
+) -> Exit {
     let mut exit_by: Option<Instant> = None;
     loop {
         match child.try_wait() {
-            Ok(Some(status)) => return status.to_string(),
+            Ok(Some(status)) => return Exit::reaped(status.to_string()),
             Ok(None) => {}
             Err(error) => {
                 let _ = child.kill();
                 return match child.wait() {
-                    Ok(status) => format!("{status} after a status error: {error}"),
-                    Err(wait) => format!("unreaped after status error {error}: {wait}"),
+                    Ok(status) => Exit::reaped(format!("{status} after a status error: {error}")),
+                    Err(wait) => {
+                        Exit::unreaped(format!("unreaped after status error {error}: {wait}"))
+                    }
                 };
             }
         }
@@ -564,9 +643,11 @@ fn monitor(
             let killed = child.kill();
             // The supervisor alone reaps, so this PID cannot have been reused.
             return match (child.wait(), killed) {
-                (Ok(status), _) => format!("killed: {status}"),
-                (Err(wait), Ok(())) => format!("killed but unreaped: {wait}"),
-                (Err(wait), Err(kill)) => format!("kill failed: {kill}; unreaped: {wait}"),
+                (Ok(status), _) => Exit::reaped(format!("killed: {status}")),
+                (Err(wait), Ok(())) => Exit::unreaped(format!("killed but unreaped: {wait}")),
+                (Err(wait), Err(kill)) => {
+                    Exit::unreaped(format!("kill failed: {kill}; unreaped: {wait}"))
+                }
             };
         }
         drop(shared.wait_for(state, Duration::from_millis(10)));
@@ -579,6 +660,7 @@ fn start_io(
     stdin: ChildStdin,
     stdout: ChildStdout,
     spawned_at: Instant,
+    model_sha256: [u8; 32],
 ) -> io::Result<()> {
     let writer = shared.clone();
     thread::Builder::new()
@@ -587,7 +669,7 @@ fn start_io(
     let reader = shared.clone();
     thread::Builder::new()
         .name("endpoint-reader".into())
-        .spawn(move || read_responses(&reader, worker, stdout, spawned_at))?;
+        .spawn(move || read_responses(&reader, worker, stdout, spawned_at, model_sha256))?;
     Ok(())
 }
 
@@ -634,7 +716,14 @@ fn supervise(shared: &Arc<Shared>, command: &WorkerCommand, limits: Limits) {
             state.worker
         };
         let io = match (child.stdin.take(), child.stdout.take()) {
-            (Some(stdin), Some(stdout)) => start_io(shared, worker, stdin, stdout, spawned_at),
+            (Some(stdin), Some(stdout)) => start_io(
+                shared,
+                worker,
+                stdin,
+                stdout,
+                spawned_at,
+                command.model_sha256,
+            ),
             _ => Err(io::Error::other("worker pipes missing")),
         };
         if let Err(error) = io {
@@ -648,6 +737,7 @@ fn supervise(shared: &Arc<Shared>, command: &WorkerCommand, limits: Limits) {
         while state.drained < worker && Instant::now() < drain_by {
             state = shared.wait_for(state, drain_by - Instant::now());
         }
+        let Exit { text: exit, reaped } = exit;
         state.report.last_exit = Some(exit.clone());
         state.queued = None;
         if let Some(in_flight) = state.in_flight.take() {
@@ -660,6 +750,16 @@ fn supervise(shared: &Arc<Shared>, command: &WorkerCommand, limits: Limits) {
                     result: Err(format!("worker exited: {exit}")),
                 });
             }
+        }
+        if !reaped {
+            // Without a confirmed exit no replacement may start, ever.
+            let reason = format!("worker exit not confirmed: {exit}");
+            state.report.last_failure = Some(reason.clone());
+            state.unreaped = Some(reason.clone());
+            if !state.closing {
+                state.phase = Phase::Failed(reason);
+            }
+            break;
         }
         if state.closing {
             break;

@@ -5,7 +5,7 @@
 //! `cargo test -p lamp-endpoint -- --include-ignored`.
 use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, WINDOW_SAMPLES};
 use lamp_endpoint_ipc::{
-    Availability, Classifier, Limits, ProcessClassifier, Submit, Token, WorkerCommand,
+    Availability, Classifier, Limits, ProcessClassifier, Submit, Teardown, Token, WorkerCommand,
 };
 use serde_json::Value;
 use std::{
@@ -171,7 +171,10 @@ fn worker_process_refuses_missing_or_wrong_models_without_blocking() {
             panic!("{} did not fail", model.display());
         };
         assert!(reason.contains(expected), "{reason}");
-        assert!(classifier.wait_finished(Duration::from_secs(2)));
+        assert_eq!(
+            classifier.wait_finished(Duration::from_secs(2)),
+            Teardown::Reaped
+        );
         let report = classifier.report();
         assert_eq!((report.spawned, report.ready, report.kills), (1, 0, 0));
         assert_eq!(classifier.submit(TOKEN, &[1; 160]), Submit::Unavailable);
@@ -226,6 +229,9 @@ fn worker_process_matches_reference_and_reports_stage_costs() {
     assert_eq!(classifier.submit(TOKEN, &long), Submit::Accepted);
     let pid = classifier.report().pid.unwrap();
     classifier.close();
-    assert!(classifier.wait_finished(Duration::from_secs(5)));
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(5)),
+        Teardown::Reaped
+    );
     assert!(classifier.report().last_exit.is_some(), "{pid} not reaped");
 }

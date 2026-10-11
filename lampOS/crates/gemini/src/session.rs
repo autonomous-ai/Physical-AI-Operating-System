@@ -35,7 +35,16 @@ struct Stopped {
     observed_at: Clock,
 }
 
+#[cfg(test)]
+struct DiscardPublicationPause {
+    published: std::sync::mpsc::Sender<()>,
+    proceed: std::sync::mpsc::Receiver<()>,
+}
+
 struct Shared {
+    // Test-only deterministic preemption between discard's existing atomics.
+    #[cfg(test)]
+    discard_publication_pause: Mutex<Option<DiscardPublicationPause>>,
     retired_through: AtomicU64,
     /// Through which request input was abandoned and not continued.
     discarded_through: AtomicU64,
@@ -343,6 +352,19 @@ impl InputSender {
         self.shared
             .discarded_through
             .fetch_max(request.get(), Ordering::AcqRel);
+        #[cfg(test)]
+        {
+            let pause = self
+                .shared
+                .discard_publication_pause
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take();
+            if let Some(pause) = pause {
+                pause.published.send(()).unwrap();
+                pause.proceed.recv().unwrap();
+            }
+        }
         self.retire(request);
     }
     pub fn shutdown(&self) {
@@ -547,6 +569,8 @@ where
     let (state_tx, state) = watch::channel(State::Ready);
     let (stop, stop_rx) = watch::channel(None);
     let shared = Arc::new(Shared {
+        #[cfg(test)]
+        discard_publication_pause: Mutex::new(None),
         retired_through: AtomicU64::new(0),
         discarded_through: AtomicU64::new(0),
         submitted_through: AtomicU64::new(0),

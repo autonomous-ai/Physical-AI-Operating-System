@@ -947,3 +947,89 @@ async fn without_the_kept_start_an_abandonment_is_exactly_a_retirement() {
     silent(&mut server).await;
     assert_eq!(connection.state(), State::Ready);
 }
+
+// A public InputSender can be used on another thread. The only seam is a
+// pause between the two existing publication stores; the actor, queue,
+// retention, discard report and WebSocket writing remain production code.
+struct ResumeDiscardOnDrop(Option<std::sync::mpsc::Sender<()>>);
+impl Drop for ResumeDiscardOnDrop {
+    fn drop(&mut self) {
+        if let Some(proceed) = self.0.take() {
+            let _ = proceed.send(());
+        }
+    }
+}
+
+#[tokio::test]
+async fn discard_publication_race_cannot_leave_a_later_kept_frame_alive() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    speak(&connection, next, 0, 11);
+    taken(&connection).await;
+    let input = connection.input();
+    let (published_tx, published_rx) = std::sync::mpsc::channel();
+    let (proceed_tx, proceed_rx) = std::sync::mpsc::channel();
+    *input.shared.discard_publication_pause.lock().unwrap() = Some(DiscardPublicationPause {
+        published: published_tx,
+        proceed: proceed_rx,
+    });
+    let mut release = ResumeDiscardOnDrop(Some(proceed_tx));
+    let publisher = input.clone();
+    let thread = std::thread::spawn(move || publisher.discard(next));
+    published_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    // The actor has consumed the discard watermark, but the producer has
+    // not yet published retirement. Nothing has been handed to the socket.
+    assert_eq!(discarded(&mut connection).await, (next, 320, 0));
+    assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 1);
+    assert_eq!(input.shared.discarded_through.load(Ordering::Acquire), 2);
+    // This is normal API submission while discard is still in progress.
+    // Its permanent cancellation must survive after discard returns.
+    speak(&connection, next, 1, 22);
+    taken(&connection).await;
+    release.0.take().unwrap().send(()).unwrap();
+    thread.join().unwrap();
+    assert_eq!(input.shared.retired_through.load(Ordering::Acquire), 2);
+    input.try_end(next).unwrap();
+    taken(&connection).await;
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    // A socket-handoff boundary cannot excuse this frame: the old response
+    // and Start were held until after discard had fully returned.
+    let leaked = timeout(Duration::from_millis(100), server.next()).await;
+    if let Ok(Some(Ok(message))) = &leaked {
+        let value: Value = serde_json::from_slice(&message.clone().into_data()).unwrap();
+        let data = value["realtimeInput"]["audio"]["data"].as_str().unwrap();
+        let pcm = STANDARD.decode(data).unwrap();
+        eprintln!(
+            "leaked_after_discard_return: samples={}, first_sample={}, earlier_drop_report=320/0",
+            pcm.len() / 2,
+            i16::from_le_bytes([pcm[0], pcm[1]])
+        );
+    }
+    assert!(
+        leaked.is_err(),
+        "abandoned retained audio reached the socket after discard returned: {leaked:?}"
+    );
+    assert_eq!(connection.state(), State::Ready);
+}
+
+#[tokio::test]
+async fn discard_publication_complete_control_drops_kept_audio_and_refuses_late_input() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    speak(&connection, next, 0, 11);
+    taken(&connection).await;
+    let input = connection.input();
+    input.discard(next);
+    assert_eq!(discarded(&mut connection).await, (next, 320, 0));
+    assert_eq!(
+        input.try_audio(next, 1, Instant::now(), &[22; 320]),
+        Err(Error::StaleRequest)
+    );
+    input.try_end(next).unwrap();
+    taken(&connection).await;
+    send_json(&mut server, audio(7)).await;
+    sent(&mut server, "activityStart").await;
+    silent(&mut server).await;
+    assert_eq!(connection.state(), State::Ready);
+}

@@ -924,6 +924,57 @@ What an integrator will notice:
 - Echo-driven false admissions are outside this work and unchanged by it. Each
   one still cancels the answer in progress.
 
+## Two additions to the strict probe (example only)
+
+Neither changes the library. Both exist to answer what the failed run
+below could not.
+
+**`continue-during-output SECOND.wav [GAP_MS]`.** The same strict trial,
+with the successor started only once the first request's own audio has
+actually been received: one event at a time, a condition and not a time
+guess, `GAP_MS` after that audio and at once by default. It is an
+interruption of a response that is producing. The result's `case` is
+`barrier_wait_observed_after_audio`; `interrupted_observed_us` and
+`idle_observed_us` say when the first request's `interrupted` and idle
+completion were exposed, if they were; the outcome is
+`strict_barrier_confirmed_after_audio_and_answered` only when the idle
+completion came after the second start, nothing was assumed and the second
+request was answered.
+
+**`barrier-ms=N`, trailing, 2000 to 5000.** Lengthens the barrier's quiet
+bound for one run, to watch whether a terminal arrives late. Five seconds
+is the longest the library accepts (`Timeouts::validate`), and the probe
+does not widen that. It is observation only. The policy is still `Require`: nothing is assumed, the
+successor's End stays withheld for as long as nothing settles, and no
+answer can be attributed on the strength of the longer wait. The result
+records `barrier_ms`, `barrier_bound_is_production: false` and
+`observation_only: true`.
+
+```sh
+service_probe PROVIDER.json FIRST.wav continue-during-output SECOND.wav
+service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barrier-ms=5000
+```
+
+The second line is the failed run again with five seconds, not two, in
+which a terminal for the first request may show itself: three seconds
+more than production waits. It cannot say what happens later than that.
+
+The first version of this option accepted up to 20000 and was first run
+with `barrier-ms=10000`. The parser took it, the library refused the
+configuration (`InvalidConfiguration`), and the run ended in 0.014 s with
+nothing printed and nothing sent. That was a fault of the probe, whose
+parser was tested and whose configuration was not, and says nothing about
+the service. The accepted range is now the library's, and a test builds a
+configuration from every bound the parser accepts.
+
+**Exit status.** The probe exits 0 only for
+`strict_barrier_confirmed_and_answered` or
+`strict_barrier_confirmed_after_audio_and_answered` under production's two
+second bound. A run with `barrier-ms` other than 2000 always exits non-zero
+and says it is observation only, whatever it saw, so that a gate reading
+exit status cannot be satisfied by a longer wait than production allows.
+Its JSON is still printed in full.
+
 ## Actual strict continuation probe, 2026-10-11
 
 The first real service run of `continue-before-output` with a 300 ms continuation

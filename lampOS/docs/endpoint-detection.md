@@ -1,9 +1,16 @@
-# End-of-turn detection (MAIN-051)
+# End-of-turn detection (MAIN-051, MAIN-052)
 
-Status: an opt-in candidate on `lamp-a2-endpoint-runtime`, composed with
-integration `e566db15`. It is not a default and has not run on a Lamp. Main
-owns activation, device measurement and every physical cohort. The earlier
-MAIN-043 candidate and its evidence remain on `lamp-a2-endpoint` (`ee1eaad8`).
+Status: opt-in candidates, not defaults, never run on a Lamp. Main owns
+activation, device measurement and every physical cohort.
+
+- `lamp-a2-endpoint-runtime` (`350bd572`): the MAIN-051 checkpoint, kept
+  unchanged for review.
+- `lamp-a2-endpoint-review` (`052eb703`): that checkpoint plus Main's four
+  review fixes.
+- `lamp-a2-continuation`: both of those, composed with integration
+  `6d81ab49`, plus the MAIN-052 recoverable early end of input.
+- The earlier MAIN-043 candidate and its evidence remain on `lamp-a2-endpoint`
+  (`ee1eaad8`).
 
 ## Summary
 
@@ -31,6 +38,17 @@ MAIN-043 candidate and its evidence remain on `lamp-a2-endpoint` (`ee1eaad8`).
   1.1–1.6 s from the local endpoint to the first ALSA write, in addition to
   the 1.2 s wait. This profile removes at most 200 ms of that wait. Endpointing
   alone cannot reach the 300–500 ms p50 reply target.
+- **Recoverable early end (MAIN-052, opt-in).** A confident verdict ends input
+  at 500 ms, so the provider starts answering about 700 ms sooner. Nothing is
+  spoken until the baseline's 1.2 s of quiet confirms the end. If the person
+  continues first, the existing replacement path supersedes the unspoken
+  answer.
+  - Held-out human clips, with first audio 1.1 s after the end of input: the
+    median from speech end to the reply's first audio falls from 2.3 s to
+    1.6 s.
+  - Whole thoughts are kept only if Gemini settles each interrupted request.
+    That is unqualified, and 17% of clips depend on it. See
+    [Recoverable early end](#recoverable-early-end-of-input-main-052).
 
 ## Architecture
 
@@ -275,6 +293,187 @@ Other measurements:
   implemented. The responsive profile's 400 ms commit is not limited by
   inference either: the verdict arrives about 100 ms after the 200 ms check.
 
+## Recoverable early end of input (MAIN-052)
+
+### What the current runtime does with resumed speech
+
+Read from integration `6d81ab49`, and unchanged by this work:
+
+1. **A local endpoint sends the provider's end of input at once.** It becomes
+   Gemini's `activityEnd`, and the model starts answering; there is no undo.
+2. **Later speech is a new candidate, not a continuation.**
+   - If no speaker sample has been dispatched, `commit_admitted_input` cancels
+     the pending reply (`user_interrupted`) and admits the speech as
+     `AdmittedInput::Interruption`.
+   - The new request carries the speech's pre-roll, up to 300 ms before the
+     onset.
+   - The provider worker turns the old request into a barrier and sends
+     `activityStart`, the protocol's only interruption.
+3. **The barrier depends on Gemini.**
+   - The new request's own end is held until Gemini settles the old request
+     (`turnComplete`, idle).
+   - Under the production `BarrierPolicy::Require`, 2 s without that
+     settlement fails the connection.
+   - One real-device run hit exactly this: a continuation 241 ms after an
+     endpoint lost the second request (`real-device-audio-pilot.md`).
+4. **Context retention is unverified.** Nothing qualifies whether the model
+   keeps the earlier user activity in context, or answers the whole thought.
+5. **Stale output is already filtered.** Old-request output is dropped by
+   request number in the actor, the worker and the coordinator.
+6. **Agent 1's proposal changes none of this.** `lamp-a1-duplex` (`feb56076`)
+   handles this window the same way.
+
+### The proposal
+
+- **Detector** (`activity.rs`, `EarlyEnd`):
+  - A verdict of at least 0.9 at 200 ms ends input at 500 ms of pause
+    (`model_early`). The detector then marks the endpoint provisional.
+  - It is confirmed (`EndpointEvent::Confirmed`) by the baseline's own 1.2 s
+    of consecutive quiet. While noise blips keep resetting that count, it is
+    confirmed anyway 3 s after the early end.
+  - Speech onset before confirmation reports `EndpointEvent::Continued`. The
+    provisional state is then held until the continuing utterance ends, or
+    until its candidate is rejected and input is cleared.
+  - Without a confident verdict nothing changes: a test shows that a missing
+    or undecided model ends every turn on the baseline's exact block.
+- **Coordinator** (`--endpoint smart-turn-early`, requires `v1-baseline`):
+  - Speaker dispatch is skipped while the endpoint is provisional.
+  - No deadline is extended: the provider's response clocks are unchanged,
+    and the hold is bounded by the detector.
+  - Each outcome is traced as `endpoint_provisional`.
+- **Not done.**
+  - No topic change is inferred. The available evidence cannot separate a
+    topic change from a continuation, and input transcripts carry no
+    reliable request ordering. Every resumption keeps the whole utterance:
+    the earlier part has reached the provider, and the continuation follows.
+  - No audio is replayed, and no provider confirmation is assumed.
+- **Provider dependency, named.**
+  - A continuation after an early end relies on Gemini settling the
+    interrupted request within the 2 s barrier, and on keeping the earlier
+    activity in context.
+  - Until a scheduled probe qualifies both, the mode stays opt-in and must
+    not be used in a pilot.
+  - The barrier path is not new. The baseline already takes it whenever a
+    person resumes after 1.2 s but before the reply is audible; on held-out
+    data that is 9 of 1,167 clips.
+
+### Why the hold is required
+
+With the gate removed, four session tests fail. That includes a continuation
+whose superseded answer arrived 300 ms after the early end. Admitting the
+continuation takes a few decision blocks, and the old answer was dispatched in
+between. The hold makes the outcome independent of provider speed.
+
+### Runtime regressions (`coordinator/tests/endpoint_session.rs`)
+
+The real `conversation()` loop runs with emulated capture, privacy, provider
+and speaker peers:
+
+- the provider is credit-limited, emits `Started`, and answers after a set
+  delay;
+- the speaker returns genuine acceptance receipts.
+
+Tests:
+
+- `early_end_starts_the_answer_sooner_but_stays_silent_until_confirmed`;
+- `continuation_while_the_old_answer_arrives_replaces_it_and_keeps_both_parts`:
+  the provider's audio for the first part arrives during the resumed speech;
+- `answer_held_by_the_gate_is_dropped_when_the_person_continues`;
+- `two_continuations_then_a_genuine_end`;
+- `privacy_during_the_provisional_end_stops_without_any_answer`;
+- `early_mode_without_a_usable_model_is_the_baseline`: missing and hung
+  workers.
+
+What they check:
+
+- only the final request is ever spoken;
+- the continuation's request carries its opening and every resumed block;
+- the superseded turn ends `user_interrupted` and never reaches the speaker;
+- late `TurnComplete` and audio for a superseded request do nothing.
+
+### End-to-end evaluation
+
+`lamp-endpoint-eval turns` runs the production detector, model and VAD over
+each clip. It then applies the coordinator and provider seam above as a model:
+the first reply audio is ready a fixed time L after the end of input. These
+are digital replays, not loudspeaker or room cohorts.
+
+Metrics:
+
+- **Whole thought:** every part reached the provider and no answer became
+  audible before the person finished. It does not mean the model answered the
+  whole thought; that is the provider dependency.
+- **Split:** an answer was audible before the person continued.
+- **Interruption:** a request superseded before any audible output, which is
+  the barrier path.
+- **Opening lost:** a resumed burst began more than the 300 ms pre-roll
+  before its onset.
+
+Fresh held-out human clips (shards 4 and 5, 598 finished turns), L = 1.1 s, as
+in Main's measurements:
+
+| Profile | Whole thoughts if Gemini settles | if it never settles | Splits | Interruptions (clips) | Openings lost | Latency mean / p50 |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline | 592 | 586 | 4 | 9 (9) | 4 / 13 | 2,300 / 2,300 ms |
+| parity | 594 | 585 | 3 | 16 (16) | 4 / 19 | 2,147 / 2,100 ms |
+| early, 0.9 at 500 ms | 588 | 495 | 9 | 222 (194) | 8 / 231 | 1,838 / 1,600 ms |
+| early, 0.98 at 600 ms | 589 | 559 | 8 | 61 (58) | 6 / 69 | 1,979 / 2,100 ms |
+
+Latency is measured from the first quiet block to the first audible block.
+
+- **Development** (shards 0 and 1, 589 finished turns), same L:
+  - baseline: 583 whole thoughts, 3 splits, 17 interruptions, 2.3 s;
+  - early 0.9 at 500 ms: 582 whole thoughts, 5 splits, 287 interruptions, a
+    1.6 s median.
+- **Faster provider** (L = 600 ms): the early mode reaches a 1.2 s median,
+  against the baseline's 1.8 s, with 12 splits against 8. The hold then binds.
+- **Synthetic `say` cohort** (54 cases, L = 1.1 s): baseline 52 and early 51
+  whole thoughts if Gemini settles. The voices rarely draw a confident
+  verdict, so latency barely moves.
+
+Reading:
+
+- The early mode is a real latency gain: a 700 ms lower median at today's
+  provider speed.
+- The cost is a few extra audible splits. Answering sooner leaves less time
+  for someone who resumes 1.6–2.3 s later.
+- Its safety rests entirely on the unqualified provider settlement:
+  - if Gemini never settles an interrupted request, 91 more held-out thoughts
+    fail than with the baseline;
+  - at 0.98 and 600 ms, 27 more fail.
+
+## Pilot configuration (MAIN-055)
+
+For a supervised pilot, use either of these; both keep today's endpoint as the
+fallback whatever happens to inference:
+
+1. Today's behaviour: `--turn-taking v1-baseline`. No endpoint worker is
+   started.
+2. The parity profile: `--turn-taking v1-baseline --endpoint smart-turn`, with
+   `lamp-endpoint-worker` and the verified model beside `lamp-live`
+   ([Installation](#installation)). Expect at most 200 ms less endpoint wait
+   on confident finished turns.
+
+Do not use `--endpoint smart-turn-early` in the pilot until a scheduled probe
+shows that Gemini settles a request interrupted before it answered.
+
+Bounded behaviour with `smart-turn`:
+
+| Situation | What happens |
+| --- | --- |
+| Worker or model missing, wrong model bytes, or a startup error | No restart; every pause uses the 1,200 ms window; `endpoint_worker` records the reason |
+| Loading (about 0.25 s on the Linux VM; the A733 is unmeasured) | Pauses before ready use the 1,200 ms window |
+| Inference slower than 500 ms | That pause uses the 1,200 ms window (`timeout`) |
+| No answer within 2 s, a crash or a malformed answer | The worker is killed and reaped, and at most two replacements start, each after 1 s. Meanwhile pauses use the 1,200 ms window |
+| Mute, stop or session end | The client closes at once; the worker is reaped within the shutdown bound, or the cleanup fails so no new service cycle starts |
+
+Check these trace fields after each run:
+
+- `endpoint_policy`;
+- `endpoint_worker` (availability changes);
+- `local_endpoint.endpoint.basis`, `fallback` and `verdict`;
+- `endpoint_worker_final`: `reaped` and the counters.
+
 ## Integration proposal
 
 Shared files are in separate commits for Main to compose:
@@ -287,6 +486,12 @@ Shared files are in separate commits for Main to compose:
 | `58d20b00`, `8d204921` | Model identity constants, read-only monitor, teardown wait |
 | `5b9f7164`, `d3e92a59`, `492cfd9c` | Coordinator proposal: `--endpoint smart-turn`, worker start in `spawn_rig`, endpoint traces, teardown reap and full-session tests (`coordinator.rs`, `coordinator/endpoint.rs`, `options.rs`, test `Rig` literals) |
 | `a0980e98`, `7c16828c`, `61112832` | Evaluation crate and its workspace entry |
+| `201510f2` (review) | Pinned worker model identity, typed confirmed reap, no outcome after close, cleared feature buffers |
+| `052eb703` (review, shared) | An unconfirmed endpoint worker teardown fails runtime cleanup, with physical-mute regressions |
+| `425a76a7` | lampOS stays Rust-only: Python fixture generator and shell fetch script removed; `--check-model`; fixture provenance |
+| `f90771bb`, `8e13d660` | `EarlyEnd`, provisional confirmation, continuation events and the continuation hold (`activity.rs`, tests) |
+| `31ca4be2`, `c8f5329f` (shared) | `--endpoint smart-turn-early`, the speaker hold, `endpoint_provisional` traces and full-session continuation tests |
+| `196e0e3a`, `ae682db1`, `bddacf48` | End-to-end turn evaluation, human and `say` cohorts |
 
 - `--endpoint smart-turn` requires `--turn-taking v1-baseline`; `silence`
   stays the default.
@@ -366,3 +571,10 @@ the pinned parquet shard.
    path is future work.
 6. **Endpointing only.** This does not identify an addressee and is not an
    interruption gate.
+7. **The early end depends on the provider.** Its safety needs a probe that
+   shows Gemini settling a request interrupted before it answered, and the
+   model keeping both parts of the thought. Neither has been run; no cloud
+   action belongs to this work.
+8. **Soft continuations.** The continuation's pre-roll is 300 ms. In 8 of 231
+   held-out resumptions the resumed burst began earlier than that, so the
+   earliest audio was not part of the new request.

@@ -105,6 +105,38 @@ guessed. lamp-live already records availability and the link before
 start of every attempt. Deploy the producer and the runner together, as for
 the other schema-1 kinds.
 
+### Startup history and current link state (proposed fix)
+
+Root reproduced a defect in the first proposal. A valid provider Ready is
+retained while later workers start (`StartupEvents`) and recorded only at
+conversation entry. If that startup takes longer than 100 ms, the Ready is too
+old to send. The sink then latched `cue_invalid_or_unavailable` and published
+nothing more, not even `listening_ready`. Two separate lamp-live proposal
+commits correct this without weakening packet freshness or identity checks.
+
+1. **Startup history.** Before a boot's own listening readiness, a
+   `provider_*` or `turn_taking_availability` record already older than the cue
+   bound is startup history:
+   - it is not sent and latches no fault;
+   - it is counted in `historical_state_skipped`;
+   - it is never re-stamped.
+
+   Future-stamped records, foreign or stale identities, and every record after
+   readiness keep the strict bound. A new boot starts a new startup.
+   `coordinator/tests/startup_cues.rs` runs this through the production
+   `StartupEvents` retention, conversation-entry recording and the real sink.
+   On the unfixed sink the 120 ms case failed with exactly the reported latch;
+   the 20 ms control, the post-readiness stale record and the future-stamped
+   record behaved the same before and after.
+2. **Current link state.** When `conversation()` records `listening_ready`, it
+   has just validated `cloud.available()`. It now first records
+   `provider_link_current` with the same `at_us`, `state: "ready"` and the
+   ready session. The sink publishes it as a fresh `provider_link` cue under
+   the strict bound. This is a newly validated current-state publication, not
+   cached history, and it is the only coordinator change. Without it, a slow
+   startup would leave the runner without link evidence, and `next_turn_ready`
+   would be `trigger_unavailable`.
+
 ## Offline regression path
 
 `tests/physical_loopback.rs` starts the real `lamp-session` subprocess and a

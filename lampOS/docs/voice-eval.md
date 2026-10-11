@@ -8,6 +8,11 @@ on a Lamp or played any audio**. There are no physical attempts yet, so there is
 **no positive V2 overlap/interruption cohort**; none may be derived from the fake
 runtime. Ranked, reproducible defects are in [voice defects](voice-eval-defects.md).
 
+A long-lived [serve-session runner](voice-eval-serve.md) carries one
+conversation of up to 20 context-linked turns in a single `lamp-live serve`
+runtime. Each stimulus is armed before readiness and started by one original
+expiring grant. It is also tested offline only.
+
 `crates/voice-eval` turns the [comparison protocol](comparison-protocol.md) into
 a repeatable runner: pre-registered scenarios, stimuli started from actual
 runtime/playback events with bounded deadlines, an append-only attempt ledger,
@@ -486,7 +491,8 @@ owners are active, and such an attempt is retained as failed.
 ```
 
    Use `provider_config` (a private provider JSON on the Lamp) instead of the
-   fixture pair for Gemini. For a direct-human cohort set `"stimulus_source":
+   fixture pair for Gemini, or `serve_config` for one long-lived serve runtime
+   per attempt (see [serve-session runner](voice-eval-serve.md)). For a direct-human cohort set `"stimulus_source":
    "direct_human"` and `"human_speaker": "person-1"` (a label, not a name); the
    console then shows each line to say at its trigger and nothing is played.
    Prompt-only timed attempts stay unscored until reviewed attribution is supplied.
@@ -554,9 +560,10 @@ owners and exact reproduction commands.
   estimates of clip boundaries.
 - **P3: fault injection for physical provider tests.** Optional, test-only
   provider delays, stalls and disconnects for the recovery and delay scenarios.
-- **P4: armed playback in `lamp-observer`.** A prepare/open-then-start API and a
-  report of the first callback carrying nonzero samples would shorten and
-  measure trigger-to-sound latency on the iMac.
+- **P4 implemented for serve:** the serve runner arms `lamp-observer`'s
+  prepared player before readiness and starts it with one expiring grant
+  enforced at the first source copy. Finite directed runs keep their
+  single-phase player.
 - **P5: opening-word retention from capture diagnostics.** Align the stimulus in
   `pre_aec.pcm16le` with `prefix_first_host_read_us` in the same Lamp clock.
 - **P6: a trace event for spoken failure notices**, once the runtime has one.

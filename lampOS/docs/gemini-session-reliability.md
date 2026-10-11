@@ -203,9 +203,11 @@ stop in the same way and is unchanged.
 
 **The exact limits.** None of this recalls anything.
 
-- Bytes the transport had accepted before the stop stay accepted. If they
-  were part of a message, the service is left with the start of a frame
-  and never the message; the connection is not used again.
+- Bytes the transport had accepted before the stop stay accepted, and
+  that can be a whole frame: a write may be waiting on the transport's
+  flush with every byte of its message already taken. A write still
+  waiting is abandoned, what the transport had not accepted is dropped,
+  and the connection is not used again.
 - A stop recorded by another thread while the session's task is in the
   middle of a poll is seen at its next poll. That one poll may hand the
   transport the rest of the one message it was writing: one audio block,
@@ -228,7 +230,7 @@ it follows in order. The write deadline, 200 ms, is unchanged.
 |---|---|
 | `a_stop_with_input_queued_behind_it_writes_none_of_that_input`, `a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input` | Twenty blocks and an End queued, then a stop before the session runs again: none written. Forty trials each, to exercise different choices among the session's ready work; not a proof over every order |
 | `stop_fence::a_write_held_at_the_transport_is_abandoned_by_a_stop_and_nothing_follows` | The transport has accepted nothing of an audio frame and holds. The stop ends the session within half the write deadline; released afterwards, the transport is offered nothing, not that frame and not the End behind it |
-| `stop_fence::bytes_the_transport_had_accepted_stay_and_not_one_more_follows_a_stop` | The same with twenty bytes accepted first: those stay, none is added, no message arrives |
+| `stop_fence::bytes_the_transport_had_accepted_stay_and_not_one_more_follows_a_stop` | The same with twenty bytes accepted first: those stay and none is added. Twenty bytes are less than that frame, so in this test no message arrives |
 | `stop_fence::a_held_end_is_not_released_by_a_terminal_read_after_the_stop` | The stop is recorded as the earlier response's idle completion is read: the held End is not written and no event is made of the completion |
 | `stop_fence::a_failure_recorded_while_a_write_is_held_ends_it_as_a_stop_does` | `Backpressure` behind a held write: ends at once as `Backpressure`, nothing more written |
 | `stop_fence::a_held_write_released_with_no_stop_completes_in_order` | The control: no stop, the frame completes and the End follows |

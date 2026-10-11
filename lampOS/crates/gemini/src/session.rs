@@ -1012,13 +1012,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     ///   recorded. The stop is looked at before the transport on every
     ///   poll, so the transport is not offered another byte after it.
     ///
-    /// What the transport had already accepted of that one message stays
-    /// accepted: it cannot be recalled, and the peer is left with the start
-    /// of a frame and never the message. The rest is dropped with the
-    /// connection, which is not used again. A stop recorded by another
-    /// thread while this task is inside a poll is seen at the next poll;
-    /// that one poll may still hand the transport the rest of that one
-    /// message, and nothing after it.
+    /// What the transport had already accepted stays accepted and cannot
+    /// be recalled. That can be a whole frame: a write may be waiting on the
+    /// transport's flush with every byte of its message already taken. What
+    /// had not been accepted is dropped with the connection, which is not
+    /// used again. A stop recorded by another thread while this task is
+    /// inside a poll is seen at the next poll; that one poll may still hand
+    /// the transport the rest of that one message, and nothing after it.
     ///
     /// An image is written by `send_image`, which ends on a stop in the
     /// same way and has its own accounting.
@@ -1036,8 +1036,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                         return Err(stop.error);
                     }
                     if changed.is_err() {
-                        // Every input handle is gone: nobody is left to stop
-                        // this session, or to speak through it.
+                        // Defensive only. The stop channel closing is not
+                        // something dropping every input handle can cause:
+                        // this session holds the sending side itself,
+                        // through `Shared`. Without this arm a closed
+                        // channel would make this loop spin.
                         return Err(Error::Closed);
                     }
                 }

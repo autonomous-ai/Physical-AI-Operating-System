@@ -1651,8 +1651,8 @@ mod stop_fence {
         connection.shutdown();
         ended_by_the_stop(&mut connection).await;
         control.release();
-        // Those twenty bytes cannot be recalled. They are the start of one
-        // frame and never a message; nothing was added to them.
+        // Those twenty bytes cannot be recalled. Here they are the start of
+        // one frame, so no message arrives; nothing was added to them.
         no_input_was_written(&mut server).await;
         assert_eq!(control.written(), before);
     }

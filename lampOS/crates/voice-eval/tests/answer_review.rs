@@ -381,6 +381,7 @@ fn imported(dir: &common::Private, two_replies: bool) -> AttemptRecord {
                 vec![]
             },
             room_metadata: Some(&metadata),
+            room_receipt: None,
             room_independent: true,
             source: lamp_voice_eval::record::StimulusSource::Unknown,
         },

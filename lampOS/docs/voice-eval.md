@@ -233,6 +233,58 @@ Imported traces use declared `step=turn` pairs; every stimulus step must be
 declared (`--turn STEP=none` when it produced no admission), except that a
 single-stimulus scenario defaults to the first admission.
 
+### Imported recordings (`MAIN-021`)
+
+An imported trial stays an `imported_trace` attempt, separate from any
+runner-controlled physical cohort. Failed, partial and invalid attempts are
+kept. The room recording comes from one of two sources:
+
+- **Observer metadata** (`--room-metadata`): the observer's `metadata.json`
+  and its sibling `room.wav`.
+- **Plain WAV with the source recorder's receipt** (`--room-receipt FILE
+  --room-input NAME`, for example `voice` or `ambient`).
+  - The receipt must be a completed, valid capture with privacy never revoked.
+  - The input must be accepted by the recorder and stopped through its owned,
+    graceful stop.
+  - The format must be mono 16 kHz `S16_LE`.
+  - The frame counts and PCM digests in the receipt must agree with each
+    other.
+  - The WAV, named as a plain sibling file, must match the receipt's file
+    hash, its frame count and the digest of the PCM the recorder received.
+    The WAV's `data` chunk is hashed separately to check that last point.
+
+**Retention.** Only bounded, nonsecret receipt fields are kept: recorder
+stderr is never copied. Recorder times stay in the recorder's own clock domain
+and are not ADC or acoustic times.
+
+**Review time.** The receipt must be byte-identical to the imported one, and
+the selected input is parsed and validated again (`MAIN-034`). The WAV path,
+its digests and its frame count are re-derived from the receipt, never taken
+from the cached ledger evidence; cached values that disagree are refused.
+The WAV is then re-read and checked against the receipt's claims.
+
+**Bounds.** Frame counts are bounded before any arithmetic: at most 600 s for
+a receipt, and at most the stream byte bound for a diagnostics marker. An
+absurd count is invalid evidence, never a panic.
+
+**Invalid recordings.** An invalid or missing recording is retained as
+invalid evidence, and that attempt's acoustic boundaries stay unmeasured.
+
+**Target diagnostics.** The target's certified diagnostics beside the trace
+(`render-audio/` and `capture-audio/`) are verified against the trace:
+- lamp-live's own certifier checks each stream's identity and finish receipt;
+- each PCM and record file must match the completion marker's hash and the
+  certified frame counts.
+
+The result is recorded as `target_audio`, verified or unverified with a
+reason, and nothing is adapted from other metadata. Pre-AEC capture is
+ALSA-resampled 16 kHz, not capsule PCM. Accepted render is 24 kHz audio that
+ALSA accepted, which is not proof of audibility.
+
+Tests: `tests/recording_import.rs`, which uses root's real receipt examples
+with digests adapted to generated WAVs, and `tests/target_audio.rs`, which
+uses directories written by lamp-live's `Recorder`.
+
 A `user_interrupted` cancellation is caused by the admission whose speech
 candidate is within 20 ms of it. A planned `interrupt_and_answer` step yields as
 planned; anything else, including background talk, is a **false interruption**.
@@ -325,6 +377,7 @@ cargo run -p lamp-voice-eval -- fake-run --out NEW_DIR [--profile v2-directed-cu
 cargo run -p lamp-voice-eval -- fake-run --out NEW_DIR --cache .cache/acoustic --manifest .cache/render-first.json   # fake_signal
 cargo run -p lamp-voice-eval -- evaluate RUN_DIR [--annotations FILE]
 cargo run -p lamp-voice-eval -- import-trace --events artifacts/.../events.jsonl --scenario fixed-reply-echo-only --out NEW_DIR [--turn greet=1] [--source loudspeaker_synthetic|direct_human] [--room-metadata room/metadata.json]
+cargo run -p lamp-voice-eval -- import-trace --events target/runtime/events.jsonl --scenario quick-chat --out NEW_DIR --source loudspeaker_synthetic --room-receipt acoustic/lamp-52e6-capture-receipt.json --room-input voice --room-independent
 cargo run -p lamp-voice-eval -- annotation-template RUN_DIR NEW_FILE.json
 cargo run -p lamp-voice-eval -- assets --cache .cache/acoustic --manifest MANIFEST...
 cargo run -p lamp-voice-eval -- render-stimuli .cache/acoustic NEW_REPORT.json   # macOS; renders only missing objects

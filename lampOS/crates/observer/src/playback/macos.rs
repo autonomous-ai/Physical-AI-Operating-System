@@ -42,7 +42,13 @@ pub(super) fn inspect(name: &str) -> Result<Value> {
     )
 }
 
-pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) -> Result<()> {
+pub(super) fn play(
+    options: &PlayOptions,
+    source: Source,
+    report: &mut Value,
+    mut prepared_io: Option<PreparedIo<'_>>,
+    attempt_id: &str,
+) -> Result<()> {
     let device = select(&options.output_device)?;
     let selected = identity(&device)?;
     let supported = device.default_output_config()?;
@@ -74,11 +80,14 @@ pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) ->
         return Ok(());
     }
     let state = Arc::new(Shared::default());
+    // Armed before the stream exists: no callback can submit source first.
+    state.armed.store(prepared_io.is_some(), Ordering::Release);
     let mut renderer = Renderer {
         prepared,
         shared: state.clone(),
         cursor: 0,
         previous: None,
+        clock: lamp_ipc::monotonic_ns,
     };
     let error_state = state.clone();
     report["build_started_host_monotonic_ns"] = json!(lamp_ipc::monotonic_ns());
@@ -121,6 +130,18 @@ pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) ->
         }
         report["start_requested_host_monotonic_ns"] = json!(lamp_ipc::monotonic_ns());
         stream.start()?;
+        if let Some(io) = prepared_io.as_mut() {
+            match prepared_start(options, &state, report, io, attempt_id)? {
+                None => {}
+                Some(status) => {
+                    // Nothing was granted: the armed callback never submitted
+                    // a source frame, and cancellation keeps it that way.
+                    state.cancelled.store(true, Ordering::Release);
+                    stop_reason = status;
+                    return Ok(());
+                }
+            }
+        }
         let began = Instant::now();
         loop {
             let cancelled = cancellation_requested(options.cancel_file.as_deref())?;
@@ -152,6 +173,13 @@ pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) ->
         && !state.cancelled.load(Ordering::Acquire)
     {
         state.faults.fetch_or(8, Ordering::Release);
+    }
+    if let Some(io) = prepared_io.as_ref() {
+        // Control lines after the decision never start anything; count them.
+        let late = std::iter::from_fn(|| io.inputs.try_recv().ok())
+            .filter(|input| matches!(input, GrantInput::Line(_) | GrantInput::Malformed))
+            .count();
+        report["prepared_start"]["control_lines_after_decision"] = json!(late);
     }
     // Control never waits for a callback to notice cancellation or a stalled stream.
     report["stop_requested_host_monotonic_ns"] = json!(lamp_ipc::monotonic_ns());
@@ -190,6 +218,10 @@ pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) ->
     report["valid"] = json!(valid);
     report["status"] = json!(if valid {
         "completed_delivery_checks"
+    } else if snapshot.start_expired {
+        "start_expired"
+    } else if let Some(status) = PREPARED_STATUSES.iter().find(|s| **s == stop_reason) {
+        status
     } else if snapshot.cancelled {
         "cancelled"
     } else {
@@ -199,4 +231,81 @@ pub(super) fn play(options: &PlayOptions, source: Source, report: &mut Value) ->
     report["counters"] = serde_json::to_value(snapshot)?;
     report["errors"] = json!(errors);
     Ok(())
+}
+
+/// Statuses of a prepared attempt that never started its source.
+const PREPARED_STATUSES: [&str; 6] = [
+    "cancelled_before_grant",
+    "stopped_before_grant",
+    "grant_refused",
+    "grant_timeout",
+    "failed_before_grant",
+    "ready_not_published",
+];
+
+/// From a running silent stream to an installed grant. Returns a status when
+/// nothing may be played.
+fn prepared_start(
+    options: &PlayOptions,
+    state: &Shared,
+    report: &mut Value,
+    io: &mut PreparedIo<'_>,
+    attempt_id: &str,
+) -> Result<Option<&'static str>> {
+    let cancelled = || cancellation_requested(options.cancel_file.as_deref());
+    // The output is live (a callback has run) before readiness is claimed.
+    let opened = Instant::now();
+    while state.callbacks.load(Ordering::Acquire) == 0 {
+        if cancelled()? {
+            return Ok(Some("cancelled_before_grant"));
+        }
+        if opened.elapsed() >= Duration::from_secs(5) {
+            report["prepared_start"]["failure"] = json!("first_callback_timeout");
+            return Ok(Some("failed_before_grant"));
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let ready = json!({
+        "schema": 1, "kind": "prepared_ready", "attempt_id": attempt_id,
+        "ready_monotonic_ns": lamp_ipc::monotonic_ns(), "clock": GRANT_CLOCK,
+        "source_sha256": report["source"]["sha256"],
+        "prepared_sha256_float32_le": report["prepared"]["sha256_float32_le"],
+        "output": report["selected_output"],
+        "output_config": report["selected_default_config"],
+        "max_wait_ms": options.prepared_start_ms,
+        "max_grant_horizon_ns": MAX_GRANT_HORIZON_NS,
+        "grant": {"schema": 1, "kind": "start", "attempt_id": attempt_id,
+            "expires_monotonic_ns": "absolute CLOCK_MONOTONIC ns"}
+    });
+    report["prepared_start"]["ready"] = ready.clone();
+    if let Err(error) = (io.ready)(&ready) {
+        report["prepared_start"]["failure"] = json!(format!("ready receipt: {error}"));
+        return Ok(Some("ready_not_published"));
+    }
+    let mut gate = StartGate::new(attempt_id);
+    let max_wait_ns = u64::from(options.prepared_start_ms.unwrap_or(0)) * 1_000_000;
+    let inputs = &io.inputs;
+    let outcome = wait_for_grant(
+        state,
+        &mut gate,
+        max_wait_ns,
+        lamp_ipc::monotonic_ns,
+        || inputs.recv_timeout(Duration::from_millis(2)).ok(),
+        cancelled,
+    )?;
+    report["prepared_start"]["grant"] = match &outcome {
+        GrantWait::Granted {
+            expires_ns,
+            received_ns,
+        } => json!({"decision": "start", "expires_monotonic_ns": expires_ns,
+            "received_monotonic_ns": received_ns}),
+        GrantWait::NotStarted { status, reason } => {
+            json!({"decision": status, "reason": reason})
+        }
+    };
+    report["prepared_start"]["duplicate_grant_lines"] = json!(gate.duplicates);
+    Ok(match outcome {
+        GrantWait::Granted { .. } => None,
+        GrantWait::NotStarted { status, .. } => Some(status),
+    })
 }

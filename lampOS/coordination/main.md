@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 21:25 UTC
+- Updated: 2026-10-11 21:36 UTC
 - Branch: `lamp-v2-chat`
 - Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, incomplete: one completed reply, one stale player spawn with brief output unknown, six withheld. Last completed finite check: 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
@@ -42,12 +42,16 @@ first ARM selector matched zero tests and was rejected by the count gate; the
 corrected run is retained separately. [Integration evidence](../docs/verification/pilot-fault-integration-20261011/results.json)
 records the exported artifact. Nothing from either proposal is installed.
 
-The controller missed its deadline starting the iMac's second prompt. Agent 2
-owns a separate opt-in Rust player change to prepare output before the original
-readiness check and enforce that check at the first source-frame boundary.
-No prompt is replayed and no scheduling deadline is widened. Its new evaluator
-readiness proposal `af731346` is also separate; a matching runtime cue proposal
-is still needed.
+The controller's stale player launch now has a separately verified fix. Main
+integrated Agent 2's corrected prepared player `82d5fa46`; format, strict package
+Clippy, all 243 observer/evaluator tests and the release build pass. Native iMac
+checks refused an expired grant with zero source frames and completed a fresh
+100 ms grant, starting source submission after 9.527 ms. See
+[the exact delivery evidence](../docs/verification/prepared-player-20261011/results.json).
+The new eight-question controller prepares output before the original readiness
+check; no prompt replay or deadline widening is allowed. Its actual conversation
+run is next. Agent 2's `e3250a31` evaluator/readiness-cue proposal remains separate,
+and it now owns the reusable long serve-session runner workstream.
 
 ## Retained connected-attempt failure
 

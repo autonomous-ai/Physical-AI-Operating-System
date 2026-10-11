@@ -941,9 +941,10 @@ completion were exposed, if they were; the outcome is
 completion came after the second start, nothing was assumed and the second
 request was answered.
 
-**`barrier-ms=N`, trailing, 2000 to 20000.** Lengthens the barrier's quiet
-bound for one run, to watch whether a terminal arrives late. It is
-observation only. The policy is still `Require`: nothing is assumed, the
+**`barrier-ms=N`, trailing, 2000 to 5000.** Lengthens the barrier's quiet
+bound for one run, to watch whether a terminal arrives late. Five seconds
+is the longest the library accepts (`Timeouts::validate`), and the probe
+does not widen that. It is observation only. The policy is still `Require`: nothing is assumed, the
 successor's End stays withheld for as long as nothing settles, and no
 answer can be attributed on the strength of the longer wait. The result
 records `barrier_ms`, `barrier_bound_is_production: false` and
@@ -951,11 +952,20 @@ records `barrier_ms`, `barrier_bound_is_production: false` and
 
 ```sh
 service_probe PROVIDER.json FIRST.wav continue-during-output SECOND.wav
-service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barrier-ms=10000
+service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barrier-ms=5000
 ```
 
-The second line is the failed run again with ten seconds, not two, in
-which a terminal for the first request may show itself.
+The second line is the failed run again with five seconds, not two, in
+which a terminal for the first request may show itself: three seconds
+more than production waits. It cannot say what happens later than that.
+
+The first version of this option accepted up to 20000 and was first run
+with `barrier-ms=10000`. The parser took it, the library refused the
+configuration (`InvalidConfiguration`), and the run ended in 0.014 s with
+nothing printed and nothing sent. That was a fault of the probe, whose
+parser was tested and whose configuration was not, and says nothing about
+the service. The accepted range is now the library's, and a test builds a
+configuration from every bound the parser accepts.
 
 **Exit status.** The probe exits 0 only for
 `strict_barrier_confirmed_and_answered` or

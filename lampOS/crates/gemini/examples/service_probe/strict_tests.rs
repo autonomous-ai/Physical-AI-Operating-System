@@ -2,16 +2,20 @@ use super::*;
 use lamp_gemini::testing::{FakeService, audio, pair};
 use lamp_gemini::{Credential, GOOGLE_ENDPOINT};
 
-async fn mock() -> (Connection, FakeService) {
-    let config = config(
-        SessionConfig::new(
-            GOOGLE_ENDPOINT,
-            Credential::api_key("offline-test").unwrap(),
-        )
-        .unwrap(),
-        BARRIER,
+fn offline() -> SessionConfig {
+    SessionConfig::new(
+        GOOGLE_ENDPOINT,
+        Credential::api_key("offline-test").unwrap(),
     )
-    .unwrap();
+    .unwrap()
+}
+
+async fn mock() -> (Connection, FakeService) {
+    mock_with(BARRIER).await
+}
+
+async fn mock_with(quiet: Duration) -> (Connection, FakeService) {
+    let config = config(offline(), quiet).unwrap();
     let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;
     let connecting = tokio::spawn(connecting);
     service.accept().await;
@@ -466,14 +470,16 @@ fn a_longer_barrier_bound_is_parsed_bounded_and_removed() {
         "continue-before-output",
         "b.wav",
         "300",
-        "barrier-ms=10000",
+        "barrier-ms=5000",
     ]);
-    assert_eq!(
-        observed_barrier(&mut longer).unwrap(),
-        Duration::from_secs(10)
-    );
+    assert_eq!(observed_barrier(&mut longer).unwrap(), LONGEST_BARRIER);
     assert_eq!(longer.len(), 5);
-    for bad in ["barrier-ms=1999", "barrier-ms=20001", "barrier-ms=soon"] {
+    for bad in [
+        "barrier-ms=1999",
+        "barrier-ms=5001",
+        "barrier-ms=10000",
+        "barrier-ms=soon",
+    ] {
         let mut arguments = arguments(&["p", "a.wav", "continue-before-output", "b.wav", bad]);
         assert!(observed_barrier(&mut arguments).is_err(), "{bad}");
     }
@@ -514,4 +520,92 @@ fn only_a_confirmed_answer_under_the_production_bound_passes() {
     assert!(!passed(
         &json!({"outcome": "strict_barrier_confirmed_and_answered"})
     ));
+}
+
+/// The first real attempt at a longer bound asked for ten seconds: the
+/// probe's parser took it and the library refused the configuration, so the
+/// run never reached the service. The parser was tested and the
+/// configuration it feeds was not.
+#[test]
+fn every_bound_the_probe_accepts_builds_a_configuration_the_library_accepts() {
+    for milliseconds in [2_000_u64, 2_001, 3_500, 4_999, 5_000] {
+        let mut arguments = vec![format!("barrier-ms={milliseconds}")];
+        let quiet = observed_barrier(&mut arguments).unwrap();
+        assert_eq!(quiet, Duration::from_millis(milliseconds));
+        assert!(config(offline(), quiet).is_ok(), "{milliseconds}");
+    }
+    // The probe's limit is the library's: one millisecond more is refused
+    // there, so the two cannot drift apart without this failing.
+    assert!(config(offline(), LONGEST_BARRIER + Duration::from_millis(1)).is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_longest_bound_sees_a_terminal_that_two_seconds_would_have_missed() {
+    let (connection, mut service) = mock_with(LONGEST_BARRIER).await;
+    let first = vec![111; 8_000];
+    let second = vec![222; 16_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        // Four seconds with nothing for the earlier response. The successor
+        // is uploaded meanwhile and its End is not written.
+        let late = Instant::now() + Duration::from_secs(4);
+        while let Some(left) = late.checked_duration_since(Instant::now()) {
+            if left.is_zero() {
+                break;
+            }
+            if let Some(message) = service.try_receive(left).await {
+                assert!(message["realtimeInput"].get("activityEnd").is_none());
+            }
+        }
+        service
+            .send(json!({"serverContent":{"interrupted":true}}))
+            .await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(333, 240)).await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_confirmed_and_answered");
+    let start = report["inputs"][1]["start_queued_us"].as_u64().unwrap();
+    assert!(report["idle_observed_us"][0].as_u64().unwrap() >= start + 4_000_000);
+    assert_eq!(report["inputs"][1]["accepted_samples"], second.len());
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_longest_bound_still_times_out_when_no_terminal_comes() {
+    let (connection, mut service) = mock_with(LONGEST_BARRIER).await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 112_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        while let Some(message) = service.try_receive(Duration::from_secs(3)).await {
+            assert!(message["realtimeInput"].get("activityEnd").is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_timeout");
+    assert_eq!(report["inputs"][1]["end_queued_us"], Value::Null);
+    let start = report["inputs"][1]["start_queued_us"].as_u64().unwrap();
+    // Not before five seconds of nothing, and not a full upload later.
+    let ended = report["observed_ms"].as_u64().unwrap() * 1_000;
+    assert!(ended >= start + 5_000_000, "{ended} {start}");
+    assert!(ended < start + 6_000_000, "{ended} {start}");
+    assert!((report["inputs"][1]["accepted_samples"].as_u64().unwrap() as usize) < second.len());
 }

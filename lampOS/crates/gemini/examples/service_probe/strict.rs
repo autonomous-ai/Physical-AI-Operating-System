@@ -80,6 +80,9 @@ fn pcm(bytes: &[u8]) -> Outcome<Vec<i16>> {
 
 /// The production quiet bound of a barrier.
 const BARRIER: Duration = Duration::from_secs(2);
+/// The longest quiet bound the library accepts. The probe asks for no more:
+/// a longer one would mean widening what production may be configured with.
+const LONGEST_BARRIER: Duration = Duration::from_secs(5);
 
 /// Always `Require`. `quiet` is the barrier's quiet bound: two seconds in
 /// production. A probe may ask for longer to watch whether a terminal comes
@@ -104,12 +107,12 @@ fn observed_barrier(arguments: &mut Vec<String>) -> Outcome<Duration> {
     else {
         return Ok(BARRIER);
     };
-    let quiet = value.parse::<u64>()?;
-    if !(2_000..=20_000).contains(&quiet) {
-        return Err("barrier-ms must be 2000 to 20000".into());
+    let quiet = Duration::from_millis(value.parse::<u64>()?);
+    if !(BARRIER..=LONGEST_BARRIER).contains(&quiet) {
+        return Err("barrier-ms must be 2000 to 5000, the longest the library accepts".into());
     }
     arguments.pop();
-    Ok(Duration::from_millis(quiet))
+    Ok(quiet)
 }
 
 #[derive(Serialize)]

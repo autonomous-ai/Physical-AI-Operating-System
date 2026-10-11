@@ -396,3 +396,59 @@ fn an_unobserved_event_in_the_final_drain_requires_revalidation() {
     assert!(injection.withheld.is_none(), "{}", injection.receipt);
     assert_eq!(rig.started(), 1);
 }
+
+/// Independent audit: time may elapse after runner eligibility and before the
+/// final player boundary. The physical backend has the original target and
+/// must not request a now-invalid stimulus even when no new event is queued.
+#[test]
+fn audit_physical_boundary_rejects_a_target_already_over_100ms_late() {
+    let rig = Rig::new("audit-late-boundary");
+    let mut backend = rig.backend(&[start_line()], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    // Consume the initial non-event so the boundary has no event that can
+    // incidentally force Withheld::Revalidate.
+    let drain_until = backend.now_us() + 50_000;
+    assert!(backend.next_event(drain_until).unwrap().is_none());
+    let target = backend.now_us().checked_sub(150_000).unwrap();
+    let injection = rig.inject(&mut backend, target);
+    eprintln!(
+        "audit boundary: starts={}, requested_late_us={}, withheld={:?}",
+        rig.started(),
+        injection.receipt["late_us"],
+        injection.withheld
+    );
+    assert_eq!(
+        rig.started(),
+        0,
+        "an expired target must not reach Player::start"
+    );
+    assert!(injection.withheld.is_some());
+}
+
+/// The production relay starts Trace only after runtime exit (session.rs
+/// stream_trace call after try_wait / kill and the final stdout/cue drain).
+/// SessionEnd follows the complete trace, so it need not have arrived yet.
+#[test]
+fn audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay() {
+    let rig = Rig::new("audit-trace-phase");
+    let trace = json!({"type":"trace","record":{"kind":"run_end","at_us":10,"status":"failed"}});
+    let mut backend = rig.backend(&[start_line(), trace], "0", "", Then::StayOpen);
+    rig.begin(&mut backend);
+    // Consume the actual post-exit record. It currently yields no live event.
+    let drain_until = backend.now_us() + 50_000;
+    let observed = backend.next_event(drain_until).unwrap();
+    let at = backend.now_us();
+    let injection = rig.inject(&mut backend, at);
+    eprintln!(
+        "audit post-exit trace: event={:?}, starts={}, withheld={:?}",
+        observed.map(|e| e.kind),
+        rig.started(),
+        injection.withheld
+    );
+    assert_eq!(
+        rig.started(),
+        0,
+        "post-exit trace relay must close live dispatch"
+    );
+    assert!(injection.withheld.is_some());
+}

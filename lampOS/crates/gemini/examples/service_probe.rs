@@ -20,6 +20,13 @@
 //! and what the model said. It is the one probe that prints the model's own
 //! words, because nothing else shows whether the picture was used: choose a
 //! picture and a question that are fit to appear in a log.
+//!
+//! `continue-before-output SECOND.wav [GAP_MS]` and the distinct
+//! `repeat-before-output [GAP_MS]` use strict Require/2 s and drain events
+//! while sending. They print bounded model/input transcript observations for
+//! private review; input transcripts remain session-scoped. These modes use
+//! exact mono16k PCM16 without trimming. See the session reliability document
+//! for their public-API and semantic limits.
 use lamp_gemini::{
     BarrierPolicy, Connection, Credential, Event, RequestId, Resumption, SessionConfig, SessionId,
     State, ThinkingLevel, Timeouts,
@@ -32,6 +39,9 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
+
+#[path = "service_probe/strict.rs"]
+mod strict;
 
 type Outcome<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -482,6 +492,14 @@ fn main() -> Outcome<()> {
 
 async fn run() -> Outcome<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
+    if strict::requested(&arguments) {
+        let result = strict::run(&arguments).await?;
+        println!("{result}");
+        if result["outcome"] != "strict_barrier_confirmed_and_answered" {
+            return Err("strict probe is failed or inconclusive; see its JSON outcome".into());
+        }
+        return Ok(());
+    }
     let (provider, wav, name, picture) = match arguments.as_slice() {
         [provider, wav, name] if name != "image" => (provider, wav, name, None),
         [provider, wav, name, picture] if name == "image" => (provider, wav, name, Some(picture)),

@@ -1,0 +1,122 @@
+{
+  "absolute_before_output_order_proven": false,
+  "aftermath": {
+    "observed_ms": null,
+    "requested_ms": 8000,
+    "window_complete": false
+  },
+  "barrier_ms": 2000,
+  "barrier_policy": "Require",
+  "case": "barrier_wait_observed_without_prior_audio",
+  "dropped_output_counts_available": false,
+  "end_wire_ack_available": false,
+  "events": [
+    {
+      "kind": "input_started",
+      "observed_us": 115,
+      "request": 1,
+      "session": 1,
+      "waiting_for_barrier": false
+    },
+    {
+      "activity": "Start",
+      "audio_offset_us": 0,
+      "kind": "voice_activity",
+      "observed_us": 372004,
+      "session": 1
+    },
+    {
+      "kind": "input_started",
+      "observed_us": 5330281,
+      "request": 2,
+      "session": 1,
+      "waiting_for_barrier": true
+    },
+    {
+      "finished": false,
+      "kind": "uncorrelated_input_transcript",
+      "observed_us": 5602476,
+      "session": 1,
+      "text": "I've had a difficult morning and I think the part that bothered me was"
+    },
+    {
+      "activity": "End",
+      "audio_offset_us": 4333562,
+      "kind": "voice_activity",
+      "observed_us": 5602497,
+      "session": 1
+    },
+    {
+      "activity": "Start",
+      "audio_offset_us": 4333562,
+      "kind": "voice_activity",
+      "observed_us": 5691345,
+      "session": 1
+    }
+  ],
+  "final_state": "Disconnected(BarrierTimeout)",
+  "first_audio_observed_before_second_queue": false,
+  "first_audio_observed_us": [
+    null,
+    null
+  ],
+  "foreign_lineage_observed": false,
+  "gap_ms": 300,
+  "idle_observed_us": [
+    null,
+    null
+  ],
+  "input_error": null,
+  "input_transform": "none; exact mono16k PCM16",
+  "inputs": [
+    {
+      "accepted_blocks": 434,
+      "accepted_samples": 69337,
+      "end_queued_us": 5027384,
+      "planned_samples": 69337,
+      "request": 1,
+      "session": 1,
+      "start_queued_us": 12
+    },
+    {
+      "accepted_blocks": 173,
+      "accepted_samples": 27680,
+      "end_queued_us": null,
+      "planned_samples": 58671,
+      "request": 2,
+      "session": 1,
+      "start_queued_us": 5330210
+    }
+  ],
+  "instruction": "generic short-answer probe instruction; not production CHAT_INSTRUCTION",
+  "observed_ms": 7331,
+  "outcome": "strict_barrier_timeout",
+  "probe": "continue-before-output",
+  "received_audio_samples": [
+    0,
+    0
+  ],
+  "request_one_idle_observed_after_second_queue": false,
+  "semantic_assessment": "unscored",
+  "source_files": [
+    "hesitation-a.wav",
+    "hesitation-b.wav"
+  ],
+  "source_sha256_verified_by_probe": false,
+  "stop_reason": "connection_ended",
+  "total_observed_ms": 9287,
+  "trial_limit_ms": 40000,
+  "execution_evidence": {
+    "source_manifest_sha256": "721f0d4f3c148e9c1bb9ea828bbaec3d37c9c9582098fe979740eb2bed4671c8",
+    "binary_sha256": "b9740b13d778f3e6defa672bdb2db54ab407224903765809f8029102a3051d30",
+    "exit_code": 1,
+    "timed_out": false,
+    "scope": "one synthetic direct-service functional continuation trial on Mac; no microphone/speaker or Lamp latency measurement",
+    "fixture_hashes_verified": true,
+    "original_result_sha256": "5d0653abfb723a8061e2dd9c7673cc3ce1471f5ba57245a8e1e3ee0d8b5e497e",
+    "source_fixture_sha256": [
+      "a6dc8bc85b0b74434d9dd0e137eb2a5c72c277c95ca59514a8e3bb39d9520af7",
+      "103b410386d0943fdce7279cad21b9a6e4ef7d1e39c70c6463ca570a4eca1de6"
+    ]
+  }
+}

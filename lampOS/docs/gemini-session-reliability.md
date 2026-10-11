@@ -433,6 +433,90 @@ blocks. The other five have never run.
 
 ## Verification
 
+### Strict continuation probe (example-only addition)
+
+The explicit `continue-before-output` mode sends two **different**, already
+cached mono 16 kHz PCM16 WAVs. It uses the production barrier policy
+`Require` and its default **2 s** bound. It collects events concurrently with
+both paced 10 ms sends. No Supervisor, reconnection, retry, physical audio,
+camera, or coordinator participates. The old `interrupt-before-output` mode
+is retained as the historical repeated-question, `AssumeAfterQuiet` / 5 s
+probe; do not use that legacy mode as strict production-policy evidence.
+
+```sh
+cargo run --locked --offline -p lamp-gemini --example service_probe -- \
+    /absolute/private/provider.json FIRST.wav continue-before-output SECOND.wav 300 \
+    > /absolute/private/continuation-result.json
+```
+
+The separately named control is
+`PRIVATE_PROVIDER.json QUESTION.wav repeat-before-output [GAP_MS]`. It is a
+repeated question, not a test of preserving a split thought. `GAP_MS` defaults
+to 300 and is limited to 0–5000. It starts after the first End is **queued
+locally**, not after a wire acknowledgement. No new credential or model
+configuration is introduced. The configured endpoint/model/voice/thinking
+level/language are used, but the example's generic one-sentence instruction
+is not production `CHAT_INSTRUCTION`.
+
+Input is restricted to one standard PCM16 format/data chunk, exact RIFF and
+chunk lengths, 10 ms–10 s per file, and at most 385,536 file bytes. It is not
+trimmed, resampled, normalized or padded. Identical decoded samples are
+refused in continuation mode before opening any provider configuration.
+Files must be regular; the existing bounded reader checks descriptor identity
+and caps reads. Local filesystem I/O precedes the service observation window.
+There is no hashing dependency: the operator must pin the WAV SHA externally;
+the report explicitly says the probe did not verify a SHA. Counts mean
+samples accepted by the local input queue, not confirmed service receipt.
+
+The connected trial has one nonrenewable **40 s** deadline, including input,
+the gap and up to **8 s** after request 2's idle completion. Library connect
+and setup each retain their 10 s bound before that trial. Every early close,
+partial send, refusal, missing terminal, or deadline is retained in the JSON.
+Aftermath duration is actually observed and `window_complete` is false if
+interrupted; an early close never becomes eight seconds of silence. Event
+storage stops at 2048 rows or 65,536 transcript/text bytes and reports
+incomplete evidence. Strict modes print bounded output/model transcript text
+for private review, never credentials, handles or PCM. Input transcripts are
+explicitly session-scoped and have no invented request identifier.
+
+`strict_barrier_confirmed_and_answered` means the public API reported request
+2 waiting at a barrier, no request 1 audio had been observed before the second
+Start was queued, request 1's original idle completion was observed after
+that queue, request 2 produced audio and an idle completion, and the bounded
+aftermath finished. Only this outcome returns exit 0; other outcomes still
+print the JSON and return a nonzero exit. `Interrupted`, generation complete,
+and a non-idle completion do not substitute for request 1's idle terminal.
+`strict_barrier_timeout` is a recorded failure, not a successful continuation.
+An answer already begun or completed before the second input is a different
+case and is reported as such.
+
+This is an **observed transport result**, not a semantic or acoustic pass.
+The public API has no End-write acknowledgement, server receive clock, or
+drop ledger. `waiting_for_barrier` alone does not name the prior gate owner.
+Already retired output can be filtered before the caller observes it, so the
+probe cannot prove absolute service-side before-output ordering or the
+absence of extra dropped output. A `Discarded` event is not a count of extra
+answers. Event times are caller observation times; output tokens remain the
+transport's original session/request, with no fabricated attribution.
+The report keeps these missing capabilities explicit. Assess whether the
+answer addresses the **whole** two-part input separately from its actual
+output transcript; semantic assessment remains `unscored` automatically.
+
+Focused offline verification uses the actual transport with an in-memory
+scripted service and paused clock:
+
+```sh
+cargo test --locked --offline -p lamp-gemini --example service_probe -- --test-threads=1
+cargo clippy --locked --offline -p lamp-gemini --example service_probe -- -D warnings
+```
+
+These tests are not real-service evidence. They cover simultaneous send and
+receive, strict timeout during a longer continuation, original identities,
+early close, non-idle terminal, missing answer/terminal, nonrenewing deadline,
+bounded evidence, and unchanged valid fixture samples.
+
+### Historical workspace commands
+
 From `lampOS/`, with a fresh target directory:
 
 ```sh
@@ -839,3 +923,13 @@ What an integrator will notice:
   and the room audio.
 - Echo-driven false admissions are outside this work and unchanged by it. Each
   one still cancels the answer in progress.
+
+## Actual strict continuation probe, 2026-10-11
+
+The first real service run of `continue-before-output` with a 300 ms continuation
+gap failed with `BarrierTimeout` during the continuation upload. Only 27,680 of
+58,671 successor samples were accepted, and its End was not queued. No reply audio
+was received. Keep speculative early endpointing disabled: the required settlement
+behavior is not qualified. The [sanitized result and limits](verification/strict-continuation-20261011/README.md)
+distinguish observed public events from unavailable wire acknowledgements and
+explain why this functional probe is not a latency benchmark.

@@ -1,0 +1,366 @@
+use super::*;
+use lamp_gemini::testing::{FakeService, audio, pair};
+use lamp_gemini::{Credential, GOOGLE_ENDPOINT};
+
+async fn mock() -> (Connection, FakeService) {
+    let config = config(
+        SessionConfig::new(
+            GOOGLE_ENDPOINT,
+            Credential::api_key("offline-test").unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;
+    let connecting = tokio::spawn(connecting);
+    service.accept().await;
+    (connecting.await.unwrap().unwrap(), service)
+}
+
+async fn until(service: &mut FakeService, name: &str) -> Vec<Value> {
+    let mut messages = Vec::new();
+    loop {
+        let message = service.receive().await;
+        let found = message["realtimeInput"].get(name).is_some();
+        messages.push(message);
+        if found {
+            return messages;
+        }
+    }
+}
+
+fn idle() -> Value {
+    json!({"serverContent":{"turnComplete":true}})
+}
+
+#[tokio::test(start_paused = true)]
+async fn strict_terminal_is_observed_while_distinct_continuation_is_still_sending() {
+    let (connection, mut service) = mock().await;
+    let first = vec![111; 8_000];
+    let second = vec![222; 16_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        service
+            .send(json!({"serverContent":{"interrupted":true}}))
+            .await;
+        service
+            .send(json!({"serverContent":{"turnComplete":true,"interactionStatus":"IN_PROGRESS"}}))
+            .await;
+        // Audio keeps flowing while the End barrier is still unresolved.
+        for _ in 0..10 {
+            let message = service.receive().await;
+            assert!(message["realtimeInput"].get("audio").is_some());
+            use base64::{Engine, engine::general_purpose::STANDARD};
+            let bytes = STANDARD
+                .decode(message["realtimeInput"]["audio"]["data"].as_str().unwrap())
+                .unwrap();
+            assert_eq!(bytes, [222_i16.to_le_bytes(); 160].concat());
+        }
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(333, 240)).await;
+        service.send(json!({"serverContent":{"outputTranscription":{"text":"A reply to the continuation.","finished":true}}})).await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_confirmed_and_answered");
+    assert_eq!(report["inputs"][0]["accepted_samples"], first.len());
+    assert_eq!(report["inputs"][1]["accepted_samples"], second.len());
+    assert!(
+        report["idle_observed_us"][0].as_u64().unwrap()
+            < report["inputs"][1]["end_queued_us"].as_u64().unwrap()
+    );
+    assert_eq!(report["received_audio_samples"], json!([0, 240]));
+    assert_eq!(report["aftermath"]["window_complete"], true);
+    assert_eq!(report["aftermath"]["observed_ms"], 8_000);
+    assert_eq!(report["absolute_before_output_order_proven"], false);
+}
+
+#[tokio::test(start_paused = true)]
+async fn interrupted_and_nonidle_do_not_clear_require_two_second_barrier_or_erase_partial_send() {
+    let (connection, mut service) = mock().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 64_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        service.send(json!({"serverContent":{"interrupted":true,"turnComplete":true,"interactionStatus":"IN_PROGRESS"}})).await;
+        while let Some(message) = service.try_receive(Duration::from_secs(3)).await {
+            assert!(message["realtimeInput"].get("activityEnd").is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["barrier_ms"], 2_000);
+    assert_eq!(report["outcome"], "strict_barrier_timeout");
+    assert_eq!(report["final_state"], "Disconnected(BarrierTimeout)");
+    let samples = report["inputs"][1]["accepted_samples"].as_u64().unwrap();
+    assert!(samples > 0 && samples < second.len() as u64);
+    assert!(report["inputs"][1]["end_queued_us"].is_null());
+    assert!(report["idle_observed_us"][0].is_null());
+    assert!(report["aftermath"]["observed_ms"].is_null());
+    assert_eq!(report["aftermath"]["window_complete"], false);
+}
+
+#[tokio::test(start_paused = true)]
+async fn early_close_after_answer_does_not_claim_eight_seconds_of_observation() {
+    let (connection, mut service) = mock().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 8_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(3, 240)).await;
+        service.send(idle()).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        service.close(1000, "test complete").await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(
+        report["outcome"],
+        "answer_completed_but_observation_incomplete"
+    );
+    assert_eq!(report["stop_reason"], "connection_ended");
+    assert_eq!(report["aftermath"]["window_complete"], false);
+    assert!(report["aftermath"]["observed_ms"].as_u64().unwrap() < 500);
+    assert_eq!(report["received_audio_samples"][1], 240);
+}
+
+#[tokio::test(start_paused = true)]
+async fn prior_audio_and_a_completed_first_turn_are_not_the_requested_case() {
+    for complete in [false, true] {
+        let (connection, mut service) = mock().await;
+        let first = vec![1; 8_000];
+        let second = vec![2; 8_000];
+        let client = trial(
+            connection,
+            &first,
+            &second,
+            Duration::from_millis(300),
+            "continue-before-output",
+        );
+        let server = async {
+            until(&mut service, "activityEnd").await;
+            service.send(audio(10, 240)).await;
+            if complete {
+                service.send(idle()).await;
+            }
+            until(&mut service, "activityStart").await;
+            if !complete {
+                service.send(idle()).await;
+            }
+            until(&mut service, "activityEnd").await;
+            service.send(audio(20, 240)).await;
+            service.send(idle()).await;
+            service.rest(Duration::from_secs(9)).await;
+        };
+        let (report, ()) = tokio::join!(client, server);
+        assert_eq!(report["outcome"], "answered_other_case");
+        assert_eq!(report["first_audio_observed_before_second_queue"], true);
+        assert_eq!(
+            report["case"],
+            if complete {
+                "no_barrier_at_second_start"
+            } else {
+                "barrier_wait_observed_after_audio"
+            }
+        );
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn no_terminal_stays_incomplete_and_total_deadline_never_renews_on_output() {
+    let (connection, mut service) = mock().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 8_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        for _ in 0..8 {
+            service.send(audio(3, 240)).await;
+            // Answer keepalive pings; no new input is expected.
+            assert!(service.rest(Duration::from_secs(5)).await.is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "incomplete");
+    assert_eq!(report["stop_reason"], "trial_deadline");
+    assert_eq!(report["observed_ms"], 40_000);
+    assert!(report["idle_observed_us"][1].is_null());
+    assert_eq!(report["aftermath"]["window_complete"], false);
+}
+
+#[test]
+fn transcripts_keep_original_tokens_or_explicitly_have_no_request() {
+    let mut seen = Observed::new();
+    seen.event(Event::UncorrelatedInputTranscript {
+        session: SessionId::new(1).unwrap(),
+        text: "first or second: unknown".into(),
+        finished: true,
+    })
+    .unwrap();
+    assert!(seen.events[0].get("request").is_none());
+    seen.event(Event::OutputTranscript {
+        lineage: Lineage {
+            session: SessionId::new(9).unwrap(),
+            request: RequestId::new(77).unwrap(),
+        },
+        text: "foreign".into(),
+        finished: true,
+    })
+    .unwrap();
+    assert_eq!(seen.events[1]["session"], 9);
+    assert_eq!(seen.events[1]["request"], 77);
+    assert!(seen.foreign_lineage);
+    assert_eq!(seen.audio_samples, [0, 0]);
+}
+
+#[test]
+fn event_and_text_storage_is_bounded_without_synthesizing_success() {
+    let mut seen = Observed::new();
+    for _ in 0..MAX_EVENTS {
+        seen.event(Event::Discarded {
+            session: SessionId::new(1).unwrap(),
+            reason: lamp_gemini::Discard::LateTerminal,
+        })
+        .unwrap();
+    }
+    assert_eq!(
+        seen.event(Event::Discarded {
+            session: SessionId::new(1).unwrap(),
+            reason: lamp_gemini::Discard::LateTerminal
+        }),
+        Err("event_or_text_limit")
+    );
+    assert_eq!(seen.events.len(), MAX_EVENTS);
+    let mut seen = Observed::new();
+    assert_eq!(
+        seen.event(Event::UncorrelatedInputTranscript {
+            session: SessionId::new(1).unwrap(),
+            text: "a".repeat(MAX_TEXT_BYTES + 1),
+            finished: false
+        }),
+        Err("event_or_text_limit")
+    );
+    assert!(seen.events.is_empty());
+}
+
+fn wav(samples: usize) -> Vec<u8> {
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend(((samples * 2 + 36) as u32).to_le_bytes());
+    bytes.extend(b"WAVEfmt ");
+    bytes.extend(16_u32.to_le_bytes());
+    bytes.extend([1, 0, 1, 0, 128, 62, 0, 0, 0, 125, 0, 0, 2, 0, 16, 0]);
+    bytes.extend(b"data");
+    bytes.extend((samples as u32 * 2).to_le_bytes());
+    bytes.extend([123_i16.to_le_bytes()].repeat(samples).concat());
+    bytes
+}
+
+#[test]
+fn strict_fixture_is_exact_and_rejects_truncation_extra_bytes_wrong_format_and_duration() {
+    assert_eq!(pcm(&wav(321)).unwrap(), vec![123; 321]);
+    assert!(pcm(&wav(MAX_SAMPLES)).is_ok());
+    assert!(pcm(&wav(MAX_SAMPLES + 1)).is_err());
+    assert!(pcm(&wav(159)).is_err());
+    let good = wav(320);
+    assert!(pcm(&good[..good.len() - 1]).is_err());
+    let mut wrong = good.clone();
+    wrong.push(0);
+    assert!(pcm(&wrong).is_err());
+    let mut wrong = good;
+    wrong[22] = 2;
+    assert!(pcm(&wrong).is_err());
+}
+
+#[tokio::test(start_paused = true)]
+async fn idle_without_audio_is_not_an_answer() {
+    let (connection, mut service) = mock().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 8_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        until(&mut service, "activityStart").await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "completed_without_audio");
+    assert_eq!(report["received_audio_samples"][1], 0);
+    assert_eq!(report["aftermath"]["window_complete"], true);
+}
+
+#[tokio::test]
+async fn duplicated_continuation_is_refused_before_any_provider_configuration_is_opened() {
+    let root = std::env::temp_dir().join(format!(
+        "lamp-strict-fixture-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    let first = root.join("first.wav");
+    let second = root.join("second.wav");
+    std::fs::write(&first, wav(320)).unwrap();
+    std::fs::write(&second, wav(320)).unwrap();
+    let result = run(&[
+        root.join("does-not-exist.json")
+            .to_string_lossy()
+            .into_owned(),
+        first.to_string_lossy().into_owned(),
+        "continue-before-output".into(),
+        second.to_string_lossy().into_owned(),
+    ])
+    .await;
+    std::fs::remove_dir_all(&root).unwrap();
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("continuation must contain distinct PCM")
+    );
+}

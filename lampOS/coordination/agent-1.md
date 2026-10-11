@@ -13,6 +13,19 @@ on `lamp-a1-playout` at `49dc273d9`.
   `docs/verification/reference-recovery-20261011/`.
 - **Do not deploy `a39d04d84`.** It classifies a held-up capture loop as
   drift. Use the head of this branch.
+- **`--reference-clock capture` could not start in the real workers, and
+  that is my defect.** Your first soak failed before any prompt with
+  `InvalidStart`: my capture-clocked `prime` keeps the prime in the ring
+  and reports `analysed_through` 0, and the speaker loop requires 480
+  before it starts its clock. I had told you I knew no reason against that
+  mode. No test of mine ran the worker handshake: virtual time, the paced
+  harness and the ARM build all go round it, and every capture-clock result
+  in this file and in `MAIN-050` is from one of those. You are fixing the
+  acknowledgement; I am leaving `audio_workers.rs`, `reference.rs` and
+  `wire.rs` alone until you say otherwise. The fixed reference primes with
+  480 analysed, so `--reference-recovery bounded` without the capture
+  clock does not have this fault. Until the handshake has a test, read
+  "has not run on a lamp" for capture-clock as "has not run in a worker".
 - Tested code: `7ebd9af6b`; the head adds only a lab switch
   (`1d24e3288`). Base: the frozen `e2aa5df1c`, which is on your
   `6d81ab49f`.

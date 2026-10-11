@@ -84,6 +84,11 @@ pub enum Endpoint {
     #[default]
     Silence,
     SmartTurn,
+    /// `smart-turn` plus a recoverable early end of input: a confident verdict
+    /// ends input at 500 ms while reply output waits for the baseline quiet.
+    /// Recovering a continuation depends on the provider settling the request
+    /// it interrupts (docs/endpoint-detection.md).
+    SmartTurnEarly,
 }
 impl FromStr for Endpoint {
     type Err = io::Error;
@@ -91,6 +96,7 @@ impl FromStr for Endpoint {
         match value {
             "silence" => Ok(Self::Silence),
             "smart-turn" => Ok(Self::SmartTurn),
+            "smart-turn-early" => Ok(Self::SmartTurnEarly),
             _ => Err(invalid_options()),
         }
     }
@@ -200,8 +206,7 @@ impl DirectedOptions {
             }
         }
         // Confirmation is defined against the V1 baseline's silence fallback.
-        if options.endpoint == Endpoint::SmartTurn && options.turn_taking != TurnTaking::V1Baseline
-        {
+        if options.endpoint != Endpoint::Silence && options.turn_taking != TurnTaking::V1Baseline {
             return Err(invalid_options());
         }
         Ok(options)
@@ -415,6 +420,18 @@ mod tests {
         ]))
         .unwrap();
         assert_eq!(options.directed.endpoint, Endpoint::SmartTurn);
+        let early = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "v1-baseline",
+            "--endpoint",
+            "smart-turn-early",
+        ]))
+        .unwrap();
+        assert_eq!(early.directed.endpoint, Endpoint::SmartTurnEarly);
+        assert!(
+            SessionOptions::parse(&args(&["--endpoint", "smart-turn-early"])).is_err(),
+            "early end requires the V1 baseline"
+        );
         assert_eq!(
             serde_json::to_value(options.directed.endpoint).unwrap(),
             "smart-turn"

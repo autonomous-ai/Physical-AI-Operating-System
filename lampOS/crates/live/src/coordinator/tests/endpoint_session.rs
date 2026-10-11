@@ -5,9 +5,10 @@
 use super::*;
 use crate::{
     provider_link::{LinkContext, ProviderLinkState},
-    provider_worker::ProviderInput,
-    wire::{CaptureTiming, ReferenceTiming},
+    provider_worker::{ProviderInput, ProviderOutput},
+    wire::{CaptureTiming, ReferenceTiming, SpeakerChunk},
 };
+use lamp_audio::ownership::PlaybackCursor;
 use lamp_endpoint_ipc::{
     Availability, Classifier, Limits, Outcome, Submit, Token, Verdict, WorkerCommand,
     frame::{PROTOCOL, Response},
@@ -29,6 +30,34 @@ type Script = fn(u64) -> f32;
 #[derive(Default)]
 struct Seen {
     provider: Vec<&'static str>,
+    /// Every request the provider peer saw, in order.
+    requests: Vec<SeenRequest>,
+    /// Every speech chunk dispatched to the speaker: its turn and when.
+    chunks: Vec<(u64, Instant)>,
+    /// When the capture peer sent its first frame.
+    capture_started: Option<Instant>,
+}
+
+#[derive(Clone, Debug)]
+struct SeenRequest {
+    request: u64,
+    audio_blocks: usize,
+    started_at: Instant,
+    ended_at: Option<Instant>,
+}
+
+impl Seen {
+    /// Capture block `index` (1-based) as an instant.
+    fn block(&self, index: u64) -> Instant {
+        self.capture_started.expect("capture started") + Duration::from_millis(10 * (index - 1))
+    }
+}
+
+/// How the emulated provider answers each request after its end.
+#[derive(Clone, Copy)]
+struct ProviderReply {
+    after_end: Duration,
+    packets: usize,
 }
 
 fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> bool {
@@ -43,7 +72,12 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> bool {
     true
 }
 
-fn capture_peer(mut channels: WorkerChannels, script: Script, stop: Arc<AtomicBool>) {
+fn capture_peer(
+    mut channels: WorkerChannels,
+    script: Script,
+    seen: Arc<Mutex<Seen>>,
+    stop: Arc<AtomicBool>,
+) {
     let mut generation = 0;
     let mut started = None;
     let mut sequence = 0u64;
@@ -71,7 +105,9 @@ fn capture_peer(mut channels: WorkerChannels, script: Script, stop: Arc<AtomicBo
                             start_completed_at_us: at,
                         })
                         .unwrap();
-                    started = Some(Instant::now());
+                    let now = Instant::now();
+                    started = Some(now);
+                    seen.lock().unwrap().capture_started = Some(now);
                 }
                 Control::Stop => return,
                 _ => {}
@@ -136,7 +172,12 @@ fn privacy_peer(mut channels: WorkerChannels, stop: Arc<AtomicBool>) {
     }
 }
 
-fn provider_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<AtomicBool>) {
+fn provider_peer(
+    mut channels: WorkerChannels,
+    seen: Arc<Mutex<Seen>>,
+    reply: Option<ProviderReply>,
+    stop: Arc<AtomicBool>,
+) {
     let at = monotonic_us();
     channels
         .control
@@ -156,23 +197,126 @@ fn provider_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc
             },
         })
         .unwrap();
-    let mut generation = 0;
-    while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
+    // Output is credited: the coordinator grants two packets, then more.
+    let (mut granted, mut sent) = (2u64, 0u64);
+    let mut outbox: VecDeque<ProviderOutput> = VecDeque::new();
+    let mut due: Vec<(Instant, u64)> = Vec::new();
+    let mut sequence = 0u64;
+    while !stop.load(Ordering::SeqCst) {
+        let mut open = true;
+        while let Some(control) = channels.control.receive::<Control>().unwrap() {
+            match control {
+                Control::ProviderOutputCapacity { through } => granted = granted.max(through),
+                Control::Stop => open = false,
+                _ => {}
+            }
+        }
+        if !open {
+            break;
+        }
         while let Some(input) = channels.data.receive::<ProviderInput>().unwrap() {
-            seen.lock().unwrap().provider.push(match input {
-                ProviderInput::Start { .. } => "start",
-                ProviderInput::Audio { .. } => "audio",
-                ProviderInput::End { .. } => "end",
+            let mut seen = seen.lock().unwrap();
+            match input {
+                ProviderInput::Start {
+                    request, session, ..
+                } => {
+                    seen.provider.push("start");
+                    seen.requests.push(SeenRequest {
+                        request,
+                        audio_blocks: 0,
+                        started_at: Instant::now(),
+                        ended_at: None,
+                    });
+                    outbox.push_back(ProviderOutput::Started {
+                        request,
+                        session,
+                        waiting_for_barrier: false,
+                    });
+                }
+                ProviderInput::Audio { request, .. } => {
+                    seen.provider.push("audio");
+                    if let Some(entry) = seen.requests.iter_mut().find(|r| r.request == request) {
+                        entry.audio_blocks += 1;
+                    }
+                }
+                ProviderInput::End { request, .. } => {
+                    seen.provider.push("end");
+                    if let Some(entry) = seen.requests.iter_mut().find(|r| r.request == request) {
+                        entry.ended_at = Some(Instant::now());
+                    }
+                    if let Some(reply) = reply {
+                        due.push((Instant::now() + reply.after_end, request));
+                    }
+                }
+            }
+        }
+        let now = Instant::now();
+        due.retain(|&(at, request)| {
+            if at > now {
+                return true;
+            }
+            let packets = reply.map_or(0, |reply| reply.packets);
+            for _ in 0..packets {
+                sequence += 1;
+                outbox.push_back(ProviderOutput::Audio {
+                    request,
+                    sequence,
+                    provider_event_at_us: monotonic_us(),
+                    source_frames: 960,
+                    source_offset: 0,
+                    samples: vec![1_000; 960],
+                });
+            }
+            outbox.push_back(ProviderOutput::GenerationComplete { request });
+            outbox.push_back(ProviderOutput::TurnComplete {
+                request,
+                idle: true,
             });
+            false
+        });
+        while sent < granted
+            && let Some(output) = outbox.pop_front()
+        {
+            channels.data.send(output).unwrap();
+            sent += 1;
         }
         thread::sleep(Duration::from_millis(1));
     }
 }
 
-fn speaker_peer(mut channels: WorkerChannels, stop: Arc<AtomicBool>) {
+/// Records every chunk and acknowledges it as ALSA would, so the v1-baseline
+/// mask sees genuine write evidence.
+fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<AtomicBool>) {
     let mut generation = 0;
+    let mut frame = 1_000u64;
     while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
-        while channels.data.receive::<Value>().unwrap().is_some() {}
+        while let Some(chunk) = channels.data.receive::<SpeakerChunk>().unwrap() {
+            let owner = chunk.permit.owner();
+            seen.lock()
+                .unwrap()
+                .chunks
+                .push((owner.turn(), Instant::now()));
+            let frames = chunk.samples.len();
+            let at = monotonic_us();
+            channels
+                .control
+                .send(WorkerEvent::Playback {
+                    owner,
+                    first_sample: PlaybackCursor { epoch: 1, frame },
+                    end_sample: PlaybackCursor {
+                        epoch: 1,
+                        frame: frame + frames as u64,
+                    },
+                    queue_observed_at_us: at,
+                    turn: owner.turn(),
+                    sequence: chunk.chunk_sequence,
+                    queued_frames: frames,
+                    accepted_frames: frames,
+                    observed_at_us: at,
+                })
+                .unwrap();
+            frame += frames as u64;
+        }
         thread::sleep(Duration::from_millis(1));
     }
 }
@@ -194,6 +338,15 @@ impl Session {
 }
 
 fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
+    run_with(seconds, script, endpoint, None)
+}
+
+fn run_with(
+    seconds: u64,
+    script: Script,
+    endpoint: EndpointRig,
+    reply: Option<ProviderReply>,
+) -> Session {
     let dir = SessionDirectory::create().unwrap();
     let (capture, capture_peer_channels) = Worker::sleeping_fixture(&dir.path, "capture");
     let (speaker, speaker_peer_channels) = Worker::sleeping_fixture(&dir.path, "speaker");
@@ -203,8 +356,8 @@ fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
     let seen = Arc::new(Mutex::new(Seen::default()));
     let peers = [
         thread::spawn({
-            let stop = stop.clone();
-            move || capture_peer(capture_peer_channels, script, stop)
+            let (stop, seen) = (stop.clone(), seen.clone());
+            move || capture_peer(capture_peer_channels, script, seen, stop)
         }),
         thread::spawn({
             let stop = stop.clone();
@@ -212,11 +365,11 @@ fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
         }),
         thread::spawn({
             let (stop, seen) = (stop.clone(), seen.clone());
-            move || provider_peer(provider_peer_channels, seen, stop)
+            move || provider_peer(provider_peer_channels, seen, reply, stop)
         }),
         thread::spawn({
-            let stop = stop.clone();
-            move || speaker_peer(speaker_peer_channels, stop)
+            let (stop, seen) = (stop.clone(), seen.clone());
+            move || speaker_peer(speaker_peer_channels, seen, stop)
         }),
     ];
     let mut rig = Rig {
@@ -693,4 +846,205 @@ fn confirmed_endpoint_exit_keeps_the_restartable_mute() {
     let record = final_record(&trace);
     assert_eq!(record["reaped"], true, "{record}");
     assert_eq!(record["teardown"], "Reaped");
+}
+
+fn early_policy() -> crate::activity::ConfirmPolicy {
+    crate::activity::ConfirmPolicy {
+        early: Some(crate::activity::EarlyEnd::CANDIDATE),
+        ..crate::activity::ConfirmPolicy::default()
+    }
+}
+
+/// An in-process verdict of `probability` for every pause, after `delay`.
+fn confident(probability: f32, delay: Duration) -> (EndpointRig, Arc<Mutex<Vec<Token>>>) {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let double = Delayed {
+        probability,
+        delay,
+        pending: None,
+        requests: requests.clone(),
+    };
+    (
+        EndpointRig::double(Box::new(double)).with_policy(early_policy()),
+        requests,
+    )
+}
+
+fn provisional_events(session: &Session) -> Vec<String> {
+    session
+        .events("endpoint_provisional")
+        .iter()
+        .map(|row| row["event"]["kind"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+fn chunk_turns(session: &Session) -> Vec<u64> {
+    let mut turns: Vec<u64> = session.seen.chunks.iter().map(|(turn, _)| *turn).collect();
+    turns.dedup();
+    turns
+}
+
+/// 1.0 s of speech from block 50, then quiet.
+fn single(block: u64) -> f32 {
+    if (50..150).contains(&block) {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+/// Speech, a 700 ms pause, the rest of the thought, then quiet.
+fn continued(block: u64) -> f32 {
+    if (50..150).contains(&block) || (220..320).contains(&block) {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+#[test]
+fn early_end_starts_the_answer_sooner_but_stays_silent_until_confirmed() {
+    let (endpoint, _) = confident(0.95, Duration::from_millis(60));
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(150),
+        packets: 3,
+    };
+    let session = run_with(5, single, endpoint, Some(reply));
+    session.result.as_ref().unwrap();
+    let seen = &session.seen;
+    assert_eq!(seen.requests.len(), 1, "{:?}", seen.requests);
+    // Speech ends after block 149: the end of input reaches the provider at a
+    // 500 ms pause, not the baseline's 1.2 s.
+    let ended = seen.requests[0].ended_at.unwrap();
+    assert!(ended >= seen.block(199), "ended before 500 ms of pause");
+    assert!(ended < seen.block(240), "end of input not early");
+    let endpoint = &endpoint_rows(&session)[0]["endpoint"];
+    assert_eq!(endpoint["basis"], "model_early");
+    assert_eq!(endpoint["silence_ms"], 500);
+    // The answer is ready about 150 ms later but nothing is spoken until the
+    // baseline's 1.2 s of quiet confirmed the end.
+    let first_chunk = seen.chunks.first().expect("answer spoken").1;
+    assert!(first_chunk >= seen.block(268), "spoke before confirmation");
+    assert_eq!(chunk_turns(&session), [1]);
+    assert_eq!(provisional_events(&session), ["confirmed"]);
+}
+
+#[test]
+fn continuation_while_the_old_answer_arrives_replaces_it_and_keeps_both_parts() {
+    let (endpoint, tokens) = confident(0.95, Duration::from_millis(60));
+    // Request 1's audio arrives about 300 ms after its early end: during the
+    // resumed speech, before anything could be spoken.
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(300),
+        packets: 2,
+    };
+    let session = run_with(6, continued, endpoint, Some(reply));
+    session.result.as_ref().unwrap();
+    let seen = &session.seen;
+    assert_eq!(seen.requests.len(), 2, "{:?}", seen.requests);
+    assert!(seen.requests[0].ended_at.unwrap() < seen.block(215));
+    // The continuation's request carries its opening: pre-roll, the six onset
+    // blocks and all of the 100 resumed speech blocks.
+    let second = &seen.requests[1];
+    assert!(second.audio_blocks >= 100, "{second:?}");
+    assert!(second.started_at < seen.block(240));
+    // Only the successor is ever spoken; the superseded answer never is.
+    assert_eq!(chunk_turns(&session), [second.request]);
+    assert_eq!(provisional_events(&session), ["continued", "confirmed"]);
+    let cancelled = session
+        .events("turn_finished")
+        .into_iter()
+        .find(|row| row["turn"] == seen.requests[0].request)
+        .cloned()
+        .expect("first turn finished");
+    assert_eq!(cancelled["outcome"], "user_interrupted");
+    assert_eq!(cancelled["provider_audio_seen"], false, "{cancelled}");
+    // Each utterance got its own verdict request.
+    let tokens = tokens.lock().unwrap();
+    assert_eq!(tokens.len(), 2);
+    assert_ne!(tokens[0].utterance, tokens[1].utterance);
+}
+
+#[test]
+fn answer_held_by_the_gate_is_dropped_when_the_person_continues() {
+    let (endpoint, _) = confident(0.95, Duration::from_millis(60));
+    // Request 1's answer is complete before the person resumes, and is held.
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(30),
+        packets: 2,
+    };
+    let session = run_with(6, continued, endpoint, Some(reply));
+    session.result.as_ref().unwrap();
+    let seen = &session.seen;
+    assert_eq!(seen.requests.len(), 2);
+    assert_eq!(chunk_turns(&session), [seen.requests[1].request]);
+    let first = session
+        .events("turn_finished")
+        .into_iter()
+        .find(|row| row["turn"] == seen.requests[0].request)
+        .cloned()
+        .unwrap();
+    assert_eq!(first["provider_audio_seen"], true, "{first}");
+    assert_eq!(first["outcome"], "user_interrupted");
+}
+
+#[test]
+fn two_continuations_then_a_genuine_end() {
+    fn twice(block: u64) -> f32 {
+        if (50..120).contains(&block) || (190..260).contains(&block) || (330..400).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    let (endpoint, _) = confident(0.95, Duration::from_millis(60));
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(200),
+        packets: 2,
+    };
+    let session = run_with(7, twice, endpoint, Some(reply));
+    session.result.as_ref().unwrap();
+    let seen = &session.seen;
+    assert_eq!(seen.requests.len(), 3, "{:?}", seen.requests);
+    assert_eq!(chunk_turns(&session), [seen.requests[2].request]);
+    assert_eq!(
+        provisional_events(&session),
+        ["continued", "continued", "confirmed"]
+    );
+    assert!(seen.chunks[0].1 >= seen.block(518));
+}
+
+#[test]
+fn early_mode_without_a_usable_model_is_the_baseline() {
+    let missing = Response::Error {
+        request: 0,
+        reason: "model missing".into(),
+    };
+    for (endpoint, fallback) in [
+        (
+            scripted_process(&[missing], "exit 2", Limits::default()).with_policy(early_policy()),
+            "failed",
+        ),
+        (
+            scripted_process(&[ready()], "exec sleep 60", Limits::default())
+                .with_policy(early_policy()),
+            "timeout",
+        ),
+    ] {
+        let reply = ProviderReply {
+            after_end: Duration::from_millis(100),
+            packets: 2,
+        };
+        let session = run_with(5, single, endpoint, Some(reply));
+        session.result.as_ref().unwrap();
+        let endpoint = &endpoint_rows(&session)[0]["endpoint"];
+        assert_eq!(endpoint["basis"], "silence_fallback");
+        assert_eq!(endpoint["fallback"], fallback);
+        assert_eq!(endpoint["silence_ms"], 1_200);
+        assert!(provisional_events(&session).is_empty());
+        let seen = &session.seen;
+        assert!(seen.requests[0].ended_at.unwrap() >= seen.block(268));
+        assert_eq!(chunk_turns(&session), [1]);
+    }
 }

@@ -2255,6 +2255,13 @@ fn conversation(
                 frame.probability,
                 monotonic_us(),
             )?;
+            if let Some(event) = detector.take_endpoint_event() {
+                record(
+                    trace,
+                    json!({"kind":"endpoint_provisional","at_us":at,
+                    "turn":reply.as_ref().map(|current| current.owner.turn()),"event":event}),
+                )?;
+            }
             let discarded_endpoint = submission_draining && input_ended;
             if discarded_endpoint {
                 submission_draining = false;
@@ -2448,15 +2455,20 @@ fn conversation(
             )?;
         }
         let prior_speaker_sequence = speaker_sequence;
-        dispatch_speaker_chunk(
-            owner,
-            reply,
-            &mut rig.speaker.channels.data,
-            &mut speaker_pending,
-            &mut speaker_sequence,
-            &mut snapshot,
-            &mut playback_mask,
-        )?;
+        // After an early end of input the reply stays silent until the pause
+        // is confirmed (bounded by the detector), so speech that continues the
+        // thought can still replace it before anything is audible.
+        if !detector.endpoint_provisional() {
+            dispatch_speaker_chunk(
+                owner,
+                reply,
+                &mut rig.speaker.channels.data,
+                &mut speaker_pending,
+                &mut speaker_sequence,
+                &mut snapshot,
+                &mut playback_mask,
+            )?;
+        }
         if speaker_sequence != prior_speaker_sequence {
             let pending = speaker_pending
                 .as_ref()

@@ -5,7 +5,7 @@
 - Branch: `lamp-v2-chat`
 - Integrated source checkpoint: `157dbb871` adds opt-in camera context over the inactive guarded motor core/port at `46a9d6275`. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
+- State: two context-linked eight-turn Rust runs on lamp-4ace completed all 16 prompts with no extra admissions or cancellations under the conservative V1-baseline policy. Local room ASR corroborates both sides. Three short audio gaps and extended-model introductions remain defects; no acoustic acceptance or natural-interruption claim. See [the physical result](../docs/connected-conversation-20261011.md). The combined continuous-service/camera/continuity candidate passed strict ARM Clippy and audio tests, but two closed-peer fixture assertions failed in the ARM live suite; diagnosis is in progress before deployment. Main coordinates the large duplex and end-of-turn workstreams through tmux.
 
 ## Current private integration and latency target
 
@@ -19,11 +19,12 @@ root's 565 passing affected tests. MAIN-049 keeps Agent 2's current endpoint
 policy experimental, requests an independent inference process and full-turn
 human replay. Neither candidate has a measured hardware speedup.
 
-The current combined private source composes camera teardown, opt-in continuity,
-continuous service/mute-reopen and optional-ring failure containment. Host
-component gates are green; combined gates and ARM/native qualification remain.
-A fresh connected eight-turn iMac script is being prepared with event-triggered
-follow-ups, a correction and a topic change. No V1 benchmark is active.
+The current combined private source composes camera teardown and timestamp
+diagnostics, opt-in continuity, continuous service/mute-reopen, settled terminal
+provider exit, and optional-ring failure containment. Host component gates and
+ARM strict Clippy/audio tests pass; the ARM live suite found two closed-peer
+fixture failures. Do not deploy until those are resolved. The connected script
+has now run twice; all 16 attempts are retained. No V1 benchmark is active.
 
 Native camera correction `a4cac2dd...` safely revoked and exited without a forced
 kill; driver teardown took 50.227 ms in this attempt. Inspection still failed

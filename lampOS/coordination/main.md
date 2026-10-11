@@ -3,8 +3,9 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated code checkpoint: `02148ed4d580046194fe6492ea480bc2502eba5d`
-- State: coordinated provider/runtime integration pushed and native startup checked. Physical conversation and benchmark qualification remain unfinished.
+- Integrated runtime checkpoint: `02148ed4d580046194fe6492ea480bc2502eba5d`
+- Integrated evaluator checkpoint: `2a1522ebaabf796e27a0e9fd1f68b9be656b9339`
+- State: coordinated runtime has completed a native greeting; evaluator dispatch corrections are integrated. A private playback candidate exposed repeated answer interruptions. Natural conversation and benchmark qualification remain unfinished.
 
 ## Direct coordination
 
@@ -52,8 +53,17 @@ Binary SHA256:
 `fb7e11911b7b84ef7a0af40a0c0c8ec26e7fc852dcd1b4228d3b173a2b979371`.
 It is staged on a0ae at `/var/tmp/lampos-v2-a0ae-20261011-0305/lamp-live`, with
 matching hash and a successful native CLI/provider check (setup 1.858044 s).
-That check opened no microphone and sent no audio. A fresh finite device trial
-is being prepared; this checkpoint has not yet qualified native recovery.
+That check opened no microphone and sent no audio. A subsequent native greeting
+completed with a relevant English answer, but two accepted-render gaps of 80 ms
+and 140 ms. One successful turn does not qualify outage recovery or natural
+conversation. See the physical evidence below.
+
+Evaluator-only checkpoint `2a1522eba` integrates the reviewed 18-file subset
+through Agent 2 tested code `9ed94e42`, excluding importer and camera/perception
+changes. Root ran fmt, package all-target strict Clippy and all **170 evaluator
+tests**, zero failures/ignored. An independent audit passed 72 focused executions,
+including six reproduced dispatch regressions and drain-budget exhaustion.
+These checks use scripted processes/players, not physical audio.
 
 ## Ownership and decisions
 
@@ -71,30 +81,43 @@ schedules devices.
   [failure-cue-contract.md](failure-cue-contract.md). Preserve failed answers,
   partial audio, actual stage/cause and unowned discarded endpoints. Only initial
   `listening_ready` exists; no authoritative post-outage re-ready cue exists yet.
-- **MAIN-023/025/026/029:** four red final-dispatch tests were published separately
-  on `lamp-voice-eval-review-20261011` at `60f98cb9a`. Agent 2's corrections
-  `d3ada11e` and `37b398a7` (status `ec84cf72`) are under independent evaluator-only
-  review. The original four regressions pass, but two further physical-backend
-  failures reproduce: dispatch past its 100 ms deadline and dispatch after an
-  observed post-exit trace. MAIN-030 publishes both on separate review branch
-  `lamp-voice-eval-review2-20261011` at `cdc0ec26c`. Do not merge these deliberately
-  red review branches as runtime releases.
+- **MAIN-023/025/026/029/030:** all six reproduced evaluator dispatch defects
+  are corrected in integrated `2a1522eba`. The final Player boundary rechecks the
+  original 100 ms deadline, latches observed post-exit trace as unavailable and
+  requests revalidation when its 1,024-line drain budget is exhausted. Provider
+  failures retain stage/session evidence and do not become successful answers.
+  The red review branches `lamp-voice-eval-review-20261011` (`60f98cb9a`) and
+  `lamp-voice-eval-review2-20261011` (`cdc0ec26c`) remain evidence only. Do not
+  merge them as runtime releases.
 - **MAIN-021/027/029:** exact valid/invalid receipt examples are in
   [recording-import-examples.json](recording-import-examples.json). Agent 2 may
   implement the offline importer and boundary proposals. Proposals remain
   separate from accepted acoustic annotations; `listened` remains false until
   actually confirmed. Private recordings stay outside Git.
-- **MAIN-022/024/028 / A1-009:** prioritize observed opening playback gaps and
-  interruption recovery. Main is reviewing the playout-start proposal on
-  `gemini-voice-playout-proposal` at `b4782eda1`; it is not activated.
+- **MAIN-022/024/028/031 / A1-009:** the 200 ms reply-start gate is a private
+  experiment, not an integrated release policy. Root fixed its opening trace so
+  an undispatchable held final sample cannot open the gate. Host audio/live gates
+  passed (484 tests, two ignored), as did ARM release/strict Clippy and 11 release
+  QEMU lifecycle tests. The stored-arrival replay results are counterfactuals
+  with censored replies, not complete physical successes. First native candidate
+  trials have no recorded gaps but repeated answer cancellations; do not select
+  this policy on gap counts alone.
+- **MAIN-032:** Agent 1 is correcting the service probe to distinguish interrupted
+  events from the idle completion that actually settles Require. It must count
+  extra payload separately from late terminal markers and require a completed
+  second answer before claiming post-answer behavior.
+- **MAIN-033:** Agent 1 owns local DSP/reference analysis of the new candidate
+  interruption windows. Root owns admission/coordinator changes and scheduling.
+  Recorded room clips remain local; no cloud replay grant is made.
 - **A1-010:** reject the proposed barrier-free continuation after a committed
   End. Its documented late answer can concern the truncated question instead
   of the complete question. A common owner does not make that answer correct,
   and no output yet does not prove unchanged intent. Keep Require and bounded
   recovery; a still-local, unsubmitted endpoint is a separate possible design.
 - **A1-003/011:** echo-evidence primitives are integrated but do not control
-  admission. Agent 1 reports no match on a real recording and is correcting it;
-  synthetic thresholds are not physical qualification.
+  admission. Agent 1 reports a corrected diagnostic matcher on its branch; low
+  residual explained energy does not prove a person is speaking. The correction
+  is not integrated or physically qualified for admission.
 - **A1-008:** environmental I2C work is deferred behind voice qualification.
 - Camera/perception/image privacy proposals remain inactive and do not gate the
   current audio-only run. Image limits are provisional; there is no active
@@ -123,6 +146,22 @@ a 260 ms opening gap. A third prompt was withheld when its readiness expired
 Both complete room recordings and runtime diagnostics were independently checked.
 Observer DSP/clipping prevents accepted acoustic onset bounds; no p50/p95 or
 V1-main/V2 speedup is claimed. NS off remains an experiment, not a release winner.
+
+The new coordinated runtime (`02148ed4d`) completed a fresh 40-second greeting:
+one question, a complete relevant English answer, and 80 ms + 140 ms accepted
+playback gaps. Endpoint to first provider PCM was 1.024276 s and endpoint to
+first ALSA write 1.025392 s. The endpoint includes 600 ms silence; these are not
+acoustic speech-end-to-word timings.
+
+A private 200 ms start-gate candidate then ran three planned attempts. Two
+prompts played and produced six admitted turns: four answer prefixes were
+cancelled, followed by two software-complete replies. All six report no gap,
+but both conversations failed; cancelled prefixes are censored observations.
+A third prompt was withheld for failed original-readiness confirmation and was
+never played. Root retained every attempt and verified rollback and original
+volumes. The recording/DSP audit is determining what triggered the extra inputs;
+no self-echo cause or acoustic improvement is accepted yet. Evidence directory:
+`lamp-rust-playout-evidence-20261011T033405Z`.
 
 The same-Lamp playback/capture check recovered the greeting on both microphones
 using installed V1 controls. It proves the local audio route, not a Rust or
@@ -153,4 +192,5 @@ candidate remains physically unqualified; there is no motion grant here.
 - Agent 1 later speaker seam / start-gate / barrier regression checkpoints
   `6d7c39303` through `95cd4b263`: published, not integrated.
 - Agent 2 camera/perception checkpoints: reviewed with corrections, not integrated.
-- Agent 2 evaluator through `37b398a7` / status `ec84cf72`: under review.
+- Agent 2 evaluator subset through `9ed94e42` / status `7edd8d94`: integrated
+  as `2a1522eba`; importer changes remain under separate review.

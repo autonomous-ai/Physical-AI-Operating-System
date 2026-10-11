@@ -210,9 +210,70 @@ Private evidence stays outside Git:
 - `lamp-same-device-recording-20261011T0200`: single-Lamp route evidence;
   independent audit `lamp-same-device-review-zai75t1_`.
 
-Next: qualify the integrated coordinated runtime on hardware, isolate
-recognition with local analysis and controlled fresh speech, correct the opening
-playback gap, and repeat recorded conversations. Keep recorded room clips local. A comparison against V1 main
+Next: qualify recovery and conversation continuity on the integrated runtime,
+isolate recognition and unexpected interruption inputs with local analysis and
+controlled fresh speech, and repeat recorded conversations. Keep recorded room clips local. A comparison against V1 main
 requires matched hardware, stimulus and acoustic scoring. These trials do not
 yet provide that comparison, interruption qualification, TV rejection or
 multiple-speaker evidence.
+
+## First native coordinated-runtime turn
+
+Integrated source `02148ed4d`, binary SHA256
+`fb7e11911b7b84ef7a0af40a0c0c8ec26e7fc852dcd1b4228d3b173a2b979371`,
+completed one fresh cross-Lamp greeting on a0ae. This was a 40-second directed
+run with NS off, AEC unchanged, a fresh stationary handover and independent
+rollback. Both Lamps were restored; target volume returned to its captured
+original 77 and source volume to 94.
+
+The target admitted one question and retired one complete reply. Provider input
+text was “Hello, how are you doing today?” Its output text was “Hello! I'm doing
+well, thank you for asking. How about you?” Independent cached local ASR on both
+the accepted output PCM and source Jieli recording recovers that complete
+relevant reply, including the opening and ending. This remains automated
+recognition evidence, not a human listening judgment.
+
+There were two explicit playback gaps: 1,920 and 3,360 accepted zero frames at
+24 kHz, or 80 ms and 140 ms. Their reply offsets were 0.09–0.17 s and
+2.77–2.91 s. The 89,760 speech frames span 3.74 s; the timeline including gaps
+is 3.96 s. The runtime correctly reports
+`audio_written_with_playback_gaps_unscored`, not a gap-free success.
+
+Local endpoint to first provider audio was 1.024276 s; local endpoint to first
+ALSA acceptance was 1.025392 s. The endpoint includes a 600 ms silence wait.
+Neither software timestamp establishes the first audible word. This single
+turn does not qualify an acoustic p50/p95, recovery during an outage, natural
+interruptions or a V1-main speedup.
+
+Capture and render completion certificates are valid and acknowledged with
+zero diagnostic faults. The source recordings and privacy/ownership receipts
+passed independent integrity checks. Evidence directory:
+`lamp-rust-coordinated-evidence-20261011T030937Z`. The first availability receipt
+uses the new conservative source-clock interval; worker and coordinator ran
+together on hardware without a protocol fault. Further runs must retain
+failed and withheld attempts alongside this one.
+
+## Private playback-candidate cohort
+
+The seven-file 200 ms start-gate experiment used source `02148ed4d` plus patch
+SHA256 `0123d6d8a892efc4b7c5f00c9b2c97d1a59296a7ae0813b82d46fc4a884d52fa`.
+Native ARM binary SHA256:
+`d06e795176e49615b910875bc7a67e0a622dc021fa729fb2b0d858dc20103ad7`.
+NS remained off, AEC unchanged, and source/target test volumes were 100.
+The candidate is not the integrated or selected release policy.
+
+Three attempts are retained in `lamp-rust-playout-evidence-20261011T033405Z`:
+
+| Attempt | Prompt played | Runtime result | Conversation result |
+|---|---|---|---|
+| 1 | Yes | Two admitted turns; first reply cancelled, second software-complete | Failed: extra input changed the answer to Spanish |
+| 2 | Yes | Four admitted turns; three replies cancelled, fourth software-complete | Failed: original greeting was misheard, then repeated additional inputs |
+| 3 | No | Original-readiness confirmation failed; prompt withheld | Unattempted audio, retained as an operational failure |
+
+All six answer prefixes/replies report zero playback gaps. Four prefixes were
+cancelled and therefore do not establish full-answer continuity. The two
+software-complete replies do not make either conversation successful. Both
+Lamps were restored; target returned to its captured original volume 77 and
+source to 94. This is neither an acoustic speedup nor a policy win. Local
+recording/reference analysis is still determining the cause of the additional
+inputs; provider transcripts alone cannot establish self-echo or real speech.

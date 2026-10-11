@@ -1,5 +1,7 @@
 //! The cached serve-conversation example and the plan rules it relies on.
 //! Existing plan bytes, and so their hashes, stay unchanged.
+mod common;
+
 use lamp_voice_eval::{
     plan::{DEFAULT_PLAN, LoadedPlan, MAX_STEPS, SERVE_PLAN, TriggerEvent},
     stimulus::StimulusCatalog,
@@ -79,4 +81,94 @@ fn a_correction_must_follow_a_request_and_conversations_stop_at_twenty_turns() {
     over["scenarios"][0]["session_seconds"] = 600.into();
     let error = LoadedPlan::parse(&over.to_string(), &catalog).unwrap_err();
     assert!(error.to_string().contains("1..20 steps"), "{error}");
+}
+
+const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures");
+
+/// A dry `physical-run` of the serve example with `config`, against a
+/// synthetic cache of its scenes. It starts no session.
+fn dry_run(dir: &common::Private, config: &std::path::Path) -> std::process::Output {
+    let catalog = StimulusCatalog::load().unwrap();
+    let plan = LoadedPlan::parse(SERVE_PLAN, &catalog).unwrap();
+    let tones: Vec<_> = plan.plan.scenarios[0]
+        .steps
+        .iter()
+        .filter_map(|step| step.scene.as_deref())
+        .map(|scene| (scene, common::tone_scene(&catalog, scene, 0.3)))
+        .collect();
+    let manifest = common::synthetic_cache(&dir.path, &catalog, &tones);
+    std::process::Command::new(env!("CARGO_BIN_EXE_lamp-voice-eval"))
+        .args([
+            "physical-run",
+            "--config",
+            &config.display().to_string(),
+            "--plan",
+            &format!("{FIXTURES}/voice-eval-serve-v1.json"),
+            "--cache",
+            &dir.join("cache").display().to_string(),
+            "--manifest",
+            &manifest.display().to_string(),
+            "--out",
+            &dir.join("run").display().to_string(),
+            "--scenario",
+            "serve-conversation",
+        ])
+        .output()
+        .unwrap()
+}
+
+fn sample() -> std::path::PathBuf {
+    format!("{FIXTURES}/voice-eval-serve-pilot-config.example.json").into()
+}
+
+/// The shipped pilot config parses, validates its runtime policy with
+/// lamp-live's own rules and forwards it, in a dry run that starts nothing.
+#[test]
+fn the_sample_pilot_config_forwards_the_installed_pilot_settings() {
+    let dir = common::Private::new("cfg");
+    let output = dry_run(&dir, &sample());
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["dry_run"], true);
+    assert!(!dir.join("run").exists(), "a dry run creates nothing");
+    assert_eq!(
+        report["backend"]["runtime_flags"],
+        serde_json::json!([
+            "--turn-taking",
+            "duplex",
+            "--reference-clock",
+            "capture",
+            "--reference-recovery",
+            "off",
+            "--playout-start-ms",
+            "200",
+            "--provider-continuation",
+            "kept-start"
+        ])
+    );
+    assert_eq!(report["backend"]["noise_suppression"], "off");
+    assert_eq!(report["attempts"][0]["status"], "would run");
+}
+
+#[test]
+fn a_config_policy_lamp_live_would_refuse_is_refused_on_the_mac() {
+    let dir = common::Private::new("cfg");
+    let mut config: Value =
+        serde_json::from_str(&std::fs::read_to_string(sample()).unwrap()).unwrap();
+    // Bounded recovery without a policy that masks Lamp's own playback.
+    config["turn_taking"] = "vad-only".into();
+    config["reference_recovery"] = "bounded".into();
+    let path = dir.join("config.json");
+    std::fs::write(&path, config.to_string()).unwrap();
+    let output = dry_run(&dir, &path);
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("lamp-live would refuse runtime options"),
+        "{error}"
+    );
 }

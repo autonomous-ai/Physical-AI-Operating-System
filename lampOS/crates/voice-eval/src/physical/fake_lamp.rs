@@ -83,6 +83,8 @@ pub fn run(arguments: &[String]) -> Result<i32> {
         None => LoadedPlan::default_plan(&catalog)?,
     };
     if rest.first().map(String::as_str) == Some("serve") {
+        // The exact arguments this child received, for argv forwarding tests.
+        println!("{}", json!({"kind": "fake_lamp_argv", "argv": arguments}));
         let cue = rest
             .iter()
             .position(|a| a == "--cue-socket")

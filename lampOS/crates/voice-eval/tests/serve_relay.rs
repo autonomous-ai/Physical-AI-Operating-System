@@ -23,6 +23,16 @@ use std::{
 const BIN: &str = env!("CARGO_BIN_EXE_lamp-voice-eval");
 
 fn options(dir: &common::Private, seconds: u16, fake: &[&str]) -> SessionOptions {
+    options_with(dir, seconds, fake, &[])
+}
+
+/// `relay` holds extra `lamp-session` options, such as runtime policy flags.
+fn options_with(
+    dir: &common::Private,
+    seconds: u16,
+    fake: &[&str],
+    relay: &[&str],
+) -> SessionOptions {
     let plan = dir.join("plan.json");
     fs::write(&plan, lamp_voice_eval::plan::SERVE_PLAN).unwrap();
     let mut arguments: Vec<String> = vec!["--runtime".into(), BIN.into()];
@@ -53,6 +63,7 @@ fn options(dir: &common::Private, seconds: u16, fake: &[&str]) -> SessionOptions
     ] {
         arguments.push(arg.into());
     }
+    arguments.extend(relay.iter().map(|arg| arg.to_string()));
     SessionOptions::parse(&arguments).unwrap()
 }
 
@@ -210,4 +221,80 @@ fn a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean() {
     assert!(error.contains("stop grace"), "{error}");
     // The killed runtime never acknowledged its metadata.
     assert!(error.contains("service_metadata_finished"), "{error}");
+}
+
+#[test]
+fn the_pilot_runtime_settings_reach_the_serve_child_exactly() {
+    let dir = common::Private::new("rly");
+    let options = options_with(
+        &dir,
+        60,
+        &[],
+        &[
+            "--noise-suppression",
+            "off",
+            "--turn-taking",
+            "duplex",
+            "--reference-clock",
+            "capture",
+            "--reference-recovery",
+            "off",
+            "--playout-start-ms",
+            "200",
+            "--provider-continuation",
+            "kept-start",
+            "--ring-channel-ceiling",
+            "12",
+        ],
+    );
+    let (code, lines) = relay(&options, Runner::StopAfter(Duration::from_secs(3)));
+    assert_eq!(code, 0);
+    let Some(SessionLine::SessionStart {
+        mode, runtime_argv, ..
+    }) = lines.first()
+    else {
+        panic!("{:?}", lines.first())
+    };
+    assert_eq!(mode, "serve");
+    let work = dir.join("work");
+    let serve = runtime_argv.iter().position(|a| a == "serve").unwrap();
+    assert_eq!(
+        runtime_argv[serve..],
+        [
+            "serve".to_owned(),
+            "/private/unused-fake-provider.json".into(),
+            work.join("runtime").display().to_string(),
+            "--noise-suppression".into(),
+            "off".into(),
+            "--turn-taking".into(),
+            "duplex".into(),
+            "--reference-clock".into(),
+            "capture".into(),
+            "--reference-recovery".into(),
+            "off".into(),
+            "--playout-start-ms".into(),
+            "200".into(),
+            "--provider-continuation".into(),
+            "kept-start".into(),
+            "--cue-socket".into(),
+            work.join("cue.sock").display().to_string(),
+            "--ring-channel-ceiling".into(),
+            "12".into(),
+        ]
+    );
+    // The child received exactly that argv (after its program and command).
+    let child: Vec<String> = lines
+        .iter()
+        .find_map(|line| match line {
+            SessionLine::Stdout { line, .. } if line.contains("fake_lamp_argv") => {
+                let value: serde_json::Value = serde_json::from_str(line).unwrap();
+                Some(serde_json::from_value(value["argv"].clone()).unwrap())
+            }
+            _ => None,
+        })
+        .expect("the child reported its argv");
+    assert_eq!(child, runtime_argv[2..]);
+    let (end, serve) = end(&lines);
+    assert_eq!(error(end), "", "{end:?}");
+    assert!(!serve.forced_kill && serve.group_reaped);
 }

@@ -13,7 +13,7 @@ use lamp_voice_eval::{
             FakePlayerFault, FakePreparedRoomPlayer, HumanPrompter, LampMode, ObserverPlayer,
             PhysicalBackend, PhysicalConfig, Player,
         },
-        session::{self, SessionOptions},
+        session::{self, RuntimeFlags, SessionOptions},
     },
     plan::{LoadedPlan, SERVE_PLAN},
     record::{AttemptRecord, StimulusSource},
@@ -592,6 +592,7 @@ fn run() -> Result<i32> {
                 allowance_seconds: 10,
                 ring_channel_ceiling: None,
                 stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+                runtime_flags: Default::default(),
             };
             let player = FakePreparedRoomPlayer {
                 room,
@@ -676,6 +677,18 @@ struct PhysicalFile {
     allowance_seconds: u16,
     #[serde(default)]
     ring_channel_ceiling: Option<u16>,
+    /// lamp-live runtime policy, forwarded unchanged when set (`directed` and
+    /// serve only): for example the installed pilot's `v1-baseline` or `duplex`.
+    #[serde(default)]
+    turn_taking: Option<String>,
+    #[serde(default)]
+    reference_clock: Option<String>,
+    #[serde(default)]
+    reference_recovery: Option<String>,
+    #[serde(default)]
+    playout_start_ms: Option<u16>,
+    #[serde(default)]
+    provider_continuation: Option<String>,
 }
 fn default_source() -> StimulusSource {
     StimulusSource::LoudspeakerSynthetic
@@ -687,7 +700,36 @@ fn default_allowance() -> u16 {
     40
 }
 impl PhysicalFile {
+    fn runtime_flags(&self) -> Result<RuntimeFlags> {
+        let mut flags = RuntimeFlags::default();
+        let playout = self.playout_start_ms.map(|ms| ms.to_string());
+        for (flag, value) in [
+            ("--turn-taking", &self.turn_taking),
+            ("--reference-clock", &self.reference_clock),
+            ("--reference-recovery", &self.reference_recovery),
+            ("--playout-start-ms", &playout),
+            ("--provider-continuation", &self.provider_continuation),
+        ] {
+            if let Some(value) = value {
+                flags.take(flag, value)?;
+            }
+        }
+        if !flags.is_empty() {
+            if self.fixture_reply.is_some() {
+                return Err(invalid(
+                    "runtime policy fields need provider_config or serve_config",
+                ));
+            }
+            flags.validate(
+                &self.noise_suppression,
+                self.ring_channel_ceiling,
+                self.diagnostics && self.serve_config.is_none(),
+            )?;
+        }
+        Ok(flags)
+    }
     fn into_config(self) -> Result<(PhysicalConfig, Box<dyn Player>)> {
+        let runtime_flags = self.runtime_flags()?;
         if self.lamp_command.is_empty() || !self.lamp_work_root.starts_with('/') {
             return Err(invalid(
                 "lamp_command must be nonempty and lamp_work_root absolute",
@@ -748,6 +790,7 @@ impl PhysicalFile {
                 allowance_seconds: self.allowance_seconds,
                 ring_channel_ceiling: self.ring_channel_ceiling,
                 stimulus_source: self.stimulus_source,
+                runtime_flags,
             },
             player,
         ))

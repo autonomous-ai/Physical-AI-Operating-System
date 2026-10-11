@@ -23,6 +23,37 @@ cargo run --release -p lamp-voice-eval -- physical-run --config FILE --plan fixt
   --cache .cache/acoustic --manifest M... --out NEW_DIR --scenario serve-conversation [--execute]
 ```
 
+Runtime policy is forwarded typed and validated. The fields are
+`turn_taking`, `reference_clock`, `reference_recovery`, `playout_start_ms` and
+`provider_continuation`, in the config or as the same `lamp-session` flags.
+
+- Each value is parsed with lamp-live's own types.
+- The whole set is checked with lamp-live's own `DirectedOptions` rules, on the
+  Mac and again in the relay before any child starts. For example, bounded
+  recovery without a masking policy is refused.
+- An omitted field passes nothing, so the default child argv is unchanged.
+  Fixture runs refuse these fields.
+
+`fixtures/voice-eval-serve-pilot-config.example.json` holds the installed
+pilot's settings, the kept-start candidate and an external room recorder:
+
+- noise suppression off;
+- `duplex`; the installed template uses `v1-baseline`;
+- capture reference clock;
+- reference recovery off;
+- 200 ms playout start;
+- ring ceiling 12;
+- kept-start continuation.
+
+It contains no secrets: the SSH target is a placeholder, and the provider path
+is the template's path, not its content. The serve child then runs:
+
+```text
+lamp-live serve PROVIDER OUT --noise-suppression off --turn-taking duplex --reference-clock capture
+  --reference-recovery off --playout-start-ms 200 --provider-continuation kept-start
+  --cue-socket WORK/cue.sock --ring-channel-ceiling 12
+```
+
 Offline, with no device and no audio, using the fake serve runtime, the real
 relay and a fake prepared player whose "first copy" is a room datagram:
 

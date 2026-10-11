@@ -32,6 +32,10 @@ use crate::{
     },
 };
 use lamp_ipc::monotonic_us;
+use lamp_live::{
+    options::{DirectedOptions, PlayoutStart, ReferenceClock, ReferenceRecovery, TurnTaking},
+    provider_worker::Continuation,
+};
 use serde_json::Value;
 use std::{
     fs,
@@ -59,6 +63,124 @@ pub enum SessionMode {
     },
 }
 
+/// lamp-live runtime policy the relay forwards to `directed` and `serve`,
+/// typed with lamp-live's own option types. An omitted flag is not passed,
+/// so the runtime keeps its own default and the child argv is unchanged.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RuntimeFlags {
+    pub turn_taking: Option<TurnTaking>,
+    pub reference_clock: Option<ReferenceClock>,
+    pub reference_recovery: Option<ReferenceRecovery>,
+    pub playout_start_ms: Option<u16>,
+    pub provider_continuation: Option<Continuation>,
+}
+
+impl RuntimeFlags {
+    /// Take one runtime flag and its value; false when `flag` is not one.
+    /// Values use lamp-live's own parsers; a repeated flag is refused.
+    pub fn take(&mut self, flag: &str, value: &str) -> Result<bool> {
+        fn set<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<()> {
+            if slot.replace(value).is_some() {
+                return Err(invalid(&format!("{flag} given more than once")));
+            }
+            Ok(())
+        }
+        let bad = || invalid(&format!("invalid {flag} value {value:?}"));
+        match flag {
+            "--turn-taking" => set(
+                &mut self.turn_taking,
+                value.parse().map_err(|_| bad())?,
+                flag,
+            )?,
+            "--reference-clock" => set(
+                &mut self.reference_clock,
+                value.parse().map_err(|_| bad())?,
+                flag,
+            )?,
+            "--reference-recovery" => set(
+                &mut self.reference_recovery,
+                value.parse().map_err(|_| bad())?,
+                flag,
+            )?,
+            "--playout-start-ms" => {
+                value.parse::<PlayoutStart>().map_err(|_| bad())?;
+                set(
+                    &mut self.playout_start_ms,
+                    value.parse().map_err(|_| bad())?,
+                    flag,
+                )?
+            }
+            Continuation::FLAG => set(
+                &mut self.provider_continuation,
+                value.parse().map_err(|_| bad())?,
+                flag,
+            )?,
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// The set flags, in the installed pilot template's order.
+    pub fn argv(&self) -> Vec<String> {
+        let mut argv = Vec::new();
+        let mut push = |flag: &str, value: &str| argv.extend([flag.to_owned(), value.to_owned()]);
+        if let Some(policy) = self.turn_taking {
+            push(
+                "--turn-taking",
+                match policy {
+                    TurnTaking::VadOnly => "vad-only",
+                    TurnTaking::V1Baseline => "v1-baseline",
+                    TurnTaking::Duplex => "duplex",
+                },
+            );
+        }
+        if let Some(clock) = self.reference_clock {
+            push("--reference-clock", clock.as_str());
+        }
+        if let Some(recovery) = self.reference_recovery {
+            push("--reference-recovery", recovery.as_str());
+        }
+        if let Some(milliseconds) = self.playout_start_ms {
+            push("--playout-start-ms", &milliseconds.to_string());
+        }
+        if let Some(continuation) = self.provider_continuation {
+            push(Continuation::FLAG, continuation.as_str());
+        }
+        argv
+    }
+
+    /// Refuse what lamp-live would refuse, with its own parser and rules
+    /// (for example bounded reference recovery without a masking policy).
+    pub fn validate(
+        &self,
+        noise_suppression: &str,
+        ring_channel_ceiling: Option<u16>,
+        diagnostics: bool,
+    ) -> Result<()> {
+        let mut flags = vec![
+            "--noise-suppression".to_owned(),
+            noise_suppression.to_owned(),
+        ];
+        flags.extend(self.argv());
+        if let Some(ceiling) = ring_channel_ceiling {
+            flags.extend(["--ring-channel-ceiling".to_owned(), ceiling.to_string()]);
+        }
+        if diagnostics {
+            flags.push("--diagnostics".into());
+        }
+        DirectedOptions::parse(&flags).map_err(|error| {
+            invalid(&format!(
+                "lamp-live would refuse runtime options {flags:?}: {error}"
+            ))
+        })?;
+        Ok(())
+    }
+}
+
 /// Grace between a serve runtime's SIGTERM and the forced kill of its group.
 /// lamp-live records its end and finishes its bounded metadata wait well
 /// inside it; a runtime that outlives it is a failure, never a retry.
@@ -82,6 +204,8 @@ pub struct SessionOptions {
     pub allowance_seconds: u16,
     /// Passed as `--ring-channel-ceiling`; without it no ring device opens.
     pub ring_channel_ceiling: Option<u16>,
+    /// Runtime policy for `directed` and `serve`; empty passes nothing.
+    pub runtime_flags: RuntimeFlags,
 }
 
 impl SessionOptions {
@@ -98,6 +222,7 @@ impl SessionOptions {
         let mut diagnostics = false;
         let mut allowance_seconds = 40;
         let mut ring_channel_ceiling = None;
+        let mut runtime_flags = RuntimeFlags::default();
         let mut iter = arguments.iter();
         while let Some(flag) = iter.next() {
             let mut value = || {
@@ -118,6 +243,7 @@ impl SessionOptions {
                 "--allowance-seconds" => allowance_seconds = value()?.parse()?,
                 "--diagnostics" => diagnostics = true,
                 "--ring-channel-ceiling" => ring_channel_ceiling = Some(value()?.parse()?),
+                _ if runtime_flags.take(flag, &value()?)? => {}
                 _ => return Err(invalid(&format!("unknown lamp-session option {flag}"))),
             }
         }
@@ -138,6 +264,14 @@ impl SessionOptions {
         if !matches!(noise_suppression.as_str(), "on" | "off") {
             return Err(invalid("--noise-suppression must be on or off"));
         }
+        if !runtime_flags.is_empty() {
+            if matches!(mode, SessionMode::Fixture { .. }) {
+                return Err(invalid(
+                    "runtime policy flags need --provider-config or --serve-config",
+                ));
+            }
+            runtime_flags.validate(&noise_suppression, ring_channel_ceiling, diagnostics)?;
+        }
         let options = Self {
             runtime: runtime.ok_or_else(|| invalid("--runtime is required"))?,
             runtime_prefix,
@@ -148,6 +282,7 @@ impl SessionOptions {
             diagnostics,
             allowance_seconds,
             ring_channel_ceiling,
+            runtime_flags,
         };
         if !(1..=600).contains(&options.seconds) || !(5..=120).contains(&options.allowance_seconds)
         {
@@ -194,6 +329,7 @@ impl SessionOptions {
                     "--noise-suppression".into(),
                     self.noise_suppression.clone(),
                 ]);
+                argv.extend(self.runtime_flags.argv());
                 if self.diagnostics {
                     argv.push("--diagnostics".into());
                 }
@@ -207,6 +343,7 @@ impl SessionOptions {
                     "--noise-suppression".into(),
                     self.noise_suppression.clone(),
                 ]);
+                argv.extend(self.runtime_flags.argv());
             }
         }
         // Every mode explicitly requests the scheduling capability. An older
@@ -1093,5 +1230,218 @@ mod serve_metadata_tests {
                 .contains("no valid header")
         );
         fs::remove_dir_all(path).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod runtime_flag_tests {
+    use super::*;
+
+    fn parse(extra: &[&str]) -> Result<SessionOptions> {
+        let mut arguments: Vec<String> = [
+            "--runtime",
+            "/opt/lamp-live",
+            "--work",
+            "/w/a1",
+            "--seconds",
+            "300",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        arguments.extend(extra.iter().map(|s| s.to_string()));
+        SessionOptions::parse(&arguments)
+    }
+
+    fn argv(extra: &[&str]) -> Vec<String> {
+        parse(extra).unwrap().argv()
+    }
+
+    const PILOT: [&str; 12] = [
+        "--turn-taking",
+        "duplex",
+        "--reference-clock",
+        "capture",
+        "--reference-recovery",
+        "off",
+        "--playout-start-ms",
+        "200",
+        "--provider-continuation",
+        "kept-start",
+        "--noise-suppression",
+        "off",
+    ];
+
+    #[test]
+    fn omitted_runtime_flags_leave_every_child_argv_unchanged() {
+        assert_eq!(
+            argv(&["--serve-config", "/p.json", "--ring-channel-ceiling", "12"]),
+            [
+                "/opt/lamp-live",
+                "serve",
+                "/p.json",
+                "/w/a1/runtime",
+                "--noise-suppression",
+                "on",
+                "--cue-socket",
+                "/w/a1/cue.sock",
+                "--ring-channel-ceiling",
+                "12",
+            ]
+        );
+        assert_eq!(
+            argv(&["--provider-config", "/p.json", "--diagnostics"]),
+            [
+                "/opt/lamp-live",
+                "directed",
+                "/p.json",
+                "300",
+                "/w/a1/runtime",
+                "--noise-suppression",
+                "on",
+                "--diagnostics",
+                "--cue-socket",
+                "/w/a1/cue.sock",
+            ]
+        );
+        assert_eq!(
+            argv(&["--fixture-reply", "/r.wav", "--fixture-sha256", "ab"]),
+            [
+                "/opt/lamp-live",
+                "directed-fixture",
+                "/r.wav",
+                "ab",
+                "300",
+                "/w/a1/runtime",
+                "--diagnostics",
+                "--noise-suppression",
+                "on",
+                "--cue-socket",
+                "/w/a1/cue.sock",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_pilot_settings_reach_serve_and_directed_exactly() {
+        let mut serve = vec!["--serve-config", "/p.json", "--ring-channel-ceiling", "12"];
+        serve.extend(PILOT);
+        assert_eq!(
+            argv(&serve),
+            [
+                "/opt/lamp-live",
+                "serve",
+                "/p.json",
+                "/w/a1/runtime",
+                "--noise-suppression",
+                "off",
+                "--turn-taking",
+                "duplex",
+                "--reference-clock",
+                "capture",
+                "--reference-recovery",
+                "off",
+                "--playout-start-ms",
+                "200",
+                "--provider-continuation",
+                "kept-start",
+                "--cue-socket",
+                "/w/a1/cue.sock",
+                "--ring-channel-ceiling",
+                "12",
+            ]
+        );
+        let directed = argv(&[
+            "--provider-config",
+            "/p.json",
+            "--turn-taking",
+            "v1-baseline",
+            "--reference-recovery",
+            "bounded",
+        ]);
+        assert_eq!(
+            directed,
+            [
+                "/opt/lamp-live",
+                "directed",
+                "/p.json",
+                "300",
+                "/w/a1/runtime",
+                "--noise-suppression",
+                "on",
+                "--turn-taking",
+                "v1-baseline",
+                "--reference-recovery",
+                "bounded",
+                "--cue-socket",
+                "/w/a1/cue.sock",
+            ]
+        );
+        // What the relay forwards is exactly what lamp-live accepts.
+        let forwarded = &directed[5..directed.len() - 2];
+        assert!(lamp_live::options::DirectedOptions::parse(forwarded).is_ok());
+    }
+
+    #[test]
+    fn values_and_combinations_lamp_live_refuses_are_refused_before_any_child() {
+        for (extra, expected) in [
+            (
+                vec!["--serve-config", "/p", "--turn-taking", "full-duplex"],
+                "invalid --turn-taking",
+            ),
+            (
+                vec!["--serve-config", "/p", "--playout-start-ms", "201"],
+                "invalid --playout-start-ms",
+            ),
+            (
+                vec!["--serve-config", "/p", "--playout-start-ms", "-1"],
+                "invalid --playout-start-ms",
+            ),
+            (
+                vec!["--serve-config", "/p", "--provider-continuation", "maybe"],
+                "invalid --provider-continuation",
+            ),
+            (
+                vec![
+                    "--serve-config",
+                    "/p",
+                    "--reference-clock",
+                    "capture",
+                    "--reference-clock",
+                    "fixed",
+                ],
+                "more than once",
+            ),
+            // Bounded recovery needs a policy that masks Lamp's own playback.
+            (
+                vec!["--serve-config", "/p", "--reference-recovery", "bounded"],
+                "would refuse",
+            ),
+            (
+                vec![
+                    "--serve-config",
+                    "/p",
+                    "--turn-taking",
+                    "vad-only",
+                    "--reference-recovery",
+                    "bounded",
+                ],
+                "would refuse",
+            ),
+            (
+                vec![
+                    "--fixture-reply",
+                    "/r",
+                    "--fixture-sha256",
+                    "ab",
+                    "--turn-taking",
+                    "duplex",
+                ],
+                "need --provider-config",
+            ),
+        ] {
+            let error = parse(&extra).unwrap_err().to_string();
+            assert!(error.contains(expected), "{extra:?}: {error}");
+        }
     }
 }

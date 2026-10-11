@@ -34,6 +34,7 @@ struct Control {
     fake_args: Vec<&'static str>,
     player_faults: Vec<(usize, FakePlayerFault)>,
     recorder_fail_ms: Option<u32>,
+    runtime_flags: lamp_voice_eval::physical::session::RuntimeFlags,
 }
 
 fn plan_source(steps: Option<usize>) -> String {
@@ -116,6 +117,7 @@ fn run(control: Control) -> AttemptRecord {
         allowance_seconds: 10,
         ring_channel_ceiling: None,
         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+        runtime_flags: control.runtime_flags,
     };
     let player = FakePreparedRoomPlayer {
         room,
@@ -602,5 +604,60 @@ fn a_room_recording_that_ends_early_withholds_the_rest() {
         detail(&record, "why")
     );
     assert_ne!(record.evidence["room_audio"]["valid"], true);
+    assert_clean_stop(&record);
+}
+
+#[test]
+fn the_runner_forwards_pilot_runtime_settings_through_the_relay() {
+    let mut runtime_flags = lamp_voice_eval::physical::session::RuntimeFlags::default();
+    for (flag, value) in [
+        ("--turn-taking", "duplex"),
+        ("--reference-clock", "capture"),
+        ("--reference-recovery", "off"),
+        ("--playout-start-ms", "200"),
+        ("--provider-continuation", "kept-start"),
+    ] {
+        assert!(runtime_flags.take(flag, value).unwrap());
+    }
+    let record = run(Control {
+        steps: Some(1),
+        runtime_flags,
+        ..Control::default()
+    });
+    assert_eq!(
+        record.status,
+        AttemptStatus::Completed,
+        "{:#}",
+        record.evidence
+    );
+    assert_eq!(statuses(&record), [StepStatus::Injected]);
+    let argv: Vec<String> =
+        serde_json::from_value(record.evidence["session_start"]["runtime_argv"].clone()).unwrap();
+    let from = argv
+        .iter()
+        .position(|a| a == "--noise-suppression")
+        .unwrap();
+    let to = argv.iter().position(|a| a == "--cue-socket").unwrap();
+    assert_eq!(
+        argv[from..to],
+        [
+            "--noise-suppression",
+            "on",
+            "--turn-taking",
+            "duplex",
+            "--reference-clock",
+            "capture",
+            "--reference-recovery",
+            "off",
+            "--playout-start-ms",
+            "200",
+            "--provider-continuation",
+            "kept-start",
+        ]
+    );
+    assert_eq!(
+        record.evidence["session_start"]["runtime_argv"][from - 3],
+        "serve"
+    );
     assert_clean_stop(&record);
 }

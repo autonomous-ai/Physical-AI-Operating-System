@@ -430,6 +430,9 @@ pub struct PhysicalConfig {
     pub allowance_seconds: u16,
     /// Forwarded to lamp-live so ring cues are traced and checked.
     pub ring_channel_ceiling: Option<u16>,
+    /// lamp-live runtime policy for `directed` and `serve`; empty passes
+    /// nothing, so the runtime keeps its defaults.
+    pub runtime_flags: crate::physical::session::RuntimeFlags,
     /// Loudspeaker replay or direct human speech; never pooled.
     pub stimulus_source: StimulusSource,
 }
@@ -1310,6 +1313,7 @@ impl Backend for PhysicalBackend<'_> {
             },
             "stimulus_source": self.config.stimulus_source,
             "noise_suppression": self.config.noise_suppression,
+            "runtime_flags": self.config.runtime_flags.argv(),
             "lamp_diagnostics": self.config.diagnostics,
             "player": self.player.describe(),
             "room_recorder": self.config.room_recorder.as_ref().map(|argv| argv.first().cloned()),
@@ -1431,6 +1435,8 @@ impl Backend for PhysicalBackend<'_> {
         if let Some(ceiling) = self.config.ring_channel_ceiling {
             argv.extend(["--ring-channel-ceiling".into(), ceiling.to_string()]);
         }
+        // The relay validates these again before it starts lamp-live.
+        argv.extend(self.config.runtime_flags.argv());
         let mut child = Command::new(&argv[0])
             .args(&argv[1..])
             .stdin(Stdio::piped())

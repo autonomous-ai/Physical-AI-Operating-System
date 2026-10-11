@@ -108,6 +108,7 @@ fn final_dispatch(kind: &str) -> usize {
         allowance_seconds: 5,
         ring_channel_ceiling: None,
         stimulus_source: StimulusSource::LoudspeakerSynthetic,
+        runtime_flags: Default::default(),
     };
     let calls = Arc::new(AtomicUsize::new(0));
     let mut backend =

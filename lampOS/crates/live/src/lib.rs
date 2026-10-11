@@ -29,6 +29,7 @@ pub mod ring_worker;
 mod termination;
 pub mod transport;
 mod turn_taking;
+pub mod visual_context;
 pub mod wire;
 
 #[cfg(target_os = "linux")]

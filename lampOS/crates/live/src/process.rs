@@ -112,9 +112,31 @@ impl Worker {
         role: &str,
         parent: BootId,
         extra: &[&str],
+        on_wait: impl FnMut() -> io::Result<()>,
+    ) -> io::Result<Self> {
+        Self::spawn_with_boot_and_tick(
+            executable,
+            directory,
+            role,
+            parent,
+            new_boot()?,
+            extra,
+            on_wait,
+        )
+    }
+
+    /// Trusted preallocation permits mutually authenticated direct worker links.
+    /// Existing spawn entry points still allocate a fresh random boot themselves.
+    #[allow(clippy::too_many_arguments)]
+    pub fn spawn_with_boot_and_tick(
+        executable: &Path,
+        directory: &Path,
+        role: &str,
+        parent: BootId,
+        boot: BootId,
+        extra: &[&str],
         mut on_wait: impl FnMut() -> io::Result<()>,
     ) -> io::Result<Self> {
-        let boot = new_boot()?;
         let channels = WorkerChannels::bind(directory, role, parent, boot, false)?;
         let child = Command::new(executable)
             .arg("worker")

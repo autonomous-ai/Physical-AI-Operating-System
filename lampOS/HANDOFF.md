@@ -7,13 +7,29 @@ The broader goal remains unfinished; this document is not release acceptance.
 
 ## Resumed work after export
 
+The entries below the current checkpoints preserve earlier history. Their
+implementation/access limitations apply to the named source, not automatically
+to the current integration tree. `coordination/main.md` records the current state.
+
 - Latest device checkpoint, 2026-10-11: lamp-4ace is back at 172.168.20.159.
-  Rust `6e6c58b42` completed a real iMac-to-Lamp exchange; the owner heard the
-  answer and the independent room-recording replay. iMac microphone, speakers
-  and fresh camera capture also passed while locked. No mic-consent step is
-  pending. The finite Rust trial ended and legacy was restored stationary and
-  muted. Read [current state and evidence](coordination/main.md#4ace-restored-real-exchange-and-locked-screen-access)
-  before using any historical access or restoration instructions below.
+  Rust `6e6c58b42` completed six varied iMac-to-Lamp conversation turns while
+  the iMac was locked. All six replies completed with English, topical output;
+  the run had no extra admission or cancellation. Four short playback gaps and
+  an awkward story introduction remain defects. Acoustic timing proposals are
+  still unaccepted, and conservative playback suppression is not natural
+  overlapping conversation. The owner previously heard a separate exchange
+  and its independent recording. Microphone, speakers and camera work while
+  locked; no mic-consent step is pending. The finite trial ended and legacy was
+  restored stationary and muted. Read [current state and evidence](coordination/main.md)
+  before using historical access, implementation or restoration instructions below.
+- Guarded motor control and the exclusive Linux port are committed as
+  `46a9d6275`; they remain inactive pending runtime integration and physical
+  calibration/placement qualification. Do not mistake library tests for motion
+  qualification or enable a saved pose as proof of current clearance.
+- The next Claude tasks are [speech continuity and faster endpoint detection](coordination/voice-next-assignments.md).
+  The owner has since deferred V1 benchmarking to prioritize V2 implementation
+  and real-device improvements. No new V1 prompt was played; failed setup evidence
+  is retained. Old comparisons and the separate pilot remain historical evidence.
 - The owner requested direct coordination through Git. Follow
   [the protocol](coordination/README.md) and read each agent's status from its
   own fetched branch. Routine handoffs do not require owner relay.

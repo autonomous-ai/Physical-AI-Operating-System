@@ -9,6 +9,8 @@ use crate::{
         AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision,
         InputAdmission, Rejection, Step as AdmissionStep, Update as AdmissionUpdate,
     },
+    camera_config::CameraConfig,
+    camera_worker::CameraEvent,
     choreography::RingChoreographer,
     diagnostic_control::{self, DiagnosticFinished, DiagnosticStream},
     fixture_provider::{CueSink, Fixture, FixtureInfo, FixtureOptions},
@@ -17,7 +19,7 @@ use crate::{
         TurnTaking,
     },
     privacy::PrivacyGate,
-    process::{SessionDirectory, Worker, new_boot},
+    process::{SessionDirectory, Worker, boot_text, new_boot},
     provider_flow::{MAX_REPLY_SAMPLES, OutputReceiver, PACKET_SAMPLES},
     provider_link::{ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
@@ -25,6 +27,7 @@ use crate::{
     termination::Termination,
     transport::{Channel, WorkerChannels},
     turn_taking::{Disposition, PlaybackMask},
+    visual_context::Source as VisualSource,
     wire::{
         Control, MicrophoneFrame, PlaybackDiscardReason, PlaybackGapPhase, SpeakerChunk,
         WorkerEvent,
@@ -46,7 +49,9 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
+mod camera;
 mod cloud;
+use camera::{OptionalCamera, PreparedCamera, service_camera};
 mod ring_trace;
 use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
 use ring_trace::RingTrace;
@@ -228,6 +233,7 @@ struct Rig {
     speaker: Worker,
     privacy: Worker,
     ring: Option<Worker>,
+    camera: Option<OptionalCamera>,
     ring_channel_ceiling: Option<u16>,
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
@@ -249,6 +255,17 @@ impl Rig {
                 .channels
                 .control
                 .send(Control::Authority { snapshot })?;
+        }
+        if let Some(camera) = self.camera.as_mut()
+            && !camera.failed
+            && camera
+                .worker
+                .channels
+                .control
+                .send(Control::Authority { snapshot })
+                .is_err()
+        {
+            camera.pending_failure = Some("camera authority transport failed");
         }
         Ok(())
     }
@@ -283,6 +300,7 @@ impl Rig {
         ]
         .into_iter()
         .chain(self.ring.iter_mut())
+        .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
         {
             if let Err(error) = worker.channels.control.send(Control::Stop) {
                 let _ = record(
@@ -293,7 +311,8 @@ impl Rig {
             }
         }
         let mut failure = None;
-        let mut exited = [false, false, false, false, self.ring.is_none()];
+        let mut exited =
+            vec![false; 4 + usize::from(self.ring.is_some()) + usize::from(self.camera.is_some())];
         let mut receipts: [Option<DiagnosticFinished>; 2] = [None, None];
         let mut ring_blank_confirmed = self.ring.is_none();
         let mut final_drain = false;
@@ -308,6 +327,7 @@ impl Rig {
             ]
             .into_iter()
             .chain(self.ring.iter_mut())
+            .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
             .enumerate()
             {
                 for _ in 0..32 {
@@ -325,7 +345,7 @@ impl Rig {
                                     ..
                                 },
                         })) => {
-                            if index != 4
+                            if worker.role != "ring"
                                 || ring_blank_confirmed
                                 || !report.confirms_shutdown(stop_requested_at_us, monotonic_us())
                             {
@@ -362,6 +382,27 @@ impl Rig {
                         }
                     }
                 }
+                if worker.role == "camera" {
+                    for _ in 0..32 {
+                        match worker.channels.data.receive::<CameraEvent>() {
+                            Ok(Some(event @ CameraEvent::Stopped { .. })) => {
+                                let _ = record(
+                                    trace,
+                                    json!({"kind":"camera_stopped", "at_us":monotonic_us(), "details":event}),
+                                );
+                            }
+                            Ok(Some(_)) => {}
+                            Ok(None) => break,
+                            Err(error) => {
+                                let _ = record(
+                                    trace,
+                                    json!({"kind":"camera_shutdown_channel_failed", "at_us":monotonic_us(), "error":error.to_string()}),
+                                );
+                                break;
+                            }
+                        }
+                    }
+                }
                 if !exited[index] {
                     match worker.try_exit() {
                         Ok(Some(status)) => {
@@ -372,7 +413,9 @@ impl Rig {
                                     json!({"kind":"worker_exit_failed", "worker":worker.role,
                                     "at_us":monotonic_us(), "error":error.to_string()}),
                                 );
-                                failure = Some(error);
+                                if worker.role != "camera" {
+                                    failure = Some(error);
+                                }
                             }
                         }
                         Ok(None) => {}
@@ -404,6 +447,7 @@ impl Rig {
                 ]
                 .into_iter()
                 .chain(self.ring.iter_mut())
+                .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
                 .enumerate()
                 {
                     if !exited[index] {
@@ -505,6 +549,7 @@ pub fn run_fixture(
         seconds,
         output,
         options.directed,
+        None,
         Some(info),
         cues,
         &termination,
@@ -545,6 +590,7 @@ pub fn run_directed_with_options(
         SessionOptions {
             directed: options,
             cue_socket: None,
+            camera_config: None,
         },
     )
 }
@@ -568,17 +614,20 @@ pub fn run_directed_session(
         seconds,
         output,
         options.directed,
+        options.camera_config.as_deref(),
         None,
         cues,
         &termination,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_source(
     source: ProviderSource<'_>,
     seconds: u64,
     output: &Path,
     options: DirectedOptions,
+    camera_config: Option<&Path>,
     fixture: Option<FixtureInfo>,
     mut cues: Option<CueSink>,
     termination: &Termination,
@@ -596,6 +645,7 @@ fn run_source(
     let mut trace = Vec::with_capacity(MAX_TRACE_EVENTS);
     trace.push(json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":seconds,"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
+        "camera_context_requested":camera_config.is_some(),
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
         "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
@@ -613,6 +663,7 @@ fn run_source(
             &mut trace,
             diagnostic_directory.as_deref(),
             options,
+            camera_config,
             &mut cues,
             termination,
         )
@@ -727,6 +778,16 @@ fn service_provider_control(
                 let at = monotonic_us();
                 cloud.observe(link, at)?;
                 record(trace, link_trace(link, at))?;
+            }
+            WorkerEvent::VisualContext { receipt } => {
+                if receipt.at_us > monotonic_us() || receipt.request == 0 || receipt.session == 0 {
+                    return Err(io::Error::other("invalid visual context receipt").into());
+                }
+                record(
+                    trace,
+                    json!({"kind":"visual_context", "at_us":receipt.at_us, "receipt":receipt,
+                    "boundary":"provider image offer; not model consumption or visual correctness"}),
+                )?;
             }
             WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
             _ => return Err(io::Error::other("unexpected provider control event").into()),
@@ -1205,6 +1266,11 @@ impl StartupEvents {
                     }
                     None => break,
                 },
+                "camera" => match channels.data.receive::<CameraEvent>()? {
+                    Some(CameraEvent::Progress { .. } | CameraEvent::FrameLink { .. }) => {}
+                    Some(_) => return Err(io::Error::other("camera activated before privacy")),
+                    None => break,
+                },
                 "speaker" | "ring" => break,
                 "capture" => {
                     if channels.data.receive::<MicrophoneFrame>()?.is_some() {
@@ -1260,16 +1326,26 @@ fn spawn_rig(
     startup: &mut StartupEvents,
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
+    camera: Option<PreparedCamera>,
     termination: &Termination,
 ) -> Result<Rig> {
     termination.check()?;
     let executable = std::env::current_exe()?;
-    let arguments = source.arguments()?;
+    let provider_boot = new_boot()?;
+    let mut arguments = source.arguments()?;
+    if let Some(camera) = &camera {
+        arguments.extend(camera.source.arguments());
+    }
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
-    let mut provider =
-        Worker::spawn_with_tick(&executable, directory, "provider", boot, &arguments, || {
-            termination.check()
-        })?;
+    let mut provider = Worker::spawn_with_boot_and_tick(
+        &executable,
+        directory,
+        "provider",
+        boot,
+        provider_boot,
+        &arguments,
+        || termination.check(),
+    )?;
     let mut last = 0;
     let capture_arguments = AudioWorkerOptions {
         diagnostic_directory: diagnostic_directory.map(|p| p.join("capture-audio")),
@@ -1327,24 +1403,61 @@ fn spawn_rig(
     } else {
         None
     };
-    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
-        if let Some(ring) = ring.as_mut() {
-            pulse(
-                owner,
-                &mut [&mut provider, &mut capture, &mut speaker, ring],
-                &mut last,
-                startup,
-                termination,
-            )
-        } else {
-            pulse(
-                owner,
-                &mut [&mut provider, &mut capture, &mut speaker],
-                &mut last,
-                startup,
-                termination,
-            )
+    // The optional worker is created closed, before privacy activation. Its
+    // startup failure is evidence of unavailable sight, not a voice failure.
+    let mut camera = if let Some(prepared) = camera {
+        let consumer = format!("context={}", boot_text(provider_boot));
+        let extra = [
+            prepared
+                .path
+                .to_str()
+                .ok_or_else(|| io::Error::other("camera path UTF-8"))?,
+            &prepared.digest,
+            "--frame-consumer",
+            &consumer,
+        ];
+        match camera::optional_startup(
+            |tick| {
+                Worker::spawn_with_boot_and_tick(
+                    &executable,
+                    directory,
+                    "camera",
+                    boot,
+                    prepared.source.camera,
+                    &extra,
+                    tick,
+                )
+            },
+            || {
+                let mut workers = vec![&mut provider, &mut capture, &mut speaker];
+                workers.extend(ring.iter_mut());
+                pulse(owner, &mut workers, &mut last, startup, termination)
+            },
+        )? {
+            Some(worker) => Some(OptionalCamera::new(worker, prepared.source)),
+            None => {
+                startup.push(json!({"kind":"camera_unavailable", "at_us":monotonic_us(), "stage":"worker_startup", "audio_continues":true}))?;
+                None
+            }
         }
+    } else {
+        None
+    };
+    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
+        let mut workers = vec![&mut provider, &mut capture, &mut speaker];
+        workers.extend(ring.iter_mut());
+        let previous = last;
+        pulse(owner, &mut workers, &mut last, startup, termination)?;
+        // A post-handshake camera failure is optional even while a mandatory
+        // child starts. It never joins the voice worker failure domain.
+        if let Some(camera) = camera.as_mut() {
+            let snapshot = (previous != last)
+                .then(|| owner.snapshot(now()))
+                .transpose()
+                .map_err(io::Error::other)?;
+            camera.startup_tick(startup, snapshot);
+        }
+        Ok(())
     })?;
     for (worker, expected_stream) in [
         (&capture, DiagnosticStream::Capture),
@@ -1369,6 +1482,7 @@ fn spawn_rig(
         speaker,
         privacy,
         ring,
+        camera,
         ring_channel_ceiling: options.ring_channel_ceiling,
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
@@ -1377,12 +1491,14 @@ fn spawn_rig(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_inner(
     source: ProviderSource<'_>,
     seconds: u64,
     trace: &mut Vec<Value>,
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
+    camera_config: Option<&Path>,
     cues: &mut Option<CueSink>,
     termination: &Termination,
 ) -> Result<()> {
@@ -1398,6 +1514,23 @@ fn run_inner(
     )?;
     let mut owner = Controller::new(boot, now());
     let mut startup = StartupEvents::default();
+    let camera = camera_config.and_then(|path| {
+        match PreparedCamera::load(path, &directory.path) {
+            Ok(camera) => {
+                let _ = record(trace, json!({"kind":"camera_context_configured", "at_us":monotonic_us(),
+                    "config_sha256":camera.digest, "camera_worker":camera.source.camera,
+                    "source":camera.source.source, "width":camera.source.width,"height":camera.source.height,
+                    "capture_buffer_limit":camera.source.max_frame_bytes,"cloud_jpeg_limit":lamp_gemini::MAX_IMAGE_BYTES,
+                    "dequeue_age_limit_us":crate::visual_context::MAX_FRAME_AGE_US}));
+                Some(camera)
+            },
+            Err(_) => {
+                // Configuration/device absence never silently turns into sight.
+                let _ = record(trace, json!({"kind":"camera_unavailable", "at_us":monotonic_us(), "stage":"configuration", "audio_continues":true}));
+                None
+            }
+        }
+    });
     let mut rig = spawn_rig(
         source,
         &directory.path,
@@ -1406,6 +1539,7 @@ fn run_inner(
         &mut startup,
         diagnostic_directory,
         options,
+        camera,
         termination,
     )?;
     let mut reply = None;
@@ -1452,6 +1586,7 @@ fn finish_active_run(
         // speech. Privacy revocation and stop below still run if tracing fails.
         let _ = cancel_reply(owner, reply, trace, "runtime_failed");
     }
+    let _ = owner.set_camera_permission(now(), Permission::Denied);
     let _ = owner.set_microphone_permission(now(), Permission::Denied);
     if let Ok(snapshot) = owner.snapshot(now()) {
         let _ = rig.publish(snapshot);
@@ -1553,6 +1688,7 @@ fn conversation(
             snapshot = owner.snapshot(now())?;
             rig.publish(snapshot)?;
         }
+        service_camera(rig, owner, can_open, trace)?;
         let mut provider_control_budget = 16;
         let mut provider_control_empty = service_provider_control(
             &mut rig.provider.channels.control,
@@ -2870,6 +3006,7 @@ mod tests {
             provider,
             privacy,
             ring: Some(ring),
+            camera: None,
             ring_channel_ceiling: Some(24),
             diagnostic_directory: Some(directory.path.clone()),
             noise_suppression: NoiseSuppression::On,

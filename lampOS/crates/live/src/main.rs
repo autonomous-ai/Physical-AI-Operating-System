@@ -26,12 +26,13 @@ fn run() -> Result<()> {
             lamp_live::camera_inspect::run(Path::new(config), seconds.parse()?, Path::new(output))?;
         }
         #[cfg(target_os = "linux")]
-        [command, role, dir, parent, worker, config, digest] if command == "worker" && role == "camera" => {
+        [command, role, dir, parent, worker, config, digest, flags @ ..] if command == "worker" && role == "camera" => {
             let parent = parse_boot(parent)?;
             let worker = parse_boot(worker)?;
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_live::camera_worker::run(channels, parent, worker, Path::new(config), digest)?;
+            let consumers = lamp_live::camera_worker::parse_frame_consumers(flags)?;
+            lamp_live::camera_worker::run(channels, parent, worker, Path::new(config), digest, Path::new(dir), &consumers)?;
         }
         #[cfg(target_os = "linux")]
         [command, wav, sha256, seconds, output, flags @ ..] if command == "directed-fixture" => {
@@ -65,13 +66,16 @@ fn run() -> Result<()> {
                 lamp_live::audio_workers::speaker(channels,parent,worker,Path::new(dir),device,options.diagnostic_directory.as_deref())?;
             }
         }
-        [command, role, dir, parent, worker, extra] if command == "worker" => {
+        [command, role, dir, parent, worker, extra, flags @ ..] if command == "worker" && role == "provider" => {
             let parent = parse_boot(parent)?;
             let worker = parse_boot(worker)?;
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
             match role.as_str() {
-                "provider" => tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_reporting(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated))?,
+                "provider" => {
+                    let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_visual_context(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual))?;
+                },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }
@@ -89,7 +93,7 @@ fn run() -> Result<()> {
                 _=>return Err(io::Error::other("worker is not integrated yet").into()),
             }
         },
-        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
+        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--camera-config ABS_PATH] [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
     }
     Ok(())
 }

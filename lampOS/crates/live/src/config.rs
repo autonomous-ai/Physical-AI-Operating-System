@@ -34,6 +34,9 @@ enum Authentication {
 
 pub const CHAT_INSTRUCTION: &str = "You are Lamp, a considerate desk companion having a live conversation with the person beside you. Speak English naturally and respond to their meaning. Give short answers when appropriate; expand when asked. Do not use spoken waiting fillers or repetitive acknowledgments. Do not pretend to see, remember, browse, control devices or finish tasks you cannot access. This session supports voice chat only. If something is unclear, ask a brief relevant question. A human may pause mid-thought; do not finish their thought for them.";
 
+/// Availability is not sight: only an attached frame supplies visual evidence.
+pub const CAMERA_CHAT_INSTRUCTION: &str = "You are Lamp, a considerate desk companion having a live conversation with the person beside you. Speak English naturally and respond to their meaning. Give short answers when appropriate; expand when asked. Do not use spoken waiting fillers or repetitive acknowledgments. A fresh camera image may accompany a question. Describe only what an attached image supports; if there is no image or details are unclear, say so. Do not pretend to remember, browse, control devices or finish tasks you cannot access. A human may pause mid-thought; do not finish their thought for them.";
+
 impl ProviderConfig {
     pub fn load(path: &Path) -> io::Result<Self> {
         let data = read_private(path, 16_384)?;
@@ -52,6 +55,12 @@ impl ProviderConfig {
         Ok(config)
     }
     pub fn into_session(self) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
+        self.into_session_with_camera(false)
+    }
+    pub fn into_session_with_camera(
+        self,
+        camera: bool,
+    ) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
         let bytes = read_private(Path::new(&self.credential_file), 4098)?;
         let value = std::str::from_utf8(&bytes)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "credential must be UTF-8"))?
@@ -64,7 +73,11 @@ impl ProviderConfig {
         let mut session = SessionConfig::new(&self.endpoint, credential)?
             .model(&self.model)?
             .voice(&self.voice)?
-            .instruction(CHAT_INSTRUCTION)?;
+            .instruction(if camera {
+                CAMERA_CHAT_INSTRUCTION
+            } else {
+                CHAT_INSTRUCTION
+            })?;
         if let Some(level) = self.thinking_level {
             session = session.thinking_level(level)?;
         }

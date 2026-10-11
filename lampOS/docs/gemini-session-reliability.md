@@ -1102,6 +1102,186 @@ two second bound can pass and exit 0: that is a pass of this opt-in
 setting, which it would need before being turned on, and not a pass of
 production's default.
 
+## Keeping the next request's start until the earlier answer begins (opt-in)
+
+`SessionConfig::successor_start(SuccessorStart::AfterFirstOutput { patience })`.
+Off by default. The policy stays `Require`; nothing is assumed, nothing
+committed is replayed.
+
+### What the service's documentation gives, and what it does not
+
+Read on 2026-10-11 from the Live API reference
+(`https://ai.google.dev/api/live`) and guide
+(`https://ai.google.dev/gemini-api/docs/live-guide`). These are the
+documentation's statements, not observations of the service. The quoted
+words came through a page-reading tool that shortens quotations: check
+them against the pages before resting anything on one word.
+
+| Documented | What it says |
+|---|---|
+| `interrupted` | "a client message has interrupted current model generation". An interrupted turn has no `generationComplete`; `interrupted` is followed by `turnComplete` |
+| Start of activity | With the default `activityHandling`, "start of activity will interrupt the model's response", cut off "in the moment of the interruption" |
+| `interactionStatus` | "Always sent alongside turnComplete"; `IDLE` or `IN_PROGRESS` |
+| `waitingForInput` | "the model is not generating content because it is waiting for more input" |
+| `sessionResumptionUpdate.resumable` | Resumption is not possible "when the model is executing function calls or generating" |
+| `voiceActivity` | "Voice activity detected in audio stream", with an audio offset. Not described as an acknowledgement |
+| `activityHandling: NO_INTERRUPTION` | "The model's response will not be interrupted" |
+
+Not in either document:
+
+- Any acknowledgement of a client's realtime input, or of which client
+  message the service has consumed.
+- Any message that confirms the cancellation of a response that has not
+  begun to produce output. The guide says an interrupted generation "is
+  canceled and discarded" and that the server reports the interruption; it
+  does not say whether it does so when nothing had been produced.
+
+So the documentation defines no stronger settlement signal than the one
+this transport already waits for, and none at all for the case that
+failed. `waitingForInput` and the resumption flag are the nearest: each
+says something about whether the model is generating, neither is
+documented as following an interruption, and neither is used to decide
+anything here. They are counted while a barrier stands and reported, so
+that a probe run can show whether the service sends them in that case.
+
+What this strategy relies on, kept apart:
+
+| | Source |
+|---|---|
+| A start of activity interrupts a response that is producing, and `interrupted` then `turnComplete` follow | Documented |
+| That confirmation arrives promptly | One probe run: `interrupted` 358 ms and idle 363 ms after the start. One attempt, not a rate |
+| It still arrives when the start is followed at once by a burst of kept audio | **Not shown.** No run yet |
+| A response that has produced nothing is not confirmed when interrupted | One probe run: nothing exposed in 2.0 s. Not documented either way |
+
+### The rule
+
+When a committed request is superseded and its response has produced
+nothing, the next request's `activityStart` is not written. Its audio is
+kept here, in order, and the first of these ends that:
+
+| Ended by | What is written | Reported as |
+|---|---|---|
+| First output of the earlier response | `activityStart`, the kept audio in order, then audio as it is spoken. The earlier response is now interrupted while producing, and the barrier's quiet bound counts from here | `FirstOutput` |
+| Idle completion of the earlier response with no output | The barrier is down. `activityStart`, the kept audio, and the End as soon as it is asked for and every kept block is out | `Completion` |
+| `patience` | `activityStart` and the kept audio. From here it is the default path exactly: the strict wait, and `BarrierTimeout` if nothing confirms | `Patience` |
+| More than `MAX_RETAINED_SAMPLES` kept | The same as for patience | `Overflow` |
+| A stop, a close, any failure | Nothing. What was kept is dropped unsent | The stop or the failure itself |
+
+A response that has already produced output when it is superseded is
+interrupted at once, as before. With `barrier_reports` on, the barrier's
+report says how long the start was kept, what ended it and how many
+samples were kept.
+
+**It changes when bytes are written and never which.** The same
+`activityStart`, the same audio in the same order and the same single
+`activityEnd` go out as on the default path. A request superseded before
+its End keeps its audio in the activity its successor continues. A
+request cancelled before its End is never committed; what the session had
+already taken from it is still written in order, as on the default path
+where it would already be on the wire. Dropping it instead would mean
+telling a cancellation from a continuation, which the session cannot do,
+and guessing wrong would lose the person's words.
+
+### Bounds and outcomes
+
+| Bound | Value | Past it |
+|---|---|---|
+| `patience` | Set by the caller, 1 ms to 4 s (`MAX_SUCCESSOR_PATIENCE`) | The start is written; default path from there |
+| Audio kept | 96,000 samples, 6 s (`MAX_RETAINED_SAMPLES`) | While keeping: the start is written. While writing out and still over it: `Backpressure` |
+| Age of kept audio when written | `MAX_INPUT_AGE` + `patience`, by its own capture time | `StaleInput`; the connection fails |
+| Age of audio when handed in | `MAX_INPUT_AGE`, 1 s, unchanged | `StaleInput`, as before |
+| Kept audio written per turn of the session loop | 32 blocks | The rest follows on the next turn; commands, incoming messages and a stop stay live |
+| From supersession to settlement | `Timeouts::response`, 30 s, unchanged | `BarrierTimeout` |
+
+The third row is a deliberate widening and the only one: audio this
+library itself held is written up to `patience` later than audio is
+otherwise allowed to be. It is not relabelled, a stop drops it, and with
+the setting off nothing changes.
+
+**Truthful failure.** If neither output nor completion comes within the
+patience and the service then confirms nothing, the outcome is the same
+`BarrierTimeout` as today, with a report saying the start was kept, for
+how long, and that patience ended it. The question is then lost, and the
+caller is told so, as it is today: nothing is committed on a guess. What
+the person then hears, if anything, is the coordinator's own handling of
+a lost turn and is not changed here.
+
+### Whose the output is
+
+The existing argument, which keeping the start does not touch:
+
+1. Output is attributed to a request only if it is current and its
+   `activityEnd` has been written. Everything else is the earlier
+   response's: dropped, and counted under its own name.
+2. A request's `activityEnd` is written only when no barrier stands and
+   nothing kept remains unwritten.
+3. Under `Require` a barrier is taken down only by the earlier response's
+   idle completion.
+4. While the start is kept, the next request is current and not committed,
+   and the barrier stands from the supersession. So nothing received in
+   that time can be attributed to it, before or after the kept start goes
+   out.
+5. Therefore the first output attributed to the next request arrives
+   after its End, which was written after the earlier response's idle
+   completion.
+
+The assumptions are the ones the transport already made: that an idle
+completion is the last thing a response sends, and that the service
+produces nothing for an activity before its End.
+
+### Tests and what they do not show
+
+`session::tests::retain`, against the in-memory service in real time:
+
+| Case | Test |
+|---|---|
+| Opening words kept, then in order behind the interruption | `the_opening_words_wait_for_the_earlier_answer_to_begin_and_then_follow_in_order` |
+| Long next utterance, paced as spoken, nothing lost or repeated | `a_long_next_utterance_is_kept_only_until_the_answer_begins_and_loses_nothing` |
+| Two continuations, one start, one End | `two_continuations_are_kept_in_order_behind_one_start_and_one_end` |
+| Completion instead of audio | `an_earlier_answer_that_completes_with_nothing_lets_the_next_request_start_normally` |
+| Stale and unasked events do not release the start; the two documented signals are counted | `events_of_the_earlier_answer_that_are_not_output_do_not_release_the_start` |
+| Quota close while keeping | `the_service_closing_for_quota_while_the_opening_is_kept_ends_as_that_and_writes_nothing` |
+| Stop while keeping, and while writing out | `a_stop_while_the_opening_is_kept_writes_none_of_it`, `a_stop_while_kept_audio_is_being_written_ends_the_writing` |
+| Slow consumer | `a_consumer_that_takes_no_events_does_not_keep_the_opening_back` |
+| Patience, then the strict timeout | `patience_runs_out_and_the_start_is_written_with_the_strict_wait_from_there` |
+| Overflow | `more_than_may_be_kept_is_written_at_once_and_in_order` |
+| Cancelled while kept | `a_kept_request_that_is_cancelled_is_never_committed_and_what_was_kept_stays_in_order` |
+| Already producing: nothing kept | `an_answer_that_has_already_begun_is_interrupted_at_once_as_before` |
+| Off by default, bounds | `without_the_setting_the_start_is_written_at_once_and_reports_say_nothing_was_kept`, `the_patience_is_bounded_and_off_is_the_default` |
+
+Not shown by any of this: anything about the real service, above all
+whether it confirms an interruption that a burst of kept audio follows;
+the age bound being reached (no test holds audio that long); the path
+through `provider_worker`, which is wired but switched off
+(`SUCCESSOR` in that file) and has no test of its own.
+
+### On the probe, and on a Lamp
+
+A trailing `keep-start-ms=N`, 1 to 4000, last of the trailing settings,
+turns the setting on for one run. The barrier row gains `start_held_ms`,
+`start_released_by`, `retained_samples`, `waiting_for_input`,
+`resumable_updates` and `unresumable_updates`; the result says
+`keep_start_ms` and `successor_start_is_default`. A pass under it is a
+pass of this setting and not of the default.
+
+`crates/gemini/examples/service_probe/lamp-cases.sh` runs the seven
+cases that matter, one connection each, on a machine that already holds
+the provider file and its credential:
+
+```sh
+cargo build --locked --release -p lamp-gemini --example service_probe
+lamp-cases.sh ./service_probe /path/to/provider.json FIRST.wav SECOND.wav /path/to/empty/out
+```
+
+The credential is read in place and never copied or printed. The audio is
+cached synthetic speech; no microphone or speaker is opened. The control
+case is expected to end in the strict timeout and the five-second
+observation never passes. What would qualify the setting is the three
+`kept-before-output` cases and `kept-repeat` ending
+`strict_barrier_confirmed_and_answered` with `start_released_by:
+FirstOutput`, and `kept-during-output` unchanged, on more than one
+attempt.
+
 ## Two additions to the strict probe (example only)
 
 Neither changes the library. Both exist to answer what the failed run

@@ -644,9 +644,25 @@ answers and the seven stopped-playback trials.
 | 4 x 400 adversarial turns, seeds 2, 3, 5, 8, each interface | 343 and 352 min in total; 679 completed, 386 cancelled, 225 settled, 309 lost, 249 refused, 1,453 recoveries, 234 refused attempts, 231 dead on arrival, 341 speaker holds; identical rows through both interfaces |
 | Playback stopped with every holder full (real time) | See [a stopped speaker](#a-stopped-speaker) |
 
+### Linux/ARM64 results
+
+On `0f688994d`, which is this round's code plus the later audio work,
+cross-compiled and run under `qemu-aarch64` user-mode emulation from a
+read-only source-only export. **Not the device.**
+
+| Gate | Result |
+|---|---|
+| Strict Clippy, workspace, all targets, ARM64 target | pass |
+| Release build of `lamp-live`, `lamp-voice-eval` and the `service_probe` example | pass; ARM aarch64 ELF |
+| `lamp-gemini` tests, release build | 136 passed, 0 failed, 2 ignored |
+| Provider worker tests, release build | 44 passed, 0 failed, 2 ignored |
+| Prolonged adversarial conversations, release build | pass; every tally identical to the host run through both interfaces |
+
+Not run on ARM64 for this round: the whole-workspace suite, the debug
+profile, and the real-time 60 s, 180 s and stopped-playback tests.
+
 ### Not run for this round
 
-- **Linux/ARM64.** Not built or tested for these commits.
 - **Cloud.** Nothing. The five probes are unchanged and still have not run.
 - **Device.** Nothing.
 - The real coordinator. Every test here drives the supervisor or the worker

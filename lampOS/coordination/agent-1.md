@@ -91,10 +91,32 @@ Evidence on scripted scenes through the real canceller, host:
 | Half the echo left in the cancelled signal (scripted residual) | 94 percent with nobody speaking; 47 with a person as loud as the leak; 1 with no leak |
 | Microphone clock 300 ppm fast for 20 s | Followed; 91 percent |
 
+Linux/ARM64, for checkpoints 1 and 2 together: `0f688994d`, source-only
+export mounted read-only, cross-compiled in a Debian bookworm container (Rust
+1.96.0, `aarch64-linux-gnu-gcc` 12.2), test binaries run under `qemu-aarch64`
+user-mode emulation. **Not the device**: no device timing, ALSA hardware or
+audio.
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Result |
+|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | pass; `lamp-live` is ELF 64-bit ARM aarch64 |
+| `cargo build --release -p lamp-gemini --example service_probe` | pass; ELF 64-bit ARM aarch64 |
+| `cargo test --release -p lamp-audio -- --nocapture --test-threads=1` | 99 passed, 0 failed |
+| `cargo test --release -p lamp-gemini -- --test-threads=1` | 136 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-live --lib provider_worker -- --test-threads=1` | 44 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-gemini --lib prolonged_adversarial -- --ignored --nocapture --test-threads=1` | pass; every tally identical to the host run, both interfaces |
+
+The audio count is higher than the host's 73 because the Linux-only capture
+and speaker suites run there. The evidence scenes give the same numbers as on
+the host. The observer costs 60.0 µs per capture block under emulation, which
+says nothing about the board. The `MEASURED` lines carry a fixed "host"
+suffix in the test source; in this run they come from the emulated ARM64
+binaries. Not run on ARM64: the whole-workspace suite, the debug profile, the
+60 s, 180 s and stopped-playback real-time tests.
+
 ### Not run, and not established
 
-- Linux/ARM64 for checkpoints 1 and 2: running now on `0f688994d`; results
-  will be added here.
 - Cloud and device: nothing.
 - **No threshold.** No recording with its render reference is on this
   machine, so nothing says at which share a turn should be refused. The

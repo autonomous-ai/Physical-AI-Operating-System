@@ -86,6 +86,7 @@ says how long ago it was last confirmed.
 | Work per capture block | 32 searched alignments, 3 tracked, 2 three-point fits, each over 480 samples |
 | Measured cost, host, release build | 9.0 µs per block, observer alone, one thread |
 | Measured cost, host, debug build | 0.46 ms per block |
+| Measured cost, ARM64 binary under `qemu-aarch64`, release build | 60.0 µs per block. Emulation, not the board |
 | Delay searched | 0 to 400 ms from acceptance by the speaker device |
 | Time to first match in the scripted scene | 166 ms after the first echo reached the microphone |
 
@@ -100,7 +101,8 @@ microphone. The echo path is a 113.5 ms delayed, inverted copy at half
 amplitude with one reflection 4 ms later, plus a noise floor. The scenes run
 through the real canceller unless marked. **This is a simplification of a
 speaker beside a microphone, not a room, and none of it is acoustic
-evidence.**
+evidence.** The same tests pass with the same numbers as ARM64 binaries under
+user-mode emulation.
 
 | Scene | Result |
 |---|---|
@@ -135,8 +137,8 @@ residual stands in for a canceller that has not converged.
   there, and only once the canceller is doing its work.
 - **Who is speaking and to whom.** Out of scope for any measurement of this
   kind.
-- Device cost. 9 µs is a host figure. The emulated and native figures are
-  not measured yet.
+- Device cost. 9 µs is a host figure and 60 µs an emulated one. The native
+  figure on the board is not measured.
 
 ## Scoring a recording
 

@@ -239,6 +239,7 @@ fn run(case: Case) -> (SessionState, Evidence) {
                                 frame_sequence: evidence.capture_blocks,
                                 read_completed_at_us: at,
                                 probability,
+                                echo: None,
                                 samples: vec![7; 160],
                                 timing: CaptureTiming {
                                     first_read_started_at_us: at,

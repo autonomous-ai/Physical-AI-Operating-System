@@ -267,6 +267,10 @@ pub struct MicrophoneFrame {
     pub read_completed_at_us: u64,
     pub timing: CaptureTiming,
     pub probability: f32,
+    /// What the accepted render explains of this block, before and after
+    /// cancellation. Absent from a worker that does not report it.
+    #[serde(default)]
+    pub echo: Option<lamp_audio::evidence::EchoEvidence>,
     pub samples: Vec<i16>,
 }
 
@@ -387,6 +391,24 @@ pub struct ReferenceTiming {
     /// Host timestamp after pcm.start() succeeds, not physical DAC onset.
     pub clock_started_at_us: Option<u64>,
     pub ignored_old_epoch_packets: u64,
+    /// Present only while the reference follows the capture clock, so the
+    /// fixed mode's report is what it was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drift: Option<ReferenceDrift>,
+}
+
+/// How the capture-clocked reference stands. The state of this software,
+/// not a measurement of either device's clock.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReferenceDrift {
+    /// Read rate in force, parts per million above one frame per frame.
+    pub rate_ppm: f32,
+    /// The settled part of it: how much faster the speaker accepts frames
+    /// than the microphone delivers them, as far as it has been learned.
+    pub learned_ppm: f32,
+    /// Accepted frames waiting to be read.
+    pub unread_frames: u32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

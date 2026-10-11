@@ -62,6 +62,10 @@ pub enum TurnTaking {
     #[default]
     VadOnly,
     V1Baseline,
+    /// The conservative baseline with echo evidence: a person heard over the
+    /// lamp makes it yield, and speech that outlasts the lamp's own sound
+    /// interrupts. Without evidence for a block it is the baseline.
+    Duplex,
 }
 impl FromStr for TurnTaking {
     type Err = io::Error;
@@ -69,6 +73,36 @@ impl FromStr for TurnTaking {
         match value {
             "vad-only" => Ok(Self::VadOnly),
             "v1-baseline" => Ok(Self::V1Baseline),
+            "duplex" => Ok(Self::Duplex),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
+/// How the capture worker keeps the echo reference beside the microphone.
+/// `Capture` follows the difference between the two USB clocks; `Fixed` is
+/// the margin that a long session uses up.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReferenceClock {
+    #[default]
+    Fixed,
+    Capture,
+}
+impl ReferenceClock {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fixed => "fixed",
+            Self::Capture => "capture",
+        }
+    }
+}
+impl FromStr for ReferenceClock {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "fixed" => Ok(Self::Fixed),
+            "capture" => Ok(Self::Capture),
             _ => Err(invalid_options()),
         }
     }
@@ -130,6 +164,7 @@ impl FromStr for PlayoutStart {
 pub struct DirectedOptions {
     pub playout_start: PlayoutStart,
     pub turn_taking: TurnTaking,
+    pub reference_clock: ReferenceClock,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -141,6 +176,7 @@ impl DirectedOptions {
         let mut noise_seen = false;
         let mut turn_seen = false;
         let mut playout_seen = false;
+        let mut reference_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
@@ -160,6 +196,10 @@ impl DirectedOptions {
                 "--noise-suppression" if !noise_seen => {
                     options.noise_suppression = required_value(&mut arguments)?.parse()?;
                     noise_seen = true;
+                }
+                "--reference-clock" if !reference_seen => {
+                    options.reference_clock = required_value(&mut arguments)?.parse()?;
+                    reference_seen = true;
                 }
                 "--ring-channel-ceiling" if options.ring_channel_ceiling.is_none() => {
                     let value = required_value(&mut arguments)?
@@ -233,6 +273,7 @@ impl SessionOptions {
 pub struct AudioWorkerOptions {
     pub diagnostic_directory: Option<PathBuf>,
     pub noise_suppression: NoiseSuppression,
+    pub reference_clock: ReferenceClock,
 }
 impl AudioWorkerOptions {
     /// The exact argv tail used by the supervisor. Values remain individual
@@ -247,6 +288,15 @@ impl AudioWorkerOptions {
                 "--noise-suppression".to_owned(),
                 self.noise_suppression.as_str().to_owned(),
             ]);
+            // Only when chosen, so that the default argv is what it was.
+            if self.reference_clock != ReferenceClock::Fixed {
+                arguments.extend([
+                    "--reference-clock".to_owned(),
+                    self.reference_clock.as_str().to_owned(),
+                ]);
+            }
+        } else if self.reference_clock != ReferenceClock::Fixed {
+            return Err(invalid_options());
         }
         if let Some(path) = &self.diagnostic_directory {
             if !path.is_absolute() {
@@ -263,6 +313,7 @@ impl AudioWorkerOptions {
     pub fn parse(arguments: &[String], is_capture: bool) -> io::Result<Self> {
         let mut options = Self::default();
         let mut noise_seen = false;
+        let mut reference_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
@@ -276,6 +327,10 @@ impl AudioWorkerOptions {
                 "--noise-suppression" if is_capture && !noise_seen => {
                     options.noise_suppression = required_value(&mut arguments)?.parse()?;
                     noise_seen = true;
+                }
+                "--reference-clock" if is_capture && !reference_seen => {
+                    options.reference_clock = required_value(&mut arguments)?.parse()?;
+                    reference_seen = true;
                 }
                 _ => return Err(invalid_options()),
             }
@@ -414,6 +469,91 @@ mod tests {
     }
 
     #[test]
+    fn duplex_and_the_capture_clocked_reference_are_explicit_and_separate() {
+        let defaults = SessionOptions::default().directed;
+        assert_eq!(defaults.turn_taking, TurnTaking::VadOnly);
+        assert_eq!(defaults.reference_clock, ReferenceClock::Fixed);
+        let options = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "duplex",
+            "--reference-clock",
+            "capture",
+        ]))
+        .unwrap()
+        .directed;
+        assert_eq!(options.turn_taking, TurnTaking::Duplex);
+        assert_eq!(options.reference_clock, ReferenceClock::Capture);
+        assert_eq!(
+            serde_json::to_value((options.turn_taking, options.reference_clock)).unwrap(),
+            serde_json::json!(["duplex", "capture"])
+        );
+        // Either without the other.
+        let only = DirectedOptions::parse(&args(&["--turn-taking", "duplex"])).unwrap();
+        assert_eq!(only.reference_clock, ReferenceClock::Fixed);
+        let only = DirectedOptions::parse(&args(&["--reference-clock", "capture"])).unwrap();
+        assert_eq!(only.turn_taking, TurnTaking::VadOnly);
+        for values in [
+            vec!["--reference-clock"],
+            vec!["--reference-clock", "Capture"],
+            vec!["--reference-clock", "speaker"],
+            vec!["--reference-clock", "fixed", "--reference-clock", "capture"],
+            vec!["--turn-taking", "Duplex"],
+        ] {
+            assert!(SessionOptions::parse(&args(&values)).is_err());
+        }
+    }
+
+    #[test]
+    fn the_reference_clock_reaches_only_the_capture_worker_and_only_when_chosen() {
+        let fixed = AudioWorkerOptions::default();
+        assert_eq!(
+            fixed.child_arguments("plug:device_micro2", true).unwrap(),
+            ["plug:device_micro2", "--noise-suppression", "on"],
+            "the default argv is what it was"
+        );
+        let clocked = AudioWorkerOptions {
+            reference_clock: ReferenceClock::Capture,
+            ..AudioWorkerOptions::default()
+        };
+        let arguments = clocked.child_arguments("plug:device_micro2", true).unwrap();
+        assert_eq!(
+            arguments,
+            [
+                "plug:device_micro2",
+                "--noise-suppression",
+                "on",
+                "--reference-clock",
+                "capture"
+            ]
+        );
+        assert_eq!(
+            AudioWorkerOptions::parse(&arguments[1..], true).unwrap(),
+            clocked
+        );
+        // The speaker worker has no reference to clock.
+        assert!(
+            clocked
+                .child_arguments("plug:device_speaker", false)
+                .is_err()
+        );
+        assert!(
+            AudioWorkerOptions::parse(&args(&["--reference-clock", "capture"]), false).is_err()
+        );
+        for values in [
+            vec!["--reference-clock"],
+            vec!["--reference-clock", "sometimes"],
+            vec![
+                "--reference-clock",
+                "capture",
+                "--reference-clock",
+                "capture",
+            ],
+        ] {
+            assert!(AudioWorkerOptions::parse(&args(&values), true).is_err());
+        }
+    }
+
+    #[test]
     fn turn_taking_is_explicit_and_default_remains_vad_only() {
         assert_eq!(
             SessionOptions::default().directed.turn_taking,
@@ -537,6 +677,7 @@ mod tests {
                     DirectedOptions {
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
+                        reference_clock: ReferenceClock::Fixed,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,
@@ -618,6 +759,7 @@ mod tests {
                 let requested = AudioWorkerOptions {
                     diagnostic_directory: directory,
                     noise_suppression: mode,
+                    reference_clock: ReferenceClock::Fixed,
                 };
                 let arguments = requested
                     .child_arguments("plug:device_micro2", true)

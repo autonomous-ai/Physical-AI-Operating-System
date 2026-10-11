@@ -67,7 +67,7 @@ fn run() -> Result<()> {
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
             if role == "capture" {
-                lamp_live::audio_workers::capture_with_noise_suppression(channels,parent,worker,Path::new(dir),device,options.diagnostic_directory.as_deref(),options.noise_suppression)?;
+                lamp_live::audio_workers::capture_with_options(channels,parent,worker,Path::new(dir),device,&options)?;
             } else {
                 lamp_live::audio_workers::speaker(channels,parent,worker,Path::new(dir),device,options.diagnostic_directory.as_deref())?;
             }
@@ -107,7 +107,7 @@ fn run() -> Result<()> {
                 _=>return Err(io::Error::other("worker is not integrated yet").into()),
             }
         },
-        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live serve PRIVATE_CONFIG.json NEW_OUTPUT [directed options except --diagnostics] | camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--camera-config ABS_PATH] [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
+        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live serve PRIVATE_CONFIG.json NEW_OUTPUT [directed options except --diagnostics] | camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--camera-config ABS_PATH] [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only|duplex] [--reference-clock fixed|capture] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only|duplex] [--reference-clock fixed|capture] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
     }
     Ok(())
 }

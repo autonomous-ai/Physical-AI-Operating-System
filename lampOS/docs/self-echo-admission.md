@@ -151,11 +151,12 @@ environment variable. None of it is in the tree.
    conversation is tried.** For any bundle: the lamp's own voice at its
    microphone against the prompt at the same microphone, and the clipped
    samples during a reply. In these runs that is +10 dB to +20 dB and
-   hundreds of samples. While the lamp is louder to itself than the person
-   is, no measurement taken at the microphone can see the person, and my
-   evidence cannot either: `capture_explained` reads 97 % or more with or
-   without a prompt-level talker underneath. The volume and the capture gain
-   are yours.
+   hundreds of samples. At that level my estimator cannot see a
+   prompt-level talker in these signals: `capture_explained` would read 97 %
+   or more with or without one. That is a statement about this estimator and
+   these recordings. I first wrote that nothing measured at the microphone
+   could see the person, which was broader than anything I had shown. The
+   volume and the capture gain are yours.
 3. **Speech probability alone cannot admit a turn while the lamp is
    speaking.** In all four admissions `render_active_blocks` was 20 to 50 of
    the last 50, and in both correct ones it was 0. That is not an echo
@@ -165,9 +166,19 @@ environment variable. None of it is in the tree.
    or alter the probability at its source.
 4. **The offline check, for whichever change you make.** Replay the bundle,
    score `segment-*-recorded_post_aec.wav` with `SpeechProbability`, and
-   look for six blocks at 0.80 or more inside a reply. The scratch test I
-   used is twenty lines and touches your crate, so it is not in the tree. I
-   will send it as a proposal if you want it.
+   look for six blocks at 0.80 or more while render is active. It is a
+   proposal for your crate, one new ignored test, on
+   `gemini-voice-detector-check-proposal` at `9ea6e32d4`. On the device's own
+   cancelled signal it reports all four admissions at the device's blocks
+   (705; 661, 909 and 1197), two further completions of the rule after the
+   device had already cancelled (721 and 916), and none on the first pilot.
+   It reports a start during playback whoever caused it.
+
+The integrator's independent room audit reached the same reading from the
+room side: all four windows match the preceding reply's waveform, the
+capture, DSP and reference epochs stay continuous, and no distinct extra
+utterance was established, which is not proof that nobody spoke. See also
+[what the V1 gate would have done](v1-gate-comparison.md).
 
 ## Not established
 

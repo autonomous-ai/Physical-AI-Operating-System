@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 21:23 UTC
+- Updated: 2026-10-11 21:25 UTC
 - Branch: `lamp-v2-chat`
 - Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, incomplete: one completed reply, one stale player spawn with brief output unknown, six withheld. Last completed finite check: 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
@@ -21,14 +21,18 @@ Agent 1's retained-successor proposal `55ccc4a1a` remains separate. Independent
 review reproduced a new cancellation race: retiring a kept question while its
 last audio write was pending still allowed its End to be sent. The e9 baseline
 passed both controls; the candidate passed the positive and failed cancellation.
-Agent 1 published narrow fix `04dcb8f6c`; main review and provider integration
-remain pending. Three service-only synthetic probes on the original proposal
+Agent 1 published narrow fix `04dcb8f6c`; independent focused red/green review
+passes under the documented WebSocket handover boundary. Whole provider
+integration remains pending. Three service-only synthetic probes on the original proposal
 are complete: immediate Start timed out with no answer; retained Start settled
 and answered both the before-output and during-output cases. The before-output
 case held Start for 717 ms; the during-output case did not need to hold it.
 Each is one trial, using direct cached input rather than microphones or speakers.
 They do not exercise the known cancellation defect and cannot qualify integration.
-Detailed independent evidence review is in progress.
+[Independent evidence review](../docs/verification/continuation-service-20261011/README.md)
+verified one timeout and two strict passes, exact input/artifact identities,
+complete aftermath for the passes, cleanup and configuration preservation.
+No production runtime change is qualified by these service-only probes.
 
 Agent 2's R2 fault matrix `4505ccbe` and F1 progress deadline are now integrated
 as an exact four-file composition. Main's host gates passed format, strict live

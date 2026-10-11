@@ -1,0 +1,49 @@
+{
+  "accepted_through": 720720,
+  "analysed_through": 719367,
+  "boundary": "two host processes, real clock and scheduler, no audio device",
+  "bypassed_capture_blocks": 1,
+  "capture_blocks": 3000,
+  "capture_blocks_processed": 3000,
+  "counts": {
+    "bypassed_capture_blocks": 1,
+    "degradations": 1,
+    "ignored_packets": 0,
+    "late_packets": 0,
+    "reseeds": 1,
+    "skipped_frames": 216,
+    "trust": "trusted"
+  },
+  "fault": null,
+  "learned_ppm": 34.7125262419246,
+  "recovery": "bounded",
+  "reference": "capture",
+  "reseeds": 1,
+  "seconds_asked": 30,
+  "skew_ppm": 157.3,
+  "statuses": [
+    {
+      "block": 804,
+      "cause": "absent",
+      "second": 8.04,
+      "trust": "untrusted",
+      "untrusted_us": null
+    },
+    {
+      "block": 805,
+      "cause": "absent",
+      "second": 8.05,
+      "trust": "warming",
+      "untrusted_us": 10901
+    },
+    {
+      "block": 1104,
+      "cause": null,
+      "second": 11.04,
+      "trust": "trusted",
+      "untrusted_us": null
+    }
+  ],
+  "worst_gap_between_packets_us": 62419,
+  "worst_loop_late_us": 19501
+}

@@ -1,0 +1,34 @@
+reference_clock reports: 377 over 378.3 s
+  t=    0.0 s  capture blocks      1  analysed blocks       3.0  margin 2.00  queued 480
+  t=   43.3 s  capture blocks   4327  analysed blocks    4328.0  margin 1.00  queued 456
+  t=   44.3 s  capture blocks   4427  analysed blocks    4429.0  margin 2.00  queued 480
+  t=   91.5 s  capture blocks   9151  analysed blocks    9154.0  margin 3.00  queued 480
+  t=   93.5 s  capture blocks   9352  analysed blocks    9354.0  margin 2.00  queued 456
+  t=   95.5 s  capture blocks   9553  analysed blocks    9556.0  margin 3.00  queued 456
+  t=  146.9 s  capture blocks  14687  analysed blocks   14691.0  margin 4.00  queued 480
+  t=  148.9 s  capture blocks  14889  analysed blocks   14892.0  margin 3.00  queued 480
+  t=  149.9 s  capture blocks  14990  analysed blocks   14994.0  margin 4.00  queued 480
+  t=  150.9 s  capture blocks  15090  analysed blocks   15093.0  margin 3.00  queued 456
+  t=  153.9 s  capture blocks  15392  analysed blocks   15396.0  margin 4.00  queued 456
+  t=  161.0 s  capture blocks  16096  analysed blocks   16099.0  margin 3.00  queued 456
+  t=  162.0 s  capture blocks  16196  analysed blocks   16200.0  margin 4.00  queued 456
+  t=  207.3 s  capture blocks  20724  analysed blocks   20729.0  margin 5.00  queued 480
+  t=  208.3 s  capture blocks  20824  analysed blocks   20828.0  margin 4.00  queued 456
+  t=  209.3 s  capture blocks  20925  analysed blocks   20930.0  margin 5.00  queued 480
+  t=  211.3 s  capture blocks  21127  analysed blocks   21131.0  margin 4.00  queued 480
+  t=  212.3 s  capture blocks  21227  analysed blocks   21232.0  margin 5.00  queued 480
+  t=  214.3 s  capture blocks  21428  analysed blocks   21432.0  margin 4.00  queued 456
+  t=  215.3 s  capture blocks  21529  analysed blocks   21534.0  margin 5.00  queued 456
+  t=  261.6 s  capture blocks  26154  analysed blocks   26160.0  margin 6.00  queued 480
+  t=  262.6 s  capture blocks  26255  analysed blocks   26260.0  margin 5.00  queued 456
+  t=  266.6 s  capture blocks  26658  analysed blocks   26664.0  margin 6.00  queued 480
+  t=  267.6 s  capture blocks  26758  analysed blocks   26763.0  margin 5.00  queued 432
+  t=  269.6 s  capture blocks  26959  analysed blocks   26965.0  margin 6.00  queued 456
+  t=  270.6 s  capture blocks  27060  analysed blocks   27065.0  margin 5.00  queued 456
+  t=  271.6 s  capture blocks  27160  analysed blocks   27166.0  margin 6.00  queued 456
+  t=  327.0 s  capture blocks  32694  analysed blocks   32701.0  margin 7.00  queued 480
+  t=  329.0 s  capture blocks  32896  analysed blocks   32902.0  margin 6.00  queued 456
+  t=  332.0 s  capture blocks  33197  analysed blocks   33204.0  margin 7.00  queued 456
+render blocks per capture block: 1.000157264  => speaker fast by 157.3 ppm
+between reports us: median 1008538, worst 1012093
+capture blocks between reports: least 100, most 101

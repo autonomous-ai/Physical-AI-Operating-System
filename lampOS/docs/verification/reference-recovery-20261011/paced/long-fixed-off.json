@@ -1,0 +1,19 @@
+{
+  "accepted_through": 3851280,
+  "analysed_through": 3851280,
+  "boundary": "two host processes, real clock and scheduler, no audio device",
+  "bypassed_capture_blocks": 0,
+  "capture_blocks": 16039,
+  "capture_blocks_processed": 16039,
+  "counts": null,
+  "fault": "ReferenceBacklog",
+  "learned_ppm": null,
+  "recovery": "off",
+  "reference": "fixed",
+  "reseeds": 0,
+  "seconds_asked": 600,
+  "skew_ppm": 157.3,
+  "statuses": [],
+  "worst_gap_between_packets_us": 38858,
+  "worst_loop_late_us": 30453
+}

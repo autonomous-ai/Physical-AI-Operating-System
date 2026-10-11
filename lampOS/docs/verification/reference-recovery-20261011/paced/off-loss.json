@@ -1,0 +1,19 @@
+{
+  "accepted_through": 240240,
+  "analysed_through": 239311,
+  "boundary": "two host processes, real clock and scheduler, no audio device",
+  "bypassed_capture_blocks": 0,
+  "capture_blocks": 1000,
+  "capture_blocks_processed": 1000,
+  "counts": null,
+  "fault": "SequenceGap",
+  "learned_ppm": 10.526363908434899,
+  "recovery": "off",
+  "reference": "capture",
+  "reseeds": 0,
+  "seconds_asked": 30,
+  "skew_ppm": 157.3,
+  "statuses": [],
+  "worst_gap_between_packets_us": 18260,
+  "worst_loop_late_us": 3508
+}

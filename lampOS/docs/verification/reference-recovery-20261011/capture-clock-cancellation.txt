@@ -1,0 +1,16 @@
+six
+  fixed    own speech  51.6 s: removed median  48.9 dB, 10th pct   4.7 dB; cancelled level median  -66.3, 90th pct  -20.4 dBFS; above -45 dBFS 29.0 % of blocks; detector starts while playing 20
+  capture  own speech  51.7 s: removed median  53.6 dB, 10th pct  11.3 dB; cancelled level median  -73.4, 90th pct  -28.4 dBFS; above -45 dBFS 20.2 % of blocks; detector starts while playing 11
+capture-clocked: ring between 1145 and 1440 frames after a block, 0 blocks without reference, rate 198.7 ppm of which 23.9 learned
+ten
+  fixed    own speech  37.8 s: removed median  48.1 dB, 10th pct  10.4 dB; cancelled level median  -60.8, 90th pct  -21.9 dBFS; above -45 dBFS 31.3 % of blocks; detector starts while playing 18
+  capture  own speech  37.8 s: removed median  46.5 dB, 10th pct   8.7 dB; cancelled level median  -59.3, 90th pct  -20.2 dBFS; above -45 dBFS 33.8 % of blocks; detector starts while playing 19
+capture-clocked: ring between 960 and 1490 frames after a block, 0 blocks without reference, rate 153.2 ppm of which 60.3 learned
+ext
+  fixed    own speech  43.9 s: removed median  55.2 dB, 10th pct  16.5 dB; cancelled level median  -76.7, 90th pct  -33.8 dBFS; above -45 dBFS 15.0 % of blocks; detector starts while playing 12
+  capture  own speech  44.0 s: removed median  51.2 dB, 10th pct   7.6 dB; cancelled level median  -71.3, 90th pct  -24.1 dBFS; above -45 dBFS 22.9 % of blocks; detector starts while playing 14
+capture-clocked: ring between 1142 and 1440 frames after a block, 0 blocks without reference, rate 174.5 ppm of which 34.1 learned
+plain
+  fixed    own speech  32.7 s: removed median  51.9 dB, 10th pct   8.7 dB; cancelled level median  -71.7, 90th pct  -22.9 dBFS; above -45 dBFS 24.7 % of blocks; detector starts while playing 12
+  capture  own speech  32.8 s: removed median  53.9 dB, 10th pct  17.5 dB; cancelled level median  -72.8, 90th pct  -33.0 dBFS; above -45 dBFS 18.0 % of blocks; detector starts while playing 4
+capture-clocked: ring between 1177 and 1440 frames after a block, 0 blocks without reference, rate 157.2 ppm of which 8.5 learned

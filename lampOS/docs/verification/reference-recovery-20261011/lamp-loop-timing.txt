@@ -1,0 +1,32 @@
+lamp-4ace-varied-12io918n
+  events {'privacy': 3, 'reset': 1, 'capture': 10190, 'end': 1}; capture blocks 10190 = 102 s
+  between capture reads us: median 10305, 99th 10955, 99.9th 11790, worst 12515; over 20 ms: 0, over 30 ms: 0, over 40 ms: 0
+  between reference acceptances us: median 10310, 99th 18586, worst 20699; over 20 ms: 11, over 30 ms: 0
+  age of newest reference at a capture read us: median 3269, 99th 10252, worst 10605 (fault at 40000)
+  capture backlog frames: median 16, 99th 32, worst 48 (fault above 640)
+  work per block us: median 1018, 99th 4086, worst 5102
+  margin blocks: least 2, most 3
+lamp-rust-v1-ten-evidence-20261011T070623Z
+  events {'privacy': 3, 'reset': 1, 'capture': 15173, 'end': 1}; capture blocks 15173 = 152 s
+  between capture reads us: median 10305, 99th 11149, 99.9th 11742, worst 12469; over 20 ms: 0, over 30 ms: 0, over 40 ms: 0
+  between reference acceptances us: median 10305, 99th 18572, worst 20880; over 20 ms: 19, over 30 ms: 0
+  age of newest reference at a capture read us: median 3758, 99th 10301, worst 10753 (fault at 40000)
+  capture backlog frames: median 16, 99th 32, worst 48 (fault above 640)
+  work per block us: median 923, 99th 3817, worst 5306
+  margin blocks: least 1, most 4
+lamp-connected-extended-20261011-01
+  events {'privacy': 3, 'reset': 1, 'capture': 10790, 'end': 1}; capture blocks 10790 = 108 s
+  between capture reads us: median 10306, 99th 10828, 99.9th 11806, worst 12473; over 20 ms: 0, over 30 ms: 0, over 40 ms: 0
+  between reference acceptances us: median 10312, 99th 18548, worst 20940; over 20 ms: 10, over 30 ms: 0
+  age of newest reference at a capture read us: median 3153, 99th 10245, worst 10819 (fault at 40000)
+  capture backlog frames: median 16, 99th 32, worst 48 (fault above 640)
+  work per block us: median 995, 99th 3948, worst 5080
+  margin blocks: least 2, most 3
+lamp-connected-plain-20261011-01
+  events {'privacy': 3, 'reset': 1, 'capture': 9119, 'end': 1}; capture blocks 9119 = 91 s
+  between capture reads us: median 10305, 99th 10757, 99.9th 11845, worst 12568; over 20 ms: 0, over 30 ms: 0, over 40 ms: 0
+  between reference acceptances us: median 10306, 99th 18552, worst 20924; over 20 ms: 3, over 30 ms: 0
+  age of newest reference at a capture read us: median 3514, 99th 10017, worst 10744 (fault at 40000)
+  capture backlog frames: median 16, 99th 32, worst 48 (fault above 640)
+  work per block us: median 982, 99th 4176, worst 6480
+  margin blocks: least 2, most 3

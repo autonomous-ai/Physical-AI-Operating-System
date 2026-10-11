@@ -16,10 +16,12 @@ Everything below was measured on recordings, in tests or under emulation.
   lamp's own voice does (`4ace`), a synthetic overlap at the person's
   recorded level stopped the speaker in 31 of 33 held-out trials and
   became an interruption in 24. Where the lamp's own voice arrives 22 dB
-  louder than the person (`a0ae`), the canceller removes the person with
-  the echo and the mode hears almost none of them: no held-out trial of 75
-  stopped the speaker, at any level. There it behaves as the conservative
+  louder than the recorded prompt (`a0ae`), no held-out trial of 75
+  stopped the speaker, at any level: in this replay the mixed-in prompt
+  did not survive cancellation. There the mode behaves as the conservative
   baseline does, and its trace says how far apart the two levels are.
+  This is a result about loudspeaker prompts mixed in software. It is not
+  a finding about a person's voice on this microphone board.
 - **Its own voice did not become a turn in any replay.** In 176 s of
   recorded own speech across four sessions the lamp stopped for its own
   voice twice, both in one development reply, and never lost a reply to
@@ -184,11 +186,15 @@ the trace, `directed_session_duplex`, says so.
 
 ### The limit: how loud the person is against the lamp
 
-Every stage after the canceller sees only what the canceller left. When
-the lamp's own voice reaches its microphone far louder than the person,
-the canceller takes the person out with the echo, and no evidence
-downstream can find them. This is a property of where the speaker and the
-microphones sit and how loud the reply is, not of a threshold.
+Every stage after the canceller sees only what the canceller left. In the
+replays, when the lamp's own voice reached its microphone far louder than
+the mixed-in prompt, the prompt did not come out of the canceller and no
+evidence downstream found it. As far as that goes it is a matter of where
+the speaker and the microphones sit and how loud the reply is, not of a
+threshold. How far it goes for a person in the room is not known: a
+direct voice reaches this microphone board differently from a
+loudspeaker's, by the team's own account, and no recording of one over a
+lamp exists.
 
 `Margin` measures it: a slow average of the level of blocks heard in the
 clear against the level of blocks that were the lamp's own voice, both
@@ -478,9 +484,10 @@ are margins of about +2, -4, -10, -16 and -22 dB.
 The person's recorded level here is 22.5 dB below the lamp's own voice,
 so the loudest row is a margin of about -16 dB. The result is no better
 than the `4ace` rows at that margin and somewhat worse: it is the same
-limit, reached by geometry and volume and not by a setting. On this lamp,
-at this volume, a person cannot interrupt by voice in this mode. They are
-heard once the reply ends.
+limit, reached by geometry and volume and not by a setting. In this
+replay, on this lamp at this volume, a recorded prompt mixed into the
+microphone did not interrupt. Whether a person speaking in the room would
+is not established either way.
 
 ### What the closed loop showed, and what was left alone
 

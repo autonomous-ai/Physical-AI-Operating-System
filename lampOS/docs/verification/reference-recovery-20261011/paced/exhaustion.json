@@ -1,0 +1,77 @@
+{
+  "accepted_through": 481680,
+  "analysed_through": 479515,
+  "boundary": "two host processes, real clock and scheduler, no audio device",
+  "bypassed_capture_blocks": 16,
+  "capture_blocks": 2004,
+  "capture_blocks_processed": 2004,
+  "counts": {
+    "bypassed_capture_blocks": 16,
+    "degradations": 4,
+    "ignored_packets": 0,
+    "late_packets": 0,
+    "reseeds": 3,
+    "skipped_frames": 3122,
+    "trust": "untrusted"
+  },
+  "fault": "RecoveryExhausted",
+  "learned_ppm": -2.155172512233894,
+  "recovery": "bounded",
+  "reference": "capture",
+  "reseeds": 3,
+  "seconds_asked": 40,
+  "skew_ppm": 157.3,
+  "statuses": [
+    {
+      "block": 501,
+      "cause": "sequence_gap",
+      "second": 5.01,
+      "trust": "untrusted",
+      "untrusted_us": null
+    },
+    {
+      "block": 505,
+      "cause": "sequence_gap",
+      "second": 5.05,
+      "trust": "warming",
+      "untrusted_us": 42114
+    },
+    {
+      "block": 1001,
+      "cause": "sequence_gap",
+      "second": 10.01,
+      "trust": "untrusted",
+      "untrusted_us": null
+    },
+    {
+      "block": 1005,
+      "cause": "sequence_gap",
+      "second": 10.05,
+      "trust": "warming",
+      "untrusted_us": 41625
+    },
+    {
+      "block": 1501,
+      "cause": "sequence_gap",
+      "second": 15.01,
+      "trust": "untrusted",
+      "untrusted_us": null
+    },
+    {
+      "block": 1505,
+      "cause": "sequence_gap",
+      "second": 15.05,
+      "trust": "warming",
+      "untrusted_us": 39239
+    },
+    {
+      "block": 2001,
+      "cause": "sequence_gap",
+      "second": 20.01,
+      "trust": "untrusted",
+      "untrusted_us": null
+    }
+  ],
+  "worst_gap_between_packets_us": 21195,
+  "worst_loop_late_us": 3474
+}

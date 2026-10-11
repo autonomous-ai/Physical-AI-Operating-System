@@ -24,6 +24,18 @@ use std::{
 const SPEECH: f32 = 0.95;
 const QUIET: f32 = 0.05;
 
+/// Emulated sessions keep the production freshness bounds (50 ms for
+/// privacy) and their peers poll every millisecond. One runs at a time, so
+/// parallel test threads cannot starve each other's peers. A test takes the
+/// slot before it starts its endpoint worker, whose timing it asserts.
+static ONE_SESSION: Mutex<()> = Mutex::new(());
+
+fn one_session() -> std::sync::MutexGuard<'static, ()> {
+    ONE_SESSION
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// Speech probability of each 10 ms capture block, by block index.
 type Script = fn(u64) -> f32;
 
@@ -486,6 +498,7 @@ fn endpoint_rows(session: &Session) -> Vec<&Value> {
 
 #[test]
 fn missing_model_session_ends_on_the_unchanged_silence_fallback() {
+    let _one = one_session();
     let missing = Response::Error {
         request: 0,
         reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
@@ -543,6 +556,7 @@ fn missing_model_session_ends_on_the_unchanged_silence_fallback() {
 
 #[test]
 fn hung_worker_never_delays_capture_endpoint_or_session_end() {
+    let _one = one_session();
     let limits = Limits {
         hang: Duration::from_millis(700),
         backoff: Duration::from_millis(100),
@@ -635,6 +649,7 @@ impl Classifier for Delayed {
 
 #[test]
 fn complete_verdict_ends_early_but_resumed_speech_keeps_the_turn() {
+    let _one = one_session();
     // Speech, a 350 ms pause (verdict arrives, commit point not reached), more
     // speech, then the final pause.
     fn resumed(block: u64) -> f32 {
@@ -680,6 +695,7 @@ fn complete_verdict_ends_early_but_resumed_speech_keeps_the_turn() {
 #[test]
 #[ignore = "requires a built lamp-endpoint-worker and the pinned model"]
 fn real_worker_session_records_verdict_provenance() {
+    let _one = one_session();
     let worker = std::env::var_os("LAMP_ENDPOINT_WORKER").expect("LAMP_ENDPOINT_WORKER");
     let model = std::env::var_os("LAMP_SMART_TURN_MODEL").expect("LAMP_SMART_TURN_MODEL");
     let endpoint = EndpointRig::process(
@@ -903,6 +919,7 @@ fn bases(session: &Session) -> Vec<(String, Option<String>, u64)> {
 
 #[test]
 fn a_worker_still_loading_leaves_the_baseline_window() {
+    let _one = one_session();
     // Ready only after 6 s: the whole session runs while it loads.
     let endpoint = scripted_process(&[], "sleep 6; exit 0", Limits::default());
     let session = run(4, one_question, endpoint);
@@ -915,6 +932,7 @@ fn a_worker_still_loading_leaves_the_baseline_window() {
 
 #[test]
 fn verdicts_after_the_result_timeout_fall_back_on_every_turn() {
+    let _one = one_session();
     fn two(block: u64) -> f32 {
         if (50..150).contains(&block) || (300..400).contains(&block) {
             SPEECH
@@ -936,6 +954,7 @@ fn verdicts_after_the_result_timeout_fall_back_on_every_turn() {
 
 #[test]
 fn rapid_resumes_never_end_the_turn_early() {
+    let _one = one_session();
     // Five bursts separated by 300 ms pauses, each judged complete.
     fn bursts(block: u64) -> f32 {
         let speaking = (50..330).contains(&block) && (block - 50) % 56 < 26;
@@ -966,6 +985,7 @@ fn rapid_resumes_never_end_the_turn_early() {
 
 #[test]
 fn a_complete_verdict_ends_at_one_second_and_its_answer_plays() {
+    let _one = one_session();
     let reply = ProviderReply {
         after_end: Duration::from_millis(300),
         packets: 3,
@@ -1048,6 +1068,7 @@ impl Classifier for Recovering {
 
 #[test]
 fn a_worker_failure_falls_back_through_recovery_and_then_resumes() {
+    let _one = one_session();
     fn three(block: u64) -> f32 {
         if (50..150).contains(&block) || (300..380).contains(&block) || (560..640).contains(&block)
         {

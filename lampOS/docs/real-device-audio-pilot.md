@@ -24,7 +24,8 @@ stopped. No ring, camera or motor behavior was under test. Gemini used
 Source playback requested the existing TTS cache. The API does not expose
 cache-hit or exact source PCM identity, so this was not a SHA-pinned stimulus.
 Both source microphones recorded a continuous 74.875-second room observation.
-The target retained certified raw microphone, post-AEC and accepted-render PCM.
+The target retained certified ALSA-resampled pre-AEC microphone, post-AEC and
+accepted-render PCM; pre-AEC is not native capsule PCM.
 
 | Observation | Result |
 |---|---|
@@ -71,6 +72,69 @@ voice attempts. The successful trial used typed D-Bus verification of empty
 stop hooks, a bounded supervised runtime, independent rollback and the existing
 serial mask. The restored legacy HAL remains software-muted with that mask.
 V2 is not yet installed as the continuously running default.
+
+## Repeated trial: premature endpoint and provider timeout
+
+A second trial used the same source greeting, target executable and processing,
+with target output volume temporarily raised from 77 to 100 for the observer.
+The planned NS-on/off/on cohort stopped after its first attempt failed; the
+other two stimuli were withheld. Both Lamps were restored and target volume
+returned to 77. No reply audio was generated or played.
+
+The target admitted one question as two turns. The first local endpoint was
+at 145937561741 microseconds; the second input was admitted 241.215 ms later,
+before an answer had arrived. The provider emitted only the session-scoped
+input transcript “Hola.”, then `BarrierTimeout` under the existing `Require`
+policy. Request 2 was reported lost at `AwaitingResponse`; the worker exited.
+The coordinator's final error was `Connection refused`, which obscures that
+provider cause. The coordinated failure consumer is still an integration task.
+
+All 54,240 target capture frames and 82,080 accepted render frames were
+certified without diagnostic faults. Every render frame was zero. The source
+recorder closed when the runtime failed and its microphone permission became
+unknown: both source PCM streams were discarded, their receipts are invalid,
+and no source WAV or acoustic score exists for this attempt.
+
+Offline replay reproduces the actual Start38/End113/Start137/End263 sequence.
+The recorded low-VAD interval lasted 680 ms, but about 360 ms of that region
+was quiet in the waveform. Earlier phoneme energy remained. Thus 600 ms below
+the speech-confidence threshold was not 600 ms of acoustic silence. Exact
+post-AEC PCM recreates the scores within 0.000014; replaying pre-AEC through
+the original NS-on processing matches saved PCM within one integer count.
+With NS off in this offline counterfactual, AEC retained, the same input forms
+one turn. This supports a matched live experiment, not a changed release
+default or an acoustic latency claim. No larger silence timeout was selected.
+
+## Isolating the provider with a clean cached greeting
+
+The source cache was later retrieved and corroborated by local ASR and waveform
+matching. Its original 24 kHz WAV SHA256 is
+`89f6ba271c1dedc2f7e69b77c46d50ed13cf1ec88dd6429b41e8e76f9d937269`.
+A documented, validated offline resample produces 33,206 mono 16 kHz PCM16
+frames, SHA256
+`408e4ded308aec059e29388e68005f5f69c9e7651a041d0daa274e66590ba09c`.
+This is existing synthetic speech, with no new TTS generation. It establishes
+a reusable fixture, not a retroactive per-request checksum from the speaker API.
+
+A finite Rust example based on `51bd815e9` sent that fixture from a0ae through
+the same provider configuration, bypassing VAD and audio hardware. Require
+stayed enabled; there was one request, no retry and no resumption. The ARM64
+example passed nine tests under QEMU, strict scoped Clippy, release build and
+native fixture inspection. Its executable SHA256 is
+`82b24b95e557946411aab2856f4c3da48ea81792976cd273b88efe7bd8d7a5ee`.
+
+Gemini transcribed “Hello, Lamp. How are you doing today?” and replied:
+“Hello! I'm doing quite well, thank you for asking. How have things been with
+you?” It returned 129,121 audio frames. First audio arrived 1.037035 s after
+the final input enqueue, with maximum input pacing lateness 1.805 ms. This
+single component observation excludes endpointing, speaker playback and room
+acoustics; the answer was saved, not played.
+
+The planned uploads of recorded microphone clips were not executed: automatic
+approval review rejected those payloads as potentially containing private
+speech. Analysis continues locally and with fresh controlled live stimuli.
+The clean synthetic control does not establish recognition quality for any
+recorded microphone clip.
 
 ## Owner-requested same-Lamp check
 

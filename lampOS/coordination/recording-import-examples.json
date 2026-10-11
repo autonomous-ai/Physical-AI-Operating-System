@@ -1,0 +1,300 @@
+{
+  "description": "Redacted real schema examples for MAIN-021; no recording bytes, credentials or provider configuration. Samples are separate clock domains and are not acoustic onset annotations.",
+  "source_capture_receipt": {
+    "receipt": {
+      "kind": "done",
+      "valid": true,
+      "failure": null,
+      "privacy_revoked": false,
+      "privacy_checks": 351,
+      "ownership_checks": 349,
+      "last_privacy_monotonic_s": 233230.712208187,
+      "last_ownership_monotonic_s": 233230.71313787,
+      "started_monotonic_s": 233155.666296368,
+      "ready_monotonic_s": 233155.905660537,
+      "finished_monotonic_s": 233230.87742844,
+      "window_s": 75.0,
+      "captures": {
+        "ambient": {
+          "alias": "plug:device_micro1",
+          "pid": 944460,
+          "returncode": 1,
+          "pcm_bytes": 2396000,
+          "frames": 1198000,
+          "pcm_sha256": "c6a05754eb3a7dd9037c88963d2f2a6f51b01720cd476f0f0f252cbd83dc75ea",
+          "first_read_s": 233155.838667662,
+          "last_read_s": 233230.590710612,
+          "stderr": "",
+          "post_stop_stderr": "arecord: pcm_read:2221: read error: Interrupted system call",
+          "forced_kill": false,
+          "owned_stop_requested": true
+        },
+        "voice": {
+          "alias": "plug:device_micro2",
+          "pid": 944461,
+          "returncode": 1,
+          "pcm_bytes": 2396000,
+          "frames": 1198000,
+          "pcm_sha256": "67d21683564613a18a21e595dff2446f5de5e5bac49b89bf99a0a46c58bd03d7",
+          "first_read_s": 233155.834694884,
+          "last_read_s": 233230.591440417,
+          "stderr": "",
+          "post_stop_stderr": "arecord: pcm_read:2221: read error: Interrupted system call",
+          "forced_kill": false,
+          "owned_stop_requested": true
+        }
+      },
+      "cleanup": [
+        {
+          "operation": "/voice/mute",
+          "response": {
+            "status": "ok"
+          },
+          "readback": true,
+          "verified": true
+        },
+        {
+          "operation": "/speaker/mute",
+          "response": {
+            "status": "already_muted"
+          },
+          "readback": true,
+          "verified": true
+        }
+      ],
+      "boundary": "host read/receipt timing, not ADC or acoustic timing"
+    },
+    "rate_hz": 16000,
+    "channels": 1,
+    "sample_format": "S16_LE",
+    "command_started_host_monotonic_s": 2210491.761802531,
+    "completed_host_monotonic_s": 2210567.184097695,
+    "first_pcm_receipts": {
+      "voice": {
+        "received_host_monotonic_s": 2210492.130391154,
+        "read_remote_monotonic_s": 233155.834694884,
+        "bytes_in_first_chunk": 4000,
+        "sample_zero": "Logical first received sample; ADC/exposure time is unknown"
+      },
+      "ambient": {
+        "received_host_monotonic_s": 2210492.134088339,
+        "read_remote_monotonic_s": 233155.838667662,
+        "bytes_in_first_chunk": 4000,
+        "sample_zero": "Logical first received sample; ADC/exposure time is unknown"
+      }
+    },
+    "captures": {
+      "ambient": {
+        "pcm_bytes_received": 2396000,
+        "frames_received": 1198000,
+        "pcm_sha256_received": "c6a05754eb3a7dd9037c88963d2f2a6f51b01720cd476f0f0f252cbd83dc75ea",
+        "valid": true,
+        "scored": false,
+        "wav": "lamp-52e6-ambient.wav",
+        "wav_sha256": "463f5ac32bb3d0e953deb0883ea576d027b7070cfc59ddf29a696be9200fddaa"
+      },
+      "voice": {
+        "pcm_bytes_received": 2396000,
+        "frames_received": 1198000,
+        "pcm_sha256_received": "67d21683564613a18a21e595dff2446f5de5e5bac49b89bf99a0a46c58bd03d7",
+        "valid": true,
+        "scored": false,
+        "wav": "lamp-52e6-voice.wav",
+        "wav_sha256": "2be4c105556e1561fa39ef45c6030f9c4412bbbff0f177e047c96e1110badd0a"
+      }
+    }
+  },
+  "orchestration_excerpt": {
+    "classification": "One prompt installed-V1 source to finite Rust target; unscored smoke test",
+    "started_utc": "2026-10-11T01:43:06Z",
+    "source_capture_window_s": 75,
+    "target_runtime_s": 40,
+    "target": {
+      "directory": "TARGET_EVIDENCE_DIRECTORY",
+      "complete": {
+        "status": "target_complete",
+        "directory": "/var/tmp/lamp-rust-smoke-e60178c5e5d843be",
+        "runtime_exit": 0,
+        "helper_error": null,
+        "cue_count": 7,
+        "at_remote_us": 144045975073,
+        "_host_received_s": 2210545.756220884
+      },
+      "ssh_exit": 0,
+      "http_dispatch_started_host_s": 2210505.632307961,
+      "readiness_deadline_host_s": 2210505.7114821877,
+      "stimulus_dispatched": true,
+      "diagnostics_certified": false
+    },
+    "events": [
+      {
+        "kind": "target_launch_requested",
+        "host_monotonic_s": 2210502.986448505,
+        "target_directory": "/var/tmp/lamp-rust-smoke-e60178c5e5d843be",
+        "unit": "lampos-a0ae-audio-trial.service",
+        "root_handover_required": true
+      },
+      {
+        "kind": "test_speech_requested",
+        "host_monotonic_s": 2210505.632534892,
+        "device": "lamp-52e6",
+        "text": "Hello Lamp, how are you doing today?",
+        "request_started_host_monotonic_s": 2210505.632184117,
+        "cue_check_deadline_host_monotonic_s": 2210505.7114821877
+      },
+      {
+        "kind": "test_speech_accepted",
+        "host_monotonic_s": 2210505.695270498,
+        "device": "lamp-52e6",
+        "response": {
+          "status": "ok"
+        },
+        "request_started_host_monotonic_s": 2210505.632184117,
+        "response_received_host_monotonic_s": 2210505.695268905,
+        "cache_hit": "not exposed by API; miss may render once"
+      },
+      {
+        "kind": "test_speech_active",
+        "host_monotonic_s": 2210505.754083735,
+        "boundary": "Source software state, not acoustic onset"
+      },
+      {
+        "kind": "test_speech_finished",
+        "host_monotonic_s": 2210507.739222072,
+        "boundary": "Source software state, not acoustic end"
+      },
+      {
+        "kind": "target_run_ended",
+        "host_monotonic_s": 2210545.756793646,
+        "stimulus_started": true
+      }
+    ],
+    "success": true,
+    "complete": true,
+    "failure": null
+  },
+  "target_runtime_layout": {
+    "capture-audio": [
+      "pre_aec.pcm16le",
+      "post_aec.pcm16le",
+      "render_accepted.pcm16le",
+      "events.jsonl",
+      "result.json",
+      "complete.json",
+      "manifest.pending.json"
+    ],
+    "render-audio": [
+      "pre_aec.pcm16le",
+      "post_aec.pcm16le",
+      "render_accepted.pcm16le",
+      "events.jsonl",
+      "result.json",
+      "complete.json",
+      "manifest.pending.json"
+    ],
+    "producer": "unchanged lamp-live --diagnostics output; copies are byte-identical",
+    "limits": "pre_aec is ALSA-resampled mono16k, not native capsule PCM; render accepted is ALSA-accepted24k, not proof of audibility"
+  },
+  "invalid_source_capture_receipt": {
+    "receipt": {
+      "kind": "done",
+      "valid": false,
+      "failure": "RuntimeError: Microphone permission closed or unknown",
+      "privacy_revoked": true,
+      "privacy_checks": 81,
+      "ownership_checks": 78,
+      "last_privacy_monotonic_s": 235103.497073138,
+      "last_ownership_monotonic_s": 235103.283042397,
+      "started_monotonic_s": 235086.338320932,
+      "ready_monotonic_s": 235086.583062829,
+      "finished_monotonic_s": 235103.594786785,
+      "window_s": 75.0,
+      "captures": {
+        "ambient": {
+          "alias": "plug:device_micro1",
+          "pid": 949394,
+          "returncode": 1,
+          "pcm_bytes": 544000,
+          "frames": 272000,
+          "pcm_sha256": "4a4961fb1d418093dc614e83183310233c7bd26363e10005d519dd471249e39e",
+          "first_read_s": 235086.520036447,
+          "last_read_s": 235103.395669677,
+          "stderr": "",
+          "post_stop_stderr": "arecord: pcm_read:2221: read error: Interrupted system call",
+          "forced_kill": false,
+          "owned_stop_requested": true
+        },
+        "voice": {
+          "alias": "plug:device_micro2",
+          "pid": 949395,
+          "returncode": 1,
+          "pcm_bytes": 544000,
+          "frames": 272000,
+          "pcm_sha256": "907b851e16c098e78a1c4044f9708987419cd30932d61d81e8664b17474b2fac",
+          "first_read_s": 235086.516041253,
+          "last_read_s": 235103.391769235,
+          "stderr": "",
+          "post_stop_stderr": "arecord: pcm_read:2221: read error: Interrupted system call",
+          "forced_kill": false,
+          "owned_stop_requested": true
+        }
+      },
+      "cleanup": [
+        {
+          "operation": "/voice/mute",
+          "response": {
+            "status": "already_muted"
+          },
+          "readback": true,
+          "verified": true
+        },
+        {
+          "operation": "/speaker/mute",
+          "response": {
+            "status": "already_muted"
+          },
+          "readback": true,
+          "verified": true
+        }
+      ],
+      "boundary": "host read/receipt timing, not ADC or acoustic timing"
+    },
+    "rate_hz": 16000,
+    "channels": 1,
+    "sample_format": "S16_LE",
+    "command_started_host_monotonic_s": 2212422.347656742,
+    "completed_host_monotonic_s": 2212439.819641817,
+    "first_pcm_receipts": {
+      "voice": {
+        "received_host_monotonic_s": 2212422.736102074,
+        "read_remote_monotonic_s": 235086.516041253,
+        "bytes_in_first_chunk": 4000,
+        "sample_zero": "Logical first received sample; ADC/exposure time is unknown"
+      },
+      "ambient": {
+        "received_host_monotonic_s": 2212422.739893553,
+        "read_remote_monotonic_s": 235086.520036447,
+        "bytes_in_first_chunk": 4000,
+        "sample_zero": "Logical first received sample; ADC/exposure time is unknown"
+      }
+    },
+    "captures": {
+      "ambient": {
+        "pcm_bytes_received": 544000,
+        "frames_received": 272000,
+        "pcm_sha256_received": "4a4961fb1d418093dc614e83183310233c7bd26363e10005d519dd471249e39e",
+        "valid": false,
+        "scored": false,
+        "disposition": "invalid/privacy-unknown: PCM discarded, receipt quarantined; no WAV/scoring"
+      },
+      "voice": {
+        "pcm_bytes_received": 544000,
+        "frames_received": 272000,
+        "pcm_sha256_received": "907b851e16c098e78a1c4044f9708987419cd30932d61d81e8664b17474b2fac",
+        "valid": false,
+        "scored": false,
+        "disposition": "invalid/privacy-unknown: PCM discarded, receipt quarantined; no WAV/scoring"
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Integrated code checkpoint: `a253abe5eb4fd09b666959e059e8249930af5c0a`
-- State: first physical Rust response recorded; content and playback defects remain. Release and benchmark unfinished.
+- State: two physical Rust attempts retained: one answered with content/playback defects; one split a question and failed on the cancellation barrier. Release and benchmark unfinished.
 
 ## Direct coordination
 
@@ -99,6 +99,23 @@ not gate this first measurement. Agent 2 `b010aa0b8` corrects failure during
 the trigger delay; the attempt-level latch and final dispatch guard follow.
 Its simulated EPIPE/ReferenceLate failures remain simulation evidence pending
 trace review, not measured Lamp failures.
+
+MAIN-023/025: independent evaluation review found two remaining final-dispatch
+faults: the backend can play after termination, and the runner can dispatch after
+its timing/speaking precondition is lost during a final drain. Four reproduced
+regressions and the report are published on the separate review branch
+`lamp-voice-eval-review-20261011` at `60f98cb9a`; this deliberately red branch is
+not a runtime checkpoint. MAIN-026 provides Agent 2 the Git reference. Agent 2
+reports the first correction in `d3ada11e`; root review remains pending and the
+second correction was requested. The recording-import example is in
+[recording-import-examples.json](recording-import-examples.json).
+
+MAIN-024: the actual second physical trial hit the previously open
+interrupt-before-output `Require` barrier risk after premature segmentation.
+Agent 1 should prioritize the physical playback-gap and interruption failures
+before environmental acquisition. Checkpoint 8's speaker device seam is
+published, not integrated. Main is preparing an NS-off live repeat based on
+an exact local replay; AEC and detector thresholds remain unchanged.
 
 ## Devices and reservations
 

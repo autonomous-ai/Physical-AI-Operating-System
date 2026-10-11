@@ -1,5 +1,5 @@
 //! `lamp-endpoint-worker --model PATH [--parent PID]`
-//! `lamp-endpoint-worker --check-model PATH` (installation check only)
+//! `lamp-endpoint-worker --check-model PATH` (installation self-check)
 //!
 //! Serves Smart Turn v3.2 verdicts for one interaction core over stdin and
 //! stdout (see `lamp_endpoint_ipc::frame`). It verifies the pinned model, runs
@@ -7,10 +7,33 @@
 //! It writes no files. After each request it zeroes its request and
 //! feature-extraction buffers; freed allocations and the inference runtime's
 //! internal memory are not scrubbed. On Linux it dies with the core that
-//! started it; an input end of stream is an ordinary stop.
-use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, classify};
+//! started it; an input end of stream is an ordinary stop. Before it reads the
+//! model on Linux, it disables core files, caps its address space and lowers
+//! its CPU priority.
+use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, classify, reference};
 use lamp_endpoint_ipc::serve;
-use std::{ffi::OsString, io, path::PathBuf, process::ExitCode, time::Instant};
+use std::{
+    ffi::OsString,
+    io,
+    path::{Path, PathBuf},
+    process::ExitCode,
+    time::Instant,
+};
+
+/// Niceness the worker adds on Linux. Under CPU contention, the fair
+/// scheduler gives each capture, playback and provider thread about nine
+/// times the worker's share; a verdict that arrives late is answered by the
+/// core's silence fallback.
+#[cfg(target_os = "linux")]
+const NICE: i32 = 10;
+/// Linux address-space cap: 2.2 times the 113.5 MiB `VmPeak` the self-check
+/// measured on ARM64 Linux (docs/endpoint-detection.md). An allocation beyond
+/// it ends the worker, which the core treats like any other worker failure.
+#[cfg(target_os = "linux")]
+const ADDRESS_SPACE_LIMIT: u64 = 256 << 20;
+/// Classifications of the reference signal in `--check-model`. The first is
+/// cold; the rest report the warm cost.
+const CHECK_RUNS: usize = 10;
 
 struct Arguments {
     model: PathBuf,
@@ -56,26 +79,126 @@ fn follow_parent(_parent: Option<u32>) -> Result<(), String> {
     Ok(())
 }
 
-/// Verifies an installed model's pinned size and SHA256, and that tract can
-/// load it, without speaking the worker protocol.
-fn check_model(path: &OsString) -> ExitCode {
-    let path = PathBuf::from(path);
-    match SmartTurn::load(&path, &SMART_TURN_V3_2) {
-        Ok(_) => {
-            println!(
-                "{}: verified {} ({} bytes, SHA256 {})",
-                path.display(),
-                SMART_TURN_V3_2.file_name,
-                SMART_TURN_V3_2.bytes,
-                SMART_TURN_V3_2.sha256
-            );
-            ExitCode::SUCCESS
+/// Bounds the worker before it reads the model. Never raises a limit the
+/// service manager already set lower.
+#[cfg(target_os = "linux")]
+fn bound_resources() -> Result<(), String> {
+    use rustix::process::{Resource, Rlimit, getrlimit, nice, setrlimit};
+    let cap = |resource, bytes: u64| {
+        let bytes = getrlimit(resource)
+            .maximum
+            .map_or(bytes, |hard| hard.min(bytes));
+        setrlimit(
+            resource,
+            Rlimit {
+                current: Some(bytes),
+                maximum: Some(bytes),
+            },
+        )
+    };
+    // A crash must not write retained speech to a core file.
+    cap(Resource::Core, 0).map_err(|error| format!("core file limit: {error}"))?;
+    cap(Resource::As, ADDRESS_SPACE_LIMIT)
+        .map_err(|error| format!("address space limit: {error}"))?;
+    nice(NICE).map_err(|error| format!("priority: {error}"))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn bound_resources() -> Result<(), String> {
+    Ok(())
+}
+
+/// The effective address-space limit in KiB and niceness, as JSON values.
+#[cfg(target_os = "linux")]
+fn bounds() -> [String; 2] {
+    use rustix::process::{Resource, getpriority_process, getrlimit};
+    let limit = getrlimit(Resource::As).current;
+    [
+        limit.map_or("null".into(), |bytes| (bytes >> 10).to_string()),
+        getpriority_process(None).map_or("null".into(), |nice| nice.to_string()),
+    ]
+}
+
+#[cfg(not(target_os = "linux"))]
+fn bounds() -> [String; 2] {
+    ["null".into(), "null".into()]
+}
+
+/// `VmPeak`, `VmHWM` and `VmRSS` in KiB, from Linux `/proc/self/status`.
+fn memory_kib() -> [Option<u64>; 3] {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    ["VmPeak:", "VmHWM:", "VmRSS:"].map(|key| {
+        status
+            .lines()
+            .find_map(|line| line.strip_prefix(key))
+            .and_then(|value| value.trim().trim_end_matches("kB").trim().parse().ok())
+    })
+}
+
+fn cpu_us() -> u64 {
+    let now = rustix::time::clock_gettime(rustix::time::ClockId::ProcessCPUTime);
+    (now.tv_sec as u64) * 1_000_000 + (now.tv_nsec as u64) / 1_000
+}
+
+fn ms(us: u64) -> f64 {
+    us as f64 / 1_000.0
+}
+
+/// Loads the model under the worker's own bounds, classifies the reference
+/// signal `CHECK_RUNS` times against ONNX Runtime's probability, and returns
+/// one JSON line of costs.
+fn self_check(path: &Path) -> Result<String, String> {
+    bound_resources()?;
+    let (started, cpu_started) = (Instant::now(), cpu_us());
+    let model = SmartTurn::load(path, &SMART_TURN_V3_2).map_err(|error| error.to_string())?;
+    let load_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+    let load_cpu_us = cpu_us() - cpu_started;
+    let (mut extractor, signal) = (FeatureExtractor::default(), reference::voiced());
+    let (mut costs, mut probability) = (Vec::with_capacity(CHECK_RUNS), 0.0);
+    let cpu_started = cpu_us();
+    for _ in 0..CHECK_RUNS {
+        let classified = classify(&model, &mut extractor, &signal)?;
+        probability = classified.probability;
+        if (probability - reference::VOICED_PROBABILITY).abs() > reference::TOLERANCE {
+            return Err(format!(
+                "reference probability {probability} differs from ONNX Runtime's {}",
+                reference::VOICED_PROBABILITY
+            ));
         }
-        Err(error) => {
-            eprintln!("{}: {error}", path.display());
-            ExitCode::from(2)
-        }
+        costs.push(classified.features_us + classified.inference_us);
     }
+    let cpu_per_check_us = (cpu_us() - cpu_started) / CHECK_RUNS as u64;
+    let cold_us = costs[0];
+    let mut warm = costs[1..].to_vec();
+    warm.sort_unstable();
+    let [peak, hwm, rss] = memory_kib().map(|value| value.map_or("null".into(), |v| v.to_string()));
+    let [address_space, nice] = bounds();
+    Ok(format!(
+        concat!(
+            "{{\"model\":\"{}\",\"bytes\":{},\"sha256\":\"{}\",\"probability\":{},",
+            "\"reference\":{},\"load_ms\":{:.1},\"load_cpu_ms\":{:.1},\"cold_ms\":{:.1},",
+            "\"warm_median_ms\":{:.1},\"warm_max_ms\":{:.1},\"cpu_per_check_ms\":{:.1},",
+            "\"vm_peak_kib\":{},\"vm_hwm_kib\":{},\"vm_rss_kib\":{},",
+            "\"address_space_limit_kib\":{},\"nice\":{}}}"
+        ),
+        SMART_TURN_V3_2.file_name,
+        SMART_TURN_V3_2.bytes,
+        SMART_TURN_V3_2.sha256,
+        probability,
+        reference::VOICED_PROBABILITY,
+        ms(load_us),
+        ms(load_cpu_us),
+        ms(cold_us),
+        ms(warm[warm.len() / 2]),
+        ms(warm[warm.len() - 1]),
+        ms(cpu_per_check_us),
+        peak,
+        hwm,
+        rss,
+        address_space,
+        nice,
+    ))
 }
 
 fn main() -> ExitCode {
@@ -83,12 +206,23 @@ fn main() -> ExitCode {
     if let [flag, path] = arguments.as_slice()
         && flag == "--check-model"
     {
-        return check_model(path);
+        let path = PathBuf::from(path);
+        return match self_check(&path) {
+            Ok(line) => {
+                println!("{line}");
+                ExitCode::SUCCESS
+            }
+            Err(reason) => {
+                eprintln!("{}: {reason}", path.display());
+                ExitCode::from(2)
+            }
+        };
     }
     let mut output = io::stdout().lock();
     let started = Instant::now();
     let setup = parse(arguments.into_iter()).and_then(|arguments| {
         follow_parent(arguments.parent)?;
+        bound_resources()?;
         SmartTurn::load(&arguments.model, &SMART_TURN_V3_2)
             .map_err(|error| format!("model {}: {error}", arguments.model.display()))
     });

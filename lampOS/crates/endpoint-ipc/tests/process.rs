@@ -516,6 +516,50 @@ fn sustained_requests_stay_bounded() {
     println!("    full-window submit worst case {worst:?}");
 }
 
+/// `LAMP_ENDPOINT_IDLE_SECS` (default 2) of quiet, several times the hang
+/// limit: only a request in flight is timed, so an idle worker is neither
+/// killed nor replaced. The pilot evidence uses 600.
+fn an_idle_worker_stays_ready_across_a_long_quiet() {
+    let idle = std::env::var("LAMP_ENDPOINT_IDLE_SECS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(2u64);
+    let mut classifier = fake("ready", quick());
+    ready(&classifier);
+    let pid = classifier.report().pid.unwrap();
+    for (index, quiet) in [(1, false), (2, true)] {
+        if quiet {
+            let started = Instant::now();
+            while started.elapsed() < Duration::from_secs(idle) {
+                assert_eq!(
+                    quick_call(|| classifier.availability()),
+                    Availability::Ready
+                );
+                thread::sleep(Duration::from_millis(100));
+            }
+        }
+        assert_eq!(
+            submit(&mut classifier, token(index), &script(ANSWER, 800, 0)),
+            Submit::Accepted
+        );
+        let outcome = answer(&mut classifier);
+        assert_eq!(outcome.token, token(index));
+        assert_eq!(outcome.result.unwrap().probability, 0.8);
+    }
+    let report = classifier.report();
+    assert_eq!(report.pid, Some(pid));
+    assert_eq!(
+        (report.spawned, report.kills, report.verdicts, report.errors),
+        (1, 0, 2, 0)
+    );
+    classifier.close();
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(2)),
+        Teardown::Reaped
+    );
+    println!("    idle {idle} s without a restart");
+}
+
 fn a_worker_reporting_another_model_is_refused_before_any_request() {
     let mut classifier = fake_with("ready", quick(), [9; 32], Vec::new());
     let reason = until(Duration::from_secs(5), "failure", || {
@@ -597,7 +641,11 @@ fn main() -> ExitCode {
         .skip(1)
         .filter(|argument| !argument.starts_with('-'))
         .collect();
-    let tests: [(&str, fn()); 11] = [
+    let tests: [(&str, fn()); 12] = [
+        (
+            "an_idle_worker_stays_ready_across_a_long_quiet",
+            an_idle_worker_stays_ready_across_a_long_quiet,
+        ),
         (
             "a_worker_reporting_another_model_is_refused_before_any_request",
             a_worker_reporting_another_model_is_refused_before_any_request,

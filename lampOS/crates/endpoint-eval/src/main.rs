@@ -4,6 +4,7 @@
 //! - `replay`: the production detector over the same clips for each profile.
 //! - `cases`: the synthetic `say` stress cohort, kept apart from human clips.
 //! - `profile`: startup, stage latency and resource use of the real worker.
+//! - `turns`: end-to-end turn outcomes with early, recoverable endpoints.
 //!
 //! Results are classification and replay evidence on a development host. They
 //! are not room recordings, device timing or direct-human acceptance.
@@ -15,6 +16,7 @@ mod corpus;
 mod probe;
 mod profile;
 mod replay;
+mod turns;
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -138,6 +140,34 @@ fn main() -> Result<()> {
             arguments.get("starts").map_or(Ok(5), str::parse)?,
             arguments.required("out")?.as_ref(),
         ),
+        "turns" => {
+            let directories: Vec<PathBuf> =
+                arguments.positional.iter().map(PathBuf::from).collect();
+            let every = arguments.get("every").map_or(Ok(1), str::parse::<usize>)?;
+            let clips: Vec<_> = corpus::load(&directories, arguments.flag("synthetic"))?
+                .into_iter()
+                .step_by(every.max(1))
+                .collect();
+            let latencies = arguments
+                .get("provider-ms")
+                .unwrap_or("300,600,1100,1500")
+                .split(',')
+                .map(str::parse::<u64>)
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            eprintln!("turns: {} clips, {threads} threads", clips.len());
+            turns::run(
+                &clips,
+                arguments.required("model")?.as_ref(),
+                arguments
+                    .get("latency-ms")
+                    .map_or(Ok(130), str::parse::<u16>)?
+                    .div_ceil(10)
+                    .max(1),
+                &latencies,
+                threads,
+                arguments.required("out")?.as_ref(),
+            )
+        }
         "cases" => cases::run(
             arguments.required("cases")?.as_ref(),
             arguments.required("cache")?.as_ref(),
@@ -150,7 +180,7 @@ fn main() -> Result<()> {
             arguments.required("out")?.as_ref(),
         ),
         _ => Err(
-            "usage: lamp-endpoint-eval probe|replay|cases|profile --model M --out O [options] DIR..."
+            "usage: lamp-endpoint-eval probe|replay|cases|profile|turns --model M --out O [options] DIR..."
                 .into(),
         ),
     }

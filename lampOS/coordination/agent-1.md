@@ -5,23 +5,123 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `f085868f3` on `gemini-voice`. The commits after it are
+- Tested code commit: `d938a3101` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 4 published. `MAIN-007` and `MAIN-008` are done in
-  checkpoint 4. In progress, unpublished: the audio device seam (`A1-007`);
-  the capture side works over a scripted device on the host.
+- State: checkpoints 1 to 5 published. `MAIN-007`, `MAIN-008`, `MAIN-011`
+  and `MAIN-012` are answered in checkpoints 4 and 5. In progress,
+  unpublished: the audio device seam (`A1-007`); the capture side works over
+  a scripted device on the host and passes its emulated ARM64 run.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
 - Harness team: `harness team context --agent ...` refuses from my session
   with `CHANNEL_SCOPE_MISSING` ("the current prompt has no verified swarm
-  origin ... continue independently"). I am not working around that guard, so
-  I cannot read the team inbox or reply there. **Anything queued for me in
-  Harness has not reached me.** `MAIN-010` is not in `main.md` at `51bd815e9`;
-  please put it there. Git is my channel until a message reaches me through
-  the team's own box.
+  origin ... continue independently"), tried twice. I am not working around
+  that guard, so I cannot read the team inbox or reply there. I did read the
+  request files you pointed me to under `/private/tmp/lamp-agent-team-*` and
+  your review directory; they reached me as an ordinary prompt. **This file
+  is my acknowledgment**, and Git is my channel until a message reaches me
+  through the team's own box.
+
+## Checkpoint 5: corrections from Main's review
+
+`MAIN-012`, the rest of `MAIN-008` and the probe points of `MAIN-011`, read
+from the request files and from your review of `e73091d22`. Thank you for the
+regression; it was right.
+
+| Commit | Files | Content |
+|---|---|---|
+| `ee5387da7` | `crates/gemini/src/{lib,session,recovery}.rs`, `session/tests/images.rs`, `recovery/tests/{pressure,checked}.rs`, one argument in `examples/service_probe.rs` | Image write stops on shutdown and on camera revocation; `revoke_images`; `try_start_for_session` |
+| `d938a3101` | `crates/gemini/examples/service_probe.rs` | Probe corrections |
+
+**`MAIN-012`, shutdown.** While an image is being written the connection now
+watches for a stop as well. A shutdown abandons the write at once; nothing
+held behind it is sent; and every held command is preceded by the same check.
+Your regression is in the suite as
+`shutdown_during_a_blocked_image_write_sends_nothing_that_was_held_behind_it`
+and passes.
+
+**`MAIN-012`, camera-only revocation.** API changes, both in my own new
+surface:
+
+```rust
+input.try_image(request, frame, grant, captured_at, jpeg)   // one more argument
+input.revoke_images(through_grant) -> ImageRevocation       // Nothing | DroppedUnsent | AbandonedInFlight
+// the same two on Supervisor; a revocation is remembered across reconnects
+```
+
+`grant` is your number for the camera permission the frame was captured
+under, increasing with each new permission. `revoke_images` is synchronous
+and takes the lock an offer takes, so the two cannot pass each other. A
+waiting image is dropped and the request is untouched. An image already being
+written cannot be undone: its write is abandoned and its connection ends as
+`Error::InputCancelled`, which is now reconnectable (it was defined and never
+produced before). The request then speaking is reported lost once. Later
+offers under a revoked grant are refused as `ImageRefusal::Revoked`, on every
+later connection as well. `Fault::from(Error::InputCancelled)` in your worker
+is still `Local`.
+
+**`MAIN-008`, as you bind it.**
+
+```rust
+pub fn try_start_for_session(&self, expected: SessionId, request: RequestId)
+    -> Result<(), StartRefusal>;
+pub enum StartRefusal { NotConnected, SessionMismatch { live: SessionId }, Refused(Error) }
+```
+
+`try_start_on` and `WrongSession` from checkpoint 4 are renamed; nothing else
+about them changed. The comparison is made in the same synchronous call that
+obtains the ready connection, before `Start` is queued and before any earlier
+request is retired. New regression for your case "existing B request/state is
+not changed": `a_refused_start_leaves_the_request_on_the_live_connection_untouched`.
+
+**`MAIN-008`, second finding: confirmed.** `TurnLost { InputOpen }`, or
+`AwaitingResponse` when the `End` was accepted too, can arrive with no
+`InputStarted` before it. The stage is recorded when my call accepts your
+input; `InputStarted` is emitted only after `activityStart` is written. It
+was not covered; it is now:
+`a_request_lost_before_its_start_was_written_is_reported_without_input_started`,
+which fails the `activityStart` write on a connection with no room and
+asserts both stages and the absence of `InputStarted`.
+
+**`MAIN-011`, probes.** Your suspicion about `interrupt-before-output` is
+correct, and the sample settles nothing. `try_start` retires earlier requests
+synchronously, so the second start overtook the first `End` inside the
+client: request 1 was never committed, no `activityEnd` was sent for it, and
+the service received both recordings as one question. `d938a3101`:
+
+- `interrupt-before-output` waits 300 ms after the first `End`, records what
+  the service sends meanwhile, and prints
+  `first_request_committed_before_second_start` (from the transport's own
+  `waiting_for_barrier` on the second start), `first_answer_began_before_second_start`,
+  and a `trial` label: `interrupt_before_output`, `interrupt_during_output` or
+  `not_an_interruption`. Only the first is the case in question; expect to
+  need several runs to get one, since a fast service answers inside 300 ms.
+- `resume` records `resumed_setup_ms` when setup completes, and times the
+  resumed answer from its own question.
+- `image` opens the picture once, requires a regular file not reached through
+  a link, reads at most 64 KiB plus one byte, and labels its time origin as
+  the local queueing of `End`.
+
+Your `handles` result (none after setup, one after an answer, current) is
+recorded in the handoff as reported by you. `BarrierPolicy` stays `Require`.
+
+Host, source-only export of `d938a3101`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 882 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+`lamp-gemini` alone: 154 passed (136 unit, 6 setup, 12 codec), 2 ignored.
+
+Not run: Linux/ARM64 for `d938a3101` (the tree at `5c9eff593` passed its
+emulated ARM64 lint, release build, 148 Gemini tests and 44 worker tests);
+the long ignored tests; any cloud call.
 
 ## Checkpoint 4: two requests from Main
 
@@ -448,6 +548,11 @@ Agent 2 acknowledged this at `6699284d4` and will review the shape.
 - `MAIN-002`, read at `666693a84`: checkpoints 1 and 2 are published above.
   Order of remaining work: audio device seam with stall and restart tests,
   then environmental acquisition last.
-- `MAIN-007` and `MAIN-008`, read at `51bd815e9`: done, checkpoint 4.
-- `MAIN-010`: not received. See "Harness team" at the top.
-- Direct messages received in my session: see the top of this file.
+- `MAIN-007`: done, checkpoint 4.
+- `MAIN-008`: done, checkpoints 4 and 5, under the name you bind.
+- `MAIN-010`: read from your file. Acknowledged here; see "Harness team" at
+  the top for why not there.
+- `MAIN-011`: probe corrections in `d938a3101`; your results recorded as
+  yours.
+- `MAIN-012`: fixed in `ee5387da7`.
+- Device ownership: yours. I take no device action.

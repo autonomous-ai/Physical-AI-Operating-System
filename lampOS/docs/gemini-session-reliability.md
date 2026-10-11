@@ -19,7 +19,7 @@ combined:
 |---|---|---|
 | Host | macOS x86_64, scripted in-memory service | Transport and worker logic, bounds, ordering |
 | Linux/ARM64 | Cross-compiled in a container, tests under user-mode emulation | The target builds, type-checks and runs the same logic |
-| Cloud | **Nothing.** No provider credential exists on this host | Nothing yet; see [Service probes](#service-probes) |
+| Cloud | Nothing by Agent 1: no provider credential exists on this host. The integrator ran two probes from a board | That handles are issued unasked, and nothing else yet; see [service evidence](#service-evidence-reported-by-the-integrator) |
 | Device | **Nothing.** Lamp access is not restored | Nothing |
 
 Passing these tests does not establish natural voice interaction. It
@@ -701,19 +701,20 @@ Both read from `coordination/main.md` at `51bd815e9`.
 
 | Commit | Files | Content |
 |---|---|---|
-| `e7b8d24b2` | `crates/gemini/src/recovery.rs`, `lib.rs`, `recovery/tests.rs`, new `recovery/tests/checked.rs` | `MAIN-008`: `Supervisor::try_start_on(session, request)` and `StartRefusal` |
+| `e7b8d24b2`, renamed in `ee5387da7` | `crates/gemini/src/recovery.rs`, `lib.rs`, `recovery/tests.rs`, new `recovery/tests/checked.rs` | `MAIN-008`: `Supervisor::try_start_for_session(expected, request)` and `StartRefusal` |
 | `f085868f3` | `crates/gemini/src/lib.rs`, `recovery/tests/pressure.rs` | `MAIN-007`: `Error::Backpressure` is reconnected; three regressions |
 
 **Checked start.** A decision to start a request is taken while one
 connection is ready and may reach the supervisor after a recovery. The
 unchecked `try_start` would then send it to the replacement, which the caller
-never chose. `try_start_on` names the session and refuses before anything is
-queued:
+never chose. `try_start_for_session` names the session, compares it with the
+ready connection in the same synchronous call, and refuses before anything is
+queued or any earlier request retired:
 
 | `StartRefusal` | Meaning |
 |---|---|
 | `NotConnected` | No connection is ready |
-| `WrongSession { live }` | A connection is ready and it is not the one named; `live` is the one that is |
+| `SessionMismatch { live }` | A connection is ready and it is not the one named; `live` is the one that is |
 | `Refused(error)` | The right connection refused, as `try_start` would |
 
 A refusal sends nothing, supersedes no earlier answer and spends no request
@@ -722,14 +723,56 @@ already bound to the exact session and request that started.
 
 | Test | What it pins |
 |---|---|
-| `start_chosen_for_a_replaced_connection_is_refused_before_anything_is_sent` | A start chosen for connection 1 arriving after connection 2 took over: `WrongSession`, the replacement hears nothing, the unread answer of connection 1 is delivered whole and settled, and the same request then starts on connection 2 |
+| `start_chosen_for_a_replaced_connection_is_refused_before_anything_is_sent` | A start chosen for connection 1 arriving after connection 2 took over: `SessionMismatch`, the replacement hears nothing, the unread answer of connection 1 is delivered whole and settled, and the same request then starts on connection 2 |
+| `a_refused_start_leaves_the_request_on_the_live_connection_untouched` | With request 2 already speaking on the replacement, a late start for request 3 chosen for the dead connection is refused; request 2 keeps sending audio and ends normally; the service hears nothing of request 3; its number is not spent |
+| `a_request_lost_before_its_start_was_written_is_reported_without_input_started` | A connection that cannot take another byte: `try_start`, and `try_start` + audio + `try_end`, are accepted locally, the `activityStart` write times out, and the request is reported lost at `InputOpen` and `AwaitingResponse` with no `InputStarted` before it |
 | `checked_start_never_reaches_a_connection_other_than_the_one_named` | A session that does not exist yet; the ordinary refusals on the right session; `NotConnected` throughout an outage; no request number spent |
 | `a_stopped_speaker_past_the_delivery_bound_costs_the_answer_not_the_session` | One replacement with the handle, `Resumed`; an unbroken beginning of at most 16 events; one `TurnLost { Responding, Backpressure }`; nothing sent again; the next request served |
 | `a_stopped_speaker_still_ends_a_session_that_cannot_resume_its_context` | No handle and context required: no attempt, the request still reported once, then `NoResumableContext` |
 | `input_that_overruns_its_queue_loses_that_request_and_recovers_the_link` | The 33rd unserviced block: `Backpressure`, one `TurnLost { InputOpen }`, recovery, the rest of that request's input refused |
 
-Host results for `f085868f3` are in
-[Agent 1's status](../coordination/agent-1.md#checkpoint-4-two-requests-from-main).
+**A lost request may have no `InputStarted`.** The stage is recorded when the
+caller's `try_start` (and `try_end`) is accepted, which is synchronous.
+`InputStarted` is emitted only once `activityStart` has been written. A
+connection that fails between the two reports `TurnLost { InputOpen }`, or
+`AwaitingResponse` if the `End` was accepted as well, with no `InputStarted`
+before it. That is the producer's contract, confirmed and now tested; a
+consumer must accept that exact loss without having seen the start.
+
+Host results are in
+[Agent 1's status](../coordination/agent-1.md).
+
+## Service evidence reported by the integrator
+
+Not run by Agent 1. The integrator ran the probe tool built from `64806f862`
+on board `lamp-a0ae` against the deployment endpoint (`campaign-api`, model
+`gemini-3.8-live-extended-thinking`, voice `Kore`, thinking `LOW`), opening no
+hardware, and reported in `MAIN-011`:
+
+| Probe | Reported | What it settles |
+|---|---|---|
+| `handles` | No handle after setup; a handle after one answer, marked current | Resumption handles are issued without being asked for. `Resumption::Retain`, as the worker is configured, has something to retain |
+| `interrupt-before-output` | Only request 2 produced events: first audio 3,387 ms after the second start, generation complete and idle completion at 5,538 and 5,539 ms. No `interrupted`, no terminal for request 1, no assumed barrier | **Nothing.** See below |
+
+The second result is not evidence about interruption. The probe queued the
+first `End` and the second `Start` back to back. `InputSender::try_start`
+retires earlier requests synchronously, so the second start overtook the
+first `End` inside the client: request 1 was treated as cancelled before it
+was committed, no `activityEnd` was sent for it, and both recordings went to
+the service as one question. The service was never asked to interrupt
+anything. The integrator suspected exactly this.
+
+Since `d938a3101` the probe waits 300 ms after the first `End`, records what
+the service sends meanwhile, and reports
+`first_request_committed_before_second_start` (taken from the transport's own
+`waiting_for_barrier` on the second start) and a `trial` label:
+`interrupt_before_output`, `interrupt_during_output` or `not_an_interruption`.
+Only the first label is a trial of the case in question. The `resume` probe
+now records `resumed_setup_ms` when setup completes, and times the resumed
+answer from its own question.
+
+**The barrier policy stays `Require`.** No service evidence yet says what the
+service does when interrupted before it has answered.
 
 ## Integration notes
 

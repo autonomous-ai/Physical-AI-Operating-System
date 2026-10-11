@@ -150,22 +150,30 @@ impl DirectedOptions {
 pub struct SessionOptions {
     pub directed: DirectedOptions,
     pub cue_socket: Option<PathBuf>,
+    /// Opt-in direct camera context; absent means no camera process or device.
+    pub camera_config: Option<PathBuf>,
 }
 impl SessionOptions {
     pub fn parse(arguments: &[String]) -> io::Result<Self> {
         let mut remaining = Vec::new();
         let mut cue_socket = None;
+        let mut camera_config = None;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
-            if argument == "--cue-socket" {
-                if cue_socket.is_some() {
+            if matches!(argument.as_str(), "--cue-socket" | "--camera-config") {
+                let slot = if argument == "--cue-socket" {
+                    &mut cue_socket
+                } else {
+                    &mut camera_config
+                };
+                if slot.is_some() {
                     return Err(invalid_options());
                 }
                 let path = PathBuf::from(required_value(&mut arguments)?);
                 if !path.is_absolute() {
                     return Err(invalid_options());
                 }
-                cue_socket = Some(path);
+                *slot = Some(path);
             } else {
                 remaining.push(argument.clone());
             }
@@ -173,6 +181,7 @@ impl SessionOptions {
         Ok(Self {
             directed: DirectedOptions::parse(&remaining)?,
             cue_socket,
+            camera_config,
         })
     }
 }

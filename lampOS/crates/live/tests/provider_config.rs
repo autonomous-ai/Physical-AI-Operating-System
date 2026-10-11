@@ -267,3 +267,27 @@ fn credential_file_guards_and_redacted_failures_are_preserved() {
         fixture.invalid_session(&fixture.value());
     }
 }
+
+#[test]
+fn camera_instruction_is_explicit_without_changing_model_voice_or_turn_policy() {
+    let fixture = Private::new();
+    let ordinary = fixture.setup(&fixture.value());
+    let session = ProviderConfig::load(&fixture.config)
+        .unwrap()
+        .into_session_with_camera(true)
+        .unwrap();
+    let visual: Value = serde_json::from_str(&wire::encode_setup(&session).unwrap()).unwrap();
+    assert_eq!(
+        visual["setup"]["systemInstruction"],
+        json!({"parts":[{"text":lamp_live::config::CAMERA_CHAT_INSTRUCTION}]})
+    );
+    for field in [
+        "model",
+        "generationConfig",
+        "realtimeInputConfig",
+        "inputAudioTranscription",
+        "outputAudioTranscription",
+    ] {
+        assert_eq!(visual["setup"][field], ordinary["setup"][field], "{field}");
+    }
+}

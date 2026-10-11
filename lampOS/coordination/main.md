@@ -7,6 +7,15 @@
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
+## Camera integration checkpoint
+
+The opt-in camera context is integrated locally and has passed combined host
+formatting, strict Clippy and 1,166 tests (zero failed, four existing ignored).
+The source-only combined ARM build is underway. The implementation and explicit
+limits are in [camera context](../docs/gemini-camera-context.md). Device USB
+identity/mode provisioning is complete; capture and Gemini sight are unverified.
+Motor control remains inactive.
+
 ## Current owner priority
 
 The owner deferred V1 benchmarking and requested V2 implementation and real-device

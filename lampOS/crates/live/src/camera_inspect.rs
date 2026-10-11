@@ -308,6 +308,11 @@ impl Observer {
                     ));
                 }
             }
+            CameraEvent::FrameLink { .. } => {
+                return Err(io::Error::other(
+                    "frame link events are invalid during metadata-only inspection",
+                ));
+            }
             CameraEvent::Stopped {
                 at_us,
                 reason,

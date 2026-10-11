@@ -1,0 +1,64 @@
+{
+  "base": "96eff6b4282437cc44413df3715b27b1dc0e3829",
+  "source": "canonical working tree; 25 camera patch files, motor already committed",
+  "checks": [
+    {
+      "name": "fmt",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 1.1856615198776126,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit": 0,
+      "seconds": 21.34932432603091,
+      "log_sha256": "e1edb4e6671a35a8ded78bf3ce8e803afbb2d342bb37ef0c99b96106405e9d8a"
+    },
+    {
+      "name": "test",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 575.0968233896419,
+      "log_sha256": "594841269042c731350336378ffec3119ca616f319558c9e86a178fa8546ef8b"
+    }
+  ],
+  "test_totals": {
+    "passed": 1166,
+    "failed": 0,
+    "ignored": 4
+  },
+  "boundary": "host software gates only; no hardware or cloud image qualification",
+  "frozen_source_manifest_sha256": "38bc990e436aa8e43e171b6b51f20facbe4d44d8f4bcca8310c3784bb75860cf",
+  "combined_lock_sha256": "e6f666761adaf1236a6e61801d2b5e6a0099d854dad87b35fb002ccd4bfe991e",
+  "camera_patch_sha256": "0d86c0b173a48698bf25c8631e53c06218565639a8fd95bea9146d2038cb8351"
+}

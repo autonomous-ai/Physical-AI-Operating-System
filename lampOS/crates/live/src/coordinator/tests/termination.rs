@@ -196,6 +196,7 @@ fn isolated_signal_child() {
         peer(privacy_peer, None),
     ];
     let mut rig = Rig {
+        camera: None,
         provider,
         capture,
         speaker,

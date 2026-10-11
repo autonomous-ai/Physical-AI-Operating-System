@@ -70,6 +70,9 @@ pub enum WorkerEvent {
     ProviderLink {
         link: crate::provider_link::ProviderLink,
     },
+    VisualContext {
+        receipt: crate::visual_context::Receipt,
+    },
     Ring {
         report: crate::ring_wire::RingFeedback,
     },

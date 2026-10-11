@@ -145,7 +145,13 @@ impl FixtureOptions {
         let SessionOptions {
             directed,
             cue_socket,
+            camera_config,
         } = SessionOptions::parse(arguments)?;
+        if camera_config.is_some() {
+            return Err(invalid(
+                "camera context is supported only by directed Gemini chat",
+            ));
+        }
         if !directed.diagnostics {
             return Err(invalid(
                 "fixture experiments require explicit --diagnostics",

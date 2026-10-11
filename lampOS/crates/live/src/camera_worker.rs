@@ -1,11 +1,19 @@
-//! A finite metadata-only camera worker. JPEG bytes never enter a channel.
+//! A finite camera worker. JPEG bytes never enter a control or data channel.
+//! Without frame consumers it publishes metadata only (camera inspection).
+//! With consumers it also serves frames over the separate bounded frame link
+//! (`lamp_camera::frames`), copying each frame into the waiting consumers' own
+//! buffers before releasing the library slot. Capture, privacy control and
+//! metadata never wait for a consumer.
 //! `Ready` means this closed loop exists, not that capture or sight is ready.
 use crate::{
     camera_config::{Interval, UsbIdentity},
     transport::WorkerChannels,
     wire::Control,
 };
-use lamp_camera::{Capture, Clock, DeliveryToken, FrameObservation, NegotiatedMode, Phase, PortIo};
+use lamp_camera::{
+    Capture, Clock, DeliveryToken, FrameObservation, NegotiatedMode, Phase, PortIo,
+    frames::{CloseReason, FrameServer, LinkCounts, LinkEvent, Role},
+};
 use lamp_interaction::{BootId, CameraGrant};
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -15,10 +23,60 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::run;
 
+/// The worker process loop for any port: announce the closed loop, then step
+/// at the cooperative poll target until stop or fault. The Linux entry and
+/// simulation harnesses share this driver; only the port differs.
+pub fn serve<P: InspectPort, C: Clock>(
+    channels: &mut WorkerChannels,
+    mut runtime: CameraLoop<P, C>,
+) -> io::Result<()> {
+    // No camera open or permission was obtained to reach this handshake.
+    channels.control.send(crate::wire::WorkerEvent::Ready)?;
+    let mut clock = lamp_ipc::monotonic_us;
+    loop {
+        if runtime.step(channels, &mut clock)? == Step::Stopped {
+            return Ok(());
+        }
+        // This is a cooperative target, not a scheduler/kernel guarantee.
+        std::thread::sleep(std::time::Duration::from_micros(
+            lamp_camera::POLL_TARGET_US,
+        ));
+    }
+}
+
 pub const CONTROL_BUDGET: usize = 16;
 pub const PROGRESS_INTERVAL_US: u64 = 10_000;
 pub const PROGRESS_DEADLINE_US: u64 = 30_000;
 pub const WORKER_INITIAL_AUTHORITY_US: u64 = 250_000;
+/// Frame link events published per loop iteration.
+const LINK_EVENTS_PER_STEP: usize = 4;
+/// The frame link socket inside the private session directory.
+pub const FRAME_SOCKET: &str = "camera.frames";
+
+/// Parse `--frame-consumer ROLE=BOOT_HEX` flags (at most one per role).
+pub fn parse_frame_consumers(flags: &[String]) -> io::Result<Vec<(Role, BootId)>> {
+    let invalid = |message: &str| io::Error::new(io::ErrorKind::InvalidInput, message.to_owned());
+    let mut consumers: Vec<(Role, BootId)> = Vec::new();
+    let mut iter = flags.iter();
+    while let Some(flag) = iter.next() {
+        if flag != "--frame-consumer" {
+            return Err(invalid("unknown camera worker option"));
+        }
+        let value = iter
+            .next()
+            .ok_or_else(|| invalid("--frame-consumer needs ROLE=BOOT"))?;
+        let (role, boot) = value
+            .split_once('=')
+            .ok_or_else(|| invalid("--frame-consumer needs ROLE=BOOT"))?;
+        let role = Role::parse(role).ok_or_else(|| invalid("unknown frame consumer role"))?;
+        let boot = crate::process::parse_boot(boot)?;
+        if consumers.iter().any(|(r, _)| *r == role) || consumers.len() >= Role::ALL.len() {
+            return Err(invalid("duplicate frame consumer role"));
+        }
+        consumers.push((role, boot));
+    }
+    Ok(consumers)
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -214,6 +272,11 @@ pub enum CameraEvent {
         port: PortMetadata,
         error: Option<String>,
     },
+    /// A frame consumer connected or was closed. Never sent without consumers.
+    FrameLink {
+        event: LinkEvent,
+        counts: LinkCounts,
+    },
 }
 /// Both methods must be nonblocking. Full/error channels terminate inspection;
 /// backpressure cannot silently hide frame loss or postpone urgent control.
@@ -250,6 +313,7 @@ pub struct CameraLoop<P: InspectPort, C: Clock> {
     last_authority_us: u64,
     last_progress_us: u64,
     last_read: Option<Timing>,
+    frames: Option<FrameServer>,
 }
 impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
     pub fn new(capture: Capture<P, C>, now_us: u64) -> Self {
@@ -262,6 +326,43 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
             last_authority_us: now_us,
             last_progress_us: now_us,
             last_read: None,
+            frames: None,
+        }
+    }
+    /// Serve frames to the permitted consumers. Frames are then taken from the
+    /// library only while a consumer is waiting for one.
+    pub fn with_frames(mut self, frames: FrameServer) -> Self {
+        self.frames = Some(frames);
+        self
+    }
+    pub fn frame_link(&self) -> Option<&FrameServer> {
+        self.frames.as_ref()
+    }
+    /// Continue frame writes, accept consumers and publish a bounded number
+    /// of link events.
+    fn service_frames(
+        &mut self,
+        link: &mut impl CameraLink,
+        now: &mut impl FnMut() -> u64,
+    ) -> io::Result<()> {
+        let Some(frames) = self.frames.as_mut() else {
+            return Ok(());
+        };
+        frames.service(now());
+        for _ in 0..LINK_EVENTS_PER_STEP {
+            let Some(event) = frames.take_event() else {
+                break;
+            };
+            link.publish(CameraEvent::FrameLink {
+                event,
+                counts: frames.counts(),
+            })?;
+        }
+        Ok(())
+    }
+    fn close_frames(&mut self, reason: CloseReason, now_us: u64) {
+        if let Some(frames) = self.frames.as_mut() {
+            frames.close_all(reason, now_us);
         }
     }
     /// One bounded control slice and at most one port read. A full control slice
@@ -280,6 +381,8 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
                 let cleanup = self.capture.control_lost();
                 self.in_flight = None;
                 self.terminal = true;
+                // Partly sent frames are abandoned; consumers see the link close.
+                self.close_frames(CloseReason::Fault, now());
                 let message = format!("{error}; local cleanup: {cleanup}");
                 // A failed report is never mistaken for successful cleanup; the
                 // parent observes abnormal exit or its finite progress deadline.
@@ -310,6 +413,7 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
             Drain::Empty => {}
         }
         self.maintain(now)?;
+        self.service_frames(link, now)?;
         if self.start_pending {
             self.start_pending = false;
             let at_us = now();
@@ -345,7 +449,10 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
                 Drain::Full => return Ok(Step::Continue),
                 Drain::Empty => {}
             }
-            if self.in_flight.is_none() {
+            // With consumers, a frame leaves the library only for a waiting
+            // consumer; otherwise newer frames keep replacing the pending slot.
+            let wanted = self.frames.as_ref().is_none_or(FrameServer::wants_frame);
+            if self.in_flight.is_none() && wanted {
                 self.in_flight = self.capture.begin_delivery().map_err(io::Error::other)?;
             }
             if self.in_flight.is_some() {
@@ -361,9 +468,15 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
                     .capture
                     .delivery_view(token)
                     .map_err(io::Error::other)?;
-                let metadata = FrameMetadata::new(frame.observation, frame.bytes.len(), now());
-                // The borrow ends here. Only small metadata is serialized; no
-                // copying, persistence or transmission of the image bytes.
+                let at_us = now();
+                let metadata = FrameMetadata::new(frame.observation, frame.bytes.len(), at_us);
+                if let Some(frames) = self.frames.as_mut() {
+                    // One bounded copy into each waiting consumer's own buffer;
+                    // writing continues nonblockingly in later iterations.
+                    frames.offer(&frame.observation, frame.bytes, at_us)?;
+                }
+                // The borrow ends here. Only small metadata enters the data
+                // channel; image bytes travel only over the frame link.
                 link.publish(CameraEvent::Frame { frame: metadata })?;
                 let token = self.in_flight.take().expect("owned token");
                 self.capture
@@ -456,6 +569,16 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
     ) -> io::Result<()> {
         self.in_flight = None;
         self.start_pending = false;
+        // Close consumers before the port stops: no partial frame completes.
+        self.close_frames(
+            match reason {
+                StopReason::Requested => CloseReason::Stopped,
+                StopReason::PrivacyChanged => CloseReason::PrivacyClosed,
+                StopReason::Fault => CloseReason::Fault,
+            },
+            now(),
+        );
+        self.service_frames(link, now)?;
         let report = self.capture.stop().map_err(io::Error::other)?;
         self.terminal = true;
         link.publish(CameraEvent::Stopped {

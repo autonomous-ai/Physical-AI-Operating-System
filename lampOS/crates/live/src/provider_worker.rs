@@ -10,6 +10,7 @@ use crate::{
     provider_flow::{OutputSender, PACKET_SAMPLES},
     provider_link::{LinkClock, LinkFailure, PendingLink, ProviderLink},
     transport::{Channel, WorkerChannels},
+    visual_context::{ContextDelivery, Source as VisualSource, Turn as VisualTurn},
     wire::{Control, WorkerEvent},
 };
 use lamp_gemini::{
@@ -346,13 +347,27 @@ pub async fn run_with_reporting(
     config_path: &Path,
     reporting: Reporting,
 ) -> Result<()> {
+    run_with_visual_context(channels, boot, config_path, reporting, None).await
+}
+
+/// Optional worker-local camera stream. No JPEG travels through audio IPC.
+pub async fn run_with_visual_context(
+    channels: WorkerChannels,
+    boot: BootId,
+    config_path: &Path,
+    reporting: Reporting,
+    visual: Option<(VisualSource, BootId)>,
+) -> Result<()> {
     let config = ProviderConfig::load(config_path)?
-        .into_session()?
+        .into_session_with_camera(visual.is_some())?
         .resumption(RESUMPTION)
         .barrier_policy(BARRIER);
     let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;
     let options = Options { reporting };
-    serve(channels, boot, provider, options).await
+    let visual = visual
+        .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
+        .transpose()?;
+    serve_with_visual(channels, boot, provider, options, visual).await
 }
 
 /// Paired producer/consumer qualification uses the real loop without loading
@@ -374,11 +389,22 @@ pub(crate) async fn serve_coordinated_test<C: Connect>(
     .await
 }
 
+#[cfg(test)]
 async fn serve<C: Connect>(
+    channels: WorkerChannels,
+    boot: BootId,
+    provider: Supervisor<C>,
+    options: Options,
+) -> Result<()> {
+    serve_with_visual(channels, boot, provider, options, None).await
+}
+
+async fn serve_with_visual<C: Connect>(
     mut channels: WorkerChannels,
     boot: BootId,
     mut provider: Supervisor<C>,
     options: Options,
+    mut visual: Option<ContextDelivery>,
 ) -> Result<()> {
     channels.control.send(WorkerEvent::Ready)?;
     let coordinated = options.reporting == Reporting::Coordinated;
@@ -409,6 +435,12 @@ async fn serve<C: Connect>(
                 // while no provider event is being taken.
                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
+                // Camera revocation also bypasses PCM credit and a full control
+                // slice. A partial cloud image write may abandon that connection;
+                // ordinary lost-turn handling remains the sole terminal outcome.
+                if let Some(visual) = visual.as_mut() {
+                    visual.authority(&mut intake.guard, &provider, monotonic_us());
+                }
                 // Local retirement cannot wait behind a full control slice.
                 intake.handoff.synchronize(&provider)?;
                 prune_retired_output(&mut output, intake.handoff.retired_through);
@@ -425,6 +457,20 @@ async fn serve<C: Connect>(
                         Err(error) if !provider.is_connected() => return Err(io::Error::other(format!("provider unavailable while input was admitted: {error}")).into()),
                         Err(error) => return Err(error),
                     }
+                }
+                if let Some(visual) = visual.as_mut() {
+                    visual.authority(&mut intake.guard, &provider, monotonic_us());
+                    visual.poll(intake.handoff.visual_turn(), &provider, monotonic_us());
+                    // Frame reads and privacy use separate transports. Read
+                    // priority again immediately before exporting the JPEG.
+                    let control = intake.drain_control(&mut monotonic_us, &mut || channels.control.receive(), &mut control_budget)?;
+                    if control == ControlDrain::Stopped { provider.shutdown(); return Ok(()); }
+                    visual.authority(&mut intake.guard, &provider, monotonic_us());
+                    intake.handoff.synchronize(&provider)?;
+                    if control == ControlDrain::Empty {
+                        visual.export(intake.handoff.visual_turn(), &mut intake.guard, &provider);
+                    }
+                    visual.send_receipt(|receipt| channels.control.send(WorkerEvent::VisualContext { receipt: receipt.clone() }))?;
                 }
                 queue_undelivered(&mut intake.handoff, &mut output);
                 // receive_inputs can observe a newer authority too.
@@ -877,10 +923,20 @@ struct InputHandoff {
 #[derive(Clone, Copy)]
 struct SubmittedInput {
     request: RequestId,
+    session: SessionId,
     open: bool,
 }
 
 impl InputHandoff {
+    fn visual_turn(&self) -> Option<VisualTurn> {
+        let submitted = self.submitted?;
+        (submitted.open && submitted.request.get() > self.retired_through.max(self.failed_through))
+            .then_some(VisualTurn {
+                request: submitted.request,
+                session: submitted.session,
+            })
+    }
+
     /// Called for every validated control packet, not just the final snapshot in
     /// a tick. An owner followed by cancellation must retire its later queued
     /// Start even if that Start has never been submitted to the provider.
@@ -1024,6 +1080,7 @@ impl InputHandoff {
                 }
                 self.submitted = Some(SubmittedInput {
                     request,
+                    session: expected,
                     open: true,
                 });
             }
@@ -2685,6 +2742,24 @@ mod tests {
             options: Options,
             barrier: BarrierPolicy,
         ) -> Self {
+            Self::start_all(policy, options, barrier, false)
+        }
+        fn start_camera() -> Self {
+            Self::start_all(
+                quick_policy(),
+                Options {
+                    reporting: Reporting::Coordinated,
+                },
+                BARRIER,
+                true,
+            )
+        }
+        fn start_all(
+            policy: RecoveryPolicy,
+            options: Options,
+            barrier: BarrierPolicy,
+            camera: bool,
+        ) -> Self {
             let (directory, parent, worker) = intake_channels();
             let boot = BootId::new([9; 16]).unwrap();
             let mut owner = Controller::new(boot, real_time());
@@ -2698,6 +2773,21 @@ mod tests {
                     .barrier_policy(barrier);
             let (dialer, dials) = connector(config);
             let provider = Supervisor::new(dialer, policy).unwrap();
+            let visual = if camera {
+                owner
+                    .set_camera_permission(real_time(), Permission::Allowed)
+                    .unwrap();
+                Some(
+                    ContextDelivery::new(
+                        camera_test_source(&directory.path),
+                        boot,
+                        BootId::new([8; 16]).unwrap(),
+                    )
+                    .unwrap(),
+                )
+            } else {
+                None
+            };
             let snapshot = owner.snapshot(real_time()).unwrap();
             let mut rig = Self {
                 _directory: directory,
@@ -2706,7 +2796,7 @@ mod tests {
                 owner,
                 snapshot,
                 dials,
-                worker: tokio::spawn(serve(worker, boot, provider, options)),
+                worker: tokio::spawn(serve_with_visual(worker, boot, provider, options, visual)),
             };
             rig.publish();
             rig
@@ -2911,6 +3001,186 @@ mod tests {
             request
         }
     }
+    fn camera_test_source(directory: &Path) -> VisualSource {
+        VisualSource {
+            socket: directory.join(crate::camera_worker::FRAME_SOCKET),
+            camera: BootId::new([7; 16]).unwrap(),
+            source: "desk".into(),
+            width: 320,
+            height: 240,
+            max_frame_bytes: 128 * 1024,
+        }
+    }
+
+    #[tokio::test]
+    async fn visual_camera_missing_or_closed_before_first_frame_preserves_complete_audio() {
+        for close_permission in [false, true] {
+            let mut rig = LiveRig::start_camera();
+            let mut dial = rig.coordinated_ready().await;
+            let request = rig.speak(&mut dial, false, false).await;
+            if close_permission {
+                rig.owner
+                    .set_camera_permission(real_time(), Permission::Denied)
+                    .unwrap();
+            }
+            // Open input continues normally while an absent camera times out.
+            let until = Instant::now() + Duration::from_millis(280);
+            let mut receipt = None;
+            while Instant::now() < until {
+                rig.publish();
+                while let Some(event) = rig.parent.control.receive::<WorkerEvent>().unwrap() {
+                    match event {
+                        WorkerEvent::VisualContext { receipt: got } => receipt = Some(got),
+                        other => panic!("unexpected control: {other:?}"),
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(2)).await;
+            }
+            let receipt = receipt.expect("camera failure must be visible");
+            assert_eq!(
+                (receipt.request, receipt.session),
+                (request, dial.session.get())
+            );
+            assert_eq!(
+                receipt.outcome,
+                if close_permission {
+                    crate::visual_context::Outcome::PrivacyClosed
+                } else {
+                    crate::visual_context::Outcome::Expired
+                }
+            );
+            rig.parent
+                .data
+                .send(ProviderInput::End {
+                    request,
+                    privacy_generation: rig.snapshot.microphone_generation(),
+                })
+                .unwrap();
+            assert!(
+                rig.service_message(&mut dial).await["realtimeInput"]
+                    .get("activityEnd")
+                    .is_some()
+            );
+            dial.service.send(provider_audio(14, 480)).await;
+            dial.service
+                .send(json!({"serverContent":{"generationComplete":true}}))
+                .await;
+            dial.service.send(idle_complete()).await;
+            assert!(
+                matches!(rig.output().await,ProviderOutput::Audio { request: got, samples, .. }
+                if got==request && samples==vec![14;480])
+            );
+            assert!(
+                matches!(rig.output().await,ProviderOutput::GenerationComplete { request: got } if got==request)
+            );
+            assert!(
+                matches!(rig.output().await,ProviderOutput::TurnComplete { request: got, idle:true } if got==request)
+            );
+            assert!(rig.take().is_none());
+            rig.stop().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn visual_real_camera_link_reaches_same_input_without_blocking_its_audio_or_end() {
+        use lamp_camera::frames::{FrameMeta, FrameServer, Role};
+        let mut rig = LiveRig::start_camera();
+        let source = camera_test_source(&rig._directory.path);
+        let mut camera = FrameServer::bind(
+            &source.socket,
+            BootId::new([9; 16]).unwrap(),
+            &[(Role::Context, BootId::new([8; 16]).unwrap())],
+            source.max_frame_bytes,
+        )
+        .unwrap();
+        let mut dial = rig.coordinated_ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while !camera.wants_frame() {
+            rig.publish();
+            camera.service(monotonic_us());
+            assert!(Instant::now() < deadline);
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        let at = monotonic_us();
+        let meta = FrameMeta {
+            request: 1,
+            camera_worker: source.camera,
+            capture_epoch: 1,
+            frame_sequence: 11,
+            grant: rig.owner.camera_grant(real_time()).unwrap(),
+            source: source.source,
+            format: *b"MJPG",
+            width: 320,
+            height: 240,
+            driver_sequence: 1,
+            driver_timestamp: None,
+            dequeue_started_at_us: at - 100,
+            dequeue_completed_at_us: at - 50,
+            copied_at_us: at,
+            derived: None,
+        };
+        let jpeg = [255, 216, 255, 224, 6, 7, 255, 217];
+        assert_eq!(camera.offer_meta(&meta, &jpeg, monotonic_us()).unwrap(), 1);
+        // This is a real private stream feeding the production provider loop.
+        let mut receipt = None;
+        while receipt.is_none() {
+            rig.publish();
+            camera.service(monotonic_us());
+            if let Some(event) = rig.parent.control.receive::<WorkerEvent>().unwrap() {
+                let WorkerEvent::VisualContext { receipt: got } = event else {
+                    panic!("unexpected {event:?}")
+                };
+                receipt = Some(got);
+            }
+            assert!(Instant::now() < deadline);
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        let receipt = receipt.unwrap();
+        assert_eq!(receipt.outcome, crate::visual_context::Outcome::Queued);
+        assert_eq!(
+            (receipt.request, receipt.session, receipt.frame_sequence),
+            (request, dial.session.get(), Some(11))
+        );
+        let image = rig.service_message(&mut dial).await;
+        assert_eq!(image["realtimeInput"]["video"]["mimeType"], "image/jpeg");
+        rig.parent
+            .data
+            .send(ProviderInput::Audio {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+                sequence: 2,
+                read_completed_at_us: monotonic_us(),
+                samples: vec![19; 160],
+            })
+            .unwrap();
+        rig.parent
+            .data
+            .send(ProviderInput::End {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+            })
+            .unwrap();
+        assert!(
+            rig.service_message(&mut dial).await["realtimeInput"]
+                .get("audio")
+                .is_some()
+        );
+        assert!(
+            rig.service_message(&mut dial).await["realtimeInput"]
+                .get("activityEnd")
+                .is_some()
+        );
+        assert!(
+            dial.service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none(),
+            "no repeated image"
+        );
+        rig.stop().await;
+    }
+
     fn quick_policy() -> RecoveryPolicy {
         RecoveryPolicy {
             first_backoff: Duration::from_millis(20),

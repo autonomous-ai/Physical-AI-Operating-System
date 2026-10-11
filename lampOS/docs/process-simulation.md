@@ -145,8 +145,18 @@ buffer) recorded at least one xrun in 10 of the 40 trials. Linux CPU pressure
 
 Two of those six trials failed with `ReferenceLate`. Steal time was 0.
 
+**Confirmation from the committed harness** (`827df5cf`, `batch.sh` with
+N = 3, run right after a cold container build):
+- Echo 0.3: 2 of 3 failed, one ReferenceLate and one speaker EPIPE.
+- Echo off: 0 of 3 failed.
+- The single `e2e.sh` acknowledgment attempt passed.
+
 **What this establishes.**
-- Echo does not explain the faults: 1 of 20 failed at each gain.
+- Echo is not required: failures occur with echo off.
+- Whether echo raises the rate is unresolved. Pooled valid trials give
+  3/23 failures at gain 0.3 and 1/23 at gain 0, which is not a significant
+  difference.
+- The rate varies between batches.
 - A generic thread never waited long enough to empty a 40 ms buffer, even
   in failing trials. Whole-VM stalls are therefore not the explanation.
 - The room's single xrun in run `0b00407f-1` (at 4252.66 s) does not

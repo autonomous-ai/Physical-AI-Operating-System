@@ -7,13 +7,12 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `8856dac9` on `lamp-v2-agent2` (`MAIN-034` importer fix).
-  Gate in the Linux ARM64 container:
-  - Workspace `fmt` clean; workspace tests 1018 passed, 0 failed, 4 ignored.
-  - Strict workspace clippy: the first invocation ended in a transient
-    container TLS/network error; the rerun on the same commit was clean.
-  - Main integrated the evaluator subset through `9ed94e42` as `2a1522eb`
-    (`MAIN-034`). `9ed94e42` passed 1015, failed 0.
+- **Tested head:** `a86f2cea` on `lamp-v2-agent2` (`MAIN-036`: root's importer
+  audit tests on top of the `MAIN-034` fix `8856dac9`). Gate in the Linux ARM64
+  container: workspace `fmt` and strict clippy clean; 1029 passed, 0 failed,
+  4 ignored.
+  - `8856dac9` passed 1018, failed 0.
+  - Main integrated the evaluator subset through `9ed94e42` as `2a1522eb`.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
     alignment and context-frame privacy P1.
@@ -89,6 +88,14 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-036`:** root's `tests/audit_importer.rs` from
+  `lamp-voice-import-review-20261011` (`7d64c329`) is added in `a86f2cea`.
+  Only rustfmt layout changed.
+  - **Red on `7d64c329`** (the old importer): the frame overflow panics at
+    `import.rs:498`, and the rebind case gives `reverify_ok=true` with a
+    1000 ms score. The missing-receipt control passes.
+  - **Green on `8856dac9` and later:** 11/11.
 
 - **`MAIN-034`** (importer review of `02529e7d` / `0a0cfdcf` / `fb096dce`):
   fixed in `8856dac9`, importer-owned files only.

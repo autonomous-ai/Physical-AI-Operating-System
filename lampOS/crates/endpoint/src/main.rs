@@ -79,15 +79,21 @@ fn follow_parent(_parent: Option<u32>) -> Result<(), String> {
     Ok(())
 }
 
-/// Bounds the worker before it reads the model. Never raises a limit the
-/// service manager already set lower.
+/// The lowest of an inherited soft limit, an inherited hard limit (`None` is
+/// unlimited) and the worker's own cap.
+#[cfg(any(target_os = "linux", test))]
+fn lowest_limit(current: Option<u64>, maximum: Option<u64>, cap: u64) -> u64 {
+    [current, maximum].into_iter().flatten().fold(cap, u64::min)
+}
+
+/// Bounds the worker before it reads the model. Never raises a soft or hard
+/// limit the service manager already set lower.
 #[cfg(target_os = "linux")]
 fn bound_resources() -> Result<(), String> {
     use rustix::process::{Resource, Rlimit, getrlimit, nice, setrlimit};
     let cap = |resource, bytes: u64| {
-        let bytes = getrlimit(resource)
-            .maximum
-            .map_or(bytes, |hard| hard.min(bytes));
+        let inherited = getrlimit(resource);
+        let bytes = lowest_limit(inherited.current, inherited.maximum, bytes);
         setrlimit(
             resource,
             Rlimit {
@@ -253,4 +259,25 @@ fn main() -> ExitCode {
         eprintln!("lamp-endpoint-worker: {stop:?}");
     }
     ExitCode::from(stop.exit_code() as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lowest_limit;
+
+    #[test]
+    fn inherited_lower_limits_are_never_raised() {
+        const CAP: u64 = 256 << 20;
+        // The review finding: a 96 MiB soft limit under a higher hard limit.
+        assert_eq!(lowest_limit(Some(96 << 20), Some(512 << 20), CAP), 96 << 20);
+        assert_eq!(lowest_limit(Some(96 << 20), None, CAP), 96 << 20);
+        assert_eq!(lowest_limit(None, Some(128 << 20), CAP), 128 << 20);
+        assert_eq!(
+            lowest_limit(Some(300 << 20), Some(200 << 20), CAP),
+            200 << 20
+        );
+        assert_eq!(lowest_limit(None, None, CAP), CAP);
+        assert_eq!(lowest_limit(Some(1 << 40), None, CAP), CAP);
+        assert_eq!(lowest_limit(None, None, 0), 0);
+    }
 }

@@ -921,3 +921,78 @@ fn delivery_has_a_fresh_check_after_maintenance_before_exposing_bytes() {
     assert_eq!(rig.capture.counters().invalidated, 1);
     assert_eq!(rig.port.borrow().stops, 1);
 }
+
+#[test]
+fn deferred_revoke_erases_frames_and_forbids_restart_until_one_explicit_teardown() {
+    let mut rig = Rig::new();
+    rig.capture = rig.capture.with_deferred_teardown();
+    rig.permission(Permission::Allowed);
+    rig.capture.start().unwrap();
+    rig.frame(1);
+    let token = rig.capture.begin_delivery().unwrap().unwrap();
+    rig.frame(2);
+    rig.clock.set(1000);
+    rig.permission(Permission::Denied);
+    assert_eq!(
+        rig.port.borrow().stops,
+        0,
+        "privacy seal cannot enter driver teardown"
+    );
+    assert_eq!(rig.capture.maintain().unwrap().phase, Phase::Closed);
+    assert!(rig.capture.delivery_view(&token).is_err());
+    assert_eq!(rig.capture.counters().invalidated, 2);
+    assert_eq!(rig.capture.teardown_deadline(), Some(t(251_000)));
+    rig.permission(Permission::Allowed);
+    assert_eq!(
+        rig.capture.start().unwrap_err().kind,
+        ErrorKind::AlreadyStarted
+    );
+    rig.port.borrow_mut().stop_elapsed = 40_000;
+    let stop = rig.capture.finish_teardown().unwrap();
+    assert!(!stop.teardown_pending);
+    assert_eq!(stop.timing.unwrap().completed_at, t(41_000));
+    assert_eq!(rig.port.borrow().stops, 1);
+    assert!(rig.capture.finish_teardown().unwrap().timing.is_none());
+    assert_eq!(rig.port.borrow().stops, 1);
+}
+
+#[test]
+fn deferred_teardown_deadline_is_original_seal_not_later_stop_or_finish() {
+    let mut rig = Rig::new();
+    rig.capture = rig.capture.with_deferred_teardown();
+    rig.permission(Permission::Allowed);
+    rig.capture.start().unwrap();
+    rig.clock.set(1000);
+    assert!(rig.capture.stop().unwrap().teardown_pending);
+    rig.clock.set(200_000);
+    assert!(rig.capture.stop().unwrap().teardown_pending);
+    assert_eq!(rig.capture.teardown_deadline(), Some(t(251_000)));
+    rig.clock.set(251_000);
+    let error = rig.capture.finish_teardown().unwrap_err();
+    assert!(error.cleanup.unwrap().budget_exceeded);
+    assert_eq!(
+        rig.port.borrow().stops,
+        1,
+        "late cleanup attempts close once, never retries"
+    );
+}
+
+#[test]
+fn deferred_fault_seals_before_stop_and_preserves_the_original_fault() {
+    let mut rig = Rig::new();
+    rig.capture = rig.capture.with_deferred_teardown();
+    rig.permission(Permission::Allowed);
+    rig.capture.start().unwrap();
+    rig.frame(1);
+    rig.port
+        .borrow_mut()
+        .actions
+        .push_back(Action::Fail(PortError::Io(5)));
+    let error = rig.capture.poll().unwrap_err();
+    assert_eq!(error.kind, ErrorKind::Port(PortError::Io(5)));
+    assert_eq!(rig.port.borrow().stops, 0);
+    assert_eq!(rig.capture.counters().invalidated, 1);
+    rig.capture.finish_teardown().unwrap();
+    assert_eq!(rig.port.borrow().stops, 1);
+    assert_eq!(rig.capture.start().unwrap_err().kind, ErrorKind::Faulted);
+}

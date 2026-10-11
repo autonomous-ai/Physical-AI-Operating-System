@@ -387,16 +387,24 @@ fn shutdown_pair(
     {
         result.record_error(format!("privacy stop send: {error}"));
     }
-    let camera_deadline = requested_at_us.saturating_add(lamp_camera::REVOKE_TARGET_US);
+    let mut camera_watch = camera
+        .as_ref()
+        .map(|worker| crate::camera_worker::ShutdownWatch::new(worker.boot, requested_at_us));
+    if let (Some(watch), Some(event)) = (&mut camera_watch, &report.revoked_worker_event)
+        && let Err(error) = watch.observe(event, requested_at_us)
+    {
+        result.record_error(error.to_string());
+    }
     let privacy_deadline = requested_at_us.saturating_add(PRIVACY_STOP_US);
     while camera.is_some() || privacy.is_some() {
         if let Some(worker) = camera.as_deref_mut() {
-            drain_shutdown_metadata(worker, report, &mut result);
+            let watch = camera_watch.as_mut().expect("camera watch");
+            drain_shutdown_metadata(worker, report, &mut result, watch);
             match worker.try_exit() {
                 Ok(Some(status)) => {
                     // Recheck after observing exit: Stopped may have been sent
                     // between the earlier empty receive and try_wait.
-                    drain_shutdown_metadata(worker, report, &mut result);
+                    drain_shutdown_metadata(worker, report, &mut result, watch);
                     result.camera_exit_at_us = Some(monotonic_us());
                     if let Err(error) = worker.exit_result(status) {
                         result.record_error(error.to_string());
@@ -406,13 +414,18 @@ fn shutdown_pair(
                             "camera exited without observable stop/cleanup report".into(),
                         );
                     }
+                    if let Err(error) = watch.finish() {
+                        result.record_error(error.to_string());
+                    }
                     camera = None;
                 }
-                Ok(None) if monotonic_us() < camera_deadline => {}
+                Ok(None) if monotonic_us() < watch.deadline_us() => {}
                 state => {
                     let error = worker.terminate_and_reap(
                         io::ErrorKind::TimedOut,
-                        format!("camera stop not completed within 20 ms; state={state:?}"),
+                        format!(
+                            "camera local-revoke/driver-teardown deadline expired; state={state:?}"
+                        ),
                     );
                     result.camera_forced = true;
                     result.camera_exit_at_us = Some(monotonic_us());
@@ -454,10 +467,14 @@ fn drain_shutdown_metadata(
     worker: &mut Worker,
     report: &mut MetadataReport,
     result: &mut ShutdownReport,
+    watch: &mut crate::camera_worker::ShutdownWatch,
 ) {
     for _ in 0..16 {
         match worker.channels.data.receive::<CameraEvent>() {
             Ok(Some(event)) => {
+                if let Err(error) = watch.observe(&event, monotonic_us()) {
+                    result.record_error(error.to_string());
+                }
                 if let Err(error) = retain_stop(event, report) {
                     result.record_error(error.to_string());
                 }

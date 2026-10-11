@@ -84,6 +84,9 @@ struct PortState {
     start_delay: u64,
     read_delay: u64,
     stop_delay: u64,
+    timestamp_override: Option<lamp_camera::DriverTimestamp>,
+    payload_override: Option<Vec<u8>>,
+    revoked_before_stop: bool,
     after_start: VecDeque<Control>,
     after_read: VecDeque<Control>,
 }
@@ -91,6 +94,7 @@ struct FakePort {
     state: Rc<RefCell<PortState>>,
     controls: Rc<RefCell<VecDeque<Control>>>,
     clock: TestClock,
+    revoked: Rc<Cell<bool>>,
 }
 impl PortIo for FakePort {
     fn start(
@@ -119,22 +123,30 @@ impl PortIo for FakePort {
             return Ok(None);
         }
         s.frames -= 1;
-        destination[..6].copy_from_slice(&[0xff, 0xd8, 0x11, 0x22, 0xff, 0xd9]);
+        let payload = s
+            .payload_override
+            .as_deref()
+            .unwrap_or(&[0xff, 0xd8, 0x11, 0x22, 0xff, 0xd9]);
+        destination[..payload.len()].copy_from_slice(payload);
         Ok(Some(PortFrame {
             capture: s.active.unwrap(),
             source: mode().source,
-            bytes_used: 6,
+            bytes_used: payload.len(),
             driver_sequence: s.reads as u32,
-            timestamp: Some(lamp_camera::DriverTimestamp {
-                micros: 123,
-                domain: TimestampDomain::Unknown,
-                point: lamp_camera::TimestampPoint::Unknown,
-            }),
+            timestamp: Some(
+                s.timestamp_override
+                    .unwrap_or(lamp_camera::DriverTimestamp {
+                        micros: 123,
+                        domain: TimestampDomain::Unknown,
+                        point: lamp_camera::TimestampPoint::Unknown,
+                    }),
+            ),
         }))
     }
     fn stop(&mut self, _: OperationBudget) -> Result<(), PortError> {
         let mut s = self.state.borrow_mut();
         s.stops += 1;
+        s.revoked_before_stop = self.revoked.get();
         s.active = None;
         self.clock.0.set(self.clock.0.get() + s.stop_delay);
         Ok(())
@@ -152,6 +164,7 @@ struct Link {
     empty_reads: usize,
     after_empty: BTreeMap<usize, VecDeque<Control>>,
     fail_frame: bool,
+    revoked: Rc<Cell<bool>>,
 }
 impl CameraLink for Link {
     fn receive_control(&mut self) -> io::Result<Option<Control>> {
@@ -167,6 +180,9 @@ impl CameraLink for Link {
     fn publish(&mut self, event: CameraEvent) -> io::Result<()> {
         if self.fail_frame && matches!(event, CameraEvent::Frame { .. }) {
             return Err(io::Error::from(io::ErrorKind::WouldBlock));
+        }
+        if matches!(event, CameraEvent::Revoked { .. }) {
+            self.revoked.set(true);
         }
         self.events.push(event);
         Ok(())
@@ -192,6 +208,7 @@ impl Rig {
                 state: state.clone(),
                 controls: link.controls.clone(),
                 clock: clock.clone(),
+                revoked: link.revoked.clone(),
             },
             clock.clone(),
             boot(1),
@@ -851,6 +868,7 @@ mod frame_link {
         let snapshot = r.authority(Permission::Denied);
         r.send(Control::Authority { snapshot });
         assert_eq!(r.step().unwrap(), Step::Stopped);
+        assert!(r.state.borrow().revoked_before_stop);
         let closed = r.link.events.iter().position(|e| {
             matches!(
                 e,
@@ -917,5 +935,196 @@ mod frame_link {
         ] {
             assert!(parse_frame_consumers(&bad).is_err(), "{bad:?}");
         }
+    }
+}
+
+#[test]
+fn driver_teardown_after_prompt_revoke_has_its_own_bound() {
+    let mut r = Rig::new();
+    r.start();
+    r.state.borrow_mut().stop_delay = 40_000;
+    r.send(Control::Stop);
+    assert_eq!(
+        r.step()
+            .expect("sealed worker may finish bounded driver teardown"),
+        Step::Stopped
+    );
+    assert_eq!(r.state.borrow().stops, 1);
+    assert_eq!(r.clock.0.get(), 41_000);
+    assert!(r.state.borrow().revoked_before_stop);
+    let revoked = r
+        .link
+        .events
+        .iter()
+        .find_map(|e| match e {
+            CameraEvent::Revoked {
+                at_us,
+                teardown_deadline_us,
+                error,
+                ..
+            } => Some((*at_us, *teardown_deadline_us, error)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!((revoked.0, revoked.1), (1000, 251_000));
+    assert!(revoked.2.is_none());
+    assert!(r.step().is_err(), "no read or restart after revocation");
+    assert_eq!(r.state.borrow().stops, 1);
+}
+
+#[test]
+fn teardown_overrun_keeps_prompt_revocation_but_never_reports_success() {
+    let mut r = Rig::new();
+    r.start();
+    r.state.borrow_mut().stop_delay = DRIVER_TEARDOWN_BUDGET_US;
+    r.send(Control::Stop);
+    assert!(
+        r.step()
+            .unwrap_err()
+            .to_string()
+            .contains("StopBudgetExceeded")
+    );
+    assert!(r.state.borrow().revoked_before_stop);
+    assert!(matches!(
+        r.link.events.last().unwrap(),
+        CameraEvent::Stopped { error: Some(_), .. }
+    ));
+    assert!(r.step().is_err());
+    assert_eq!(r.state.borrow().stops, 1);
+}
+
+#[test]
+fn read_failure_is_reported_before_driver_teardown_and_stays_failed() {
+    let mut r = Rig::new();
+    r.start();
+    r.state.borrow_mut().read_delay = READ_BUDGET_US;
+    r.state.borrow_mut().stop_delay = 40_000;
+    let error = r.step().unwrap_err().to_string();
+    assert!(error.contains("ReadBudgetExceeded"));
+    assert!(r.state.borrow().revoked_before_stop);
+    assert!(r.link.events.iter().any(|e| matches!(e, CameraEvent::Revoked { at_us: 11_000, error: Some(message), .. } if message.contains("ReadBudgetExceeded"))));
+    assert_eq!(r.clock.0.get(), 51_000);
+    assert!(matches!(
+        r.link.events.last().unwrap(),
+        CameraEvent::Stopped { error: Some(_), .. }
+    ));
+    assert!(r.frames().is_empty());
+}
+
+#[test]
+fn timestamp_fault_receipt_retains_exact_comparison_without_frame_bytes() {
+    const PIXELS: &[u8] = b"private-pixel-marker-pretend-secret";
+    for (predicate, timestamp, previous) in [
+        ("future", 251_038, None),
+        ("before_capture_start", 999, None),
+        ("too_old", 1037, None),
+        ("regressed", 250_994, Some(250_995)),
+    ] {
+        let mut r = Rig::new();
+        r.start();
+        // Refresh ordinary authority while the original lease is still live;
+        // timestamp rejection must not be confused with a privacy timeout.
+        r.clock.0.set(200_000);
+        let authority = r.authority(Permission::Allowed);
+        r.send(Control::Authority {
+            snapshot: authority,
+        });
+        r.step().unwrap();
+        if let Some(prior) = previous {
+            r.clock.0.set(prior);
+            let mut state = r.state.borrow_mut();
+            state.frames = 1;
+            state.timestamp_override = Some(lamp_camera::DriverTimestamp {
+                micros: prior,
+                domain: TimestampDomain::HostMonotonic,
+                point: lamp_camera::TimestampPoint::StartOfExposure,
+            });
+            drop(state);
+            r.step().unwrap();
+        }
+        r.clock.0.set(251_000);
+        {
+            let mut state = r.state.borrow_mut();
+            state.frames = 1;
+            state.read_delay = 37;
+            state.timestamp_override = Some(lamp_camera::DriverTimestamp {
+                micros: timestamp,
+                domain: TimestampDomain::HostMonotonic,
+                point: lamp_camera::TimestampPoint::StartOfExposure,
+            });
+            state.payload_override = Some([&[0xff, 0xd8], PIXELS, &[0xff, 0xd9]].concat());
+        }
+        let before_frames = r.frames().len();
+        assert!(
+            r.step()
+                .unwrap_err()
+                .to_string()
+                .contains("InvalidDriverTimestamp")
+        );
+        assert_eq!(
+            r.frames().len(),
+            before_frames,
+            "rejected bytes must never be delivered"
+        );
+        let revoked: Vec<_> = r
+            .link
+            .events
+            .iter()
+            .filter(|e| matches!(e, CameraEvent::Revoked { .. }))
+            .collect();
+        assert_eq!(revoked.len(), 1);
+        let json = serde_json::to_value(revoked[0]).unwrap();
+        let record = json
+            .get("timestamp_rejection")
+            .expect("fault receipt must retain rejected timestamp evidence");
+        assert_eq!(record["predicate"], predicate);
+        assert_eq!(record["timestamp"]["micros"], timestamp);
+        assert_eq!(record["timestamp"]["domain"], "host_monotonic");
+        assert_eq!(record["timestamp"]["point"], "start_of_exposure");
+        assert_eq!(record["capture_epoch"], 1);
+        assert_eq!(record["driver_sequence"], r.state.borrow().reads as u32);
+        assert_eq!(record["capture_started_at_us"], 1000);
+        assert_eq!(record["dequeue_started_at_us"], 251_000);
+        assert_eq!(record["comparison_at_us"], 251_037);
+        assert_eq!(record["maximum_age_us"], 250_000);
+        assert_eq!(record["previous_timestamp"]["micros"].as_u64(), previous);
+        let mut report = MetadataReport::new(config(), "a".repeat(64), 1, 251_037).unwrap();
+        let mut observer = Observer::new(boot(2), 251_037);
+        assert!(
+            observer
+                .accept(revoked[0].clone(), None, 251_037, &mut report)
+                .unwrap_err()
+                .to_string()
+                .contains("revoked before inspection end")
+        );
+        assert_eq!(
+            serde_json::to_value(report).unwrap()["revoked_worker_event"]["timestamp_rejection"],
+            *record,
+            "native inspection report must preserve the original fault evidence"
+        );
+        let encoded = serde_json::to_vec(revoked[0]).unwrap();
+        assert!(
+            encoded.len() <= 1500,
+            "fixed record must remain bounded metadata"
+        );
+        assert!(
+            !String::from_utf8(encoded.clone())
+                .unwrap()
+                .contains(std::str::from_utf8(PIXELS).unwrap())
+        );
+        assert!(r.state.borrow().revoked_before_stop);
+        assert_eq!(r.state.borrow().stops, 1);
+        assert!(r.step().is_err(), "a fault remains terminal");
+        let again = r
+            .link
+            .events
+            .iter()
+            .find(|e| matches!(e, CameraEvent::Revoked { .. }))
+            .unwrap();
+        assert_eq!(
+            serde_json::to_vec(again).unwrap(),
+            encoded,
+            "the single record must not be overwritten"
+        );
     }
 }

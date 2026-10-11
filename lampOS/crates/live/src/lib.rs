@@ -35,3 +35,10 @@ pub mod wire;
 #[cfg(target_os = "linux")]
 pub mod audio_workers;
 pub mod coordinator;
+
+mod receipt_history;
+mod service_trace;
+mod session_lifetime;
+mod session_state;
+
+mod service_privacy;

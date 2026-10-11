@@ -186,7 +186,13 @@ fn cancellation_during_hold_discards_it_without_lending_age_to_the_next_owner() 
         &mut PlaybackMask::new(TurnTaking::V1Baseline),
     )
     .unwrap();
-    cancel_reply(&mut owner, &mut reply, &mut Vec::new(), "user_interrupted").unwrap();
+    cancel_reply(
+        &mut owner,
+        &mut reply,
+        &mut SessionState::default(),
+        "user_interrupted",
+    )
+    .unwrap();
     dispatch_speaker_chunk(
         &mut owner,
         &mut reply,
@@ -315,7 +321,7 @@ fn trace_labels_queue_age_holdback_and_censored_cancellation_without_latency_cla
     assert!(evidence["added_latency_us"].is_null());
     assert_eq!(evidence["opened_by_complete_flag"], false);
     let mut reply = Some(current);
-    let mut trace = Vec::new();
+    let mut trace = SessionState::default();
     cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
     assert_eq!(trace.len(), 1);
     assert_eq!(trace[0]["start_gate"], evidence);
@@ -351,7 +357,7 @@ fn held_speech_does_not_block_priority_provider_control() {
         .unwrap();
     let mut cloud = CloudAvailability::default();
     let mut remaining = 16;
-    let mut trace = Vec::new();
+    let mut trace = SessionState::default();
     assert!(
         service_provider_control(
             &mut provider_parent.control,

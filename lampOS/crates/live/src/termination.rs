@@ -17,6 +17,13 @@ pub(crate) struct Termination {
     registrations: Vec<SigId>,
 }
 impl Termination {
+    #[cfg(test)]
+    pub(crate) fn inactive() -> Self {
+        Self {
+            signal: Arc::new(AtomicUsize::new(0)),
+            registrations: Vec::new(),
+        }
+    }
     pub(crate) fn install() -> io::Result<Self> {
         let mut request = Self {
             signal: Arc::new(AtomicUsize::new(0)),

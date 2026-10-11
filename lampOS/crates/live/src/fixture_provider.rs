@@ -770,6 +770,10 @@ impl CueSink {
         })
     }
     pub fn set_boot(&mut self, boot: BootId) {
+        if self.boot != Some(boot) {
+            self.capture_epoch = None;
+            self.reference_epoch = None;
+        }
         self.boot = Some(boot);
     }
     pub fn fault(&self) -> Option<&'static str> {
@@ -782,29 +786,41 @@ impl CueSink {
         while self.trace_offset < trace.len() {
             let event = &trace[self.trace_offset];
             self.trace_offset += 1;
-            match event["kind"].as_str() {
-                Some("capture_started") => self.capture_epoch = event["details"]["epoch"].as_u64(),
-                Some("reference_clock") => {
-                    self.reference_epoch = event["details"]["playback_epoch"].as_u64()
-                }
-                Some("listening_ready") => self.emit(CueKind::ListeningReady, event, sent_us),
-                Some("input_admitted") => self.emit(CueKind::InputAdmitted, event, sent_us),
-                Some("local_endpoint") => self.emit(CueKind::LocalEndpoint, event, sent_us),
-                Some("speaker_first_write") => {
-                    self.emit(CueKind::SpeakerFirstWrite, event, sent_us)
-                }
-                Some("speech_final_sample_retired") => {
-                    self.emit(CueKind::SpeechRetired, event, sent_us)
-                }
-                Some("turn_finished") if event["owner"].is_object() => {
-                    self.emit(CueKind::Cancelled, event, sent_us)
-                }
-                Some("turn_finished") => self.emit(CueKind::TurnCompleted, event, sent_us),
-                Some("run_end") => self.emit(CueKind::RunEnd, event, sent_us),
-                _ => {}
-            }
+            self.observe_event(event, sent_us);
         }
         if previous.is_none() { self.fault } else { None }
+    }
+    /// Append-only service batches; context and datagram sequence survive rotation.
+    pub(crate) fn scan_batch(&mut self, batch: &[Value], sent_us: u64) -> Option<&'static str> {
+        let previous = self.fault;
+        for event in batch {
+            self.observe_event(event, sent_us);
+        }
+        if previous.is_none() { self.fault } else { None }
+    }
+    pub(crate) fn invalidate(&mut self, reason: &'static str) {
+        self.fault.get_or_insert(reason);
+    }
+    fn observe_event(&mut self, event: &Value, sent_us: u64) {
+        match event["kind"].as_str() {
+            Some("capture_started") => self.capture_epoch = event["details"]["epoch"].as_u64(),
+            Some("reference_clock") => {
+                self.reference_epoch = event["details"]["playback_epoch"].as_u64()
+            }
+            Some("listening_ready") => self.emit(CueKind::ListeningReady, event, sent_us),
+            Some("input_admitted") => self.emit(CueKind::InputAdmitted, event, sent_us),
+            Some("local_endpoint") => self.emit(CueKind::LocalEndpoint, event, sent_us),
+            Some("speaker_first_write") => self.emit(CueKind::SpeakerFirstWrite, event, sent_us),
+            Some("speech_final_sample_retired") => {
+                self.emit(CueKind::SpeechRetired, event, sent_us)
+            }
+            Some("turn_finished") if event["owner"].is_object() => {
+                self.emit(CueKind::Cancelled, event, sent_us)
+            }
+            Some("turn_finished") => self.emit(CueKind::TurnCompleted, event, sent_us),
+            Some("run_end") => self.emit(CueKind::RunEnd, event, sent_us),
+            _ => {}
+        }
     }
     fn emit(&mut self, kind: CueKind, event: &Value, sent_us: u64) {
         if self.fault.is_some() {
@@ -902,5 +918,91 @@ impl CueSink {
                 "cue_invalid_or_unavailable"
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod service_cue_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn new_service_boot_clears_old_epochs_without_reusing_sequence_or_repairing_fault() {
+        let directory = crate::process::SessionDirectory::create().unwrap();
+        let path = directory.path.join("cue.sock");
+        let receiver = UnixDatagram::bind(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        let mut sink = CueSink::connect(&path).unwrap();
+        let first = crate::process::new_boot().unwrap();
+        let next = crate::process::new_boot().unwrap();
+        sink.set_boot(first);
+        sink.capture_epoch = Some(7);
+        sink.reference_epoch = Some(9);
+        sink.sequence = 41;
+        sink.set_boot(next);
+        assert_eq!(sink.capture_epoch, None);
+        assert_eq!(sink.reference_epoch, None);
+        let at = lamp_ipc::monotonic_us();
+        sink.scan_batch(
+            &[serde_json::json!({"kind":"listening_ready","at_us":at})],
+            at,
+        );
+        let mut bytes = [0; 512];
+        let n = receiver.recv(&mut bytes).unwrap();
+        let cue: Value = serde_json::from_slice(&bytes[..n]).unwrap();
+        assert_eq!(cue["boot"], serde_json::to_value(next).unwrap());
+        assert_eq!(cue["sequence"], 42);
+        assert!(cue["capture_epoch"].is_null());
+        assert!(cue["reference_epoch_context"].is_null());
+        sink.invalidate("service_cue_history_lost");
+        sink.set_boot(crate::process::new_boot().unwrap());
+        assert_eq!(sink.fault(), Some("service_cue_history_lost"));
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn separate_service_batches_preserve_source_context_and_sequence_without_row_indexes() {
+        let directory = crate::process::SessionDirectory::create().unwrap();
+        let path = directory.path.join("cue.sock");
+        let receiver = UnixDatagram::bind(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        let mut sink = CueSink::connect(&path).unwrap();
+        sink.set_boot(crate::process::new_boot().unwrap());
+        let at = lamp_ipc::monotonic_us();
+        assert_eq!(
+            sink.scan_batch(
+                &[
+                    serde_json::json!({"kind":"capture_started","details":{"epoch":3}}),
+                    serde_json::json!({"kind":"reference_clock","details":{"playback_epoch":5}}),
+                    serde_json::json!({"kind":"listening_ready","at_us":at}),
+                ],
+                at
+            ),
+            None
+        );
+        let mut bytes = [0; 512];
+        let count = receiver.recv(&mut bytes).unwrap();
+        let first: Value = serde_json::from_slice(&bytes[..count]).unwrap();
+        assert_eq!(first["sequence"], 1);
+        assert_eq!(first["capture_epoch"], 3);
+        assert_eq!(first["reference_epoch_context"], 5);
+        assert_eq!(
+            sink.scan_batch(&[serde_json::json!({"kind":"run_end","at_us":at})], at),
+            None
+        );
+        let count = receiver.recv(&mut bytes).unwrap();
+        let second: Value = serde_json::from_slice(&bytes[..count]).unwrap();
+        assert_eq!(second["sequence"], 2);
+        assert_eq!(second["capture_epoch"], 3);
+        sink.invalidate("service_cue_history_lost");
+        sink.scan_batch(
+            &[serde_json::json!({"kind":"listening_ready","at_us":at})],
+            at,
+        );
+        assert_eq!(
+            receiver.recv(&mut bytes).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        assert_eq!(sink.fault(), Some("service_cue_history_lost"));
     }
 }

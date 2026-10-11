@@ -54,6 +54,9 @@ pub(super) struct OptionalCamera {
     started: bool,
     last_event_us: u64,
     opening_until_us: Option<u64>,
+    pub shutdown_watch: Option<crate::camera_worker::ShutdownWatch>,
+    pub shutdown_events: [Option<CameraEvent>; 2],
+    termination_requested: bool,
 }
 impl OptionalCamera {
     pub fn new(worker: Worker, source: VisualSource) -> Self {
@@ -66,7 +69,34 @@ impl OptionalCamera {
             started: false,
             last_event_us: monotonic_us(),
             opening_until_us: None,
+            shutdown_watch: None,
+            shutdown_events: [None, None],
+            termination_requested: false,
         }
+    }
+    pub fn begin_shutdown(&mut self, at_us: u64) {
+        self.shutdown_watch.get_or_insert_with(|| {
+            crate::camera_worker::ShutdownWatch::new(self.worker.boot, at_us)
+        });
+    }
+    fn shutdown_event(&mut self, event: CameraEvent, at_us: u64) -> io::Result<()> {
+        self.begin_shutdown(at_us);
+        let result = self
+            .shutdown_watch
+            .as_mut()
+            .expect("watch")
+            .observe(&event, at_us);
+        let index = match event {
+            CameraEvent::Revoked { .. } => Some(0),
+            CameraEvent::Stopped { .. } => Some(1),
+            _ => None,
+        };
+        if let Some(index) = index
+            && self.shutdown_events[index].is_none()
+        {
+            self.shutdown_events[index] = Some(event);
+        }
+        result
     }
     /// A camera that fails after its handshake must not turn the next mandatory
     /// worker's startup into a voice failure. Permission is still closed here.
@@ -87,20 +117,42 @@ impl OptionalCamera {
         })();
         if result.is_err() {
             self.pending_failure = Some("camera failed during mandatory worker startup");
+            self.begin_shutdown(monotonic_us());
             let _ = self.worker.channels.control.send(Control::Stop);
         }
     }
     fn poll(&mut self) -> io::Result<Vec<CameraEvent>> {
+        let events = self.poll_events();
+        if events.is_err()
+            && let Some(watch) = &mut self.shutdown_watch
+        {
+            // A parse/transport failure may occur before observe() sees a
+            // receipt. A later valid receipt cannot erase that failure.
+            watch.invalidate();
+        }
+        // Always enforce deadlines, including when the peer supplies invalid
+        // metadata every tick. Evaluate before propagating the original error;
+        // cleanup remains signal-only here, with final shutdown owning reaping.
+        let lifecycle = self.enforce_lifecycle();
+        match events {
+            Err(error) => Err(error),
+            Ok(important) => lifecycle.map(|()| important),
+        }
+    }
+    fn poll_events(&mut self) -> io::Result<Vec<CameraEvent>> {
         // At most start/open/stop metadata is retained here, not every frame.
         let mut important = Vec::new();
-        if self.worker.try_exit()?.is_some() && !self.failed {
-            return Err(io::Error::other("camera worker exited"));
-        }
         for _ in 0..16 {
             let Some(event) = self.worker.channels.data.receive::<CameraEvent>()? else {
                 break;
             };
-            if self.failed {
+            if self.shutdown_watch.is_some()
+                || matches!(
+                    event,
+                    CameraEvent::Revoked { .. } | CameraEvent::Stopped { .. }
+                )
+            {
+                self.shutdown_event(event, monotonic_us())?;
                 continue;
             }
             let at = monotonic_us();
@@ -150,7 +202,9 @@ impl OptionalCamera {
                     frame.published_at_us
                 }
                 CameraEvent::Progress { at_us, .. } => *at_us,
-                CameraEvent::Stopped { .. } => return Err(io::Error::other("camera stopped")),
+                CameraEvent::Stopped { .. } | CameraEvent::Revoked { .. } => {
+                    return Err(io::Error::other("camera stopped"));
+                }
                 CameraEvent::FrameLink { .. } => continue,
             };
             if stamped > at
@@ -167,14 +221,45 @@ impl OptionalCamera {
                 important.push(event);
             }
         }
+        Ok(important)
+    }
+    fn enforce_lifecycle(&mut self) -> io::Result<()> {
         let at = monotonic_us();
+        if let Some(watch) = &mut self.shutdown_watch {
+            match self.worker.try_exit()? {
+                Some(status) => {
+                    self.worker.exit_result(status)?;
+                    watch.finish()?;
+                }
+                None if watch.expire(at) => {
+                    // Never waitpid on the conversation path. The owned child
+                    // is signalled once and polled; final shutdown reaps it.
+                    if !self.termination_requested {
+                        self.termination_requested = true;
+                        self.worker.request_termination()?;
+                    }
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "optional camera local-revoke/driver-teardown deadline expired; termination requested",
+                    ));
+                }
+                None => {}
+            }
+            if !self.failed {
+                return Err(io::Error::other("camera revoked independently"));
+            }
+            return Ok(());
+        }
+        if self.worker.try_exit()?.is_some() {
+            return Err(io::Error::other("camera worker exited"));
+        }
         let grace = self
             .opening_until_us
             .unwrap_or(self.last_event_us.saturating_add(250_000));
         if self.start_sent && !self.failed && at >= grace {
             return Err(io::Error::other("camera progress deadline expired"));
         }
-        Ok(important)
+        Ok(())
     }
 }
 
@@ -182,7 +267,7 @@ pub(super) fn service_camera(
     rig: &mut Rig,
     owner: &mut Controller,
     allowed: bool,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<()> {
     let Some(camera) = rig.camera.as_mut() else {
         return Ok(());
@@ -203,8 +288,9 @@ pub(super) fn service_camera(
         }
         Err(_) if !camera.failed => {
             camera.failed = true;
-            // Do not wait for worker stop on the audio path. Its own authority
-            // watchdog and final shared supervisor deadline bound cleanup.
+            // Do not wait for driver teardown on the audio path. Subsequent
+            // ticks retain receipts and enforce the separate camera deadlines.
+            camera.begin_shutdown(monotonic_us());
             let _ = camera.worker.channels.control.send(Control::Stop);
             owner.set_camera_permission(now(), Permission::Denied)?;
             let state = owner.snapshot(now())?;
@@ -241,6 +327,119 @@ pub(super) fn service_camera(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn watched_camera() -> (SessionDirectory, OptionalCamera, WorkerChannels) {
+        let directory = SessionDirectory::create().unwrap();
+        let (worker, peer) = Worker::sleeping_fixture(&directory.path, "camera");
+        let source = VisualSource {
+            socket: directory.path.join("camera.frames"),
+            camera: worker.boot,
+            source: "desk".into(),
+            width: 320,
+            height: 240,
+            max_frame_bytes: 128 * 1024,
+        };
+        let mut camera = OptionalCamera::new(worker, source);
+        camera.failed = true;
+        (directory, camera, peer)
+    }
+
+    #[test]
+    fn malformed_metadata_cannot_starve_expired_revoke_watch() {
+        let (_directory, mut camera, mut peer) = watched_camera();
+        camera.begin_shutdown(monotonic_us() - lamp_camera::REVOKE_TARGET_US);
+        let original_deadline = camera.shutdown_watch.as_ref().unwrap().deadline_us();
+        for _ in 0..3 {
+            // The envelope is from the actual authenticated peer, but its
+            // payload cannot decode as CameraEvent. Every tick must still
+            // enforce the already-expired stop deadline.
+            peer.data
+                .send(json!({"kind":"not_a_camera_event"}))
+                .unwrap();
+            let error = camera.poll().unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+            assert_eq!(error.to_string(), "malformed runtime message");
+            assert!(
+                camera.termination_requested,
+                "a metadata error bypassed the expired camera watchdog"
+            );
+            assert_eq!(
+                camera.shutdown_watch.as_ref().unwrap().deadline_us(),
+                original_deadline
+            );
+        }
+        assert!(camera.shutdown_watch.as_ref().unwrap().finish().is_err());
+        assert!(!camera.start_sent);
+    }
+
+    #[test]
+    fn invalid_receipts_cannot_starve_expired_driver_watch() {
+        let (_directory, mut camera, mut peer) = watched_camera();
+        let revoked_at = monotonic_us() - lamp_camera::DRIVER_TEARDOWN_BUDGET_US;
+        camera.begin_shutdown(revoked_at - 1);
+        let revoked = CameraEvent::Revoked {
+            at_us: revoked_at,
+            worker: camera.worker.boot,
+            reason: crate::camera_worker::StopReason::Requested,
+            teardown_deadline_us: revoked_at + lamp_camera::DRIVER_TEARDOWN_BUDGET_US,
+            error: None,
+            timestamp_rejection: None,
+        };
+        // Record a valid prompt seal at its original observation time. The
+        // driver has subsequently used its entire independent teardown budget.
+        camera.shutdown_event(revoked.clone(), revoked_at).unwrap();
+        let original_deadline = camera.shutdown_watch.as_ref().unwrap().deadline_us();
+        for _ in 0..3 {
+            // A duplicate is a well-formed, authenticated but invalid receipt.
+            peer.data.send(&revoked).unwrap();
+            let error = camera.poll().unwrap_err();
+            assert!(error.to_string().contains("local-revocation receipt"));
+            assert!(
+                camera.termination_requested,
+                "an invalid receipt bypassed the expired camera watchdog"
+            );
+            assert_eq!(
+                camera.shutdown_watch.as_ref().unwrap().deadline_us(),
+                original_deadline
+            );
+        }
+        assert!(camera.shutdown_watch.as_ref().unwrap().finish().is_err());
+        assert!(!camera.start_sent);
+    }
+
+    #[test]
+    fn expired_optional_camera_is_signalled_once_without_waiting_or_restarting() {
+        let directory = SessionDirectory::create().unwrap();
+        let (worker, _peer) = Worker::sleeping_fixture(&directory.path, "camera");
+        let source = VisualSource {
+            socket: directory.path.join("camera.frames"),
+            camera: worker.boot,
+            source: "desk".into(),
+            width: 320,
+            height: 240,
+            max_frame_bytes: 128 * 1024,
+        };
+        let mut camera = OptionalCamera::new(worker, source);
+        camera.failed = true;
+        camera.begin_shutdown(monotonic_us() - lamp_camera::REVOKE_TARGET_US);
+        let before = Instant::now();
+        assert_eq!(camera.poll().unwrap_err().kind(), io::ErrorKind::TimedOut);
+        assert!(camera.termination_requested);
+        // Generous host-test bound, not a kernel scheduling/UX guarantee. The
+        // child normally sleeps60s; signal-only service contains no wait call.
+        assert!(before.elapsed() < Duration::from_secs(1));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while camera.worker.try_exit().unwrap().is_none() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(camera.worker.try_exit().unwrap().is_some());
+        assert!(camera.shutdown_watch.as_ref().unwrap().finish().is_err());
+        assert!(
+            camera.poll().is_err(),
+            "forced cleanup cannot later certify success"
+        );
+        assert!(!camera.start_sent, "no replacement or automatic restart");
+    }
+
     #[test]
     fn mandatory_fault_consumed_during_camera_spawn_wait_remains_fatal() {
         use std::os::unix::fs::PermissionsExt;
@@ -395,7 +594,7 @@ mod tests {
             capture,
             provider,
             privacy,
-            ring: None,
+            ring: None.into(),
             camera: Some(camera),
             ring_channel_ceiling: None,
             diagnostic_directory: None,
@@ -425,7 +624,7 @@ mod tests {
         owner.input_ended(now(), turn).unwrap();
         let permit = owner.issue_output(now(), plan, 100_000).unwrap();
         let before = owner.snapshot(now()).unwrap();
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         service_camera(&mut rig, &mut owner, true, &mut trace).unwrap();
         let after = owner.snapshot(now()).unwrap();
         assert_eq!(after.owner(), Some(turn));

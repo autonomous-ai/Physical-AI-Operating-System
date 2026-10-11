@@ -9,6 +9,9 @@ pub const REVOKE_TARGET_US: u64 = 20_000;
 pub const READ_BUDGET_US: u64 = 10_000;
 pub const START_BUDGET_US: u64 = 100_000;
 pub const STOP_BUDGET_US: u64 = 20_000;
+/// Separate supervised driver teardown bound after local export is sealed.
+/// This is an engineering limit, not a measured USB/kernel completion maximum.
+pub const DRIVER_TEARDOWN_BUDGET_US: u64 = 250_000;
 pub const FIRST_FRAME_DEADLINE_US: u64 = 2_000_000;
 pub const FRAME_SILENCE_DEADLINE_US: u64 = 1_000_000;
 pub const MAX_DEQUEUE_AGE_US: u64 = 250_000;
@@ -155,24 +158,54 @@ pub struct FrameId {
     pub sequence: NonZeroU64,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TimestampDomain {
     /// Driver explicitly reports the same OS CLOCK_MONOTONIC domain as Clock.
     HostMonotonic,
     Realtime,
     Unknown,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TimestampPoint {
     StartOfExposure,
     EndOfFrame,
     Unknown,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DriverTimestamp {
     pub micros: u64,
     pub domain: TimestampDomain,
     pub point: TimestampPoint,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TimestampPredicate {
+    Future,
+    BeforeCaptureStart,
+    TooOld,
+    Regressed,
+}
+
+/// The first failed driver-timestamp comparison, retained independently of
+/// erased frame storage. Fixed metadata only: no image bytes or caller strings.
+/// `timestamp` is the original port value, without rebasing or clock conversion;
+/// the Linux adapter has only converted the raw timeval to microseconds.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimestampRejection {
+    pub capture_epoch: u64,
+    pub driver_sequence: u32,
+    pub timestamp: DriverTimestamp,
+    pub capture_started_at_us: u64,
+    pub dequeue_started_at_us: u64,
+    pub comparison_at_us: u64,
+    pub maximum_age_us: u64,
+    pub previous_timestamp: Option<DriverTimestamp>,
+    pub predicate: TimestampPredicate,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -324,6 +357,9 @@ pub struct PollReport {
 pub struct StopReport {
     pub timing: Option<CallTiming>,
     pub invalidated_frames: u64,
+    /// True only in explicitly deferred mode: local frames are erased, but the
+    /// driver still requires one `Capture::finish_teardown` call.
+    pub teardown_pending: bool,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ErrorKind {

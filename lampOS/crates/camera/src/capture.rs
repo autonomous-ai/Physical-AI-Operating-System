@@ -53,7 +53,10 @@ pub struct Capture<P: PortIo, C: Clock> {
     sequence: u64,
     active: Option<Active>,
     port_open: bool,
+    deferred_teardown: bool,
+    teardown_started: Option<MonoTime>,
     faulted: Option<ErrorKind>,
+    timestamp_rejection: Option<TimestampRejection>,
     scratch: Slot,
     pending: Slot,
     in_flight: Slot,
@@ -91,7 +94,10 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             sequence: 0,
             active: None,
             port_open: false,
+            deferred_teardown: false,
+            teardown_started: None,
             faulted: None,
+            timestamp_rejection: None,
             scratch: Slot::new(config.max_frame_bytes)?,
             pending: Slot::new(config.max_frame_bytes)?,
             in_flight: Slot::new(config.max_frame_bytes)?,
@@ -102,8 +108,38 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
     pub fn counters(&self) -> Counters {
         self.counters
     }
+    pub fn worker(&self) -> BootId {
+        self.worker
+    }
+    /// A dedicated supervised worker can publish local revocation before a
+    /// potentially blocking driver teardown. Errors and privacy changes still
+    /// erase every local slot immediately. The caller must close its downstream
+    /// copies, publish that boundary, then call `finish_teardown` exactly once.
+    /// No start is allowed while teardown remains pending.
+    pub fn with_deferred_teardown(mut self) -> Self {
+        self.deferred_teardown = true;
+        self
+    }
+    pub fn teardown_deadline(&self) -> Option<MonoTime> {
+        self.teardown_started
+            .and_then(|at| at.checked_add(DRIVER_TEARDOWN_BUDGET_US))
+    }
+    /// Finish the already sealed port, even after a fault. The deadline remains
+    /// anchored at the first local seal; delayed calls never renew it.
+    pub fn finish_teardown(&mut self) -> Result<StopReport, Error> {
+        if self.active.is_some() || !self.deferred_teardown {
+            return Err(Error::new(ErrorKind::AlreadyStarted));
+        }
+        let anchor = self.teardown_started.unwrap_or(self.last_now);
+        self.finish_close(anchor, DRIVER_TEARDOWN_BUDGET_US, 0)
+    }
     pub fn fault(&self) -> Option<ErrorKind> {
         self.faulted
+    }
+    /// Read-only first rejection evidence. It grants no capture/delivery rights
+    /// and survives slot erasure and driver cleanup without retaining pixels.
+    pub fn timestamp_rejection(&self) -> Option<TimestampRejection> {
+        self.timestamp_rejection
     }
 
     /// Trusted control only. A rejected stale/duplicate snapshot cannot close
@@ -133,7 +169,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
 
     pub fn start(&mut self) -> Result<StartReport, Error> {
         let before = self.time()?;
-        if self.active.is_some() {
+        if self.active.is_some() || self.port_open {
             return Err(Error::new(ErrorKind::AlreadyStarted));
         }
         let grant = self
@@ -235,7 +271,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             Err(error) => return Err(self.fail(ErrorKind::Port(error), after)),
         };
         let observation = if let Some(frame) = frame {
-            if let Err(kind) = self.validate_frame(frame, active, after) {
+            if let Err(kind) = self.validate_frame(frame, active, timing) {
                 return Err(self.fail(kind, after));
             }
             let Some(sequence) = self.sequence.checked_add(1).and_then(NonZeroU64::new) else {
@@ -446,11 +482,12 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         Ok(())
     }
     fn validate_frame(
-        &self,
+        &mut self,
         frame: PortFrame,
         active: Active,
-        now: MonoTime,
+        timing: CallTiming,
     ) -> Result<(), ErrorKind> {
+        let now = timing.completed_at;
         if frame.capture != active.id {
             return Err(ErrorKind::OldCapture);
         }
@@ -471,21 +508,39 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
                 return Err(ErrorKind::OldDriverSequence);
             }
         }
-        if let Some(timestamp) = frame.timestamp {
-            if timestamp.domain == TimestampDomain::HostMonotonic
-                && (timestamp.micros > now.as_micros()
-                    || timestamp.micros < active.started_at.as_micros()
-                    || (timestamp.point != TimestampPoint::Unknown
-                        && now.as_micros() - timestamp.micros >= MAX_DEQUEUE_AGE_US))
+        if let Some(timestamp) = frame.timestamp
+            && timestamp.domain == TimestampDomain::HostMonotonic
+        {
+            // Keep the original short-circuit comparison order and limits.
+            let predicate = if timestamp.micros > now.as_micros() {
+                Some(TimestampPredicate::Future)
+            } else if timestamp.micros < active.started_at.as_micros() {
+                Some(TimestampPredicate::BeforeCaptureStart)
+            } else if timestamp.point != TimestampPoint::Unknown
+                && now.as_micros() - timestamp.micros >= MAX_DEQUEUE_AGE_US
             {
-                return Err(ErrorKind::InvalidDriverTimestamp);
-            }
-            if let Some(previous) = active.last_driver_timestamp
-                && timestamp.domain == TimestampDomain::HostMonotonic
-                && timestamp.domain == previous.domain
-                && timestamp.point == previous.point
-                && timestamp.micros < previous.micros
-            {
+                Some(TimestampPredicate::TooOld)
+            } else if active.last_driver_timestamp.is_some_and(|previous| {
+                timestamp.domain == previous.domain
+                    && timestamp.point == previous.point
+                    && timestamp.micros < previous.micros
+            }) {
+                Some(TimestampPredicate::Regressed)
+            } else {
+                None
+            };
+            if let Some(predicate) = predicate {
+                self.timestamp_rejection.get_or_insert(TimestampRejection {
+                    capture_epoch: active.id.epoch.get(),
+                    driver_sequence: frame.driver_sequence,
+                    timestamp,
+                    capture_started_at_us: active.started_at.as_micros(),
+                    dequeue_started_at_us: timing.started_at.as_micros(),
+                    comparison_at_us: now.as_micros(),
+                    maximum_age_us: MAX_DEQUEUE_AGE_US,
+                    previous_timestamp: active.last_driver_timestamp,
+                    predicate,
+                });
                 return Err(ErrorKind::InvalidDriverTimestamp);
             }
         }
@@ -522,7 +577,14 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         }
     }
     fn close_at(&mut self, now: MonoTime) -> Result<StopReport, Error> {
-        match self.cleanup(now) {
+        let result = self.cleanup(now);
+        self.close_result(result)
+    }
+    fn close_result(
+        &mut self,
+        result: Result<StopReport, CleanupFailure>,
+    ) -> Result<StopReport, Error> {
+        match result {
             Ok(report) => Ok(report),
             Err(cleanup) => {
                 let kind = cleanup
@@ -554,14 +616,45 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         self.pending.clear();
         self.in_flight.clear();
         self.active = None;
+        if self.deferred_teardown && self.port_open {
+            self.teardown_started.get_or_insert(now);
+            return Ok(StopReport {
+                timing: None,
+                invalidated_frames,
+                teardown_pending: true,
+            });
+        }
+        self.stop_port(now, STOP_BUDGET_US, invalidated_frames)
+    }
+    fn finish_close(
+        &mut self,
+        anchor: MonoTime,
+        duration_us: u64,
+        invalidated_frames: u64,
+    ) -> Result<StopReport, Error> {
+        let result = self.stop_port(anchor, duration_us, invalidated_frames);
+        self.close_result(result)
+    }
+    fn stop_port(
+        &mut self,
+        anchor: MonoTime,
+        duration_us: u64,
+        invalidated_frames: u64,
+    ) -> Result<StopReport, CleanupFailure> {
         if !self.port_open {
             return Ok(StopReport {
                 timing: None,
                 invalidated_frames,
+                teardown_pending: false,
             });
         }
         self.port_open = false;
-        let Some(deadline) = now.checked_add(STOP_BUDGET_US) else {
+        self.teardown_started = None;
+        // Read actual call start independently from the original seal/deadline.
+        // On clock failure still make the one mandatory cleanup attempt.
+        let before = self.read_clock();
+        let now = before.unwrap_or(self.last_now);
+        let Some(deadline) = anchor.checked_add(duration_us) else {
             // Still perform one close when clock arithmetic cannot represent a
             // later deadline. A zero remaining budget never permits a retry.
             let port = self
@@ -585,7 +678,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
                 deadline,
             })
             .err();
-        let (timing, clock) = match self.read_clock() {
+        let (timing, mut clock) = match self.read_clock() {
             Ok(after) => (
                 Some(CallTiming {
                     started_at: now,
@@ -595,6 +688,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             ),
             Err(error) => (None, Some(error)),
         };
+        clock = before.err().or(clock);
         let budget_exceeded = timing.is_some_and(|t| t.completed_at >= deadline);
         if port.is_some() || clock.is_some() || budget_exceeded {
             Err(CleanupFailure {
@@ -607,6 +701,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             Ok(StopReport {
                 timing,
                 invalidated_frames,
+                teardown_pending: false,
             })
         }
     }

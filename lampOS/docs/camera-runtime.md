@@ -5,8 +5,8 @@ retention behind a provider-neutral `PortIo`. Its opt-in Linux V4L2 backend
 implements explicit USB identity checks, MJPG negotiation and a bounded MMAP
 queue. It has no process launcher, image decoder, vision inference, cloud image
 input, light cue or motor operation. Synthetic tests do not qualify hardware,
-optical freshness, privacy response time or real-time performance. The Linux
-backend has not opened a physical camera.
+optical freshness, privacy response time or real-time performance. This composed candidate does not establish physical camera qualification.
+Native startup currently yields zero frames and remains a separate investigation.
 
 ## Local ownership and privacy
 
@@ -133,11 +133,12 @@ These are proposed targets and failure bounds, **not measured results**:
 | Boundary | Target or bound |
 |---|---|
 | Worker control/maintenance polling | At most 2 ms between iterations |
-| Locally received privacy revoke to discarded frames and completed stop | Target at most 20 ms; measure on the physical backend |
+| Parent stop/revoke request to receipt of sealed local frames and closed frame links | Target at most 20 ms; missing or late receipt is a fault |
 | Port read start through final retention check | Checked 10 ms application budget, clipped to authority expiry |
 | Host dequeue completion to publication/handoff availability | Target p95 at most 10 ms; expose call and completion timestamps |
 | Start port operation | Checked 100 ms application budget, clipped to authority expiry |
-| Stop port operation | Checked 20 ms application budget |
+| Direct synchronous `Capture` stop | Checked 20 ms application budget (unchanged default) |
+| Supervised worker driver teardown after local seal | Separate checked 250 ms bound anchored at first seal; requires native qualification |
 | First current frame after start begins | Fault at 2 s, with authority continuously refreshed |
 | Silence after the last accepted frame | Fault at 1 s, with authority continuously refreshed |
 | Retained host dequeue age | Strictly less than 250 ms |
@@ -241,8 +242,23 @@ Drop makes a single best-effort cleanup attempt, never restarts, and cannot repo
 errors to a caller. There is no claim that a kernel ioctl/close/unmap can be
 preempted by an application deadline.
 
-Budgets are capped to 100 ms for start, 10 ms per read and 20 ms for stop, with
-checks before and after each bounded operation. Reported timings are host
+Budgets remain capped to 100 ms for start and 10 ms per read, with checks before
+and after each bounded operation. Direct synchronous capture stop retains its
+20 ms budget. The dedicated worker opts into deferred teardown: every stop,
+privacy change and fault clears local slots/tokens first, closes all downstream
+frame links, then publishes `Revoked` before calling the driver. `Revoked` retains
+worker identity, original fault if present, local seal time and the driver deadline.
+It is not evidence of physical sensor shutdown. `finish_teardown` performs exactly
+one driver stop, with at most 250 ms from the original seal; another stop call or
+late finish cannot restart that interval. Pending teardown forbids start. Worker
+revocation is terminal: it never captures, accepts consumers, exports or restarts
+afterward. The Linux port returns queued-stream faults without hidden synchronous
+teardown, so the worker can report them before STREAMOFF/close. Early open/setup
+unwinding before the queue exists can still perform descriptor cleanup.
+
+`Stopped` is a separate actual driver-return receipt, including timing and errors.
+The 250 ms bound is an engineering choice for qualification, not a measured driver
+maximum and not a privacy or authority lease extension. Reported timings are host
 observations, not kernel deadline guarantees. Cold UVC start may exceed the
 current 100 ms bound; this must be measured rather than quietly relaxing it.
 Construction/open/STREAMON alone never means camera or listening readiness.
@@ -318,16 +334,28 @@ worker's final delivery check runs under that original grant. The parent drains
 physical privacy again after receiving a record and compares the original grant
 with the currently permitted one before accepting it. A newly opened privacy
 lineage cannot relabel an older frame. During shutdown, queued frame metadata is
-discarded rather than counted as newly accepted; only stop/cleanup evidence is
-retained. No JPEG is saved, transmitted, decoded or hashed.
+discarded rather than counted as newly accepted; local revocation and separate
+driver cleanup evidence are retained. No JPEG is saved, transmitted, decoded or hashed.
 
 Progress is emitted at most once per 10 ms, with a 30 ms parent watchdog based on
 **producer monotonic time**, not receipt of an old queued packet. Start announces
 its separate 100 ms checked budget; progress cannot extend an unfinished start.
-The parent and worker use a 2 ms cooperative tick. Revocation is sent immediately,
-and an unresponsive camera is killed/reaped after a 20 ms observed shutdown
-window; the privacy worker has a 100 ms shutdown window. Forced termination,
-abnormal exit and missing stop evidence are failures. This bounds application
+The parent and worker use a 2 ms cooperative tick. Revocation is sent immediately.
+Without a valid `Revoked` receipt observed within 20 ms, the camera is killed/reaped
+and the run fails. Only that receipt permits waiting for its separately bounded
+250 ms driver deadline. Wrong-worker, future, late, duplicate or contradictory
+receipts fail validation; progress cannot extend either boundary. Missing/late
+`Stopped`, a driver error, abnormal exit and forced termination remain failures.
+The privacy worker keeps its separate 100 ms shutdown window. Directed conversation
+uses the same validation and retains both camera receipts; camera failure closes
+sight without blocking active audio. On a camera deadline it signals only that
+owned child once and polls nonblockingly; it never waits for driver teardown or
+spawns a replacement on the conversation path. Final shared shutdown reaps the
+child, and cleanup failure remains visible in the final run result. Every tick
+enforces the lifecycle watchdog even if metadata decoding or receipt validation
+fails. Those errors remain failures; neither repeated invalid packets nor later
+valid receipts can renew the deadline or certify clean teardown. The shared
+300/750 ms shutdown bound is unchanged. This bounds application
 waiting and retry work; scheduling and kernel kill/wait/ioctl/close calls are not
 preemptible hard guarantees. A read's checked 10 ms budget is still enforced by
 the capture library on return. The watchdog is not a claim of 10 ms preemption.
@@ -508,3 +536,54 @@ format/queue constants matched exactly. These selected ABI checks support
 compiling the existing capture operations against the bundle; they do not prove
 camera driver behavior, optical freshness, frame quality, privacy timing, or
 vision-assisted attention. Physical camera qualification remains pending.
+
+
+### Native shutdown correction evidence (2026-10-11)
+
+The pre-correction five-second inspection first failed before any frame, with a
+progress deadline. That attempt remains unresolved. A second inspection of the
+same binary under a targeted syscall trace accepted 31 frames with no sequence
+gaps. The device opened with `O_NONBLOCK`; late DQBUF calls returned EAGAIN in
+23–54 microseconds. At shutdown, STREAMOFF had not returned when SIGKILL arrived
+approximately 38.4 ms later. This supports separating local export revocation
+from driver teardown; it does not establish how long STREAMOFF would have taken.
+
+The regression models a 40 ms driver teardown on the actual worker path. The old
+combined 20 ms stop rule fails. The corrected path publishes local revocation
+before entering the fake driver, retains the actual 40 ms completion separately,
+and continues to fail an overrun at 250 ms. Synthetic tests also retain read
+faults before teardown and reject missing/late/invalid revocation receipts. They
+prove code ordering and failure behavior, not native driver timing or optical
+privacy. Native inspection of the corrected binary is still required.
+
+A follow-up real-socket regression found that repeated malformed payloads or
+invalid shutdown receipts could return before the optional-camera watchdog.
+The fix runs nonblocking lifecycle enforcement unconditionally after the bounded
+metadata pass and preserves its original error. Tests cover both an expired
+20 ms revocation deadline and an expired 250 ms driver deadline; error traffic
+cannot prevent the one-time owned-child termination request.
+
+### Timestamp rejection evidence
+
+An `InvalidDriverTimestamp` fault retains one fixed-size `TimestampRejection`
+record and attaches it to the existing `Revoked` receipt, before driver teardown.
+It contains the unmodified port timestamp in microseconds (Linux normalizes the
+raw V4L2 timeval to this unit), its reported clock domain and timestamp point,
+capture epoch and driver sequence, capture-start request time, dequeue-start and
+host comparison times, the unchanged 250,000 microsecond age bound, the previous
+timestamp if any, and the first failed predicate in the existing order:
+`future`, `before_capture_start`, `too_old`, or `regressed`.
+
+The record survives frame erasure and cleanup. It has only fixed numeric and
+enum fields, no image data, configuration, credentials or arbitrary strings;
+later calls cannot replace the first rejection. Existing receipts without this
+optional field still decode. It grants no capture or export authority and does
+not change rejection, freshness, privacy, start or teardown behavior.
+
+The native corrected inspection returned a buffer but failed timestamp validation
+before any frame was counted. Its retained report did not include the rejected
+value, so the failing comparison could not be identified. The next inspection
+must preserve this record alongside `capture_started` and the original fault/
+teardown receipts. Compare those exact operands before considering any behavior
+change; timestamp labels are driver reports, not independent exposure timing or
+optical-privacy evidence.

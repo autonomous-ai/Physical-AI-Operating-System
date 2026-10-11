@@ -2,7 +2,8 @@
 //!
 //! This integration has optional guarded ring cues, but no addressee inference or motors.
 //! Refuse to present its directed-session results as general desk-conversation
-//! qualification. Every worker failure ends the run and retains a failure trace.
+//! qualification. Audio-critical failures end the run; optional ring failure disables
+//! presentation while retaining the child and truthful cleanup evidence.
 use crate::{
     activity::{Activity, ObservedAudio, TurnDetector},
     admission::{
@@ -18,12 +19,15 @@ use crate::{
         AudioWorkerOptions, DirectedOptions, NoiseSuppression, PlayoutStart, SessionOptions,
         TurnTaking,
     },
-    privacy::PrivacyGate,
+    privacy::{PrivacyGate, PrivacyState},
     process::{SessionDirectory, Worker, boot_text, new_boot},
     provider_flow::{MAX_REPLY_SAMPLES, OutputReceiver, PACKET_SAMPLES},
     provider_link::{ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
     ring_wire::{RingBlankReason, RingFeedback},
+    service_privacy::{self, PhysicalMute},
+    session_lifetime::{Lifetime, SessionClock},
+    session_state::SessionState,
     termination::Termination,
     transport::{Channel, WorkerChannels},
     turn_taking::{Disposition, PlaybackMask},
@@ -51,9 +55,12 @@ use std::{
 };
 mod camera;
 mod cloud;
+mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
+mod optional_ring;
 mod ring_trace;
 use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
+use optional_ring::OptionalRing;
 use ring_trace::RingTrace;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -61,7 +68,8 @@ pub const MAX_DIRECTED_SECONDS: u64 = 600;
 const INPUT_READINESS_TIMEOUT: Duration = Duration::from_secs(25);
 const DIAGNOSTIC_SHUTDOWN_GRACE: Duration = Duration::from_millis(750);
 const INPUT_LEASE_US: u64 = 100_000;
-const MAX_TRACE_EVENTS: usize = 20_000;
+#[cfg(test)]
+const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
 const PROVIDER_SLICE_US: u64 = 2_000;
 
@@ -113,7 +121,10 @@ struct Reply {
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
-        self.start.audio_arrived(received_at_us);
+        // The gate counts frames to measure the service's lead. A plain gate
+        // only records it; a continuity gate starts a new hold with the first
+        // audio after a generation's final block left.
+        self.start.arrival(received_at_us, samples.len());
         self.need.arrival(received_at_us, samples.len());
         // Generation completion is not turn completion. A new generation may
         // arrive while the previous generation's accepted final PCM is still
@@ -153,7 +164,19 @@ impl Reply {
         let opened = self.start.opened();
         json!({
             "horizon_us":self.start.horizon_us(),
-            "scope":"first_dispatchable_chunk_of_reply; later generations do not rebuffer",
+            "continuity":self.start.continuity().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
+            "measured_lead_us":self.start.lead_us(),
+            "opened_by":opened.map(|event| match event.by {
+                lamp_audio::playout::OpenedBy::Covered => "covered",
+                lamp_audio::playout::OpenedBy::Complete => "complete",
+                lamp_audio::playout::OpenedBy::Margin => "margin",
+                lamp_audio::playout::OpenedBy::HoldBound => "hold_bound",
+            }),
+            "scope":if self.start.continuity().is_some() {
+                "first_dispatchable_chunk_of_each_generation; a later generation is held again once the previous final block left"
+            } else {
+                "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+            },
             "opened_at_us":opened.map(|event| event.at_us),
             "age_since_first_audio_us":opened.map(|event| event.held_us),
             "queued_frames_at_open":opened.map(|event| event.buffered_frames),
@@ -174,6 +197,9 @@ impl Reply {
             return None;
         }
         let final_chunk = self.generation_done && self.pcm.len() <= 240;
+        if final_chunk {
+            self.start.generation_ended();
+        }
         let mut samples = Vec::with_capacity(240);
         for _ in 0..240 {
             match self.pcm.pop_front() {
@@ -214,7 +240,7 @@ struct Rig {
     capture: Worker,
     speaker: Worker,
     privacy: Worker,
-    ring: Option<Worker>,
+    ring: OptionalRing,
     camera: Option<OptionalCamera>,
     ring_channel_ceiling: Option<u16>,
     diagnostic_directory: Option<PathBuf>,
@@ -229,15 +255,13 @@ impl Rig {
             &mut self.capture,
             &mut self.privacy,
             &mut self.provider,
-        ]
-        .into_iter()
-        .chain(self.ring.iter_mut())
-        {
+        ] {
             worker
                 .channels
                 .control
                 .send(Control::Authority { snapshot })?;
         }
+        self.ring.publish(snapshot);
         if let Some(camera) = self.camera.as_mut()
             && !camera.failed
             && camera
@@ -257,15 +281,13 @@ impl Rig {
             &mut self.capture,
             &mut self.speaker,
             &mut self.privacy,
-        ]
-        .into_iter()
-        .chain(self.ring.iter_mut())
-        {
+        ] {
             worker.check_running()?;
         }
+        self.ring.check_running();
         Ok(())
     }
-    fn shutdown(&mut self, trace: &mut Vec<Value>) -> io::Result<()> {
+    fn shutdown(&mut self, trace: &mut SessionState) -> io::Result<()> {
         let grace = if self.diagnostic_directory.is_some() {
             DIAGNOSTIC_SHUTDOWN_GRACE
         } else {
@@ -273,6 +295,14 @@ impl Rig {
         };
         let deadline = Instant::now() + grace;
         let stop_requested_at_us = monotonic_us();
+        let mut camera_watch = self.camera.as_mut().map(|camera| {
+            camera.begin_shutdown(stop_requested_at_us);
+            for event in camera.shutdown_events.iter().flatten() {
+                let _ = record(trace, json!({"kind":"camera_shutdown_receipt", "at_us":monotonic_us(), "details":event,
+                    "boundary":"local revocation and driver teardown are separate; physical sensor shutdown unmeasured"}));
+            }
+            camera.shutdown_watch.take().expect("camera shutdown watch")
+        });
         // Send urgent stop to every child before waiting on any one child.
         for worker in [
             &mut self.speaker,
@@ -292,11 +322,12 @@ impl Rig {
                 );
             }
         }
-        let mut failure = None;
+        let mut failure = self.ring.cleanup_error();
+        let ring_stop_requested_at_us = self.ring.stop_requested_at(stop_requested_at_us);
         let mut exited =
             vec![false; 4 + usize::from(self.ring.is_some()) + usize::from(self.camera.is_some())];
         let mut receipts: [Option<DiagnosticFinished>; 2] = [None, None];
-        let mut ring_blank_confirmed = self.ring.is_none();
+        let mut ring_blank_confirmed = self.ring.blank_confirmed();
         let mut final_drain = false;
         loop {
             // Keep the 100 ms control channel fresh while independent diagnostic
@@ -329,7 +360,8 @@ impl Rig {
                         })) => {
                             if worker.role != "ring"
                                 || ring_blank_confirmed
-                                || !report.confirms_shutdown(stop_requested_at_us, monotonic_us())
+                                || !report
+                                    .confirms_shutdown(ring_stop_requested_at_us, monotonic_us())
                             {
                                 failure =
                                     Some(io::Error::other("invalid ring shutdown write receipt"));
@@ -367,19 +399,31 @@ impl Rig {
                 if worker.role == "camera" {
                     for _ in 0..32 {
                         match worker.channels.data.receive::<CameraEvent>() {
-                            Ok(Some(event @ CameraEvent::Stopped { .. })) => {
-                                let _ = record(
-                                    trace,
-                                    json!({"kind":"camera_stopped", "at_us":monotonic_us(), "details":event}),
-                                );
+                            Ok(Some(event)) => {
+                                if let Err(error) = camera_watch
+                                    .as_mut()
+                                    .expect("camera watch")
+                                    .observe(&event, monotonic_us())
+                                {
+                                    failure = Some(error);
+                                }
+                                if matches!(
+                                    event,
+                                    CameraEvent::Revoked { .. } | CameraEvent::Stopped { .. }
+                                ) {
+                                    let _ = record(
+                                        trace,
+                                        json!({"kind":"camera_shutdown_receipt", "at_us":monotonic_us(), "details":event}),
+                                    );
+                                }
                             }
-                            Ok(Some(_)) => {}
                             Ok(None) => break,
                             Err(error) => {
                                 let _ = record(
                                     trace,
                                     json!({"kind":"camera_shutdown_channel_failed", "at_us":monotonic_us(), "error":error.to_string()}),
                                 );
+                                failure = Some(error);
                                 break;
                             }
                         }
@@ -395,10 +439,22 @@ impl Rig {
                                     json!({"kind":"worker_exit_failed", "worker":worker.role,
                                     "at_us":monotonic_us(), "error":error.to_string()}),
                                 );
-                                if worker.role != "camera" {
-                                    failure = Some(error);
-                                }
+                                failure = Some(error);
                             }
+                        }
+                        Ok(None)
+                            if worker.role == "camera"
+                                && monotonic_us()
+                                    >= camera_watch
+                                        .as_ref()
+                                        .expect("camera watch")
+                                        .deadline_us() =>
+                        {
+                            exited[index] = true;
+                            failure = Some(worker.terminate_and_reap(
+                                io::ErrorKind::TimedOut,
+                                "camera local-revoke/driver-teardown deadline expired".into(),
+                            ));
                         }
                         Ok(None) => {}
                         Err(error) => {
@@ -453,6 +509,11 @@ impl Rig {
             failure = Some(io::Error::other(
                 "ring shutdown has no verified black-write receipt",
             ));
+        }
+        if let Some(watch) = camera_watch
+            && let Err(error) = watch.finish()
+        {
+            failure = Some(error);
         }
         if let Some(directory) = &self.diagnostic_directory {
             for (index, worker, leaf) in [
@@ -528,7 +589,7 @@ pub fn run_fixture(
         .transpose()?;
     run_source(
         ProviderSource::Fixture { wav, sha256 },
-        seconds,
+        Lifetime::Finite(seconds),
         output,
         options.directed,
         None,
@@ -593,7 +654,29 @@ pub fn run_directed_session(
         .transpose()?;
     run_source(
         ProviderSource::Gemini(config),
-        seconds,
+        Lifetime::Finite(seconds),
+        output,
+        options.directed,
+        options.camera_config.as_deref(),
+        None,
+        cues,
+        &termination,
+    )
+}
+
+/// Continuous conversation, with bounded best-effort metadata. It does not
+/// relax privacy, worker, provider or per-turn permission/watchdog checks.
+pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Result<()> {
+    options.validate_serve()?;
+    let termination = Termination::install()?;
+    let cues = options
+        .cue_socket
+        .as_deref()
+        .map(CueSink::connect)
+        .transpose()?;
+    run_source(
+        ProviderSource::Gemini(config),
+        Lifetime::Serve,
         output,
         options.directed,
         options.camera_config.as_deref(),
@@ -606,7 +689,7 @@ pub fn run_directed_session(
 #[allow(clippy::too_many_arguments)]
 fn run_source(
     source: ProviderSource<'_>,
-    seconds: u64,
+    lifetime: Lifetime,
     output: &Path,
     options: DirectedOptions,
     camera_config: Option<&Path>,
@@ -614,8 +697,9 @@ fn run_source(
     mut cues: Option<CueSink>,
     termination: &Termination,
 ) -> Result<()> {
-    if !(1..=MAX_DIRECTED_SECONDS).contains(&seconds) {
-        return Err(io::Error::other("duration must be 1..600 seconds").into());
+    lifetime.validate()?;
+    if lifetime.continuous() && options.diagnostics {
+        return Err(io::Error::other("serve does not allow raw audio diagnostics").into());
     }
     if let Some(ceiling) = options.ring_channel_ceiling {
         lamp_ring::ChannelCeiling::new(ceiling).map_err(io::Error::other)?;
@@ -624,41 +708,97 @@ fn run_source(
     refuse_legacy_owners()?;
     fs::create_dir(output)?;
     fs::set_permissions(output, fs::Permissions::from_mode(0o700))?;
-    let mut trace = Vec::with_capacity(MAX_TRACE_EVENTS);
-    trace.push(json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":seconds,"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
+    let mut trace = if lifetime.continuous() {
+        SessionState::service(output)
+    } else {
+        SessionState::finite()
+    };
+    record(
+        &mut trace,
+        json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":lifetime.seconds(),"mode":if lifetime.continuous(){"serve"}else{"finite"},"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "camera_context_requested":camera_config.is_some(),
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
+        "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
-        "fixture":fixture,"cue_requested":cues.is_some()}));
+        "fixture":fixture,"cue_requested":cues.is_some()}),
+    )?;
     let result = (|| {
         let diagnostic_directory = options
             .diagnostics
             .then(|| fs::canonicalize(output))
             .transpose()?;
-        run_inner(
-            source,
-            seconds,
-            &mut trace,
-            diagnostic_directory.as_deref(),
-            options,
-            camera_config,
-            &mut cues,
-            termination,
-        )
+        if lifetime.continuous() {
+            let executable = std::env::current_exe()?;
+            service::supervise(
+                &mut trace,
+                &mut cues,
+                termination,
+                |trace, cues| {
+                    service_privacy::wait(&executable, termination, |state, boot, at_us| {
+                        record(
+                            trace,
+                            json!({"kind":"service_privacy_state", "at_us":at_us,"privacy_worker_session":boot,"state":format!("{state:?}"),"audio_workers_open":false}),
+                        )?;
+                        flush_cues(trace, cues);
+                        Ok(())
+                    })
+                },
+                |trace, cues| {
+                    run_inner(
+                        source,
+                        lifetime,
+                        trace,
+                        None,
+                        options,
+                        camera_config,
+                        cues,
+                        termination,
+                    )
+                },
+            )
+        } else {
+            run_inner(
+                source,
+                lifetime,
+                &mut trace,
+                diagnostic_directory.as_deref(),
+                options,
+                camera_config,
+                &mut cues,
+                termination,
+            )
+        }
     })();
     finish_run(output, &mut trace, &mut cues, result, termination)
 }
 
 fn finish_run(
     output: &Path,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     cues: &mut Option<CueSink>,
     result: Result<()>,
     termination: &Termination,
 ) -> Result<()> {
+    if trace.continuous() {
+        record(
+            trace,
+            json!({"kind":"run_end","at_us":monotonic_us(),
+            "status":if result.is_ok(){"stopped_unscored"}else{"failed"},
+            "error":result.as_ref().err().map(ToString::to_string),
+            "termination_signal":termination.signal_name(),"complete_evidence":false}),
+        )?;
+        flush_cues(trace, cues);
+        // Hardware/authority cleanup completed before this bounded optional wait.
+        let health = trace.finish_logging();
+        println!(
+            "{}",
+            json!({"kind":"service_metadata_finished","health":health,"output":output,"complete_evidence":false})
+        );
+        return result;
+    }
     let result = result.and_then(|()| termination.check().map_err(Into::into));
     let end_index = trace.len();
     trace.push(json!({"kind":"run_end","at_us":monotonic_us(),"status":if result.is_ok(){"completed_unscored"}else{"failed"},"error":result.as_ref().err().map(ToString::to_string),"termination_signal":termination.signal_name()}));
@@ -677,17 +817,8 @@ fn finish_run(
     result
 }
 
-fn flush_cues(trace: &mut Vec<Value>, cues: &mut Option<CueSink>) {
-    if let Some(error) = cues
-        .as_mut()
-        .and_then(|sink| sink.scan(trace, monotonic_us()))
-    {
-        // Scheduling failure cannot change voice ownership or block privacy.
-        let _ = record(
-            trace,
-            json!({"kind":"fixture_cue_invalid","at_us":monotonic_us(),"reason":error}),
-        );
-    }
+fn flush_cues(trace: &mut SessionState, cues: &mut Option<CueSink>) {
+    trace.flush(cues, monotonic_us());
 }
 
 fn refuse_legacy_owners() -> io::Result<()> {
@@ -717,12 +848,8 @@ fn refuse_legacy_owners() -> io::Result<()> {
 fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
-fn record(trace: &mut Vec<Value>, event: Value) -> Result<()> {
-    if trace.len() >= MAX_TRACE_EVENTS - 1 {
-        return Err(io::Error::other("trace capacity reached").into());
-    }
-    trace.push(event);
-    Ok(())
+fn record(trace: &mut SessionState, event: Value) -> Result<()> {
+    trace.record(event).map_err(Into::into)
 }
 
 fn link_trace(link: ProviderLink, received_at_us: u64) -> Value {
@@ -747,7 +874,7 @@ fn service_provider_control(
     channel: &mut Channel,
     cloud: &mut CloudAvailability,
     remaining: &mut usize,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<bool> {
     while *remaining > 0 {
         let Some(event) = channel.receive::<WorkerEvent>()? else {
@@ -801,7 +928,7 @@ fn service_speaker_control(
     snapshot: &mut Snapshot,
     last_publish: &mut u64,
     remaining: &mut usize,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<bool> {
     while *remaining > 0 {
         let Some(event) = io.next_speaker_event()? else {
@@ -833,6 +960,9 @@ fn service_speaker_control(
                     queue_observed_at_us,
                     monotonic_us(),
                 )?;
+                trace
+                    .receipts
+                    .accepted(written_owner, sequence, accepted_frames, end_sample)?;
                 if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == turn)
                     && accepted_frames > 0
                 {
@@ -872,6 +1002,7 @@ fn service_speaker_control(
                 observed_at_us,
             } => {
                 playback_mask.clock_reset(previous, next_epoch, observed_at_us, monotonic_us())?;
+                trace.receipts.reset(previous);
                 record(
                     trace,
                     json!({"kind":"playback_clock_reset","previous":previous,"next_epoch":next_epoch,"at_us":observed_at_us,"boundary":"successful physical discard/reset; not speech retirement"}),
@@ -890,6 +1021,7 @@ fn service_speaker_control(
                     observed_at_us,
                     monotonic_us(),
                 )?;
+                trace.receipts.drained(drained_owner, last_sample);
                 record(
                     trace,
                     json!({"kind":"speech_queue_drained","owner":drained_owner,"sequence":sequence,"last_sample":last_sample,"at_us":observed_at_us,"mask_updated":applied,"boundary":"ALSA speech cursor retirement; not turn completion or acoustic silence"}),
@@ -901,6 +1033,7 @@ fn service_speaker_control(
                 final_sample,
                 observed_at_us,
             } => {
+                trace.receipts.drained(delivered, final_sample);
                 if let Some(current) = reply.as_mut().filter(|reply| reply.owner == delivered) {
                     let token = current.retire_playback(sequence, final_sample.frame)?;
                     owner.playback_ended(now(), token)?;
@@ -932,6 +1065,7 @@ fn service_speaker_control(
                 reason,
             } => {
                 playback_mask.rejected(sequence, monotonic_us())?;
+                trace.receipts.rejected(sequence);
                 record(
                     trace,
                     json!({"kind":"speaker_rejected","turn":turn,"sequence":sequence,"reason":reason,"at_us":monotonic_us()}),
@@ -962,7 +1096,7 @@ fn service_speaker_control(
     Ok(false)
 }
 
-fn accepted_decision(decision: Decision, trace: &mut Vec<Value>) -> Result<Option<Accepted>> {
+fn accepted_decision(decision: Decision, trace: &mut SessionState) -> Result<Option<Accepted>> {
     match decision {
         Decision::Accepted(accepted) => Ok(Some(accepted)),
         Decision::Rejected(rejection) => {
@@ -983,7 +1117,7 @@ fn accepted_without_cloud(
     owner: &mut Controller,
     reply: &mut Option<Reply>,
     admission: &mut InputAdmission,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<(Snapshot, bool)> {
     let displaced = reply.as_ref().map(|current| current.owner);
     cancel_reply(owner, reply, trace, "user_interrupted")?;
@@ -1007,7 +1141,7 @@ fn discard_request_input(
     queue: &mut VecDeque<ProviderInput>,
     admission: &mut InputAdmission,
     draining: &mut bool,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     reason: &'static str,
 ) -> Result<()> {
     let discarded_commands = queue.len();
@@ -1033,7 +1167,7 @@ fn apply_submission_gate(
     queue: &mut VecDeque<ProviderInput>,
     admission: &mut InputAdmission,
     draining: &mut bool,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<()> {
     if let Some(current) = reply.as_mut()
         && current.cloud.abandon_if_changed(cloud)
@@ -1308,6 +1442,7 @@ fn spawn_rig(
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
     camera: Option<PreparedCamera>,
+    lifetime: Lifetime,
     termination: &Termination,
 ) -> Result<Rig> {
     termination.check()?;
@@ -1364,13 +1499,17 @@ fn spawn_rig(
             )
         },
     )?;
-    let mut ring = if options.ring_channel_ceiling.is_some() {
+    let mut ring = OptionalRing::from(if options.ring_channel_ceiling.is_some() {
         Some(Worker::spawn_with_tick(
             &executable,
             directory,
             "ring",
             boot,
-            &[],
+            if lifetime.continuous() {
+                &["--continuous"]
+            } else {
+                &[]
+            },
             || {
                 pulse(
                     owner,
@@ -1383,7 +1522,7 @@ fn spawn_rig(
         )?)
     } else {
         None
-    };
+    });
     // The optional worker is created closed, before privacy activation. Its
     // startup failure is evidence of unavailable sight, not a voice failure.
     let mut camera = if let Some(prepared) = camera {
@@ -1410,9 +1549,19 @@ fn spawn_rig(
                 )
             },
             || {
-                let mut workers = vec![&mut provider, &mut capture, &mut speaker];
-                workers.extend(ring.iter_mut());
-                pulse(owner, &mut workers, &mut last, startup, termination)
+                let previous = last;
+                pulse(
+                    owner,
+                    &mut [&mut provider, &mut capture, &mut speaker],
+                    &mut last,
+                    startup,
+                    termination,
+                )?;
+                let snapshot = (previous != last)
+                    .then(|| owner.snapshot(now()))
+                    .transpose()
+                    .map_err(io::Error::other)?;
+                ring.startup_tick(startup, snapshot)
             },
         )? {
             Some(worker) => Some(OptionalCamera::new(worker, prepared.source)),
@@ -1425,10 +1574,19 @@ fn spawn_rig(
         None
     };
     let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
-        let mut workers = vec![&mut provider, &mut capture, &mut speaker];
-        workers.extend(ring.iter_mut());
         let previous = last;
-        pulse(owner, &mut workers, &mut last, startup, termination)?;
+        pulse(
+            owner,
+            &mut [&mut provider, &mut capture, &mut speaker],
+            &mut last,
+            startup,
+            termination,
+        )?;
+        let ring_snapshot = (previous != last)
+            .then(|| owner.snapshot(now()))
+            .transpose()
+            .map_err(io::Error::other)?;
+        ring.startup_tick(startup, ring_snapshot)?;
         // A post-handshake camera failure is optional even while a mandatory
         // child starts. It never joins the voice worker failure domain.
         if let Some(camera) = camera.as_mut() {
@@ -1475,8 +1633,8 @@ fn spawn_rig(
 #[allow(clippy::too_many_arguments)]
 fn run_inner(
     source: ProviderSource<'_>,
-    seconds: u64,
-    trace: &mut Vec<Value>,
+    lifetime: Lifetime,
+    trace: &mut SessionState,
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
     camera_config: Option<&Path>,
@@ -1521,6 +1679,7 @@ fn run_inner(
         diagnostic_directory,
         options,
         camera,
+        lifetime,
         termination,
     )?;
     let mut reply = None;
@@ -1543,7 +1702,7 @@ fn run_inner(
         conversation(
             &mut rig,
             &mut owner,
-            seconds,
+            lifetime,
             trace,
             startup,
             &mut reply,
@@ -1551,21 +1710,38 @@ fn run_inner(
             termination,
         )
     })();
-    finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result)
+    let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
+    // Reopening is allowed only after all child and local endpoint ownership
+    // has ended. Never accumulate per-cycle output/IPC directories.
+    drop(rig);
+    if lifetime.continuous() {
+        service_privacy::finish(result, fs::remove_dir(&directory.path))
+    } else {
+        result
+    }
 }
 
 fn finish_active_run(
     rig: &mut Rig,
     owner: &mut Controller,
     reply: &mut Option<Reply>,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     cues: &mut Option<CueSink>,
     result: Result<()>,
 ) -> Result<()> {
     if result.is_err() {
         // Keep an explicit outcome even when the failing child cannot deliver
         // speech. Privacy revocation and stop below still run if tracing fails.
-        let _ = cancel_reply(owner, reply, trace, "runtime_failed");
+        let reason = if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.downcast_ref::<PhysicalMute>().is_some())
+        {
+            "privacy_muted"
+        } else {
+            "runtime_failed"
+        };
+        let _ = cancel_reply(owner, reply, trace, reason);
     }
     let _ = owner.set_camera_permission(now(), Permission::Denied);
     let _ = owner.set_microphone_permission(now(), Permission::Denied);
@@ -1574,15 +1750,15 @@ fn finish_active_run(
     }
     flush_cues(trace, cues);
     let shutdown = rig.shutdown(trace);
-    result.and_then(|()| shutdown.map_err(Into::into))
+    service_privacy::finish(result, shutdown)
 }
 
 #[allow(clippy::too_many_arguments)]
 fn conversation(
     rig: &mut Rig,
     owner: &mut Controller,
-    seconds: u64,
-    trace: &mut Vec<Value>,
+    lifetime: Lifetime,
+    trace: &mut SessionState,
     startup: StartupEvents,
     reply: &mut Option<Reply>,
     cues: &mut Option<CueSink>,
@@ -1593,20 +1769,23 @@ fn conversation(
     for event in startup.events {
         record(trace, event)?;
     }
-    let startup_deadline = Instant::now() + INPUT_READINESS_TIMEOUT;
-    let mut deadline = None;
+    let mut session_clock = SessionClock::new(lifetime, Instant::now(), INPUT_READINESS_TIMEOUT)?;
     let mut gate = PrivacyGate::default();
-    let mut privacy_sequence = 0;
+    let privacy_started = Instant::now();
+    let mut privacy_sequence = 0u64;
     let mut permitted = false;
     let mut capture_requested = false;
     let mut capture_epoch = None;
     let mut last_capture = None;
     let mut last_publish = 0;
     let mut last_health = 0;
-    let mut choreography = rig
-        .ring_channel_ceiling
-        .map(RingChoreographer::new)
-        .transpose()?;
+    let mut choreography = if rig.ring.is_active() {
+        rig.ring_channel_ceiling
+            .map(RingChoreographer::new)
+            .transpose()?
+    } else {
+        None
+    };
     let mut ring_trace = RingTrace::default();
     let mut detector = match rig.turn_taking {
         TurnTaking::V1Baseline => TurnDetector::v1_baseline(),
@@ -1630,12 +1809,30 @@ fn conversation(
     rig.publish(snapshot)?;
     loop {
         let loop_start = Instant::now();
+        if lifetime.continuous() && termination.signal_name().is_some() {
+            record(
+                trace,
+                json!({"kind":"service_stop_requested","at_us":monotonic_us(),"signal":termination.signal_name()}),
+            )?;
+            cancel_reply(owner, reply, trace, "service_stopped")?;
+            return Ok(());
+        }
         termination.check()?;
         let clock = monotonic_us();
-        if deadline.is_none() && Instant::now() >= startup_deadline {
+        if session_clock.startup_expired(Instant::now()) {
             return Err(io::Error::other("voice input never became ready").into());
         }
         // Privacy always precedes input, model output, or actuator work.
+        // A later fresh mute cannot relabel an already-lost sensor lease as a
+        // healthy user-mute lifecycle that permits automatic reopening.
+        if lifetime.continuous()
+            && privacy_sequence != 0
+            && gate.state(now()) == PrivacyState::Unavailable
+        {
+            return Err(
+                io::Error::other("service privacy freshness lost before next observation").into(),
+            );
+        }
         for _ in 0..16 {
             let Some(event) = rig.privacy.channels.control.receive::<WorkerEvent>()? else {
                 break;
@@ -1645,13 +1842,34 @@ fn conversation(
                     acquired_at_us,
                     muted,
                 } => {
-                    privacy_sequence += 1;
+                    privacy_sequence = privacy_sequence
+                        .checked_add(1u64)
+                        .ok_or_else(|| io::Error::other("privacy sequence overflow"))?;
                     gate.observe(
                         privacy_sequence,
                         MonoTime::from_micros(acquired_at_us),
                         now(),
                         muted,
                     );
+                    if lifetime.continuous() {
+                        match gate.state(now()) {
+                            PrivacyState::Unavailable => {
+                                return Err(io::Error::other(
+                                    "invalid or stale service privacy observation",
+                                )
+                                .into());
+                            }
+                            PrivacyState::Muted => {
+                                let observed_at_us = monotonic_us();
+                                record(
+                                    trace,
+                                    json!({"kind":"physical_mute", "at_us":observed_at_us,"acquired_at_us":acquired_at_us,"fresh_observation":true}),
+                                )?;
+                                return Err(Box::new(PhysicalMute { observed_at_us }));
+                            }
+                            _ => {}
+                        }
+                    }
                 }
                 WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
                 _ => return Err(io::Error::other("unexpected privacy event").into()),
@@ -1659,7 +1877,32 @@ fn conversation(
         }
         // Provider loss closes cloud submissions, never the microphone authority
         // needed to retain interruptions or finish already-owned playback.
-        let can_open = gate.allowed(now());
+        let privacy_state = gate.state(now());
+        if lifetime.continuous() {
+            match privacy_state {
+                PrivacyState::Muted => {
+                    let at_us = monotonic_us();
+                    record(
+                        trace,
+                        json!({"kind":"physical_mute", "at_us":at_us,"fresh_observation":true}),
+                    )?;
+                    return Err(Box::new(PhysicalMute {
+                        observed_at_us: at_us,
+                    }));
+                }
+                PrivacyState::Unavailable
+                    if privacy_sequence != 0
+                        || privacy_started.elapsed()
+                            >= Duration::from_micros(crate::privacy::PRIVACY_FRESH_US) =>
+                {
+                    return Err(
+                        io::Error::other("physical privacy unavailable; not a user mute").into(),
+                    );
+                }
+                _ => {}
+            }
+        }
+        let can_open = privacy_state == PrivacyState::Allowed;
         if permitted && !can_open {
             return Err(io::Error::other("physical privacy closed or lost freshness").into());
         }
@@ -1884,7 +2127,7 @@ fn conversation(
                 }
             }
         }
-        if deadline.is_some_and(|d| Instant::now() >= d) {
+        if session_clock.expired(Instant::now()) {
             // Drain fault channels and inspect children before accepting the
             // deadline. A crashed or forcibly killed worker is never success.
             rig.running()?;
@@ -1942,17 +2185,20 @@ fn conversation(
                 now(),
                 AdmissionState::OpenUntil(MonoTime::from_micros(at + INPUT_LEASE_US)),
             )?;
-            if deadline.is_none()
+            if !session_clock.ready()
                 && cloud.available()
                 && provider_control_empty
                 && !submission_draining
             {
-                deadline = Some(Instant::now() + Duration::from_secs(seconds));
+                session_clock.activate(Instant::now())?;
                 record(
                     trace,
                     json!({"kind":"listening_ready","at_us":at,"scope":"explicit directed session; addressee inference absent"}),
                 )?;
-                println!("{}", json!({"status":"listening_ready","seconds":seconds}));
+                println!(
+                    "{}",
+                    json!({"status":"listening_ready","seconds":lifetime.seconds()})
+                );
             }
             let lineage = CaptureLineage {
                 worker: rig.capture.boot,
@@ -2173,6 +2419,7 @@ fn conversation(
                 &mut rig.provider.channels.data,
             )?;
         }
+        let prior_speaker_sequence = speaker_sequence;
         dispatch_speaker_chunk(
             owner,
             reply,
@@ -2182,6 +2429,14 @@ fn conversation(
             &mut snapshot,
             &mut playback_mask,
         )?;
+        if speaker_sequence != prior_speaker_sequence {
+            let pending = speaker_pending
+                .as_ref()
+                .ok_or_else(|| io::Error::other("dispatched speech has no pending receipt"))?;
+            trace
+                .receipts
+                .dispatched(pending.permit.owner(), pending.sequence)?;
+        }
         let available = playback_mask.available(monotonic_us());
         if policy_available != Some(available) {
             record(
@@ -2204,6 +2459,7 @@ fn conversation(
         {
             let turn = current.owner.turn();
             owner.complete_turn(now(), current.owner)?;
+            trace.receipts.completed(current.owner)?;
             snapshot = owner.snapshot(now())?;
             admission.owner_completed(current.owner, snapshot, monotonic_us())?;
             rig.publish(snapshot)?;
@@ -2219,13 +2475,31 @@ fn conversation(
             )?;
             *reply = None;
         }
-        service_ring(
-            rig.ring.as_mut(),
-            choreography.as_mut(),
-            owner,
-            trace,
-            &mut ring_trace,
-        )?;
+        // Terminal priority status can overtake valid PCM/outcomes. Only the
+        // ordered Ended closes that stream; a submitted Start may still receive
+        // its local NotDelivered afterwards. Keep serving capture and speaker
+        // receipts until the owned input/output obligations actually settle.
+        if lifetime.continuous()
+            && cloud.output_ended()
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && !submission_draining
+            && speaker_pending.is_none()
+            && trace.receipts.is_settled()
+        {
+            record(
+                trace,
+                json!({"kind":"service_provider_ended","at_us":monotonic_us(),
+                    "ordered_output_ended":true,"retained_work_settled":true,
+                    "automatic_retry":false}),
+            )?;
+            flush_cues(trace, cues);
+            return Err(io::Error::other(
+                "terminal provider output settled; service stopped without retry",
+            )
+            .into());
+        }
+        service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {
             rig.running()?;
             last_health = clock;
@@ -2280,7 +2554,7 @@ fn decide_prospective_input(
     candidate: crate::admission::Candidate,
     context: AdmissionContext,
     at_us: u64,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<Option<Accepted>> {
     match mask.candidate(candidate)? {
         Disposition::AwaitWriteEvidence => return Ok(None),
@@ -2352,7 +2626,7 @@ fn commit_admitted_input(
     accepted: Accepted,
     provider_session: u64,
     playout_start: PlayoutStart,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<Snapshot> {
     let prefix = accepted.audio;
@@ -2370,6 +2644,9 @@ fn commit_admitted_input(
     let mut snapshot = owner.snapshot(now())?;
     publish(snapshot)?;
     let admitted_at_us = monotonic_us();
+    trace
+        .receipts
+        .admitted(turn, snapshot.issued_at().as_micros())?;
     record(
         trace,
         json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session}),
@@ -2393,7 +2670,7 @@ fn commit_admitted_input(
         final_chunk: None,
         playback_gaps: 0,
         last_provider_audio_at_us: None,
-        start: StartGate::new(playout_start.as_micros()),
+        start: playout_start.gate(),
         need: StartNeed::default(),
     };
     for audio in prefix {
@@ -2418,6 +2695,32 @@ fn commit_admitted_input(
     Ok(snapshot)
 }
 
+/// Presentation failure disables only the optional ring. Cleanup is observed
+/// in bounded slices; no wait, restart or hardware write runs on this path.
+fn service_optional_ring(
+    rig: &mut Rig,
+    choreography: &mut Option<RingChoreographer>,
+    owner: &mut Controller,
+    trace: &mut SessionState,
+    ring_trace: &mut RingTrace,
+) -> Result<()> {
+    if rig.ring.is_active()
+        && let Err(error) = service_ring(
+            rig.ring.active_mut(),
+            choreography.as_mut(),
+            owner,
+            trace,
+            ring_trace,
+        )
+    {
+        rig.ring.disable(error);
+    }
+    if !rig.ring.is_active() {
+        *choreography = None;
+    }
+    rig.ring.poll_cleanup(trace)
+}
+
 /// All hardware I/O remains in the child. This path has one outstanding frame,
 /// bounded nonblocking socket work, and no retry wait that can block capture.
 /// Worker reports are evidence only; they never change conversational ownership.
@@ -2425,7 +2728,7 @@ fn service_ring(
     worker: Option<&mut Worker>,
     choreography: Option<&mut RingChoreographer>,
     owner: &mut Controller,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     ring_trace: &mut RingTrace,
 ) -> Result<()> {
     service_ring_with_clock(worker, choreography, owner, trace, ring_trace, now)
@@ -2435,7 +2738,7 @@ fn service_ring_with_clock(
     worker: Option<&mut Worker>,
     choreography: Option<&mut RingChoreographer>,
     owner: &mut Controller,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     ring_trace: &mut RingTrace,
     mut clock: impl FnMut() -> MonoTime,
 ) -> Result<()> {
@@ -2563,7 +2866,7 @@ fn drain_capture_control(
     channel: &mut Channel,
     epoch: &mut Option<u64>,
     expected_noise_suppression: NoiseSuppression,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<()> {
     for _ in 0..16 {
         let Some(event) = channel.receive::<WorkerEvent>()? else {
@@ -2624,7 +2927,7 @@ fn validate_capture_frame(
     privacy_generation: u64,
     frame: &MicrophoneFrame,
     expected_noise_suppression: NoiseSuppression,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
 ) -> Result<()> {
     // The worker sends its start report before its first frame, but the two
     // sockets may become readable between our control drain and data receive.
@@ -2645,7 +2948,7 @@ fn validate_capture_frame(
     Ok(())
 }
 
-fn record_input_rejection(trace: &mut Vec<Value>, rejection: Rejection) -> Result<()> {
+fn record_input_rejection(trace: &mut SessionState, rejection: Rejection) -> Result<()> {
     record(
         trace,
         json!({"kind":"input_candidate_rejected", "candidate":rejection.candidate,
@@ -2656,16 +2959,20 @@ fn record_input_rejection(trace: &mut Vec<Value>, rejection: Rejection) -> Resul
 fn cancel_reply(
     owner: &mut Controller,
     reply: &mut Option<Reply>,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     reason: &str,
 ) -> Result<()> {
     if let Some(current) = reply.take() {
         // Cancellation invalidates permits already delivered to the speaker.
         // Dropping this reply also discards PCM waiting in the controller.
         let cancel = owner.cancel_turn(now(), current.owner);
+        let cancelled_at_us = monotonic_us();
+        trace
+            .receipts
+            .cancelled(current.owner, cancelled_at_us, reason)?;
         record(
             trace,
-            json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":monotonic_us(),"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
+            json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":cancelled_at_us,"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
                 "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,
                 "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
                 "start_horizon_needed_us":current.need.horizon_us(),
@@ -2682,7 +2989,7 @@ fn cancel_reply(
 /// borrow the newer turn's playback occurrence.
 fn handle_cancelled_tail_retirement(
     reply: &Option<Reply>,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     event: WorkerEvent,
     received_at_us: u64,
 ) -> Result<()> {
@@ -2719,35 +3026,9 @@ fn handle_cancelled_tail_retirement(
     {
         return Err(io::Error::other("invalid cancelled tail retirement receipt").into());
     }
-    let affected_json = json!(affected);
-    let successor_json = json!(superseded_by);
-    let cancelled_index = trace.iter().rposition(|entry| {
-        entry["kind"] == "turn_finished"
-            && entry["owner"] == affected_json
-            && entry["outcome"] == "user_interrupted"
-            && entry["at_us"]
-                .as_u64()
-                .is_some_and(|at| at <= started_at_us)
-    });
-    let matched_admission = cancelled_index.is_some_and(|index| {
-        let Some(cancelled_at) = trace[index]["at_us"].as_u64() else {
-            return false;
-        };
-        trace[index + 1..].iter().any(|entry| {
-            entry["kind"] == "input_admitted"
-                && entry["owner"] == successor_json
-                && entry["authority_issued_at_us"]
-                    .as_u64()
-                    .is_some_and(|issued| cancelled_at <= issued && issued <= started_at_us)
-        })
-    });
-    if !matched_admission
-        || trace.iter().any(|entry| {
-            entry["kind"] == "cancelled_tail_retired" && entry["owner"] == affected_json
-        })
-    {
-        return Err(io::Error::other("cancelled tail has no unique matching supersession").into());
-    }
+    trace
+        .receipts
+        .tail(affected, superseded_by, started_at_us)?;
     record(
         trace,
         json!({"kind":"cancelled_tail_retired","owner":affected,"turn":affected.turn(),
@@ -2763,7 +3044,7 @@ fn handle_cancelled_tail_retirement(
 fn handle_playback_discard(
     owner: &mut Controller,
     reply: &mut Option<Reply>,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     event: WorkerEvent,
 ) -> Result<()> {
     let WorkerEvent::PlaybackDiscarded {
@@ -2779,24 +3060,12 @@ fn handle_playback_discard(
     if queued_frames == 0 || queued_frames > lamp_audio::ownership::MAX_QUEUED_FRAMES {
         return Err(io::Error::other("invalid playback discard frame count").into());
     }
-    let affected_json = json!(affected);
-    // The existing finite trace is an immutable receipt of explicit cancellation.
-    // Owner identity includes controller boot and generation, not just turn ID.
-    let cancelled = trace
-        .iter()
-        .rev()
-        .find(|entry| entry["kind"] == "turn_finished" && entry["owner"] == affected_json);
     let expected = reason == PlaybackDiscardReason::StaleOwner
         && !other_owners
         && reply
             .as_ref()
             .is_none_or(|current| current.owner != affected)
-        && cancelled.is_some_and(|entry| {
-            matches!(
-                entry["outcome"].as_str(),
-                Some("user_interrupted" | "provider_interrupted" | "deadline_cancelled")
-            )
-        });
+        && trace.receipts.discard(affected);
     record(
         trace,
         json!({"kind":"playback_discarded","owner":affected,"turn":affected.turn(),
@@ -2820,7 +3089,7 @@ fn handle_playback_discard(
 fn handle_playback_gap(
     reply: &mut Option<Reply>,
     pending: Option<&PendingSpeaker>,
-    trace: &mut Vec<Value>,
+    trace: &mut SessionState,
     event: WorkerEvent,
 ) -> Result<()> {
     let WorkerEvent::PlaybackGap {
@@ -2872,8 +3141,12 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod playout_continuity;
     mod playout_start;
     mod provider_pair;
+    mod provider_terminal;
+    mod service;
+    mod service_mute;
     mod termination;
     mod turn_taking;
 
@@ -2913,7 +3186,7 @@ mod tests {
             .unwrap();
         let previous = owner.admit(at, AdmittedInput::NewTurn).unwrap();
         let mut policy = RingChoreographer::new(24).unwrap();
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         let mut ring_trace = RingTrace::default();
 
         service_ring(
@@ -2985,7 +3258,7 @@ mod tests {
             capture,
             provider,
             privacy,
-            ring: Some(ring),
+            ring: Some(ring).into(),
             camera: None,
             ring_channel_ceiling: Some(24),
             diagnostic_directory: Some(directory.path.clone()),
@@ -2994,7 +3267,7 @@ mod tests {
             playout_start: PlayoutStart::default(),
         };
         let started = Instant::now();
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         assert!(rig.shutdown(&mut trace).is_err());
         // A five-times-750 ms serial grace would fail this generous regression
         // bound. It is a test observation, not a kernel kill/wait deadline.
@@ -3056,7 +3329,7 @@ mod tests {
                 let dir = SessionDirectory::create().unwrap();
                 let (mut parent, mut child) = pair(&dir, "capture");
                 let mut epoch = None;
-                let mut trace = Vec::new();
+                let mut trace = SessionState::default();
                 child.control.send(capture_started(observed)).unwrap();
                 let result =
                     drain_capture_control(&mut parent.control, &mut epoch, requested, &mut trace);
@@ -3090,7 +3363,7 @@ mod tests {
         let dir = SessionDirectory::create().unwrap();
         let (mut parent, mut capture) = pair(&dir, "capture");
         let mut epoch = None;
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         drain_capture_control(
             &mut parent.control,
             &mut epoch,
@@ -3249,7 +3522,7 @@ mod tests {
         request
     }
 
-    fn active_reply() -> (Controller, Reply, OutputPermit) {
+    pub(super) fn active_reply() -> (Controller, Reply, OutputPermit) {
         let mut owner = Controller::new(new_boot().unwrap(), now());
         owner
             .set_microphone_permission(now(), Permission::Allowed)
@@ -3534,7 +3807,7 @@ mod tests {
             }
             let turn = current.owner;
             let mut reply = Some(current);
-            let mut trace = Vec::new();
+            let mut trace = SessionState::default();
             cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
             assert!(reply.is_none());
             let state = owner.snapshot(now()).unwrap();
@@ -3818,7 +4091,13 @@ mod tests {
         }
         // The production loop handles retained input after this slice and before
         // dispatch. Cancelling here must not dispatch even the preexisting PCM.
-        cancel_reply(&mut owner, &mut reply, &mut Vec::new(), "user_interrupted").unwrap();
+        cancel_reply(
+            &mut owner,
+            &mut reply,
+            &mut SessionState::default(),
+            "user_interrupted",
+        )
+        .unwrap();
         let mut pending = None;
         let mut sequence = 0;
         let mut snapshot = owner.snapshot(now()).unwrap();
@@ -3858,7 +4137,7 @@ mod tests {
         guard.install(now(), before).unwrap();
         assert!(guard.check(now(), permit, OutputKind::Speech).is_ok());
         let mut reply = Some(current);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         cancel_reply(&mut owner, &mut reply, &mut trace, "provider_interrupted").unwrap();
         let after = owner.snapshot(now()).unwrap();
         guard.install(now(), after).unwrap();
@@ -3925,7 +4204,7 @@ mod tests {
         current.pcm = vec![7; 240].into();
         let affected = current.owner;
         let mut reply = Some(current);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         let gap = crate::wire::PlaybackGap {
             owner: affected,
             first_sample: lamp_audio::ownership::PlaybackCursor {
@@ -3992,7 +4271,7 @@ mod tests {
     fn session_deadline_records_unfinished_reply_once() {
         let (mut owner, current, _) = active_reply();
         let mut reply = Some(current);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         cancel_reply(&mut owner, &mut reply, &mut trace, "deadline_cancelled").unwrap();
         cancel_reply(&mut owner, &mut reply, &mut trace, "runtime_failed").unwrap();
         assert!(reply.is_none());
@@ -4015,14 +4294,21 @@ mod tests {
         }
     }
 
-    fn cancelled_tail_fixture() -> (Controller, Option<Reply>, Vec<Value>, WorkerEvent, u64) {
+    fn cancelled_tail_fixture() -> (Controller, Option<Reply>, SessionState, WorkerEvent, u64) {
         let (mut controller, old, _) = active_reply();
         let affected = old.owner;
         let mut reply = Some(old);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         cancel_reply(&mut controller, &mut reply, &mut trace, "user_interrupted").unwrap();
         let successor = controller
             .admit(now(), AdmittedInput::Interruption)
+            .unwrap();
+        trace
+            .receipts
+            .admitted(
+                successor,
+                controller.snapshot(now()).unwrap().issued_at().as_micros(),
+            )
             .unwrap();
         trace.push(
             json!({"kind":"input_admitted","owner":successor,"at_us":monotonic_us(),
@@ -4162,51 +4448,64 @@ mod tests {
 
     #[test]
     fn cancelled_tail_requires_actual_cancellation_and_following_admission() {
-        let (_, reply, trace, event, observed) = cancelled_tail_fixture();
-        let started = serde_json::to_value(&event).unwrap()["started_at_us"]
-            .as_u64()
-            .unwrap();
-        let event = crate::wire::encode(&event).unwrap();
-        let mut future_admission = trace.clone();
-        future_admission[1]["authority_issued_at_us"] = json!(started + 1);
-        let mut early_admission = trace.clone();
-        early_admission[1]["authority_issued_at_us"] =
-            json!(trace[0]["at_us"].as_u64().unwrap() - 1);
-        let mut missing_time = trace.clone();
-        missing_time[1]
-            .as_object_mut()
-            .unwrap()
-            .remove("authority_issued_at_us");
-        let mut missing_admission = trace.clone();
-        missing_admission.pop();
-        let mut wrong_reason = trace.clone();
-        wrong_reason[0]["outcome"] = json!("audio_written_unscored");
-        let mut wrong_order = trace.clone();
-        wrong_order.swap(0, 1);
-        let mut wrong_owner = trace.clone();
-        let (_, unrelated, _) = active_reply();
-        wrong_owner[1]["owner"] = json!(unrelated.owner);
-        for mut incomplete in [
-            missing_admission,
-            wrong_reason,
-            wrong_order,
-            wrong_owner,
-            future_admission,
-            early_admission,
-            missing_time,
-        ] {
-            let before = incomplete.clone();
+        let (_, reply, original, event, observed) = cancelled_tail_fixture();
+        let WorkerEvent::CancelledTailRetired {
+            owner,
+            superseded_by,
+            started_at_us,
+            ..
+        } = event
+        else {
+            unreachable!()
+        };
+        let cancelled = original[0]["at_us"].as_u64().unwrap();
+        for case in 0..7 {
+            let mut trace = SessionState::default();
+            // Plausible JSON cannot mint live ownership/cancellation lineage.
+            trace.extend(original.iter().cloned());
+            if case != 0 {
+                trace
+                    .receipts
+                    .cancelled(
+                        owner,
+                        cancelled,
+                        if case == 1 {
+                            "provider_interrupted"
+                        } else {
+                            "user_interrupted"
+                        },
+                    )
+                    .unwrap();
+            }
+            if case != 2 {
+                let successor = if case == 3 {
+                    active_reply().1.owner
+                } else {
+                    superseded_by
+                };
+                let issued = match case {
+                    4 => started_at_us + 1,
+                    5 => cancelled - 1,
+                    _ => started_at_us,
+                };
+                if case != 6 {
+                    trace.receipts.admitted(successor, issued).unwrap();
+                }
+            }
             assert!(
                 handle_cancelled_tail_retirement(
                     &reply,
-                    &mut incomplete,
-                    crate::wire::decode(&event).unwrap(),
+                    &mut trace,
+                    crate::wire::decode(&crate::wire::encode(&event).unwrap()).unwrap(),
                     observed
                 )
                 .is_err()
             );
-            assert_eq!(incomplete, before);
         }
+        let mut no_metadata = original.clone();
+        no_metadata.clear();
+        handle_cancelled_tail_retirement(&reply, &mut no_metadata, event, observed).unwrap();
+        assert_eq!(no_metadata.len(), 1);
     }
 
     #[test]
@@ -4214,7 +4513,7 @@ mod tests {
         let (mut owner, current, _) = active_reply();
         let affected = current.owner;
         let mut reply = Some(current);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         let event = discarded(affected, PlaybackDiscardReason::ExpiredPermit, false);
         // Exercise the actual typed process envelope; no display-string parsing.
         let bytes = crate::wire::encode(&event).unwrap();
@@ -4236,7 +4535,7 @@ mod tests {
         let (mut owner, old, _) = active_reply();
         let affected = old.owner;
         let mut reply = Some(old);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
         let turn = owner.admit(now(), AdmittedInput::Interruption).unwrap();
         owner.input_ended(now(), turn).unwrap();
@@ -4300,7 +4599,7 @@ mod tests {
             let (mut owner, current, _) = active_reply();
             let affected = current.owner;
             let mut reply = Some(current);
-            let mut trace = Vec::new();
+            let mut trace = SessionState::default();
             if mixed {
                 cancel_reply(&mut owner, &mut reply, &mut trace, "provider_interrupted").unwrap();
             }
@@ -4392,7 +4691,7 @@ mod tests {
             .data
             .send(ProviderOutput::Ready { setup_us: 999 })
             .unwrap();
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         assert!(
             service_provider_control(&mut parent.control, &mut cloud, &mut 16, &mut trace).unwrap()
         );
@@ -4516,7 +4815,7 @@ mod tests {
             &mut queue,
             &mut admission,
             &mut draining,
-            &mut Vec::new(),
+            &mut SessionState::default(),
         )
         .unwrap();
         assert!(draining);
@@ -4567,7 +4866,7 @@ mod tests {
             &mut queue,
             &mut InputAdmission::default(),
             &mut draining,
-            &mut Vec::new(),
+            &mut SessionState::default(),
         )
         .unwrap();
         let current = reply.as_ref().unwrap();
@@ -4659,7 +4958,7 @@ mod tests {
             &mut queue,
             &mut InputAdmission::default(),
             &mut draining,
-            &mut Vec::new(),
+            &mut SessionState::default(),
         )
         .unwrap();
         assert!(reply.as_ref().unwrap().cloud.outcome.is_none());
@@ -4701,7 +5000,7 @@ mod tests {
         let mut first = None;
         let mut draining = false;
         let mut queue = VecDeque::new();
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         for sequence in 1..=90 {
             let context = AdmissionContext {
                 capture,
@@ -4955,7 +5254,7 @@ mod tests {
             &mut admission,
             Verdict::Accept(AcceptanceBasis::DirectedSessionVadOnly),
         );
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         let accepted = accepted_decision(decision, &mut trace).unwrap().unwrap();
         let (state, draining) =
             accepted_without_cloud(accepted, &mut owner, &mut reply, &mut admission, &mut trace)
@@ -4987,7 +5286,7 @@ mod tests {
         let reply = Some(current);
         let mut admission = InputAdmission::default();
         let decision = local_policy_decision(&mut owner, &mut admission, Verdict::Reject);
-        let mut trace = Vec::new();
+        let mut trace = SessionState::default();
         assert!(accepted_decision(decision, &mut trace).unwrap().is_none());
         assert!(accepted_decision(Decision::Ignored, &mut trace).is_err());
         let state = owner.snapshot(now()).unwrap();
@@ -5004,3 +5303,7 @@ mod tests {
 #[cfg(test)]
 #[path = "coordinator/ring_trace_tests.rs"]
 mod ring_trace_tests;
+
+#[cfg(test)]
+#[path = "coordinator/optional_ring_tests.rs"]
+mod optional_ring_tests;

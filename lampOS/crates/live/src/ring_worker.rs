@@ -52,7 +52,7 @@ pub fn run_with_sink(
     sink: impl FrameSink,
 ) -> io::Result<()> {
     match GuardedRing::new(sink, controller_boot) {
-        Ok(ring) => run_guarded(link, controller_boot, ring),
+        Ok(ring) => run_guarded(link, controller_boot, ring, false),
         Err(error) => report_start_failure(&mut link, io::Error::other(error)),
     }
 }
@@ -60,9 +60,45 @@ pub fn run_with_sink(
 #[cfg(target_os = "linux")]
 pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring),
+        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false),
         Err(error) => report_start_failure(&mut link, error),
     }
+}
+
+/// Supervisor-only lifetime selection. This removes the finite test ceiling,
+/// not the installed authority, parent transport or initial-lease watchdogs.
+#[cfg(target_os = "linux")]
+pub fn run_continuous(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
+    match lamp_ring::linux::open(controller_boot) {
+        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, true),
+        Err(error) => report_start_failure(&mut link, error),
+    }
+}
+
+fn check_runtime(started: u64, at: u64, continuous: bool) -> io::Result<()> {
+    let age = at
+        .checked_sub(started)
+        .ok_or_else(|| io::Error::other("ring worker clock regressed"))?;
+    if !continuous && age >= MAX_RUNTIME_US {
+        return Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "ring worker duration expired",
+        ));
+    }
+    Ok(())
+}
+
+fn check_authority(started: u64, at: u64, expires_at: Option<u64>) -> io::Result<()> {
+    if expires_at.map_or_else(
+        || at.saturating_sub(started) >= INITIAL_AUTHORITY_US,
+        |expires| at >= expires,
+    ) {
+        return Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "ring authority heartbeat expired",
+        ));
+    }
+    Ok(())
 }
 
 fn report_start_failure(link: &mut impl RingLink, error: io::Error) -> io::Result<()> {
@@ -76,10 +112,11 @@ fn run_guarded(
     mut link: impl RingLink,
     controller_boot: BootId,
     mut ring: GuardedRing<impl FrameSink>,
+    continuous: bool,
 ) -> io::Result<()> {
     let result = (|| {
         link.publish(WorkerEvent::Ready)?;
-        service(&mut link, &mut ring, controller_boot)
+        service(&mut link, &mut ring, controller_boot, continuous)
     })();
     if let Err(original) = result {
         // GuardedRing already performs its sole cleanup on a write fault. Do
@@ -202,6 +239,7 @@ fn service(
     link: &mut impl RingLink,
     ring: &mut GuardedRing<impl FrameSink>,
     controller_boot: BootId,
+    continuous: bool,
 ) -> io::Result<()> {
     let started = monotonic_us();
     let mut guard = BoundaryGuard::new(controller_boot, now());
@@ -216,25 +254,12 @@ fn service(
             blanked(link, receipt)?;
         }
         let at = monotonic_us();
-        if at
-            .checked_sub(started)
-            .is_none_or(|age| age >= MAX_RUNTIME_US)
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "ring worker duration expired",
-            ));
-        }
-        let authority_expired = match guard.state() {
-            Some(state) => at >= state.expires_at().as_micros(),
-            None => at.saturating_sub(started) >= INITIAL_AUTHORITY_US,
-        };
-        if authority_expired {
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "ring authority heartbeat expired",
-            ));
-        }
+        check_runtime(started, at, continuous)?;
+        check_authority(
+            started,
+            at,
+            guard.state().map(|state| state.expires_at().as_micros()),
+        )?;
         if budget > 0 && pending.is_none() {
             pending = link.receive_frame()?;
         }
@@ -317,5 +342,24 @@ fn service(
         if let Some(wait) = TICK_US.checked_sub(monotonic_us().saturating_sub(tick)) {
             std::thread::sleep(Duration::from_micros(wait));
         }
+    }
+}
+
+#[cfg(test)]
+mod lifetime_tests {
+    use super::*;
+    #[test]
+    fn private_continuous_option_only_removes_finite_worker_ceiling() {
+        assert!(check_runtime(1, MAX_RUNTIME_US + 1, false).is_err());
+        for at in [MAX_RUNTIME_US + 1, 86_400_000_001, 604_800_000_001] {
+            assert!(check_runtime(1, at, true).is_ok());
+        }
+        assert!(check_runtime(2, 1, true).is_err());
+        let late = 700_000_000;
+        assert!(check_runtime(1, late, true).is_ok());
+        assert!(check_authority(1, late, Some(late + 100_000)).is_ok());
+        assert!(check_authority(1, late, Some(late)).is_err());
+        assert!(check_authority(1, late, None).is_err());
+        assert!(check_authority(1, INITIAL_AUTHORITY_US + 1, None).is_err());
     }
 }

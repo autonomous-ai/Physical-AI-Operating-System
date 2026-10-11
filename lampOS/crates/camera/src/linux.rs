@@ -14,8 +14,8 @@ mod queue;
 use crate::backend::{Budget, Check, Queue};
 pub use crate::backend::{CleanupReport, Fault as BackendFault, Stage};
 use crate::{
-    CallTiming, CaptureConfig, CaptureId, Clock, ClockError, NegotiatedMode, OperationBudget,
-    PortError, PortFrame, PortIo, STOP_BUDGET_US, SourceId,
+    CallTiming, CaptureConfig, CaptureId, Clock, ClockError, DRIVER_TEARDOWN_BUDGET_US,
+    NegotiatedMode, OperationBudget, PortError, PortFrame, PortIo, STOP_BUDGET_US, SourceId,
 };
 pub use identity::IdentityReport;
 use lamp_interaction::MonoTime;
@@ -220,7 +220,7 @@ impl LinuxPort {
         let start = now();
         // Teardown must still run after a latched emergency cancellation.
         let cleanup = run_budget(
-            capped(budget, STOP_BUDGET_US),
+            capped(budget, DRIVER_TEARDOWN_BUDGET_US),
             &Cancellation::default(),
             |check| queue.stop(check),
         );
@@ -234,7 +234,8 @@ impl LinuxPort {
     fn fail(&mut self, fault: BackendFault) -> PortError {
         self.faulted = true;
         self.diagnostics.fault.get_or_insert(fault);
-        self.close_queue(limits(now()));
+        // Return the original fault before STREAMOFF/close can block. Capture
+        // owns the single explicit cleanup attempt (or Drop is the fallback).
         fault.error
     }
     fn start_inner(

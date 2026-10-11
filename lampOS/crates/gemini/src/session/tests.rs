@@ -881,6 +881,74 @@ async fn local_shutdown_still_drops_queued_output() {
     assert_eq!(connection.state(), State::Closed);
 }
 
+/// Everything the session wrote before its socket went away: none of it
+/// may be input.
+async fn no_input_was_written(server: &mut MockSocket) {
+    while let Ok(Some(Ok(message))) = timeout(Duration::from_millis(40), server.next()).await {
+        if let Ok(value) = serde_json::from_slice::<Value>(&message.into_data()) {
+            assert!(value.get("realtimeInput").is_none(), "{value}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_stop_with_input_queued_behind_it_writes_none_of_that_input() {
+    // The session takes its ready work in a random order, so one trial can
+    // pass by luck. Forty cannot.
+    for _ in 0..40 {
+        let (mut connection, mut server) = mock(Timeouts::default()).await;
+        let input = connection.input();
+        let first = request(1);
+        input.try_start(first).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        // Queued and then stopped before the session has run again: twenty
+        // blocks of microphone audio and the request's End, which nothing
+        // but the stop stands in the way of.
+        for sequence in 0..20 {
+            input
+                .try_audio(first, sequence, Instant::now(), &[1; 160])
+                .unwrap();
+        }
+        input.try_end(first).unwrap();
+        connection.shutdown();
+        while timeout(Duration::from_secs(2), connection.next_event())
+            .await
+            .unwrap()
+            .is_some()
+        {}
+        assert_eq!(connection.state(), State::Closed);
+        no_input_was_written(&mut server).await;
+    }
+}
+
+#[tokio::test]
+async fn a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input() {
+    for _ in 0..40 {
+        let (mut connection, mut server) = mock(Timeouts::default()).await;
+        ended_turn(&mut connection, &mut server, 1).await;
+        let input = connection.input();
+        let second = request(2);
+        input.try_start(second).unwrap();
+        sent(&mut server, "activityStart").await;
+        event(&mut connection).await;
+        for sequence in 0..20 {
+            input
+                .try_audio(second, sequence, Instant::now(), &[2; 160])
+                .unwrap();
+        }
+        input.try_end(second).unwrap();
+        connection.shutdown();
+        while timeout(Duration::from_secs(2), connection.next_event())
+            .await
+            .unwrap()
+            .is_some()
+        {}
+        assert_eq!(connection.state(), State::Closed);
+        no_input_was_written(&mut server).await;
+    }
+}
+
 #[tokio::test]
 async fn a_progressing_answer_outlives_the_first_response_deadline() {
     let timeouts = Timeouts {

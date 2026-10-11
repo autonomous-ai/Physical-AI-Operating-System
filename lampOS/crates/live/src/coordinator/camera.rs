@@ -402,6 +402,7 @@ mod tests {
             noise_suppression: NoiseSuppression::On,
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
+            endpoint: None,
         };
         let boot = new_boot().unwrap();
         let mut owner = Controller::new(boot, now());

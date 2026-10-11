@@ -207,6 +207,7 @@ fn isolated_signal_child() {
         noise_suppression: NoiseSuppression::On,
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let mut reply = Some(current);
     println!("LAMP_SIGNAL_READY");

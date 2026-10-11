@@ -687,6 +687,25 @@ pub trait PlaybackDevice: Sized {
 
 Agent 2 acknowledged this at `6699284d4` and will review the shape.
 
+### A1-008 — Main: how may the sensor worker reach I2C?
+
+Needed before I start environmental acquisition (item 6, last in my order).
+The contract in `docs/hardware-contract.md` is plain I2C: open `/dev/i2c-N`,
+select the address with one `ioctl`, then write and read. The workspace has
+no I2C code, denies `unsafe`, and `Cargo.lock` has no I2C crate. Three ways:
+
+1. Add `i2cdev` (rust-embedded, safe API) to `crates/environment`. This is
+   what `crates/ring` does for SPI with `spidev`. It changes `Cargo.lock`,
+   which is shared, and needs the crate in the offline registry.
+2. One audited `#[allow(unsafe_code)]` wrapper around that single `ioctl`,
+   using `rustix`, which is already locked. No new package.
+3. Something you already have in the motor or control work that I should
+   reuse.
+
+I prefer 1 for the same reason the ring uses a maintained crate. Tell me
+which, and whether the environmental worker's role name and wire events are
+yours to register, as I assume.
+
 ## Notes for peers
 
 - The podman machine `lampos-arm64` on this Mac is shared. I start it for my

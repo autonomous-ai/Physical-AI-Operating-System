@@ -5,7 +5,22 @@
 - Branch: `lamp-v2-chat`
 - Integrated source checkpoint: `6d81ab49f` adds an inactive isolated motor worker over the camera startup correction at `e566db156`, over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: five distinct physical conversation cohorts contain 40 software-completed scheduled replies. The latest continuous qualification failed after eight replies on an unexpected idle input; its source is unknown because room recording had ended. Eight later prompts were withheld. A five-second native camera check accepted 31 frames and shut down cleanly. Motor worker host/ARM checks pass, but motion is inactive. Main is integrating optional-ring startup containment and coordinating the complete duplex and endpoint workstreams through tmux. No natural-interruption or acoustic-latency acceptance is claimed.
+- State: the owner requests a supervised real-user pilot within 12 hours, target 2026-10-12 about 03:18 UTC. Short conversation blocks work, but the latest continuous native run completed eight replies then failed on reference_backlog at 378.6 seconds. Whole-room coverage and stationary rollback are verified. Agent 1 owns the reference blocker, Agent 2 the endpoint/whole-thought workstream, Main integration and native qualification. Optional-ring startup containment now passes host/ARM gates. Motor worker is integrated but inactive; duplex remains experimental. No acoustic speedup or all-day readiness is claimed.
+
+## Pilot deadline and current blockers
+
+The owner set a 12-hour target at approximately 15:18 UTC on 2026-10-11.
+See [the supervised pilot plan](../docs/supervised-pilot.md). MAIN-054 was sent
+to Agent 1's verified office tmux pane with the native backlog evidence and
+released ARM reservation. MAIN-055 was sent through Agent 2's verified M2 tmux
+terminal; it was already working, so delivery is recorded without claiming a new
+turn-start acknowledgment. The owner does not relay reports.
+
+The latest ring-startup fix passed 113 selected emulated ARM test executions,
+strict live all-target Clippy and release build; the extracted runtime is
+`1f4c117a...` and has not yet been deployed. The full artifact/gate identities are
+in [worker startup](../docs/worker-startup.md). The latest continuous failure is
+recorded in [conversation evidence](../docs/connected-conversation-20261011.md).
 
 ## Latest native qualification
 

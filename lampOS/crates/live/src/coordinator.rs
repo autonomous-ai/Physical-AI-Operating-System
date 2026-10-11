@@ -1499,11 +1499,10 @@ fn spawn_rig(
             )
         },
     )?;
-    let mut ring = OptionalRing::from(if options.ring_channel_ceiling.is_some() {
-        Some(Worker::spawn_with_tick(
+    let mut ring = if options.ring_channel_ceiling.is_some() {
+        OptionalRing::spawn(
             &executable,
             directory,
-            "ring",
             boot,
             if lifetime.continuous() {
                 &["--continuous"]
@@ -1519,10 +1518,10 @@ fn spawn_rig(
                     termination,
                 )
             },
-        )?)
+        )?
     } else {
-        None
-    });
+        OptionalRing::from(None)
+    };
     // The optional worker is created closed, before privacy activation. Its
     // startup failure is evidence of unavailable sight, not a voice failure.
     let mut camera = if let Some(prepared) = camera {
@@ -1561,7 +1560,8 @@ fn spawn_rig(
                     .then(|| owner.snapshot(now()))
                     .transpose()
                     .map_err(io::Error::other)?;
-                ring.startup_tick(startup, snapshot)
+                ring.startup_tick(snapshot);
+                Ok(())
             },
         )? {
             Some(worker) => Some(OptionalCamera::new(worker, prepared.source)),
@@ -1586,7 +1586,7 @@ fn spawn_rig(
             .then(|| owner.snapshot(now()))
             .transpose()
             .map_err(io::Error::other)?;
-        ring.startup_tick(startup, ring_snapshot)?;
+        ring.startup_tick(ring_snapshot);
         // A post-handshake camera failure is optional even while a mandatory
         // child starts. It never joins the voice worker failure domain.
         if let Some(camera) = camera.as_mut() {

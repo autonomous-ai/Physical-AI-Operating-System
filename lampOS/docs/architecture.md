@@ -6,18 +6,25 @@ future subsystems, not requirements or dependencies of this first release.**
 
 Current implementation has separate capture/DSP, speaker, physical privacy and
 Gemini provider processes, optional ring output, and opt-in camera context.
-Six varied real-Lamp conversation turns completed on the conservative playback
-suppression baseline, with four playback gaps and an unnecessary story preamble.
-That baseline suppresses overlapping input; natural interruption and social
-admission remain unfinished. Camera integration has combined host/ARM checks; a
-native traced inspection captured 31 frames but failed bounded driver teardown.
-Sight is not yet qualified. Motor core/port code is present but inactive; the
-motor worker and continuous-service changes remain unintegrated candidates.
+Several eight-turn real-Lamp blocks and a three-turn camera conversation have
+completed. The latest two short-answer playback cohorts contain no accepted-zero
+speech gaps; earlier cohorts did. The conservative turn-taking baseline suppresses
+overlapping input. Natural interruption and social admission remain unqualified.
 
-Separate processes do not yet provide complete failure isolation: optional ring
-faults still end the conversation, ordinary mute ends the finite run, and camera
-teardown needs correction. These are implementation gaps against the requirements
-below. There is no qualified all-day service or complete embodied performance.
+Continuous `serve` and the independent motor worker are integrated. Motor output
+is inactive. Camera startup/teardown corrections passed a native 31-frame check;
+a later conversation queued a fresh camera frame for each of three replies.
+This does not independently verify the model's visual descriptions. Optional
+ring startup and runtime failures now disable presentation while retaining
+healthy voice, with uncertain cleanup kept explicit.
+
+The latest continuous qualification completed eight scheduled replies, then
+failed during idle at about 378.6 seconds on `reference_backlog`. The full target
+interval has a valid local room recording; eight later prompts were withheld,
+and stationary legacy restoration was verified. There is no qualified all-day
+service or complete embodied performance. See the
+[supervised pilot plan](supervised-pilot.md) for the owner's 12-hour priority and
+[conversation evidence](connected-conversation-20261011.md) for measured limits.
 
 The owner deferred V1 benchmarking. Preserve existing results in
 [benchmark progress](benchmark-progress.md); continue V2 implementation and

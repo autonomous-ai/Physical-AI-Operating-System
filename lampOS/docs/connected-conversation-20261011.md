@@ -172,3 +172,32 @@ audit is `/private/tmp/lamp-serve02-audit-81e2mntu/report.json`, SHA-256
 `632e862f51d0de25f478d7c21cc6a49d6267a5fa76fafbcb9a8c5dd3a512dcd4`.
 All 70 audit inputs were reverified; input-manifest SHA-256
 `ce13592261e068d8deeb4ab497001768d8baaaa2409c0881ed5b0a9ed51b38e4`.
+
+
+## Third continuous qualification: reference backlog
+
+The next run used the same `7acfabcd...` runtime and fixed-margin reference,
+with a whole-interval observer. It completed the first eight scheduled replies,
+then failed during idle at 378.626563 seconds from the continuity start. No
+second block ran: all eight later prompts remain withheld. This is a failed
+continuous-service qualification, not a 16-turn success.
+
+Capture reported `reference_backlog` at `24532161659` us, expected sequence
+37862, playback epoch 1, accepted/analysed-through 9,087,120 frames, and 37,855
+capture blocks processed. The last accepted and analysed timestamps were
+`24532153260` and `24532153421` us; the observed speaker queue held 432 frames.
+Shutdown then reported a refused speaker connection and abnormal worker exit.
+This identifies the failure boundary; it does not yet distinguish clock drift,
+scheduler delay, transport loss or a queue-sizing error as the root cause.
+
+The Mac observer completed 600 seconds of mono 48 kHz float32 audio with no
+reported clipping, dropped frames or stream faults. Its measured host/CPAL
+coverage spans the entire target interval, with no stitching. The target ended
+before a second recording was needed. Neither a source classification nor an
+acoustic latency distribution is inferred from that recording. Runtime exit is
+1; the separate rollback receipt confirms the stationary prior runtime restored.
+
+Local evidence: `/private/tmp/lamp-serve-native-20261011-03/`.
+Room WAV SHA-256:
+`a3c4231b4654a1b5c749c2b0d55d2472ebc7f5123f573a10746604e0634ef15b`.
+This run is separate from the second qualification's unexplained idle input.

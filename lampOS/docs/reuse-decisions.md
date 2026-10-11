@@ -237,3 +237,18 @@ wait precedes opening any audio/provider worker; fresh physical mute returns to
 that wait only after verified shutdown. Reuse the same bounded metadata writer
 and termination registration through cycles. Do not revive permits, replay PCM
 or claim provider-memory continuity. See [service privacy](service-privacy.md).
+
+
+## Optional ring startup isolation
+
+Inspected V1 main `d5efe9d7b73cc529b34cd4abe97624682a82ca94`:
+`hal/runtime.py::_init_led` catches optional driver startup errors; RGB open failure
+in `hal/drivers/rgb/rgb_service.py::start` leaves the light unavailable while audio
+initializes separately. Keep that optional-component boundary. Reuse the Rust
+private socket contract and existing optional ring stop/kill/status supervisor;
+retain an unready child instead of dropping ownership with its startup error.
+The Rust implementation adds a per-attempt socket namespace and inode-checked
+cleanup, plus strict separation of mandatory heartbeat errors. It does not copy
+V1 shared callback/thread ownership or add a recovery worker. No new dependency,
+optical measurement, V1 speed claim or physical parity claim is implied. See
+[worker startup](worker-startup.md).

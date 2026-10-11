@@ -155,8 +155,7 @@ to every worker before waiting for any one worker, within the existing shared
 requires an explicit black-write receipt whose timestamps follow that stop
 request, plus successful process exit. A zero exit alone is insufficient.
 
-Once the ring worker has completed its process handshake, its failure is an
-optional-capability failure. The coordinator latches the ring unavailable
+Ring startup and post-handshake failure are optional-capability failures. The coordinator latches the ring unavailable
 before one nonblocking Stop attempt and stops sending authority or frames to
 it. This does not change the current input, speech owner, playback occurrence,
 or audio readiness. Mandatory audio/privacy failures remain terminal. A late
@@ -185,10 +184,14 @@ SPI I/O remains in the child. Linux cannot promise a userspace deadline for a
 stalled kernel SPI write; the existing 10 ms write budget is checked on return.
 A crashed/killed writer cannot itself blank a latched physical ring. Software
 unavailability therefore does not claim darkness or another visible state.
-There is no automatic replacement. Failure inside `Worker::spawn`, before its
-handshake returns, remains terminal for this narrow change: existing startup
-kill/reap cleanup does not return enough proof to treat ownership as safely
-released. Startup cleanup is not an optical-darkness receipt.
+There is no automatic replacement. An unavailable executable or failed startup
+handshake disables only the ring; an already-created unready child remains owned
+through the same bounded cleanup path. Required-worker and termination errors
+during that wait stay terminal. Startup has a separate 16-event optional evidence
+allowance and explicit overflow count. A fresh private ring socket namespace is
+removed only with exit and inode checks; unsafe replacements remain visible
+cleanup failures. Startup cleanup is not an optical-darkness receipt. See
+[private socket startup](worker-startup.md) for the boundary and host tests.
 
 ## Verification without Lamp
 

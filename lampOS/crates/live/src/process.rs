@@ -15,6 +15,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod ring_startup;
+use ring_startup::RingResources;
+pub(crate) use ring_startup::RingStartup;
+
 pub const WORKER_STARTUP_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub fn new_boot() -> io::Result<BootId> {
@@ -66,6 +70,9 @@ pub struct Worker {
     pub boot: BootId,
     pub role: String,
     pub diagnostic_start: Option<DiagnosticStarted>,
+    // Only the optional ring owns a separate startup namespace. Channels drop
+    // before this directory; peer paths are removed only after verified exit.
+    ring_resources: Option<RingResources>,
 }
 
 impl Worker {
@@ -109,6 +116,7 @@ impl Worker {
                 boot,
                 role: role.into(),
                 diagnostic_start: None,
+                ring_resources: None,
             },
             peer,
         )
@@ -141,6 +149,7 @@ impl Worker {
                 boot,
                 role: role.into(),
                 diagnostic_start: None,
+                ring_resources: None,
             },
             peer,
             input,
@@ -207,15 +216,32 @@ impl Worker {
             boot,
             role: role.into(),
             diagnostic_start: None,
+            ring_resources: None,
         };
+        worker.wait_until_ready(directory, &mut on_wait)?;
+        Ok(worker)
+    }
+
+    fn wait_until_ready(
+        &mut self,
+        directory: &Path,
+        mut on_wait: impl FnMut() -> io::Result<()>,
+    ) -> io::Result<()> {
         let deadline = Instant::now() + WORKER_STARTUP_TIMEOUT;
+        let role = self.role.clone();
         let peer_c = directory.join(format!("{role}.c.w"));
         let peer_d = directory.join(format!("{role}.d.w"));
         // Startup waits run before listening readiness is advertised. A later
         // recovery must use a separate supervisor path, never block live audio.
-        while !peer_sockets_ready(&[&peer_c, &peer_d])? {
+        loop {
+            if let Some(resources) = &mut self.ring_resources {
+                resources.observe_peers()?;
+            }
+            if peer_sockets_ready(&[&peer_c, &peer_d])? {
+                break;
+            }
             on_wait()?;
-            worker.check_running()?;
+            self.check_running()?;
             if Instant::now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
@@ -224,17 +250,17 @@ impl Worker {
             }
             std::thread::sleep(Duration::from_millis(5));
         }
-        worker.channels.connect(directory, role, false)?;
+        self.channels.connect(directory, &role, false)?;
         loop {
             on_wait()?;
-            worker.check_running()?;
-            match worker.channels.control.receive()? {
-                Some(WorkerEvent::Ready) => return Ok(worker),
+            self.check_running()?;
+            match self.channels.control.receive()? {
+                Some(WorkerEvent::Ready) => return Ok(()),
                 Some(WorkerEvent::DiagnosticsStarted { started })
-                    if worker.diagnostic_start.is_none()
-                        && matches!(role, "capture" | "speaker") =>
+                    if self.diagnostic_start.is_none()
+                        && matches!(role.as_str(), "capture" | "speaker") =>
                 {
-                    worker.diagnostic_start = Some(started);
+                    self.diagnostic_start = Some(started);
                 }
                 Some(_) => return Err(io::Error::other("unexpected worker startup message")),
                 None => {}
@@ -300,14 +326,22 @@ impl Worker {
         Err(self.terminate_and_reap(io::ErrorKind::TimedOut, reason))
     }
 
-    pub(crate) fn exit_result(&self, status: ExitStatus) -> io::Result<()> {
-        if status.success() {
-            Ok(())
-        } else {
-            Err(io::Error::other(format!(
-                "{} worker exited abnormally: {status}",
-                self.role
-            )))
+    pub(crate) fn exit_result(&mut self, status: ExitStatus) -> io::Result<()> {
+        let cleanup = self.cleanup_ring_paths();
+        match (status.success(), cleanup) {
+            (true, result) => result,
+            (false, result) => Err(io::Error::other(format!(
+                "{} worker exited abnormally: {status}{}",
+                self.role,
+                result.err().map_or(String::new(), |e| format!("; {e}"))
+            ))),
+        }
+    }
+
+    fn cleanup_ring_paths(&mut self) -> io::Result<()> {
+        match &mut self.ring_resources {
+            Some(resources) => resources.cleanup_after_exit(),
+            None => Ok(()),
         }
     }
 
@@ -321,7 +355,12 @@ impl Worker {
             message.push_str(&format!("; kill failed: {error}"));
         }
         match reaped {
-            Ok(status) => message.push_str(&format!("; reaped with {status}")),
+            Ok(status) => {
+                message.push_str(&format!("; reaped with {status}"));
+                if let Err(error) = self.cleanup_ring_paths() {
+                    message.push_str(&format!("; {error}"));
+                }
+            }
             Err(error) => message.push_str(&format!("; reap failed: {error}")),
         }
         io::Error::new(kind, message)
@@ -519,7 +558,9 @@ impl Drop for Worker {
         if self.child.try_wait().ok().flatten().is_none() {
             let _ = self.child.kill();
         }
-        let _ = self.child.wait();
+        if self.child.wait().is_ok() {
+            let _ = self.cleanup_ring_paths();
+        }
     }
 }
 
@@ -544,6 +585,7 @@ mod tests {
             boot,
             role: "probe".into(),
             diagnostic_start: None,
+            ring_resources: None,
         }
     }
 
@@ -607,3 +649,6 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(2));
     }
 }
+
+#[cfg(test)]
+pub(crate) mod ring_startup_tests;

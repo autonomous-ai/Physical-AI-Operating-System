@@ -214,7 +214,6 @@ fn audio_authority_failure_is_still_terminal_even_if_ring_is_disabled() {
 fn a_ring_fault_during_pre_activation_does_not_activate_input() {
     let directory = SessionDirectory::create().unwrap();
     let (mut rig, mut peers) = fixture(&directory);
-    let mut startup = StartupEvents::default();
     let mut controller = Controller::new(new_boot().unwrap(), now());
     peers
         .ring
@@ -224,8 +223,7 @@ fn a_ring_fault_during_pre_activation_does_not_activate_input() {
         })
         .unwrap();
     rig.ring
-        .startup_tick(&mut startup, Some(controller.snapshot(now()).unwrap()))
-        .unwrap();
+        .startup_tick(Some(controller.snapshot(now()).unwrap()));
     assert!(!rig.ring.is_active());
     assert!(!controller.snapshot(now()).unwrap().listening_ready(now()));
     assert!(matches!(
@@ -233,7 +231,9 @@ fn a_ring_fault_during_pre_activation_does_not_activate_input() {
         Some(Control::Stop)
     ));
     assert!(peers.ring.control.receive::<Control>().unwrap().is_none());
-    assert_eq!(startup.events[0]["kind"], "ring_degraded");
+    let mut trace = SessionState::default();
+    rig.ring.poll_cleanup(&mut trace).unwrap();
+    assert_eq!(trace[0]["kind"], "ring_degraded");
 }
 
 #[test]
@@ -426,4 +426,157 @@ fn optional_ring_incomplete_cleanup_blocks_physical_mute_reopen() {
     assert!(result.is_err());
     assert_eq!(waits.get(), 1);
     assert!(reply.is_none());
+}
+
+#[test]
+fn mandatory_worker_faults_remain_terminal_during_optional_spawn() {
+    use crate::process::ring_startup_tests::ChildFixture;
+    for role in ["provider", "capture", "speaker"] {
+        let fixture = ChildFixture::new();
+        let (mut required, mut peer) = Worker::sleeping_fixture(&fixture.directory.path, role);
+        let mut owner = Controller::new(new_boot().unwrap(), now());
+        let mut startup = StartupEvents::default();
+        let mut last = 0;
+        let termination = Termination::inactive();
+        let mut sent = false;
+        let error = OptionalRing::spawn(
+            &fixture.executable,
+            &fixture.directory.path,
+            new_boot().unwrap(),
+            &[],
+            || {
+                if !sent && fixture.identity().is_some() {
+                    peer.control.send(WorkerEvent::Fault {
+                        code: format!("mandatory {role} failure"),
+                    })?;
+                    sent = true;
+                }
+                pulse(
+                    &mut owner,
+                    &mut [&mut required],
+                    &mut last,
+                    &mut startup,
+                    &termination,
+                )
+            },
+        )
+        .err()
+        .expect("required fault cannot become optional unavailability");
+        assert_eq!(error.to_string(), format!("mandatory {role} failure"));
+        assert!(!owner.snapshot(now()).unwrap().listening_ready(now()));
+        required.check_running().unwrap();
+        fixture.assert_reaped();
+        assert!(!fixture.directory.path.join("ring").exists());
+    }
+}
+
+#[test]
+fn unavailable_startup_keeps_answer_cancellation_and_privacy_authority() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture(&directory);
+    rig.ring = OptionalRing::spawn(
+        &directory.path.join("absent"),
+        &directory.path,
+        new_boot().unwrap(),
+        &[],
+        || Ok(()),
+    )
+    .unwrap();
+    let (mut owner, reply, _) = super::tests::active_reply();
+    let original = reply.owner;
+    let mut reply = Some(reply);
+    let mut trace = SessionState::default();
+    rig.running().unwrap();
+    let snapshot = owner.snapshot(now()).unwrap();
+    rig.publish(snapshot).unwrap();
+    for peer in [
+        &mut peers.speaker,
+        &mut peers.capture,
+        &mut peers.provider,
+        &mut peers.privacy,
+    ] {
+        assert_eq!(drain_authority(peer).owner(), Some(original));
+    }
+    cancel_reply(&mut owner, &mut reply, &mut trace, "user_interrupted").unwrap();
+    assert!(reply.is_none());
+    assert_ne!(owner.snapshot(now()).unwrap().owner(), Some(original));
+    owner
+        .set_microphone_permission(now(), Permission::Denied)
+        .unwrap();
+    owner
+        .set_camera_permission(now(), Permission::Denied)
+        .unwrap();
+    let closed = owner.snapshot(now()).unwrap();
+    rig.publish(closed).unwrap();
+    for peer in [
+        &mut peers.speaker,
+        &mut peers.capture,
+        &mut peers.provider,
+        &mut peers.privacy,
+    ] {
+        let received = drain_authority(peer);
+        assert!(!received.listening_ready(now()));
+        assert_eq!(received.owner(), closed.owner());
+    }
+    let mut choreography = None;
+    service_optional_ring(
+        &mut rig,
+        &mut choreography,
+        &mut owner,
+        &mut trace,
+        &mut RingTrace::default(),
+    )
+    .unwrap();
+    assert!(choreography.is_none());
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "ring_requested" || e["kind"] == "listening_ready")
+    );
+}
+
+#[test]
+fn failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure() {
+    use crate::process::ring_startup_tests::ChildFixture;
+    let fixture = ChildFixture::new();
+    let mut ring = OptionalRing::spawn(
+        &fixture.directory.path.join("absent"),
+        &fixture.directory.path,
+        new_boot().unwrap(),
+        &[],
+        || Ok(()),
+    )
+    .unwrap();
+    let mut peer = None;
+    let error = Worker::spawn_with_tick(
+        &fixture.executable,
+        &fixture.directory.path,
+        "privacy",
+        new_boot().unwrap(),
+        &[],
+        || {
+            ring.startup_tick(None);
+            if peer.is_none()
+                && let Some((parent, boot, _)) = fixture.identity()
+            {
+                let mut privacy =
+                    WorkerChannels::bind(&fixture.directory.path, "privacy", parent, boot, true)?;
+                privacy.connect(&fixture.directory.path, "privacy", true)?;
+                privacy.control.send(WorkerEvent::Fault {
+                    code: "fake physical privacy unavailable".into(),
+                })?;
+                peer = Some(privacy);
+            }
+            Ok(())
+        },
+    )
+    .err()
+    .expect("privacy Ready failure stays terminal");
+    assert!(
+        error
+            .to_string()
+            .contains("unexpected worker startup message")
+    );
+    assert!(!ring.is_active());
+    fixture.assert_reaped();
 }

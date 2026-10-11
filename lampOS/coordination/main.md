@@ -3,185 +3,154 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated code checkpoint: `a253abe5eb4fd09b666959e059e8249930af5c0a`
-- State: two physical Rust attempts retained: one answered with content/playback defects; one split a question and failed on the cancellation barrier. Release and benchmark unfinished.
+- Integrated code checkpoint: `02148ed4d580046194fe6492ea480bc2502eba5d`
+- State: coordinated provider/runtime integration pushed and native startup checked. Physical conversation and benchmark qualification remain unfinished.
 
 ## Direct coordination
 
-The three existing sessions are members of the Harness team **Lamp Rust
-implementation**. Main and Agent 1 run on office; Agent 2 is the M2 session
-**lampOS voice-eval runner**. Agent 2 has replied through Harness and accepted
-MAIN-005/006/014/015. Agent 1 publishes acknowledgments in Git: its session
-cannot obtain a verified Harness team context (`CHANNEL_SCOPE_MISSING`).
-Respect that guard; use its Git status and ordinary messages to the verified
-session. Checkpoints 5–7 answer MAIN-007/008/011/012/017/019; Main is reviewing the combined provider/audio source.
-No owner report relay is needed. Git retains exact code, evidence and decisions.
+The existing sessions are members of Harness team **Lamp Rust implementation**.
+Main and Agent 1 run on office; Agent 2 is the M2 session **lampOS voice-eval
+runner**. Main replies directly to team questions; Git retains source, interface
+contracts, results and decisions. No owner relay is needed. Agent 1 previously
+could not obtain its team context (`CHANNEL_SCOPE_MISSING`); do not circumvent
+that guard. Its latest A1-009/010/011 question arrived through Harness and Main
+answered there as MAIN-028. Queued delivery is not proof that an agent read it.
 
-MAIN-001 (protocol acknowledgment), MAIN-002 (Agent 1 publication), and MAIN-003
-(Agent 2 publication) are answered by both agents' published status files.
-Later checkpoints still require review; publication is not integration.
+## Integrated checkpoint
 
-## Accepted checkpoint and verification
+`02148ed4d` combines Agent 1's `ae4f05db4` capture/Gemini source with Main's
+coordinated worker and consumer. Directed mode now uses `Reporting::Coordinated`.
+Connection availability has a priority channel independent of buffered PCM.
+Every Start is checked against its selected provider session before submission;
+a refused request cannot enter a newly recovered connection. Exact failures
+before Started are retained without granting PCM authority. An unfinished input
+drains through its real endpoint before fresh speech may enter the recovered
+session. Previously received audio drains with a failed outcome, never success.
+Require remains the cancellation policy; no input is replayed.
 
-Integrated Agent 1 `64806f8624ec3425f820e5b087afeb58d2bbbc94` as `a253abe5e`:
-failed reconnect attempts are harvested and retried within existing bounds even
-when the previous outage notice remains unread. This changes Gemini recovery;
-the directed CLI still uses Legacy reporting until the combined consumer passes.
+Source clock observations carry conservative correlation intervals sampled from
+both clocks. They are not exact latency measurements and cannot renew old source
+freshness. See the [provider link](../docs/provider-link-channel.md),
+[coordinator outage contract](../docs/coordinator-outage-contract.md), and
+[failed-turn cue schema](failure-cue-contract.md).
 
-Main reran from the integration tree on macOS:
+Verification from the integration tree:
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --locked --offline -p lamp-gemini --all-targets -- -D warnings
-cargo test --locked --offline -p lamp-gemini -- --test-threads=1
+cargo clippy --locked --offline --workspace --all-targets -- -D warnings
+cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
 ```
 
-All passed: 136 Gemini tests, zero failures, two long soaks ignored. No claim of
-whole-workspace, ARM or physical conversation qualification for this merge.
-Agent 1's later echo-evidence, notice and visual-input changes are separate
-checkpoints awaiting review.
+All passed: **960 tests, zero failures, four ignored**, including one doctest.
+The ignored tests are two prolonged Gemini recovery soaks and real-time 60 s /
+180 s provider-worker tests. A source-only Linux ARM64 build and strict all-target
+Clippy for audio/Gemini/live passed, plus five paired coordinator/provider tests
+under release QEMU. An independent source review found no blocking defect.
 
-## Current interface ownership and open requests
+Binary SHA256:
+`fb7e11911b7b84ef7a0af40a0c0c8ec26e7fc852dcd1b4228d3b173a2b979371`.
+It is staged on a0ae at `/var/tmp/lampos-v2-a0ae-20261011-0305/lamp-live`, with
+matching hash and a successful native CLI/provider check (setup 1.858044 s).
+That check opened no microphone and sent no audio. A fresh finite device trial
+is being prepared; this checkpoint has not yet qualified native recovery.
+
+## Ownership and decisions
 
 Main owns `provider_worker.rs`, `provider_link.rs`, `coordinator.rs`,
-`coordinator/**`, `wire.rs`, `admission.rs`, and fixture migrations for the
-priority availability batch. Agent 1 owns `crates/gemini/**` and its audio scope.
-Agent 2 owns camera, perception and evaluation. Shared edits remain isolated.
+`coordinator/**`, `wire.rs`, `admission.rs` and fixture integration. Agent 1 owns
+`crates/gemini/**` and its audio scope. Agent 2 owns evaluation, camera and
+perception. Shared edits remain separate proposals; only Main integrates and
+schedules devices.
 
-- **MAIN-007 / A1-002:** prefer failing the affected answer and bounded recovery
-  after playback backpressure, with no replay and one lost-request report.
-  Authentication/quota faults and missing resumption context remain terminal.
-  Agent 1 supplies focused regressions; Main enables the behavior with the
-  coordinator's failure reporting after review.
-- **MAIN-008:** add checked start against the coordinator-selected provider
-  session before enqueueing any input. A deterministic private regression proved
-  a delayed Start selected on A can otherwise reach recovered B. A second
-  regression proved a legitimate lost request may precede Started; Main must
-  accept its exact failure without granting PCM authority. The frozen consumer
-  is not approved for activation while either regression remains red.
-- **A1-003:** optional frame-local echo evidence is acceptable; Main owns wire
-  migration. Synthetic evidence does not establish an acoustic admission
-  threshold on the board.
-- **MAIN-005/006:** Agent 2 accepted corrections for exhausted perception control
-  drains, the perception/live dependency cycle, blocking frame connection,
-  never-terminated relay-line byte limits, frame freshness semantics, and
-  cleanup after the coordinator leader has already exited. Review covered
-  `0239ac27c` (code `9bfd58242`); that code is not integrated.
-- **MAIN-005 / A2 shared seams:** a narrow camera registration and perception
-  workspace change are acceptable in principle after fixes. Hardware-profile
-  injection must be behind explicit test support, leaving production executable
-  and legacy-owner checks intact. Evaluate the actual directed coordinator with
-  scripted Gemini; do not wait for a future service.
-- **MAIN-009:** evaluation must retain `provider_failed` as a terminal failure
-  before or after partial playback, never as success. Drain-end evidence is not
-  a normal submitted-input endpoint; cue ordering must account for that path.
-- **A1/A2 visual context:** provisional maximum two JPEGs of 64 KiB per request,
-  preserving source freshness, privacy and owner. Reduction precedes provider
-  submission; image work must not block capture or fill the audio queue.
+- **MAIN-007/008/017/019:** integrated priority recovery, checked-session Start,
+  exact pre-Started failures and endpoint draining. Regression coverage includes
+  actual paired worker/Supervisor/consumer with private Unix datagrams. No claim
+  of actual hardware outage UX follows from those checks.
+- **MAIN-013/016/020/021:** failure schema is published in
+  [failure-cue-contract.md](failure-cue-contract.md). Preserve failed answers,
+  partial audio, actual stage/cause and unowned discarded endpoints. Only initial
+  `listening_ready` exists; no authoritative post-outage re-ready cue exists yet.
+- **MAIN-023/025/026/029:** four red final-dispatch tests were published separately
+  on `lamp-voice-eval-review-20261011` at `60f98cb9a`. Agent 2's corrections
+  `d3ada11e` and `37b398a7` (status `ec84cf72`) are under independent evaluator-only
+  review. The original four regressions pass, but two further physical-backend
+  failures reproduce: dispatch past its 100 ms deadline and dispatch after an
+  observed post-exit trace. MAIN-030 publishes both on separate review branch
+  `lamp-voice-eval-review2-20261011` at `cdc0ec26c`. Do not merge these deliberately
+  red review branches as runtime releases.
+- **MAIN-021/027/029:** exact valid/invalid receipt examples are in
+  [recording-import-examples.json](recording-import-examples.json). Agent 2 may
+  implement the offline importer and boundary proposals. Proposals remain
+  separate from accepted acoustic annotations; `listened` remains false until
+  actually confirmed. Private recordings stay outside Git.
+- **MAIN-022/024/028 / A1-009:** prioritize observed opening playback gaps and
+  interruption recovery. Main is reviewing the playout-start proposal on
+  `gemini-voice-playout-proposal` at `b4782eda1`; it is not activated.
+- **A1-010:** reject the proposed barrier-free continuation after a committed
+  End. Its documented late answer can concern the truncated question instead
+  of the complete question. A common owner does not make that answer correct,
+  and no output yet does not prove unchanged intent. Keep Require and bounded
+  recovery; a still-local, unsubmitted endpoint is a separate possible design.
+- **A1-003/011:** echo-evidence primitives are integrated but do not control
+  admission. Agent 1 reports no match on a real recording and is correcting it;
+  synthetic thresholds are not physical qualification.
+- **A1-008:** environmental I2C work is deferred behind voice qualification.
+- Camera/perception/image privacy proposals remain inactive and do not gate the
+  current audio-only run. Image limits are provisional; there is no active
+  provider camera consumer. Prerecorded audible failure notices are not wired.
 
-The two MAIN-008 failures were reproduced and corrected privately. The checked
-Start binds input to the selected session, and a valid failure before Started
-retains endpoint draining without granting PCM authority. The corrected slice
-has 152 focused host tests passing with strict live Clippy and formatting; two
-existing long tests were not rerun. Main is now combining it with Agent 1's
-latest capture/provider source. Canonical integration and combined verification
-remain pending. The physical trial used Legacy/Require.
-
-MAIN-013/016: the exact provisional failure schema is now durable in
-[failure-cue-contract.md](failure-cue-contract.md). Agent 2 did not receive the
-first native reply; Main resent it as a new question. Do not infer successful
-delivery from an accepted CLI command.
-
-MAIN-014 priority: Main deploys and records the first finite audio-only run.
-Agent 1 supplies provider fixes; Agent 2 supplies actual directed-runner cues
-and scoring. Optional camera/perception/image changes remain inactive and do
-not gate this first measurement. Agent 2 `b010aa0b8` corrects failure during
-the trigger delay; the attempt-level latch and final dispatch guard follow.
-Its simulated EPIPE/ReferenceLate failures remain simulation evidence pending
-trace review, not measured Lamp failures.
-
-MAIN-023/025: independent evaluation review found two remaining final-dispatch
-faults: the backend can play after termination, and the runner can dispatch after
-its timing/speaking precondition is lost during a final drain. Four reproduced
-regressions and the report are published on the separate review branch
-`lamp-voice-eval-review-20261011` at `60f98cb9a`; this deliberately red branch is
-not a runtime checkpoint. MAIN-026 provides Agent 2 the Git reference. Agent 2
-reports the first correction in `d3ada11e`; root review remains pending and the
-second correction was requested. The recording-import example is in
-[recording-import-examples.json](recording-import-examples.json).
-
-MAIN-024: the actual second physical trial hit the previously open
-interrupt-before-output `Require` barrier risk after premature segmentation.
-Agent 1 should prioritize the physical playback-gap and interruption failures
-before environmental acquisition. Checkpoint 8's speaker device seam is
-published, not integrated. Main is preparing an NS-off live repeat based on
-an exact local replay; AEC and detector thresholds remain unchanged.
-
-## Devices and reservations
+## Device reservations and physical evidence
 
 | Device | Address | Owner | State |
 |---|---|---|---|
-| lamp-a0ae | 172.168.20.197 | Main | Primary native Rust/provider qualification; no motion |
-| lamp-52e6 | 172.168.20.190 | Main | Repeat checks; preserve existing STT experiment drop-in |
+| lamp-a0ae | 172.168.20.197 | Main | Primary finite native qualification; no motion |
+| lamp-52e6 | 172.168.20.190 | Main | Cached stimulus and independent recordings; preserve existing STT drop-in |
 | lamp-4ace | last known 172.168.20.159 | Main | Not rediscovered in the last authorized scan |
 
-The iMac source was not recognizably captured by these distant Lamps. A bounded
-cross-Lamp route test now completed: four 44.875-second recordings, both Jieli
-speech inputs and both C-Media ambient inputs, with exclusive capture receipts.
-Both Lamps' original settings were restored and verified. Local cached ASR
-recovered the a0ae-to-52e6 Jieli phrase exactly; the reverse phrase was
-recognizable with substitutions. The ambient channels were less faithful and
-own-speaker ambient recordings clipped. These are installed-V1 speaker-replay
-route observations, not human or V1-main/V2 latency benchmarks.
-
-On a0ae, the real Gemini handshake took 1.952295 s. Endpoint host:
-`campaign-api.autonomous.ai`; model `gemini-3.8-live-extended-thinking`, voice
-`Kore`, thinking `LOW`. Bounded service probes then observed a resumption handle
-after an answer and accepted it on a replacement connection. The initial
-interrupt-before-output probe was inconclusive: local command coalescing did
-not prove that the first End was sent. Agent 1 corrected that probe. None of
-these probes opened microphone/speaker hardware or measured acoustic latency.
-
-The new ARM64 `lamp-live` build from exact code tree `51bd815e9` is staged on
-a0ae. SHA256:
+The first spare-Lamp physical runs used old source `51bd815e9`, binary SHA
 `d3318abe080336dbd4c50d9d04e4517eb21cd0b7cec5afaa5d5f62e990b525e7`.
-Offline ARM64 release build, strict all-target live Clippy and 12 provider-flow
-tests under QEMU passed. The staged file's hash matches. The first finite
-physical run then produced one answer with legacy services stopped. It failed
-content quality: an English greeting was interpreted as Italian. One 30 ms
-inserted-zero playback gap interrupted the opening voiced segment. Source and
-target diagnostic recordings, hashes and restoration were independently checked.
-Local endpoint to first ALSA write was 1.046792 s for this single turn; acoustic
-first-word latency is unscored. No V1-main comparison or speedup exists yet.
+One greeting was misheard as Italian and answered with a 30 ms opening gap.
+A repeat prematurely split one question, then failed at the 2 s Require barrier
+without reply audio. Exact local replay isolates a 680 ms low-VAD interval
+that contained only about 360 ms of actual quiet; disabling software noise
+suppression kept that recorded question intact with AEC unchanged.
 
-The owner's subsequent same-Lamp check used 52e6's speaker and both its own
-microphones at volume 60. Both recordings recovered the sentence except for
-ASR spelling of “Lamp”; Jieli had no clipping, C-Media still clipped. This was
-an installed-V1 audio-route check, not a Rust conversation. See the exact
-[physical trial evidence and limits](../docs/real-device-audio-pilot.md).
+A subsequent fresh NS-off cohort played two prompts: both stayed one input,
+one got a relevant English greeting with no gap, the other was misheard and had
+a 260 ms opening gap. A third prompt was withheld when its readiness expired
+9.917 ms before the final check. It was never played, not a dropped answer.
+Both complete room recordings and runtime diagnostics were independently checked.
+Observer DSP/clipping prevents accepted acoustic onset bounds; no p50/p95 or
+V1-main/V2 speedup is claimed. NS off remains an experiment, not a release winner.
 
-The target returned to software-muted legacy services with the serial guard
-retained. V2 is not the continuously running default yet. Main is pinning test
-stimuli and isolating recognition before a repeated benchmark. MAIN-022 gives
-Agent 1 the actual chunk timing and gap; MAIN-020/021 gives Agent 2 the exact
-failure contract and an offline recording-import/annotation-proposal task.
+The same-Lamp playback/capture check recovered the greeting on both microphones
+using installed V1 controls. It proves the local audio route, not a Rust or
+natural-duplex conversation. A clean synthetic provider-only control recognized
+the exact greeting and returned first audio 1.037035 s after input enqueue;
+it bypassed microphones, endpointing and speakers. Planned recorded-room uploads
+were rejected by automatic review and did not run; keep those clips local.
+See [physical evidence and limits](../docs/real-device-audio-pilot.md).
 
-Main has a temporary key-only maintenance SSH service on a0ae, restricted to
-the authorized Mac source and a two-hour lifetime, leaving the existing SSH
-service unchanged. It retains control while the legacy server is stopped.
-Main owns cleanup and the separate finite audio trial/rollback. Private keys,
-provider credentials and room recordings stay outside Git.
+After each completed run, both Lamps returned to their original volume/mode and
+software-muted legacy services. Last verified output volumes: a0ae 77, 52e6 94.
+V2 is not the continuously running default. Main owns the temporary key-only
+a0ae maintenance service, restricted to the authorized Mac source with a finite
+lifetime, and its cleanup. Keys, credentials and recordings stay private.
 
-The installed HAL shutdown path can park/release servos. No ordinary HAL stop
-or restart is authorized by this reservation: Main must verify the installed
-units, motor exclusion and independent rollback before hardware handover. The
-private motor candidate remains unintegrated and physically unqualified.
+The installed HAL shutdown path can park/release servos. Main must retain the
+serial-inaccessible stationary guard and verify fresh unit state, hardware
+ownership and independent rollback before handover. Never reuse a completed
+snapshot/rollback window or perform ordinary HAL stop/restart. The motor
+candidate remains physically unqualified; there is no motion grant here.
 
 ## Integration ledger
 
-- Earlier `d6b813695` and Agent 2 `3eaa0365`: included before `2535fb565`.
-- Agent 1 `64806f862`: integrated and focused-tested as `a253abe5e`.
-- Agent 1 checkpoint 7 `ae4f05db4` / tested `a77bdb0fd`: fetched; combined provider/capture review in progress. Images stay inactive.
-- Agent 2 `0239ac27c`: reviewed, six corrections requested and accepted.
-- Agent 2 `b7fbe352e` / tested `d5b848b3`: fetched; published runner, failure-evidence and image-privacy corrections awaiting combined review. Not integrated.
-- Provider/coordinator consumer: two reproduced blockers corrected in private; combined candidate not yet integrated or deployed.
+- Earlier Agent 1 `d6b813695` and Agent 2 `3eaa0365`: included before `2535fb565`.
+- Agent 1 `64806f862`: integrated as `a253abe5e`.
+- Agent 1 checkpoint 7 `ae4f05db4` / tested `a77bdb0fd`: integrated with Main's
+  coordinated consumer as `02148ed4d`; optional image/notice paths inactive.
+- Agent 1 later speaker seam / start-gate / barrier regression checkpoints
+  `6d7c39303` through `95cd4b263`: published, not integrated.
+- Agent 2 camera/perception checkpoints: reviewed with corrections, not integrated.
+- Agent 2 evaluator through `37b398a7` / status `ec84cf72`: under review.

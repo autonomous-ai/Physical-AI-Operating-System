@@ -86,8 +86,9 @@ at 145937561741 microseconds; the second input was admitted 241.215 ms later,
 before an answer had arrived. The provider emitted only the session-scoped
 input transcript “Hola.”, then `BarrierTimeout` under the existing `Require`
 policy. Request 2 was reported lost at `AwaitingResponse`; the worker exited.
-The coordinator's final error was `Connection refused`, which obscures that
-provider cause. The coordinated failure consumer is still an integration task.
+The coordinator's final error was `Connection refused`, which obscured that
+provider cause. This old build used Legacy reporting; the coordinated failure
+consumer was integrated later in `02148ed4d` and needs separate device checks.
 
 All 54,240 target capture frames and 82,080 accepted render frames were
 certified without diagnostic faults. Every render frame was zero. The source
@@ -136,6 +137,43 @@ speech. Analysis continues locally and with fresh controlled live stimuli.
 The clean synthetic control does not establish recognition quality for any
 recorded microphone clip.
 
+## Two spoken NS-off attempts and one withheld prompt — 2026-10-11
+
+The completed source 51bd cohort used the exact same synthetic cross-Lamp greeting,
+target a0ae volume 100 and NS off with AEC unchanged. Two prompts were played; both
+target runs retained one admitted turn and a full retired reply, with certified
+capture/render diagnostics. A third prompt was withheld when the unchanged 100 ms
+readiness cue expired 9.917 ms before the confirmation check. It is a zero-input
+operational failure, not a dropped Lamp answer. All attempts remain in the ledger;
+rollback/source restoration validated and the outer wrapper restored the original
+target volume 77.
+
+Trial 1's independent cached local ASR agrees across both source-room microphones
+and the actual accepted output PCM: “Hello, I'm here to help out. So how are you
+doing today?” The 3.68 s reply has no injected playback gap. Gemini's text
+transcript instead says “I'm here and ready to help”, so software transcription
+must not replace the acoustic/PCM wording evidence. Trial 2's reply was “We're
+looking great and ready for a productive day together.” Its input transcript was
+wrong (“How many people today?”), and it contains 6,240 explicitly accepted zero
+frames at 24 kHz—a 260 ms gap after only 40 ms of initial output. The complete
+output remains a conversational-quality failure.
+
+The Jieli observer recovered both prompts and reply endings without reply clipping,
+but its hardware DSP strongly gates quiet phonemes. The source's C-Media observer
+(capture 20 / AGC on) clipped about 9% of prompt samples. Waveform/ASR-supported
+recorder-visible timing proposals were 1.85–2.01 s and 1.97–2.17 s; these are **not
+accepted acoustic bounds**, and no p50/p95 or ≤2 s acceptance is claimed. The first
+opening is clearer than the earlier weak pilot, but reply/provider differences
+prevent isolating gain as the cause. No human listening, direct-human, double-talk,
+or NS-setting winner is established.
+
+Frozen evidence: `/private/tmp/lamp-nscheck-room-review-20261011/report.json` SHA
+`c6bc7076763a93a87a21fac972d263674f64dcc7d4ff08dac97710e72e025b50`; input manifest
+SHA `093ba63c5cffd23b36f37ef8e0db545a3dd5f4c4fd64b9258c5409c6ecd7ad91`; freeze SHA
+`10742f5038ca023027a96f125ae94a105553e7cf0540beedf9509c7225eaa735`. This historical
+cohort predates the new integrated Coordinated binary and must not be relabeled as
+its physical qualification.
+
 ## Owner-requested same-Lamp check
 
 To remove cross-Lamp distance, 52e6 played the same greeting into its own
@@ -172,9 +210,9 @@ Private evidence stays outside Git:
 - `lamp-same-device-recording-20261011T0200`: single-Lamp route evidence;
   independent audit `lamp-same-device-review-zai75t1_`.
 
-Next: pin reusable stimulus PCM; isolate microphone/processing/provider
-recognition using the recorded inputs; reproduce and correct the opening
-playback gap; then repeat recorded conversations. A comparison against V1 main
+Next: qualify the integrated coordinated runtime on hardware, isolate
+recognition with local analysis and controlled fresh speech, correct the opening
+playback gap, and repeat recorded conversations. Keep recorded room clips local. A comparison against V1 main
 requires matched hardware, stimulus and acoustic scoring. These trials do not
 yet provide that comparison, interruption qualification, TV rejection or
 multiple-speaker evidence.

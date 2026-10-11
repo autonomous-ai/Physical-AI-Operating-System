@@ -40,6 +40,22 @@ fn ended() -> ProviderOutput {
 }
 
 fn run(case: Case) -> (SessionState, Evidence) {
+    run_with_notices(case, &FailureNotices::none())
+}
+
+fn run_with_notices(case: Case, notices: &FailureNotices) -> (SessionState, Evidence) {
+    run_with_notice_policy(case, notices, TurnTaking::VadOnly)
+}
+
+fn run_with_notice_policy(
+    case: Case,
+    notices: &FailureNotices,
+    policy: TurnTaking,
+) -> (SessionState, Evidence) {
+    let maximum_played = 480
+        + notices.capability()["available"]["frames"]
+            .as_u64()
+            .unwrap_or(0) as usize;
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
     let mut spawn = |role| {
@@ -63,7 +79,7 @@ fn run(case: Case) -> (SessionState, Evidence) {
         ring_channel_ceiling: None,
         diagnostic_directory: None,
         noise_suppression: NoiseSuppression::On,
-        turn_taking: TurnTaking::VadOnly,
+        turn_taking: policy,
         playout_start: PlayoutStart::default(),
     };
     let (mut owner, mut reply) = if matches!(case, Case::Idle | Case::OpenInput) {
@@ -317,7 +333,7 @@ fn run(case: Case) -> (SessionState, Evidence) {
                                 frame: cursor,
                             };
                             evidence.played.extend_from_slice(&chunk.samples);
-                            assert!(evidence.played.len() <= 480);
+                            assert!(evidence.played.len() <= maximum_played);
                             peer.channels
                                 .control
                                 .send(WorkerEvent::Playback {
@@ -391,6 +407,7 @@ fn run(case: Case) -> (SessionState, Evidence) {
         &mut reply,
         &mut None,
         &Termination::inactive(),
+        notices,
     );
     let result = finish_active_run(
         &mut rig, &mut owner, &mut reply, &mut trace, &mut None, result,
@@ -488,4 +505,144 @@ fn assert_outcome(trace: &SessionState, outcome: &str) {
     assert_eq!(finished.len(), 1);
     assert_eq!(finished[0]["outcome"], outcome);
     assert!(!trace.iter().any(|e| e["kind"] == "reply_cancelled"));
+}
+
+#[test]
+fn failure_notice_runs_through_production_conversation_after_awaiting_and_refused_start() {
+    for case in [Case::AwaitingAnswer, Case::RefusalAfterEnded] {
+        let (trace, evidence) = run_with_notices(case, &FailureNotices::synthetic());
+        assert_eq!(evidence.played, vec![321; 7_200]);
+        assert_outcome(&trace, "provider_failed");
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|e| e["kind"] == "failure_notice_attempted")
+                .count(),
+            1
+        );
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|e| e["kind"] == "failure_notice_first_write")
+                .count(),
+            1
+        );
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|e| e["kind"] == "failure_notice_final_sample_retired")
+                .count(),
+            1
+        );
+        assert!(!trace.iter().any(|e| e["kind"] == "speaker_first_write"));
+        let finish = trace.iter().find(|e| e["kind"] == "turn_finished").unwrap();
+        assert_eq!(finish["failure_notice"]["state"], "retired");
+        assert_eq!(finish["playback_gaps"], 0);
+    }
+}
+
+#[test]
+fn failure_notice_keeps_partial_answer_and_new_playback_occurrence() {
+    let (trace, evidence) = run_with_notices(Case::FailedBuffered, &FailureNotices::synthetic());
+    assert_eq!(&evidence.played[..480], &vec![123; 480]);
+    assert_eq!(&evidence.played[480..], &vec![321; 7_200]);
+    let prior = trace
+        .iter()
+        .find(|e| e["kind"] == "speech_final_sample_retired")
+        .unwrap();
+    let notice = trace
+        .iter()
+        .find(|e| e["kind"] == "failure_notice_first_write")
+        .unwrap();
+    assert!(prior["at_us"].as_u64().unwrap() <= notice["at_us"].as_u64().unwrap());
+    assert_ne!(prior["playback_sequence"], notice["playback_sequence"]);
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "provider_first_audio")
+            .count(),
+        1
+    );
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "speaker_first_write")
+            .count(),
+        1
+    );
+    assert_outcome(&trace, "provider_failed");
+}
+
+#[test]
+fn failure_notice_waits_for_actual_abandoned_input_endpoint_without_replay() {
+    let (trace, evidence) = run_with_notices(Case::OpenInput, &FailureNotices::synthetic());
+    assert_eq!(evidence.played, vec![321; 7_200]);
+    assert_eq!((evidence.provider_starts, evidence.provider_ends), (1, 0));
+    let endpoint = trace
+        .iter()
+        .position(|e| e["kind"] == "input_discarded_endpoint")
+        .unwrap();
+    let notice = trace
+        .iter()
+        .position(|e| e["kind"] == "failure_notice_attempted")
+        .unwrap();
+    assert!(endpoint < notice);
+    assert_outcome(&trace, "provider_failed");
+}
+
+#[test]
+fn failure_notice_is_absent_for_idle_or_successful_terminal_and_default_stays_silent() {
+    for case in [Case::Idle, Case::CompleteBuffered] {
+        let (trace, evidence) = run_with_notices(case, &FailureNotices::synthetic());
+        assert!(
+            !trace
+                .iter()
+                .any(|e| e["kind"] == "failure_notice_attempted")
+        );
+        assert_eq!(
+            evidence.played.len(),
+            if matches!(case, Case::Idle) { 0 } else { 480 }
+        );
+    }
+    let (trace, evidence) = run(Case::AwaitingAnswer);
+    assert!(evidence.played.is_empty());
+    assert!(
+        trace
+            .iter()
+            .any(|e| e["kind"] == "failure_notice_selected" && e["notice"]["state"] == "skipped")
+    );
+    assert_outcome(&trace, "provider_failed");
+}
+
+#[test]
+fn independent_notice_v1_baseline_uses_the_real_conversation_path() {
+    for case in [
+        Case::AwaitingAnswer,
+        Case::RefusalAfterEnded,
+        Case::FailedBuffered,
+    ] {
+        let (trace, evidence) =
+            run_with_notice_policy(case, &FailureNotices::synthetic(), TurnTaking::V1Baseline);
+        let prefix = if matches!(case, Case::FailedBuffered) {
+            480
+        } else {
+            0
+        };
+        assert_eq!(&evidence.played[prefix..], &vec![321; 7200]);
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|e| e["kind"] == "failure_notice_attempted")
+                .count(),
+            1
+        );
+        assert_eq!(
+            trace
+                .iter()
+                .filter(|e| e["kind"] == "failure_notice_final_sample_retired")
+                .count(),
+            1
+        );
+        assert_outcome(&trace, "provider_failed");
+    }
 }

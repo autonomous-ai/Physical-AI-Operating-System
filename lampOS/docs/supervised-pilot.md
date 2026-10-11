@@ -42,19 +42,33 @@ the actual blocker if the deadline arrives first.
 
 ## Current critical path and ownership
 
-The latest continuous native run completed eight exchanges then failed during
-idle at 378.6 seconds with `reference_backlog`. Later scheduled prompts were
-withheld. A complete 600-second local room recording covers the target interval;
-stationary rollback is verified. Agent 1 owns bounded reference recovery and the
-fixed-margin backlog diagnosis, including actual loss versus scheduling stalls.
-Main owns integration, process lifecycle, deployment and native qualification.
-Agent 2 owns the end-of-turn/whole-thought workstream, including the independent
-identity, closure and cleanup review findings. All direct coordination uses tmux.
+Native05 completed all 16 exchanges over 21.6 minutes, including eight after the
+20-minute checkpoint, with no extra admission, reference fault or DSP reset.
+Clean stop and stationary rollback are verified. All three 600-second Mac room
+recordings passed integrity and overlap coverage checks. Four short accepted-zero
+playback gaps remain, so seamless speech and acoustic latency are not claimed.
+See [the measured run and limits](verification/native05-20261011/README.md).
+The same binary is now [installed as a stopped standalone service](verification/installed-pilot-20261011/README.md).
+A subsequent [installed-service check](verification/installed-service-20261011/README.md)
+completed two more exchanges with zero reported playback gaps, clean systemd
+Stop, all five observed processes gone and verified stationary muted restoration.
+The 180-second room recording is valid. Independent local ASR corroborates both
+new replies and all 16 earlier Native05 question/reply windows.
+[The runbook](attended-4ace-pilot.md) retains physical mute/reopen and facilitator
+handoff as separate gates.
 
-The existing latency evidence remains approximately 2.68–2.85 seconds by adding
-the fixed 1.2-second silence wait to recent endpoint-to-first-speaker-write medians.
-This is a software estimate, not accepted first-audible-word latency. No new V1
-benchmark is planned. Reliability and truthful pilot limits take priority over
+Main owns native qualification and the next bounded light-ring check. Agent 1
+owns provider Stop/continuation. Agent 2 now owns the broader offline pilot fault
+and privacy matrix on its own M2; its endpoint candidates stay separate. The
+optional same-owner failure notice is integrated and passes its emulated gates,
+but lacks an approved production voice asset and a native notice test. All direct
+coordination with the two external agents uses tmux.
+
+The 16-turn sustained cohort has a 1.145450-second median from local endpoint to
+first speaker write (16 replies); adding the fixed 1.2-second wait gives roughly
+2.35 seconds. Earlier cohorts estimated 2.68–2.85 seconds. These are different
+generated replies and service conditions, not a causal A/B or accepted acoustic
+latency. No new V1 benchmark is planned. Reliability and truthful pilot limits take priority over
 turning an unqualified timing improvement into the default.
 
 ## Continuation prerequisite
@@ -72,8 +86,8 @@ correction and a separate prime-handshake repair. The latter distinguishes
 buffered preparation from actual DSP analysis and keeps startup privacy, cursor,
 epoch and deadline checks. Default flags remain unchanged. The current native
 candidate explicitly selects capture-clock reference, V1-baseline turn-taking,
-and recovery off. Its sustained run is still pending; a passing soak would prove
-that run's continuity and cleanup, not general conversational latency,
+and recovery off. Native05 passed the sustained gate. It proves that run's
+continuity and cleanup, not general conversational latency,
 interruptions, addressee recognition or unattended use.
 
 
@@ -101,12 +115,14 @@ the device. This is a focused gate, not a fresh complete-workspace pass. A prior
 same-base full live run retained one load-sensitive ring-trace failure, followed
 by a passing isolated rerun; that earlier failure is not erased.
 
-Native05 started on 4ace at about 17:06 UTC on 2026-10-11. Startup and the first
-three completed prompt/reply lifecycles were observed in native cues; continuous
-room recording is running. The conversation/idle/conversation result and final
-recording integrity remain pending. Evidence stays in
-`/private/tmp/lamp-serve-native-20261011-05`; the failed attempt stays in
-`/private/tmp/lamp-serve-native-20261011-04`. Motors remain disabled.
+Native05 finished successfully: 16/16 owned replies, 1,295.074642 seconds of
+runtime continuity, zero unexpected admissions or clock resets, runtime exit 0
+and verified stationary rollback. The three approved Mac recorder occurrences
+completed with zero dropped/clipped frames and full overlapping coverage. The
+3,406 native metadata events have a clean final ACK. Four replies contain short
+accepted-zero gaps (10–110 ms); acoustic review remains unscored. Evidence stays
+in `/private/tmp/lamp-serve-native-20261011-05`; the failed Native04 stays retained.
+[Full result](verification/native05-20261011/README.md). Motors remain disabled.
 
 A separate direct-service synthetic probe on the same date confirmed an
 interruption after output had begun: the old request's interrupted event arrived

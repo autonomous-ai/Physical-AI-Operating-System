@@ -182,6 +182,101 @@ reaches the `turn` bound before the service's idle completion. Everything
 received is still delivered, and the request is then settled or reported lost
 according to whether generation had completed.
 
+## A stop is a fence on the wire
+
+A stop is `Connection::shutdown` or `InputSender::shutdown`, or a failure
+the input side records itself, such as `Backpressure`. From the moment it
+is recorded the session does three things and no others.
+
+| What was pending | After the stop |
+|---|---|
+| Commands still in the queue: audio, an End, a start | Discarded unread |
+| An End held behind an earlier response | Never written, whatever arrives |
+| A message read from the service after the stop | Not acted on: no event, no release of a held End, no answer to a ping |
+| A write that has not begun: any of the above, a keepalive | Does not begin |
+| A write waiting on the transport | Abandoned. The transport is not offered another byte |
+
+Every write the session makes after setup goes through one place,
+`Actor::write`, which looks at the stop before the transport each time it
+is polled. An image is written by `send_image`, which already ended on a
+stop in the same way and is unchanged.
+
+**The exact limits.** None of this recalls anything.
+
+- Bytes the transport had accepted before the stop stay accepted, and
+  that can be a whole frame: a write may be waiting on the transport's
+  flush with every byte of its message already taken. A write still
+  waiting is abandoned, what the transport had not accepted is dropped,
+  and the connection is not used again.
+- A stop recorded by another thread while the session's task is in the
+  middle of a poll is seen at its next poll. That one poll may hand the
+  transport the rest of the one message it was writing: one audio block,
+  one `activityStart` or `activityEnd`, one ping or pong. Nothing follows
+  it. On a single-threaded runtime the task is not mid-poll when another
+  task stops it, and this case does not arise.
+- "Accepted by the transport" means accepted by whatever this session
+  writes into. Below that, a TLS layer and the kernel hold bytes of their
+  own. Whether those reach the service after a stop is not controlled
+  here and has not been measured. Nothing here is a claim about when the
+  service stops hearing.
+
+A session that fails by itself while a write is held, for example because
+the queue behind the held write fills, ends at once with that failure and
+not with the write's own deadline. With no stop the fence is not in the
+way: a held write that is released completes, and what was queued behind
+it follows in order. The write deadline, 200 ms, is unchanged.
+
+| Test | What it holds |
+|---|---|
+| `a_stop_with_input_queued_behind_it_writes_none_of_that_input`, `a_stop_with_input_queued_behind_a_barrier_writes_none_of_that_input` | Twenty blocks and an End queued, then a stop before the session runs again: none written. Forty trials each, to exercise different choices among the session's ready work; not a proof over every order |
+| `stop_fence::a_write_held_at_the_transport_is_abandoned_by_a_stop_and_nothing_follows` | The transport has accepted nothing of an audio frame and holds. The stop ends the session within half the write deadline; released afterwards, the transport is offered nothing, not that frame and not the End behind it |
+| `stop_fence::bytes_the_transport_had_accepted_stay_and_not_one_more_follows_a_stop` | The same with twenty bytes accepted first: those stay and none is added. Twenty bytes are less than that frame, so in this test no message arrives |
+| `stop_fence::a_held_end_is_not_released_by_a_terminal_read_after_the_stop` | The stop is recorded as the earlier response's idle completion is read: the held End is not written and no event is made of the completion |
+| `stop_fence::a_failure_recorded_while_a_write_is_held_ends_it_as_a_stop_does` | `Backpressure` behind a held write: ends at once as `Backpressure`, nothing more written |
+| `stop_fence::a_held_write_released_with_no_stop_completes_in_order` | The control: no stop, the frame completes and the End follows |
+
+The `stop_fence` tests run on an in-memory transport with gates that hold
+a write before or after it has accepted bytes, and that record a stop at
+the instant a read returns. The gates are the integrator's, from the
+review that found the held End and the waiting write still uncovered
+after the first fix. Before the fence the first four `stop_fence` tests
+fail and the control passes.
+
+### Integration verification, 2026-10-11
+
+Main composed Agent 1's reviewed `53f303c7e` Stop change with integration
+`ff683e665` (failure-notice runtime `e63f3152`), using a source-only export.
+The two reproduced transport gaps and the queue guard are covered; the
+before-output continuation proposal is not included. Runtime defaults and
+response deadlines are unchanged.
+
+| Combined-source check | Result |
+|---|---|
+| `cargo fmt --all -- --check` | passed |
+| `cargo clippy --locked --offline -p lamp-gemini -p lamp-live --all-targets -- -D warnings` | passed on macOS and emulated Linux/ARM64 |
+| `cargo test --locked --offline -p lamp-gemini --lib -- --test-threads=1` | 144 passed, 0 failed, 2 existing ignored |
+| `cargo test --locked --offline -p lamp-live --lib failure_notice -- --test-threads=1` | 13 passed, 0 failed |
+| `cargo test --locked --offline -p lamp-live --lib provider_worker -- --test-threads=1` | 62 passed, 0 failed, 2 existing ignored |
+| ARM64 release `lamp-gemini --lib` filtered to `stop_fence` and `a_stop_with` | 7 passed, 0 failed, 0 ignored |
+| ARM64 release build of `lamp-live` | linked as little-endian AArch64 ELF |
+
+This is 219 passing host tests and seven focused emulated ARM tests, not a new
+full-workspace pass or physical Stop measurement. Agent 1's separate
+full-workspace gate was on `2fd77a417`; its final checkpoint changes only
+comments and documentation after that gate.
+
+The private source manifest is
+`8565c7d5b6b7eadb0e7cbf4e24c77b00bc698850f9f81c54ce3d14459a851c8b`
+(409 files, before this verification prose). The exact ARM receipt is
+`87fbabb32ce10100d42c278eae0a337f71ccaf9e48ebabbe8cfc6b02b1ce98e4`; the 8,681,808-byte executable is
+`b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd`. The copied artifact matches the
+build digest. Source, logs and artifact are retained locally at
+`/private/tmp/lamp-stop-composed-9_evluok`; no executable is committed.
+
+The installed Lamp remains on the separately qualified `55d7af98e` runtime.
+These checks do not prove acoustic interruption latency, physical mute/reopen,
+or when Gemini stops receiving already-accepted bytes.
+
 ## Speaking speed
 
 The service generates faster than a speaker plays. The transport therefore

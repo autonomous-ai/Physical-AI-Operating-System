@@ -1,0 +1,395 @@
+{
+  "schema": 1,
+  "scope": "Native 4ace continuous conversation lifecycle; acoustic quality and first-audible-word timing remain unscored.",
+  "code_commit": "55d7af98e149591eed7882b9ace7741486daa842",
+  "identity": {
+    "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+    "source_manifest_sha256": "b0bada56b63e5c8887965fd0108f18c79b6dc83a9c8213cc4b6ab9298873cdb8",
+    "provider_config_sha256": "b56c157ded69cb23822adbc42f91a013cc5352aacdd5bec0af925f98fd949cba",
+    "boot_id": "76a7af25-a1aa-4f3d-bbcd-eddf947227ca",
+    "reference_mode": "capture-strict",
+    "reference_clock": "capture",
+    "reference_recovery": "off"
+  },
+  "local_evidence_directory": "/private/tmp/lamp-serve-native-20261011-05",
+  "input_sha256": {
+    "result.json": "b39dd360e86342e4221aab726f2af4cb6bb9d1f62e792bdd97fb4dfbad270a02",
+    "source-manifest.json": "b0bada56b63e5c8887965fd0108f18c79b6dc83a9c8213cc4b6ab9298873cdb8",
+    "lamp-evidence-manifest.json": "03cb9c5c7738dc61a1d8d340f66570aac7d9539c07dbc04c307459d4dfdd7df3"
+  },
+  "summary_sha256": "ddc43fc22abcd3e2f04e80346e23fbf0387c415040401756062cbf549738409f",
+  "policy": {
+    "turn_taking": "v1-baseline",
+    "endpoint": "silence",
+    "endpoint_silence_ms": 1200,
+    "noise_suppression": "off",
+    "reference_clock": "capture",
+    "reference_recovery": "off",
+    "playout_start_ms": 200,
+    "duplex": false,
+    "camera": false,
+    "ring": false,
+    "motor": false
+  },
+  "result": "validated_unscored",
+  "runtime_exit": 0,
+  "elapsed_s": 1295.074642,
+  "second_block_started_after_s": 1211.650239,
+  "planned": 16,
+  "completed": 16,
+  "withheld": 0,
+  "unattributed_native_turns": [],
+  "metadata": {
+    "events": 3406,
+    "contiguous_from_one": true,
+    "healthy_finish_ack": true,
+    "issues": []
+  },
+  "reference": {
+    "count": 1288,
+    "observed_boot_epochs": [
+      [
+        "[219,208,164,16,1,199,239,220,19,195,23,225,51,136,169,233]",
+        1
+      ]
+    ],
+    "count_regressions": [],
+    "reset_or_recovery_events": [],
+    "faults": [],
+    "no_reset_or_epoch_change_recorded": true,
+    "observed_ranges": {
+      "rate_ppm": {
+        "count": 1288,
+        "first": 36.07501220703125,
+        "last": 163.036865234375,
+        "min": 30.43212890625,
+        "max": 198.7621612548828
+      },
+      "learned_ppm": {
+        "count": 1288,
+        "first": 0.0030060000717639923,
+        "last": 168.01068115234375,
+        "min": 0.0030060000717639923,
+        "max": 169.32608032226562
+      },
+      "unread_frames": {
+        "count": 1288,
+        "first": 1200,
+        "last": 1124,
+        "min": 931,
+        "max": 1317
+      },
+      "queued_frames": {
+        "count": 1288,
+        "first": 480,
+        "last": 456,
+        "min": 432,
+        "max": 480
+      }
+    }
+  },
+  "runtime_stop_to_run_end_ms": 23.687,
+  "cleanup_failure_events": [],
+  "rollback": {
+    "verified": true,
+    "success_receipt": true,
+    "restoration_kind": "stationary legacy HAL restored; motor guard retained"
+  },
+  "observers": {
+    "expected_occurrences": 3,
+    "recorded_occurrences": 3,
+    "intervals": [
+      {
+        "occurrence": 1,
+        "attempt_id": "28970-2265796088972000-0",
+        "valid_receipt": true,
+        "exit": 0,
+        "host_callback_interval_ns": [
+          2265796323755000,
+          2266396273788000
+        ],
+        "cpal_capture_interval_ns": [
+          2265840991657022,
+          2266440963381975
+        ],
+        "duration_s": 600.0,
+        "wav_sha256_recorded": "fb8ccd057213f3079ed94f3ee56114c93caa5e32292239adb4888a3c43433f88",
+        "metadata_sha256_recorded": "7a4431c1a64772dcd922cac3ded0a010ce42c64955dbdae59c3e8e20c5ba08e7",
+        "clipped_samples": 0,
+        "queue_dropped_frames": 0
+      },
+      {
+        "occurrence": 2,
+        "attempt_id": "63268-2266276076433000-0",
+        "valid_receipt": true,
+        "exit": 0,
+        "host_callback_interval_ns": [
+          2266276226711000,
+          2266876177844000
+        ],
+        "cpal_capture_interval_ns": [
+          2266320903277199,
+          2266920875186270
+        ],
+        "duration_s": 600.0,
+        "wav_sha256_recorded": "64d1398bd40bbb4b64d3b60128575d51627c9b8e433a8ad9ff599e972cd2803b",
+        "metadata_sha256_recorded": "ea648f6a01eac264aa81c2516feef3b6a1135bd20e975ee0ac50fcdc38e0e537",
+        "clipped_samples": 0,
+        "queue_dropped_frames": 0
+      },
+      {
+        "occurrence": 3,
+        "attempt_id": "96650-2266756062398000-0",
+        "valid_receipt": true,
+        "exit": 0,
+        "host_callback_interval_ns": [
+          2266756211927000,
+          2267356163587000
+        ],
+        "cpal_capture_interval_ns": [
+          2266800896624038,
+          2267400868538054
+        ],
+        "duration_s": 600.0,
+        "wav_sha256_recorded": "6509f5249e76576d84be160eecb674f9d53936f8ecb152d01506692fbd9394f8",
+        "metadata_sha256_recorded": "6e837370b00c055c78b78be328edaffe018178f15bfdb5cac0827169843d0fe6",
+        "clipped_samples": 0,
+        "queue_dropped_frames": 0
+      }
+    ],
+    "errors": [],
+    "reported_coverage": {
+      "verified": true,
+      "target_host_clock_window_ns": [
+        2265798187661000,
+        2267104373045000
+      ],
+      "recordings": 3,
+      "overlaps": [
+        {
+          "host_callback_overlap_ns": 120047077000,
+          "cpal_capture_clock_overlap_ns": 120060104776
+        },
+        {
+          "host_callback_overlap_ns": 119965917000,
+          "cpal_capture_clock_overlap_ns": 119978562232
+        }
+      ],
+      "wav_timebases_kept_separate": true,
+      "host_union_ns": [
+        2265796323755000,
+        2267356163587000
+      ],
+      "capture_union_ns": [
+        2265840991657022,
+        2267400868538054
+      ],
+      "target_window_domain": "observer_host_CLOCK_MONOTONIC",
+      "target_window_transformed_to_capture_clock": false,
+      "boundary": "Complete valid recordings overlap in observed host and CPAL clock domains; not ADC calibration, audible onset, source classification, or a stitched WAV."
+    },
+    "receipt_intervals_cover_target": true,
+    "target_host_clock_window_ns": [
+      2265798187661000,
+      2267104373045000
+    ],
+    "overlaps": [
+      {
+        "host_ns": 120047077000,
+        "cpal_ns": 120060104776
+      },
+      {
+        "host_ns": 119965917000,
+        "cpal_ns": 119978562232
+      }
+    ],
+    "scope": "Receipt intervals only; host and CPAL clocks kept separate. WAV/ledger not rehashed or decoded. No ADC or acoustic timing inferred."
+  },
+  "human_listened": false,
+  "acoustic_score": null,
+  "turns": [
+    {
+      "turn": 1,
+      "endpoint_to_provider_first_audio_s": 0.958474,
+      "endpoint_to_first_speaker_write_s": 1.135006,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 2,
+      "endpoint_to_provider_first_audio_s": 0.950126,
+      "endpoint_to_first_speaker_write_s": 1.034873,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 3,
+      "endpoint_to_provider_first_audio_s": 0.999147,
+      "endpoint_to_first_speaker_write_s": 1.064972,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 720,
+      "closed_gap_zero_seconds_at_24k": 0.03,
+      "gap_start_receipts": 1,
+      "gap_closed_receipts": 1
+    },
+    {
+      "turn": 4,
+      "endpoint_to_provider_first_audio_s": 0.967162,
+      "endpoint_to_first_speaker_write_s": 1.126169,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 2640,
+      "closed_gap_zero_seconds_at_24k": 0.11,
+      "gap_start_receipts": 1,
+      "gap_closed_receipts": 1
+    },
+    {
+      "turn": 5,
+      "endpoint_to_provider_first_audio_s": 1.041715,
+      "endpoint_to_first_speaker_write_s": 1.213567,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 6,
+      "endpoint_to_provider_first_audio_s": 1.125103,
+      "endpoint_to_first_speaker_write_s": 1.297642,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 7,
+      "endpoint_to_provider_first_audio_s": 1.185441,
+      "endpoint_to_first_speaker_write_s": 1.24958,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 480,
+      "closed_gap_zero_seconds_at_24k": 0.02,
+      "gap_start_receipts": 1,
+      "gap_closed_receipts": 1
+    },
+    {
+      "turn": 8,
+      "endpoint_to_provider_first_audio_s": 1.016947,
+      "endpoint_to_first_speaker_write_s": 1.088782,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 240,
+      "closed_gap_zero_seconds_at_24k": 0.01,
+      "gap_start_receipts": 1,
+      "gap_closed_receipts": 1
+    },
+    {
+      "turn": 9,
+      "endpoint_to_provider_first_audio_s": 1.103282,
+      "endpoint_to_first_speaker_write_s": 1.27899,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 10,
+      "endpoint_to_provider_first_audio_s": 1.077367,
+      "endpoint_to_first_speaker_write_s": 1.155893,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 11,
+      "endpoint_to_provider_first_audio_s": 1.050878,
+      "endpoint_to_first_speaker_write_s": 1.105694,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 12,
+      "endpoint_to_provider_first_audio_s": 0.980131,
+      "endpoint_to_first_speaker_write_s": 1.051886,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 13,
+      "endpoint_to_provider_first_audio_s": 1.088838,
+      "endpoint_to_first_speaker_write_s": 1.172192,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 14,
+      "endpoint_to_provider_first_audio_s": 1.050223,
+      "endpoint_to_first_speaker_write_s": 1.446929,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 15,
+      "endpoint_to_provider_first_audio_s": 1.326378,
+      "endpoint_to_first_speaker_write_s": 1.456786,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    },
+    {
+      "turn": 16,
+      "endpoint_to_provider_first_audio_s": 0.975139,
+      "endpoint_to_first_speaker_write_s": 1.116517,
+      "playback_occurrences": 1,
+      "retirement_receipts": 1,
+      "closed_gap_zero_frames_reported": 0,
+      "closed_gap_zero_seconds_at_24k": 0.0,
+      "gap_start_receipts": 0,
+      "gap_closed_receipts": 0
+    }
+  ],
+  "limits": [
+    "One device, one synthetic loudspeaker cohort, one continuous run.",
+    "The 1200 ms endpoint wait is excluded from both software latency columns.",
+    "Observer integrity/coverage does not prove intelligibility, audible boundaries or waveform continuity.",
+    "No raw runtime PCM certificate is produced by serve; the complete_evidence=false label is preserved.",
+    "Physical mute/reopen, natural overlap, addressee decisions, vision and movement were not exercised."
+  ]
+}

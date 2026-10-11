@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "kind": "manual_attended_pilot_manifest_template",
+  "warning": "Manual operator evidence only; neither this template nor the runtime enforces these fields or performs restoration. Remote staging/installing the stopped unit is authorized without onsite attendance. Unknown start-preflight or physical-mute qualification fields must remain unknown; their absence does not block staging.",
+  "device": {
+    "hostname": "lamp-4ace",
+    "boot_id": null,
+    "operator": null,
+    "observed_at_utc": null
+  },
+  "runtime": {
+    "packaging_base_commit": "55d7af98e149591eed7882b9ace7741486daa842",
+    "build_source_manifest_sha256": "b0bada56b63e5c8887965fd0108f18c79b6dc83a9c8213cc4b6ab9298873cdb8",
+    "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+    "installed_binary": "/opt/lampOS/releases/738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0/lamp-live",
+    "unit_template_sha256": null,
+    "native_dependency_report_sha256": null,
+    "policy": {
+      "command": "serve",
+      "noise_suppression": "off",
+      "turn_taking": "v1-baseline",
+      "reference_clock": "capture",
+      "reference_recovery": "off",
+      "playout_start_ms": 200,
+      "camera": false,
+      "ring": false,
+      "motors": false,
+      "raw_audio_diagnostics": false,
+      "external_cue_listener": false
+    }
+  },
+  "private_provider": {
+    "config_path": "/etc/lampOS/pilot-4ace/provider.json",
+    "config_sha256": null,
+    "credential_path": "/etc/lampOS/pilot-4ace/credential",
+    "credential_owner_uid": 0,
+    "file_mode": "0600",
+    "directory_mode": "0700",
+    "qualified_model": null,
+    "qualified_voice": null,
+    "provider_check_receipt_sha256": null,
+    "instruction": "Provision the approved configuration privately. Never put the credential, auth header or endpoint URL in this manifest. The runtime validates both files; provider-check contacts the provider but opens no microphone."
+  },
+  "board": {
+    "asound_path": "/etc/asound.conf",
+    "asound_sha256": null,
+    "capture_alias": "plug:device_micro2",
+    "speaker_alias": "plug:device_speaker",
+    "expected_capture_card_id": "device_micro2",
+    "expected_speaker_card_id": "device_cmedia",
+    "usb_and_alsa_inventory_sha256": null,
+    "capture_mixer_before_sha256": null,
+    "speaker_mixer_before_sha256": null,
+    "capture_mixer_after_start_sha256": null,
+    "speaker_mixer_after_start_sha256": null,
+    "privacy_chip": "/dev/gpiochip1",
+    "privacy_line": 9,
+    "privacy_active_low": true,
+    "privacy_bias": "pull_up",
+    "privacy_device_and_permission_receipt_sha256": null,
+    "audibility_check_receipt_sha256": null
+  },
+  "legacy_handover": {
+    "same_boot_snapshot_path": null,
+    "same_boot_snapshot_sha256": null,
+    "legacy_config_sha256": null,
+    "originally_active_units": null,
+    "owned_stop_overrides": null,
+    "other_trial_or_rollback_units": null,
+    "hal_mute_state_directory": "/tmp",
+    "stationary_guard": "/etc/systemd/system/hal.service.d/99-lampos-4ace-stationary.conf",
+    "inspected_guard_definition_sha256": "2ae58cbdd57215e625cc522db40e5f64741338e7c746ed997d70e1d8c6cf8997",
+    "stationary_guard_sha256": null,
+    "stationary_environment": "/var/lib/lampos-4ace-audio-onsite-20261011/stationary.env",
+    "inspected_environment_definition_sha256": "4f3f35d902d72d66a0bc7a66ab389139569a73ecc74c3f7c5266671e6414d3f8",
+    "stationary_environment_sha256": null,
+    "disabled_servo_path": "/var/lib/lampos-4ace-audio-onsite-20261011/no-servo-device",
+    "cutover_and_empty_hardware_ownership_receipt_sha256": null,
+    "manual_restore_procedure_reviewed": false,
+    "instruction": "The inspected definition hashes are local source provenance, not fresh device evidence. Preserve and compare the installed rollback assets. This package does not install, replace or invoke the private Python handover. Record exact owned override paths and hashes; never remove the stationary guard.",
+    "mute_sidecar_contract": {
+      "files": [
+        "hal-mic-state.json",
+        "hal-speaker-state.json"
+      ],
+      "boot_key": "boot_id",
+      "boot_value": "Exact saved boot_id, still equal to /proc/sys/kernel/random/boot_id",
+      "mute_key": "muted",
+      "required_mute_value": true,
+      "maximum_bytes_per_file": 4096,
+      "owner_uid": 0,
+      "regular_non_symlink": true
+    },
+    "reviewed_restore_helper_sha256": "307579e16050590fa56e2407ed6c131e42a723360804adda14f2d08d6f2a5e9c"
+  },
+  "qualification": {
+    "native05_final_receipt_sha256": "b39dd360e86342e4221aab726f2af4cb6bb9d1f62e792bdd97fb4dfbad270a02",
+    "native05_pass_claimed": true,
+    "systemd_analyze_verify_receipt_sha256": null,
+    "physical_mute_then_fresh_reopen_receipt_sha256": null,
+    "coordinator_first_stop_and_empty_cgroup_receipt_sha256": null,
+    "attended_human_pilot_only": true,
+    "natural_overlap_or_addressee_accuracy_claimed": false,
+    "native05_result_commit": "6691132718b3bf3f1adc2a6c3ada26d08a027e6a",
+    "native05_result_document": "lampOS/docs/verification/native05-20261011/README.md at the result commit; provenance only, not a runtime dependency",
+    "native05_observed": {
+      "owned_replies_completed": 16,
+      "prompts": 16,
+      "runtime_continuity_seconds": 1295.074642,
+      "runtime_exit": 0,
+      "stationary_rollback_verified": true,
+      "valid_mac_recordings": 3,
+      "physical_mute_reopen_qualified": false,
+      "acoustic_quality_scored": false
+    }
+  },
+  "operator_progress": {
+    "stopped_unit_installed": false,
+    "start_preflight_verified": false,
+    "facilitator_handoff_verified": false
+  }
+}

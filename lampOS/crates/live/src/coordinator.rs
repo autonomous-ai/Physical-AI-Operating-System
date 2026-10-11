@@ -58,11 +58,13 @@ use std::{
 };
 mod camera;
 mod cloud;
+mod notices;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
 mod optional_ring;
 mod ring_trace;
 use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
+use notices::{FailureNotices, NoticeDelivery, SpeechOrigin, select_failure_notice};
 use optional_ring::OptionalRing;
 use ring_trace::RingTrace;
 
@@ -121,6 +123,7 @@ struct Reply {
     last_provider_audio_at_us: Option<u64>,
     start: StartGate,
     need: StartNeed,
+    notice: NoticeDelivery,
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
@@ -233,6 +236,7 @@ impl Reply {
     }
 }
 struct PendingSpeaker {
+    origin: SpeechOrigin,
     sequence: u64,
     permit: OutputPermit,
     accepted: usize,
@@ -596,6 +600,7 @@ pub fn run_fixture(
         output,
         options.directed,
         None,
+        None,
         Some(info),
         cues,
         &termination,
@@ -637,6 +642,7 @@ pub fn run_directed_with_options(
             directed: options,
             cue_socket: None,
             camera_config: None,
+            failure_notices: None,
         },
     )
 }
@@ -661,6 +667,7 @@ pub fn run_directed_session(
         output,
         options.directed,
         options.camera_config.as_deref(),
+        options.failure_notices.as_ref(),
         None,
         cues,
         &termination,
@@ -683,6 +690,7 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
         output,
         options.directed,
         options.camera_config.as_deref(),
+        options.failure_notices.as_ref(),
         None,
         cues,
         &termination,
@@ -696,6 +704,7 @@ fn run_source(
     output: &Path,
     options: DirectedOptions,
     camera_config: Option<&Path>,
+    notice_options: Option<&crate::options::NoticeOptions>,
     fixture: Option<FixtureInfo>,
     mut cues: Option<CueSink>,
     termination: &Termination,
@@ -730,6 +739,13 @@ fn run_source(
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}),
     )?;
+    // Bounded local reads happen once before any capture/speaker worker.
+    let notices = FailureNotices::load(notice_options);
+    record(
+        &mut trace,
+        json!({"kind":"failure_notice_capability","at_us":monotonic_us(),
+        "capability":notices.capability(),"automatic_synthesis":false}),
+    )?;
     let result = (|| {
         let diagnostic_directory = options
             .diagnostics
@@ -759,6 +775,7 @@ fn run_source(
                         None,
                         options,
                         camera_config,
+                        &notices,
                         cues,
                         termination,
                     )
@@ -772,6 +789,7 @@ fn run_source(
                 diagnostic_directory.as_deref(),
                 options,
                 camera_config,
+                &notices,
                 &mut cues,
                 termination,
             )
@@ -977,6 +995,11 @@ fn service_speaker_control(
                             io::Error::other("speaker acceptance has no matching chunk").into()
                         );
                     };
+                    if pending.origin != current.notice.origin() {
+                        return Err(
+                            io::Error::other("speaker receipt output origin changed").into()
+                        );
+                    }
                     pending.accepted += accepted_frames;
                     if pending.accepted > 240 {
                         return Err(io::Error::other("speaker accepted too many frames").into());
@@ -989,12 +1012,15 @@ fn service_speaker_control(
                         *last_publish = monotonic_us();
                         record(
                             trace,
-                            json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
+                            json!({"kind":if pending.origin == SpeechOrigin::Provider {"speaker_first_write"}else{"failure_notice_first_write"},"origin":pending.origin,"notice":current.notice.evidence(),"turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
                                 "start_gate":current.start_trace()}),
                         )?;
                     }
                     if pending.accepted == 240 {
                         if pending.final_chunk {
+                            if pending.origin == SpeechOrigin::FailureNotice {
+                                current.notice.accepted_final(sequence, end_sample)?;
+                            }
                             current.final_chunk = Some(sequence);
                         }
                         *speaker_pending = None;
@@ -1040,14 +1066,21 @@ fn service_speaker_control(
             } => {
                 trace.receipts.drained(delivered, final_sample);
                 if let Some(current) = reply.as_mut().filter(|reply| reply.owner == delivered) {
+                    let origin = current.notice.origin();
+                    if origin == SpeechOrigin::FailureNotice {
+                        current.notice.validate_retirement(sequence, final_sample)?;
+                    }
                     let token = current.retire_playback(sequence, final_sample.frame)?;
                     owner.playback_ended(now(), token)?;
+                    if origin == SpeechOrigin::FailureNotice {
+                        current.notice.retire(observed_at_us)?;
+                    }
                     *snapshot = owner.snapshot(now())?;
                     io.publish_speaker_snapshot(*snapshot)?;
                     *last_publish = monotonic_us();
                     record(
                         trace,
-                        json!({"kind":"speech_final_sample_retired","turn":delivered.turn(),"owner":delivered,
+                        json!({"kind":if origin == SpeechOrigin::Provider {"speech_final_sample_retired"}else{"failure_notice_final_sample_retired"},"origin":origin,"notice":current.notice.evidence(),"turn":delivered.turn(),"owner":delivered,
                             "playback_sequence":token.sequence(),"at_us":observed_at_us,"final_sample":final_sample,"boundary":"ALSA delay retirement; idle zeros may remain queued; acoustic end unmeasured"}),
                     )?;
                 }
@@ -1648,6 +1681,7 @@ fn run_inner(
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
     camera_config: Option<&Path>,
+    notices: &FailureNotices,
     cues: &mut Option<CueSink>,
     termination: &Termination,
 ) -> Result<()> {
@@ -1718,6 +1752,7 @@ fn run_inner(
             &mut reply,
             cues,
             termination,
+            notices,
         )
     })();
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
@@ -1786,6 +1821,7 @@ fn conversation(
     reply: &mut Option<Reply>,
     cues: &mut Option<CueSink>,
     termination: &Termination,
+    notices: &FailureNotices,
 ) -> Result<()> {
     let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
@@ -2504,9 +2540,10 @@ fn conversation(
                 &mut rig.provider.channels.data,
             )?;
         }
+        select_failure_notice(notices, reply, &speaker_pending, trace)?;
         let prior_speaker_sequence = speaker_sequence;
         settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;
-        dispatch_speaker_chunk(
+        let notice_attempt = dispatch_speaker_chunk(
             owner,
             reply,
             &mut rig.speaker.channels.data,
@@ -2515,6 +2552,14 @@ fn conversation(
             &mut snapshot,
             &mut playback_mask,
         )?;
+        if let Some((notice_owner, evidence)) = notice_attempt {
+            record(
+                trace,
+                json!({"kind":"failure_notice_attempted","at_us":monotonic_us(),
+                "owner":notice_owner,"turn":notice_owner.turn(),"notice":evidence,
+                "boundary":"reserved before speaker transport; not audible delivery"}),
+            )?;
+        }
         if speaker_sequence != prior_speaker_sequence {
             let pending = speaker_pending
                 .as_ref()
@@ -2542,6 +2587,7 @@ fn conversation(
             && current.pcm.is_empty()
             && speaker_pending.is_none()
             && current.playback.is_none()
+            && current.notice.settled()
         {
             let turn = current.owner.turn();
             owner.complete_turn(now(), current.owner)?;
@@ -2553,7 +2599,7 @@ fn conversation(
             record(
                 trace,
                 json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
-                    "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,
+                    "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,"failure_notice":current.notice.evidence(),
                 "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
                 "start_horizon_needed_us":current.need.horizon_us(),
                 "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
@@ -2960,6 +3006,7 @@ fn commit_admitted_input(
         had_audio: false,
         final_chunk: None,
         playback_gaps: 0,
+        notice: NoticeDelivery::default(),
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -3097,32 +3144,42 @@ fn dispatch_speaker_chunk(
     sequence: &mut u64,
     snapshot: &mut Snapshot,
     playback_mask: &mut PlaybackMask,
-) -> Result<()> {
+) -> Result<Option<(TurnOwner, Value)>> {
     if pending.is_some() {
-        return Ok(());
+        return Ok(None);
     }
     // Duplex: someone is being heard over the lamp. Keep the reply and hand
     // nothing more to the speaker until that is settled; it resumes or is
     // replaced through the ordinary cancellation path.
     if playback_mask.yielded(monotonic_us()) {
-        return Ok(());
+        return Ok(None);
     }
     let Some(current) = reply.as_mut() else {
-        return Ok(());
+        return Ok(None);
     };
-    // Only source-confirmed output can acquire a speech permit. Link loss does
-    // not invalidate previously owned PCM; the real input endpoint still does
-    // determine when speaking is locally permissible.
-    if !current.cloud.started || !current.local_input_ended {
-        return Ok(());
+    let origin = current.notice.origin();
+    // Local notices never forge a provider Started receipt. Provider PCM keeps
+    // its exact existing proof; both sources require the real local endpoint.
+    if !current.local_input_ended || (origin == SpeechOrigin::Provider && !current.cloud.started) {
+        return Ok(None);
     }
-    if !current.may_start(monotonic_us()) {
-        return Ok(());
+    if origin == SpeechOrigin::Provider && !current.may_start(monotonic_us()) {
+        return Ok(None);
     }
-    let Some((samples, final_chunk)) = current.next_speaker_chunk() else {
-        return Ok(());
-    };
+    if origin == SpeechOrigin::FailureNotice
+        && (!current.notice.has_chunk() || current.final_chunk.is_some())
+    {
+        return Ok(None);
+    }
     let permit = owner.issue_output(now(), current.plan, 100_000)?;
+    let (samples, final_chunk, first_notice) = if origin == SpeechOrigin::FailureNotice {
+        current.notice.reserve_chunk(monotonic_us())?
+    } else {
+        let Some((samples, last)) = current.next_speaker_chunk() else {
+            return Ok(None);
+        };
+        (samples, last, false)
+    };
     *snapshot = owner.snapshot(now())?;
     *sequence = sequence
         .checked_add(1)
@@ -3137,12 +3194,13 @@ fn dispatch_speaker_chunk(
     })?;
     playback_mask.dispatched(permit.owner(), *sequence, dispatch_at, 240)?;
     *pending = Some(PendingSpeaker {
+        origin,
         sequence: *sequence,
         permit,
         accepted: 0,
         final_chunk,
     });
-    Ok(())
+    Ok(first_notice.then(|| (current.owner, current.notice.evidence())))
 }
 
 /// Queue threshold before appending PCM: a start, the largest accepted prefix
@@ -3322,7 +3380,7 @@ fn cancel_reply(
         record(
             trace,
             json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":cancelled_at_us,"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
-                "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,
+                "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,"failure_notice":current.notice.evidence(),
                 "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
                 "start_horizon_needed_us":current.need.horizon_us(),
                 "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
@@ -3461,8 +3519,11 @@ fn handle_playback_gap(
         return Err(io::Error::other("invalid accepted playback gap receipt").into());
     }
     let current = reply.as_mut().filter(|reply| reply.owner == gap.owner);
+    let origin = current.as_ref().map(|r| r.notice.origin());
     let (queued, held, last_provider_audio) = if let Some(current) = current {
-        if phase == PlaybackGapPhase::Started {
+        if phase == PlaybackGapPhase::Started && origin == Some(SpeechOrigin::FailureNotice) {
+            current.notice.gap()?;
+        } else if phase == PlaybackGapPhase::Started {
             current.playback_gaps = current
                 .playback_gaps
                 .checked_add(1)
@@ -3478,7 +3539,7 @@ fn handle_playback_gap(
     };
     record(
         trace,
-        json!({"kind":"playback_gap","phase":phase,"gap":gap,
+        json!({"kind":"playback_gap","origin":origin,"phase":phase,"gap":gap,
         "at_us":observed_at_us,"coordinator_observed_at_us":monotonic_us(),
         "reply_queued_frames_at_observation":queued,"held_final_frames_at_observation":held,
         "speaker_pending_sequence_at_observation":pending.map(|pending| pending.sequence),
@@ -3491,6 +3552,7 @@ fn handle_playback_gap(
 #[cfg(test)]
 mod tests {
     mod duplex;
+    mod failure_notice;
     mod playout_continuity;
     mod playout_start;
     mod provider_pair;
@@ -3908,6 +3970,7 @@ mod tests {
                 had_audio: true,
                 final_chunk: None,
                 playback_gaps: 0,
+                notice: NoticeDelivery::default(),
                 last_provider_audio_at_us: None,
                 start: StartGate::new(0),
                 need: StartNeed::default(),
@@ -4685,6 +4748,7 @@ mod tests {
             had_audio: true,
             final_chunk: None,
             playback_gaps: 0,
+            notice: NoticeDelivery::default(),
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),
@@ -4909,6 +4973,7 @@ mod tests {
             had_audio: true,
             final_chunk: None,
             playback_gaps: 0,
+            notice: NoticeDelivery::default(),
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),

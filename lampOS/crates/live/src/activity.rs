@@ -77,6 +77,9 @@ pub struct TurnDetector {
     confirmation: Option<Confirmation>,
     decision: Option<EndpointDecision>,
     provisional: Option<Provisional>,
+    /// The person continued after an early end: the reply to the earlier
+    /// part stays held until this utterance ends or the input is cleared.
+    continuing: bool,
     event: Option<EndpointEvent>,
 }
 
@@ -119,6 +122,7 @@ impl Default for TurnDetector {
             confirmation: None,
             decision: None,
             provisional: None,
+            continuing: false,
             event: None,
         }
     }
@@ -169,11 +173,12 @@ impl TurnDetector {
         self.decision.as_ref()
     }
 
-    /// True after an early end of input until it is confirmed or the person
-    /// continues. Reply output must not start meanwhile. The state lasts at
-    /// most `EarlyEnd::limit_blocks` capture blocks.
+    /// True after an early end of input until it is confirmed, and through a
+    /// continuation until that utterance ends or the input is cleared. Reply
+    /// output must not start meanwhile. Waiting for confirmation lasts at most
+    /// `EarlyEnd::limit_blocks`; a continuation is bounded by the utterance.
     pub fn endpoint_provisional(&self) -> bool {
-        self.provisional.is_some()
+        self.provisional.is_some() || self.continuing
     }
 
     /// The latest early-end outcome not yet taken, for traces and callers.
@@ -200,6 +205,7 @@ impl TurnDetector {
             };
             if let Some(decision) = decision {
                 self.active = false;
+                self.continuing = false;
                 self.start_count = 0;
                 self.silence_count = 0;
                 if decision.basis == "model_early" {
@@ -250,6 +256,7 @@ impl TurnDetector {
                 self.event = Some(EndpointEvent::Continued {
                     after_ms: u64::from(provisional.since) * 10,
                 });
+                self.continuing = true;
             }
             self.active = true;
             self.active_blocks = self.prefix.len() as u32;
@@ -299,11 +306,13 @@ impl TurnDetector {
         self.active_blocks = 0;
         self.active = false;
         self.provisional = None;
+        self.continuing = false;
         self.cancel_confirmation();
     }
 
     pub fn reset(&mut self) {
         self.provisional = None;
+        self.continuing = false;
         self.prefix.clear();
         self.start_count = 0;
         self.silence_count = 0;

@@ -762,7 +762,8 @@ fn speech_before_confirmation_continues_the_thought_with_its_opening() {
         .expect("continuation onset");
     assert!(start.iter().any(|frame| frame.sequence == first_spoken));
     assert!(start.first().unwrap().sequence < first_spoken);
-    assert!(!rig.detector.endpoint_provisional());
+    // The earlier part's reply stays held while the thought continues.
+    assert!(rig.detector.endpoint_provisional());
     assert_eq!(
         rig.detector.take_endpoint_event(),
         Some(EndpointEvent::Continued { after_ms: 360 })
@@ -774,6 +775,25 @@ fn speech_before_confirmation_continues_the_thought_with_its_opening() {
     let fresh = *rig.script.submissions().last().unwrap();
     assert_eq!(rig.script.submissions().len(), before + 1);
     assert_ne!(fresh.utterance, rig.script.submissions()[0].utterance);
+    // Its own uncertain end releases the hold.
+    rig.script.reply(fresh, 0.5);
+    assert!(rig.quiet_until_end(120).is_some());
+    assert_eq!(rig.decision().basis, "model_uncertain");
+    assert!(!rig.detector.endpoint_provisional());
+}
+
+#[test]
+fn a_rejected_continuation_releases_the_hold() {
+    let mut rig = Rig::with(early());
+    rig.end_early(50);
+    rig.idle(10);
+    for _ in 0..6 {
+        rig.push(SPEECH);
+    }
+    assert!(rig.detector.endpoint_provisional());
+    // The coordinator suppressed or discarded the candidate.
+    rig.detector.clear_prospective();
+    assert!(!rig.detector.endpoint_provisional());
 }
 
 #[test]

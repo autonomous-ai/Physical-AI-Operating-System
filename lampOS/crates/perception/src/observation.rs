@@ -174,6 +174,17 @@ pub enum PerceptionEvent {
     ContextLink {
         event: lamp_camera::frames::LinkEvent,
     },
+    /// A reduced context image of this camera frame was handed to the
+    /// provider's frame link (provenance of what may reach the provider).
+    ContextServed {
+        frame: FrameRef,
+        bytes: u32,
+        quality: u8,
+        /// The write did not complete at once (it continues, or is abandoned
+        /// if the frame's grant stops holding).
+        in_flight: bool,
+        at_us: u64,
+    },
 }
 
 /// Bound diagnostic text so every event fits one datagram.

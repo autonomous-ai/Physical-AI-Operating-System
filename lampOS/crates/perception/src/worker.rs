@@ -23,7 +23,7 @@ use crate::{
         VisualObservation, bounded_text,
     },
 };
-use lamp_camera::frames::{DerivedImage, FrameClient, FrameMeta, FrameServer, Role};
+use lamp_camera::frames::{CloseReason, DerivedImage, FrameClient, FrameMeta, FrameServer, Role};
 use lamp_interaction::{
     BootId, BoundaryGuard, CameraGrant, Confidence, Error as AuthorityError, MonoTime, Observation,
     Snapshot,
@@ -206,6 +206,8 @@ struct State {
     context: Option<FrameServer>,
     /// The newest analysed frame, reduced, while its grant is current.
     context_source: Option<(FrameMeta, Rgb)>,
+    /// Grant of the context frame still being written, if any.
+    context_in_flight: Option<CameraGrant>,
 }
 
 impl State {
@@ -368,6 +370,16 @@ impl State {
         let Some(server) = self.context.as_mut() else {
             return Ok(false);
         };
+        // Before any continuation write: a frame whose grant changed, closed
+        // or lapsed is abandoned, never finished (MAIN-015 P1).
+        if let Some(grant) = self.context_in_flight {
+            if !server.sending(Role::Context) {
+                self.context_in_flight = None;
+            } else if grant_status(&mut self.guard, grant, now).is_some() {
+                server.discard_sending(CloseReason::PrivacyClosed, now);
+                self.context_in_flight = None;
+            }
+        }
         server.service(now);
         while let Some(event) = server.take_event() {
             link.publish(PerceptionEvent::ContextLink { event })?;
@@ -395,7 +407,7 @@ impl State {
                 result,
                 reduced,
             } => (meta, jpeg, received_at_us, analysed_at_us, result, reduced),
-            Done::Encoded { meta, image, jpeg } => return self.encoded(meta, image, jpeg),
+            Done::Encoded { meta, image, jpeg } => return self.encoded(link, meta, image, jpeg),
         };
         self.spare = jpeg;
         let now = monotonic_us();
@@ -456,6 +468,7 @@ impl State {
     /// A context encode finished: recheck lineage and age, then offer it.
     fn encoded(
         &mut self,
+        link: &mut impl PerceptionLink,
         meta: FrameMeta,
         image: Rgb,
         jpeg: Option<(Vec<u8>, u8)>,
@@ -481,6 +494,19 @@ impl State {
         if let Some(server) = self.context.as_mut() {
             let served = server.offer_meta(&described, &bytes, now)?;
             self.counts.context_served = self.counts.context_served.saturating_add(served as u64);
+            let in_flight = server.sending(Role::Context);
+            if in_flight {
+                self.context_in_flight = Some(meta.grant);
+            }
+            if served > 0 {
+                link.publish(PerceptionEvent::ContextServed {
+                    frame: FrameRef::from(&meta),
+                    bytes: bytes.len() as u32,
+                    quality,
+                    in_flight,
+                    at_us: now,
+                })?;
+            }
         }
         // A newer analysis may already have replaced the retained source.
         if self.context_source.is_none() {
@@ -536,6 +562,7 @@ pub fn run(
         ready: None,
         context,
         context_source: None,
+        context_in_flight: None,
         options,
     };
     let result = (|| -> io::Result<()> {
@@ -613,6 +640,10 @@ pub fn run(
     state.client.disconnect();
     if let Some(server) = state.context.as_mut() {
         server.close_all(lamp_camera::frames::CloseReason::Stopped, monotonic_us());
+        // Best effort: the link may already be the reason for stopping.
+        while let Some(event) = server.take_event() {
+            let _ = link.publish(PerceptionEvent::ContextLink { event });
+        }
     }
     state.context_source = None;
     drop(jobs);

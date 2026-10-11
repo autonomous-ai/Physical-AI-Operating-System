@@ -27,8 +27,10 @@ rechecked every file, active-service state and mixer. Nothing was reinstalled,
 started or silently treated as a passing original attempt.
 
 The [runbook](../../attended-4ace-pilot.md) separates installation from startup
-and facilitator handoff. Fresh stationary handover, physical mute/reopen and
-stop/empty-cgroup checks remain before the attended pilot. The installed mode
+and facilitator handoff. A subsequent [installed-service run](../installed-service-20261011/README.md)
+completed two exchanges and verified Stop, empty cgroup, worker release and
+stationary restoration. Physical mute/reopen and facilitator handoff remain
+before the attended pilot. The installed mode
 uses the fixed silence baseline; it does not qualify natural overlapping
 interruption, unrelated-conversation rejection or full physical choreography.
 No credential, provider endpoint, recording or binary is in this record.

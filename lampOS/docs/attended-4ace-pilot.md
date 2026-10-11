@@ -8,6 +8,11 @@ exit 0, verified stationary rollback, and all three Mac recordings valid. Result
 were published in `6691132718b3bf3f1adc2a6c3ada26d08a027e6a`, at
 `lampOS/docs/verification/native05-20261011/README.md`. Acoustic quality remains
 unscored; that run did not qualify physical mute/reopen or all-day reliability.
+A later [installed-service check](verification/installed-service-20261011/README.md)
+completed two more exchanges, then verified all five observed processes gone,
+empty cgroup/hardware owners, clean metadata finish and stationary restoration.
+The 180-second room recording is valid; offline ASR corroborates both replies.
+Physical mute/reopen and acoustic listening acceptance remain separate gates.
 This is an attended desk pilot, not an unattended or boot-enabled release.
 
 Remote staging and installation of the **stopped unit** are already authorized

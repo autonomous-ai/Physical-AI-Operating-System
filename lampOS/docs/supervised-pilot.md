@@ -49,17 +49,22 @@ recordings passed integrity and overlap coverage checks. Four short accepted-zer
 playback gaps remain, so seamless speech and acoustic latency are not claimed.
 See [the measured run and limits](verification/native05-20261011/README.md).
 The same binary is now [installed as a stopped standalone service](verification/installed-pilot-20261011/README.md).
-Its native unit and provider configuration checks passed; no cutover or start
-was performed. [The runbook](attended-4ace-pilot.md) keeps physical mute/reopen
-and installed-unit stop verification as separate pilot gates. Independent local
-ASR also corroborates all 16 Native05 question/reply windows.
+A subsequent [installed-service check](verification/installed-service-20261011/README.md)
+completed two more exchanges with zero reported playback gaps, clean systemd
+Stop, all five observed processes gone and verified stationary muted restoration.
+The 180-second room recording is valid. Independent local ASR corroborates both
+new replies and all 16 earlier Native05 question/reply windows.
+[The runbook](attended-4ace-pilot.md) retains physical mute/reopen and facilitator
+handoff as separate gates.
 
-Main owns installation, process lifecycle and native qualification; Agent 1 owns
-provider continuation, and Agent 2 owns conservative endpointing. A separate
-same-owner failure-notice proposal is being implemented. All direct coordination
-with the two external agents uses tmux.
+Main owns native qualification and the next bounded light-ring check. Agent 1
+owns provider Stop/continuation. Agent 2 now owns the broader offline pilot fault
+and privacy matrix on its own M2; its endpoint candidates stay separate. The
+optional same-owner failure notice is integrated and passes its emulated gates,
+but lacks an approved production voice asset and a native notice test. All direct
+coordination with the two external agents uses tmux.
 
-The latest native cohort has a 1.145450-second median from local endpoint to
+The 16-turn sustained cohort has a 1.145450-second median from local endpoint to
 first speaker write (16 replies); adding the fixed 1.2-second wait gives roughly
 2.35 seconds. Earlier cohorts estimated 2.68–2.85 seconds. These are different
 generated replies and service conditions, not a causal A/B or accepted acoustic

@@ -1,11 +1,12 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 18:20 UTC
+- Updated: 2026-10-11 18:59 UTC
 - Branch: `lamp-v2-chat`
-- Runtime code: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
+- Native-qualified runtime: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
+- Integration code: `e63f3152bb2f60e2a9ea511826bff4c0cd0aad78` adds optional owned failure notices; not yet deployed.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
-- Pilot target: approximately 2026-10-12 03:18 UTC. Current sustained conversation gate passed; stopped installation verified; failure feedback, installed-unit controls and pilot limitations remain active work.
+- Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
 
 ## Native05 completed
 
@@ -17,7 +18,7 @@ window, with no dropped/clipped frames. Metadata has 3,406 contiguous events and
 a clean coordinator finish ACK. Four replies still report 10–110 ms accepted-zero
 playback gaps; acoustics are unscored. See [the complete evidence boundary](../docs/verification/native05-20261011/README.md).
 
-The latest software median is 1.145450 s from endpoint to first speaker write,
+The sustained-run software median is 1.145450 s from endpoint to first speaker write,
 excluding the 1.2 s endpoint wait. About 2.35 s with that wait is an estimate,
 not first-audible-word timing or a causal speedup claim. Independent local room
 ASR corroborates all 16 question/reply windows; the three WAVs and ledgers were
@@ -39,18 +40,22 @@ Host prime checks passed 42/42. The frozen runtime passed emulated Linux/ARM64
 format, strict audio/live all-target Clippy, 120 targeted tests and release build.
 No fresh full-workspace gate is claimed. Native04's startup mismatch and invalid
 observer remain retained. The local-notice integration now passes its combined verification; the
-standalone service package is installed stopped without replacing the tested
-binary.
+standalone service package subsequently passed the two-turn installed-unit
+check below without replacing the tested binary.
 
 ## Installed pilot and endpoint decision
 
-The qualified binary is installed stopped under `/opt/lampOS/releases`, with
-private standalone provider files and a systemd template. Native unit, exact
-effective-property and Gemini setup checks pass; legacy PIDs/states, mixers and
-the stationary guard remain unchanged. No runtime start or cutover was performed.
-See [installation evidence](../docs/verification/installed-pilot-20261011/README.md)
-and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, installed
-service shutdown and actual facilitator handoff remain unqualified.
+The qualified binary is installed under `/opt/lampOS/releases`, with private
+standalone provider files and a systemd template. The installed service now
+completed 2/2 iMac exchanges and clean Stop: five observed process identities
+gone, cgroup/hardware owners empty, 272 metadata events and healthy finish ACK.
+No playback gap was reported. A valid 180-second room recording covers the run,
+and local ASR corroborates both complete replies. Stop request to verified clean
+state was 185.413 ms; coordinator SIGTERM event to run_end was 25.786 ms.
+Stationary muted rollback and actual mixer readbacks match. The unit is stopped
+and not boot-enabled. See [native evidence](../docs/verification/installed-service-20261011/README.md)
+and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, optical
+choreography and actual facilitator handoff remain unqualified.
 
 Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
 Keep the fixed baseline for the first attended sessions: its candidate saves at
@@ -77,9 +82,28 @@ Agent 2's inherited-limit correction is fetched at `lamp-a2-pilot-limits`
 `cd97b1c4` (code `ace53633`) for review. Its artifact/model identities and
 self-check plan are available; no endpoint worker or model has been installed
 here. The fixed baseline remains the attended-pilot decision. Agent 1's queued
-Stop correction is fetched but not integrated; its continuation branch retains
-an unresolved provider output-capacity test failure. Office ARM ownership was
-released after the root notice gate and artifact extraction.
+Stop correction is not integrated. Independent review proved that the first
+four-line queue guard still allowed held End and selected pending writes after
+Stop. Agent 1's fuller correction is undergoing its gates on a separate branch.
+
+Correction to the earlier continuation report: the lost original failure was an
+IPC receive panic, not an established output-capacity failure. Agent 1's bounded
+two-tree comparison makes both main and its branch fail under an imposed 150 ms
+rig stall; 60 ms stalls pass. This supports a scheduling explanation but does
+not recover the first lost panic text or qualify before-output continuation.
+
+Agent 1's quiet hold was released after the native run. It reserved the office
+ARM VM for its Stop gate; Main has no VM job. Agent 2 received the broader pilot
+fault/privacy qualification workstream through its verified M2 tmux terminal,
+with a new turn observed. It owns new test/report files and separately reviewed
+fix proposals; no device or office-VM grant was given.
+
+One synthetic Gemini failure-notice generation remains pending explicit owner
+approval after automatic approval review rejected the credential-access/cloud
+step. It was not executed; no room audio would be sent. Normal authorized
+on-device conversation testing continued independently. The iMac camera also
+works through the approved Camera Test app's LaunchServices route; the earlier
+direct-executable permission error is retained, and no TCC reset was used.
 
 The sections below preserve earlier checkpoints; the current identity and result
 are stated above.

@@ -9,6 +9,10 @@
 //! duplex_lab LAB_DIR OUT_DIR --duplex --room BLOCK [--segment SPEECH.pcm16le AT_BLOCK]
 //! ```
 //!
+//! Either form takes `--noise-suppression`, which builds the canceller with
+//! its software noise suppression on. Without it the canceller is built as
+//! the recorded sessions ran it, with that off.
+//!
 //! `LAB_DIR` holds `pre.pcm16le` (16 kHz microphone before cancellation),
 //! `render.pcm16le` (24 kHz PCM the speaker accepted) and `schedule.tsv`, one
 //! line per 10 ms capture block: the render cursor the canceller had analysed
@@ -60,7 +64,7 @@ fn pcm(path: &Path) -> Result<Vec<i16>> {
 
 fn usage() -> io::Error {
     io::Error::other(
-        "usage: duplex_lab LAB_DIR OUT_DIR [--near NEAR] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
+        "usage: duplex_lab LAB_DIR OUT_DIR [--noise-suppression] [--near NEAR] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
     )
 }
 
@@ -210,14 +214,14 @@ impl Features {
 }
 
 /// The recording as it happened.
-fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>) -> Result<()> {
+fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Result<()> {
     if near
         .as_ref()
         .is_some_and(|near| near.len() < lab.schedule.len() * CAPTURE_SAMPLES)
     {
         return Err(io::Error::other("near-end shorter than the schedule").into());
     }
-    let mut echo = EchoProcessor::new(false);
+    let mut echo = EchoProcessor::new(suppress);
     let mut speech = SpeechProbability::default();
     let mut features = Features::create(out)?;
     let mut analysed = 0;
@@ -263,7 +267,13 @@ enum Output {
 }
 
 /// The loop closed: a yield stops the lamp.
-fn duplex(lab: &Lab, out: &Path, room: usize, segment: Option<(Vec<i16>, usize)>) -> Result<()> {
+fn duplex(
+    lab: &Lab,
+    out: &Path,
+    room: usize,
+    segment: Option<(Vec<i16>, usize)>,
+    suppress: bool,
+) -> Result<()> {
     if (room + 100) * CAPTURE_SAMPLES > lab.pre.len() {
         return Err(io::Error::other("room noise stretch out of range").into());
     }
@@ -271,7 +281,7 @@ fn duplex(lab: &Lab, out: &Path, room: usize, segment: Option<(Vec<i16>, usize)>
     let hearing = Hearing::EVALUATED;
     let mut interruption = Interruption::new(Confirmation::EVALUATED);
     let mut margin = Margin::default();
-    let mut echo = EchoProcessor::new(false);
+    let mut echo = EchoProcessor::new(suppress);
     let mut speech = SpeechProbability::default();
     let mut features = Features::create(out)?;
     let mut decisions = BufWriter::new(fs::File::create(out.join("decisions.tsv"))?);
@@ -393,12 +403,14 @@ fn main() -> Result<()> {
     let lab = args.next().ok_or_else(usage)?;
     let out = args.next().ok_or_else(usage)?;
     let (mut near, mut closed, mut room, mut segment) = (None, false, None, None);
+    let mut suppress = false;
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--near" if near.is_none() => {
                 near = Some(pcm(Path::new(&args.next().ok_or_else(usage)?))?)
             }
             "--duplex" if !closed => closed = true,
+            "--noise-suppression" if !suppress => suppress = true,
             "--room" if room.is_none() => room = Some(args.next().ok_or_else(usage)?.parse()?),
             "--segment" if segment.is_none() => {
                 let speech = pcm(Path::new(&args.next().ok_or_else(usage)?))?;
@@ -411,8 +423,8 @@ fn main() -> Result<()> {
     let out = Path::new(&out);
     fs::create_dir_all(out)?;
     match (closed, room) {
-        (false, None) if segment.is_none() => replay(&lab, out, near),
-        (true, Some(room)) if near.is_none() => duplex(&lab, out, room, segment),
+        (false, None) if segment.is_none() => replay(&lab, out, near, suppress),
+        (true, Some(room)) if near.is_none() => duplex(&lab, out, room, segment, suppress),
         _ => Err(usage().into()),
     }
 }

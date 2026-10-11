@@ -132,9 +132,11 @@ impl StartNeed {
         self.deficit_us
     }
 
-    /// Time from the first audio to the arrival that set the deficit. A gate
-    /// with at least this horizon would have covered the reply. Zero when no
-    /// arrival was late.
+    /// Time from the first audio to the arrival that set the deficit. Zero
+    /// when no arrival was late. When that arrival is the reply's second
+    /// burst, this is the horizon a start gate needed. When it comes late in
+    /// the reply the service stalled there: no start rule is an answer, and
+    /// the deficit is how much later the whole reply would have had to run.
     pub fn horizon_us(&self) -> u64 {
         self.horizon_us
     }

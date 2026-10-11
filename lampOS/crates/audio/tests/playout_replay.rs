@@ -712,6 +712,72 @@ fn a_stall_later_in_the_reply_is_a_gap_under_any_start_and_is_not_held_again() {
     assert_eq!(with.end_us, without.end_us);
 }
 
+/// The reply of the coordinated build's first run, later the same day. It is
+/// kept out of `RECORDED`: the horizon was not chosen with it, and it is the
+/// only reply here whose service stalled in the middle. Its fourteenth event
+/// came 705 ms after its thirteenth, with 2,700 ms delivered by then and
+/// 2,910 ms gone.
+const STALLED_IN_THE_MIDDLE: &[(u64, u64)] = &[
+    (0, 2_400),
+    (172_425, 5_760),
+    (306_543, 3_840),
+    (403_828, 4_800),
+    (602_357, 960),
+    (642_005, 3_840),
+    (802_201, 3_840),
+    (967_507, 4_800),
+    (1_162_471, 4_800),
+    (1_361_930, 3_840),
+    (1_525_668, 7_680),
+    (1_847_570, 8_640),
+    (2_204_671, 9_600),
+    (2_909_610, 16_320),
+    (3_286_455, 8_640),
+];
+
+#[test]
+fn a_recorded_stall_in_the_middle_of_a_reply_is_shortened_and_not_covered() {
+    // Recorded: first write at 4,803 us, 80 ms of zeros from 95,396 us and
+    // 140 ms from 2,774,936 us.
+    let arrivals = queued(STALLED_IN_THE_MIDDLE);
+    let phase = 4_803 % SLOT_US;
+    let without = play(&arrivals, 0, phase);
+    assert_eq!(without.first_speech_us, 4_803);
+    assert_eq!(
+        without.gaps,
+        [
+            Gap {
+                start_us: 94_803,
+                zero_frames: 2_160,
+            },
+            Gap {
+                start_us: 2_784_803,
+                zero_frames: 3_120,
+            },
+        ]
+    );
+    // The gate takes the opening gap away and starts 110 ms later. The stall
+    // is shorter by what the start gave it and is still there. The reply
+    // ends when it would have ended.
+    let with = play(&arrivals, START_HORIZON_US, phase);
+    assert_eq!(with.first_speech_us, 114_803);
+    assert_eq!(
+        with.gaps,
+        [Gap {
+            start_us: 2_804_803,
+            zero_frames: 2_640,
+        }]
+    );
+    assert_eq!(with.end_us, without.end_us);
+    // No start rule is an answer to it: what it asks for is the whole reply
+    // 210 ms later, and the arrival that says so is 2.9 s in.
+    let mut need = StartNeed::default();
+    for (at_us, frames) in STALLED_IN_THE_MIDDLE {
+        need.arrival(*at_us, *frames as usize);
+    }
+    assert_eq!((need.deficit_us(), need.horizon_us()), (209_610, 2_909_610));
+}
+
 #[test]
 fn a_cancellation_during_the_hold_finds_nothing_handed_to_the_speaker() {
     let phase = FIRST_RUST_FIRST_WRITE_US % SLOT_US;

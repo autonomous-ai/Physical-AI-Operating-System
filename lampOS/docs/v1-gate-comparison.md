@@ -22,11 +22,12 @@ Read from its source, not inferred:
   envelope of the last 500 ms raised by a learned coupling plus 8 dB. The
   coupling starts at -8 dB and is never allowed above 0 dB.
 - **240 ms** above the threshold during playback, 160 ms otherwise.
-- **A warm-up of three seconds of accumulated playback** in which a detected
-  onset is counted and refused, and stays refused until that burst ends.
+- **A warm-up over the first three seconds of accumulated playback in a live
+  session**, in which a detected onset is counted and refused, and stays
+  refused until that burst ends. After those three seconds it plays no part.
 - **While playback is a risk the uplink is zeros** unless the gate has
-  opened, and the 300 ms before an opening are replayed, so a quiet onset is
-  kept.
+  opened, and the 300 ms before an opening are replayed. How much of an
+  onset that keeps is measured [below](#would-it-let-a-person-in-synthetic-only).
 
 ## How the recordings were mapped onto it
 
@@ -73,9 +74,11 @@ signal.
   because the voice arrives 4 dB to 13 dB above the output it is compared
   with and the rule allows at most 8 dB. V1 would then have ducked, not
   cancelled.
-- **A three-second warm-up refuses every interruption of a short answer.**
-  Every reply in these two trials ended or was cancelled inside it. That is
-  the difference you asked me to keep visible.
+- **The warm-up refuses every interruption during the first three seconds of
+  accumulated session playback, and only then.** In these two trials every
+  reply happened to end or be cancelled inside that window, so on these
+  clips it refuses everything. A short reply later in a session is not
+  refused by it. That is the difference you asked me to keep visible.
 - **On the cancelled signal the same rule refuses all four without any
   warm-up.** It is an energy rule, and what the canceller leaves is mostly
   quiet even when the level-blind detector calls it speech.
@@ -93,10 +96,33 @@ attenuate some of it. Four placements, two per trial.
 | As recorded, -23 dB | Never during playback, in 4 of 4 | Never during playback |
 | +6 dB, -17 dB | In 1 of 4, after 0.41 s | Never during playback |
 | +12 dB, -11 dB | In 3 of 4, after 0.35 s to 0.41 s | Never during playback |
-| +18 dB, -5 dB | In 4 of 4, after 0.34 s to 0.38 s | Once, in the one placement that outlasts the warm-up |
+| +18 dB, -5 dB | In 4 of 4, after 0.34 s to 0.38 s | Once, in the one placement that outlasts the warm-up, 1.86 s after the talker began |
 
-When it opens, the 300 ms before the opening are replayed, so the onset is
-not lost. At this volume the rule's threshold during playback sits at -6 dB
+**What reached the uplink, measured.** The gate opened during playback in 9
+of the 32 runs.
+
+- In the eight without the warm-up it opened 336 ms to 408 ms after the
+  clip's first sample and replayed exactly 300 ms each time. The uplink
+  therefore began between 28 ms before and 44 ms after the clip's first
+  sample. In the four runs where it began after, what was dropped was 20 ms
+  to 44 ms of the clip's lead-in at -56 dB to -69 dB, under a thousandth of a
+  percent of its energy.
+- **That says nothing about a quiet onset.** The clip is the prompt, which
+  rises from -75 dB to about -18 dB within 130 ms. By the rule's own
+  arithmetic at 64 ms frames, it needs four frames over the threshold and
+  replays 300 ms, so it reaches 108 ms before the first frame over the
+  threshold and no further. A talker who stays under the threshold for
+  longer than that before crossing it loses the earlier part, and with the
+  threshold where it is at this volume that is most of an ordinary onset. No
+  such talker was tested.
+- In the one opening under the warm-up, the first burst was refused and the
+  gate opened 1,856 ms after the talker's first sample. The first 1,492 ms
+  of the talker, 93 % of the clip's energy, never reached the uplink.
+
+I first wrote here that the onset is not lost. That held for a fast-rising
+talker with no warm-up and failed under the warm-up.
+
+At this volume the rule's threshold during playback sits at -6 dB
 to -16 dB, and a talker has to be 12 dB to 18 dB louder than the recorded
 prompt to cross it. So with these levels the rule on the cancelled signal
 refuses the echo and refuses a person at the prompt's level alike. Whether
@@ -114,3 +140,29 @@ these clips.
   different history gives a different threshold.
 - I ran the exact Python source over NumPy arrays outside the repository.
   The scripts are not in Git; lampOS is Rust, and this is an analysis.
+
+## Reproducing it
+
+The scripts, their outputs and a manifest are in one local directory outside
+the repository. Its path is in
+[Agent 1's status](../coordination/agent-1.md), because it is a session
+directory and may move. The manifest identifies the run wherever it is
+copied:
+
+| File | SHA-256 |
+|---|---|
+| `manifest.json` | `aa5ff6a852af08f512552f17c83b264c4da86775eeab06b0cfd74bd9698654b7` |
+| `live_gate_v1.py`, from `git show d5efe9d7b:hal/drivers/voice/_internal/live_gate.py` | `e388e4a0e0a4a27c87d0f5ce5edc4c7e54cdde2ac61ecf1cc2536e2be563c861` |
+
+From that directory, with Python 3.14.2 and NumPy 1.26.4:
+
+```sh
+python3 run.py live_gate_v1.py      # the two interrupted trials      -> run.out.txt
+python3 more.py live_gate_v1.py     # other bundles, synthetic overlap -> more.out.txt
+python3 onset.py live_gate_v1.py    # where the uplink starts          -> onset.out.json
+```
+
+`manifest.json` holds the SHA-256 of each script and each output, the
+mapping, and the SHA-256 of `pre_aec`, `post_aec` and `render_accepted` for
+the six bundles read, with their paths. The scripts hard-code those paths.
+The recordings stay where they are.

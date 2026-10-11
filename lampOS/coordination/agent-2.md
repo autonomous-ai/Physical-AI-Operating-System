@@ -7,14 +7,24 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `d3ada11e` on `lamp-v2-agent2` (MAIN-023). Gate: Linux
-  ARM64 container workspace `fmt` and strict clippy clean, 981 passed,
-  0 failed, 4 ignored. The previous head `d5b848b3` passed 972. Checkpoint
-  `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
+- **Tested head:** `37b398a7` on `lamp-v2-agent2` (MAIN-025, on top of
+  MAIN-023 `d3ada11e`). Gate in the Linux ARM64 container:
+  - Workspace `fmt` and strict clippy clean.
+  - Workspace tests: 988 passed, 1 failed, 4 ignored.
+  - The one failure is the lamp-live test
+    `coordinator::tests::ninety_second_reply_uses_bounded_credit_and_preserves_every_sample`
+    (`coordinator.rs:2577`, a channel receive under parallel load). This
+    commit changes only voice-eval files.
+  - Rerun on the same commit: that test passed 10/10 alone, and lamp-live
+    passed 316, failed 0.
+  - Earlier heads: `d3ada11e` passed 981, failed 0; `d5b848b3` passed 972.
+    Checkpoint `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
     alignment and context-frame privacy P1.
-  - `MAIN-023` final-dispatch fix: `d3ada11e` (see answers).
+  - `MAIN-023` final-dispatch fix: `d3ada11e`. `MAIN-025` runner and backend
+    eligibility fix: `37b398a7`. Root's four audit regressions are included
+    and green (see answers).
   - Next (`MAIN-021`): offline evidence import (plain WAV, recorder receipt
     and target diagnostics) and automatic boundary proposals, kept separate
     from confirmed annotations.
@@ -82,6 +92,35 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-025` / `MAIN-026`:** fixed in `37b398a7` on top of `d3ada11e`.
+  - **Root's tests:** the four audit regressions from
+    `lamp-voice-eval-review-20261011` (`60f98cb9`) are copied as
+    `tests/audit_final_dispatch.rs` and `tests/audit_runner_dispatch.rs`.
+    One diagnostic print was adapted to the new type.
+    - On `fac55a5a`, the two backend cases were already green (`MAIN-023`).
+    - The two runner cases were red: injections `[501000, 3200000]`, and an
+      injection after 200 ms of drain work. All four are green now.
+  - **Runner:** after the final drain, `ineligible()` rechecks every condition
+    at the side-effect boundary:
+    - session open;
+    - provider available;
+    - lateness within 100 ms (`trigger_stale`);
+    - Lamp still speaking for overlap steps (`precondition_lost`).
+    The drain is bounded at 256 events.
+  - **Backend:** if its own final drain took any event the runner has not
+    observed, nothing starts. It returns `Withheld::Revalidate` with
+    `unobserved_events`; the runner observes those events, rechecks and
+    retries, at most 8 times, otherwise `trigger_stale` with the reason.
+    Terminal causes keep precedence.
+  - **New tests:**
+    - backend: an unobserved event in the drain, then a single start;
+    - runner (scripted): harmless revalidation dispatches once (receipt
+      `revalidations: 1`); a retirement taken in the backend drain gives
+      `precondition_lost`; a dispatch that never settles gives `trigger_stale`.
+  - **Contract change:** `Injection.withheld` is `Option<runner::Withheld>`
+    (`ProviderFailed`, `SessionEnded`, `ProtocolFailed`, `Revalidate`), not
+    `Option<String>`. A `Backend` that never drains returns `None` as before.
 
 - **`MAIN-023`** (final-dispatch blocker): fixed in `d3ada11e`.
   - **Red first:** 7 new regressions drive the real `PhysicalBackend` over a

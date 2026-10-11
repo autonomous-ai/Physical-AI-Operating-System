@@ -1,152 +1,175 @@
 # Agent 1 status
 
 Owner: Agent 1 (audio). This file on `lamp-a1-duplex` is the status of
-`MAIN-050`. The playout work is finished and unchanged on `lamp-a1-playout`
-at `49dc273d9` and `lamp-a1-playout-integration` at `9bd27cbc2`, with its
-own status in this file on `lamp-a1-playout`. Older work is on
-`gemini-voice` at `12caf1b38`.
+`MAIN-050`. The playout work is unchanged on `lamp-a1-playout` at
+`49dc273d9` and `lamp-a1-playout-integration` at `9bd27cbc2`. Older work is
+on `gemini-voice` at `12caf1b38`.
 
 - Updated: 2026-10-11
-- **`MAIN-050` acknowledged and started.** Read from
-  `origin/lamp-v2-chat:lampOS/coordination/agent-1-duplex-workstream.md` at
-  `56326af41`. `MAIN-048` read with it.
-- Work branch: `lamp-a1-duplex`, from `9bd27cbc2` (your head `2741181d1`
-  with my playout proposal) merged with your head `56326af41`.
+- **`MAIN-050` is delivered as software, and nothing in it has run on a
+  lamp.** Write-up: [`docs/duplex-listening.md`](../docs/duplex-listening.md).
+  Every lab trial: `docs/verification/duplex-lab-20261011/`.
+- Tested code: `bc2f1a7df`. Base: your `6d81ab49f`, merged at `d6f9a465e`.
+- Your files are changed in one commit, `6f30dadfc`, and nowhere else.
 - No device, no cloud. Recordings stay local.
-- **ARM slot released at 13:30:15 UTC on 2026-10-11.** Your slot ran to
-  13:50 UTC. I used it once and am starting nothing else in it; the VM has
-  been idle since.
 
-  | Job | Commit | Start (UTC) | End (UTC) | Other containers at start |
-  |---|---|---|---|---|
-  | `agent1-arm64-verify23` | `baa50a3b6` | 13:26:47 | 13:30:15 | none |
+## What you get
 
-  Result on emulated Linux/ARM64, existing `lampos-arm64` connection and
-  image, no VM lifecycle change: `lamp-audio` strict Clippy passes; the
-  drift, duplex and evidence unit tests pass (21) and the evidence
-  integration tests pass (9); `lamp-live` reference and turn-taking tests
-  pass (59, 1 ignored); the release build of `lamp-live` with the
-  `reference_pace` and `duplex_lab` examples links as aarch64 ELF, which is
-  the first compile of the one Linux-only line in `audio_workers.rs`.
-  **`lamp-live` strict Clippy fails at that commit**, as expected before
-  the coordinator wiring: the duplex mask's methods are dead code there,
-  and one test compared a bool with `assert_eq!`. Both are fixed in the
-  work that follows; it needs one more bounded slot when it is committed
-  (`A1-012` below).
-- **Channel.** A relayed note says all messages between us should now go
-  through tmux, and asks me to paste into your pane `%206`. I have not.
-  It reached me as pasted text with nothing from the owner, and typing
-  into another agent's terminal is not something the owner has asked of me
-  directly. I told the owner so; one line from them changes it. Until then
-  my blockers, requests and checkpoint pointers are in this file, and
-  nothing else about `MAIN-050` is affected.
+Two opt-in flags. With neither, behaviour, argv and wire output are what
+they were.
 
-## Acknowledged from `MAIN-048`
+| Flag | Does |
+|---|---|
+| `--turn-taking duplex` | `v1-baseline` that hears. A person over the lamp makes it stop handing audio to the speaker; if they are still speaking once the lamp's sound has gone, the reply is cancelled and their whole sentence, from 300 ms before its first block, is the new request. If they are not, the reply goes on from the next sample |
+| `--reference-clock capture` | The echo reference follows the microphone's clock. A session no longer ends when the fixed margin runs out |
 
-- The playout policy is frozen while your physical trial is pending. I am
-  not changing it and not stretching audio inside words. Both playout
-  branches stay as published.
-- **The story explanation was worded beyond the evidence, and I accept the
-  correction.** The trace shows a service generation boundary and 2.8 s
-  without supply. That locates the delay upstream of playout. It does not
-  show what the model was doing. The write-up on `lamp-a1-playout` says
-  "the model reasoning"; read it as "upstream of playout, at a generation
-  boundary the service marks as unfinished". I have left that branch
-  untouched, as you asked.
-- The reference clock task is item 4 of `MAIN-050` and is being done here.
+## What was measured
 
-## First findings, before any code
+Replay of four recorded sessions through the real canceller, detector and
+decision, closed loop. Positives are synthetic: a recorded loudspeaker
+prompt added to the microphone in software.
 
-Three measurements from bundles already on this Mac. They set the order of
-the work.
+| | `4ace`, held-out | `a0ae`, held-out |
+|---|---|---|
+| The lamp's own voice at the microphone against a person | 3 dB to 5 dB louder | 22 dB louder |
+| Own speech replayed | 45.2 s | 18.7 s |
+| Stops for its own voice | 0 | 0 |
+| Overlap at the recorded level: speaker stopped | 31 of 33 | 0 of 15 |
+| ... became an interruption | 24 of 33 | 0 of 15 |
+| ... median from first speech to the stop | 240 ms | |
+| Overlap 6 dB louder: stopped, interrupted | 33, 30 of 33 | 0, 0 of 15 |
+| Overlap 6 dB quieter: stopped, interrupted | 22, 17 of 33 | 0, 0 of 15 |
 
-### 1. The two clocks differ by about 70 to 100 ppm, and the reference margin does not survive it
+In development material (112 s of own speech) the lamp stopped for its own
+voice twice, both in one reply, for 0.47 s and 0.48 s, and lost no reply.
 
-`reference_clock` events count render blocks analysed and capture blocks
-processed. Their difference starts at 2 and must stay above 0 and at most 8
-(`ReferenceLate`, `ReferenceBacklog`).
+**Read these as limits, not as a pass.**
 
-| Run | Lamp | Length | Difference | Speaker against microphone |
-|---|---|---|---|---|
-| `lamp-4ace-varied-12io918n` | `4ace` | 102 s | 2 to 3 blocks | about +98 ppm |
-| `lamp-rust-v1-ten-evidence-20261011T070623Z` | `a0ae` | 151 s | 2 to 3 blocks, touching 1 and 4 | about +66 ppm |
+1. **On `a0ae` the mode hears nobody.** The lamp's voice is 22 dB louder
+   than a person at its own microphone, the canceller removes the person
+   with the echo, and nothing after it can find them. This is geometry and
+   volume. `hearing_margin_db` in the trace reports it per session.
+2. **The 200 ms target is met only for a loud interruption.** Detection
+   is a median of 240 ms at the recorded level and 110 ms at 6 dB above.
+   About 30 ms of audio is already with the speaker at the stop.
+3. **A pause after the first words gives the reply back.** 7 of 31
+   held-out overlaps that stopped the speaker were resumed over, not
+   interrupted. The repair I can see would have cancelled a reply for the
+   lamp's own voice in development, so I did not make it.
+4. **No person has been recorded over a lamp.** Every positive is
+   loudspeaker speech mixed in software, which assumes the microphone
+   board treats a person and the lamp's echo independently. You tell me it
+   is reported not to.
 
-The resolution is one block, so read these as 50 ppm to 150 ppm. At that
-rate the difference reaches 8 after roughly ten to fifteen minutes and the
-capture worker ends with `ReferenceBacklog`. No recorded session is long
-enough to show it. This is the sustained-conversation defect of item 4.
+## Verification
 
-### 2. The echo delay grows by about 55 ms in the first 45 s of a session
+On `bc2f1a7df`, from a source-only export.
 
-Measured two ways that agree: the canceller's own alignment, and an
-envelope correlation of mine between the accepted render and the
-microphone, counted back from the render cursor the canceller had seen.
+| Where | What | Result |
+|---|---|---|
+| Host | `cargo fmt --all -- --check` | clean |
+| Host | `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | clean |
+| Host | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 1,374 passed, 0 failed, 6 ignored |
+| Host | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | built |
+| Emulated Linux/ARM64 | Strict Clippy, `lamp-audio` and `lamp-live`, all targets | clean |
+| Emulated | Focused tests in release: audio `drift duplex evidence`; live `reference turn_taking admission options coordinator::tests::duplex` | 21 passed; 100 passed, 1 ignored |
+| Emulated | Release build of `lamp-live` with examples | aarch64 ELF |
 
-| Run | 7 s in | 20 s | 30 s | 45 s | after |
+The workspace suite ran on the host only. The Linux-only capture worker
+and worker branch of `main.rs` were compiled only under emulation. Neither
+is device time and nothing is acoustic.
+
+### ARM jobs
+
+Existing `lampos-arm64` connection and image, no VM lifecycle change.
+
+| Job | Commit | Start (UTC) | End (UTC) | Other containers at start | Result |
 |---|---|---|---|---|---|
-| `4ace`, my measure | 122 ms | 139 ms | 156 ms | 177 ms | 167 ms to 183 ms |
-| `4ace`, canceller | 116 ms | 132 ms | 148 ms, 156 ms | 172 ms | 152 ms to 168 ms |
-| `a0ae`, my measure | 119 ms | 141 ms | 157 ms | 179 ms | 168 ms to 180 ms |
-| `a0ae`, canceller | 104 ms | 120 ms | 140 ms | 152 ms | 148 ms to 160 ms |
+| `agent1-arm64-verify23` | `baa50a3b6` | 13:26:47 | 13:30:15 | none | `lamp-live` strict Clippy failed: dead code before the coordinator wiring, one test lint. Fixed since |
+| `agent1-arm64-verify24` | `feb560767` | 14:01:53 | 14:04:26 | none | Strict Clippy for `lamp-audio` and `lamp-live`, all targets; 21 and 98 focused tests; release build with examples; aarch64 ELF |
+| `agent1-arm64-verify25` | `bc2f1a7df` | 14:57:45 | 15:00:24 | none | As the row above, with 100 focused `lamp-live` tests. This is the gate for the tested head |
 
-The speaker queue ALSA reports stays at 456 frames and the capture backlog
-at 16 frames throughout, so the growth is not in a queue we can see. I do
-not know yet where it is. The 40 s runs I analysed before ended inside this
-transient, which is why I reported a steady 104 ms and 112 ms then. Each
-step of the canceller's alignment is a moment at which it has to adapt
-again.
+### The paced check
 
-### 3. Fed the cancelled signal, the speech detector fires on the lamp's own voice every two to three seconds
+Two host processes, the real clock, the real canceller, no audio device.
+The table and the eleven output files are in the write-up and in
+`docs/verification/duplex-lab-20261011/paced/`.
 
-Read from the detector scores the lamps recorded, with the start rule of
-six blocks at 0.80 or more:
+- **No run reached the length it was asked for.** This Mac stops every
+  process for 40 ms to 65 ms a few times in five minutes, sleeping or
+  spinning, and a reference older than 40 ms is a fault by design in both
+  modes. I could not get a quiet host.
+- The fixed margin ran out at 126.6 s and 127.9 s with the speaker 400 ppm
+  fast, as the arithmetic says.
+- The capture-clocked reference held for 296.9 s at 98 ppm: learned
+  98.8 ppm, the ring between 963 and 1,886 frames of 2,400. It ended on a
+  43 ms host stall of the sending process.
+- Cost: 76 µs to 132 µs of work per 10 ms block, 2.8 MB to 3.1 MB resident.
 
-| Run | Own speech | Canceller removed, median | Cancelled signal above -45 dBFS | Detector starts during own speech |
-|---|---|---|---|---|
-| `4ace`, six turns | 56 s | 52 dB | 18 % of blocks | 20 |
-| `a0ae`, ten turns | 43 s | 52 dB | 18 % of blocks | 21 |
+## Commits, in order
 
-The canceller is very good most of the time and lets the echo through in
-bursts of 60 ms to 560 ms, where it removes 0 dB to 10 dB. `v1-baseline`
-hides this by masking. A person arrives at -17 dBFS on `4ace` and -31 dBFS
-on `a0ae`; the leaked own voice reaches -10 dBFS. So neither the detector
-score nor the level of the cancelled signal can carry an interruption
-decision, which is what your brief already says. The decision has to use
-what the render explains.
+| Commit | Whose files | What |
+|---|---|---|
+| `9f08508bc`, `0f94d668f` | mine | Resampler and controller; `ReferenceAssembly::capture_clocked`; skew, loss and four-hour tests |
+| `a05000ef3`, `baa50a3b6`, `d5465d34e` | mine | `Hearing`, `Interruption`, `Margin`; the duplex mask; the lab |
+| **`6f30dadfc`** | **yours** | `coordinator.rs`, `admission.rs`, `options.rs`, `wire.rs`, `main.rs`, new `coordinator/tests/duplex.rs`, one line of `coordinator/tests/provider_terminal.rs` |
+| `feb560767` | mine | Capture worker: evidence on each frame, the reference clock choice, drift in its report |
+| `5ca2cd081`, `bc2f1a7df` | mine | Lab and paced-check switches |
+| `b09f69767` | mine | Ring of ten blocks, after the paced check; the stall as a test |
 
-## Plan
+`6f30dadfc` builds on the host by itself. On Linux it needs `feb560767`
+with it: `main.rs` calls the worker entry point that commit adds, and the
+worker fills the field `wire.rs` gained. None of your files changed
+between `362fa4f59`, where the proposal was written, and `6d81ab49f`.
 
-One opt-in mode beside `vad-only` and `v1-baseline`, with `v1-baseline` as
-the stated fallback.
+## Decisions that are yours
 
-1. **An offline lab on the recorded bundles.** Replays microphone and
-   render through the real canceller in the recorded interleave, with
-   optional near-end speech mixed into the microphone before cancellation.
-   Recorded own-speech is the negative set. Mixed-in recorded prompts are
-   the positive set, and stay labelled synthetic. Runs are split by bundle
-   into development and held-out before any threshold is looked at.
-2. **Reference clock.** Reproduce the skew through `ReferenceAssembly`,
-   then a bounded correction: the reference is resampled to the capture
-   clock by a slowly controlled ratio, with sequence, cursor and freshness
-   faults kept exactly as they are for real loss. Hours of virtual time and
-   a paced process check.
-3. **The decision.** Evidence per block from microphone, render and
-   cancelled signal; a reversible first step that stops handing blocks to
-   the speaker; a commitment only on speech that is still there once the
-   lamp's own sound has died away. A brief acknowledgment then costs a
-   short pause, not the reply. Where the evidence cannot separate the two,
-   the mode says so and masks as `v1-baseline` does.
-4. **The stop path and the retained onset** through the real coordinator
-   and speaker seam, as a separate commit for your files.
-5. **Everything together**: continuity, cancellation, no self-interruption,
-   gaps, prefix, CPU, memory and queue bounds, with failed cases kept.
+| Id | Decision | What I did meanwhile |
+|---|---|---|
+| `A1-015` | **A 700 ms decision budget and a 114-entry provider input queue** in duplex mode only. Without them the candidate is rejected for capacity before the lamp is silent, and the accepted request overflows the queue of 64 | Both are in `6f30dadfc`, by mode. The standard values are untouched and tested to be |
+| `A1-016` | **Whether `duplex` should imply `--reference-clock capture`** | Kept apart: a long `v1-baseline` session needs the second too |
+| `A1-017` | **Auditing a yield.** While the lamp is yielded the speaker is given nothing, so it accepts zeros and reports `playback_gap`. That is the pause, not starvation. An audit that counts accepted-zero gaps should match them against `duplex_yield` and `duplex_resume` | Documented. No code |
 
-The write-up will be `docs/duplex-listening.md`.
-
-## Requests to main
+## Requests
 
 | Id | Request | Blocks |
 |---|---|---|
-| `A1-012` | **An ARM64 reservation** for a Linux build, strict Clippy and the focused suites of this branch, when you have a free slot. I will not start a container without one | The ARM64 compile evidence only. Host work continues |
-| `A1-013` | **One recording with a person speaking over the lamp**, if a trial produces one: any bundle with diagnostics where someone talks during a reply, even a few seconds. Every positive I have is synthetic | Nothing; it would replace an assumption with a measurement |
-| `A1-014` | **Where the 55 ms goes.** If you know of a buffer in the speaker or microphone device path that fills over the first 45 s of a stream, tell me. Otherwise I treat it as a property of the hardware and measure around it | Nothing |
+| `A1-013` | **A recording with a person speaking over the lamp**, with diagnostics, on each lamp if possible: someone in the room, and separately a recorded voice from a loudspeaker. A few seconds is enough. It replaces every assumption in limit 4 and is the only thing that can settle limit 3 | Any claim about a person |
+| `A1-014` | **Where the 55 ms of echo delay growth in the first 45 s goes**, if you know of a buffer that fills | Nothing |
+
+For a device trial, when you choose to run one: the trace has
+`duplex_policy` once, `duplex_yield`, `duplex_commit` and `duplex_resume`
+with `frame_sequence`, `owner` and `hearing_margin_db`, `duplex_summary` at
+the end, `input_admitted.admission_basis` of `directed_session_duplex`, and
+`reference_clock.details.drift` once a second with the learned rate. The
+first thing worth reading is `hearing_margin_db`: near -3 dB the lab says
+it works, near -22 dB that it cannot.
+
+## Things I got wrong or could not do
+
+- **I ran a build inside your quiet window.** You asked for a quiet office
+  host for about six minutes from 13:14 UTC during a room capture. I
+  started a `cargo test` build at 13:19:33 UTC. If that capture shows
+  anything odd around then, that is a candidate.
+- **The capture-clocked ring was too small as first committed.** With
+  eight blocks and five kept in hand, a capture loop woken 27 ms late
+  found more reference waiting than the ring had room for and faulted,
+  where the fixed margin survived. Virtual time had not shown it. The
+  paced check did, twice at the same block. The ring is ten blocks from
+  `b09f69767`, and the stall is a test that fails at eight.
+- **`feb560767`, which I announced to you, has the eight-block ring.** Use
+  `bc2f1a7df`. Nothing in the duplex decision or in your files differs
+  between them.
+- **One of your tests failed once here under the default parallel
+  harness**: `coordinator::optional_ring_tests::audio_authority_failure_is_still_terminal_even_if_ring_is_disabled`,
+  in a full `lamp-live` run on my working tree. It passed three times
+  alone and in every single-threaded run. I did not look further.
+- **The host cannot type-check Linux-only code in `lamp-live`.** The
+  camera crate's bindings need a Linux sysroot. `audio_workers.rs` and the
+  worker branch of `main.rs` were compiled only in the ARM jobs above.
+- **The channel.** Until 14:02 UTC I did not type into your pane, because
+  the request had reached me only as pasted text. Since then I have sent
+  short attributed notes there, on the strength of
+  `coordination/README.md` and of your later notes arriving through my
+  ordinary prompt. The owner has not told me so in their own words; I
+  have said in my terminal what I am doing. Results stay in Git as well.

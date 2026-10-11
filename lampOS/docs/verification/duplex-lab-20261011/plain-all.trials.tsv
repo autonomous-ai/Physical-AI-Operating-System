@@ -1,0 +1,121 @@
+run	part	gain_db	seed	reply	onset	seg_end	first_yield	yield_delay_ms	first_outcome	first_outcome_delay_ms	commit_wall	commit_delay_ms	yields	note
+plain	all	6	1	0	752	872	761	90	commit	470	799	470	1	
+plain	all	6	1	1	1792	1856	1801	90	commit	470	1839	470	1	
+plain	all	6	1	2	2907	3027	3000	930	resume	1410			1	
+plain	all	6	1	3	4094	4189	4106	120	commit	550	4149	550	1	
+plain	all	6	1	4	5110	5229	5120	100	commit	440	5154	440	1	
+plain	all	6	1	5	6195	6308	6204	90	commit	570	6252	570	1	
+plain	all	6	1	6	7940	8047	7947	70	commit	490	7989	490	1	
+plain	all	6	1	7	8986	9064	8993	70	commit	460	9032	460	1	
+plain	all	6	2	0	814	878	856	420	resume	900			1	
+plain	all	6	2	1	1685	1805	1722	370	commit	850	1770	850	1	
+plain	all	6	2	2	2818	2913	2835	170	commit	590	2877	590	1	
+plain	all	6	2	3	3933	4052	3945	120	commit	510	3984	510	1	
+plain	all	6	2	4	5151	5264	5158	70	commit	580	5209	580	1	
+plain	all	6	2	5	6544	6651	6554	100	commit	480	6592	480	1	
+plain	all	6	2	6	7802	7880	7830	280	commit	720	7874	720	1	
+plain	all	6	2	7	8904	9024	8934	300	commit	690	8973	690	1	
+plain	all	6	3	0	766	886	775	90	resume	570			1	
+plain	all	6	3	1	1632	1727	1645	130	commit	560	1688	560	1	
+plain	all	6	3	2	2825	2944	2836	110	commit	490	2874	490	1	
+plain	all	6	3	3	3921	4034	3947	260	commit	650	3986	650	1	
+plain	all	6	3	4	5127	5234	5134	70	commit	460	5173	460	1	
+plain	all	6	3	5	6560	6638	6574	140	commit	520	6612	520	1	
+plain	all	6	3	6	7947	8067	7954	70	commit	450	7992	450	1	
+plain	all	6	3	7	8928	9048	8934	60	commit	450	8973	450	1	
+plain	all	0	1	0	752	872	774	220	commit	610	813	610	1	
+plain	all	0	1	1	1792	1856	1816	240	commit	620	1854	620	1	
+plain	all	0	1	2	2907	3027	3007	1000	resume	1480			1	
+plain	all	0	1	3	4094	4189	4107	130	commit	570	4151	570	1	
+plain	all	0	1	4	5110	5229	5122	120	commit	420	5152	420	1	
+plain	all	0	1	5	6195	6308	6204	90	commit	580	6253	580	1	
+plain	all	0	1	6	7940	8047	7947	70	commit	480	7988	480	1	
+plain	all	0	1	7	8986	9064	9035	490	resume	970			2	
+plain	all	0	2	0	814	878	856	420	resume	900			1	
+plain	all	0	2	1	1685	1805	1777	920	resume	1400			1	
+plain	all	0	2	2	2818	2913	2862	440	commit	880	2906	880	1	
+plain	all	0	2	3	3933	4052	4029	960	resume	1440			1	
+plain	all	0	2	4	5151	5264	5159	80	commit	580	5209	580	1	
+plain	all	0	2	5	6544	6651	6551	70	commit	480	6592	480	1	
+plain	all	0	2	6	7802	7880	7831	290	commit	730	7875	730	1	
+plain	all	0	2	7	8904	9024	8934	300	commit	720	8976	720	1	
+plain	all	0	3	0	766	886	802	360	resume	640			2	
+plain	all	0	3	1	1632	1727	1680	480	commit	890	1721	890	1	
+plain	all	0	3	2	2825	2944	2871	460	commit	850	2910	850	1	
+plain	all	0	3	3	3921	4034	3982	610	commit	1000	4021	1000	1	
+plain	all	0	3	4	5127	5234	5132	50	commit	480	5175	480	1	
+plain	all	0	3	5	6560	6638	6584	240	commit	580	6618	580	1	
+plain	all	0	3	6	7947	8067	7954	70	commit	450	7992	450	1	
+plain	all	0	3	7	8928	9048	8934	60	commit	450	8973	450	1	
+plain	all	-6	1	0	752	872	800	480	commit	690	821	690	1	
+plain	all	-6	1	1	1792	1856			never				0	
+plain	all	-6	1	2	2907	3027	3014	1070	resume	1540			1	
+plain	all	-6	1	3	4094	4189			never				0	
+plain	all	-6	1	4	5110	5229	5122	120	commit	420	5152	420	1	
+plain	all	-6	1	5	6195	6308	6229	340	commit	840	6279	840	1	
+plain	all	-6	1	6	7940	8047	7989	490	commit	880	8028	880	1	
+plain	all	-6	1	7	8986	9064			never				0	
+plain	all	-6	2	0	814	878	856	420	resume	900			1	
+plain	all	-6	2	1	1685	1805	1774	890	resume	1370			1	
+plain	all	-6	2	2	2818	2913	2863	450	commit	890	2907	890	1	
+plain	all	-6	2	3	3933	4052			never				0	
+plain	all	-6	2	4	5151	5264	5160	90	commit	580	5209	580	1	
+plain	all	-6	2	5	6544	6651	6552	80	commit	460	6590	460	1	
+plain	all	-6	2	6	7802	7880	7838	360	commit	740	7876	740	1	
+plain	all	-6	2	7	8904	9024	8934	300	commit	720	8976	720	1	
+plain	all	-6	3	0	766	886	803	370	resume	640			2	
+plain	all	-6	3	1	1632	1727	1678	460	commit	870	1719	870	1	
+plain	all	-6	3	2	2825	2944			never				0	
+plain	all	-6	3	3	3921	4034			never				0	
+plain	all	-6	3	4	5127	5234	5133	60	commit	480	5175	480	1	
+plain	all	-6	3	5	6560	6638	6592	320	commit	740	6634	740	1	
+plain	all	-6	3	6	7947	8067	7982	350	commit	740	8021	740	1	
+plain	all	-6	3	7	8928	9048	8934	60	commit	450	8973	450	1	
+plain	all	-12	1	0	752	872	802	500	commit	690	821	690	1	
+plain	all	-12	1	1	1792	1856			never				0	
+plain	all	-12	1	2	2907	3027			never				0	
+plain	all	-12	1	3	4094	4189			never				0	
+plain	all	-12	1	4	5110	5229	5123	130	commit	380	5148	380	1	
+plain	all	-12	1	5	6195	6308	6298	1030	resume	1510			1	
+plain	all	-12	1	6	7940	8047			never				0	
+plain	all	-12	1	7	8986	9064			never				0	
+plain	all	-12	2	0	814	878			never				0	
+plain	all	-12	2	1	1685	1805	1776	910	resume	1380			1	
+plain	all	-12	2	2	2818	2913			never				0	
+plain	all	-12	2	3	3933	4052			never				0	
+plain	all	-12	2	4	5151	5264	5246	950	resume	1240			1	
+plain	all	-12	2	5	6544	6651	6572	280	commit	680	6612	680	1	
+plain	all	-12	2	6	7802	7880	7848	460	resume	930			1	
+plain	all	-12	2	7	8904	9024	8934	300	commit	750	8979	750	1	
+plain	all	-12	3	0	766	886			never				0	
+plain	all	-12	3	1	1632	1727	1679	470	commit	890	1721	890	1	
+plain	all	-12	3	2	2825	2944			never				0	
+plain	all	-12	3	3	3921	4034			never				0	
+plain	all	-12	3	4	5127	5234	5151	240	commit	680	5195	680	1	
+plain	all	-12	3	5	6560	6638	6592	320	commit	750	6635	750	1	
+plain	all	-12	3	6	7947	8067			never				0	
+plain	all	-12	3	7	8928	9048	8934	60	commit	510	8979	510	1	
+plain	all	-18	1	0	752	872	804	520	commit	690	821	690	1	
+plain	all	-18	1	1	1792	1856			never				0	
+plain	all	-18	1	2	2907	3027			never				0	
+plain	all	-18	1	3	4094	4189			never				0	
+plain	all	-18	1	4	5110	5229			never				0	
+plain	all	-18	1	5	6195	6308	6306	1110	resume	1590			1	
+plain	all	-18	1	6	7940	8047			never				0	
+plain	all	-18	1	7	8986	9064			never				0	
+plain	all	-18	2	0	814	878			never				0	
+plain	all	-18	2	1	1685	1805			never				0	
+plain	all	-18	2	2	2818	2913			never				0	
+plain	all	-18	2	3	3933	4052			never				0	
+plain	all	-18	2	4	5151	5264	5255	1040	resume	1240			1	
+plain	all	-18	2	5	6544	6651	6616	720	resume	1200			1	
+plain	all	-18	2	6	7802	7880	7851	490	resume	960			1	
+plain	all	-18	2	7	8904	9024	8934	300	commit	760	8980	760	1	
+plain	all	-18	3	0	766	886			never				0	
+plain	all	-18	3	1	1632	1727			never				0	
+plain	all	-18	3	2	2825	2944			never				0	
+plain	all	-18	3	3	3921	4034			never				0	
+plain	all	-18	3	4	5127	5234			never				0	
+plain	all	-18	3	5	6560	6638	6593	330	commit	780	6638	780	1	
+plain	all	-18	3	6	7947	8067			never				0	
+plain	all	-18	3	7	8928	9048	8934	60	commit	560	8984	560	1	

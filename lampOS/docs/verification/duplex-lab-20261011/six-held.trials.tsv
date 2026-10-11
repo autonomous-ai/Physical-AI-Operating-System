@@ -1,0 +1,46 @@
+run	part	gain_db	seed	reply	onset	seg_end	first_yield	yield_delay_ms	first_outcome	first_outcome_delay_ms	commit_wall	commit_delay_ms	yields	note
+six	held	6	1	1	1737	1832	1771	340	commit	810	1818	810	1	
+six	held	6	1	3	4661	4781	4689	280	commit	690	4730	690	1	
+six	held	6	1	5	7605	7725	7610	50	commit	440	7649	440	1	
+six	held	6	2	1	1737	1857	1751	140	commit	520	1789	520	1	
+six	held	6	2	3	4283	4403	4297	140	commit	520	4335	520	1	
+six	held	6	2	5	7605	7725	7610	50	commit	440	7649	440	1	
+six	held	6	3	1	1737	1857	1756	190	commit	580	1795	580	1	
+six	held	6	3	3	4324	4444	4333	90	commit	550	4379	550	1	
+six	held	6	3	5	7605	7725	7610	50	commit	440	7649	440	1	
+six	held	0	1	1	1737	1832			never				0	
+six	held	0	1	3	4661	4781	4694	330	commit	710	4732	710	1	
+six	held	0	1	5	7605	7725	7613	80	commit	510	7656	510	1	
+six	held	0	2	1	1737	1857	1752	150	commit	540	1791	540	1	
+six	held	0	2	3	4283	4403	4297	140	commit	520	4335	520	1	
+six	held	0	2	5	7605	7725			never				0	
+six	held	0	3	1	1737	1857	1763	260	commit	720	1809	720	1	
+six	held	0	3	3	4324	4444	4338	140	commit	560	4380	560	1	
+six	held	0	3	5	7605	7725	7635	300	resume	740			1	
+six	held	-6	1	1	1737	1832			never				0	
+six	held	-6	1	3	4661	4781	4779	1180	resume	1650			1	
+six	held	-6	1	5	7605	7725	7638	330	commit	650	7670	650	1	
+six	held	-6	2	1	1737	1857			never				0	
+six	held	-6	2	3	4283	4403	4299	160	commit	550	4338	550	1	
+six	held	-6	2	5	7605	7725			never				0	
+six	held	-6	3	1	1737	1857			never				0	
+six	held	-6	3	3	4324	4444	4353	290	commit	670	4391	670	1	
+six	held	-6	3	5	7605	7725			never				0	
+six	held	-12	1	1	1737	1832			never				0	
+six	held	-12	1	3	4661	4781			never				0	
+six	held	-12	1	5	7605	7725			never				0	
+six	held	-12	2	1	1737	1857			never				0	
+six	held	-12	2	3	4283	4403	4301	180	commit	570	4340	570	1	
+six	held	-12	2	5	7605	7725			never				0	
+six	held	-12	3	1	1737	1857			never				0	
+six	held	-12	3	3	4324	4444	4424	1000	resume	1480			2	
+six	held	-12	3	5	7605	7725			never				0	
+six	held	-18	1	1	1737	1832			never				0	
+six	held	-18	1	3	4661	4781			never				0	
+six	held	-18	1	5	7605	7725			never				0	
+six	held	-18	2	1	1737	1857			never				0	
+six	held	-18	2	3	4283	4403			never				0	
+six	held	-18	2	5	7605	7725			never				0	
+six	held	-18	3	1	1737	1857			never				0	
+six	held	-18	3	3	4324	4444			never				0	
+six	held	-18	3	5	7605	7725			never				0	

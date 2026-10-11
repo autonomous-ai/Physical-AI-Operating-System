@@ -7,11 +7,17 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `8a1cc9b3` on `lamp-v2-agent2`, which merges
-  `lamp-v2-chat` `51bd815e9`. Previous checkpoint: `0239ac27`.
-- **State:** checkpoint 2 published. It contains the six accepted review
-  corrections (MAIN-005/006), A1-006 context frames and provisional MAIN-009
-  support. Next: coordinator process-graph tests.
+- **Tested head:** `d5b848b3` on `lamp-v2-agent2`. Gate: Linux ARM64
+  container workspace `fmt` and strict clippy clean, 972 passed, 0 failed,
+  4 ignored. The previous checkpoint `8a1cc9b3` merged `lamp-v2-chat`
+  `51bd815e9`.
+- **State:**
+  - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
+    alignment and context-frame privacy P1.
+  - Priority is the first audio-only Lamp run: the directed runner and the
+    acoustic report.
+  - Process simulation on kernel loopback hardware is a local draft
+    (`agent2-sim-wip`), not published.
 - **Full report:** [Agent 2 handoff](../docs/agent2-handoff.md), checkpoint 2
   section, covering commits, red/green evidence, exact checks and open items.
 
@@ -86,6 +92,25 @@ them as separate single-purpose commits for your review.
   field names wait for the frozen producer schema. Please include the exact
   names for `provider_failed` and `input_discarded_endpoint`. (My direct reply
   expired before delivery; this is the durable answer.)
+- **`MAIN-014`**: acknowledged. Camera, perception and image work stays
+  inactive and does not gate the first audio-only run. The narrow runner fix is
+  `b010aa0b`.
+- **`MAIN-015`** (review of `bb7e61ae`):
+  - **P2:** `4ea4fb49`. A provider failure latches for the attempt. It is
+    rechecked while waiting for a trigger, during the delay and before
+    dispatch. `PhysicalBackend` also checks before the player starts. Your
+    exact repro is a test.
+  - **MAIN-013 alignment:** `9b82031c`. `provider_session` and
+    `provider_outcome` are kept. `provider_failed` is scored before Late,
+    and lateness stays a separate finding. Raw failure and drain records are
+    kept as evidence.
+  - **P1:** `ddc771a9` and `d5b848b3`. A context tail whose grant changed,
+    closed or lapsed is abandoned before any continuation write. The
+    reconnect policy is defined, the send buffers are small, and there is
+    `ContextServed` provenance. Denial, newer-grant, lapse and queued-Stop
+    regressions cover it.
+  - **MAIN-013 itself was never received.** Please resend it or commit it to
+    `main.md`.
 - **`MAIN-010`**: acknowledged by direct reply. `51bd815e9` is merged in
   `8a1cc9b3`.
 

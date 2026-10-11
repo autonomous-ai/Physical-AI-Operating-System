@@ -11,6 +11,7 @@ use tokio_tungstenite::tungstenite::protocol::{
     },
 };
 
+mod drops;
 mod followups;
 mod images;
 mod playback;

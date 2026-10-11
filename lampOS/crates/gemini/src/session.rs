@@ -1,6 +1,6 @@
 use crate::{
-    BarrierPolicy, Discard, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger,
-    ImageOffer, ImageReceipt, ImageRefusal, ImageRevocation, Lineage, MAX_IMAGE_AGE,
+    BarrierPolicy, Discard, DropLedger, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY,
+    ImageLedger, ImageOffer, ImageReceipt, ImageRefusal, ImageRevocation, Lineage, MAX_IMAGE_AGE,
     MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES,
     OUTPUT_RATE, RequestId, Result, Resumption, ResumptionHandle, SessionConfig, SessionId, State,
     Timeouts, wire,
@@ -48,6 +48,15 @@ struct Shared {
     images: Mutex<Images>,
     /// Wakes an image write that must be abandoned.
     image_abort: Notify,
+    /// Counts for [`DropLedger`], in its field order.
+    dropped: [AtomicU64; 3],
+}
+/// Which [`DropLedger`] count a dropped message adds to.
+#[derive(Clone, Copy)]
+enum Dropped {
+    RetiredOutput,
+    UnownedOutput,
+    UnownedMarkers,
 }
 
 /// How long one image write may take. Commands that arrive meanwhile are
@@ -316,6 +325,15 @@ impl InputSender {
     pub fn image_ledger(&self) -> ImageLedger {
         self.shared.images().ledger
     }
+    /// What this connection has dropped instead of delivering, so far.
+    pub fn drop_ledger(&self) -> DropLedger {
+        let count = |which: Dropped| self.shared.dropped[which as usize].load(Ordering::Relaxed);
+        DropLedger {
+            retired_output: count(Dropped::RetiredOutput),
+            unowned_output: count(Dropped::UnownedOutput),
+            unowned_markers: count(Dropped::UnownedMarkers),
+        }
+    }
     /// Permanent local retirement is synchronous and cannot be blocked by a full
     /// audio queue. Network interruption follows asynchronously. This does not
     /// revoke permits or flush samples already handed to an external speaker.
@@ -536,6 +554,7 @@ where
         ended_through: AtomicU64::new(0),
         images: Mutex::new(Images::default()),
         image_abort: Notify::new(),
+        dropped: Default::default(),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -1219,11 +1238,15 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         Ok(())
     }
-    fn discard(&mut self, reason: Discard) {
+    fn discard(&mut self, reason: Discard, what: Dropped) {
+        self.count(what);
         self.emit(Event::Discarded {
             session: self.session,
             reason,
         });
+    }
+    fn count(&self, what: Dropped) {
+        self.shared.dropped[what as usize].fetch_add(1, Ordering::Relaxed);
     }
     /// The service gives output transcripts no ordering relative to audio or
     /// completion. One that arrives before the current request has produced
@@ -1244,7 +1267,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 text: transcript.text,
                 finished: transcript.finished,
             }),
-            None => self.discard(Discard::UnownedOutput),
+            None => self.discard(Discard::UnownedOutput, Dropped::UnownedOutput),
         }
     }
     async fn content(&mut self, mut content: wire::ServerContent) -> Result<()> {
@@ -1289,6 +1312,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             if producing {
                 self.last_responder = Some(lineage);
             }
+            if payload {
+                self.count(Dropped::RetiredOutput);
+            }
             if content.interrupted {
                 self.emit(Event::Interrupted { lineage });
             }
@@ -1302,15 +1328,22 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             if content.interrupted && !content.turn_complete {
                 self.stale_terminal = Some(now);
             }
-            self.discard(if content.interrupted {
-                Discard::LateInterruption
-            } else if self.current.is_none() {
-                Discard::UnownedOutput
-            } else if producing {
-                Discard::LateOutput
-            } else {
-                Discard::LateTerminal
-            });
+            self.discard(
+                if content.interrupted {
+                    Discard::LateInterruption
+                } else if self.current.is_none() {
+                    Discard::UnownedOutput
+                } else if producing {
+                    Discard::LateOutput
+                } else {
+                    Discard::LateTerminal
+                },
+                if payload {
+                    Dropped::UnownedOutput
+                } else {
+                    Dropped::UnownedMarkers
+                },
+            );
         }
         if settled {
             if self.barrier.take().is_some() {
@@ -1342,7 +1375,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             if !content.turn_complete {
                 self.stale_terminal = Some(now);
             }
-            return self.discard(Discard::LateInterruption);
+            return self.discard(Discard::LateInterruption, Dropped::UnownedMarkers);
         }
         if payload || content.generation_complete {
             self.stale_terminal = None;
@@ -1383,7 +1416,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 .is_some_and(|at| at.elapsed() < barrier);
             if companion && !answered {
                 // Companion of the stray interruption dropped just before.
-                return self.discard(Discard::LateTerminal);
+                return self.discard(Discard::LateTerminal, Dropped::UnownedMarkers);
             }
             self.emit(Event::TurnComplete {
                 lineage,

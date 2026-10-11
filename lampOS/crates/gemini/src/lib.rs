@@ -246,6 +246,22 @@ pub enum Discard {
     UnownedOutput,
 }
 
+/// Server messages a connection dropped instead of delivering, by what they
+/// carried. Counters for diagnosis only: an [`Event::Discarded`] names why a
+/// message was dropped, and output of a retired request is dropped without
+/// an event at all. Nothing here changes what is delivered.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct DropLedger {
+    /// Messages with audio or text of a request this client had retired.
+    pub retired_output: u64,
+    /// Messages with audio, text or an output transcript that no request
+    /// could own.
+    pub unowned_output: u64,
+    /// Messages with nothing but lifecycle markers that no request could
+    /// own: an interruption or a completion.
+    pub unowned_markers: u64,
+}
+
 /// What a caller may do about a connection that ended with this error.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Recovery {

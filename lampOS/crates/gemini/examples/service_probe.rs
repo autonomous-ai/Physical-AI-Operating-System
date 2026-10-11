@@ -17,9 +17,12 @@
 //!
 //! `interrupt-before-output [GAP_MS]` speaks the question, waits `GAP_MS`
 //! (300 if absent, at most 5,000) after its end and speaks it again: a person
-//! who pauses and resumes before any answer. It reports whether the service
-//! confirmed the cut-off request, and keeps listening for eight seconds after
-//! the answer for a second one.
+//! who pauses and resumes before any answer. It reports separately whether
+//! the service sent an interruption notice for the cut-off request, whether
+//! it sent the idle completion that alone settles the barrier, and whether
+//! the probe had to assume. If the second request completes, it listens for
+//! eight more seconds and counts what arrives by whether it carried output.
+//! Every observed event is printed as well.
 //!
 //! `image PICTURE.jpg` speaks the question with one JPEG of at most 64 KiB
 //! offered as visual context, and reports how long the image took to write
@@ -173,6 +176,130 @@ async fn say(connection: &Connection, id: u64, speech: &[i16], end: bool) -> Out
     Ok(())
 }
 
+/// How long the interruption probe keeps listening after the second request
+/// has completed.
+const AFTER_ANSWER: Duration = Duration::from_secs(8);
+
+/// Whether `request` reached its own idle completion in what was observed.
+fn completed(events: &[serde_json::Value], request: u64) -> bool {
+    events
+        .iter()
+        .any(|event| event["kind"] == "turn_complete_idle" && event["request"] == request)
+}
+
+/// What an interruption trial established about request 1, cut off by the
+/// start of request 2, from the observed events and the connection's drop
+/// ledger read at that start, at the end of the observation and after the
+/// listening window.
+///
+/// The barrier of the production policy settles on one thing only: an idle
+/// completion of the cut-off request. An interruption notice or a completion
+/// that is not idle does not settle it, so each is reported for what it is.
+/// Something arriving after the answer is reported as a second answer only
+/// if it carried output; a marker with nothing in it is counted apart.
+fn score(events: &[serde_json::Value], ledgers: [lamp_gemini::DropLedger; 3]) -> serde_json::Value {
+    let [at_resume, at_completion, at_end] = ledgers;
+    // From here on the probe was no longer waiting: it had assumed.
+    let waited = events
+        .iter()
+        .position(|event| event["kind"] == "no_confirmation_within_barrier")
+        .unwrap_or(events.len());
+    let first = |kind: &str| {
+        events[..waited]
+            .iter()
+            .any(|event| event["kind"] == kind && event["request"] == 1)
+    };
+    let completed = completed(events, 2);
+    serde_json::json!({
+        "interruption_seen": first("interrupted"),
+        "idle_completion_settled": first("turn_complete_idle"),
+        "completion_without_idle_seen": first("turn_complete_in_progress"),
+        "probe_assumed_after_silence": waited < events.len(),
+        "cut_off_request_output_messages":
+            at_completion.retired_output - at_resume.retired_output,
+        // Output that no request could own while the trial ran: under the
+        // probe's policy, what arrived between its assumption and its commit.
+        "unowned_output_messages_before_completion":
+            at_completion.unowned_output - at_resume.unowned_output,
+        "second_request_completed": completed,
+        // Absent unless the second request completed: without that there is
+        // no "after the answer" to speak of.
+        "after_answer": completed.then(|| serde_json::json!({
+            "listened_ms": AFTER_ANSWER.as_millis() as u64,
+            "output_messages": (at_end.unowned_output - at_completion.unowned_output)
+                + (at_end.retired_output - at_completion.retired_output),
+            "marker_only_messages": at_end.unowned_markers - at_completion.unowned_markers,
+        })),
+    })
+}
+
+/// The probe's own policy: observe for as long as the transport allows, then
+/// assume and say so, so that what follows can be seen at all. Nothing but
+/// the probe selects it.
+fn observing(config: SessionConfig) -> Outcome<SessionConfig> {
+    let timeouts = Timeouts {
+        barrier: Duration::from_secs(5),
+        ..Timeouts::default()
+    };
+    Ok(config
+        .timeouts(timeouts)?
+        .barrier_policy(BarrierPolicy::AssumeAfterQuiet))
+}
+
+/// Speak the question, wait `gap` after its end and speak it again on the
+/// same connection. Does the service confirm an interruption of a request
+/// it has not begun to answer? This is the pause-and-resume case.
+async fn interruption_trial(
+    connection: &mut Connection,
+    speech: &[i16],
+    gap: Duration,
+) -> Outcome<serde_json::Value> {
+    let first = Instant::now();
+    say(connection, 1, speech, true).await?;
+    // A second start issued at once would overtake the first End
+    // locally: the first request would never be committed and the two
+    // would be one question. Give the connection time to write the
+    // End, and record what the service does meanwhile. A trial in
+    // which the first answer has already begun is a different case
+    // and is labelled as one.
+    let before = observe(connection, first, 0, gap).await;
+    let answered_first = before.iter().any(|event| event["kind"] == "first_audio");
+    let resumed = Instant::now();
+    let at_resume = connection.input().drop_ledger();
+    say(connection, 2, speech, true).await?;
+    let events = observe(connection, resumed, 2, Duration::from_secs(40)).await;
+    // Only this shows the intended state was reached: the second
+    // start found the first request committed.
+    let committed = events
+        .iter()
+        .any(|event| event["kind"] == "input_started_after_committed_request");
+    let at_completion = connection.input().drop_ledger();
+    // A second answer can only be looked for once the first is over.
+    let completed = completed(&events, 2);
+    let after = if completed {
+        observe(connection, resumed, 0, AFTER_ANSWER).await
+    } else {
+        Vec::new()
+    };
+    let at_end = connection.input().drop_ledger();
+    let mut result = score(&events, [at_resume, at_completion, at_end]);
+    result["gap_ms"] = (gap.as_millis() as u64).into();
+    result["first_request_committed_before_second_start"] = committed.into();
+    result["first_answer_began_before_second_start"] = answered_first.into();
+    result["trial"] = match (committed, answered_first) {
+        (true, false) => "interrupt_before_output",
+        (true, true) => "interrupt_during_output",
+        (false, _) => "not_an_interruption",
+    }
+    .into();
+    // Everything observed, whatever the scoring made of it.
+    result["before_second_start"] = before.into();
+    result["since"] = "second start queued".into();
+    result["events"] = events.into();
+    result["after_answer_events"] = after.into();
+    Ok(result)
+}
+
 /// Event kinds for one request with milliseconds since `since`, until the
 /// request completes, the connection ends or `wait` passes.
 async fn observe(
@@ -260,14 +387,7 @@ async fn probe(
     name: &str,
     gap: Duration,
 ) -> Outcome<serde_json::Value> {
-    let timeouts = Timeouts {
-        // Observe for as long as the transport allows before assuming.
-        barrier: Duration::from_secs(5),
-        ..Timeouts::default()
-    };
-    let config = config
-        .timeouts(timeouts)?
-        .barrier_policy(BarrierPolicy::AssumeAfterQuiet);
+    let config = observing(config)?;
     let started = Instant::now();
     Ok(match name {
         // Does the service confirm an interruption of a request it has not
@@ -276,61 +396,9 @@ async fn probe(
             let mut connection =
                 lamp_gemini::connect(config.resumption(Resumption::Retain), SessionId::new(1)?)
                     .await?;
-            let first = Instant::now();
-            say(&connection, 1, speech, true).await?;
-            // A second start issued at once would overtake the first End
-            // locally: the first request would never be committed and the two
-            // would be one question. Give the connection time to write the
-            // End, and record what the service does meanwhile. A trial in
-            // which the first answer has already begun is a different case
-            // and is labelled as one.
-            let before = observe(&mut connection, first, 0, gap).await;
-            let answered_first = before.iter().any(|event| event["kind"] == "first_audio");
-            let resumed = Instant::now();
-            say(&connection, 2, speech, true).await?;
-            let events = observe(&mut connection, resumed, 2, Duration::from_secs(40)).await;
-            // Only this shows the intended state was reached: the second
-            // start found the first request committed.
-            let committed = events
-                .iter()
-                .any(|event| event["kind"] == "input_started_after_committed_request");
-            // The service confirmed if it said anything final about request 1
-            // before this probe's own five seconds of silence ran out.
-            let assumed = events
-                .iter()
-                .position(|event| event["kind"] == "no_confirmation_within_barrier")
-                .unwrap_or(events.len());
-            let confirmed = events[..assumed].iter().any(|event| {
-                event["request"] == 1
-                    && [
-                        "interrupted",
-                        "turn_complete_idle",
-                        "turn_complete_in_progress",
-                    ]
-                    .iter()
-                    .any(|kind| event["kind"] == *kind)
-            });
-            // One answer or two? Anything the service still produces now has
-            // no request to belong to and shows up as dropped.
-            let after = observe(&mut connection, resumed, 0, Duration::from_secs(8)).await;
-            let more = after.iter().any(|event| {
-                event["kind"]
-                    .as_str()
-                    .is_some_and(|kind| kind.starts_with("dropped:"))
-            });
-            serde_json::json!({"probe":name,"gap_ms":gap.as_millis() as u64,
-                "service_confirmed_the_cut_off_request":confirmed,
-                "output_after_the_answer":more,
-                "after_answer":after,
-                "first_request_committed_before_second_start":committed,
-                "first_answer_began_before_second_start":answered_first,
-                "trial": match (committed, answered_first) {
-                    (true, false) => "interrupt_before_output",
-                    (true, true) => "interrupt_during_output",
-                    (false, _) => "not_an_interruption",
-                },
-                "before_second_start":before,
-                "since":"second start queued","events":events})
+            let mut result = interruption_trial(&mut connection, speech, gap).await?;
+            result["probe"] = name.into();
+            result
         }
         // Are resumption handles issued, unasked or when asked?
         "handles" | "handles-requested" => {
@@ -564,4 +632,295 @@ async fn run() -> Outcome<()> {
     };
     println!("{result}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lamp_gemini::DropLedger;
+    use serde_json::{Value, json};
+
+    fn seen(kind: &str, request: Option<u64>) -> Value {
+        json!({"kind":kind,"request":request,"ms":0})
+    }
+    fn none() -> [DropLedger; 3] {
+        [DropLedger::default(); 3]
+    }
+    /// The second request, answered and completed.
+    fn answered() -> Vec<Value> {
+        vec![
+            seen("first_audio", Some(2)),
+            seen("generation_complete", Some(2)),
+            seen("turn_complete_idle", Some(2)),
+        ]
+    }
+
+    #[test]
+    fn an_interruption_notice_alone_does_not_settle_the_barrier() {
+        let mut events = vec![
+            seen("input_started_after_committed_request", Some(2)),
+            seen("interrupted", Some(1)),
+            seen("no_confirmation_within_barrier", Some(1)),
+        ];
+        events.extend(answered());
+        let score = score(&events, none());
+        assert_eq!(score["interruption_seen"], true);
+        assert_eq!(score["idle_completion_settled"], false);
+        assert_eq!(score["probe_assumed_after_silence"], true);
+    }
+
+    #[test]
+    fn a_completion_that_is_not_idle_does_not_settle_the_barrier() {
+        let mut events = vec![
+            seen("turn_complete_in_progress", Some(1)),
+            seen("no_confirmation_within_barrier", Some(1)),
+        ];
+        events.extend(answered());
+        let score = score(&events, none());
+        assert_eq!(score["completion_without_idle_seen"], true);
+        assert_eq!(score["idle_completion_settled"], false);
+    }
+
+    #[test]
+    fn an_idle_completion_of_the_cut_off_request_settles_it() {
+        let mut events = vec![
+            seen("interrupted", Some(1)),
+            seen("turn_complete_idle", Some(1)),
+        ];
+        events.extend(answered());
+        let score = score(&events, none());
+        assert_eq!(score["idle_completion_settled"], true);
+        assert_eq!(score["probe_assumed_after_silence"], false);
+    }
+
+    #[test]
+    fn what_arrives_after_the_probe_assumed_settles_nothing() {
+        let mut events = vec![
+            seen("no_confirmation_within_barrier", Some(1)),
+            seen("interrupted", Some(1)),
+            seen("turn_complete_idle", Some(1)),
+        ];
+        events.extend(answered());
+        let score = score(&events, none());
+        assert_eq!(score["interruption_seen"], false);
+        assert_eq!(score["idle_completion_settled"], false);
+    }
+
+    #[test]
+    fn the_second_request_s_own_events_say_nothing_about_the_first() {
+        let events = answered();
+        let score = score(&events, none());
+        assert_eq!(score["interruption_seen"], false);
+        assert_eq!(score["idle_completion_settled"], false);
+        assert_eq!(score["second_request_completed"], true);
+    }
+
+    #[test]
+    fn nothing_after_the_answer_is_scored_unless_the_second_request_completed() {
+        // The window ran out, or the connection ended, with drops on record.
+        let events = vec![
+            seen("first_audio", Some(2)),
+            seen("observation_window_ended", None),
+        ];
+        let dropped = DropLedger {
+            retired_output: 0,
+            unowned_output: 7,
+            unowned_markers: 2,
+        };
+        let score = score(&events, [DropLedger::default(), dropped, dropped]);
+        assert_eq!(score["second_request_completed"], false);
+        assert!(score["after_answer"].is_null());
+    }
+
+    #[test]
+    fn markers_after_the_answer_are_not_a_second_answer() {
+        let at_end = DropLedger {
+            unowned_markers: 2,
+            ..DropLedger::default()
+        };
+        let score = score(
+            &answered(),
+            [DropLedger::default(), DropLedger::default(), at_end],
+        );
+        assert_eq!(score["after_answer"]["output_messages"], 0);
+        assert_eq!(score["after_answer"]["marker_only_messages"], 2);
+    }
+
+    // The trial itself against a scripted service, on a paused clock.
+
+    use lamp_gemini::{
+        Credential, GOOGLE_ENDPOINT,
+        testing::{FakeService, audio, pair},
+    };
+
+    fn marker(field: &str) -> Value {
+        json!({"serverContent":{field:true}})
+    }
+    fn idle() -> Value {
+        json!({"serverContent":{"turnComplete":true,"interactionStatus":"IDLE"}})
+    }
+    /// Client messages up to and including the next one that carries `field`.
+    async fn until(service: &mut FakeService, field: &str) {
+        loop {
+            let message = service
+                .try_receive(Duration::from_secs(20))
+                .await
+                .expect("client message");
+            if message["realtimeInput"].get(field).is_some() {
+                return;
+            }
+        }
+    }
+    /// Run the trial with half a second of speech and the device's gap. The
+    /// service receives request 1 whole and the start of request 2, then does
+    /// what `script` says.
+    async fn trial<F, R>(script: F) -> Value
+    where
+        F: FnOnce(FakeService) -> R + Send + 'static,
+        R: Future<Output = ()> + Send + 'static,
+    {
+        let config = SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
+            .unwrap()
+            .resumption(Resumption::Retain);
+        let (connect, mut service) = pair(
+            observing(config).unwrap(),
+            SessionId::new(1).unwrap(),
+            1 << 20,
+        )
+        .await;
+        let service = tokio::spawn(async move {
+            service.accept().await;
+            until(&mut service, "activityEnd").await;
+            until(&mut service, "activityStart").await;
+            script(service).await;
+        });
+        let mut connection = connect.await.unwrap();
+        let result = interruption_trial(&mut connection, &[100; 8_000], Duration::from_millis(241))
+            .await
+            .unwrap();
+        service.await.unwrap();
+        result
+    }
+    /// One answer to whatever was committed last, complete and idle.
+    async fn answer(service: &mut FakeService, messages: usize) {
+        for _ in 0..messages {
+            service.send(audio(9, 480)).await;
+        }
+        service.send(marker("generationComplete")).await;
+        service.send(idle()).await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_silent_service_is_reported_as_assumed_and_one_answer() {
+        let result = trial(|mut service| async move {
+            // Nothing until the probe gives up waiting and commits.
+            until(&mut service, "activityEnd").await;
+            answer(&mut service, 3).await;
+            service.rest(AFTER_ANSWER + Duration::from_secs(1)).await;
+        })
+        .await;
+        assert_eq!(result["trial"], "interrupt_before_output");
+        assert_eq!(result["interruption_seen"], false);
+        assert_eq!(result["idle_completion_settled"], false);
+        assert_eq!(result["probe_assumed_after_silence"], true);
+        assert_eq!(result["second_request_completed"], true);
+        assert_eq!(
+            result["after_answer"],
+            json!({"listened_ms":8000,"output_messages":0,"marker_only_messages":0})
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_interruption_notice_with_no_idle_completion_is_not_reported_as_settled() {
+        let result = trial(|mut service| async move {
+            service.send(marker("interrupted")).await;
+            service
+                .send(json!({"serverContent":{"turnComplete":true,"interactionStatus":"IN_PROGRESS"}}))
+                .await;
+            // Neither is the idle completion, so the End stays withheld
+            // until the probe assumes.
+            until(&mut service, "activityEnd").await;
+            answer(&mut service, 3).await;
+            // A late completion with nothing in it is not a second answer.
+            service.send(idle()).await;
+            service.rest(AFTER_ANSWER + Duration::from_secs(1)).await;
+        })
+        .await;
+        assert_eq!(result["interruption_seen"], true);
+        assert_eq!(result["completion_without_idle_seen"], true);
+        assert_eq!(result["idle_completion_settled"], false);
+        assert_eq!(result["probe_assumed_after_silence"], true);
+        assert_eq!(result["second_request_completed"], true);
+        assert_eq!(result["after_answer"]["output_messages"], 0);
+        assert_eq!(result["after_answer"]["marker_only_messages"], 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_idle_completion_is_reported_as_settled_and_nothing_is_assumed() {
+        let result = trial(|mut service| async move {
+            service.send(marker("interrupted")).await;
+            service.send(idle()).await;
+            until(&mut service, "activityEnd").await;
+            answer(&mut service, 3).await;
+            service.rest(AFTER_ANSWER + Duration::from_secs(1)).await;
+        })
+        .await;
+        assert_eq!(result["interruption_seen"], true);
+        assert_eq!(result["idle_completion_settled"], true);
+        assert_eq!(result["probe_assumed_after_silence"], false);
+        assert_eq!(result["second_request_completed"], true);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_service_that_answers_twice_is_reported_by_its_second_answer_s_output() {
+        let result = trial(|mut service| async move {
+            // It ignored the interruption: the cut-off request is answered
+            // after the probe has assumed and committed, and then the second.
+            until(&mut service, "activityEnd").await;
+            answer(&mut service, 3).await;
+            answer(&mut service, 5).await;
+            service.rest(AFTER_ANSWER + Duration::from_secs(1)).await;
+        })
+        .await;
+        assert_eq!(result["probe_assumed_after_silence"], true);
+        assert_eq!(result["second_request_completed"], true);
+        // Five messages of output, then a generation marker and a completion.
+        assert_eq!(result["after_answer"]["output_messages"], 5);
+        assert_eq!(result["after_answer"]["marker_only_messages"], 2);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_answer_that_never_completes_leaves_the_aftermath_unscored() {
+        let result = trial(|mut service| async move {
+            until(&mut service, "activityEnd").await;
+            service.send(audio(9, 480)).await;
+            // No completion: the observation window is all there is.
+            service.rest(Duration::from_secs(60)).await;
+        })
+        .await;
+        assert_eq!(result["second_request_completed"], false);
+        assert!(result["after_answer"].is_null());
+        assert_eq!(result["after_answer_events"], json!([]));
+    }
+
+    #[test]
+    fn output_after_the_answer_is_counted_as_output() {
+        let at_completion = DropLedger {
+            retired_output: 3,
+            unowned_output: 0,
+            unowned_markers: 1,
+        };
+        let at_end = DropLedger {
+            retired_output: 3,
+            unowned_output: 12,
+            unowned_markers: 2,
+        };
+        let score = score(&answered(), [DropLedger::default(), at_completion, at_end]);
+        // Three messages of the cut-off request's own output arrived while
+        // the second request was being spoken: before the answer, not after.
+        assert_eq!(score["cut_off_request_output_messages"], 3);
+        assert_eq!(score["unowned_output_messages_before_completion"], 0);
+        assert_eq!(score["after_answer"]["output_messages"], 12);
+        assert_eq!(score["after_answer"]["marker_only_messages"], 1);
+    }
 }

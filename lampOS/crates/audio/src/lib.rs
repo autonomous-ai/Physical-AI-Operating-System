@@ -9,7 +9,11 @@ use sonora::{AudioProcessing, Config, StreamConfig};
 use std::io;
 
 #[cfg(target_os = "linux")]
+mod alsa_device;
+#[cfg(unix)]
 pub mod capture;
+#[cfg(unix)]
+pub mod device;
 pub mod evidence;
 #[cfg(unix)]
 pub mod notice;
@@ -19,6 +23,8 @@ pub mod pcm;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;
+#[cfg(unix)]
+pub mod testing;
 
 pub const CAPTURE_RATE: u32 = 16_000;
 pub const RENDER_RATE: u32 = 24_000;

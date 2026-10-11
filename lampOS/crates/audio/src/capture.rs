@@ -1,4 +1,6 @@
-//! Bounded Linux ALSA capture for a supervised, dedicated microphone process.
+//! Bounded capture for a supervised, dedicated microphone process. The device
+//! underneath is a [`CaptureDevice`]: ALSA on the board, and anything scripted
+//! in tests. Everything below is the same for both.
 //!
 //! Construction opens nothing. Install fresh trusted microphone authority, then
 //! explicitly `start`. An open handle is not listening readiness or permission
@@ -25,15 +27,14 @@
 //! allowed interval was coalesced into one snapshot. Normal conversation changes
 //! do not discard opening words. Control loss latches closed and requires a newly
 //! supervised instance, not merely `reset`.
-use crate::{CAPTURE_RATE, CAPTURE_SAMPLES, CaptureBlock};
-use alsa::{
-    Direction, ValueOr,
-    pcm::{Access, Format, HwParams, PCM, State, TstampType},
+use crate::{
+    CAPTURE_RATE, CAPTURE_SAMPLES, CaptureBlock,
+    device::{CaptureDevice, ConfigureError, DeviceFault, DeviceState, errno},
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
 use serde::Serialize;
-use std::{fmt, io};
+use std::fmt;
 
 const MAX_READ_US: u64 = 10_000;
 const MIN_BUFFER_FRAMES: i64 = (CAPTURE_SAMPLES * 2) as i64;
@@ -58,6 +59,11 @@ impl CaptureConfig {
 
     pub fn buffer_blocks(self) -> u8 {
         self.buffer_blocks
+    }
+
+    /// The buffer asked of the device, in frames.
+    pub fn requested_frames(self) -> i64 {
+        i64::from(self.buffer_blocks) * CAPTURE_SAMPLES as i64
     }
 }
 
@@ -115,24 +121,24 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct CaptureError {
     pub kind: ErrorKind,
-    pub alsa_error: Option<alsa::Error>,
-    /// A failed ALSA discard is reported even though the handle is then closed.
-    pub close_error: Option<alsa::Error>,
+    pub device_error: Option<DeviceFault>,
+    /// A failed device discard is reported even though the handle is then closed.
+    pub close_error: Option<DeviceFault>,
 }
 
 impl CaptureError {
     fn new(kind: ErrorKind) -> Self {
         Self {
             kind,
-            alsa_error: None,
+            device_error: None,
             close_error: None,
         }
     }
 
-    fn device(error: alsa::Error) -> Self {
+    fn device(error: DeviceFault) -> Self {
         Self {
-            kind: ErrorKind::Discontinuity(classify_device_error(&error)),
-            alsa_error: Some(error),
+            kind: ErrorKind::Discontinuity(classify_device_error(error)),
+            device_error: Some(error),
             close_error: None,
         }
     }
@@ -141,7 +147,7 @@ impl CaptureError {
 impl fmt::Display for CaptureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "capture: {:?}", self.kind)?;
-        if let Some(error) = &self.alsa_error {
+        if let Some(error) = &self.device_error {
             write!(f, ": {error}")?;
         }
         if let Some(error) = &self.close_error {
@@ -207,13 +213,17 @@ pub struct CapturedFrame {
     pub timing: ReadTiming,
 }
 
-pub struct Microphone {
+/// The microphone boundary over the board's ALSA device.
+#[cfg(target_os = "linux")]
+pub type Microphone = MicrophoneOn<crate::alsa_device::AlsaCapture>;
+
+pub struct MicrophoneOn<D: CaptureDevice> {
     device: String,
     config: CaptureConfig,
     guard: BoundaryGuard,
     last_now: MonoTime,
     revoked_revision: u64,
-    pcm: Option<PCM>,
+    pcm: Option<D>,
     format: Option<CaptureFormat>,
     partial: Assembler,
     epoch: u64,
@@ -223,8 +233,8 @@ pub struct Microphone {
     running: bool,
 }
 
-impl Microphone {
-    /// Validate only; no ALSA handle is opened and no microphone samples are read.
+impl<D: CaptureDevice> MicrophoneOn<D> {
+    /// Validate only; no device handle is opened and no microphone samples are read.
     pub fn new(device: &str, boot: BootId, config: CaptureConfig) -> Result<Self> {
         if device.is_empty()
             || device.len() > 128
@@ -312,14 +322,28 @@ impl Microphone {
             )
         })?;
         let open_started_at_us = monotonic_us();
-        let opened = PCM::new(&self.device, Direction::Capture, true);
-        self.pcm = match opened {
+        self.pcm = match D::open(&self.device) {
             Ok(pcm) => Some(pcm),
             Err(error) => return Err(self.device_failed(error)),
         };
-        let format = match configure(self.pcm.as_ref().expect("just opened"), self.config) {
-            Ok(format) => format,
-            Err(error) => return Err(self.fail(Discontinuity::DeviceError, error)),
+        let configured = self
+            .pcm
+            .as_mut()
+            .expect("just opened")
+            .configure(self.config);
+        // Whatever the device reports is checked here as well: the bounds are
+        // this boundary's, not the device's.
+        let format = match configured {
+            Ok(format) if valid_format(format, self.config.requested_frames()) => format,
+            Ok(format) | Err(ConfigureError::Unsupported(format)) => {
+                return Err(self.fail(
+                    Discontinuity::DeviceError,
+                    CaptureError::new(ErrorKind::UnsupportedFormat(format)),
+                ));
+            }
+            Err(ConfigureError::Fault(error)) => {
+                return Err(self.fail(Discontinuity::DeviceError, CaptureError::device(error)));
+            }
         };
         self.format = Some(format);
         self.require_permission()?;
@@ -355,7 +379,7 @@ impl Microphone {
         let capture_started_at_us = monotonic_us();
         if let Err(error) = self
             .pcm
-            .as_ref()
+            .as_mut()
             .expect("permission preserved handle")
             .start()
         {
@@ -386,20 +410,17 @@ impl Microphone {
         if !self.running {
             return Err(CaptureError::new(ErrorKind::NotStarted));
         }
-        let Some(pcm) = self.pcm.as_ref() else {
+        let Some(pcm) = self.pcm.as_mut() else {
             return Err(CaptureError::new(ErrorKind::Closed));
         };
         let read_started_at_us = monotonic_us();
-        let result = match pcm.io_i16() {
-            Ok(reader) => reader.readi(self.partial.remaining_mut()),
-            Err(error) => Err(error),
-        };
+        let result = pcm.read(self.partial.remaining_mut());
         let read_completed_at_us = monotonic_us();
         // A lease can expire during a syscall. Never return that audio.
         self.require_permission()?;
         let frames = match result {
             Ok(frames) => frames,
-            Err(error) if would_block(&error) => 0,
+            Err(error) if error.would_block() => 0,
             Err(error) => return Err(self.device_failed(error)),
         };
         if read_completed_at_us.saturating_sub(read_started_at_us) > MAX_READ_US {
@@ -422,14 +443,14 @@ impl Microphone {
         }
         let status = match self
             .pcm
-            .as_ref()
+            .as_mut()
             .expect("maintain preserved handle")
             .status()
         {
             Ok(status) => status,
             Err(error) => return Err(self.device_failed(error)),
         };
-        if let Some(reason) = state_discontinuity(status.get_state()) {
+        if let Some(reason) = state_discontinuity(status.state) {
             return Err(self.discontinued(reason));
         }
         let status_observed_at_us = monotonic_us();
@@ -438,12 +459,10 @@ impl Microphone {
             .sequence
             .checked_add(1)
             .ok_or_else(|| self.discontinued(Discontinuity::CounterExhausted))?;
-        let stamp = status.get_htstamp();
-        let driver_time = self
-            .format
-            .is_some_and(|format| format.monotonic_status_timestamps)
-            .then(|| timestamp_us(stamp.tv_sec, stamp.tv_nsec))
-            .flatten();
+        let driver_time = status.monotonic_us.filter(|_| {
+            self.format
+                .is_some_and(|format| format.monotonic_status_timestamps)
+        });
         let frame = CapturedFrame {
             samples: self.partial.samples,
             epoch: self.epoch,
@@ -461,8 +480,8 @@ impl Microphone {
                 successful_reads: self.partial.successful_reads,
                 alsa_status_monotonic_us: driver_time,
                 status_observed_at_us,
-                available_frames: status.get_avail(),
-                delayed_frames: status.get_delay(),
+                available_frames: status.available,
+                delayed_frames: status.delayed,
             },
         };
         self.partial.clear();
@@ -579,8 +598,8 @@ impl Microphone {
         self.fail(reason, CaptureError::new(ErrorKind::Discontinuity(reason)))
     }
 
-    fn device_failed(&mut self, error: alsa::Error) -> CaptureError {
-        let reason = classify_device_error(&error);
+    fn device_failed(&mut self, error: DeviceFault) -> CaptureError {
+        let reason = classify_device_error(error);
         self.fail(reason, CaptureError::device(error))
     }
 
@@ -597,13 +616,13 @@ impl Microphone {
         self.prepared = None;
         self.running = false;
         self.reset_required = Some(reason);
-        // Taking the handle guarantees closure even when snd_pcm_drop fails.
-        if let Some(pcm) = self.pcm.take()
-            && let Err(error) = pcm.drop()
+        // Taking the handle guarantees closure even when the discard fails.
+        if let Some(mut pcm) = self.pcm.take()
+            && let Err(error) = pcm.discard()
         {
             return Err(CaptureError {
                 kind: ErrorKind::Discontinuity(reason),
-                alsa_error: None,
+                device_error: None,
                 close_error: Some(error),
             });
         }
@@ -611,73 +630,18 @@ impl Microphone {
     }
 }
 
-impl Drop for Microphone {
+impl<D: CaptureDevice> Drop for MicrophoneOn<D> {
     fn drop(&mut self) {
         // Explicit revoke/control_lost returns discard errors. Destructor cleanup
-        // cannot report them; OS handle close is still attempted by PCM's Drop.
+        // cannot report them; the handle still closes when the device is dropped.
         self.partial.clear();
-        if let Some(pcm) = self.pcm.take() {
-            let _ = pcm.drop();
+        if let Some(mut pcm) = self.pcm.take() {
+            let _ = pcm.discard();
         }
     }
 }
 
-fn configure(pcm: &PCM, config: CaptureConfig) -> Result<CaptureFormat> {
-    let hardware = HwParams::any(pcm).map_err(CaptureError::device)?;
-    hardware
-        .set_access(Access::RWInterleaved)
-        .map_err(CaptureError::device)?;
-    hardware
-        .set_format(Format::s16())
-        .map_err(CaptureError::device)?;
-    hardware.set_channels(1).map_err(CaptureError::device)?;
-    hardware
-        .set_rate(CAPTURE_RATE, ValueOr::Nearest)
-        .map_err(CaptureError::device)?;
-    hardware
-        .set_period_size_near(CAPTURE_SAMPLES as i64, ValueOr::Nearest)
-        .map_err(CaptureError::device)?;
-    let requested_buffer = i64::from(config.buffer_blocks) * CAPTURE_SAMPLES as i64;
-    hardware
-        .set_buffer_size_near(requested_buffer)
-        .map_err(CaptureError::device)?;
-    pcm.hw_params(&hardware).map_err(CaptureError::device)?;
-    let current = pcm.hw_params_current().map_err(CaptureError::device)?;
-    let mut format = CaptureFormat {
-        rate: current.get_rate().map_err(CaptureError::device)?,
-        channels: current.get_channels().map_err(CaptureError::device)?,
-        period_frames: current.get_period_size().map_err(CaptureError::device)?,
-        buffer_frames: current.get_buffer_size().map_err(CaptureError::device)?,
-        monotonic_status_timestamps: false,
-    };
-    if current.get_format().map_err(CaptureError::device)? != Format::s16()
-        || current.get_access().map_err(CaptureError::device)? != Access::RWInterleaved
-        || !valid_format(format, requested_buffer)
-    {
-        return Err(CaptureError::new(ErrorKind::UnsupportedFormat(format)));
-    }
-    let software = pcm.sw_params_current().map_err(CaptureError::device)?;
-    software.set_avail_min(1).map_err(CaptureError::device)?;
-    software
-        .set_start_threshold(1)
-        .map_err(CaptureError::device)?;
-    // Timestamp support is optional; inability is reported in negotiated format.
-    let timestamps = software.set_tstamp_type(TstampType::Monotonic).is_ok()
-        && software.set_tstamp_mode(true).is_ok();
-    if !timestamps {
-        software
-            .set_tstamp_mode(false)
-            .map_err(CaptureError::device)?;
-    }
-    pcm.sw_params(&software).map_err(CaptureError::device)?;
-    let installed = pcm.sw_params_current().map_err(CaptureError::device)?;
-    format.monotonic_status_timestamps =
-        installed.get_tstamp_mode().map_err(CaptureError::device)?
-            && installed.get_tstamp_type().map_err(CaptureError::device)? == TstampType::Monotonic;
-    Ok(format)
-}
-
-fn valid_format(format: CaptureFormat, requested_buffer: i64) -> bool {
+pub(crate) fn valid_format(format: CaptureFormat, requested_buffer: i64) -> bool {
     format.rate == CAPTURE_RATE
         && format.channels == 1
         && (1..=CAPTURE_SAMPLES as i64).contains(&format.period_frames)
@@ -685,45 +649,27 @@ fn valid_format(format: CaptureFormat, requested_buffer: i64) -> bool {
         && format.buffer_frames <= requested_buffer
 }
 
-fn classify_device_error(error: &alsa::Error) -> Discontinuity {
-    match error.errno() {
-        code if code == rustix::io::Errno::PIPE.raw_os_error() => Discontinuity::XRun,
-        code if code == rustix::io::Errno::STRPIPE.raw_os_error() => Discontinuity::Suspended,
-        code if code == rustix::io::Errno::NODEV.raw_os_error()
-            || code == rustix::io::Errno::BADFD.raw_os_error() =>
-        {
-            Discontinuity::Disconnected
-        }
+fn classify_device_error(error: DeviceFault) -> Discontinuity {
+    match error.errno {
+        errno::PIPE => Discontinuity::XRun,
+        errno::STRPIPE => Discontinuity::Suspended,
+        errno::NODEV | errno::BADFD => Discontinuity::Disconnected,
         _ => Discontinuity::DeviceError,
     }
 }
 
-fn state_discontinuity(state: State) -> Option<Discontinuity> {
+fn state_discontinuity(state: DeviceState) -> Option<Discontinuity> {
     match state {
-        State::Running => None,
-        State::XRun => Some(Discontinuity::XRun),
-        State::Suspended => Some(Discontinuity::Suspended),
-        State::Disconnected => Some(Discontinuity::Disconnected),
+        DeviceState::Running => None,
+        DeviceState::XRun => Some(Discontinuity::XRun),
+        DeviceState::Suspended => Some(Discontinuity::Suspended),
+        DeviceState::Disconnected => Some(Discontinuity::Disconnected),
         _ => Some(Discontinuity::DeviceError),
     }
 }
 
-fn would_block(error: &alsa::Error) -> bool {
-    io::Error::from_raw_os_error(error.errno()).kind() == io::ErrorKind::WouldBlock
-}
-
 fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
-}
-
-fn timestamp_us(seconds: i64, nanos: i64) -> Option<u64> {
-    if seconds < 0 || !(0..1_000_000_000).contains(&nanos) || (seconds == 0 && nanos == 0) {
-        return None;
-    }
-    u64::try_from(seconds)
-        .ok()?
-        .checked_mul(1_000_000)?
-        .checked_add(nanos as u64 / 1_000)
 }
 
 struct Assembler {
@@ -786,35 +732,36 @@ impl Assembler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        device::timestamp_us,
+        testing::{CaptureControl, ScriptedCapture},
+    };
+    use lamp_interaction::Controller;
 
-    // The injected-fault tests exercise cleanup/lineage, not null-plugin cold
-    // initialization latency. Configure that software sink before minting its
-    // real short lease, then exercise the production start_prepared boundary.
-    // Public prepare/start integration tests still use the full startup path.
-    fn start_null_fault_fixture(
-        microphone: &mut Microphone,
-        controller: &mut lamp_interaction::Controller,
-    ) {
-        assert_eq!(microphone.device, "null");
-        assert!(!microphone.is_open());
-        let opened = monotonic_us();
-        let pcm = PCM::new("null", Direction::Capture, true).unwrap();
-        let format = configure(&pcm, microphone.config).unwrap();
+    type Scripted = MicrophoneOn<ScriptedCapture>;
+
+    /// A permitted microphone over a scripted device that holds no audio yet.
+    fn permitted(name: &str) -> (Scripted, CaptureControl, Controller) {
+        let device = CaptureControl::register(name);
+        let boot = BootId::new([91; 16]).unwrap();
+        let mut microphone = Scripted::new(name, boot, CaptureConfig::default()).unwrap();
+        let mut controller = Controller::new(boot, now());
+        controller
+            .set_microphone_permission(now(), Permission::Allowed)
+            .unwrap();
         microphone
             .install(controller.snapshot(now()).unwrap())
             .unwrap();
-        microphone.epoch += 1;
-        microphone.sequence = 0;
-        microphone.format = Some(format);
-        microphone.pcm = Some(pcm);
-        microphone.prepared = Some(PrepareReport {
-            epoch: microphone.epoch,
-            format,
-            open_started_at_us: opened,
-            prepared_at_us: monotonic_us(),
-            microphone_generation: microphone.guard.state().unwrap().microphone_generation(),
-        });
-        microphone.start_prepared().unwrap();
+        (microphone, device, controller)
+    }
+    fn block(value: i16) -> [i16; CAPTURE_SAMPLES] {
+        [value; CAPTURE_SAMPLES]
+    }
+    fn discontinuity(error: CaptureError) -> Discontinuity {
+        match error.kind {
+            ErrorKind::Discontinuity(reason) => reason,
+            other => panic!("expected a discontinuity, got {other:?}"),
+        }
     }
 
     #[test]
@@ -901,51 +848,259 @@ mod tests {
     }
 
     #[test]
-    fn injected_xrun_closes_null_capture_and_destroys_the_partial_block() {
-        use lamp_interaction::Controller;
-        let boot = BootId::new([91; 16]).unwrap();
-        let mut microphone = Microphone::new("null", boot, CaptureConfig::default()).unwrap();
+    fn status_and_timestamp_failures_are_not_fabricated_audio() {
+        assert_eq!(
+            state_discontinuity(DeviceState::XRun),
+            Some(Discontinuity::XRun)
+        );
+        assert_eq!(
+            state_discontinuity(DeviceState::Disconnected),
+            Some(Discontinuity::Disconnected)
+        );
+        assert_eq!(
+            state_discontinuity(DeviceState::Suspended),
+            Some(Discontinuity::Suspended)
+        );
+        assert_eq!(state_discontinuity(DeviceState::Running), None);
+        for (code, expected) in [
+            (errno::PIPE, Discontinuity::XRun),
+            (errno::STRPIPE, Discontinuity::Suspended),
+            (errno::NODEV, Discontinuity::Disconnected),
+            (errno::BADFD, Discontinuity::Disconnected),
+            (errno::IO, Discontinuity::DeviceError),
+        ] {
+            assert_eq!(
+                classify_device_error(DeviceFault::new("injected", code)),
+                expected
+            );
+        }
+        assert!(DeviceFault::new("read", errno::AGAIN).would_block());
+        assert!(!DeviceFault::new("read", errno::PIPE).would_block());
+        assert_eq!(timestamp_us(5, 120_000), Some(5_000_120));
+        for (seconds, nanos) in [(0, 0), (-1, 2), (1, -1), (1, 1_000_000_000), (i64::MAX, 1)] {
+            assert_eq!(timestamp_us(seconds, nanos), None);
+        }
+    }
+
+    #[test]
+    fn blocks_are_assembled_across_short_reads_in_order_from_sequence_one() {
+        let (mut microphone, device, _controller) = permitted("scripted:assemble");
+        let started = microphone.start().unwrap();
+        assert_eq!((started.epoch, device.counts().0), (1, 1));
+        // Nothing captured yet is not an error and not a frame.
+        assert!(microphone.try_read().unwrap().is_none());
+        device.push(&[7; 100]);
+        assert!(microphone.try_read().unwrap().is_none(), "100 of 160");
+        device.push(&[8; 60]);
+        device.push(&block(9));
+        let first = microphone.try_read().unwrap().expect("first block");
+        assert_eq!((first.epoch, first.sequence), (1, 1));
+        assert!(first.samples[..100].iter().all(|&sample| sample == 7));
+        assert!(first.samples[100..].iter().all(|&sample| sample == 8));
+        assert_eq!(first.timing.successful_reads, 2);
+        // The scripted device has no status clock, so none is reported.
+        assert_eq!(first.timing.alsa_status_monotonic_us, None);
+        let second = microphone.try_read().unwrap().expect("second block");
+        assert_eq!(second.sequence, 2);
+        assert_eq!(second.samples, block(9));
+        assert!(microphone.try_read().unwrap().is_none());
+        microphone.revoke().unwrap();
+        assert_eq!(device.counts().2, 1, "revocation discards the device");
+    }
+
+    #[test]
+    fn an_xrun_closes_the_device_destroys_the_partial_block_and_restarts_as_a_new_epoch() {
+        let (mut microphone, device, mut controller) = permitted("scripted:xrun");
+        microphone.start().unwrap();
+        device.push(&[300; 80]);
+        assert!(microphone.try_read().unwrap().is_none());
+        device.push(&[301; 400]);
+        device.fail_next("read", errno::PIPE);
+        let error = microphone.try_read().unwrap_err();
+        assert_eq!(
+            error.device_error,
+            Some(DeviceFault::new("read", errno::PIPE))
+        );
+        assert_eq!(discontinuity(error), Discontinuity::XRun);
+        assert!(!microphone.is_open() && !microphone.is_running());
+        assert_eq!(microphone.partial.len, 0);
+        assert_eq!(microphone.partial.samples, [0; CAPTURE_SAMPLES]);
+        assert_eq!(microphone.reset_required(), Some(Discontinuity::XRun));
+        // Nothing reopens by itself, and not before the caller acknowledges.
+        assert!(matches!(
+            microphone.start().unwrap_err().kind,
+            ErrorKind::ResetRequired(Discontinuity::XRun)
+        ));
+        assert_eq!(device.counts().0, 1);
+        microphone.reset().unwrap();
+        microphone
+            .install(controller.snapshot(now()).unwrap())
+            .unwrap();
+        let restarted = microphone.start().unwrap();
+        assert_eq!(restarted.epoch, 2);
+        // What the old handle still held went with it.
+        assert_eq!(device.queued(), 0);
+        device.push(&block(302));
+        let frame = microphone.try_read().unwrap().unwrap();
+        assert_eq!((frame.epoch, frame.sequence), (2, 1));
+        assert_eq!(frame.samples, block(302));
+    }
+
+    #[test]
+    fn a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence() {
+        for (index, (state, expected)) in [
+            (DeviceState::XRun, Discontinuity::XRun),
+            (DeviceState::Suspended, Discontinuity::Suspended),
+            (DeviceState::Disconnected, Discontinuity::Disconnected),
+            (DeviceState::Setup, Discontinuity::DeviceError),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (mut microphone, device, _controller) =
+                permitted(&format!("scripted:state-{index}"));
+            microphone.start().unwrap();
+            device.push(&block(5));
+            // The block was read whole, and the device then says it is not
+            // running: that block is not handed over.
+            device.set_state(state);
+            assert_eq!(discontinuity(microphone.try_read().unwrap_err()), expected);
+            assert!(!microphone.is_open());
+        }
+        for (index, (code, expected)) in [
+            (errno::NODEV, Discontinuity::Disconnected),
+            (errno::BADFD, Discontinuity::Disconnected),
+            (errno::STRPIPE, Discontinuity::Suspended),
+            (errno::IO, Discontinuity::DeviceError),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (mut microphone, device, _controller) =
+                permitted(&format!("scripted:errno-{index}"));
+            microphone.start().unwrap();
+            device.fail_next("read", code);
+            assert_eq!(discontinuity(microphone.try_read().unwrap_err()), expected);
+            assert_eq!(microphone.reset_required(), Some(expected));
+        }
+        // The status call itself failing, after a whole block was read.
+        let (mut microphone, device, _controller) = permitted("scripted:status");
+        microphone.start().unwrap();
+        device.push(&block(5));
+        device.fail_next("status", errno::NODEV);
+        assert_eq!(
+            discontinuity(microphone.try_read().unwrap_err()),
+            Discontinuity::Disconnected
+        );
+    }
+
+    #[test]
+    fn a_read_that_blocks_past_its_budget_is_a_discontinuity_not_late_audio() {
+        let (mut microphone, device, _controller) = permitted("scripted:stall");
+        microphone.start().unwrap();
+        device.push(&block(5));
+        device.stall_next_read(std::time::Duration::from_micros(MAX_READ_US + 5_000));
+        let before = monotonic_us();
+        assert_eq!(
+            discontinuity(microphone.try_read().unwrap_err()),
+            Discontinuity::ReadBudgetExceeded
+        );
+        assert!(monotonic_us() - before >= MAX_READ_US);
+        // The block that the stuck call eventually returned is not delivered.
+        assert!(!microphone.is_open());
+        assert_eq!(microphone.partial.len, 0);
+        assert!(matches!(
+            microphone.try_read().unwrap_err().kind,
+            ErrorKind::NotStarted | ErrorKind::Closed
+        ));
+    }
+
+    #[test]
+    fn a_block_left_incomplete_for_a_buffer_length_is_dropped_not_finished_late() {
+        let (mut microphone, device, _controller) = permitted("scripted:partial");
+        let started = microphone.start().unwrap();
+        device.push(&[5; 10]);
+        assert!(microphone.try_read().unwrap().is_none());
+        // 640 frames at 16 kHz: forty milliseconds.
+        std::thread::sleep(std::time::Duration::from_micros(
+            started.format.buffer_frames as u64 * 1_000_000 / 16_000 + 2_000,
+        ));
+        device.push(&[6; 150]);
+        assert_eq!(
+            discontinuity(microphone.try_read().unwrap_err()),
+            Discontinuity::PartialTimeout
+        );
+        assert!(!microphone.is_open());
+    }
+
+    #[test]
+    fn open_and_configuration_failures_leave_nothing_open() {
+        let boot = BootId::new([92; 16]).unwrap();
         let mut controller = Controller::new(boot, now());
         controller
             .set_microphone_permission(now(), Permission::Allowed)
             .unwrap();
-        start_null_fault_fixture(&mut microphone, &mut controller);
-        microphone.partial.samples.fill(300);
-        microphone
-            .partial
-            .accept(80, monotonic_us(), monotonic_us())
-            .unwrap();
-        let error = microphone.device_failed(alsa::Error::new(
-            "injected",
-            rustix::io::Errno::PIPE.raw_os_error(),
-        ));
-        assert_eq!(error.kind, ErrorKind::Discontinuity(Discontinuity::XRun));
+        // A name no device answers to.
+        let mut absent = Scripted::new("scripted:absent", boot, CaptureConfig::default()).unwrap();
+        absent.install(controller.snapshot(now()).unwrap()).unwrap();
+        let error = absent.start().unwrap_err();
+        assert_eq!(
+            error.device_error.map(|fault| fault.errno),
+            Some(errno::NOENT)
+        );
+        assert!(!absent.is_open());
+
+        let (mut microphone, device, _controller) = permitted("scripted:configure");
+        device.fail_next("configure", errno::IO);
+        let error = microphone.prepare().unwrap_err();
+        assert_eq!(
+            error.device_error,
+            Some(DeviceFault::new("configure", errno::IO))
+        );
         assert!(!microphone.is_open());
-        assert_eq!(microphone.partial.len, 0);
-        assert_eq!(microphone.partial.samples, [0; CAPTURE_SAMPLES]);
-        assert_eq!(microphone.reset_required(), Some(Discontinuity::XRun));
-        assert!(microphone.start().is_err());
-        microphone.reset().unwrap();
-        start_null_fault_fixture(&mut microphone, &mut controller);
-        assert_eq!(microphone.try_read().unwrap().unwrap().sequence, 1);
-        microphone.revoke().unwrap();
+        assert_eq!(device.counts().2, 1, "the opened handle was discarded");
+        assert_eq!(
+            microphone.reset_required(),
+            Some(Discontinuity::DeviceError)
+        );
+
+        // A device that configures to something outside the accepted bounds.
+        for (index, change) in [
+            (|format: &mut CaptureFormat| format.rate = 48_000) as fn(&mut CaptureFormat),
+            |format| format.channels = 2,
+            |format| format.buffer_frames = 4_096,
+            |format| format.period_frames = 0,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let (mut microphone, device, _controller) =
+                permitted(&format!("scripted:format-{index}"));
+            let mut format = CaptureFormat {
+                rate: 16_000,
+                channels: 1,
+                period_frames: 160,
+                buffer_frames: 640,
+                monotonic_status_timestamps: false,
+            };
+            change(&mut format);
+            device.set_format(format);
+            assert_eq!(
+                microphone.start().unwrap_err().kind,
+                ErrorKind::UnsupportedFormat(format)
+            );
+            assert!(!microphone.is_open());
+        }
     }
 
     #[test]
     fn privacy_lineage_change_discards_an_incomplete_block() {
-        use lamp_interaction::Controller;
-        let boot = BootId::new([92; 16]).unwrap();
-        let mut microphone = Microphone::new("null", boot, CaptureConfig::default()).unwrap();
-        let mut controller = Controller::new(boot, now());
-        controller
-            .set_microphone_permission(now(), Permission::Allowed)
-            .unwrap();
-        start_null_fault_fixture(&mut microphone, &mut controller);
-        microphone.partial.samples.fill(400);
-        microphone
-            .partial
-            .accept(40, monotonic_us(), monotonic_us())
-            .unwrap();
+        let (mut microphone, device, mut controller) = permitted("scripted:privacy");
+        microphone.start().unwrap();
+        device.push(&[400; 40]);
+        assert!(microphone.try_read().unwrap().is_none());
+        // Denied and allowed again inside one snapshot interval: the
+        // generation moved, so the handle closes anyway.
         controller
             .set_microphone_permission(now(), Permission::Denied)
             .unwrap();
@@ -958,33 +1113,23 @@ mod tests {
         assert_eq!(update.partial_samples_discarded, 40);
         assert!(update.closed);
         assert_eq!(microphone.partial.samples, [0; CAPTURE_SAMPLES]);
+        assert_eq!(device.counts().2, 1);
     }
 
     #[test]
-    fn status_and_timestamp_failures_are_not_fabricated_audio() {
-        assert_eq!(state_discontinuity(State::XRun), Some(Discontinuity::XRun));
+    fn a_failed_discard_is_reported_and_the_handle_is_still_gone() {
+        let (mut microphone, device, _controller) = permitted("scripted:discard");
+        microphone.start().unwrap();
+        device.fail_next("discard", errno::IO);
+        let error = microphone.revoke().unwrap_err();
         assert_eq!(
-            state_discontinuity(State::Disconnected),
-            Some(Discontinuity::Disconnected)
+            error.close_error,
+            Some(DeviceFault::new("discard", errno::IO))
         );
+        assert!(!microphone.is_open());
         assert_eq!(
-            state_discontinuity(State::Suspended),
-            Some(Discontinuity::Suspended)
+            microphone.reset_required(),
+            Some(Discontinuity::PrivacyRevoked)
         );
-        for (errno, expected) in [
-            (rustix::io::Errno::PIPE, Discontinuity::XRun),
-            (rustix::io::Errno::STRPIPE, Discontinuity::Suspended),
-            (rustix::io::Errno::NODEV, Discontinuity::Disconnected),
-            (rustix::io::Errno::IO, Discontinuity::DeviceError),
-        ] {
-            assert_eq!(
-                classify_device_error(&alsa::Error::new("injected", errno.raw_os_error())),
-                expected
-            );
-        }
-        assert_eq!(timestamp_us(5, 120_000), Some(5_000_120));
-        for (seconds, nanos) in [(0, 0), (-1, 2), (1, -1), (1, 1_000_000_000), (i64::MAX, 1)] {
-            assert_eq!(timestamp_us(seconds, nanos), None);
-        }
     }
 }

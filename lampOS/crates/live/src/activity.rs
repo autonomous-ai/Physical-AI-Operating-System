@@ -277,7 +277,7 @@ impl Default for ConfirmPolicy {
         Self {
             check_blocks: 20,
             commit_blocks: 40,
-            complete_probability: 0.5,
+            complete_probability: 0.8,
             incomplete_blocks: V1_END_SILENCE_BLOCKS,
             result_timeout_blocks: 50,
             fallback_blocks: V1_END_SILENCE_BLOCKS,

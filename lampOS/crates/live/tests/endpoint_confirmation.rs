@@ -170,9 +170,19 @@ fn verdict_after_the_commit_pause_ends_on_arrival() {
     let mut rig = Rig::new();
     rig.speak(50);
     rig.quiet(45);
-    rig.script.reply(rig.script.submissions()[0], 0.7);
+    rig.script.reply(rig.script.submissions()[0], 0.85);
     assert!(matches!(rig.push(QUIET), Activity::End(_)));
     assert_eq!(rig.decision().silence_ms, 460);
+}
+
+#[test]
+fn default_threshold_treats_a_moderate_verdict_as_incomplete() {
+    let mut rig = Rig::new();
+    rig.speak(50);
+    rig.quiet(20);
+    rig.script.reply(rig.script.submissions()[0], 0.79);
+    assert_eq!(rig.quiet_until_end(200), Some(100));
+    assert_eq!(rig.decision().basis, "model_incomplete");
 }
 
 #[test]

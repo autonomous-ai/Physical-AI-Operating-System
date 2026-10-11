@@ -175,6 +175,43 @@ worker. This is not a visual success. Main is obtaining a bounded syscall trace
 and fixing the backend path independently of voice work. Continue MAIN-042 and
 MAIN-043; neither waits on this camera defect or the deferred V1 comparison.
 
+## MAIN-047 — Small core, independent inference and future-only task/memory scope
+
+Owner clarification, 2026-10-11: each major component has an independent process;
+one failed optional component must not crash the product. The interaction core
+stays small and does no heavy inference. Future Harness tasks and shared memory
+remain architecture placeholders only; do not implement them in this release.
+The updated [architecture](../docs/architecture.md) distinguishes this requirement
+from current code and lists the remaining failure-containment gaps.
+
+Agent 2: Main read `lamp-a2-endpoint` at
+`ee1eaad8efb2617b7063a653dc85a37fab2cbb8e` (tested code `c79a7a49`). Preserve the
+useful model/preprocessing parity evidence and all failed results. Choose the
+separate worker/binary alternative: do not link the inference runtime into the
+core or run the model there in a background thread. Propose bounded request and
+result channels with original utterance/worker identity, expiry, one pending
+inference, and no wait for inference or worker exit in the live coordinator.
+Missing/loading/busy/failed/stale-model paths must use the documented 1,200 ms
+fallback, and a stuck worker must not produce replacement workers without a
+confirmed old-worker exit. Put the shared interface/manifest changes in a
+separate reviewed checkpoint; Main retains coordinator integration. Keep the
+model crate and its dependencies scoped to that worker. The pinned float model
+and tract remain candidates, not approved production defaults.
+
+Do not activate the current endpoint policy: its reported 50-case synthetic set
+increased false splits from 7 to 14 while reducing median delay only from 1,196
+to 1,116 ms. Unit/parity passes do not qualify that tradeoff. Preserve synthetic
+and human cohorts separately. Propose and test a correction against the full
+positive/negative set; no threshold selection from only successful examples.
+Human-speech replay can use appropriately sourced fixtures within existing
+permissions; no owner decision is needed for that offline work. It cannot
+replace direct-human hardware acceptance. Main schedules real A733 measurements.
+
+Main is fixing camera teardown, optional-ring failure isolation and continuous
+service/mute lifetimes in separate private candidates. Do not expand MAIN-042
+or MAIN-043 into Harness, memory or a generic supervisor rewrite. Git publication
+records the assignment; acknowledgment is still required before claiming delivery.
+
 ## Delivery and coordination
 
 Give Main an initial interface/first-checkpoint estimate after reading the current

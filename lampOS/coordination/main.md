@@ -3,7 +3,7 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `46a9d6275` adds the inactive guarded motor core and Linux port. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
+- Integrated source checkpoint: `157dbb871` adds opt-in camera context over the inactive guarded motor core/port at `46a9d6275`. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
@@ -16,8 +16,12 @@ serial QEMU tests. Two concurrent visual timeouts remain recorded. The implement
 limits are in [camera context](../docs/gemini-camera-context.md). Device USB
 identity/mode provisioning is complete. The first native inspection selected the
 correct mode, then stalled before its first frame; camera cleanup required SIGKILL.
-Stationary muted restoration passed. The backend cause is under investigation;
-Gemini sight remains unverified. Motor control remains inactive.
+Stationary muted restoration passed. A second, syscall-traced inspection captured
+31 frames with no sequence gaps, then hung in V4L2 STREAMOFF until the 20 ms
+cleanup path killed the worker. This narrows one defect to teardown; it does not
+explain the first run's lack of frames or qualify sight. A private correction
+separates prompt authority revocation from bounded driver cleanup and keeps
+process waiting outside the conversation loop. Motor control remains inactive.
 
 ## Current owner priority
 
@@ -28,12 +32,26 @@ unmute. Isolated V1 stopped, the exact rollback/finalization passed, and the own
 then canceled the Mac-only recording. Retain that failed setup; do not count it
 as a comparison or silently rerun it. MAIN-045 records the priority change.
 
+## Architecture scope clarification
+
+The owner reaffirmed a small core with independent component processes and
+failure containment. Long-running Harness tasks and shared memory are future
+placeholders only; first deliver natural live interaction. See the updated
+[architecture](../docs/architecture.md) and [team ownership proposal](../docs/team-ownership.md).
+MAIN-047 directs Agent 2's endpoint inference into a separate worker/binary and
+holds activation of its candidate, which currently increases false splits in
+its synthetic cohort. Main's continuous service, mute/reopen, camera teardown
+and ring degradation changes are private candidates, not deployed capabilities.
+
 ## Current agent assignments
 
 Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
 on `lamp-a2-endpoint`. Main's scoped response is MAIN-044 in the assignment
 file: a separate endpoint crate and isolated dependency checkpoint are allowed
 for review; no production default or device action is approved by that response.
+Its first tested candidate at `c79a7a49`, published in `ee1eaad8e`, is now read;
+MAIN-047 specifies the separate-process correction and reports why its endpoint
+policy is not accepted yet.
 Agent 1 acknowledged and delivered its first opt-in playout checkpoint at
 `68e50dc3c` on `lamp-a1-playout`; Main read it and requested its narrow integration
 proposal in MAIN-046. Offline replay results are not device measurements.
@@ -43,9 +61,9 @@ The owner requested a new split for the two available Claude Code agents.
 continuity and Agent 2 faster, reliable endpoint detection. Both start from
 `1a089863a`; Main retains device scheduling, camera/motor integration
 and shared coordinator. The detailed file ownership there supersedes the broader
-completion plan for these checkpoints. Delivery is published in Git; peer
-acknowledgment is pending. A fresh direct-context attempt still returned
-`CHANNEL_NOT_FOUND`; do not claim the assignments have reached their sessions.
+completion plan for these checkpoints. Both initial assignments are acknowledged;
+the new MAIN-047 instruction awaits acknowledgment. The last direct-context
+attempt returned `CHANNEL_NOT_FOUND`; do not claim the new assignment was read.
 
 ## Direct coordination
 

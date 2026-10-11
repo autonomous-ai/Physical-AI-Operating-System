@@ -3,20 +3,19 @@
 A standalone Rust runtime for natural conversation with a physical Lamp beside
 one person at a desk.
 
-**Status: V2 has completed finite real-Lamp voice pilots and a physical
-cancellation-clock regression. False interruptions from playback remain
-unresolved. The earlier terminal shutdown checkpoint passed 518 native ARM64 tests,
-strict Clippy, formatting and release build; its physical rerun is pending.
-There is no validated V1-main/V2 p50, p95 or speedup. The installed legacy
-runtime remains the rollback; full choreography, sensors and social
-interaction qualification remain.**
+**Status, 2026-10-11: six varied Rust conversation turns completed on lamp-4ace,
+with no extra admissions or cancellations. Four playback gaps remain. The
+conservative baseline suppresses overlapping input, so natural interruption is
+not solved. Camera context is integrated but native teardown needs correction;
+motor choreography and continuous service are not yet integrated. Full social
+and embodied interaction qualification remains.**
 
-Read the [Claude Code handoff](HANDOFF.md) for the exact source, device,
-evidence, reusable test assets and unfinished work. Work resumed after the
-export; Lamp-4ace is currently unreachable, so physical validation is on hold.
-Later provider and diagnostic fixes have separate
-[host and emulated ARM64 qualification](docs/provider-recovery-integration.md);
-those checks do not replace a physical rerun.
+Lamp-4ace is reachable again and the approved iMac recording/playback setup
+works with the screen locked. The installed legacy runtime remains the
+stationary rollback. The owner deferred V1 benchmarking; current work is V2
+implementation and real-device acceptance. Read the
+[handoff](HANDOFF.md) and [current integration status](coordination/main.md) for
+exact source, evidence, reusable assets and unfinished work.
 
 See [benchmark progress](docs/benchmark-progress.md) for the retained trials and current blockers.
 
@@ -25,7 +24,7 @@ run after extraction, without source files or services from sibling projects.
 All code comments, documentation and notes are English. Read the
 [project rules](AGENTS.md), [release scope](docs/architecture.md), and
 [hardware port contract](docs/hardware-contract.md), and
-[V1-main versus V2 comparison protocol](docs/comparison-protocol.md).
+[deferred V1 comparison protocol](docs/comparison-protocol.md).
 The [reuse decisions](docs/reuse-decisions.md) record what we preserve from V1,
 what we borrow from ROS 2 and which existing Rust projects need evaluation.
 
@@ -40,6 +39,10 @@ The first release is live chat with coordinated voice, head, body and light,
 using camera and sensor observations. Agentic tasks, new long-term memory,
 legacy web UI and fleet management are outside that release scope. The existing
 implementation remains available for validation rollback until V2 qualifies.
+The [architecture](docs/architecture.md#future-task-and-memory-boundaries)
+reserves future Harness task and shared-memory boundaries without making them
+runtime dependencies. Suggested team assignments are in
+[team ownership](docs/team-ownership.md).
 
 ## Build and check
 
@@ -62,12 +65,12 @@ cargo fmt --all -- --check
 | `lamp-ipc` | Private bounded Unix datagrams, shared monotonic timestamps and a separate-process control latency probe. |
 | `lamp-audio` | Pure Rust Sonora AEC3/noise processing in 10 ms blocks; privacy-checked Linux ALSA capture and guarded speaker output. |
 | `lamp-ring` | Fixed-size WS2812 encoding, bounded brightness and ownership-checked Linux SPI writes. |
-| `lamp-camera` | Bounded frame lifecycle, privacy, latest-frame delivery and Linux V4L2 backend; native-qualified code, physical camera qualification pending. |
-| `lamp-motor` | Read-only five-servo protocol, bounded status parsing and per-unit calibration math; no bus access or movement yet. |
+| `lamp-camera` | Bounded frame lifecycle, privacy, latest-frame delivery and Linux V4L2 backend; opt-in live context integrated, native teardown correction and physical qualification pending. |
+| `lamp-motor` | Five-servo protocol, per-unit calibration, guarded motion core and Linux port; inactive in live interaction, with worker integration and physical qualification pending. |
 | `lamp-environment` | Typed latest sensor values, per-field freshness, partial readiness, faults and worker identity; I/O-free contract, drivers/integration pending. |
 | `lamp-acoustic` | Fixed desk scenarios, cached voices/noise mixes and asset integrity checks. |
 | `lamp-gemini` | Bounded Gemini Live WebSocket transport, explicit activity, immutable response ownership and cancellation barriers. |
-| `lamp-live` | Finite directed qualification with separate capture, speaker, physical privacy and provider processes; optional supervised ring cues share conversation ownership. |
+| `lamp-live` | Finite directed qualification with separate capture, speaker, physical privacy and provider processes, optional ring and camera workers; continuous service and complete failure isolation remain in progress. |
 | `lamp-observer` | Mac room recording and native microphone permission preflight; explicit cached iMac-speaker playback with delivery/failure evidence. |
 | `lamp-voice-eval` | Event-triggered conversation acceptance runner and evaluator: pre-registered scenarios, append-only attempt ledger, fake runtime, trace import and a prepared physical runner. See [voice evaluation](docs/voice-eval.md). |
 

@@ -5,23 +5,151 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `95cd4b263` on `gemini-voice`. The commits after it are
+- Tested code commit: `9e95cbf1e` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 10 published. `MAIN-022` and `MAIN-024` are
-  answered below. Environmental acquisition is deferred as you said
-  (`MAIN-024`); `A1-008` is closed for now.
-- **Waiting on you:** `A1-009` (wire the start gate, or reject it) and
-  `A1-010` (may I add a continuation start to the transport).
-- **Found while answering `MAIN-022`, not yet fixed:** the echo evidence
-  reports nothing on the first real recording. See `A1-011`. It is next.
+- State: checkpoints 1 to 11 published. `MAIN-022`, `MAIN-024` and
+  `MAIN-028` are answered below. Environmental acquisition stays deferred.
+- **Waiting on you:** `A1-009`, your review of the start gate. Nothing else.
+- **Not building:** the continuation start (`A1-010`), as you decided.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
 - Harness team: the team's own introduction reached my session after
-  checkpoint 8, with a working route. My inbox was empty when I read it. Git
-  is still where my results are.
+  checkpoint 8, with a working route. I asked one question there
+  (`A1-009` / `A1-010`) and read your answer, `MAIN-028`. Git is still where
+  my results are.
+
+## Checkpoint 11: the echo evidence on a real recording, and two more replies
+
+[Echo evidence](../docs/echo-evidence.md), revised.
+[Playout start](../docs/playout-start.md), extended.
+
+| Commit | Files | Content |
+|---|---|---|
+| `64235a78a` | `crates/audio/src/evidence.rs`, `crates/audio/tests/evidence.rs` | A sixteen-copy fit decides a match; rival alignments; `EchoMatch::residual_playback_floor`; one regression over the path the device recorded |
+| `9e95cbf1e` | `crates/audio/tests/playout_replay.rs`, `docs/playout-start.md` | The two NS-off replies of `MAIN-028` added to the playout replay: seventeen replies |
+
+**`A1-011`, the echo evidence.** On the first pilot's certified recording,
+replayed offline, the observer as published reported a match in 0 of 4,001
+blocks. It now reports one in 100, starting 120 ms after the echo became
+loud.
+
+| First pilot recording, the device's own signals | |
+|---|---|
+| `capture_explained` while the capture was above -40 dB, 85 blocks | 91 / 94 / 99 at the tenth, fiftieth and ninetieth percentile; none below 50 |
+| Match claimed during the spoken question or after the reply | none |
+| `residual_explained` while the cancelled signal was above -30 dB, 30 blocks | median 26, with nobody speaking |
+| `residual_playback_floor`, new, on those blocks | 27 / 78 / 93; 50 or more in 22 of 30 |
+
+Three things were wrong, all found on that recording and none on my scripted
+scenes:
+
+1. The path from the speaker to the microphone beside it is spread over
+   about 3 ms. One delayed copy explains 30 % of a capture that was all
+   playback; the search wanted 50 % from one copy. Sixteen copies explain a
+   median of 91 %.
+2. The voice repeats every 5.25 ms, and an alignment that far off explains a
+   steady vowel at 97 % to 99 % and then fails. The observer now fits rivals
+   within 10 ms and takes one that does better.
+3. **`residual_explained` is not what I said it was.** I wrote that a low
+   value means "something the render does not explain: a person, another
+   device, or noise". On the device it is low with nobody speaking, because
+   what a canceller leaves is what a linear fit could not remove. A low value
+   means nothing. I have corrected the handoff and the list under `A1-003`.
+   The new floor is the field to read: the cancelled signal cannot hold more
+   of anything else than the capture did.
+
+The device's canceller left the cancelled signal as loud as -11 dB during
+that reply, a median of 9.6 dB under the capture in the blocks where it was
+above -40 dB. That is your recording and your canceller configuration, and I
+am only reporting what the replay shows.
+
+`EchoMatch` gained one field. Nothing consumed the type. Cost: 15.3 µs per
+block on the host in a release build, from 9.0. Emulated ARM64: 88.6 µs, from
+60.0. Neither is the board.
+
+**Limits.** One reply, one lamp, one room, one voice, and no moment with a
+person speaking over playback. Every double-talk figure is still scripted.
+The floor is zero, and says nothing, whenever the unexplained part of the
+capture could cover the cancelled signal: a quiet person under loud playback
+is not something this sees. It is not ready to gate admission, and I am not
+asking for `A1-003` yet.
+
+**Playout, two more replies.** Your second NS-off reply is the same defect
+with a slower service: 50 ms of audio, then nothing for 303 ms. With the
+200 ms horizon it starts at 162 ms and gaps for 110 ms instead of 260 ms.
+The first NS-off reply began with one sample and nothing for 391 ms, so it
+could not start early and did not gap. Of seventeen replies the second burst
+came within 191 ms in fourteen and past 300 ms in three, and two of those
+three are among the day's own three runs.
+
+| Horizon, seventeen replies, enqueue rows, outside the suite | Replies with zeros at the start | Zeros, total | First speech, mean and most added | End, mean and most added |
+|---|---|---|---|---|
+| none | 9 | 1,150 ms | | |
+| 200 ms | 2 | 300 ms | 65 ms, 160 ms | 14 ms, 60 ms |
+| 300 ms | 2 | 100 ms | 112 ms, 250 ms | 50 ms, 130 ms |
+| 400 ms | none | none | 140 ms, 320 ms | 72 ms, 170 ms |
+
+200 ms is still where the cost turns. I no longer say it covers everything
+but one stall, and I do not know it is right for the configuration the day's
+runs used. The proposal's `start_horizon_needed_us` on every reply is what
+will say. The proposal branch is unchanged at `b4782eda1`.
+
+**For your endpoint diagnosis, from the NS-on bundle of `MAIN-024`.** Host
+only, your detector untouched. I replayed the certified capture with
+`lamp-audio replay-aec` and scored the outputs with
+`lamp_live::activity::SpeechProbability` in a scratch test that is not in the
+tree.
+
+| | |
+|---|---|
+| Replayed cancelled signal against the device's own, NS on | 2 of 54,240 samples differ |
+| Offline score of the device's cancelled signal against its recorded `vad_score` | within 0.005 on every block |
+| Longest run under 0.35, NS on, device and replay | blocks 53 to 120: 68 blocks, so the endpoint at 60 |
+| The same capture replayed with NS off | blocks 79 to 119: 41 blocks, no endpoint |
+| What the capture holds in blocks 53 to 81 | the end of the first phrase, at -22 dB falling to -58 dB |
+| Blocks 82 to 116 | room silence at -74 dB, about 350 ms |
+
+So the pause inside the question is 350 ms, and the other 250 ms of the 600
+are speech the detector did not score as speech. NS took 3 dB to 6 dB off
+those blocks. With NS off five of them reach 0.35: blocks 62 to 64 at 0.45 to
+0.65, block 68 at 0.38 and block 78 at 0.36. The last two are barely over.
+Without them the run would be 55 blocks, 50 ms short of an endpoint. On this
+one utterance NS off avoids the split, and not by much.
+
+Host, source-only export of `64235a78a`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 925 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Host, source-only export of `9e95cbf1e`, which changes one test file:
+`cargo fmt --all -- --check` and the workspace Clippy pass;
+`cargo test --locked --offline -p lamp-audio -- --test-threads=1`,
+113 passed, 0 failed.
+
+Linux/ARM64, emulated:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Commit | Result |
+|---|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | `64235a78a` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | `64235a78a` | 133 passed, 0 failed |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | `64235a78a` | pass |
+| `cargo test --release -p lamp-live -- --test-threads=1` | `64235a78a` | 302 passed, 0 failed, 2 ignored |
+| `cargo clippy -p lamp-audio --all-targets -- -D warnings` | `9e95cbf1e` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | `9e95cbf1e` | 133 passed, 0 failed |
+
+Offline, on the host, outside the suite: the two replays of device bundles
+and the scoring described above. Their numbers are in the handoffs. The
+recordings are not in Git.
+
+Not run: the whole workspace for `9e95cbf1e`; the Gemini crate on ARM64 for
+either commit, which they do not touch; any device; any cloud.
 
 ## Checkpoint 10: `MAIN-024`, the interruption the service never confirmed
 
@@ -717,17 +845,21 @@ pub echo: Option<lamp_audio::evidence::EchoEvidence>,
 and `echo: None` in the test helper at `coordinator.rs:2150`. I then set it in
 the capture worker from `echo.evidence()` right after `echo.capture(...)`:
 one line in `audio_workers.rs`, which is mine. The value is five small
-integers plus an optional four, and describes the frame it travels with, so
+integers plus an optional five, and describes the frame it travels with, so
 that frame's freshness and lineage rules cover it. Until the field exists the
 capture worker computes the evidence and drops it. If you would rather I send
 the wire change as a proposal branch, say so.
 
-What admission can use, with no threshold implied:
+**On hold since checkpoint 11.** The evidence is not ready to gate
+admission, and the list that stood here was wrong in its second line.
+Corrected, with no threshold implied:
 
-- `echo` present with `residual_explained` high: the cancelled signal the
-  speech detector fired on is mostly Lamp's own voice.
-- `echo` present with `residual_explained` low while `residual_level` is
-  above the room's floor: something the render does not explain is there.
+- `echo` present with `residual_playback_floor` high: the cancelled signal
+  the speech detector fired on is mostly Lamp's own voice.
+- `residual_playback_floor` low or zero, or `residual_explained` low: not
+  determined. **Never evidence of a person.** I had written that a low
+  `residual_explained` meant something the render does not explain was
+  there. On the device it is low with nobody speaking.
 - `echo` absent with `render_active_blocks > 0`: undetermined. Not "no echo".
 - `echo` absent with `render_active_blocks == 0`: Lamp is not speaking.
 
@@ -920,6 +1052,13 @@ It rests on one property of the service that the probe measures: that an
 unanswered generation cut off by `activityStart` does not answer later. If it
 does, the owner is still right and the answer is the truncated question's.
 
+**Rejected in `MAIN-028`, and closed.** Your reasons, as I read them: a late
+answer to the truncated question could be delivered in place of the complete
+question's, and a common owner does not make that correct; no output yet
+does not prove the same intent. `Require` and one lost question stay. I am
+not building it, not waiving input freshness and not replaying input. The
+probe and the regressions stay.
+
 ### A1-011 — notice: the echo evidence is silent on the first real recording
 
 `A1-003` should wait for this. I replayed the first Rust pilot's certified
@@ -946,6 +1085,8 @@ and one reflection, which one tap explains. The real path is spread over
 about five milliseconds. The module keeps its promise that absent is never
 "no echo", but as built it would be absent on the device. I am fixing the
 search next and will test it against this recording, which stays outside Git.
+
+Fixed in checkpoint 11. Kept inactive for admission, as you said.
 
 ## Notes for peers
 
@@ -985,4 +1126,8 @@ search next and will test it against this recording, which stays outside Git.
 - `MAIN-024`: checkpoint 10. Sensor acquisition deferred, no dependency
   change, registration yours: understood. No device, cloud or credential
   action taken. The shared VM is left running.
+- `MAIN-028`, read from the team channel: `A1-009` under your review and
+  kept separate; `A1-010` rejected and closed; `A1-011` fixed in checkpoint
+  11 and inactive for admission. Your second NS-off reply is in the playout
+  replay.
 - Device ownership: yours. I take no device action.

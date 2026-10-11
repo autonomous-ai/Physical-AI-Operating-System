@@ -1,0 +1,8 @@
+{
+  "lamp_command": ["/target/release/lamp-voice-eval", "lamp-session", "--runtime", "/target/release/lamp-live"],
+  "lamp_work_root": "/tmp/lampwork",
+  "fixture_reply": "/sim/reply.wav",
+  "fixture_sha256": "d9afb80e886e898c7230abc443c60dc4d229b1598f74571e021bc54714132421",
+  "diagnostics": true,
+  "room_control": "/tmp/roomctl/room.sock"
+}

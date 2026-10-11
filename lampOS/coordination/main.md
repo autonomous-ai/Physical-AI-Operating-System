@@ -1,9 +1,9 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 21:36 UTC
+- Updated: 2026-10-11 21:56 UTC
 - Branch: `lamp-v2-chat`
-- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, incomplete: one completed reply, one stale player spawn with brief output unknown, six withheld. Last completed finite check: 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, **8/8 complete replies** in one provider session, zero extra inputs/cancellations/reported playback gaps. Continuous room recording and one local ASR pass corroborate all eight. Earlier failed attempts and the older 16/16 sustained check remain separate. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
@@ -50,8 +50,34 @@ checks refused an expired grant with zero source frames and completed a fresh
 [the exact delivery evidence](../docs/verification/prepared-player-20261011/results.json).
 The new eight-question controller prepares output before the original readiness
 check; no prompt replay or deadline widening is allowed. Its actual conversation
-run is next. Agent 2's `e3250a31` evaluator/readiness-cue proposal remains separate,
-and it now owns the reusable long serve-session runner workstream.
+completed 8/8 below. Agent 2's `e3250a31` evaluator/readiness-cue proposal remains
+separate. Root reproduced a startup-cue freshness failure and sent it directly
+for correction within the reusable long serve-session runner workstream.
+
+## Eight-turn installed conversation completed
+
+The [new prepared-player run](../docs/verification/installed-eight-turn-20261011/README.md)
+completed all eight cached questions once, in a single provider session: greeting,
+ocean follow-up and correction, stressful-morning discussion, workload, a
+10-minute constraint and a concise-answer preference. Provider transcripts and
+one unseeded local room-ASR pass agree on the connected replies. All original
+100 ms grants were respected at the first source copy; three expired read-only
+checks were retained and played nothing. No prompt was replayed.
+
+The audit verifies 8,652 contiguous acknowledged service events, zero reported
+playback gaps/cancellations/extra inputs, 3,762 original ring request/receipt
+pairs, all six observed process identities gone, and unchanged stationary muted
+restoration with matching actual mixers. The 180-second room WAV and callback
+ledger are complete; recordings remain local. Stop request to verified inactive
+was 295.209 ms. The installed stopped template and runtime bytes are unchanged.
+
+Across eight samples, endpoint to first speaker write was median **1.123123 s**
+(range 1.024696–1.314028 s), excluding the configured 1.2 s endpoint wait.
+Adding that wait gives about **2.32 s**, an estimate rather than an accepted
+acoustic boundary. Provider-first-audio median was 929.330 ms after endpoint.
+Initial service readiness took 2.075478 s. The test supports connected scripted
+chat, not real-human interruption, background addressing or overall release
+acceptance. `human_listened=false`; acoustic scores remain null.
 
 ## Retained connected-attempt failure
 

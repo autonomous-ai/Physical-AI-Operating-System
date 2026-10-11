@@ -60,6 +60,7 @@ fn import(dir: &Path, metadata: &Path) -> AttemptRecord {
             scenario: "fixed-reply-echo-only".into(),
             turn_map: Vec::new(),
             room_metadata: Some(metadata),
+            room_receipt: None,
             room_independent: true,
             source: lamp_voice_eval::record::StimulusSource::Unknown,
         },

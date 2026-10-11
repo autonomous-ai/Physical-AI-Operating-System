@@ -52,6 +52,7 @@ fn score_with_identity(body: Vec<Value>, identified: bool) -> evaluate::AttemptS
             scenario: "quick-chat".into(),
             turn_map: vec![("ask".into(), Some(1))],
             room_metadata: None,
+            room_receipt: None,
             room_independent: false,
             source: StimulusSource::Unknown,
         },

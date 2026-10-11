@@ -32,7 +32,8 @@ const USAGE: &str = "usage:
       [--seed N] [--no-shuffle] [--attempt-seed N] [--cache DIR --manifest FILE...] [--plan FILE]
   lamp-voice-eval evaluate RUN_DIR [--annotations FILE] [--plan FILE]
   lamp-voice-eval import-trace --events FILE --scenario ID --out NEW_DIR [--turn STEP=TURN|none]...
-      [--room-metadata FILE] [--room-independent] [--source loudspeaker_synthetic|direct_human] [--plan FILE]
+      [--room-metadata FILE | --room-receipt FILE --room-input NAME] [--room-independent]
+      [--source loudspeaker_synthetic|direct_human] [--plan FILE]
   lamp-voice-eval annotation-template RUN_DIR NEW_FILE
   lamp-voice-eval assets --cache DIR --manifest FILE...
   lamp-voice-eval render-stimuli CACHE NEW_REPORT.json
@@ -317,6 +318,13 @@ fn run() -> Result<i32> {
                 })
                 .collect::<Result<Vec<_>>>()?;
             let room = args.take("--room-metadata")?.map(PathBuf::from);
+            let receipt = args.take("--room-receipt")?.map(PathBuf::from);
+            let input = args.take("--room-input")?;
+            if receipt.is_some() != input.is_some() {
+                return Err(invalid(
+                    "--room-receipt FILE needs --room-input NAME, and the reverse",
+                ));
+            }
             let room_independent = args.take_flag("--room-independent");
             let source = match args.take("--source")?.as_deref() {
                 None => StimulusSource::Unknown,
@@ -338,6 +346,7 @@ fn run() -> Result<i32> {
                     scenario,
                     turn_map,
                     room_metadata: room.as_deref(),
+                    room_receipt: receipt.as_deref().zip(input.as_deref()),
                     room_independent,
                     source,
                 },

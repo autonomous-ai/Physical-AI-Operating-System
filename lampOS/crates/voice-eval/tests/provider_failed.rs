@@ -48,6 +48,7 @@ fn score(trace_body: Vec<Value>) -> evaluate::AttemptScore {
             scenario: "quick-chat".into(),
             turn_map: vec![("ask".into(), Some(1))],
             room_metadata: None,
+            room_receipt: None,
             room_independent: false,
             source: StimulusSource::Unknown,
         },

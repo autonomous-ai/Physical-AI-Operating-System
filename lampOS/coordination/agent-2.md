@@ -4,67 +4,92 @@ Owner: Agent 2, branch `lamp-a2-endpoint` for MAIN-043 (faster, reliable
 end-of-turn detection). Earlier evaluator work stays on `lamp-v2-agent2`
 (`95029a03`) and `lamp-v2-agent2-sim` (`1a89a9cb`); neither is merged here.
 
-## MAIN-043: acknowledged
+## MAIN-043: first tested checkpoint
 
-- Base: `1a089863a1bfdfa532a11e8967e6ed87f94ea1d5` (`origin/lamp-v2-chat`).
-- State: interface checkpoint. No coordinator, CLI, wire or provider change yet;
-  no device action.
+- Base: `1a089863a1bfdfa532a11e8967e6ed87f94ea1d5`.
+- Tested code head: `c79a7a49`. This status file and
+  [the endpoint detection doc](../docs/endpoint-detection.md) follow it.
+- State: an opt-in candidate. No activation, no device action and no deploy.
+- Acknowledgment: `e7c491c9`. The Harness channel is unavailable, so Git is the
+  record.
 
-### Initial findings (read before code)
+### Commits (exact files, one line each)
 
-- Current Rust: `TurnDetector::v1_baseline()` ends after 120 consecutive 10 ms
-  blocks with VAD probability < 0.35. The 1,200 ms wait applies to every turn.
-- Pinned V1 `d5efe9d7`, standard Lamp profile: the gated path with
-  `HAL_REALTIME_TURN_DETECTION=off`, so Gemini automatic activity detection is
-  disabled and the endpoint is local.
-  - A silence clock proposes the end after 1.2 s (Lamp `SILENCE_TIMEOUT`), or
-    0.8 s after an STT final.
-  - `TurnEndpoint` then asks Smart Turn v3 (Pipecat `LocalSmartTurnAnalyzerV3`,
-    single-flight, tokens per capture and generation) for confirmation.
-  - Complete closes the turn. Incomplete holds until 6 s. A missing or failed
-    model closes after 2.5 s.
-  - Text hints (fillers, greetings) depend on STT and are not ported.
-- Model, pinned:
-  - `pipecat-ai/smart-turn-v3` revision `f766f81d3cfdf7737ac64aad813d91bbfd56bf93`,
-    BSD-2.
-  - Pipecat `53d313b1` bundles the same `smart-turn-v3.2-cpu.onnx`
-    (SHA256 `2bb02631…967e4f`).
-  - Preprocessing contract: up to 8 s at 16 kHz, zeros padded at the front,
-    Whisper-tiny log-mel (n_fft 400, hop 160, 80 Slaney mels), waveform
-    zero-mean/unit-variance first.
-- Inference dependency: `tract-onnx =0.23.8`, pure Rust, MIT/Apache, MSRV 1.91;
-  `ort` is still a release candidate and needs native ONNX Runtime binaries.
-  - Reproduced defect: tract 0.23.8 mis-executes the int8 QDQ CPU model. Every
-    uint8 softmax quantize/dequantize output becomes 255 × scale, so it returns
-    0.321 where ONNX Runtime 1.31 returns 0.981 on the same input.
-  - The unquantized `smart-turn-v3.2-gpu.onnx` (SHA256
-    `ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be`, 32 MB)
-    matches ONNX Runtime to 1e-7 under tract. It is selected, pending the
-    measurements below.
+| Commit | Content | Integration note |
+| --- | --- | --- |
+| `65bd206a` | New `crates/endpoint` (`lamp-endpoint`): Rust Whisper features, a pinned tract model loader that checks the hash before parsing, a single-flight worker, parity tests and a fixture generator, and `fetch-model.sh`. Also the workspace member and `Cargo.lock` (64 new packages, no existing version changes). | Workspace/lockfile change for Main's agreement |
+| `df8f4b57` | `TurnDetector::with_confirmation`, `ConfirmPolicy`, `EndpointDecision` and `last_endpoint()`. The `lamp-live` → `lamp-endpoint` dependency. 18 policy regressions. | Delegated file plus a manifest line |
+| `097869d8` | Default threshold 0.8, plus a regression for it. | |
+| `b3ae6e4f` | `examples/endpoint_replay.rs` (virtual and paced replay, plus `--classify`) and 55 synthetic `say` cases. | |
+| `c79a7a49` | Proposal only: `--endpoint smart-turn` (requires `--turn-taking v1-baseline`, model beside the executable) and `endpoint_policy` / `local_endpoint` trace fields. | Coordinator/CLI change: Main decides |
 
-### Interface proposal (first checkpoint)
+### Gates
 
-- New crate `crates/endpoint` (`lamp-endpoint`) containing:
-  - Rust Whisper features;
-  - a model loader that checks the SHA256 before parsing;
-  - a single-flight background worker (bounded request slot, token-tagged
-    results, load/failure state).
-- `TurnDetector::v1_baseline().with_confirmation(classifier, policy)`:
-  - Capture and `push()` stay synchronous and non-blocking.
-  - After a short low-VAD run, an 8 s snapshot of the retained utterance
-    (pre-roll plus resumed speech) is submitted.
-  - A complete verdict for the current utterance and generation ends the turn
-    early.
-  - Resumed speech, reset, suppression, discontinuity and privacy loss
-    invalidate pending results.
-  - A missing, loading, failed, busy or timed-out model falls back to the
-    unchanged 1,200 ms silence endpoint. An incomplete verdict has a hard bound.
-- Coordinator activation and trace fields will be a separate integration patch
-  for Main; the existing `Activity::End` path is unchanged.
-- Workspace member, `lamp-live` dependency and `Cargo.lock` (about 70
-  third-party packages from tract) also need Main's agreement. They will be
-  isolated in their own commit.
-- First tested checkpoint estimate: same day (features, model and worker with
-  parity tests, then the detector seam with deterministic policy regressions).
-  Synthetic macOS `say` replay measurements follow. Device latency is
-  unmeasured until Main schedules it.
+- **macOS** (M2 Max, Rust 1.96.0): `cargo fmt --all --check`; strict Clippy
+  for `lamp-endpoint` and `lamp-live` (`--all-targets -D warnings`).
+  - `lamp-live`: 435 passed, 0 failed, 2 ignored.
+  - `lamp-endpoint` with `--include-ignored` and the model: 8 passed.
+- **Linux ARM64** (Docker on Colima VM `lampos`, 6 vCPU, `rust:1.96.0-bookworm`)
+  at `c79a7a49`:
+  - `cargo fmt --all -- --check` passed.
+  - `cargo clippy --locked --workspace --all-targets -- -D warnings` was clean.
+  - `cargo test --locked --workspace --no-fail-fast`: 1,192 passed, 0 failed,
+    6 ignored. Two of the ignored tests need the model.
+  - With the model mounted read-only, `cargo test --locked --release -p
+    lamp-endpoint -- --include-ignored`: 8 passed.
+- **Failures:** the first Linux run at `c79a7a49` failed 25 tests because the
+  VM's disk was full (58/58 GB, from my own stale gate build cache). I removed
+  that cache volume directory and re-ran; the result above is that clean run.
+  `b3ae6e4f` had passed 1,191/0/6 earlier.
+
+### Measurements
+
+These are not Lamp hardware. Full tables are in the doc.
+
+- **Parity:**
+  - Rust features match Pipecat `53d313b1` within 1.2e-6.
+  - Probabilities match ONNX Runtime 1.31 within 8.7e-6 over 829 labelled
+    upstream clips, with 0 decision flips.
+- **Inference:**
+  - Linux ARM64 VM: warm 88.5 ms, cold 89–94 ms, load about 160 ms; real-time
+    replay p50 118 ms, max 134 ms.
+  - macOS uses Apple AMX, so it runs at about 32 ms warm.
+- **Memory and size:**
+  - Memory is 156–182 MB on the macOS model probe and 118 MB peak for the whole
+    Linux replay.
+  - The `lamp-live` release binary grows from 7.85 to 31.42 MB (17.3 MB more
+    when stripped).
+- **Upstream human English test clips** (538, shard 0): at threshold 0.8, 1.9%
+  of unfinished clips are judged finished and 96.4% of finished clips are
+  recognized. This is classification only.
+- **Synthetic `say` replay** (50 single-turn cases):
+
+  | Variant | False splits | p50 delay |
+  | --- | --- | --- |
+  | `v1-1200` | 7 | 1,196 ms |
+  | candidate | 14 (7 new against `v1-1200`) | 1,116 ms |
+
+  The model misjudges these voices: fragments score up to 0.98, and complete
+  questions score as low as 0.11. Pipecat's Python reference confirms this, so
+  the target of no false splits is not met on this set.
+
+### Requests to Main
+
+1. Agree or reject the workspace/lockfile and dependency choice: tract 0.23.8,
+   the fp32 model fetched by hash, 64 packages, 17 MB of binary growth.
+   Alternatives: a cargo feature, or a separate worker binary.
+2. Decide whether to take the `c79a7a49` CLI/trace wiring. It lacks a
+   coordinator-level test for a session with a missing model.
+3. Before the physical A/B: the current `say` stimuli cannot qualify this
+   candidate. Human-read prompts, or recorded human speech played through the
+   loudspeaker, are needed. That is an owner decision.
+4. When scheduled: device load, cold and warm inference on the A733, and
+   coordinator-loop impact. If inference exceeds 200 ms, 400 ms early endpoints
+   become later. Past 500 ms it times out to the silence fallback.
+
+### Remaining gaps
+
+- No device evidence; no tuning on human pauses inside a single turn.
+- Pauses longer than 1.2 s still split, as they do today.
+- int8 is blocked by the tract QDQ defect. A short answer followed by more
+  speech still ends after the short answer.

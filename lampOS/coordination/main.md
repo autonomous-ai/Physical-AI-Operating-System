@@ -5,7 +5,7 @@
 - Branch: `lamp-v2-chat`
 - Integrated runtime checkpoint: `7dde135af36fb4614f1c4d062fcb5a1d3ef9b6d2`
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: the opt-in V1-style turn-taking baseline is integrated and host/ARM gates pass. Its first device attempt aborted during source-recorder setup before target launch or any prompt; rollback and original volumes were verified. Natural conversation and benchmark qualification remain unfinished.
+- State: the opt-in V1-style baseline now completed one physical fixed reply and two consecutive Gemini replies without self-cancellation. The Gemini run still fails conversational quality: its second answer was Spanish after the same English stimulus, and it had one 80 ms accepted-zero playback gap. Natural conversation and acoustic benchmark qualification remain unfinished.
 
 ## Direct coordination
 
@@ -45,9 +45,52 @@ on a0ae but aborted in source52's recorder setup before target runtime launch
 or any stimulus. Applying observer controls plus repeated checks exceeded the
 existing 600 ms cooperative guard. Both source capture controls were restored,
 the target rollback verified, and original volumes returned to target 77/source 94.
-It is a retained failed attempt, not self-echo or acoustic evidence. The next
-attempt must use a fresh ownership window after correcting this harness path.
-Recordings remain local. This attempt opened no motor, camera or ring path. The half-duplex baseline still needs physical qualification.
+It is a retained failed attempt, not self-echo or acoustic evidence. The recorder
+was corrected by splitting startup work into five cooperative slices while
+retaining the 600 ms per-slice, 350 ms mixer-command and original 3 s startup
+bounds. Later runs used fresh ownership windows. Recordings remain local.
+
+### Actual hardware results after that correction
+
+- Fixed reply, `20261011T060157Z`: two admitted inputs, one complete 107,760-frame
+  reply (the fixture intentionally does not answer its second input), no extra
+  input, cancellation, fault or accepted-zero gap. Independent review matched
+  every accepted speech sample to the fixed reply and verified recorder and
+  diagnostic identities. This is a hardware lifecycle check, not Gemini.
+- Gemini, `20261011T062138Z`: the same cached English greeting played twice from
+  source52, with a0ae running the exact qualified Rust binary. Two inputs,
+  endpoints and complete replies, zero extra admissions/cancellations/provider
+  failures. Both diagnostic certificates and room recording identities verify;
+  source and target settings were restored. **Lifecycle/integrity pass,
+  conversational quality fail.** Reply two had 1,920 accepted zero frames
+  (80 ms at 24 kHz), and its output transcript was Spanish. The session-scoped
+  input transcription was Spanish too; that input hypothesis is not reliable
+  per-turn correlation. Both stimulus receipts name the identical cached WAV.
+- Local endpoint to first ALSA acceptance was 1,212,722 us and 1,146,240 us.
+  These two software intervals exclude the existing 600 ms endpoint silence
+  wait and are not acoustic speech-end to first-word measurements or a
+  before/after benchmark. Reply one was English and contextually appropriate.
+
+Private evidence: `/private/tmp/lamp-rust-v1-gemini-evidence-20261011T062138Z`.
+Independent audit: `/private/tmp/lamp-v1-gemini-audit-vkh0xxhk/report.json`, SHA256
+`6359c98756c9f996d3e239f10c6e660ee5bcc161bdb97ca7ca806b522704c63b`;
+input manifest SHA256
+`fdfbc180394c826f8a63082cb65475b3b726fb5f8c1bce82947cee7c74b208b5`.
+Local-only forced-English ASR corroborated the first exchange, but hallucinated
+on one microphone during the second reply. It is not accepted human listening
+or acoustic timing. The provider output transcript establishes the language
+failure independently. No camera, ring or motor path was exercised.
+
+Main's sequencing mistake was attempting full-duplex admission before porting
+V1's working playback protection, then expanding component hardening before
+closing the physical conversation loop. Immediate priority is repeated real
+conversation with this baseline, followed by one measured correction at a time
+for playback gaps and language handling. A repeated-greeting ten-turn run is
+being prepared as a narrow self-echo/lifecycle check; it cannot stand in for
+varied conversation, natural interruption or multi-speaker acceptance.
+The original Harness team context currently returns CHANNEL_NOT_FOUND to Main;
+Git status is the coordination fallback. Do not claim fresh peer acknowledgment.
+
 
 ## Prior integrated checkpoint
 

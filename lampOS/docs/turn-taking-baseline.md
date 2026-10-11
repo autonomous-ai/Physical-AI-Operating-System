@@ -135,12 +135,23 @@ release build and strict audio/Gemini/live Clippy passed, plus release QEMU
 executions of five paired-worker, 26 turn-taking and seven prefix-filter tests
 (the filters overlap). The staged binary passed native CLI/loader startup.
 Its first fixture attempt stopped in source-recorder setup before the Rust
-target launched or any prompt played; rollback restored the settings. Native
-audio behavior and acoustic qualification remain unverified for this policy.
+target launched or any prompt played; rollback restored the settings. After a
+bounded recorder startup correction, physical fixed-reply run `20261011T060157Z`
+retained two inputs and one intentional fixture reply without self-cancellation
+or playback gaps. All 107,760 accepted reply samples matched the fixture.
 
-These tests use synthetic PCM and software events. No test result is human
-listening, echo rejection, direct-human overlap, TV restraint, acoustic latency
-or physical parity. Host-read completion is not an ADC timestamp; dispatch,
+Real Gemini run `20261011T062138Z` then completed two replies with zero extra
+admissions, cancellations or provider failures. It still failed conversational
+quality: the second reply was Spanish despite identical English stimuli, and
+had one 1,920-frame accepted-zero gap (80 ms at 24 kHz). Local endpoint to first
+ALSA acceptance was 1,212,722 us and 1,146,240 us; these exclude the 600 ms endpoint
+silence wait and are not acoustic measurements. Diagnostic/recording identities
+and restoration verified independently. See the [current evidence](../coordination/main.md).
+
+The host tests use synthetic PCM and software events. These two physical trials
+establish only their observed bounded lifecycle behavior. No result establishes
+human listening quality, direct-human overlap, TV restraint, acoustic latency
+or general physical parity. Host-read completion is not an ADC timestamp; dispatch,
 ALSA acceptance and nominal queue retirement are not DAC/acoustic boundaries.
 The local policy target is under 1 ms per block/decision on Lamp, unmeasured.
 

@@ -45,9 +45,13 @@ Checkpoint `7dde135af` now provides an opt-in `v1-baseline` that suppresses
 prospective input during confirmed own output and a declared 100 ms tail,
 before replacing the reply. It preserves capture/reference continuity and
 checks delayed output evidence against the original input intervals. Host and
-ARM gates pass, but its first fixture attempt aborted in recorder setup before
-the target launched. Default `vad-only` is unchanged, and physical parity is
-still pending. See the [implemented baseline](turn-taking-baseline.md).
+ARM gates pass. After an initial recorder setup failure, a physical fixed-reply
+trial completed without self-cancellation, followed by two complete real Gemini
+replies with no extra admissions or cancellations. That Gemini run still failed
+quality: an 80 ms accepted-zero gap and a wrong-language second reply. This is
+limited lifecycle evidence; general physical parity and acoustic latency remain
+pending. Default `vad-only` is unchanged. See the
+[implemented baseline](turn-taking-baseline.md).
 
 ## Maintained reference designs and provider constraints
 

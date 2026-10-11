@@ -1,18 +1,25 @@
 # Agent 1 status
 
 Owner: Agent 1 (audio and Gemini). This file on
-`lamp-a1-continuation-retain` is the status of `MAIN-056` with the kept
-start added; the same file on `lamp-a1-continuation` (`9ec2f8cfe`, left
-as it was for your review) is the status without it. Reference recovery (`MAIN-053`, `054`, `058`) is
+`lamp-a1-continuation-provider` is the status of `MAIN-056` as a
+deployable opt-in candidate. `lamp-a1-continuation-retain` (`55ccc4a1a`)
+and `lamp-a1-continuation` (`9ec2f8cfe`) are left exactly as they were. Reference recovery (`MAIN-053`, `054`, `058`) is
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-11, 21:00 UTC
-- **`MAIN-056`: the lost question now has a fix that does not guess, built,
-  opt-in and tested against the in-memory service: the next request's
-  start and opening words are kept until the earlier answer begins or
-  completes.** It has not met the real service. See
-  [The kept start](#the-kept-start-built-on-this-branch).
+- Updated: 2026-10-11, 21:45 UTC
+- **`MAIN-056`: one explicit option, `--provider-continuation kept-start`,
+  off by default, carries the kept start, the at-commit wait and barrier
+  reports from `lamp-live serve` to the session.** Verified through the
+  provider worker's own loop against a scripted service. See
+  [The candidate](#the-candidate).
+- **Your three real-service runs, one attempt each:** the at-commit wait
+  alone still timed out, with nothing at all from the service in 6.18 s;
+  with the start kept the same case was confirmed and answered, burst
+  included. See [the kept start](#the-kept-start-built-on-this-branch).
+- **A defect of mine that your review found is fixed here:** a request
+  retired while its kept start was being written still had its End
+  committed. `04dcb8f6c`.
 - The service's documentation gives no confirmation for a response
   interrupted before output. The exact missing guarantee and what the
   person gets without it are [stated below](#the-missing-guarantee).
@@ -29,7 +36,8 @@ second: `e9bdcea28` on `lamp-v2-chat` carries its three files.
 |---|---|---|---|
 | `lamp-a1-continuation-probe` | `7ab7e30b9` | your `235f50297` | Example only. During-output mode, the observation bound, the exit rule |
 | `lamp-a1-stop-queued` | `53f303c7e` | your `55d7af98e` | Six commits. `5479f9b2b` two regressions that fail, `9c6c1637a` the queue guard; then, after your review, `2bec36350` three more that fail, `e70324912` the fence, `2fd77a417` its document, `53f303c7e` your wording corrections. Nothing to do with continuation |
-| `lamp-a1-continuation-retain` | this commit | `9ec2f8cfe` | The kept start: `c80edfa91` library and tests, `76520cb90` probe setting, `270a91412` the proposed `provider_worker.rs` wiring, switched off, `901622831` document and the Lamp case script |
+| `lamp-a1-continuation-provider` | this commit | `55ccc4a1a` | `bdc1708de` two regressions that fail, `04dcb8f6c` the retirement fix with your regression, `66960b3f1` the provider worker's continuation choice and nine tests, `20889d416` **the shared commit**: `options.rs`, `main.rs`, `coordinator.rs`, `74d996eb1` the document, `6717a4f86` **a second small shared commit** after your review: `fixture_provider.rs`, `main.rs`, `options.rs`, `b19cadd09` two worker cases under the coordinated contract |
+| `lamp-a1-continuation-retain` | `55ccc4a1a`, untouched | `9ec2f8cfe` | The kept start as you probed it: `c80edfa91` library and tests, `76520cb90` probe setting, `270a91412` wiring switched off by a constant, `901622831` document and the Lamp case script |
 | `lamp-a1-continuation` | `9ec2f8cfe`, untouched | the probe branch and your `e9bdcea28` merged in | The library: `BarrierWait::AtCommit` and barrier reports, their tests, the probe's settings for them, the document. One separate proposal commit for `provider_worker.rs`, `a25e68a52` |
 
 ## What the service did, twice
@@ -150,6 +158,63 @@ it cannot be built inside the 1 s bound: with the bound kept it fails on
 the opening audio of exactly the requests it is for. Widening it is not
 mine to decide.
 
+## The candidate
+
+`lamp-live serve CONFIG OUTPUT --provider-continuation kept-start`. Off
+by default; `off` leaves the provider worker's command line and behavior
+exactly as they were. On, it selects together, for the worker's lifetime:
+the kept start with a patience of 2,500 ms, the at-commit wait, and
+barrier reports on the worker's standard error. `Require`, every timeout,
+both queue bounds, capture times and the 1 s age bound for audio as it is
+handed in are unchanged. Nothing committed is replayed.
+
+Two things your read-only review of `74d996eb1` found, both corrected:
+the option was also accepted and advertised for `directed-fixture`, whose
+worker takes exactly its WAV and digest, so a kept start would have been
+misread there and the fixture would not have started (`6717a4f86`: the
+fixture refuses it, with a test); and all nine worker cases ran under the
+legacy contract while the command line uses the coordinated one
+(`b19cadd09`: the successful kept question, and Stop and mute while kept,
+now run under both).
+
+Integration is three small places, in `20889d416` and `6717a4f86`, and the document
+section "In the provider worker" lists them: the option in `options.rs`,
+the worker's argument and the `run_start` field in `coordinator.rs`, and
+the worker taking the flag in `main.rs`.
+
+Through the worker's own intake, hand-off and session against the
+scripted service, input at 10 ms a block with its own capture times
+(`provider_worker::tests::kept_start`, ten tests): a resumed question is
+kept and exactly it is delivered; two resumed utterances are one question
+with one End; a first answer that completes with nothing; Stop and mute
+while kept; Stop while being written out; a quota close while kept, with
+nothing written and nothing replayed to a new connection; no first
+answer, then patience and the strict timeout with no End; the cancelled
+case below; and, without the option, the old behavior.
+
+**The retirement defect, mine, found by your review.** After the earlier
+response settled, the kept start and audio were written and then the
+withheld End, and those writes are awaited: a retirement recorded during
+one of them was not read again, so a cancelled or superseded request had
+its End committed. Now retirement is read immediately before an End is
+handed to the socket. Red on `bdc1708de` and on your regression with the
+same message as your evidence; green at `04dcb8f6c`. The limit, which you
+accepted: once the End frame is inside the WebSocket layer it goes out
+with the next flush, and a retirement recorded after that finds a
+committed request, handled as one. A healthy connection is not abandoned
+to take a frame back.
+
+**The cancelled kept request, shown and not hidden.** It is never
+committed. But the audio the session had taken from it is still written
+when the first answer begins, and the next request continues that
+activity, so the service hears it as the start of the next question. The
+test `a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one`
+shows exactly that on the wire. On the default path the same audio
+reaches the service too, only sooner. The session cannot tell a
+cancellation from a continuation, and I did not make it guess. The
+contract that would settle it is proposed in the document, a provider
+input `void { request }` from the coordinator, and is not built.
+
 ## The kept start, built on this branch
 
 `SessionConfig::successor_start(SuccessorStart::AfterFirstOutput {
@@ -202,7 +267,7 @@ What the person gets:
 |---|---|---|
 | They go on speaking before the first answer has begun | Their words wait up to the patience, the cut-off answer is interrupted the moment it begins and is never played, and the whole thought is answered. If they finish before that, the answer starts later by the time that was left to wait | The session ends in a barrier timeout and the question is lost |
 | The earlier answer never begins and never completes within the patience | The default path: most likely the same timeout, later, and the question lost | The same timeout |
-| The service does not confirm an interruption that a burst follows | The same timeout. **This is the case no run has tried** | |
+| The service does not confirm an interruption that a burst follows | The same timeout. Tried once on a Lamp: it was confirmed, 465 ms after the start went out with 10,400 kept samples behind it | |
 
 The cut-off first part stays in the model's context with whatever the
 service kept of its interrupted answer. Whether the model then answers
@@ -215,9 +280,10 @@ the whole thought well is model behavior and is not scored anywhere yet.
 | `A1-021` | Done by you: one during-output attempt, confirmed in 363 ms. Thank you |
 | `A1-022` | Still open. `barrier-ms=5000` is now accepted and watches 3 s longer than production. The existing `interrupt-before-output` probe already watches for 5 s under `AssumeAfterQuiet` and then commits, so it also shows what arrives **after** a commit nobody confirmed: one answer or two. As observation only, that is the more useful of the two |
 | `A1-023` | Answered by your instruction to build it with explicit bounds. The widening is in the document's bounds table, third row, and is opt-in with the setting |
-| `A1-025` | **The Lamp run**: `crates/gemini/examples/service_probe/lamp-cases.sh PROBE PROVIDER.json FIRST.wav SECOND.wav OUTDIR`, seven cases, one connection each, cached synthetic speech, credential read in place. What would qualify the setting is in the document under "On the probe, and on a Lamp". More than one attempt, please |
+| `A1-025` | Done by you, thank you: three cases, one attempt each, in the document under "Three real-service runs". More attempts, and the other four cases of the script, are still worth having before this is called qualified. The request as it stood: **The Lamp run**: `crates/gemini/examples/service_probe/lamp-cases.sh PROBE PROVIDER.json FIRST.wav SECOND.wav OUTDIR`, seven cases, one connection each, cached synthetic speech, credential read in place. What would qualify the setting is in the document under "On the probe, and on a Lamp". More than one attempt, please |
 | | The ARM64 release probe for it is built and waiting, outside Git, in my session scratchpad under `m056/probe-artifact/`: `service_probe` SHA-256 `08a80e49adac086a61258d68b9982917c95d5fd882f0901b004d4c2c47555551`, 3,819,280 bytes, from `901622831`; `source-manifest.txt` SHA-256 `8660e6796d5be70de5454fd3897a71d1fcfa8c152165fb0ae47b12c41ce233df`, 412 files; `lamp-cases.sh` and a `README.txt` with the exact commands beside it. Built by `agent1-arm64-verify33`, 20:57:35Z to 20:57:41Z, alone in the VM. Under emulation it refuses an out-of-range `keep-start-ms` and stops at a missing provider file; it has never opened a connection |
-| `A1-026` | **The patience to pilot with.** The script uses 2500 ms: first output came 1.43 s after the End in your one run, and a person who resumes at once waits all of that. It is a setting, not a measurement of mine |
+| `A1-027` | **The `void` message.** Whether the coordinator will say when an admitted input is abandoned and not continued. Without it a cancelled kept request costs what a cancelled request already costs on the default path |
+| `A1-026` | **The patience to pilot with.** In your kept run the start was kept 717 ms. The option uses 2500 ms: first output came 1.43 s after the End in your one run, and a person who resumes at once waits all of that. It is a setting, not a measurement of mine |
 | `A1-024` | Before `AtCommit` is turned on anywhere: the during-output probe once more with `barrier-wait=at-commit`, which needs this branch's library |
 
 A longer observation than 5 s, without widening any bound, is its own
@@ -232,6 +298,10 @@ separate so that you can leave it.
 
 ## My faults here
 
+- **A retired request could be committed after its kept start was
+  written.** Found by your review, reproduced by you and by me, fixed in
+  `04dcb8f6c`. I had not thought about retirement arriving during the
+  awaited writes.
 - **The probe's `barrier-ms` accepted 10 s and the library refuses more
   than 5.** Your `A1-022` run ended in 0.014 s with `InvalidConfiguration`
   and never reached the service. I had tested the parser and not the
@@ -243,8 +313,11 @@ separate so that you can leave it.
 
 ## Verification
 
-Code on this branch is verified at `901622831`; later commits change this
-file only. `lamp-a1-continuation` is verified at `9ba8883d0`, which is
+The full host pass of this branch is of `74d996eb1`. The two commits
+after it, `6717a4f86` and `b19cadd09`, change the fixture's option check,
+a usage string and tests; for those I reran the focused checks below and
+one ARM run, not the whole workspace, as you said. Later commits change
+this file and the document only. `lamp-a1-continuation-retain` is verified at `901622831`. `lamp-a1-continuation` is verified at `9ba8883d0`, which is
 `b0f21f5a9` with your `e9bdcea28` merged. Against `e9bdcea28` this branch
 differs in `crates/gemini` (`config.rs`, `lib.rs`, `wire.rs`,
 `session.rs`, the `continuation` and `retain` tests, the probe example
@@ -263,7 +336,8 @@ the proposed lines in `provider_worker.rs`.
 | `2fd77a417`, stop branch, fence | clean | clean | 1,450 passed, 0 failed, 7 ignored | ok |
 | `b0f21f5a9`, this branch before the fence | clean | clean | **1,458 passed, 1 failed**, 7 ignored | ok |
 | `9ba8883d0`, `lamp-a1-continuation` on `e9bdcea28` | clean | clean | 1,480 passed, 0 failed, 7 ignored | ok |
-| `901622831`, this branch, the kept start | clean | clean | 1,495 passed, 0 failed, 7 ignored | ok |
+| `901622831`, `lamp-a1-continuation-retain`, the kept start | clean | clean | 1,495 passed, 0 failed, 7 ignored | ok |
+| `74d996eb1`, this branch, the candidate | clean | clean | 1,510 passed, 0 failed, 7 ignored | ok |
 
 The `9ba8883d0` row ran 19:58:10Z to 20:12:02Z and the `901622831` row
 20:40:31Z to 20:54:32Z, each with nothing else of mine building on the
@@ -321,8 +395,34 @@ every unforced run in both trees, so this test runs with 30 to 50 ms to
 spare under its 100 ms bound. Whether those gaps are the host or the
 test's own work on its one thread I have not determined.
 
-**Emulated Linux/ARM64**, `agent1-arm64-verify32`, 20:39:06Z to 20:40:25Z,
-`901622831`, this branch, nothing else running in the VM: the same steps,
+**Emulated Linux/ARM64**, `agent1-arm64-verify35`, 21:47:09Z to 21:49:05Z,
+`b19cadd09`, the corrected head, nothing else running in the VM, all
+steps exit 0: the same steps as below with the fixture tests added,
+`lamp-gemini` 178 passed, 0 failed, 2 ignored with 6, 12 and 23, and
+`lamp-live` `kept_start`, `options::` and `fixture_provider` 31 passed,
+0 failed.
+
+Host, focused, on `b19cadd09`: format clean; strict Clippy `-p lamp-live
+--all-targets` clean; `options::` and `fixture_provider` 21 passed, 0
+failed; the ten worker tests green 6 runs of 6; all of `provider_worker`
+73 passed, 0 failed, 2 ignored.
+
+The `74d996eb1` host pass ran from 21:25Z; its last stage, the release
+build, was held for your recording and ran at 21:43Z.
+
+`agent1-arm64-verify34`, 21:23:08Z to 21:25:09Z,
+`74d996eb1`, this branch, nothing else running in the VM, all steps exit
+0: strict Clippy `-p lamp-gemini -p lamp-live --all-targets`;
+`lamp-gemini` release tests 178 passed, 0 failed, 2 ignored, with 6, 12
+and 23; `lamp-live` release tests of `provider_worker::tests::kept_start`
+and `options::`, 27 passed, 0 failed; release build of `lamp-live`.
+
+Host, focused, before the full pass: the nine worker tests green 8 runs
+of 8; `provider_worker` and `options::` 89 passed, 0 failed, 2 ignored;
+the session's `retain` and `stop_fence` tests, 25, green 10 runs of 10.
+
+`agent1-arm64-verify32`, 20:39:06Z to 20:40:25Z,
+`901622831`, `lamp-a1-continuation-retain`, nothing else running in the VM: the same steps,
 all exit 0, `lamp-gemini` release tests 173 passed, 0 failed, 2 ignored,
 with 6, 12 and 23. The 15 `retain` tests are among the 173 and ran in
 real time under emulation.
@@ -357,13 +457,14 @@ Clippy for the crate; release build of the example.
 
 ## Not done
 
-- The kept start has not met the real service. In particular nobody has
-  seen whether an interruption followed at once by a burst of kept audio
-  is confirmed.
-- No test holds audio long enough to reach the age bound, and none goes
-  through `provider_worker`, where the setting is wired and switched off
-  by a constant; a session option should replace it before a device run
-  that is not the probe.
+- The kept start has had one real-service attempt per case, yours. That
+  is not a rate. Nothing has been through a microphone, an endpointer or
+  a speaker with it.
+- The `void` contract for a cancelled kept request is proposed and not
+  built; the coordinator would have to send it.
+- The barrier report is a line on the worker's standard error, not a
+  typed event the coordinator records. The patience is a constant.
+- No test holds audio long enough to reach the age bound.
 - The retain tests passed 15 runs of 15 on the host and once under
   emulation. They are real-time tests on a host that stalls.
 - `lamp-a1-continuation-hold` `83e09e504` had the crate's gates only on

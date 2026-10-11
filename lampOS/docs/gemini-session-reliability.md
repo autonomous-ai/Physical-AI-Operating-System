@@ -1323,7 +1323,9 @@ Integration, in three places and no others:
    flags and calls `provider_worker::run_with_continuation`.
 
 To try it: `lamp-live serve CONFIG OUTPUT --provider-continuation
-kept-start`, with whatever else the session already uses.
+kept-start`, with whatever else the session already uses. A reply
+fixture (`directed-fixture`) refuses `kept-start`: it has no Gemini
+session to apply it to, and its worker takes exactly its WAV and digest.
 
 `provider_worker::tests::kept_start`, through the worker's own intake,
 hand-off and session against the scripted service, input at 10 ms a block
@@ -1331,17 +1333,17 @@ with its own capture times:
 
 | Case | Test |
 |---|---|
-| A resumed question is kept, and exactly it is delivered: one start, its blocks in order, one End; the first answer's audio is never the coordinator's | `a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered` |
+| A resumed question is kept, and exactly it is delivered: one start, its blocks in order, one End; the first answer's audio is never the coordinator's | `a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered`, and `a_resumed_question_is_kept_and_delivered_through_the_coordinated_contract`, which is the contract the command line starts the worker with |
 | Two resumed utterances: one question, one End | `two_resumed_utterances_are_delivered_in_order_as_one_question_with_one_end` |
 | The first answer completes with nothing | `a_first_answer_that_completes_with_nothing_lets_the_resumed_question_start` |
-| Stop, and mute, while kept | `a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it` |
+| Stop, and mute, while kept, under both the legacy and the coordinated contract | `a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it` |
 | Stop while being written out | `a_stop_while_the_kept_question_is_being_written_ends_the_writing` |
 | The service closes for quota while kept: nothing written, nothing replayed to a new connection | `the_service_closing_while_the_question_is_kept_writes_none_of_it_and_replays_none` |
 | No first answer: patience, then the strict timeout, no End | `with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` |
 | A cancelled kept question: see below | `a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one` |
 | Without the option, as before | `without_the_option_a_resumed_question_is_written_at_once_as_before` |
 
-Overflow is not among them and cannot be reached through the worker at
+The other cases run under the legacy contract only. Overflow is not among them and cannot be reached through the worker at
 the rate speech arrives: the buffer holds 6 s and the patience ends at
 2.5 s. It is tested in the session.
 

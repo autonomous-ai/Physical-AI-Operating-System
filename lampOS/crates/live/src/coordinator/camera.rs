@@ -383,6 +383,7 @@ mod tests {
             teardown_deadline_us: revoked_at + lamp_camera::DRIVER_TEARDOWN_BUDGET_US,
             error: None,
             timestamp_rejection: None,
+            startup_discards: None,
         };
         // Record a valid prompt seal at its original observation time. The
         // driver has subsequently used its entire independent teardown budget.

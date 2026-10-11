@@ -57,6 +57,7 @@ pub struct Capture<P: PortIo, C: Clock> {
     teardown_started: Option<MonoTime>,
     faulted: Option<ErrorKind>,
     timestamp_rejection: Option<TimestampRejection>,
+    startup_discards: Option<StartupDiscards>,
     scratch: Slot,
     pending: Slot,
     in_flight: Slot,
@@ -98,6 +99,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             teardown_started: None,
             faulted: None,
             timestamp_rejection: None,
+            startup_discards: None,
             scratch: Slot::new(config.max_frame_bytes)?,
             pending: Slot::new(config.max_frame_bytes)?,
             in_flight: Slot::new(config.max_frame_bytes)?,
@@ -140,6 +142,13 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
     /// and survives slot erasure and driver cleanup without retaining pixels.
     pub fn timestamp_rejection(&self) -> Option<TimestampRejection> {
         self.timestamp_rejection
+    }
+
+    /// First/latest known-age startup discards survive local slot erasure and
+    /// cleanup. Reset only on an explicit new capture attempt; no readiness is
+    /// inferred from this diagnostic record.
+    pub fn startup_discards(&self) -> Option<StartupDiscards> {
+        self.startup_discards
     }
 
     /// Trusted control only. A rejected stale/duplicate snapshot cannot close
@@ -185,6 +194,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             epoch,
         };
         let budget = self.authorized_budget(before, START_BUDGET_US)?;
+        self.startup_discards = None;
         // A failed start may have acquired resources; exactly one cleanup attempt
         // follows, with all retained buffers invalidated before that call.
         self.port_open = true;
@@ -271,25 +281,12 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             Err(error) => return Err(self.fail(ErrorKind::Port(error), after)),
         };
         let observation = if let Some(frame) = frame {
-            if let Err(kind) = self.validate_frame(frame, active, timing) {
-                return Err(self.fail(kind, after));
-            }
-            let Some(sequence) = self.sequence.checked_add(1).and_then(NonZeroU64::new) else {
-                return Err(self.fail(ErrorKind::CounterExhausted, after));
+            let discard = match self.validate_frame(frame, active, timing) {
+                Ok(discard) => discard,
+                Err(kind) => return Err(self.fail(kind, after)),
             };
-            self.sequence = sequence.get();
-            let observation = FrameObservation {
-                id: FrameId {
-                    capture: active.id,
-                    sequence,
-                },
-                source: frame.source,
-                grant,
-                mode: active.mode,
-                driver_sequence: frame.driver_sequence,
-                driver_timestamp: frame.timestamp,
-                dequeue: timing,
-            };
+            // Sequence/timestamp continuity includes discarded startup reads.
+            // Deliberate discards are not driver gaps or accepted observations.
             if let Some(previous) = active.last_driver_sequence {
                 let missing = frame.driver_sequence.wrapping_sub(previous) - 1;
                 self.counters.driver_sequence_gaps = self
@@ -297,21 +294,68 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
                     .driver_sequence_gaps
                     .saturating_add(u64::from(missing));
             }
-            self.scratch.len = frame.bytes_used;
-            self.scratch.observation = Some(observation);
-            if self.pending.observation.is_some() {
-                self.counters.pending_replaced = self.counters.pending_replaced.saturating_add(1);
-            }
-            std::mem::swap(&mut self.scratch, &mut self.pending);
-            self.scratch.clear();
-            self.counters.frames_received = self.counters.frames_received.saturating_add(1);
-            self.active = Some(Active {
-                last_frame_at: Some(after),
+            let active = Active {
                 last_driver_sequence: Some(frame.driver_sequence),
                 last_driver_timestamp: frame.timestamp,
                 ..active
-            });
-            Some(observation)
+            };
+            self.active = Some(active);
+            if let Some(comparison) = discard {
+                let discarded = StartupDiscard {
+                    age_us: comparison.comparison_at_us - comparison.timestamp.micros,
+                    comparison,
+                };
+                match self.startup_discards.as_mut() {
+                    Some(summary) => {
+                        summary.count = summary.count.saturating_add(1);
+                        summary.latest = discarded;
+                    }
+                    None => {
+                        self.startup_discards = Some(StartupDiscards {
+                            count: 1,
+                            first: discarded,
+                            latest: discarded,
+                        });
+                    }
+                }
+                self.scratch.clear();
+                // No observation/token, accepted-frame clock or restart. The
+                // common post-read authority/budget/deadline checks still run.
+                None
+            } else {
+                let Some(sequence) = self.sequence.checked_add(1).and_then(NonZeroU64::new) else {
+                    return Err(self.fail(ErrorKind::CounterExhausted, after));
+                };
+                self.sequence = sequence.get();
+                let observation = FrameObservation {
+                    id: FrameId {
+                        capture: active.id,
+                        sequence,
+                    },
+                    source: frame.source,
+                    grant,
+                    mode: active.mode,
+                    driver_sequence: frame.driver_sequence,
+                    driver_timestamp: frame.timestamp,
+                    dequeue: timing,
+                };
+                self.scratch.len = frame.bytes_used;
+                self.scratch.observation = Some(observation);
+                if self.pending.observation.is_some() {
+                    self.counters.pending_replaced =
+                        self.counters.pending_replaced.saturating_add(1);
+                }
+                std::mem::swap(&mut self.scratch, &mut self.pending);
+                self.scratch.clear();
+                self.counters.frames_received = self.counters.frames_received.saturating_add(1);
+                self.active = Some(Active {
+                    last_frame_at: Some(after),
+                    last_driver_sequence: Some(frame.driver_sequence),
+                    last_driver_timestamp: frame.timestamp,
+                    ..active
+                });
+                Some(observation)
+            }
         } else {
             None
         };
@@ -486,7 +530,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         frame: PortFrame,
         active: Active,
         timing: CallTiming,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<Option<TimestampRejection>, ErrorKind> {
         let now = timing.completed_at;
         if frame.capture != active.id {
             return Err(ErrorKind::OldCapture);
@@ -511,7 +555,13 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         if let Some(timestamp) = frame.timestamp
             && timestamp.domain == TimestampDomain::HostMonotonic
         {
-            // Keep the original short-circuit comparison order and limits.
+            let regressed = active.last_driver_timestamp.is_some_and(|previous| {
+                timestamp.domain == previous.domain
+                    && timestamp.point == previous.point
+                    && timestamp.micros < previous.micros
+            });
+            // Keep the original first-failed comparison order for fatal evidence.
+            // Startup discards additionally require no hidden regression.
             let predicate = if timestamp.micros > now.as_micros() {
                 Some(TimestampPredicate::Future)
             } else if timestamp.micros < active.started_at.as_micros() {
@@ -520,17 +570,13 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
                 && now.as_micros() - timestamp.micros >= MAX_DEQUEUE_AGE_US
             {
                 Some(TimestampPredicate::TooOld)
-            } else if active.last_driver_timestamp.is_some_and(|previous| {
-                timestamp.domain == previous.domain
-                    && timestamp.point == previous.point
-                    && timestamp.micros < previous.micros
-            }) {
+            } else if regressed {
                 Some(TimestampPredicate::Regressed)
             } else {
                 None
             };
             if let Some(predicate) = predicate {
-                self.timestamp_rejection.get_or_insert(TimestampRejection {
+                let rejection = TimestampRejection {
                     capture_epoch: active.id.epoch.get(),
                     driver_sequence: frame.driver_sequence,
                     timestamp,
@@ -540,11 +586,18 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
                     maximum_age_us: MAX_DEQUEUE_AGE_US,
                     previous_timestamp: active.last_driver_timestamp,
                     predicate,
-                });
+                };
+                if predicate == TimestampPredicate::TooOld
+                    && active.last_frame_at.is_none()
+                    && !regressed
+                {
+                    return Ok(Some(rejection));
+                }
+                self.timestamp_rejection.get_or_insert(rejection);
                 return Err(ErrorKind::InvalidDriverTimestamp);
             }
         }
-        Ok(())
+        Ok(None)
     }
     fn expire_slots(&mut self, now: MonoTime) {
         for slot in [&mut self.pending, &mut self.in_flight] {

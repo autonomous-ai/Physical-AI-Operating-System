@@ -689,7 +689,8 @@ fn an_opening_deadline_cannot_be_extended_by_progress_and_stop_is_not_success() 
                 CameraEvent::Progress {
                     at_us: 2000,
                     counts: Counts::default(),
-                    last_read: None
+                    last_read: None,
+                    startup_discards: None,
                 },
                 Some(grant),
                 2000,
@@ -744,6 +745,7 @@ fn queued_old_progress_cannot_hide_a_current_worker_stall() {
                 at_us: 30_000,
                 counts: Counts::default(),
                 last_read: None,
+                startup_discards: None,
             },
             Some(p.grant),
             30_000,
@@ -754,6 +756,7 @@ fn queued_old_progress_cannot_hide_a_current_worker_stall() {
         at_us: 1200,
         counts: Counts::default(),
         last_read: None,
+        startup_discards: None,
     };
     assert!(
         p.observer
@@ -1017,7 +1020,7 @@ fn timestamp_fault_receipt_retains_exact_comparison_without_frame_bytes() {
     for (predicate, timestamp, previous) in [
         ("future", 251_038, None),
         ("before_capture_start", 999, None),
-        ("too_old", 1037, None),
+        ("too_old", 1037, Some(200_000)),
         ("regressed", 250_994, Some(250_995)),
     ] {
         let mut r = Rig::new();
@@ -1127,4 +1130,207 @@ fn timestamp_fault_receipt_retains_exact_comparison_without_frame_bytes() {
             "the single record must not be overwritten"
         );
     }
+}
+
+fn refresh_camera_at(r: &mut Rig, at_us: u64) {
+    r.clock.0.set(at_us);
+    let snapshot = r.authority(Permission::Allowed);
+    r.send(Control::Authority { snapshot });
+}
+fn queue_monotonic_frame(r: &mut Rig, exposure_us: u64) {
+    let mut state = r.state.borrow_mut();
+    state.frames = 1;
+    state.timestamp_override = Some(lamp_camera::DriverTimestamp {
+        micros: exposure_us,
+        domain: TimestampDomain::HostMonotonic,
+        point: lamp_camera::TimestampPoint::StartOfExposure,
+    });
+}
+
+#[test]
+fn startup_discard_keeps_camera_loop_live_until_a_fresh_original_grant_frame() {
+    let mut r = Rig::new();
+    r.start();
+    let grant = r.owner.camera_grant(t(1000)).unwrap();
+    for at_us in [200_000, 400_000] {
+        refresh_camera_at(&mut r, at_us);
+        r.step().unwrap();
+    }
+    r.clock.0.set(455_929);
+    queue_monotonic_frame(&mut r, 55_000);
+    let reads = r.state.borrow().reads;
+    assert_eq!(
+        r.step().expect("old startup frame is not terminal"),
+        Step::Continue
+    );
+    assert_eq!(r.state.borrow().reads, reads + 1);
+    assert!(r.frames().is_empty());
+    assert_eq!(r.state.borrow().stops, 0);
+    r.clock.0.set(457_000);
+    queue_monotonic_frame(&mut r, 450_000);
+    assert_eq!(r.step().unwrap(), Step::Continue);
+    assert_eq!(r.frames().len(), 1);
+    assert_eq!(r.frames()[0].grant, grant);
+    assert_eq!(r.frames()[0].sequence, 1);
+    assert_eq!(r.frames()[0].driver_timestamp.unwrap().micros, 450_000);
+}
+
+#[test]
+fn startup_forever_old_frames_finish_as_unavailable_with_first_latest_age_evidence() {
+    let mut r = Rig::new();
+    r.start();
+    for n in 1..20 {
+        let at = 1_000 + n * 100_000;
+        refresh_camera_at(&mut r, at);
+        if n >= 4 {
+            queue_monotonic_frame(&mut r, at - 300_000);
+        }
+        let reads = r.state.borrow().reads;
+        assert_eq!(r.step().unwrap(), Step::Continue);
+        assert_eq!(r.state.borrow().reads, reads + 1);
+        assert!(r.frames().is_empty());
+    }
+    refresh_camera_at(&mut r, 1_000 + FIRST_FRAME_DEADLINE_US);
+    let reads = r.state.borrow().reads;
+    assert!(
+        r.step()
+            .unwrap_err()
+            .to_string()
+            .contains("FirstFrameTimeout")
+    );
+    assert_eq!(
+        r.state.borrow().reads,
+        reads,
+        "deadline wins before another dequeue"
+    );
+    assert_eq!(r.state.borrow().stops, 1);
+    assert!(r.state.borrow().revoked_before_stop);
+    let revoked = r
+        .link
+        .events
+        .iter()
+        .find(|e| matches!(e, CameraEvent::Revoked { .. }))
+        .unwrap();
+    let value = serde_json::to_value(revoked).unwrap();
+    assert_eq!(value["startup_discards"]["count"], 16);
+    assert_eq!(value["startup_discards"]["first"]["age_us"], 300_000);
+    assert_eq!(value["startup_discards"]["latest"]["age_us"], 300_000);
+    assert_eq!(
+        value["startup_discards"]["first"]["comparison"]["comparison_at_us"],
+        401_000
+    );
+    assert_eq!(
+        value["startup_discards"]["latest"]["comparison"]["comparison_at_us"],
+        1_901_000
+    );
+    assert!(
+        value.get("timestamp_rejection").is_none(),
+        "startup discards are not a fatal timestamp record"
+    );
+    let mut report = MetadataReport::new(config(), "a".repeat(64), 5, 2_001_000).unwrap();
+    let mut observer = Observer::new(boot(2), 2_001_000);
+    assert!(
+        observer
+            .accept(revoked.clone(), None, 2_001_000, &mut report)
+            .is_err()
+    );
+    assert_eq!(
+        serde_json::to_value(report).unwrap()["revoked_worker_event"]["startup_discards"],
+        value["startup_discards"]
+    );
+    assert!(
+        r.step().is_err(),
+        "unavailable is terminal, never auto-reopened"
+    );
+}
+
+#[test]
+fn startup_draining_serves_privacy_and_stop_before_any_export_or_next_read() {
+    for privacy in [false, true] {
+        let mut r = Rig::new();
+        r.start();
+        for at in [200_000, 400_000] {
+            refresh_camera_at(&mut r, at);
+            r.step().unwrap();
+        }
+        r.clock.0.set(455_929);
+        queue_monotonic_frame(&mut r, 55_000);
+        let command = if privacy {
+            Control::Authority {
+                snapshot: r.authority(Permission::Denied),
+            }
+        } else {
+            Control::Stop
+        };
+        r.state.borrow_mut().after_read.push_back(command);
+        r.state.borrow_mut().payload_override = Some(
+            [
+                &[0xff, 0xd8],
+                b"private-startup-pixels".as_slice(),
+                &[0xff, 0xd9],
+            ]
+            .concat(),
+        );
+        let reads = r.state.borrow().reads;
+        assert_eq!(r.step().unwrap(), Step::Stopped);
+        assert_eq!(r.state.borrow().reads, reads + 1);
+        assert!(r.frames().is_empty());
+        assert_eq!(r.state.borrow().stops, 1);
+        assert!(r.state.borrow().revoked_before_stop);
+        let revoked = r
+            .link
+            .events
+            .iter()
+            .find(|e| matches!(e, CameraEvent::Revoked { .. }))
+            .unwrap();
+        let value = serde_json::to_value(revoked).unwrap();
+        assert_eq!(
+            value["reason"],
+            if privacy {
+                "privacy_changed"
+            } else {
+                "requested"
+            }
+        );
+        assert!(value["error"].is_null());
+        assert_eq!(value["startup_discards"]["count"], 1);
+        assert_eq!(value["startup_discards"]["first"]["age_us"], 400_929);
+        assert!(
+            !serde_json::to_string(&r.link.events)
+                .unwrap()
+                .contains("private-startup-pixels")
+        );
+        assert!(r.step().is_err());
+        assert_eq!(r.state.borrow().reads, reads + 1);
+    }
+}
+
+#[test]
+fn startup_discard_summary_reaches_progress_without_claiming_a_frame() {
+    let mut r = Rig::new();
+    r.start();
+    for at in [200_000, 400_000] {
+        refresh_camera_at(&mut r, at);
+        r.step().unwrap();
+    }
+    r.clock.0.set(455_929);
+    queue_monotonic_frame(&mut r, 55_000);
+    r.step().unwrap();
+    let progress = r
+        .link
+        .events
+        .iter()
+        .rev()
+        .find(|e| matches!(e, CameraEvent::Progress { .. }))
+        .unwrap();
+    let value = serde_json::to_value(progress).unwrap();
+    assert_eq!(value["counts"]["received"], 0);
+    assert_eq!(value["startup_discards"]["count"], 1);
+    assert_eq!(value["startup_discards"]["first"]["age_us"], 400_929);
+    assert!(r.frames().is_empty());
+    assert!(serde_json::to_vec(progress).unwrap().len() < 2500);
+    // Old metadata without this optional diagnostic still decodes.
+    let mut legacy = value.clone();
+    legacy.as_object_mut().unwrap().remove("startup_discards");
+    assert!(serde_json::from_value::<CameraEvent>(legacy).is_ok());
 }

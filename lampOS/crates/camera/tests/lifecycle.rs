@@ -996,3 +996,197 @@ fn deferred_fault_seals_before_stop_and_preserves_the_original_fault() {
     assert_eq!(rig.port.borrow().stops, 1);
     assert_eq!(rig.capture.start().unwrap_err().kind, ErrorKind::Faulted);
 }
+
+fn monotonic_frame(sequence: u32, micros: u64) -> FrameAction {
+    let mut frame = FrameAction::new(sequence);
+    frame.timestamp = Some(DriverTimestamp {
+        micros,
+        domain: TimestampDomain::HostMonotonic,
+        point: TimestampPoint::StartOfExposure,
+    });
+    frame
+}
+
+#[test]
+fn startup_old_frame_is_discarded_then_only_fresh_frame_can_be_delivered() {
+    let mut rig = Rig::started();
+    let grant = rig.controller.camera_grant(t(0)).unwrap();
+    rig.tick_refresh(200_000);
+    rig.tick_refresh(400_000);
+    // Same first-frame age as the native failure: 400,929 microseconds.
+    rig.clock.set(455_929);
+    rig.action(monotonic_frame(0, 55_000));
+    let old = rig
+        .capture
+        .poll()
+        .expect("valid old startup frame must be discarded");
+    assert!(old.frame.is_none());
+    assert_eq!(old.status.phase, Phase::Acquiring);
+    assert!(rig.capture.begin_delivery().unwrap().is_none());
+    assert_eq!(rig.capture.counters().frames_received, 0);
+    assert_eq!(rig.port.borrow().reads, 1, "one dequeue per poll");
+    assert!(rig.capture.timestamp_rejection().is_none());
+
+    rig.clock.set(457_000);
+    rig.action(monotonic_frame(1, 450_000));
+    let fresh = rig.capture.poll().unwrap().frame.unwrap();
+    assert_eq!(fresh.grant, grant);
+    assert_eq!(
+        fresh.id.sequence.get(),
+        1,
+        "discard is not a delivered frame"
+    );
+    assert_eq!(fresh.driver_sequence, 1);
+    assert_eq!(fresh.driver_timestamp.unwrap().micros, 450_000);
+    assert_eq!(rig.capture.counters().frames_received, 1);
+    let token = rig.capture.begin_delivery().unwrap().unwrap();
+    assert_eq!(
+        rig.capture.delivery_view(&token).unwrap().observation,
+        fresh
+    );
+    rig.capture.finish_delivery(token).unwrap();
+}
+
+#[test]
+fn startup_old_frames_never_renew_the_original_first_frame_deadline() {
+    let mut rig = Rig::started();
+    for us in (200_000..FIRST_FRAME_DEADLINE_US).step_by(200_000) {
+        rig.tick_refresh(us);
+        if us >= 400_000 {
+            rig.action(monotonic_frame((us / 200_000) as u32, us - 300_000));
+        }
+        assert!(rig.capture.poll().unwrap().frame.is_none());
+        assert!(rig.capture.begin_delivery().unwrap().is_none());
+    }
+    rig.clock.set(FIRST_FRAME_DEADLINE_US);
+    assert_eq!(
+        rig.refresh().unwrap_err().kind,
+        ErrorKind::FirstFrameTimeout
+    );
+    assert_eq!(rig.capture.counters().frames_received, 0);
+    assert_eq!(rig.port.borrow().stops, 1);
+    assert_eq!(rig.capture.poll().unwrap_err().kind, ErrorKind::Faulted);
+}
+
+#[test]
+fn startup_discard_metadata_is_bounded_keeps_original_times_and_resets_on_explicit_restart() {
+    let mut rig = Rig::started();
+    for us in [200_000, 400_000] {
+        rig.tick_refresh(us);
+    }
+    for (sequence, now, exposure) in [(0, 455_929, 55_000), (1, 460_000, 60_000)] {
+        rig.clock.set(now);
+        rig.action(monotonic_frame(sequence, exposure));
+        assert!(rig.capture.poll().unwrap().frame.is_none());
+    }
+    let summary = rig.capture.startup_discards().unwrap();
+    assert_eq!(summary.count, 2);
+    assert_eq!(summary.first.age_us, 400_929);
+    assert_eq!(summary.latest.age_us, 400_000);
+    assert_eq!(summary.first.comparison.timestamp.micros, 55_000);
+    assert_eq!(summary.latest.comparison.timestamp.micros, 60_000);
+    assert_eq!(summary.first.comparison.capture_epoch, 1);
+    assert_eq!(summary.first.comparison.capture_started_at_us, 0);
+    assert_eq!(
+        summary.first.comparison.predicate,
+        TimestampPredicate::TooOld
+    );
+    rig.capture.stop().unwrap();
+    assert_eq!(
+        rig.capture.startup_discards(),
+        Some(summary),
+        "cleanup retains diagnostics, not pixels"
+    );
+    assert_eq!(rig.capture.maintain().unwrap().phase, Phase::Closed);
+    rig.permission(Permission::Allowed);
+    rig.capture.start().unwrap();
+    assert!(rig.capture.startup_discards().is_none());
+    let obs = rig.frame(0);
+    assert_eq!(obs.id.capture.epoch.get(), 2);
+}
+
+#[test]
+fn startup_discard_does_not_hide_sequence_timestamp_or_envelope_faults() {
+    for case in 0..5 {
+        let mut rig = Rig::started();
+        rig.tick_refresh(200_000);
+        rig.tick_refresh(400_000);
+        rig.action(monotonic_frame(10, 100_000));
+        rig.capture.poll().unwrap();
+        rig.clock.set(410_000);
+        let mut frame = monotonic_frame(11, 110_000);
+        let expected = match case {
+            0 => {
+                frame.sequence = 10;
+                ErrorKind::OldDriverSequence
+            }
+            1 => {
+                frame.timestamp.as_mut().unwrap().micros = 99_999;
+                ErrorKind::InvalidDriverTimestamp
+            }
+            2 => {
+                frame.timestamp.as_mut().unwrap().micros = 410_001;
+                ErrorKind::InvalidDriverTimestamp
+            }
+            3 => {
+                frame.bytes[0] = 0;
+                ErrorKind::InvalidJpegEnvelope
+            }
+            _ => {
+                frame.source = Some(SourceId::new("other-camera").unwrap());
+                ErrorKind::WrongSource
+            }
+        };
+        rig.action(frame);
+        assert_eq!(rig.capture.poll().unwrap_err().kind, expected);
+        assert_eq!(rig.capture.startup_discards().unwrap().count, 1);
+        assert_eq!(rig.capture.counters().frames_received, 0);
+        assert_eq!(rig.port.borrow().stops, 1);
+    }
+}
+
+#[test]
+fn startup_discard_cannot_reactivate_after_an_established_frame_expires() {
+    let mut rig = Rig::started();
+    rig.clock.set(1_000);
+    rig.action(monotonic_frame(0, 1_000));
+    rig.capture.poll().unwrap();
+    let token = rig.capture.begin_delivery().unwrap().unwrap();
+    rig.capture.finish_delivery(token).unwrap();
+    rig.tick_refresh(200_000);
+    rig.tick_refresh(400_000);
+    assert_eq!(rig.capture.maintain().unwrap().phase, Phase::Acquiring);
+    rig.action(monotonic_frame(1, 10_000));
+    assert_eq!(
+        rig.capture.poll().unwrap_err().kind,
+        ErrorKind::InvalidDriverTimestamp
+    );
+    assert!(rig.capture.startup_discards().is_none());
+    assert_eq!(rig.capture.counters().frames_received, 1);
+    assert_eq!(rig.port.borrow().stops, 1);
+}
+
+#[test]
+fn privacy_and_authority_loss_seal_startup_discard_without_fresh_delivery() {
+    for denied in [true, false] {
+        let mut rig = Rig::started();
+        rig.tick_refresh(200_000);
+        rig.tick_refresh(400_000);
+        rig.action(monotonic_frame(0, 100_000));
+        rig.capture.poll().unwrap();
+        if denied {
+            rig.permission(Permission::Denied);
+            assert_eq!(rig.capture.poll().unwrap_err().kind, ErrorKind::Closed);
+        } else {
+            rig.clock.set(650_000);
+            assert!(matches!(
+                rig.capture.poll().unwrap_err().kind,
+                ErrorKind::Authority(_)
+            ));
+        }
+        assert_eq!(rig.capture.counters().frames_received, 0);
+        assert_eq!(rig.port.borrow().reads, 1);
+        assert_eq!(rig.port.borrow().stops, 1);
+        assert_eq!(rig.capture.startup_discards().unwrap().count, 1);
+    }
+}

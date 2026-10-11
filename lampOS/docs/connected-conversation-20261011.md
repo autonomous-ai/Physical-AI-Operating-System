@@ -52,7 +52,61 @@ V1-baseline suppresses prospective input during Lamp playback and the tail.
 Zero self-interruptions here does not establish continuous listening, natural
 barge-in, addressedness, multiple-speaker handling or visual choreography.
 
-## Retained evidence
+## Same-runtime playback comparison
+
+A second pair used the same eight cached questions, plain Live configuration,
+source `8feaf64b9` and binary
+`7acfabcd6f38e4cf1d9a8f145c8b3c1ab479118a8bc1edc97897d0e767d9871c`.
+Only the playout option intentionally changed: the 200 ms coverage horizon
+versus `--playout-continuity`. Both completed all eight replies with no extra
+admission, cancellation, capture/reference reset or accepted-zero speech gap.
+Every reply has one generation; no separate introduction delays the actual answer.
+Local offline room ASR corroborates all sixteen prompt/reply pairs.
+
+| Measurement | 200 ms coverage | Continuity |
+|---|---:|---:|
+| Attempted / software-completed turns | 8 / 8 | 8 / 8 |
+| Endpoint to provider first audio, median | 1.321 s | 1.335 s |
+| Endpoint to first ALSA acceptance, median | 1.475 s | 1.647 s |
+| First ALSA interval range | 1.395–1.789 s | 1.555–1.807 s |
+| Accepted-zero speech gaps | 0 | 0 |
+
+These intervals still exclude the preceding 1.2-second endpoint wait and are not
+acoustic word timings. Continuity's observed median is 172 ms later. Different
+generated answers and cloud conditions prevent attributing that difference to
+the policy. This short-answer pair shows no gap-reduction benefit; continuity
+remains optional, and ordinary tests retain the 200 ms coverage setting. Its
+recorded-supply replay benefit does not establish a physical default winner.
+
+A first provider packet can contain only one sample. In coverage turn four and
+continuity turn three, dispatchable audio follows that packet by 351 ms and
+381 ms, respectively. Gate age therefore includes unavailable supply and cannot
+be labeled entirely as intentional buffering or model latency. Exact typed
+render records distinguish startup/idle zeros, verified terminal padding and
+speech starvation; neither new run contains the last category.
+
+These two additional room recordings each contain 165 seconds of mono 48 kHz
+float32 audio, with no clipping, dropped/nonfinite samples or reported stream
+faults. Source WAVs, player settings, distinct capture/render acknowledgments
+and final seals verify. The finite runtime's raw SIGTERM exit remains 1; its
+verified completed turns and cleanup do not rewrite that status.
+
+Local evidence, with no raw recording uploaded:
+
+- Coverage: `/private/tmp/lamp-connected-composed-plain200-20261011-01`;
+  archive SHA256 `b412032b41b0525ba07902c05d7851d64be1c9a9650a6805ac5f2d56a1d11074`.
+- Continuity: `/private/tmp/lamp-connected-composed-continuity-20261011-01`;
+  archive SHA256 `42c61071649a5ef227b9dfbda6509ebe73359ebc4a6096109521aec9c65f17d8`.
+- Audit: `/private/tmp/lamp-connected-composed-audit-gxln2j9g/report.md`;
+  SHA256 `784cd2ae4f545c6c10ec86371fa2d40364b113d455fb7eae298c1b3221d2ede8`.
+  All 88 input identities were reverified; input-manifest SHA256
+  `490cc930523d6bf71c899c8edd398a29380debc42852a0a75d0fd9cf9124dd1c`.
+
+All four runs total 32 software-completed turns. They remain separate cohorts,
+not a pooled latency distribution. `human_listened=false`, accepted acoustic
+latency is null, and continuous hearing/addressee handling is still unqualified.
+
+## Original provider-comparison evidence
 
 Both continuous room WAVs contain 7,920,000 frames: 165 seconds, mono float32 at
 48 kHz. Neither reports clipping, dropped/nonfinite samples or stream faults.

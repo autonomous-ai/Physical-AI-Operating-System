@@ -1,7 +1,7 @@
 //! Opt-in Linux adapter for the finite, guarded position writer.
 //!
-//! Opening configures a tty but sends no protocol bytes. No CLI or live process
-//! activates this adapter. The supervisor must exclude pre-existing handles and
+//! Opening configures a tty but sends no protocol bytes. The opt-in supervised
+//! motor worker uses this adapter. Its supervisor must exclude pre-existing handles and
 //! privileged competing writers: TIOCEXCL cannot evict them. It must also qualify
 //! USB open/close effects; absence of a modem-control ioctl is not that evidence.
 
@@ -174,6 +174,11 @@ impl<C: Clock> LinuxMotor<C> {
     pub fn cancel(&mut self, motion: MotionId) -> Result<control::StopReport, control::Error> {
         self.control.cancel(motion)
     }
+    /// Inhibit local work and discard output before separately closing the tty.
+    pub fn inhibit(&mut self) -> control::StopReport {
+        self.control.shutdown()
+    }
+
     pub fn control_lost(&mut self) -> control::StopReport {
         self.control.control_lost()
     }

@@ -3,9 +3,48 @@
 - Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `8feaf64b9` adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` is staged on 4ace; prior physical audio evidence remains on `6e6c58b42` / `0aa2387a...` until new trials finish.
+- Integrated source checkpoint: this checkpoint adds bounded stale-frame discard at camera startup over `8feaf64b9`, which adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` completed two additional eight-turn runs on 4ace; their playback comparison is recorded separately from the earlier `6e6c58b42` / `0aa2387a...` evidence.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: two context-linked eight-turn Rust runs on lamp-4ace completed all 16 prompts with no extra admissions or cancellations under the conservative V1-baseline policy. Local room ASR corroborates both sides. Three short audio gaps and extended-model introductions remain defects; no acoustic acceptance or natural-interruption claim. See [the physical result](../docs/connected-conversation-20261011.md). The combined continuous-service/camera/continuity candidate now passes ARM gates after a test-only child-exec synchronization correction. Native loader/CLI verification passes; physical qualification is underway. Main coordinates the large duplex and end-of-turn workstreams through tmux.
+- State: four eight-turn Rust runs on lamp-4ace completed all 32 prompts under conservative V1-baseline turn taking. The latest two runs have zero detected speech-starvation gaps, with no acoustic acceptance or natural-interruption claim. A continuous-session harness startup race stopped the next trial before any prompt; Rust stopped cleanly and rollback verified. Its corrected fresh-namespace trial is in progress and has no final result yet. Camera startup correction is integrated after host/ARM qualification; native validation is pending. Motor-worker lifecycle corrections remain inactive under review. Main coordinates the complete duplex and endpoint workstreams through tmux.
+
+## Latest native qualification
+
+The composed binary completed both new eight-turn runs. All sixteen replies
+have verified ownership/diagnostic closure and local room-ASR corroboration;
+neither run has an accepted-zero speech gap. Endpoint-to-first-ALSA medians are
+1.475 s for 200 ms coverage and 1.647 s for continuity, after the unchanged
+1.2-second endpoint wait. Different generated replies prevent a causal policy
+comparison; continuity remains optional. Four recorded cohorts now contain 32
+completed turns, with no acoustic acceptance or natural-interruption claim.
+See [the separate comparisons](../docs/connected-conversation-20261011.md).
+
+The first continuous `serve` qualification attempt
+`/private/tmp/lamp-serve-native-20261011-01` sent no prompts. Rust reached real
+listening readiness and acknowledged clean Stop with runtime exit 0, but the
+private harness treated not-yet-published asynchronous metadata as a runtime
+failure. It stopped at 2.189 s. All sixteen planned prompts are retained as
+withheld; stationary muted rollback verified. Correct the harness publication
+race without renewing the original readiness cue or claiming metadata before
+observing it, then retry in a fresh namespace. This is not a completed
+long-session test or evidence that Rust crashed.
+
+Native camera inspection identifies the startup failure exactly: the first
+reported monotonic exposure is 400,929 us old against the unchanged 250,000 us
+limit. Zero frames were accepted. This checkpoint integrates the correction:
+discard otherwise-valid old startup buffers one per poll within the original
+two-second deadline, without exporting them or granting readiness. The first
+accepted frame permanently ends that startup exception for its capture epoch.
+128 affected host tests pass, with ten additional root-review executions.
+Source-only ARM64 fmt, strict affected Clippy, 137 affected tests, release build,
+ELF and CLI checks pass. The new binary is `e3a50dd9...`; its full identity and
+evidence are in [camera runtime](../docs/camera-runtime.md). Native qualification
+remains pending. No age limit was relaxed.
+
+The independent motor worker candidate remains inactive. Review reproduced
+failed priority-send handling, out-of-order fault receipts and leaked child IPC
+paths after a crash. The corrected private candidate passes 129 motor tests,
+fmt, strict Clippy and worker build; independent re-review is in progress. It is not integrated or
+deployed. No physical motor motion has been performed with this candidate.
 
 ## Current private integration and latency target
 
@@ -48,9 +87,9 @@ is active.
 Native camera correction `a4cac2dd...` safely revoked and exited without a forced
 kill; driver teardown took 50.227 ms in this attempt. Inspection still failed
 before any accepted frame with `InvalidDriverTimestamp`. This is not a camera
-success. A bounded diagnostic record is being added to identify the rejected
-timestamp predicate without weakening privacy or freshness rules. Stationary,
-muted legacy restoration was verified after that attempt.
+success. The later diagnostic inspection identifies the original timestamp and too-old
+predicate, as recorded above. Stationary, muted legacy restoration was verified
+after both attempts.
 
 ## Camera integration checkpoint
 
@@ -85,8 +124,8 @@ placeholders only; first deliver natural live interaction. See the updated
 [architecture](../docs/architecture.md) and [team ownership proposal](../docs/team-ownership.md).
 MAIN-047 directs Agent 2's endpoint inference into a separate worker/binary and
 holds activation of its candidate, which currently increases false splits in
-its synthetic cohort. Main's continuous service, mute/reopen, camera teardown
-and ring degradation changes are private candidates, not deployed capabilities.
+its synthetic cohort. Those main-runtime changes are now integrated at `8feaf64b9`; continuous-service
+and physical camera qualification are still incomplete, as recorded above.
 
 ## Current agent assignments and communication
 

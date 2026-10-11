@@ -7,11 +7,11 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `a86f2cea` on `lamp-v2-agent2` (`MAIN-036`: root's importer
-  audit tests on top of the `MAIN-034` fix `8856dac9`). Gate in the Linux ARM64
-  container: workspace `fmt` and strict clippy clean; 1029 passed, 0 failed,
-  4 ignored.
-  - `8856dac9` passed 1018, failed 0.
+- **Tested head:** `7aa2ea3c` on `lamp-v2-agent2` (`MAIN-038` proposal input
+  bounds, on top of `MAIN-036` `a86f2cea` and the `MAIN-034` fix `8856dac9`).
+  Gate in the Linux ARM64 container: workspace `fmt` and strict clippy clean;
+  1033 passed, 0 failed, 4 ignored.
+  - `a86f2cea` passed 1029, failed 0.
   - Main integrated the evaluator subset through `9ed94e42` as `2a1522eb`.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
@@ -88,6 +88,23 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-038`:** fixed in `7aa2ea3c`.
+  - **Red on `e6af4829`:**
+    - the 684-byte zero-rate stimulus failed (panicked inside the test's
+      panic guard);
+    - a 1 Hz header ran over 10 minutes and reached 1.16 GB of memory
+      before it was stopped, so the same bound class;
+    - the 48 kHz stereo control passed.
+  - **Fix:**
+    - `align::resample` now returns `Result`. It refuses rates outside
+      8–192 kHz and output over 600 s, before any division or allocation.
+    - WAVs are decoded from the same bounded bytes that were hashed, never
+      by reopening the file. Rate, 1–8 channels, PCM16/24/32 or float32,
+      and a length above zero and at most 600 s are validated first.
+    - A render segment that cannot be resampled is reported as
+      `unavailable` with the reason.
+  - **Green:** all 4 regressions pass; voice-eval 211 passed, 0 failed.
 
 - **`MAIN-036`:** root's `tests/audit_importer.rs` from
   `lamp-voice-import-review-20261011` (`7d64c329`) is added in `a86f2cea`.

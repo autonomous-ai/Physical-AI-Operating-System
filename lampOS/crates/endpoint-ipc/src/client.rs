@@ -170,6 +170,20 @@ impl Shared {
     }
 }
 
+impl Shared {
+    fn availability(&self) -> Availability {
+        let state = self.lock();
+        match (&state.phase, &state.fault) {
+            (Phase::Ready, Some(fault)) => Availability::Recovering(fault.reason.clone()),
+            (Phase::Starting, _) => Availability::Loading,
+            (Phase::Ready, None) => Availability::Ready,
+            (Phase::Recovering(reason), _) => Availability::Recovering(reason.clone()),
+            (Phase::Failed(reason), _) => Availability::Failed(reason.clone()),
+            (Phase::Closed, _) => Availability::Closed,
+        }
+    }
+}
+
 impl State {
     /// Records the first fault of the current worker and wakes its threads.
     fn fault(&mut self, worker: u64, reason: String, exiting: bool, fatal: bool) {
@@ -186,6 +200,23 @@ impl State {
 
 pub struct ProcessClassifier {
     shared: Arc<Shared>,
+}
+
+/// Read-only view of a classifier for traces. It cannot submit, cancel or
+/// close, and it does not keep the worker alive.
+#[derive(Clone)]
+pub struct Monitor {
+    shared: Arc<Shared>,
+}
+
+impl Monitor {
+    pub fn report(&self) -> Report {
+        self.shared.lock().report.clone()
+    }
+
+    pub fn availability(&self) -> Availability {
+        self.shared.availability()
+    }
 }
 
 impl ProcessClassifier {
@@ -221,6 +252,12 @@ impl ProcessClassifier {
 
     pub fn report(&self) -> Report {
         self.shared.lock().report.clone()
+    }
+
+    pub fn monitor(&self) -> Monitor {
+        Monitor {
+            shared: self.shared.clone(),
+        }
     }
 
     /// Starts an orderly stop and returns at once: the worker's input closes,
@@ -312,15 +349,7 @@ impl Classifier for ProcessClassifier {
     }
 
     fn availability(&self) -> Availability {
-        let state = self.shared.lock();
-        match (&state.phase, &state.fault) {
-            (Phase::Ready, Some(fault)) => Availability::Recovering(fault.reason.clone()),
-            (Phase::Starting, _) => Availability::Loading,
-            (Phase::Ready, None) => Availability::Ready,
-            (Phase::Recovering(reason), _) => Availability::Recovering(reason.clone()),
-            (Phase::Failed(reason), _) => Availability::Failed(reason.clone()),
-            (Phase::Closed, _) => Availability::Closed,
-        }
+        self.shared.availability()
     }
 
     fn cancel(&mut self) {

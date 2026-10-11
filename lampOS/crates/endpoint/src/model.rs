@@ -19,9 +19,9 @@ pub struct ModelAsset {
 /// QuantizeLinear/DequantizeLinear pairs (softmax outputs dequantize to
 /// 255 x scale), while this export matches ONNX Runtime within 1e-6.
 pub const SMART_TURN_V3_2: ModelAsset = ModelAsset {
-    file_name: "smart-turn-v3.2-gpu.onnx",
+    file_name: lamp_endpoint_ipc::SMART_TURN_MODEL_FILE,
     bytes: 32_411_198,
-    sha256: "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be",
+    sha256: lamp_endpoint_ipc::SMART_TURN_MODEL_SHA256,
     source: "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx",
 };
 

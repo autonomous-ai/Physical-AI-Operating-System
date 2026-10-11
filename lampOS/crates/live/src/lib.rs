@@ -14,6 +14,7 @@ pub mod diagnostic_control;
 pub mod diagnostics;
 pub mod fixture_provider;
 pub mod options;
+pub mod perception_worker;
 #[cfg(target_os = "linux")]
 pub mod physical_privacy;
 #[cfg(any(target_os = "linux", test))]

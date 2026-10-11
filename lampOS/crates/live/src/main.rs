@@ -34,6 +34,13 @@ fn run() -> Result<()> {
             channels.connect(Path::new(dir), role, true)?;
             lamp_live::camera_worker::run(channels, parent, worker, Path::new(config), digest, Path::new(dir), &consumers)?;
         }
+        [command, role, dir, parent, worker, flags @ ..] if command == "worker" && role == "perception" => {
+            let parent = parse_boot(parent)?;
+            let worker = parse_boot(worker)?;
+            let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
+            channels.connect(Path::new(dir), role, true)?;
+            lamp_live::perception_worker::run(channels, parent, worker, Path::new(dir), flags)?;
+        }
         #[cfg(target_os = "linux")]
         [command, wav, sha256, seconds, output, flags @ ..] if command == "directed-fixture" => {
             let options = lamp_live::fixture_provider::FixtureOptions::parse(flags)?;

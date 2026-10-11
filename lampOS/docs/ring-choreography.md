@@ -27,7 +27,7 @@ acoustic measurements. Stillness, silence and an unlit ring are valid behavior.
 
 ## Explicit qualification option
 
-Append `--ring-channel-ceiling 0..120` to `directed` or `directed-fixture` to
+Append `--ring-channel-ceiling 0..120` to `directed`, `directed-fixture` or `serve` to
 include the ring worker. A value of zero still starts the guarded writer but
 caps its output at black. Without the option no ring device is opened. Repeated,
 missing, negative or out-of-range values fail argument validation. The option
@@ -67,17 +67,25 @@ fields, mismatched lineage and feedback backpressure are faults.
 
 The software qualification target is at most 50 ms from policy request to
 write completion, with no microphone/speaker work waiting for SPI. A slow
-receipt fails the qualification run. This boundary excludes phase recognition
+receipt fails ring qualification and disables further ring presentation; otherwise
+healthy voice continues. This boundary excludes phase recognition
 before the request and physical light onset afterward. The release's visible
 transition target therefore still needs a real-device measurement.
 
-The ring worker has a 630-second total lifetime cap, covering the maximum
-600-second active directed run plus startup/shutdown reserve. Authority expiry
+Finite sessions give the ring worker a 630-second total lifetime cap, covering
+the maximum 600-second directed run plus startup/shutdown reserve. In `serve`,
+the coordinator selects its private continuous-worker lifetime while keeping
+parent, privacy, authority and frame-expiry watchdogs unchanged. Authority expiry
 remains independent and much shorter: Controller snapshots are bounded to
 250 ms, and active input leases are 100 ms. Audio diagnostics retain their
 separate 600-second wall/sample cap; diagnostic runs must leave startup room.
 
 ## Bounded renewal evidence
+
+The summaries below describe finite directed sessions. Continuous `serve` emits
+append-only ring observations into its bounded best-effort metadata writer; it
+keeps no mutable index into an evicted log batch. Choreography and cleanup state
+remain independent of logging loss. See [continuous chat core](serve-runtime.md).
 
 Lease renewal still sends a real authority packet and frame every 20 ms when
 eligible, and validates every returned receipt. Trace retention is separate:
@@ -147,13 +155,40 @@ to every worker before waiting for any one worker, within the existing shared
 requires an explicit black-write receipt whose timestamps follow that stop
 request, plus successful process exit. A zero exit alone is insufficient.
 
+Once the ring worker has completed its process handshake, its failure is an
+optional-capability failure. The coordinator latches the ring unavailable
+before one nonblocking Stop attempt and stops sending authority or frames to
+it. This does not change the current input, speech owner, playback occurrence,
+or audio readiness. Mandatory audio/privacy failures remain terminal. A late
+ring event cannot create listening readiness or revive its presentation policy.
+
+The live loop observes at most 16 cleanup messages and one nonblocking child
+status per pass. After 300 ms without observed exit, it requests termination
+once, without waiting. The child remains owned until reaped; there is no restart
+or replacement writer in this path. The latency target is zero added wait from
+observed ring fault to the next audio/control work, within the existing 2 ms
+cooperative tick target. Kernel signal/status calls have no hard userspace
+execution deadline. Host channel tests establish ordering and bounded work,
+not loaded-device timing.
+
+`ring_degraded` records unavailability and an initially unconfirmed cleanup.
+`ring_degraded_blank` retains validated SPI completion, and
+`ring_degraded_exit` separately reports actual process exit. Prior presentation
+receipts become historical `ring_degraded_event` records. A validated early
+shutdown black write keeps its original stop timestamp through final shared
+shutdown; a later Stop does not invalidate that evidence. Failed stop delivery,
+malformed cleanup, forced termination, abnormal exit, or missing black-write
+proof still fails final cleanup. A clean degraded shutdown may complete the
+voice run; its trace still records that ring qualification failed.
+
 SPI I/O remains in the child. Linux cannot promise a userspace deadline for a
 stalled kernel SPI write; the existing 10 ms write budget is checked on return.
-The coordinator detects faults and reaps children, but a crashed/killed writer
-cannot itself blank a latched physical ring. A verified exclusive replacement
-writer after reaping is still required for robust crash recovery. Startup
-errors before any admitted turn use existing kill/reap cleanup; they do not
-provide an explicit optical-darkness receipt.
+A crashed/killed writer cannot itself blank a latched physical ring. Software
+unavailability therefore does not claim darkness or another visible state.
+There is no automatic replacement. Failure inside `Worker::spawn`, before its
+handshake returns, remains terminal for this narrow change: existing startup
+kill/reap cleanup does not return enough proof to treat ownership as safely
+released. Startup cleanup is not an optical-darkness receipt.
 
 ## Verification without Lamp
 
@@ -161,8 +196,14 @@ The policy tests exercise real Controller transitions, stale and duplicate
 feedback, phase changes, privacy, original leases and time bounds. Worker tests
 use local sockets and fake sinks to cover cross-channel ordering, delayed
 authority, cancellation, expiry, malformed controls, bounded service and both
-primary/cleanup failures. The process probe additionally starts a separate
-child with a memory-only sink:
+primary/cleanup failures. Test fixture children acknowledge shell exec through a
+bounded one-byte pipe before a closed-peer test can drop its socket. Under the
+local ARM/QEMU setup, returning from child spawn alone left inherited peer
+socket descriptors briefly alive; a successful send then meant kernel enqueueing,
+not a ring-policy failure. The barrier changes test setup only: production uses
+its existing worker handshake, and authority-send errors remain strict. Missing
+or malformed fixture markers fail setup and kill/reap only that owned child.
+The process probe additionally starts a separate child with a memory-only sink:
 
 ```sh
 cargo run --locked -p lamp-live --example ring_process_probe -- --samples 120

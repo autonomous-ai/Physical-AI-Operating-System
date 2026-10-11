@@ -356,7 +356,13 @@ fn cancellation_during_a_continuity_hold_sends_nothing_and_frees_the_next_reply(
     let mut snapshot = owner.snapshot(now()).unwrap();
     for cancel in [false, true] {
         if cancel {
-            cancel_reply(&mut owner, &mut reply, &mut Vec::new(), "user_interrupted").unwrap();
+            cancel_reply(
+                &mut owner,
+                &mut reply,
+                &mut SessionState::default(),
+                "user_interrupted",
+            )
+            .unwrap();
         }
         dispatch_speaker_chunk(
             &mut owner,

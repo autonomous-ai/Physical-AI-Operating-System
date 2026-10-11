@@ -539,7 +539,7 @@ mod tests {
             let base = monotonic_us() - 1_000;
             let mut queue = VecDeque::new();
             let mut draining = false;
-            let mut trace = Vec::new();
+            let mut trace = crate::session_state::SessionState::default();
             let mut first_candidate = None;
             let mut next_admitted = false;
             for sequence in 1..=86 {

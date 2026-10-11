@@ -185,6 +185,16 @@ pub struct SessionOptions {
     pub camera_config: Option<PathBuf>,
 }
 impl SessionOptions {
+    pub fn validate_serve(&self) -> io::Result<()> {
+        if self.directed.diagnostics {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "serve rejects unbounded raw audio diagnostics; use a finite directed session",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn parse(arguments: &[String]) -> io::Result<Self> {
         let mut remaining = Vec::new();
         let mut cue_socket = None;
@@ -293,6 +303,29 @@ mod tests {
     use super::*;
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()
+    }
+    #[test]
+    fn service_rejects_raw_recording_but_preserves_explicit_audio_camera_ring_options() {
+        assert!(SessionOptions::default().validate_serve().is_ok());
+        assert!(
+            SessionOptions::parse(&args(&["--diagnostics"]))
+                .unwrap()
+                .validate_serve()
+                .is_err()
+        );
+        let options = SessionOptions::parse(&args(&[
+            "--camera-config",
+            "/tmp/camera.json",
+            "--ring-channel-ceiling",
+            "24",
+            "--turn-taking",
+            "v1-baseline",
+            "--playout-start-ms",
+            "200",
+        ]))
+        .unwrap();
+        assert!(options.validate_serve().is_ok());
+        assert_eq!(options.directed.ring_channel_ceiling, Some(24));
     }
     #[test]
     fn startup_buffer_defaults_to_zero_and_bounds_cli_and_programmatic_callers() {

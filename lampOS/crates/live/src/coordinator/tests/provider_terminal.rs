@@ -1,0 +1,489 @@
+//! Production coordinator with synthetic owned children and real local IPC.
+//! No hardware, model connection or acoustic timing is involved.
+use super::*;
+use crate::{
+    provider_flow::OutputSender,
+    provider_link::LinkFailure,
+    provider_worker::{FailedStage, Fault},
+    wire::{CaptureTiming, ReferenceTiming},
+};
+use lamp_audio::ownership::PlaybackCursor;
+use std::thread;
+
+#[derive(Clone, Copy, Debug)]
+enum Case {
+    Idle,
+    AwaitingAnswer,
+    CompleteBuffered,
+    FailedBuffered,
+    RefusalAfterEnded,
+    OpenInput,
+}
+
+struct Peer {
+    role: &'static str,
+    channels: WorkerChannels,
+    input: Option<std::process::ChildStdin>,
+    snapshot: Option<Snapshot>,
+    stopped: bool,
+}
+struct Evidence {
+    peers: Vec<Peer>,
+    played: Vec<i16>,
+    provider_starts: usize,
+    provider_ends: usize,
+    capture_blocks: u64,
+}
+
+fn ended() -> ProviderOutput {
+    ended_output()
+}
+
+fn run(case: Case) -> (SessionState, Evidence) {
+    let directory = SessionDirectory::create().unwrap();
+    let mut peers = Vec::new();
+    let mut spawn = |role| {
+        let (worker, channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        peers.push(Peer {
+            role,
+            channels,
+            input: Some(input),
+            snapshot: None,
+            stopped: false,
+        });
+        worker
+    };
+    let mut rig = Rig {
+        speaker: spawn("speaker"),
+        capture: spawn("capture"),
+        provider: spawn("provider"),
+        privacy: spawn("privacy"),
+        ring: None.into(),
+        camera: None,
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::VadOnly,
+        playout_start: PlayoutStart::default(),
+    };
+    let (mut owner, mut reply) = if matches!(case, Case::Idle | Case::OpenInput) {
+        (Controller::new(new_boot().unwrap(), now()), None)
+    } else {
+        let (mut owner, mut reply, _) = active_reply();
+        if matches!(
+            case,
+            Case::AwaitingAnswer
+                | Case::RefusalAfterEnded
+                | Case::CompleteBuffered
+                | Case::FailedBuffered
+        ) {
+            owner
+                .playback_ended(now(), reply.playback.take().unwrap())
+                .unwrap();
+            reply.pcm.clear();
+            reply.had_audio = false;
+        }
+        if matches!(case, Case::RefusalAfterEnded) {
+            reply.cloud = CloudRequest::new(1).unwrap();
+            reply
+                .cloud
+                .submitted(&ProviderInput::Start {
+                    request: reply.owner.turn(),
+                    session: 1,
+                    privacy_generation: 2,
+                })
+                .unwrap();
+        }
+        (owner, Some(reply))
+    };
+    let request = reply.as_ref().map_or(1, |r| r.owner.turn());
+    let mut startup = StartupEvents::default();
+    startup
+        .cloud
+        .observe(ready_link(1, 1), monotonic_us())
+        .unwrap();
+    let worker = thread::spawn(move || {
+        let mut evidence = Evidence {
+            peers,
+            played: Vec::new(),
+            provider_starts: 0,
+            provider_ends: 0,
+            capture_blocks: 0,
+        };
+        let mut output = OutputSender::default();
+        let mut queued = VecDeque::new();
+        match case {
+            Case::Idle => queued.push_back(ended()),
+            Case::AwaitingAnswer => {
+                queued.push_back(ProviderOutput::TurnFailed {
+                    request,
+                    stage: FailedStage::AwaitingResponse,
+                    reason: Fault::Transport,
+                });
+                queued.push_back(ended());
+            }
+            Case::CompleteBuffered => {
+                queued.push_back(provider_audio(1, vec![123; 480]));
+                queued.push_back(ProviderOutput::TurnComplete {
+                    request,
+                    idle: true,
+                });
+                queued.push_back(ended());
+            }
+            Case::FailedBuffered => {
+                queued.push_back(provider_audio(1, vec![123; 480]));
+                queued.push_back(ProviderOutput::TurnFailed {
+                    request,
+                    stage: FailedStage::Responding,
+                    reason: Fault::Transport,
+                });
+                queued.push_back(ended());
+            }
+            Case::RefusalAfterEnded => {
+                queued.push_back(ended());
+                queued.push_back(ProviderOutput::TurnFailed {
+                    request,
+                    stage: FailedStage::NotDelivered,
+                    reason: Fault::Transport,
+                });
+            }
+            Case::OpenInput => {}
+        }
+        let started = Instant::now();
+        let mut guard_sent = false;
+        let mut terminal_sent = false;
+        let mut capture_started = false;
+        let mut next_capture = Instant::now();
+        let mut next_privacy = Instant::now();
+        let mut cursor = 0u64;
+        while evidence.peers.iter().any(|p| !p.stopped) {
+            assert!(
+                started.elapsed() < Duration::from_secs(4),
+                "synthetic terminal test bounded cleanup"
+            );
+            for peer in &mut evidence.peers {
+                if peer.stopped {
+                    continue;
+                }
+                for _ in 0..16 {
+                    match peer.channels.control.receive::<Control>().unwrap() {
+                        Some(Control::Authority { snapshot }) => peer.snapshot = Some(snapshot),
+                        Some(Control::ProviderOutputCapacity { through }) => {
+                            output.grant(through).unwrap()
+                        }
+                        Some(Control::StartCapture) => {
+                            assert_eq!(peer.role, "capture");
+                            assert!(!capture_started);
+                            capture_started = true;
+                            let at = monotonic_us();
+                            peer.channels
+                                .control
+                                .send(WorkerEvent::CaptureStarted {
+                                    epoch: 1,
+                                    dsp_epoch: 1,
+                                    noise_suppression: NoiseSuppression::On,
+                                    privacy_generation: peer
+                                        .snapshot
+                                        .unwrap()
+                                        .microphone_generation(),
+                                    rate: 16000,
+                                    channels: 1,
+                                    period_frames: 160,
+                                    buffer_frames: 640,
+                                    monotonic_status_timestamps: false,
+                                    open_started_at_us: at,
+                                    prepared_at_us: at,
+                                    capture_started_at_us: at,
+                                    start_completed_at_us: at,
+                                })
+                                .unwrap();
+                        }
+                        Some(Control::Stop) => {
+                            peer.stopped = true;
+                            peer.input.take();
+                            break;
+                        }
+                        Some(command) => panic!("unexpected test control {command:?}"),
+                        None => break,
+                    }
+                }
+                if peer.stopped {
+                    continue;
+                }
+                match peer.role {
+                    "privacy" if Instant::now() >= next_privacy => {
+                        peer.channels
+                            .control
+                            .send(WorkerEvent::Privacy {
+                                acquired_at_us: monotonic_us(),
+                                muted: false,
+                            })
+                            .unwrap();
+                        next_privacy = Instant::now() + Duration::from_millis(5);
+                    }
+                    "capture" if capture_started && Instant::now() >= next_capture => {
+                        evidence.capture_blocks += 1;
+                        let at = monotonic_us();
+                        let probability =
+                            if matches!(case, Case::OpenInput) && evidence.capture_blocks <= 16 {
+                                0.99
+                            } else {
+                                0.0
+                            };
+                        peer.channels
+                            .data
+                            .send(MicrophoneFrame {
+                                epoch: 1,
+                                dsp_epoch: 1,
+                                privacy_generation: peer.snapshot.unwrap().microphone_generation(),
+                                frame_sequence: evidence.capture_blocks,
+                                read_completed_at_us: at,
+                                probability,
+                                samples: vec![7; 160],
+                                timing: CaptureTiming {
+                                    first_read_started_at_us: at,
+                                    last_read_started_at_us: at,
+                                    successful_reads: 1,
+                                    alsa_status_monotonic_us: None,
+                                    status_observed_at_us: at,
+                                    available_frames: 0,
+                                    delayed_frames: 0,
+                                    processing_completed_at_us: at,
+                                    aec_queue_delay_ms: 0,
+                                    reference: ReferenceTiming {
+                                        playback_epoch: 1,
+                                        clock_started_at_us: Some(at),
+                                        ..ReferenceTiming::default()
+                                    },
+                                },
+                            })
+                            .unwrap();
+                        next_capture = Instant::now() + Duration::from_millis(10);
+                    }
+                    "provider" => {
+                        for _ in 0..8 {
+                            match peer.channels.data.receive::<ProviderInput>().unwrap() {
+                                Some(ProviderInput::Start { request, .. }) => {
+                                    evidence.provider_starts += 1;
+                                    assert!(matches!(case, Case::OpenInput));
+                                    queued.push_back(ended());
+                                    queued.push_back(ProviderOutput::TurnFailed {
+                                        request,
+                                        stage: FailedStage::NotDelivered,
+                                        reason: Fault::Transport,
+                                    });
+                                }
+                                Some(ProviderInput::End { .. }) => evidence.provider_ends += 1,
+                                Some(ProviderInput::Audio { .. }) => {}
+                                None => break,
+                            }
+                        }
+                        if !terminal_sent && !queued.is_empty() {
+                            let mut link = ready_link(2, 1);
+                            link.state = ProviderLinkState::Terminal {
+                                reason: LinkFailure::NoResumableContext,
+                                fault: Fault::Transport,
+                                attempts: 1,
+                            };
+                            peer.channels
+                                .control
+                                .send(WorkerEvent::ProviderLink { link })
+                                .unwrap();
+                            terminal_sent = true;
+                        }
+                        for _ in 0..2 {
+                            let Some(event) = queued.front() else {
+                                break;
+                            };
+                            if output.try_send(|| peer.channels.data.send(event)).unwrap() {
+                                queued.pop_front();
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    "speaker" => {
+                        if let Some(chunk) = peer.channels.data.receive::<SpeakerChunk>().unwrap() {
+                            let at = monotonic_us();
+                            let first = PlaybackCursor {
+                                epoch: 1,
+                                frame: cursor,
+                            };
+                            cursor += chunk.samples.len() as u64;
+                            let end = PlaybackCursor {
+                                epoch: 1,
+                                frame: cursor,
+                            };
+                            evidence.played.extend_from_slice(&chunk.samples);
+                            assert!(evidence.played.len() <= 480);
+                            peer.channels
+                                .control
+                                .send(WorkerEvent::Playback {
+                                    owner: chunk.permit.owner(),
+                                    first_sample: first,
+                                    end_sample: end,
+                                    queue_observed_at_us: at,
+                                    turn: chunk.permit.owner().turn(),
+                                    sequence: chunk.chunk_sequence,
+                                    queued_frames: 0,
+                                    accepted_frames: chunk.samples.len(),
+                                    observed_at_us: at,
+                                })
+                                .unwrap();
+                            peer.channels
+                                .control
+                                .send(WorkerEvent::SpeechDrained {
+                                    owner: chunk.permit.owner(),
+                                    sequence: chunk.chunk_sequence,
+                                    last_sample: end,
+                                    observed_at_us: at,
+                                })
+                                .unwrap();
+                            if chunk.end_of_speech {
+                                peer.channels
+                                    .control
+                                    .send(WorkerEvent::SpeechRetired {
+                                        owner: chunk.permit.owner(),
+                                        sequence: chunk.chunk_sequence,
+                                        final_sample: end,
+                                        observed_at_us: at,
+                                    })
+                                    .unwrap();
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                // An unchanged-source red run must finish with an explicit test
+                // fault rather than hang indefinitely after the service bug.
+                if !guard_sent
+                    && started.elapsed() >= Duration::from_millis(1500)
+                    && peer.role == "privacy"
+                {
+                    peer.channels
+                        .control
+                        .send(WorkerEvent::Fault {
+                            code: "synthetic terminal-service timeout".into(),
+                        })
+                        .unwrap();
+                    guard_sent = true;
+                }
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+        evidence
+    });
+    let mut trace = SessionState::default();
+    if let Some(reply) = &reply {
+        trace
+            .receipts
+            .admitted(reply.owner, monotonic_us())
+            .unwrap();
+    }
+    let result = conversation(
+        &mut rig,
+        &mut owner,
+        Lifetime::Serve,
+        &mut trace,
+        startup,
+        &mut reply,
+        &mut None,
+        &Termination::inactive(),
+    );
+    let result = finish_active_run(
+        &mut rig, &mut owner, &mut reply, &mut trace, &mut None, result,
+    );
+    let evidence = worker.join().unwrap();
+    let error = result.unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("terminal provider output settled"),
+        "{case:?}: {error}"
+    );
+    assert!(error.downcast_ref::<PhysicalMute>().is_none());
+    assert!(reply.is_none());
+    assert!(evidence.peers.iter().all(|p| p.stopped));
+    assert!(!trace.iter().any(|e| e["kind"] == "worker_forced_shutdown"));
+    (trace, evidence)
+}
+
+#[test]
+fn idle_terminal_provider_ends_service_without_readiness_or_retry() {
+    let (trace, evidence) = run(Case::Idle);
+    assert!(evidence.played.is_empty());
+    assert_eq!(evidence.provider_starts, 0);
+    assert!(!trace.iter().any(|e| matches!(
+        e["kind"].as_str(),
+        Some("turn_finished" | "listening_ready" | "input_admitted")
+    )));
+}
+
+#[test]
+fn failed_awaiting_answer_settles_once_before_service_error() {
+    let (trace, evidence) = run(Case::AwaitingAnswer);
+    assert!(evidence.played.is_empty());
+    assert_outcome(&trace, "provider_failed");
+}
+
+#[test]
+fn completed_buffered_reply_is_fully_retired_before_service_error() {
+    let (trace, evidence) = run(Case::CompleteBuffered);
+    assert_eq!(evidence.played, vec![123; 480]);
+    assert_outcome(&trace, "audio_written_unscored");
+}
+
+#[test]
+fn failed_buffered_reply_keeps_exact_pcm_and_failed_outcome() {
+    let (trace, evidence) = run(Case::FailedBuffered);
+    assert_eq!(evidence.played, vec![123; 480]);
+    assert_outcome(&trace, "provider_failed");
+}
+
+#[test]
+fn in_flight_start_refusal_after_ended_is_not_skipped() {
+    let (trace, evidence) = run(Case::RefusalAfterEnded);
+    assert!(evidence.played.is_empty());
+    assert_outcome(&trace, "provider_failed");
+    assert!(
+        trace
+            .iter()
+            .any(|e| e["kind"] == "provider_turn_failed" && e["stage"] == "not_delivered")
+    );
+}
+
+#[test]
+fn abandoned_open_input_reaches_actual_detector_end_without_tail_replay() {
+    let (trace, evidence) = run(Case::OpenInput);
+    assert!(evidence.played.is_empty());
+    assert_eq!(evidence.provider_starts, 1);
+    assert_eq!(evidence.provider_ends, 0);
+    assert!(evidence.capture_blocks >= 76);
+    assert_outcome(&trace, "provider_failed");
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "input_admitted")
+            .count(),
+        1
+    );
+    let endpoint = trace
+        .iter()
+        .position(|e| e["kind"] == "input_discarded_endpoint")
+        .unwrap();
+    let finished = trace
+        .iter()
+        .position(|e| e["kind"] == "turn_finished")
+        .unwrap();
+    assert!(endpoint < finished);
+}
+
+fn assert_outcome(trace: &SessionState, outcome: &str) {
+    let finished: Vec<_> = trace
+        .iter()
+        .filter(|e| e["kind"] == "turn_finished")
+        .collect();
+    assert_eq!(finished.len(), 1);
+    assert_eq!(finished[0]["outcome"], outcome);
+    assert!(!trace.iter().any(|e| e["kind"] == "reply_cancelled"));
+}

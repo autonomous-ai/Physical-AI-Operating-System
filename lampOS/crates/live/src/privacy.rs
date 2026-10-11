@@ -5,10 +5,21 @@ use lamp_interaction::MonoTime;
 pub const PRIVACY_FRESH_US: u64 = 50_000;
 pub const REOPEN_STABLE_US: u64 = 60_000;
 
+/// A closed gate is not necessarily a deliberate use of the mute switch.
+/// Only a current, ordered physical observation can establish `Muted`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PrivacyState {
+    Unavailable,
+    Muted,
+    Stabilizing,
+    Allowed,
+}
+
 #[derive(Default, Debug)]
 pub struct PrivacyGate {
     last: Option<(u64, MonoTime)>,
     allowed_since: Option<MonoTime>,
+    last_muted: Option<bool>,
 }
 
 impl PrivacyGate {
@@ -40,6 +51,7 @@ impl PrivacyGate {
             self.allowed_since = None;
         }
         self.last = Some((sequence, acquired));
+        self.last_muted = Some(muted);
         if muted {
             self.allowed_since = None;
         } else if self.allowed_since.is_none() {
@@ -49,21 +61,35 @@ impl PrivacyGate {
     }
 
     pub fn allowed(&self, now: MonoTime) -> bool {
+        self.state(now) == PrivacyState::Allowed
+    }
+
+    pub fn state(&self, now: MonoTime) -> PrivacyState {
         let fresh = self.last.is_some_and(|(_, at)| {
             now.as_micros()
                 .checked_sub(at.as_micros())
                 .is_some_and(|age| age < PRIVACY_FRESH_US)
         });
-        fresh
-            && self.allowed_since.is_some_and(|since| {
-                now.as_micros()
-                    .checked_sub(since.as_micros())
-                    .is_some_and(|age| age >= REOPEN_STABLE_US)
-            })
+        if !fresh || self.last_muted.is_none() {
+            return PrivacyState::Unavailable;
+        }
+        if self.last_muted == Some(true) {
+            return PrivacyState::Muted;
+        }
+        if self.allowed_since.is_some_and(|since| {
+            now.as_micros()
+                .checked_sub(since.as_micros())
+                .is_some_and(|age| age >= REOPEN_STABLE_US)
+        }) {
+            PrivacyState::Allowed
+        } else {
+            PrivacyState::Stabilizing
+        }
     }
 
     pub fn close(&mut self) {
         // Keep sequence high-water: a reordered packet must not reopen privacy.
         self.allowed_since = None;
+        self.last_muted = None;
     }
 }

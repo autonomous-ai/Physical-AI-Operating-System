@@ -216,3 +216,23 @@ continuous speaker ownership and bounded cancellation, while reusing the Rust
 default zero. The [contract and held-out enqueue replay](playout-start.md)
 distinguish queue-horizon modeling from driver and acoustic measurements.
 A language rewrite or a passing replay does not establish V1 playback parity.
+
+## Continuous chat core (private proposal, 2026-10-11)
+
+The finite Rust coordinator already owns provider sessions, accepted audio,
+privacy, ring phases and cancellation. The `serve` slice reuses that path and the
+existing `rtrb` SPSC dependency instead of introducing another conversation engine
+or a logging service dependency. It removes only the finite session/ring ceilings
+and replaces qualification trace retention with bounded best-effort metadata.
+Typed receipt lineage is extracted from trace lookups so dropping observations
+cannot change authority. See [continuous chat core](serve-runtime.md) for limits,
+including the separate mute/reopen lifecycle integration and native qualification.
+
+## Continuous-service physical mute supervision
+
+Keep the existing physical GPIO worker, 50 ms observation freshness, 60 ms
+unmute stability and strict per-runtime privacy checks. A service-level GPIO-only
+wait precedes opening any audio/provider worker; fresh physical mute returns to
+that wait only after verified shutdown. Reuse the same bounded metadata writer
+and termination registration through cycles. Do not revive permits, replay PCM
+or claim provider-memory continuity. See [service privacy](service-privacy.md).

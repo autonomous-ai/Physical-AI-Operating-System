@@ -1,11 +1,11 @@
 # Main agent status
 
-- Protocol: `direct-and-git-v2`
+- Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated source checkpoint: `157dbb871` adds opt-in camera context over the inactive guarded motor core/port at `46a9d6275`. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
+- Integrated source checkpoint: `8feaf64b9` adds continuous serve, bounded metadata and receipt ownership, physical-mute lifecycle, camera teardown/diagnostics and optional-ring containment over the opt-in playout policy at `3bf5219b2`. The qualified ARM binary `7acfabcd...` is staged on 4ace; prior physical audio evidence remains on `6e6c58b42` / `0aa2387a...` until new trials finish.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
+- State: two context-linked eight-turn Rust runs on lamp-4ace completed all 16 prompts with no extra admissions or cancellations under the conservative V1-baseline policy. Local room ASR corroborates both sides. Three short audio gaps and extended-model introductions remain defects; no acoustic acceptance or natural-interruption claim. See [the physical result](../docs/connected-conversation-20261011.md). The combined continuous-service/camera/continuity candidate now passes ARM gates after a test-only child-exec synchronization correction. Native loader/CLI verification passes; physical qualification is underway. Main coordinates the large duplex and end-of-turn workstreams through tmux.
 
 ## Current private integration and latency target
 
@@ -19,11 +19,31 @@ root's 565 passing affected tests. MAIN-049 keeps Agent 2's current endpoint
 policy experimental, requests an independent inference process and full-turn
 human replay. Neither candidate has a measured hardware speedup.
 
-The current combined private source composes camera teardown, opt-in continuity,
-continuous service/mute-reopen and optional-ring failure containment. Host
-component gates are green; combined gates and ARM/native qualification remain.
-A fresh connected eight-turn iMac script is being prepared with event-triggered
-follow-ups, a correction and a topic change. No V1 benchmark is active.
+The combined source is integrated at `8feaf64b9`: camera teardown/timestamp
+diagnostics, opt-in continuity, continuous service/mute-reopen, settled terminal
+provider exit, and optional-ring containment. Source-only ARM gates pass: strict
+all-target audio/camera/live Clippy, 138 audio tests (one existing ignored),
+75 camera tests, and 515 live tests (two existing ignored), followed by release
+build and AArch64 loader verification. Host component gates also passed.
+
+The first ARM live run failed two test assertions: fixture children briefly
+retained their inherited peer socket descriptors under QEMU. A descriptor probe
+reproduced this; a bounded test-only exec marker removes the race. Production
+transport and the strict first-send failure assertions are unchanged. Original
+failures remain recorded. This does not establish optical or acoustic behavior.
+
+Frozen compiled source manifest SHA256:
+`6150f1a1500de04b24c3b0437258b1b77d9386c87fc7b210bf7850a3863ba481`.
+Native binary SHA256:
+`7acfabcd6f38e4cf1d9a8f145c8b3c1ab479118a8bc1edc97897d0e767d9871c`.
+Root gate/extraction receipts live under
+`/private/tmp/lamp-camera-diagnostic-composed-1_21tfw9/arm/`.
+All compiled files match the canonical tree; newer coordination/product docs
+were preserved. Staging verified native usage for serve and continuity; it did
+not activate either policy. The connected script has already run twice on the
+old binary, with all 16 attempts retained. Eight exact stimuli are additionally
+preserved in ignored `.cache/acoustic/connected-desk-20261011/`. No V1 benchmark
+is active.
 
 Native camera correction `a4cac2dd...` safely revoked and exited without a forced
 kill; driver teardown took 50.227 ms in this attempt. Inspection still failed
@@ -68,37 +88,30 @@ holds activation of its candidate, which currently increases false splits in
 its synthetic cohort. Main's continuous service, mute/reopen, camera teardown
 and ring degradation changes are private candidates, not deployed capabilities.
 
-## Current agent assignments
+## Current agent assignments and communication
 
-Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
-on `lamp-a2-endpoint`. Main's scoped response is MAIN-044 in the assignment
-file: a separate endpoint crate and isolated dependency checkpoint are allowed
-for review; no production default or device action is approved by that response.
-Its first tested candidate at `c79a7a49`, published in `ee1eaad8e`, is now read;
-MAIN-047 specifies the separate-process correction and reports why its endpoint
-policy is not accepted yet.
-Agent 1 acknowledged and delivered its first opt-in playout checkpoint at
-`68e50dc3c` on `lamp-a1-playout`; Main read it and requested its narrow integration
-proposal in MAIN-046. Offline replay results are not device measurements.
+The owner requested full autonomous workstreams, then explicitly required all
+communication through tmux. MAIN-050 and MAIN-051 are published at `56326af41`:
 
-The owner requested a new split for the two available Claude Code agents.
-[MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech
-continuity and Agent 2 faster, reliable endpoint detection. Both start from
-`1a089863a`; Main retains device scheduling, camera/motor integration
-and shared coordinator. The detailed file ownership there supersedes the broader
-completion plan for these checkpoints. Both initial assignments are acknowledged;
-the new MAIN-047 instruction awaits acknowledgment. The last direct-context
-attempt returned `CHANNEL_NOT_FOUND`; do not claim the new assignment was read.
+- Agent 1 owns continuous hearing, echo-resistant admission, natural interruption
+  and sustained USB clock/reference behavior on `lamp-a1-duplex`.
+- Agent 2 owns the isolated endpoint worker, full conversational policy, human
+  pause/continuation evaluation, integration and performance on
+  `lamp-a2-endpoint-runtime`.
 
-## Direct coordination
+Main delivered MAIN-050 to office pane `%216` and observed Agent 1 fetch the brief
+and begin implementation/replay work. The tmux-only update was also sent there.
+Main verified Agent 2 on M2 at pane `%37`, sent MAIN-051 through its existing
+trusted remote tmux terminal input, and observed `turn_started`. No claim that its
+new implementation is complete follows from that delivery. Both briefs include
+code, integration, stress tests and documentation; neither agent should wait for
+another small assignment after a single component or audit.
 
-The existing sessions are members of Harness team **Lamp Rust implementation**.
-Main and Agent 1 run on office; Agent 2 is the M2 session **lampOS voice-eval
-runner**. Main replies directly to team questions; Git retains source, interface
-contracts, results and decisions. No owner relay is needed. Agent 1 previously
-could not obtain its team context (`CHANNEL_SCOPE_MISSING`); do not circumvent
-that guard. Its latest A1-009/010/011 question arrived through Harness and Main
-answered there as MAIN-028. Queued delivery is not proof that an agent read it.
+[Coordination](README.md) names the verified routes and guards. Routine messages
+use tmux; Git retains code and durable evidence. Previous Harness team context
+errors are historical and do not require changing settings or credentials. No
+owner relay is needed. Main retains device/shared-VM scheduling and default
+selection. All earlier physical evidence and incomplete work remain recorded.
 
 ## Current V1 baseline checkpoint
 

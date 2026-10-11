@@ -48,6 +48,12 @@ fn run() -> Result<()> {
             lamp_live::fixture_provider::run(channels, parent, Path::new(wav), sha256)?;
         }
         #[cfg(target_os = "linux")]
+        [command, config, output, flags @ ..] if command == "serve" => {
+            let options = lamp_live::options::SessionOptions::parse(flags)?;
+            options.validate_serve()?;
+            lamp_live::coordinator::run_serve(Path::new(config), Path::new(output), options)?;
+        }
+        #[cfg(target_os = "linux")]
         [command, config, seconds, output, flags @ ..] if command == "directed" => {
             let options = lamp_live::options::SessionOptions::parse(flags)?;
             lamp_live::coordinator::run_directed_session(Path::new(config), seconds.parse()?, Path::new(output), options)?;
@@ -79,6 +85,14 @@ fn run() -> Result<()> {
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }
+        #[cfg(target_os = "linux")]
+        [command, role, dir, parent, worker, mode] if command == "worker" && role == "ring" && mode == "--continuous" => {
+            let parent = parse_boot(parent)?;
+            let worker = parse_boot(worker)?;
+            let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
+            channels.connect(Path::new(dir), role, true)?;
+            lamp_live::ring_worker::run_continuous(channels, parent)?;
+        }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;
             let worker=parse_boot(worker)?;
@@ -93,7 +107,7 @@ fn run() -> Result<()> {
                 _=>return Err(io::Error::other("worker is not integrated yet").into()),
             }
         },
-        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--camera-config ABS_PATH] [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
+        _=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"usage: lamp-live serve PRIVATE_CONFIG.json NEW_OUTPUT [directed options except --diagnostics] | camera-inspect PRIVATE_CAMERA_CONFIG.json SECONDS NEW_REPORT.json | provider-check PRIVATE_CONFIG.json | directed PRIVATE_CONFIG.json SECONDS NEW_OUTPUT [--camera-config ABS_PATH] [--diagnostics] [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | directed-fixture REPLY.wav SHA256 SECONDS NEW_OUTPUT --diagnostics [--noise-suppression on|off] [--turn-taking v1-baseline|vad-only] [--playout-start-ms 0..200 | --playout-continuity] [--cue-socket ABS_PATH] [--ring-channel-ceiling 0..120] | worker ROLE DIR CONTROLLER_BOOT WORKER_BOOT").into()),
     }
     Ok(())
 }

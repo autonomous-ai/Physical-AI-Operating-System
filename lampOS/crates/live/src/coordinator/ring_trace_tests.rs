@@ -7,7 +7,7 @@ struct Fixture {
     peer: WorkerChannels,
     owner: Controller,
     policy: RingChoreographer,
-    trace: Vec<Value>,
+    trace: SessionState,
     ring_trace: RingTrace,
     requests: u64,
     receipts: u64,
@@ -29,7 +29,7 @@ impl Fixture {
             peer,
             owner,
             policy: RingChoreographer::new(24).unwrap(),
-            trace: Vec::new(),
+            trace: SessionState::default(),
             ring_trace: RingTrace::default(),
             requests: 0,
             receipts: 0,
@@ -494,7 +494,7 @@ fn ring_trace_retains_original_first_last_receipts_and_latency_extrema() {
 #[test]
 fn ring_trace_audio_only_service_produces_no_ring_events() {
     let mut owner = Controller::new(new_boot().unwrap(), at(1));
-    let mut trace = vec![json!({"kind":"voice_fixture"})];
+    let mut trace = SessionState::from(vec![json!({"kind":"voice_fixture"})]);
     let before = trace.clone();
     let mut ring_trace = RingTrace::default();
     service_ring_with_clock(None, None, &mut owner, &mut trace, &mut ring_trace, || {
@@ -641,4 +641,24 @@ fn ring_trace_tail_slot_capacity_failure_is_fatal_and_reserves_run_end() {
     f.trace
         .push(json!({"kind":"run_end", "status":"failed", "error":error.to_string()}));
     assert_eq!(f.trace.len(), MAX_TRACE_EVENTS);
+}
+
+#[test]
+fn service_ring_renews_with_real_receipts_after_every_metadata_batch_is_removed() {
+    let mut f = Fixture::new();
+    let (writer, _entered, release) = crate::service_trace::ServiceTrace::stalled();
+    f.trace = SessionState::with_writer(writer);
+    for index in 0..100 {
+        f.exchange(1 + index * crate::choreography::RENEW_INTERVAL_US)
+            .unwrap();
+        assert_eq!(f.trace.len(), 2);
+        assert_eq!(f.trace[0]["kind"], "ring_requested");
+        assert_eq!(f.trace[1]["kind"], "ring_feedback");
+        assert!(f.policy.pending().is_none());
+        flush_cues(&mut f.trace, &mut None);
+        assert!(f.trace.is_empty());
+    }
+    assert_eq!((f.requests, f.receipts), (100, 100));
+    release.send(()).unwrap();
+    assert!(f.trace.finish_logging().unwrap().acknowledged);
 }

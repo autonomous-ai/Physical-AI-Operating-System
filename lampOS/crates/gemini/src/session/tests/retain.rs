@@ -620,3 +620,69 @@ fn the_patience_is_bounded_and_off_is_the_default() {
         );
     }
 }
+
+/// The reviewer's path. The earlier response's idle completion takes the
+/// barrier down, the kept start and audio are written, and the withheld End
+/// follows. Those writes are awaited: a retirement recorded while one of
+/// them waits on the transport must still be honored before the End.
+async fn retired_while_the_kept_start_is_being_written(supersede: bool) {
+    use super::stop_fence::controlled_with;
+    let (mut connection, mut server, control) = controlled_with(keeping_with(
+        Duration::from_secs(2),
+        Timeouts {
+            write: Duration::from_secs(1),
+            ..Timeouts::default()
+        },
+    ))
+    .await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..3 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    let input = connection.input();
+    input.try_end(next).unwrap();
+    silent(&mut server).await;
+    // The transport holds the next write: the kept start, which the idle
+    // completion releases.
+    control.hold.store(true, Ordering::Release);
+    send_json(&mut server, idle()).await;
+    timeout(Duration::from_secs(1), control.held.notified())
+        .await
+        .unwrap();
+    // While that write waits, the request is retired: cancelled, or
+    // superseded by a third.
+    if supersede {
+        input.try_start(request(3)).unwrap();
+    } else {
+        input.retire(next);
+    }
+    control.release();
+    // The start and the kept audio go out, as documented for a request
+    // retired while kept. Its End does not: it would commit a turn that
+    // was retired before any byte of that End was written.
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, 0..3).await;
+    if let Ok(Some(Ok(message))) = timeout(Duration::from_millis(60), server.next()).await {
+        let written: Value = serde_json::from_slice(&message.into_data()).unwrap();
+        panic!("written for a request retired before it: {written}");
+    }
+    assert!(!matches!(connection.state(), State::Disconnected(_)));
+    if supersede {
+        // The third request continues the activity and is the one committed.
+        speak(&connection, request(3), 0, 9);
+        heard_in_order(&mut server, [9]).await;
+        input.try_end(request(3)).unwrap();
+        sent(&mut server, "activityEnd").await;
+        silent(&mut server).await;
+    }
+}
+
+#[tokio::test]
+async fn a_request_cancelled_while_its_kept_start_is_being_written_is_not_committed() {
+    retired_while_the_kept_start_is_being_written(false).await;
+}
+
+#[tokio::test]
+async fn a_request_superseded_while_its_kept_start_is_being_written_is_not_committed() {
+    retired_while_the_kept_start_is_being_written(true).await;
+}

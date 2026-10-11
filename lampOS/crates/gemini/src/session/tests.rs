@@ -1462,7 +1462,7 @@ mod retain;
 /// a read returns. The gates are the integrator's, from the review of the
 /// queued-stop fix, which showed both gaps below; the expectations are the
 /// other way round.
-mod stop_fence {
+pub(super) mod stop_fence {
     use super::*;
     use std::{
         pin::Pin,
@@ -1472,13 +1472,13 @@ mod stop_fence {
     use tokio::io::ReadBuf;
 
     #[derive(Clone, Default)]
-    struct Controls {
+    pub(in crate::session::tests) struct Controls {
         /// While set, the transport accepts `allowance` more bytes and then
         /// holds every write.
-        hold: Arc<AtomicBool>,
+        pub(in crate::session::tests) hold: Arc<AtomicBool>,
         allowance: Arc<AtomicUsize>,
         /// A write is being held.
-        held: Arc<Notify>,
+        pub(in crate::session::tests) held: Arc<Notify>,
         waker: Arc<Mutex<Option<Waker>>>,
         /// Bytes the transport has accepted, and how often it was offered any.
         accepted: Arc<AtomicUsize>,
@@ -1494,7 +1494,7 @@ mod stop_fence {
                 self.offers.load(Ordering::Acquire),
             )
         }
-        fn release(&self) {
+        pub(in crate::session::tests) fn release(&self) {
             self.hold.store(false, Ordering::Release);
             if let Some(waker) = self.waker.lock().unwrap().take() {
                 waker.wake();
@@ -1564,6 +1564,15 @@ mod stop_fence {
     /// the longest allowed, so that a session which ends sooner than that
     /// after a stop ended because of the stop.
     async fn controlled() -> (Connection, MockSocket, Controls) {
+        controlled_with(configuration(Timeouts {
+            write: Duration::from_secs(1),
+            ..Timeouts::default()
+        }))
+        .await
+    }
+    pub(in crate::session::tests) async fn controlled_with(
+        configuration: SessionConfig,
+    ) -> (Connection, MockSocket, Controls) {
         let (client, server) = tokio::io::duplex(MAX_WIRE_BYTES * 2);
         let control = Controls::default();
         let client = WebSocketStream::from_raw_socket(
@@ -1579,10 +1588,7 @@ mod stop_fence {
             WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
         let connect = tokio::spawn(setup_and_spawn(
             client,
-            configuration(Timeouts {
-                write: Duration::from_secs(1),
-                ..Timeouts::default()
-            }),
+            configuration,
             SessionId::new(17).unwrap(),
         ));
         receive(&mut server).await;

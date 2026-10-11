@@ -12,11 +12,14 @@
 //! that vanishes or a speaker that stops draining can then be produced on
 //! demand, off the board. A scripted device proves the logic above the trait.
 //! It says nothing about a real codec, clock or room.
-use crate::capture::{CaptureConfig, CaptureFormat};
+use crate::{
+    capture::{CaptureConfig, CaptureFormat},
+    pcm::PcmFormat,
+};
 use std::fmt;
 
 #[cfg(target_os = "linux")]
-pub use crate::alsa_device::AlsaCapture;
+pub use crate::alsa_device::{AlsaCapture, AlsaPlayback};
 
 /// The `errno` values the boundaries act on, by name. Two of them exist only
 /// on Linux, where ALSA returns them. Elsewhere they keep their Linux numbers,
@@ -122,4 +125,31 @@ pub trait CaptureDevice: Sized {
     /// Stop at once and drop what is buffered. The handle itself closes when
     /// the device is dropped, whether or not this succeeded.
     fn discard(&mut self) -> Result<(), DeviceFault>;
+}
+
+/// Why a playback device could not be opened and configured.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlaybackOpenError {
+    Fault(DeviceFault),
+    /// It was configured, to something outside the accepted bounds.
+    Unsupported(PcmFormat),
+}
+
+pub trait PlaybackDevice: Sized {
+    /// Open nonblocking and negotiate mono 24 kHz signed 16-bit playback.
+    /// With `clock_mode` the device must not start by itself when written to.
+    fn open(name: &str, clock_mode: bool) -> Result<(Self, PcmFormat), PlaybackOpenError>;
+    /// Free space and total queued delay, in frames, from one observation.
+    fn avail_delay(&mut self) -> Result<(i64, i64), DeviceFault>;
+    fn start(&mut self) -> Result<(), DeviceFault>;
+    /// At most one nonblocking write. No room is a fault for which
+    /// [`DeviceFault::would_block`] holds.
+    fn write(&mut self, samples: &[i16]) -> Result<usize, DeviceFault>;
+    /// Ask the device to play out what is queued. Still playing is a fault
+    /// for which [`DeviceFault::would_block`] holds.
+    fn drain(&mut self) -> Result<(), DeviceFault>;
+    fn prepare(&mut self) -> Result<(), DeviceFault>;
+    /// Stop at once and drop what is queued.
+    fn discard(&mut self) -> Result<(), DeviceFault>;
+    fn state(&self) -> DeviceState;
 }

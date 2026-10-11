@@ -4,7 +4,11 @@
 //! holds and when it fails.
 use crate::{
     capture::{CaptureConfig, CaptureFormat},
-    device::{CaptureDevice, CaptureStatus, ConfigureError, DeviceFault, DeviceState, errno},
+    device::{
+        CaptureDevice, CaptureStatus, ConfigureError, DeviceFault, DeviceState, PlaybackDevice,
+        PlaybackOpenError, errno,
+    },
+    pcm::PcmFormat,
 };
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -178,5 +182,211 @@ impl CaptureDevice for ScriptedCapture {
         script.state = DeviceState::Setup;
         drop(script);
         self.failing("discard")
+    }
+}
+
+struct PlaybackScript {
+    format: PcmFormat,
+    state: DeviceState,
+    clock_mode: bool,
+    /// Frames accepted and not yet played.
+    queued: usize,
+    /// Everything the device accepted, in order. This, and nothing that was
+    /// only offered, is what an echo reference may be built from.
+    accepted: Vec<i16>,
+    /// The most a single write takes, however much room there is.
+    accept_at_most: Option<usize>,
+    /// One-shot failures by call name: open, avail_delay, start, write,
+    /// drain, prepare, discard.
+    faults: Vec<(&'static str, i32)>,
+    opens: u32,
+    starts: u32,
+    discards: u32,
+    prepares: u32,
+}
+
+/// A test's hold on one scripted speaker. Nothing plays by itself: a test
+/// says how many frames the device has played out.
+#[derive(Clone)]
+pub struct PlaybackControl(Arc<Mutex<PlaybackScript>>);
+
+static PLAYBACKS: Mutex<BTreeMap<String, PlaybackControl>> = Mutex::new(BTreeMap::new());
+
+/// How often a scripted speaker was opened, started, discarded and prepared.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PlaybackCounts {
+    pub opens: u32,
+    pub starts: u32,
+    pub discards: u32,
+    pub prepares: u32,
+}
+
+impl PlaybackControl {
+    /// Make `name` openable. Names are process-wide; use one per test.
+    pub fn register(name: &str) -> Self {
+        let control = Self(Arc::new(Mutex::new(PlaybackScript {
+            format: PcmFormat {
+                rate: 24_000,
+                period_frames: 240,
+                buffer_frames: 960,
+            },
+            state: DeviceState::Setup,
+            clock_mode: false,
+            queued: 0,
+            accepted: Vec::new(),
+            accept_at_most: None,
+            faults: Vec::new(),
+            opens: 0,
+            starts: 0,
+            discards: 0,
+            prepares: 0,
+        })));
+        locked(&PLAYBACKS).insert(name.to_owned(), control.clone());
+        control
+    }
+    fn script(&self) -> MutexGuard<'_, PlaybackScript> {
+        locked(&self.0)
+    }
+    /// What `open` will report as installed.
+    pub fn set_format(&self, format: PcmFormat) {
+        self.script().format = format;
+    }
+    /// The next call of this name fails once with `errno`, one of
+    /// [`crate::device::errno`].
+    pub fn fail_next(&self, call: &'static str, errno: i32) {
+        self.script().faults.push((call, errno));
+    }
+    /// The device has played out this many of the frames it was holding.
+    pub fn play(&self, frames: usize) {
+        let mut script = self.script();
+        script.queued = script.queued.saturating_sub(frames);
+    }
+    /// From now on one write takes at most this many frames.
+    pub fn accept_at_most(&self, frames: Option<usize>) {
+        self.script().accept_at_most = frames;
+    }
+    pub fn set_state(&self, state: DeviceState) {
+        self.script().state = state;
+    }
+    pub fn state(&self) -> DeviceState {
+        self.script().state
+    }
+    pub fn queued(&self) -> usize {
+        self.script().queued
+    }
+    /// Every sample the device accepted so far, in order.
+    pub fn accepted(&self) -> Vec<i16> {
+        self.script().accepted.clone()
+    }
+    pub fn counts(&self) -> PlaybackCounts {
+        let script = self.script();
+        PlaybackCounts {
+            opens: script.opens,
+            starts: script.starts,
+            discards: script.discards,
+            prepares: script.prepares,
+        }
+    }
+}
+
+pub struct ScriptedPlayback(PlaybackControl);
+
+impl ScriptedPlayback {
+    fn failing(&self, call: &'static str) -> Result<(), DeviceFault> {
+        let mut script = self.0.script();
+        match script.faults.iter().position(|(name, _)| *name == call) {
+            Some(index) => {
+                let (_, errno) = script.faults.remove(index);
+                Err(DeviceFault::new(call, errno))
+            }
+            None => Ok(()),
+        }
+    }
+}
+
+impl PlaybackDevice for ScriptedPlayback {
+    fn open(name: &str, clock_mode: bool) -> Result<(Self, PcmFormat), PlaybackOpenError> {
+        let control = locked(&PLAYBACKS)
+            .get(name)
+            .cloned()
+            .ok_or(PlaybackOpenError::Fault(DeviceFault::new(
+                "open",
+                errno::NOENT,
+            )))?;
+        let device = Self(control);
+        device.failing("open").map_err(PlaybackOpenError::Fault)?;
+        let mut script = device.0.script();
+        script.opens += 1;
+        script.clock_mode = clock_mode;
+        script.state = DeviceState::Prepared;
+        let format = script.format;
+        drop(script);
+        Ok((device, format))
+    }
+
+    fn avail_delay(&mut self) -> Result<(i64, i64), DeviceFault> {
+        self.failing("avail_delay")?;
+        let script = self.0.script();
+        let room = (script.format.buffer_frames as usize).saturating_sub(script.queued);
+        Ok((room as i64, script.queued as i64))
+    }
+
+    fn start(&mut self) -> Result<(), DeviceFault> {
+        self.failing("start")?;
+        let mut script = self.0.script();
+        script.starts += 1;
+        script.state = DeviceState::Running;
+        Ok(())
+    }
+
+    fn write(&mut self, samples: &[i16]) -> Result<usize, DeviceFault> {
+        self.failing("write")?;
+        let mut script = self.0.script();
+        let room = (script.format.buffer_frames as usize).saturating_sub(script.queued);
+        let frames = samples
+            .len()
+            .min(room)
+            .min(script.accept_at_most.unwrap_or(usize::MAX));
+        if frames == 0 {
+            return Err(DeviceFault::new("write", errno::AGAIN));
+        }
+        script.accepted.extend_from_slice(&samples[..frames]);
+        script.queued += frames;
+        // Outside clock mode a device starts by itself once written to.
+        if !script.clock_mode && script.state == DeviceState::Prepared {
+            script.state = DeviceState::Running;
+        }
+        Ok(frames)
+    }
+
+    fn drain(&mut self) -> Result<(), DeviceFault> {
+        self.failing("drain")?;
+        let mut script = self.0.script();
+        if script.queued > 0 {
+            return Err(DeviceFault::new("drain", errno::AGAIN));
+        }
+        script.state = DeviceState::Setup;
+        Ok(())
+    }
+
+    fn prepare(&mut self) -> Result<(), DeviceFault> {
+        self.failing("prepare")?;
+        let mut script = self.0.script();
+        script.prepares += 1;
+        script.state = DeviceState::Prepared;
+        Ok(())
+    }
+
+    fn discard(&mut self) -> Result<(), DeviceFault> {
+        let mut script = self.0.script();
+        script.discards += 1;
+        script.queued = 0;
+        script.state = DeviceState::Setup;
+        drop(script);
+        self.failing("discard")
+    }
+
+    fn state(&self) -> DeviceState {
+        self.0.script().state
     }
 }

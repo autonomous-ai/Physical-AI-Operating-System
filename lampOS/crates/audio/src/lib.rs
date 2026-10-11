@@ -18,7 +18,7 @@ pub mod evidence;
 #[cfg(unix)]
 pub mod notice;
 pub mod ownership;
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub mod pcm;
 pub mod qualification;
 #[cfg(unix)]

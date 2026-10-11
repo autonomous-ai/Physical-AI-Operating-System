@@ -1,4 +1,5 @@
-//! Linux ALSA output boundary. This module never changes mixer volume or routing.
+//! Speaker output boundary over a [`PlaybackDevice`]: ALSA on the board, and
+//! anything scripted in tests. This module never changes mixer volume or routing.
 //!
 //! Use the board's `plug:device_speaker` alias to preserve its soft-volume stage.
 //! One supervisor must own the physical speaker; opening an arbitrary ALSA alias
@@ -7,11 +8,8 @@
 //! while its audio queue is empty. Hardware delay and acoustic latency differ.
 use crate::{
     RENDER_RATE, RENDER_SAMPLES, Result,
+    device::{DeviceState, PlaybackDevice, PlaybackOpenError, errno},
     ownership::{OwnershipFailure, PlaybackCursor, PlaybackOwnership, QueuedRange},
-};
-use alsa::{
-    Direction, ValueOr,
-    pcm::{Access, Format, HwParams, PCM, State},
 };
 use lamp_interaction::{
     BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit, Snapshot, ZeroAuthority,
@@ -23,11 +21,28 @@ use std::io;
 /// 40 ms maximum negotiated PCM queue plus 60 ms scheduling/device margin.
 const MAX_FINISH_US: u64 = 100_000;
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct PcmFormat {
     pub rate: u32,
     pub period_frames: i64,
     pub buffer_frames: i64,
+}
+
+/// The bounds this boundary accepts, whatever device reports the format.
+pub(crate) fn valid_format(format: PcmFormat, clock_mode: bool) -> bool {
+    format.rate == RENDER_RATE
+        && format.period_frames > 0
+        && format.period_frames <= RENDER_SAMPLES as i64
+        && format.buffer_frames > 0
+        && format.buffer_frames <= (RENDER_SAMPLES * 4) as i64
+        && !(clock_mode && format.buffer_frames < (RENDER_SAMPLES * 2) as i64)
+}
+
+fn unsupported(format: PcmFormat) -> Box<dyn std::error::Error + Send + Sync> {
+    io::Error::other(format!(
+        "ALSA cannot meet bounded speaker format: {format:?}"
+    ))
+    .into()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -52,8 +67,12 @@ pub struct PlaybackStatus {
     pub range: QueuedRange,
 }
 
-pub struct Speaker {
-    pcm: PCM,
+/// The speaker boundary over the board's ALSA device.
+#[cfg(target_os = "linux")]
+pub type Speaker = SpeakerOn<crate::alsa_device::AlsaPlayback>;
+
+pub struct SpeakerOn<D: PlaybackDevice> {
+    pcm: D,
     format: PcmFormat,
     guard: BoundaryGuard,
     pending: PlaybackOwnership,
@@ -68,7 +87,7 @@ pub struct Speaker {
     post_write_check_at: Option<MonoTime>,
 }
 
-impl Speaker {
+impl<D: PlaybackDevice> SpeakerOn<D> {
     pub fn open(device: &str, boot: BootId) -> Result<Self> {
         Self::open_mode(device, boot, false)
     }
@@ -83,47 +102,15 @@ impl Speaker {
     }
 
     fn open_mode(device: &str, boot: BootId, clock_mode: bool) -> Result<Self> {
-        let pcm = PCM::new(device, Direction::Playback, true)?;
-        let format = {
-            let params = HwParams::any(&pcm)?;
-            params.set_access(Access::RWInterleaved)?;
-            params.set_format(Format::s16())?;
-            params.set_channels(1)?;
-            params.set_rate(RENDER_RATE, ValueOr::Nearest)?;
-            params.set_period_size_near(RENDER_SAMPLES as i64, ValueOr::Nearest)?;
-            params.set_buffer_size_near((RENDER_SAMPLES * 4) as i64)?;
-            pcm.hw_params(&params)?;
-            let current = pcm.hw_params_current()?;
-            let format = PcmFormat {
-                rate: current.get_rate()?,
-                period_frames: current.get_period_size()?,
-                buffer_frames: current.get_buffer_size()?,
-            };
-            if format.rate != RENDER_RATE
-                || current.get_channels()? != 1
-                || current.get_format()? != Format::s16()
-                || format.period_frames <= 0
-                || format.period_frames > RENDER_SAMPLES as i64
-                || format.buffer_frames <= 0
-                || format.buffer_frames > (RENDER_SAMPLES * 4) as i64
-                || (clock_mode && format.buffer_frames < (RENDER_SAMPLES * 2) as i64)
-            {
-                return Err(io::Error::other(format!(
-                    "ALSA cannot meet bounded speaker format: {format:?}"
-                ))
-                .into());
-            }
-            let software = pcm.sw_params_current()?;
-            software.set_start_threshold(if clock_mode {
-                // A threshold beyond the buffer disables automatic write-start.
-                software.get_boundary()?
-            } else {
-                format.period_frames
-            })?;
-            software.set_avail_min(1)?;
-            pcm.sw_params(&software)?;
-            format
+        let (pcm, format) = match D::open(device, clock_mode) {
+            Ok(opened) => opened,
+            Err(PlaybackOpenError::Fault(error)) => return Err(error.into()),
+            Err(PlaybackOpenError::Unsupported(format)) => return Err(unsupported(format)),
         };
+        // Checked here as well: the bounds are this boundary's, not the device's.
+        if !valid_format(format, clock_mode) {
+            return Err(unsupported(format));
+        }
         Ok(Self {
             pcm,
             format,
@@ -243,8 +230,7 @@ impl Speaker {
             }
             Err(error)
                 if self.expected_end_state()
-                    && (error.errno() == rustix::io::Errno::PIPE.raw_os_error()
-                        || error.errno() == rustix::io::Errno::BADFD.raw_os_error()) =>
+                    && (error.errno == errno::PIPE || error.errno == errno::BADFD) =>
             {
                 (0, 0)
             }
@@ -442,16 +428,11 @@ impl Speaker {
         let written = if offered == 0 {
             Ok(0)
         } else {
-            self.pcm.io_i16()?.writei(&samples[..offered])
+            self.pcm.write(&samples[..offered])
         };
         let frames = match written {
             Ok(frames) => frames,
-            Err(error)
-                if io::Error::from_raw_os_error(error.errno()).kind()
-                    == io::ErrorKind::WouldBlock =>
-            {
-                0
-            }
+            Err(error) if error.would_block() => 0,
             Err(error) => {
                 // An underrun, disconnect or suspend is a discontinuity. Do not
                 // recover by replaying queued speech under an old permission.
@@ -549,16 +530,10 @@ impl Speaker {
         self.check_finish_deadline()?;
         let drained = match result {
             Ok(()) => true,
-            Err(error)
-                if io::Error::from_raw_os_error(error.errno()).kind()
-                    == io::ErrorKind::WouldBlock =>
-            {
-                false
-            }
+            Err(error) if error.would_block() => false,
             Err(error)
                 if self.expected_end_state()
-                    && (error.errno() == rustix::io::Errno::PIPE.raw_os_error()
-                        || error.errno() == rustix::io::Errno::BADFD.raw_os_error()) =>
+                    && (error.errno == errno::PIPE || error.errno == errno::BADFD) =>
             {
                 true
             }
@@ -587,7 +562,7 @@ impl Speaker {
     }
 
     fn expected_end_state(&self) -> bool {
-        self.is_finishing() && matches!(self.pcm.state(), State::XRun | State::Setup)
+        self.is_finishing() && matches!(self.pcm.state(), DeviceState::XRun | DeviceState::Setup)
     }
 
     pub fn is_finishing(&self) -> bool {
@@ -624,7 +599,7 @@ impl Speaker {
         self.last_poll = None;
         self.finish_deadline = None;
         self.clock_started = false;
-        if let Err(error) = self.pcm.drop() {
+        if let Err(error) = self.pcm.discard() {
             // A failed discard is not confirmation that queued speech stopped.
             // Keep its authorization metadata and latch further output closed.
             self.guard.invalidate();
@@ -665,9 +640,9 @@ impl Speaker {
     }
 }
 
-impl Drop for Speaker {
+impl<D: PlaybackDevice> Drop for SpeakerOn<D> {
     fn drop(&mut self) {
-        let _ = self.pcm.drop();
+        let _ = self.pcm.discard();
     }
 }
 
@@ -675,7 +650,7 @@ fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod finish_tests {
     use super::*;
     use lamp_interaction::{AdmissionState, AdmittedInput, CaptureState, Controller, Permission};

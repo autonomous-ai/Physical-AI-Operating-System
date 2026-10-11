@@ -16,8 +16,8 @@ use crate::{
 use lamp_audio::{
     EchoProcessor, RENDER_SAMPLES,
     capture::{CaptureConfig, ErrorKind as CaptureErrorKind, MicrophoneOn},
-    device::{AlsaCapture, CaptureDevice},
-    pcm::{Speaker, Written},
+    device::{AlsaCapture, AlsaPlayback, CaptureDevice, PlaybackDevice},
+    pcm::{SpeakerOn, Written},
 };
 use lamp_interaction::{
     BootId, Error as InteractionError, MonoTime, Permission, Snapshot, TurnOwner,
@@ -526,6 +526,27 @@ fn capture_loop<D: CaptureDevice>(
 }
 
 pub fn speaker(
+    channels: WorkerChannels,
+    controller: BootId,
+    worker: BootId,
+    directory: &Path,
+    device: &str,
+    diagnostic_directory: Option<&Path>,
+) -> Result<()> {
+    speaker_on::<AlsaPlayback>(
+        channels,
+        controller,
+        worker,
+        directory,
+        device,
+        diagnostic_directory,
+    )
+}
+
+/// The speaker worker over any playback device. `speaker` above is the
+/// board's and uses ALSA. A process-level test names a scripted device and
+/// runs this same loop.
+pub fn speaker_on<D: PlaybackDevice>(
     mut channels: WorkerChannels,
     controller: BootId,
     worker: BootId,
@@ -550,7 +571,7 @@ pub fn speaker(
         None,
         &mut channels,
     )?;
-    let mut speaker = Speaker::open_clock(device, controller)?;
+    let mut speaker = SpeakerOn::<D>::open_clock(device, controller)?;
     let result = speaker_loop(
         &mut channels,
         &mut speaker,
@@ -594,7 +615,11 @@ impl ReferenceOutput {
         self.prime_last_write = None;
         self.waiting_ack = false;
     }
-    fn fault(&self, speaker: &Speaker, reason: ReferenceFaultKind) -> ReferenceFault {
+    fn fault<D: PlaybackDevice>(
+        &self,
+        speaker: &SpeakerOn<D>,
+        reason: ReferenceFaultKind,
+    ) -> ReferenceFault {
         let range = speaker.queued_range();
         ReferenceFault {
             reason,
@@ -611,9 +636,9 @@ impl ReferenceOutput {
             },
         }
     }
-    fn prime(
+    fn prime<D: PlaybackDevice>(
         &mut self,
-        speaker: &mut Speaker,
+        speaker: &mut SpeakerOn<D>,
         link: &mut ReferenceChannels,
         recording: &mut Option<Recording>,
     ) -> Result<()> {
@@ -703,9 +728,9 @@ impl ReferenceOutput {
     }
 }
 
-fn speaker_loop(
+fn speaker_loop<D: PlaybackDevice>(
     channels: &mut WorkerChannels,
-    speaker: &mut Speaker,
+    speaker: &mut SpeakerOn<D>,
     worker: BootId,
     directory: &Path,
     recording: &mut Option<Recording>,
@@ -1099,9 +1124,9 @@ fn report_speech_reset(channels: &mut WorkerChannels, speech: &mut SpeechPlaybac
     Ok(())
 }
 
-fn supersede_speech(
+fn supersede_speech<D: PlaybackDevice>(
     channels: &mut WorkerChannels,
-    speaker: &mut Speaker,
+    speaker: &mut SpeakerOn<D>,
     speech: &mut SpeechPlayback,
     snapshot: lamp_interaction::Snapshot,
     microphone_generation: Option<u64>,
@@ -1124,9 +1149,9 @@ fn supersede_speech(
     Ok(())
 }
 
-fn report_discard(
+fn report_discard<D: PlaybackDevice>(
     channels: &mut WorkerChannels,
-    speaker: &mut Speaker,
+    speaker: &mut SpeakerOn<D>,
     output: &mut ReferenceOutput,
     flush_count: &mut u64,
     recording: &mut Option<Recording>,

@@ -1,11 +1,13 @@
 //! The ALSA calls behind [`crate::device`]. Each method is the call the
 //! boundary made directly before the trait existed, and nothing more.
 use crate::{
-    CAPTURE_RATE, CAPTURE_SAMPLES,
+    CAPTURE_RATE, CAPTURE_SAMPLES, RENDER_RATE, RENDER_SAMPLES,
     capture::{CaptureConfig, CaptureFormat, valid_format},
     device::{
-        CaptureDevice, CaptureStatus, ConfigureError, DeviceFault, DeviceState, timestamp_us,
+        CaptureDevice, CaptureStatus, ConfigureError, DeviceFault, DeviceState, PlaybackDevice,
+        PlaybackOpenError, timestamp_us,
     },
+    pcm::PcmFormat,
 };
 use alsa::{
     Direction, ValueOr,
@@ -110,5 +112,86 @@ impl CaptureDevice for AlsaCapture {
 
     fn discard(&mut self) -> Result<(), DeviceFault> {
         self.0.drop().map_err(fault)
+    }
+}
+
+pub struct AlsaPlayback(PCM);
+
+impl PlaybackDevice for AlsaPlayback {
+    fn open(name: &str, clock_mode: bool) -> Result<(Self, PcmFormat), PlaybackOpenError> {
+        let failed = |error: alsa::Error| PlaybackOpenError::Fault(fault(error));
+        let pcm = PCM::new(name, Direction::Playback, true).map_err(failed)?;
+        let format = {
+            let params = HwParams::any(&pcm).map_err(failed)?;
+            params.set_access(Access::RWInterleaved).map_err(failed)?;
+            params.set_format(Format::s16()).map_err(failed)?;
+            params.set_channels(1).map_err(failed)?;
+            params
+                .set_rate(RENDER_RATE, ValueOr::Nearest)
+                .map_err(failed)?;
+            params
+                .set_period_size_near(RENDER_SAMPLES as i64, ValueOr::Nearest)
+                .map_err(failed)?;
+            params
+                .set_buffer_size_near((RENDER_SAMPLES * 4) as i64)
+                .map_err(failed)?;
+            pcm.hw_params(&params).map_err(failed)?;
+            let current = pcm.hw_params_current().map_err(failed)?;
+            let format = PcmFormat {
+                rate: current.get_rate().map_err(failed)?,
+                period_frames: current.get_period_size().map_err(failed)?,
+                buffer_frames: current.get_buffer_size().map_err(failed)?,
+            };
+            if current.get_channels().map_err(failed)? != 1
+                || current.get_format().map_err(failed)? != Format::s16()
+                || !crate::pcm::valid_format(format, clock_mode)
+            {
+                return Err(PlaybackOpenError::Unsupported(format));
+            }
+            let software = pcm.sw_params_current().map_err(failed)?;
+            software
+                .set_start_threshold(if clock_mode {
+                    // A threshold beyond the buffer disables automatic write-start.
+                    software.get_boundary().map_err(failed)?
+                } else {
+                    format.period_frames
+                })
+                .map_err(failed)?;
+            software.set_avail_min(1).map_err(failed)?;
+            pcm.sw_params(&software).map_err(failed)?;
+            format
+        };
+        Ok((Self(pcm), format))
+    }
+
+    fn avail_delay(&mut self) -> Result<(i64, i64), DeviceFault> {
+        self.0.avail_delay().map_err(fault)
+    }
+
+    fn start(&mut self) -> Result<(), DeviceFault> {
+        self.0.start().map_err(fault)
+    }
+
+    fn write(&mut self, samples: &[i16]) -> Result<usize, DeviceFault> {
+        self.0
+            .io_i16()
+            .and_then(|writer| writer.writei(samples))
+            .map_err(fault)
+    }
+
+    fn drain(&mut self) -> Result<(), DeviceFault> {
+        self.0.drain().map_err(fault)
+    }
+
+    fn prepare(&mut self) -> Result<(), DeviceFault> {
+        self.0.prepare().map_err(fault)
+    }
+
+    fn discard(&mut self) -> Result<(), DeviceFault> {
+        self.0.drop().map_err(fault)
+    }
+
+    fn state(&self) -> DeviceState {
+        state(self.0.state())
     }
 }

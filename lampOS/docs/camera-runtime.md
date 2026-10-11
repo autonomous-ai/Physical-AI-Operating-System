@@ -6,7 +6,9 @@ implements explicit USB identity checks, MJPG negotiation and a bounded MMAP
 queue. It has no process launcher, image decoder, vision inference, cloud image
 input, light cue or motor operation. Synthetic tests do not qualify hardware,
 optical freshness, privacy response time or real-time performance. This composed candidate does not establish physical camera qualification.
-Native startup currently yields zero frames and remains a separate investigation.
+The latest native startup rejected an otherwise valid first frame because its
+reported exposure was 400,929 microseconds old. The bounded startup-discard
+correction below is host-tested only; native acceptance remains unqualified.
 
 ## Local ownership and privacy
 
@@ -119,8 +121,20 @@ Neither is an exposure timestamp. Optional driver timestamps preserve:
 - original microsecond value.
 
 Only an explicitly declared shared monotonic driver clock is compared with host
-time. Future, pre-start, regressing and (for a known timestamp point) excessively
-old values fail closed. Realtime jumps and unknown timestamp values are recorded
+time. Future, pre-start and regressing values fail closed. Before the first
+accepted frame, an otherwise valid frame with a known timestamp point and age
+at least 250 ms is discarded, with no observation or delivery token. Poll still
+reads at most one frame per iteration. Sequence and timestamp continuity include
+discarded frames; discarding cannot hide a duplicate, regression, malformed JPEG
+envelope or wrong capture/source. It neither refreshes the original two-second
+first-frame deadline nor marks the camera ready. If every frame remains old,
+the outcome is `FirstFrameTimeout`, followed by the existing terminal teardown.
+
+The first accepted frame permanently ends this exception for that capture
+epoch, even after its retained frame is delivered or ages out. An excessively
+old known-point timestamp then faults as before. No automatic reopen, driver
+queue reset, extra dequeue loop or relaxed age bound is introduced. Realtime
+jumps and unknown timestamp values are recorded
 without interpreting them as host age. Missing/unknown timestamp meaning stays
 unknown; a current host dequeue cannot prove a current scene. The Linux backend
 preserves kernel timestamp flags, but actual device behavior
@@ -139,7 +153,7 @@ These are proposed targets and failure bounds, **not measured results**:
 | Start port operation | Checked 100 ms application budget, clipped to authority expiry |
 | Direct synchronous `Capture` stop | Checked 20 ms application budget (unchanged default) |
 | Supervised worker driver teardown after local seal | Separate checked 250 ms bound anchored at first seal; requires native qualification |
-| First current frame after start begins | Fault at 2 s, with authority continuously refreshed |
+| First current frame after start begins | Fault at 2 s, with authority continuously refreshed; discarded startup frames do not renew this deadline |
 | Silence after the last accepted frame | Fault at 1 s, with authority continuously refreshed |
 | Retained host dequeue age | Strictly less than 250 ms |
 
@@ -405,6 +419,11 @@ runtime dependency:
   publication timestamp follows callbacks; still capture may return an older
   latest frame on timeout and uses a motor freeze lease. Those semantics are
   not reused.
+- `hal/drivers/camera/video_capture_device.py:555–568`: after the idle wait,
+  V1 calls `grab()` twice before `read()` to skip queued older frames. Rust
+  preserves deliberate obsolete-frame discard at startup, but validates each
+  timestamp and performs only one nonblocking dequeue per cooperative tick.
+  A dequeue or V1 callback time is never substituted for the driver timestamp.
 - `hal/drivers/camera/video_capture_device.py:28–97,398–458,499–508`: legacy
   discovery/fallback, USB power controls and reset paths. This slice contains
   none of those actions.
@@ -580,10 +599,67 @@ later calls cannot replace the first rejection. Existing receipts without this
 optional field still decode. It grants no capture or export authority and does
 not change rejection, freshness, privacy, start or teardown behavior.
 
-The native corrected inspection returned a buffer but failed timestamp validation
-before any frame was counted. Its retained report did not include the rejected
-value, so the failing comparison could not be identified. The next inspection
-must preserve this record alongside `capture_started` and the original fault/
-teardown receipts. Compare those exact operands before considering any behavior
-change; timestamp labels are driver reports, not independent exposure timing or
-optical-privacy evidence.
+The first native corrected inspection returned a buffer but omitted its rejected
+timestamp. A later metadata-only inspection preserved the exact operands:
+capture start 17,572,683,659 us; driver sequence 0, reported monotonic SOE
+17,572,739,156 us; host comparison 17,573,140,085 us. The difference is 400,929 us,
+above the unchanged 250,000 us limit. The timestamp is after start and not future
+or regressing. No frame was accepted; startup took about 51 ms and the driver
+stop returned after about 63 ms, with no forced kill and verified rollback.
+The worker and run still exited with failure; those timings do not certify an
+overall successful shutdown. This establishes
+the failed predicate, not whether the cause was initial queue backlog, exposure
+timing or steady transport delay.
+
+### Bounded startup discard and next native check
+
+`Capture::startup_discards()` exposes a fixed-size optional summary: a saturating
+count, first discard and latest discard. Each keeps the original timestamp,
+capture epoch, driver sequence, exact comparison operands and age. It contains
+no images, paths or arbitrary strings. It survives stop/fault cleanup and resets
+only for an explicitly permitted new capture. Startup discards do not increment
+accepted-frame counters or the accepted-frame sequence. Driver sequence gaps
+remain separate from deliberate discard counts.
+
+The existing `Progress` and `Revoked` receipts carry this optional summary;
+old receipts without it still decode. There is no new per-frame event, queue or
+control input. The final inspection report retains it in the revocation receipt,
+including the forever-old failure case. A summary does not assert readiness or
+camera recovery. Invalid timestamps still retain the first fatal comparison in
+`timestamp_rejection`; an eligible startup discard is not that fatal record.
+
+Host regressions exercise real `Capture` and `CameraLoop` behavior with inert
+ports, controlled clocks and control-link fixtures: the native 400,929 us first-frame age followed
+by a fresh frame, all-old frames through the original two-second deadline,
+priority privacy/stop during draining, immutable original grants, malformed and
+regressing frames, and old frames after an established stream. They demonstrate
+ordering and bounds, not optical freshness or device latency. Startup discard
+adds no wait: one read and bounded metadata update remain inside the existing
+checked 10 ms read budget; the 2 ms cooperative tick and 20 ms local revocation
+target are unchanged.
+
+Before acceptance on Lamp, compile/test the exact source on Linux ARM64, then
+run the same finite stationary camera-only inspection with unchanged device,
+mode and timestamp limit. Retain the source/config identity, first/latest
+discard ages, count, first accepted original timestamp, accepted-frame count,
+privacy/revocation and teardown receipts. Confirm that no discarded frame is
+exported. If every frame stays old, preserve the unavailable result and operands;
+do not widen the limit or relabel dequeue time as exposure. A passing metadata
+inspection still does not qualify scene visibility, inference or movement.
+
+
+The startup-discard candidate has now passed source-only Linux ARM64
+qualification under QEMU: workspace format check, strict all-target Clippy for
+camera/live, 82 camera tests, 33 CameraLoop tests and 22 related live tests
+(137 passed, zero failed or ignored), then release build and ELF/CLI checks.
+The exact 331-file source manifest is
+`3d8a7e873532408680d5eae5fb39a8ac3bc4de951b002d163c834a999dc5fbd3`;
+the extracted AArch64 binary is
+`e3a50dd9fffd7690b58dfb545c9950aaf081ff87cac666c04df966afabaa04d6`.
+Receipts are retained locally under
+`/private/tmp/lamp-camera-startup-arm-k3enp1fi/evidence-final/`.
+Main independently verified all frozen source hashes and executed ten focused
+startup regressions on the host. These are additional executions of existing
+cases, not ten additional unique tests. This checkpoint has not yet run the
+corrected camera path on a device. The unchanged native inspection above remains
+required; no visual readiness, hardware speedup or motion claim follows.

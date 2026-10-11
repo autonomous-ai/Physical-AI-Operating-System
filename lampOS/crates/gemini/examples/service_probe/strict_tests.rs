@@ -9,6 +9,7 @@ async fn mock() -> (Connection, FakeService) {
             Credential::api_key("offline-test").unwrap(),
         )
         .unwrap(),
+        BARRIER,
     )
     .unwrap();
     let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;
@@ -363,4 +364,117 @@ async fn duplicated_continuation_is_refused_before_any_provider_configuration_is
             .to_string()
             .contains("continuation must contain distinct PCM")
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn during_output_the_successor_starts_only_on_the_first_requests_actual_audio() {
+    let (connection, mut service) = mock().await;
+    let first = vec![111; 8_000];
+    let second = vec![222; 16_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::ZERO,
+        "continue-during-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        // No successor while the first request has produced nothing,
+        // however long that takes.
+        assert!(service.try_receive(Duration::from_secs(3)).await.is_none());
+        service.send(audio(111, 240)).await;
+        until(&mut service, "activityStart").await;
+        // Interrupted while producing: the terminal the barrier waits for.
+        service.send(audio(112, 240)).await;
+        service
+            .send(json!({"serverContent":{"interrupted":true}}))
+            .await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(333, 240)).await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(
+        report["outcome"],
+        "strict_barrier_confirmed_after_audio_and_answered"
+    );
+    assert_eq!(report["case"], "barrier_wait_observed_after_audio");
+    assert_eq!(report["first_audio_observed_before_second_queue"], true);
+    // The second start followed the first audio, not a clock.
+    assert!(
+        report["inputs"][1]["start_queued_us"].as_u64().unwrap()
+            >= report["first_audio_observed_us"][0].as_u64().unwrap()
+    );
+    assert!(report["inputs"][1]["start_queued_us"].as_u64().unwrap() >= 3_000_000);
+    // The first request's audio was received before its retirement only:
+    // what came after the interrupting start is not counted to either.
+    assert_eq!(report["received_audio_samples"], json!([240, 240]));
+    assert!(report["interrupted_observed_us"][0].as_u64().is_some());
+    assert!(
+        report["idle_observed_us"][0].as_u64().unwrap()
+            < report["inputs"][1]["end_queued_us"].as_u64().unwrap()
+    );
+    assert_eq!(report["inputs"][1]["accepted_samples"], second.len());
+}
+
+#[tokio::test(start_paused = true)]
+async fn during_output_without_a_terminal_is_a_strict_timeout_and_no_end_is_written() {
+    let (connection, mut service) = mock().await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 64_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::ZERO,
+        "continue-during-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        service.send(audio(5, 240)).await;
+        until(&mut service, "activityStart").await;
+        // The service goes on producing for a while and never says it stopped.
+        service.send(audio(6, 240)).await;
+        while let Some(message) = service.try_receive(Duration::from_secs(3)).await {
+            assert!(message["realtimeInput"].get("activityEnd").is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_timeout");
+    assert_eq!(report["case"], "barrier_wait_observed_after_audio");
+    assert_eq!(report["inputs"][1]["end_queued_us"], Value::Null);
+    assert_eq!(report["interrupted_observed_us"], json!([null, null]));
+}
+
+#[test]
+fn a_longer_barrier_bound_is_parsed_bounded_and_removed() {
+    let arguments = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+    };
+    let mut plain = arguments(&["p", "a.wav", "continue-during-output", "b.wav"]);
+    assert_eq!(observed_barrier(&mut plain).unwrap(), BARRIER);
+    assert_eq!(plain.len(), 4);
+    let mut longer = arguments(&[
+        "p",
+        "a.wav",
+        "continue-before-output",
+        "b.wav",
+        "300",
+        "barrier-ms=10000",
+    ]);
+    assert_eq!(
+        observed_barrier(&mut longer).unwrap(),
+        Duration::from_secs(10)
+    );
+    assert_eq!(longer.len(), 5);
+    for bad in ["barrier-ms=1999", "barrier-ms=20001", "barrier-ms=soon"] {
+        let mut arguments = arguments(&["p", "a.wav", "continue-before-output", "b.wav", bad]);
+        assert!(observed_barrier(&mut arguments).is_err(), "{bad}");
+    }
 }

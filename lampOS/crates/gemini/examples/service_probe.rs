@@ -23,7 +23,14 @@
 //!
 //! `continue-before-output SECOND.wav [GAP_MS]` and the distinct
 //! `repeat-before-output [GAP_MS]` use strict Require/2 s and drain events
-//! while sending. They print bounded model/input transcript observations for
+//! while sending. `continue-during-output SECOND.wav [GAP_MS]` is the same
+//! trial with the successor started only once the first request's own audio
+//! has actually been received, `GAP_MS` after it and at once by default: an
+//! interruption of a response that is producing. A trailing `barrier-ms=N`,
+//! 2000 to 20000, lengthens the barrier's quiet bound to watch whether a
+//! terminal arrives late. That is observation only: the policy is still
+//! Require, nothing is assumed, and the result says the bound is not
+//! production's. They print bounded model/input transcript observations for
 //! private review; input transcripts remain session-scoped. These modes use
 //! exact mono16k PCM16 without trimming. See the session reliability document
 //! for their public-API and semantic limits.

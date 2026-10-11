@@ -924,6 +924,39 @@ What an integrator will notice:
 - Echo-driven false admissions are outside this work and unchanged by it. Each
   one still cancels the answer in progress.
 
+## Two additions to the strict probe (example only)
+
+Neither changes the library. Both exist to answer what the failed run
+below could not.
+
+**`continue-during-output SECOND.wav [GAP_MS]`.** The same strict trial,
+with the successor started only once the first request's own audio has
+actually been received: one event at a time, a condition and not a time
+guess, `GAP_MS` after that audio and at once by default. It is an
+interruption of a response that is producing. The result's `case` is
+`barrier_wait_observed_after_audio`; `interrupted_observed_us` and
+`idle_observed_us` say when the first request's `interrupted` and idle
+completion were exposed, if they were; the outcome is
+`strict_barrier_confirmed_after_audio_and_answered` only when the idle
+completion came after the second start, nothing was assumed and the second
+request was answered.
+
+**`barrier-ms=N`, trailing, 2000 to 20000.** Lengthens the barrier's quiet
+bound for one run, to watch whether a terminal arrives late. It is
+observation only. The policy is still `Require`: nothing is assumed, the
+successor's End stays withheld for as long as nothing settles, and no
+answer can be attributed on the strength of the longer wait. The result
+records `barrier_ms`, `barrier_bound_is_production: false` and
+`observation_only: true`.
+
+```sh
+service_probe PROVIDER.json FIRST.wav continue-during-output SECOND.wav
+service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barrier-ms=10000
+```
+
+The second line is the failed run again with ten seconds, not two, in
+which a terminal for the first request may show itself.
+
 ## Actual strict continuation probe, 2026-10-11
 
 The first real service run of `continue-before-output` with a 300 ms continuation

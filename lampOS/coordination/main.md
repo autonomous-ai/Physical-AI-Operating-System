@@ -1,39 +1,49 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11
+- Updated: 2026-10-11 17:35 UTC
 - Branch: `lamp-v2-chat`
-- Integrated source: this checkpoint adds reviewed capture-clock/reference recovery, experimental duplex with the root prefix-retention correction, and the typed prime-handshake repair over `235f50297`. Defaults are unchanged. Native05 uses source manifest `b0bada56...73cdb8` and binary `738503a803d3...5b8d0`; native startup and three initial replies are observed, sustained qualification pending. Motor remains inactive. Runtime, laboratory probe and deployment identities are distinct.
-- Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: supervised pilot target remains 2026-10-12 about 03:18 UTC. Native03 exposed fixed-clock drift after 378.6 s; Native04 exposed the capture-clock startup mismatch before any prompt. Both failures remain recorded. The corrected Native05 conversation/idle/conversation run is underway. Agent 1 owns provider continuation, Agent 2 conservative endpointing, Main integration and native qualification. No acoustic speedup, natural interruption or all-day readiness is claimed.
+- Runtime code: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
+- Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
+- Pilot target: approximately 2026-10-12 03:18 UTC. Current sustained conversation gate passed; packaging, failure feedback, conservative endpoint review and pilot limitations remain active work.
 
-## Current checkpoint, 2026-10-11 17:10 UTC
+## Native05 completed
 
-The reviewed 63-file reference/duplex/prime composition is integrated. Its 283
-non-documentation files match the qualified `b0bada56` source exactly. Host prime
-checks pass 42/42; emulated Linux/ARM64 format, strict audio/live all-target
-Clippy, 120 targeted tests and release build pass. Native `--help` and the actual
-prime startup are verified on 4ace. The bounded Native05 run remains in progress,
-with recovery and duplex off, physical room recording and independent stationary
-rollback. See [pilot evidence and limits](../docs/supervised-pilot.md#native04-failure-and-native05-candidate).
+All 16 planned exchanges completed in one 21.6-minute session, with the second
+eight after 20 minutes. No extra admission, reference fault, DSP reset or provider
+reconnection was recorded. Runtime exit 0, cooperative cleanup and stationary
+rollback verified. Three valid 600-second Mac recordings cover the whole target
+window, with no dropped/clipped frames. Metadata has 3,406 contiguous events and
+a clean coordinator finish ACK. Four replies still report 10–110 ms accepted-zero
+playback gaps; acoustics are unscored. See [the complete evidence boundary](../docs/verification/native05-20261011/README.md).
 
-Agent 1 received the real-service during-output result directly in tmux: one
-strictly confirmed cut-off and answered successor. The 10-second observation
-probe failed local configuration, not the service; its example-only repair is
-published separately at `cfdd6e742` and is not part of this runtime. Earlier
-before-output failure remains unresolved. Early endpointing stays off.
+The latest software median is 1.145450 s from endpoint to first speaker write,
+excluding the 1.2 s endpoint wait. About 2.35 s with that wait is an estimate,
+not first-audible-word timing or a causal speedup claim. Independent local room
+content verification is underway; recordings are not uploaded.
 
-Agent 2 continues MAIN-057. A nonessential Native04 update through the remote
-terminal route was rejected by automatic approval review; its assignment was
-already delivered and work is not blocked. Installed-source review confirms
-ordinary messages use guarded tmux input, but M2's current implementation still
-needs confirmation before claiming the rejected update delivered. No fallback
-team/channel message was sent.
+Agent 1 received the completed native results through its verified tmux pane.
+Its before-output continuation and separately reviewable queued-Stop fixes remain
+pending review; `smart-turn-early` stays off. The real-service during-output probe
+succeeded once; the 10-second observation attempt failed local configuration,
+and its example-only repair at `cfdd6e742` is separate from this runtime.
 
-The remaining sections retain earlier checkpoint evidence and limitations;
-the current source/runtime identity and active run are stated above.
+Agent 2's existing paired terminal route was rechecked against current M2
+metadata: Claude, expected worktree, sole tmux runtime `%37`. The normal guarded
+terminal submission delivered MAIN-057's update and a new turn start was observed.
+The earlier rejected Native04 update was not sent; no team/channel bypass was
+used. Agent 2 continues the conservative endpoint pilot package.
 
-## Pilot deadline and current blockers
+Host prime checks passed 42/42. The frozen runtime passed emulated Linux/ARM64
+format, strict audio/live all-target Clippy, 120 targeted tests and release build.
+No fresh full-workspace gate is claimed. Native04's startup mismatch and invalid
+observer remain retained. A separate local-notice implementation and standalone
+service package are being prepared without replacing the tested binary.
+
+The sections below preserve earlier checkpoints; the current identity and result
+are stated above.
+
+## Earlier pilot deadline and blocker checkpoint
 
 The owner set a 12-hour target at approximately 15:18 UTC on 2026-10-11.
 See [the supervised pilot plan](../docs/supervised-pilot.md). MAIN-054 was sent

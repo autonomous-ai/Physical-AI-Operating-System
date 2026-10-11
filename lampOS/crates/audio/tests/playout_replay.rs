@@ -121,9 +121,10 @@ struct Reply {
 }
 
 /// Every reply with provider audio in the device traces available on
-/// 2026-10-11: seven sessions, fifteen replies. The last is the first Rust
-/// pilot. Three further 10 ms gaps in these runs happened with 16,080 to
-/// 60,960 frames queued. Those are not arrival gaps and are not listed.
+/// 2026-10-11: nine sessions, seventeen replies. The last three are that
+/// day's Rust runs: the first pilot and two with noise suppression off. Three
+/// further 10 ms gaps in the earlier runs happened with 16,080 to 60,960
+/// frames queued. Those are not arrival gaps and are not listed.
 const RECORDED: &[Reply] = &[
     Reply {
         run: "rubc3c4q/1",
@@ -384,6 +385,46 @@ const RECORDED: &[Reply] = &[
         startup_zero_ms: 30,
         events: FIRST_RUST_EVENTS,
     },
+    Reply {
+        run: "ns-off/1",
+        first_write_us: 398_754,
+        startup_zero_ms: 0,
+        events: &[
+            (0, 1),
+            (391_096, 7_440),
+            (392_577, 3_840),
+            (520_038, 7_680),
+            (773_986, 7_680),
+            (1_091_564, 3_840),
+            (1_261_887, 8_640),
+            (1_610_245, 3_840),
+            (1_773_097, 5_760),
+            (2_013_930, 4_800),
+            (2_218_375, 4_800),
+            (2_417_239, 8_640),
+            (2_904_218, 11_520),
+            (3_258_151, 9_600),
+        ],
+    },
+    Reply {
+        run: "ns-off/2",
+        first_write_us: 12_267,
+        startup_zero_ms: 260,
+        events: &[
+            (0, 1_200),
+            (302_724, 5_760),
+            (337_122, 8_640),
+            (550_436, 2_880),
+            (676_240, 8_640),
+            (1_035_692, 8_640),
+            (1_391_507, 6_720),
+            (1_676_890, 10_560),
+            (2_112_180, 8_640),
+            (2_478_459, 7_680),
+            (2_792_838, 8_640),
+            (3_150_143, 1_920),
+        ],
+    },
 ];
 
 const FIRST_RUST_EVENTS: &[(u64, u64)] = &[
@@ -459,13 +500,13 @@ fn without_a_hold_the_model_reproduces_the_gaps_the_devices_recorded() {
         );
     }
     let recorded: u64 = RECORDED.iter().map(|reply| reply.startup_zero_ms).sum();
-    assert_eq!(recorded, 890);
+    assert_eq!(recorded, 1_150);
     assert_eq!(
         RECORDED
             .iter()
             .filter(|reply| reply.startup_zero_ms > 0)
             .count(),
-        8
+        9
     );
 }
 
@@ -523,7 +564,7 @@ fn the_smallest_horizon_that_covers_the_first_rust_pilot_reply_is_180_ms() {
 }
 
 #[test]
-fn the_horizon_removes_every_recorded_startup_gap_but_the_one_stall() {
+fn the_horizon_removes_every_recorded_startup_gap_but_the_two_the_service_stalled() {
     let mut without = Vec::new();
     for reply in RECORDED {
         let arrivals = queued(reply.events);
@@ -538,15 +579,17 @@ fn the_horizon_removes_every_recorded_startup_gap_but_the_one_stall() {
             .map(|phase| play(&arrivals, START_HORIZON_US, phase).zero_ms())
             .max()
             .unwrap();
-        // The second burst of this reply came 378.5 ms after 80 ms of audio.
-        // No start within the horizon covers that.
-        if reply.run == "rubc3c4q/5" {
-            assert_eq!((worst_without, worst_with), (310, 190));
-        } else {
-            assert_eq!(worst_with, 0, "{}", reply.run);
+        // The second burst of these two came 378.5 ms after 80 ms of audio
+        // and 302.7 ms after 50 ms. No start within the horizon covers that;
+        // the gap is shorter.
+        match reply.run {
+            "rubc3c4q/5" => assert_eq!((worst_without, worst_with), (310, 190)),
+            "ns-off/2" => assert_eq!((worst_without, worst_with), (270, 120)),
+            _ => assert_eq!(worst_with, 0, "{}", reply.run),
         }
     }
-    // Two of these ten did not gap at the phase their device happened to be in.
+    // Two of these eleven did not gap at the phase their device happened to
+    // be in.
     assert_eq!(
         without,
         [
@@ -560,6 +603,7 @@ fn the_horizon_removes_every_recorded_startup_gap_but_the_one_stall() {
             "j5_xqe32/1",
             "g2kp1mcp/1",
             "first-rust/1",
+            "ns-off/2",
         ]
     );
 }
@@ -578,10 +622,16 @@ fn a_190_ms_horizon_is_the_edge_and_180_ms_is_short() {
     };
     assert_eq!(
         gapped(180_000),
-        ["rubc3c4q/4", "rubc3c4q/5", "fvackatg/1", "5koru8e0/1"]
+        [
+            "rubc3c4q/4",
+            "rubc3c4q/5",
+            "fvackatg/1",
+            "5koru8e0/1",
+            "ns-off/2"
+        ]
     );
-    assert_eq!(gapped(190_000), ["rubc3c4q/4", "rubc3c4q/5"]);
-    assert_eq!(gapped(START_HORIZON_US), ["rubc3c4q/5"]);
+    assert_eq!(gapped(190_000), ["rubc3c4q/4", "rubc3c4q/5", "ns-off/2"]);
+    assert_eq!(gapped(START_HORIZON_US), ["rubc3c4q/5", "ns-off/2"]);
 }
 
 #[test]
@@ -603,9 +653,13 @@ fn the_hold_costs_the_start_what_the_gap_cost_the_middle() {
             reply.run
         );
         assert!(added <= 160_000, "{}: {added}", reply.run);
-        // No start is later than the horizon plus the enqueue and one slot.
+        // No start is later than the horizon plus the enqueue and one slot,
+        // unless the reply had nothing to play until later than that anyway.
         assert!(
-            with.first_speech_us < START_HORIZON_US + ENQUEUE_US + SLOT_US,
+            with.first_speech_us
+                <= without
+                    .first_speech_us
+                    .max(START_HORIZON_US + ENQUEUE_US + SLOT_US),
             "{}",
             reply.run
         );
@@ -614,9 +668,9 @@ fn the_hold_costs_the_start_what_the_gap_cost_the_middle() {
         latest_with = latest_with.max(with.first_speech_us);
         latest_without = latest_without.max(without.first_speech_us);
     }
-    // Over the fifteen replies: 62 ms later to the first speech on average,
-    // 15 ms later to the end.
-    assert_eq!((added_ms, end_ms), (930, 230));
+    // Over the seventeen replies: 64 ms later to the first speech on average,
+    // 14 ms later to the end.
+    assert_eq!((added_ms, end_ms), (1_080, 230));
     // The slowest start is one the service already produced without a hold.
     assert_eq!(latest_with, latest_without);
 }
@@ -677,11 +731,12 @@ fn each_recorded_reply_reports_the_horizon_it_needed() {
             need.horizon_us() / 1_000
         })
         .collect();
-    // Thirteen of fifteen between 132 ms and 191 ms; one early, one at 378 ms.
+    // Thirteen of seventeen between 132 ms and 191 ms; one early; three
+    // past 300 ms, two of them on the day's own runs.
     assert_eq!(
         needed,
         [
-            168, 176, 163, 191, 378, 0, 139, 171, 187, 168, 132, 179, 169, 52, 171
+            168, 176, 163, 191, 378, 0, 139, 171, 187, 168, 132, 179, 169, 52, 171, 391, 302
         ]
     );
 }

@@ -814,6 +814,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 // free when the next iteration flushes the outbox into it.
                 ready = capacity(&self.events), if waiting => ready?,
                 command = self.commands.recv() => match command {
+                    // A stop recorded while this command waited wins: nothing
+                    // queued behind a stop is written. The next turn of the
+                    // loop ends the session with that stop.
+                    Some(_) if self.stop.borrow().is_some() => {}
                     Some(command) => self.command(command).await?,
                     None => return Ok(()),
                 },

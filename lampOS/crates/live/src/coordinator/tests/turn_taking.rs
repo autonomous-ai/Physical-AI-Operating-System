@@ -56,6 +56,7 @@ impl Harness {
             had_audio: false,
             final_chunk: None,
             playback_gaps: 0,
+            notice: Default::default(),
             last_provider_audio_at_us: None,
             start: lamp_audio::playout::StartGate::new(0),
             need: lamp_audio::playout::StartNeed::default(),
@@ -469,6 +470,7 @@ fn socket_pending(h: &mut Harness) -> Option<PendingSpeaker> {
         )
         .unwrap();
     Some(PendingSpeaker {
+        origin: SpeechOrigin::Provider,
         sequence: 1,
         permit,
         accepted: 0,

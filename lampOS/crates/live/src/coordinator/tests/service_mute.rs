@@ -165,6 +165,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         &mut reply,
         &mut None,
         &Termination::inactive(),
+        &FailureNotices::none(),
     );
     assert_eq!(
         result

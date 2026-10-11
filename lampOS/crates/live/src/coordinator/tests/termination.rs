@@ -275,6 +275,7 @@ fn isolated_signal_child() {
         &mut reply,
         &mut cues,
         &termination,
+        &FailureNotices::none(),
     );
     assert_eq!(
         result
@@ -480,6 +481,7 @@ fn service_signal_child(
         &mut reply,
         &mut cues,
         &termination,
+        &FailureNotices::none(),
     );
     assert!(result.is_ok(), "{result:?}");
     record(

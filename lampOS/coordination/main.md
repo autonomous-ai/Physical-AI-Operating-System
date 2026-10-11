@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 18:05 UTC
+- Updated: 2026-10-11 18:20 UTC
 - Branch: `lamp-v2-chat`
 - Runtime code: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
@@ -38,8 +38,9 @@ used. Agent 2 continues the conservative endpoint pilot package.
 Host prime checks passed 42/42. The frozen runtime passed emulated Linux/ARM64
 format, strict audio/live all-target Clippy, 120 targeted tests and release build.
 No fresh full-workspace gate is claimed. Native04's startup mismatch and invalid
-observer remain retained. A separate local-notice implementation and standalone
-service package are being prepared without replacing the tested binary.
+observer remain retained. The local-notice integration now passes its combined verification; the
+standalone service package is installed stopped without replacing the tested
+binary.
 
 ## Installed pilot and endpoint decision
 
@@ -57,6 +58,28 @@ most 200 ms and added six held-out sentence splits in 1,167 clips. Before-output
 provider settlement is still unresolved. MAIN-059 delivered this decision and
 the inherited soft-resource-limit review finding through verified M2 tmux, with
 an observed turn start. No endpoint mode is integrated or activated here.
+
+## Owned failure notice integration
+
+The optional cached `turn_lost` notice uses the existing speaker owner, privacy
+permits, cancellation, acceptance and retirement checks. No notice is counted
+as a successful answer or answer latency. Defaults stay off; there is no
+approved production voice recording in this checkpoint. Independent host review
+and the composed Linux/ARM64 emulated gate pass: format, strict audio/live
+all-target Clippy, 229 selected tests and release build. Source manifest
+`38f9f212...13c5e`, binary `e37505d7...ecba2`; exact commands and evidence are in
+[failure notices](../docs/failure-notices.md#integration-verification-2026-10-11).
+The installed pilot is unchanged; native notice audibility, cancellation timing
+and the 20 ms dispatch target are not yet measured. Terminal provider recovery
+and notices for unowned/unavailable input remain separate work.
+
+Agent 2's inherited-limit correction is fetched at `lamp-a2-pilot-limits`
+`cd97b1c4` (code `ace53633`) for review. Its artifact/model identities and
+self-check plan are available; no endpoint worker or model has been installed
+here. The fixed baseline remains the attended-pilot decision. Agent 1's queued
+Stop correction is fetched but not integrated; its continuation branch retains
+an unresolved provider output-capacity test failure. Office ARM ownership was
+released after the root notice gate and artifact extraction.
 
 The sections below preserve earlier checkpoints; the current identity and result
 are stated above.

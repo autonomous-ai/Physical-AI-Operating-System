@@ -88,6 +88,9 @@ pub struct FakeRuntime {
     idle_failure_at: Option<u64>,
     leaks: Vec<(u64, u64)>,
     out: VecDeque<RuntimeEvent>,
+    /// The opt-in V1 reopen model (`FakeProfile::input_reopen_ms`).
+    input_available: bool,
+    reopen_at: Option<u64>,
 }
 
 impl FakeRuntime {
@@ -124,6 +127,8 @@ impl FakeRuntime {
             idle_failure_at: None,
             leaks: Vec::new(),
             out: VecDeque::new(),
+            input_available: true,
+            reopen_at: None,
         };
         runtime.session_end_us =
             runtime.ready_at_us + u64::from(scenario.session_seconds) * 1_000_000;
@@ -150,7 +155,28 @@ impl FakeRuntime {
         self.out.pop_front()
     }
 
+    /// Replace the profile's V1 reopen delay (a fake control only).
+    pub fn set_input_reopen_ms(&mut self, reopen_ms: Option<u32>) {
+        self.profile.input_reopen_ms = reopen_ms;
+    }
+
+    /// The service ends this runtime (a stop or a physical mute): an active
+    /// reply is revoked with `reason` and nothing more is emitted. The
+    /// caller records the service-level end.
+    pub fn shut_down(&mut self, reason: &str) {
+        if let Some(reply) = self.reply.take() {
+            self.cancel(reply, reason);
+        }
+        self.ended = true;
+    }
+
     fn emit(&mut self, kind: EventKind, turn: Option<u64>) {
+        // V1 reopen model: input is reported available again only after
+        // the finished turn's tail.
+        let finished = matches!(
+            kind,
+            EventKind::TurnCompleted { .. } | EventKind::TurnCancelled { .. }
+        );
         self.out.push_back(RuntimeEvent::new(
             kind,
             turn,
@@ -158,9 +184,16 @@ impl FakeRuntime {
             ClockDomain::Virtual,
             EventSource::Fake,
         ));
+        if finished
+            && !self.input_available
+            && let Some(reopen_ms) = self.profile.input_reopen_ms
+        {
+            self.reopen_at = Some(self.now_us + u64::from(reopen_ms) * 1000);
+        }
     }
 
     fn emit_playback(&mut self, kind: EventKind, turn: u64, sequence: u64) {
+        let started = kind == EventKind::SpeakerFirstWrite;
         let mut event = RuntimeEvent::new(
             kind,
             Some(turn),
@@ -170,6 +203,18 @@ impl FakeRuntime {
         );
         event.playback_sequence = Some(sequence);
         self.out.push_back(event);
+        // V1 withdraws availability while Lamp's own playback is owed.
+        if started && self.profile.input_reopen_ms.is_some() && self.input_available {
+            self.input_available = false;
+            self.reopen_at = None;
+            self.out.push_back(RuntimeEvent::new(
+                EventKind::InputAvailability { available: false },
+                None,
+                self.now_us,
+                ClockDomain::Virtual,
+                EventSource::Fake,
+            ));
+        }
     }
 
     /// A ring cue request, as the choreography policy derives it from the
@@ -273,6 +318,11 @@ impl FakeRuntime {
             );
             self.ended = true;
             return;
+        }
+        if self.reopen_at.is_some_and(|at| self.now_us >= at) {
+            self.reopen_at = None;
+            self.input_available = true;
+            self.emit(EventKind::InputAvailability { available: true }, None);
         }
         self.speaker_step();
         self.provider_step();

@@ -58,6 +58,7 @@ fn final_dispatch(kind: &str) -> usize {
             events_lines: 0,
             error: None,
             stray_processes_stopped: false,
+            serve: None,
         },
         "cue_invalid" => SessionLine::CueInvalid {
             lamp_received_us: base,

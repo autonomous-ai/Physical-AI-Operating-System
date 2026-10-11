@@ -65,6 +65,9 @@ pub enum Withheld {
     /// nothing started. The runner observes them, rechecks eligibility and
     /// may dispatch again. Never recorded as a step outcome by itself.
     Revalidate,
+    /// The prepared player for this stimulus is missing, failed or cannot
+    /// receive its start; nothing started.
+    PlayerFailed(String),
 }
 
 impl Withheld {
@@ -75,6 +78,7 @@ impl Withheld {
             Self::ProtocolFailed(_) => "protocol_failed",
             Self::Stale(_) => "trigger_stale",
             Self::Revalidate => "revalidate",
+            Self::PlayerFailed(_) => "player_failed",
         }
     }
     pub fn reason(&self) -> &str {
@@ -82,7 +86,8 @@ impl Withheld {
             Self::ProviderFailed(reason)
             | Self::SessionEnded(reason)
             | Self::ProtocolFailed(reason)
-            | Self::Stale(reason) => reason,
+            | Self::Stale(reason)
+            | Self::PlayerFailed(reason) => reason,
             Self::Revalidate => {
                 "events arrived during the final dispatch drain and must be observed first"
             }
@@ -95,6 +100,7 @@ impl Withheld {
             Self::ProviderFailed(_) => StepStatus::ProviderUnavailable,
             Self::SessionEnded(_) | Self::ProtocolFailed(_) => StepStatus::SessionEnded,
             Self::Stale(_) | Self::Revalidate => StepStatus::TriggerStale,
+            Self::PlayerFailed(_) => StepStatus::DeliveryFailed,
         }
     }
 }
@@ -141,6 +147,15 @@ pub trait Backend {
     fn timing(&mut self, catalog: &StimulusCatalog, scene: &str) -> Result<SceneTiming> {
         catalog.estimate(scene)
     }
+    /// Prepare `step`'s stimulus before its trigger wait, so that no process
+    /// creation or audio preparation sits between readiness and the start.
+    /// Backends without a two-phase player do nothing.
+    fn arm(&mut self, _step: &Step, _scene: &str, _timing: &SceneTiming) -> Result<()> {
+        Ok(())
+    }
+    /// The trigger the next `inject` serves and the step's configured delay,
+    /// so a backend can place the original deadline on its player's clock.
+    fn trigger_observed(&mut self, _observation: &TriggerObservation, _delay_us: u64) {}
     fn inject(
         &mut self,
         step: &Step,
@@ -184,6 +199,9 @@ struct LiveView {
     /// The first owner contradiction: a turn admitted or finished twice, or
     /// a finished turn that starts again. Evidence after it is not trusted.
     owner_fault: Option<String>,
+    /// The first lost runner evidence (an undelivered stimulus or an ended
+    /// room recording); every later stimulus is withheld.
+    evidence_lost: Option<String>,
 }
 
 /// A next-turn wait's outcome once it is decided.
@@ -208,6 +226,10 @@ impl LiveView {
         }
         if matches!(&event.kind, EventKind::ProviderLink { state } if state == "terminal") {
             self.link_terminal = true;
+        }
+        if let EventKind::EvidenceLost { source, reason } = &event.kind {
+            self.evidence_lost
+                .get_or_insert_with(|| format!("{source}: {reason}"));
         }
         if let Some(turn) = event.turn {
             let conflict = match event.kind {
@@ -334,6 +356,81 @@ impl LiveView {
         None
     }
 
+    /// A local-endpoint trigger bound to its owned turn: the one turn newer
+    /// than `known_turn` admitted since the previous dispatch. A second
+    /// admission or that turn finishing before its endpoint ends the wait.
+    fn endpoint(&self, known_turn: u64, from_index: usize) -> Option<NextTurn> {
+        let mut bound = None;
+        for (index, (event, runner_us, method)) in self.events.iter().enumerate().skip(from_index) {
+            let Some(turn) = event.turn.filter(|turn| *turn > known_turn) else {
+                continue;
+            };
+            match event.kind {
+                EventKind::InputAdmitted { .. } if bound.is_some() => {
+                    return Some(NextTurn::Lost(format!(
+                        "turn {turn} was admitted before the expected turn's endpoint"
+                    )));
+                }
+                EventKind::InputAdmitted { .. } => bound = Some(turn),
+                EventKind::LocalEndpoint { .. } if bound == Some(turn) => {
+                    return Some(NextTurn::Ready(
+                        TriggerObservation {
+                            event: TriggerEvent::LocalEndpoint,
+                            turn: Some(turn),
+                            event_at_us: event.at_us,
+                            event_domain: event.domain,
+                            runner_us: *runner_us,
+                            runner_time_method: method.clone(),
+                        },
+                        index,
+                    ));
+                }
+                EventKind::SpeakerFirstWrite
+                | EventKind::TurnCompleted { .. }
+                | EventKind::TurnCancelled { .. }
+                    if bound == Some(turn) =>
+                {
+                    return Some(NextTurn::Lost(format!(
+                        "turn {turn} reached {} before its endpoint",
+                        event.name()
+                    )));
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Why a before-output correction must not start now: the bound turn
+    /// has output or has finished, or other input arrived after its endpoint.
+    fn before_output_lost(&self, turn: Option<u64>, endpoint_index: usize) -> Option<String> {
+        let turn = turn?;
+        for (index, (event, _, _)) in self.events.iter().enumerate() {
+            match event.kind {
+                EventKind::SpeakerFirstWrite
+                | EventKind::TurnCompleted { .. }
+                | EventKind::TurnCancelled { .. }
+                    if event.turn == Some(turn) =>
+                {
+                    return Some(format!(
+                        "turn {turn} reached {} before the correction could start",
+                        event.name()
+                    ));
+                }
+                EventKind::InputCandidate { .. } | EventKind::InputAdmitted { .. }
+                    if index > endpoint_index =>
+                {
+                    return Some(format!(
+                        "other input arrived after turn {turn}'s endpoint ({})",
+                        event.name()
+                    ));
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     /// The first matching event received after `from_index` that belongs to a
     /// turn newer than every turn known when the previous step started.
     fn find(
@@ -408,12 +505,23 @@ fn ineligible(
     record: &mut StepRecord,
     target_us: u64,
     ready_index: Option<usize>,
+    endpoint_index: Option<usize>,
 ) -> bool {
     if view.ended {
         record.status = StepStatus::SessionEnded;
         return true;
     }
     if provider_unavailable(view, record) {
+        return true;
+    }
+    if evidence_lost(view, record) {
+        return true;
+    }
+    if let Some(lost) =
+        endpoint_index.and_then(|index| view.before_output_lost(record.bound_turn, index))
+    {
+        record.status = StepStatus::PreconditionLost;
+        record.detail = Some(lost);
         return true;
     }
     if let Some(fault) = &view.owner_fault {
@@ -464,6 +572,17 @@ fn failed_terminal(kind: &EventKind) -> bool {
     matches!(kind, EventKind::TurnCompleted { outcome, .. } if outcome == crate::events::PROVIDER_FAILED)
 }
 
+/// Mark the step withheld once runner evidence was lost: a conversation
+/// whose earlier stimulus never reached the room has diverged from its plan.
+fn evidence_lost(view: &LiveView, record: &mut StepRecord) -> bool {
+    let Some(lost) = &view.evidence_lost else {
+        return false;
+    };
+    record.status = StepStatus::PreconditionLost;
+    record.detail = Some(format!("runner evidence lost before this step: {lost}"));
+    true
+}
+
 /// Mark the step withheld when a terminal provider failure has been seen.
 fn provider_unavailable(view: &LiveView, record: &mut StepRecord) -> bool {
     if view.link_terminal {
@@ -510,10 +629,15 @@ fn execute(
             );
             return Ok(());
         }
+        if let (Some(scene), Some(timing)) = (&step.scene, &timings[index]) {
+            backend.arm(step, scene, timing)?;
+        }
+        let endpoint = step.trigger.after == TriggerEvent::LocalEndpoint;
         let mut ready_index = None;
+        let mut endpoint_index = None;
         let observation = loop {
             // Never schedule a stimulus on a failed terminal.
-            if provider_unavailable(view, record) {
+            if provider_unavailable(view, record) || evidence_lost(view, record) {
                 return Ok(());
             }
             if let Some(fault) = &view.owner_fault {
@@ -525,6 +649,19 @@ fn execute(
                 match view.next_turn(known_turn, anchor_index) {
                     Some(NextTurn::Ready(found, index)) => {
                         ready_index = Some(index);
+                        break Some(found);
+                    }
+                    Some(NextTurn::Lost(reason)) => {
+                        record.status = StepStatus::PreconditionLost;
+                        record.detail = Some(reason);
+                        return Ok(());
+                    }
+                    None => {}
+                }
+            } else if endpoint {
+                match view.endpoint(known_turn, anchor_index) {
+                    Some(NextTurn::Ready(found, index)) => {
+                        endpoint_index = Some(index);
                         break Some(found);
                     }
                     Some(NextTurn::Lost(reason)) => {
@@ -554,6 +691,7 @@ fn execute(
             return Ok(());
         };
         let target_us = observation.runner_us + u64::from(step.trigger.delay_ms) * 1000;
+        backend.trigger_observed(&observation, u64::from(step.trigger.delay_ms) * 1000);
         record.bound_turn = observation.turn;
         record.trigger = Some(observation);
         record.target_us = Some(target_us);
@@ -561,6 +699,7 @@ fn execute(
         while !view.ended
             && backend.now_us() < target_us
             && view.provider_failure().is_none()
+            && view.evidence_lost.is_none()
             && observe_next(backend, view, target_us)?
         {}
         // Final dispatch: take everything already delivered, then recheck
@@ -581,7 +720,15 @@ fn execute(
                 ));
                 return Ok(());
             }
-            if ineligible(backend, view, step, record, target_us, ready_index) {
+            if ineligible(
+                backend,
+                view,
+                step,
+                record,
+                target_us,
+                ready_index,
+                endpoint_index,
+            ) {
                 return Ok(());
             }
             let (Some(scene), Some(timing)) = (&step.scene, &timings[index]) else {
@@ -1666,5 +1813,153 @@ mod occurrence_tests {
         );
         assert_eq!(injected[1], ("why".into(), COMPLETED_AT), "{injected:?}");
         const { assert!(COMPLETED_AT < REOPEN_AT) };
+    }
+
+    /// `follow-up-chain` with its second step a correction on the first
+    /// turn's local endpoint.
+    fn endpoint_run(delay_ms: u32, events: Vec<Scripted>) -> (Vec<StepRecord>, Vec<(String, u64)>) {
+        run_script_with(
+            "follow-up-chain",
+            |scenario| {
+                scenario.steps[1].trigger.after = TriggerEvent::LocalEndpoint;
+                scenario.steps[1].trigger.delay_ms = delay_ms;
+            },
+            events,
+        )
+    }
+
+    fn endpoint() -> EventKind {
+        EventKind::LocalEndpoint {
+            last_block_read_us: None,
+        }
+    }
+
+    #[test]
+    fn a_correction_binds_to_the_turn_admitted_since_the_previous_step() {
+        // Output starts at 3.0 s; the correction is due at 2.3 s.
+        let (steps, injected) = endpoint_run(300, answered_then(Vec::new()));
+        assert_eq!(
+            steps[1].status,
+            StepStatus::Injected,
+            "{:?}",
+            steps[1].detail
+        );
+        assert_eq!(injected[1], ("why".into(), 2_300_000));
+        let trigger = steps[1].trigger.as_ref().unwrap();
+        assert_eq!(
+            (trigger.event, trigger.turn),
+            (TriggerEvent::LocalEndpoint, Some(1))
+        );
+    }
+
+    #[test]
+    fn a_correction_due_after_output_started_is_withheld() {
+        let (steps, injected) = endpoint_run(1_500, answered_then(Vec::new()));
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .is_some_and(|d| d.contains("speaker_first_write")),
+            "{:?}",
+            steps[1].detail
+        );
+    }
+
+    #[test]
+    fn a_correction_after_new_input_or_a_second_owner_is_withheld() {
+        let mut after_endpoint = answered_then(Vec::new());
+        after_endpoint.push((2_100_000, candidate(), None));
+        after_endpoint.sort_by_key(|(at, _, _)| *at);
+        let (steps, injected) = endpoint_run(300, after_endpoint);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("after turn 1's endpoint")
+        );
+
+        // A second admission before any endpoint: the expected owner is ambiguous.
+        let second = vec![
+            (0, link("ready"), None),
+            (0, availability(true), None),
+            (1_000, EventKind::ListeningReady, None),
+            (1_100_000, admitted(), Some(1)),
+            (1_500_000, admitted(), Some(2)),
+            (2_000_000, endpoint(), Some(2)),
+            (
+                30_000_000,
+                EventKind::RunEnd {
+                    status: None,
+                    error: None,
+                },
+                None,
+            ),
+        ];
+        let (steps, injected) = endpoint_run(300, second);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("turn 2 was admitted")
+        );
+
+        // The expected turn finishing before its endpoint is no correction point.
+        let finished = vec![
+            (0, link("ready"), None),
+            (1_000, EventKind::ListeningReady, None),
+            (1_100_000, admitted(), Some(1)),
+            (
+                1_800_000,
+                EventKind::TurnCancelled {
+                    reason: Some("runtime_failed".into()),
+                    provider_audio_seen: Some(false),
+                },
+                Some(1),
+            ),
+            (2_000_000, endpoint(), Some(1)),
+            (
+                30_000_000,
+                EventKind::RunEnd {
+                    status: None,
+                    error: None,
+                },
+                None,
+            ),
+        ];
+        let (steps, _) = endpoint_run(300, finished);
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("before its endpoint")
+        );
+    }
+
+    #[test]
+    fn lost_runner_evidence_withholds_the_next_step_at_once() {
+        let mut events = answered_then(vec![(REOPEN_AT, availability(true), None)]);
+        events.push((
+            3_500_000,
+            EventKind::EvidenceLost {
+                source: "player:ask".into(),
+                reason: "stimulus not delivered: start_expired".into(),
+            },
+            None,
+        ));
+        events.sort_by_key(|(at, _, _)| *at);
+        let (steps, injected) = next_turn_run(0, events);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(steps[1].detail.as_deref().unwrap().contains("player:ask"));
     }
 }

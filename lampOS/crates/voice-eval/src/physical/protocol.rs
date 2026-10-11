@@ -73,12 +73,71 @@ pub enum SessionLine {
         /// (normally its workers) and the relay killed them.
         #[serde(default)]
         stray_processes_stopped: bool,
+        /// Serve sessions only: how the runtime was stopped and what its
+        /// rolling metadata held. Absent (and not serialized) for finite runs.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        serve: Option<Box<ServeEnd>>,
     },
+}
+
+/// How a long-lived `lamp-live serve` runtime ended. Every serve session
+/// ends through the same path: SIGTERM to the runtime, a bounded grace, then
+/// a forced kill of its process group.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ServeEnd {
+    /// `runner_stop`, `transport_closed`, `deadline` or `runtime_exited`
+    /// (the runtime ended before any stop was requested).
+    pub stop_cause: String,
+    pub stop_reason: Option<String>,
+    pub stop_requested_us: Option<u64>,
+    pub signal_sent_us: Option<u64>,
+    pub signal_error: Option<String>,
+    pub exited_us: Option<u64>,
+    /// The runtime outlived the grace and its process group was killed.
+    pub forced_kill: bool,
+    /// The relay's own process group was confirmed gone after the end.
+    pub group_reaped: bool,
+    pub metadata: ServeMetadata,
+}
+
+/// The serve runtime's rolling metadata as relayed. History is best effort:
+/// rotation can drop old segments and the writer can drop events, so every
+/// loss is counted rather than inferred away.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct ServeMetadata {
+    pub segments: Vec<ServeSegment>,
+    /// Records relayed as `trace` lines (segment headers excluded).
+    pub records: usize,
+    pub first_service_sequence: Option<u64>,
+    pub last_service_sequence: Option<u64>,
+    /// Missing or out-of-order `service_sequence` steps between records.
+    pub sequence_gaps: u64,
+    /// The oldest relayed segment does not start at the first writer event.
+    pub history_truncated: bool,
+    /// `metadata/health.json`, bounded; `None` when absent or invalid.
+    pub health: Option<Value>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ServeSegment {
+    pub slot: usize,
+    pub generation: u64,
+    pub first_writer_event: u64,
+    pub bytes: u64,
+    pub sha256: String,
 }
 
 /// Runner -> Lamp.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RunnerLine {
-    Ping { seq: u64 },
+    Ping {
+        seq: u64,
+    },
+    /// Serve sessions only: stop the runtime now (SIGTERM, bounded grace,
+    /// then a forced group kill). Finite sessions end by themselves.
+    Stop {
+        reason: String,
+    },
 }

@@ -9,10 +9,13 @@ use lamp_voice_eval::{
     ledger::{create_run_directory, read_rows, unix_ms, write_new_json},
     physical::{
         fake_lamp,
-        mac::{HumanPrompter, LampMode, ObserverPlayer, PhysicalBackend, PhysicalConfig, Player},
+        mac::{
+            FakePlayerFault, FakePreparedRoomPlayer, HumanPrompter, LampMode, ObserverPlayer,
+            PhysicalBackend, PhysicalConfig, Player,
+        },
         session::{self, SessionOptions},
     },
-    plan::LoadedPlan,
+    plan::{LoadedPlan, SERVE_PLAN},
     record::{AttemptRecord, StimulusSource},
     report,
     runner::{SuiteOptions, attempt_order, run_suite},
@@ -23,6 +26,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     fs,
+    os::unix::fs::DirBuilderExt,
     path::{Path, PathBuf},
 };
 
@@ -39,9 +43,12 @@ const USAGE: &str = "usage:
   lamp-voice-eval render-stimuli CACHE NEW_REPORT.json
   lamp-voice-eval physical-run --config FILE --cache DIR --manifest FILE... --out NEW_DIR
       [--scenario ID]... [--repetitions N] [--seed N] [--attempt-seed N] [--execute]
+  lamp-voice-eval serve-offline --out NEW_DIR --cache DIR --manifest FILE... [--plan FILE]
+      [--scenario ID] [--repetitions N] [--seed N] [--fake-profile ID] [--lamp-root NEW_ABS_DIR]
+      [--fake-arg ARG]... [--player-fault N:late:MS|N:prepare]... [--recorder-fail-after-ms MS]
   lamp-voice-eval lamp-session --runtime LAMP_LIVE --work NEW_ABS_DIR --seconds N
-      (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE) [--noise-suppression on|off]
-      [--diagnostics] [--allowance-seconds N]";
+      (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE | --serve-config FILE)
+      [--noise-suppression on|off] [--diagnostics] [--allowance-seconds N]";
 
 fn main() {
     match run() {
@@ -180,6 +187,7 @@ fn run() -> Result<i32> {
             return session::run(&options, std::io::stdin(), &mut stdout.lock());
         }
         "fake-lamp-live" => return fake_lamp::run(&all),
+        "fake-room-recorder" => return fake_lamp::room_recorder(&all),
         _ => {}
     }
     let mut args = Args { values: all };
@@ -486,9 +494,153 @@ fn run() -> Result<i32> {
             )?;
             print_summary(&scores, &directory);
         }
+        "serve-offline" => {
+            let catalog = StimulusCatalog::load()?;
+            let source = match args.take("--plan")? {
+                Some(path) => fs::read_to_string(path)?,
+                None => SERVE_PLAN.to_owned(),
+            };
+            let plan = LoadedPlan::parse(&source, &catalog)?;
+            let out = PathBuf::from(
+                args.take("--out")?
+                    .ok_or_else(|| invalid("--out NEW_DIR is required"))?,
+            );
+            let mut options = suite_options(&mut args, run_id(&out))?;
+            let assets = assets(&mut args, &catalog)?
+                .ok_or_else(|| invalid("--cache and --manifest are required"))?;
+            let profile = match args.take("--fake-profile")? {
+                Some(profile) => profile,
+                None => plan
+                    .plan
+                    .profiles
+                    .keys()
+                    .next()
+                    .cloned()
+                    .ok_or_else(|| invalid("the plan has no fake profile"))?,
+            };
+            // Short by default: Unix socket paths are limited to ~100 bytes.
+            let lamp_root = PathBuf::from(
+                args.take("--lamp-root")?
+                    .unwrap_or_else(|| format!("/tmp/lve-serve-{}", std::process::id())),
+            );
+            let fake_args = args.take_all("--fake-arg")?;
+            let faults = args
+                .take_all("--player-fault")?
+                .iter()
+                .map(|fault| parse_player_fault(fault))
+                .collect::<Result<Vec<_>>>()?;
+            let recorder_fail = args.take("--recorder-fail-after-ms")?;
+            args.done()?;
+            let scenario = match (options.scenarios.as_slice(), plan.plan.scenarios.as_slice()) {
+                ([one], _) => one.clone(),
+                ([], [only]) => only.id.clone(),
+                _ => return Err(invalid("serve-offline runs exactly one --scenario")),
+            };
+            options.scenarios = vec![scenario.clone()];
+            if !lamp_root.is_absolute() {
+                return Err(invalid("--lamp-root must be absolute"));
+            }
+            create_run_directory(&out)?;
+            fs::DirBuilder::new().mode(0o700).create(&lamp_root)?;
+            let plan_copy = lamp_root.join("plan.json");
+            fs::write(&plan_copy, &source)?;
+            let exe = std::env::current_exe()?.display().to_string();
+            let room = lamp_root.join("room.sock");
+            let mut lamp_command = vec![
+                exe.clone(),
+                "lamp-session".into(),
+                "--runtime".into(),
+                exe.clone(),
+            ];
+            let mut prefix = vec![
+                "fake-lamp-live".to_owned(),
+                "--fake-plan".into(),
+                plan_copy.display().to_string(),
+                "--fake-scenario".into(),
+                scenario,
+                "--fake-profile".into(),
+                profile,
+                "--fake-room".into(),
+                room.display().to_string(),
+            ];
+            prefix.extend(fake_args);
+            for arg in prefix {
+                lamp_command.extend(["--runtime-prefix-arg".to_owned(), arg]);
+            }
+            let room_recorder = recorder_fail.map(|ms| {
+                vec![
+                    exe.clone(),
+                    "fake-room-recorder".into(),
+                    "--out".into(),
+                    "{out}".into(),
+                    "--seconds".into(),
+                    "{seconds}".into(),
+                    "--fail-after-ms".into(),
+                    ms,
+                ]
+            });
+            let config = PhysicalConfig {
+                lamp_command,
+                lamp_work_root: lamp_root.display().to_string(),
+                mode: LampMode::Serve {
+                    provider_config: "/nonexistent/fake-serve-provider.json".into(),
+                },
+                noise_suppression: "on".into(),
+                diagnostics: false,
+                room_recorder,
+                room_independent: false,
+                allowance_seconds: 10,
+                ring_channel_ceiling: None,
+                stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+            };
+            let player = FakePreparedRoomPlayer {
+                room,
+                faults,
+                prepared: 0,
+            };
+            options.self_test = json!({"skipped": "offline fake serve run; no Lamp time is spent"});
+            let mut backend = PhysicalBackend::new(config, &assets, Box::new(player));
+            let records = run_suite(&plan, &catalog, &mut backend, &options, &out)?;
+            let scores: Vec<AttemptScore> = records
+                .iter()
+                .map(|r| evaluate::score(r, plan.plan.answer_deadline_ms, None))
+                .collect();
+            let directory = write_evaluation(
+                &out,
+                &plan,
+                &options.run_id,
+                &records,
+                &scores,
+                Vec::new(),
+                Vec::new(),
+            )?;
+            print_summary(&scores, &directory);
+            eprintln!("fake serve work directory kept at {}", lamp_root.display());
+        }
         _ => return Err(invalid(USAGE)),
     }
     Ok(0)
+}
+
+/// `N:late:MS` (the Nth prepared start copies MS after its grant) or
+/// `N:prepare` (the Nth preparation fails).
+fn parse_player_fault(text: &str) -> Result<(usize, FakePlayerFault)> {
+    let parts: Vec<&str> = text.split(':').collect();
+    let number: usize = parts
+        .first()
+        .ok_or_else(|| invalid("empty --player-fault"))?
+        .parse()?;
+    let fault = match parts.as_slice() {
+        [_, "late", ms] => FakePlayerFault::LateFirstCopy {
+            delay_ms: ms.parse()?,
+        },
+        [_, "prepare"] => FakePlayerFault::PrepareFails,
+        _ => return Err(invalid("--player-fault is N:late:MS or N:prepare")),
+    };
+    if number == 0 {
+        return Err(invalid("--player-fault counts preparations from 1"));
+    }
+    Ok((number, fault))
 }
 
 /// Reviewable physical-run configuration. Contains no credentials: the Lamp
@@ -501,6 +653,9 @@ struct PhysicalFile {
     fixture_reply: Option<String>,
     fixture_sha256: Option<String>,
     provider_config: Option<String>,
+    /// One `lamp-live serve` runtime per attempt (Gemini provider config).
+    #[serde(default)]
+    serve_config: Option<String>,
     #[serde(default = "default_noise")]
     noise_suppression: String,
     #[serde(default)]
@@ -559,12 +714,25 @@ impl PhysicalFile {
             self.fixture_reply,
             self.fixture_sha256,
             self.provider_config,
+            self.serve_config,
         ) {
-            (Some(reply), Some(sha256), None) => LampMode::Fixture { reply, sha256 },
-            (None, None, Some(provider_config)) => LampMode::Directed { provider_config },
+            (Some(reply), Some(sha256), None, None) => LampMode::Fixture { reply, sha256 },
+            (None, None, Some(provider_config), None) => LampMode::Directed { provider_config },
+            (None, None, None, Some(provider_config)) => {
+                // Serve starts every stimulus by a prepared grant.
+                if self.stimulus_source != StimulusSource::LoudspeakerSynthetic {
+                    return Err(invalid(
+                        "serve_config needs loudspeaker replay through the prepared player",
+                    ));
+                }
+                if self.diagnostics {
+                    return Err(invalid("serve_config cannot request raw audio diagnostics"));
+                }
+                LampMode::Serve { provider_config }
+            }
             _ => {
                 return Err(invalid(
-                    "give fixture_reply + fixture_sha256, or provider_config",
+                    "give fixture_reply + fixture_sha256, provider_config or serve_config",
                 ));
             }
         };

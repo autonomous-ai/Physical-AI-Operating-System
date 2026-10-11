@@ -25,6 +25,8 @@ pub enum EventSource {
     Cue,
     /// A status line lamp-live printed on stdout.
     Stdout,
+    /// The runner's own evidence (player or room recorder), never Lamp's.
+    Runner,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -114,6 +116,13 @@ pub enum EventKind {
     RunEnd {
         status: Option<String>,
         error: Option<String>,
+    },
+    /// Runner evidence a conversation needs was lost before the next start:
+    /// a stimulus the player refused or failed to deliver, or the room
+    /// recorder ending early. Synthesized by the runner, never by Lamp.
+    EvidenceLost {
+        source: String,
+        reason: String,
     },
 }
 
@@ -215,6 +224,7 @@ impl RuntimeEvent {
             EventKind::InputAvailability { .. } => "input_availability",
             EventKind::ProviderLink { .. } => "provider_link",
             EventKind::RunEnd { .. } => "run_end",
+            EventKind::EvidenceLost { .. } => "evidence_lost",
         }
     }
 }
@@ -328,6 +338,14 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
         },
         "provider_terminal" => EventKind::ProviderLink {
             state: "terminal".into(),
+        },
+        // The coordinator's current link state, published with readiness.
+        "provider_link_current" => EventKind::ProviderLink {
+            state: record
+                .get("state")?
+                .as_str()
+                .filter(|state| matches!(*state, "ready" | "unavailable" | "terminal"))?
+                .into(),
         },
         "run_end" => EventKind::RunEnd {
             status: text("status"),
@@ -632,6 +650,9 @@ pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
         EventKind::ProviderLink { state } => json!({"kind":format!("provider_{state}")}),
         EventKind::RunEnd { status, error } => {
             json!({"kind":"run_end","status":status,"error":error})
+        }
+        EventKind::EvidenceLost { source, reason } => {
+            json!({"kind":"runner_evidence_lost","source":source,"reason":reason})
         }
     };
     if let Some(sequence) = event.playback_sequence {

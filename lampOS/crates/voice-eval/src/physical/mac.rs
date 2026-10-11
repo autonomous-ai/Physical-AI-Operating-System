@@ -2,6 +2,13 @@
 //! an operator-supplied command, maps Lamp time onto the runner clock with
 //! ping/pong, and starts cached stimuli on the explicit iMac speakers.
 //!
+//! In serve mode one attempt is one long-lived `lamp-live serve` runtime
+//! carrying a whole multi-turn conversation. Each stimulus is prepared
+//! (loaded, output opened in silence) before its trigger wait and started by
+//! one original expiring grant that the player enforces at its first source
+//! copy. The attempt ends with the relay's stop: SIGTERM, bounded grace,
+//! forced kill, each retained separately.
+//!
 //! Runner software times (start requests, receipts) only locate stimuli; they
 //! are not acoustic onsets. Room audio comes from a separate recorder.
 use crate::{
@@ -16,13 +23,15 @@ use crate::{
     },
     plan::{ProviderKind, Scenario, Step},
     playback::PlaybackHistory,
+    record::TriggerObservation,
     record::{ClockMapping, StimulusSource, Stratum},
     runner::{
         AttemptContext, Backend, Begin, Finished, Injection, MAX_TRIGGER_LATENESS_US, Withheld,
     },
     stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
 };
-use lamp_ipc::monotonic_us;
+use lamp_ipc::{monotonic_ns, monotonic_us};
+use lamp_observer::playback::GrantInput;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -31,7 +40,7 @@ use std::{
     os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
-    sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError},
     thread::{self, JoinHandle},
     time::Duration,
 };
@@ -47,6 +56,63 @@ pub trait Player {
         cancel_file: &Path,
     ) -> Result<JoinHandle<Value>>;
     fn describe(&self) -> Value;
+    /// Two-phase start: load and verify the WAV and open the output in
+    /// silence now, returning its ready receipt. The stimulus starts only
+    /// on one original grant through `PreparedStart::grant`. `None` when
+    /// this player has no prepared start.
+    fn prepare(
+        &mut self,
+        _wav: &Path,
+        _timing: &SceneTiming,
+        _report_directory: &Path,
+        _cancel_file: &Path,
+        _max_wait_ms: u32,
+    ) -> Result<Option<PreparedStart>> {
+        Ok(None)
+    }
+}
+
+/// An armed two-phase player: its ready receipt, its grant channel and the
+/// thread that returns its delivery report.
+pub struct PreparedStart {
+    pub ready: Value,
+    pub grant: SyncSender<GrantInput>,
+    pub handle: JoinHandle<Value>,
+}
+
+/// How long a prepared player may take to publish readiness. It runs before
+/// the trigger wait, never between readiness and the start.
+const PREPARE_READY_BOUND: Duration = Duration::from_secs(10);
+
+/// Wait for a prepared player's ready receipt; a player that ends first or
+/// stays silent is stopped and its failure returned.
+fn await_ready(
+    ready: &Receiver<Value>,
+    grant: SyncSender<GrantInput>,
+    handle: JoinHandle<Value>,
+) -> Result<PreparedStart> {
+    match ready.recv_timeout(PREPARE_READY_BOUND) {
+        Ok(ready) => Ok(PreparedStart {
+            ready,
+            grant,
+            handle,
+        }),
+        Err(_) => {
+            let _ = grant.try_send(GrantInput::Closed);
+            drop(grant);
+            let report = if handle.is_finished() {
+                handle
+                    .join()
+                    .unwrap_or_else(|_| json!({"status": "panicked"}))
+            } else {
+                json!({"status": "no ready receipt within 10 s; detached"})
+            };
+            Err(invalid(&format!(
+                "prepared player not ready: {} {}",
+                report["status"], report["error"]
+            )))
+        }
+    }
 }
 
 /// Cached-WAV playback through `lamp-observer` on the explicit iMac speakers.
@@ -82,6 +148,44 @@ impl Player for ObserverPlayer {
     fn describe(&self) -> Value {
         json!({"kind": "lamp-observer playback", "output_device": self.output_device,
             "boundary": "start request and CoreAudio callback times; not acoustic onset"})
+    }
+    /// In-process `play_prepared`: no process is created at the grant.
+    fn prepare(
+        &mut self,
+        wav: &Path,
+        _: &SceneTiming,
+        report_directory: &Path,
+        cancel_file: &Path,
+        max_wait_ms: u32,
+    ) -> Result<Option<PreparedStart>> {
+        lamp_observer::playback::validate_output_name(&self.output_device)?;
+        let options = lamp_observer::playback::PlayOptions {
+            output_device: self.output_device.clone(),
+            wav: wav.to_path_buf(),
+            output: report_directory.to_path_buf(),
+            cancel_file: Some(cancel_file.to_path_buf()),
+            prepared_start_ms: Some(max_wait_ms),
+        };
+        let (grant, inputs) = mpsc::sync_channel(lamp_observer::playback::MAX_GRANT_LINES + 1);
+        let (published, ready) = mpsc::sync_channel(1);
+        let handle = thread::spawn(move || {
+            let mut publish = |receipt: &Value| {
+                published
+                    .try_send(receipt.clone())
+                    .map_err(std::io::Error::other)
+            };
+            let io = lamp_observer::playback::PreparedIo {
+                ready: &mut publish,
+                inputs,
+            };
+            match lamp_observer::playback::play_prepared(&options, io) {
+                Ok(report) => report,
+                Err(error) => {
+                    json!({"valid": false, "status": "failed", "error": error.to_string()})
+                }
+            }
+        });
+        await_ready(&ready, grant, handle).map(Some)
     }
 }
 
@@ -151,10 +255,162 @@ impl Player for FakeRoomPlayer {
     }
 }
 
+/// A deliberate fault in one prepared fake start, by 1-based prepare order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FakePlayerFault {
+    /// The first copy is reached this long after the grant arrives.
+    LateFirstCopy { delay_ms: u32 },
+    /// The player never becomes ready.
+    PrepareFails,
+}
+
+/// Loopback two-phase player for the fake lamp-live. It mirrors the
+/// observer's prepared contract (ready receipt, one original grant for its
+/// attempt, CLOCK_MONOTONIC expiry checked with a fresh sample immediately
+/// before the first copy) and "copies" by sending the stimulus timing to the
+/// fake room socket. It is not the observer and plays no audio.
+pub struct FakePreparedRoomPlayer {
+    pub room: PathBuf,
+    pub faults: Vec<(usize, FakePlayerFault)>,
+    pub prepared: usize,
+}
+
+impl Player for FakePreparedRoomPlayer {
+    fn start(
+        &mut self,
+        _: &Path,
+        _: &SceneTiming,
+        _: &Path,
+        _: &Path,
+    ) -> Result<JoinHandle<Value>> {
+        Err(invalid("the prepared fake player starts only on a grant"))
+    }
+    fn describe(&self) -> Value {
+        json!({"kind": "fake prepared room datagrams",
+            "note": "loopback test; mirrors the prepared grant contract; no audio",
+            "faults": self.faults.iter().map(|(n, f)| json!({"prepare": n, "fault": format!("{f:?}")})).collect::<Vec<_>>()})
+    }
+    fn prepare(
+        &mut self,
+        wav: &Path,
+        timing: &SceneTiming,
+        _: &Path,
+        cancel_file: &Path,
+        max_wait_ms: u32,
+    ) -> Result<Option<PreparedStart>> {
+        self.prepared += 1;
+        let number = self.prepared;
+        let fault = self
+            .faults
+            .iter()
+            .find(|(n, _)| *n == number)
+            .map(|(_, f)| *f);
+        let bytes = serde_json::to_vec(timing)?;
+        if bytes.len() > ROOM_MAX_BYTES {
+            return Err(invalid("stimulus timing exceeds the fake room datagram"));
+        }
+        let source_sha256 = lamp_acoustic::hash(&fs::read(wav)?);
+        let room = self.room.clone();
+        let cancel_file = cancel_file.to_path_buf();
+        let attempt_id = format!("fake-{number}-{}", monotonic_ns());
+        let (grant, inputs) = mpsc::sync_channel::<GrantInput>(9);
+        let (published, ready) = mpsc::sync_channel(1);
+        let handle = thread::spawn(move || {
+            let ready_ns = monotonic_ns();
+            let mut report = json!({"attempt_id": attempt_id, "valid": false,
+                "scope": "fake prepared start; no audio", "counters": {"source_started_host_ns": 0}});
+            if fault == Some(FakePlayerFault::PrepareFails) {
+                report["status"] = json!("failed");
+                report["error"] = json!("fake prepare failure");
+                return report;
+            }
+            let receipt = json!({"schema": 1, "kind": "prepared_ready", "attempt_id": attempt_id,
+                "ready_monotonic_ns": ready_ns, "clock": "CLOCK_MONOTONIC",
+                "source_sha256": source_sha256, "max_wait_ms": max_wait_ms});
+            report["prepared_start"] = json!({"ready": receipt});
+            if published.try_send(receipt).is_err() {
+                report["status"] = json!("ready_not_published");
+                return report;
+            }
+            let input = inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms)));
+            let received = monotonic_ns();
+            let decision = match input {
+                Err(_) => Err("grant_timeout"),
+                Ok(GrantInput::Closed) => Err("stopped_before_grant"),
+                Ok(GrantInput::Malformed) => Err("grant_refused"),
+                Ok(GrantInput::Line(line)) => {
+                    let grant: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
+                    let expires = grant["expires_monotonic_ns"].as_u64();
+                    match expires {
+                        _ if grant["schema"] != 1 || grant["kind"] != "start" => {
+                            Err("grant_refused")
+                        }
+                        _ if grant["attempt_id"] != attempt_id => Err("grant_refused"),
+                        Some(expires)
+                            if expires > received
+                                && expires - received
+                                    <= lamp_observer::playback::MAX_GRANT_HORIZON_NS =>
+                        {
+                            Ok(expires)
+                        }
+                        _ => Err("grant_refused"),
+                    }
+                }
+            };
+            let expires = match decision {
+                Ok(expires) => expires,
+                Err(status) => {
+                    report["status"] = json!(status);
+                    return report;
+                }
+            };
+            report["prepared_start"]["grant"] = json!({"decision": "start",
+                "expires_monotonic_ns": expires, "received_monotonic_ns": received});
+            if let Some(FakePlayerFault::LateFirstCopy { delay_ms }) = fault {
+                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+            }
+            // The fresh sample at the first copy decides; equality refuses.
+            let copy_ns = monotonic_ns();
+            if copy_ns >= expires {
+                report["status"] = json!("start_expired");
+                report["first_copy_attempt_host_ns"] = json!(copy_ns);
+                return report;
+            }
+            if cancel_file.exists() {
+                report["status"] = json!("cancelled_before_first_copy");
+                return report;
+            }
+            let sent = UnixDatagram::unbound().and_then(|socket| socket.send_to(&bytes, &room));
+            report["counters"]["source_started_host_ns"] = json!(copy_ns);
+            match sent {
+                Ok(_) => {
+                    report["valid"] = json!(true);
+                    report["status"] = json!("fake_room_delivery");
+                }
+                Err(error) => {
+                    report["status"] = json!("failed");
+                    report["error"] = json!(error.to_string());
+                }
+            }
+            report
+        });
+        await_ready(&ready, grant, handle).map(Some)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum LampMode {
-    Fixture { reply: String, sha256: String },
-    Directed { provider_config: String },
+    Fixture {
+        reply: String,
+        sha256: String,
+    },
+    Directed {
+        provider_config: String,
+    },
+    /// One `lamp-live serve` runtime per attempt, stopped by the runner.
+    Serve {
+        provider_config: String,
+    },
 }
 
 pub struct PhysicalConfig {
@@ -205,6 +461,16 @@ impl CueOrder {
     fn accept(&mut self, cue: &Cue, lamp_received_us: u64) -> Result<()> {
         if lamp_received_us < cue.sent_us || lamp_received_us >= cue.expires_us {
             return Err(invalid("stale/future cue at Lamp relay"));
+        }
+        // A new boot ends this conversation even with a contiguous sequence:
+        // cues alone do not verify a service restart, and its context is lost.
+        if !self.ended
+            && self.boot.is_some_and(|boot| boot != cue.boot)
+            && self.sequence.checked_add(1) == Some(cue.sequence)
+        {
+            return Err(invalid(
+                "cue boot changed (contiguous sequence): runtime context continuity lost",
+            ));
         }
         if self.ended
             || self.sequence.checked_add(1) != Some(cue.sequence)
@@ -329,14 +595,39 @@ struct Session {
     cues: Vec<Value>,
     cue_order: CueOrder,
     cue_failed: bool,
+    /// Cues observed under a new boot, kept for provenance only.
+    boot_changes: Vec<Value>,
+    /// Serve only: the runner's stop line was sent.
+    stop_sent: bool,
+    /// The runtime's own `run_end` cue was accepted: it is ending by itself.
+    runtime_ended: bool,
 }
 
 struct Playback {
     step: String,
     requested_us: u64,
     cancel_file: PathBuf,
-    handle: JoinHandle<Value>,
+    handle: Option<JoinHandle<Value>>,
+    /// Collected during the session when the player ended early.
+    report: Option<Value>,
+    /// Started by a prepared grant: its start is the first source copy.
+    prepared: bool,
 }
+
+/// The armed prepared player for the next step.
+struct Armed {
+    step: String,
+    prepared: PreparedStart,
+    cancel_file: PathBuf,
+    armed_us: u64,
+}
+
+/// The longest a prepared player may wait for its grant (the observer's
+/// own bound).
+const MAX_PREPARED_WAIT_MS: u32 = 120_000;
+/// How long a serve runtime that sent its own `run_end` may take to exit
+/// before the runner stops it.
+const SELF_END_BOUND_US: u64 = 10_000_000;
 
 pub struct PhysicalBackend<'a> {
     config: PhysicalConfig,
@@ -352,6 +643,15 @@ pub struct PhysicalBackend<'a> {
     /// The first terminal cause seen on this attempt's session; no stimulus
     /// starts after it.
     unavailable: Option<Withheld>,
+    /// Serve: the prepared player for the next step, or why there is none.
+    armed: Option<Armed>,
+    arm_failure: Option<(String, String)>,
+    /// Prepared players that never received a grant, with their reports.
+    unused: Vec<(String, Value, JoinHandle<Value>)>,
+    /// The trigger and configured delay the next `inject` serves.
+    trigger: Option<(TriggerObservation, u64)>,
+    /// Serve: runner evidence loss already reported as an event.
+    evidence_lost: bool,
 }
 
 /// Run-end status of a runner-generated protocol stop.
@@ -391,7 +691,184 @@ impl<'a> PhysicalBackend<'a> {
             seconds: 0,
             pending: std::collections::VecDeque::new(),
             unavailable: None,
+            armed: None,
+            arm_failure: None,
+            unused: Vec::new(),
+            trigger: None,
+            evidence_lost: false,
         }
+    }
+
+    fn serve(&self) -> bool {
+        matches!(self.config.mode, LampMode::Serve { .. })
+    }
+
+    /// Stop an armed player that will never be granted; its report is kept.
+    fn release_armed(&mut self) {
+        if let Some(armed) = self.armed.take() {
+            let _ = armed.prepared.grant.try_send(GrantInput::Closed);
+            self.unused
+                .push((armed.step, armed.prepared.ready, armed.prepared.handle));
+        }
+    }
+
+    fn send_stop(&mut self, reason: &str) -> Result<()> {
+        let Some(session) = self.session.as_mut() else {
+            return Ok(());
+        };
+        let Some(stdin) = session.stdin.as_mut() else {
+            return Ok(());
+        };
+        serde_json::to_writer(
+            &mut *stdin,
+            &RunnerLine::Stop {
+                reason: reason.into(),
+            },
+        )?;
+        stdin.write_all(b"\n")?;
+        stdin.flush()?;
+        session.stop_sent = true;
+        Ok(())
+    }
+
+    /// Serve: a player that ended without delivering, or a room recorder that
+    /// ended during the session, becomes one runner event; every later
+    /// stimulus is then withheld. Reports are kept for `finish`.
+    fn poll_evidence(&mut self) -> Option<RuntimeEvent> {
+        if !self.serve() || self.evidence_lost {
+            return None;
+        }
+        let mut lost = None;
+        for playback in &mut self.playbacks {
+            if playback.report.is_some()
+                || !playback
+                    .handle
+                    .as_ref()
+                    .is_some_and(JoinHandle::is_finished)
+            {
+                continue;
+            }
+            let report = playback
+                .handle
+                .take()
+                .and_then(|handle| handle.join().ok())
+                .unwrap_or_else(|| json!({"valid": false, "status": "player thread panicked"}));
+            if report["valid"] != true && lost.is_none() {
+                lost = Some((
+                    format!("player:{}", playback.step),
+                    format!(
+                        "stimulus not delivered: {} {}",
+                        report["status"], report["error"]
+                    ),
+                ));
+            }
+            playback.report = Some(report);
+        }
+        if lost.is_none()
+            && let Some((child, _, _)) = self.room.as_mut()
+            && let Ok(Some(status)) = child.try_wait()
+        {
+            lost = Some((
+                "room_recorder".into(),
+                format!("the room recorder ended during the session ({status})"),
+            ));
+        }
+        let (source, reason) = lost?;
+        self.evidence_lost = true;
+        let mut event = RuntimeEvent::new(
+            EventKind::EvidenceLost { source, reason },
+            None,
+            monotonic_us(),
+            ClockDomain::RunnerMonotonic,
+            EventSource::Runner,
+        );
+        event.received_us = event.at_us;
+        Some(event)
+    }
+
+    /// Send the armed player's one original start grant. Its expiry is the
+    /// planned start's original lateness bound on this host's
+    /// CLOCK_MONOTONIC, placed from the Lamp event time at the earliest
+    /// runner time the clock map allows. Transport and receipt add nothing.
+    fn grant(&mut self, step: &Step) -> std::result::Result<(Playback, Value), Withheld> {
+        let (observation, delay_us) = self
+            .trigger
+            .clone()
+            .ok_or_else(|| Withheld::Stale("no trigger observation for this grant".into()))?;
+        let mapping = self
+            .session
+            .as_ref()
+            .and_then(|s| s.best.clone())
+            .ok_or_else(|| {
+                Withheld::Stale("no clock map places the original deadline on this host".into())
+            })?;
+        let event_at = observation
+            .event_at_us
+            .filter(|_| observation.event_domain == ClockDomain::LampMonotonic)
+            .ok_or_else(|| {
+                Withheld::Stale(
+                    "the trigger has no Lamp event time; its original deadline cannot be placed"
+                        .into(),
+                )
+            })?;
+        let earliest_us = mapping
+            .to_runner(event_at)
+            .saturating_sub(mapping.uncertainty_us);
+        let deadline_us = earliest_us + delay_us + MAX_TRIGGER_LATENESS_US;
+        let armed = match self.armed.take() {
+            Some(armed) if armed.step == step.id => armed,
+            other => {
+                self.armed = other;
+                let reason = match &self.arm_failure {
+                    Some((failed, reason)) if *failed == step.id => reason.clone(),
+                    _ => "no prepared player is armed for this step".into(),
+                };
+                return Err(Withheld::PlayerFailed(reason));
+            }
+        };
+        let now = monotonic_us();
+        if now >= deadline_us {
+            let late = now - deadline_us;
+            self.armed = Some(armed);
+            return Err(Withheld::Stale(format!(
+                "the original deadline passed {late} us before the grant"
+            )));
+        }
+        let expires_ns = deadline_us * 1000;
+        let line = json!({"schema": 1, "kind": "start",
+            "attempt_id": armed.prepared.ready["attempt_id"], "expires_monotonic_ns": expires_ns})
+        .to_string();
+        if armed
+            .prepared
+            .grant
+            .try_send(GrantInput::Line(line))
+            .is_err()
+        {
+            let report = armed.prepared.handle.join().unwrap_or(Value::Null);
+            return Err(Withheld::PlayerFailed(format!(
+                "the prepared player ended before its grant: {} {}",
+                report["status"], report["error"]
+            )));
+        }
+        let sent_us = monotonic_us();
+        let receipt = json!({"ready": armed.prepared.ready,
+            "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
+            "expires_monotonic_ns": expires_ns,
+            "deadline": {"event_at_lamp_us": event_at, "mapped_runner_us": mapping.to_runner(event_at),
+                "clock_uncertainty_us": mapping.uncertainty_us, "earliest_event_runner_us": earliest_us,
+                "delay_us": delay_us, "lateness_bound_us": MAX_TRIGGER_LATENESS_US,
+                "headroom_at_grant_us": deadline_us - sent_us}});
+        Ok((
+            Playback {
+                step: step.id.clone(),
+                requested_us: sent_us,
+                cancel_file: armed.cancel_file,
+                handle: Some(armed.prepared.handle),
+                report: None,
+                prepared: true,
+            },
+            receipt,
+        ))
     }
 
     /// Latch the first terminal cause from a live event: a provider failure,
@@ -551,7 +1028,22 @@ impl<'a> PhysicalBackend<'a> {
                     } else if parsed.turn.is_some() {
                         return Err(invalid("owned cue has no clock mapping to prove freshness"));
                     }
+                    if session
+                        .cue_order
+                        .boot
+                        .is_some_and(|boot| boot != parsed.boot)
+                    {
+                        session
+                            .boot_changes
+                            .push(json!({"sequence": parsed.sequence,
+                            "kind": parsed.kind, "event_lamp_us": parsed.event_us,
+                            "runner_received_us": received}));
+                    }
                     session.cue_order.accept(&parsed, lamp_received_us)?;
+                    // A terminal provider link ends a serve run as well.
+                    session.runtime_ended |= parsed.kind == "run_end"
+                        || (parsed.kind == "provider_link"
+                            && parsed.link.as_deref() == Some("terminal"));
                     Ok(parsed)
                 })();
                 if session.cues.len() < crate::physical::protocol::MAX_TRACE_LINES {
@@ -641,6 +1133,7 @@ impl<'a> PhysicalBackend<'a> {
                 let expected = match self.config.mode {
                     LampMode::Fixture { .. } => "fixture",
                     LampMode::Directed { .. } => "directed",
+                    LampMode::Serve { .. } => "serve",
                 };
                 if session.start.is_some()
                     || schema != crate::physical::protocol::SCHEMA
@@ -696,6 +1189,7 @@ impl<'a> PhysicalBackend<'a> {
                         events_lines: 0,
                         error: Some("session transport closed without session_end".into()),
                         stray_processes_stopped: false,
+                        serve: None,
                     });
                     return Some(Ok(session.end.clone()?));
                 }
@@ -711,6 +1205,7 @@ impl<'a> PhysicalBackend<'a> {
 /// killed if it has not exited shortly afterwards.
 impl Drop for PhysicalBackend<'_> {
     fn drop(&mut self) {
+        self.release_armed();
         for playback in &self.playbacks {
             let _ = fs::write(&playback.cancel_file, b"cancel\n");
         }
@@ -808,6 +1303,10 @@ impl Backend for PhysicalBackend<'_> {
             "mode": match &self.config.mode {
                 LampMode::Fixture { sha256, .. } => json!({"provider": "fixed_reply", "reply_sha256": sha256}),
                 LampMode::Directed { .. } => json!({"provider": "gemini", "cues": "schema-1 socket required; software scheduling only"}),
+                LampMode::Serve { .. } => json!({"provider": "gemini", "runtime": "lamp-live serve, one per attempt",
+                    "cues": "schema-1 socket required; software scheduling only",
+                    "start": "prepared player, one original expiring grant enforced at its first source copy",
+                    "stop": "relay SIGTERM to the runtime, bounded grace, forced group kill"}),
             },
             "stimulus_source": self.config.stimulus_source,
             "noise_suppression": self.config.noise_suppression,
@@ -822,6 +1321,7 @@ impl Backend for PhysicalBackend<'_> {
         match self.config.mode {
             LampMode::Fixture { .. } => Stratum::PhysicalFixture,
             LampMode::Directed { .. } => Stratum::PhysicalGemini,
+            LampMode::Serve { .. } => Stratum::PhysicalServe,
         }
     }
     fn domain(&self) -> ClockDomain {
@@ -838,7 +1338,7 @@ impl Backend for PhysicalBackend<'_> {
             (LampMode::Fixture { .. }, ProviderKind::Gemini) => {
                 return Some("Gemini scenario cannot run on the fixed-reply provider".into());
             }
-            (LampMode::Directed { .. }, ProviderKind::FixedReply) => {
+            (LampMode::Directed { .. } | LampMode::Serve { .. }, ProviderKind::FixedReply) => {
                 return Some("fixed-reply scenario needs lamp-live directed-fixture".into());
             }
             _ => {}
@@ -858,6 +1358,10 @@ impl Backend for PhysicalBackend<'_> {
         self.playbacks.clear();
         self.pending.clear();
         self.unavailable = None;
+        self.release_armed();
+        self.arm_failure = None;
+        self.trigger = None;
+        self.evidence_lost = false;
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -920,6 +1424,9 @@ impl Backend for PhysicalBackend<'_> {
                     argv.push("--diagnostics".into());
                 }
             }
+            LampMode::Serve { provider_config } => {
+                argv.extend(["--serve-config".into(), provider_config.clone()]);
+            }
         }
         if let Some(ceiling) = self.config.ring_channel_ceiling {
             argv.extend(["--ring-channel-ceiling".into(), ceiling.to_string()]);
@@ -951,6 +1458,9 @@ impl Backend for PhysicalBackend<'_> {
             cues: Vec::new(),
             cue_order: CueOrder::default(),
             cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
         });
         self.send_ping(1)?;
         fs::write(
@@ -967,6 +1477,9 @@ impl Backend for PhysicalBackend<'_> {
             return Ok(Some(event));
         }
         loop {
+            if let Some(event) = self.poll_evidence() {
+                return Ok(Some(event));
+            }
             let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
                 (s.next_ping_us, s.pings.len() as u64)
             });
@@ -974,11 +1487,15 @@ impl Backend for PhysicalBackend<'_> {
                 // A failed write means the transport closed; session_end reports it.
                 let _ = self.send_ping(sent + 1);
             }
-            let wait_until = until_us.min(
+            let mut wait_until = until_us.min(
                 self.session
                     .as_ref()
                     .map_or(until_us, |s| s.next_ping_us.max(monotonic_us() + 1_000)),
             );
+            if self.serve() {
+                // Player and recorder ends are polled, not signalled.
+                wait_until = wait_until.min(monotonic_us() + 20_000);
+            }
             let Some(line) = self.wait_line(wait_until) else {
                 if monotonic_us() >= until_us {
                     return Ok(None);
@@ -1013,6 +1530,61 @@ impl Backend for PhysicalBackend<'_> {
         let mut timing = catalog.estimate(scene)?;
         timing.measure(&self.assets.pcm(scene)?);
         Ok(timing)
+    }
+    /// Serve: prepare this step's stimulus now, before its trigger wait.
+    /// A failure is kept and withholds the step at dispatch.
+    fn arm(&mut self, step: &Step, scene: &str, timing: &SceneTiming) -> Result<()> {
+        if !self.serve() {
+            return Ok(());
+        }
+        self.release_armed();
+        self.arm_failure = None;
+        let asset = self
+            .assets
+            .get(scene)
+            .ok_or_else(|| invalid("asset disappeared"))?;
+        let directory = self
+            .attempt_directory
+            .clone()
+            .ok_or_else(|| invalid("no attempt directory"))?;
+        let cancel_file = directory.join(format!("cancel-{}", step.id));
+        let max_wait_ms =
+            (step.trigger.deadline_ms + step.trigger.delay_ms + 5_000).min(MAX_PREPARED_WAIT_MS);
+        let armed_us = monotonic_us();
+        let failure = match self.player.prepare(
+            &asset.wav,
+            timing,
+            &directory.join(format!("play-{}", step.id)),
+            &cancel_file,
+            max_wait_ms,
+        ) {
+            Ok(Some(prepared)) if prepared.ready["source_sha256"] == asset.wav_sha256.as_str() => {
+                self.armed = Some(Armed {
+                    step: step.id.clone(),
+                    prepared,
+                    cancel_file,
+                    armed_us,
+                });
+                return Ok(());
+            }
+            Ok(Some(prepared)) => {
+                let reason = format!(
+                    "prepared source {} is not the cached asset {}",
+                    prepared.ready["source_sha256"], asset.wav_sha256
+                );
+                let _ = prepared.grant.try_send(GrantInput::Closed);
+                self.unused
+                    .push((step.id.clone(), prepared.ready, prepared.handle));
+                reason
+            }
+            Ok(None) => "the player has no prepared start".into(),
+            Err(error) => error.to_string(),
+        };
+        self.arm_failure = Some((step.id.clone(), failure));
+        Ok(())
+    }
+    fn trigger_observed(&mut self, observation: &TriggerObservation, delay_us: u64) {
+        self.trigger = Some((observation.clone(), delay_us));
     }
     fn inject(
         &mut self,
@@ -1083,6 +1655,22 @@ impl Backend for PhysicalBackend<'_> {
             ));
             return Ok(refuse(stale, 0, false));
         }
+        if self.serve() {
+            return Ok(match self.grant(step) {
+                Ok((playback, prepared)) => {
+                    let started_us = playback.requested_us;
+                    self.playbacks.push(playback);
+                    Injection {
+                        withheld: None,
+                        started_us,
+                        receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": true,
+                            "prepared": prepared, "late_us": started_us.saturating_sub(at_us),
+                            "boundary": "grant sent; the player checks the expiry with a fresh CLOCK_MONOTONIC sample before its first source copy; the acoustic onset is later"}),
+                    }
+                }
+                Err(withheld) => refuse(withheld, 0, false),
+            });
+        }
         let handle = self.player.start(
             &asset.wav,
             timing,
@@ -1093,7 +1681,9 @@ impl Backend for PhysicalBackend<'_> {
             step: step.id.clone(),
             requested_us,
             cancel_file,
-            handle,
+            handle: Some(handle),
+            report: None,
+            prepared: false,
         });
         Ok(Injection {
             withheld: None,
@@ -1104,6 +1694,37 @@ impl Backend for PhysicalBackend<'_> {
         })
     }
     fn finish(&mut self, context: &AttemptContext) -> Result<Finished> {
+        if self.serve() {
+            // Nothing more is granted; the runtime is stopped through the
+            // relay's one stop path. A failed write means the transport is
+            // already closed, which the relay treats as a stop.
+            self.release_armed();
+            // A runtime that reported its own end is not stopped by the
+            // runner, so its end keeps its own provenance; one that does not
+            // exit within the bound is then stopped like any other.
+            if self
+                .session
+                .as_ref()
+                .is_some_and(|s| s.runtime_ended && s.end.is_none())
+            {
+                let until = monotonic_us() + SELF_END_BOUND_US;
+                while self.session.as_ref().is_some_and(|s| s.end.is_none())
+                    && monotonic_us() < until
+                {
+                    if self.next_event(until)?.is_none() {
+                        break;
+                    }
+                }
+            }
+            if self.session.as_ref().is_some_and(|s| s.end.is_none()) {
+                let reason = if self.session.as_ref().is_some_and(|s| s.runtime_ended) {
+                    "runtime_reported_end_but_did_not_exit"
+                } else {
+                    "runner_finished"
+                };
+                let _ = self.send_stop(reason);
+            }
+        }
         let bound = monotonic_us()
             + (u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 30) * 1_000_000;
         while self.session.as_ref().is_some_and(|s| s.end.is_none()) && monotonic_us() < bound {
@@ -1127,7 +1748,12 @@ impl Backend for PhysicalBackend<'_> {
                 let _ = child.wait();
             }
             for playback in self.playbacks.drain(..) {
-                let _ = join_bounded(playback.handle, &playback.cancel_file, monotonic_us());
+                if let Some(handle) = playback.handle {
+                    let _ = join_bounded(handle, &playback.cancel_file, monotonic_us());
+                }
+            }
+            for (_, _, handle) in self.unused.drain(..) {
+                let _ = join_bounded(handle, Path::new("/nonexistent"), monotonic_us());
             }
             return Ok(Finished {
                 events: Vec::new(),
@@ -1181,7 +1807,11 @@ impl Backend for PhysicalBackend<'_> {
         let mut corrected = Vec::new();
         let mut failed = Vec::new();
         for playback in self.playbacks.drain(..) {
-            let report = join_bounded(playback.handle, &playback.cancel_file, playback_bound);
+            let report = match (playback.report, playback.handle) {
+                (Some(report), _) => report,
+                (None, Some(handle)) => join_bounded(handle, &playback.cancel_file, playback_bound),
+                (None, None) => json!({"valid": false, "status": "no player report"}),
+            };
             if report["valid"] != true {
                 // Nothing reliable reached the room; the step tested nothing.
                 failed.push((
@@ -1191,11 +1821,32 @@ impl Backend for PhysicalBackend<'_> {
                         report["status"], report["error"]
                     ),
                 ));
+            } else if playback.prepared {
+                // A prepared stream started before readiness; its stimulus
+                // starts at the first source copy.
+                if let Some(ns) = report["counters"]["source_started_host_ns"]
+                    .as_u64()
+                    .filter(|ns| *ns > 0)
+                {
+                    corrected.push((playback.step.clone(), ns / 1000));
+                }
             } else if let Some(ns) = report["start_requested_host_monotonic_ns"].as_u64() {
                 corrected.push((playback.step.clone(), ns / 1000));
             }
-            playbacks.push(json!({"step": playback.step, "runner_requested_us": playback.requested_us, "report": report}));
+            playbacks.push(
+                json!({"step": playback.step, "runner_requested_us": playback.requested_us,
+                "prepared": playback.prepared, "report": report}),
+            );
         }
+        let unused: Vec<Value> = self
+            .unused
+            .drain(..)
+            .map(|(step, ready, handle)| {
+                let report = join_bounded(handle, Path::new("/nonexistent"), monotonic_us() + 5_000_000);
+                json!({"step": step, "ready": ready, "report": report,
+                    "note": "prepared, never granted; no source frame was submitted unless the report says otherwise"})
+            })
+            .collect();
         let room = match self.room.take() {
             Some((mut child, out, requested)) => {
                 let status = wait_child(
@@ -1213,14 +1864,56 @@ impl Backend for PhysicalBackend<'_> {
             }
             None => Value::Null,
         };
+        // Serve metadata can span service cycles. Only the first cycle is
+        // the conversation; later cycles are counted, never scored with it.
+        let cycle_starts: Vec<usize> = session
+            .trace
+            .iter()
+            .enumerate()
+            .filter(|(_, record)| record["kind"] == "service_cycle_start")
+            .map(|(index, _)| index)
+            .collect();
+        let scored_end = cycle_starts.get(1).copied().unwrap_or(session.trace.len());
         let mut unmapped = 0;
         let mut events = Vec::new();
-        for record in &session.trace {
+        for record in &session.trace[..scored_end] {
             match from_trace(record) {
                 Some(event) => events.push(event),
                 None => unmapped += 1,
             }
         }
+        let continuity = self.serve().then(|| {
+            let cycles: Vec<&Value> = session
+                .trace
+                .iter()
+                .filter(|record| {
+                    matches!(
+                        record["kind"].as_str(),
+                        Some("service_cycle_start" | "service_cycle_muted" | "service_stop_requested")
+                    )
+                })
+                .take(64)
+                .collect();
+            // A restart is verified only by the runtime's own metadata: a
+            // muted first cycle, then a second cycle started no later than
+            // the first cue seen under the new boot.
+            let first_new_boot = session.boot_changes.first().and_then(|c| c["event_lamp_us"].as_u64());
+            let muted = session.trace.iter().any(|r| r["kind"] == "service_cycle_muted" && r["cycle"] == 1);
+            let restarted_at = session
+                .trace
+                .iter()
+                .find(|r| r["kind"] == "service_cycle_start" && r["cycle"] == 2)
+                .and_then(|r| r["at_us"].as_u64());
+            let verified = muted
+                && restarted_at.zip(first_new_boot).is_some_and(|(start, cue)| start <= cue);
+            json!({"service_cycles": cycle_starts.len(),
+                "context_continuity_lost": cycle_starts.len() > 1 || !session.boot_changes.is_empty(),
+                "boot_changes_observed": session.boot_changes,
+                "verified_service_restart": verified,
+                "cycle_records": cycles,
+                "unscored_records_after_first_cycle": session.trace.len() - scored_end,
+                "note": "a new boot ends the conversation; cues alone never qualify a restart"})
+        });
         // Terminal provider failures and drain-path endpoints are kept
         // verbatim (bounded) so provider session and outcome survive scoring.
         let provider_records: Vec<&Value> = session
@@ -1241,6 +1934,8 @@ impl Backend for PhysicalBackend<'_> {
             "transport_exit": exited.map(|s| s.code()),
             "protocol_errors": session.protocol_errors,
             "playbacks": playbacks,
+            "unused_prepared_players": unused,
+            "serve_continuity": continuity,
             "room_audio": room,
             "attempt_directory": self.attempt_directory.as_ref().map(|d| d.display().to_string()),
         });

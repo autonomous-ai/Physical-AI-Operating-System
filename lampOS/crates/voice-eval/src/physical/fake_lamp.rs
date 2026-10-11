@@ -26,13 +26,29 @@ use std::{
 };
 
 pub const ROOM_MAX_BYTES: usize = 2048;
-const BOOT_BYTES: [u8; 16] = [7; 16];
+pub(crate) const BOOT_BYTES: [u8; 16] = [7; 16];
+/// Another runtime's identity for the `foreign-completion` cue fault.
+const FOREIGN_BOOT: [u8; 16] = [9; 16];
+
+/// Cue faults the bounded local shim can inject, on the first matching cue.
+const CUE_FAULTS: [&str; 7] = [
+    "drop-retirement",
+    "stale-retirement",
+    "drop-completion",
+    "stale-completion",
+    "duplicate-completion",
+    "reorder-retirement",
+    "foreign-completion",
+];
 
 /// `fake-lamp-live --fake-scenario ID --fake-profile ID --fake-room SOCKET
-/// [--fake-seed N] [--fake-session-seconds N]
-/// [--fake-cue-fault drop-retirement|stale-retirement]
-/// directed-fixture WAV SHA SECONDS OUT ... (or directed CONFIG SECONDS OUT ...)`
+/// [--fake-plan FILE] [--fake-seed N] [--fake-session-seconds N]
+/// [--fake-cue-fault KIND] [serve faults, see `fake_serve`]
+/// directed-fixture WAV SHA SECONDS OUT ... | directed CONFIG SECONDS OUT ...
+/// | serve CONFIG OUT ...`
 pub fn run(arguments: &[String]) -> Result<i32> {
+    let mut plan_path = None;
+    let mut serve = crate::physical::fake_serve::ServeFaults::default();
     let mut scenario = None;
     let mut profile = None;
     let mut room = None;
@@ -52,20 +68,52 @@ pub fn run(arguments: &[String]) -> Result<i32> {
             "--fake-room" => room = Some(PathBuf::from(value)),
             "--fake-seed" => seed = value.parse()?,
             "--fake-session-seconds" => session_override = Some(value.parse::<u16>()?),
-            "--fake-cue-fault"
-                if matches!(
-                    value.as_str(),
-                    "drop-retirement" | "stale-retirement" | "drop-completion" | "stale-completion"
-                ) =>
-            {
-                cue_fault = Some(value)
-            }
+            "--fake-cue-fault" if CUE_FAULTS.contains(&value.as_str()) => cue_fault = Some(value),
             "--fake-generations" if value == "two" => two_generations = true,
+            "--fake-plan" => plan_path = Some(PathBuf::from(value)),
+            other if serve.parse(other, &value)? => {}
             other => return Err(invalid(&format!("unknown fake option {other}"))),
         }
         index += 2;
     }
     let rest = &arguments[index..];
+    let catalog = StimulusCatalog::load()?;
+    let plan = match &plan_path {
+        Some(path) => LoadedPlan::parse(&fs::read_to_string(path)?, &catalog)?,
+        None => LoadedPlan::default_plan(&catalog)?,
+    };
+    if rest.first().map(String::as_str) == Some("serve") {
+        let cue = rest
+            .iter()
+            .position(|a| a == "--cue-socket")
+            .and_then(|i| rest.get(i + 1))
+            .map(PathBuf::from)
+            .ok_or_else(|| invalid("the fake serve runtime needs --cue-socket"))?;
+        let output = rest
+            .get(2)
+            .map(PathBuf::from)
+            .ok_or_else(|| invalid("expected serve CONFIG OUT"))?;
+        let scenario = plan
+            .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
+            .clone();
+        let profile = plan
+            .profile(&profile.ok_or_else(|| invalid("--fake-profile required"))?)?
+            .clone();
+        return crate::physical::fake_serve::run(crate::physical::fake_serve::FakeServe {
+            scenario,
+            profile,
+            fixed_reply: plan.plan.fixed_reply.clone(),
+            seed,
+            output,
+            cue_path: cue,
+            room,
+            cue_fault,
+            faults: serve,
+        });
+    }
+    if !serve.is_empty() {
+        return Err(invalid("serve faults need the fake serve runtime"));
+    }
     let (seconds, output, cue_path) = match rest.first().map(String::as_str) {
         Some("directed-fixture") if rest.len() >= 5 => {
             let cue = rest
@@ -89,8 +137,6 @@ pub fn run(arguments: &[String]) -> Result<i32> {
             ));
         }
     };
-    let catalog = StimulusCatalog::load()?;
-    let plan = LoadedPlan::default_plan(&catalog)?;
     let mut scenario = plan
         .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
         .clone();
@@ -212,18 +258,44 @@ pub fn run(arguments: &[String]) -> Result<i32> {
     Ok(if failed { 1 } else { 0 })
 }
 
+/// `fake-room-recorder --out DIR --seconds N --fail-after-ms MS`: reports
+/// readiness like the room recorder, records nothing, then fails after MS
+/// without `metadata.json`. A recording-failure control only.
+pub fn room_recorder(arguments: &[String]) -> Result<i32> {
+    let value = |flag: &str| {
+        arguments
+            .iter()
+            .position(|a| a == flag)
+            .and_then(|i| arguments.get(i + 1))
+            .cloned()
+            .ok_or_else(|| invalid(&format!("fake-room-recorder needs {flag}")))
+    };
+    let out = PathBuf::from(value("--out")?);
+    let seconds: u64 = value("--seconds")?.parse()?;
+    let fail_after_ms: u64 = value("--fail-after-ms")?.parse()?;
+    fs::DirBuilder::new().mode(0o700).create(&out)?;
+    fs::write(
+        out.join("ready.json"),
+        json!({"fake": true, "note": "fake recorder; records nothing"}).to_string(),
+    )?;
+    thread::sleep(Duration::from_millis(fail_after_ms.min(seconds * 1000)));
+    Ok(1)
+}
+
 /// One deliberately dropped or late production cue; no audio or external I/O.
 /// The 150 ms delay leaves the original event/send/100 ms expiry untouched.
-struct FaultRelay {
+pub(crate) struct FaultRelay {
     input: UnixDatagram,
     output: UnixDatagram,
-    path: PathBuf,
+    pub(crate) path: PathBuf,
     fault: String,
     used: bool,
     pending: Option<(u64, Vec<u8>)>,
+    /// `reorder-retirement`: held until the next cue has been sent.
+    held: Option<Vec<u8>>,
 }
 impl FaultRelay {
-    fn new(directory: &Path, target: &Path, fault: String) -> Result<Self> {
+    pub(crate) fn new(directory: &Path, target: &Path, fault: String) -> Result<Self> {
         let path = directory.join("fault.sock");
         let input = UnixDatagram::bind(&path)?;
         input.set_nonblocking(true)?;
@@ -237,6 +309,7 @@ impl FaultRelay {
             fault,
             used: false,
             pending: None,
+            held: None,
         })
     }
     fn send(&self, bytes: &[u8]) -> Result<()> {
@@ -245,7 +318,7 @@ impl FaultRelay {
         }
         Ok(())
     }
-    fn tick(&mut self, now_us: u64) -> Result<()> {
+    pub(crate) fn tick(&mut self, now_us: u64) -> Result<()> {
         if self.pending.as_ref().is_some_and(|(due, _)| now_us >= *due) {
             let (_, bytes) = self.pending.take().expect("pending delay checked");
             self.send(&bytes)?;
@@ -265,11 +338,28 @@ impl FaultRelay {
             };
             if !self.used && cue.kind == selected {
                 self.used = true;
-                if self.fault.starts_with("stale-") {
-                    self.pending = Some((now_us + 150_000, bytes[..count].to_vec()));
+                match self.fault.split('-').next() {
+                    Some("stale") => {
+                        self.pending = Some((now_us + 150_000, bytes[..count].to_vec()))
+                    }
+                    Some("duplicate") => {
+                        self.send(&bytes[..count])?;
+                        self.send(&bytes[..count])?;
+                    }
+                    Some("reorder") => self.held = Some(bytes[..count].to_vec()),
+                    // Same sequence and times, another runtime's identity.
+                    Some("foreign") => {
+                        let mut value: Value = serde_json::from_slice(&bytes[..count])?;
+                        value["boot"] = json!(FOREIGN_BOOT);
+                        self.send(&serde_json::to_vec(&value)?)?;
+                    }
+                    _ => {}
                 }
             } else {
                 self.send(&bytes[..count])?;
+                if let Some(held) = self.held.take() {
+                    self.send(&held)?;
+                }
             }
         }
         Ok(())

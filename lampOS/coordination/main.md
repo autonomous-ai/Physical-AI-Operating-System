@@ -1,9 +1,9 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 20:42 UTC
+- Updated: 2026-10-11 21:09 UTC
 - Branch: `lamp-v2-chat`
-- Latest finite native check: `e9bdcea282be7b787abb0568eb46a5c7958a6cce` / `b1c61a22...643edbd`, 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, incomplete: one completed reply, one stale player spawn with brief output unknown, six withheld. Last completed finite check: 2/2 voice/ring exchanges. Earlier sustained check: `55d7af98e149591eed7882b9ace7741486daa842` / `738503a803d3...5b8d0`, 16/16 over 21.6 minutes. Evidence is not pooled. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
 - Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
@@ -17,13 +17,33 @@ unchanged legacy PIDs, provider/credential identity, actual gains and stationary
 mute/motor protections. The installation did not start a service or enable boot
 activation. Physical mute/reopen and human acceptance remain pending.
 
-Agent 1's separate retained-successor continuation proposal is in verification;
-its prior opt-in continuation checkpoint `9ec2f8cfe` passed 1,480 host tests and
-its reported ARM checks but is not integrated. Agent 2's expanded fault matrix
-and F1 speaker-acknowledgment deadline (`d787ba938`, production `33a86363`) received
-static review; combined integration gates and the identified assertion/coverage
-follow-ups remain pending. Neither changes the installed pilot. Main continues
-connected-conversation tests with the existing cached prompts.
+Agent 1 published retained-successor proposal `55ccc4a1a` (tested code
+`901622831`). It remains separate, off by default and under source review;
+three service-only probes with cached synthetic speech are being prepared.
+The provider-worker integration still needs qualification. Agent 2's R2 fault
+matrix `4505ccbe` received a bounded source review. Main's exact four-file F1
+composition passed formatting, strict live all-target Clippy and all 507 serial
+live-library tests, with four existing ignored tests; the ARM composition gate
+is running. Nothing from either proposal is installed.
+
+The controller missed its deadline starting the iMac's second prompt. Agent 2
+owns a separate opt-in Rust player change to prepare output before the original
+readiness check and enforce that check at the first source-frame boundary.
+No prompt is replayed and no scheduling deadline is widened. Its new evaluator
+readiness proposal `af731346` is also separate; a matching runtime cue proposal
+is still needed.
+
+## Retained connected-attempt failure
+
+The [eight-slot installed connected attempt](../docs/verification/installed-connected-20261011/README.md)
+ended at the host player's post-spawn freshness check. Only slot 1 has a complete
+player receipt and owned reply; slot 2's brief output is unknown, and slots 3–8
+were withheld. The runtime recorded no extra input, gap, cancellation or fault.
+Local ASR corroborates the first exchange but cannot prove zero second playback.
+All 776 metadata events and healthy finish ACK, 331 ring pairs, six exited
+identities, empty owners/cgroup, stationary rollback and mixer restoration
+verify. The 180-second room WAV/ledger is intact. This is a retained lab failure,
+not an eight-turn pass or a new acoustic score. The installed template is unchanged.
 
 ## Native05 completed
 

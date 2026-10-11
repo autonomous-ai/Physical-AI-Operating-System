@@ -213,15 +213,24 @@ fn only_the_permitted_consumer_identity_is_accepted_once() {
     assert_eq!(server.counts().rejected, 3);
     let mut good = client(&dir, Role::Perception, PERCEPTION);
     connect(&mut server, &mut good, Role::Perception);
-    // A second connection with the same identity is a reuse, not a restart.
+    // While it is connected, a second live connection for the role is refused.
+    let mut second = client(&dir, Role::Perception, PERCEPTION);
+    assert!(second.connect().unwrap());
+    for _ in 0..50 {
+        server.service(10);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(server.connected(Role::Perception));
+    assert_eq!(server.counts().rejected, 4);
+    // After the consumer itself closes, the same identity may reconnect.
     good.disconnect();
-    let mut again = client(&dir, Role::Perception, PERCEPTION);
-    assert!(again.connect().unwrap());
     for _ in 0..50 {
         server.service(10);
         std::thread::sleep(Duration::from_millis(1));
     }
     assert!(!server.connected(Role::Perception));
+    let mut again = client(&dir, Role::Perception, PERCEPTION);
+    connect(&mut server, &mut again, Role::Perception);
     let closes: Vec<_> = std::iter::from_fn(|| server.take_event()).collect();
     assert!(closes.iter().any(|e| matches!(
         e,
@@ -238,6 +247,110 @@ fn only_the_permitted_consumer_identity_is_accepted_once() {
             ..
         }
     )));
+}
+
+#[test]
+fn a_protocol_violation_bans_the_role_for_the_producer_lifetime() {
+    let dir = Dir::new();
+    let mut server = server(&dir, &[(Role::Perception, PERCEPTION)]);
+    // A consumer with the permitted identity sends two requests at once.
+    let mut violator = UnixStream::connect(dir.socket()).unwrap();
+    let mut hello = [0_u8; 40];
+    hello[..4].copy_from_slice(b"LFH1");
+    hello[4] = 1;
+    hello[8..24].copy_from_slice(&[PERCEPTION; 16]);
+    hello[24..40].copy_from_slice(&[CONTROLLER; 16]);
+    violator.write_all(&hello).unwrap();
+    let mut request = [0_u8; 16];
+    request[..4].copy_from_slice(b"LFR1");
+    request[4..8].copy_from_slice(&100_000_u32.to_le_bytes());
+    for id in [1_u64, 2] {
+        request[8..16].copy_from_slice(&id.to_le_bytes());
+        violator.write_all(&request).unwrap();
+    }
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while server.counts().protocol_violations == 0 && Instant::now() < deadline {
+        server.service(10);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert_eq!(server.counts().protocol_violations, 1);
+    // The same identity can no longer connect to this producer.
+    let mut after = client(&dir, Role::Perception, PERCEPTION);
+    assert!(after.connect().unwrap());
+    for _ in 0..50 {
+        server.service(10);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(!server.connected(Role::Perception));
+    assert!(std::iter::from_fn(|| server.take_event()).any(|e| matches!(
+        e,
+        LinkEvent::Closed {
+            reason: CloseReason::Rejected,
+            ..
+        }
+    )));
+}
+
+/// A frame larger than the socket buffers is abandoned mid-write: after
+/// `discard_sending`, no further byte of it is written even when the
+/// consumer drains, and the same consumer can reconnect for a new frame.
+#[test]
+fn discarding_an_unsent_tail_stops_the_frame_and_allows_reconnection() {
+    let dir = Dir::new();
+    let mut server = server(&dir, &[(Role::Context, CONTEXT)]);
+    let mut client = client(&dir, Role::Context, CONTEXT);
+    connect(&mut server, &mut client, Role::Context);
+    client.request(250_000).unwrap();
+    await_request(&mut server);
+    server
+        .offer(
+            &observation(1, 1_000),
+            &jpeg(2 * 1024 * 1024 - 4096, 5),
+            1_000,
+        )
+        .unwrap();
+    server.service(1_100);
+    assert!(
+        server.sending(Role::Context),
+        "a 2 MiB frame cannot fit the socket buffers"
+    );
+    let sent_before = server.counts().bytes_sent;
+    assert_eq!(server.discard_sending(CloseReason::PrivacyClosed, 1_200), 1);
+    assert!(!server.sending(Role::Context));
+    // The consumer drains what the kernel already holds, then sees the end.
+    let mut out = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let result = loop {
+        server.service(1_300);
+        match client.poll(&mut out) {
+            Ok(None) if Instant::now() < deadline => continue,
+            other => break other,
+        }
+    };
+    assert!(result.is_err(), "the cut-off frame is never completed");
+    assert_eq!(
+        server.counts().bytes_sent,
+        sent_before,
+        "no byte after the discard"
+    );
+    assert_eq!(server.counts().partial_discarded, 1);
+    // Not terminal: the same consumer reconnects and receives a whole frame.
+    let mut again = FrameClient::new(
+        &dir.socket(),
+        Role::Context,
+        boot(CONTEXT),
+        boot(CONTROLLER),
+        2 * 1024 * 1024,
+    );
+    connect(&mut server, &mut again, Role::Context);
+    again.request(250_000).unwrap();
+    await_request(&mut server);
+    let small = jpeg(1000, 6);
+    server.offer(&observation(2, 2_000), &small, 2_000).unwrap();
+    let meta = pump(&mut server, &mut again, 2_100, &mut out)
+        .unwrap()
+        .unwrap();
+    assert_eq!((meta.frame_sequence, out.len()), (2, 1000));
 }
 
 #[test]

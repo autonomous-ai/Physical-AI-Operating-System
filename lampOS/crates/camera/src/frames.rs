@@ -21,7 +21,12 @@
 //!
 //! A frame keeps its original [`CameraGrant`]. Consumers must recheck it
 //! against their own current authority before use; bytes already sent cannot be
-//! retracted by this module.
+//! retracted by this module. A producer whose source authority changes
+//! abandons unsent tails with [`FrameServer::discard_sending`].
+//!
+//! Connection policy: one live connection per role; the same permitted
+//! consumer may reconnect after any closure except its own protocol
+//! violation; `close_all` is terminal for the producer.
 use crate::{DriverTimestamp, FrameObservation, TimestampDomain, TimestampPoint};
 use lamp_interaction::{BootId, CameraGrant};
 use serde::{Deserialize, Serialize};
@@ -51,6 +56,8 @@ pub const MAX_REQUEST_AGE_US: u32 = 2_000_000;
 pub const HELLO_DEADLINE_US: u64 = 100_000;
 pub const STALL_DEADLINE_US: u64 = 500_000;
 pub const MAX_PENDING_CONNECTIONS: usize = 4;
+/// Requested kernel send buffer for each consumer stream.
+pub const SEND_BUFFER_BYTES: usize = 16 * 1024;
 /// Bytes written to one consumer per service call, bounding one loop iteration.
 pub const WRITE_SLICE_BYTES: usize = 256 * 1024;
 /// Bytes read from one stream per poll call.
@@ -203,7 +210,8 @@ pub enum CloseReason {
     ConsumerClosed,
     /// Malformed or out-of-order consumer input.
     ProtocolViolation,
-    /// Unknown, duplicate or reused consumer identity.
+    /// Unknown identity, a second live connection for a role, or a role
+    /// banned after a protocol violation.
     Rejected,
     /// No complete hello within the deadline.
     HelloTimeout,
@@ -320,7 +328,9 @@ pub struct FrameServer {
     inode: (u64, u64),
     controller: BootId,
     expected: Vec<(Role, BootId)>,
-    used: [bool; 2],
+    /// Roles closed for a protocol violation; they stay closed for this
+    /// producer's lifetime.
+    banned: [bool; 2],
     pending: Vec<Pending>,
     slots: [Option<Slot>; 2],
     capacity: usize,
@@ -360,7 +370,7 @@ impl FrameServer {
             path,
             controller,
             expected: consumers.to_vec(),
-            used: [false; 2],
+            banned: [false; 2],
             pending: Vec::with_capacity(MAX_PENDING_CONNECTIONS),
             slots: [None, None],
             capacity: FRAME_HEADER_BYTES + MAX_META_BYTES + max_frame_bytes,
@@ -407,8 +417,29 @@ impl FrameServer {
         }
     }
 
+    /// Whether a frame is still being written to this role's consumer.
+    pub fn sending(&self, role: Role) -> bool {
+        self.slots[role.index()].as_ref().is_some_and(Slot::sending)
+    }
+
+    /// Abandon every frame that is not completely written, closing those
+    /// connections (a stream cannot resume mid-frame). Unlike `close_all`
+    /// the producer keeps accepting, and the same consumer may reconnect.
+    /// Returns how many frames were abandoned.
+    pub fn discard_sending(&mut self, reason: CloseReason, now_us: u64) -> usize {
+        let mut abandoned = 0;
+        for index in 0..self.slots.len() {
+            if self.slots[index].as_ref().is_some_and(Slot::sending) {
+                self.close_slot(index, reason, now_us);
+                abandoned += 1;
+            }
+        }
+        abandoned
+    }
+
     /// Discard every partly sent frame and close all consumers, then stop
-    /// accepting. Used for privacy closure, stop and faults.
+    /// accepting. Used for privacy closure, stop and faults. Terminal for
+    /// this producer: serving again needs a new producer incarnation.
     pub fn close_all(&mut self, reason: CloseReason, now_us: u64) {
         for index in 0..self.slots.len() {
             self.close_slot(index, reason, now_us);
@@ -433,6 +464,7 @@ impl FrameServer {
                 }
                 if reason == CloseReason::ProtocolViolation {
                     bump(&mut self.counts.protocol_violations);
+                    self.banned[index] = true;
                 }
                 self.close_slot(index, reason, now_us);
             }
@@ -501,7 +533,12 @@ impl FrameServer {
             }
             match self.check_hello(&pending.hello) {
                 Some(role) => {
-                    self.used[role.index()] = true;
+                    // Small kernel buffering: fewer exported-but-unread bytes
+                    // after a revocation, and the same behavior on every OS.
+                    let _ = rustix::net::sockopt::set_socket_send_buffer_size(
+                        &pending.stream,
+                        SEND_BUFFER_BYTES,
+                    );
                     bump(&mut self.counts.accepted);
                     self.slots[role.index()] = Some(Slot {
                         role,
@@ -544,10 +581,14 @@ impl FrameServer {
             .expected
             .iter()
             .any(|(r, boot)| *r == role && boot.bytes() == consumer);
-        // One connection per role and server lifetime: a restarted consumer
-        // has a new boot and needs a new camera incarnation.
-        (permitted && controller == self.controller.bytes() && !self.used[role.index()])
-            .then_some(role)
+        // One live connection per role. The same permitted consumer may
+        // reconnect after a closure that was not its own protocol violation;
+        // a restarted consumer (new boot) needs a new producer incarnation.
+        (permitted
+            && controller == self.controller.bytes()
+            && !self.banned[role.index()]
+            && self.slots[role.index()].is_none())
+        .then_some(role)
     }
 
     fn service_slot(&mut self, index: usize, now_us: u64) -> Result<(), CloseReason> {

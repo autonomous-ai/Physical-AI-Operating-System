@@ -3,23 +3,25 @@
 Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
 
 - **Protocol:** `direct-and-git-v2` acknowledged (`MAIN-001`), read from
-  `origin/lamp-v2-chat` at `666693a84`. Direct route: Harness team
-  "Lamp Rust implementation", member `agent2`. Two-way delivery with `main` was
-  confirmed by reply to `MAIN-004`.
+  `origin/lamp-v2-chat` at `666693a84`, re-read at `51bd815e9` (MAIN-010).
+  Direct route: Harness team "Lamp Rust implementation", member `agent2`;
+  two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested code commit:** `9bfd5824` on `lamp-v2-agent2`. Base: `2535fb565`.
-- **State:** checkpoint 1 published. Next: plan item 3 process tests (vision
-  path now, coordinator path once seams exist) and reduced context frames for
-  `A1-006`.
-- **Full report:** [Agent 2 handoff](../docs/agent2-handoff.md), covering
-  commits, behavior, exact checks, untested areas and defects.
+- **Tested head:** `8a1cc9b3` on `lamp-v2-agent2`, which merges
+  `lamp-v2-chat` `51bd815e9`. Previous checkpoint: `0239ac27`.
+- **State:** checkpoint 2 published. It contains the six accepted review
+  corrections (MAIN-005/006), A1-006 context frames and provisional MAIN-009
+  support. Next: coordinator process-graph tests.
+- **Full report:** [Agent 2 handoff](../docs/agent2-handoff.md), checkpoint 2
+  section, covering commits, red/green evidence, exact checks and open items.
 
-## Checkpoint 1 summary
+## Checkpoint 2 summary
 
-| Check | Result |
+| Check on `8a1cc9b3` | Result |
 |---|---|
-| Linux ARM64 container, workspace `fmt` / strict clippy / `cargo test --locked --workspace --no-fail-fast` on `9bfd5824` | Clean / clean / 937 passed, 0 failed, 3 ignored |
-| Source-only export on macOS, same three commands | Clean / clean / 898 passed, 0 failed, 3 ignored |
+| macOS: `fmt` / strict workspace clippy / `cargo test --locked --workspace --no-fail-fast` | Clean / clean / 921 passed, 0 failed, 4 ignored |
+| Linux ARM64 container: same | Clean / clean / 960 passed, 0 failed, 4 ignored |
+| Linux ARM64 container on `0253e5a5` (corrections only, before the merge) | Clean / clean / 948 passed, 0 failed, 3 ignored |
 
 No device, camera, real person or audio was involved.
 
@@ -33,7 +35,7 @@ No device, camera, real person or audio was involved.
 3. `Cargo.lock`: 66 third-party packages from `tract-onnx =0.23.8` and
    `zune-jpeg =0.5.15`, plus the dev-only `jpeg-encoder` (`5663f75a`).
 
-### A2-002 — Main: allow the `perception` worker role in `transport.rs`
+### A2-002 — Main: allow the `perception` worker role in `transport.rs` (done here as approved: `7912fa07`)
 
 `WorkerChannels::bind` rejects `perception`. The worker binds
 `perception.{c,d}.w` with `Channel` directly, using the same names and envelopes,
@@ -67,6 +69,25 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-005`**: all five findings fixed, each with a regression shown
+  failing first.
+  - (1) Exhausted perception drains: `343f9a41`.
+  - (2) Dependency cycle: `29c17173` and `0253e5a5`, with the shared
+    registration kept narrow.
+  - (3) Blocking connect: `206813b5`.
+  - (4) Raw-byte relay bound: `5220ce20`.
+  - (5) Freshness contract: `206813b5`.
+  - B: the seams remain proposals, behind an explicit test-support feature.
+  - C: the next target is `run_directed_session` with scripted Gemini.
+- **`MAIN-006`**: the relay group kill after an early return is fixed in
+  `5220ce20`. On the old code the regression left a worker running.
+- **`MAIN-009`**: accepted and implemented provisionally in `8bfff000`. Final
+  field names wait for the frozen producer schema. Please include the exact
+  names for `provider_failed` and `input_discarded_endpoint`. (My direct reply
+  expired before delivery; this is the durable answer.)
+- **`MAIN-010`**: acknowledged by direct reply. `51bd815e9` is merged in
+  `8a1cc9b3`.
 
 - **`MAIN-001`**, read at `666693a84`: acknowledged. I fetch all three branches
   at startup, on a checkpoint notice, before a shared-interface change and

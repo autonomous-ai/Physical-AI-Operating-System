@@ -3,6 +3,56 @@
 Workstream branch: `lamp-v2-agent2` (Agent 2). The main agent owns
 integration into `lamp-v2-chat`; this branch never pushes there.
 
+## Checkpoint 2: review corrections, context frames, provider failure
+
+- **Head:** `8a1cc9b3`, a merge of `lamp-v2-chat` `51bd815e9` into this branch.
+  Agent 2's code is unchanged by the merge.
+- **Base:** checkpoint 1 `0239ac27`.
+- Nothing ran on Lamp; no device was used.
+
+| Commit | Scope | Behavior and evidence |
+|---|---|---|
+| `6da0916f` | `crates/camera/src/frames.rs` | `FrameServer::offer_meta` offers derived images that keep the original identity and grant (`FrameMeta.derived`). The request age bound is now up to 2 s (A1-006). |
+| `43310241` | `camera_worker.rs`, `camera_worker/linux.rs` | One `serve` driver for the Linux port and simulated ports. |
+| `5130aa21` | `crates/perception/**`, docs | **A1-006 context frames.** Perception serves the provider (`perception.frames`, role `context`) the newest analysed frame. It is reduced to at most 640 pixels wide, encoded to at most 64 KiB, and no older than 2 s; it is dropped on any grant change. Process tests cover the bound, size, lineage and privacy. |
+| `5220ce20` | `crates/voice-eval/src/physical/**`, `tests/relay_hardening.rs` | **MAIN-006 and MAIN-005 item 4.** The relay kills the runtime's process group even after the leader exited. Every relay stream counts raw bytes before framing, so an endless unterminated line ends at its bound. Both regressions failed before the fix: a worker survived, and the reader consumed for 60 s without stopping. |
+| `343f9a41` | `crates/perception/src/worker.rs`, `tests/control_priority.rs` | **MAIN-005 item 1.** Drains distinguish exhausted from empty. Submission, publication and context offers each happen only after a drain reaches empty, and interrupted work is held and rechecked. Regressions bury a Stop or a privacy close behind six control slices of duplicates. Before the fix both published an observation while the message was unread. |
+| `206813b5` | `crates/camera/**`, `crates/perception/src/worker.rs`, docs | **MAIN-005 item 3.** The frame client uses a nonblocking `rustix` socket; the hello is completed within 100 ms or abandoned. On Linux the old blocking client hung for more than 60 s on a full listen queue and was killed by `timeout` (exit 124); the new one returns at once. **MAIN-005 item 5.** The freshness contract is stated exactly: the newest frame held at copy time, no older than `max_age_us` from host dequeue. It may predate the request. A test pins the boundary at 50,000 versus 50,001 µs. |
+| `7912fa07` | `crates/live/src/transport.rs` | `perception` worker role (approved in MAIN-005). |
+| `29c17173` | `crates/perception/**`, `Cargo.lock` | **MAIN-005 item 2, part 1.** The perception library no longer depends on `lamp-live`. Test support moves behind the `testing` feature. The binary keeps only `models verify/install` and `analyze`. |
+| `0253e5a5` | Narrow registration: `crates/live/src/lib.rs` (module), `main.rs` (role arm), `Cargo.toml` (dependency), `Cargo.lock`, plus new `crates/live/src/perception_worker.rs` and `tests/perception_worker.rs` | **Part 2.** `lamp-live worker perception ...` hosts the role over ordinary `WorkerChannels`. The tests include the production `Worker::spawn` and `shutdown` path. |
+| `8bfff000` | `crates/voice-eval/**`, `docs/voice-eval.md` | **MAIN-009, provisional names.** `provider_failed` is a readable terminal failure: `ProviderFailed { partial_audio }`. It is never in the success numerator and never a silent missing terminal. Played audio is kept, and every started occurrence must be retired first. `input_discarded_endpoint` is recorded but is never an endpoint. A failed terminal is never a trigger; the waiting step becomes `provider_unavailable`. |
+| `8a1cc9b3` | merge | `lamp-v2-chat` `51bd815e9` (Gemini recovery and coordination files). The only conflict was main's placeholder `coordination/agent-2.md`, resolved to Agent 2's file. |
+
+### Checks on `8a1cc9b3`
+
+| Platform | Command (from `lampOS/`) | Result |
+|---|---|---|
+| macOS host | `cargo fmt --all -- --check`; `cargo clippy --locked --workspace --all-targets -- -D warnings`; `cargo test --locked --workspace --no-fail-fast` | Clean; clean; **921 passed, 0 failed, 4 ignored** |
+| Linux ARM64 container (Debian bookworm, Rust 1.96.0, Colima on Apple silicon; not Lamp) | Same commands, plus `cargo build --locked --release -p lamp-live -p lamp-perception -p lamp-voice-eval` | Clean; clean; **960 passed, 0 failed, 4 ignored**; release build OK. Release perception figures: model verify plus plan 28.9 ms, frame p50 8.8 ms, p95 9.0 ms, spawn to `Ready` 31 ms |
+| Linux ARM64 container, on `0253e5a5` (before MAIN-009 and the merge) | Same commands | Clean; clean; 948 passed, 0 failed, 3 ignored |
+| macOS host | `lamp-voice-eval self-test` | 21 of 21 canaries behave as expected |
+
+Measured, not Lamp, figures:
+- **Perception worker `Worker::spawn` to `Ready`, release:** 32 ms in the Linux
+  container. On macOS it is 600–840 ms, because `nice 10` moves the process to
+  efficiency cores there.
+- **Model verify plus plan build:** 59 ms on the Mac.
+- **Lamp:** unmeasured. The supervisor's startup bound is 3 s.
+
+### Still open
+
+- **A2-1:** coordinator process-graph tests. Next: `run_directed_session` with
+  scripted Gemini, per MAIN-005 C. This waits on the proposed test-support
+  seams; production defaults stay unchanged.
+- **A2-2:** a JPEG cut short but ending in an end marker decodes partly.
+- **A2-3:** exposure, face-size and yaw thresholds are unqualified.
+- **A2-5:** CPU use on Lamp is unmeasured.
+- **MAIN-009 names:** align with main's frozen producer schema when it is
+  published.
+
+The original checkpoint 1 report follows unchanged.
+
 **Checkpoint 1:**
 - **Base:** `2535fb565` (`lamp-v2-chat`, "Assign remaining Rust runtime
   implementation work").

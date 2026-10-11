@@ -357,6 +357,7 @@ fn missing_model_session_ends_on_the_unchanged_silence_fallback() {
     assert!(session.seen.provider.contains(&"start"));
     let last = session.events("endpoint_worker_final")[0];
     assert_eq!(last["report"]["kills"], 0);
+    assert_eq!(last["reaped"], true);
 }
 
 #[test]
@@ -404,6 +405,8 @@ fn hung_worker_never_delays_capture_endpoint_or_session_end() {
     );
     assert!(states.contains(&"recovering".into()), "{states:?}");
     let last = session.events("endpoint_worker_final")[0];
+    // The worker hung during shutdown too: killed after its grace, then reaped.
+    assert_eq!(last["reaped"], true, "{last}");
     assert!(last["report"]["kills"].as_u64().unwrap() >= 1, "{last}");
     assert!(last["report"]["spawned"].as_u64().unwrap() >= 2, "{last}");
 }

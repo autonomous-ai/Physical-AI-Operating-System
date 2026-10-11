@@ -15,7 +15,7 @@ use lamp_endpoint_ipc::{
 };
 use lamp_ipc::monotonic_us;
 use serde_json::{Value, json};
-use std::{io, path::Path};
+use std::{io, path::Path, time::Duration};
 
 pub(super) struct EndpointRig {
     /// Moved into the session's detector when the conversation starts.
@@ -141,9 +141,18 @@ impl Watch {
     }
 }
 
-/// Final counters at shutdown. The client may still be reaping the worker.
-pub(super) fn final_event(monitor: &Monitor) -> Value {
-    json!({"kind":"endpoint_worker_final","at_us":monotonic_us(),
-        "availability":availability_json(&monitor.availability()),
-        "report":report_json(&monitor.report())})
+impl EndpointRig {
+    /// Runtime teardown, never the live loop: closes a client the session did
+    /// not take, then waits at most `limit` for its last worker to be reaped,
+    /// so a later runtime cannot overlap it. Returns the final record.
+    pub(super) fn finish(mut self, limit: Duration) -> Option<Value> {
+        drop(self.classifier.take());
+        let monitor = self.monitor?;
+        let reaped = monitor.wait_finished(limit);
+        Some(
+            json!({"kind":"endpoint_worker_final","at_us":monotonic_us(),
+            "reaped":reaped,"availability":availability_json(&monitor.availability()),
+            "report":report_json(&monitor.report())}),
+        )
+    }
 }

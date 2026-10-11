@@ -292,9 +292,6 @@ impl Rig {
         Ok(())
     }
     fn shutdown(&mut self, trace: &mut SessionState) -> io::Result<()> {
-        if let Some(monitor) = self.endpoint.as_ref().and_then(|e| e.monitor.as_ref()) {
-            let _ = record(trace, endpoint::final_event(monitor));
-        }
         let grace = if self.diagnostic_directory.is_some() {
             DIAGNOSTIC_SHUTDOWN_GRACE
         } else {
@@ -522,7 +519,16 @@ impl Rig {
         {
             failure = Some(error);
         }
-
+        // The endpoint client closed when the session's detector dropped. Its
+        // worker is optional: record whether it was reaped, never fail on it.
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if let Some(event) = self
+            .endpoint
+            .take()
+            .and_then(|endpoint| endpoint.finish(remaining.max(Duration::from_millis(500))))
+        {
+            let _ = record(trace, event);
+        }
         if let Some(directory) = &self.diagnostic_directory {
             for (index, worker, leaf) in [
                 (0, &self.speaker, "render-audio"),

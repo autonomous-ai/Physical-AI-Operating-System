@@ -7,7 +7,10 @@ as a known gap that only a live probe could close
 ([reliability](gemini-session-reliability.md#when-the-service-does-not-confirm)).
 The device has now supplied the first sample.
 
-No interface changed. One test helper and one probe argument were added.
+Since first published: the integrator rejected proposal 2, corrected one
+statement about the source and found two errors in how the probe scored what
+it saw. All three are marked below. One accessor was added,
+`InputSender::drop_ledger()`. No policy changed.
 
 ## What the device recorded
 
@@ -39,9 +42,13 @@ no completion.
 4. For 2.0 s after the interruption request nothing of request 1 arrived. The
    connection was given up.
 
-That is the barrier doing what it is for. On `51bd815e9` the worker had no
-supervisor, so the process ended. Under the supervisor the same timeline is a
-reconnect: the regression below.
+That is the barrier doing what it is for. What ended the process was the
+worker's reporting, not the transport. **Corrected:** I first wrote that
+`51bd815e9` had no supervisor. It has one: `provider_worker.rs` builds the
+`Supervisor` there and selects `Reporting::Legacy`, and in that mode a lost
+turn is returned as an error and the process exits. I had read the message on
+standard error and not the source at that commit. Under typed reporting the
+same timeline is a reconnect: the regression below.
 
 ## Why only a new connection is safe
 
@@ -86,43 +93,46 @@ silent. If it always does, every such pause costs a connection.
    with the resumed context. The coordinator answers that loss with its
    turn-lost cue. Request 2 is reported at `AwaitingResponse` although its
    `activityEnd` never reached the service.
-2. **Stop submitting a continuation as a new question.** In the run the
-   second part was not a new question. A request that has produced no output
-   has given the person nothing to react to, so more speech then is the same
-   question going on. If admission says so, there is no second owner and
-   nothing to attribute. I can add this to the transport on your word, and
-   not before, because it is an interface:
-
-   ```rust
-   supervisor.try_continue_for_session(expected, request) -> Result<(), StartRefusal>
-   ```
-
-   - Accepted only if the request before it has ended its input and produced
-     no output of any kind. Otherwise a typed refusal, and the caller starts
-     an ordinary request with its barrier.
-   - No barrier and no withheld `activityEnd`. `Event::BarrierAssumed` naming
-     both requests is reported at once, so the trace shows the declaration
-     and no new event is needed.
-   - Output that arrives before the continued question ends is the answer to
-     the truncated part. It is dropped, and from then on a barrier stands, as
-     for any response that shows itself.
-   - What still depends on the service: if it answers the truncated part
-     late, after the continued question has ended, that answer is delivered
-     and the real one arrives with no owner, is dropped and is counted. The
-     owner is right either way. The answer may not be.
-3. **Measure the service before choosing.** One probe, yours to run:
+2. **Rejected by the integrator (`MAIN-028`), and not built:** treating more
+   speech before any answer as a continuation of the same question, with no
+   barrier. The reasons given: a late answer to the truncated question could
+   be delivered in place of the complete question's, and a common owner does
+   not make that correct; and no output yet does not prove the same intent,
+   since a person can correct themselves or change topic before the answer.
+   `Require` and one lost question stay. Input freshness is not waived and
+   nothing is replayed. A continuation while the `activityEnd` is still
+   local and unsent is a different case, and it already works: that audio
+   stays in the activity the next request continues.
+3. **Measure the service.** One probe, the integrator's to run:
 
    ```sh
    service_probe /absolute/private/provider.json QUESTION.wav interrupt-before-output 241
    ```
 
-   The number is the gap in milliseconds; the device's was 241. Two fields
-   decide the matter. `service_confirmed_the_cut_off_request`: if true, the
-   barrier is answered and this run was an exception. `output_after_the_answer`:
-   the probe keeps listening for eight seconds after the answer; if true, the
-   service answered twice and proposal 2 would deliver the wrong one. The
-   probe runs under `AssumeAfterQuiet` with a five-second bound so that it can
-   see what follows. It is the only place that policy is selected.
+   The number is the gap in milliseconds; the device's was 241. The probe
+   runs under `AssumeAfterQuiet` with a five-second bound so that it can see
+   what follows silence. It is the only place that policy is selected. It
+   prints every event it observed and scores them apart:
+
+   | Field | Meaning |
+   |---|---|
+   | `interruption_seen` | The service sent `interrupted` for the cut-off request before the probe stopped waiting |
+   | `completion_without_idle_seen` | It sent a completion that was not idle |
+   | `idle_completion_settled` | It sent the idle completion. **This alone is what `Require` releases on** |
+   | `probe_assumed_after_silence` | The five seconds ran out and the probe went on by assumption |
+   | `cut_off_request_output_messages` | Messages with output of the cut-off request that arrived after the second start |
+   | `unowned_output_messages_before_completion` | Messages with output that no request could own, before the second request completed |
+   | `second_request_completed` | The second request reached its own idle completion |
+   | `after_answer` | Present only if it did: eight more seconds, with `output_messages` and `marker_only_messages` counted apart |
+
+   **Corrected after the integrator's review.** As first published the probe
+   reported one Boolean, true for an interruption notice or for any
+   completion, and neither of those settles the barrier. It also called
+   anything dropped after the answer a second answer, including a late
+   completion with nothing in it, and it listened for one even when the
+   second request had never completed. A discard event does not say whether
+   the message carried output, so the connection now counts that
+   (`DropLedger`), and the probe reads the counts.
 
 ## Considered and not done
 
@@ -147,6 +157,20 @@ bounds, the device's own gaps (241 ms and 1,254 ms):
 |---|---|
 | `a_service_that_confirms_nothing_costs_the_resumed_question_and_one_connection` | Request 2 starts with `waiting_for_barrier`; its audio is sent and its `activityEnd` is not; the transcript settles nothing; `Unavailable(BarrierTimeout)` 2.00 s to 2.03 s after the interruption request; a start is refused `NotConnected` meanwhile; `TurnLost` once for request 2, nothing for request 1; `Ready` on a resumed connection; an answer the first connection sends afterwards reaches nobody; request 3 is committed at once and its answer is owned by connection 2, request 3 |
 | `the_same_resumed_question_is_answered_when_the_service_confirms_within_the_bound` | The same timeline with `interrupted` and an idle completion 1.9 s in: the withheld `activityEnd` goes out, the answer is request 2's, the connection stays |
+
+The probe's scoring, `crates/gemini/examples/service_probe.rs`, 13 tests that
+run with the crate's own. Eight give the scoring function the observations it
+used to get wrong: an interruption notice alone, a completion that is not
+idle, an idle completion that came only after the probe had assumed, the
+second request's own events, drops on record with no completed answer, and
+markers against output after one. Five run the whole trial against a scripted
+service on a paused clock: a silent service, one that sends a notice and a
+non-idle completion, one that settles, one that answers twice, and one whose
+answer never completes.
+
+`crates/gemini/src/session/tests/drops.rs`, one test: output of a retired
+request, a stray completion and stray audio are each counted where they
+belong, and an answer delivered whole counts nowhere.
 
 At the connection level the silent case was already covered by
 `silent_service_after_an_interruption_fails_or_is_assumed_by_policy`,

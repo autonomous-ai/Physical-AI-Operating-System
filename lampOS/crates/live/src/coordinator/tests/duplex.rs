@@ -1034,3 +1034,38 @@ fn clearing_observation_storage_does_not_erase_the_open_yield_identity() {
     assert_eq!(ends[0]["starvation_excluded"], false);
     assert_eq!(h.old(), old);
 }
+
+#[test]
+fn hearing_and_yielding_come_back_after_a_reference_recovery_inside_one_reply() {
+    let mut h = Harness::new(TurnTaking::Duplex, 600);
+    let old = h.old();
+    let mut ticks = h.blocks(30, 0.99, Some(evidence(0, OWN)));
+    // The reference is not trusted: the capture worker bypasses its
+    // canceller and reports no evidence. The lamp's own voice is loud in the
+    // microphone throughout.
+    ticks.extend(h.blocks(40, 0.99, None));
+    // Trusted again after a reseed. The canceller was reset, so the next
+    // frame carries a new capture lineage and the session loop clears the
+    // old one before it hears that frame.
+    let (at, next) = (h.at(), h.sequence + 1);
+    h.lineage.dsp_epoch += 1;
+    clear_capture_lineage(&mut h.detector, &mut h.mask, &mut h.trace, at, next, at).unwrap();
+    ticks.extend(h.blocks(30, 0.99, Some(evidence(0, OWN))));
+    // Through all of it nobody was let in, nothing was yielded to, and the
+    // reply kept its owner and lost no block.
+    assert!(ticks.iter().all(|tick| tick.accepted.is_none()));
+    assert_eq!(dispatched(&ticks), 100);
+    assert_eq!(h.old(), old);
+    assert!(h.events("duplex_yield").is_empty());
+    assert!(h.events("input_admitted").is_empty());
+    // A person over the lamp is heard as before the recovery.
+    let onset = h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    assert_eq!(dispatched(&onset[..5]), 5);
+    assert!(
+        onset[5].dispatched.is_none(),
+        "did not yield after the recovery"
+    );
+    let yielded = h.events("duplex_yield");
+    assert_eq!(yielded.len(), 1);
+    assert_eq!(yielded[0]["owner"], serde_json::to_value(old).unwrap());
+}

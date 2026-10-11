@@ -407,6 +407,8 @@ async fn drive<F: Future>(
     }
 }
 
+/// A trial with nothing held back, as the tests of the ordinary modes run it.
+#[cfg(test)]
 async fn trial(
     connection: Connection,
     first: &[i16],

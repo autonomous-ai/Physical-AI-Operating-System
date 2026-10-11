@@ -219,12 +219,15 @@ above and `A1-023`.
 | `A1-023` | **The decision above**: for a held-back interruption, may audio older than `MAX_INPUT_AGE` be uploaded when this library itself held it, with its true capture time and dropped unsent on any stop? My estimate of the figure is 2 s; it is an estimate, not a measurement. If no, the first option is out and the choice is between leaving the connection and accepting the failure |
 | `A1-024` | Before `AtCommit` is turned on anywhere: the during-output probe once more with `barrier-wait=at-commit`, which needs this branch's library |
 
-A longer observation than 5 s, without widening any bound, is possible
-on this branch and is **not built**: under `AtCommit` a probe that holds
-its own End back stays connected up to the 30 s absolute bound. I doubt
-it tells more than the 5 s runs: I would not expect the service to
-produce for request 1 while activity 2 is open. That is an expectation,
-not an observation. Say if you want it.
+A longer observation than 5 s, without widening any bound, is built on
+this branch only, `lamp-a1-continuation-hold`, as an example-only,
+observation-only setting: `hold-end-ms=N` with `barrier-wait=at-commit`
+keeps the probe's own second End back, so the connection stays up to the
+30 s absolute bound and records whatever arrives. It always exits
+non-zero. See "Watching for longer than five seconds" in the reliability
+document. I doubt it tells more than the 5 s runs: I would not expect the
+service to produce for request 1 while activity 2 is open. That is an
+expectation, not an observation. It is separate so that you can leave it.
 
 ## My faults here
 

@@ -354,3 +354,11 @@ Exact commands, logs and identities are in `artifacts/motor-inspection-aec49f01/
 The inspector was not invoked, no serial device was opened, and no physical
 readback, latency, adapter lifecycle or movement result is established by these
 checks. The current Lamp remains under its stationary motor inhibit.
+
+## Supervised motor process
+
+The separate opt-in `lamp-motor-worker` now wraps the existing guarded control
+core and Linux owner. It is not activated by `lamp-live`, and the read-only
+inspector remains read-only. See [motor worker](motor-worker.md) for provisioning,
+priority cancellation, finite lifetimes, receipts, supervision and verification
+limits. No physical motion or serial I/O was used to implement this layer.

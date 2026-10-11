@@ -4,10 +4,15 @@
 //! paths. The control core emits position-only sync writes through an explicitly
 //! owned nonblocking transport. The opt-in Linux motion adapter reuses the
 //! serial owner; the Linux inspection API remains read-only.
-//! There is no torque API, motion CLI, or automatic recovery. Packet integrity,
+//! The separate opt-in worker executable uses this same boundary. There is no
+//! torque API, automatic gesture, or automatic recovery. Packet integrity,
 //! authority and caller-supplied qualification are not physical safety evidence.
 
 use std::fmt;
+
+// Reuse the same inert protocol fixture in integration and supervisor unit tests.
+#[cfg(test)]
+extern crate self as lamp_motor;
 
 #[cfg(any(target_os = "linux", test))]
 pub mod inspection;
@@ -19,6 +24,7 @@ pub mod command;
 pub mod control;
 pub mod protocol;
 pub mod readback;
+pub mod runtime;
 pub mod trajectory;
 pub mod units;
 

@@ -268,6 +268,53 @@ Tests: `tests/recording_import.rs`, which uses root's real receipt examples
 with digests adapted to generated WAVs, and `tests/target_audio.rs`, which
 uses directories written by lamp-live's `Recorder`.
 
+### Boundary proposals (`MAIN-021`)
+
+`propose-boundaries RUN_DIR NEW_FILE [--stimulus-wav FILE]` writes a separate
+proposals file to help a person annotate. It is never an annotation: proposals
+are never scored, `listened` stays false, and the file does not parse as an
+annotation file.
+
+**Inputs.** For each imported attempt with room evidence, the room recording
+is re-verified, and the target trace and certified render diagnostics are
+re-verified.
+
+**Replies.** The render is split into reply segments by owning turn, keeping
+any inserted gaps. Each segment is resampled from 24 to 16 kHz and located in
+the room recording (`align.rs`):
+- Energy envelopes are correlated over the whole recording, and the top five
+  separated candidates are kept.
+- Each candidate is refined by waveform correlation within ±20 ms.
+- Absolute correlation is used, so an inverted speaker still matches.
+
+Segments are located separately, so independent sample clocks only shift
+each segment. Each reply reports:
+- `status`: `located`, `ambiguous` or `not_found`;
+- the score, the margin over the runner-up and the alternatives;
+- the polarity;
+- the clipped fraction of the room window;
+- an uncertainty: the peak half-width at 90%, plus one sample.
+
+**Thresholds.** A minimum score of 0.2 and a minimum margin of 0.05. Both
+are unqualified heuristics.
+
+**Reply boundaries.** `first_audible_reply_audio_s` is the earliest rendered
+reply audio as heard at the room microphone. The first substantive word may
+be later, and the opening may be inaudible. A later, clearer word is never
+substituted.
+
+**Stimulus boundaries.** User speech start and end are proposed only from an
+exact stimulus WAV supplied with `--stimulus-wav`. Without it, they are
+`unavailable` and never reconstructed from transcript text.
+
+**Acoustic latency.** Proposals contribute no acoustic p50/p95. Acoustic
+latency comes only from listened annotations.
+
+Tests: `align::tests`, with synthetic signals covering a distractor, 24 to
+16 kHz at 100 ppm drift, duplicates, absence, inversion and clipping; and
+`tests/proposals.rs`, which runs end to end from lamp-live's `Recorder`
+through the receipt import.
+
 A `user_interrupted` cancellation is caused by the admission whose speech
 candidate is within 20 ms of it. A planned `interrupt_and_answer` step yields as
 planned; anything else, including background talk, is a **false interruption**.
@@ -362,6 +409,7 @@ cargo run -p lamp-voice-eval -- evaluate RUN_DIR [--annotations FILE]
 cargo run -p lamp-voice-eval -- import-trace --events artifacts/.../events.jsonl --scenario fixed-reply-echo-only --out NEW_DIR [--turn greet=1] [--source loudspeaker_synthetic|direct_human] [--room-metadata room/metadata.json]
 cargo run -p lamp-voice-eval -- import-trace --events target/runtime/events.jsonl --scenario quick-chat --out NEW_DIR --source loudspeaker_synthetic --room-receipt acoustic/lamp-52e6-capture-receipt.json --room-input voice --room-independent
 cargo run -p lamp-voice-eval -- annotation-template RUN_DIR NEW_FILE.json
+cargo run -p lamp-voice-eval -- propose-boundaries RUN_DIR NEW_PROPOSALS.json [--stimulus-wav EXACT_STIMULUS.wav]
 cargo run -p lamp-voice-eval -- assets --cache .cache/acoustic --manifest MANIFEST...
 cargo run -p lamp-voice-eval -- render-stimuli .cache/acoustic NEW_REPORT.json   # macOS; renders only missing objects
 ```

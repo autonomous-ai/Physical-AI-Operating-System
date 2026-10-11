@@ -10,6 +10,7 @@
 //! missing acoustic annotation is unscored, never a pass. One loudspeaker
 //! playing several synthetic voices cannot establish spatial speaker
 //! discrimination.
+pub mod align;
 pub mod annotations;
 pub mod canary;
 pub mod evaluate;
@@ -20,6 +21,7 @@ pub mod ledger;
 pub mod physical;
 pub mod plan;
 mod playback;
+pub mod proposals;
 pub mod record;
 pub mod report;
 pub mod runner;

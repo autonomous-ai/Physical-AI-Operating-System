@@ -35,6 +35,7 @@ const USAGE: &str = "usage:
       [--room-metadata FILE | --room-receipt FILE --room-input NAME] [--room-independent]
       [--source loudspeaker_synthetic|direct_human] [--plan FILE]
   lamp-voice-eval annotation-template RUN_DIR NEW_FILE
+  lamp-voice-eval propose-boundaries RUN_DIR NEW_FILE [--stimulus-wav FILE] [--plan FILE]
   lamp-voice-eval assets --cache DIR --manifest FILE...
   lamp-voice-eval render-stimuli CACHE NEW_REPORT.json
   lamp-voice-eval physical-run --config FILE --cache DIR --manifest FILE... --out NEW_DIR
@@ -378,6 +379,25 @@ fn run() -> Result<i32> {
             println!(
                 "{}",
                 json!({"attempts": template.attempts.len(), "template": destination})
+            );
+        }
+        "propose-boundaries" => {
+            let run = PathBuf::from(args.positional()?);
+            let destination = PathBuf::from(args.positional()?);
+            let stimulus = args
+                .take("--stimulus-wav")?
+                .map(|path| lamp_voice_eval::proposals::read_stimulus(Path::new(&path)))
+                .transpose()?;
+            let (_, plan) = load(&mut args)?;
+            args.done()?;
+            let (records, _, run_id) = read_records(&run, &plan)?;
+            let proposals =
+                lamp_voice_eval::proposals::propose(&run_id, &records, stimulus.as_ref());
+            write_new_json(&destination, &proposals)?;
+            println!(
+                "{}",
+                json!({"attempts": proposals["attempts"].as_object().map_or(0, |a| a.len()),
+                    "proposals": destination, "note": "proposals only; confirm by listening"})
             );
         }
         "assets" => {

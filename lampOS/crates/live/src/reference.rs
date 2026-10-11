@@ -13,6 +13,12 @@
 //!   it for each capture block, at a rate that follows the difference between
 //!   the clocks within `lamp_audio::drift::MAX_PPM`. Packet order, cursor
 //!   continuity, privacy, freshness and both bounds fault exactly as before.
+//!
+//! The capture-clocked reference can also be given bounded recovery,
+//! [`ReferenceAssembly::recovering`]: see [`recovery`].
+mod recovery;
+pub use recovery::Policy as RecoveryPolicy;
+
 use crate::wire::{
     ClockPrimed, ReferenceDrift, ReferenceFault, ReferenceFaultKind as Kind, ReferenceTiming,
     RenderPayload, RenderReference,
@@ -69,6 +75,15 @@ pub struct ReferenceAssembly {
     captures_before_start_notice_len: usize,
     last_capture_read_at_us: Option<u64>,
     clock: Option<Box<CaptureClock>>,
+    /// Capture-clocked: the accepted-frame cursor of the first frame the
+    /// ring was given since it was last emptied. Negative by the lead while
+    /// the ring still starts with the silence before the stream.
+    ring_origin: i64,
+    /// Fixed margin with recovery: capture blocks by which the count the
+    /// margin is measured against has been moved, in all. Every move is a
+    /// reported reseed; no other counter changes.
+    margin_rebase: i64,
+    recovery: Option<Box<recovery::State>>,
 }
 
 impl Default for ReferenceAssembly {
@@ -85,6 +100,9 @@ impl Default for ReferenceAssembly {
             captures_before_start_notice_len: 0,
             last_capture_read_at_us: None,
             clock: None,
+            ring_origin: 0,
+            margin_rebase: 0,
+            recovery: None,
         }
     }
 }
@@ -137,6 +155,7 @@ impl ReferenceAssembly {
 
     pub fn timing(&self) -> ReferenceTiming {
         ReferenceTiming {
+            recovery: self.recovery_counts(),
             drift: self.drift().map(|drift| ReferenceDrift {
                 rate_ppm: drift.ppm as f32,
                 learned_ppm: drift.steady_ppm as f32,
@@ -164,6 +183,7 @@ impl ReferenceAssembly {
         privacy: u64,
         echo: &mut EchoProcessor,
     ) -> Result<()> {
+        let previous_epoch = self.timing.playback_epoch;
         let reset_valid = match (self.timing.playback_epoch, prime.discarded) {
             (0, None) => prime.playback_epoch == 1,
             (epoch, Some(old)) => {
@@ -197,6 +217,7 @@ impl ReferenceAssembly {
             }
             Some(clock) => {
                 // The prime waits in the ring with the frames that follow it.
+                self.ring_origin = -(LEAD_FRAMES as i64);
                 clock.resampler.reset();
                 clock.controller.reset();
                 clock
@@ -217,11 +238,15 @@ impl ReferenceAssembly {
             ..ReferenceTiming::default()
         };
         self.sequence = 0;
+        self.margin_rebase = 0;
         self.privacy_generation = privacy;
         self.prime_observed_at_us = prime.queue_observed_at_us;
         self.captures_before_start_notice.fill(0);
         self.captures_before_start_notice_len = 0;
         self.clear_partial();
+        if self.recovery.is_some() {
+            self.primed_recovering(previous_epoch, now)?;
+        }
         Ok(())
     }
 
@@ -275,6 +300,14 @@ impl ReferenceAssembly {
             self.timing.ignored_old_epoch_packets =
                 self.timing.ignored_old_epoch_packets.saturating_add(1);
             return Ok(false);
+        }
+        // Starting a stream is not recovered: until the clock has started
+        // every rule below is in force.
+        if self.recovery.is_some()
+            && self.clock.is_some()
+            && self.timing.clock_started_at_us.is_some()
+        {
+            return self.accept_recovering(reference, now, privacy);
         }
         let count = reference.payload.frames();
         let reason = if reference.playback_epoch == 0
@@ -331,7 +364,13 @@ impl ReferenceAssembly {
         }
         let full_blocks = accepted / RENDER_SAMPLES as u64;
         if full_blocks.saturating_sub(self.running_capture_blocks()) > MAX_AHEAD_BLOCKS {
-            return Err(self.fault(Kind::ReferenceBacklog, now).into());
+            // With recovery, a margin used up by the clocks alone is moved
+            // back, once and in the open. A capture loop that fell behind is
+            // not that, and stays the fault it was.
+            if !self.drifted_ahead(now) {
+                return Err(self.fault(Kind::ReferenceBacklog, now).into());
+            }
+            self.recentre(recovery::Side::Ahead, now, echo)?;
         }
         let mut offset = 0;
         while offset < samples.len() {
@@ -345,6 +384,7 @@ impl ReferenceAssembly {
             offset += copied;
             if self.len == RENDER_SAMPLES {
                 echo.render(&self.samples)?;
+                self.remember_rendered();
                 self.timing.analysed_through += RENDER_SAMPLES as u64;
                 self.timing.analysed_at_us = now;
                 self.clear_partial();
@@ -474,7 +514,10 @@ impl ReferenceAssembly {
         // This is a one-time phase origin, not a claim that the USB clocks are
         // synchronized. Total DSP calls remain separately observable and drift
         // after start still consumes the existing bounded reference lead.
-        self.timing.capture_blocks_processed - self.timing.capture_blocks_before_clock_start
+        // With recovery, each reported re-centre moves the count by what it
+        // says; without, the rebase is zero.
+        (self.timing.capture_blocks_processed - self.timing.capture_blocks_before_clock_start)
+            .saturating_add_signed(self.margin_rebase)
     }
 
     fn clear_partial(&mut self) {

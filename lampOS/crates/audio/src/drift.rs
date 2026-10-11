@@ -296,6 +296,13 @@ impl Controller {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+
+    /// Start the average of the fill again and keep the rate that was
+    /// learned: for a ring that was emptied and refilled between the same
+    /// two clocks.
+    pub fn hold(&mut self) {
+        self.smoothed = None;
+    }
 }
 
 /// Frames a clock difference of `ppm` moves in `seconds`.

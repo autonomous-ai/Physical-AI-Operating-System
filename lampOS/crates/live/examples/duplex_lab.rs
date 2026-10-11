@@ -9,6 +9,12 @@
 //! duplex_lab LAB_DIR OUT_DIR --duplex --room BLOCK [--segment SPEECH.pcm16le AT_BLOCK]
 //! ```
 //!
+//! The first form takes `--capture-clock`: the recorded render is then put
+//! through the capture-clocked ring, as it arrived, and read out one block
+//! per capture block at the rate its controller chooses, as the worker does
+//! with `--reference-clock capture`. It is for comparing how well the
+//! canceller cancels with that reference against the recorded interleave.
+//!
 //! Either form takes `--noise-suppression`, which builds the canceller with
 //! its software noise suppression on. Without it the canceller is built as
 //! the recorded sessions ran it, with that off.
@@ -32,6 +38,7 @@
 //! was recorded from. How the echo dies away is a model, not a measurement.
 use lamp_audio::{
     CAPTURE_SAMPLES, EchoProcessor, RENDER_SAMPLES,
+    drift::{Controller, Resampler, TARGET_FRAMES},
     duplex::{Confirmation, Heard, Hearing, Interruption, Margin, Step},
 };
 use lamp_live::activity::SpeechProbability;
@@ -64,7 +71,7 @@ fn pcm(path: &Path) -> Result<Vec<i16>> {
 
 fn usage() -> io::Error {
     io::Error::other(
-        "usage: duplex_lab LAB_DIR OUT_DIR [--noise-suppression] [--near NEAR] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
+        "usage: duplex_lab LAB_DIR OUT_DIR [--noise-suppression] [--capture-clock] [--near NEAR] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
     )
 }
 
@@ -214,7 +221,13 @@ impl Features {
 }
 
 /// The recording as it happened.
-fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Result<()> {
+fn replay(
+    lab: &Lab,
+    out: &Path,
+    near: Option<Vec<i16>>,
+    suppress: bool,
+    capture_clock: bool,
+) -> Result<()> {
     if near
         .as_ref()
         .is_some_and(|near| near.len() < lab.schedule.len() * CAPTURE_SAMPLES)
@@ -225,12 +238,40 @@ fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Resu
     let mut speech = SpeechProbability::default();
     let mut features = Features::create(out)?;
     let mut analysed = 0;
+    // Capture-clocked: the ring starts, as the worker's does, with the
+    // silence that preceded the stream up to its working level.
+    let mut ring = capture_clock.then(|| {
+        let mut ring = Resampler::new();
+        ring.push(&vec![0; TARGET_FRAMES - 2 * RENDER_SAMPLES])
+            .expect("lead fits");
+        (ring, Controller::default(), 0_usize, usize::MAX, 0_usize)
+    });
     for (index, &(through, hint)) in lab.schedule.iter().enumerate() {
         while analysed < through {
             let block: [i16; RENDER_SAMPLES] =
                 lab.render[analysed..analysed + RENDER_SAMPLES].try_into()?;
-            echo.render(&block)?;
+            match ring.as_mut() {
+                None => echo.render(&block)?,
+                Some((ring, ..)) => ring
+                    .push(&block)
+                    .map_err(|_| io::Error::other("capture-clocked ring over"))?,
+            }
             analysed += RENDER_SAMPLES;
+        }
+        let mut hint = hint;
+        if let Some((ring, controller, dry, least, most)) = ring.as_mut() {
+            let mut block = [0; RENDER_SAMPLES];
+            if ring.take(&mut block).is_ok() {
+                echo.render(&block)?;
+                ring.set_ppm(controller.observe(ring.unread() as f64));
+                *least = (*least).min(ring.unread());
+                *most = (*most).max(ring.unread());
+            } else {
+                *dry += 1;
+            }
+            // The reference waited in the ring: what is left of the hint is
+            // the capture's own share, as in the worker.
+            hint = 1;
         }
         let mut block = lab.microphone(index);
         if let Some(near) = &near {
@@ -251,6 +292,13 @@ fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Resu
         lab.schedule.len(),
         analysed
     );
+    if let Some((_, controller, dry, least, most)) = ring {
+        println!(
+            "capture-clocked: ring between {least} and {most} frames after a block, {dry} blocks without reference, rate {:.1} ppm of which {:.1} learned",
+            controller.ppm(),
+            controller.steady_ppm()
+        );
+    }
     Ok(())
 }
 
@@ -403,7 +451,7 @@ fn main() -> Result<()> {
     let lab = args.next().ok_or_else(usage)?;
     let out = args.next().ok_or_else(usage)?;
     let (mut near, mut closed, mut room, mut segment) = (None, false, None, None);
-    let mut suppress = false;
+    let (mut suppress, mut capture_clock) = (false, false);
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--near" if near.is_none() => {
@@ -411,6 +459,7 @@ fn main() -> Result<()> {
             }
             "--duplex" if !closed => closed = true,
             "--noise-suppression" if !suppress => suppress = true,
+            "--capture-clock" if !capture_clock => capture_clock = true,
             "--room" if room.is_none() => room = Some(args.next().ok_or_else(usage)?.parse()?),
             "--segment" if segment.is_none() => {
                 let speech = pcm(Path::new(&args.next().ok_or_else(usage)?))?;
@@ -423,8 +472,10 @@ fn main() -> Result<()> {
     let out = Path::new(&out);
     fs::create_dir_all(out)?;
     match (closed, room) {
-        (false, None) if segment.is_none() => replay(&lab, out, near, suppress),
-        (true, Some(room)) if near.is_none() => duplex(&lab, out, room, segment, suppress),
+        (false, None) if segment.is_none() => replay(&lab, out, near, suppress, capture_clock),
+        (true, Some(room)) if near.is_none() && !capture_clock => {
+            duplex(&lab, out, room, segment, suppress)
+        }
         _ => Err(usage().into()),
     }
 }

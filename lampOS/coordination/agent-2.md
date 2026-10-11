@@ -7,16 +7,13 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `fb096dce` on `lamp-v2-agent2` (`MAIN-021` parts 1–3, on
-  top of `MAIN-025` `37b398a7` and `MAIN-023` `d3ada11e`). Gate in the Linux
-  ARM64 container: workspace `fmt` and strict clippy clean; 1012 passed,
-  0 failed, 4 ignored.
-  - On `37b398a7` the lamp-live test
-    `coordinator::tests::ninety_second_reply_uses_bounded_credit_and_preserves_every_sample`
-    failed once under parallel load. It passed 10/10 alone and in the full
-    rerun here.
-  - Earlier heads: `d3ada11e` passed 981; `d5b848b3` passed 972. Checkpoint
-    `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
+- **Tested head:** `9ed94e42` on `lamp-v2-agent2` (`MAIN-030`, on top of
+  `MAIN-021` `fb096dce`, `MAIN-025` `37b398a7` and `MAIN-023` `d3ada11e`).
+  Gate in the Linux ARM64 container: workspace `fmt` and strict clippy clean;
+  1015 passed, 0 failed, 4 ignored.
+  - `fb096dce` passed 1012, failed 0.
+  - On `37b398a7` a lamp-live coordinator test failed once under parallel
+    load; it passed 10/10 alone and in every full run since.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
     alignment and context-frame privacy P1.
@@ -92,6 +89,27 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-030`** (review of `ec84cf72`): fixed in `9ed94e42`.
+  - **Red first on `c2efaad1`:** root's two tests from
+    `lamp-voice-eval-review2-20261011` (`cdc0ec26`), with unchanged bodies:
+    the overdue target started once (`late_us` 274947, `withheld` none), and
+    a consumed post-exit `run_end` trace still started the player.
+  - **Fix in `PhysicalBackend::inject`:**
+    - Immediately before the player starts, the target's 100 ms bound is
+      rechecked on the local clock, even with no new event; a new
+      `Withheld::Stale` gives `trigger_stale`.
+    - The final drain is bounded at 1024 relay lines; when it runs out,
+      `revalidate` with `drain_exhausted`.
+    - The first relayed trace record latches `session_ended`, because the
+      relay streams the trace only after the runtime exits. The trace
+      evidence is kept.
+    - The 1 ms wait uses saturating arithmetic.
+    - Terminal causes still take precedence.
+  - **Tests:** a new budget-exhaustion test with a 2000-line flood, then a
+    single start. The test rig now measures scene timing once, as the runner
+    does, instead of inside the target window.
+  - All 13 `final_dispatch` tests and 193 voice-eval tests pass.
 
 - **`MAIN-021` / `MAIN-027`:** delivered offline and file-only. No device,
   transport or audio output was used.

@@ -270,6 +270,7 @@ pub fn capture_on<D: CaptureDevice>(
         .and(finish)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn capture_loop<D: CaptureDevice>(
     channels: &mut WorkerChannels,
     microphone: &mut MicrophoneOn<D>,

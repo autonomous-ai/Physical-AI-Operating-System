@@ -1065,7 +1065,11 @@ struct InputHandoff {
     retired_sent_through: u64,
     /// Through which request retirement came with no owner at all: the
     /// request was given up, where a newer owner means it was continued.
+    /// Kept apart from retirement and passed on by itself: several
+    /// authorities can be read in one turn, and an abandonment followed at
+    /// once by a newer owner would otherwise be read as a continuation.
     abandoned_through: u64,
+    abandoned_sent_through: u64,
     submitted: Option<SubmittedInput>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
@@ -1116,18 +1120,20 @@ impl InputHandoff {
     }
 
     fn synchronize(&mut self, input: &impl InputSink) -> Result<()> {
+        if self.abandoned_through > self.abandoned_sent_through {
+            // No owner followed these: abandoned. A transport that kept any
+            // of their input drops what it has not yet sent. First, so that
+            // a later request that was continued keeps its words.
+            input.discard(RequestId::new(self.abandoned_through)?);
+            self.abandoned_sent_through = self.abandoned_through;
+            // An abandonment is a retirement too.
+            self.retired_sent_through = self.retired_sent_through.max(self.abandoned_through);
+        }
         if self.retired_through > self.retired_sent_through {
             // This is synchronous local revocation, independent of queue space
             // or the network. It must happen even if closing the input fails.
-            let request = RequestId::new(self.retired_through)?;
-            if self.abandoned_through >= self.retired_through {
-                // No owner followed it: abandoned. A transport that kept
-                // any of its input drops what it has not yet sent.
-                input.discard(request);
-            } else {
-                // A newer owner followed it: continued. Its words stay.
-                input.retire(request);
-            }
+            // A newer owner followed these: continued. Their words stay.
+            input.retire(RequestId::new(self.retired_through)?);
             self.retired_sent_through = self.retired_through;
         }
         if let Some(submitted) = self.submitted

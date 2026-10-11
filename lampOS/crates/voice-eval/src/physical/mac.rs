@@ -68,6 +68,7 @@ impl Player for ObserverPlayer {
             wav: wav.to_path_buf(),
             output: report_directory.to_path_buf(),
             cancel_file: Some(cancel_file.to_path_buf()),
+            prepared_start_ms: None,
         };
         Ok(thread::spawn(move || {
             match lamp_observer::playback::play(&options) {

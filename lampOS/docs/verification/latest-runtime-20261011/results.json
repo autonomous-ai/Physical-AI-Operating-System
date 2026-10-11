@@ -1,0 +1,977 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-11",
+  "document_status": "review_ready_r3_finite_success_with_prior_failures",
+  "scope": "Three retained latest-candidate lab attempts: two earlier incomplete attempts and R3 two-turn finite voice/ring success, without pooling away withheld prompts",
+  "runtime_code": "e9bdcea282be7b787abb0568eb46a5c7958a6cce",
+  "runtime_binary_sha256": "b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd",
+  "runtime_binary_bytes": 8681808,
+  "source_manifest_sha256": "8565c7d5b6b7eadb0e7cbf4e24c77b00bc698850f9f81c54ce3d14459a851c8b",
+  "arm_receipt_sha256": "87fbabb32ce10100d42c278eae0a337f71ccaf9e48ebabbe8cfc6b02b1ce98e4",
+  "export_receipt_sha256": "33d7c24e21f4a3b8106ce0ee52aec0c3f13dd8e40f7bbb41d6e9ee41539f4282",
+  "qualified_default_unchanged": {
+    "source": "55d7af98e149591eed7882b9ace7741486daa842",
+    "binary_sha256": "738503a803d3718e52ca9e8886a669c0e41c007f7fe35873642afd4a83f5b8d0",
+    "installed_unit_sha256": "c805c2f425dccc053a5ddd582eee524c4f99de5dfbd00e17810ca0454cacc9ca",
+    "boundary": "Installed template/default at each trial end; later promotion is a separate action and is not asserted by this evidence."
+  },
+  "attempts": [
+    {
+      "attempt": "lamp-latest-installed-executed-3j6ge_fg",
+      "local_evidence_root": "/private/tmp/lamp-latest-installed-executed-3j6ge_fg",
+      "operational_success": false,
+      "outer_exit_reported_by_operator": 2,
+      "error": "TimeoutError: Scheduling receipt expired",
+      "planned_prompts": 2,
+      "dispatched_prompts": 0,
+      "withheld_prompts": 2,
+      "retries": 0,
+      "input_admissions": 0,
+      "local_endpoints": 0,
+      "reply_attempts": 0,
+      "answers": [],
+      "invocation_id": "c7b149bcfff443a090f5f828cdfe0d1f",
+      "boot_id": "76a7af25-a1aa-4f3d-bbcd-eddf947227ca",
+      "runtime_exposure": {
+        "run_start_us": 41394649123,
+        "provider_ready_source_interval_us": [
+          41396748380,
+          41396750017
+        ],
+        "provider_ready_coordinator_observed_us": 41396751051,
+        "listening_ready_us": 41396751293,
+        "coordinator_stop_us": 41397030746,
+        "run_end_us": 41397059884,
+        "duration_us": 2410761,
+        "ready_to_coordinator_stop_us": 279453,
+        "final_status": "stopped_unscored",
+        "error": null,
+        "unit_exit_status": 0,
+        "host_target_helper_exit_retained": null,
+        "failure_notice_configured": false,
+        "failure_notice_missing": "no_directory",
+        "notice_spoken": false,
+        "automatic_synthesis": false,
+        "ring_phase_requests": 0,
+        "ring_shutdown_write": {
+          "at_us": 41397033458,
+          "boundary": "SPI write return; optical darkness unmeasured",
+          "details": {
+            "kind": "blanked",
+            "reason": {
+              "kind": "shutdown"
+            },
+            "write_finished_at_us": 41397033231,
+            "write_started_at_us": 41397031806
+          },
+          "kind": "ring_shutdown_write",
+          "service_sequence": 18
+        },
+        "reference_records": 3,
+        "capture_epoch": 1,
+        "dsp_epoch": 1,
+        "playback_epoch": 1,
+        "reference_faults_or_resets_recorded": 0
+      },
+      "metadata": {
+        "contiguous_events": 20,
+        "coordinator_finish_acknowledged": true,
+        "finish_health": {
+          "acknowledged": true,
+          "degraded": false,
+          "dropped_events": 0,
+          "finish_attempted": true,
+          "initialization_failed": false,
+          "oversized_events": 0,
+          "rotations": 0,
+          "unconfirmed_events": 0,
+          "writer_failed": false,
+          "written_events": 20
+        },
+        "runtime_complete_evidence": false,
+        "persisted_health_file_is_not_the_finish_ack": true
+      },
+      "scheduling": {
+        "original_ready_sequence": 15,
+        "slot": 1,
+        "revision": 2,
+        "target_checked_at_us": 41396992786,
+        "target_expires_at_us": 41397092786,
+        "helper_stop_requested_at_us": 41396997111,
+        "target_check_to_helper_stop_us": 4325,
+        "target_grant_remaining_at_helper_stop_us": 95675,
+        "executed_host_policy": "100 ms from host request send, including request/response and local processing",
+        "failure_before_player_launch": true,
+        "host_request_sent_ns": null,
+        "host_reply_received_ns": null,
+        "round_trip_us": null,
+        "attribution": "The host rejected its conservative scheduling lifetime; retained evidence does not identify the unrecorded request/response or host scheduling contribution. This is not proof that the separate target grant or runtime readiness expired.",
+        "source_locations": [
+          "run.py:69-82",
+          "run.py:158-164",
+          "remote_target.py:95-101"
+        ]
+      },
+      "shutdown": {
+        "verified": true,
+        "observed_identity_count": 7,
+        "observed_pid_start_identities": {
+          "120439": "4139452",
+          "120447": "4139465",
+          "120448": "4139472",
+          "120450": "4139472",
+          "120451": "4139474",
+          "120452": "4139476",
+          "120453": "4139477"
+        },
+        "survivors": {},
+        "cgroup_remaining": [],
+        "hardware_owners_remaining": {},
+        "unit_after_stop": {
+          "MainPID": "0",
+          "Result": "success",
+          "ExecMainCode": "0",
+          "ExecMainStatus": "0",
+          "ControlGroup": "",
+          "ActiveState": "inactive",
+          "InvocationID": ""
+        },
+        "helper_stop_to_verified_us": 192235,
+        "coordinator_stop_to_run_end_us": 29138,
+        "seven_is_observed_total_not_concurrency_or_role_claim": true
+      },
+      "restoration": {
+        "rollback_verified": true,
+        "same_boot": true,
+        "stationary_guard_retained": true,
+        "mixers_exact_match": true,
+        "override_cleanup": {
+          "path": "/run/systemd/system/lamp-live-pilot@check-latest-3j6ge_fg.service.d/50-ring-qualification.conf",
+          "removed": true,
+          "sha256": "618a73cda6f551912ec09ed9b14737ef855aa88daea35e994557611501b4e3a7",
+          "effective_dropins_empty": true,
+          "installed_template_unchanged": true
+        },
+        "candidate_binary_retained_on_disk_but_not_default": true
+      },
+      "recording": {
+        "valid_metadata": true,
+        "frames_reported": 8640000,
+        "wav_sha256_verified": "fd76d9da4d406f112a7da257f2ed650d82aac0550bfe8bc6b82e5eb1fde5a4a3",
+        "ledger_sha256_verified": "a829cc81e3cfc3bc2254e7a1cee764b666eff18cc1fdd95c784017e9731d4c35",
+        "no_audio_decoding_or_transcription": true,
+        "continuous_samples_independently_recounted": false
+      },
+      "evidence": {
+        "result_sha256": "e4e081490596503ba5efa9747320db02a0ce6d1622bcabac8eb627072c0dfaf3",
+        "native_archive_sha256": "3a3e5da58d46736613980ff00591bf0ccd9ce7df6ed77d6629fc0511ccebc552",
+        "native_archive_bytes": 61440,
+        "archive_members_verified_before_extraction": 11,
+        "metadata_events_0_sha256": "0df9f1e60b08c96001fd8ad451947d1862c242da4dc07487b408d37a78295f6d",
+        "independent_audit_root": "/private/tmp/lamp-latest-startup-audit-yci76fgm",
+        "audit_report_sha256": "6cf9e31da8a88d2616d817612cec7b51c82895c265955c397d796b64a53a8e32",
+        "audit_json_sha256": "fc234e20421ee2a43062ee4c13e4c4e9691ef8ac5108465944a23e87a8b4e5c2",
+        "audit_receipt_sha256": "c0eafba59c5252af6a2e297114c54cc9503907279f336858ee74e3ffbc0c70b0",
+        "audit_input_manifest_sha256": "601891745da858b96de1e70109b1f940972c27f8a3c1d5672438a2769601b59f"
+      },
+      "human_listened": false,
+      "acoustic_score": null,
+      "conversation_qualified": false
+    },
+    {
+      "attempt": "lamp-latest-ready-executed-j_h258gj",
+      "local_evidence_root": "/private/tmp/lamp-latest-ready-executed-j_h258gj",
+      "operational_success": false,
+      "outer_exit_reported_by_operator": 2,
+      "error": "ValueError: No unique live invocation/idle state",
+      "planned_prompts": 2,
+      "dispatched_prompts": 1,
+      "withheld_prompts": 1,
+      "prompt_replays": 0,
+      "input_admissions": 1,
+      "local_endpoints": 1,
+      "reply_attempts": 1,
+      "completed_replies": 1,
+      "invocation_id": "1694dc97978840e1a365124f21964aca",
+      "runtime_exposure": {
+        "duration_s": 10.943438,
+        "final_status": "stopped_unscored",
+        "error": null,
+        "unit_exit_status": 0,
+        "host_target_helper_exit_retained": null,
+        "failure_notices_configured": false
+      },
+      "turns": [
+        {
+          "turn": 1,
+          "prompt": "Lamp, how are you doing today?",
+          "source": "loudspeaker_synthetic",
+          "voice": "Daniel",
+          "wpm": 190,
+          "stimulus_wav_sha256": "991819cd1f568ec46179310676b58e446ad0f8f0aa05a20929cf49b5d6dde8ae",
+          "stimulus_pcm_sha256": "acf4ed8834c6159c51210af60c382ac76ee18da6efc8b63ed0c6026ffeb9e7d4",
+          "owner": {
+            "boot": [
+              8,
+              215,
+              233,
+              95,
+              193,
+              176,
+              23,
+              94,
+              93,
+              172,
+              249,
+              124,
+              93,
+              104,
+              94,
+              20
+            ],
+            "generation": 3,
+            "turn": 1
+          },
+          "provider_output_transcript": "I'm doing well, thanks for asking. How about you? How's your day going?",
+          "provider_input_hypothesis": {
+            "text": "Hi, how are you doing today?",
+            "correlation": "session scoped; unreliable for per-request attribution"
+          },
+          "local_room_asr_hypothesis": "Lam, how are you doing today? I'm doing well, thanks for asking. How about you? How's your day going?",
+          "outcome": "audio_written_unscored",
+          "provider_outcome": "complete",
+          "reported_playback_gaps": 0,
+          "local_endpoint_us": 42964530093,
+          "provider_first_audio_us": 42965483805,
+          "speaker_first_write_us": 42965547287,
+          "final_retirement_us": 42969257866,
+          "turn_completed_us": 42969260150,
+          "availability_reopened_us": 42969358731,
+          "retirement_to_available_us": 100865,
+          "completion_to_available_us": 98581,
+          "endpoint_to_provider_first_audio_us": 953712,
+          "endpoint_to_first_alsa_us": 1017194,
+          "provider_first_audio_to_first_alsa_us": 63482,
+          "fixed_endpoint_wait_ms": 1200,
+          "playback_sequence": 1,
+          "final_cursor": {
+            "epoch": 1,
+            "frame": 250800
+          },
+          "provider_enqueued_frames": 88800,
+          "sample_rate": 24000,
+          "target_pcm_byte_verification_available": false,
+          "human_listened": false,
+          "acoustic_score": null
+        }
+      ],
+      "second_prompt": {
+        "text": "Lamp, tell me one interesting fact about the ocean.",
+        "status": "withheld",
+        "player_launched": false,
+        "remote_fresh_check_sent": false
+      },
+      "scheduling": {
+        "first_prompt_read_only_checks": [
+          {
+            "status": "received_expired",
+            "elapsed_ns": 106761878
+          },
+          {
+            "status": "received_expired",
+            "elapsed_ns": 106964450
+          },
+          {
+            "status": "fresh",
+            "elapsed_ns": 60576716
+          }
+        ],
+        "first_prompt_checks_replayed_audio": false,
+        "host_precheck_state": {
+          "revision": 8,
+          "available": false,
+          "current_owner": null,
+          "pending_candidate": null,
+          "admitted": 1,
+          "ended": 1,
+          "completed": 1,
+          "service_sequence": 889,
+          "fault": null
+        },
+        "native_final_state": {
+          "revision": 9,
+          "available": true,
+          "admitted": 1,
+          "ended": 1,
+          "completed": 1,
+          "fault": null
+        },
+        "interpretation": "Host slot2 precheck rejected the retained revision8 available=false state before sending a remote check. The actual runtime reopened availability100865us after final speech retirement; native helper final revision9 is available=true. The original100ms playback-tail policy and later reopening are recorded. This establishes a harness post-completion availability seam, not a stuck runtime or a qualified second exchange. Host and target clock domains are not subtracted."
+      },
+      "metadata": {
+        "contiguous_events": 895,
+        "coordinator_finish_acknowledged": true,
+        "health": {
+          "acknowledged": true,
+          "degraded": false,
+          "dropped_events": 0,
+          "finish_attempted": true,
+          "initialization_failed": false,
+          "oversized_events": 0,
+          "rotations": 0,
+          "unconfirmed_events": 0,
+          "writer_failed": false,
+          "written_events": 895
+        },
+        "runtime_complete_evidence": false
+      },
+      "reference": {
+        "count": 11,
+        "capture_epoch": 1,
+        "dsp_epoch": 1,
+        "playback_epoch": 1,
+        "provider_session": 1,
+        "resets": 0,
+        "learned_ppm_range": [
+          0.0010300000431016088,
+          1.4230154752731323
+        ],
+        "unread_frames_range": [
+          958,
+          1200
+        ]
+      },
+      "ring": {
+        "requests": 377,
+        "matching_presented": 377,
+        "rejected": 0,
+        "pending": 0,
+        "stale_presentation_blanks": 3,
+        "shutdown_black_receipts": 1,
+        "request_to_spi_return_us_range": [
+          1526,
+          4290
+        ],
+        "optical_score": null
+      },
+      "shutdown": {
+        "request_us": 42969440505,
+        "coordinator_signal_receipt_us": 42969489151,
+        "run_end_us": 42969520332,
+        "helper_verified_complete_us": 42969742920,
+        "request_to_verified_clean_stop_ms": 302.415,
+        "coordinator_signal_to_run_end_ms": 31.181,
+        "unit_after_stop": {
+          "MainPID": "0",
+          "Result": "success",
+          "ExecMainCode": "0",
+          "ExecMainStatus": "0",
+          "ControlGroup": "",
+          "ActiveState": "inactive",
+          "InvocationID": ""
+        },
+        "observed_process_identities": {
+          "125115": "4295848",
+          "125123": "4295857",
+          "125124": "4295864",
+          "125126": "4295865",
+          "125127": "4295866",
+          "125128": "4295869",
+          "125129": "4295870"
+        },
+        "surviving_original_identities": {},
+        "cgroup_remaining": [],
+        "hardware_owners_remaining": {},
+        "host_target_helper_exit_retained": null
+      },
+      "restoration": {
+        "rollback_verified": true,
+        "mixers_exact_match": true,
+        "stationary_motor_guard_retained": true,
+        "override_cleanup": {
+          "path": "/run/systemd/system/lamp-live-pilot@check-retry-j_h258gj.service.d/50-ring-qualification.conf",
+          "removed": true,
+          "sha256": "c6e9e1362ec3cedf8a9657cbdc2e5591cc964c75f3efcbef56b1a18afe7d6db4",
+          "effective_dropins_empty": true,
+          "installed_template_unchanged": true
+        },
+        "installed_default_unchanged": true
+      },
+      "recording": {
+        "duration_s": 180,
+        "frames": 8640000,
+        "callbacks": 16875,
+        "sample_rate": 48000,
+        "channels": 1,
+        "format": "float32",
+        "continuous_frames_verified": true,
+        "clips": 0,
+        "nonfinite_samples": 0,
+        "losses": 0,
+        "faults": 0,
+        "host_coverage_verified": true,
+        "wav_sha256": "f9ef68ae6c2c34def148c2c68ce3dcb2a4dd6af9d24e5d6e36a535e64434eb31",
+        "pcm_sha256": "79671a34f915cc82027ac45b1d375bf9dfacd08737e14f85157dd0f93427e7f9",
+        "metadata_sha256": "ce39fa4b6e2bdb98a3a0166848e9feb784d22a4384abcd915ae925ef79781d0c",
+        "ledger_sha256": "8155ee5bb22294ce553543b016c7b7c92f96a6ff2f0b3598f7858f8d1575f7c7",
+        "target_to_mac_clock_transform": null
+      },
+      "local_asr": {
+        "model": "small.en",
+        "model_sha256": "f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872",
+        "python": "3.12.9",
+        "numpy": "1.26.4",
+        "torch": "2.2.2",
+        "cpu_threads": 2,
+        "processes": 1,
+        "attempts": 1,
+        "crop_room_seconds": [
+          4.512,
+          16.224
+        ],
+        "crop_seconds": 11.712,
+        "crop_sha256": "446e8db9209bd5a91d6e0c445c898232edeea730f6f8694f02e23ac88530bf30",
+        "known_word_prompt": null,
+        "network": "blocked",
+        "hypothesis_only": true,
+        "idle_audio_transcribed": false
+      },
+      "evidence": {
+        "result_sha256": "84defe26825e99b6ed871bb0ce4440d64c372bcdc20d33f99b07474bdd5b1d47",
+        "native_archive_sha256": "42af3e8d11d05c110925cc327c66f4ff4e2fe48f16f6fe6e6e8a2b8dd3b7f30c",
+        "native_archive_bytes": 1013760,
+        "members_verified_before_extraction": 11,
+        "independent_audit_root": "/private/tmp/lamp-latest-ready-audit-selwypg4",
+        "report_sha256": "04b5fee18e909fb7f19f44ad9b51a6fe739b1ff68389602c68c1bc483ee530b3",
+        "report_json_sha256": "cfd60dd8a193a645a0bd89aa86133742364612929dca5269b35b840ac906746f",
+        "receipt_sha256": "bc40a228847515d84ad1ef1d0cc00aeb8412436dfaab02d9dda2f378c1eaafbb",
+        "input_manifest_sha256": "29e5c2604de5a2fb14ea5b98ea4914e320e386e7dc12d5768bdb7406b486b840",
+        "all_original_inputs_rechecked_unchanged": true
+      },
+      "human_listened": false,
+      "acoustic_score": null,
+      "two_prompt_loop_completed": false
+    },
+    {
+      "attempt": "lamp-latest-followup-executed-6winqiax",
+      "local_evidence_root": "/private/tmp/lamp-latest-followup-executed-6winqiax",
+      "original_result_status": "voice_ring_software_validated_visible_review_pending",
+      "operational_success": true,
+      "outer_exit_reported_by_operator": 0,
+      "success_scope": "Finite exact-candidate two-prompt voice/ring/Stop/restoration check only",
+      "error": null,
+      "planned_prompts": 2,
+      "dispatched_prompts": 2,
+      "withheld_prompts": 0,
+      "prompt_replays": 0,
+      "input_admissions": 2,
+      "local_endpoints": 2,
+      "reply_attempts": 2,
+      "completed_replies": 2,
+      "extra_admissions": 0,
+      "cancellations": 0,
+      "two_prompt_loop_completed": true,
+      "invocation_id": "053e1a12f4224e7ea4de2d0b2909cde1",
+      "runtime_exposure": {
+        "duration_s": 22.01949,
+        "final_status": "stopped_unscored",
+        "error": null,
+        "unit_exit_status": 0,
+        "target_helper_exit": 0,
+        "failure_notices_configured": false
+      },
+      "turns": [
+        {
+          "turn": 1,
+          "prompt": "Lamp, how are you doing today?",
+          "source": "loudspeaker_synthetic",
+          "voice": "Daniel",
+          "wpm": 190,
+          "stimulus_wav_sha256": "991819cd1f568ec46179310676b58e446ad0f8f0aa05a20929cf49b5d6dde8ae",
+          "stimulus_pcm_sha256": "acf4ed8834c6159c51210af60c382ac76ee18da6efc8b63ed0c6026ffeb9e7d4",
+          "owner": {
+            "boot": [
+              240,
+              191,
+              32,
+              225,
+              227,
+              39,
+              97,
+              10,
+              250,
+              240,
+              98,
+              26,
+              128,
+              253,
+              99,
+              255
+            ],
+            "generation": 3,
+            "turn": 1
+          },
+          "provider_output_transcript": "I'm doing well, ready to help with whatever you need.",
+          "local_room_asr_hypothesis": "Lam, how are you doing today? I'm doing well, ready to help with whatever you need.",
+          "outcome": "audio_written_unscored",
+          "provider_outcome": "complete",
+          "reported_playback_gaps": 0,
+          "local_endpoint_us": 43604255422,
+          "provider_first_audio_us": 43605181096,
+          "speaker_first_write_us": 43605550633,
+          "final_retirement_us": 43608529365,
+          "turn_completed_us": 43608530242,
+          "availability_reopened_us": 43608631013,
+          "retirement_to_available_us": 101648,
+          "endpoint_to_provider_first_audio_us": 925674,
+          "endpoint_to_first_alsa_us": 1295211,
+          "provider_first_audio_to_first_alsa_us": 369537,
+          "fixed_endpoint_wait_ms": 1200,
+          "playback_sequence": 1,
+          "final_cursor": {
+            "epoch": 1,
+            "frame": 228960
+          },
+          "provider_enqueued_frames": 71041,
+          "sample_rate": 24000,
+          "target_pcm_byte_verification_available": false,
+          "human_listened": false,
+          "acoustic_score": null
+        },
+        {
+          "turn": 2,
+          "prompt": "Lamp, tell me one interesting fact about the ocean.",
+          "source": "loudspeaker_synthetic",
+          "voice": "Daniel",
+          "wpm": 200,
+          "stimulus_wav_sha256": "618944dbbceb8f993934d47d4711f02c5a42fa07347c18dbdfcb73a92891c3ff",
+          "stimulus_pcm_sha256": "0a84871c2beea1c91d2e93e6855e0a4d26753751be202924570cf49a26347313",
+          "owner": {
+            "boot": [
+              240,
+              191,
+              32,
+              225,
+              227,
+              39,
+              97,
+              10,
+              250,
+              240,
+              98,
+              26,
+              128,
+              253,
+              99,
+              255
+            ],
+            "generation": 5,
+            "turn": 2
+          },
+          "provider_output_transcript": "The ocean holds over 99% of the living space on Earth, yet we've explored less than ten percent of it.",
+          "local_room_asr_hypothesis": "Lam, tell me one interesting fact about the ocean. The ocean holds over 99% of the living space on Earth, yet we've explored less than 10% of it.",
+          "outcome": "audio_written_unscored",
+          "provider_outcome": "complete",
+          "reported_playback_gaps": 0,
+          "local_endpoint_us": 43613195879,
+          "provider_first_audio_us": 43614153455,
+          "speaker_first_write_us": 43614250216,
+          "final_retirement_us": 43620648746,
+          "turn_completed_us": 43620650526,
+          "availability_reopened_us": 43620749236,
+          "retirement_to_available_us": 100490,
+          "endpoint_to_provider_first_audio_us": 957576,
+          "endpoint_to_first_alsa_us": 1054337,
+          "provider_first_audio_to_first_alsa_us": 96761,
+          "fixed_endpoint_wait_ms": 1200,
+          "playback_sequence": 2,
+          "final_cursor": {
+            "epoch": 1,
+            "frame": 519840
+          },
+          "provider_enqueued_frames": 153360,
+          "sample_rate": 24000,
+          "target_pcm_byte_verification_available": false,
+          "human_listened": false,
+          "acoustic_score": null
+        }
+      ],
+      "scheduling_checks": [
+        {
+          "slot": 1,
+          "read_only_checks": 1,
+          "elapsed_ns": 66838812,
+          "original_ready_sequence": 15,
+          "revision": 2,
+          "dispatch_started_before_expiry_ns": 27707013,
+          "dispatch_returned_before_expiry_ns": 24656978,
+          "prior_completion_bound": false,
+          "availability_wait_status": null
+        },
+        {
+          "slot": 2,
+          "read_only_checks": 1,
+          "elapsed_ns": 68124370,
+          "original_ready_sequence": 15,
+          "revision": 9,
+          "dispatch_started_before_expiry_ns": 23574296,
+          "dispatch_returned_before_expiry_ns": 20361252,
+          "prior_completion_bound": true,
+          "availability_wait_status": "observed_available"
+        }
+      ],
+      "metadata": {
+        "contiguous_events": 2098,
+        "coordinator_finish_acknowledged": true,
+        "health": {
+          "acknowledged": true,
+          "degraded": false,
+          "dropped_events": 0,
+          "finish_attempted": true,
+          "initialization_failed": false,
+          "oversized_events": 0,
+          "rotations": 0,
+          "unconfirmed_events": 0,
+          "writer_failed": false,
+          "written_events": 2098
+        },
+        "runtime_complete_evidence": false
+      },
+      "reference": {
+        "count": 22,
+        "capture_epoch": 1,
+        "dsp_epoch": 1,
+        "playback_epoch": 1,
+        "provider_session": 1,
+        "resets": 0,
+        "learned_ppm_range": [
+          0.003312000073492527,
+          12.06208324432373
+        ],
+        "unread_frames_range": [
+          1163,
+          1200
+        ]
+      },
+      "ring": {
+        "requests": 891,
+        "matching_presented": 891,
+        "rejected": 0,
+        "pending": 0,
+        "stale_presentation_blanks": 6,
+        "shutdown_black_receipts": 1,
+        "request_to_spi_return_us_range": [
+          1517,
+          4737
+        ],
+        "write_us_range": [
+          1330,
+          1831
+        ],
+        "first_phase_receipts": [
+          {
+            "turn": 1,
+            "generation": 3,
+            "phase": "listening",
+            "requested_at_us": 43601416168,
+            "write_started_at_us": 43601417656,
+            "write_finished_at_us": 43601419111,
+            "observed_at_us": 43601420129,
+            "request_service_sequence": 19,
+            "feedback_service_sequence": 21,
+            "request_to_write_start_us": 1488,
+            "request_to_write_return_us": 2943,
+            "write_us": 1455,
+            "return_to_observed_us": 1018,
+            "transition_event": "input_admitted",
+            "transition_at_us": 43601415947,
+            "transition_to_request_us": 221,
+            "transition_to_write_return_us": 3164
+          },
+          {
+            "turn": 1,
+            "generation": 3,
+            "phase": "waiting",
+            "requested_at_us": 43604255598,
+            "write_started_at_us": 43604258932,
+            "write_finished_at_us": 43604260335,
+            "observed_at_us": 43604261592,
+            "request_service_sequence": 300,
+            "feedback_service_sequence": 302,
+            "request_to_write_start_us": 3334,
+            "request_to_write_return_us": 4737,
+            "write_us": 1403,
+            "return_to_observed_us": 1257,
+            "transition_event": "local_endpoint",
+            "transition_at_us": 43604255422,
+            "transition_to_request_us": 176,
+            "transition_to_write_return_us": 4913
+          },
+          {
+            "turn": 1,
+            "generation": 3,
+            "phase": "speaking",
+            "requested_at_us": 43605552831,
+            "write_started_at_us": 43605554762,
+            "write_finished_at_us": 43605556167,
+            "observed_at_us": 43605557656,
+            "request_service_sequence": 440,
+            "feedback_service_sequence": 446,
+            "request_to_write_start_us": 1931,
+            "request_to_write_return_us": 3336,
+            "write_us": 1405,
+            "return_to_observed_us": 1489,
+            "transition_event": "speaker_first_write",
+            "transition_at_us": 43605550633,
+            "transition_to_request_us": 2198,
+            "transition_to_write_return_us": 5534
+          },
+          {
+            "turn": 2,
+            "generation": 5,
+            "phase": "listening",
+            "requested_at_us": 43609407587,
+            "write_started_at_us": 43609408309,
+            "write_finished_at_us": 43609409740,
+            "observed_at_us": 43609411528,
+            "request_service_sequence": 813,
+            "feedback_service_sequence": 815,
+            "request_to_write_start_us": 722,
+            "request_to_write_return_us": 2153,
+            "write_us": 1431,
+            "return_to_observed_us": 1788,
+            "transition_event": "input_admitted",
+            "transition_at_us": 43609407330,
+            "transition_to_request_us": 257,
+            "transition_to_write_return_us": 2410
+          },
+          {
+            "turn": 2,
+            "generation": 5,
+            "phase": "waiting",
+            "requested_at_us": 43613196157,
+            "write_started_at_us": 43613198665,
+            "write_finished_at_us": 43613200030,
+            "observed_at_us": 43613200216,
+            "request_service_sequence": 1187,
+            "feedback_service_sequence": 1189,
+            "request_to_write_start_us": 2508,
+            "request_to_write_return_us": 3873,
+            "write_us": 1365,
+            "return_to_observed_us": 186,
+            "transition_event": "local_endpoint",
+            "transition_at_us": 43613195879,
+            "transition_to_request_us": 278,
+            "transition_to_write_return_us": 4151
+          },
+          {
+            "turn": 2,
+            "generation": 5,
+            "phase": "speaking",
+            "requested_at_us": 43614250813,
+            "write_started_at_us": 43614252809,
+            "write_finished_at_us": 43614254145,
+            "observed_at_us": 43614254816,
+            "request_service_sequence": 1299,
+            "feedback_service_sequence": 1301,
+            "request_to_write_start_us": 1996,
+            "request_to_write_return_us": 3332,
+            "write_us": 1336,
+            "return_to_observed_us": 671,
+            "transition_event": "speaker_first_write",
+            "transition_at_us": 43614250216,
+            "transition_to_request_us": 597,
+            "transition_to_write_return_us": 3929
+          }
+        ],
+        "shutdown_black_receipt": {
+          "at_us": 43620762109,
+          "boundary": "SPI write return; optical darkness unmeasured",
+          "details": {
+            "kind": "blanked",
+            "reason": {
+              "kind": "shutdown"
+            },
+            "write_finished_at_us": 43620761811,
+            "write_started_at_us": 43620760388
+          },
+          "kind": "ring_shutdown_write",
+          "service_sequence": 2096
+        },
+        "spi_owner_observation": {
+          "observed_at_us": 43601551214,
+          "pids": [
+            127548
+          ],
+          "inside_owned_cgroup_and_ring_role": true,
+          "start_ticks": "4359888"
+        },
+        "optical_timing_score": null
+      },
+      "shutdown": {
+        "request_us": 43620738185,
+        "coordinator_signal_receipt_us": 43620759603,
+        "run_end_us": 43620781770,
+        "helper_verified_complete_us": 43620959273,
+        "request_to_verified_clean_stop_ms": 221.088,
+        "coordinator_signal_to_run_end_ms": 22.167,
+        "unit_after_stop": {
+          "MainPID": "0",
+          "Result": "success",
+          "ExecMainCode": "0",
+          "ExecMainStatus": "0",
+          "ControlGroup": "",
+          "ActiveState": "inactive",
+          "InvocationID": ""
+        },
+        "observed_process_identities": {
+          "127535": "4359867",
+          "127543": "4359876",
+          "127544": "4359883",
+          "127546": "4359883",
+          "127547": "4359885",
+          "127548": "4359888",
+          "127549": "4359888"
+        },
+        "surviving_original_identities": {},
+        "cgroup_remaining": [],
+        "hardware_owners_remaining": {}
+      },
+      "restoration": {
+        "rollback_verified": true,
+        "same_boot": true,
+        "mixers_exact_match": true,
+        "stationary_motor_guard_retained": true,
+        "override_cleanup": {
+          "path": "/run/systemd/system/lamp-live-pilot@check-followup-6winqiax.service.d/50-ring-qualification.conf",
+          "removed": true,
+          "sha256": "985f494eae68f0d584eb153d0e1ecfa5fee3be5f987af32ad51e52fcaf31b8cb",
+          "effective_dropins_empty": true,
+          "installed_template_unchanged": true
+        },
+        "installed_template_unchanged_at_trial_end": true
+      },
+      "photos": [
+        {
+          "kind": "active_reply",
+          "sha256": "00a7c43128443215ec341afb82e380a4fe118bec62c5f8a0252e569ff14ee453",
+          "bytes": 448620,
+          "app_sha256": "829b051ea326513cad70fac94cd6124a2f2f9dcee783050f0c56668964080be6",
+          "launch_started_host_clock_ns": 2277753194325000,
+          "launch_returned_host_clock_ns": 2277753197325000,
+          "completed_host_clock_ns": 2277757109045000,
+          "launch_started_utc": "2026-10-11T20:24:56.085652+00:00",
+          "completed_utc": "2026-10-11T20:25:00.000367+00:00",
+          "wrapper_exit": 0,
+          "wrapper_reaped": true,
+          "observed_phase_changed_during_attempt": false
+        },
+        {
+          "kind": "after_stop",
+          "sha256": "ed5f1fe57a4dfcadcf7a6d7c9f95d3ffb0e0d6c3d08c3ed8d84d9df4a9a14d1e",
+          "bytes": 455044,
+          "app_sha256": "829b051ea326513cad70fac94cd6124a2f2f9dcee783050f0c56668964080be6",
+          "launch_started_host_clock_ns": 2277759988660000,
+          "launch_returned_host_clock_ns": 2277759991447000,
+          "completed_host_clock_ns": 2277763812143000,
+          "launch_started_utc": "2026-10-11T20:25:02.879976+00:00",
+          "completed_utc": "2026-10-11T20:25:06.703467+00:00",
+          "wrapper_exit": 0,
+          "wrapper_reaped": true,
+          "observed_phase_changed_during_attempt": false
+        }
+      ],
+      "model_visual_review": {
+        "reviewer_kind": "model",
+        "review_method": "Independent local view_image inspection of both original JPEGs; root also reported model review",
+        "active_reply": "Ring visibly illuminated, near-white with a violet cast; bright pixels prevent exact color acceptance.",
+        "after_stop": "Ring visibly unilluminated relative to active frame; pale diffuser remains visible under room light.",
+        "placement": "Base visibly supported by the cabinet/tabletop in the frames. Cabinet edge and full surrounding clearances are not fully established.",
+        "limits": [
+          "No calibrated exposure, color, brightness, optical onset/extinction or continuous choreography claim",
+          "Two stills cannot prove absence of intervening motion or qualify motion clearance; motors remain disabled"
+        ],
+        "not_an_audio_listening_review": true
+      },
+      "recording": {
+        "duration_s": 180,
+        "frames": 8640000,
+        "callbacks": 16875,
+        "sample_rate": 48000,
+        "channels": 1,
+        "format": "float32",
+        "continuous_frames_verified": true,
+        "clips": 0,
+        "nonfinite_samples": 0,
+        "losses": 0,
+        "faults": 0,
+        "host_coverage_verified": true,
+        "wav_sha256": "bdea962c915d5b0a016888e04e4841f48c001d224edb647af6027256bd17cc19",
+        "pcm_sha256": "193914cdf0df8595d84c0800bce5d61dca406b38285d670aa39c2889a049f02e",
+        "metadata_sha256": "2cf90aa2b4569c30ad8daae8c3540fba55431ab7f93990666bfbd696a80d3e54",
+        "ledger_sha256": "42b563266f653e6a9f7d331206fafb65d5cb1d8d885088fd90b40f324db555d4",
+        "target_to_mac_clock_transform": null
+      },
+      "local_asr": {
+        "model": "small.en",
+        "model_sha256": "f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872",
+        "python": "3.12.9",
+        "numpy": "1.26.4",
+        "torch": "2.2.2",
+        "cpu_threads": 2,
+        "processes": 1,
+        "attempts_per_crop": 1,
+        "crops": [
+          {
+            "turn": 1,
+            "room_seconds": [
+              4.074666666666666,
+              12.608
+            ],
+            "sha256": "a99c5579df005f49916445102d6d4ab810fa5d90ed9eec9974056f5353034582"
+          },
+          {
+            "turn": 2,
+            "room_seconds": [
+              12.053333333333333,
+              26.762666666666668
+            ],
+            "sha256": "7079b8481ee60bab41289815808f3dfea963a74e281828a0350f0b5425211983"
+          }
+        ],
+        "known_word_prompt": null,
+        "network": "blocked",
+        "hypothesis_only": true,
+        "idle_audio_transcribed": false
+      },
+      "evidence": {
+        "result_sha256": "625bb551310c4b22ea392dd7aa54b4370e72438038d3720cb5eda924e7c8a240",
+        "native_archive_sha256": "209dabbd950085aeb96fbd4829f675d2e8b2f5b0ab182b1a57e2c1a222907e86",
+        "native_archive_bytes": 2344960,
+        "members_verified_before_extraction": 11,
+        "independent_audit_root": "/private/tmp/lamp-latest-followup-audit-bd2flmu8",
+        "report_sha256": "36a93afbac00ea7d16b09b7cf946589d81abf4a160654a51ea936105bd8f7345",
+        "report_json_sha256": "8ef62b66f7d52ce493e39e3de190b35fcf79d19bd5d407f9e296345808350068",
+        "receipt_sha256": "30730bc365ea023e51d1ad8ccceaf97ff545dabded5afb46a3648ec933c35b69",
+        "input_manifest_sha256": "ec0bcd412c7ca67fa9fcff38cfe011dfdd439081df6487586d5f4da8dd91b134",
+        "all_original_inputs_rechecked_unchanged": true
+      },
+      "human_listened": false,
+      "acoustic_score": null,
+      "promotion_performed_by_this_evidence": false
+    }
+  ],
+  "human_listened": false,
+  "acoustic_score": null,
+  "limits": [
+    "First attempt withheld both prompts; second completed one greeting and withheld the next; third completed both. Earlier attempts remain individually visible.",
+    "Only R3 passed its finite two-prompt loop. No pooled success rate or percentile obscures the earlier failures.",
+    "Software timings exclude the1200ms endpoint wait; no target-to-Mac clock transform or accepted acoustic boundary is available.",
+    "Serve records metadata, not target PCM diagnostics; output coverage is original-owner retirement evidence, not byte-level PCM verification.",
+    "Physical mute/reopen, real-human addressing, natural duplex and before-output continuation remain unqualified.",
+    "Optional failure notices remain off without an approved production asset.",
+    "Model still review supports visible ring on/off in two frames, not calibrated color, optical timing, continuous choreography or full motion clearance; motors stay disabled.",
+    "Raw room audio/photos stay local. Offline ASR hypotheses and model visual review do not set human_listened=true.",
+    "Changing the stopped installed template is a separate root action; no promotion or service action was performed by these audits."
+  ]
+}

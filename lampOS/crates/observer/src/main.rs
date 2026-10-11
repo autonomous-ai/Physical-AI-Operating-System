@@ -21,7 +21,7 @@ fn main() {
 fn usage() -> io::Error {
     io::Error::new(
         io::ErrorKind::InvalidInput,
-        "usage: lamp-observer devices | authorization [--out NEW_DIR] | authorize --out NEW_DIR | record --input EXACT_NAME --seconds 1..600 --out NEW_DIR | inspect-output --output 'iMac Speakers' | play --output 'iMac Speakers' --wav CACHED.wav --out NEW_DIR [--cancel-file PATH]",
+        "usage: lamp-observer devices | authorization [--out NEW_DIR] | authorize --out NEW_DIR | record --input EXACT_NAME --seconds 1..600 --out NEW_DIR | inspect-output --output 'iMac Speakers' | play --output 'iMac Speakers' --wav CACHED.wav --out NEW_DIR [--cancel-file PATH] [--prepared-start MAX_WAIT_MS]",
     )
 }
 
@@ -65,7 +65,25 @@ fn run() -> Result<bool> {
         }
         Some("play") => {
             let options = parse_play(args)?;
-            let result = playback::play(&options)?;
+            let result = if options.prepared_start_ms.is_some() {
+                // One ready line on stdout, then one start grant line on stdin.
+                let mut ready = |receipt: &serde_json::Value| -> std::io::Result<()> {
+                    use std::io::Write;
+                    let mut out = std::io::stdout().lock();
+                    serde_json::to_writer(&mut out, receipt)?;
+                    out.write_all(b"\n")?;
+                    out.flush()
+                };
+                playback::play_prepared(
+                    &options,
+                    playback::PreparedIo {
+                        ready: &mut ready,
+                        inputs: playback::spawn_grant_reader(std::io::stdin()),
+                    },
+                )?
+            } else {
+                playback::play(&options)?
+            };
             println!("{}", serde_json::to_string_pretty(&result)?);
             Ok(result["valid"] == true)
         }
@@ -97,6 +115,7 @@ fn run() -> Result<bool> {
 
 fn parse_play(mut args: impl Iterator<Item = String>) -> Result<PlayOptions> {
     let (mut device, mut wav, mut output, mut cancel_file) = (None, None, None, None);
+    let mut prepared_start_ms = None;
     while let Some(option) = args.next() {
         let value = args.next().ok_or_else(usage)?;
         match option.as_str() {
@@ -104,6 +123,9 @@ fn parse_play(mut args: impl Iterator<Item = String>) -> Result<PlayOptions> {
             "--wav" if wav.is_none() => wav = Some(PathBuf::from(value)),
             "--out" if output.is_none() => output = Some(PathBuf::from(value)),
             "--cancel-file" if cancel_file.is_none() => cancel_file = Some(PathBuf::from(value)),
+            "--prepared-start" if prepared_start_ms.is_none() => {
+                prepared_start_ms = Some(value.parse::<u32>()?)
+            }
             _ => return Err(usage().into()),
         }
     }
@@ -112,6 +134,7 @@ fn parse_play(mut args: impl Iterator<Item = String>) -> Result<PlayOptions> {
         wav: wav.ok_or_else(usage)?,
         output: output.ok_or_else(usage)?,
         cancel_file,
+        prepared_start_ms,
     };
     options.validate()?;
     Ok(options)
@@ -153,5 +176,14 @@ mod playback_cli_tests {
         );
         cancelled.push("--unknown");
         assert!(parse(&cancelled).is_err());
+        let mut prepared = good.to_vec();
+        prepared.extend_from_slice(&["--prepared-start", "30000"]);
+        assert_eq!(parse(&prepared).unwrap().prepared_start_ms, Some(30_000));
+        for bad in ["0", "120001", "soon"] {
+            let mut invalid = good.to_vec();
+            invalid.extend_from_slice(&["--prepared-start", bad]);
+            assert!(parse(&invalid).is_err(), "{bad}");
+        }
+        assert_eq!(parse(&good).unwrap().prepared_start_ms, None);
     }
 }

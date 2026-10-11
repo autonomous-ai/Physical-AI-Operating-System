@@ -627,6 +627,8 @@ fn output_request(event: &ProviderOutput) -> Option<u64> {
     match event {
         ProviderOutput::Ready { .. }
         | ProviderOutput::TurnFailed { .. }
+        // A fixture keeps no input and never reports one.
+        | ProviderOutput::InputDiscarded { .. }
         | ProviderOutput::OwnershipAssumed { .. }
         | ProviderOutput::Ended { .. } => None,
         ProviderOutput::Started { request, .. }

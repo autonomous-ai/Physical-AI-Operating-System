@@ -205,6 +205,17 @@ pub enum ProviderOutput {
         stage: FailedStage,
         reason: Fault,
     },
+    /// Input up to `request` was abandoned, not continued, while the
+    /// transport still kept some of it or had written some of it without an
+    /// End. Only under `Continuation::KeptStart`. `dropped_samples` were
+    /// kept and never sent. `sent_samples` had already been handed to the
+    /// connection: they are not discarded and cannot be recalled, and the
+    /// next request is heard after them.
+    InputDiscarded {
+        request: u64,
+        dropped_samples: u64,
+        sent_samples: u64,
+    },
     OwnershipAssumed {
         request: Option<u64>,
         superseded: Option<u64>,
@@ -384,6 +395,8 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
         let request = match event {
             ProviderOutput::Ready { .. }
             | ProviderOutput::TurnFailed { .. }
+            // About a retired request by definition, and still owed.
+            | ProviderOutput::InputDiscarded { .. }
             | ProviderOutput::OwnershipAssumed { .. }
             | ProviderOutput::Ended { .. } => None,
             ProviderOutput::Transcript { request, .. } => *request,
@@ -761,6 +774,11 @@ fn forward(
                 "lamp-live provider: input through request {} abandoned: dropped_unsent_samples={dropped_samples} already_sent_samples={sent_samples}",
                 through.get()
             );
+            push(ProviderOutput::InputDiscarded {
+                request: through.get(),
+                dropped_samples,
+                sent_samples,
+            });
         }
         Event::BarrierAssumed {
             superseded,

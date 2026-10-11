@@ -9,9 +9,9 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 15 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
-  `MAIN-031`, `MAIN-032`, `MAIN-033`, `MAIN-035`, `MAIN-037` and `MAIN-040`
-  are answered below. Environmental acquisition stays deferred.
+- State: checkpoints 1 to 16 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
+  `MAIN-031`, `MAIN-032`, `MAIN-033`, `MAIN-035`, `MAIN-037`, `MAIN-040` and
+  `MAIN-041` are answered below. Environmental acquisition stays deferred.
 - **Waiting on you:** nothing. `A1-009` is with your review, and your own
   adaptation of the gate supersedes my proposal branch.
 - **Not building:** the continuation start (`A1-010`), as you decided.
@@ -23,6 +23,68 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   `MAIN-032` and `MAIN-033` there and replied to the two that were
   questions. My reply to `MAIN-031` was recorded late: the question had
   expired while I was working. Git is still where my results are.
+
+## Checkpoint 16: `MAIN-041`, the same scripts under a supported interpreter
+
+No code. Answered on the team channel as well.
+
+**Result: nothing changes.** Every NumPy script behind a figure I published
+today was rerun unchanged under Python 3.12.10 with NumPy 2.2.3 and compared
+with its Python 3.14.2, NumPy 1.26.4 output.
+
+| Scripts | Figures they stand behind | 3.14 against 3.12 |
+|---|---|---|
+| `run.py`, `more.py`, `onset.py` | The V1 gate comparison and the onset boundary | byte-identical, all three |
+| `look.py`, `ir.py`, `taps.py`, `bias.py`, `envelope.py` | "Measured outside the observer" in `docs/echo-evidence.md`: one copy 30 %, sixteen copies 91 %, the path's spread, chance fit, the envelope comparison | byte-identical, all five |
+| `linear.py` | The linear-fit table in `docs/self-echo-admission.md` | byte-identical |
+| `nson.py`, `vad.py` | The levels and scores in the endpoint note of checkpoint 11 | byte-identical, both |
+
+Not NumPy at all, so not in question: everything from Rust (the echo
+evidence, the replay, every test), the playout replay figures and the path
+gain medians (plain Python), and the detector scores (Rust).
+
+Both sets of outputs, the eight further scripts and a record with every
+digest are beside the earlier artifacts:
+
+```
+.../scratchpad/v1gate-handoff/py312/                  the three V1 scripts under 3.12
+.../scratchpad/v1gate-handoff/other-scripts/          the other eight, with py314/ and py312/ outputs
+.../scratchpad/v1gate-handoff/verification-main-041.json   SHA-256 6d3548d24b6956edd38ed204555a644d4381af8ddc70ac0f062e129b51792e82
+```
+
+**Your discrepancy, reproduced and explained.** Your script, unchanged
+(SHA-256 `7db4db23f936…`), on your inputs, writing only into my scratch
+space: ambient whole-recording peak -20.2689 dBFS under 3.14 and -10.1344
+under 3.12, the rms equal.
+
+Under Python 3.14 with NumPy 1.26.4, arithmetic on an array that is **local
+to a function, owns its data and is 256 KiB or more** overwrites the array
+in place. In your `levels()`, `np.mean(x*x)` squares `x` where it lies, and
+the peak on the next line is the peak of the squares: 0.31137 squared is
+0.09695, which is -20.27 dB, exactly twice the decibels. The rms is right
+because it is computed first.
+
+| `x = np.full(n, 0.5)`, then `np.mean(x * x)`, then `x[0]` | 3.14.2 + 1.26.4 | 3.12.10 + 2.2.3 |
+|---|---|---|
+| Function local, n = 32,767 (just under 256 KiB) | 0.5 | 0.5 |
+| Function local, n = 32,768 and up | **0.25** | 0.5 |
+| Module-level variable, any n | 0.5 | 0.5 |
+| A view of another array, any n | 0.5 | 0.5 |
+
+That is `py312/elide.py` with its output beside it. It is why your small
+scalar controls pass and why a check typed at module level passes.
+
+My reading of why, which I did not verify in NumPy's source today: NumPy
+reuses an operand's buffer when the operand looks like a temporary about to
+die, judged by its reference count, and Python 3.14 loads a local without
+taking a reference, so a live local looks like a temporary to a NumPy built
+before 3.14 existed. NumPy 1.26 does not list 3.14 as supported. The table
+above does not depend on that reading.
+
+**Why my scripts escaped it.** Not by care. The V1 gate works on 1,024-sample
+frames; the large arrays in the others are views, or module-level, or are
+not read again after the expression. I checked by rerunning, not by
+reasoning. From here on I use `/usr/local/bin/python3.12` for NumPy.
 
 ## Checkpoint 15: `MAIN-040`, reproducing the V1 comparison
 
@@ -1476,4 +1538,5 @@ Fixed in checkpoint 11. Kept inactive for admission, as you said.
 - `MAIN-033`, read from the team channel: checkpoint 13.
 - `MAIN-035` and `MAIN-037`, read from the team channel: checkpoint 14.
 - `MAIN-040`, a team question: answered there and in checkpoint 15.
+- `MAIN-041`, a team question: answered there and in checkpoint 16.
 - Device ownership: yours. I take no device action.

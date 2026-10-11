@@ -165,3 +165,19 @@ python3 onset.py live_gate_v1.py    # where the uplink starts          -> onset.
 mapping, and the SHA-256 of `pre_aec`, `post_aec` and `render_accepted` for
 the six bundles read, with their paths. The scripts hard-code those paths.
 The recordings stay where they are.
+
+**Checked under a second interpreter.** Python 3.14 with NumPy 1.26.4 is
+not a combination NumPy supports, and the integrator found it giving wrong
+figures in a script of its own. The three scripts above were rerun unchanged
+under Python 3.12.10 with NumPy 2.2.3: all three outputs are byte for byte
+the same. `verification-main-041.json` in the same directory (SHA-256
+`6d3548d24b6956edd38ed204555a644d4381af8ddc70ac0f062e129b51792e82`) lists
+both sets.
+
+The fault is real and worth knowing. Under 3.14 with 1.26.4, arithmetic on
+an array that is local to a function, owns its data and is 256 KiB or more
+overwrites that array in place: after `np.mean(x * x)`, `x` holds its own
+squares. A module-level variable, a view and a smaller array are not
+touched, which is why small controls pass. These scripts escape it because
+the gate works on 1,024-sample frames and the large arrays are only sliced,
+converted or updated on purpose. Use 3.12 for anything new.

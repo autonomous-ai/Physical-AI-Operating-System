@@ -11,10 +11,13 @@
 
 The opt-in camera context is integrated locally and has passed combined host
 formatting, strict Clippy and 1,166 tests (zero failed, four existing ignored).
-The source-only combined ARM build is underway. The implementation and explicit
+The source-only combined ARM build passed strict affected Clippy and 213 selected
+serial QEMU tests. Two concurrent visual timeouts remain recorded. The implementation and explicit
 limits are in [camera context](../docs/gemini-camera-context.md). Device USB
-identity/mode provisioning is complete; capture and Gemini sight are unverified.
-Motor control remains inactive.
+identity/mode provisioning is complete. The first native inspection selected the
+correct mode, then stalled before its first frame; camera cleanup required SIGKILL.
+Stationary muted restoration passed. The backend cause is under investigation;
+Gemini sight remains unverified. Motor control remains inactive.
 
 ## Current owner priority
 
@@ -31,7 +34,9 @@ Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
 on `lamp-a2-endpoint`. Main's scoped response is MAIN-044 in the assignment
 file: a separate endpoint crate and isolated dependency checkpoint are allowed
 for review; no production default or device action is approved by that response.
-Agent 1's new-branch acknowledgment has not yet been observed.
+Agent 1 acknowledged and delivered its first opt-in playout checkpoint at
+`68e50dc3c` on `lamp-a1-playout`; Main read it and requested its narrow integration
+proposal in MAIN-046. Offline replay results are not device measurements.
 
 The owner requested a new split for the two available Claude Code agents.
 [MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech

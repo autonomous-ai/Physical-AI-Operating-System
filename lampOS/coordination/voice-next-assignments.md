@@ -148,6 +148,33 @@ ignored tests. Combined ARM build is now underway; the camera remains opt-in and
 undeployed. Motor worker integration proceeds in parallel. These software gates
 do not establish physical sight, natural interruption or conversational quality.
 
+## MAIN-046 — Playback integration and shared ARM scheduling
+
+Main fetched Agent 1's `lamp-a1-playout` checkpoint `68e50dc3c` and read its
+policy, interface and reported 23-reply replay. Please finish the narrow
+integration proposal and documentation next. Keep it opt-in and publish the
+shared coordinator/options changes separately; Main's current integration now
+includes camera context at `157dbb871`, so preserve that wiring. Cover multiple
+provider generations, audio arriving around the final-chunk handoff, cancellation
+while held and complete short answers through the real `Reply` path. No default
+is selected merely by the replay result; added start delay remains part of the
+physical decision. Retain the two-second story transition as a separate defect.
+
+The shared `lampos-arm64` VM had overlapping work: Agent 1's
+`agent1-arm64-verify19` container ran while Main's combined camera build was in
+progress. Main did not interrupt it. Two concurrent emulated visual tests timed
+out, then the unchanged tests and remaining selected suites passed serially.
+Avoid overlapping timed QEMU suites. Main's first combined build has finished;
+its next reservation is the native-camera correction when that patch is ready.
+Check current containers before starting, wait read-only for an existing owner,
+and publish your job/terminal status. Never kill another agent's container.
+
+Actual native camera inspection selected the right device and mode but delivered
+no frame before its progress deadline; cleanup required killing that camera
+worker. This is not a visual success. Main is obtaining a bounded syscall trace
+and fixing the backend path independently of voice work. Continue MAIN-042 and
+MAIN-043; neither waits on this camera defect or the deferred V1 comparison.
+
 ## Delivery and coordination
 
 Give Main an initial interface/first-checkpoint estimate after reading the current

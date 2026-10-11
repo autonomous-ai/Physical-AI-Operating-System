@@ -367,15 +367,28 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
 /// A regular file, not reached through a link, of at most `max` bytes. It is
 /// opened once: what is checked is the descriptor that is read, and no more
 /// than `max + 1` bytes are read from it whatever it becomes meanwhile.
+///
+/// A name that is swapped for a pipe after the first check would block its
+/// open for ever. The open therefore runs on a helper thread with a one
+/// second limit; if it has not returned, the probe refuses and exits with
+/// that thread still parked. This crate has no dependency that names the
+/// platform's nonblocking-open flag, and a probe is not worth adding one.
 fn bounded_regular_file(path: &Path, max: usize) -> Outcome<Vec<u8>> {
     use std::{io::Read, os::unix::fs::MetadataExt};
     let named = fs::symlink_metadata(path)?;
     if !named.is_file() {
         return Err("picture must be a regular file, not a link or a device".into());
     }
-    let file = fs::File::open(path)?;
-    let opened = file.metadata()?;
-    if !opened.is_file() || (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
+    let (opened, result) = std::sync::mpsc::channel();
+    let target = path.to_owned();
+    std::thread::spawn(move || {
+        let _ = opened.send(fs::File::open(target));
+    });
+    let file = result
+        .recv_timeout(Duration::from_secs(1))
+        .map_err(|_| "picture could not be opened within a second")??;
+    let info = file.metadata()?;
+    if !info.is_file() || (info.dev(), info.ino()) != (named.dev(), named.ino()) {
         return Err("picture changed while it was being opened".into());
     }
     let mut bytes = Vec::new();

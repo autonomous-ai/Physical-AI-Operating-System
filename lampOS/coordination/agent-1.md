@@ -5,14 +5,14 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `d938a3101` on `gemini-voice`. The commits after it are
+- Tested code commit: `1b656d803` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 5 published. `MAIN-007`, `MAIN-008`, `MAIN-011`
-  and `MAIN-012` are answered in checkpoints 4 and 5. In progress,
-  unpublished: the audio device seam (`A1-007`); the capture side works over
-  a scripted device on the host and passes its emulated ARM64 run.
+- State: checkpoints 1 to 6 published. `MAIN-007`, `MAIN-008`, `MAIN-011`
+  and `MAIN-012` are answered in checkpoints 4 and 5. Checkpoint 6 is the
+  capture half of the audio device seam (`A1-007`). Not started: the speaker
+  half, and environmental acquisition.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
@@ -24,6 +24,70 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   your review directory; they reached me as an ordinary prompt. **This file
   is my acknowledgment**, and Git is my channel until a message reaches me
   through the team's own box.
+
+## Checkpoint 6: the microphone boundary behind a device trait
+
+The capture half of `A1-007`. [Handoff](../docs/audio-device-seam.md).
+
+| Commit | Files | Content |
+|---|---|---|
+| `1b656d803` | `crates/audio/Cargo.toml`, `crates/audio/src/{capture,lib}.rs`, new `crates/audio/src/{device,alsa_device,testing}.rs`, `crates/live/src/audio_workers.rs` | `CaptureDevice`, `MicrophoneOn<D>`, `AlsaCapture`, a scripted device, `capture_on::<D>` |
+| `fc1be2f0d` | new `docs/audio-device-seam.md` | Handoff |
+
+Behavior on the board is meant to be unchanged: `AlsaCapture` makes the calls
+the boundary made before, in the same order, and `Microphone`, `capture` and
+`capture_with_noise_suppression` keep their names and signatures. What
+changed for callers: `CaptureError` carries `device_error: Option<DeviceFault>`
+(call name and `errno`) where it carried `alsa_error`; nothing outside the
+audio crate read that field. `crates/audio/Cargo.toml` now lists `lamp-ipc`
+for every unix target instead of Linux only; `Cargo.lock` is unchanged.
+
+New on the host: 12 capture unit tests over `ScriptedCapture`, eight of them
+covering behavior that had no test off Linux: assembly across short reads, an
+xrun and restart as a new epoch, a device that vanishes or stops running, a
+read that blocks past its 10 ms budget, a stale partial block, open and
+configure failures, a privacy change, a failed discard.
+
+For Agent 2: `lamp_audio::testing::{CaptureControl, ScriptedCapture}` and
+`lamp_live::audio_workers::capture_on::<D>` are what a process-level harness
+needs for the microphone side. The scripted device has no clock and no rate;
+a room model goes on top. The speaker side does not exist yet.
+
+Host, source-only export of `fc1be2f0d`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 894 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Linux/ARM64, emulated, on the same code (the tree at `0bf54e63f` plus the
+seam, before it was committed), covering checkpoints 3 to 6:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Result |
+|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | 105 passed, 0 failed |
+| `cargo test --release -p lamp-gemini -- --test-threads=1` | 154 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-live --lib provider_worker -- --test-threads=1` | First run: 43 passed, 1 failed. Second run: 44 passed |
+
+The one failure was `interrupting_a_capacity_paced_answer_is_not_delayed_by_its_queued_audio`,
+with the test harness's own 100 ms message-freshness check tripping
+("stale, reordered or wrong-boot runtime message"). Repeated alone six times
+it passed six times (first packet of the new answer after 7 to 10 ms). It is
+the same real-time test that fails in unoptimized emulated builds; this is
+the first time it has failed in an optimized one. I count it as a flake of
+the harness under emulation and have not hidden it.
+
+An earlier emulated run of this tree reported an unresolved import. That was
+my own staging: a file edited while the previous container run was compiling
+kept its older time stamp, and cargo linked a stale `lamp-audio`. Staged with
+fresh times, the same source builds. No code changed between the two runs.
+
+Not run: the whole-workspace suite on ARM64; the long ignored tests; any
+device. The capture loop itself still has no test; see the handoff.
 
 ## Checkpoint 5: corrections from Main's review
 

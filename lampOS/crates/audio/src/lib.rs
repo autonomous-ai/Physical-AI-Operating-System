@@ -20,6 +20,7 @@ pub mod notice;
 pub mod ownership;
 #[cfg(unix)]
 pub mod pcm;
+pub mod playout;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;

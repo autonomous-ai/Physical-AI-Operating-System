@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 21:56 UTC
+- Updated: 2026-10-11 22:02 UTC
 - Branch: `lamp-v2-chat`
 - Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, **8/8 complete replies** in one provider session, zero extra inputs/cancellations/reported playback gaps. Continuous room recording and one local ASR pass corroborate all eight. Earlier failed attempts and the older 16/16 sustained check remain separate. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
 - Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
@@ -17,13 +17,16 @@ unchanged legacy PIDs, provider/credential identity, actual gains and stationary
 mute/motor protections. The installation did not start a service or enable boot
 activation. Physical mute/reopen and human acceptance remain pending.
 
-Agent 1's retained-successor proposal `55ccc4a1a` remains separate. Independent
-review reproduced a new cancellation race: retiring a kept question while its
-last audio write was pending still allowed its End to be sent. The e9 baseline
-passed both controls; the candidate passed the positive and failed cancellation.
-Agent 1 published narrow fix `04dcb8f6c`; independent focused red/green review
-passes under the documented WebSocket handover boundary. Whole provider
-integration remains pending. Three service-only synthetic probes on the original proposal
+Agent 1's reviewed retained-successor code through `b19cadd09` is now composed
+with the integration branch, behind `--provider-continuation off|kept-start`
+(default off). The post-await retirement fix, fixture rejection and coordinated
+worker tests are included. Main's combined source passed format, strict package
+Clippy, 697 host library tests (six existing ignored), 42 emulated ARM tests and
+release build. [Exact evidence and limits](../docs/verification/provider-continuation-integration-20261011/README.md)
+record the uninstalled artifact. The ordinary-conversation native control is
+being prepared. Explicit discard versus continuation remains separate work;
+accepted transport bytes and already-taken cancelled audio are not claimed to
+be retractable. Three service-only synthetic probes on the original proposal
 are complete: immediate Start timed out with no answer; retained Start settled
 and answered both the before-output and during-output cases. The before-output
 case held Start for 717 ms; the during-output case did not need to hold it.

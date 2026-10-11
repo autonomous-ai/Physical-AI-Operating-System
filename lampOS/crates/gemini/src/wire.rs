@@ -34,6 +34,9 @@ pub struct ServerContent {
     pub interrupted: bool,
     pub turn_complete: bool,
     pub idle: bool,
+    /// The documented `waitingForInput`. Counted for observation while a
+    /// barrier stands; nothing is decided on it.
+    pub waiting_for_input: bool,
 }
 /// Advance notice of a server-side close. `time_left` is absent when the
 /// service omits it or sends a form this codec does not read.
@@ -193,6 +196,8 @@ struct RawContent {
     #[serde(default)]
     turn_complete: bool,
     interaction_status: Option<String>,
+    #[serde(default)]
+    waiting_for_input: bool,
 }
 #[derive(Deserialize)]
 struct ModelTurn {
@@ -396,6 +401,7 @@ fn decode_content(raw: RawContent) -> Result<ServerContent> {
         interrupted: raw.interrupted,
         turn_complete: raw.turn_complete,
         idle,
+        waiting_for_input: raw.waiting_for_input,
     })
 }
 fn transcript(raw: RawTranscript) -> Result<Transcript> {

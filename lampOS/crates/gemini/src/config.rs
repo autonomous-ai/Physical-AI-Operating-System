@@ -53,7 +53,7 @@ pub struct Timeouts {
     pub read: Duration,
     /// Longest silence of an earlier response, after it was asked to stop,
     /// before its idle completion. Only the next request's activityEnd waits
-    /// for it; that request's audio is never held.
+    /// for it. Audio is held only by the explicit `SuccessorStart` policy.
     pub barrier: Duration,
     /// Ended input to the first output of its response.
     pub response: Duration,
@@ -163,6 +163,57 @@ pub enum BarrierPolicy {
     AssumeAfterQuiet,
 }
 
+/// The longest a next request's `activityStart` may be kept back.
+pub const MAX_SUCCESSOR_PATIENCE: Duration = Duration::from_secs(4);
+/// The most of a next request's audio kept back behind its `activityStart`:
+/// six seconds. More than the longest patience, so that audio arriving at
+/// the rate it is spoken cannot fill it first.
+pub const MAX_RETAINED_SAMPLES: usize = 16_000 * 6;
+
+/// What happens to the next request when it starts while a committed
+/// request's response has produced nothing yet.
+///
+/// Interrupting a response before it has produced anything got no
+/// confirmation in the one real-service run that tried it, and the
+/// service's documentation defines none for that case. Interrupting one
+/// that is producing was confirmed in the one run that tried that.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SuccessorStart {
+    /// Its `activityStart` and its audio are written at once, as they have
+    /// always been.
+    #[default]
+    AtOnce,
+    /// Its `activityStart`, and its audio behind it, are kept here until
+    /// the earlier response produces its first output, which is then
+    /// interrupted, or completes idle, after which this request starts
+    /// normally. Nothing of it is lost, reordered or sent twice.
+    ///
+    /// Kept for at most `patience`, and at most
+    /// [`MAX_RETAINED_SAMPLES`]: past either, the start and the kept audio
+    /// are written and the default behavior applies from there. Audio kept
+    /// here is written up to `patience` later than
+    /// [`crate::MAX_INPUT_AGE`] otherwise allows, with its own capture time;
+    /// it is dropped unsent by a stop or any failure.
+    AfterFirstOutput { patience: Duration },
+}
+
+/// From when a barrier's quiet bound, `Timeouts::barrier`, can end the
+/// connection under [`BarrierPolicy::Require`].
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum BarrierWait {
+    /// From the moment the earlier response was asked to stop, whether or
+    /// not the next request is still being spoken. As it has always been:
+    /// a person who goes on for longer than the bound is cut off.
+    #[default]
+    FromInterruption,
+    /// Only once the next request has ended its input and its `activityEnd`
+    /// is being withheld. While its input is open nothing waits on the
+    /// earlier response but the absolute bound, `Timeouts::response` from
+    /// the interruption. The strict wait is the same; it starts where
+    /// something is actually waiting.
+    AtCommit,
+}
+
 /// Opaque server token for resuming conversation state on a new connection.
 /// Held in memory only: no serialization, no value in Debug output.
 #[derive(Clone)]
@@ -194,6 +245,9 @@ pub struct SessionConfig {
     pub(crate) resumption: Resumption,
     pub(crate) resume: Option<ResumptionHandle>,
     pub(crate) barrier: BarrierPolicy,
+    pub(crate) barrier_wait: BarrierWait,
+    pub(crate) barrier_reports: bool,
+    pub(crate) successor_start: SuccessorStart,
     pub(crate) output_buffer: usize,
 }
 impl SessionConfig {
@@ -213,6 +267,9 @@ impl SessionConfig {
             resumption: Resumption::Off,
             resume: None,
             barrier: BarrierPolicy::Require,
+            barrier_wait: BarrierWait::FromInterruption,
+            barrier_reports: false,
+            successor_start: SuccessorStart::AtOnce,
             output_buffer: OUTPUT_BUFFER_BYTES,
         })
     }
@@ -275,6 +332,27 @@ impl SessionConfig {
     pub fn barrier_policy(mut self, policy: BarrierPolicy) -> Self {
         self.barrier = policy;
         self
+    }
+    pub fn barrier_wait(mut self, wait: BarrierWait) -> Self {
+        self.barrier_wait = wait;
+        self
+    }
+    /// Report how each barrier ended as [`crate::Event::Barrier`]. Off by
+    /// default, so that a caller's event stream is what it was.
+    pub fn barrier_reports(mut self, reports: bool) -> Self {
+        self.barrier_reports = reports;
+        self
+    }
+    /// When the next request's `activityStart` is written if it starts
+    /// while a committed request's response has produced nothing yet.
+    pub fn successor_start(mut self, start: SuccessorStart) -> Result<Self> {
+        if let SuccessorStart::AfterFirstOutput { patience } = start
+            && (patience < Duration::from_millis(1) || patience > MAX_SUCCESSOR_PATIENCE)
+        {
+            return Err(Error::InvalidConfiguration);
+        }
+        self.successor_start = start;
+        Ok(self)
     }
     /// Seconds of generated audio held for a consumer slower than the network
     /// before the socket goes unread. The default holds 300 s.

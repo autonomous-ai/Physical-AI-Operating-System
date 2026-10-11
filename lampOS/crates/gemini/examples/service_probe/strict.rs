@@ -1,8 +1,8 @@
 //! Explicit, bounded Require/2 s probes. This is not the production supervisor.
 use super::{Outcome, bounded_regular_file, session};
 use lamp_gemini::{
-    BarrierPolicy, Connection, Event, InputSender, Lineage, RequestId, Resumption, SessionConfig,
-    SessionId, State, Timeouts,
+    BarrierPolicy, BarrierWait, Connection, Event, InputSender, Lineage, MAX_SUCCESSOR_PATIENCE,
+    RequestId, Resumption, SessionConfig, SessionId, State, SuccessorStart, Timeouts,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -19,7 +19,7 @@ pub(super) fn requested(arguments: &[String]) -> bool {
     arguments.get(2).is_some_and(|name| {
         matches!(
             name.as_str(),
-            "continue-before-output" | "repeat-before-output"
+            "continue-before-output" | "continue-during-output" | "repeat-before-output"
         )
     })
 }
@@ -78,11 +78,79 @@ fn pcm(bytes: &[u8]) -> Outcome<Vec<i16>> {
         .collect())
 }
 
-fn config(config: SessionConfig) -> Outcome<SessionConfig> {
+/// The production quiet bound of a barrier.
+const BARRIER: Duration = Duration::from_secs(2);
+/// The longest quiet bound the library accepts. The probe asks for no more:
+/// a longer one would mean widening what production may be configured with.
+const LONGEST_BARRIER: Duration = Duration::from_secs(5);
+
+/// Always `Require`. `quiet` is the barrier's quiet bound: two seconds in
+/// production. A probe may ask for longer to watch whether a terminal comes
+/// late. That is observation only: the policy still assumes nothing, the
+/// successor's End stays withheld for as long as nothing settles, and no
+/// answer can be attributed on the strength of the longer wait.
+///
+/// `wait` is where that bound starts. Every barrier's end is reported with
+/// counts of what was withheld behind it: the probe's drop evidence.
+fn config(config: SessionConfig, quiet: Duration, wait: BarrierWait) -> Outcome<SessionConfig> {
     Ok(config
-        .timeouts(Timeouts::default())?
+        .timeouts(Timeouts {
+            barrier: quiet,
+            ..Timeouts::default()
+        })?
         .barrier_policy(BarrierPolicy::Require)
+        .barrier_wait(wait)
+        .barrier_reports(true)
         .resumption(Resumption::Retain))
+}
+
+/// A trailing `keep-start-ms=N`, removed from `arguments`: the library's
+/// opt-in keeping back of the second request's start and opening audio
+/// until the first response produces or completes, for at most N ms.
+fn kept_start(arguments: &mut Vec<String>) -> Outcome<SuccessorStart> {
+    let Some(value) = arguments
+        .last()
+        .and_then(|last| last.strip_prefix("keep-start-ms="))
+    else {
+        return Ok(SuccessorStart::AtOnce);
+    };
+    let patience = Duration::from_millis(value.parse::<u64>()?);
+    if patience.is_zero() || patience > MAX_SUCCESSOR_PATIENCE {
+        return Err("keep-start-ms must be 1 to 4000, the longest the library accepts".into());
+    }
+    arguments.pop();
+    Ok(SuccessorStart::AfterFirstOutput { patience })
+}
+
+/// A trailing `barrier-wait=at-commit`, removed from `arguments`.
+fn barrier_wait(arguments: &mut Vec<String>) -> Outcome<BarrierWait> {
+    let wait = match arguments
+        .last()
+        .and_then(|last| last.strip_prefix("barrier-wait="))
+    {
+        None => return Ok(BarrierWait::FromInterruption),
+        Some("at-commit") => BarrierWait::AtCommit,
+        Some("from-interruption") => BarrierWait::FromInterruption,
+        Some(_) => return Err("barrier-wait must be at-commit or from-interruption".into()),
+    };
+    arguments.pop();
+    Ok(wait)
+}
+
+/// A trailing `barrier-ms=N`, removed from `arguments`.
+fn observed_barrier(arguments: &mut Vec<String>) -> Outcome<Duration> {
+    let Some(value) = arguments
+        .last()
+        .and_then(|last| last.strip_prefix("barrier-ms="))
+    else {
+        return Ok(BARRIER);
+    };
+    let quiet = Duration::from_millis(value.parse::<u64>()?);
+    if !(BARRIER..=LONGEST_BARRIER).contains(&quiet) {
+        return Err("barrier-ms must be 2000 to 5000, the longest the library accepts".into());
+    }
+    arguments.pop();
+    Ok(quiet)
 }
 
 #[derive(Serialize)]
@@ -116,6 +184,7 @@ struct Observed {
     first_audio_us: [Option<u64>; 2],
     audio_samples: [usize; 2],
     idle_us: [Option<u64>; 2],
+    interrupted_us: [Option<u64>; 2],
     second_waiting: Option<bool>,
     assumed: bool,
     foreign_lineage: bool,
@@ -129,6 +198,7 @@ impl Observed {
             first_audio_us: [None; 2],
             audio_samples: [0; 2],
             idle_us: [None; 2],
+            interrupted_us: [None; 2],
             second_waiting: None,
             assumed: false,
             foreign_lineage: false,
@@ -180,13 +250,15 @@ impl Observed {
                 row["kind"] = json!("turn_complete");
                 row["idle"] = json!(idle);
             }
-            Event::Interrupted { lineage } | Event::GenerationComplete { lineage } => {
+            Event::Interrupted { lineage } => {
+                if let Some(index) = identity(lineage) {
+                    self.interrupted_us[index].get_or_insert(at);
+                }
+                row["kind"] = json!("interrupted");
+            }
+            Event::GenerationComplete { lineage } => {
                 identity(lineage);
-                row["kind"] = json!(if matches!(event, Event::Interrupted { .. }) {
-                    "interrupted"
-                } else {
-                    "generation_complete"
-                });
+                row["kind"] = json!("generation_complete");
             }
             Event::OutputTranscript {
                 lineage,
@@ -223,6 +295,39 @@ impl Observed {
                 row["session"] = json!(session.get());
                 row["superseded"] = json!(superseded.map(RequestId::get));
                 row["successor"] = json!(successor.map(RequestId::get));
+            }
+            Event::Barrier {
+                session,
+                outcome,
+                report,
+            } => {
+                // Counts of what was received for the earlier response and
+                // withheld. No audio and no text.
+                row["kind"] = json!("barrier");
+                row["session"] = json!(session.get());
+                row["outcome"] = json!(format!("{outcome:?}"));
+                row["superseded"] = json!(report.superseded.map(RequestId::get));
+                row["successor"] = json!(report.successor.map(RequestId::get));
+                row["waited_ms"] = json!(report.waited.as_millis());
+                row["quiet_ms"] = json!(report.quiet.as_millis());
+                row["successor_input_open"] = json!(report.successor_input_open);
+                row["end_withheld_ms"] = json!(report.end_withheld.map(|held| held.as_millis()));
+                row["audio_frames"] = json!(report.audio_frames);
+                row["audio_samples"] = json!(report.audio_samples);
+                row["text_frames"] = json!(report.text_frames);
+                row["generation_complete"] = json!(report.generation_complete);
+                row["interrupted"] = json!(report.interrupted);
+                row["completions_not_idle"] = json!(report.completions_not_idle);
+                // Whether, for how long and until what the second request's
+                // start was kept back, and two documented signals counted
+                // for observation while the barrier stood.
+                row["start_held_ms"] = json!(report.start_held.map(|held| held.as_millis()));
+                row["start_released_by"] =
+                    json!(report.start_released_by.map(|by| format!("{by:?}")));
+                row["retained_samples"] = json!(report.retained_samples);
+                row["waiting_for_input"] = json!(report.waiting_for_input);
+                row["resumable_updates"] = json!(report.resumable_updates);
+                row["unresumable_updates"] = json!(report.unresumable_updates);
             }
             Event::Discarded { session, reason } => {
                 row["kind"] = json!("discarded");
@@ -320,6 +425,17 @@ async fn trial(
     let stopped = async {
         for (sent, samples) in [(&mut one, first), (&mut two, second)] {
             if sent.request == 2 {
+                if name == "continue-during-output" {
+                    // The first request's own audio, actually received: a
+                    // condition, one event at a time, never a time guess.
+                    while seen.first_audio_us[0].is_none() {
+                        match tokio::time::timeout_at(deadline, connection.next_event()).await {
+                            Ok(Some(event)) => seen.event(event)?,
+                            Ok(None) => return Err("connection_ended"),
+                            Err(_) => return Err("trial_deadline"),
+                        }
+                    }
+                }
                 drive(
                     &mut connection,
                     &mut seen,
@@ -391,6 +507,13 @@ async fn trial(
         && !seen.foreign_lineage
     {
         "strict_barrier_confirmed_and_answered"
+    } else if name == "continue-during-output"
+        && case == "barrier_wait_observed_after_audio"
+        && barrier_confirmed
+        && !seen.assumed
+        && !seen.foreign_lineage
+    {
+        "strict_barrier_confirmed_after_audio_and_answered"
     } else {
         "answered_other_case"
     };
@@ -403,6 +526,7 @@ async fn trial(
         "received_audio_samples":seen.audio_samples, "idle_observed_us":seen.idle_us,
         "first_audio_observed_before_second_queue":prior_audio,
         "request_one_idle_observed_after_second_queue":barrier_confirmed,
+        "interrupted_observed_us":seen.interrupted_us,
         "aftermath":{"requested_ms":AFTER_ANSWER.as_millis(),
             "observed_ms":aftermath_start.map(|start| start.elapsed().as_millis()), "window_complete":aftermath_complete},
         "semantic_assessment":"unscored", "foreign_lineage_observed":seen.foreign_lineage,
@@ -411,18 +535,47 @@ async fn trial(
     })
 }
 
+/// Whether a result passes the strict contract: the earlier response was
+/// confirmed finished and the successor was answered, before output or after
+/// it, under production's bound. A run under a longer bound observes and
+/// passes nothing, whatever it saw.
+pub(super) fn passed(result: &Value) -> bool {
+    let confirmed = matches!(
+        result["outcome"].as_str(),
+        Some(
+            "strict_barrier_confirmed_and_answered"
+                | "strict_barrier_confirmed_after_audio_and_answered"
+        )
+    );
+    confirmed && result["observation_only"] == false
+}
+
 pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
-    let (provider, first_path, name, second_path, gap) = match arguments {
+    let mut arguments = arguments.to_vec();
+    // Trailing settings, in this order when more than one is given:
+    // `barrier-ms=N barrier-wait=at-commit keep-start-ms=N`.
+    let start = kept_start(&mut arguments)?;
+    let wait = barrier_wait(&mut arguments)?;
+    let quiet = observed_barrier(&mut arguments)?;
+    let (provider, first_path, name, second_path, gap) = match arguments.as_slice() {
         [provider, first, name] if name == "repeat-before-output" => (provider, first, name, first, None),
         [provider, first, name, gap] if name == "repeat-before-output" => (provider, first, name, first, Some(gap)),
         [provider, first, name, second] if name == "continue-before-output" => (provider, first, name, second, None),
         [provider, first, name, second, gap] if name == "continue-before-output" => (provider, first, name, second, Some(gap)),
-        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS]".into()),
+        [provider, first, name, second] if name == "continue-during-output" => (provider, first, name, second, None),
+        [provider, first, name, second, gap] if name == "continue-during-output" => (provider, first, name, second, Some(gap)),
+        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N] | ... PRIVATE_PROVIDER FIRST.wav continue-during-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N]".into()),
     };
+    // Before output the gap follows the first End. During output it follows
+    // the first audio actually received, and is nothing unless asked for.
     let gap = gap
         .map(|value| value.parse::<u64>())
         .transpose()?
-        .unwrap_or(300);
+        .unwrap_or(if name == "continue-during-output" {
+            0
+        } else {
+            300
+        });
     if gap > 5_000 {
         return Err("gap must be at most 5000 ms".into());
     }
@@ -434,10 +587,10 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
         Path::new(second_path),
         MAX_SAMPLES * 2 + 65_536,
     )?)?;
-    if name == "continue-before-output" && first == second {
+    if name != "repeat-before-output" && first == second {
         return Err("continuation must contain distinct PCM; use repeat-before-output for a repeated question".into());
     }
-    let config = config(session(Path::new(provider))?)?;
+    let config = config(session(Path::new(provider))?, quiet, wait)?.successor_start(start)?;
     let connecting = Instant::now();
     let mut result = match lamp_gemini::connect(config, SessionId::new(1)?).await {
         Ok(connection) => {
@@ -454,6 +607,25 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
             json!({"probe":name,"outcome":"setup_failed","error":format!("{error:?}"),"inputs":[],"events":[]})
         }
     };
+    result["barrier_wait"] = json!(match wait {
+        BarrierWait::FromInterruption => "from_interruption",
+        BarrierWait::AtCommit => "at_commit",
+    });
+    // `at_commit` is an opt-in setting. A pass under it qualifies that
+    // setting and says nothing about the default.
+    result["barrier_wait_is_default"] = json!(wait == BarrierWait::FromInterruption);
+    // Likewise the kept start: opt-in, and a pass under it is a pass of it.
+    result["keep_start_ms"] = json!(match start {
+        SuccessorStart::AtOnce => None,
+        SuccessorStart::AfterFirstOutput { patience } => Some(patience.as_millis()),
+    });
+    result["successor_start_is_default"] = json!(start == SuccessorStart::AtOnce);
+    result["dropped_output_counts_available"] = json!(true);
+    result["barrier_ms"] = json!(quiet.as_millis());
+    // A bound longer than production's watches for a late terminal. It
+    // authorizes nothing: the policy is still `Require`.
+    result["barrier_bound_is_production"] = json!(quiet == BARRIER);
+    result["observation_only"] = json!(quiet != BARRIER);
     result["total_observed_ms"] = json!(connecting.elapsed().as_millis());
     result["source_files"] = json!([first_path, second_path]);
     result["input_transform"] = json!("none; exact mono16k PCM16");

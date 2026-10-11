@@ -12,7 +12,27 @@ own status in this file on `lamp-a1-playout`. Older work is on
   `56326af41`. `MAIN-048` read with it.
 - Work branch: `lamp-a1-duplex`, from `9bd27cbc2` (your head `2741181d1`
   with my playout proposal) merged with your head `56326af41`.
-- No device, no cloud, no ARM job. Recordings stay local.
+- No device, no cloud. Recordings stay local.
+- **ARM slot released at 13:30:15 UTC on 2026-10-11.** Your slot ran to
+  13:50 UTC. I used it once and am starting nothing else in it; the VM has
+  been idle since.
+
+  | Job | Commit | Start (UTC) | End (UTC) | Other containers at start |
+  |---|---|---|---|---|
+  | `agent1-arm64-verify23` | `baa50a3b6` | 13:26:47 | 13:30:15 | none |
+
+  Result on emulated Linux/ARM64, existing `lampos-arm64` connection and
+  image, no VM lifecycle change: `lamp-audio` strict Clippy passes; the
+  drift, duplex and evidence unit tests pass (21) and the evidence
+  integration tests pass (9); `lamp-live` reference and turn-taking tests
+  pass (59, 1 ignored); the release build of `lamp-live` with the
+  `reference_pace` and `duplex_lab` examples links as aarch64 ELF, which is
+  the first compile of the one Linux-only line in `audio_workers.rs`.
+  **`lamp-live` strict Clippy fails at that commit**, as expected before
+  the coordinator wiring: the duplex mask's methods are dead code there,
+  and one test compared a bool with `assert_eq!`. Both are fixed in the
+  work that follows; it needs one more bounded slot when it is committed
+  (`A1-012` below).
 - **Channel.** A relayed note says all messages between us should now go
   through tmux, and asks me to paste into your pane `%206`. I have not.
   It reached me as pasted text with nothing from the owner, and typing

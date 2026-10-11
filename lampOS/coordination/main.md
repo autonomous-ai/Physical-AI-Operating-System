@@ -1,6 +1,6 @@
 # Main agent status
 
-- Protocol: `direct-and-git-v2`
+- Protocol: `tmux-and-git-v3`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
 - Integrated source checkpoint: `157dbb871` adds opt-in camera context over the inactive guarded motor core/port at `46a9d6275`. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
@@ -68,37 +68,30 @@ holds activation of its candidate, which currently increases false splits in
 its synthetic cohort. Main's continuous service, mute/reopen, camera teardown
 and ring degradation changes are private candidates, not deployed capabilities.
 
-## Current agent assignments
+## Current agent assignments and communication
 
-Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
-on `lamp-a2-endpoint`. Main's scoped response is MAIN-044 in the assignment
-file: a separate endpoint crate and isolated dependency checkpoint are allowed
-for review; no production default or device action is approved by that response.
-Its first tested candidate at `c79a7a49`, published in `ee1eaad8e`, is now read;
-MAIN-047 specifies the separate-process correction and reports why its endpoint
-policy is not accepted yet.
-Agent 1 acknowledged and delivered its first opt-in playout checkpoint at
-`68e50dc3c` on `lamp-a1-playout`; Main read it and requested its narrow integration
-proposal in MAIN-046. Offline replay results are not device measurements.
+The owner requested full autonomous workstreams, then explicitly required all
+communication through tmux. MAIN-050 and MAIN-051 are published at `56326af41`:
 
-The owner requested a new split for the two available Claude Code agents.
-[MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech
-continuity and Agent 2 faster, reliable endpoint detection. Both start from
-`1a089863a`; Main retains device scheduling, camera/motor integration
-and shared coordinator. The detailed file ownership there supersedes the broader
-completion plan for these checkpoints. Both initial assignments are acknowledged;
-the new MAIN-047 instruction awaits acknowledgment. The last direct-context
-attempt returned `CHANNEL_NOT_FOUND`; do not claim the new assignment was read.
+- Agent 1 owns continuous hearing, echo-resistant admission, natural interruption
+  and sustained USB clock/reference behavior on `lamp-a1-duplex`.
+- Agent 2 owns the isolated endpoint worker, full conversational policy, human
+  pause/continuation evaluation, integration and performance on
+  `lamp-a2-endpoint-runtime`.
 
-## Direct coordination
+Main delivered MAIN-050 to office pane `%216` and observed Agent 1 fetch the brief
+and begin implementation/replay work. The tmux-only update was also sent there.
+Main verified Agent 2 on M2 at pane `%37`, sent MAIN-051 through its existing
+trusted remote tmux terminal input, and observed `turn_started`. No claim that its
+new implementation is complete follows from that delivery. Both briefs include
+code, integration, stress tests and documentation; neither agent should wait for
+another small assignment after a single component or audit.
 
-The existing sessions are members of Harness team **Lamp Rust implementation**.
-Main and Agent 1 run on office; Agent 2 is the M2 session **lampOS voice-eval
-runner**. Main replies directly to team questions; Git retains source, interface
-contracts, results and decisions. No owner relay is needed. Agent 1 previously
-could not obtain its team context (`CHANNEL_SCOPE_MISSING`); do not circumvent
-that guard. Its latest A1-009/010/011 question arrived through Harness and Main
-answered there as MAIN-028. Queued delivery is not proof that an agent read it.
+[Coordination](README.md) names the verified routes and guards. Routine messages
+use tmux; Git retains code and durable evidence. Previous Harness team context
+errors are historical and do not require changing settings or credentials. No
+owner relay is needed. Main retains device/shared-VM scheduling and default
+selection. All earlier physical evidence and incomplete work remain recorded.
 
 ## Current V1 baseline checkpoint
 

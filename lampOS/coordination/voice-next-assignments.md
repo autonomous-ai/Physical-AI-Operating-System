@@ -20,7 +20,9 @@ documentation through a usable deliverable. They may make routine scoped design
 decisions without Main approving every step. Main owns combined integration,
 physical experiments, social vision, choreography and default selection. Earlier
 delivery evidence and constraints remain valid; do not redo finished studies.
-Direct delivery and acknowledgment will be recorded separately from publication.
+Both briefs have been delivered through the agents' verified tmux terminals;
+Main observed work starting. All further communication uses tmux under
+[the current protocol](README.md); Git remains the source/evidence record.
 
 ## Shared starting point and evidence
 

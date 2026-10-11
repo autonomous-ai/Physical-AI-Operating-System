@@ -22,7 +22,7 @@ strict live all-target Clippy and release build; the extracted runtime is
 in [worker startup](../docs/worker-startup.md). The latest continuous failure is
 recorded in [conversation evidence](../docs/connected-conversation-20261011.md).
 
-## Current integration work, 2026-10-11 16:15 UTC
+## Current integration work, 2026-10-11
 
 A real strict continuation service probe failed while the resumed sentence was
 still uploading: 27,680 of 58,671 successor samples accepted, no successor End,

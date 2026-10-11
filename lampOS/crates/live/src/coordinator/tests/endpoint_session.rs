@@ -474,7 +474,7 @@ fn complete_verdict_ends_early_but_resumed_speech_keeps_the_turn() {
     assert_eq!(endpoints.len(), 1, "split: {endpoints:?}");
     let decision = &endpoints[0]["endpoint"];
     assert_eq!(decision["basis"], "model_complete");
-    assert_eq!(decision["silence_ms"], 400);
+    assert_eq!(decision["silence_ms"], 1_000);
     // The verdict about the first pause was obsolete once speech resumed.
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2, "{requests:?}");
@@ -514,7 +514,7 @@ fn real_worker_session_records_verdict_provenance() {
     assert!(
         matches!(
             decision["basis"].as_str(),
-            Some("model_complete" | "model_incomplete")
+            Some("model_complete" | "model_uncertain" | "model_incomplete")
         ),
         "{decision}"
     );

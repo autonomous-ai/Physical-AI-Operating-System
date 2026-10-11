@@ -741,3 +741,158 @@ async fn a_barrier_that_times_out_reports_what_arrived_before_it_did() {
     // Nothing arrived for two seconds: that, and no terminal, ended it.
     assert!(row["quiet_ms"].as_u64().unwrap() >= 2_000);
 }
+
+async fn mock_keeping(patience: Duration) -> (Connection, FakeService) {
+    let config = config(offline(), BARRIER, BarrierWait::FromInterruption)
+        .unwrap()
+        .successor_start(SuccessorStart::AfterFirstOutput { patience })
+        .unwrap();
+    let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;
+    let connecting = tokio::spawn(connecting);
+    service.accept().await;
+    (connecting.await.unwrap().unwrap(), service)
+}
+
+#[test]
+fn the_kept_start_is_parsed_last_bounded_and_removed() {
+    let arguments = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| item.to_string())
+            .collect::<Vec<_>>()
+    };
+    let mut plain = arguments(&["p", "a.wav", "continue-before-output", "b.wav"]);
+    assert_eq!(kept_start(&mut plain).unwrap(), SuccessorStart::AtOnce);
+    assert_eq!(plain.len(), 4);
+    let mut all = arguments(&[
+        "p",
+        "a.wav",
+        "continue-before-output",
+        "b.wav",
+        "300",
+        "barrier-ms=5000",
+        "barrier-wait=at-commit",
+        "keep-start-ms=2500",
+    ]);
+    assert_eq!(
+        kept_start(&mut all).unwrap(),
+        SuccessorStart::AfterFirstOutput {
+            patience: Duration::from_millis(2_500)
+        }
+    );
+    assert_eq!(barrier_wait(&mut all).unwrap(), BarrierWait::AtCommit);
+    assert_eq!(observed_barrier(&mut all).unwrap(), LONGEST_BARRIER);
+    assert_eq!(all.len(), 5);
+    for bad in [
+        "keep-start-ms=0",
+        "keep-start-ms=4001",
+        "keep-start-ms=long",
+    ] {
+        let mut arguments = arguments(&["p", "a.wav", "repeat-before-output", bad]);
+        assert!(kept_start(&mut arguments).is_err(), "{bad}");
+    }
+    // Every patience the probe accepts is one the library accepts, and one
+    // millisecond more is refused there.
+    for milliseconds in [1_u64, 2_500, 4_000] {
+        let mut arguments = vec![format!("keep-start-ms={milliseconds}")];
+        let start = kept_start(&mut arguments).unwrap();
+        assert!(offline().successor_start(start).is_ok(), "{milliseconds}");
+    }
+    assert!(
+        offline()
+            .successor_start(SuccessorStart::AfterFirstOutput {
+                patience: MAX_SUCCESSOR_PATIENCE + Duration::from_millis(1)
+            })
+            .is_err()
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn with_the_start_kept_a_continuation_before_output_is_confirmed_and_answered() {
+    let (connection, mut service) = mock_keeping(Duration::from_millis(2_500)).await;
+    let first = vec![111; 8_000];
+    let second = vec![222; 16_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        // The second request is being spoken, and nothing of it is written:
+        // not its start and not its audio.
+        assert!(
+            service
+                .try_receive(Duration::from_millis(1_200))
+                .await
+                .is_none()
+        );
+        // The first answer begins. Now it is interrupted.
+        service.send(audio(111, 240)).await;
+        let burst = until(&mut service, "activityStart").await;
+        assert_eq!(burst.len(), 1, "the start comes before any kept audio");
+        service
+            .send(json!({"serverContent":{"interrupted":true}}))
+            .await;
+        service.send(idle()).await;
+        until(&mut service, "activityEnd").await;
+        service.send(audio(333, 240)).await;
+        service.send(idle()).await;
+        service.rest(Duration::from_secs(9)).await;
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_confirmed_and_answered");
+    assert_eq!(report["case"], "barrier_wait_observed_without_prior_audio");
+    assert_eq!(report["inputs"][1]["accepted_samples"], second.len());
+    // The first request's audio was never the caller's.
+    assert_eq!(report["received_audio_samples"], json!([0, 240]));
+    let rows = barrier_rows(&report);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["outcome"], "Settled");
+    assert_eq!(rows[0]["start_released_by"], "FirstOutput");
+    // Kept from the second start, 300 ms after the first End, until the
+    // first answer began 1.2 s after that End.
+    let held = rows[0]["start_held_ms"].as_u64().unwrap();
+    assert!((850..=1_000).contains(&held), "{held}");
+    assert!(rows[0]["retained_samples"].as_u64().unwrap() > 0);
+    assert_eq!(rows[0]["audio_frames"], 1);
+    assert_eq!(rows[0]["interrupted"], 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn with_the_start_kept_and_no_output_at_all_the_patience_ends_in_the_strict_timeout() {
+    let (connection, mut service) = mock_keeping(Duration::from_millis(1_000)).await;
+    let first = vec![1; 8_000];
+    let second = vec![2; 96_000];
+    let client = trial(
+        connection,
+        &first,
+        &second,
+        Duration::from_millis(300),
+        "continue-before-output",
+    );
+    let server = async {
+        until(&mut service, "activityEnd").await;
+        // Nothing for the patience, then the start is written anyway.
+        assert!(
+            service
+                .try_receive(Duration::from_millis(900))
+                .await
+                .is_none()
+        );
+        until(&mut service, "activityStart").await;
+        while let Some(message) = service.try_receive(Duration::from_secs(3)).await {
+            assert!(message["realtimeInput"].get("activityEnd").is_none());
+        }
+    };
+    let (report, ()) = tokio::join!(client, server);
+    assert_eq!(report["outcome"], "strict_barrier_timeout");
+    assert_eq!(report["inputs"][1]["end_queued_us"], Value::Null);
+    let rows = barrier_rows(&report);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["outcome"], "TimedOut");
+    assert_eq!(rows[0]["start_released_by"], "Patience");
+    assert!(rows[0]["start_held_ms"].as_u64().unwrap() >= 1_000);
+}

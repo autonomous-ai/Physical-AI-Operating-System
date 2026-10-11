@@ -1,8 +1,8 @@
 //! Explicit, bounded Require/2 s probes. This is not the production supervisor.
 use super::{Outcome, bounded_regular_file, session};
 use lamp_gemini::{
-    BarrierPolicy, BarrierWait, Connection, Event, InputSender, Lineage, RequestId, Resumption,
-    SessionConfig, SessionId, State, Timeouts,
+    BarrierPolicy, BarrierWait, Connection, Event, InputSender, Lineage, MAX_SUCCESSOR_PATIENCE,
+    RequestId, Resumption, SessionConfig, SessionId, State, SuccessorStart, Timeouts,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -102,6 +102,24 @@ fn config(config: SessionConfig, quiet: Duration, wait: BarrierWait) -> Outcome<
         .barrier_wait(wait)
         .barrier_reports(true)
         .resumption(Resumption::Retain))
+}
+
+/// A trailing `keep-start-ms=N`, removed from `arguments`: the library's
+/// opt-in keeping back of the second request's start and opening audio
+/// until the first response produces or completes, for at most N ms.
+fn kept_start(arguments: &mut Vec<String>) -> Outcome<SuccessorStart> {
+    let Some(value) = arguments
+        .last()
+        .and_then(|last| last.strip_prefix("keep-start-ms="))
+    else {
+        return Ok(SuccessorStart::AtOnce);
+    };
+    let patience = Duration::from_millis(value.parse::<u64>()?);
+    if patience.is_zero() || patience > MAX_SUCCESSOR_PATIENCE {
+        return Err("keep-start-ms must be 1 to 4000, the longest the library accepts".into());
+    }
+    arguments.pop();
+    Ok(SuccessorStart::AfterFirstOutput { patience })
 }
 
 /// A trailing `barrier-wait=at-commit`, removed from `arguments`.
@@ -300,6 +318,16 @@ impl Observed {
                 row["generation_complete"] = json!(report.generation_complete);
                 row["interrupted"] = json!(report.interrupted);
                 row["completions_not_idle"] = json!(report.completions_not_idle);
+                // Whether, for how long and until what the second request's
+                // start was kept back, and two documented signals counted
+                // for observation while the barrier stood.
+                row["start_held_ms"] = json!(report.start_held.map(|held| held.as_millis()));
+                row["start_released_by"] =
+                    json!(report.start_released_by.map(|by| format!("{by:?}")));
+                row["retained_samples"] = json!(report.retained_samples);
+                row["waiting_for_input"] = json!(report.waiting_for_input);
+                row["resumable_updates"] = json!(report.resumable_updates);
+                row["unresumable_updates"] = json!(report.unresumable_updates);
             }
             Event::Discarded { session, reason } => {
                 row["kind"] = json!("discarded");
@@ -524,8 +552,9 @@ pub(super) fn passed(result: &Value) -> bool {
 
 pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     let mut arguments = arguments.to_vec();
-    // Trailing settings, in this order when both are given:
-    // `barrier-ms=N barrier-wait=at-commit`.
+    // Trailing settings, in this order when more than one is given:
+    // `barrier-ms=N barrier-wait=at-commit keep-start-ms=N`.
+    let start = kept_start(&mut arguments)?;
     let wait = barrier_wait(&mut arguments)?;
     let quiet = observed_barrier(&mut arguments)?;
     let (provider, first_path, name, second_path, gap) = match arguments.as_slice() {
@@ -535,7 +564,7 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
         [provider, first, name, second, gap] if name == "continue-before-output" => (provider, first, name, second, Some(gap)),
         [provider, first, name, second] if name == "continue-during-output" => (provider, first, name, second, None),
         [provider, first, name, second, gap] if name == "continue-during-output" => (provider, first, name, second, Some(gap)),
-        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] | ... PRIVATE_PROVIDER FIRST.wav continue-during-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit]".into()),
+        _ => return Err("usage: ... PRIVATE_PROVIDER FIRST.wav continue-before-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N] | ... PRIVATE_PROVIDER FIRST.wav continue-during-output SECOND.wav [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N] | ... PRIVATE_PROVIDER QUESTION.wav repeat-before-output [GAP_MS] [barrier-ms=N] [barrier-wait=at-commit] [keep-start-ms=N]".into()),
     };
     // Before output the gap follows the first End. During output it follows
     // the first audio actually received, and is nothing unless asked for.
@@ -561,7 +590,7 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     if name != "repeat-before-output" && first == second {
         return Err("continuation must contain distinct PCM; use repeat-before-output for a repeated question".into());
     }
-    let config = config(session(Path::new(provider))?, quiet, wait)?;
+    let config = config(session(Path::new(provider))?, quiet, wait)?.successor_start(start)?;
     let connecting = Instant::now();
     let mut result = match lamp_gemini::connect(config, SessionId::new(1)?).await {
         Ok(connection) => {
@@ -585,6 +614,12 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     // `at_commit` is an opt-in setting. A pass under it qualifies that
     // setting and says nothing about the default.
     result["barrier_wait_is_default"] = json!(wait == BarrierWait::FromInterruption);
+    // Likewise the kept start: opt-in, and a pass under it is a pass of it.
+    result["keep_start_ms"] = json!(match start {
+        SuccessorStart::AtOnce => None,
+        SuccessorStart::AfterFirstOutput { patience } => Some(patience.as_millis()),
+    });
+    result["successor_start_is_default"] = json!(start == SuccessorStart::AtOnce);
     result["dropped_output_counts_available"] = json!(true);
     result["barrier_ms"] = json!(quiet.as_millis());
     // A bound longer than production's watches for a late terminal. It

@@ -53,6 +53,14 @@ limited lifecycle evidence; general physical parity and acoustic latency remain
 pending. Default `vad-only` is unchanged. See the
 [implemented baseline](turn-taking-baseline.md).
 
+The following repeated-greeting device run (`20261011T063758Z`) completed
+four replies but split prompt five at a 600 ms low-VAD interval. The baseline
+now ports V1's configured 1.2 s silence fallback. Recorded-score replay retains
+one fifth input; its end remains censored. This adds roughly 600 ms to the
+first four endpoints, and does not port V1's separate endpoint classifier or
+semantic confirmation. It is a conservative correctness step pending a new
+device run, not a latency win or proof of complete V1 parity.
+
 ## Maintained reference designs and provider constraints
 
 Reviewed on 2026-10-11: LiveKit documents separate activity, interruption and

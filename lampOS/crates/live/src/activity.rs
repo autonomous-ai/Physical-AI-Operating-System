@@ -8,6 +8,9 @@ use std::collections::VecDeque;
 pub const PRE_ROLL_BLOCKS: usize = 30;
 pub const START_BLOCKS: u16 = 6;
 pub const END_SILENCE_BLOCKS: u16 = 60;
+/// Pinned V1 Lamp profile's 1.2 s silence fallback. This does not reproduce its
+/// separate Silero endpoint classifier or optional semantic confirmation.
+pub const V1_END_SILENCE_BLOCKS: u16 = 120;
 pub const MAX_UTTERANCE_BLOCKS: u32 = 12_000;
 
 pub struct SpeechProbability {
@@ -61,6 +64,7 @@ pub struct TurnDetector {
     prefix: VecDeque<ObservedAudio>,
     start_count: u16,
     silence_count: u16,
+    end_silence_blocks: u16,
     active_blocks: u32,
     active: bool,
     last: Option<(u64, u64)>,
@@ -72,6 +76,7 @@ impl Default for TurnDetector {
             prefix: VecDeque::with_capacity(PRE_ROLL_BLOCKS),
             start_count: 0,
             silence_count: 0,
+            end_silence_blocks: END_SILENCE_BLOCKS,
             active_blocks: 0,
             active: false,
             last: None,
@@ -80,6 +85,19 @@ impl Default for TurnDetector {
 }
 
 impl TurnDetector {
+    /// Conservative qualification baseline: retain speech across a short
+    /// low-score interval instead of ending and then interrupting that question.
+    pub fn v1_baseline() -> Self {
+        Self {
+            end_silence_blocks: V1_END_SILENCE_BLOCKS,
+            ..Self::default()
+        }
+    }
+
+    pub fn endpoint_silence_ms(&self) -> u64 {
+        u64::from(self.end_silence_blocks) * 10
+    }
+
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
         if let Err(reason) = self.validate(&frame, probability) {
             return Activity::Fault(reason);
@@ -95,7 +113,7 @@ impl TurnDetector {
             } else {
                 0
             };
-            if self.silence_count >= END_SILENCE_BLOCKS {
+            if self.silence_count >= self.end_silence_blocks {
                 self.active = false;
                 self.start_count = 0;
                 self.silence_count = 0;

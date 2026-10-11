@@ -1378,7 +1378,16 @@ fn conversation(
         .map(RingChoreographer::new)
         .transpose()?;
     let mut ring_trace = RingTrace::default();
-    let mut detector = TurnDetector::default();
+    let mut detector = match rig.turn_taking {
+        TurnTaking::V1Baseline => TurnDetector::v1_baseline(),
+        TurnTaking::VadOnly => TurnDetector::default(),
+    };
+    record(
+        trace,
+        json!({"kind":"endpoint_policy","at_us":monotonic_us(),
+        "turn_taking":rig.turn_taking,"silence_wait_ms":detector.endpoint_silence_ms(),
+        "basis":"consecutive_low_vad_scores","semantic_confirmation":false}),
+    )?;
     let mut admission = InputAdmission::default();
     let mut playback_mask = PlaybackMask::new(rig.turn_taking);
     let mut policy_available = None;
@@ -1894,7 +1903,7 @@ fn conversation(
                     });
                     record(
                         trace,
-                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null}),
+                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":detector.endpoint_silence_ms(),"acoustic_speech_end":null}),
                     )?;
                 }
             }

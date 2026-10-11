@@ -92,6 +92,43 @@ The original Harness team context currently returns CHANNEL_NOT_FOUND to Main;
 Git status is the coordination fallback. Do not claim fresh peer acknowledgment.
 
 
+## Repeated-turn defect and endpoint correction
+
+Run `20261011T063758Z` used the same `9a46f270...` ARM binary, original provider
+configuration, cached stimulus and levels. Five prompts were dispatched; four
+replies completed; the fifth input ended prematurely and was replaced 132 ms
+later while the source was still speaking. No accepted earlier-reply speech
+overlapped that trigger. Prompts 6–10 were withheld. The first four replies had
+five accepted-zero intervals totaling 330 ms. Restoration verified. SIGTERM
+left unsealed diagnostic prefixes and no final coordinator trace; source
+recordings were revoked during cleanup. No acoustic or quality pass is claimed.
+Audit: `/private/tmp/lamp-v1-ten-audit-7bt_f44w/report.md`, JSON SHA256
+`845717ee0718b7246565a599ff73a5af69c38ec117e28ec9c99cb922b77e154f`.
+
+The focused Rust correction changes only the opt-in baseline endpoint from
+600 to 1200 ms of consecutive low VAD scores. Default `vad-only`, entry/prefix,
+DSP, provider and playback stay unchanged. VAD-only reset replay did not help;
+it is excluded. The 1.2 s replay preserves all five prefixes and keeps prompt
+five together in the retained input; the final endpoint is censored. First four
+endpoints move ~600 ms later. This is V1's configured silence fallback only,
+not its separate Silero/Smart Turn path. Tests cover mid-question pause, exact
+frame retention, short utterances, bounded endpoint, reset persistence, quiet
+onset limits and capture faults. Host fmt, strict all-target live Clippy and the
+complete serial live suite passed. Standalone Linux ARM64 release build and
+strict audio/Gemini/live Clippy passed, plus release QEMU checks for the ten
+core regressions, five paired-worker cases and 26 turn-taking tests. Native
+CLI/loader staging passed without audio. Physical qualification remains pending.
+Source manifest: `f2218b918b52f43f1932cac9def145abfa2a6dc90c34bb4d7236e3f16ee65d66`.
+ARM binary: `608c2491c71ca9de52e9154a09ce7e64d8fbb248c1e8ae6bac01d1a130717781`.
+Only this status documentation changed after the source export.
+
+Main's next device comparison changes this endpoint window alone. The separate
+startup-buffer proposal remains private and inactive, so it cannot confound
+the comparison. Graceful coordinator termination is also being prepared to
+retain failed-run traces through the existing shutdown path; no fabricated
+diagnostic certification is permitted. Natural full duplex, language consistency,
+playback continuity and the broader embodied interaction goal remain unfinished.
+
 ## Prior integrated checkpoint
 
 `02148ed4d` combines Agent 1's `ae4f05db4` capture/Gemini source with Main's

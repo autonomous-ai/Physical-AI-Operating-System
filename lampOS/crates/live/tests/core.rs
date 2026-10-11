@@ -151,3 +151,92 @@ fn ipc_replay_or_other_worker_cannot_replace_fresh_observation() {
     assert!(order.accept(&other, 104, 50).is_err());
     assert!(decode::<Envelope<()>>(&vec![b' '; 8193]).is_err());
 }
+
+#[test]
+fn baseline_keeps_a_mid_question_low_score_pause_in_one_input() {
+    // Synthetic reproduction of the recorded fifth question: speech, a 700 ms
+    // detector dropout, then the rest of that same question. No PCM inference.
+    let scores = [
+        vec![0.1; 25],
+        vec![0.95; 20],
+        vec![0.1; 70],
+        vec![0.95; 30],
+        vec![0.1; 120],
+    ]
+    .concat();
+    for (mut detector, expected_starts) in [
+        (TurnDetector::default(), 2),
+        (TurnDetector::v1_baseline(), 1),
+    ] {
+        let mut starts = 0;
+        let mut ends = 0;
+        let mut retained = Vec::new();
+        for (i, score) in scores.iter().enumerate() {
+            match detector.push(audio(i as u64 + 1), *score) {
+                Activity::Start(prefix) => {
+                    starts += 1;
+                    retained.extend(prefix.iter().map(|frame| frame.sequence));
+                }
+                Activity::Continue(frame) => retained.push(frame.sequence),
+                Activity::End(frame) => {
+                    ends += 1;
+                    retained.push(frame.sequence);
+                }
+                Activity::Quiet => {}
+                Activity::Fault(reason) => panic!("{reason}"),
+            }
+        }
+        assert_eq!(starts, expected_starts);
+        assert_eq!(ends, expected_starts);
+        if expected_starts == 1 {
+            assert_eq!(
+                retained,
+                (2..=265).collect::<Vec<_>>(),
+                "every prefix and active frame must be retained exactly once"
+            );
+        }
+    }
+}
+
+#[test]
+fn baseline_short_reply_has_a_finite_endpoint_and_reset_keeps_policy() {
+    let mut detector = TurnDetector::v1_baseline();
+    assert_eq!(TurnDetector::default().endpoint_silence_ms(), 600);
+    for _ in 0..2 {
+        detector.reset();
+        assert_eq!(detector.endpoint_silence_ms(), 1_200);
+        // A brief synthetic yes/no needs only the original six-block onset.
+        for seq in 1..6 {
+            assert!(matches!(detector.push(audio(seq), 0.95), Activity::Quiet));
+        }
+        assert!(matches!(detector.push(audio(6), 0.95), Activity::Start(_)));
+        for seq in 7..126 {
+            assert!(matches!(
+                detector.push(audio(seq), 0.1),
+                Activity::Continue(_)
+            ));
+        }
+        assert!(matches!(detector.push(audio(126), 0.1), Activity::End(_)));
+    }
+}
+
+#[test]
+fn baseline_does_not_claim_to_recover_an_arbitrarily_quiet_onset() {
+    let mut detector = TurnDetector::v1_baseline();
+    // Deliberately slow synthetic onset: the prefix is still only 300 ms.
+    for seq in 1..=50 {
+        assert!(matches!(detector.push(audio(seq), 0.6), Activity::Quiet));
+    }
+    for seq in 51..56 {
+        assert!(matches!(detector.push(audio(seq), 0.95), Activity::Quiet));
+    }
+    let Activity::Start(prefix) = detector.push(audio(56), 0.95) else {
+        panic!("onset");
+    };
+    assert_eq!(prefix.first().unwrap().sequence, 27);
+    assert_eq!(prefix.last().unwrap().sequence, 56);
+    assert_eq!(prefix.len(), 30);
+    // Continuity faults must stay faults even with the longer silence window.
+    assert!(matches!(detector.push(audio(58), 0.1), Activity::Fault(_)));
+    assert_eq!(detector.endpoint_silence_ms(), 1_200);
+}

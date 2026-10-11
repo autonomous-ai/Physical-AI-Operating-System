@@ -4,7 +4,8 @@
 `--turn-taking v1-baseline|vad-only`. The default remains `vad-only`, the existing
 unqualified interruption experiment. The baseline is an opt-in candidate for
 physical qualification, not a selected release policy or a full-duplex fix.
-It changes admission before turn replacement, not the audio pipeline.
+It changes admission before turn replacement and uses a conservative local
+endpoint window. It does not change the audio pipeline.
 
 ```sh
 lamp-live directed /absolute/private/provider.json 40 /new/private/run \
@@ -31,6 +32,41 @@ continuous microphone capture, accepted render reference, AEC adaptation, neural
 VAD computation, and the PCM clock. It does not port V1's DSP or claim sample or
 acoustic parity. The tail is a **declared, unmeasured 100,000 µs**, inspired by
 V1's minimum post-playback wait; Rust does not reproduce V1's RMS-tail condition.
+
+## Preserve the question before optimizing its endpoint
+
+The opt-in baseline now requires **120 consecutive 10 ms blocks** with VAD
+probability below 0.35 before committing the local endpoint. The existing
+`vad-only` experiment remains at 60 blocks. This borrows the 1.2 s silence
+fallback from the pinned V1 Lamp profile. It does not reproduce V1's separate
+Silero endpoint state, STT-final shortcut or revocable Smart Turn confirmation.
+No VAD/AEC reset, entry threshold, prefix length or provider setting changes.
+The 120 s utterance bound and capture-discontinuity failures remain in force.
+`endpoint_policy` records the active window and absence of semantic confirmation;
+each `local_endpoint.includes_silence_wait_ms` now reports that actual setting.
+
+This corrects a concrete failure in run `20261011T063758Z`: four replies completed,
+then prompt five was ended during a low-score interval. A new admission followed
+132 ms later while the source was still speaking and cancelled the pending
+answer. No accepted earlier-reply speech overlapped that trigger. Remaining
+prompts were withheld. Aborting the run killed final trace/diagnostic writes, so
+the retained prefix is uncertified and supplies no accepted acoustic score.
+
+Offline replay of the unchanged recorded scores reproduces the six admissions
+at 600 ms. At 1.2 s it produces five admissions, preserves all five original
+opening prefixes, and keeps the fifth question together through the retained
+audio. That question's final endpoint is censored by the abort. The first four
+endpoints move 599.69–599.87 ms later. Resetting only VAD state after prior reply
+retirement plus 100 ms did **not** fix the split and was not selected.
+Private replay report SHA256:
+`a5c6db828e4fe4d0d713705993dba23fa5c5c8a7b3ddd898eab91f2d1a7f02cd`.
+
+The extra nominal 600 ms is an explicit latency cost of this baseline, not a
+claimed optimization. Physical repeated-turn qualification is pending. A
+300 ms prefix cannot recover an arbitrarily quiet onset, and pauses beyond
+this window can still split a question. The final conversational target remains
+speech-end to first audible word p50 at most 2 s, with natural interruptions;
+the conservative baseline does not satisfy that complete goal by itself.
 
 ## Admission and actual output evidence
 

@@ -93,8 +93,10 @@ const SPEECH: f32 = 0.95;
 const QUIET: f32 = 0.05;
 
 impl Rig {
+    /// Mechanics tests use a two-band policy with a 400 ms commit, so each
+    /// rule is visible at a short pause; the default profile has its own tests.
     fn new() -> Self {
-        Self::with(ConfirmPolicy::default())
+        Self::with(mechanics())
     }
 
     fn with(policy: ConfirmPolicy) -> Self {
@@ -192,14 +194,80 @@ fn verdict_after_the_commit_pause_ends_on_arrival() {
     assert_eq!(rig.decision().silence_ms, 460);
 }
 
+fn mechanics() -> ConfirmPolicy {
+    ConfirmPolicy {
+        commit_blocks: 40,
+        complete_probability: 0.8,
+        incomplete_probability: 0.8,
+        incomplete_blocks: 120,
+        ..ConfirmPolicy::default()
+    }
+}
+
 #[test]
-fn default_threshold_treats_a_moderate_verdict_as_incomplete() {
+fn mechanics_threshold_treats_a_moderate_verdict_as_incomplete() {
     let mut rig = Rig::new();
     rig.speak(50);
     rig.quiet(20);
     rig.script.reply(rig.script.submissions()[0], 0.79);
     assert_eq!(rig.quiet_until_end(200), Some(100));
     assert_eq!(rig.decision().basis, "model_incomplete");
+}
+
+/// Ends one 0.5 s utterance with a verdict of `probability`; returns the
+/// pause length at the endpoint and its basis.
+fn default_profile_end(probability: f32) -> (u64, &'static str) {
+    let mut rig = Rig::with(ConfirmPolicy::default());
+    rig.speak(50);
+    rig.quiet(20);
+    rig.script.reply(rig.script.submissions()[0], probability);
+    rig.quiet_until_end(300).expect("no endpoint");
+    let decision = rig.decision();
+    (decision.silence_ms, decision.basis)
+}
+
+#[test]
+fn default_profile_bands_end_complete_uncertain_and_incomplete_pauses() {
+    let policy = ConfirmPolicy::default();
+    assert_eq!(policy.check_blocks, 20);
+    assert_eq!(default_profile_end(0.95), (1_000, "model_complete"));
+    assert_eq!(default_profile_end(0.9), (1_000, "model_complete"));
+    assert_eq!(default_profile_end(0.899), (1_200, "model_uncertain"));
+    assert_eq!(default_profile_end(0.01), (1_200, "model_uncertain"));
+    assert_eq!(default_profile_end(0.009), (1_500, "model_incomplete"));
+    assert_eq!(default_profile_end(0.0), (1_500, "model_incomplete"));
+}
+
+#[test]
+fn default_profile_holds_unfinished_speech_but_resumes_on_speech() {
+    let mut rig = Rig::with(ConfirmPolicy::default());
+    rig.speak(50);
+    rig.quiet(20);
+    rig.script.reply(rig.script.submissions()[0], 0.005);
+    // Beyond the 1.2 s silence window, the clearly unfinished turn is held...
+    rig.quiet(125);
+    // ...and the person continues it: the same utterance, a new verdict.
+    rig.speak(20);
+    rig.quiet(20);
+    let tokens = rig.script.submissions();
+    assert_eq!(tokens.len(), 2);
+    assert_eq!(tokens[1].utterance, tokens[0].utterance);
+    rig.script.reply(tokens[1], 0.97);
+    assert_eq!(rig.quiet_until_end(200), Some(80));
+    assert_eq!(rig.decision().basis, "model_complete");
+}
+
+#[test]
+fn responsive_profile_is_explicit_and_commits_at_400_ms() {
+    let policy = ConfirmPolicy::responsive();
+    assert_eq!(policy.commit_blocks, 40);
+    assert_ne!(policy, ConfirmPolicy::default());
+    let mut rig = Rig::with(policy);
+    rig.speak(50);
+    rig.quiet(20);
+    rig.script.reply(rig.script.submissions()[0], 0.95);
+    assert_eq!(rig.quiet_until_end(200), Some(20));
+    assert_eq!(rig.decision().silence_ms, 400);
 }
 
 #[test]
@@ -244,7 +312,7 @@ fn incomplete_verdict_holds_until_the_incomplete_window() {
     for (window, expected) in [(120u16, 120u16), (200, 200)] {
         let mut rig = Rig::with(ConfirmPolicy {
             incomplete_blocks: window,
-            ..ConfirmPolicy::default()
+            ..mechanics()
         });
         rig.speak(40);
         rig.quiet(20);
@@ -283,41 +351,119 @@ fn resumed_speech_discards_a_pending_complete_verdict() {
 }
 
 #[test]
-fn short_blips_neither_resume_speech_nor_end_the_turn() {
+fn any_speech_scored_block_restarts_the_pause_like_the_baseline() {
     let mut rig = Rig::new();
     rig.speak(40);
     rig.quiet(20);
-    let token = rig.script.submissions()[0];
-    // Two above-threshold blocks are a blip: same generation, same pause.
+    let first = rig.script.submissions()[0];
+    // One speech-scored block (a breath or noise) ends this pause: its
+    // verdict is obsolete even when it arrives during the next pause.
     assert!(matches!(rig.push(SPEECH), Activity::Continue(_)));
-    assert!(matches!(rig.push(SPEECH), Activity::Continue(_)));
-    rig.script.reply(token, 0.95);
-    rig.quiet(16);
-    // The verdict applies at 39 pause blocks, but never on a speech block.
-    assert!(matches!(rig.push(SPEECH), Activity::Continue(_)));
-    assert!(matches!(rig.push(QUIET), Activity::End(_)));
-    assert_eq!(rig.decision().silence_ms, 400);
+    rig.script.reply(first, 0.99);
+    rig.quiet(19);
     assert_eq!(rig.script.submissions().len(), 1);
+    rig.quiet(1);
+    let second = rig.script.submissions()[1];
+    assert_eq!(second.utterance, first.utterance);
+    assert_eq!(second.generation, first.generation + 1);
+    rig.script.reply(second, 0.95);
+    assert_eq!(rig.quiet_until_end(40), Some(20));
+    let decision = rig.decision();
+    assert_eq!(decision.silence_ms, 400);
+    assert_eq!(decision.verdict.unwrap().request, 2);
+}
+
+/// A deterministic mix of speech runs, pauses of every length and isolated
+/// speech-scored blocks inside pauses.
+fn probabilities(seed: u32, blocks: usize) -> Vec<f32> {
+    let mut state = seed | 1;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        state
+    };
+    let mut out = Vec::with_capacity(blocks);
+    while out.len() < blocks {
+        let speech = 6 + next() % 120;
+        out.extend((0..speech).map(|_| SPEECH));
+        let pause = next() % 300;
+        for _ in 0..pause {
+            out.push(if next() % 150 == 0 { 0.5 } else { QUIET });
+        }
+    }
+    out.truncate(blocks);
+    out
+}
+
+fn ends(detector: &mut TurnDetector, probabilities: &[f32]) -> Vec<usize> {
+    probabilities
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &probability)| {
+            let audio = ObservedAudio {
+                sequence: index as u64 + 1,
+                captured_at_us: 1_000_000 + index as u64 * 10_000,
+                samples: [7; 160],
+            };
+            matches!(detector.push(audio, probability), Activity::End(_)).then_some(index)
+        })
+        .collect()
 }
 
 #[test]
-fn periodic_noise_blips_cannot_hold_a_turn_open() {
-    let mut rig = Rig::new();
-    rig.script.0.lock().unwrap().availability = Some(Availability::Loading);
-    rig.script.refuse(&[Submit::Unavailable]);
-    rig.speak(30);
-    let mut blocks = 0;
-    let ended = loop {
-        blocks += 1;
-        let probability = if blocks % 25 == 0 { SPEECH } else { QUIET };
-        if matches!(rig.push(probability), Activity::End(_)) {
-            break blocks;
-        }
-        assert!(blocks < 500, "noise held the turn open");
-    };
-    // The strict consecutive-block baseline would never end here.
-    assert_eq!(ended, 120);
-    assert_eq!(rig.decision().fallback, Some("loading"));
+fn fallback_ends_every_turn_exactly_where_the_baseline_does() {
+    for seed in 1..=40 {
+        let sequence = probabilities(seed, 6_000);
+        let baseline = ends(&mut TurnDetector::v1_baseline(), &sequence);
+        assert!(baseline.len() > 5, "seed {seed}");
+        // A missing model, and a model that is never decisive.
+        let missing = Scripted::default();
+        missing.0.lock().unwrap().availability = Some(Availability::Failed("missing".into()));
+        missing.refuse(&[Submit::Unavailable; 400]);
+        let mut detector = TurnDetector::v1_baseline()
+            .with_confirmation(Box::new(missing), ConfirmPolicy::default())
+            .unwrap();
+        assert_eq!(ends(&mut detector, &sequence), baseline, "seed {seed}");
+        let undecided = Undecided::default();
+        let mut detector = TurnDetector::v1_baseline()
+            .with_confirmation(Box::new(undecided), ConfirmPolicy::default())
+            .unwrap();
+        assert_eq!(ends(&mut detector, &sequence), baseline, "seed {seed}");
+    }
+}
+
+/// Answers every request on the next poll with an uncertain verdict.
+#[derive(Default)]
+struct Undecided {
+    pending: Option<Token>,
+    requests: u64,
+}
+
+impl Classifier for Undecided {
+    fn submit(&mut self, token: Token, _pcm: &[i16]) -> Submit {
+        self.requests += 1;
+        self.pending = Some(token);
+        Submit::Accepted
+    }
+    fn poll(&mut self) -> Option<Outcome> {
+        let token = self.pending.take()?;
+        Some(Outcome {
+            token,
+            worker: 1,
+            request: self.requests,
+            result: Ok(Verdict {
+                probability: 0.5,
+                ..Verdict::default()
+            }),
+        })
+    }
+    fn availability(&self) -> Availability {
+        Availability::Ready
+    }
+    fn cancel(&mut self) {
+        self.pending = None;
+    }
 }
 
 #[test]
@@ -491,7 +637,7 @@ fn invalid_policies_are_rejected() {
             ..base
         },
         ConfirmPolicy {
-            check_blocks: 50,
+            check_blocks: 101,
             ..base
         },
         ConfirmPolicy {
@@ -512,6 +658,18 @@ fn invalid_policies_are_rejected() {
         },
         ConfirmPolicy {
             result_timeout_blocks: 0,
+            ..base
+        },
+        ConfirmPolicy {
+            incomplete_probability: 0.95,
+            ..base
+        },
+        ConfirmPolicy {
+            incomplete_probability: -0.1,
+            ..base
+        },
+        ConfirmPolicy {
+            incomplete_probability: f32::NAN,
             ..base
         },
     ] {

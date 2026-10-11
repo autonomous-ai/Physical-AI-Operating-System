@@ -112,8 +112,8 @@ fields allow an explicit matching setup; their unit tests do not prove provider
 acceptance. See [comparison configuration](gemini-comparison-config.md).
 
 Keep the first speech-gap regression on its prior model configuration to isolate
-the code correction. Then qualify the matching setup and run balanced repeated
-V1-main/V2 conversation blocks. Prompt/tool load, context, local endpointing,
+the code correction. Then qualify the matching setup. Under the owner's later instruction, capture one frozen V1-main conversation cohort and save it;
+reuse that baseline for subsequent V2 runs instead of routinely rerunning V1. Prompt/tool load, context, local endpointing,
 DSP and process ownership remain declared whole-system differences. Even a
 matched-model improvement does not isolate the programming language's effect.
 
@@ -315,3 +315,22 @@ the release build. A 4,096-sample synthetic candidate/decision probe measured
 p99 0.364 microseconds and first/max 8.523 microseconds, excluding capture, VAD,
 IPC, provider and acoustic output. No physical trial or live latency table was
 changed. Source identity and receipts: `artifacts/input-admission-20261010-8176c475/`.
+
+
+## Six-question 4ace run and baseline reuse
+
+The locked-screen iMac/4ace run `varied-run-42445a9297` completed six varied
+question/reply lifecycles on unchanged Rust `6e6c58b42`: greeting, arithmetic,
+sky, coffee, ocean and a short story. All six output transcripts are English
+and relevant; no extra admission or cancellation occurred. Accepted-zero gaps
+remain in three replies: 70 ms, 160 ms, and 140 + 70 ms. A separate introductory
+sentence and pause before the actual story must not be scored as fast substantive
+content. The 165 s iMac WAV and both native diagnostic streams finalized.
+Acoustic proposals and automated ASR review are not accepted human listening.
+
+The old ten-turn table compares two modified V1 deployments; it cannot stand
+in for V1 main. The existing n=1 main pilot is now preserved in the ignored local
+benchmark archive, byte-verified, without rerunning it. A matched six-prompt main
+cohort is being prepared once, with the same cached questions and current
+iMac observer; it has not run. All attempts remain in their respective cohorts.
+See [source identities, exact intervals and limits](../coordination/main.md#six-varied-turns-on-locked-screen-4ace).

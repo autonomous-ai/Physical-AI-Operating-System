@@ -3,9 +3,9 @@
 - Protocol: `direct-and-git-v2`
 - Updated: 2026-10-11
 - Branch: `lamp-v2-chat`
-- Integrated runtime checkpoint: `6e6c58b42` (cooperative termination), now exercised on lamp-4ace; ARM binary `0aa2387a...`.
+- Integrated source checkpoint: `46a9d6275` adds the inactive guarded motor core and Linux port. Deployed audio remains `6e6c58b42`, ARM binary `0aa2387a...`.
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
-- State: lamp-4ace is available again. One real Rust exchange was heard by the owner and captured by the iMac microphone; its complete 3.12 s reply has zero playback gaps. Microphone, explicit speakers and a fresh camera capture also work with the iMac locked. This is a finite audio trial, not an installed continuous V2 service. Natural interruption, varied conversation and full choreography remain unfinished. See the latest evidence below.
+- State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
 ## Direct coordination
 
@@ -504,3 +504,98 @@ approved app identities. A 24-hour system-sleep inhibitor began at
 logging out, shutting down or future permission changes are separate conditions.
 The owner requests a single stored V1-main benchmark; inspect existing source
 provenance before starting any additional baseline run.
+
+
+## Six varied turns on locked-screen 4ace
+
+`varied-run-42445a9297` used the unchanged deployed `6e6c58b42` /
+`0aa2387a4c382ea25568f5099e11427f5a05b8caa93ea01beff23836aaccb822`
+with V1-baseline turn taking, 1.2 s silence endpoint, NS off and 200 ms startup
+horizon. The iMac played six previously cached Daniel/190 clips: greeting,
+division, blue sky, coffee, ocean fact and a short robot story. Each follow-up
+waited for actual whole-turn completion and the declared tail; no blind delay
+or automatic repeat advanced the plan. This is synthetic loudspeaker input.
+
+The trace has six admitted inputs, six endpoints and six completed replies,
+with no cancellation or extra input. Replies 1–3 have no accepted-zero gaps;
+reply 4 has 70 ms, reply 5 has 160 ms, and reply 6 has 140 + 70 ms. The story
+has two playback occurrences: an introductory sentence followed by a separate
+roughly 2.27 s retirement-to-next-write interval. That interval is not hidden
+inside the four starvation-gap count. Substantive story onset must be scored
+separately from the introductory sentence. All six provider output transcripts
+are English and relevant; topicality is not factual or human-experience approval.
+
+Local endpoint to first ALSA acceptance, seconds, in prompt order:
+`1.656733, 1.504063, 1.846100, 1.634824, 3.792812, 1.538589`. These exclude
+the 1.2 s endpoint wait and are not acoustic speech-end to first-word results.
+The 165 s observer captured all 7,920,000 mono 48 kHz frames with zero reported
+clipping, drops, discontinuities or stream errors. The runtime's requested
+cooperative SIGTERM exit remains exit 1; both distinct diagnostic acknowledgments
+and completion markers verify. Strict rollback restored stationary legacy
+services, microphone and speaker muted. The run is retained as
+`captured_unscored`, not a quality pass.
+
+Evidence is local only:
+`/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-4ace-varied-12io918n`.
+Room WAV SHA256:
+`03d56b84a2063c5207330ffb4cfee4ccffef48b7d8a026afab341e6349d70385`.
+Native evidence archive SHA256:
+`aef1b809420198f89d32f36be4ff51d56b564a4d52138bbc3dbad95a1d311e7d`.
+The exact executed host runner was not hashed at launch; its author finalized
+the source receipt during execution, so that later freeze must not be assigned
+retroactively. Remote helper/ledger source hashes, native binary, copied prompts,
+player receipts and sealed diagnostic bytes are independently available.
+Mac volume provenance is also missing from that executed host receipt.
+
+## Guarded motor source integration
+
+`46a9d6275` integrates 12 reviewed files: the motor core, bounded position-only
+codec/trajectory, exclusive Linux adapter, tests, two English docs and its single
+internal `lamp-interaction` dependency. It starts idle and has no live actor,
+motion CLI, default calibration or automatic torque change. Root independently
+ran workspace formatting, strict all-target motor Clippy and all 88 host motor
+tests successfully. The exact source also passed the author's 93 ARM/QEMU
+tests, strict Clippy and release build; those are emulation, not hardware.
+The first root command failed before compilation because Cargo was absent from
+PATH; the absolute installed Cargo path resolved it.
+
+Root gate receipts: `/private/tmp/lamp-motor-integration-_36e466d/receipts.json`.
+Reviewed patch SHA256:
+`981634de757a11a8e5429489871bfd2dc39e0c3ed86683bd2d62b7ea8fda21de`.
+See [the motor contract](../docs/motor-runtime-contract.md) for the remaining
+supervised actor, physical calibration, placement and stopping/holding work.
+No motor or camera activation is included in this audio result.
+
+## V1-main source provenance and saved baseline policy
+
+The old ten-turn table was **modified desk5b versus further-modified desk6**,
+not main versus modified V1. Preserve its original labels; neither is the Rust
+comparison baseline. The separate pinned-main pilot is still n=1, with unaccepted
+acoustic boundaries. Its complete 22-file, 2,810,659-byte evidence is now retained
+in ignored local `.cache/benchmarks/v1-main-d5efe9d7-pilot-e363pbra/`; preservation
+manifest SHA256:
+`7ed812e5c9708e483269412e2b147aa3372731a9b006d16d89db69f020b0f016`.
+The source audit is saved beside it in `historical-v1-source-provenance/`;
+report SHA256 `245240e185364a97395c979bf597af11f02a3d6976100f22e63429c6f38eba21`.
+
+The owner requests one stored V1-main cohort, then reuse. The matched six-question
+cohort is being prepared, not yet run. Today the existing device package's
+695 HAL entries and os-server digest were verified against its pinned manifest,
+and an app-free systemd namespace preflight passed. Neither check starts V1
+voice or counts as a benchmark. Main remains
+`d5efe9d7b73cc529b34cd4abe97624682a82ca94`, os-server binary
+`cfdcbef53a02c47b4ef0225e69dcad8476b0cd997a34c86698f13c9176dd0d05`.
+Do not pool the old spare-microphone pilot with the new iMac-microphone cohort.
+
+
+Independent six-turn review is complete at
+`/private/tmp/lamp-4ace-varied-audit-20261011-01/report.json`, SHA256
+`ae08180c0ddb4fe26962b54c06e1cf494fc996b2204b4b5974cb9420776c7396`.
+All six source/player identities, both diagnostic streams and queued/accepted
+frame coverage verify. Local offline ASR corroborates six complete English
+replies. Automated acoustic proposals are roughly 3.0, 2.7, 3.3, 3.0, 5.1 and
+2.8 s to the first spoken segment, but roughly 6.9 s to the substantive story.
+These are waveform/ASR review proposals with unresolved word-boundary uncertainty,
+`human_listened=false`, and no accepted p50/p95. The full physical evidence is
+now additionally preserved byte-for-byte in ignored local
+`.cache/benchmarks/v2-4ace-varied-20261011-12io918n/`.

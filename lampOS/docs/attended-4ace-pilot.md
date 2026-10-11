@@ -12,6 +12,14 @@ corroborate all eight replies. Endpoint to first speaker write was median
 this is software timing, not accepted acoustic latency. Human-listened
 acceptance and physical mute/reopen remain pending.
 
+A separate [candidate control](verification/provider-control-20261011/README.md)
+on `2021c1bb9` with kept-start enabled also completed 8/8 ordinary replies,
+without reported gaps or cancellations. Endpoint to first ALSA median was
+1.214119 s, excluding 1.2 s silence wait. It does not establish a speedup or
+interruption support. The temporary override was removed; the stopped default
+above was not changed. The owner now targets pilot testing by about
+2026-10-12 02:24 UTC; feature qualification remains required.
+
 The [earlier incomplete eight-slot attempt](verification/installed-connected-20261011/README.md)
 remains retained: one completed greeting, one stale host-player spawn with brief
 output unknown, and six withheld slots. The corrected prepared player now arms

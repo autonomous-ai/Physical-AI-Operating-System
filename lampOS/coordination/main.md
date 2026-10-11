@@ -1,12 +1,24 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 22:02 UTC
+- Updated: 2026-10-11 23:34 UTC
 - Branch: `lamp-v2-chat`
-- Latest connected attempt: `e9bdcea28` / `b1c61a22...643edbd`, **8/8 complete replies** in one provider session, zero extra inputs/cancellations/reported playback gaps. Continuous room recording and one local ASR pass corroborate all eight. Earlier failed attempts and the older 16/16 sustained check remain separate. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
-- Integration source: optional owned failure notices plus reviewed Gemini Stop fence, `e9bdcea28` / `b1c61a22...643edbd`. R3 passed a finite native 2/2 voice/ring check with clean Stop/restoration; two earlier incomplete attempts remain recorded. The trial removed its override; a later verified stopped-template promotion now selects this binary and ring12.
+- Latest connected attempt: `2021c1bb9` / `96d5a03a…fa4fc44b`, **8/8 complete ordinary replies** with kept-start enabled, one provider session and zero extra inputs/cancellations/reported playback gaps. Valid local recording; no ASR or human listening on this run. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
+- Integration source: `2021c1bb9`; the installed stopped default remains the separately qualified `e9bdcea28` / `b1c61a22…643edbd` voice/ring binary. The latest temporary candidate override was removed after verified Stop/restoration.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
-- Pilot target: approximately 2026-10-12 03:18 UTC. Sustained conversation and installed-service start/Stop gates passed; failure feedback, physical privacy controls and pilot limitations remain active work.
+- Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
+
+## Latest native candidate control
+
+The [new ordinary-conversation control](../docs/verification/provider-control-20261011/README.md)
+on `2021c1bb9` / `96d5a03a…fa4fc44b` completed 8/8 replies with kept-start
+explicitly enabled, zero extra admissions/cancellations/reported gaps, and one
+provider session. All 9,121 metadata events and 3,950 ring receipts verify; Stop and stationary muted restoration passed. Endpoint to first ALSA
+write median is 1.214119 s (eight samples), excluding 1.2 s silence wait. No ASR,
+human listening or acoustic score is claimed. This control contains no overlap
+or retained successor and does not qualify interruption. The stopped default
+remains e9/b1. Agent 1's separate discard package is held for a reproduced
+concurrent-publication cancellation race and a queued-owner-transition review.
 
 ## Current stopped pilot installation
 
@@ -23,8 +35,9 @@ with the integration branch, behind `--provider-continuation off|kept-start`
 worker tests are included. Main's combined source passed format, strict package
 Clippy, 697 host library tests (six existing ignored), 42 emulated ARM tests and
 release build. [Exact evidence and limits](../docs/verification/provider-continuation-integration-20261011/README.md)
-record the uninstalled artifact. The ordinary-conversation native control is
-being prepared. Explicit discard versus continuation remains separate work;
+record the staged artifact. Its ordinary-conversation native control passed
+as recorded above; the default template is unchanged. Explicit discard versus
+continuation remains separate work;
 accepted transport bytes and already-taken cancelled audio are not claimed to
 be retractable. Three service-only synthetic probes on the original proposal
 are complete: immediate Start timed out with no answer; retained Start settled

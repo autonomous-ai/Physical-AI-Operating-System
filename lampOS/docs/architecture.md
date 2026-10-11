@@ -18,12 +18,15 @@ This does not independently verify the model's visual descriptions. Optional
 ring startup and runtime failures now disable presentation while retaining
 healthy voice, with uncertain cleanup kept explicit.
 
-The latest continuous qualification completed eight scheduled replies, then
-failed during idle at about 378.6 seconds on `reference_backlog`. The full target
-interval has a valid local room recording; eight later prompts were withheld,
-and stationary legacy restoration was verified. There is no qualified all-day
-service or complete embodied performance. See the
-[supervised pilot plan](supervised-pilot.md) for the owner's 12-hour priority and
+The older 378.6-second reference-backlog failure remains recorded. A later
+capture-clock session completed 16 exchanges over 21.6 minutes without a
+reference fault. The latest candidate ordinary-conversation control completed
+8/8 replies with kept-start enabled and no reported playback gaps or extra
+inputs; it did not exercise interruptions. There is no qualified all-day service
+or complete embodied performance. The owner now targets real-user pilot testing
+by approximately 2026-10-12 02:24 UTC. See the
+[latest native evidence](verification/provider-control-20261011/README.md),
+[supervised pilot plan](supervised-pilot.md) and
 [conversation evidence](connected-conversation-20261011.md) for measured limits.
 
 The owner deferred V1 benchmarking. Preserve existing results in

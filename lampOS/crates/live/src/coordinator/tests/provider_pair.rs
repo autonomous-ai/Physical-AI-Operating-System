@@ -1107,6 +1107,39 @@ mod continuation_or_discard {
     }
 
     #[tokio::test]
+    async fn a_mute_while_the_question_is_kept_writes_none_of_it_and_ends_cleanly() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // The microphone is closed: authority says so once, and there is no
+        // lease to renew afterwards.
+        rig.owner
+            .set_microphone_permission(now(), Permission::Denied)
+            .unwrap();
+        let snapshot = rig.owner.snapshot(now()).unwrap();
+        rig.channels
+            .control
+            .send(Control::Authority { snapshot })
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), rig.worker.take().unwrap())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        // Kept, then dropped with the session: not a start, not a block.
+        assert!(
+            dial.service
+                .try_receive(Duration::from_millis(50))
+                .await
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
     async fn a_stop_after_an_abandonment_writes_nothing_and_ends_cleanly() {
         let (mut rig, mut dial, selected) = Paired::kept().await;
         rig.first_committed(&mut dial, &selected).await;

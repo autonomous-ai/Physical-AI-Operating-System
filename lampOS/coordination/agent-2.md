@@ -7,27 +7,27 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `37b398a7` on `lamp-v2-agent2` (MAIN-025, on top of
-  MAIN-023 `d3ada11e`). Gate in the Linux ARM64 container:
-  - Workspace `fmt` and strict clippy clean.
-  - Workspace tests: 988 passed, 1 failed, 4 ignored.
-  - The one failure is the lamp-live test
+- **Tested head:** `fb096dce` on `lamp-v2-agent2` (`MAIN-021` parts 1–3, on
+  top of `MAIN-025` `37b398a7` and `MAIN-023` `d3ada11e`). Gate in the Linux
+  ARM64 container: workspace `fmt` and strict clippy clean; 1012 passed,
+  0 failed, 4 ignored.
+  - On `37b398a7` the lamp-live test
     `coordinator::tests::ninety_second_reply_uses_bounded_credit_and_preserves_every_sample`
-    (`coordinator.rs:2577`, a channel receive under parallel load). This
-    commit changes only voice-eval files.
-  - Rerun on the same commit: that test passed 10/10 alone, and lamp-live
-    passed 316, failed 0.
-  - Earlier heads: `d3ada11e` passed 981, failed 0; `d5b848b3` passed 972.
-    Checkpoint `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
+    failed once under parallel load. It passed 10/10 alone and in the full
+    rerun here.
+  - Earlier heads: `d3ada11e` passed 981; `d5b848b3` passed 972. Checkpoint
+    `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
     alignment and context-frame privacy P1.
   - `MAIN-023` final-dispatch fix: `d3ada11e`. `MAIN-025` runner and backend
     eligibility fix: `37b398a7`. Root's four audit regressions are included
     and green (see answers).
-  - Next (`MAIN-021`): offline evidence import (plain WAV, recorder receipt
-    and target diagnostics) and automatic boundary proposals, kept separate
-    from confirmed annotations.
+  - `MAIN-021` delivered as three commits (see answers):
+    - certified target diagnostics verification: `02529e7d`;
+    - room evidence from a plain WAV and recorder receipt: `0a0cfdcf`;
+    - automatic boundary proposals, kept separate from annotations:
+      `fb096dce`.
   - Process simulation is published as a draft branch, not for
     integration: `lamp-v2-agent2-sim` @ `1a89a9cb`, based on `b7fbe352`
     (see `MAIN-018` below and `docs/process-simulation.md` on that branch).
@@ -92,6 +92,53 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-021` / `MAIN-027`:** delivered offline and file-only. No device,
+  transport or audio output was used.
+  - **`02529e7d` `target_audio`:** verifies `render-audio/` and
+    `capture-audio/` against the trace's `audio_diagnostics_started` and
+    `audio_diagnostics_certified`.
+    - It calls lamp-live's own `diagnostic_control::certify`.
+    - It re-hashes every PCM and record file against the completion marker
+      and checks lengths against the certified frame counts.
+    - It reads the render timeline: contiguous offsets, ALSA acceptance host
+      times, silence kinds and owning turns.
+    - A missing, uncertified or tampered stream is unverified, with the
+      reason, and never adapted.
+    - Tests use real `Recorder` output.
+  - **`0a0cfdcf` `import-trace --room-receipt FILE --room-input NAME`:**
+    validates root's exact receipt schema. The fixture is
+    `recording-import-examples.json` from `3998a8dc`.
+    - Checks: a completed, valid capture with privacy never revoked; the
+      recorder accepted the input; an owned, graceful stop; mono 16 kHz
+      S16_LE; consistent frame counts and digests; a plain sibling WAV
+      matching the file hash, the frame count and the received-PCM digest.
+      The WAV's data chunk is hashed separately for that last check.
+    - Only bounded, nonsecret fields are kept, never stderr.
+    - At review time the receipt must be unchanged and the WAV is re-read.
+    - Root's real invalid receipt (microphone permission closed) is retained
+      and refused. The attempt stays, with unmeasured acoustics.
+    - The import also records `target_audio`.
+  - **`fb096dce` `propose-boundaries RUN_DIR NEW_FILE [--stimulus-wav FILE]`:**
+    proposals in a separate file. They are never scored, `listened` stays
+    false, and the file does not parse as annotations.
+    - Each certified render reply segment is resampled from 24 to 16 kHz and
+      located in the room recording: envelope correlation, then waveform
+      refinement within ±20 ms, each segment separately so clock drift stays
+      local.
+    - Each reply reports its status (located, ambiguous or not found), score,
+      margin, alternatives, polarity, clipped fraction and uncertainty.
+    - Thresholds are a minimum score of 0.2 and a minimum margin of 0.05,
+      both unqualified.
+    - The reply onset is the earliest rendered reply audio, never a later,
+      clearer word.
+    - The stimulus speech end comes only from an exact stimulus WAV;
+      otherwise it is `unavailable` and never taken from transcript text.
+    - End to end on synthetic signals: reply onset and end, and stimulus
+      start and end, all within 2 ms.
+  - **Not done:** proposals use the room WAV only. They do not yet map
+    target host events onto room time through the capture stream. No real
+    recording has been run through them.
 
 - **`MAIN-025` / `MAIN-026`:** fixed in `37b398a7` on top of `d3ada11e`.
   - **Root's tests:** the four audit regressions from

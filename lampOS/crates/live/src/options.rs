@@ -1,5 +1,5 @@
-//! Explicit local experiment settings. AEC is mandatory in both modes; these
-//! options never change provider settings, gains, VAD, or output authority.
+//! Explicit local experiment settings. AEC is mandatory. Turn-taking changes
+//! prospective admission only, not provider settings, gains, or hard authority.
 use serde::{Deserialize, Serialize};
 use std::{io, path::PathBuf, str::FromStr};
 
@@ -55,8 +55,28 @@ pub struct SoftwareProcessing {
     noise_suppression: bool,
 }
 
+/// Admission experiment only; neither mode identifies a person or addressee.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TurnTaking {
+    #[default]
+    VadOnly,
+    V1Baseline,
+}
+impl FromStr for TurnTaking {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "vad-only" => Ok(Self::VadOnly),
+            "v1-baseline" => Ok(Self::V1Baseline),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
+    pub turn_taking: TurnTaking,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -66,10 +86,15 @@ impl DirectedOptions {
     pub fn parse(arguments: &[String]) -> io::Result<Self> {
         let mut options = Self::default();
         let mut noise_seen = false;
+        let mut turn_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
                 "--diagnostics" if !options.diagnostics => options.diagnostics = true,
+                "--turn-taking" if !turn_seen => {
+                    options.turn_taking = required_value(&mut arguments)?.parse()?;
+                    turn_seen = true;
+                }
                 "--noise-suppression" if !noise_seen => {
                     options.noise_suppression = required_value(&mut arguments)?.parse()?;
                     noise_seen = true;
@@ -199,6 +224,38 @@ mod tests {
         values.iter().map(|value| (*value).to_owned()).collect()
     }
     #[test]
+    fn turn_taking_is_explicit_and_default_remains_vad_only() {
+        assert_eq!(
+            SessionOptions::default().directed.turn_taking,
+            TurnTaking::VadOnly
+        );
+        let options = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "v1-baseline",
+            "--noise-suppression",
+            "off",
+            "--cue-socket",
+            "/tmp/test-only.sock",
+        ]))
+        .unwrap();
+        assert_eq!(options.directed.turn_taking, TurnTaking::V1Baseline);
+        assert_eq!(options.directed.noise_suppression, NoiseSuppression::Off);
+        assert!(!options.directed.diagnostics);
+        assert_eq!(options.directed.ring_channel_ceiling, None);
+        assert_eq!(
+            serde_json::to_value(options.directed.turn_taking).unwrap(),
+            "v1-baseline"
+        );
+        for values in [
+            vec!["--turn-taking"],
+            vec!["--turn-taking", "unknown"],
+            vec!["--turn-taking", "V1-baseline"],
+            vec!["--turn-taking", "vad-only", "--turn-taking", "v1-baseline"],
+        ] {
+            assert!(SessionOptions::parse(&args(&values)).is_err());
+        }
+    }
+    #[test]
     fn default_is_the_existing_aec_plus_noise_suppression_pipeline() {
         let options = DirectedOptions::parse(&[]).unwrap();
         assert_eq!(options, DirectedOptions::default());
@@ -288,6 +345,7 @@ mod tests {
                 assert_eq!(
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
+                        turn_taking: TurnTaking::VadOnly,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,

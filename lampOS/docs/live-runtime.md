@@ -51,8 +51,14 @@ Capture supplies 160 samples at 16 kHz per 10 ms block. Sonora's Rust AEC3 and,
 by default, noise suppression run locally; local speech probability drives the directed
 turn detector. A 300 ms retained prefix protects opening words. The
 [input admission boundary](input-admission.md) retains a candidate before any
-turn replacement. The finite directed policy still accepts VAD-only onsets
-immediately; it does not qualify echo or addressee recognition. Speech onset
+turn replacement. The default `--turn-taking vad-only` still accepts VAD-only
+onsets immediately; it does not qualify echo or addressee recognition. The
+opt-in [V1-style baseline](turn-taking-baseline.md), selected with
+`--turn-taking v1-baseline`, suppresses prospective input during evidenced own
+playback and a declared, unmeasured 100 ms tail. It preserves continuous capture
+and reference while intentionally withholding overlapping speech. Pending cloud
+work alone does not mask input. This private candidate has no physical parity
+or latency qualification. Speech onset
 requires six consecutive blocks at probability at least 0.80; endpointing waits
 600 ms below 0.35. A missing audio block is a fault, not a fabricated endpoint.
 An utterance is limited to 120 seconds. These initial thresholds need acoustic

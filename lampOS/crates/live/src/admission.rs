@@ -3,7 +3,7 @@
 //! This is sequencing and retention, not an echo/addressee classifier. The
 //! directed harness explicitly accepts VAD-only evidence. No provider event or
 //! session-scoped transcript is converted into a candidate decision here.
-use crate::activity::{Activity, ObservedAudio, PRE_ROLL_BLOCKS};
+use crate::activity::{Activity, ObservedAudio, PRE_ROLL_BLOCKS, START_BLOCKS};
 use lamp_interaction::{BootId, MonoTime, Snapshot, TurnOwner};
 use serde::Serialize;
 use std::io;
@@ -59,6 +59,8 @@ pub struct Candidate {
 pub enum AcceptanceBasis {
     /// Explicitly opened qualification session; not social/echo recognition.
     DirectedSessionVadOnly,
+    /// Opt-in own-playback suppression; still no addressee inference.
+    DirectedSessionV1Baseline,
     /// A caller's classifier decision, not a correctness guarantee. There is
     /// no production classifier wired to this variant in the directed runtime.
     ClassifierDecision,
@@ -193,6 +195,97 @@ impl InputAdmission {
             Phase::Idle | Phase::Draining(_) => {}
         }
         Ok(())
+    }
+
+    /// Discard only prospective input. Never erase an already accepted stream.
+    pub fn suppress_prospective(
+        &mut self,
+        context: Context,
+        at_us: u64,
+    ) -> io::Result<Option<Rejection>> {
+        self.advance(at_us)?;
+        if !context.ready(at_us) {
+            return Err(io::Error::other(
+                "suppressed input lost hard capture authority",
+            ));
+        }
+        match &self.phase {
+            Phase::Streaming(_) | Phase::Draining(Some(_)) => {
+                return Err(io::Error::other("cannot suppress admitted input"));
+            }
+            _ => {}
+        }
+        let previous = std::mem::replace(&mut self.phase, Phase::Idle);
+        Ok(match previous {
+            Phase::Pending(p) => Some(Rejection {
+                candidate: p.candidate.id,
+                reason: RejectReason::Policy,
+            }),
+            _ => None,
+        })
+    }
+    pub fn owns_stream(&self) -> bool {
+        matches!(self.phase, Phase::Streaming(_) | Phase::Draining(Some(_)))
+    }
+    /// Original bounded prospective audio, never an accepted stream.
+    pub(crate) fn pending_audio(&self, candidate: CandidateId) -> Option<&[ObservedAudio]> {
+        match &self.phase {
+            Phase::Pending(p) if p.candidate.id == candidate => Some(&p.audio),
+            _ => None,
+        }
+    }
+    /// Keep one contiguous safe suffix without renewing identity, deadline,
+    /// retention age or decision-block budget. The entire triggering onset
+    /// must survive; callers reject the candidate if its onset is masked.
+    pub(crate) fn discard_pending_prefix(
+        &mut self,
+        candidate: CandidateId,
+        through_sequence: u64,
+    ) -> io::Result<usize> {
+        let Phase::Pending(pending) = &mut self.phase else {
+            return Err(io::Error::other("prefix has no pending candidate"));
+        };
+        let first_onset = pending
+            .candidate
+            .trigger_sequence
+            .checked_sub(u64::from(START_BLOCKS) - 1)
+            .ok_or_else(|| io::Error::other("candidate has no complete onset"))?;
+        if pending.candidate.id != candidate || through_sequence >= first_onset {
+            return Err(io::Error::other(
+                "cannot discard candidate onset or stale prefix",
+            ));
+        }
+        let count = pending
+            .audio
+            .iter()
+            .position(|frame| frame.sequence == through_sequence)
+            .map(|index| index + 1)
+            .ok_or_else(|| io::Error::other("prefix cutoff is not retained"))?;
+        if pending.audio.len() - count < usize::from(START_BLOCKS) {
+            return Err(io::Error::other("prefix removal would lose fresh onset"));
+        }
+        pending.audio.drain(..count);
+        Ok(count)
+    }
+    /// Original latest retained block, not a freshened trigger timestamp.
+    pub fn pending_evidence(
+        &self,
+        at_us: u64,
+        basis: AcceptanceBasis,
+    ) -> Option<(Candidate, Evidence)> {
+        let Phase::Pending(pending) = &self.phase else {
+            return None;
+        };
+        let last = pending.audio.last()?;
+        Some((
+            pending.candidate,
+            Evidence {
+                candidate: pending.candidate.id,
+                through_sequence: last.sequence,
+                produced_at_us: at_us,
+                verdict: Verdict::Accept(basis),
+            },
+        ))
     }
 
     pub fn observe(
@@ -931,5 +1024,55 @@ mod outage_drain_tests {
         let accepted = accept(&mut gate, local.context(now), evidence(next, 2, now), now);
         assert_eq!(accepted.audio.len(), 1);
         assert_eq!(accepted.audio[0].sequence, 2);
+    }
+
+    #[test]
+    fn prefix_sanitation_keeps_onset_identity_deadline_and_stale_decision_guards() {
+        let mut local = LocalInput::new();
+        let mut gate = InputAdmission::default();
+        let old = candidate(&mut gate, local.context(START), 1, START);
+        gate.reset();
+        let now = START + 100_000;
+        let frames = (2..=11)
+            .map(|sequence| audio(sequence, START + (sequence - 1) * 10_000))
+            .collect();
+        let Step::Candidate(current) = gate
+            .observe(Activity::Start(frames), local.context(now), now)
+            .unwrap()
+            .step
+        else {
+            panic!("expected current candidate");
+        };
+        assert!(gate.pending_audio(old.id).is_none());
+        assert!(gate.discard_pending_prefix(old.id, 5).is_err());
+        assert!(gate.discard_pending_prefix(current.id, 6).is_err());
+        assert_eq!(gate.pending_audio(current.id).unwrap().len(), 10);
+        assert_eq!(gate.discard_pending_prefix(current.id, 5).unwrap(), 4);
+        let retained = gate.pending_audio(current.id).unwrap();
+        assert_eq!(
+            retained.iter().map(|f| f.sequence).collect::<Vec<_>>(),
+            vec![6, 7, 8, 9, 10, 11]
+        );
+        let (after, latest) = gate
+            .pending_evidence(now, AcceptanceBasis::DirectedSessionV1Baseline)
+            .unwrap();
+        assert_eq!(after.id, current.id);
+        assert_eq!(after.first_read_at_us, current.first_read_at_us);
+        assert_eq!(after.decision_deadline_us, current.decision_deadline_us);
+        assert_eq!(latest.through_sequence, 11);
+        assert!(matches!(
+            gate.decide(evidence(old, 1, now), local.context(now), now)
+                .unwrap(),
+            Decision::Ignored
+        ));
+        let expired = current.decision_deadline_us;
+        assert!(matches!(
+            gate.decide(latest, local.context(expired), expired)
+                .unwrap(),
+            Decision::Rejected(Rejection {
+                reason: RejectReason::Deadline,
+                ..
+            })
+        ));
     }
 }

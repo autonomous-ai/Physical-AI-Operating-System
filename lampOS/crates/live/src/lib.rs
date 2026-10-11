@@ -27,6 +27,7 @@ pub mod reference;
 pub mod ring_wire;
 pub mod ring_worker;
 pub mod transport;
+mod turn_taking;
 pub mod wire;
 
 #[cfg(target_os = "linux")]

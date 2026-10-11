@@ -20,6 +20,7 @@ pub(crate) struct FinalSpeech {
 pub(crate) struct SpeechPlayback {
     unfinished: Option<TurnOwner>,
     final_speech: Option<FinalSpeech>,
+    last_speech: Option<FinalSpeech>,
     gap: Option<PlaybackGap>,
 }
 
@@ -124,6 +125,11 @@ impl SpeechPlayback {
             gap,
             observed_at_us: at_us,
         });
+        self.last_speech = Some(FinalSpeech {
+            owner,
+            sequence,
+            cursor: end,
+        });
         self.unfinished = (!final_chunk).then_some(owner);
         if final_chunk {
             self.final_speech = Some(FinalSpeech {
@@ -133,6 +139,16 @@ impl SpeechPlayback {
             });
         }
         Ok(resumed)
+    }
+
+    /// Queue retirement only. Leave unfinished debt and final completion intact.
+    pub fn take_drained(&mut self, range: QueuedRange) -> Option<FinalSpeech> {
+        let last = self.last_speech?;
+        if last.cursor.epoch == range.epoch && last.cursor.frame <= range.retired_through {
+            self.last_speech.take()
+        } else {
+            None
+        }
     }
 
     /// Only an explicit final speech cursor retired within the same live epoch
@@ -155,6 +171,7 @@ impl SpeechPlayback {
     pub fn reset(&mut self, at_us: u64) -> Option<WorkerEvent> {
         self.unfinished = None;
         self.final_speech = None;
+        self.last_speech = None;
         self.gap.take().map(|gap| WorkerEvent::PlaybackGap {
             phase: PlaybackGapPhase::Cancelled,
             gap,
@@ -684,5 +701,36 @@ mod tests {
             })
             .unwrap();
         assert_eq!(retired.owner, new);
+    }
+    #[test]
+    fn nonfinal_drained_receipt_preserves_reply_debt_and_is_reported_before_reset() {
+        let (_, _, permit) = fixture();
+        let owner = permit.owner();
+        let mut speech = SpeechPlayback::default();
+        let first = PlaybackCursor {
+            epoch: 1,
+            frame: 480,
+        };
+        let end = PlaybackCursor {
+            epoch: 1,
+            frame: 720,
+        };
+        speech
+            .speech_accepted(owner, 1, first, end, 10, false)
+            .unwrap();
+        let retired = QueuedRange {
+            epoch: 1,
+            retired_through: 720,
+            accepted_through: 960,
+        };
+        assert!(speech.take_retired(retired).is_none());
+        let receipt = speech.take_drained(retired).unwrap();
+        assert_eq!(receipt.cursor, end);
+        assert_eq!(speech.unfinished_owner(), Some(owner));
+        assert!(speech.take_drained(retired).is_none());
+        // Same order as supersede_speech: actual retirement first, logical reset second.
+        speech.reset(20);
+        assert!(speech.owner().is_none());
+        assert_eq!(receipt.owner, owner);
     }
 }

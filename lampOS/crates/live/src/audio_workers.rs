@@ -894,6 +894,7 @@ fn speaker_loop(
             finish_tick(tick);
             continue;
         }
+        report_speech_drained(channels, speaker, &mut speech)?;
         if let Some(final_write) = speech.take_retired(speaker.queued_range()) {
             channels.control.send(WorkerEvent::SpeechRetired {
                 owner: final_write.owner,
@@ -1017,6 +1018,10 @@ fn speaker_loop(
                                 channels.control.send(gap)?;
                             }
                             channels.control.send(WorkerEvent::Playback {
+                                owner,
+                                first_sample: written.first_sample,
+                                end_sample: written.end_sample,
+                                queue_observed_at_us: written.queue_observed_at_us,
                                 turn: owner.turn(),
                                 sequence: partial.chunk.chunk_sequence,
                                 queued_frames: written.queued_frames as usize,
@@ -1092,6 +1097,25 @@ fn speaker_loop(
     }
 }
 
+fn report_speech_drained(
+    channels: &mut WorkerChannels,
+    speaker: &Speaker,
+    speech: &mut SpeechPlayback,
+) -> Result<()> {
+    if let Some(drained) = speech.take_drained(speaker.queued_range()) {
+        channels.control.send(WorkerEvent::SpeechDrained {
+            owner: drained.owner,
+            sequence: drained.sequence,
+            last_sample: drained.cursor,
+            observed_at_us: speaker
+                .last_poll()
+                .ok_or_else(|| io::Error::other("speech retirement requires a device observation"))?
+                .observed_at_us,
+        })?;
+    }
+    Ok(())
+}
+
 fn report_speech_reset(channels: &mut WorkerChannels, speech: &mut SpeechPlayback) -> Result<()> {
     if let Some(gap) = speech.reset(monotonic_us()) {
         channels.control.send(gap)?;
@@ -1112,6 +1136,9 @@ fn supersede_speech(
         .is_some_and(|owner| snapshot.owner() != Some(owner))
         && speaker.flush_count() == previous_flush_count
     {
+        // Retire from the checked old queue before any explicit drop clears
+        // that observation. A drop itself is reported separately, never drained.
+        report_speech_drained(channels, speaker, speech)?;
         if !speech.can_supersede(
             snapshot,
             microphone_generation,
@@ -1135,6 +1162,13 @@ fn report_discard(
         return Ok(false);
     }
     *flush_count = speaker.flush_count();
+    channels.control.send(WorkerEvent::PlaybackClockReset {
+        previous: speaker
+            .last_discard()
+            .ok_or_else(|| io::Error::other("physical reset lost its original cursor range"))?,
+        next_epoch: speaker.queued_range().epoch,
+        observed_at_us: monotonic_us(),
+    })?;
     diagnostic_reset(
         recording,
         ResetReason::PlaybackReset,

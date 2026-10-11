@@ -81,21 +81,9 @@ impl Default for TurnDetector {
 
 impl TurnDetector {
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
-        if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
-            self.reset();
-            return Activity::Fault("invalid speech probability");
+        if let Err(reason) = self.validate(&frame, probability) {
+            return Activity::Fault(reason);
         }
-        if frame.sequence == 0
-            || self.last.is_some_and(|(sequence, at)| {
-                sequence.checked_add(1) != Some(frame.sequence)
-                    || frame.captured_at_us < at
-                    || frame.captured_at_us.saturating_sub(at) > 50_000
-            })
-        {
-            self.reset();
-            return Activity::Fault("capture discontinuity");
-        }
-        self.last = Some((frame.sequence, frame.captured_at_us));
         if self.active {
             self.active_blocks += 1;
             if self.active_blocks >= MAX_UTTERANCE_BLOCKS {
@@ -131,6 +119,44 @@ impl TurnDetector {
             return Activity::Start(self.prefix.drain(..).collect());
         }
         Activity::Quiet
+    }
+
+    fn validate(&mut self, frame: &ObservedAudio, probability: f32) -> Result<(), &'static str> {
+        if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
+            self.reset();
+            return Err("invalid speech probability");
+        }
+        if frame.sequence == 0
+            || self.last.is_some_and(|(sequence, at)| {
+                sequence.checked_add(1) != Some(frame.sequence)
+                    || frame.captured_at_us < at
+                    || frame.captured_at_us.saturating_sub(at) > 50_000
+            })
+        {
+            self.reset();
+            return Err("capture discontinuity");
+        }
+        self.last = Some((frame.sequence, frame.captured_at_us));
+        Ok(())
+    }
+
+    /// Discard prospective PCM without erasing capture continuity checks.
+    pub fn suppress(
+        &mut self,
+        frame: &ObservedAudio,
+        probability: f32,
+    ) -> Result<(), &'static str> {
+        self.validate(frame, probability)?;
+        self.clear_prospective();
+        Ok(())
+    }
+    /// Caller must establish that no admitted input is still streaming.
+    pub fn clear_prospective(&mut self) {
+        self.prefix.clear();
+        self.start_count = 0;
+        self.silence_count = 0;
+        self.active_blocks = 0;
+        self.active = false;
     }
 
     pub fn reset(&mut self) {

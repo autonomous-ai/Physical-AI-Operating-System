@@ -6,13 +6,13 @@
 use crate::{
     activity::{Activity, ObservedAudio, TurnDetector},
     admission::{
-        AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision, Evidence,
-        InputAdmission, Rejection, Step as AdmissionStep, Verdict,
+        AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision,
+        InputAdmission, Rejection, Step as AdmissionStep, Update as AdmissionUpdate,
     },
     choreography::RingChoreographer,
     diagnostic_control::{self, DiagnosticFinished, DiagnosticStream},
     fixture_provider::{CueSink, Fixture, FixtureInfo, FixtureOptions},
-    options::{AudioWorkerOptions, DirectedOptions, NoiseSuppression, SessionOptions},
+    options::{AudioWorkerOptions, DirectedOptions, NoiseSuppression, SessionOptions, TurnTaking},
     privacy::PrivacyGate,
     process::{SessionDirectory, Worker, new_boot},
     provider_flow::{MAX_REPLY_SAMPLES, OutputReceiver, PACKET_SAMPLES},
@@ -20,6 +20,7 @@ use crate::{
     provider_worker::{ProviderInput, ProviderOutput},
     ring_wire::{RingBlankReason, RingFeedback},
     transport::{Channel, WorkerChannels},
+    turn_taking::{Disposition, PlaybackMask},
     wire::{
         Control, MicrophoneFrame, PlaybackDiscardReason, PlaybackGapPhase, SpeakerChunk,
         WorkerEvent,
@@ -179,6 +180,7 @@ struct Rig {
     ring_channel_ceiling: Option<u16>,
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
+    turn_taking: TurnTaking,
 }
 impl Rig {
     fn publish(&mut self, snapshot: Snapshot) -> io::Result<()> {
@@ -537,6 +539,7 @@ fn run_source(
     trace.push(json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":seconds,"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "software_processing_requested":options.noise_suppression.software_processing(),
+        "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}));
     let diagnostic_directory = options
@@ -653,6 +656,190 @@ fn service_provider_control(
             }
             WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
             _ => return Err(io::Error::other("unexpected provider control event").into()),
+        }
+    }
+    Ok(false)
+}
+
+/// The same priority path is used at tick start and immediately before a
+/// candidate can replace the current turn. A full budget defers admission.
+trait SpeakerControlIo {
+    fn next_speaker_event(&mut self) -> io::Result<Option<WorkerEvent>>;
+    fn publish_speaker_snapshot(&mut self, snapshot: Snapshot) -> io::Result<()>;
+}
+impl SpeakerControlIo for Rig {
+    fn next_speaker_event(&mut self) -> io::Result<Option<WorkerEvent>> {
+        self.speaker.channels.control.receive()
+    }
+    fn publish_speaker_snapshot(&mut self, snapshot: Snapshot) -> io::Result<()> {
+        self.publish(snapshot)
+    }
+}
+#[allow(clippy::too_many_arguments)]
+fn service_speaker_control(
+    io: &mut impl SpeakerControlIo,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    playback_mask: &mut PlaybackMask,
+    snapshot: &mut Snapshot,
+    last_publish: &mut u64,
+    remaining: &mut usize,
+    trace: &mut Vec<Value>,
+) -> Result<bool> {
+    while *remaining > 0 {
+        let Some(event) = io.next_speaker_event()? else {
+            return Ok(true);
+        };
+        *remaining -= 1;
+        match event {
+            WorkerEvent::Playback {
+                owner: written_owner,
+                first_sample,
+                end_sample,
+                queue_observed_at_us,
+                turn,
+                sequence,
+                queued_frames: _,
+                accepted_frames,
+                observed_at_us,
+            } => {
+                if written_owner.turn() != turn {
+                    return Err(io::Error::other("speaker owner/turn mismatch").into());
+                }
+                playback_mask.accepted(
+                    written_owner,
+                    sequence,
+                    first_sample,
+                    end_sample,
+                    accepted_frames,
+                    observed_at_us,
+                    queue_observed_at_us,
+                    monotonic_us(),
+                )?;
+                if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == turn)
+                    && accepted_frames > 0
+                {
+                    let Some(pending) = speaker_pending.as_mut().filter(|p| p.sequence == sequence)
+                    else {
+                        return Err(
+                            io::Error::other("speaker acceptance has no matching chunk").into()
+                        );
+                    };
+                    pending.accepted += accepted_frames;
+                    if pending.accepted > 240 {
+                        return Err(io::Error::other("speaker accepted too many frames").into());
+                    }
+                    if current.playback.is_none() {
+                        let token = owner.playback_started(now(), pending.permit)?;
+                        current.playback = Some(token);
+                        *snapshot = owner.snapshot(now())?;
+                        io.publish_speaker_snapshot(*snapshot)?;
+                        *last_publish = monotonic_us();
+                        record(
+                            trace,
+                            json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured"}),
+                        )?;
+                    }
+                    if pending.accepted == 240 {
+                        if pending.final_chunk {
+                            current.final_chunk = Some(sequence);
+                        }
+                        *speaker_pending = None;
+                    }
+                }
+            }
+            WorkerEvent::PlaybackClockReset {
+                previous,
+                next_epoch,
+                observed_at_us,
+            } => {
+                playback_mask.clock_reset(previous, next_epoch, observed_at_us, monotonic_us())?;
+                record(
+                    trace,
+                    json!({"kind":"playback_clock_reset","previous":previous,"next_epoch":next_epoch,"at_us":observed_at_us,"boundary":"successful physical discard/reset; not speech retirement"}),
+                )?;
+            }
+            WorkerEvent::SpeechDrained {
+                owner: drained_owner,
+                sequence,
+                last_sample,
+                observed_at_us,
+            } => {
+                let applied = playback_mask.drained(
+                    drained_owner,
+                    sequence,
+                    last_sample,
+                    observed_at_us,
+                    monotonic_us(),
+                )?;
+                record(
+                    trace,
+                    json!({"kind":"speech_queue_drained","owner":drained_owner,"sequence":sequence,"last_sample":last_sample,"at_us":observed_at_us,"mask_updated":applied,"boundary":"ALSA speech cursor retirement; not turn completion or acoustic silence"}),
+                )?;
+            }
+            WorkerEvent::SpeechRetired {
+                owner: delivered,
+                sequence,
+                final_sample,
+                observed_at_us,
+            } => {
+                if let Some(current) = reply.as_mut().filter(|reply| reply.owner == delivered) {
+                    let token = current.retire_playback(sequence, final_sample.frame)?;
+                    owner.playback_ended(now(), token)?;
+                    *snapshot = owner.snapshot(now())?;
+                    io.publish_speaker_snapshot(*snapshot)?;
+                    *last_publish = monotonic_us();
+                    record(
+                        trace,
+                        json!({"kind":"speech_final_sample_retired","turn":delivered.turn(),"owner":delivered,
+                            "playback_sequence":token.sequence(),"at_us":observed_at_us,"final_sample":final_sample,"boundary":"ALSA delay retirement; idle zeros may remain queued; acoustic end unmeasured"}),
+                    )?;
+                }
+            }
+            event @ WorkerEvent::CancelledTailRetired {
+                owner: old,
+                end_sample,
+                observed_at_us,
+                ..
+            } => {
+                playback_mask.cancelled_tail(old, end_sample, observed_at_us, monotonic_us())?;
+                handle_cancelled_tail_retirement(reply, trace, event, monotonic_us())?;
+            }
+            event @ WorkerEvent::PlaybackGap { .. } => {
+                handle_playback_gap(reply, speaker_pending.as_ref(), trace, event)?;
+            }
+            WorkerEvent::PlaybackRejected {
+                turn,
+                sequence,
+                reason,
+            } => {
+                playback_mask.rejected(sequence, monotonic_us())?;
+                record(
+                    trace,
+                    json!({"kind":"speaker_rejected","turn":turn,"sequence":sequence,"reason":reason,"at_us":monotonic_us()}),
+                )?;
+                if reply.as_ref().is_some_and(|r| r.owner.turn() == turn) {
+                    return Err(io::Error::other("current reply rejected at speaker").into());
+                }
+            }
+            event @ WorkerEvent::PlaybackDiscarded {
+                owner: old,
+                observed_at_us,
+                ..
+            } => {
+                playback_mask.discarded(old, observed_at_us, monotonic_us())?;
+                handle_playback_discard(owner, reply, trace, event)?;
+            }
+            WorkerEvent::ReferenceFault { fault } => {
+                record(
+                    trace,
+                    json!({"kind":"reference_fault","worker":"speaker","details":fault}),
+                )?;
+                return Err(fault.into());
+            }
+            WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
+            _ => return Err(io::Error::other("unexpected speaker event").into()),
         }
     }
     Ok(false)
@@ -1098,6 +1285,7 @@ fn spawn_rig(
         ring_channel_ceiling: options.ring_channel_ceiling,
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
+        turn_taking: options.turn_taking,
     })
 }
 
@@ -1192,6 +1380,8 @@ fn conversation(
     let mut ring_trace = RingTrace::default();
     let mut detector = TurnDetector::default();
     let mut admission = InputAdmission::default();
+    let mut playback_mask = PlaybackMask::new(rig.turn_taking);
+    let mut policy_available = None;
     let mut capture_lineage: Option<CaptureLineage> = None;
     let mut provider_queue = VecDeque::with_capacity(64);
     let mut submission_draining = false;
@@ -1260,104 +1450,18 @@ fn conversation(
             rig.noise_suppression,
             trace,
         )?;
-        for _ in 0..32 {
-            let Some(event) = rig.speaker.channels.control.receive::<WorkerEvent>()? else {
-                break;
-            };
-            match event {
-                WorkerEvent::Playback {
-                    turn,
-                    sequence,
-                    queued_frames: _,
-                    accepted_frames,
-                    observed_at_us,
-                } => {
-                    if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == turn)
-                        && accepted_frames > 0
-                    {
-                        let Some(pending) =
-                            speaker_pending.as_mut().filter(|p| p.sequence == sequence)
-                        else {
-                            return Err(io::Error::other(
-                                "speaker acceptance has no matching chunk",
-                            )
-                            .into());
-                        };
-                        pending.accepted += accepted_frames;
-                        if pending.accepted > 240 {
-                            return Err(io::Error::other("speaker accepted too many frames").into());
-                        }
-                        if current.playback.is_none() {
-                            let token = owner.playback_started(now(), pending.permit)?;
-                            current.playback = Some(token);
-                            snapshot = owner.snapshot(now())?;
-                            rig.publish(snapshot)?;
-                            last_publish = monotonic_us();
-                            record(
-                                trace,
-                                json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured"}),
-                            )?;
-                        }
-                        if pending.accepted == 240 {
-                            if pending.final_chunk {
-                                current.final_chunk = Some(sequence);
-                            }
-                            speaker_pending = None;
-                        }
-                    }
-                }
-                WorkerEvent::SpeechRetired {
-                    owner: delivered,
-                    sequence,
-                    final_sample,
-                    observed_at_us,
-                } => {
-                    if let Some(current) = reply.as_mut().filter(|reply| reply.owner == delivered) {
-                        let token = current.retire_playback(sequence, final_sample.frame)?;
-                        owner.playback_ended(now(), token)?;
-                        snapshot = owner.snapshot(now())?;
-                        rig.publish(snapshot)?;
-                        last_publish = monotonic_us();
-                        record(
-                            trace,
-                            json!({"kind":"speech_final_sample_retired","turn":delivered.turn(),"owner":delivered,
-                            "playback_sequence":token.sequence(),"at_us":observed_at_us,"final_sample":final_sample,"boundary":"ALSA delay retirement; idle zeros may remain queued; acoustic end unmeasured"}),
-                        )?;
-                    }
-                }
-                event @ WorkerEvent::CancelledTailRetired { .. } => {
-                    handle_cancelled_tail_retirement(reply, trace, event, monotonic_us())?;
-                }
-                event @ WorkerEvent::PlaybackGap { .. } => {
-                    handle_playback_gap(reply, speaker_pending.as_ref(), trace, event)?;
-                }
-                WorkerEvent::PlaybackRejected {
-                    turn,
-                    sequence,
-                    reason,
-                } => {
-                    record(
-                        trace,
-                        json!({"kind":"speaker_rejected","turn":turn,"sequence":sequence,"reason":reason,"at_us":monotonic_us()}),
-                    )?;
-                    if reply.as_ref().is_some_and(|r| r.owner.turn() == turn) {
-                        return Err(io::Error::other("current reply rejected at speaker").into());
-                    }
-                }
-                event @ WorkerEvent::PlaybackDiscarded { .. } => {
-                    handle_playback_discard(owner, reply, trace, event)?;
-                }
-                WorkerEvent::ReferenceFault { fault } => {
-                    record(
-                        trace,
-                        json!({"kind":"reference_fault","worker":"speaker","details":fault}),
-                    )?;
-                    return Err(fault.into());
-                }
-                WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
-                _ => return Err(io::Error::other("unexpected speaker event").into()),
-            }
-        }
+        let mut speaker_control_budget = 32;
+        service_speaker_control(
+            rig,
+            owner,
+            reply,
+            &mut speaker_pending,
+            &mut playback_mask,
+            &mut snapshot,
+            &mut last_publish,
+            &mut speaker_control_budget,
+            trace,
+        )?;
         // Return through input/cancellation and speaker dispatch after at most
         // two cloud packets, even when more PCM is immediately available.
         // Render reference still goes directly between the audio workers.
@@ -1543,6 +1647,10 @@ fn conversation(
             // Drain fault channels and inspect children before accepting the
             // deadline. A crashed or forcibly killed worker is never success.
             rig.running()?;
+            record(
+                trace,
+                json!({"kind":"turn_taking_summary","at_us":monotonic_us(),"policy":rig.turn_taking,"suppressed_blocks":playback_mask.suppressed_blocks(),"tail_us":crate::turn_taking::TAIL_US,"acoustic_tail_measured":false}),
+            )?;
             cancel_reply(owner, reply, trace, "deadline_cancelled")?;
             snapshot = owner.snapshot(now())?;
             rig.publish(snapshot)?;
@@ -1613,6 +1721,7 @@ fn conversation(
             };
             if capture_lineage.is_some_and(|old| old != lineage) {
                 detector.discard_inactive_prefix();
+                playback_mask.clear_read_lineage();
             }
             capture_lineage = Some(lineage);
             let context = AdmissionContext {
@@ -1627,9 +1736,17 @@ fn conversation(
                     .try_into()
                     .map_err(|_| io::Error::other("invalid capture block"))?,
             };
-            let activity = detector.push(observation, frame.probability);
-            let discarded_endpoint = submission_draining && matches!(activity, Activity::End(_));
-            let update = admission.observe(activity, context, monotonic_us())?;
+            let (update, input_ended) = observe_prospective_input(
+                &mut playback_mask,
+                &mut detector,
+                &mut admission,
+                context,
+                observation,
+                frame.timing.first_read_started_at_us,
+                frame.probability,
+                monotonic_us(),
+            )?;
+            let discarded_endpoint = submission_draining && input_ended;
             if discarded_endpoint {
                 submission_draining = false;
                 if let Some(current) = reply.as_mut()
@@ -1651,31 +1768,53 @@ fn conversation(
             if let Some(rejection) = update.rejection {
                 record_input_rejection(trace, rejection)?;
             }
-            match update.step {
+            if let AdmissionStep::Candidate(candidate) = &update.step {
+                record(
+                    trace,
+                    json!({"kind":"input_candidate","candidate":candidate,"at_us":monotonic_us()}),
+                )?;
+            }
+            let step = match update.step {
+                AdmissionStep::None => admission
+                    .pending_evidence(monotonic_us(), AcceptanceBasis::DirectedSessionVadOnly)
+                    .map_or(AdmissionStep::None, |(candidate, _)| {
+                        AdmissionStep::Candidate(candidate)
+                    }),
+                step => step,
+            };
+            match step {
                 AdmissionStep::None => {}
                 AdmissionStep::Rejected(rejection) => record_input_rejection(trace, rejection)?,
                 AdmissionStep::Candidate(candidate) => {
-                    record(
+                    // Control and PCM travel independently. Recheck the original
+                    // write receipts after reading this candidate, with the same
+                    // finite tick budget; exhaustion keeps the input pending.
+                    if !service_speaker_control(
+                        rig,
+                        owner,
+                        reply,
+                        &mut speaker_pending,
+                        &mut playback_mask,
+                        &mut snapshot,
+                        &mut last_publish,
+                        &mut speaker_control_budget,
                         trace,
-                        json!({"kind":"input_candidate", "candidate":candidate, "at_us":monotonic_us()}),
-                    )?;
-                    // This finite harness still uses explicitly directed VAD-only
-                    // admission. A future classifier must decide this exact candidate
-                    // before this branch may cancel, clear queues, or send Start.
-                    let decision = admission.decide(
-                        Evidence {
-                            candidate: candidate.id,
-                            through_sequence: candidate.trigger_sequence,
-                            produced_at_us: monotonic_us(),
-                            verdict: Verdict::Accept(AcceptanceBasis::DirectedSessionVadOnly),
-                        },
+                    )? {
+                        continue;
+                    }
+                    let Some(accepted) = decide_prospective_input(
+                        &playback_mask,
+                        &mut detector,
+                        &mut admission,
+                        candidate,
                         AdmissionContext {
                             capture: lineage,
                             authority: owner.snapshot(now())?,
                         },
                         monotonic_us(),
-                    )?;
-                    let Some(accepted) = accepted_decision(decision, trace)? else {
+                        trace,
+                    )?
+                    else {
                         continue;
                     };
                     // Recheck priority immediately before admitting a new owner.
@@ -1709,66 +1848,17 @@ fn conversation(
                         last_publish = monotonic_us();
                         continue;
                     };
-                    let prefix = accepted.audio;
-                    let replacing = reply.is_some();
-                    cancel_reply(owner, reply, trace, "user_interrupted")?;
-                    let input = if replacing {
-                        AdmittedInput::Interruption
-                    } else {
-                        AdmittedInput::NewTurn
-                    };
-                    speaker_pending = None;
-                    provider_queue.clear();
-                    let turn = owner.admit(now(), input)?;
-                    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
-                    snapshot = owner.snapshot(now())?;
-                    rig.publish(snapshot)?;
-                    let admitted_at_us = monotonic_us();
-                    last_publish = admitted_at_us;
-                    record(
+                    snapshot = commit_admitted_input(
+                        owner,
+                        reply,
+                        &mut speaker_pending,
+                        &mut provider_queue,
+                        accepted,
+                        provider_session,
                         trace,
-                        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session}),
+                        |state| rig.publish(state),
                     )?;
-                    provider_queue.push_back(ProviderInput::Start {
-                        session: provider_session,
-                        request: turn.turn(),
-                        privacy_generation: snapshot.microphone_generation(),
-                    });
-                    let mut current = Reply {
-                        owner: turn,
-                        cloud: CloudRequest::new(provider_session)?,
-                        local_input_ended: false,
-                        plan,
-                        playback: None,
-                        pcm: VecDeque::new(),
-                        generation_done: false,
-                        provider_idle: false,
-                        input_sequence: 0,
-                        had_audio: false,
-                        final_chunk: None,
-                        playback_gaps: 0,
-                        last_provider_audio_at_us: None,
-                    };
-                    for audio in prefix {
-                        queue_input(
-                            &mut provider_queue,
-                            &mut current,
-                            snapshot.microphone_generation(),
-                            audio,
-                        )?;
-                    }
-                    if accepted.ended {
-                        current.local_input_ended = true;
-                        owner.input_ended(now(), current.owner)?;
-                        provider_queue.push_back(ProviderInput::End {
-                            request: current.owner.turn(),
-                            privacy_generation: snapshot.microphone_generation(),
-                        });
-                        snapshot = owner.snapshot(now())?;
-                        rig.publish(snapshot)?;
-                        last_publish = monotonic_us();
-                    }
-                    *reply = Some(current);
+                    last_publish = monotonic_us();
                 }
                 AdmissionStep::Audio(audio) => {
                     if let Some(current) = reply.as_mut() {
@@ -1848,7 +1938,16 @@ fn conversation(
             &mut speaker_pending,
             &mut speaker_sequence,
             &mut snapshot,
+            &mut playback_mask,
         )?;
+        let available = playback_mask.available(monotonic_us());
+        if policy_available != Some(available) {
+            record(
+                trace,
+                json!({"kind":"turn_taking_availability","at_us":monotonic_us(),"policy":rig.turn_taking,"prospective_input_available":available,"hard_capture_authority_unchanged":true}),
+            )?;
+            policy_available = Some(available);
+        }
         output_flow.replenish(
             reply.as_ref().map_or(0, |current| current.pcm.len()),
             &mut rig.provider.channels.control,
@@ -1890,6 +1989,184 @@ fn conversation(
             std::thread::sleep(wait);
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn observe_prospective_input(
+    mask: &mut PlaybackMask,
+    detector: &mut TurnDetector,
+    admission: &mut InputAdmission,
+    context: AdmissionContext,
+    observation: ObservedAudio,
+    first_read_us: u64,
+    probability: f32,
+    at_us: u64,
+) -> Result<(AdmissionUpdate, bool)> {
+    mask.remember_read(
+        observation.sequence,
+        first_read_us,
+        observation.captured_at_us,
+        at_us,
+    )?;
+    if !admission.owns_stream() && mask.frame() == Disposition::Suppress {
+        let rejection = admission.suppress_prospective(context, at_us)?;
+        detector
+            .suppress(&observation, probability)
+            .map_err(io::Error::other)?;
+        mask.suppressed()?;
+        return Ok((
+            AdmissionUpdate {
+                rejection,
+                step: AdmissionStep::None,
+            },
+            false,
+        ));
+    }
+    let activity = detector.push(observation, probability);
+    let ended = matches!(activity, Activity::End(_));
+    Ok((admission.observe(activity, context, at_us)?, ended))
+}
+
+fn decide_prospective_input(
+    mask: &PlaybackMask,
+    detector: &mut TurnDetector,
+    admission: &mut InputAdmission,
+    candidate: crate::admission::Candidate,
+    context: AdmissionContext,
+    at_us: u64,
+    trace: &mut Vec<Value>,
+) -> Result<Option<Accepted>> {
+    match mask.candidate(candidate)? {
+        Disposition::AwaitWriteEvidence => return Ok(None),
+        Disposition::Suppress => {
+            if let Some(rejection) = admission.suppress_prospective(context, at_us)? {
+                record_input_rejection(trace, rejection)?;
+            }
+            detector.clear_prospective();
+            return Ok(None);
+        }
+        Disposition::Pass => {}
+    }
+    if mask.enabled() {
+        let Some(audio) = admission.pending_audio(candidate.id) else {
+            return Ok(None);
+        };
+        let mut last_masked = None;
+        let mut awaiting_write = false;
+        for frame in audio {
+            match mask.retained_frame(frame)? {
+                Disposition::Suppress => last_masked = Some(frame.sequence),
+                Disposition::AwaitWriteEvidence => awaiting_write = true,
+                Disposition::Pass => {}
+            }
+        }
+        // A delayed receipt may cover pre-roll retained before the six fresh
+        // onset blocks. Never splice disjoint blocks or erase an accepted input.
+        if let Some(through_sequence) = last_masked {
+            let first_onset = candidate
+                .trigger_sequence
+                .checked_sub(u64::from(crate::activity::START_BLOCKS) - 1)
+                .ok_or_else(|| io::Error::other("candidate has no complete onset"))?;
+            if through_sequence >= first_onset {
+                if let Some(rejection) = admission.suppress_prospective(context, at_us)? {
+                    record_input_rejection(trace, rejection)?;
+                }
+                detector.clear_prospective();
+                return Ok(None);
+            }
+            let removed = admission.discard_pending_prefix(candidate.id, through_sequence)?;
+            record(
+                trace,
+                json!({"kind":"input_prefix_sanitized","candidate":candidate.id,
+                    "through_sequence":through_sequence,"removed_blocks":removed,
+                    "reason":"own_playback_prefix","at_us":at_us}),
+            )?;
+        }
+        if awaiting_write {
+            return Ok(None);
+        }
+    }
+    let basis = if mask.enabled() {
+        AcceptanceBasis::DirectedSessionV1Baseline
+    } else {
+        AcceptanceBasis::DirectedSessionVadOnly
+    };
+    let Some((_, evidence)) = admission.pending_evidence(at_us, basis) else {
+        return Ok(None);
+    };
+    accepted_decision(admission.decide(evidence, context, at_us)?, trace)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn commit_admitted_input(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    accepted: Accepted,
+    provider_session: u64,
+    trace: &mut Vec<Value>,
+    mut publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    let prefix = accepted.audio;
+    let replacing = reply.is_some();
+    cancel_reply(owner, reply, trace, "user_interrupted")?;
+    let input = if replacing {
+        AdmittedInput::Interruption
+    } else {
+        AdmittedInput::NewTurn
+    };
+    *speaker_pending = None;
+    provider_queue.clear();
+    let turn = owner.admit(now(), input)?;
+    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
+    let mut snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    let admitted_at_us = monotonic_us();
+    record(
+        trace,
+        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session}),
+    )?;
+    provider_queue.push_back(ProviderInput::Start {
+        session: provider_session,
+        request: turn.turn(),
+        privacy_generation: snapshot.microphone_generation(),
+    });
+    let mut current = Reply {
+        owner: turn,
+        cloud: CloudRequest::new(provider_session)?,
+        local_input_ended: false,
+        plan,
+        playback: None,
+        pcm: VecDeque::new(),
+        generation_done: false,
+        provider_idle: false,
+        input_sequence: 0,
+        had_audio: false,
+        final_chunk: None,
+        playback_gaps: 0,
+        last_provider_audio_at_us: None,
+    };
+    for audio in prefix {
+        queue_input(
+            provider_queue,
+            &mut current,
+            snapshot.microphone_generation(),
+            audio,
+        )?;
+    }
+    if accepted.ended {
+        current.local_input_ended = true;
+        owner.input_ended(now(), current.owner)?;
+        provider_queue.push_back(ProviderInput::End {
+            request: current.owner.turn(),
+            privacy_generation: snapshot.microphone_generation(),
+        });
+        snapshot = owner.snapshot(now())?;
+        publish(snapshot)?;
+    }
+    *reply = Some(current);
+    Ok(snapshot)
 }
 
 /// All hardware I/O remains in the child. This path has one outstanding frame,
@@ -1961,6 +2238,7 @@ fn service_ring_with_clock(
 
 /// Called only after this tick's retained input and cancellation work. Keeping
 /// one outstanding chunk bounds handoff without adding a playback jitter buffer.
+#[allow(clippy::too_many_arguments)]
 fn dispatch_speaker_chunk(
     owner: &mut Controller,
     reply: &mut Option<Reply>,
@@ -1968,6 +2246,7 @@ fn dispatch_speaker_chunk(
     pending: &mut Option<PendingSpeaker>,
     sequence: &mut u64,
     snapshot: &mut Snapshot,
+    playback_mask: &mut PlaybackMask,
 ) -> Result<()> {
     if pending.is_some() {
         return Ok(());
@@ -1989,6 +2268,7 @@ fn dispatch_speaker_chunk(
     *sequence = sequence
         .checked_add(1)
         .ok_or_else(|| io::Error::other("speaker counter exhausted"))?;
+    let dispatch_at = monotonic_us();
     channel.send(SpeakerChunk {
         snapshot: *snapshot,
         permit,
@@ -1996,6 +2276,7 @@ fn dispatch_speaker_chunk(
         end_of_speech: final_chunk,
         samples,
     })?;
+    playback_mask.dispatched(permit.owner(), *sequence, dispatch_at, 240)?;
     *pending = Some(PendingSpeaker {
         sequence: *sequence,
         permit,
@@ -2335,9 +2616,13 @@ fn handle_playback_gap(
 #[cfg(test)]
 mod tests {
     mod provider_pair;
+    mod turn_taking;
 
     use super::*;
-    use crate::wire::CaptureTiming;
+    use crate::{
+        admission::{Evidence, Verdict},
+        wire::CaptureTiming,
+    };
     use lamp_interaction::BoundaryGuard;
 
     #[test]
@@ -2445,6 +2730,7 @@ mod tests {
             ring_channel_ceiling: Some(24),
             diagnostic_directory: Some(directory.path.clone()),
             noise_suppression: NoiseSuppression::On,
+            turn_taking: TurnTaking::VadOnly,
         };
         let started = Instant::now();
         let mut trace = Vec::new();
@@ -2811,6 +3097,7 @@ mod tests {
                 &mut pending,
                 &mut sequence,
                 &mut snapshot,
+                &mut PlaybackMask::new(TurnTaking::VadOnly),
             )
             .unwrap();
             let first = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
@@ -2830,6 +3117,7 @@ mod tests {
                 &mut pending,
                 &mut sequence,
                 &mut snapshot,
+                &mut PlaybackMask::new(TurnTaking::VadOnly),
             )
             .unwrap();
             assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
@@ -2849,6 +3137,7 @@ mod tests {
                 &mut pending,
                 &mut sequence,
                 &mut snapshot,
+                &mut PlaybackMask::new(TurnTaking::VadOnly),
             )
             .unwrap();
             assert!(pending.is_none());
@@ -2902,6 +3191,7 @@ mod tests {
                     &mut pending,
                     &mut sequence,
                     &mut snapshot,
+                    &mut PlaybackMask::new(TurnTaking::VadOnly),
                 )
                 .unwrap();
                 let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
@@ -3171,6 +3461,7 @@ mod tests {
                     &mut pending,
                     &mut speaker_sequence,
                     &mut snapshot,
+                    &mut PlaybackMask::new(TurnTaking::VadOnly),
                 )
                 .unwrap();
                 let chunk = speaker_child
@@ -3189,6 +3480,7 @@ mod tests {
                     &mut pending,
                     &mut speaker_sequence,
                     &mut snapshot,
+                    &mut PlaybackMask::new(TurnTaking::VadOnly),
                 )
                 .unwrap();
                 assert_eq!(reply.as_ref().unwrap().pcm.len(), retained);
@@ -3274,6 +3566,7 @@ mod tests {
             &mut pending,
             &mut sequence,
             &mut snapshot,
+            &mut PlaybackMask::new(TurnTaking::VadOnly),
         )
         .unwrap();
         assert!(
@@ -3866,6 +4159,7 @@ mod tests {
             &mut pending,
             &mut 0,
             &mut state,
+            &mut PlaybackMask::new(TurnTaking::VadOnly),
         )
         .unwrap();
         let packet = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
@@ -3916,6 +4210,7 @@ mod tests {
             &mut None,
             &mut 0,
             &mut state,
+            &mut PlaybackMask::new(TurnTaking::VadOnly),
         )
         .unwrap();
         assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
@@ -4060,6 +4355,7 @@ mod tests {
             &mut pending,
             &mut 0,
             &mut state,
+            &mut PlaybackMask::new(TurnTaking::VadOnly),
         )
         .unwrap();
         let sent = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();

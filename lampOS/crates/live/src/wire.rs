@@ -111,10 +111,29 @@ pub enum WorkerEvent {
         observed_at_us: u64,
     },
     Playback {
+        owner: TurnOwner,
+        first_sample: PlaybackCursor,
+        end_sample: PlaybackCursor,
+        queue_observed_at_us: u64,
         turn: u64,
         sequence: u64,
         queued_frames: usize,
         accepted_frames: usize,
+        observed_at_us: u64,
+    },
+    /// Successful physical drop/reset, including an empty old speech queue.
+    /// This never certifies playback completion or grants output authority.
+    PlaybackClockReset {
+        previous: QueuedRange,
+        next_epoch: u64,
+        observed_at_us: u64,
+    },
+    /// Actual last accepted speech cursor drained, including a nonfinal pause.
+    /// Does not retire a playback token or complete a conversational reply.
+    SpeechDrained {
+        owner: TurnOwner,
+        sequence: u64,
+        last_sample: PlaybackCursor,
         observed_at_us: u64,
     },
     SpeechRetired {

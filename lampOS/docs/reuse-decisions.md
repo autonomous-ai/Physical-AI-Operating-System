@@ -53,6 +53,14 @@ motion. Visual quality and crash recovery still require physical qualification.
 | V1's ordinary TTS capture suppression avoids some self-interruption but discards user overlap. | Preserve continuous capture and a stable render reference; qualify interruption admission separately. | Matched reply-only and quiet/normal overlapping-speech trials, with lost opening words and acoustic stop measured. |
 | Current Rust treats six high-VAD blocks as permission to cancel the old reply. Playback residue has triggered that path. | Separate candidate detection from qualified admission; retain the beginning of speech while deciding. | A gate must reject echo without rejecting genuine quiet overlap. No threshold or classifier is selected merely because it passes one recording. |
 
+The opt-in [V1-style turn-taking baseline](turn-taking-baseline.md) now ports
+V1's ordinary own-playback suppression and fresh-prefix behavior before further
+interruption experiments. Rust retains continuous capture/AEC and uses original
+accepted-write/cursor and host-read evidence. Its declared 100 ms tail is not a
+measured echo bound, and overlapping user speech is intentionally withheld.
+`vad-only` remains the default until physical parity is qualified. This is a
+policy reuse decision, not a new DSP engine or a claim of natural full duplex.
+
 The last two rows are documented in the [microphone audit](microphone-v1-v2-audit.md).
 They show why the new runtime also needs criticism: process separation and Rust
 ownership do not themselves solve conversational perception.

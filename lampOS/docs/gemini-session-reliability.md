@@ -1150,8 +1150,34 @@ What this strategy relies on, kept apart:
 |---|---|
 | A start of activity interrupts a response that is producing, and `interrupted` then `turnComplete` follow | Documented |
 | That confirmation arrives promptly | One probe run: `interrupted` 358 ms and idle 363 ms after the start. One attempt, not a rate |
-| It still arrives when the start is followed at once by a burst of kept audio | **Not shown.** No run yet |
-| A response that has produced nothing is not confirmed when interrupted | One probe run: nothing exposed in 2.0 s. Not documented either way |
+| It still arrives when the start is followed at once by a burst of kept audio | One run on a Lamp, below: 10,400 kept samples behind the start, `interrupted` and idle 465 ms after it. One attempt |
+| A response that has produced nothing is not confirmed when interrupted | Two runs: nothing exposed in 2.0 s, and nothing at all in 6.2 s. Not documented either way |
+
+### Three real-service runs, 2026-10-11
+
+Run by the integrator on a Lamp with the probe built from `901622831`
+(SHA-256 `08a80e49…5551`), the credential used in place, cached synthetic
+speech, no microphone or speaker. One attempt each. Their receipt is
+`f2109d30a499adc58cdbabc9ed9020d607467f8df0a05a224d3d517ce51494f1`.
+Times are since the first start was queued.
+
+| | At-commit wait only | Kept start, before output | Kept start, during output |
+|---|---|---|---|
+| Second start | queued 4.099 s, 301 ms after the first End | handed in 4.089 s, 301 ms after the first End | queued 5.148 s, 1.3 ms after the first audio |
+| Start kept | not asked for | **717 ms, 10,400 samples**, released by the first output | nothing kept: the answer had begun |
+| For the first response, while the barrier stood | **nothing: no audio, no `interrupted`, no completion, in 6.18 s** | 6 audio frames dropped, `interrupted` and idle at 5.272 s, 465 ms after the start went out | 8 audio frames dropped, `interrupted` 361 ms and idle 402 ms after the start |
+| `waitingForInput`, resumption updates | 0, 0 | 0, 0 | 0, 0 |
+| Second End | withheld 2.003 s, never written | written 8.261 s | written 9.313 s |
+| Outcome | `strict_barrier_timeout` | `strict_barrier_confirmed_and_answered`; first audio of the answer 955 ms after the End | `strict_barrier_confirmed_after_audio_and_answered`; 960 ms after the End |
+
+What this is: the case that failed, failing again under the at-commit
+wait alone, and succeeding once with the start kept, burst included. What
+it is not: a rate, a latency of anything a person hears, or a statement
+about a microphone, an endpointer or a speaker. Neither documented signal
+appeared in any of the three, so on this evidence neither is a
+settlement signal for the case that fails. The probe that ran is the one
+before the retirement fix below; none of these cases retires a kept
+request.
 
 ### The rule
 
@@ -1166,6 +1192,17 @@ kept here, in order, and the first of these ends that:
 | `patience` | `activityStart` and the kept audio. From here it is the default path exactly: the strict wait, and `BarrierTimeout` if nothing confirms | `Patience` |
 | More than `MAX_RETAINED_SAMPLES` kept | The same as for patience | `Overflow` |
 | A stop, a close, any failure | Nothing. What was kept is dropped unsent | The stop or the failure itself |
+
+A request retired while it is kept, or while what was kept is being
+written, is never committed. Retirement is read again immediately before
+an End is handed to the socket, because the writes that lead there are
+awaited and a retirement can be recorded during any of them. The limit
+is the hand-over itself: once the End frame is inside the WebSocket layer
+it goes out with the next flush, and a retirement recorded after that
+finds a request that has been committed. It is then what a committed
+request that is superseded always was: interrupted, and settled before
+the next commit. A healthy connection is not abandoned to take a frame
+back.
 
 A response that has already produced output when it is superseded is
 interrupted at once, as before. With `barrier_reports` on, the barrier's
@@ -1249,11 +1286,98 @@ produces nothing for an activity before its End.
 | Already producing: nothing kept | `an_answer_that_has_already_begun_is_interrupted_at_once_as_before` |
 | Off by default, bounds | `without_the_setting_the_start_is_written_at_once_and_reports_say_nothing_was_kept`, `the_patience_is_bounded_and_off_is_the_default` |
 
-Not shown by any of this: anything about the real service, above all
-whether it confirms an interruption that a burst of kept audio follows;
-the age bound being reached (no test holds audio that long); the path
-through `provider_worker`, which is wired but switched off
-(`SUCCESSOR` in that file) and has no test of its own.
+Also `retain::a_request_cancelled_while_its_kept_start_is_being_written_is_not_committed`
+and its superseded twin, the integrator's
+`stop_fence::review_retirement_during_pending_audio_does_not_commit`, and
+`retain::a_retirement_recorded_while_the_end_itself_waits_on_the_transport_comes_too_late`
+for the limit.
+
+Not shown by any of this: more than one attempt at anything on the real
+service; the age bound being reached (no test holds audio that long);
+a kept start through a microphone, an endpointer and a speaker.
+
+### In the provider worker: `--provider-continuation kept-start`
+
+One explicit option, off by default. `off` adds nothing to the provider
+worker's command line and the worker runs exactly as before. `kept-start`
+selects three things together, for the worker's lifetime:
+
+| Setting | Value |
+|---|---|
+| `SuccessorStart::AfterFirstOutput` | patience 2,500 ms (`KEPT_START_PATIENCE` in `provider_worker.rs`): a proposed value |
+| `BarrierWait::AtCommit` | the quiet bound counts only while an End is withheld |
+| `barrier_reports` | how each barrier ended, on the worker's standard error, counts and times only |
+
+`BarrierPolicy::Require`, every timeout, the input and output queue
+bounds, capture times and the 1 s age bound for audio as it is handed in
+are unchanged. Nothing committed is replayed.
+
+Integration, in three places and no others:
+
+1. `options.rs`: `DirectedOptions::provider_continuation`, parsed from
+   `--provider-continuation off|kept-start`.
+2. `coordinator.rs`: the worker's arguments gain
+   `--provider-continuation kept-start` before the camera context, and
+   `run_start` records `provider_continuation`.
+3. `main.rs`: the provider worker takes that flag off the front of its
+   flags and calls `provider_worker::run_with_continuation`.
+
+To try it: `lamp-live serve CONFIG OUTPUT --provider-continuation
+kept-start`, with whatever else the session already uses.
+
+`provider_worker::tests::kept_start`, through the worker's own intake,
+hand-off and session against the scripted service, input at 10 ms a block
+with its own capture times:
+
+| Case | Test |
+|---|---|
+| A resumed question is kept, and exactly it is delivered: one start, its blocks in order, one End; the first answer's audio is never the coordinator's | `a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered` |
+| Two resumed utterances: one question, one End | `two_resumed_utterances_are_delivered_in_order_as_one_question_with_one_end` |
+| The first answer completes with nothing | `a_first_answer_that_completes_with_nothing_lets_the_resumed_question_start` |
+| Stop, and mute, while kept | `a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it` |
+| Stop while being written out | `a_stop_while_the_kept_question_is_being_written_ends_the_writing` |
+| The service closes for quota while kept: nothing written, nothing replayed to a new connection | `the_service_closing_while_the_question_is_kept_writes_none_of_it_and_replays_none` |
+| No first answer: patience, then the strict timeout, no End | `with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` |
+| A cancelled kept question: see below | `a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one` |
+| Without the option, as before | `without_the_option_a_resumed_question_is_written_at_once_as_before` |
+
+Overflow is not among them and cannot be reached through the worker at
+the rate speech arrives: the buffer holds 6 s and the patience ends at
+2.5 s. It is tested in the session.
+
+**The limitation, shown and not hidden.** When the coordinator gives a
+kept request up, the worker retires it and closes its input, exactly as
+it does when a newer request supersedes it. The session cannot tell the
+two apart. So, as that test shows on the wire:
+
+- the cancelled request is never committed: no End is written for it;
+- the audio the session had already taken from it is still written when
+  the first answer begins, in order, behind the start;
+- the activity stays open, and the next request's audio continues it, so
+  the service hears the cancelled audio as the beginning of that next
+  question, under that request's End.
+
+On the default path the same audio reaches the service too, only sooner:
+this is not new, but keeping makes it avoidable and the present contract
+does not avoid it. Treating cancelled input as current would be wrong,
+and so would dropping kept words on a guess. What would settle it is the
+coordinator saying which it is:
+
+> **Proposed.** A provider input `void { request }`, sent when an
+> admitted input is abandoned and not continued. The worker passes it to
+> the session, which drops whatever of that request it still holds and
+> never writes it. Audio already written cannot be taken back, and the
+> start that interrupts the earlier answer is still written. A request
+> merely superseded keeps its words, as now.
+
+That needs a message the coordinator does not send today and is not
+built. Until it is, a cancelled kept request costs what a cancelled
+request on the default path already costs.
+
+Known limits of this candidate: the barrier report is a line on standard
+error and not a typed event the coordinator records; the patience is a
+constant; a kept start has had one real-service attempt; nothing here
+has been through a microphone or a speaker.
 
 ### On the probe, and on a Lamp
 

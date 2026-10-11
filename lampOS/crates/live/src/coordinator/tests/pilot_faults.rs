@@ -87,9 +87,16 @@ enum Act {
     CaptureSilent,
     /// The provider peer closes its channels: the provider is gone.
     ProviderGone,
-    /// The speaker keeps reading control but stops reading and acknowledging
-    /// chunks, like a writer stuck behind a starved device.
+    /// Stop-only stall: the speaker consumes control messages but installs no
+    /// authority and acknowledges nothing; it still honours Stop. This is no
+    /// evidence of authority progress at the speaker.
     StallSpeaker,
+    /// Control progress without settlement: the speaker keeps installing
+    /// every authority snapshot but neither reads nor settles chunks.
+    StallSpeakerInstalling,
+    /// The speaker accepts half of its next chunk, then stalls as
+    /// `StallSpeakerInstalling`.
+    StallSpeakerPartial,
     /// Real SIGTERM to this process, under an installed `Termination`.
     Sigterm,
     /// Speech starts on capture: a new user turn begins now.
@@ -106,6 +113,15 @@ enum Act {
     /// The optional camera stops reporting progress, as a stalled or
     /// unplugged sensor does, while its process keeps serving Stop.
     CameraSilent,
+}
+
+/// How the speaker peer behaves.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum SpeakerMode {
+    Healthy,
+    StopOnly,
+    Installing,
+    Partial,
 }
 
 #[derive(Clone, Debug)]
@@ -204,6 +220,10 @@ struct Seen {
     abandoned: Vec<&'static str>,
     /// Every authority state the speaker's guard installed, in order.
     installs: Vec<Installed>,
+    /// When a Stop-only stall began: from then on the speaker installs no
+    /// authority, so no revocation can be observed there.
+    stop_only_from: Option<u64>,
+    speaker_stopped_us: Option<u64>,
     ring_frames: u64,
     /// Longest interval between two privacy observations the peer sent, in
     /// microseconds: the peer's own share of any freshness loss.
@@ -374,16 +394,29 @@ impl Run {
                 );
             }
         }
-        // The asynchronous bound: once the coordinator ended a turn, the
-        // speaker installed authority without that owner within one channel
-        // packet age (100 ms), whenever the speaker was still reading.
+        // The asynchronous bound: once the coordinator ended a turn, a
+        // speaker that installs authority must have installed authority
+        // without that owner within one channel packet age (100 ms). It is
+        // required, not merely checked when present. Exempt only a speaker
+        // that installs nothing by design (a Stop-only stall or an abandoned
+        // peer) or had already stopped.
         for (&turn, &at) in &finished {
-            if let Some(revoked) = self.revoked_at(turn) {
-                assert!(
+            let installing = !self.seen.abandoned.contains(&"speaker")
+                && self.seen.stop_only_from.is_none_or(|from| from > at)
+                && self
+                    .seen
+                    .speaker_stopped_us
+                    .is_none_or(|stopped| stopped > at);
+            match self.revoked_at(turn) {
+                Some(revoked) => assert!(
                     revoked.saturating_sub(at) <= 100_000,
                     "turn {turn} revoked at the speaker {} us after it ended",
                     revoked.saturating_sub(at)
-                );
+                ),
+                None => assert!(
+                    !installing,
+                    "turn {turn} ended but the installing speaker never saw it revoked"
+                ),
             }
         }
         // No false readiness: once a session-ending fault, mute or stop was
@@ -465,7 +498,7 @@ struct Peers {
     camera_started: bool,
     camera_silent: bool,
     next_camera: Instant,
-    speaker_stalled: bool,
+    speaker: SpeakerMode,
     provider_gone: bool,
     speech_offset: Option<u64>,
     next_capture: Instant,
@@ -501,7 +534,12 @@ impl Peers {
                 }
                 self.seen.lock().unwrap().abandoned.push("provider");
             }
-            Act::StallSpeaker => self.speaker_stalled = true,
+            Act::StallSpeaker => {
+                self.speaker = SpeakerMode::StopOnly;
+                self.seen.lock().unwrap().stop_only_from = Some(monotonic_us());
+            }
+            Act::StallSpeakerInstalling => self.speaker = SpeakerMode::Installing,
+            Act::StallSpeakerPartial => self.speaker = SpeakerMode::Partial,
             Act::Sigterm => {
                 rustix::process::kill_process(
                     rustix::process::getpid(),
@@ -598,8 +636,8 @@ impl Peers {
             return;
         }
         let role = self.peers[index].role;
-        if role == "speaker" && self.speaker_stalled {
-            // A stuck writer still sees Stop, but nothing else.
+        if role == "speaker" && self.speaker == SpeakerMode::StopOnly {
+            // Consumes control, installs nothing, still sees Stop.
             if let Ok(Some(Control::Stop)) = self.peers[index].channels.control.receive::<Control>()
             {
                 self.stop(index);
@@ -713,7 +751,7 @@ impl Peers {
                 }
             }
             "provider" if !self.provider_gone => self.tick_provider(index),
-            "speaker" => self.tick_speaker(index),
+            "speaker" if self.speaker != SpeakerMode::Installing => self.tick_speaker(index),
             "camera" if self.camera_started && !self.camera_silent => {
                 if Instant::now() >= self.next_camera {
                     let _ = self.peers[index].channels.data.send(CameraEvent::Progress {
@@ -840,7 +878,8 @@ impl Peers {
             .max(Instant::now() - Duration::from_millis(20))
             + Duration::from_micros(chunk.samples.len() as u64 * 1_000 / 24);
         // As the real speaker: install the chunk's own view (an older one is
-        // ignored), then check the permit immediately before the write.
+        // ignored), then check the permit immediately before the write. A
+        // partial stall writes half of this chunk and settles nothing more.
         self.install(chunk.snapshot);
         let checked_us = monotonic_us();
         let accepted = self
@@ -886,11 +925,17 @@ impl Peers {
         if notice {
             self.notice_accepted += 1;
         }
+        let frames = if self.speaker == SpeakerMode::Partial {
+            self.speaker = SpeakerMode::Installing;
+            chunk.samples.len() / 2
+        } else {
+            chunk.samples.len()
+        };
         let first = PlaybackCursor {
             epoch: 1,
             frame: self.cursor,
         };
-        self.cursor += chunk.samples.len() as u64;
+        self.cursor += frames as u64;
         let end = PlaybackCursor {
             epoch: 1,
             frame: self.cursor,
@@ -904,9 +949,13 @@ impl Peers {
             turn: owner.turn(),
             sequence: chunk.chunk_sequence,
             queued_frames: 0,
-            accepted_frames: chunk.samples.len(),
+            accepted_frames: frames,
             observed_at_us: at,
         });
+        if frames < chunk.samples.len() {
+            // Part of the chunk was written; the rest is never settled.
+            return;
+        }
         let _ = channels.control.send(WorkerEvent::SpeechDrained {
             owner,
             sequence: chunk.chunk_sequence,
@@ -1005,7 +1054,11 @@ impl Peers {
         let peer = &mut self.peers[index];
         peer.stopped = true;
         peer.input.take();
-        self.seen.lock().unwrap().stopped.push(peer.role);
+        let mut seen = self.seen.lock().unwrap();
+        seen.stopped.push(peer.role);
+        if peer.role == "speaker" {
+            seen.speaker_stopped_us = Some(monotonic_us());
+        }
     }
 }
 
@@ -1149,7 +1202,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
                 camera_started: false,
                 camera_silent: false,
                 next_camera: Instant::now(),
-                speaker_stalled: false,
+                speaker: SpeakerMode::Healthy,
                 provider_gone: false,
                 speech_offset: None,
                 next_capture: Instant::now(),
@@ -1823,4 +1876,111 @@ fn speaker_progress_is_due_strictly_after_lease_plus_report_age() {
         SPEAKER_PERMIT_LEASE_US + SPEAKER_REPORT_AGE_US,
         crate::admission::DECISION_BUDGET_US
     );
+}
+
+// Further speaker controls through the same fixture, thresholds unchanged.
+
+fn stall_end(run: &Run, act: Act) -> (String, u64) {
+    let error = run.result.as_ref().unwrap_err().to_string();
+    let stalled = run.fired_at(act);
+    let ended = run.events("turn_finished")[0]["at_us"].as_u64().unwrap();
+    (error, (ended - stalled) / 1_000)
+}
+
+#[test]
+fn partial_write_then_stall_is_bounded_under_v1_baseline() {
+    let _one = one_session();
+    let run =
+        run(Script::question(Answer::Complete(40))
+            .then(When::Accepted(3), Act::StallSpeakerPartial));
+    run.assert_invariants();
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let (error, after_ms) = stall_end(&run, Act::StallSpeakerPartial);
+    eprintln!("partial stall: {error}; {after_ms} ms");
+    assert!(error.contains("speaker write evidence expired"), "{error}");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
+}
+
+#[test]
+fn partial_write_then_stall_is_bounded_under_vad_only() {
+    let _one = one_session();
+    let run = run(Script {
+        turn_taking: TurnTaking::VadOnly,
+        ..Script::question(Answer::Complete(40))
+    }
+    .then(When::Accepted(3), Act::StallSpeakerPartial));
+    run.assert_invariants();
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let (error, after_ms) = stall_end(&run, Act::StallSpeakerPartial);
+    eprintln!("partial stall: {error}; {after_ms} ms");
+    assert!(error.contains("speaker acknowledgment expired"), "{error}");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
+}
+
+#[test]
+fn control_progress_without_settlement_is_bounded_under_v1_baseline() {
+    let _one = one_session();
+    let run =
+        run(Script::question(Answer::Complete(40))
+            .then(When::Accepted(3), Act::StallSpeakerInstalling));
+    // The installing speaker must have seen the turn revoked.
+    run.assert_invariants();
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
+    eprintln!("installing stall: {error}; {after_ms} ms");
+    assert!(error.contains("speaker write evidence expired"), "{error}");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
+    assert!(run.revoked_at(first(&run)).is_some());
+}
+
+#[test]
+fn control_progress_without_settlement_is_bounded_under_vad_only() {
+    let _one = one_session();
+    let run = run(Script {
+        turn_taking: TurnTaking::VadOnly,
+        ..Script::question(Answer::Complete(40))
+    }
+    .then(When::Accepted(3), Act::StallSpeakerInstalling));
+    run.assert_invariants();
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
+    eprintln!("installing stall: {error}; {after_ms} ms");
+    assert!(error.contains("speaker acknowledgment expired"), "{error}");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
+    assert!(run.revoked_at(first(&run)).is_some());
+}
+
+#[test]
+fn duplex_control_answers_once() {
+    let _one = one_session();
+    let run = run(Script {
+        turn_taking: TurnTaking::Duplex,
+        ..Script::question(Answer::Complete(12))
+    });
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let turn = first(&run);
+    assert_eq!(run.outcomes()[&turn], ["audio_written_unscored"]);
+    let accepted = run.accepted(turn);
+    assert_eq!(
+        accepted.iter().map(|c| c.frames).sum::<usize>(),
+        12 * PACKET
+    );
+}
+
+#[test]
+fn duplex_stalled_speaker_is_bounded() {
+    let _one = one_session();
+    let run = run(Script {
+        turn_taking: TurnTaking::Duplex,
+        ..Script::question(Answer::Complete(40))
+    }
+    .then(When::Accepted(3), Act::StallSpeakerInstalling));
+    run.assert_invariants();
+    assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+    let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
+    eprintln!("duplex installing stall: {error}; {after_ms} ms");
+    // Duplex keeps V1-baseline's playback mask, so its lease reports first.
+    assert!(error.contains("speaker write evidence expired"), "{error}");
+    assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }

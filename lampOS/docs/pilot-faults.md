@@ -10,7 +10,8 @@ reviewed Gemini Stop fence to this base; as Main agreed, the matrix stays on
 | `ff22184a` | First matrix (12 scenarios) and the F1 reproducer, ignored |
 | `1151380d` | Matrix completed and review fixes applied. Test file only |
 | `33a86363` | **F1 proposal**: production change in `coordinator.rs`, with its regression. Separate from the matrix commits |
-| docs commit | This report |
+| `d787ba93` | This report, as reviewed |
+| `r2` commits | Main's F1 review gaps closed: required revocation, labelled Stop-only stall, partial-then-stall, control progress without settlement, Duplex controls. Branch `lamp-a2-pilot-faults-r2`; the reviewed branch is unchanged |
 
 ## What this is, and is not
 
@@ -21,6 +22,16 @@ subsystem fails in a specific way. Whether real hardware fails in that way is
 not shown.
 
 ## Harness (`crates/live/src/coordinator/tests/pilot_faults.rs`)
+
+**Evidence boundary.**
+
+- Each worker's lifecycle is a real child process (`cat`) with the
+  production Unix-socket channels, and the production supervisor reaps it.
+- Each role's behaviour (capture, privacy, provider, speaker, ring, camera)
+  is simulated by test threads on those channels.
+- This is real coordinator, channel and reaping evidence. It is not
+  evidence about the production worker processes, their drivers or the
+  hardware.
 
 - **Real loop.** Each test runs the production `conversation()` service loop
   (`Lifetime::Serve`, default options, V1-baseline as in the pilot), then
@@ -51,7 +62,7 @@ not shown.
 | --- | --- |
 | No stale dispatch | The coordinator never handed the speaker a chunk under an authority view issued after its owner finished, privacy was observed muted, or Stop was requested |
 | No stale write | At every write the speaker allowed, its installed authority named that owner with the microphone allowed, and was at least as new as the chunk's own. The speaker had not yet installed a state revoking that owner. Audio already accepted before revocation is counted, not hidden |
-| Bounded revocation | After the coordinator ended a turn, a speaker still reading installed authority without that owner within one channel packet age (100 ms). Measured: 0.26–4.9 ms |
+| Bounded revocation | After the coordinator ended a turn, a speaker that installs authority must have installed authority without that owner within one channel packet age (100 ms). This is required: a missing revocation fails. It is exempt only for a speaker that installs nothing by design (the Stop-only stall, an abandoned peer) or had already stopped. Measured: 0.26–4.9 ms |
 | No duplicate answer | One `turn_finished` per turn; no request and no chunk sequence twice (a set count, so `[1, 2, 1]` fails) |
 | No false readiness | No `listening_ready` after a mute, a Stop or a terminal provider end. Across service cycles, readiness only inside a cycle, never while waiting |
 | No orphan | Every role saw Stop unless its peer was abandoned by design. Only an abandoned role may be force-killed, matched by role. Verified cleanup succeeded unless the scenario expects a failure. Every role's child had exited and been waited for when the run returned |
@@ -69,7 +80,10 @@ All scenarios use V1-baseline unless marked otherwise.
 | Provider process lost | after End / after 3 accepted chunks | `runtime_failed`; no speech / answer cut; run error "provider worker exited" | `provider_process_lost_before_output_ends_the_run_without_speech`, `provider_process_lost_during_output_stops_speech_and_fails_the_turn` |
 | Provider worker `Fault` | during output | `runtime_failed` | `provider_worker_fault_during_output_fails_the_turn_and_ends_the_run` |
 | Terminal provider link | during output | `provider_failed`; buffered audio retires; "terminal provider output settled; service stopped without retry" | `terminal_provider_link_during_output_settles_failed_and_ends_service` |
-| Speaker stalls (reads control, stops acknowledging) | after 3 accepted chunks | `runtime_failed`, "speaker write evidence expired", 200–210 ms after the stall (asserted 190–300 ms) | `stalled_speaker_during_output_is_bounded_and_never_completes_the_answer` |
+| Speaker stall, **Stop-only and non-installing** (consumes control, installs no authority, acknowledges nothing; no evidence of authority progress) | after 3 accepted chunks | `runtime_failed`, "speaker write evidence expired", 200–210 ms after the stall (asserted 190–300 ms) | `stalled_speaker_during_output_is_bounded_and_never_completes_the_answer` |
+| Partial write, then stall (half of the next chunk accepted, nothing settled) | after 3 accepted chunks | V1: "speaker write evidence expired", 210 ms. `vad-only`: "speaker acknowledgment expired", 207 ms (both asserted 190–300 ms) | `partial_write_then_stall_is_bounded_under_v1_baseline`, `…_under_vad_only` |
+| Control progress without settlement (installs every authority snapshot, never settles) | after 3 accepted chunks | V1: "speaker write evidence expired", 201 ms. `vad-only`: "speaker acknowledgment expired", 207 ms. The revoked turn is observed at the speaker (asserted) | `control_progress_without_settlement_is_bounded_under_v1_baseline`, `…_under_vad_only` |
+| Duplex control and Duplex stall | — / after 3 accepted chunks | Answered once with exactly 11,520 samples. The stall ends with "speaker write evidence expired" at 208 ms: Duplex keeps V1-baseline's playback mask, whose lease reports first | `duplex_control_answers_once`, `duplex_stalled_speaker_is_bounded` |
 | Same, under `vad-only` (F1) | after 3 accepted chunks | Before `33a86363`: unbounded. After: `runtime_failed`, "speaker acknowledgment expired", 199–209 ms (asserted 190–300 ms) | `stalled_speaker_under_vad_only_is_bounded_too` |
 | Capture worker fault | during output | `runtime_failed` | `capture_fault_during_output_cancels_the_answer_and_ends_the_run` |
 | Capture stops sending frames | mid-question | `runtime_failed`; no End sent, no answer | `capture_stall_during_a_question_ends_the_run_without_an_answer` |
@@ -138,6 +152,11 @@ No lease was widened.
 An earlier draft used the permit's actual expiry. Because that expiry is
 clamped to the input lease, it fired before V1's mask and changed V1's
 reported reason. It was replaced before commit.
+
+Main's static review (GO, subject to combined gates) notes:
+
+- The deadline is checked on capture ticks.
+- It is not a hard acoustic stop guarantee.
 
 Not covered:
 

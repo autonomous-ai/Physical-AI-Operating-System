@@ -30,6 +30,9 @@ const MAX_HEARD: usize = 128;
 /// Yields in one reply that came to nothing before the mask stops yielding
 /// for the rest of that reply and masks as the conservative baseline does.
 pub const FRUITLESS_YIELDS: u8 = 2;
+/// Hearing older than this withholds nothing. Capture blocks arrive every
+/// 10 ms; a muted or stalled microphone must not hold a reply back.
+pub const HEARING_STALE_US: u64 = 100_000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Disposition {
@@ -81,6 +84,8 @@ struct Duplex {
     blind: bool,
     /// Yields since the reply began that ended in a resume.
     fruitless: u8,
+    /// When the latest block was heard.
+    listened_at_us: u64,
 }
 
 /// One capture block as the duplex mask heard it.
@@ -130,6 +135,7 @@ impl PlaybackMask {
                 last_yield: None,
                 blind: true,
                 fruitless: 0,
+                listened_at_us: 0,
             }),
             ..Self::new(TurnTaking::V1Baseline)
         }
@@ -139,14 +145,16 @@ impl PlaybackMask {
     }
     /// Hear one capture block. Call for every block, in order, before asking
     /// for its disposition. `speaking` is whether a reply has audio that
-    /// would otherwise be going to the speaker. Without evidence the block is
-    /// not judged and keeps its own score; the conservative mask covers it.
+    /// would otherwise be going to the speaker, or sound still in the air.
+    /// Without evidence the block is not judged and keeps its own score; the
+    /// conservative mask covers it.
     pub fn listen(
         &mut self,
         sequence: u64,
         probability: f32,
         evidence: Option<&EchoEvidence>,
         speaking: bool,
+        at_us: u64,
     ) -> io::Result<Listened> {
         let unjudged = Listened {
             heard: None,
@@ -156,6 +164,10 @@ impl PlaybackMask {
         let Some(duplex) = self.duplex.as_mut() else {
             return Ok(unjudged);
         };
+        if at_us < duplex.listened_at_us {
+            return Err(invalid("hearing time moved backwards"));
+        }
+        duplex.listened_at_us = at_us;
         if duplex
             .heard
             .back()
@@ -216,16 +228,18 @@ impl PlaybackMask {
         }
     }
     /// Whether reply audio is being withheld from the speaker for a person.
-    pub fn yielded(&self) -> bool {
-        self.duplex
-            .as_ref()
-            .is_some_and(|duplex| duplex.interruption.yielded())
+    /// Only while hearing is current: see [`HEARING_STALE_US`].
+    pub fn yielded(&self, now: u64) -> bool {
+        self.duplex.as_ref().is_some_and(|duplex| {
+            duplex.interruption.yielded()
+                && now.saturating_sub(duplex.listened_at_us) <= HEARING_STALE_US
+        })
     }
-    /// A reply ended or was replaced: nothing is yielded and the next reply
-    /// starts with a clean record.
+    /// A reply ended or was replaced: the next one starts with a clean
+    /// record. A yield in force is left to be settled by what is heard: a
+    /// candidate may be waiting on it, and with no reply it withholds nothing.
     pub fn reply_closed(&mut self) {
         if let Some(duplex) = self.duplex.as_mut() {
-            duplex.interruption.clear();
             duplex.fruitless = 0;
         }
     }
@@ -249,30 +263,36 @@ impl PlaybackMask {
         self.duplex.as_ref().filter(|duplex| !duplex.blind)
     }
     /// A candidate whose six onset blocks end at `trigger`: one that began
-    /// over the lamp waits for its yield to be settled.
-    fn heard_disposition(duplex: &Duplex, first: u64, trigger: u64) -> io::Result<Disposition> {
+    /// over the lamp waits for its yield to be settled. `None` when not all
+    /// of the onset was heard; the conservative rules then decide it.
+    fn heard_disposition(duplex: &Duplex, first: u64, trigger: u64) -> Option<Disposition> {
         let mut over = false;
-        let mut found = false;
-        for (sequence, heard) in duplex
+        let mut found = 0;
+        for (_, heard) in duplex
             .heard
             .iter()
             .filter(|(sequence, _)| (first..=trigger).contains(sequence))
         {
-            found |= *sequence == trigger;
+            found += 1;
             over |= *heard == Heard::Over;
         }
-        if !found {
-            return Err(invalid("candidate hearing record unavailable"));
+        if trigger < first || found != trigger - first + 1 {
+            return None;
         }
         if !over {
-            return Ok(Disposition::Pass);
+            return Some(Disposition::Pass);
         }
-        Ok(match duplex.last_yield {
+        Some(match duplex.last_yield {
             Some((at, Yielded::Undecided)) if at >= first => Disposition::AwaitWriteEvidence,
             Some((at, Yielded::Resumed)) if at >= first => Disposition::Suppress,
             // Committed, or a person over a sound that was no reply.
             _ => Disposition::Pass,
         })
+    }
+    /// Whether this capture block was judged with evidence.
+    fn was_heard(&self, sequence: u64) -> bool {
+        self.hearing()
+            .is_some_and(|duplex| duplex.heard.iter().any(|(heard, _)| *heard == sequence))
     }
     pub fn suppressed(&mut self) -> io::Result<()> {
         self.suppressed_blocks = self
@@ -625,6 +645,13 @@ impl PlaybackMask {
     }
     pub fn clear_read_lineage(&mut self) {
         self.reads.clear();
+        if let Some(duplex) = self.duplex.as_mut() {
+            // Another capture stream: what was heard on the old one is gone.
+            duplex.heard.clear();
+            duplex.interruption.clear();
+            duplex.last_yield = None;
+            duplex.blind = true;
+        }
     }
     fn read_disposition(&self, read: Read) -> Disposition {
         if self
@@ -652,7 +679,7 @@ impl PlaybackMask {
     /// Recheck retained pre-roll after delayed output evidence. Use the exact
     /// original read interval, never infer its beginning from receipt time.
     pub fn retained_frame(&self, frame: &ObservedAudio) -> io::Result<Disposition> {
-        if !self.enabled() || self.hearing().is_some() {
+        if !self.enabled() || self.was_heard(frame.sequence) {
             // Duplex keeps what the person said over the lamp.
             return Ok(Disposition::Pass);
         }
@@ -675,8 +702,10 @@ impl PlaybackMask {
             .trigger_sequence
             .saturating_sub(u64::from(START_BLOCKS) - 1)
             .max(1);
-        if let Some(duplex) = self.hearing() {
-            return Self::heard_disposition(duplex, first_sequence, candidate.trigger_sequence);
+        if let Some(disposition) = self.hearing().and_then(|duplex| {
+            Self::heard_disposition(duplex, first_sequence, candidate.trigger_sequence)
+        }) {
+            return Ok(disposition);
         }
         let mut disposition = Disposition::Pass;
         let mut found = false;
@@ -1107,7 +1136,13 @@ mod tests {
         let mut steps = Vec::new();
         for _ in 0..count {
             let listened = mask
-                .listen(*sequence, probability, Some(evidence), speaking)
+                .listen(
+                    *sequence,
+                    probability,
+                    Some(evidence),
+                    speaking,
+                    *sequence * 10_000,
+                )
                 .unwrap();
             if listened.step != Step::Carry {
                 steps.push((*sequence, listened.step));
@@ -1117,7 +1152,7 @@ mod tests {
         steps
     }
 
-    fn disposition(mask: &PlaybackMask, trigger: u64) -> io::Result<Disposition> {
+    fn disposition(mask: &PlaybackMask, trigger: u64) -> Option<Disposition> {
         PlaybackMask::heard_disposition(mask.duplex.as_ref().unwrap(), trigger - 5, trigger)
     }
 
@@ -1125,14 +1160,16 @@ mod tests {
     fn the_duplex_mask_scores_the_lamp_as_silence_and_a_person_as_speech() {
         let mut mask = PlaybackMask::duplex();
         assert!(mask.is_duplex() && mask.enabled());
-        let own = mask.listen(1, 0.99, Some(&evidence(0, OWN)), true).unwrap();
+        let own = mask
+            .listen(1, 0.99, Some(&evidence(0, OWN)), true, 10_000)
+            .unwrap();
         assert_eq!((own.heard, own.score), (Some(Heard::Own), 0.0));
         let over = mask
-            .listen(2, 0.55, Some(&evidence(0, OVER)), true)
+            .listen(2, 0.55, Some(&evidence(0, OVER)), true, 2 * 10_000)
             .unwrap();
         assert_eq!((over.heard, over.score), (Some(Heard::Over), 1.0));
         let clear = mask
-            .listen(3, 0.62, Some(&evidence(40, None)), false)
+            .listen(3, 0.62, Some(&evidence(40, None)), false, 3 * 10_000)
             .unwrap();
         assert_eq!((clear.heard, clear.score), (Some(Heard::Clear), 0.62));
         // Heard blocks are never masked: the score is the protection.
@@ -1140,28 +1177,29 @@ mod tests {
         // The plain mask hears nothing and changes no score.
         let mut plain = PlaybackMask::new(TurnTaking::V1Baseline);
         let unjudged = plain
-            .listen(1, 0.99, Some(&evidence(0, OVER)), true)
+            .listen(1, 0.99, Some(&evidence(0, OVER)), true, 10_000)
             .unwrap();
         assert_eq!(
             (unjudged.heard, unjudged.score, unjudged.step),
             (None, 0.99, Step::Carry)
         );
-        assert!(!plain.yielded() && plain.duplex_summary().is_none());
+        assert!(!plain.yielded(10_000) && plain.duplex_summary().is_none());
     }
 
     #[test]
     fn without_evidence_the_duplex_mask_is_the_conservative_mask() {
         let mut mask = PlaybackMask::duplex();
-        let blind = mask.listen(1, 0.99, None, true).unwrap();
+        let blind = mask.listen(1, 0.99, None, true, 10_000).unwrap();
         assert_eq!(
             (blind.heard, blind.score, blind.step),
             (None, 0.99, Step::Carry)
         );
         assert!(mask.hearing().is_none(), "the baseline rules decide");
         // Evidence for the next block and the mask hears again.
-        mask.listen(2, 0.99, Some(&evidence(0, OWN)), true).unwrap();
+        mask.listen(2, 0.99, Some(&evidence(0, OWN)), true, 2 * 10_000)
+            .unwrap();
         assert!(mask.hearing().is_some());
-        mask.listen(3, 0.99, None, true).unwrap();
+        mask.listen(3, 0.99, None, true, 3 * 10_000).unwrap();
         assert!(mask.hearing().is_none());
     }
 
@@ -1175,7 +1213,7 @@ mod tests {
         );
         let steps = hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
         assert_eq!(steps, [(16, Step::Yield)]);
-        assert!(mask.yielded());
+        assert!(mask.yielded((sequence - 1) * 10_000));
         assert_eq!(
             disposition(&mask, 16).unwrap(),
             Disposition::AwaitWriteEvidence
@@ -1191,7 +1229,7 @@ mod tests {
         );
         let steps = hear(&mut mask, &mut sequence, 6, 0.9, &evidence(40, None), true);
         assert_eq!(steps, [(52, Step::Commit)]);
-        assert!(!mask.yielded());
+        assert!(!mask.yielded((sequence - 1) * 10_000));
         assert_eq!(disposition(&mask, 16).unwrap(), Disposition::Pass);
         assert_eq!(mask.duplex_summary(), Some(((1, 1, 0), false)));
     }
@@ -1223,7 +1261,7 @@ mod tests {
             let steps = hear(&mut mask, &mut sequence, 15, 0.1, &evidence(40, None), true);
             assert_eq!(steps.last().unwrap().1, Step::Resume);
         }
-        assert_eq!(mask.duplex_summary().unwrap().1, true);
+        assert!(mask.duplex_summary().unwrap().1);
         // The same evidence again: no yield, and the detector is told nothing.
         let before = sequence;
         assert_eq!(
@@ -1231,10 +1269,16 @@ mod tests {
             []
         );
         let listened = mask
-            .listen(sequence, 0.9, Some(&evidence(0, OVER)), true)
+            .listen(
+                sequence,
+                0.9,
+                Some(&evidence(0, OVER)),
+                true,
+                sequence * 10_000,
+            )
             .unwrap();
         assert_eq!((listened.heard, listened.score), (Some(Heard::Over), 0.0));
-        assert!(sequence > before && !mask.yielded());
+        assert!(sequence > before && !mask.yielded((sequence - 1) * 10_000));
         // The next reply starts clean.
         mask.reply_closed();
         sequence += 1;
@@ -1263,10 +1307,68 @@ mod tests {
         let mut mask = PlaybackMask::duplex();
         let mut sequence = 1;
         hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
-        assert!(mask.yielded());
+        assert!(mask.yielded((sequence - 1) * 10_000));
         // Block 7 is missing.
-        mask.listen(8, 0.9, Some(&evidence(0, OWN)), true).unwrap();
-        assert!(!mask.yielded());
-        assert!(disposition(&mask, 6).is_err());
+        mask.listen(8, 0.9, Some(&evidence(0, OWN)), true, 8 * 10_000)
+            .unwrap();
+        assert!(!mask.yielded(8 * 10_000));
+        assert_eq!(disposition(&mask, 6), None, "the baseline rules decide");
+    }
+
+    #[test]
+    fn a_yield_whose_hearing_has_stopped_withholds_nothing() {
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
+        let heard_at = 6 * 10_000;
+        assert!(mask.yielded(heard_at));
+        assert!(mask.yielded(heard_at + HEARING_STALE_US));
+        // A muted or stalled microphone: the reply is not held back.
+        assert!(!mask.yielded(heard_at + HEARING_STALE_US + 1));
+        // Hearing returns in order and the yield is still to be settled.
+        mask.listen(7, 0.9, Some(&evidence(1, None)), true, heard_at + 300_000)
+            .unwrap();
+        assert!(mask.yielded(heard_at + 300_000));
+        assert!(mask.listen(8, 0.9, None, true, heard_at).is_err());
+    }
+
+    #[test]
+    fn a_reply_that_closes_during_a_yield_leaves_its_candidate_to_be_settled() {
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
+        // The reply had nothing more to say and ends while the lamp waits.
+        mask.reply_closed();
+        assert_eq!(
+            disposition(&mask, 6).unwrap(),
+            Disposition::AwaitWriteEvidence
+        );
+        hear(
+            &mut mask,
+            &mut sequence,
+            30,
+            0.9,
+            &evidence(10, None),
+            false,
+        );
+        let steps = hear(&mut mask, &mut sequence, 6, 0.9, &evidence(40, None), false);
+        assert_eq!(steps, [(42, Step::Commit)]);
+        assert_eq!(disposition(&mask, 6).unwrap(), Disposition::Pass);
+    }
+
+    #[test]
+    fn another_capture_stream_forgets_what_was_heard_and_any_yield() {
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
+        assert!(mask.yielded(60_000));
+        mask.clear_read_lineage();
+        assert!(!mask.yielded(60_000));
+        assert!(mask.hearing().is_none(), "the baseline rules decide");
+        // The new stream may number its blocks from anywhere.
+        let first = mask
+            .listen(1, 0.9, Some(&evidence(0, OWN)), true, 70_000)
+            .unwrap();
+        assert_eq!(first.heard, Some(Heard::Own));
     }
 }

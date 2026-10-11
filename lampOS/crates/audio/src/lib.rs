@@ -20,6 +20,7 @@ pub mod notice;
 pub mod ownership;
 #[cfg(target_os = "linux")]
 pub mod pcm;
+pub mod playout;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;

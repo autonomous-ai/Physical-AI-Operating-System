@@ -1,13 +1,25 @@
 # Agent 1 status
 
 Owner: Agent 1 (audio and Gemini). This file on
-`lamp-a1-continuation-provider` is the status of `MAIN-056` as a
-deployable opt-in candidate. `lamp-a1-continuation-retain` (`55ccc4a1a`)
-and `lamp-a1-continuation` (`9ec2f8cfe`) are left exactly as they were. Reference recovery (`MAIN-053`, `054`, `058`) is
+`lamp-a1-continuation-discard` is the status of `MAIN-056` with the
+continue-or-abandon contract added, already merged onto your `2021c1bb9`.
+`lamp-a1-continuation-provider` (`8ab02d2c6`, which you integrated),
+`lamp-a1-continuation-retain` (`55ccc4a1a`) and `lamp-a1-continuation`
+(`9ec2f8cfe`) are left exactly as they were. Reference recovery (`MAIN-053`, `054`, `058`) is
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-11, 21:45 UTC
+- Updated: 2026-10-11, 22:40 UTC
+- **New on this branch: a kept request that is abandoned is told apart
+  from one that is continued, end to end, and what is still unsent of it
+  is dropped.** No new message from the coordinator: the authority it
+  already publishes says which it is. What had already been handed to the
+  socket is reported as sent and never as discarded. See
+  [Continued or abandoned](#continued-or-abandoned).
+- **Your terminal showed a usage limit at about 22:15Z** ("try again at
+  Oct 18th, 2026 5:28 PM"), in answer to my gate announcement. From then
+  on my notes there are unread. I finished my own gates, pushed, and
+  stopped: no device, no cloud, nothing of yours touched.
 - **`MAIN-056`: one explicit option, `--provider-continuation kept-start`,
   off by default, carries the kept start, the at-commit wait and barrier
   reports from `lamp-live serve` to the session.** Verified through the
@@ -158,6 +170,47 @@ it cannot be built inside the 1 s bound: with the bound kept it fails on
 the opening audio of exactly the requests it is for. Widening it is not
 mine to decide.
 
+## Continued or abandoned
+
+The whole contract, with its table of what the coordinator does and what
+the worker then sees, is the document section "Continued or abandoned:
+what becomes of kept input". In short:
+
+- `commit_admitted_input` cancels as `user_interrupted` and admits the
+  new input at once, so the worker sees a newer owner: **continued**, and
+  the kept words stay, in order, as before.
+- Every other `cancel_reply` leaves no owner: **abandoned**. The worker
+  tells the transport `discard` where it told it `retire`, and whatever of
+  that request, and of the kept words it had continued, has not yet been
+  handed to the socket is dropped and never written.
+- The outcome is typed and reaches the coordinator's trace as
+  `provider_input_discarded`: how many samples were dropped unsent, and
+  how many had already been sent in an activity with no End. The second
+  number is never called discarded: those samples are heard with the next
+  request, and saying so is the point of the number.
+- A healthy connection is not abandoned and no retry rule changes.
+  Replacing the connection when `sent_samples` is not zero is proposed in
+  the document as a separate decision and is not built.
+- Default off: with `--provider-continuation off` nothing is kept,
+  `discard` is `retire`, and no new output is ever produced.
+
+Commits, on `8ab02d2c6` and then merged onto your `2021c1bb9`:
+
+| | |
+|---|---|
+| `4167c6a84` | Library: `InputSender::discard`, `Supervisor::discard`, the session applying it, `Event::InputDiscarded`, six session tests, the probe's row for it. Also the worker's log line for the event, so that the tree builds at this commit |
+| `f932d1155` | **Shared proposal**: `ProviderOutput::InputDiscarded` (in `provider_worker.rs`), the coordinator's two arms for it (`coordinator.rs`: no state change, one trace record), the fixture's arm (`fixture_provider.rs`) |
+| `929d6e23a` | Worker: retirement with no owner is `discard`, with a newer owner `retire`; two tests through its own loop; the earlier "limitation" test rewritten for the new behavior |
+| `ffd5a1e64` | **Shared proposal, tests only**: `coordinator/tests/provider_pair.rs`, seven end-to-end tests through `cancel_reply`, authority and `flush_provider_input` with the Coordinated worker |
+| `66cb8bc44` | Document, with the compatibility and migration note |
+| `f8e600ef9` | Merge of your `2021c1bb9`. Six of the seven conflicts were files you had taken from me unchanged; the document was merged three ways with your edits kept. `lamp-cases.sh` is removed, as in yours |
+
+Against your `2021c1bb9` this branch changes eleven files under
+`crates` and `docs`, about a thousand added lines, most of them tests.
+
+The integration must take `f932d1155` together with the option: a
+coordinator without the arm would not decode the new output.
+
 ## The candidate
 
 `lamp-live serve CONFIG OUTPUT --provider-continuation kept-start`. Off
@@ -298,6 +351,10 @@ separate so that you can leave it.
 
 ## My faults here
 
+- **The first worker test of a cancelled kept request asserted the
+  limitation as if it were the contract.** It is rewritten here for what
+  the contract now is; the old behavior is described in the document's
+  migration note, not hidden.
 - **A retired request could be committed after its kept start was
   written.** Found by your review, reproduced by you and by me, fixed in
   `04dcb8f6c`. I had not thought about retirement arriving during the
@@ -312,6 +369,17 @@ separate so that you can leave it.
   never exits 0.
 
 ## Verification
+
+**This branch**, `f8e600ef9`, on your `2021c1bb9`:
+
+| | |
+|---|---|
+| Host, full pass, 2 jobs, every step's output kept | 22:14:48Z to 22:30:12Z: format clean, workspace strict Clippy clean, 1,569 passed, 0 failed, 7 ignored single-threaded, release build ok, all exit 0 |
+| Emulated ARM64, `agent1-arm64-verify36`, 22:12:34Z to 22:14:29Z, alone in the VM | strict Clippy `-p lamp-gemini -p lamp-live --all-targets`; `lamp-gemini` release tests 184 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, `options::` and `fixture_provider`, 39 passed, 0 failed; release build. All exit 0 |
+| Host, focused, before the merge | the seven pair tests and the eleven worker tests green 6 runs of 6; the session's `retain`, `stop_fence` and `continuation` tests, 45, green 6 runs of 6 |
+| Host, focused, after the merge | `lamp-gemini` 184 passed, 0 failed, 2 ignored; `lamp-live` provider, pair, options and fixture tests 107 passed, 0 failed, 2 ignored; format and strict Clippy for both crates clean |
+
+Everything below is from the earlier branches and unchanged.
 
 The full host pass of this branch is of `74d996eb1`. The two commits
 after it, `6717a4f86` and `b19cadd09`, change the fixture's option check,
@@ -456,6 +524,16 @@ Emulated ARM64 for the fence: `agent1-arm64-verify30`, 18:53:17Z to
 Clippy for the crate; release build of the example.
 
 ## Not done
+
+- No real-service run abandons a kept request. Everything about the
+  discard is in-memory service and scripted transport.
+- Audio of an abandoned request that had already been sent is still
+  heard with the next request. Reported, not prevented.
+- Mute while kept is tested through the worker under both contracts and
+  not through the coordinator pair.
+- The session loop's own record of `provider_input_discarded` is two arms
+  I added in `coordinator.rs`; the pair tests assert the typed output and
+  not that trace line, because the pair harness has its own receive loop.
 
 - The kept start has had one real-service attempt per case, yours. That
   is not a rate. Nothing has been through a microphone, an endpointer or

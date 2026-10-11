@@ -9,9 +9,9 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 14 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
-  `MAIN-031`, `MAIN-032`, `MAIN-033`, `MAIN-035` and `MAIN-037` are answered
-  below. Environmental acquisition stays deferred.
+- State: checkpoints 1 to 15 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
+  `MAIN-031`, `MAIN-032`, `MAIN-033`, `MAIN-035`, `MAIN-037` and `MAIN-040`
+  are answered below. Environmental acquisition stays deferred.
 - **Waiting on you:** nothing. `A1-009` is with your review, and your own
   adaptation of the gate supersedes my proposal branch.
 - **Not building:** the continuation start (`A1-010`), as you decided.
@@ -23,6 +23,60 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   `MAIN-032` and `MAIN-033` there and replied to the two that were
   questions. My reply to `MAIN-031` was recorded late: the question had
   expired while I was working. Git is still where my results are.
+
+## Checkpoint 15: `MAIN-040`, reproducing the V1 comparison
+
+No code. [The note](../docs/v1-gate-comparison.md) is corrected in two
+places and gains a section on reproducing it. I also replied on the team
+channel.
+
+**Artifacts.** Local, outside lampOS, nothing uploaded, recordings untouched:
+
+```
+/private/tmp/claude-501/-Users-autonomous-harnesses-worktrees-autonomous-os-merry-zebra/339c85e4-ca76-461d-beb1-fc98ac7d4f7e/scratchpad/v1gate-handoff
+```
+
+That is my session's scratch directory. Copy it if it should outlive the
+session; the digests identify it.
+
+| File | SHA-256 |
+|---|---|
+| `manifest.json` | `aa5ff6a852af08f512552f17c83b264c4da86775eeab06b0cfd74bd9698654b7` |
+| `live_gate_v1.py` | `e388e4a0e0a4a27c87d0f5ce5edc4c7e54cdde2ac61ecf1cc2536e2be563c861` |
+| `run.py`, `run.out.txt` | `984a69a4c8395a26…`, `4584449c53c34b33…` |
+| `more.py`, `more.out.txt` | `0bcb77978a08b556…`, `1aba9917cd16c89d…` |
+| `onset.py`, `onset.out.json` | `1100040d2ac294bf…`, `e97a18f1f9c11107…` |
+
+The full digests of the scripts and outputs are in `manifest.json`, with the
+commands, the interpreter (Python 3.14.2, NumPy 1.26.4), the mapping, and
+the input manifest: SHA-256 of `pre_aec`, `post_aec` and `render_accepted`
+for the six bundles read (playout trials 1 and 2, first pilot, NS-off trials
+1 and 2, coordinated run) with their runtime paths. Commands, from that
+directory: `python3 run.py live_gate_v1.py`, `python3 more.py
+live_gate_v1.py`, `python3 onset.py live_gate_v1.py`. I re-ran all three
+into those files today; the first two reproduce the note's figures.
+
+**Wording, 1: the warm-up.** Corrected. It covers the first three seconds of
+accumulated session playback and nothing after. In these two trials every
+reply happened to fall inside it. A short reply later in a session is not
+refused by it.
+
+**Wording, 2: "the onset is not lost". It was not measured, and it was wrong
+as a general statement.** Measured now, `onset.out.json`. The gate opened
+during playback in 9 of 32 synthetic runs.
+
+| | |
+|---|---|
+| Eight openings without the warm-up | 336 ms to 408 ms after the clip's first sample; 300 ms replayed each time; uplink begins 28 ms before to 44 ms after the first sample |
+| What was dropped in those | 20 ms to 44 ms of lead-in at -56 dB to -69 dB, in four of the eight |
+| Why that is not evidence about a quiet onset | The clip is the prompt: -75 dB to about -18 dB within 130 ms. The rule reaches 108 ms before the first 64 ms frame over the threshold and no further. A slower onset was not tested |
+| The one opening under the warm-up | 1,856 ms after the talker's first sample; the first 1,492 ms, 93 % of the clip's energy, never reached the uplink |
+
+So checkpoint 14's "with the onset kept" below is withdrawn. It held for a
+fast-rising synthetic talker with no warm-up.
+
+Nothing was tuned. No device, no cloud. The detector proposal is unchanged
+on its branch at `9ea6e32d4`.
 
 ## Checkpoint 14: `MAIN-035` and `MAIN-037`
 
@@ -90,8 +144,8 @@ bundle's own `echo_evidence`.
 3. On the cancelled signal the same rule refuses all four with no warm-up.
 4. And in a synthetic, optimistic control it refuses a talker at the
    prompt's level too. It opens for one 12 dB to 18 dB louder, after 0.34 s
-   to 0.41 s, with the onset kept. So at this volume it is close to refusing
-   everyone.
+   to 0.41 s. **I wrote "with the onset kept" here; that is withdrawn in
+   checkpoint 15.** So at this volume it is close to refusing everyone.
 
 Not a validated replacement, not tuned, every real clip negative. The
 mapping from the bundles onto V1's inputs is mine and is in the note.
@@ -1416,4 +1470,5 @@ Fixed in checkpoint 11. Kept inactive for admission, as you said.
 - `MAIN-031` and `MAIN-032`, read from the team channel: checkpoint 12.
 - `MAIN-033`, read from the team channel: checkpoint 13.
 - `MAIN-035` and `MAIN-037`, read from the team channel: checkpoint 14.
+- `MAIN-040`, a team question: answered there and in checkpoint 15.
 - Device ownership: yours. I take no device action.

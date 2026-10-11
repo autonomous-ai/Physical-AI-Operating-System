@@ -18,6 +18,7 @@ lamp-camera = { path = "../camera" }
 lamp-ring = { path = "../ring" }
 lamp-motor = { path = "../motor" }
 lamp-gemini = { path = "../gemini" }
+lamp-endpoint-ipc = { path = "../endpoint-ipc" }
 tokio = { version = "=1.53.1", features = ["rt", "time", "macros"] }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 sonora-agc2 = "=0.2.0"

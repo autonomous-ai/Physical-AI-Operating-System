@@ -276,6 +276,8 @@ fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> Endpo
             program: "/bin/sh".into(),
             args: vec!["-c".into(), format!("printf '{bytes}'; {then}").into()],
             env: Vec::new(),
+            // `ready()` reports this identity.
+            model_sha256: [0; 32],
         },
         limits,
     )
@@ -525,4 +527,170 @@ fn real_worker_session_records_verdict_provenance() {
     assert_eq!(last["report"]["ready"], 1);
     assert_eq!(last["report"]["kills"], 0);
     eprintln!("{decision}\n{last}");
+}
+
+/// A verified physical mute during an active reply, with an endpoint worker
+/// attached, through `conversation` and `finish_active_run` as the service
+/// runs them. The four audio/provider fixtures stop cleanly, so only the
+/// endpoint worker's teardown can fail the cleanup.
+fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
+    use crate::service_privacy::PhysicalMute;
+    let directory = SessionDirectory::create().unwrap();
+    let (speaker, speaker_peer, speaker_input) =
+        Worker::cooperative_fixture(&directory.path, "speaker");
+    let (capture, capture_peer, capture_input) =
+        Worker::cooperative_fixture(&directory.path, "capture");
+    let (provider, provider_peer, provider_input) =
+        Worker::cooperative_fixture(&directory.path, "provider");
+    let (privacy, privacy_peer, privacy_input) =
+        Worker::cooperative_fixture(&directory.path, "privacy");
+    let peers = [
+        (speaker_peer, speaker_input, false),
+        (capture_peer, capture_input, false),
+        (provider_peer, provider_input, false),
+        (privacy_peer, privacy_input, true),
+    ]
+    .map(|(mut channels, input, privacy)| {
+        thread::spawn(move || {
+            let mut sent = false;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match channels.control.receive::<Control>().unwrap() {
+                    Some(Control::Authority { .. }) if privacy && !sent => {
+                        channels
+                            .control
+                            .send(WorkerEvent::Privacy {
+                                acquired_at_us: monotonic_us(),
+                                muted: true,
+                            })
+                            .unwrap();
+                        sent = true;
+                    }
+                    Some(Control::Stop) => break,
+                    _ => {}
+                }
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(1));
+            }
+            drop(input);
+            channels
+        })
+    });
+    let mut rig = Rig {
+        speaker,
+        capture,
+        provider,
+        privacy,
+        ring: None.into(),
+        camera: None,
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::V1Baseline,
+        playout_start: PlayoutStart::default(),
+        endpoint: Some(endpoint),
+    };
+    let (mut controller, current, _) = active_reply();
+    let mut reply = Some(current);
+    let mut trace = SessionState::default();
+    let result = conversation(
+        &mut rig,
+        &mut controller,
+        Lifetime::Serve,
+        &mut trace,
+        StartupEvents::default(),
+        &mut reply,
+        &mut None,
+        &Termination::inactive(),
+    );
+    assert!(
+        result
+            .as_ref()
+            .unwrap_err()
+            .downcast_ref::<PhysicalMute>()
+            .is_some()
+    );
+    let result = finish_active_run(
+        &mut rig,
+        &mut controller,
+        &mut reply,
+        &mut trace,
+        &mut None,
+        result,
+    );
+    for peer in peers {
+        drop(peer.join().unwrap());
+    }
+    drop(rig);
+    let _ = fs::remove_dir(&directory.path);
+    (result, trace)
+}
+
+fn final_record(trace: &SessionState) -> Value {
+    trace
+        .iter()
+        .find(|row| row["kind"] == "endpoint_worker_final")
+        .cloned()
+        .expect("endpoint teardown record")
+}
+
+#[test]
+fn unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service() {
+    use crate::service_privacy::{PhysicalMute, WaitOutcome};
+    // A worker that ignores its closed input and is only killed after 1.5 s:
+    // teardown's 500 ms bound passes with its process still alive.
+    let limits = Limits {
+        grace: Duration::from_millis(1_500),
+        ..Limits::default()
+    };
+    let endpoint = scripted_process(&[ready()], "exec sleep 60", limits);
+    let (result, mut trace) = mute_with_endpoint(endpoint);
+    let error = result.unwrap_err();
+    assert!(
+        error.downcast_ref::<PhysicalMute>().is_none(),
+        "unconfirmed endpoint exit kept a restartable mute: {error}"
+    );
+    assert!(error.to_string().contains("physical mute"), "{error}");
+    assert!(
+        error
+            .to_string()
+            .contains("endpoint worker exit not confirmed"),
+        "{error}"
+    );
+    let record = final_record(&trace);
+    assert_eq!(record["reaped"], false, "{record}");
+    assert_eq!(record["teardown"], "Pending");
+    let waits = std::cell::Cell::new(0);
+    let mut failure = Some(error);
+    let restarted = crate::coordinator::service::supervise(
+        &mut trace,
+        &mut None,
+        &Termination::inactive(),
+        |_, _| {
+            waits.set(waits.get() + 1);
+            Ok(WaitOutcome::Allowed)
+        },
+        |_, _| {
+            Err(failure
+                .take()
+                .expect("must never reopen after failed cleanup"))
+        },
+    );
+    assert!(restarted.is_err());
+    assert_eq!(waits.get(), 1);
+}
+
+#[test]
+fn confirmed_endpoint_exit_keeps_the_restartable_mute() {
+    use crate::service_privacy::PhysicalMute;
+    let endpoint = scripted_process(&[ready()], "exec sleep 60", Limits::default());
+    let (result, trace) = mute_with_endpoint(endpoint);
+    let error = result.unwrap_err();
+    assert!(
+        error.downcast_ref::<PhysicalMute>().is_some(),
+        "confirmed teardown lost the mute: {error}"
+    );
+    let record = final_record(&trace);
+    assert_eq!(record["reaped"], true, "{record}");
+    assert_eq!(record["teardown"], "Reaped");
 }

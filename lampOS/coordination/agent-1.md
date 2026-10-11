@@ -5,26 +5,182 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `6d7c39303` on `gemini-voice`. The commits after it are
+- Tested code commit: `95cd4b263` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 8 published. `MAIN-007`, `MAIN-008`, `MAIN-011`,
-  `MAIN-012`, `MAIN-017` and `MAIN-019` are answered. Checkpoints 6 and 8 are
-  the audio device seam (`A1-007`), both halves. Not started: tests of the
-  capture and speaker loops over the scripted devices, and environmental
-  acquisition.
+- State: checkpoints 1 to 10 published. `MAIN-022` and `MAIN-024` are
+  answered below. Environmental acquisition is deferred as you said
+  (`MAIN-024`); `A1-008` is closed for now.
+- **Waiting on you:** `A1-009` (wire the start gate, or reject it) and
+  `A1-010` (may I add a continuation start to the transport).
+- **Found while answering `MAIN-022`, not yet fixed:** the echo evidence
+  reports nothing on the first real recording. See `A1-011`. It is next.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I do not type into another session's
   terminal.
-- Harness team: `harness team context --agent ...` refuses from my session
-  with `CHANNEL_SCOPE_MISSING` ("the current prompt has no verified swarm
-  origin ... continue independently"), tried twice. I am not working around
-  that guard, so I cannot read the team inbox or reply there. I did read the
-  request files you pointed me to under `/private/tmp/lamp-agent-team-*` and
-  your review directory; they reached me as an ordinary prompt. **This file
-  is my acknowledgment**, and Git is my channel until a message reaches me
-  through the team's own box.
+- Harness team: the team's own introduction reached my session after
+  checkpoint 8, with a working route. My inbox was empty when I read it. Git
+  is still where my results are.
+
+## Checkpoint 10: `MAIN-024`, the interruption the service never confirmed
+
+[Analysis and proposal](../docs/gemini-unconfirmed-interruption.md).
+
+| Commit | Files | Content |
+|---|---|---|
+| `95cd4b263` | new `crates/gemini/src/recovery/tests/barrier.rs`, `recovery/tests.rs`, `testing.rs`, `examples/service_probe.rs` | The device's timeline through the supervisor; a `try_send` test helper; `interrupt-before-output [GAP_MS]` now reports whether the service confirmed and whether a second answer followed |
+
+No production code changed. No interface changed.
+
+**What happened, in transport terms.** Request 1 was committed and
+unanswered when request 2 started 245 ms later. Its answer became the
+barrier. `activityStart` went out as the interruption request, the second
+part's audio went out behind it, and request 2's `activityEnd` was withheld.
+The service sent one input transcript and nothing else. Two seconds after the
+interruption request the connection was given up. That is `Require` working
+as written; I had listed it as a known gap in checkpoint 1.
+
+**The safe recovery is a new connection, and nothing less.** To move on the
+same connection the withheld `activityEnd` has to be sent, and then the
+service owes one answer or two, and nothing says which. Dropping the first
+does not help: the transport still cannot know whether another is owed, so
+the next request inherits the doubt. Only a new socket sets the count to
+zero. The supervisor already does this, and the regression pins it: one
+`TurnLost` for request 2 at `AwaitingResponse`, nothing for request 1, a
+resumed connection, and an answer the old connection sends afterwards
+reaching nobody. On `51bd815e9` the worker had no supervisor, which is why
+the process ended.
+
+**It will not stay rare.** It takes an endpoint and then more speech before
+the first audio of the answer, about a second later. A person who pauses
+600 ms inside a sentence does that. One sample says the service stays silent.
+
+**Proposed** (the handoff has each in full):
+
+1. Keep `Require`. Treat `TurnLost` after `BarrierTimeout` as one lost
+   question, answered with the turn-lost cue.
+2. Do not submit a continuation as a new question. `A1-010`.
+3. Run `service_probe ... interrupt-before-output 241` once you have the
+   cloud. Two fields decide between the options.
+
+I am not proposing `AssumeAfterQuiet`. It would have answered this run after
+its own two seconds of silence, on the assumption `Require` exists to avoid.
+
+**Limits.** One device run. I ran nothing on the cloud or a device. The probe
+change compiles and its argument handling was checked offline against a
+missing provider file; it has never spoken to the service.
+
+Host, source-only export of `95cd4b263`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 924 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+The two new tests are in the 924. Linux/ARM64 on this commit: running as this is
+written. The result follows in the next commit of this file.
+
+## Checkpoint 9: `MAIN-022`, the gap in the first reply
+
+[Recommendation, data and tests](../docs/playout-start.md).
+
+| Commit | Files | Content |
+|---|---|---|
+| `fd8f6845a` | new `crates/audio/src/playout.rs`, new `crates/audio/tests/playout_replay.rs`, `crates/audio/src/lib.rs` | `StartGate`, `StartNeed`, and fifteen recorded arrival schedules replayed through them |
+| `b4782eda1` | `gemini-voice-playout-proposal`: `crates/live/src/coordinator.rs` | **Proposal, your file.** The gate on the first speaker chunk, and what each reply needed in the trace |
+
+**The gap.** The reply's first audio event carried one sample, the second
+130 ms at 14.6 ms, the third came at 171.8 ms. Speech started at 24.8 ms, ran
+out at 154.6 ms and resumed at 183.5 ms. The service was 42 ms late once, at
+the start. Nothing local was slow.
+
+**It is the usual case, not this reply's.** The same rows exist in six
+earlier device sessions on this machine. Of fifteen replies, eight have zeros
+at the start, 890 ms in all, 10 ms to 320 ms each. The service's second burst
+comes 130 ms to 190 ms after its first audio event in thirteen of fifteen.
+When the first 26 ms bring something playable, playout starts on it and runs
+dry. When they bring one sample, playout cannot start until the second burst,
+and those replies do not gap.
+
+**Recommendation.** Hold a reply's first block until the time since its first
+audio plus the audio in hand reaches 200 ms, or the reply is complete. Then
+never hold again.
+
+| Fifteen recorded replies, in the model | Without | With |
+|---|---|---|
+| Replies with zeros at the start | 8 | 1 |
+| Zeros at the start | 890 ms | 190 ms |
+| First speech, mean added | | 62 ms |
+| First speech, most added | | 160 ms |
+| End of reply, mean added | | 15 ms |
+| Latest start after first audio | 200 ms | 200 ms |
+
+The hold is paid at the start and refunded at the end: each reply ends later
+by the hold minus the zeros that no longer fall inside it. A fixed delay
+needs 160 ms on every reply to cover the same ones.
+
+**Interruption.** Held audio is in the coordinator's queue. No permit has
+been issued for it and the device has none, so cancelling during the hold has
+nothing to flush.
+
+**What a start cannot fix.** One reply's second burst came 379 ms after
+80 ms of audio; the gate shortens that gap from 320 ms to 190 ms. A stall
+later in a reply is a gap under any start, and I recommend no rebuffering
+rule: the service sends 100 ms or more at a time in these traces, so holding
+after a stall only lengthens it. None of the fifteen has a stall in the
+middle.
+
+**Not arrival gaps at all.** Three more 10 ms gaps in the earlier sessions
+were written with 16,080, 29,520 and 60,960 frames queued in the coordinator,
+each while a provider burst was being enqueued. One block is outstanding at a
+time. I have not established the cause. Two outstanding would cover a late
+tick and cost interruption nothing, since an unwritten block is still refused
+on cancellation. That is a suggestion about your file.
+
+**Also seen.** Nine of fifteen replies begin with an audio event of one
+sample. I have not established whether the service sends it or the decode
+path makes it.
+
+**Limits.** The replay is a model of the hand-over: one block per 10 ms
+slot, the last block withheld until the reply is complete, zeros when nothing
+is in hand. It reproduces every recorded start gap to within one block. It is
+not the coordinator, not the speaker loop, and no device has run the gate.
+200 ms is the smallest horizon that covers these fifteen replies but the one
+stall, with 9 ms to spare; it comes from one network path and one model
+configuration. The schedules in the test are timings and frame counts from
+your traces, no audio and no words; say if you would rather they were not in
+the repository.
+
+Host, source-only export of `fd8f6845a`:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 922 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+The 922 are the 901 of checkpoint 8 and 21 new: 11 in `playout.rs`, 10 in
+`playout_replay.rs`.
+
+Host, source-only export of the proposal `b4782eda1`: the same four commands
+pass, 923 passed, 0 failed, 4 ignored. The one more is
+`a_reply_starts_when_its_audio_in_hand_covers_the_start_horizon` in
+`coordinator.rs`.
+
+Linux/ARM64, emulated, `fd8f6845a`:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Result |
+|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | 132 passed, 0 failed |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Not run: the proposal on ARM64; the Gemini and live crates on ARM64 for this
+commit, which it does not touch; any device.
 
 ## Checkpoint 8: the speaker boundary behind a device trait
 
@@ -706,11 +862,86 @@ I prefer 1 for the same reason the ring uses a maintained crate. Tell me
 which, and whether the environmental worker's role name and wire events are
 yours to register, as I assume.
 
+Answered in `MAIN-024`: a maintained safe crate is preferred in principle,
+no shared dependency change is authorized now, registration is yours, and
+acquisition stays deferred behind audio. Closed until you reopen it.
+
+### A1-009 — Main: wire the start gate, or reject it
+
+Checkpoint 9. `lamp_audio::playout::{StartGate, StartNeed, START_HORIZON_US}`
+exist and nothing calls them. The patch on `gemini-voice-playout-proposal`
+(`b4782eda1`, one file, yours) does three things in `coordinator.rs`:
+
+1. `Reply` gets a `StartGate` and a `StartNeed`; `append_provider_audio`
+   tells both of each arrival.
+2. `dispatch_speaker_chunk` returns early while `Reply::may_start` is false.
+   `next_speaker_chunk` is unchanged.
+3. `speaker_first_write` records `start_held_us`, `start_buffered_frames` and
+   `start_by_completion`; `turn_finished` records `start_deficit_us` and
+   `start_horizon_needed_us`.
+
+The existing test fixtures build their `Reply` with a zero horizon, so their
+timing is what it was. One test is added. A second generation inside one turn
+keeps the open gate. The fixture provider is gated like any other.
+
+What I need from the device run, whichever way you decide: the two
+`turn_finished` fields on every reply. They say what horizon each reply
+needed, with or without the gate, and whether 200 ms is the right number.
+
+### A1-010 — Main: may I add a continuation start to the transport?
+
+Checkpoint 10, proposal 2. An interface, so I am asking first.
+
+```rust
+supervisor.try_continue_for_session(expected, request) -> Result<(), StartRefusal>
+```
+
+For input that goes on with a question which has ended and has produced no
+output. No barrier, no withheld `activityEnd`, `BarrierAssumed` reported at
+once. Refused, typed, if the earlier request has produced anything; then it
+is an interruption and takes the barrier. Whether more speech is the same
+question is admission's decision and yours. Without it the device failure of
+`MAIN-024` is one lost question and one reconnect every time a person pauses
+and goes on before the answer starts, if the service is always as silent as
+it was once.
+
+It rests on one property of the service that the probe measures: that an
+unanswered generation cut off by `activityStart` does not answer later. If it
+does, the owner is still right and the answer is the truncated question's.
+
+### A1-011 — notice: the echo evidence is silent on the first real recording
+
+`A1-003` should wait for this. I replayed the first Rust pilot's certified
+recording offline with `lamp-audio replay-aec`. Host, no device.
+
+| | |
+|---|---|
+| Capture blocks | 4,001 |
+| Blocks with the render active | 157 |
+| Blocks in which the observer reported a match | **0** |
+| Capture level before the reply, median | -77 dBFS |
+| Capture level during the reply | -7.5 to -17 dBFS |
+
+The lamp's own voice is plainly in the microphone and the observer says
+"not determined" throughout. Measured outside the observer, at its own
+analysis rate: one delayed copy of the render, at 104 ms, explains 30 % of
+the capture over the reply, and 50 % or more in 27 of 106 windows. Three taps
+explain 50 % or more in 95 of 106 windows, median 64 %. Twenty-one taps
+explain 72 %.
+
+The observer searches with one tap and needs 50 % to adopt an alignment; the
+three-tap fit is only used afterwards. My synthetic rooms were a direct path
+and one reflection, which one tap explains. The real path is spread over
+about five milliseconds. The module keeps its promise that absent is never
+"no echo", but as built it would be absent on the device. I am fixing the
+search next and will test it against this recording, which stays outside Git.
+
 ## Notes for peers
 
 - The podman machine `lampos-arm64` on this Mac is shared. I start it for my
-  ARM64 runs and stop it afterwards; my containers are named `agent1-*` and
-  use the volumes `lampos-arm64-target`, `-cargo` and `-git`.
+  ARM64 runs and, since `MAIN-024`, leave it running. My containers are named
+  `agent1-*` (one earlier run today was `lampos-arm64-verify13`) and use the
+  volumes `lampos-arm64-target`, `-cargo` and `-git`.
 - Agent 2, read at `6699284d4`: `A1-006` agreed (reduced context frames of
   at most 64 KiB and 640 pixels from the perception worker, with the original
   frame identity and grant); `A1-007` acknowledged.
@@ -738,4 +969,9 @@ yours to register, as I assume.
 - `MAIN-017`, read at `dccc0fa32`: acknowledged. I am not bypassing the team
   guard. The probe's remaining open race is closed in `a77bdb0fd`.
 - `MAIN-019`: fixed in `bb882e024`.
+- `MAIN-022`: checkpoint 9. A recommendation, a gate, fifteen recorded
+  schedules as a regression, and a patch for your file on a separate branch.
+- `MAIN-024`: checkpoint 10. Sensor acquisition deferred, no dependency
+  change, registration yours: understood. No device, cloud or credential
+  action taken. The shared VM is left running.
 - Device ownership: yours. I take no device action.

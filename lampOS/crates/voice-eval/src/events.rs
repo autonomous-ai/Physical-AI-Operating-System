@@ -125,6 +125,34 @@ pub struct RuntimeEvent {
     /// Original turn authority generation when the source records it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_generation: Option<u64>,
+    /// Provider evidence kept verbatim from a terminal or drain record:
+    /// `provider_session` and `provider_outcome` (stage, reason,
+    /// local_not_submitted). Bounded; never interpreted as success.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_detail: Option<Value>,
+}
+
+/// Largest retained `provider_detail` (serialized bytes).
+pub const MAX_PROVIDER_DETAIL_BYTES: usize = 2048;
+
+/// The provider fields of a trace record, bounded.
+fn provider_detail(record: &Value) -> Option<Value> {
+    let mut detail = serde_json::Map::new();
+    for key in ["provider_session", "provider_outcome"] {
+        if let Some(value) = record.get(key).filter(|v| !v.is_null()) {
+            detail.insert(key.into(), value.clone());
+        }
+    }
+    if detail.is_empty() {
+        return None;
+    }
+    let value = Value::Object(detail);
+    let bytes = value.to_string().len();
+    Some(if bytes > MAX_PROVIDER_DETAIL_BYTES {
+        json!({"truncated": true, "bytes": bytes})
+    } else {
+        value
+    })
 }
 
 impl RuntimeEvent {
@@ -145,6 +173,7 @@ impl RuntimeEvent {
             playback_sequence: None,
             completion_evidence_error: None,
             owner_generation: None,
+            provider_detail: None,
         }
     }
     pub fn name(&self) -> &'static str {
@@ -312,6 +341,9 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
             .and_then(|owner| owner.get("generation"))
             .or_else(|| record.get("generation"))
             .map(|v| v.as_u64().unwrap_or(0)),
+        provider_detail: matches!(kind, "turn_finished" | "input_discarded_endpoint")
+            .then(|| provider_detail(record))
+            .flatten(),
     })
 }
 
@@ -472,6 +504,7 @@ impl Cue {
             playback_sequence: self.playback_sequence,
             completion_evidence_error: None,
             owner_generation: self.generation,
+            provider_detail: None,
         })
     }
 }

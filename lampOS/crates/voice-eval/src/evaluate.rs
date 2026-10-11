@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Admissions within this distance of a cancellation caused it (the
@@ -282,6 +283,8 @@ struct Turn {
     completed: Option<(u64, String)>,
     cancelled: Option<(u64, Option<String>)>,
     tail_retired: Option<u64>,
+    /// Provider session/outcome kept from a terminal provider failure.
+    provider_detail: Option<Value>,
 }
 impl Turn {
     /// When replacement was decided: the candidate if traced, else admission.
@@ -433,6 +436,9 @@ fn timeline(events: &[RuntimeEvent]) -> BTreeMap<u64, Turn> {
                         .invalidate("whole-turn completion predates playback retirement");
                 }
                 entry.completed.get_or_insert((at, outcome.clone()));
+                if outcome == crate::events::PROVIDER_FAILED && entry.provider_detail.is_none() {
+                    entry.provider_detail = event.provider_detail.clone();
+                }
             }
             EventKind::TurnCancelled { reason, .. } => {
                 if entry.terminal().is_some() {
@@ -945,27 +951,43 @@ fn score_answer(
             (AnswerOutcome::Missing { cause }, false)
         };
     }
+    // A terminal provider failure is its own cause; lateness, when present,
+    // is kept as a separate finding rather than replacing it.
+    if t.completed.as_ref().map(|(_, outcome)| outcome.as_str())
+        == Some(crate::events::PROVIDER_FAILED)
+    {
+        let partial_audio = t.first_write.is_some();
+        let detail = t
+            .provider_detail
+            .as_ref()
+            .map(|d| {
+                let text: String = d.to_string().chars().take(300).collect();
+                format!("; provider evidence {text}")
+            })
+            .unwrap_or_default();
+        cx.finding(
+            FindingKind::ProviderFailed,
+            Severity::Failure,
+            Some(&step.step),
+            Some(turn),
+            if partial_audio {
+                format!("the provider failed after a partial answer; the played audio is retained as evidence{detail}")
+            } else {
+                format!("the provider failed before any answer audio{detail}")
+            },
+        );
+        if late {
+            cx.finding(FindingKind::LateAnswer, Severity::Failure, Some(&step.step), Some(turn),
+                format!("first reply write more than {answer_deadline_ms} ms after the local endpoint (right-censored)"));
+        }
+        return (AnswerOutcome::ProviderFailed { partial_audio }, false);
+    }
     if late {
         cx.finding(FindingKind::LateAnswer, Severity::Failure, Some(&step.step), Some(turn),
             format!("first reply write more than {answer_deadline_ms} ms after the local endpoint (right-censored)"));
         return (AnswerOutcome::Late, false);
     }
     match t.completed.as_ref().map(|(_, outcome)| outcome.as_str()) {
-        Some(crate::events::PROVIDER_FAILED) => {
-            let partial_audio = t.first_write.is_some();
-            cx.finding(
-                FindingKind::ProviderFailed,
-                Severity::Failure,
-                Some(&step.step),
-                Some(turn),
-                if partial_audio {
-                    "the provider failed after a partial answer; the played audio is retained as evidence".into()
-                } else {
-                    "the provider failed before any answer audio".into()
-                },
-            );
-            (AnswerOutcome::ProviderFailed { partial_audio }, false)
-        }
         Some("audio_written_unscored") => (AnswerOutcome::Complete, true),
         Some("audio_written_with_playback_gaps_unscored") => {
             cx.finding(

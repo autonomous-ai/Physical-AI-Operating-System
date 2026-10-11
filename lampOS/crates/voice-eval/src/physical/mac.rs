@@ -1130,7 +1130,20 @@ impl Backend for PhysicalBackend<'_> {
                 None => unmapped += 1,
             }
         }
+        // Terminal provider failures and drain-path endpoints are kept
+        // verbatim (bounded) so provider session and outcome survive scoring.
+        let provider_records: Vec<&Value> = session
+            .trace
+            .iter()
+            .filter(|record| {
+                record["kind"] == "input_discarded_endpoint"
+                    || (record["kind"] == "turn_finished"
+                        && record["outcome"] == crate::events::PROVIDER_FAILED)
+            })
+            .take(32)
+            .collect();
         let evidence = json!({
+            "provider_failure_records": provider_records,
             "session_start": session.start,
             "session_end": session.end,
             "cue_receipts": session.cues,

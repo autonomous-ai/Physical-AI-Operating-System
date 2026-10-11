@@ -205,3 +205,62 @@ fn the_failed_terminal_cue_is_readable_with_or_without_gaps() {
         .is_err()
     );
 }
+
+#[test]
+fn a_late_failed_answer_keeps_both_causes_and_the_provider_evidence() {
+    let outcome =
+        json!({"stage":"generation","reason":"provider_unavailable","local_not_submitted":false});
+    let result = score(vec![
+        json!({"kind":"local_endpoint","turn":1,"at_us":2000000}),
+        // First write 16 s after the endpoint: past the 15 s answer deadline.
+        json!({"kind":"speaker_first_write","turn":1,"playback_sequence":1,"at_us":18000000}),
+        json!({"kind":"speech_final_sample_retired","turn":1,"playback_sequence":1,"at_us":18500000}),
+        json!({"kind":"turn_finished","turn":1,"generation":2,"at_us":18600000,"outcome":PROVIDER_FAILED,
+            "playback_gaps":0,"provider_session":7,"provider_outcome":outcome}),
+    ]);
+    assert_eq!(
+        result.steps[0].answer,
+        Some(AnswerOutcome::ProviderFailed {
+            partial_audio: true
+        }),
+        "{:?}",
+        result.findings
+    );
+    let found = kinds(&result);
+    assert!(found.contains(&FindingKind::ProviderFailed));
+    assert!(
+        found.contains(&FindingKind::LateAnswer),
+        "lateness is kept as its own cause"
+    );
+    let failure = result
+        .findings
+        .iter()
+        .find(|f| f.kind == FindingKind::ProviderFailed)
+        .unwrap();
+    assert!(
+        failure.detail.contains("provider_unavailable")
+            && failure.detail.contains("\"provider_session\":7"),
+        "{}",
+        failure.detail
+    );
+    let summary = report::summarize(&[&result]);
+    assert_eq!(summary.provider_failed_answers, 1);
+}
+
+#[test]
+fn provider_session_and_outcome_survive_trace_parsing_bounded() {
+    let record = json!({"kind":"turn_finished","turn":1,"generation":2,"at_us":5,"outcome":PROVIDER_FAILED,
+        "playback_gaps":0,"provider_session":3,
+        "provider_outcome":{"stage":"submission","reason":"disconnected","local_not_submitted":true},
+        "unrelated":"dropped"});
+    let event = lamp_voice_eval::events::from_trace(&record).unwrap();
+    let detail = event.provider_detail.unwrap();
+    assert_eq!(detail["provider_session"], 3);
+    assert_eq!(detail["provider_outcome"]["local_not_submitted"], true);
+    assert!(detail.get("unrelated").is_none());
+    // Oversized provider evidence is replaced by its size, not truncated text.
+    let huge = json!({"kind":"input_discarded_endpoint","turn":1,"at_us":5,
+        "provider_outcome":{"reason":"x".repeat(5000)}});
+    let event = lamp_voice_eval::events::from_trace(&huge).unwrap();
+    assert_eq!(event.provider_detail.unwrap()["truncated"], true);
+}

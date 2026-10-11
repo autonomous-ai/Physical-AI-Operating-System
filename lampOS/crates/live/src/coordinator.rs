@@ -24,6 +24,7 @@ use crate::{
         WorkerEvent,
     },
 };
+use lamp_audio::playout::{START_HORIZON_US, StartGate, StartNeed};
 use lamp_interaction::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, OutputKind,
     OutputOwner, OutputPermit, Permission, PlaybackToken, Snapshot, TurnOwner,
@@ -92,9 +93,13 @@ struct Reply {
     final_chunk: Option<u64>,
     playback_gaps: u64,
     last_provider_audio_at_us: Option<u64>,
+    start: StartGate,
+    need: StartNeed,
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
+        self.start.audio_arrived(received_at_us);
+        self.need.arrival(received_at_us, samples.len());
         // Generation completion is not turn completion. A new generation may
         // arrive while the previous generation's accepted final PCM is still
         // playing. Preserve that receipt identity until it actually retires.
@@ -115,6 +120,13 @@ impl Reply {
             .ok_or_else(|| io::Error::other("speech retirement has no playback occurrence"))?;
         self.final_chunk = None;
         Ok(token)
+    }
+
+    // Speech starts only when the audio in hand covers the start horizon. The
+    // held PCM stays here: no permit has been issued for it.
+    fn may_start(&mut self, now_us: u64) -> bool {
+        self.start
+            .open(now_us, self.pcm.len(), self.generation_done)
     }
 
     // Retain at most one full block until generation completion identifies the
@@ -997,7 +1009,10 @@ fn conversation(
                             last_publish = monotonic_us();
                             record(
                                 trace,
-                                json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured"}),
+                                json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
+                                "start_held_us":current.start.opened().map(|opened| opened.held_us),
+                                "start_buffered_frames":current.start.opened().map(|opened| opened.buffered_frames),
+                                "start_by_completion":current.start.opened().map(|opened| opened.by == lamp_audio::playout::OpenedBy::Complete)}),
                             )?;
                         }
                         if pending.accepted == 240 {
@@ -1346,6 +1361,8 @@ fn conversation(
                         final_chunk: None,
                         playback_gaps: 0,
                         last_provider_audio_at_us: None,
+                        start: StartGate::new(START_HORIZON_US),
+                        need: StartNeed::default(),
                     };
                     for audio in prefix {
                         queue_input(
@@ -1453,7 +1470,8 @@ fn conversation(
             last_publish = monotonic_us();
             record(
                 trace,
-                json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps}),
+                json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
+                "start_deficit_us":current.need.deficit_us(),"start_horizon_needed_us":current.need.horizon_us()}),
             )?;
             *reply = None;
         }
@@ -1558,6 +1576,9 @@ fn dispatch_speaker_chunk(
     let Some(current) = reply.as_mut() else {
         return Ok(());
     };
+    if !current.may_start(monotonic_us()) {
+        return Ok(());
+    }
     let Some((samples, final_chunk)) = current.next_speaker_chunk() else {
         return Ok(());
     };
@@ -2270,6 +2291,8 @@ mod tests {
                 final_chunk: None,
                 playback_gaps: 0,
                 last_provider_audio_at_us: None,
+                start: StartGate::new(0),
+                need: StartNeed::default(),
             },
             permit,
         )
@@ -2316,6 +2339,47 @@ mod tests {
             "a later generation must not overwrite the speaker's unretired final cursor"
         );
         assert_eq!(current.pcm, vec![22; 480]);
+    }
+
+    #[test]
+    fn a_reply_starts_when_its_audio_in_hand_covers_the_start_horizon() {
+        // 130 ms of audio is held until 70 ms after it arrived, unless the
+        // reply is already complete.
+        for (age_us, complete, starts) in [
+            (0, false, false),
+            (40_000, false, false),
+            (80_000, false, true),
+            (0, true, true),
+        ] {
+            let dir = SessionDirectory::create().unwrap();
+            let (mut parent, mut speaker) = pair(&dir, "speaker");
+            let (mut owner, mut current, _) = active_reply();
+            current.pcm.clear();
+            current.start = StartGate::new(START_HORIZON_US);
+            current.append_provider_audio(vec![7; 3_120], monotonic_us() - age_us);
+            current.generation_done = complete;
+            let mut reply = Some(current);
+            let mut pending = None;
+            let mut sequence = 0;
+            let mut snapshot = owner.snapshot(now()).unwrap();
+            dispatch_speaker_chunk(
+                &mut owner,
+                &mut reply,
+                &mut parent.data,
+                &mut pending,
+                &mut sequence,
+                &mut snapshot,
+            )
+            .unwrap();
+            assert_eq!(
+                speaker.data.receive::<SpeakerChunk>().unwrap().is_some(),
+                starts,
+                "age {age_us} complete {complete}"
+            );
+            // Held audio is whole in the reply queue and no permit left for it.
+            assert_eq!(pending.is_some(), starts);
+            assert_eq!(reply.unwrap().pcm.len(), if starts { 2_880 } else { 3_120 });
+        }
     }
 
     #[test]
@@ -3022,6 +3086,8 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             last_provider_audio_at_us: None,
+            start: StartGate::new(0),
+            need: StartNeed::default(),
         });
         let started = monotonic_us();
         let observed = started + 20_000;
@@ -3229,6 +3295,8 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             last_provider_audio_at_us: None,
+            start: StartGate::new(0),
+            need: StartNeed::default(),
         });
         handle_playback_discard(
             &mut owner,

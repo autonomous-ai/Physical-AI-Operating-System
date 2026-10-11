@@ -2,9 +2,9 @@ use crate::{
     BarrierOutcome, BarrierPolicy, BarrierReport, BarrierWait, Discard, EVENT_QUEUE_CAPACITY,
     Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger, ImageOffer, ImageReceipt, ImageRefusal,
     ImageRevocation, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST,
-    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_RETAINED_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId,
-    Result, Resumption, ResumptionHandle, SessionConfig, SessionId, StartRelease, State,
-    SuccessorStart, Timeouts, wire,
+    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_OPEN_ACTIVITY_REQUESTS, MAX_RETAINED_SAMPLES,
+    MAX_WIRE_BYTES, OUTPUT_RATE, RequestId, Result, Resumption, ResumptionHandle, SessionConfig,
+    SessionId, StartRelease, State, SuccessorStart, Timeouts, wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -615,7 +615,7 @@ where
         gated: false,
         purged_through: 0,
         discard_applied: 0,
-        open_activity: VecDeque::new(),
+        open_activity: OpenActivity::default(),
         shared,
         stop: stop_rx,
         current: None,
@@ -774,6 +774,42 @@ struct Held {
     audio: VecDeque<Audio>,
     samples: usize,
 }
+/// Audio samples written into the activity now open, which has no End yet,
+/// by the request they belong to and in order: what a request that continues
+/// the activity will be heard after. One entry per request, oldest first, and
+/// never more than [`MAX_OPEN_ACTIVITY_REQUESTS`] of them.
+#[derive(Default)]
+struct OpenActivity(VecDeque<(u64, u64)>);
+impl OpenActivity {
+    /// Account for `samples` of `request` about to be sent. Refused, with
+    /// nothing changed, when that would take one entry more than the bound:
+    /// nothing is sent that could not later be attributed.
+    fn note(&mut self, request: u64, samples: u64) -> Result<()> {
+        if let Some((_, total)) = self.0.back_mut().filter(|(last, _)| *last == request) {
+            *total = total.saturating_add(samples);
+            return Ok(());
+        }
+        if self.0.len() >= MAX_OPEN_ACTIVITY_REQUESTS {
+            return Err(Error::OpenActivityOverrun);
+        }
+        self.0.push_back((request, samples));
+        Ok(())
+    }
+    /// What the requests through `through` have sent. They are abandoned and
+    /// this is their report: counted once, and forgotten.
+    fn take_through(&mut self, through: u64) -> u64 {
+        let mut sent = 0u64;
+        while let Some((_, samples)) = self.0.front().filter(|(request, _)| *request <= through) {
+            sent = sent.saturating_add(*samples);
+            self.0.pop_front();
+        }
+        sent
+    }
+    /// The activity started or ended: nothing sent before is in it.
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 /// Kept audio written per turn of the session loop once the start is out,
 /// so that commands, incoming messages and a stop stay live while it drains.
 const RELEASE_BLOCKS: usize = 32;
@@ -803,10 +839,9 @@ struct Actor<S> {
     purged_through: u64,
     /// Through which request a discard has been applied.
     discard_applied: u64,
-    /// Audio samples written into the activity now open, which has no End
-    /// yet, by the request they belong to and in order: what a request that
-    /// continues the activity will be heard after. One entry per request.
-    open_activity: VecDeque<(u64, u64)>,
+    /// What the activity now open has been sent, by request. Empty unless a
+    /// start can be kept: only then is an abandonment reported at all.
+    open_activity: OpenActivity,
     shared: Arc<Shared>,
     stop: watch::Receiver<Option<Stopped>>,
     /// The newest request: the only one that accepts input.
@@ -1351,13 +1386,18 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     fn holding(&self) -> bool {
         self.held.as_ref().is_some_and(|held| held.holding)
     }
-    /// A block is handed to the socket in the open activity.
-    fn note_sent(&mut self, audio: &Audio) {
-        let (request, samples) = (audio.request.get(), audio.samples.len() as u64);
-        match self.open_activity.back_mut() {
-            Some((last, total)) if *last == request => *total += samples,
-            _ => self.open_activity.push_back((request, samples)),
+    /// A block is about to be handed to the socket in the open activity.
+    /// One that cannot be accounted for is refused here, before it is sent.
+    fn note_sent(&mut self, audio: &Audio) -> Result<()> {
+        if !matches!(
+            self.successor_start,
+            SuccessorStart::AfterFirstOutput { .. }
+        ) {
+            // Nothing is kept, so an abandonment reports nothing: no account.
+            return Ok(());
         }
+        self.open_activity
+            .note(audio.request.get(), audio.samples.len() as u64)
     }
     /// Apply an abandonment recorded by [`InputSender::discard`]: drop what
     /// is still kept of the abandoned requests, and say what was dropped and
@@ -1393,15 +1433,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         // What was handed to the socket before this is in an activity that
         // has no End: it cannot be taken back and is not called discarded.
-        // Only the abandoned requests' own samples, and only those not
-        // already reported by an earlier abandonment: a newer request's
-        // audio in the same activity is not theirs.
-        let sent: u64 = self
-            .open_activity
-            .iter()
-            .filter(|(request, _)| *request > applied && *request <= through)
-            .map(|(_, samples)| samples)
-            .sum();
+        // Only the abandoned requests' own samples: a newer request's audio
+        // in the same activity is not theirs. Reported here once and no
+        // longer remembered.
+        let sent = self.open_activity.take_through(through);
         if (dropped > 0 || sent > 0)
             && let Ok(through) = RequestId::new(through)
         {
@@ -1463,7 +1498,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 continue;
             }
             // Handed to the socket from here: no longer droppable.
-            self.note_sent(&audio);
+            self.note_sent(&audio)?;
             self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                 .await?;
         }
@@ -1530,7 +1565,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     return Ok(());
                 }
                 let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
-                self.note_sent(&audio);
+                self.note_sent(&audio)?;
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
             }

@@ -14,9 +14,9 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_RETAINED_SAMPLES,
-    MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig, SuccessorStart,
-    ThinkingLevel, Timeouts,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_OPEN_ACTIVITY_REQUESTS,
+    MAX_RETAINED_SAMPLES, MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig,
+    SuccessorStart, ThinkingLevel, Timeouts,
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
@@ -382,6 +382,10 @@ pub enum Error {
     MessageTooLarge,
     InvalidAudio,
     Backpressure,
+    /// One request more than [`MAX_OPEN_ACTIVITY_REQUESTS`] offered audio to
+    /// an activity that none of them ended and no abandonment had reported.
+    /// That audio could not be accounted for and was not sent. Terminal.
+    OpenActivityOverrun,
     StaleInput,
     InputSequence,
     StaleRequest,
@@ -431,6 +435,11 @@ impl Error {
             | Self::UnsupportedMessage
             | Self::MessageTooLarge
             | Self::InvalidAudio
+            // This side's own bound on an open activity, exhausted. Not a
+            // fault of the connection, and no evidence that a new one, or
+            // anything sent again on one, would be right for what that
+            // activity held: it is not retried.
+            | Self::OpenActivityOverrun
             | Self::StaleInput
             | Self::InputSequence
             | Self::StaleRequest

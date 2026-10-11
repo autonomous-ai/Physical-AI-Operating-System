@@ -349,6 +349,7 @@ impl From<Error> for Fault {
             | Error::UnexpectedResponse => Self::Protocol,
             Error::InvalidConfiguration
             | Error::Backpressure
+            | Error::OpenActivityOverrun
             | Error::StaleInput
             | Error::InputSequence
             | Error::StaleRequest
@@ -5249,6 +5250,7 @@ mod tests {
         assert_eq!(Fault::from(Error::QuotaExceeded), Fault::QuotaExceeded);
         assert_eq!(Fault::from(Error::MalformedMessage), Fault::Protocol);
         assert_eq!(Fault::from(Error::Backpressure), Fault::Local);
+        assert_eq!(Fault::from(Error::OpenActivityOverrun), Fault::Local);
         assert!(
             serde_json::from_value::<ProviderStatus>(json!({"kind":"unavailable",
             "reason":{"category":"transport"},"detail":"x"}))

@@ -1,7 +1,8 @@
-//! One finite read-only inspection through an exclusively owned Linux tty.
+//! Exclusively held Linux tty lifecycle for read-only inspection and guarded motion.
 //!
 //! Opening an unqualified USB adapter can change modem lines in the kernel.
-//! This module sends no modem, break, reset, register-write or torque commands.
+//! No modem, break, reset or torque operations exist. The separate motion
+//! adapter exposes only the guarded finite position-control API.
 //! All deadlines are observed between syscalls, not kernel preemption guarantees.
 
 use crate::{
@@ -27,6 +28,8 @@ use std::{
     path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
+
+pub mod motion;
 
 const BAUD: u32 = 1_000_000;
 const CAP_SYS_ADMIN_BIT: u64 = 1 << 21;
@@ -210,31 +213,9 @@ pub fn inspect_once(
     mut cancelled: impl FnMut() -> io::Result<bool>,
 ) -> InspectionResult {
     let origin = Instant::now();
-    let mut result = InspectionResult {
-        schema_version: 1,
-        unit_id: config.unit_id.as_str().to_owned(),
-        unit_identity_verified: false,
-        requested_device: config.device.clone(),
-        resolved_device: None,
-        lock_directory: config.lock_directory.clone(),
-        device_identity: None,
-        timestamp_domain: "host_monotonic_microseconds_since_inspect_once_entry",
-        tty_open_started_us: None,
-        tty_open_completed_us: None,
-        prepared_us: None,
-        elapsed_us: 0,
-        adapter_open_close_effects_qualified: false,
-        tty_exclusive_applied: false,
-        preexisting_foreign_handles_excluded: false,
-        prior_settings: None,
-        negotiated_settings: None,
-        preparation_error: None,
-        inspection: None,
-        cleanup: CleanupReport::default(),
-        completed: false,
-    };
+    let mut result = empty_result(config);
     let mut owner = Owner::default();
-    match owner.prepare(config, &mut result, origin, &mut cancelled) {
+    match owner.prepare(config, None, &mut result, origin, &mut cancelled) {
         Ok(()) => {
             result.prepared_us = Some(micros(origin));
             let mut runtime = HostRuntime {
@@ -256,6 +237,32 @@ pub fn inspect_once(
         && result.inspection.as_ref().is_some_and(|r| r.completed)
         && result.cleanup.errors.is_empty();
     result
+}
+
+fn empty_result(config: &InspectionConfig) -> InspectionResult {
+    InspectionResult {
+        schema_version: 1,
+        unit_id: config.unit_id.as_str().to_owned(),
+        unit_identity_verified: false,
+        requested_device: config.device.clone(),
+        resolved_device: None,
+        lock_directory: config.lock_directory.clone(),
+        device_identity: None,
+        timestamp_domain: "host_monotonic_microseconds_since_inspect_once_entry",
+        tty_open_started_us: None,
+        tty_open_completed_us: None,
+        prepared_us: None,
+        elapsed_us: 0,
+        adapter_open_close_effects_qualified: false,
+        tty_exclusive_applied: false,
+        preexisting_foreign_handles_excluded: false,
+        prior_settings: None,
+        negotiated_settings: None,
+        preparation_error: None,
+        inspection: None,
+        cleanup: CleanupReport::default(),
+        completed: false,
+    }
 }
 
 struct HostRuntime<'a, F> {
@@ -367,6 +374,29 @@ fn reject_exclusive_bypass() -> io::Result<()> {
     Ok(())
 }
 
+/// Shared by both inspector and motion owner; lock stays held until tty cleanup.
+fn acquire_bus_lock(directory: &OwnedFd, identity: DeviceIdentity) -> io::Result<OwnedFd> {
+    let name = format!("motor-{}-{}.lock", identity.major, identity.minor);
+    let lock = fs::openat(
+        directory,
+        name,
+        OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+        Mode::RUSR | Mode::WUSR,
+    )?;
+    let metadata = fs::fstat(&lock)?;
+    if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
+        || metadata.st_nlink != 1
+        || (metadata.st_uid != 0 && metadata.st_uid != rustix::process::geteuid().as_raw())
+        || metadata.st_mode & 0o777 != 0o600
+    {
+        return Err(denied(
+            "lock must be a private, trusted, singly linked regular 0600 file",
+        ));
+    }
+    fs::flock(&lock, FlockOperation::NonBlockingLockExclusive)?;
+    Ok(lock)
+}
+
 #[derive(Default)]
 struct Owner {
     fd: Option<OwnedFd>,
@@ -379,6 +409,7 @@ impl Owner {
     fn prepare(
         &mut self,
         config: &InspectionConfig,
+        expected_identity: Option<DeviceIdentity>,
         report: &mut InspectionResult,
         origin: Instant,
         cancelled: &mut impl FnMut() -> io::Result<bool>,
@@ -403,28 +434,12 @@ impl Owner {
             };
             report.resolved_device = Some(path.clone());
             report.device_identity = Some(identity);
+            if expected_identity.is_some_and(|expected| expected != identity) {
+                return Err(denied("device identity differs before tty open"));
+            }
             stage = "pre_open_lock";
             let directory = trusted_lock_directory(&config.lock_directory, origin, cancelled)?;
-            let name = format!("motor-{}-{}.lock", identity.major, identity.minor);
-            checkpoint(origin, cancelled)?;
-            let lock = fs::openat(
-                &directory,
-                name,
-                OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
-                Mode::RUSR | Mode::WUSR,
-            )?;
-            let metadata = fs::fstat(&lock)?;
-            if FileType::from_raw_mode(metadata.st_mode) != FileType::RegularFile
-                || metadata.st_nlink != 1
-                || (metadata.st_uid != 0 && metadata.st_uid != rustix::process::geteuid().as_raw())
-                || metadata.st_mode & 0o777 != 0o600
-            {
-                return Err(denied(
-                    "lock must be a private, trusted, singly linked regular 0600 file",
-                ));
-            }
-            fs::flock(&lock, FlockOperation::NonBlockingLockExclusive)?;
-            self.lock = Some(lock);
+            self.lock = Some(acquire_bus_lock(&directory, identity)?);
             checkpoint(origin, cancelled)?;
             stage = "tty_open";
             report.tty_open_started_us = Some(micros(origin));
@@ -673,5 +688,65 @@ mod tests {
         }
         assert!(validate_path(Path::new(&format!("/{}", "a".repeat(MAX_PATH_BYTES)))).is_err());
         assert!(validate_path(Path::new("/dev/device-servo")).is_ok());
+    }
+
+    #[test]
+    fn inspection_and_motion_use_one_inert_lock_and_release_on_owner_drop() {
+        use std::os::unix::fs::PermissionsExt;
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("lamp-motor-lock-{}-{suffix}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // Only this inert temporary directory is opened; there is no tty. Its
+        // globally writable ancestors intentionally bypass no production policy:
+        // acquire_bus_lock receives an already checked directory descriptor.
+        let directory = fs::open(
+            &path,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .unwrap();
+        let id = DeviceIdentity {
+            filesystem_device: 0,
+            inode: 0,
+            character_device: 0,
+            major: 166,
+            minor: 0,
+        };
+        let mut first = Owner {
+            lock: Some(acquire_bus_lock(&directory, id).unwrap()),
+            fd: None,
+            original: None,
+            exclusive: false,
+        };
+        let err = acquire_bus_lock(&directory, id).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::WouldBlock);
+        // A different alias or inode for the same rdev cannot split the lock.
+        let alias = DeviceIdentity {
+            inode: 900,
+            filesystem_device: 123,
+            ..id
+        };
+        assert_eq!(
+            acquire_bus_lock(&directory, alias).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        assert!(first.finish(Instant::now(), true).errors.is_empty());
+        let next = Owner {
+            lock: Some(acquire_bus_lock(&directory, id).unwrap()),
+            fd: None,
+            original: None,
+            exclusive: false,
+        };
+        drop(next);
+        let third = acquire_bus_lock(&directory, id).unwrap();
+        drop(third);
+        drop(directory);
+        std::fs::remove_file(path.join("motor-166-0.lock")).unwrap();
+        std::fs::remove_dir(path).unwrap();
     }
 }

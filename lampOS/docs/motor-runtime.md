@@ -1,7 +1,9 @@
 # Motor protocol, calibration and read-only inspection
 
 `lamp-motor` implements packet handling, calibration mathematics and a finite
-Linux read-only inspection for Lamp's five Feetech STS3215 joints. There is no
+Linux read-only inspection for Lamp's five Feetech STS3215 joints. The opt-in
+[finite guarded writer](motor-runtime-contract.md) is a separate library API;
+this document describes the read-only inspector. It has no
 register-write, torque, motion, service or shutdown actuator API. It does not
 replace the movement runtime yet. No physical bus was opened for these batches;
 no adapter open/close effects, position, clearance, load threshold or holding
@@ -296,7 +298,7 @@ cargo +stable test -p lamp-motor --locked
 cargo +stable clippy -p lamp-motor --all-targets --locked -- -D warnings
 ```
 
-The host suite currently has 54 tests. The original 35 cover exhaustive register-window bounds,
+The original read-only host suite had 54 tests. The original 35 cover exhaustive register-window bounds,
 all fragment splits of a golden reply, all chunk sizes of a maximum frame,
 concatenated/out-of-order multi-servo replies, corrupt lengths/checksums/status,
 truncation/reset, duplicate/unexpected/missing replies, all nonzero servo-error

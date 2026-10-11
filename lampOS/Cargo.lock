@@ -725,6 +725,7 @@ dependencies = [
 name = "lamp-motor"
 version = "0.1.0"
 dependencies = [
+ "lamp-interaction",
  "nix 0.29.0",
  "rustix",
  "serde",

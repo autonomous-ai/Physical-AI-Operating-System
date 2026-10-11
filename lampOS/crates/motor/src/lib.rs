@@ -1,10 +1,11 @@
-//! Read-only Feetech STS3215 protocol and per-unit Lamp calibration.
+//! Feetech STS3215 protocol, per-unit calibration, and bounded motor control.
 //!
 //! Linux provides one finite read-only inspection with explicit device/unit/lock
-//! paths. There are no register-write, torque, or movement APIs. Packet integrity,
-//! serial exclusivity, and calibration consistency are not hardware qualification.
-//! A future motion owner still needs proven units, placement, safety limits and
-//! the final movement ownership/cancellation boundary.
+//! paths. The control core emits position-only sync writes through an explicitly
+//! owned nonblocking transport. The opt-in Linux motion adapter reuses the
+//! serial owner; the Linux inspection API remains read-only.
+//! There is no torque API, motion CLI, or automatic recovery. Packet integrity,
+//! authority and caller-supplied qualification are not physical safety evidence.
 
 use std::fmt;
 
@@ -14,8 +15,11 @@ pub mod inspection;
 pub mod linux;
 
 pub mod calibration;
+pub mod command;
+pub mod control;
 pub mod protocol;
 pub mod readback;
+pub mod trajectory;
 pub mod units;
 
 pub const JOINT_COUNT: usize = 5;

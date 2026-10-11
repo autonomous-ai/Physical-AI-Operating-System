@@ -22,6 +22,7 @@ use crate::{
     provider_link::{ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
     ring_wire::{RingBlankReason, RingFeedback},
+    termination::Termination,
     transport::{Channel, WorkerChannels},
     turn_taking::{Disposition, PlaybackMask},
     wire::{
@@ -471,6 +472,7 @@ pub fn run_fixture(
     output: &Path,
     options: FixtureOptions,
 ) -> Result<()> {
+    let termination = Termination::install()?;
     if !options.directed.diagnostics {
         return Err(io::Error::other("fixture experiments require explicit --diagnostics").into());
     }
@@ -487,6 +489,7 @@ pub fn run_fixture(
         options.directed,
         Some(info),
         cues,
+        &termination,
     )
 }
 
@@ -536,6 +539,7 @@ pub fn run_directed_session(
     output: &Path,
     options: SessionOptions,
 ) -> Result<()> {
+    let termination = Termination::install()?;
     let cues = options
         .cue_socket
         .as_deref()
@@ -548,6 +552,7 @@ pub fn run_directed_session(
         options.directed,
         None,
         cues,
+        &termination,
     )
 }
 
@@ -558,6 +563,7 @@ fn run_source(
     options: DirectedOptions,
     fixture: Option<FixtureInfo>,
     mut cues: Option<CueSink>,
+    termination: &Termination,
 ) -> Result<()> {
     if !(1..=MAX_DIRECTED_SECONDS).contains(&seconds) {
         return Err(io::Error::other("duration must be 1..600 seconds").into());
@@ -565,6 +571,7 @@ fn run_source(
     if let Some(ceiling) = options.ring_channel_ceiling {
         lamp_ring::ChannelCeiling::new(ceiling).map_err(io::Error::other)?;
     }
+    termination.check()?;
     refuse_legacy_owners()?;
     fs::create_dir(output)?;
     fs::set_permissions(output, fs::Permissions::from_mode(0o700))?;
@@ -576,28 +583,42 @@ fn run_source(
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}));
-    let diagnostic_directory = options
-        .diagnostics
-        .then(|| fs::canonicalize(output))
-        .transpose()?;
-    let result = run_inner(
-        source,
-        seconds,
-        &mut trace,
-        diagnostic_directory.as_deref(),
-        options,
-        &mut cues,
-    );
+    let result = (|| {
+        let diagnostic_directory = options
+            .diagnostics
+            .then(|| fs::canonicalize(output))
+            .transpose()?;
+        run_inner(
+            source,
+            seconds,
+            &mut trace,
+            diagnostic_directory.as_deref(),
+            options,
+            &mut cues,
+            termination,
+        )
+    })();
+    finish_run(output, &mut trace, &mut cues, result, termination)
+}
+
+fn finish_run(
+    output: &Path,
+    trace: &mut Vec<Value>,
+    cues: &mut Option<CueSink>,
+    result: Result<()>,
+    termination: &Termination,
+) -> Result<()> {
+    let result = result.and_then(|()| termination.check().map_err(Into::into));
     let end_index = trace.len();
-    trace.push(json!({"kind":"run_end","at_us":monotonic_us(),"status":if result.is_ok(){"completed_unscored"}else{"failed"},"error":result.as_ref().err().map(ToString::to_string)}));
-    flush_cues(&mut trace, &mut cues);
+    trace.push(json!({"kind":"run_end","at_us":monotonic_us(),"status":if result.is_ok(){"completed_unscored"}else{"failed"},"error":result.as_ref().err().map(ToString::to_string),"termination_signal":termination.signal_name()}));
+    flush_cues(trace, cues);
     trace[end_index]["cue_valid"] = cues.as_ref().map(|sink| sink.fault().is_none()).into();
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(0o600)
         .open(output.join("events.jsonl"))?;
-    for event in trace {
+    for event in trace.iter() {
         serde_json::to_writer(&mut file, &event)?;
         writeln!(file)?;
     }
@@ -1187,7 +1208,9 @@ fn pulse(
     workers: &mut [&mut Worker],
     last: &mut u64,
     startup: &mut StartupEvents,
+    termination: &Termination,
 ) -> io::Result<()> {
+    termination.check()?;
     // Consume operational notifications while later children start. A startup
     // wait must not age valid packets in the 100 ms runtime channels.
     for worker in workers.iter_mut() {
@@ -1209,6 +1232,7 @@ fn pulse(
     }
     Ok(())
 }
+#[allow(clippy::too_many_arguments)]
 fn spawn_rig(
     source: ProviderSource<'_>,
     directory: &Path,
@@ -1217,11 +1241,16 @@ fn spawn_rig(
     startup: &mut StartupEvents,
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
+    termination: &Termination,
 ) -> Result<Rig> {
+    termination.check()?;
     let executable = std::env::current_exe()?;
     let arguments = source.arguments()?;
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
-    let mut provider = Worker::spawn(&executable, directory, "provider", boot, &arguments)?;
+    let mut provider =
+        Worker::spawn_with_tick(&executable, directory, "provider", boot, &arguments, || {
+            termination.check()
+        })?;
     let mut last = 0;
     let capture_arguments = AudioWorkerOptions {
         diagnostic_directory: diagnostic_directory.map(|p| p.join("capture-audio")),
@@ -1241,7 +1270,7 @@ fn spawn_rig(
         "capture",
         boot,
         &capture_arguments,
-        || pulse(owner, &mut [&mut provider], &mut last, startup),
+        || pulse(owner, &mut [&mut provider], &mut last, startup, termination),
     )?;
     let mut speaker = Worker::spawn_with_tick(
         &executable,
@@ -1255,6 +1284,7 @@ fn spawn_rig(
                 &mut [&mut provider, &mut capture],
                 &mut last,
                 startup,
+                termination,
             )
         },
     )?;
@@ -1271,6 +1301,7 @@ fn spawn_rig(
                     &mut [&mut provider, &mut capture, &mut speaker],
                     &mut last,
                     startup,
+                    termination,
                 )
             },
         )?)
@@ -1284,6 +1315,7 @@ fn spawn_rig(
                 &mut [&mut provider, &mut capture, &mut speaker, ring],
                 &mut last,
                 startup,
+                termination,
             )
         } else {
             pulse(
@@ -1291,6 +1323,7 @@ fn spawn_rig(
                 &mut [&mut provider, &mut capture, &mut speaker],
                 &mut last,
                 startup,
+                termination,
             )
         }
     })?;
@@ -1332,7 +1365,9 @@ fn run_inner(
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
     cues: &mut Option<CueSink>,
+    termination: &Termination,
 ) -> Result<()> {
+    termination.check()?;
     let directory = SessionDirectory::create()?;
     let boot = new_boot()?;
     if let Some(sink) = cues.as_mut() {
@@ -1352,29 +1387,51 @@ fn run_inner(
         &mut startup,
         diagnostic_directory,
         options,
+        termination,
     )?;
-    // The trusted supervisor supplies both immutable peer boots. No process
-    // learns reference identity from incoming PCM or an unsolicited handshake.
-    rig.capture
-        .channels
-        .control
-        .send(Control::ConnectReference {
-            peer: rig.speaker.boot,
-        })?;
-    rig.speaker
-        .channels
-        .control
-        .send(Control::ConnectReference {
-            peer: rig.capture.boot,
-        })?;
     let mut reply = None;
-    let result = conversation(
-        &mut rig, &mut owner, seconds, trace, startup, &mut reply, cues,
-    );
+    let result = (|| {
+        termination.check()?;
+        // The trusted supervisor supplies both immutable peer boots. No process
+        // learns reference identity from incoming PCM or an unsolicited handshake.
+        rig.capture
+            .channels
+            .control
+            .send(Control::ConnectReference {
+                peer: rig.speaker.boot,
+            })?;
+        rig.speaker
+            .channels
+            .control
+            .send(Control::ConnectReference {
+                peer: rig.capture.boot,
+            })?;
+        conversation(
+            &mut rig,
+            &mut owner,
+            seconds,
+            trace,
+            startup,
+            &mut reply,
+            cues,
+            termination,
+        )
+    })();
+    finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result)
+}
+
+fn finish_active_run(
+    rig: &mut Rig,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    trace: &mut Vec<Value>,
+    cues: &mut Option<CueSink>,
+    result: Result<()>,
+) -> Result<()> {
     if result.is_err() {
         // Keep an explicit outcome even when the failing child cannot deliver
         // speech. Privacy revocation and stop below still run if tracing fails.
-        let _ = cancel_reply(&mut owner, &mut reply, trace, "runtime_failed");
+        let _ = cancel_reply(owner, reply, trace, "runtime_failed");
     }
     let _ = owner.set_microphone_permission(now(), Permission::Denied);
     if let Ok(snapshot) = owner.snapshot(now()) {
@@ -1385,6 +1442,7 @@ fn run_inner(
     result.and_then(|()| shutdown.map_err(Into::into))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn conversation(
     rig: &mut Rig,
     owner: &mut Controller,
@@ -1393,6 +1451,7 @@ fn conversation(
     startup: StartupEvents,
     reply: &mut Option<Reply>,
     cues: &mut Option<CueSink>,
+    termination: &Termination,
 ) -> Result<()> {
     let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
@@ -1436,6 +1495,7 @@ fn conversation(
     rig.publish(snapshot)?;
     loop {
         let loop_start = Instant::now();
+        termination.check()?;
         let clock = monotonic_us();
         if deadline.is_none() && Instant::now() >= startup_deadline {
             return Err(io::Error::other("voice input never became ready").into());
@@ -2678,6 +2738,7 @@ fn handle_playback_gap(
 mod tests {
     mod playout_start;
     mod provider_pair;
+    mod termination;
     mod turn_taking;
 
     use super::*;

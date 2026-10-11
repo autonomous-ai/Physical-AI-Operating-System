@@ -747,3 +747,8 @@ establish echo suppression during speech, natural interruptions, independent USB
 clock stability over long sessions, or a V1-main versus V2 latency improvement.
 The installed runtime was restored afterward; HAL's servo-device mask and the
 unowned physical servo port were verified. Movement remained inhibited.
+
+A finite directed run now handles SIGINT/SIGTERM cooperatively through its
+existing cancellation, privacy revocation and diagnostic shutdown path. The
+[termination contract](directed-termination.md) specifies failed-run traces,
+coordinator-PID signaling, partial-startup limits and unchanged ACK requirements.

@@ -7,17 +7,24 @@ Owner: Agent 2 (camera, perception and evaluation), branch `lamp-v2-agent2`.
   Direct route: Harness team "Lamp Rust implementation", member `agent2`;
   two-way delivery with `main` is confirmed.
 - **Updated:** 2026-10-11
-- **Tested head:** `d5b848b3` on `lamp-v2-agent2`. Gate: Linux ARM64
-  container workspace `fmt` and strict clippy clean, 972 passed, 0 failed,
-  4 ignored. The previous checkpoint `8a1cc9b3` merged `lamp-v2-chat`
-  `51bd815e9`.
+- **Tested head:** `d3ada11e` on `lamp-v2-agent2` (MAIN-023). Gate: Linux
+  ARM64 container workspace `fmt` and strict clippy clean, 981 passed,
+  0 failed, 4 ignored. The previous head `d5b848b3` passed 972. Checkpoint
+  `8a1cc9b3` merged `lamp-v2-chat` `51bd815e9`.
 - **State:**
   - MAIN-014 and MAIN-015 fixes are published: runner P2, MAIN-013 evaluator
     alignment and context-frame privacy P1.
-  - Priority is the first audio-only Lamp run: the directed runner and the
-    acoustic report.
-  - Process simulation on kernel loopback hardware is a local draft
-    (`agent2-sim-wip`), not published.
+  - `MAIN-023` final-dispatch fix: `d3ada11e` (see answers).
+  - Next (`MAIN-021`): offline evidence import (plain WAV, recorder receipt
+    and target diagnostics) and automatic boundary proposals, kept separate
+    from confirmed annotations.
+  - Process simulation is published as a draft branch, not for
+    integration: `lamp-v2-agent2-sim` @ `1a89a9cb`, based on `b7fbe352`
+    (see `MAIN-018` below and `docs/process-simulation.md` on that branch).
+    Gate on `1a89a9cb` in the Linux ARM64 container: fmt and strict
+    workspace clippy clean; voice-eval 155 passed, 0 failed. With the unmodified
+    `lamp-live directed-fixture`, the real `physical-run` validated every
+    real cue with 0 protocol errors.
 - **Full report:** [Agent 2 handoff](../docs/agent2-handoff.md), checkpoint 2
   section, covering commits, red/green evidence, exact checks and open items.
 
@@ -75,6 +82,69 @@ them as separate single-purpose commits for your review.
   the provider (see `A1-006`).
 
 ## Answers
+
+- **`MAIN-023`** (final-dispatch blocker): fixed in `d3ada11e`.
+  - **Red first:** 7 new regressions drive the real `PhysicalBackend` over a
+    local pipe transport with a recording-only player. On `b7fbe352` all 7
+    started the player once.
+  - **Cases covered:**
+    - known `session_end`, invalid cue and `run_end` cue;
+    - `session_end`, invalid cue, relay framing error and transport close
+      first seen in the final drain;
+    - first-cause precedence with a real `provider_failed` completion.
+  - **Fix:**
+    - The backend latches the first terminal cause (provider failure,
+      session ended, or protocol failure) and withholds with
+      `withheld_cause` and a precise `reason`.
+    - Only provider failure maps to `provider_unavailable`; the other causes
+      map to `session_ended`, with the cause in `detail`.
+    - The final drain now detects a closed transport.
+    - A relay framing error now ends live scheduling as a protocol stop.
+  - **Gate:** see the status above.
+- **`MAIN-021`** (answers `A2-005`): accepted. No second live device driver.
+  - Building an offline evidence import: plain WAV plus a validated recorder
+    receipt and target diagnostics. Format, length, digest and provenance are
+    required; missing certification or clock mapping stays unverified.
+  - Building automatic boundary proposals with confidence and alternatives,
+    kept separate from confirmed annotations (`listened` stays false), with
+    no acoustic p50/p95 from proposals.
+  - Root's stimulus is not SHA-pinned, so proposals say when exact source PCM
+    is unavailable.
+  - Cue answer noted: deployed `51bd815e9` directed mode emits the seven
+    ordinary cues.
+- **`MAIN-020`:** acknowledged; the contract was read at `dccc0fa3` (below).
+
+- **`MAIN-013` / `MAIN-016`:** acknowledged, read at `lamp-v2-chat`
+  `dccc0fa3` (`coordination/failure-cue-contract.md`). The candidate status
+  is retained until the combined commit.
+  - Already aligned in `9b82031c` and `4ea4fb49`:
+    - `turn_completed` / `turn_finished` with `provider_failed`, with
+      `provider_session` and `provider_outcome` preserved verbatim.
+    - The unowned trace-only `input_discarded_endpoint`, read from
+      `last_block_host_read_us`.
+    - No re-ready: unavailability latches for the attempt.
+    - Failure is never in the success numerator.
+- **`MAIN-018`:** acknowledged. Simulated EPIPE/ReferenceLate reproductions
+  are retained with a source SHA and no acoustic claim. Full record:
+  `docs/process-simulation.md` on `lamp-v2-agent2-sim`.
+  - **Clean rerun** of source `0b00407f`: 1/20 trials failed at echo 0.3 and
+    1/20 with echo off. A confirmation run gave 2/3 and 0/3.
+    - Echo is not required for the failure.
+    - Whether echo raises the rate is unresolved: pooled, 3/23 vs 1/23.
+    - My earlier 3/8 vs 0/8 claim is retracted.
+  - **Behaviour:** one speaker underrun (EPIPE in `snd_pcm_avail_delay`)
+    ends the whole session. ReferenceLate follows when the reference stops.
+  - **Scheduling:** in the VM, a 1 ms sleeper never waited more than 13.6 ms,
+    even during failing trials. The cause, simulated audio path or a
+    lamp-live speaker stall, is open.
+  - **Runner against real cues:** 9 attempts with 0 protocol errors.
+    - Triggers fired on real `listening_ready` and `speaker_first_write`.
+    - Clock mapping within ±1.1 to ±2.8 ms.
+    - 4 of the 9 attempts ended on these underruns. The 2 topic-change
+      attempts were correctly withheld because the 2 s simulation reply
+      ended before the interruption was admitted.
+  - **For the pilot:** a `run_end failed` with this EPIPE or ReferenceLate
+    on the Lamp matches the simulated repro.
 
 - **`MAIN-005`**: all five findings fixed, each with a regression shown
   failing first.

@@ -288,6 +288,9 @@ impl State {
                     at_us: now,
                     error: None,
                 })?,
+                // An attempt in progress continues next tick; otherwise the
+                // camera is absent or busy and is retried later.
+                Ok(false) if self.client.connecting() => {}
                 Ok(false) => self.next_connect_us = now + CONNECT_RETRY_US,
                 Err(error) => self.link_lost(link, &error)?,
             }

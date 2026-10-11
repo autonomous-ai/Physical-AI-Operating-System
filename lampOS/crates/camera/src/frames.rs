@@ -6,9 +6,13 @@
 //! provider for visual context) is a [`FrameClient`]. The parent supplies the
 //! permitted consumer boots; a boot is never learned from the socket.
 //!
-//! Delivery is pull-based. A consumer has at most one outstanding request and
-//! receives the newest current frame captured after it asked; frames arriving
-//! meanwhile replace the camera library's pending slot rather than queueing.
+//! Delivery is pull-based. A consumer has at most one outstanding request.
+//! The freshness contract is: the producer copies the newest frame it holds
+//! when it serves the request, and only if that frame's host dequeue
+//! completion is no older than the request's `max_age_us` at copy time. The
+//! frame may have been dequeued before the request was sent; nothing promises
+//! a capture after the request. Frames arriving while no request is waiting
+//! replace the camera library's pending slot rather than queueing.
 //! Each consumer has one preallocated outgoing buffer, written nonblockingly
 //! across loop iterations, so a slow consumer can never block capture or
 //! privacy control. A frame left unsent for [`STALL_DEADLINE_US`] closes that
@@ -715,7 +719,21 @@ pub struct ClientCounts {
     pub disconnects: u64,
 }
 
-/// A consumer's end. Nonblocking after connection; one outstanding request.
+/// A nonblocking connection attempt: connected (or in progress) but its hello
+/// not yet fully written.
+struct Connecting {
+    stream: UnixStream,
+    hello: [u8; HELLO_BYTES],
+    sent: usize,
+    deadline: std::time::Instant,
+}
+
+/// A connection attempt that sends its hello within this bound or is
+/// abandoned (and may be retried later).
+pub const CONNECT_DEADLINE: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// A consumer's end. Every call is nonblocking, including connection and the
+/// hello; one outstanding request.
 pub struct FrameClient {
     path: PathBuf,
     role: Role,
@@ -723,6 +741,8 @@ pub struct FrameClient {
     controller: BootId,
     max_frame_bytes: usize,
     stream: Option<UnixStream>,
+    /// A nonblocking connection still sending its hello, with its deadline.
+    pending: Option<Connecting>,
     header: [u8; FRAME_HEADER_BYTES],
     header_filled: usize,
     incoming: Option<Incoming>,
@@ -747,6 +767,7 @@ impl FrameClient {
             controller,
             max_frame_bytes: max_frame_bytes.min(crate::MAX_FRAME_BYTES),
             stream: None,
+            pending: None,
             header: [0; FRAME_HEADER_BYTES],
             header_filled: 0,
             incoming: None,
@@ -767,32 +788,60 @@ impl FrameClient {
         self.counts
     }
 
-    /// One connection attempt. `Ok(false)` while the camera is not listening.
-    /// The hello is a single small write on a fresh socket.
+    /// Whether a nonblocking connection attempt is still in progress.
+    pub fn connecting(&self) -> bool {
+        self.pending.is_some()
+    }
+
+    /// Advance a nonblocking connection by at most one step. `Ok(true)` once
+    /// connected and identified; `Ok(false)` while the producer is not
+    /// listening, its queue is full, or the hello is still being written
+    /// (see [`connecting`](Self::connecting)). An attempt that cannot send
+    /// its hello within [`CONNECT_DEADLINE`] is abandoned with `TimedOut`.
     pub fn connect(&mut self) -> io::Result<bool> {
         if self.stream.is_some() {
             return Ok(true);
         }
-        let mut stream = match UnixStream::connect(&self.path) {
-            Ok(stream) => stream,
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
-                ) =>
-            {
+        if self.pending.is_none() {
+            let Some(stream) = self.open()? else {
                 return Ok(false);
+            };
+            let mut hello = [0; HELLO_BYTES];
+            hello[..4].copy_from_slice(&HELLO_MAGIC);
+            hello[4] = self.role.code();
+            hello[8..24].copy_from_slice(&self.own.bytes());
+            hello[24..40].copy_from_slice(&self.controller.bytes());
+            self.pending = Some(Connecting {
+                stream,
+                hello,
+                sent: 0,
+                deadline: std::time::Instant::now() + CONNECT_DEADLINE,
+            });
+        }
+        let attempt = self.pending.as_mut().expect("set above");
+        match attempt.stream.write(&attempt.hello[attempt.sent..]) {
+            Ok(count) => attempt.sent += count,
+            Err(error)
+                if would_block(&error)
+                    || matches!(error.raw_os_error(), Some(code) if code == rustix::io::Errno::NOTCONN.raw_os_error()) =>
+                {}
+            Err(error) => {
+                self.pending = None;
+                return Err(error);
             }
-            Err(error) => return Err(error),
-        };
-        let mut hello = [0; HELLO_BYTES];
-        hello[..4].copy_from_slice(&HELLO_MAGIC);
-        hello[4] = self.role.code();
-        hello[8..24].copy_from_slice(&self.own.bytes());
-        hello[24..40].copy_from_slice(&self.controller.bytes());
-        stream.write_all(&hello)?;
-        stream.set_nonblocking(true)?;
-        self.stream = Some(stream);
+        }
+        if attempt.sent < HELLO_BYTES {
+            if std::time::Instant::now() >= attempt.deadline {
+                self.pending = None;
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "frame link connection did not complete in time",
+                ));
+            }
+            return Ok(false);
+        }
+        let attempt = self.pending.take().expect("checked");
+        self.stream = Some(attempt.stream);
         self.header_filled = 0;
         self.incoming = None;
         self.outstanding = None;
@@ -800,8 +849,33 @@ impl FrameClient {
         Ok(true)
     }
 
+    /// One nonblocking `connect`. `None` when the producer is absent or its
+    /// listen queue is full; the caller retries later.
+    fn open(&self) -> io::Result<Option<UnixStream>> {
+        use rustix::net::{AddressFamily, SocketAddrUnix, SocketType};
+        let socket = rustix::net::socket(AddressFamily::UNIX, SocketType::STREAM, None)?;
+        rustix::io::fcntl_setfd(&socket, rustix::io::FdFlags::CLOEXEC)?;
+        rustix::io::ioctl_fionbio(&socket, true)?;
+        let address = SocketAddrUnix::new(&self.path)?;
+        match rustix::net::connect(&socket, &address) {
+            Ok(()) => {}
+            // The connection completes asynchronously; the hello write waits.
+            Err(rustix::io::Errno::INPROGRESS) => {}
+            Err(
+                rustix::io::Errno::NOENT
+                | rustix::io::Errno::CONNREFUSED
+                | rustix::io::Errno::AGAIN,
+            ) => {
+                return Ok(None);
+            }
+            Err(error) => return Err(error.into()),
+        }
+        Ok(Some(UnixStream::from(socket)))
+    }
+
     /// Drop the connection and any partial frame.
     pub fn disconnect(&mut self) {
+        self.pending = None;
         if let Some(stream) = self.stream.take() {
             let _ = stream.shutdown(std::net::Shutdown::Both);
             self.counts.disconnects = self.counts.disconnects.saturating_add(1);

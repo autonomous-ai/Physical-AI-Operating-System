@@ -15,8 +15,10 @@ camera worker ──(camera.frames stream, pull + credits)──► perception w
 
 - **Frame link (`lamp_camera::frames`).** A private Unix stream socket
   `SESSION_DIR/camera.frames`, used only for JPEG bytes. Each permitted consumer
-  sends a request (at most one outstanding). It receives the newest frame
-  captured under the current authority, with `FrameMeta`:
+  sends a request (at most one outstanding). The producer serves the newest
+  frame it holds when it copies, and only if its host dequeue is no older than
+  the request's `max_age_us` at copy time. The frame may predate the request;
+  no capture after the request is promised. With the frame comes `FrameMeta`:
   - original camera worker boot, capture epoch and frame sequence;
   - the original `CameraGrant`;
   - mode, driver sequence and timestamp (domain and point kept);

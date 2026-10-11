@@ -471,3 +471,86 @@ fn binding_requires_a_private_directory_and_removes_only_its_own_socket() {
     drop(server);
     assert!(!dir.socket().exists());
 }
+
+/// A producer whose listen queue is full (it never accepts) must not block a
+/// consumer's connection attempt; once it accepts, the consumer connects.
+#[test]
+fn connecting_never_blocks_on_a_full_listen_queue() {
+    use rustix::net::{AddressFamily, SocketAddrUnix, SocketType};
+    let dir = Dir::new();
+    let address = SocketAddrUnix::new(dir.socket()).unwrap();
+    let listener = rustix::net::socket(AddressFamily::UNIX, SocketType::STREAM, None).unwrap();
+    rustix::net::bind(&listener, &address).unwrap();
+    rustix::net::listen(&listener, 0).unwrap();
+    // Fill the queue with nonblocking connections until the kernel refuses.
+    let mut fillers = Vec::new();
+    for _ in 0..256 {
+        let socket = rustix::net::socket(AddressFamily::UNIX, SocketType::STREAM, None).unwrap();
+        rustix::io::ioctl_fionbio(&socket, true).unwrap();
+        match rustix::net::connect(&socket, &address) {
+            Ok(()) | Err(rustix::io::Errno::INPROGRESS) => fillers.push(socket),
+            Err(_) => break,
+        }
+    }
+    let mut client = client(&dir, Role::Perception, PERCEPTION);
+    let started = Instant::now();
+    for _ in 0..20 {
+        let _ = client.connect();
+    }
+    assert!(
+        started.elapsed() < Duration::from_millis(100),
+        "connection attempts blocked for {:?}",
+        started.elapsed()
+    );
+    // Accepting everything queued lets a later attempt through.
+    rustix::io::ioctl_fionbio(&listener, true).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut accepted = Vec::new();
+    let connected = loop {
+        while let Ok(socket) = rustix::net::accept(&listener) {
+            accepted.push(socket);
+        }
+        match client.connect() {
+            Ok(true) => break true,
+            Ok(false) | Err(_) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(2))
+            }
+            _ => break false,
+        }
+    };
+    assert!(connected);
+    drop(fillers);
+}
+
+/// The freshness contract: a frame dequeued before the request is served if,
+/// at copy time, it is within the request's age bound; one just past the
+/// bound is not.
+#[test]
+fn freshness_is_bounded_age_at_copy_time_not_capture_after_request() {
+    let dir = Dir::new();
+    let mut server = server(&dir, &[(Role::Perception, PERCEPTION)]);
+    let mut client = client(&dir, Role::Perception, PERCEPTION);
+    connect(&mut server, &mut client, Role::Perception);
+    // The frame was dequeued at t=10 ms; the request is sent "later".
+    let frame = observation(1, 10_000);
+    client.request(50_000).unwrap();
+    await_request(&mut server);
+    // Copy at t=60 ms: exactly 50 ms old, within the bound.
+    assert_eq!(server.offer(&frame, &jpeg(64, 1), 60_000).unwrap(), 1);
+    let mut out = Vec::new();
+    let meta = pump(&mut server, &mut client, 60_000, &mut out)
+        .unwrap()
+        .unwrap();
+    assert_eq!(meta.dequeue_completed_at_us, 10_000);
+    assert_eq!(meta.copied_at_us - meta.dequeue_completed_at_us, 50_000);
+    // One microsecond older is refused.
+    client.request(50_000).unwrap();
+    await_request(&mut server);
+    assert_eq!(
+        server
+            .offer(&observation(2, 10_000), &jpeg(64, 1), 60_001)
+            .unwrap(),
+        0
+    );
+    assert_eq!(server.counts().too_old, 1);
+}

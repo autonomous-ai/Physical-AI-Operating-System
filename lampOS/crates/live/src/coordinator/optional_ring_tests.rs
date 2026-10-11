@@ -1,0 +1,430 @@
+use super::*;
+
+struct Peers {
+    speaker: WorkerChannels,
+    capture: WorkerChannels,
+    provider: WorkerChannels,
+    privacy: WorkerChannels,
+    ring: WorkerChannels,
+}
+
+fn fixture(directory: &SessionDirectory) -> (Rig, Peers) {
+    fixture_with_command(directory, "exec sleep 60")
+}
+
+fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Peers) {
+    let (speaker, speaker_peer) = Worker::command_fixture(&directory.path, "speaker", command);
+    let (capture, capture_peer) = Worker::command_fixture(&directory.path, "capture", command);
+    let (provider, provider_peer) = Worker::command_fixture(&directory.path, "provider", command);
+    let (privacy, privacy_peer) = Worker::command_fixture(&directory.path, "privacy", command);
+    let (ring, ring_peer) = Worker::command_fixture(&directory.path, "ring", command);
+    (
+        Rig {
+            speaker,
+            capture,
+            provider,
+            privacy,
+            ring: Some(ring).into(),
+            camera: None,
+            ring_channel_ceiling: Some(24),
+            diagnostic_directory: None,
+            noise_suppression: NoiseSuppression::On,
+            turn_taking: TurnTaking::VadOnly,
+            playout_start: PlayoutStart::default(),
+            endpoint: None,
+        },
+        Peers {
+            speaker: speaker_peer,
+            capture: capture_peer,
+            provider: provider_peer,
+            privacy: privacy_peer,
+            ring: ring_peer,
+        },
+    )
+}
+
+fn drain_authority(peer: &mut WorkerChannels) -> Snapshot {
+    let Some(Control::Authority { snapshot }) = peer.control.receive().unwrap() else {
+        panic!("expected unchanged audio authority");
+    };
+    snapshot
+}
+
+#[test]
+fn ring_failure_preserves_the_owner_and_dispatches_the_continuing_answer() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture(&directory);
+    let (mut controller, current, _) = super::tests::active_reply();
+    let original = current.owner;
+    let playback = current.playback;
+    let mut reply = Some(current);
+    let mut choreography = Some(RingChoreographer::new(24).unwrap());
+    let mut trace = SessionState::default();
+    let mut ring_trace = RingTrace::default();
+    peers
+        .ring
+        .control
+        .send(WorkerEvent::Fault {
+            code: "test SPI failure".into(),
+        })
+        .unwrap();
+    let failure_started = Instant::now();
+    service_optional_ring(
+        &mut rig,
+        &mut choreography,
+        &mut controller,
+        &mut trace,
+        &mut ring_trace,
+    )
+    .unwrap();
+    let failure_elapsed = failure_started.elapsed();
+    assert!(!rig.ring.is_active());
+    assert!(rig.ring.is_some(), "disabled child remains owned");
+    assert!(choreography.is_none());
+    assert!(matches!(
+        peers.ring.control.receive().unwrap(),
+        Some(Control::Stop)
+    ));
+    assert_eq!(controller.snapshot(now()).unwrap().owner(), Some(original));
+    assert_eq!(controller.snapshot(now()).unwrap().playback(), playback);
+    let mut snapshot = controller.snapshot(now()).unwrap();
+    rig.publish(snapshot).unwrap();
+    rig.running().unwrap();
+    for peer in [
+        &mut peers.speaker,
+        &mut peers.capture,
+        &mut peers.provider,
+        &mut peers.privacy,
+    ] {
+        assert_eq!(drain_authority(peer).owner(), Some(original));
+    }
+    assert!(
+        peers.ring.control.receive::<Control>().unwrap().is_none(),
+        "failed ring gets no authority renewal"
+    );
+    let mut pending = None;
+    let mut sequence = 0;
+    dispatch_speaker_chunk(
+        &mut controller,
+        &mut reply,
+        &mut rig.speaker.channels.data,
+        &mut pending,
+        &mut sequence,
+        &mut snapshot,
+        &mut PlaybackMask::new(TurnTaking::VadOnly),
+    )
+    .unwrap();
+    let chunk = peers
+        .speaker
+        .data
+        .receive::<SpeakerChunk>()
+        .unwrap()
+        .unwrap();
+    assert_eq!(chunk.permit.owner(), original);
+    assert_eq!(chunk.samples, vec![123; 240]);
+    assert_eq!(reply.as_ref().unwrap().playback, playback);
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "ring_degraded")
+            .count(),
+        1
+    );
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "reply_cancelled" || e["kind"] == "turn_finished")
+    );
+    let disabled_started = Instant::now();
+    service_optional_ring(
+        &mut rig,
+        &mut choreography,
+        &mut controller,
+        &mut trace,
+        &mut ring_trace,
+    )
+    .unwrap();
+    eprintln!(
+        "ring_degradation_host_observation first_fault_us={} disabled_tick_us={}",
+        failure_elapsed.as_micros(),
+        disabled_started.elapsed().as_micros()
+    );
+
+    assert!(
+        peers.ring.control.receive::<Control>().unwrap().is_none(),
+        "one stop, no retry or restart"
+    );
+}
+
+#[test]
+fn a_closed_ring_channel_does_not_create_input_readiness_or_stop_audio_authority() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, peers) = fixture(&directory);
+    let Peers {
+        mut speaker,
+        mut capture,
+        mut provider,
+        mut privacy,
+        ring,
+    } = peers;
+    drop(ring);
+    let mut controller = Controller::new(new_boot().unwrap(), now());
+    let snapshot = controller.snapshot(now()).unwrap();
+    assert!(!snapshot.listening_ready(now()));
+    rig.publish(snapshot).unwrap();
+    assert!(!rig.ring.is_active());
+    let mut choreography = Some(RingChoreographer::new(24).unwrap());
+    let mut trace = SessionState::default();
+    service_optional_ring(
+        &mut rig,
+        &mut choreography,
+        &mut controller,
+        &mut trace,
+        &mut RingTrace::default(),
+    )
+    .unwrap();
+    assert!(choreography.is_none());
+    for peer in [&mut speaker, &mut capture, &mut provider, &mut privacy] {
+        assert!(!drain_authority(peer).listening_ready(now()));
+    }
+    assert!(!controller.snapshot(now()).unwrap().listening_ready(now()));
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "listening_ready" || e["kind"] == "ring_requested")
+    );
+    assert_eq!(trace[0]["kind"], "ring_degraded");
+    assert_eq!(trace[0]["light_available"], false);
+    assert!(
+        rig.ring.cleanup_error().is_some(),
+        "failed stop must remain a cleanup failure"
+    );
+}
+
+#[test]
+fn audio_authority_failure_is_still_terminal_even_if_ring_is_disabled() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, peers) = fixture(&directory);
+    rig.ring.disable("test ring fault");
+    drop(peers.capture);
+    let mut controller = Controller::new(new_boot().unwrap(), now());
+    assert!(rig.publish(controller.snapshot(now()).unwrap()).is_err());
+}
+
+#[test]
+fn a_ring_fault_during_pre_activation_does_not_activate_input() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture(&directory);
+    let mut startup = StartupEvents::default();
+    let mut controller = Controller::new(new_boot().unwrap(), now());
+    peers
+        .ring
+        .control
+        .send(WorkerEvent::Fault {
+            code: "initial black write failed".into(),
+        })
+        .unwrap();
+    rig.ring
+        .startup_tick(&mut startup, Some(controller.snapshot(now()).unwrap()))
+        .unwrap();
+    assert!(!rig.ring.is_active());
+    assert!(!controller.snapshot(now()).unwrap().listening_ready(now()));
+    assert!(matches!(
+        peers.ring.control.receive().unwrap(),
+        Some(Control::Stop)
+    ));
+    assert!(peers.ring.control.receive::<Control>().unwrap().is_none());
+    assert_eq!(startup.events[0]["kind"], "ring_degraded");
+}
+
+#[test]
+fn a_dead_optional_child_does_not_mask_a_dead_audio_child() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, _peers) = fixture(&directory);
+    let error = rig
+        .ring
+        .active_mut()
+        .unwrap()
+        .terminate_and_reap(io::ErrorKind::Other, "test exit".into());
+    assert!(error.to_string().contains("reaped"));
+    rig.running().unwrap();
+    assert!(!rig.ring.is_active());
+    let _ = rig
+        .capture
+        .terminate_and_reap(io::ErrorKind::Other, "test exit".into());
+    assert!(rig.running().is_err());
+}
+
+#[test]
+fn early_confirmed_ring_cleanup_is_not_falsified_by_the_later_global_stop() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture_with_command(&directory, "exit 0");
+    rig.ring.disable("presentation exceeded budget");
+    assert!(matches!(
+        peers.ring.control.receive().unwrap(),
+        Some(Control::Stop)
+    ));
+    let requested = rig.ring.stop_requested_at(0);
+    let finished = monotonic_us();
+    peers
+        .ring
+        .control
+        .send(WorkerEvent::Ring {
+            report: RingFeedback::Blanked {
+                reason: RingBlankReason::Shutdown,
+                write_started_at_us: requested,
+                write_finished_at_us: finished,
+            },
+        })
+        .unwrap();
+    let mut trace = SessionState::default();
+    rig.ring.poll_cleanup(&mut trace).unwrap();
+    assert!(rig.ring.blank_confirmed());
+    assert!(rig.ring.cleanup_error().is_none());
+    // All children here actually exit zero. The black-write receipt above is a
+    // synthetic peer claim, validated through the real boot/sequence channel.
+    rig.shutdown(&mut trace).unwrap();
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "ring_degraded_blank" && e["valid"] == true)
+            .count(),
+        1
+    );
+    assert!(!rig.ring.is_active());
+}
+
+#[test]
+fn clean_process_exit_alone_never_proves_a_black_ring_or_successful_shutdown() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, _peers) = fixture_with_command(&directory, "exit 0");
+    rig.ring.disable("test presentation failure");
+    let mut trace = SessionState::default();
+    rig.ring.poll_cleanup(&mut trace).unwrap();
+    let error = rig.shutdown(&mut trace).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("no verified black-write receipt")
+    );
+    assert!(!rig.ring.blank_confirmed());
+    assert!(
+        !trace
+            .iter()
+            .any(|e| e["kind"] == "ring_degraded_blank" && e["valid"] == true)
+    );
+}
+
+#[test]
+fn blanking_before_disable_and_late_ready_cannot_repair_cleanup_evidence() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture_with_command(&directory, "exit 0");
+    rig.ring.disable("test presentation failure");
+    let requested = rig.ring.stop_requested_at(0);
+    peers
+        .ring
+        .control
+        .send(WorkerEvent::Ring {
+            report: RingFeedback::Blanked {
+                reason: RingBlankReason::Shutdown,
+                write_started_at_us: requested - 1,
+                write_finished_at_us: requested,
+            },
+        })
+        .unwrap();
+    peers.ring.control.send(WorkerEvent::Ready).unwrap();
+    let mut trace = SessionState::default();
+    rig.ring.poll_cleanup(&mut trace).unwrap();
+    assert!(!rig.ring.blank_confirmed());
+    assert!(rig.ring.cleanup_error().is_some());
+    assert!(!trace.iter().any(|e| e["kind"] == "listening_ready"));
+    assert!(rig.shutdown(&mut trace).is_err());
+}
+
+#[test]
+fn service_metadata_pressure_cannot_turn_optional_ring_failure_into_audio_failure() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, mut peers) = fixture(&directory);
+    let (mut controller, reply, _) = super::tests::active_reply();
+    let original = reply.owner;
+    let (writer, entered, release) = crate::service_trace::ServiceTrace::stalled();
+    let mut trace = SessionState::with_writer(writer);
+    record(&mut trace, json!({"kind":"block_writer"})).unwrap();
+    flush_cues(&mut trace, &mut None);
+    entered.recv_timeout(Duration::from_secs(2)).unwrap();
+    for n in 0..300 {
+        record(&mut trace, json!({"kind":"fill_service_batch","n":n})).unwrap();
+    }
+    peers
+        .ring
+        .control
+        .send(WorkerEvent::Fault {
+            code: "synthetic SPI failure with full metadata batch".into(),
+        })
+        .unwrap();
+    service_optional_ring(
+        &mut rig,
+        &mut Some(RingChoreographer::new(24).unwrap()),
+        &mut controller,
+        &mut trace,
+        &mut RingTrace::default(),
+    )
+    .unwrap();
+    assert!(!rig.ring.is_active());
+    assert_eq!(controller.snapshot(now()).unwrap().owner(), Some(original));
+    assert!(matches!(
+        peers.ring.control.receive().unwrap(),
+        Some(Control::Stop)
+    ));
+    assert_eq!(
+        trace.len(),
+        256,
+        "optional cleanup cannot bypass the service cap"
+    );
+    controller
+        .set_microphone_permission(now(), Permission::Denied)
+        .unwrap();
+    assert!(controller.snapshot(now()).unwrap().owner().is_none());
+    flush_cues(&mut trace, &mut None);
+    release.send(()).unwrap();
+    let report = trace.finish_logging().unwrap();
+    assert!(report.acknowledged && report.degraded && report.dropped_events > 0);
+}
+
+#[test]
+fn optional_ring_incomplete_cleanup_blocks_physical_mute_reopen() {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut rig, _peers) = fixture_with_command(&directory, "exit 0");
+    rig.ring.disable("synthetic presentation failure");
+    let (mut controller, reply, _) = super::tests::active_reply();
+    let mut reply = Some(reply);
+    let mut trace = SessionState::default();
+    let error = finish_active_run(
+        &mut rig,
+        &mut controller,
+        &mut reply,
+        &mut trace,
+        &mut None,
+        Err(Box::new(PhysicalMute {
+            observed_at_us: monotonic_us(),
+        })),
+    )
+    .unwrap_err();
+    assert!(error.downcast_ref::<PhysicalMute>().is_none());
+    assert!(error.to_string().contains("black-write receipt"));
+    let waits = std::cell::Cell::new(0);
+    let mut failure = Some(error);
+    let result = service::supervise(
+        &mut trace,
+        &mut None,
+        &Termination::inactive(),
+        |_, _| {
+            waits.set(waits.get() + 1);
+            Ok(service_privacy::WaitOutcome::Allowed)
+        },
+        |_, _| Err(failure.take().expect("failed cleanup must not restart")),
+    );
+    assert!(result.is_err());
+    assert_eq!(waits.get(), 1);
+    assert!(reply.is_none());
+}

@@ -4,7 +4,7 @@
 //! each cue and each second remains a normal trace event. Only intervening
 //! same-cue renewals share a summary and a raw tail-sample slot. The summary records
 //! submitted versus acknowledged counts, including a final unacknowledged frame.
-use super::{Result, record};
+use super::{Result, SessionState, record};
 use crate::ring_wire::{RingFeedback, RingFrame};
 use lamp_interaction::{BoundaryGuard, MonoTime, OutputKind};
 use serde_json::{Value, json};
@@ -45,11 +45,12 @@ struct Renewals {
 }
 
 impl RingTrace {
-    pub(super) fn requested(&mut self, frame: RingFrame, trace: &mut Vec<Value>) -> Result<()> {
+    pub(super) fn requested(&mut self, frame: RingFrame, trace: &mut SessionState) -> Result<()> {
         if self.pending.is_some() {
             return Err(io::Error::other("ring trace has an outstanding request").into());
         }
-        let aggregate = self.confirmed.is_some_and(|last| same_cue(last, frame))
+        let aggregate = !trace.continuous()
+            && self.confirmed.is_some_and(|last| same_cue(last, frame))
             && self.anchor.is_some_and(|anchor| {
                 frame
                     .requested_at_us
@@ -108,7 +109,7 @@ impl RingTrace {
         report: RingFeedback,
         observed_at_us: u64,
         validation_error: Option<&str>,
-        trace: &mut Vec<Value>,
+        trace: &mut SessionState,
     ) -> Result<()> {
         let matched = self.pending.filter(|pending| match report {
             RingFeedback::Presented {

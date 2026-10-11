@@ -52,11 +52,22 @@ first ALSA acceptance for the six turns is 1.656733, 1.504063, 1.846100, 1.63482
 endpointing alone cannot reach the final target: provider/output startup also
 needs substantial improvement. No stage may be omitted from the acoustic total.
 
-Current settings were rechecked privately on 4ace: Gemini extended thinking,
-LOW, Kore, with no explicit language code. A plain-model setup probe previously
-succeeded, but has not established conversational speed or quality. Compare it
-using the same connected script, runtime, levels and endpoint policy before
-selecting it. Keep playback continuity A/B separate from the model comparison.
+The later [connected eight-turn runs](connected-conversation-20261011.md) each
+completed all eight prompts, including follow-ups, a correction and a topic
+change. Extended/LOW and plain Live had endpoint-to-first-ALSA medians of 1.367 s
+and 1.292 s, respectively; both still follow the 1.2-second silence wait. Those
+software timings exclude acoustic boundaries and are not a causal model speedup.
+Extended added two introductions with substantive reply writes at 5.342 s and
+5.128 s after endpoint. Plain avoided these in this run. Three brief supply gaps
+remain across the sixteen turns. Keep the physical continuity A/B separate from
+this provider comparison; natural interruption is still a different workstream.
+
+The subsequent same-binary playback comparison completed another sixteen turns.
+The 200 ms coverage and continuity settings both had zero accepted-zero speech
+gaps, with endpoint-to-first-ALSA medians of 1.475 s and 1.647 s (eight turns each).
+This pair demonstrates no gap-reduction benefit or causal speedup. Keep it
+separate from the older model comparison and from acoustic first-word estimates.
+The fixed 1.2-second endpoint wait still precedes both distributions.
 
 Agent 1's opt-in continuity policy eliminates starvation in its 23-reply recorded
 supply replay, while adding 137 ms average first-start delay. It is not a latency

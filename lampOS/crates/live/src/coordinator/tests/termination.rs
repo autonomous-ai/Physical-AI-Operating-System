@@ -70,13 +70,35 @@ fn real_signal(signal: &str, mode: &str) {
     };
     reader.join().unwrap();
     assert!(status.success(), "child assertions failed: {status}");
-    let rows: Vec<Value> = fs::read_to_string(output.join("events.jsonl"))
-        .unwrap()
-        .lines()
-        .map(|line| serde_json::from_str(line).unwrap())
-        .collect();
+    let rows: Vec<Value> = if mode.starts_with("serve") {
+        let mut rows: Vec<Value> = (0..4)
+            .flat_map(|slot| {
+                fs::read_to_string(output.join(format!("metadata/events-{slot}.jsonl")))
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str::<Value>(line).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|row| row["service_sequence"].as_u64().is_some())
+            .collect();
+        rows.sort_by_key(|row| row["service_sequence"].as_u64().unwrap());
+        rows
+    } else {
+        fs::read_to_string(output.join("events.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect()
+    };
     let end = rows.last().unwrap();
-    assert_eq!(end["status"], "failed");
+    assert_eq!(
+        end["status"],
+        if mode.starts_with("serve") {
+            "stopped_unscored"
+        } else {
+            "failed"
+        }
+    );
     assert_eq!(
         end["termination_signal"],
         if signal == "-TERM" {
@@ -85,7 +107,11 @@ fn real_signal(signal: &str, mode: &str) {
             "SIGINT"
         }
     );
-    assert!(end["error"].as_str().unwrap().contains("interrupted by"));
+    if mode.starts_with("serve") {
+        assert!(end["error"].is_null());
+    } else {
+        assert!(end["error"].as_str().unwrap().contains("interrupted by"));
+    }
     assert!(!rows.iter().any(|row| row["status"] == "completed_unscored"));
     let observed = rows
         .iter()
@@ -115,8 +141,19 @@ fn real_signal(signal: &str, mode: &str) {
             assert!(output.join(name).join("complete.json").is_file());
         }
     }
+    if mode == "serve" {
+        assert!(
+            rows.iter()
+                .any(|row| row["kind"] == "turn_finished" && row["outcome"] == "service_stopped")
+        );
+        assert!(
+            !rows
+                .iter()
+                .any(|row| row["kind"] == "worker_forced_shutdown")
+        );
+    }
     println!(
-        "{signal} {mode}: signal syscall invocation to cooperative observation {observation_us} us; failed trace retained in {:.3}s",
+        "{signal} {mode}: signal syscall invocation to cooperative observation {observation_us} us; terminal trace retained in {:.3}s",
         sent.elapsed().as_secs_f64()
     );
     // These directories contain only this test's generated zero PCM and metadata.
@@ -136,6 +173,11 @@ fn signal_during_startup_pulse_returns_interrupted_and_retains_failed_trace() {
     real_signal("-TERM", "startup");
 }
 
+#[test]
+fn serve_sigterm_revokes_then_stops_and_reaps_workers_before_logging_finish() {
+    real_signal("-TERM", "serve");
+}
+
 // Runs only in a separate test process, never installing process-global handlers
 // in the normal test runner. A successful child means its failure-path assertions passed.
 #[test]
@@ -146,8 +188,21 @@ fn isolated_signal_child() {
     let output = PathBuf::from(std::env::var(OUTPUT).unwrap());
     let termination = Termination::install().unwrap();
     let (mut owner, current, _) = active_reply();
-    let mut trace =
-        vec![json!({"kind":"run_start","at_us":monotonic_us(),"scope":"synthetic_signal_test"})];
+    let mut trace = SessionState::from(vec![
+        json!({"kind":"run_start","at_us":monotonic_us(),"scope":"synthetic_signal_test"}),
+    ]);
+    if mode.starts_with("serve") {
+        trace = SessionState::service(&output);
+        record(
+            &mut trace,
+            json!({"kind":"run_start","at_us":monotonic_us(),"scope":"synthetic_service_signal"}),
+        )
+        .unwrap();
+        if mode == "serve-muted" {
+            return muted_signal_child(output, termination, trace);
+        }
+        return service_signal_child(output, termination, owner, current, trace);
+    }
     let mut cues = None;
     if mode == "startup" {
         println!("LAMP_SIGNAL_READY");
@@ -201,7 +256,7 @@ fn isolated_signal_child() {
         capture,
         speaker,
         privacy,
-        ring: None,
+        ring: None.into(),
         ring_channel_ceiling: None,
         diagnostic_directory: Some(output.clone()),
         noise_suppression: NoiseSuppression::On,
@@ -215,7 +270,7 @@ fn isolated_signal_child() {
     let result = conversation(
         &mut rig,
         &mut owner,
-        10,
+        Lifetime::Finite(10),
         &mut trace,
         StartupEvents::default(),
         &mut reply,
@@ -355,4 +410,153 @@ fn peer(
         }
         denied
     })
+}
+
+fn service_signal_child(
+    output: PathBuf,
+    termination: Termination,
+    mut owner: Controller,
+    current: Reply,
+    mut trace: SessionState,
+) {
+    let dir = SessionDirectory::create().unwrap();
+    let (capture, capture_peer, capture_input) = Worker::cooperative_fixture(&dir.path, "capture");
+    let (speaker, speaker_peer, speaker_input) = Worker::cooperative_fixture(&dir.path, "speaker");
+    let (provider, provider_peer, provider_input) =
+        Worker::cooperative_fixture(&dir.path, "provider");
+    let (privacy, privacy_peer, privacy_input) = Worker::cooperative_fixture(&dir.path, "privacy");
+    let peers = [
+        (capture_peer, capture_input),
+        (speaker_peer, speaker_input),
+        (provider_peer, provider_input),
+        (privacy_peer, privacy_input),
+    ]
+    .map(|(channels, input)| {
+        thread::spawn(move || {
+            let mut channels = channels;
+            let mut denied = false;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match channels.control.receive::<Control>().unwrap() {
+                    Some(Control::Authority { snapshot }) => {
+                        denied |= snapshot.microphone_permission() == Permission::Denied
+                    }
+                    Some(Control::Stop) => break,
+                    Some(_) => panic!("unexpected synthetic control"),
+                    None => {}
+                }
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(1));
+            }
+            drop(input);
+            // Keep the host mock endpoints alive through the supervisor's final
+            // drain. macOS datagram close reports reset differently from Linux;
+            // native worker socket teardown still needs target qualification.
+            (denied, channels)
+        })
+    });
+    let mut rig = Rig {
+        camera: None,
+        provider,
+        capture,
+        speaker,
+        privacy,
+        ring: None.into(),
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::VadOnly,
+        playout_start: PlayoutStart::default(),
+        endpoint: None,
+    };
+    let mut reply = Some(current);
+    let mut cues = None;
+    println!("LAMP_SIGNAL_READY");
+    io::stdout().flush().unwrap();
+    let result = conversation(
+        &mut rig,
+        &mut owner,
+        Lifetime::Serve,
+        &mut trace,
+        StartupEvents::default(),
+        &mut reply,
+        &mut cues,
+        &termination,
+    );
+    assert!(result.is_ok(), "{result:?}");
+    record(
+        &mut trace,
+        json!({"kind":"synthetic_signal_observed","at_us":monotonic_us()}),
+    )
+    .unwrap();
+    let result = finish_active_run(
+        &mut rig, &mut owner, &mut reply, &mut trace, &mut cues, result,
+    );
+    assert!(result.is_ok(), "{result:?}");
+    assert!(reply.is_none());
+    assert_eq!(
+        owner.snapshot(now()).unwrap().microphone_permission(),
+        Permission::Denied
+    );
+    for peer in peers {
+        assert!(peer.join().unwrap().0, "privacy must precede Stop");
+    }
+    assert!(finish_run(&output, &mut trace, &mut cues, result, &termination).is_ok());
+}
+
+#[test]
+fn sigterm_while_muted_reaps_only_privacy_without_opening_audio() {
+    real_signal("-TERM", "serve-muted");
+}
+
+fn muted_signal_child(output: PathBuf, termination: Termination, mut trace: SessionState) {
+    use crate::service_privacy::{
+        self,
+        tests::{Script, mock},
+    };
+    use std::sync::{Arc, atomic::AtomicBool};
+    let directory = SessionDirectory::create().unwrap();
+    let (worker, peer) = mock(
+        &directory.path,
+        Script::Muted,
+        Arc::new(AtomicBool::new(false)),
+    );
+    let mut worker = Some(worker);
+    let mut announced = false;
+    let result = crate::coordinator::service::supervise(
+        &mut trace,
+        &mut None,
+        &termination,
+        |trace, cues| {
+            service_privacy::wait_worker(
+                worker.take().expect("no second wait after signal"),
+                new_boot().unwrap(),
+                &termination,
+                |state, _, _| {
+                    if state == PrivacyState::Muted && !announced {
+                        announced = true;
+                        println!("LAMP_SIGNAL_READY");
+                        io::stdout().flush().unwrap();
+                    }
+                    record(
+                        trace,
+                        json!({"kind":"test_privacy_state","at_us":monotonic_us(),"state":format!("{state:?}")}),
+                    )?;
+                    flush_cues(trace, cues);
+                    Ok(())
+                },
+            )
+        },
+        |_, _| panic!("microphone/provider startup while muted"),
+    );
+    assert!(result.is_ok(), "{result:?}");
+    assert!(announced);
+    assert!(peer.join().unwrap().received_stop);
+    record(
+        &mut trace,
+        json!({"kind":"synthetic_signal_observed","at_us":monotonic_us()}),
+    )
+    .unwrap();
+    assert!(finish_run(&output, &mut trace, &mut None, result, &termination).is_ok());
+    fs::remove_dir(&directory.path).unwrap();
 }

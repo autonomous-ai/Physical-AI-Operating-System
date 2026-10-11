@@ -224,7 +224,7 @@ fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
         capture,
         speaker,
         privacy,
-        ring: None,
+        ring: None.into(),
         camera: None,
         ring_channel_ceiling: None,
         diagnostic_directory: None,
@@ -233,20 +233,19 @@ fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
     };
-    let termination = Termination::install().unwrap();
     let mut owner = Controller::new(new_boot().unwrap(), now());
-    let mut trace = Vec::new();
+    let mut trace = SessionState::finite();
     let mut reply = None;
     let started = Instant::now();
     let result = conversation(
         &mut rig,
         &mut owner,
-        seconds,
+        Lifetime::Finite(seconds),
         &mut trace,
         StartupEvents::default(),
         &mut reply,
         &mut None,
-        &termination,
+        &Termination::inactive(),
     );
     let elapsed = started.elapsed();
     // Sleeping fixtures need forced reaping; only the endpoint record matters.
@@ -258,7 +257,7 @@ fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
     let seen = std::mem::take(&mut *seen.lock().unwrap());
     Session {
         result,
-        trace,
+        trace: trace.to_vec(),
         seen,
         elapsed,
     }

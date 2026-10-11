@@ -18,6 +18,9 @@ use lamp_interaction::{BootId, CameraGrant};
 use serde::{Deserialize, Serialize};
 use std::io;
 
+mod shutdown;
+pub use shutdown::ShutdownWatch;
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
@@ -264,6 +267,17 @@ pub enum CameraEvent {
         counts: Counts,
         last_read: Option<Timing>,
     },
+    /// Local slots/tokens and downstream frame links are sealed. This is not
+    /// evidence that STREAMOFF, close or physical sensor shutdown completed.
+    Revoked {
+        at_us: u64,
+        worker: BootId,
+        reason: StopReason,
+        teardown_deadline_us: u64,
+        error: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timestamp_rejection: Option<lamp_camera::TimestampRejection>,
+    },
     Stopped {
         at_us: u64,
         reason: StopReason,
@@ -318,7 +332,7 @@ pub struct CameraLoop<P: InspectPort, C: Clock> {
 impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
     pub fn new(capture: Capture<P, C>, now_us: u64) -> Self {
         Self {
-            capture,
+            capture: capture.with_deferred_teardown(),
             start_pending: false,
             started: false,
             terminal: false,
@@ -378,23 +392,11 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
         match self.inner(link, now) {
             Ok(result) => Ok(result),
             Err(error) => {
-                let cleanup = self.capture.control_lost();
-                self.in_flight = None;
-                self.terminal = true;
-                // Partly sent frames are abandoned; consumers see the link close.
-                self.close_frames(CloseReason::Fault, now());
-                let message = format!("{error}; local cleanup: {cleanup}");
-                // A failed report is never mistaken for successful cleanup; the
-                // parent observes abnormal exit or its finite progress deadline.
-                let _ = link.publish(CameraEvent::Stopped {
-                    at_us: now(),
-                    reason: StopReason::Fault,
-                    counts: self.capture.counters().into(),
-                    stop: cleanup.cleanup.and_then(|c| c.timing).map(Into::into),
-                    port: self.capture.port().metadata(),
-                    error: Some(message.clone()),
-                });
-                Err(io::Error::other(message))
+                if self.terminal {
+                    return Err(error);
+                }
+                self.finish(link, now, StopReason::Fault, Some(error.to_string()))?;
+                unreachable!("a retained fault cannot become successful cleanup")
             }
         }
     }
@@ -567,8 +569,24 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
         now: &mut impl FnMut() -> u64,
         reason: StopReason,
     ) -> io::Result<()> {
+        self.finish(link, now, reason, None)
+    }
+    fn finish(
+        &mut self,
+        link: &mut impl CameraLink,
+        now: &mut impl FnMut() -> u64,
+        reason: StopReason,
+        mut error: Option<String>,
+    ) -> io::Result<()> {
+        if error.is_some() {
+            // Deferred mode seals all slots without entering the driver.
+            let _ = self.capture.control_lost();
+        } else if let Err(fault) = self.capture.stop() {
+            error = Some(fault.to_string());
+        }
         self.in_flight = None;
         self.start_pending = false;
+        self.terminal = true;
         // Close consumers before the port stops: no partial frame completes.
         self.close_frames(
             match reason {
@@ -578,16 +596,62 @@ impl<P: InspectPort, C: Clock> CameraLoop<P, C> {
             },
             now(),
         );
-        self.service_frames(link, now)?;
-        let report = self.capture.stop().map_err(io::Error::other)?;
-        self.terminal = true;
-        link.publish(CameraEvent::Stopped {
+        let revoked_at = now();
+        let deadline = self.capture.teardown_deadline().map_or_else(
+            || revoked_at.saturating_add(lamp_camera::DRIVER_TEARDOWN_BUDGET_US),
+            |t| t.as_micros(),
+        );
+        // This receipt, including any original fault, precedes the first
+        // potentially blocking driver teardown call. Failed publication still
+        // performs one cleanup; the parent cannot infer revocation from exit.
+        if let Err(fault) = link.publish(CameraEvent::Revoked {
+            at_us: revoked_at,
+            worker: self.capture.worker(),
+            reason,
+            teardown_deadline_us: deadline,
+            error: error.clone(),
+            timestamp_rejection: self.capture.timestamp_rejection(),
+        }) {
+            append_error(&mut error, format!("revocation report: {fault}"));
+        }
+        if let Err(fault) = self.service_frames(link, now) {
+            append_error(&mut error, format!("frame link report: {fault}"));
+        }
+        let timing = match self.capture.finish_teardown() {
+            Ok(report) => report.timing,
+            Err(fault) => {
+                let timing = fault.cleanup.and_then(|cleanup| cleanup.timing);
+                append_error(&mut error, format!("driver teardown: {fault}"));
+                timing
+            }
+        };
+        let receipt = link.publish(CameraEvent::Stopped {
             at_us: now(),
             reason,
             counts: self.capture.counters().into(),
-            stop: report.timing.map(Into::into),
+            stop: timing.map(Into::into),
             port: self.capture.port().metadata(),
-            error: None,
-        })
+            error: error.clone(),
+        });
+        if let Err(fault) = receipt {
+            append_error(&mut error, format!("teardown report: {fault}"));
+        }
+        error.map_or(Ok(()), |message| Err(io::Error::other(message)))
+    }
+}
+
+fn append_error(error: &mut Option<String>, next: String) {
+    let message = error.get_or_insert_with(String::new);
+    if !message.is_empty() {
+        message.push_str("; ");
+    }
+    message.push_str(&next);
+    // Errors travel in a bounded metadata datagram; no frame bytes are logged.
+    if message.len() > 1024 {
+        let mut end = 1024;
+        while !message.is_char_boundary(end) {
+            end -= 1;
+        }
+        message.truncate(end);
     }
 }

@@ -64,6 +64,7 @@ pub struct MetadataReport {
     pub dequeue_to_worker_handoff: LatencySummary,
     pub dequeue_to_parent_acceptance: LatencySummary,
     pub final_worker_event: Option<CameraEvent>,
+    pub revoked_worker_event: Option<CameraEvent>,
     pub shutdown: Option<ShutdownReport>,
     pub last_physical_privacy: Option<PrivacyObservation>,
     pub parent_privacy_revoke_at_us: Option<u64>,
@@ -133,6 +134,7 @@ impl MetadataReport {
             dequeue_to_worker_handoff: LatencySummary::default(),
             dequeue_to_parent_acceptance: LatencySummary::default(),
             final_worker_event: None,
+            revoked_worker_event: None,
             shutdown: None,
             last_physical_privacy: None,
             parent_privacy_revoke_at_us: None,
@@ -326,6 +328,15 @@ impl Observer {
                     "camera stopped before inspection end: {reason:?}, {error:?}"
                 )));
             }
+            CameraEvent::Revoked { at_us, worker, .. } => {
+                fresh(*at_us, now_us)?;
+                if *worker != self.worker {
+                    return Err(io::Error::other("camera revoke worker mismatch"));
+                }
+                report.revoked_worker_event = Some(event.clone());
+                self.stopped = true;
+                return Err(io::Error::other("camera revoked before inspection end"));
+            }
         }
         // Use production time, never receipt of an old queued packet.
         self.deadline_us = progress_deadline.expect("opening and stop return above");
@@ -408,6 +419,13 @@ fn check_identity(port: &PortMetadata, config: &CameraConfig) -> io::Result<()> 
 /// Shutdown data may include prior valid metadata still in flight. It is never
 /// counted as a newly accepted frame after revocation; only Stopped is retained.
 pub fn retain_stop(event: CameraEvent, report: &mut MetadataReport) -> io::Result<()> {
+    if matches!(event, CameraEvent::Revoked { .. }) {
+        if report.revoked_worker_event.is_some() {
+            return Err(io::Error::other("duplicate camera local-revocation report"));
+        }
+        report.revoked_worker_event = Some(event);
+        return Ok(());
+    }
     if let CameraEvent::Stopped { reason, error, .. } = &event {
         if report.final_worker_event.is_some() {
             return Err(io::Error::other("duplicate camera stop report"));

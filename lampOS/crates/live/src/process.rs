@@ -71,19 +71,37 @@ pub struct Worker {
 impl Worker {
     #[cfg(test)]
     pub(crate) fn sleeping_fixture(directory: &Path, role: &str) -> (Self, WorkerChannels) {
+        Self::command_fixture(directory, role, "exec sleep 60")
+    }
+
+    #[cfg(test)]
+    pub(crate) fn command_fixture(
+        directory: &Path,
+        role: &str,
+        command: &str,
+    ) -> (Self, WorkerChannels) {
         let parent = new_boot().unwrap();
         let boot = new_boot().unwrap();
         let mut channels = WorkerChannels::bind(directory, role, parent, boot, false).unwrap();
         let mut peer = WorkerChannels::bind(directory, role, parent, boot, true).unwrap();
         channels.connect(directory, role, false).unwrap();
         peer.connect(directory, role, true).unwrap();
-        let child = Command::new("sh")
-            .args(["-c", "exec sleep 60"])
+        // QEMU can return from spawn before the child's close-on-exec socket
+        // references are released. The marker proves the first shell is running,
+        // including closure of peer sockets belonging to earlier test fixtures.
+        let mut child = Command::new("sh")
+            .args([
+                "-c",
+                "printf R; exec >/dev/null; exec sh -c \"$1\"",
+                "lamp-fixture",
+                command,
+            ])
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
+        fixture_exec_barrier(&mut child, WORKER_STARTUP_TIMEOUT).unwrap();
         (
             Self {
                 channels,
@@ -93,6 +111,39 @@ impl Worker {
                 diagnostic_start: None,
             },
             peer,
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn cooperative_fixture(
+        directory: &Path,
+        role: &str,
+    ) -> (Self, WorkerChannels, std::process::ChildStdin) {
+        let parent = new_boot().unwrap();
+        let boot = new_boot().unwrap();
+        let mut channels = WorkerChannels::bind(directory, role, parent, boot, false).unwrap();
+        let mut peer = WorkerChannels::bind(directory, role, parent, boot, true).unwrap();
+        channels.connect(directory, role, false).unwrap();
+        peer.connect(directory, role, true).unwrap();
+        // The test peer drops stdin only after observing priority Stop. The
+        // ordinary child then exits zero, exercising actual supervisor reaping.
+        let mut child = Command::new("cat")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let input = child.stdin.take().unwrap();
+        (
+            Self {
+                channels,
+                child,
+                boot,
+                role: role.into(),
+                diagnostic_start: None,
+            },
+            peer,
+            input,
         )
     }
 
@@ -275,6 +326,114 @@ impl Worker {
         }
         io::Error::new(kind, message)
     }
+    /// Signal only this owned child, without waiting for kernel teardown or
+    /// reaping. Live optional-worker failure uses this once, then `try_exit`;
+    /// final shared shutdown still owns reaping and reports forced termination.
+    pub(crate) fn request_termination(&mut self) -> io::Result<()> {
+        self.child.kill()
+    }
+}
+
+/// Test-only exec completion, never an audio/runtime readiness signal. The
+/// one-byte pipe is nonblocking and has the same finite bound as worker startup.
+#[cfg(test)]
+fn fixture_exec_barrier(child: &mut Child, timeout: Duration) -> io::Result<()> {
+    let result = (|| {
+        let mut output = child
+            .stdout
+            .take()
+            .ok_or_else(|| io::Error::other("fixture has no marker pipe"))?;
+        let flags = rustix::fs::fcntl_getfl(&output)?;
+        rustix::fs::fcntl_setfl(&output, flags | rustix::fs::OFlags::NONBLOCK)?;
+        let deadline = Instant::now() + timeout;
+        let mut marker = [0_u8; 1];
+        loop {
+            if Instant::now() >= deadline {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "fixture exec marker timed out",
+                ));
+            }
+            match output.read(&mut marker) {
+                Ok(1) if marker[0] == b'R' => return Ok(()),
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "fixture exited before exec marker",
+                    ));
+                }
+                Ok(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid fixture exec marker",
+                    ));
+                }
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
+            }
+        }
+    })();
+    if let Err(error) = result {
+        // A failed fixture must not leak a child just because no Worker was built.
+        let killed = child.kill();
+        let reaped = child.wait();
+        return Err(io::Error::new(
+            error.kind(),
+            format!("{error}; fixture kill={killed:?}, reap={reaped:?}"),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod fixture_tests {
+    use super::*;
+
+    #[test]
+    fn exec_barrier_closes_earlier_peer_descriptors_without_exiting_workers() {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut capture, capture_peer) = Worker::sleeping_fixture(&directory.path, "capture");
+        let (mut provider, _provider_peer) = Worker::sleeping_fixture(&directory.path, "provider");
+        let (mut ring, ring_peer) = Worker::sleeping_fixture(&directory.path, "ring");
+        drop(capture_peer);
+        drop(ring_peer);
+        // The first sends fail; no probe/retry, delayed assertion, or killed child
+        // is used to manufacture a disconnected transport.
+        assert!(capture.channels.control.send(Control::Stop).is_err());
+        assert!(ring.channels.control.send(Control::Stop).is_err());
+        capture.check_running().unwrap();
+        provider.check_running().unwrap();
+        ring.check_running().unwrap();
+    }
+
+    fn unmarked_child(script: &str) -> Child {
+        Command::new("sh")
+            .args(["-c", script])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap()
+    }
+
+    #[test]
+    fn exec_barrier_timeout_reaps_only_its_owned_child() {
+        let mut child = unmarked_child("exec sleep 60");
+        let error = fixture_exec_barrier(&mut child, Duration::from_millis(20)).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(!child.try_wait().unwrap().unwrap().success());
+    }
+
+    #[test]
+    fn exec_barrier_rejects_wrong_marker_and_reaps_child() {
+        let mut child = unmarked_child("printf X; exec sleep 60");
+        let error = fixture_exec_barrier(&mut child, WORKER_STARTUP_TIMEOUT).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(!child.try_wait().unwrap().unwrap().success());
+    }
 }
 
 /// `bind` publishes a pathname before Endpoint finishes setting mode 0600.
@@ -398,6 +557,39 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::Other);
         assert!(error.to_string().contains("exited abnormally"));
         assert_eq!(worker.child.try_wait().unwrap().unwrap().code(), Some(23));
+    }
+
+    #[test]
+    fn signal_only_termination_leaves_reaping_to_final_shutdown() {
+        use rustix::process::{Pid, WaitId, WaitIdOptions, waitid};
+        let directory = SessionDirectory::create().unwrap();
+        let mut worker = child_worker(&directory, "exec sleep 60");
+        let pid = Pid::from_raw(worker.child.id().try_into().unwrap()).unwrap();
+        worker.request_termination().unwrap();
+        // WNOWAIT is evidence that the signal-only call did not wait/reap.
+        // Replacing it with terminate_and_reap makes waitid fail with ECHILD.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let observed = loop {
+            let state = waitid(
+                WaitId::Pid(pid),
+                WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
+            )
+            .unwrap();
+            if let Some(state) = state {
+                break state;
+            }
+            assert!(Instant::now() < deadline, "owned child did not exit");
+            std::thread::sleep(Duration::from_millis(1));
+        };
+        assert!(observed.terminating_signal().is_some());
+        assert!(
+            worker.shutdown().is_err(),
+            "forced termination stays a failure"
+        );
+        assert!(
+            worker.try_exit().unwrap().is_some(),
+            "final cleanup reaped it"
+        );
     }
 
     #[test]

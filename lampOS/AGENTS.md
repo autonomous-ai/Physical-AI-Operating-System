@@ -5,8 +5,9 @@ Treat this directory as the root of a standalone repository. Follow the
 
 For the three-agent effort, follow [agent coordination](coordination/README.md).
 Read assignments and device reservations from the fetched integration branch.
-Use direct session messages for routine coordination; publish code checkpoints,
-durable decisions and acknowledgments on your own work branch.
+Use tmux terminals for all communication between Main and the two agents;
+publish code checkpoints and durable decisions on your own work branch.
+Do not use Harness team/channel messages or Git as a message queue.
 The owner does not relay routine agent reports.
 
 - First release: chat with a physical robot beside one person at a desk.

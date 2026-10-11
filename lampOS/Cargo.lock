@@ -872,6 +872,7 @@ dependencies = [
  "hound",
  "lamp-audio",
  "lamp-camera",
+ "lamp-endpoint",
  "lamp-gemini",
  "lamp-interaction",
  "lamp-ipc",

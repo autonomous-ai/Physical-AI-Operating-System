@@ -80,8 +80,19 @@ Host, source-only export of `95cd4b263`:
 | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 924 passed, 0 failed, 4 ignored |
 | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
 
-The two new tests are in the 924. Linux/ARM64 on this commit: running as this is
-written. The result follows in the next commit of this file.
+The two new tests are in the 924.
+
+Linux/ARM64, emulated, `95cd4b263`:
+
+| Command (each with `--locked --offline --target aarch64-unknown-linux-gnu`) | Result |
+|---|---|
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --release -p lamp-gemini -- --test-threads=1` | 157 passed, 0 failed, 2 ignored |
+| `cargo test --release -p lamp-audio -- --test-threads=1` | 132 passed, 0 failed |
+| `cargo build --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Not run on ARM64 for this commit: the live crate's tests, which it does not
+touch.
 
 ## Checkpoint 9: `MAIN-022`, the gap in the first reply
 

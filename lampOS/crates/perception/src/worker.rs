@@ -54,6 +54,17 @@ pub const CONTEXT_MAX_AGE_US: u64 = 2_000_000;
 /// The context frame link inside the private session directory.
 pub const CONTEXT_SOCKET: &str = "perception.frames";
 
+/// Result of one priority control drain.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Drain {
+    /// Every queued control message was read.
+    Empty,
+    /// The slice budget ran out with messages possibly still queued: no
+    /// output work may happen until a later drain reaches `Empty`.
+    Exhausted,
+    Stopped,
+}
+
 pub enum PerceptionControl {
     Authority(Snapshot),
     Stop,
@@ -188,6 +199,10 @@ struct State {
     counts: PerceptionCounts,
     last_progress_us: u64,
     spare: Vec<u8>,
+    /// A received frame waiting for a complete drain before submission.
+    received: Option<(FrameMeta, Vec<u8>, u64)>,
+    /// A finished job waiting for a complete drain before publication.
+    ready: Option<Done>,
     context: Option<FrameServer>,
     /// The newest analysed frame, reduced, while its grant is current.
     context_source: Option<(FrameMeta, Rgb)>,
@@ -216,11 +231,15 @@ impl State {
         })
     }
 
-    fn drain(&mut self, link: &mut impl PerceptionLink) -> io::Result<bool> {
-        for _ in 0..CONTROL_BUDGET {
+    /// Read control messages until the queue is empty, a stop, or the shared
+    /// per-iteration budget is spent. Exhaustion is reported, never treated
+    /// as an empty queue.
+    fn drain(&mut self, link: &mut impl PerceptionLink, budget: &mut usize) -> io::Result<Drain> {
+        while *budget > 0 {
+            *budget -= 1;
             match link.receive_control()? {
-                None => break,
-                Some(PerceptionControl::Stop) => return Ok(false),
+                None => return Ok(Drain::Empty),
+                Some(PerceptionControl::Stop) => return Ok(Drain::Stopped),
                 Some(PerceptionControl::Authority(snapshot)) => {
                     let now = monotonic_us();
                     match self.guard.install(MonoTime::from_micros(now), snapshot) {
@@ -236,7 +255,17 @@ impl State {
                 }
             }
         }
-        Ok(true)
+        Ok(Drain::Exhausted)
+    }
+
+    fn heartbeat(&self) -> io::Result<()> {
+        if monotonic_us().saturating_sub(self.last_authority_us) >= AUTHORITY_TIMEOUT_US {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "perception controller heartbeat expired",
+            ));
+        }
+        Ok(())
     }
 
     fn link_lost(&mut self, link: &mut impl PerceptionLink, error: &io::Error) -> io::Result<()> {
@@ -249,7 +278,8 @@ impl State {
         })
     }
 
-    fn frames(&mut self, link: &mut impl PerceptionLink, jobs: &SyncSender<Job>) -> io::Result<()> {
+    /// Connect, request and receive. A received frame is held for `submit`.
+    fn fetch(&mut self, link: &mut impl PerceptionLink) -> io::Result<()> {
         let now = monotonic_us();
         if !self.client.is_connected() && now >= self.next_connect_us {
             match self.client.connect() {
@@ -267,6 +297,7 @@ impl State {
         }
         if self.client.outstanding().is_none()
             && !self.busy
+            && self.received.is_none()
             && now >= self.next_request_us
             && self
                 .guard
@@ -286,17 +317,29 @@ impl State {
             Ok(None) => return Ok(()),
             Err(error) => return self.link_lost(link, &error),
         };
-        let received_at_us = monotonic_us();
         self.counts.received = self.counts.received.saturating_add(1);
-        if let Some(reason) = grant_status(&mut self.guard, meta.grant, received_at_us) {
+        let jpeg = std::mem::take(&mut self.spare);
+        self.received = Some((meta, jpeg, monotonic_us()));
+        Ok(())
+    }
+
+    /// Check the held frame's lineage and age (after a complete drain), then
+    /// hand it to inference.
+    fn submit(&mut self, link: &mut impl PerceptionLink, jobs: &SyncSender<Job>) -> io::Result<()> {
+        let Some((meta, jpeg, received_at_us)) = self.received.take() else {
+            return Ok(());
+        };
+        let now = monotonic_us();
+        if let Some(reason) = grant_status(&mut self.guard, meta.grant, now) {
+            self.spare = jpeg;
             return self.discard(link, &meta, reason);
         }
-        if received_at_us.saturating_sub(meta.dequeue_completed_at_us)
+        if now.saturating_sub(meta.dequeue_completed_at_us)
             > u64::from(self.options.max_frame_age_us)
         {
+            self.spare = jpeg;
             return self.discard(link, &meta, DiscardReason::Stale);
         }
-        let jpeg = std::mem::take(&mut self.spare);
         jobs.try_send(Job::Analyse {
             meta,
             jpeg,
@@ -308,14 +351,10 @@ impl State {
         Ok(())
     }
 
-    /// Drop the retained context image once its grant or age no longer holds,
-    /// keep the context link serviced, and start an encode for a waiting
-    /// consumer.
-    fn serve_context(
-        &mut self,
-        link: &mut impl PerceptionLink,
-        jobs: &SyncSender<Job>,
-    ) -> io::Result<()> {
+    /// Drop the retained context image once its grant or age no longer holds
+    /// and keep the context link serviced. Returns whether an encode should
+    /// start for a waiting consumer.
+    fn service_context(&mut self, link: &mut impl PerceptionLink) -> io::Result<bool> {
         let now = monotonic_us();
         if let Some((meta, _)) = &self.context_source
             && (grant_status(&mut self.guard, meta.grant, now).is_some()
@@ -324,16 +363,17 @@ impl State {
             self.context_source = None;
         }
         let Some(server) = self.context.as_mut() else {
-            return Ok(());
+            return Ok(false);
         };
         server.service(now);
         while let Some(event) = server.take_event() {
             link.publish(PerceptionEvent::ContextLink { event })?;
         }
-        if !self.busy
-            && server.wants_frame()
-            && let Some((meta, image)) = self.context_source.take()
-        {
+        Ok(!self.busy && server.wants_frame() && self.context_source.is_some())
+    }
+
+    fn submit_encode(&mut self, jobs: &SyncSender<Job>) -> io::Result<()> {
+        if let Some((meta, image)) = self.context_source.take() {
             jobs.try_send(Job::Encode { meta, image })
                 .map_err(|_| io::Error::other("perception inference slot unexpectedly busy"))?;
             self.busy = true;
@@ -489,31 +529,74 @@ pub fn run(
         counts: PerceptionCounts::default(),
         last_progress_us: now,
         spare: Vec::new(),
+        received: None,
+        ready: None,
         context,
         context_source: None,
         options,
     };
     let result = (|| -> io::Result<()> {
+        // Output work (submitting a frame, publishing a result, offering a
+        // context image) happens only after a drain that reached an empty
+        // control queue, and each action drains again immediately before it.
+        // Work interrupted by an exhausted slice is held, not dropped, and
+        // its lineage is rechecked when it resumes.
         loop {
-            if !state.drain(link)? {
-                return Ok(());
+            let mut budget = CONTROL_BUDGET;
+            match state.drain(link, &mut budget)? {
+                Drain::Stopped => return Ok(()),
+                Drain::Exhausted => {
+                    state.heartbeat()?;
+                    thread::sleep(TICK);
+                    continue;
+                }
+                Drain::Empty => {}
             }
-            let now = monotonic_us();
-            if now.saturating_sub(state.last_authority_us) >= AUTHORITY_TIMEOUT_US {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "perception controller heartbeat expired",
-                ));
-            }
-            state.frames(link, &jobs)?;
-            state.serve_context(link, &jobs)?;
-            match done.try_recv() {
-                Ok(finished) => state.finish(link, finished)?,
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => {
-                    return Err(io::Error::other("perception inference thread ended"));
+            state.heartbeat()?;
+            if state.ready.is_none() {
+                match done.try_recv() {
+                    Ok(finished) => state.ready = Some(finished),
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => {
+                        return Err(io::Error::other("perception inference thread ended"));
+                    }
                 }
             }
+            if state.ready.is_some() {
+                match state.drain(link, &mut budget)? {
+                    Drain::Stopped => return Ok(()),
+                    Drain::Exhausted => {
+                        thread::sleep(TICK);
+                        continue;
+                    }
+                    Drain::Empty => {
+                        let finished = state.ready.take().expect("checked");
+                        state.finish(link, finished)?;
+                    }
+                }
+            }
+            state.fetch(link)?;
+            if state.received.is_some() && !state.busy {
+                match state.drain(link, &mut budget)? {
+                    Drain::Stopped => return Ok(()),
+                    Drain::Exhausted => {
+                        thread::sleep(TICK);
+                        continue;
+                    }
+                    Drain::Empty => state.submit(link, &jobs)?,
+                }
+            }
+            if state.service_context(link)? {
+                match state.drain(link, &mut budget)? {
+                    Drain::Stopped => return Ok(()),
+                    Drain::Exhausted => {
+                        thread::sleep(TICK);
+                        continue;
+                    }
+                    Drain::Empty => state.submit_encode(&jobs)?,
+                }
+            }
+            let now = monotonic_us();
             if now.saturating_sub(state.last_progress_us) >= PROGRESS_INTERVAL_US {
                 link.publish(PerceptionEvent::Progress {
                     at_us: now,

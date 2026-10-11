@@ -9,6 +9,7 @@ use std::{error::Error, time::Instant};
 
 pub mod features;
 pub mod model;
+pub mod reference;
 
 pub use features::{FRAMES, FeatureExtractor, MELS};
 pub use lamp_endpoint_ipc::{SAMPLE_RATE, WINDOW_SAMPLES};

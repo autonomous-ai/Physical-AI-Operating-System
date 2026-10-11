@@ -3590,6 +3590,7 @@ mod tests {
     mod provider_terminal;
     mod service;
     mod service_mute;
+    mod startup_cues;
     mod termination;
     mod turn_taking;
 

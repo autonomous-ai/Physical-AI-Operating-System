@@ -743,6 +743,10 @@ pub struct CueSink {
     reference_epoch: Option<u64>,
     trace_offset: usize,
     fault: Option<&'static str>,
+    /// This boot's listening readiness was published. Before it, retained
+    /// startup state is history, not a live update.
+    listening: bool,
+    historical_state_skipped: u64,
 }
 impl CueSink {
     pub fn connect(path: &Path) -> io::Result<Self> {
@@ -783,14 +787,22 @@ impl CueSink {
             reference_epoch: None,
             trace_offset: 0,
             fault: None,
+            listening: false,
+            historical_state_skipped: 0,
         })
     }
     pub fn set_boot(&mut self, boot: BootId) {
         if self.boot != Some(boot) {
             self.capture_epoch = None;
             self.reference_epoch = None;
+            self.listening = false;
         }
         self.boot = Some(boot);
+    }
+    /// Startup state records not published because they were already older
+    /// than the cue bound before this boot's listening readiness.
+    pub fn historical_state_skipped(&self) -> u64 {
+        self.historical_state_skipped
     }
     pub fn fault(&self) -> Option<&'static str> {
         self.fault
@@ -823,7 +835,10 @@ impl CueSink {
             Some("reference_clock") => {
                 self.reference_epoch = event["details"]["playback_epoch"].as_u64()
             }
-            Some("listening_ready") => self.emit(CueKind::ListeningReady, event, sent_us),
+            Some("listening_ready") => {
+                self.emit(CueKind::ListeningReady, event, sent_us);
+                self.listening = true;
+            }
             Some("input_admitted") => self.emit(CueKind::InputAdmitted, event, sent_us),
             Some("local_endpoint") => self.emit(CueKind::LocalEndpoint, event, sent_us),
             Some("speaker_first_write") => self.emit(CueKind::SpeakerFirstWrite, event, sent_us),
@@ -835,15 +850,37 @@ impl CueSink {
             }
             Some("turn_finished") => self.emit(CueKind::TurnCompleted, event, sent_us),
             Some("run_end") => self.emit(CueKind::RunEnd, event, sent_us),
-            Some("turn_taking_availability") => {
+            Some("turn_taking_availability") if !self.historical(event, sent_us) => {
                 self.emit(CueKind::InputAvailability, event, sent_us)
             }
-            Some("provider_ready" | "provider_unavailable" | "provider_terminal") => {
+            Some("provider_ready" | "provider_unavailable" | "provider_terminal")
+                if !self.historical(event, sent_us) =>
+            {
                 self.emit(CueKind::ProviderLink, event, sent_us)
             }
             Some("input_candidate") => self.emit(CueKind::InputCandidate, event, sent_us),
             _ => {}
         }
+    }
+    /// A state record retained during startup (for example a provider Ready
+    /// received while later workers were still starting) and flushed after
+    /// the cue bound is history: it is neither sent nor a fault, and it is
+    /// never re-stamped. Only state kinds qualify, only before this boot's
+    /// listening readiness; afterwards every record keeps the strict bound.
+    fn historical(&mut self, event: &Value, sent_us: u64) -> bool {
+        if self.listening {
+            return false;
+        }
+        let observed = event["coordinator_observed_at_us"]
+            .as_u64()
+            .or_else(|| event["at_us"].as_u64());
+        let stale = observed
+            .and_then(|at| at.checked_add(CUE_FRESH_US))
+            .is_some_and(|expires| sent_us >= expires);
+        if stale {
+            self.historical_state_skipped = self.historical_state_skipped.saturating_add(1);
+        }
+        stale
     }
     fn emit(&mut self, kind: CueKind, event: &Value, sent_us: u64) {
         if self.fault.is_some() {

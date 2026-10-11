@@ -91,7 +91,7 @@ impl Continuation {
             _ => Ok((Self::Off, flags)),
         }
     }
-    fn apply(self, config: SessionConfig) -> io::Result<SessionConfig> {
+    pub(crate) fn apply(self, config: SessionConfig) -> io::Result<SessionConfig> {
         match self {
             Self::Off => Ok(config),
             Self::KeptStart => config
@@ -1063,6 +1063,9 @@ struct InputHandoff {
     highest_seen: u64,
     retired_through: u64,
     retired_sent_through: u64,
+    /// Through which request retirement came with no owner at all: the
+    /// request was given up, where a newer owner means it was continued.
+    abandoned_through: u64,
     submitted: Option<SubmittedInput>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
@@ -1106,6 +1109,7 @@ impl InputHandoff {
             self.retired_through = self.retired_through.max(request - 1);
         } else {
             self.retired_through = self.retired_through.max(self.highest_seen);
+            self.abandoned_through = self.abandoned_through.max(self.highest_seen);
         }
         self.authority = Some(state);
         Ok(())
@@ -1115,7 +1119,15 @@ impl InputHandoff {
         if self.retired_through > self.retired_sent_through {
             // This is synchronous local revocation, independent of queue space
             // or the network. It must happen even if closing the input fails.
-            input.retire(RequestId::new(self.retired_through)?);
+            let request = RequestId::new(self.retired_through)?;
+            if self.abandoned_through >= self.retired_through {
+                // No owner followed it: abandoned. A transport that kept
+                // any of its input drops what it has not yet sent.
+                input.discard(request);
+            } else {
+                // A newer owner followed it: continued. Its words stay.
+                input.retire(request);
+            }
             self.retired_sent_through = self.retired_through;
         }
         if let Some(submitted) = self.submitted
@@ -1299,6 +1311,11 @@ trait InputSink {
     ) -> lamp_gemini::Result<()>;
     fn end(&self, request: RequestId) -> lamp_gemini::Result<()>;
     fn retire(&self, request: RequestId);
+    /// Retirement of a request that was given up and not continued. A sink
+    /// that keeps no input treats it as any retirement.
+    fn discard(&self, request: RequestId) {
+        self.retire(request);
+    }
     /// Exact successful submission lineage belongs to an earlier connection.
     /// Absence of this proof never turns StaleRequest into a recoverable error.
     fn belongs_to_replaced_connection(&self, _request: RequestId) -> bool {
@@ -1328,6 +1345,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
     }
     fn retire(&self, request: RequestId) {
         Supervisor::retire(self, request);
+    }
+    fn discard(&self, request: RequestId) {
+        Supervisor::discard(self, request);
     }
     fn belongs_to_replaced_connection(&self, request: RequestId) -> bool {
         self.input_belongs_to_replaced_connection(request)
@@ -5527,7 +5547,8 @@ mod tests {
                         } if started == request => return request,
                         // The earlier request's own lifecycle may come first.
                         ProviderOutput::Interrupted { .. }
-                        | ProviderOutput::TurnComplete { .. } => {}
+                        | ProviderOutput::TurnComplete { .. }
+                        | ProviderOutput::InputDiscarded { .. } => {}
                         other => panic!("unexpected before the start: {other:?}"),
                     }
                 }
@@ -5853,36 +5874,39 @@ mod tests {
             );
         }
 
-        /// The limitation, shown. A request cancelled while its opening is
-        /// kept is never committed by itself. What the transport had taken
-        /// from it is still written when the first answer begins, and stays
-        /// in the activity that the next request continues: the service
-        /// hears it as the beginning of that next question.
+        /// A request given up while its opening is kept, with no newer
+        /// owner: abandoned, not continued. The worker sees that in the
+        /// authority it already receives and tells the transport, which
+        /// drops what it kept. None of it reaches the service, and the next
+        /// question is heard alone.
         #[tokio::test]
-        async fn a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one() {
+        async fn an_abandoned_kept_question_is_dropped_unsent_and_the_next_one_is_heard_alone() {
             let mut rig = LiveRig::start_kept();
             let mut dial = rig.ready().await;
             rig.speak(&mut dial, false, true).await;
-            let cancelled = rig.begin(&dial, AdmittedInput::Interruption).await;
-            rig.say(cancelled, 1..11, 0).await;
-            // The coordinator gives the turn up: not a continuation.
+            let abandoned = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(abandoned, 1..11, 0).await;
+            // The coordinator gives the turn up: no owner follows it.
             let owner = rig.snapshot.owner().unwrap();
             rig.owner.cancel_turn(real_time(), owner).unwrap();
-            rig.pump(Duration::from_millis(30)).await;
+            // The typed outcome: ten blocks dropped unsent, none sent.
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::InputDiscarded { request, dropped_samples: 1_600, sent_samples: 0 }
+                    if request == abandoned
+            ));
             assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            // The first answer begins and is interrupted: the start alone.
             dial.service.send(provider_audio(7, 240)).await;
-            let mut expected = vec!["start".to_owned()];
-            expected.extend(blocks(1..11, 0));
-            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            assert_eq!(rig.heard(&mut dial, QUIET).await, ["start"]);
             dial.service.send(interrupted()).await;
             dial.service.send(idle_complete()).await;
-            // No End for it, however long nothing else happens.
             assert!(
                 rig.heard(&mut dial, Duration::from_millis(150))
                     .await
                     .is_empty()
             );
-            // The next question continues the open activity.
+            // The next question continues an activity that holds nothing.
             let next = rig.begin(&dial, AdmittedInput::NewTurn).await;
             rig.say(next, 1..6, 200).await;
             rig.finish(next);
@@ -5894,6 +5918,45 @@ mod tests {
                 rig.answer().await,
                 ProviderOutput::Audio { request, .. } if request == next
             ));
+            rig.stop().await;
+        }
+
+        /// The boundary. Abandoned after the kept words were written, there
+        /// is nothing left to drop: they are in an activity with no End,
+        /// and the outcome says sent, not discarded. The next question is
+        /// heard after them, under its own End.
+        #[tokio::test]
+        async fn an_abandonment_after_the_words_were_written_is_reported_as_sent_not_discarded() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let abandoned = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(abandoned, 1..11, 0).await;
+            dial.service.send(provider_audio(7, 240)).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..11, 0));
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            let owner = rig.snapshot.owner().unwrap();
+            rig.owner.cancel_turn(real_time(), owner).unwrap();
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::InputDiscarded { request, dropped_samples: 0, sent_samples: 1_600 }
+                    if request == abandoned
+            ));
+            dial.service.send(interrupted()).await;
+            dial.service.send(idle_complete()).await;
+            // Never committed by itself.
+            assert!(
+                rig.heard(&mut dial, Duration::from_millis(150))
+                    .await
+                    .is_empty()
+            );
+            let next = rig.begin(&dial, AdmittedInput::NewTurn).await;
+            rig.say(next, 1..6, 200).await;
+            rig.finish(next);
+            let mut expected = blocks(1..6, 200);
+            expected.push("end".to_owned());
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
             rig.stop().await;
         }
 

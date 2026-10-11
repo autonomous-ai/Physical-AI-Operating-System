@@ -275,5 +275,26 @@ cancelled and therefore do not establish full-answer continuity. The two
 software-complete replies do not make either conversation successful. Both
 Lamps were restored; target returned to its captured original volume 77 and
 source to 94. This is neither an acoustic speedup nor a policy win. Local
-recording/reference analysis is still determining the cause of the additional
-inputs; provider transcripts alone cannot establish self-echo or real speech.
+recording/reference analysis is complete for these attempts. The six 10 ms
+high-VAD blocks preceding each of the four cancellations match part of the
+preceding accepted reply. Pre-AEC absolute waveform correlations are
+0.626–0.868; bounded post-AEC matches are 0.440–0.937. These coefficients
+are not probabilities. One processed trigger measures −46.85 dBFS despite
+six speech scores at least 0.869. Another trigger clips. Capture, DSP and
+render-reference epochs stay continuous at 1 throughout.
+
+This supports leaked playback triggering the VAD-only interruption path;
+it does not establish an echo-only room or justify an amplitude threshold.
+The independent audit found no distinct additional room utterance, while
+the target signals alone cannot exclude overlapping speech in every case.
+All completed target diagnostic hashes, acknowledgments and counters verify
+with zero diagnostic faults. The third, withheld attempt has no completed
+target certificate and remains an operational failure.
+
+The independent C-Media observer clips about 9.1% of prompt samples; it
+cannot yet supply accepted acoustic word boundaries. Room artifacts stay
+private. Audit manifest SHA256:
+`97dff9ea55cbe0eafec5b2022467e03ed54f2ec481111b8e0c79d167486e609b`.
+The playback experiment is now published separately as
+`lamp-playout-experiment-20261011` at `7f24ea81d`; it remains unselected.
+Follow the [V1 parity plan](v1-voice-parity.md) before further policy tuning.

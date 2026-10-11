@@ -67,6 +67,14 @@ These checks use scripted processes/players, not physical audio.
 
 ## Ownership and decisions
 
+The owner requires V1 main behavior as the rewrite baseline: port useful
+safeguards, establish Rust parity, then improve measured behavior. The
+[voice parity plan](../docs/v1-voice-parity.md) distinguishes stock
+turn-taking from optional adaptive live interruption. Neither protection is
+yet active in the current Rust VAD-only directed path. Agent 1 acknowledged
+MAIN-037 and is comparing the actual V1 gate offline; Main owns its Rust
+integration. No successful port or physical interruption result is claimed.
+
 Main owns `provider_worker.rs`, `provider_link.rs`, `coordinator.rs`,
 `coordinator/**`, `wire.rs`, `admission.rs` and fixture integration. Agent 1 owns
 `crates/gemini/**` and its audio scope. Agent 2 owns evaluation, camera and
@@ -159,8 +167,10 @@ cancelled, followed by two software-complete replies. All six report no gap,
 but both conversations failed; cancelled prefixes are censored observations.
 A third prompt was withheld for failed original-readiness confirmation and was
 never played. Root retained every attempt and verified rollback and original
-volumes. The recording/DSP audit is determining what triggered the extra inputs;
-no self-echo cause or acoustic improvement is accepted yet. Evidence directory:
+volumes. The independent recording/DSP audit matches all four cancellation windows
+to preceding accepted reply audio, with continuous reference/DSP epochs.
+This supports self-echo involvement, without certifying echo-only room audio.
+No acoustic improvement is accepted. Evidence directory:
 `lamp-rust-playout-evidence-20261011T033405Z`.
 
 The same-Lamp playback/capture check recovered the greeting on both microphones

@@ -23,6 +23,13 @@ The owner does not relay routine agent reports.
   evidence in [reuse decisions](docs/reuse-decisions.md). Reuse suitable Rust
   libraries; rewriting runtime policy does not require reimplementing every
   dependency. Compare failure behavior and measured workloads before replacement.
+- Owner instruction: V1 main is the behavioral baseline for the rewrite.
+  Before debugging a replacement, inspect V1's actual code, defaults and
+  tests for that path. Port useful safeguards, prove the corresponding
+  behavior in Rust, then compare one improvement at a time. Record which
+  protections are present, missing or deliberately changed; do not treat
+  a language rewrite or passing unit tests as behavioral parity. See the
+  [voice parity plan](docs/v1-voice-parity.md).
 - Keep capture and interruption independent of cloud, vision inference and
   presentation. Bound queues, buffers, worker counts and retry work.
 - One interaction owner coordinates voice, head, body and ring. Validate

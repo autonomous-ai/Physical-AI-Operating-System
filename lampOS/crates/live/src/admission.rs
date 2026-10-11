@@ -14,6 +14,32 @@ pub const MAX_EVIDENCE_AGE_US: u64 = 100_000;
 pub const MAX_DECISION_BLOCKS: usize = 20;
 pub const MAX_CANDIDATE_BLOCKS: usize = PRE_ROLL_BLOCKS + MAX_DECISION_BLOCKS;
 
+/// How long a candidate may wait for its decision, and how much it may hold.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Hold {
+    pub decision_budget_us: u64,
+    pub retained_age_us: u64,
+    pub decision_blocks: usize,
+}
+impl Hold {
+    pub const STANDARD: Self = Self {
+        decision_budget_us: DECISION_BUDGET_US,
+        retained_age_us: MAX_RETAINED_AGE_US,
+        decision_blocks: MAX_DECISION_BLOCKS,
+    };
+    /// Duplex holds a candidate that began over the lamp until the lamp's own
+    /// sound has gone: at most 600 ms after its trigger, with the 300 ms of
+    /// pre-roll before it. Still one candidate, one bounded block list.
+    pub const DUPLEX: Self = Self {
+        decision_budget_us: 700_000,
+        retained_age_us: 1_100_000,
+        decision_blocks: 70,
+    };
+    fn candidate_blocks(self) -> usize {
+        PRE_ROLL_BLOCKS + self.decision_blocks
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 pub struct CaptureLineage {
     pub worker: BootId,
@@ -61,6 +87,9 @@ pub enum AcceptanceBasis {
     DirectedSessionVadOnly,
     /// Opt-in own-playback suppression; still no addressee inference.
     DirectedSessionV1Baseline,
+    /// Opt-in duplex hearing: echo evidence, a yield and speech that outlasts
+    /// the lamp's own sound. Still no addressee inference.
+    DirectedSessionDuplex,
     /// A caller's classifier decision, not a correctness guarantee. There is
     /// no production classifier wired to this variant in the directed runtime.
     ClassifierDecision,
@@ -75,6 +104,7 @@ pub enum RejectReason {
     CaptureChanged,
     AuthorityChanged,
     InputUnavailable,
+    RetainedHistoryUnavailable,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -157,24 +187,30 @@ enum Phase {
     Draining(Option<Streaming>),
 }
 
-/// Owns at most 50 original 10 ms PCM blocks. It never calls the controller,
+/// Owns at most 50 original 10 ms PCM blocks, or 100 in duplex mode. It never calls the controller,
 /// cancels speech, sends provider input, or grants a listening/actuator cue.
 pub struct InputAdmission {
     phase: Phase,
     serial: u64,
     last_now_us: u64,
+    hold: Hold,
 }
 impl Default for InputAdmission {
     fn default() -> Self {
-        Self {
-            phase: Phase::Idle,
-            serial: 0,
-            last_now_us: 0,
-        }
+        Self::with_hold(Hold::STANDARD)
     }
 }
 
 impl InputAdmission {
+    pub fn with_hold(hold: Hold) -> Self {
+        Self {
+            phase: Phase::Idle,
+            serial: 0,
+            last_now_us: 0,
+            hold,
+        }
+    }
+
     /// Reset alongside the detector after cancellation/failure. Keep identity
     /// high-water marks so a delayed decision cannot target a later candidate.
     pub fn reset(&mut self) {
@@ -340,10 +376,14 @@ impl InputAdmission {
                     first_read_at_us: first.captured_at_us,
                     decision_deadline_us: trigger
                         .captured_at_us
-                        .saturating_add(DECISION_BUDGET_US)
-                        .min(first.captured_at_us.saturating_add(MAX_RETAINED_AGE_US)),
+                        .saturating_add(self.hold.decision_budget_us)
+                        .min(
+                            first
+                                .captured_at_us
+                                .saturating_add(self.hold.retained_age_us),
+                        ),
                 };
-                let mut retained = Vec::with_capacity(MAX_CANDIDATE_BLOCKS);
+                let mut retained = Vec::with_capacity(self.hold.candidate_blocks());
                 retained.extend(audio);
                 self.phase = Phase::Pending(Pending {
                     candidate,
@@ -404,6 +444,25 @@ impl InputAdmission {
             None
         };
         Ok(reason.map(|reason| self.reject(reason)))
+    }
+
+    /// Retire only this still-prospective candidate after original read history
+    /// expires or is evicted internally. Hard authority and deadline checks retain priority;
+    /// stale identities cannot discard a successor or erase admitted audio.
+    pub(crate) fn reject_retained_history(
+        &mut self,
+        candidate: CandidateId,
+        context: Context,
+        at_us: u64,
+    ) -> io::Result<Option<Rejection>> {
+        if let Some(rejected) = self.maintain(context, at_us)? {
+            return Ok(Some(rejected));
+        }
+        if matches!(&self.phase, Phase::Pending(p) if p.candidate.id == candidate) {
+            Ok(Some(self.reject(RejectReason::RetainedHistoryUnavailable)))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Natural completion is an explicit coordinator fact, not an inference
@@ -490,6 +549,7 @@ impl InputAdmission {
         at_us: u64,
     ) -> io::Result<Step> {
         let discard = matches!(self.phase, Phase::Draining(_));
+        let hold = self.hold;
         match &mut self.phase {
             Phase::Pending(pending) => {
                 if pending.ended {
@@ -500,8 +560,8 @@ impl InputAdmission {
                     &audio,
                     at_us,
                 )?;
-                if pending.decision_blocks >= MAX_DECISION_BLOCKS
-                    || pending.audio.len() >= MAX_CANDIDATE_BLOCKS
+                if pending.decision_blocks >= hold.decision_blocks
+                    || pending.audio.len() >= hold.candidate_blocks()
                 {
                     let rejection = self.reject(RejectReason::Capacity);
                     if ended {
@@ -1074,5 +1134,214 @@ mod outage_drain_tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn a_longer_hold_keeps_one_candidate_longer_and_the_standard_hold_is_unchanged() {
+        assert_eq!(
+            Hold::STANDARD,
+            Hold {
+                decision_budget_us: DECISION_BUDGET_US,
+                retained_age_us: MAX_RETAINED_AGE_US,
+                decision_blocks: MAX_DECISION_BLOCKS,
+            }
+        );
+        assert_eq!(Hold::STANDARD.candidate_blocks(), MAX_CANDIDATE_BLOCKS);
+        for hold in [Hold::STANDARD, Hold::DUPLEX] {
+            let mut gate = InputAdmission::with_hold(hold);
+            let mut local = LocalInput::new();
+            let first = candidate(&mut gate, local.context(START), 1, START);
+            assert_eq!(first.decision_deadline_us, START + hold.decision_budget_us);
+            // A block every 10 ms while the decision is awaited: all kept, in
+            // one list, under the one identity and the one deadline.
+            let last = hold.decision_budget_us / 10_000 - 1;
+            for n in 1..=last {
+                let now = START + n * 10_000;
+                no_output(
+                    gate.observe(
+                        Activity::Continue(audio(1 + n, now)),
+                        local.context(now),
+                        now,
+                    )
+                    .unwrap(),
+                );
+            }
+            let now = START + last * 10_000;
+            assert_eq!(gate.pending_audio(first.id).unwrap().len() as u64, 1 + last);
+            let (same, _) = gate
+                .pending_evidence(now, AcceptanceBasis::DirectedSessionDuplex)
+                .unwrap();
+            assert_eq!(same.id, first.id);
+            assert_eq!(same.decision_deadline_us, first.decision_deadline_us);
+            // A decision in the last block before the deadline takes them all.
+            let mut decided = InputAdmission::with_hold(hold);
+            let mut other = LocalInput::new();
+            let again = candidate(&mut decided, other.context(START), 1, START);
+            for n in 1..=last {
+                let at_us = START + n * 10_000;
+                decided
+                    .observe(
+                        Activity::Continue(audio(1 + n, at_us)),
+                        other.context(at_us),
+                        at_us,
+                    )
+                    .unwrap();
+            }
+            let accepted = accept(
+                &mut decided,
+                other.context(now),
+                evidence(again, 1 + last, now),
+                now,
+            );
+            assert_eq!(accepted.audio.len() as u64, 1 + last);
+            // At the deadline the candidate is given up, whatever arrives.
+            let deadline = first.decision_deadline_us;
+            let update = gate
+                .observe(
+                    Activity::Continue(audio(2 + last, deadline)),
+                    local.context(deadline),
+                    deadline,
+                )
+                .unwrap();
+            assert!(matches!(
+                update.rejection,
+                Some(Rejection {
+                    reason: RejectReason::Deadline,
+                    ..
+                })
+            ));
+        }
+        // Blocks that arrive faster than they were captured run into the
+        // block bound first: still one bounded list.
+        let mut gate = InputAdmission::with_hold(Hold::DUPLEX);
+        let mut local = LocalInput::new();
+        candidate(&mut gate, local.context(START), 1, START);
+        for n in 1..=Hold::DUPLEX.decision_blocks as u64 {
+            no_output(
+                gate.observe(
+                    Activity::Continue(audio(1 + n, START + n)),
+                    local.context(START + n),
+                    START + n,
+                )
+                .unwrap(),
+            );
+        }
+        let n = Hold::DUPLEX.decision_blocks as u64 + 1;
+        let update = gate
+            .observe(
+                Activity::Continue(audio(1 + n, START + n)),
+                local.context(START + n),
+                START + n,
+            )
+            .unwrap();
+        assert!(matches!(
+            update.step,
+            Step::Rejected(Rejection {
+                reason: RejectReason::Capacity,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn a_dsp_reseed_ends_a_candidate_still_being_decided_and_spares_an_accepted_stream() {
+        // Whatever raised the candidate was heard through a canceller that
+        // has since been reset: it is rejected, and old evidence for it
+        // decides nothing.
+        let mut gate = InputAdmission::default();
+        let mut local = LocalInput::new();
+        let first = candidate(&mut gate, local.context(START), 1, START);
+        local.capture.dsp_epoch += 1;
+        let now = START + 10_000;
+        let update = gate
+            .observe(Activity::Continue(audio(2, now)), local.context(now), now)
+            .unwrap();
+        assert!(matches!(
+            update.rejection,
+            Some(Rejection {
+                reason: RejectReason::CaptureChanged,
+                ..
+            })
+        ));
+        assert!(matches!(
+            gate.decide(evidence(first, 1, now), local.context(now), now)
+                .unwrap(),
+            Decision::Ignored
+        ));
+        assert!(!gate.owns_stream());
+        // A person already admitted is not cut off by it.
+        let (mut gate, mut local, _) = accepted_stream();
+        local.capture.dsp_epoch += 1;
+        let update = gate
+            .observe(Activity::Continue(audio(2, now)), local.context(now), now)
+            .unwrap();
+        assert!(update.rejection.is_none());
+        assert!(gate.owns_stream());
+    }
+
+    #[test]
+    fn expired_history_rejection_keeps_authority_and_identity_checks_first() {
+        for kind in 0..4 {
+            let mut gate = InputAdmission::with_hold(Hold::DUPLEX);
+            let mut local = LocalInput::new();
+            let first = candidate(&mut gate, local.context(START), 1, START);
+            let when = if kind == 3 {
+                first.decision_deadline_us
+            } else {
+                START + 1
+            };
+            let mut context = local.context(when);
+            let reason = match kind {
+                0 => {
+                    context.capture.dsp_epoch += 1;
+                    RejectReason::CaptureChanged
+                }
+                1 => {
+                    local
+                        .controller
+                        .set_microphone_permission(at(when), Permission::Denied)
+                        .unwrap();
+                    context.authority = local.controller.snapshot(at(when)).unwrap();
+                    RejectReason::InputUnavailable
+                }
+                2 => {
+                    local
+                        .controller
+                        .admit(at(when), lamp_interaction::AdmittedInput::NewTurn)
+                        .unwrap();
+                    context.authority = local.controller.snapshot(at(when)).unwrap();
+                    RejectReason::AuthorityChanged
+                }
+                _ => RejectReason::Deadline,
+            };
+            let rejected = gate
+                .reject_retained_history(first.id, context, when)
+                .unwrap()
+                .unwrap();
+            assert_eq!(rejected.reason, reason);
+            assert!(!gate.owns_stream());
+        }
+    }
+
+    #[test]
+    fn expired_history_for_an_old_identity_cannot_reject_a_new_candidate() {
+        let mut gate = InputAdmission::with_hold(Hold::DUPLEX);
+        let mut local = LocalInput::new();
+        let first = candidate(&mut gate, local.context(START), 1, START);
+        gate.reset();
+        let next = candidate(&mut gate, local.context(START + 1), 1, START + 1);
+        assert_ne!(first.id, next.id);
+        assert!(
+            gate.reject_retained_history(first.id, local.context(START + 1), START + 1)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            gate.pending_evidence(START + 1, AcceptanceBasis::DirectedSessionDuplex)
+                .unwrap()
+                .0
+                .id,
+            next.id
+        );
     }
 }

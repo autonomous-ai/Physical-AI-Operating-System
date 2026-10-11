@@ -3,9 +3,13 @@ use crate::{
     activity::SpeechProbability,
     diagnostic_control::{DiagnosticFinished, DiagnosticStarted},
     diagnostics::{self, EndReason, Recorder, ResetMeta, ResetReason, StreamKind},
-    options::{NoiseSuppression, SoftwareProcessing},
+    options::{
+        AudioWorkerOptions, NoiseSuppression, ReferenceClock, ReferenceRecovery, SoftwareProcessing,
+    },
     playback::SpeechPlayback,
-    reference::{PRIME_FRAMES, ReferenceAssembly, accepted_write_survived},
+    reference::{
+        PRIME_FRAMES, PrimeBarrier, RecoveryPolicy, ReferenceAssembly, accepted_write_survived,
+    },
     transport::{ReferenceChannels, WorkerChannels},
     wire::{
         CaptureTiming, ClockPrimed, Control, MicrophoneFrame, ReferenceControl, ReferenceFault,
@@ -186,12 +190,38 @@ pub fn capture_with_noise_suppression(
         device,
         diagnostic_directory,
         noise_suppression,
+        ReferenceClock::Fixed,
+        ReferenceRecovery::Off,
+    )
+}
+
+/// The capture worker as the supervisor configured it: the noise suppression
+/// and the way the echo reference is kept beside the microphone.
+pub fn capture_with_options(
+    channels: WorkerChannels,
+    controller: BootId,
+    worker: BootId,
+    directory: &Path,
+    device: &str,
+    options: &AudioWorkerOptions,
+) -> Result<()> {
+    capture_on::<AlsaCapture>(
+        channels,
+        controller,
+        worker,
+        directory,
+        device,
+        options.diagnostic_directory.as_deref(),
+        options.noise_suppression,
+        options.reference_clock,
+        options.reference_recovery,
     )
 }
 
 /// The capture worker over any capture device. The entry points above are the
 /// board's and use ALSA. A process-level test names a scripted device instead
 /// and runs this same loop: nothing in it knows which one it has.
+#[allow(clippy::too_many_arguments)]
 pub fn capture_on<D: CaptureDevice>(
     mut channels: WorkerChannels,
     controller: BootId,
@@ -200,6 +230,8 @@ pub fn capture_on<D: CaptureDevice>(
     device: &str,
     diagnostic_directory: Option<&Path>,
     noise_suppression: NoiseSuppression,
+    reference_clock: ReferenceClock,
+    reference_recovery: ReferenceRecovery,
 ) -> Result<()> {
     let mut recording = Recording::start(
         diagnostic_directory,
@@ -216,6 +248,8 @@ pub fn capture_on<D: CaptureDevice>(
         directory,
         &mut recording,
         noise_suppression,
+        reference_clock,
+        reference_recovery,
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
     let close = microphone.control_lost();
@@ -238,6 +272,7 @@ pub fn capture_on<D: CaptureDevice>(
         .and(finish)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn capture_loop<D: CaptureDevice>(
     channels: &mut WorkerChannels,
     microphone: &mut MicrophoneOn<D>,
@@ -245,12 +280,30 @@ fn capture_loop<D: CaptureDevice>(
     directory: &Path,
     recording: &mut Option<Recording>,
     noise_suppression: NoiseSuppression,
+    reference_clock: ReferenceClock,
+    reference_recovery: ReferenceRecovery,
 ) -> Result<EndReason> {
     let mut link: Option<ReferenceChannels> = None;
     let mut prepare_requested = false;
     let mut capture_prepared = false;
     let mut privacy = 0;
-    let mut reference = ReferenceAssembly::default();
+    // The fixed margin is the default and the fallback. The capture-clocked
+    // reference follows the difference between the two USB clocks; loss,
+    // reordering and staleness fault exactly as they do in the fixed mode.
+    // With bounded recovery a doubt that can be resolved is: the fixed margin
+    // is re-centred when the clocks use it up, and the capture-clocked
+    // reference stops cancelling until fresh reference returns. Either way
+    // within a budget, with a status for every change.
+    let mut reference = match (reference_clock, reference_recovery) {
+        (ReferenceClock::Fixed, ReferenceRecovery::Off) => ReferenceAssembly::default(),
+        (ReferenceClock::Capture, ReferenceRecovery::Off) => ReferenceAssembly::capture_clocked(),
+        (ReferenceClock::Fixed, ReferenceRecovery::Bounded) => {
+            ReferenceAssembly::recentring(RecoveryPolicy::BOUNDED)
+        }
+        (ReferenceClock::Capture, ReferenceRecovery::Bounded) => {
+            ReferenceAssembly::recovering(RecoveryPolicy::BOUNDED)
+        }
+    };
     let mut echo = EchoProcessor::new(noise_suppression.enabled());
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
@@ -342,7 +395,8 @@ fn capture_loop<D: CaptureDevice>(
                                     .into());
                             }
                             let previous = reference.timing().playback_epoch;
-                            reference.prime(prime, monotonic_us(), privacy, &mut echo)?;
+                            let prepared =
+                                reference.prime(prime, monotonic_us(), privacy, &mut echo)?;
                             speech.reset();
                             if previous != 0 {
                                 dsp_epoch = dsp_epoch
@@ -369,10 +423,8 @@ fn capture_loop<D: CaptureDevice>(
                             );
                             // No microphone sequence or retained upstream prefix is reset.
                             primed_at = Some(monotonic_us());
-                            link.control.send(ReferenceControl::ReferencePrimed {
-                                playback_epoch: prime.playback_epoch,
-                                analysed_through: reference.timing().analysed_through,
-                            })?;
+                            link.control
+                                .send(ReferenceControl::ReferencePrimed { prepared })?;
                         }
                         ReferenceControl::ClockStarted {
                             playback_epoch,
@@ -444,10 +496,30 @@ fn capture_loop<D: CaptureDevice>(
         if microphone.is_running()
             && let Some(frame) = microphone.try_read()?
         {
-            let delay = reference.before_capture(frame.timing.delayed_frames, monotonic_us())?;
-            let clean = echo.capture(&frame.samples, delay)?;
-            reference.captured(frame.timing.read_completed_at_us, monotonic_us())?;
+            let step = reference.capture_step(
+                frame.timing.delayed_frames,
+                frame.timing.read_completed_at_us,
+                monotonic_us(),
+                &mut echo,
+            )?;
+            // A reseed is a new DSP epoch from this block on.
+            report_reference(
+                &mut reference,
+                channels,
+                recording,
+                &mut speech,
+                &mut dsp_epoch,
+                microphone.epoch(),
+                privacy,
+            )?;
+            // The canceller has this block's reference, or the block goes on
+            // as the microphone recorded it. Nothing is put in its place.
+            let (clean, delay) = match step {
+                Some(delay) => (echo.capture(&frame.samples, delay)?, delay),
+                None => (frame.samples, 0),
+            };
             let probability = speech.analyze(&clean);
+            reference.note_score(probability);
             if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
                 return Err(io::Error::other("invalid local speech probability").into());
             }
@@ -512,6 +584,15 @@ fn capture_loop<D: CaptureDevice>(
                     reference: timing,
                 },
                 probability,
+                // What the render explains of this very block, for a
+                // coordinator that listens while the lamp speaks. Withheld
+                // while the reference is untrusted or the canceller is cold.
+                echo: if reference.evidence_trusted() {
+                    echo.evidence()
+                } else {
+                    None
+                },
+                reference: reference.trust(),
                 samples: clean.to_vec(),
             })?;
             if monotonic_us().saturating_sub(last_diagnostic) >= 1_000_000 {
@@ -521,8 +602,58 @@ fn capture_loop<D: CaptureDevice>(
                 last_diagnostic = monotonic_us();
             }
         }
+        // A change of trust found while draining reference is not kept
+        // waiting for the next capture block.
+        report_reference(
+            &mut reference,
+            channels,
+            recording,
+            &mut speech,
+            &mut dsp_epoch,
+            microphone.epoch(),
+            privacy,
+        )?;
         finish_tick(tick);
     }
+}
+
+/// Send what recovery changed: a new DSP epoch for each reseed, with the
+/// detector's state started again beside the canceller's, then each status.
+fn report_reference(
+    reference: &mut ReferenceAssembly,
+    channels: &mut WorkerChannels,
+    recording: &mut Option<Recording>,
+    speech: &mut SpeechProbability,
+    dsp_epoch: &mut u64,
+    capture_epoch: u64,
+    privacy: u64,
+) -> Result<()> {
+    if reference.take_reseed() {
+        *dsp_epoch = dsp_epoch
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("DSP epoch exhausted"))?;
+        speech.reset();
+        channels.control.send(WorkerEvent::CaptureDspReset {
+            epoch: capture_epoch,
+            dsp_epoch: *dsp_epoch,
+            observed_at_us: monotonic_us(),
+        })?;
+        diagnostic_reset(
+            recording,
+            ResetReason::DspReset,
+            capture_epoch,
+            *dsp_epoch,
+            reference.timing().playback_epoch,
+            privacy,
+            None,
+        );
+    }
+    while let Some(status) = reference.take_status() {
+        channels
+            .control
+            .send(WorkerEvent::ReferenceStatus { status })?;
+    }
+    Ok(())
 }
 
 pub fn speaker(
@@ -585,14 +716,14 @@ struct ReferenceOutput {
     privacy: Option<u64>,
     primed_at: Option<u64>,
     prime_last_write: Option<Written>,
-    waiting_ack: bool,
+    prime_barrier: PrimeBarrier,
 }
 impl ReferenceOutput {
     fn reset(&mut self) {
         self.sequence = 0;
         self.primed_at = None;
         self.prime_last_write = None;
-        self.waiting_ack = false;
+        self.prime_barrier.reset();
     }
     fn fault(&self, speaker: &Speaker, reason: ReferenceFaultKind) -> ReferenceFault {
         let range = speaker.queued_range();
@@ -617,7 +748,7 @@ impl ReferenceOutput {
         link: &mut ReferenceChannels,
         recording: &mut Option<Recording>,
     ) -> Result<()> {
-        if self.waiting_ack || speaker.clock_started() {
+        if self.prime_barrier.is_waiting() || speaker.clock_started() {
             return Ok(());
         }
         let token = speaker.zero_authority()?;
@@ -661,18 +792,22 @@ impl ReferenceOutput {
             if last.queued_frames != PRIME_FRAMES as i64 {
                 return Err(self.fault(speaker, ReferenceFaultKind::InvalidPrime).into());
             }
-            link.control.send(ReferenceControl::ClockPrimed {
-                prime: ClockPrimed {
-                    playback_epoch: speaker.queued_range().epoch,
-                    privacy_generation: token.microphone_generation(),
-                    accepted_zero_frames: PRIME_FRAMES,
-                    accepted_at_us: last.completed_at_us,
-                    queue_observed_at_us: last.queue_observed_at_us,
-                    queued_frames: last.queued_frames as usize,
-                    discarded: speaker.last_discard(),
-                },
-            })?;
-            self.waiting_ack = true;
+            let prime = ClockPrimed {
+                playback_epoch: speaker.queued_range().epoch,
+                privacy_generation: token.microphone_generation(),
+                accepted_zero_frames: PRIME_FRAMES,
+                accepted_at_us: last.completed_at_us,
+                queue_observed_at_us: last.queue_observed_at_us,
+                queued_frames: last.queued_frames as usize,
+                discarded: speaker.last_discard(),
+            };
+            link.control.send(ReferenceControl::ClockPrimed { prime })?;
+            let began_at = self
+                .primed_at
+                .ok_or_else(|| self.fault(speaker, ReferenceFaultKind::InvalidPrime))?;
+            self.prime_barrier
+                .sent(prime, began_at)
+                .map_err(|reason| self.fault(speaker, reason))?;
         }
         Ok(())
     }
@@ -852,19 +987,21 @@ fn speaker_loop(
                 {
                     output.privacy = Some(privacy_generation);
                 }
-                ReferenceControl::ReferencePrimed {
-                    playback_epoch,
-                    analysed_through,
-                } if output.waiting_ack
-                    && playback_epoch == speaker.queued_range().epoch
-                    && analysed_through == PRIME_FRAMES as u64 =>
-                {
+                ReferenceControl::ReferencePrimed { prepared } => {
                     let token = speaker.zero_authority()?;
+                    let playback_epoch = output
+                        .prime_barrier
+                        .acknowledge(
+                            prepared,
+                            speaker.queued_range(),
+                            token.microphone_generation(),
+                            monotonic_us(),
+                        )
+                        .map_err(|reason| output.fault(speaker, reason))?;
                     // A host bound on the method call, not exact DAC start.
                     // Failed/expired starts return before any success receipt.
                     let start_requested_at_us = monotonic_us();
                     let started_at_us = speaker.start_clock(token)?;
-                    output.waiting_ack = false;
                     output.primed_at = None;
                     link.control.send(ReferenceControl::ClockStarted {
                         playback_epoch,

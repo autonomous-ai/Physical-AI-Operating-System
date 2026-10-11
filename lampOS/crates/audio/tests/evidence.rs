@@ -44,7 +44,55 @@ fn voice(seed: u64, seconds: f64) -> f32 {
     carrier * (0.3 + 0.7 * syllable)
 }
 
+/// The two-path echo: delay in seconds and gain.
+const SIMPLE_PATH: &[(f64, f32)] = &[(DELAY, DIRECT), (DELAY + REFLECTION, REFLECTED)];
+
+/// The path from the speaker to the microphone beside it as the first device
+/// recording had it: least-squares coefficients of the capture on the
+/// accepted render at the analysis rate, 250 us apart from 103.5 ms, scaled
+/// by a quarter so the scene does not clip. A property of one lamp, not
+/// audio.
+const MEASURED_PATH: &[(f64, f32)] = &{
+    const TAPS: [f32; 21] = [
+        0.298, 0.491, 0.237, -1.177, -0.761, 0.0, 0.279, 0.521, 0.449, 0.520, 0.0, -0.551, -0.412,
+        0.0, 0.297, 0.0, 0.0, 0.0, 0.0, -0.345, -0.278,
+    ];
+    let mut path = [(0.0, 0.0); 21];
+    let mut tap = 0;
+    while tap < 21 {
+        path[tap] = (0.1035 + tap as f64 * 0.000_25, TAPS[tap] * 0.25);
+        tap += 1;
+    }
+    path
+};
+
+/// A voiced sound: nine harmonics of a pitch that glides around 195 Hz, under
+/// the syllable envelope of `voice`, with a little breath. It repeats every
+/// five milliseconds, which is what makes an alignment one pitch period from
+/// the true one look right for as long as the pitch holds still.
+fn pitched(seconds: f64) -> f32 {
+    if seconds < 0.0 {
+        return 0.0;
+    }
+    use std::f64::consts::TAU;
+    let glide = 0.08 / (TAU * 0.7) * (TAU * 0.7 * seconds).cos();
+    let phase = TAU * 195.0 * (seconds - glide);
+    let harmonics = [1.0, 0.8, 0.9, 0.6, 0.4, 0.5, 0.3, 0.2, 0.15]
+        .iter()
+        .enumerate()
+        .map(|(index, amplitude)| amplitude * (phase * (index + 1) as f64).sin())
+        .sum::<f64>()
+        / 4.85;
+    let syllable = (seconds * 3.1 * TAU).sin().abs();
+    let breath = 0.05 * noise(5, (seconds * 8_000.0) as u64);
+    (harmonics * (0.3 + 0.7 * syllable)) as f32 + breath
+}
+
 struct Scene {
+    /// What Lamp says, as a function of time.
+    source: fn(f64) -> f32,
+    /// How it reaches the microphone.
+    path: &'static [(f64, f32)],
     /// Speaker amplitude at a time, zero when Lamp is not speaking.
     speaker: Box<dyn Fn(f64) -> f32>,
     /// A person's amplitude at the microphone at a time.
@@ -57,6 +105,8 @@ struct Scene {
 impl Scene {
     fn playback(from: f64, until: f64) -> Self {
         Self {
+            source: |t| voice(1, t),
+            path: SIMPLE_PATH,
             speaker: Box::new(move |t| if (from..until).contains(&t) { 0.3 } else { 0.0 }),
             person: Box::new(|_| 0.0),
             drift: 0.0,
@@ -64,7 +114,7 @@ impl Scene {
         }
     }
     fn lamp(&self, seconds: f64) -> f32 {
-        (self.speaker)(seconds) * voice(1, seconds)
+        (self.speaker)(seconds) * (self.source)(seconds)
     }
     fn render(&self, block: usize) -> RenderBlock {
         std::array::from_fn(|offset| {
@@ -77,11 +127,13 @@ impl Scene {
         std::array::from_fn(|offset| {
             let index = (block * CAPTURE_SAMPLES + offset) as u64;
             let seconds = index as f64 / f64::from(CAPTURE_RATE) * (1.0 + self.drift);
+            let echo: f32 = self
+                .path
+                .iter()
+                .map(|(delay, gain)| gain * self.lamp(seconds - delay))
+                .sum();
             float_to_pcm(
-                DIRECT * self.lamp(seconds - DELAY)
-                    + REFLECTED * self.lamp(seconds - DELAY - REFLECTION)
-                    + (self.person)(seconds) * voice(2, seconds)
-                    + 0.0003 * noise(3, index),
+                echo + (self.person)(seconds) * voice(2, seconds) + 0.0003 * noise(3, index),
             )
         })
     }
@@ -183,7 +235,8 @@ fn playback_alone_is_matched_and_explains_what_the_microphone_hears() {
 /// What a canceller leaves, scripted: `leak` of the echo's amplitude and all
 /// of the person. Run through the observer alone, so the share it reports for
 /// the cancelled signal can be checked against a known mixture.
-fn residual_share(leak: f32, person: f32) -> i32 {
+/// Medians of `residual_explained` and `residual_playback_floor`.
+fn residual_share(leak: f32, person: f32) -> (i32, i32) {
     let scene = Scene {
         person: Box::new(move |t| if t >= 0.2 { person } else { 0.0 }),
         ..Scene::playback(0.2, 5.0)
@@ -199,10 +252,19 @@ fn residual_share(leak: f32, person: f32) -> i32 {
                 let rest = f32::from(raw[index]) - f32::from(echo[index]);
                 (leak * f32::from(echo[index]) + rest).round() as i16
             });
-            residual_explained(&observer.capture(&raw, &clean))
+            observer.capture(&raw, &clean).echo.map(|echo| {
+                (
+                    i32::from(echo.residual_explained),
+                    i32::from(echo.residual_playback_floor),
+                )
+            })
         })
         .collect::<Vec<_>>();
-    median(shares[shares.len() / 2..].to_vec())
+    let late = &shares[shares.len() / 2..];
+    (
+        median(late.iter().map(|(explained, _)| *explained).collect()),
+        median(late.iter().map(|(_, floor)| *floor).collect()),
+    )
 }
 
 #[test]
@@ -210,20 +272,29 @@ fn leaked_playback_in_the_cancelled_signal_is_measured_as_playback() {
     // The recorded false interruption: 0.85 s into a reply the cancelled
     // signal still carried enough of Lamp's voice to pass a speech detector.
     // A canceller that has only halved the echo, nobody speaking:
-    let leak_only = residual_share(0.5, 0.0);
+    let (leak_only, leak_only_floor) = residual_share(0.5, 0.0);
     // The same leak under a person as loud as the leak itself, and one who
     // is four times its energy:
     let level = 0.3 * ECHO_GAIN * 0.5;
-    let (equal, louder) = (residual_share(0.5, level), residual_share(0.5, level * 2.0));
+    let ((equal, equal_floor), (louder, louder_floor)) =
+        (residual_share(0.5, level), residual_share(0.5, level * 2.0));
     // No leak at all, only the person:
-    let person_only = residual_share(0.0, level);
+    let (person_only, person_only_floor) = residual_share(0.0, level);
     println!(
-        "MEASURED echo_evidence residual leak_only={leak_only} leak_with_equal_person={equal} leak_with_person_plus_6db={louder} person_only={person_only} (scripted residual through the observer alone, host)"
+        "MEASURED echo_evidence residual leak_only={leak_only} leak_with_equal_person={equal} leak_with_person_plus_6db={louder} person_only={person_only} floors={leak_only_floor},{equal_floor},{louder_floor},{person_only_floor} (scripted residual through the observer alone, host)"
     );
     assert!(leak_only >= 85, "{leak_only}");
     assert!((equal - leak_only / 2).abs() <= 8, "{equal}");
     assert!((louder - leak_only / 5).abs() <= 8, "{louder}");
-    assert!(person_only <= 3, "{person_only}");
+    // Sixteen copies of an unrelated voice account for a few percent of any
+    // signal by chance.
+    assert!(person_only <= 8, "{person_only}");
+    // The floor never claims more playback than there is: all of it, half,
+    // a fifth and none. It is short of the truth by what the fit misses.
+    assert!((70..=100).contains(&leak_only_floor), "{leak_only_floor}");
+    assert!((30..=50).contains(&equal_floor), "{equal_floor}");
+    assert!((8..=20).contains(&louder_floor), "{louder_floor}");
+    assert_eq!(person_only_floor, 0);
 }
 
 #[test]
@@ -231,8 +302,7 @@ fn a_person_alone_is_never_attributed_to_the_speaker() {
     let scene = Scene {
         speaker: Box::new(|_| 0.0),
         person: Box::new(|t| if t >= 0.5 { 0.2 } else { 0.0 }),
-        drift: 0.0,
-        jitter: true,
+        ..Scene::playback(0.0, 0.0)
     };
     let evidence = scene.run(4.0);
     assert!(
@@ -389,4 +459,40 @@ fn one_block_of_evidence_is_bounded_work() {
     );
     // A 10 ms block must cost a small part of 10 ms even unoptimized.
     assert!(each.as_micros() < 2_000, "{each:?}");
+}
+
+#[test]
+fn a_voiced_reply_over_the_path_a_device_recorded_is_matched_and_explained() {
+    // The first device recording was all playback, and the observer of that
+    // day reported nothing: its search wanted one delayed copy to explain
+    // half the capture, and on this path one copy explains less.
+    let scene = Scene {
+        source: pitched,
+        path: MEASURED_PATH,
+        ..Scene::playback(0.5, 6.0)
+    };
+    let evidence = scene.run(7.0);
+    let first = evidence
+        .iter()
+        .position(|block| block.echo.is_some())
+        .expect("playback is matched");
+    let found_after_ms = first as f64 * 10.0 - (0.5 + 0.1035) * 1000.0;
+    let shares: Vec<i32> = evidence[block_at(1.0)..block_at(6.0)]
+        .iter()
+        .map(|block| capture_explained(block).unwrap_or(0))
+        .collect();
+    let below = shares
+        .iter()
+        .filter(|share| **share < i32::from(MATCH_PERCENT))
+        .count();
+    let mut sorted = shares.clone();
+    sorted.sort_unstable();
+    println!(
+        "MEASURED echo_evidence measured_path matched_ms_after_first_echo={found_after_ms:.0} capture_explained_p10={} median={} blocks_below_match={below} of 500 (pitched source over the device's measured path through the real canceller, host)",
+        sorted[50], sorted[250]
+    );
+    assert!((0.0..=400.0).contains(&found_after_ms), "{found_after_ms}");
+    assert!(sorted[250] >= 85, "{}", sorted[250]);
+    assert!(sorted[50] >= 70, "{}", sorted[50]);
+    assert!(below <= 10, "{below}");
 }

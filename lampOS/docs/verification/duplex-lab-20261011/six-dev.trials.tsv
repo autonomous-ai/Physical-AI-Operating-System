@@ -1,0 +1,61 @@
+run	part	gain_db	seed	reply	onset	seg_end	first_yield	yield_delay_ms	first_outcome	first_outcome_delay_ms	commit_wall	commit_delay_ms	yields	note
+six	dev	6	1	0	859	979	868	90	commit	470	906	470	1	
+six	dev	6	1	2	2873	2993	2887	140	commit	530	2926	530	1	
+six	dev	6	1	4	6628	6748	6638	100	commit	490	6677	490	1	
+six	dev	6	1	6	8063	8183	8072	90	commit	470	8110	470	1	
+six	dev	6	2	0	931	1026	942	110	commit	500	981	500	1	
+six	dev	6	2	2	2728	2848	2759	310	commit	730	2801	730	1	
+six	dev	6	2	4	6124	6244	6131	70	commit	520	6176	520	1	
+six	dev	6	2	6	8831	8951	8854	230	resume	700			2	
+six	dev	6	3	0	906	1026	945	390	commit	780	984	780	1	
+six	dev	6	3	2	2626	2746	2640	140	commit	530	2679	530	1	
+six	dev	6	3	4	6077	6197	6087	100	commit	490	6126	490	1	
+six	dev	6	3	6	8365	8460	8402	370	commit	840	8449	840	1	
+six	dev	0	1	0	859	979	873	140	resume	630			2	
+six	dev	0	1	2	2873	2993	2920	470	commit	1000	2973	1000	1	
+six	dev	0	1	4	6628	6748	6644	160	commit	550	6683	550	1	
+six	dev	0	1	6	8063	8183	8072	90	commit	470	8110	470	1	
+six	dev	0	2	0	931	1026	942	110	commit	500	981	500	1	
+six	dev	0	2	2	2728	2848	2762	340	commit	730	2801	730	1	
+six	dev	0	2	4	6124	6244	6132	80	commit	520	6176	520	1	
+six	dev	0	2	6	8831	8951	8854	230	resume	700			2	
+six	dev	0	3	0	906	1026	1026	1200	resume	1680			1	
+six	dev	0	3	2	2626	2746	2641	150	commit	540	2680	540	1	
+six	dev	0	3	4	6077	6197	6141	640	commit	1090	6186	1090	1	
+six	dev	0	3	6	8365	8460	8404	390	commit	840	8449	840	1	
+six	dev	-6	1	0	859	979	874	150	resume	630			2	
+six	dev	-6	1	2	2873	2993			never				0	
+six	dev	-6	1	4	6628	6748	6681	530	commit	950	6723	950	1	
+six	dev	-6	1	6	8063	8183	8074	110	commit	490	8112	490	1	
+six	dev	-6	2	0	931	1026	942	110	resume	650			1	
+six	dev	-6	2	2	2728	2848			never				0	
+six	dev	-6	2	4	6124	6244	6134	100	commit	540	6178	540	1	
+six	dev	-6	2	6	8831	8951	8854	230	resume	700			2	
+six	dev	-6	3	0	906	1026	946	400	commit	790	985	790	1	
+six	dev	-6	3	2	2626	2746	2645	190	commit	580	2684	580	1	
+six	dev	-6	3	4	6077	6197	6162	850	resume	1340			1	
+six	dev	-6	3	6	8365	8460			never				0	
+six	dev	-12	1	0	859	979	942	830	resume	1310			1	
+six	dev	-12	1	2	2873	2993			never				0	
+six	dev	-12	1	4	6628	6748	6686	580	commit	970	6725	970	1	
+six	dev	-12	1	6	8063	8183			never				0	
+six	dev	-12	2	0	931	1026			never				0	
+six	dev	-12	2	2	2728	2848			never				0	
+six	dev	-12	2	4	6124	6244	6158	340	commit	720	6196	720	1	
+six	dev	-12	2	6	8831	8951			never				0	
+six	dev	-12	3	0	906	1026	1027	1210	resume	1690			1	
+six	dev	-12	3	2	2626	2746	2682	560	commit	960	2722	960	1	
+six	dev	-12	3	4	6077	6197	6161	840	resume	1340			1	
+six	dev	-12	3	6	8365	8460			never				0	
+six	dev	-18	1	0	859	979			never				0	
+six	dev	-18	1	2	2873	2993			never				0	
+six	dev	-18	1	4	6628	6748			never				0	
+six	dev	-18	1	6	8063	8183			never				0	
+six	dev	-18	2	0	931	1026			never				0	
+six	dev	-18	2	2	2728	2848			never				0	
+six	dev	-18	2	4	6124	6244	6191	670	resume	1150			1	
+six	dev	-18	2	6	8831	8951			never				0	
+six	dev	-18	3	0	906	1026			never				0	
+six	dev	-18	3	2	2626	2746	2689	630	commit	1090	2735	1090	1	
+six	dev	-18	3	4	6077	6197			never				0	
+six	dev	-18	3	6	8365	8460	8415	500	commit	880	8453	880	1	

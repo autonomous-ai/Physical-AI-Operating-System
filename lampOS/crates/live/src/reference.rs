@@ -1,11 +1,34 @@
 //! Accepted-render continuity and bounded DSP call accounting. These cursors are
 //! not physical capture timestamps: the two USB devices have separate clocks.
 //! No missing packet is interpreted as silence, and no samples are invented.
+//!
+//! Two ways of keeping the reference beside the capture:
+//!
+//! - **Fixed margin**, the default. Every accepted block goes to the DSP as it
+//!   arrives, and the count of render blocks must stay between one and eight
+//!   ahead of the capture blocks. The clocks differ, so that count drifts and
+//!   a long session ends in `ReferenceLate` or `ReferenceBacklog`.
+//! - **Capture-clocked**, opt-in through [`ReferenceAssembly::capture_clocked`].
+//!   Accepted frames wait in a bounded ring and one render block is read from
+//!   it for each capture block, at a rate that follows the difference between
+//!   the clocks within `lamp_audio::drift::MAX_PPM`. Packet order, cursor
+//!   continuity, privacy, freshness and both bounds fault exactly as before.
+//!
+//! The capture-clocked reference can also be given bounded recovery,
+//! [`ReferenceAssembly::recovering`]: see [`recovery`].
+mod prime;
+pub use prime::PrimeBarrier;
+mod recovery;
+pub use recovery::Policy as RecoveryPolicy;
+
 use crate::wire::{
-    ClockPrimed, ReferenceFault, ReferenceFaultKind as Kind, ReferenceTiming, RenderPayload,
-    RenderReference,
+    ClockPrimed, PreparedPrime, PrimeDisposition, ReferenceDrift, ReferenceFault,
+    ReferenceFaultKind as Kind, ReferenceTiming, RenderPayload, RenderReference,
 };
-use lamp_audio::{CAPTURE_RATE, EchoProcessor, RENDER_RATE, RENDER_SAMPLES, RenderBlock};
+use lamp_audio::{
+    CAPTURE_RATE, EchoProcessor, RENDER_RATE, RENDER_SAMPLES, RenderBlock,
+    drift::{Controller, Resampler, TARGET_FRAMES},
+};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub const PRIME_FRAMES: usize = RENDER_SAMPLES * 2;
@@ -13,6 +36,30 @@ const MAX_REFERENCE_AGE_US: u64 = 40_000;
 const MAX_PARTIAL_US: u64 = 50_000;
 const MAX_AHEAD_BLOCKS: u64 = 8;
 const MAX_CAPTURE_BEFORE_START_NOTICE: usize = PRIME_FRAMES / RENDER_SAMPLES;
+/// Capture-clocked only: the ring starts with this much of the silence that
+/// preceded the stream ahead of the speaker's prime, so that it starts at its
+/// target. Before its first accepted frame the speaker put out nothing; the
+/// frames are true history, not filler, and are never counted as accepted.
+const LEAD_FRAMES: usize = TARGET_FRAMES - PRIME_FRAMES;
+
+struct CaptureClock {
+    resampler: Resampler,
+    controller: Controller,
+}
+
+/// The capture-clocked reference at this moment. Evidence, not a verdict.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Drift {
+    /// Read rate in force, parts per million above one frame per frame.
+    pub ppm: f64,
+    /// The settled part: how much faster the speaker accepts than the
+    /// microphone delivers, as far as it has been learned.
+    pub steady_ppm: f64,
+    /// Accepted frames waiting in the ring.
+    pub unread_frames: usize,
+    /// Render blocks read from the ring for the DSP.
+    pub rendered_blocks: u64,
+}
 
 pub struct ReferenceAssembly {
     timing: ReferenceTiming,
@@ -29,6 +76,16 @@ pub struct ReferenceAssembly {
     captures_before_start_notice: [u64; MAX_CAPTURE_BEFORE_START_NOTICE],
     captures_before_start_notice_len: usize,
     last_capture_read_at_us: Option<u64>,
+    clock: Option<Box<CaptureClock>>,
+    /// Capture-clocked: the accepted-frame cursor of the first frame the
+    /// ring was given since it was last emptied. Negative by the lead while
+    /// the ring still starts with the silence before the stream.
+    ring_origin: i64,
+    /// Fixed margin with recovery: capture blocks by which the count the
+    /// margin is measured against has been moved, in all. Every move is a
+    /// reported reseed; no other counter changes.
+    margin_rebase: i64,
+    recovery: Option<Box<recovery::State>>,
 }
 
 impl Default for ReferenceAssembly {
@@ -44,6 +101,10 @@ impl Default for ReferenceAssembly {
             captures_before_start_notice: [0; MAX_CAPTURE_BEFORE_START_NOTICE],
             captures_before_start_notice_len: 0,
             last_capture_read_at_us: None,
+            clock: None,
+            ring_origin: 0,
+            margin_rebase: 0,
+            recovery: None,
         }
     }
 }
@@ -71,8 +132,39 @@ pub fn accepted_write_survived(
 }
 
 impl ReferenceAssembly {
+    /// The opt-in reference that follows the capture clock. Call
+    /// [`Self::render_for_capture`] between `before_capture` and the DSP's
+    /// capture call.
+    pub fn capture_clocked() -> Self {
+        Self {
+            clock: Some(Box::new(CaptureClock {
+                resampler: Resampler::new(),
+                controller: Controller::default(),
+            })),
+            ..Self::default()
+        }
+    }
+
+    /// `None` for the fixed margin.
+    pub fn drift(&self) -> Option<Drift> {
+        self.clock.as_ref().map(|clock| Drift {
+            ppm: clock.resampler.ppm(),
+            steady_ppm: clock.controller.steady_ppm(),
+            unread_frames: clock.resampler.unread(),
+            rendered_blocks: clock.resampler.taken_blocks(),
+        })
+    }
+
     pub fn timing(&self) -> ReferenceTiming {
-        self.timing
+        ReferenceTiming {
+            recovery: self.recovery_counts(),
+            drift: self.drift().map(|drift| ReferenceDrift {
+                rate_ppm: drift.ppm as f32,
+                learned_ppm: drift.steady_ppm as f32,
+                unread_frames: u32::try_from(drift.unread_frames).unwrap_or(u32::MAX),
+            }),
+            ..self.timing
+        }
     }
 
     pub fn fault(&self, reason: Kind, now: u64) -> ReferenceFault {
@@ -82,7 +174,7 @@ impl ReferenceAssembly {
             expected_sequence: self.sequence.saturating_add(1),
             received_sequence: None,
             received_first_sample: None,
-            timing: self.timing,
+            timing: self.timing(),
         }
     }
 
@@ -92,7 +184,8 @@ impl ReferenceAssembly {
         now: u64,
         privacy: u64,
         echo: &mut EchoProcessor,
-    ) -> Result<()> {
+    ) -> Result<PreparedPrime> {
+        let previous_epoch = self.timing.playback_epoch;
         let reset_valid = match (self.timing.playback_epoch, prime.discarded) {
             (0, None) => prime.playback_epoch == 1,
             (epoch, Some(old)) => {
@@ -117,13 +210,29 @@ impl ReferenceAssembly {
         // Only the speaker's certified, actually accepted prime reaches here.
         // This resets acoustic adaptation; silence does not train room response.
         echo.reset();
-        for _ in 0..2 {
-            echo.render(&[0; RENDER_SAMPLES])?;
-        }
+        let analysed = match self.clock.as_mut() {
+            None => {
+                for _ in 0..2 {
+                    echo.render(&[0; RENDER_SAMPLES])?;
+                }
+                PRIME_FRAMES as u64
+            }
+            Some(clock) => {
+                // The prime waits in the ring with the frames that follow it.
+                self.ring_origin = -(LEAD_FRAMES as i64);
+                clock.resampler.reset();
+                clock.controller.reset();
+                clock
+                    .resampler
+                    .push(&[0; LEAD_FRAMES + PRIME_FRAMES])
+                    .map_err(|_| self.fault(Kind::InvalidPrime, now))?;
+                0
+            }
+        };
         self.timing = ReferenceTiming {
             playback_epoch: prime.playback_epoch,
             accepted_through: PRIME_FRAMES as u64,
-            analysed_through: PRIME_FRAMES as u64,
+            analysed_through: analysed,
             accepted_at_us: prime.accepted_at_us,
             analysed_at_us: now,
             queue_observed_at_us: prime.queue_observed_at_us,
@@ -131,12 +240,26 @@ impl ReferenceAssembly {
             ..ReferenceTiming::default()
         };
         self.sequence = 0;
+        self.margin_rebase = 0;
         self.privacy_generation = privacy;
         self.prime_observed_at_us = prime.queue_observed_at_us;
         self.captures_before_start_notice.fill(0);
         self.captures_before_start_notice_len = 0;
         self.clear_partial();
-        Ok(())
+        if self.recovery.is_some() {
+            self.primed_recovering(previous_epoch, now)?;
+        }
+        Ok(PreparedPrime {
+            playback_epoch: prime.playback_epoch,
+            privacy_generation: privacy,
+            prepared_through: self.timing.accepted_through,
+            analysed_through: self.timing.analysed_through,
+            disposition: if self.clock.is_some() {
+                PrimeDisposition::BufferedForCapture
+            } else {
+                PrimeDisposition::Analysed
+            },
+        })
     }
 
     pub fn started(
@@ -160,9 +283,11 @@ impl ReferenceAssembly {
             .iter()
             .filter(|read_at| **read_at < requested_at)
             .count() as u64;
-        if (self.timing.accepted_through / RENDER_SAMPLES as u64)
-            .saturating_sub(self.timing.capture_blocks_processed - origin)
-            > MAX_AHEAD_BLOCKS
+        // Capture-clocked, the ring's own capacity is the backlog bound.
+        if self.clock.is_none()
+            && (self.timing.accepted_through / RENDER_SAMPLES as u64)
+                .saturating_sub(self.timing.capture_blocks_processed - origin)
+                > MAX_AHEAD_BLOCKS
         {
             return Err(self.fault(Kind::ReferenceBacklog, now).into());
         }
@@ -187,6 +312,14 @@ impl ReferenceAssembly {
             self.timing.ignored_old_epoch_packets =
                 self.timing.ignored_old_epoch_packets.saturating_add(1);
             return Ok(false);
+        }
+        // Starting a stream is not recovered: until the clock has started
+        // every rule below is in force.
+        if self.recovery.is_some()
+            && self.clock.is_some()
+            && self.timing.clock_started_at_us.is_some()
+        {
+            return self.accept_recovering(reference, now, privacy);
         }
         let count = reference.payload.frames();
         let reason = if reference.playback_epoch == 0
@@ -224,15 +357,32 @@ impl ReferenceAssembly {
             .accepted_through
             .checked_add(count as u64)
             .ok_or_else(|| self.fault(Kind::CursorGap, now))?;
-        let full_blocks = accepted / RENDER_SAMPLES as u64;
-        if full_blocks.saturating_sub(self.running_capture_blocks()) > MAX_AHEAD_BLOCKS {
-            return Err(self.fault(Kind::ReferenceBacklog, now).into());
-        }
         let zeros = [0; RENDER_SAMPLES];
         let samples = match &reference.payload {
             RenderPayload::Silence { .. } => &zeros[..count],
             RenderPayload::Speech { samples, .. } => samples.as_slice(),
         };
+        if let Some(clock) = self.clock.as_mut() {
+            // Every accepted frame waits for the capture block that reads it.
+            if clock.resampler.push(samples).is_err() {
+                return Err(self.fault(Kind::ReferenceBacklog, now).into());
+            }
+            self.sequence = reference.sequence;
+            self.timing.accepted_through = accepted;
+            self.timing.accepted_at_us = reference.accepted_at_us;
+            self.timing.queue_observed_at_us = reference.queue_observed_at_us;
+            self.timing.queued_frames = reference.queued_frames;
+            return Ok(true);
+        }
+        let full_blocks = accepted / RENDER_SAMPLES as u64;
+        let ahead = full_blocks.saturating_sub(self.running_capture_blocks());
+        // With recovery the bound may be passed by a few blocks until the
+        // next capture block, which is the only place it can be told whether
+        // the clocks did it or the capture loop fell behind. Nothing is
+        // decided here on what an earlier capture block said.
+        if ahead > MAX_AHEAD_BLOCKS && !self.awaits_capture(ahead) {
+            return Err(self.fault(Kind::ReferenceBacklog, now).into());
+        }
         let mut offset = 0;
         while offset < samples.len() {
             if self.len == 0 {
@@ -245,6 +395,7 @@ impl ReferenceAssembly {
             offset += copied;
             if self.len == RENDER_SAMPLES {
                 echo.render(&self.samples)?;
+                self.remember_rendered();
                 self.timing.analysed_through += RENDER_SAMPLES as u64;
                 self.timing.analysed_at_us = now;
                 self.clear_partial();
@@ -266,9 +417,15 @@ impl ReferenceAssembly {
             .timing
             .accepted_at_us
             .max(self.timing.clock_started_at_us.unwrap_or(0));
+        let supplied = match &self.clock {
+            None => {
+                self.timing.analysed_through / RENDER_SAMPLES as u64 > self.running_capture_blocks()
+            }
+            Some(clock) => clock.resampler.ready(),
+        };
         if self.timing.playback_epoch == 0
             || !fresh(latest_clock_evidence, now, MAX_REFERENCE_AGE_US)
-            || self.timing.analysed_through / RENDER_SAMPLES as u64 <= self.running_capture_blocks()
+            || !supplied
             || (self.timing.clock_started_at_us.is_none()
                 && self.captures_before_start_notice_len == MAX_CAPTURE_BEFORE_START_NOTICE)
         {
@@ -295,9 +452,46 @@ impl ReferenceAssembly {
             // Fail on nominal starvation; never manufacture a silence block.
             return Err(self.fault(Kind::ReferenceLate, now).into());
         }
-        let delay = render_frames as u64 * 1_000 / u64::from(RENDER_RATE)
+        // Capture-clocked, the block about to be rendered was accepted a
+        // ring's length ago and is that much nearer to being heard.
+        let waited = self
+            .clock
+            .as_ref()
+            .map_or(0, |clock| clock.resampler.unread());
+        let delay = render_frames.saturating_sub(waited) as u64 * 1_000 / u64::from(RENDER_RATE)
             + capture_delayed_frames as u64 * 1_000 / u64::from(CAPTURE_RATE);
         Ok(delay as u16)
+    }
+
+    /// Capture-clocked: read this capture block's render block from the ring
+    /// and give it to the DSP, then let the controller see what is left.
+    /// With the fixed margin the DSP already has it and this does nothing.
+    /// Call after `before_capture` has succeeded.
+    pub fn render_for_capture(&mut self, now: u64, echo: &mut EchoProcessor) -> Result<()> {
+        let Some(clock) = self.clock.as_mut() else {
+            return Ok(());
+        };
+        let mut block = [0; RENDER_SAMPLES];
+        if clock.resampler.take(&mut block).is_err() {
+            return Err(self.fault(Kind::ReferenceLate, now).into());
+        }
+        echo.render(&block)?;
+        // Frames the speaker has accepted since its last packet, at the
+        // nominal rate and for at most two blocks: with them the fill is a
+        // steady figure and not a sawtooth one packet wide.
+        let since = now.saturating_sub(self.timing.accepted_at_us).min(20_000);
+        let owed = since as f64 * f64::from(RENDER_RATE) / 1e6;
+        let ppm = clock
+            .controller
+            .observe(clock.resampler.unread() as f64 + owed);
+        clock.resampler.set_ppm(ppm);
+        // Accepted frames read past. The lead was never an accepted frame.
+        self.timing.analysed_through = clock
+            .resampler
+            .consumed()
+            .saturating_sub(LEAD_FRAMES as u64);
+        self.timing.analysed_at_us = now;
+        Ok(())
     }
 
     pub fn captured(&mut self, read_completed_at_us: u64, now: u64) -> Result<()> {
@@ -331,7 +525,10 @@ impl ReferenceAssembly {
         // This is a one-time phase origin, not a claim that the USB clocks are
         // synchronized. Total DSP calls remain separately observable and drift
         // after start still consumes the existing bounded reference lead.
-        self.timing.capture_blocks_processed - self.timing.capture_blocks_before_clock_start
+        // With recovery, each reported re-centre moves the count by what it
+        // says; without, the rebase is zero.
+        (self.timing.capture_blocks_processed - self.timing.capture_blocks_before_clock_start)
+            .saturating_add_signed(self.margin_rebase)
     }
 
     fn clear_partial(&mut self) {
@@ -848,5 +1045,275 @@ mod tests {
         state.started(1, 12_000, 12_000, 12_001).unwrap();
         assert_eq!(state.timing().capture_blocks_processed, 1);
         assert_eq!(state.timing().capture_blocks_before_clock_start, 1);
+    }
+
+    /// Two clocks in virtual time, through the production calls. The capture
+    /// clock is the time base: one block every 10 ms. The speaker accepts one
+    /// block every 10 ms of its own clock, `skew_ppm` faster. `deliver` says
+    /// whether the speaker's packet number `n` reaches the capture worker.
+    /// Returns the capture blocks processed and the fault that ended the run.
+    fn session(
+        state: &mut ReferenceAssembly,
+        skew_ppm: f64,
+        blocks: u64,
+        deliver: impl FnMut(u64) -> bool,
+    ) -> (u64, Option<Kind>) {
+        session_at(state, skew_ppm, blocks, deliver, |_| 0)
+    }
+
+    /// `late(block)` is how long after its time the capture loop reaches a
+    /// block, in microseconds: zero for a loop that is never kept waiting.
+    fn session_at(
+        state: &mut ReferenceAssembly,
+        skew_ppm: f64,
+        blocks: u64,
+        mut deliver: impl FnMut(u64) -> bool,
+        late: impl Fn(u64) -> u64,
+    ) -> (u64, Option<Kind>) {
+        const START: u64 = 1_000_000;
+        let mut echo = EchoProcessor::new(false);
+        let mut first = prime(1, None);
+        first.accepted_at_us = START;
+        first.queue_observed_at_us = START + 1;
+        state.prime(first, START + 2, 2, &mut echo).unwrap();
+        state
+            .started(1, START + 10, START + 20, START + 30)
+            .unwrap();
+        let period = 10_000.0 / (1.0 + skew_ppm * 1e-6);
+        let mut packet = 0_u64;
+        let mut sequence = 0_u64;
+        for block in 0..blocks {
+            // The capture reads half a block after the speaker's first write.
+            let now = START + 5_000 + block * 10_000 + late(block);
+            loop {
+                let accepted_at = START + ((packet + 1) as f64 * period) as u64;
+                if accepted_at > now {
+                    break;
+                }
+                packet += 1;
+                if !deliver(packet) {
+                    continue;
+                }
+                sequence += 1;
+                let mut reference = reference(sequence, 480 + (packet - 1) * 240, 240);
+                reference.accepted_at_us = accepted_at;
+                reference.queue_observed_at_us = accepted_at;
+                reference.queued_frames = 456;
+                if let Err(error) = state.accept(reference, now, 2, &mut echo) {
+                    return (
+                        block,
+                        Some(error.downcast_ref::<ReferenceFault>().unwrap().reason),
+                    );
+                }
+            }
+            let step = state
+                .before_capture(16, now)
+                .and_then(|_| state.render_for_capture(now, &mut echo))
+                .and_then(|()| state.captured(now, now + 100));
+            if let Err(error) = step {
+                return (
+                    block,
+                    Some(error.downcast_ref::<ReferenceFault>().unwrap().reason),
+                );
+            }
+        }
+        (blocks, None)
+    }
+
+    #[test]
+    fn the_fixed_margin_is_used_up_by_the_clock_difference_measured_on_the_lamps() {
+        // The speaker 98 ppm fast gains a block every 102 s. The margin is two
+        // blocks at the start and eight at most: eleven minutes.
+        let mut state = ReferenceAssembly::default();
+        let (blocks, fault) = session(&mut state, 98.0, 100_000, |_| true);
+        assert_eq!(fault, Some(Kind::ReferenceBacklog));
+        assert!((60_000..=70_000).contains(&blocks), "after {blocks} blocks");
+        // The speaker 98 ppm slow loses the two it started with sooner.
+        let mut state = ReferenceAssembly::default();
+        let (blocks, fault) = session(&mut state, -98.0, 100_000, |_| true);
+        assert_eq!(fault, Some(Kind::ReferenceLate));
+        assert!((5_000..=25_000).contains(&blocks), "after {blocks} blocks");
+    }
+
+    #[test]
+    fn the_capture_clocked_reference_follows_that_difference() {
+        for skew in [98.0, -98.0] {
+            // Twenty minutes: twice as long as the fixed margin lasted.
+            let mut state = ReferenceAssembly::capture_clocked();
+            let (blocks, fault) = session(&mut state, skew, 120_000, |_| true);
+            assert_eq!((blocks, fault), (120_000, None), "{skew}");
+            let drift = state.drift().unwrap();
+            assert!((drift.steady_ppm - skew).abs() < 10.0, "{skew}: {drift:?}");
+            assert!(
+                (TARGET_FRAMES - 240..=TARGET_FRAMES + 240).contains(&drift.unread_frames),
+                "{skew}: {drift:?}"
+            );
+            // One render block for each capture block, and every counter is
+            // still the count it was: nothing was rebased.
+            let timing = state.timing();
+            assert_eq!(drift.rendered_blocks, 120_000);
+            assert_eq!(timing.capture_blocks_processed, 120_000);
+            let expected = (120_000.0 * 240.0 * (1.0 + skew * 1e-6)) as u64;
+            assert!(timing.accepted_through.abs_diff(480 + expected) <= 720);
+            assert_eq!(timing.accepted_through % 240, 0);
+            // What is accepted and not yet read is what waits in the ring.
+            assert_eq!(
+                timing.accepted_through - timing.analysed_through,
+                drift.unread_frames as u64
+            );
+            // The periodic report carries the same state to the trace.
+            let reported = timing.drift.unwrap();
+            assert_eq!(reported.unread_frames as usize, drift.unread_frames);
+            assert_eq!(reported.learned_ppm, drift.steady_ppm as f32);
+            assert_eq!(reported.rate_ppm, drift.ppm as f32);
+        }
+    }
+
+    #[test]
+    fn the_fixed_reference_reports_exactly_what_it_did() {
+        let mut state = ReferenceAssembly::default();
+        let (blocks, fault) = session(&mut state, 0.0, 500, |_| true);
+        assert_eq!((blocks, fault), (500, None));
+        assert!(state.drift().is_none() && state.timing().drift.is_none());
+        let report = serde_json::to_value(state.timing()).unwrap();
+        assert!(report.get("drift").is_none(), "{report}");
+        // And a report without the field still reads back.
+        let read: ReferenceTiming = serde_json::from_value(report).unwrap();
+        assert!(read.drift.is_none());
+        // A fault from the capture-clocked reference says where it stood.
+        let clocked = ReferenceAssembly::capture_clocked();
+        assert!(clocked.fault(Kind::ReferenceLate, 1).timing.drift.is_some());
+    }
+
+    #[test]
+    fn lost_packets_are_a_fault_within_the_same_bound_either_way() {
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            // Ten seconds of steady supply, then nothing arrives.
+            let (blocks, fault) = session(&mut state, 98.0, 2_000, |packet| packet <= 1_000);
+            assert_eq!(fault, Some(Kind::ReferenceLate), "clocked {clocked}");
+            // The last packet was accepted 10 s in. Its 40 ms of freshness and
+            // the frames in hand allow two to four more capture blocks.
+            assert!(
+                (1_002..=1_005).contains(&blocks),
+                "clocked {clocked}: {blocks}"
+            );
+        }
+    }
+
+    /// A capture loop held up at block 3,000 for `stall_us`, which then
+    /// works through what it missed without waiting: each block it owes is
+    /// read 200 us after the one before, until it is back on time.
+    fn stall(stall_us: u64) -> impl Fn(u64) -> u64 {
+        move |block| match block.checked_sub(3_000) {
+            Some(behind) => (stall_us + behind * 200).saturating_sub(behind * 10_000),
+            None => 0,
+        }
+    }
+
+    #[test]
+    fn a_capture_loop_kept_waiting_catches_up_without_a_fault_in_either_mode() {
+        // The paced check woke the capture loop 27 ms late. It found the
+        // packets of that time waiting, and a ring of eight blocks with five
+        // in hand had no room for them. The same 27 ms, thirty seconds in.
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            let (blocks, fault) = session_at(&mut state, 98.0, 6_000, |_| true, stall(27_000));
+            assert_eq!((blocks, fault), (6_000, None), "clocked {clocked}");
+            if let Some(drift) = state.drift() {
+                // And it settles again where it was.
+                assert!(
+                    (TARGET_FRAMES - 240..=TARGET_FRAMES + 240).contains(&drift.unread_frames),
+                    "{drift:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_capture_loop_kept_waiting_longer_than_a_reference_keeps_is_a_fault_either_way() {
+        // Thirty-five milliseconds: the oldest packet waiting was accepted a
+        // block before that, and 45 ms is older than a reference may be.
+        // Neither mode pretends otherwise.
+        let mut faults = Vec::new();
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            let (blocks, fault) = session_at(&mut state, 98.0, 6_000, |_| true, stall(35_000));
+            assert_eq!(blocks, 3_000, "clocked {clocked}");
+            faults.push(fault.expect("a stale reference was used"));
+        }
+        assert_eq!(faults[0], faults[1]);
+    }
+
+    #[test]
+    fn a_skipped_packet_is_a_gap_and_never_a_clock_difference() {
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            // Packet 500 never arrives. Packet 501 does, with its own cursor.
+            let (blocks, fault) = session(&mut state, 98.0, 2_000, |packet| packet != 500);
+            assert_eq!(fault, Some(Kind::CursorGap), "clocked {clocked}");
+            assert!((499..=501).contains(&blocks), "clocked {clocked}: {blocks}");
+        }
+    }
+
+    #[test]
+    fn a_flood_of_reference_is_a_backlog_in_the_ring_too() {
+        let mut state = ReferenceAssembly::capture_clocked();
+        let mut echo = EchoProcessor::new(false);
+        state.prime(prime(1, None), 10_002, 2, &mut echo).unwrap();
+        // The ring holds ten blocks: the lead, the prime and five more.
+        for sequence in 1..=5 {
+            let packet = reference(sequence, 480 + (sequence - 1) * 240, 240);
+            state.accept(packet, 10_102, 2, &mut echo).unwrap();
+        }
+        assert_fault(
+            state.accept(reference(6, 1_680, 240), 10_102, 2, &mut echo),
+            Kind::ReferenceBacklog,
+        );
+        // The refused packet changed nothing.
+        assert_eq!(state.timing().accepted_through, 1_680);
+        assert_eq!(state.drift().unwrap().unread_frames, 2_400);
+    }
+
+    #[test]
+    fn a_clock_no_crystal_has_is_not_followed() {
+        // 2,000 ppm: the rate stops at its limit and the ring fills.
+        let mut state = ReferenceAssembly::capture_clocked();
+        let (blocks, fault) = session(&mut state, 2_000.0, 100_000, |_| true);
+        assert_eq!(fault, Some(Kind::ReferenceBacklog));
+        assert!(blocks < 10_000, "{blocks}");
+        assert!((state.drift().unwrap().ppm - 500.0).abs() < 0.01);
+    }
+
+    /// Four hours of virtual time through the real DSP render path. Slow in a
+    /// debug build: run with `--release -- --ignored`.
+    #[test]
+    #[ignore = "four virtual hours; run in release"]
+    fn four_virtual_hours_capture_clocked() {
+        for skew in [98.0, -66.0] {
+            let mut state = ReferenceAssembly::capture_clocked();
+            let (blocks, fault) = session(&mut state, skew, 4 * 360_000, |_| true);
+            assert_eq!((blocks, fault), (4 * 360_000, None), "{skew}");
+            let drift = state.drift().unwrap();
+            println!("{skew} ppm for four hours: {drift:?}");
+            assert!((drift.steady_ppm - skew).abs() < 5.0);
+            assert!((drift.ppm - skew).abs() < 10.0);
+        }
     }
 }

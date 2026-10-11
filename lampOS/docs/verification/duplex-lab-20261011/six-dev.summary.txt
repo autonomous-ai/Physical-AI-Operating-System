@@ -1,0 +1,7 @@
+six [dev] replies 4 of 7, room at block 7745
+  NEGATIVES 43.6 s of own speech: yields 2, committed 0, pauses ms [480, 470]
+  OVERLAP +6 dB: 12 trials; yielded 12 (delay ms median 125, 90th 364, worst 390); committed at first yield 11, in the end 11 (delay ms median 520, worst 840); never yielded 0; excluded 0
+  OVERLAP +0 dB: 12 trials; yielded 12 (delay ms median 195, 90th 623, worst 1200); committed at first yield 9, in the end 9 (delay ms median 550, worst 1090); never yielded 0; excluded 0
+  OVERLAP -6 dB: 12 trials; yielded 9 (delay ms median 190, 90th 594, worst 850); committed at first yield 5, in the end 5 (delay ms median 580, worst 950); never yielded 3; excluded 0
+  OVERLAP -12 dB: 12 trials; yielded 6 (delay ms median 705, 90th 1025, worst 1210); committed at first yield 3, in the end 3 (delay ms median 960, worst 970); never yielded 6; excluded 0
+  OVERLAP -18 dB: 12 trials; yielded 3 (delay ms median 630, 90th 662, worst 670); committed at first yield 2, in the end 2 (delay ms median 985, worst 1090); never yielded 9; excluded 0

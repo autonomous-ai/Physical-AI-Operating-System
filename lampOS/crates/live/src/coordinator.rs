@@ -7,7 +7,7 @@
 use crate::{
     activity::{Activity, ObservedAudio, TurnDetector},
     admission::{
-        AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision,
+        AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision, Hold,
         InputAdmission, Rejection, Step as AdmissionStep, Update as AdmissionUpdate,
     },
     camera_config::CameraConfig,
@@ -27,17 +27,20 @@ use crate::{
     ring_wire::{RingBlankReason, RingFeedback},
     service_privacy::{self, PhysicalMute},
     session_lifetime::{Lifetime, SessionClock},
-    session_state::SessionState,
+    session_state::{SessionState, YieldInterval},
     termination::Termination,
     transport::{Channel, WorkerChannels},
-    turn_taking::{Disposition, PlaybackMask},
+    turn_taking::{Disposition, FRUITLESS_YIELDS, PlaybackMask, RetainedHistoryLoss},
     visual_context::Source as VisualSource,
     wire::{
         Control, MicrophoneFrame, PlaybackDiscardReason, PlaybackGapPhase, SpeakerChunk,
         WorkerEvent,
     },
 };
-use lamp_audio::playout::{StartGate, StartNeed};
+use lamp_audio::{
+    duplex::{Confirmation, Hearing, Step as DuplexStep},
+    playout::{StartGate, StartNeed},
+};
 use lamp_interaction::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, OutputKind,
     OutputOwner, OutputPermit, Permission, PlaybackToken, Snapshot, TurnOwner,
@@ -721,7 +724,9 @@ fn run_source(
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
         "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
-        "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
+        "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
+        "reference_clock":options.reference_clock,
+        "reference_recovery":options.reference_recovery,
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}),
     )?;
@@ -1341,6 +1346,9 @@ impl StartupEvents {
                 (WorkerEvent::CaptureDspReset { .. }, "capture") => self.push(
                     json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
                 )?,
+                (WorkerEvent::ReferenceStatus { status }, "capture") => {
+                    self.push(reference_status_trace(status))?
+                }
                 (
                     WorkerEvent::Ring {
                         report: RingFeedback::Blanked { .. },
@@ -1466,6 +1474,8 @@ fn spawn_rig(
     let capture_arguments = AudioWorkerOptions {
         diagnostic_directory: diagnostic_directory.map(|p| p.join("capture-audio")),
         noise_suppression: options.noise_suppression,
+        reference_clock: options.reference_clock,
+        reference_recovery: options.reference_recovery,
     }
     .child_arguments("plug:device_micro2", true)?;
     let speaker_arguments = AudioWorkerOptions {
@@ -1743,6 +1753,19 @@ fn finish_active_run(
         };
         let _ = cancel_reply(owner, reply, trace, reason);
     }
+    // Also close a yield with no active reply, including any error exit. Lost
+    // observation storage still cannot inhibit privacy revocation or cleanup.
+    let _ = finish_duplex_yield(
+        trace,
+        monotonic_us(),
+        if result.is_err() {
+            "session_failed"
+        } else {
+            "session_ended"
+        },
+        None,
+        None,
+    );
     let _ = owner.set_camera_permission(now(), Permission::Denied);
     let _ = owner.set_microphone_permission(now(), Permission::Denied);
     if let Ok(snapshot) = owner.snapshot(now()) {
@@ -1788,7 +1811,8 @@ fn conversation(
     };
     let mut ring_trace = RingTrace::default();
     let mut detector = match rig.turn_taking {
-        TurnTaking::V1Baseline => TurnDetector::v1_baseline(),
+        // Duplex gates the scores this detector sees; its rule is unchanged.
+        TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
         TurnTaking::VadOnly => TurnDetector::default(),
     };
     record(
@@ -1797,11 +1821,42 @@ fn conversation(
         "turn_taking":rig.turn_taking,"silence_wait_ms":detector.endpoint_silence_ms(),
         "basis":"consecutive_low_vad_scores","semantic_confirmation":false}),
     )?;
-    let mut admission = InputAdmission::default();
-    let mut playback_mask = PlaybackMask::new(rig.turn_taking);
+    // Duplex is the conservative mask with ears. A candidate that began over
+    // the lamp is held until the lamp's own sound has gone, so its decision
+    // budget is longer; everything else about admission is unchanged.
+    let duplex = rig.turn_taking == TurnTaking::Duplex;
+    let hold = if duplex { Hold::DUPLEX } else { Hold::STANDARD };
+    let mut admission = InputAdmission::with_hold(hold);
+    let mut playback_mask = if duplex {
+        record(
+            trace,
+            json!({"kind":"duplex_policy","at_us":monotonic_us(),
+            "speech_score":Hearing::EVALUATED.speech,
+            "explained_percent":Hearing::EVALUATED.explained_percent,
+            "floor_percent":Hearing::EVALUATED.floor_percent,
+            "clear_after_blocks":Hearing::EVALUATED.clear_after_blocks,
+            "yield_after_blocks":Confirmation::EVALUATED.onset_blocks,
+            "commit_after_clear_blocks":Confirmation::EVALUATED.speech_blocks,
+            "resume_after_still_blocks":Confirmation::EVALUATED.silence_blocks,
+            "resume_deadline_blocks":Confirmation::EVALUATED.deadline_blocks,
+            "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
+            "decision_budget_us":hold.decision_budget_us,
+            "provider_queue_bound":provider_queue_bound(hold),
+            "provider_total_queue_bound":provider_queue_bound(hold) + 1,
+            "provider_terminal_allowance":1,
+            "fallback":"v1-baseline mask for a block without echo evidence and for the rest of a reply after its fruitless yields",
+            "basis":"echo evidence with the detector score; not level or score alone",
+            "addressee_inference":false}),
+        )?;
+        PlaybackMask::duplex()
+    } else {
+        PlaybackMask::new(rig.turn_taking)
+    };
+    let mut heard_reply: Option<TurnOwner> = None;
     let mut policy_available = None;
     let mut capture_lineage: Option<CaptureLineage> = None;
-    let mut provider_queue = VecDeque::with_capacity(64);
+    let provider_queue_bound = provider_queue_bound(hold);
+    let mut provider_queue = VecDeque::with_capacity(provider_queue_bound);
     let mut submission_draining = false;
     let mut speaker_pending: Option<PendingSpeaker> = None;
     let mut speaker_sequence = 0u64;
@@ -2135,6 +2190,15 @@ fn conversation(
                 trace,
                 json!({"kind":"turn_taking_summary","at_us":monotonic_us(),"policy":rig.turn_taking,"suppressed_blocks":playback_mask.suppressed_blocks(),"tail_us":crate::turn_taking::TAIL_US,"acoustic_tail_measured":false}),
             )?;
+            if let Some(((yields, commits, resumes), fallen_back)) = playback_mask.duplex_summary()
+            {
+                record(
+                    trace,
+                    json!({"kind":"duplex_summary","at_us":monotonic_us(),"yields":yields,"commits":commits,"resumes":resumes,
+                    "fallen_back_at_end":fallen_back,"hearing_margin_db":playback_mask.hearing_margin_db(),
+                    "margin_scope":"person in the clear against own voice, both before cancellation; not addressee evidence"}),
+                )?;
+            }
             cancel_reply(owner, reply, trace, "deadline_cancelled")?;
             snapshot = owner.snapshot(now())?;
             rig.publish(snapshot)?;
@@ -2207,14 +2271,31 @@ fn conversation(
                 privacy_generation: frame.privacy_generation,
             };
             if capture_lineage.is_some_and(|old| old != lineage) {
-                detector.discard_inactive_prefix();
-                playback_mask.clear_read_lineage();
+                clear_capture_lineage(
+                    &mut detector,
+                    &mut playback_mask,
+                    trace,
+                    at,
+                    frame.frame_sequence,
+                    frame.read_completed_at_us,
+                )?;
             }
             capture_lineage = Some(lineage);
             let context = AdmissionContext {
                 capture: lineage,
                 authority: owner.snapshot(now())?,
             };
+            let heard = hear_capture_block(
+                &mut playback_mask,
+                reply,
+                &mut heard_reply,
+                frame.frame_sequence,
+                frame.read_completed_at_us,
+                frame.probability,
+                frame.echo.as_ref(),
+                monotonic_us(),
+                trace,
+            )?;
             let observation = ObservedAudio {
                 sequence: frame.frame_sequence,
                 captured_at_us: frame.read_completed_at_us,
@@ -2230,7 +2311,7 @@ fn conversation(
                 context,
                 observation,
                 frame.timing.first_read_started_at_us,
-                frame.probability,
+                heard,
                 monotonic_us(),
             )?;
             let discarded_endpoint = submission_draining && input_ended;
@@ -2355,6 +2436,7 @@ fn conversation(
                             current,
                             snapshot.microphone_generation(),
                             audio,
+                            provider_queue_bound,
                         )?;
                     } else {
                         return Err(io::Error::other("speech continuation lost its owner").into());
@@ -2371,15 +2453,18 @@ fn conversation(
                         current,
                         snapshot.microphone_generation(),
                         audio,
+                        provider_queue_bound,
                     )?;
                     owner.input_ended(now(), current.owner)?;
                     snapshot = owner.snapshot(now())?;
                     rig.publish(snapshot)?;
                     last_publish = monotonic_us();
-                    provider_queue.push_back(ProviderInput::End {
-                        request: current.owner.turn(),
-                        privacy_generation: snapshot.microphone_generation(),
-                    });
+                    queue_input_end(
+                        &mut provider_queue,
+                        current,
+                        snapshot.microphone_generation(),
+                        provider_queue_bound,
+                    )?;
                     record(
                         trace,
                         json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":detector.endpoint_silence_ms(),"acoustic_speech_end":null}),
@@ -2420,6 +2505,7 @@ fn conversation(
             )?;
         }
         let prior_speaker_sequence = speaker_sequence;
+        settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;
         dispatch_speaker_chunk(
             owner,
             reply,
@@ -2473,6 +2559,7 @@ fn conversation(
                 "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
                 "start_need_censored":!matches!(current.cloud.outcome,Some(RequestOutcome::Complete))}),
             )?;
+            finish_duplex_yield(trace, monotonic_us(), "reply_completed", None, None)?;
             *reply = None;
         }
         // Terminal priority status can overtake valid PCM/outcomes. Only the
@@ -2509,6 +2596,180 @@ fn conversation(
             std::thread::sleep(wait);
         }
     }
+}
+
+/// Close the one coordinator withholding interval. This never changes input,
+/// output ownership, raw accepted-zero receipts or their starvation meaning.
+fn finish_duplex_yield(
+    trace: &mut SessionState,
+    at_us: u64,
+    outcome: &str,
+    frame_sequence: Option<u64>,
+    read_completed_at_us: Option<u64>,
+) -> Result<()> {
+    let Some(interval) = trace.yield_interval.take() else {
+        return Ok(());
+    };
+    record(
+        trace,
+        json!({"kind":"duplex_yield_end", "owner":interval.owner,
+        "started_at_us":interval.started_at_us, "at_us":at_us,
+        "first_frame_sequence":interval.first_frame_sequence,
+        "first_read_completed_at_us":interval.first_read_completed_at_us,
+        "last_frame_sequence":interval.last_frame_sequence,
+        "ending_frame_sequence":frame_sequence,
+        "ending_read_completed_at_us":read_completed_at_us,
+        "missing_evidence_since_sequence":interval.missing_evidence_since,
+        "outcome":outcome,
+        "clock_regressed":at_us < interval.started_at_us,
+        "boundary":"coordinator withholding interval; not an acoustic gap or input admission",
+        "starvation_excluded":false}),
+    )
+}
+
+/// Run immediately before the normal speaker dispatch. No stale hearing state
+/// can leave an open audit interval after the mask ceases to withhold output.
+fn settle_duplex_yield_before_dispatch(
+    mask: &PlaybackMask,
+    reply: &Option<Reply>,
+    at_us: u64,
+    trace: &mut SessionState,
+) -> Result<()> {
+    if let Some(interval) = trace.yield_interval {
+        let current_owner = reply.as_ref().map(|current| current.owner);
+        if interval.owner != current_owner {
+            finish_duplex_yield(trace, at_us, "owner_changed", None, None)?;
+        } else if !mask.yielded(at_us) {
+            finish_duplex_yield(trace, at_us, "hearing_expired", None, None)?;
+        }
+    }
+    Ok(())
+}
+
+fn clear_capture_lineage(
+    detector: &mut TurnDetector,
+    mask: &mut PlaybackMask,
+    trace: &mut SessionState,
+    at_us: u64,
+    sequence: u64,
+    read_completed_at_us: u64,
+) -> Result<()> {
+    finish_duplex_yield(
+        trace,
+        at_us,
+        "capture_lineage_changed",
+        Some(sequence),
+        Some(read_completed_at_us),
+    )?;
+    detector.discard_inactive_prefix();
+    mask.clear_read_lineage();
+    Ok(())
+}
+
+/// Duplex hearing for one capture block, before admission sees it. Returns
+/// the score the turn detector is to be given: the block's own, except that
+/// the lamp's own voice counts as silence and a person over it as speech.
+/// Every other policy gets the block's own score and no trace.
+#[allow(clippy::too_many_arguments)]
+fn hear_capture_block(
+    mask: &mut PlaybackMask,
+    reply: &Option<Reply>,
+    heard_reply: &mut Option<TurnOwner>,
+    sequence: u64,
+    captured_at_us: u64,
+    probability: f32,
+    echo: Option<&lamp_audio::evidence::EchoEvidence>,
+    at_us: u64,
+    trace: &mut SessionState,
+) -> Result<f32> {
+    if !mask.is_duplex() {
+        return Ok(probability);
+    }
+    let owner = reply.as_ref().map(|current| current.owner);
+    if owner != *heard_reply {
+        finish_duplex_yield(
+            trace,
+            at_us,
+            "owner_changed",
+            Some(sequence),
+            Some(captured_at_us),
+        )?;
+        mask.reply_closed();
+        *heard_reply = owner;
+    }
+    // Something to yield: reply audio waiting to be handed over, or the
+    // lamp's sound still accepted, queued or within its tail.
+    let speaking = !mask.available(at_us)
+        || reply.as_ref().is_some_and(|current| {
+            current.cloud.started && current.local_input_ended && !current.pcm.is_empty()
+        });
+    let listened = mask.listen(sequence, probability, echo, speaking, at_us)?;
+    if let Some(interval) = trace.yield_interval.as_mut() {
+        interval.last_frame_sequence = sequence;
+        if echo.is_none() && interval.missing_evidence_since.is_none() {
+            interval.missing_evidence_since = Some(sequence);
+        }
+    }
+    if listened.step == DuplexStep::Yield {
+        finish_duplex_yield(
+            trace,
+            at_us,
+            "superseded_decision",
+            Some(sequence),
+            Some(captured_at_us),
+        )?;
+        trace.yield_interval = Some(YieldInterval {
+            owner,
+            started_at_us: at_us,
+            first_frame_sequence: sequence,
+            first_read_completed_at_us: captured_at_us,
+            last_frame_sequence: sequence,
+            missing_evidence_since: None,
+        });
+    }
+    let kind = match listened.step {
+        DuplexStep::Carry => {
+            if trace.yield_interval.is_some() && !mask.yielded(at_us) {
+                finish_duplex_yield(
+                    trace,
+                    at_us,
+                    "evidence_discontinuity",
+                    Some(sequence),
+                    Some(captured_at_us),
+                )?;
+            }
+            return Ok(listened.score);
+        }
+        DuplexStep::Yield => "duplex_yield",
+        DuplexStep::Commit => "duplex_commit",
+        DuplexStep::Resume => "duplex_resume",
+    };
+    record(
+        trace,
+        json!({"kind":kind,"at_us":at_us,"frame_sequence":sequence,
+        "last_block_host_read_us":captured_at_us,"owner":owner,
+        "reply_queued_frames":reply.as_ref().map(|current| current.pcm.len()),
+        "hearing_margin_db":mask.hearing_margin_db(),
+        "boundary":"coordinator hearing decision; not acoustic onset or stopped output"}),
+    )?;
+    match listened.step {
+        DuplexStep::Commit => finish_duplex_yield(
+            trace,
+            at_us,
+            "commit_decision",
+            Some(sequence),
+            Some(captured_at_us),
+        )?,
+        DuplexStep::Resume => finish_duplex_yield(
+            trace,
+            at_us,
+            "resumed",
+            Some(sequence),
+            Some(captured_at_us),
+        )?,
+        _ => {}
+    }
+    Ok(listened.score)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2556,6 +2817,10 @@ fn decide_prospective_input(
     at_us: u64,
     trace: &mut SessionState,
 ) -> Result<Option<Accepted>> {
+    if let Some(rejection) = admission.maintain(context, at_us)? {
+        record_input_rejection(trace, rejection)?;
+        return Ok(None);
+    }
     match mask.candidate(candidate)? {
         Disposition::AwaitWriteEvidence => return Ok(None),
         Disposition::Suppress => {
@@ -2574,7 +2839,31 @@ fn decide_prospective_input(
         let mut last_masked = None;
         let mut awaiting_write = false;
         for frame in audio {
-            match mask.retained_frame(frame)? {
+            let disposition = match mask.retained_frame(frame) {
+                Ok(disposition) => disposition,
+                Err(error)
+                    if error
+                        .get_ref()
+                        .is_some_and(|cause| cause.is::<RetainedHistoryLoss>()) =>
+                {
+                    if let Some(rejection) =
+                        admission.reject_retained_history(candidate.id, context, at_us)?
+                    {
+                        let loss = error
+                            .get_ref()
+                            .and_then(|cause| cause.downcast_ref::<RetainedHistoryLoss>())
+                            .expect("matched history loss");
+                        record(
+                            trace,
+                            json!({"kind":"input_candidate_rejected", "candidate":rejection.candidate,
+                            "reason":rejection.reason, "history_loss":loss, "at_us":at_us}),
+                        )?;
+                    }
+                    return Ok(None);
+                }
+                Err(error) => return Err(error.into()),
+            };
+            match disposition {
                 Disposition::Suppress => last_masked = Some(frame.sequence),
                 Disposition::AwaitWriteEvidence => awaiting_write = true,
                 Disposition::Pass => {}
@@ -2606,7 +2895,9 @@ fn decide_prospective_input(
             return Ok(None);
         }
     }
-    let basis = if mask.enabled() {
+    let basis = if mask.is_duplex() {
+        AcceptanceBasis::DirectedSessionDuplex
+    } else if mask.enabled() {
         AcceptanceBasis::DirectedSessionV1Baseline
     } else {
         AcceptanceBasis::DirectedSessionVadOnly
@@ -2673,21 +2964,27 @@ fn commit_admitted_input(
         start: playout_start.gate(),
         need: StartNeed::default(),
     };
+    // One candidate's audio, already bounded by the admission's hold. The
+    // standard hold's prefix fits the standing bound as it always has.
+    let bound = PROVIDER_QUEUE_BOUND.max(prefix.len() + 2);
     for audio in prefix {
         queue_input(
             provider_queue,
             &mut current,
             snapshot.microphone_generation(),
             audio,
+            bound,
         )?;
     }
     if accepted.ended {
         current.local_input_ended = true;
         owner.input_ended(now(), current.owner)?;
-        provider_queue.push_back(ProviderInput::End {
-            request: current.owner.turn(),
-            privacy_generation: snapshot.microphone_generation(),
-        });
+        queue_input_end(
+            provider_queue,
+            &current,
+            snapshot.microphone_generation(),
+            bound,
+        )?;
         snapshot = owner.snapshot(now())?;
         publish(snapshot)?;
     }
@@ -2804,6 +3101,12 @@ fn dispatch_speaker_chunk(
     if pending.is_some() {
         return Ok(());
     }
+    // Duplex: someone is being heard over the lamp. Keep the reply and hand
+    // nothing more to the speaker until that is settled; it resumes or is
+    // replaced through the ordinary cancellation path.
+    if playback_mask.yielded(monotonic_us()) {
+        return Ok(());
+    }
     let Some(current) = reply.as_mut() else {
         return Ok(());
     };
@@ -2842,13 +3145,28 @@ fn dispatch_speaker_chunk(
     Ok(())
 }
 
+/// Queue threshold before appending PCM: a start, the largest accepted prefix
+/// and what arrives while it drains. One terminal End may follow at this bound;
+/// total command capacity is 65 in standard mode or 115 in duplex mode.
+const PROVIDER_QUEUE_BOUND: usize = 64;
+
+/// A longer hold accepts a longer prefix; the queue keeps the same spare
+/// beyond it. The standard hold gives [`PROVIDER_QUEUE_BOUND`] itself.
+fn provider_queue_bound(hold: Hold) -> usize {
+    PROVIDER_QUEUE_BOUND
+        + hold
+            .decision_blocks
+            .saturating_sub(Hold::STANDARD.decision_blocks)
+}
+
 fn queue_input(
     queue: &mut VecDeque<ProviderInput>,
     reply: &mut Reply,
     privacy_generation: u64,
     audio: ObservedAudio,
+    bound: usize,
 ) -> Result<()> {
-    if queue.len() >= 64 {
+    if queue.len() >= bound {
         return Err(io::Error::other("microphone to provider queue exceeded bound").into());
     }
     reply.input_sequence += 1;
@@ -2858,6 +3176,24 @@ fn queue_input(
         sequence: reply.input_sequence,
         read_completed_at_us: audio.captured_at_us,
         samples: audio.samples.to_vec(),
+    });
+    Ok(())
+}
+
+/// The endpoint has one explicit slot after the PCM threshold. It cannot
+/// grow an already-full terminal queue, and it does not enlarge PCM admission.
+fn queue_input_end(
+    queue: &mut VecDeque<ProviderInput>,
+    reply: &Reply,
+    privacy_generation: u64,
+    pcm_bound: usize,
+) -> Result<()> {
+    if queue.len() > pcm_bound {
+        return Err(io::Error::other("provider terminal queue exceeded bound").into());
+    }
+    queue.push_back(ProviderInput::End {
+        request: reply.owner.turn(),
+        privacy_generation,
     });
     Ok(())
 }
@@ -2903,6 +3239,9 @@ fn drain_capture_control(
                 trace,
                 json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
             )?,
+            WorkerEvent::ReferenceStatus { status } => {
+                record(trace, reference_status_trace(&status))?
+            }
             WorkerEvent::ReferenceClock { timing } => record(
                 trace,
                 json!({"kind":"reference_clock","at_us":monotonic_us(),"details":timing}),
@@ -2948,6 +3287,15 @@ fn validate_capture_frame(
     Ok(())
 }
 
+/// A change of trust in the capture worker's echo reference. It is a status,
+/// not a fault: the session goes on. While the reference is untrusted the
+/// frames carry no echo evidence and did not pass the canceller, so a policy
+/// that masks own playback is what keeps the lamp's voice from being a turn.
+fn reference_status_trace(status: &crate::wire::ReferenceStatus) -> Value {
+    json!({"kind":"reference_status","at_us":monotonic_us(),"details":status,
+        "boundary":"capture worker's pairing of reference and capture by count; not an acoustic measurement"})
+}
+
 fn record_input_rejection(trace: &mut SessionState, rejection: Rejection) -> Result<()> {
     record(
         trace,
@@ -2967,6 +3315,7 @@ fn cancel_reply(
         // Dropping this reply also discards PCM waiting in the controller.
         let cancel = owner.cancel_turn(now(), current.owner);
         let cancelled_at_us = monotonic_us();
+        finish_duplex_yield(trace, cancelled_at_us, reason, None, None)?;
         trace
             .receipts
             .cancelled(current.owner, cancelled_at_us, reason)?;
@@ -3141,6 +3490,7 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod duplex;
     mod playout_continuity;
     mod playout_start;
     mod provider_pair;
@@ -3400,6 +3750,8 @@ mod tests {
                 frame_sequence: 1,
                 read_completed_at_us: at,
                 probability: 0.95,
+                echo: None,
+                reference: Default::default(),
                 samples: vec![123; 160],
                 timing: CaptureTiming {
                     first_read_started_at_us: at,

@@ -96,10 +96,21 @@ owned output whose substantive audibility is unscored.
 Startup first opens/configures the microphone without starting or reading it.
 The speaker disables automatic start, accepts exactly 480 zero frames while
 prepared, and checks the reported prepared queue against that count. Capture
-resets DSP, analyzes those two certified reference blocks, and acknowledges the
-exact epoch/cursor. Only then does the speaker explicitly start, after another
-privacy check; capture then starts its prepared microphone and retains sequence
-1. The prime/ack barrier has a checked 100 ms bound and reference connection has
+resets DSP and acknowledges a typed `PreparedPrime` for the exact epoch, privacy
+lineage and prepared cursor. Fixed mode analyzes both certified reference blocks
+and reports `Analysed` with an analysis cursor of 480. Capture-clock mode holds
+all 480 accepted prime frames in its bounded resampler and reports
+`BufferedForCapture` with an analysis cursor of zero. Holding the prime is enough
+to prepare the reference; it is not DSP analysis or microphone readiness.
+
+The speaker's one-shot `PrimeBarrier` accepts only these exact states, the
+original pending prime, matching current privacy, and an unchanged 480-frame
+unretired hardware cursor. It checks the original 100 ms prime deadline before
+starting; receipt does not extend it. Duplicate, unsolicited, malformed,
+wrong-epoch/privacy or expired acknowledgements fail. Only then does the speaker
+explicitly start, after another live privacy check; capture then starts its
+prepared microphone and retains sequence 1. The prime/ack barrier has a checked
+100 ms bound and reference connection has
 a 3 s startup bound. Neither is a guarantee that arbitrary driver calls finish
 within that time. There is no blind warmup mute or discarded opening audio.
 

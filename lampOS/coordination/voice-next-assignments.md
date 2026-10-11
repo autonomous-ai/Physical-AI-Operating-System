@@ -1,0 +1,118 @@
+# Next voice assignments after the six-turn Lamp run
+
+Owner requested work for the two available Claude Code agents on 2026-10-11.
+These assignments supersede the broad completion-plan priorities for their next
+checkpoints. Main retains deployment, the single saved V1-main cohort, camera,
+motor/choreographer integration, the shared coordinator and release decisions.
+
+## Shared starting point and evidence
+
+Start from integration code `1a089863a1bfdfa532a11e8967e6ed87f94ea1d5` on
+`origin/lamp-v2-chat`. Preserve previous branches and uncommitted work. Prefer a
+fresh task worktree from that checkpoint; do not merge an entire old workstream
+into integration. Main alone integrates and deploys. Publish small tested commits
+and English documentation, with exact source SHA and limitations.
+
+Six real exchanges on lamp-4ace completed with no extra admission or cancellation.
+The deployed code was `6e6c58b4260df3851702d4a4fb09b39a90927056`, using conservative
+`v1-baseline` turn taking, a 1,200 ms silence endpoint and 200 ms initial playout
+horizon. This is not natural overlapping conversation yet. The continuous iMac
+recording worked while the screen was locked. Acoustic estimates remain proposals,
+not accepted latency scores; see [benchmark progress](../docs/benchmark-progress.md).
+
+## MAIN-042 — Agent 1: continuous speech without unnecessary start delay
+
+**Deliver a bounded Rust playout improvement and its production-path regressions.**
+Own `crates/audio/src/playout.rs`, focused audio playout tests and fixtures, and
+`docs/playout-continuity.md`. Work branch: `lamp-a1-playout`. Existing Gemini
+transport code may be inspected; ask Main before changing shared events or
+`provider_worker.rs`, `playback.rs`, coordinator, CLI or wire definitions.
+
+1. Read pinned V1 main `d5efe9d7b73cc529b34cd4abe97624682a82ca94` playback behavior
+   first. Compare its useful buffering and completion rules with current Rust.
+   Inspect the new physical evidence before changing another transport bound.
+2. Reproduce the four observed starvation gaps from frozen arrival/acceptance
+   traces: coffee 70 ms, ocean 160 ms, story 140 + 70 ms. At each gap no playable
+   PCM was waiting locally. New worker-observed audio arrived 63–155 ms later;
+   this does not distinguish provider generation, network or worker polling.
+3. Implement one opt-in, bounded continuity policy suitable for integration.
+   Preserve short complete replies, cancellation, exact samples, generation
+   boundaries and bounded memory. Evaluate added first-start delay alongside
+   gaps; merely holding every answer longer is not an accepted improvement.
+   Target no starvation in these reproduced supply patterns with at most
+   200 ms additional first-start delay versus the current policy; report any
+   incompatible case honestly. Broader traces and negative controls must pass.
+4. Keep the story's separate 2.269 s introduction-to-story pause distinct from
+   starvation. Inspect protocol events and report its likely origin and one
+   narrow remedy; do not hide it behind a huge buffer or count the introduction
+   as a substantive answer. No unverified provider/model setting changes.
+5. Provide the smallest integration patch/API proposal, before/after trace
+   results, CPU/RSS bounds, fmt, strict Clippy, applicable tests and Linux/ARM64
+   compile evidence. Main will run the physical A/B after the saved V1 cohort.
+   Offline replay is not a measured acoustic improvement.
+
+Office-local evidence (do not upload room audio):
+`/private/tmp/lamp-4ace-varied-audit-20261011-01/rootcause/` and the original run at
+`/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-4ace-varied-12io918n`.
+The root-cause receipt SHA256 is
+`3e8d702a8b21a3966388c4ba5f3ff44059c247a45f7fea947f818243cc34d63f`.
+Its 400/600 ms models are counterfactuals, not selected settings. The current CLI
+still caps the horizon at 200 ms. Request a minimal non-audio trace fixture from
+Main if needed; private local recordings must not enter Git.
+
+## MAIN-043 — Agent 2: faster, reliable end-of-turn detection
+
+**Deliver a working Rust endpoint candidate, not another general eval framework.**
+Own `crates/live/src/activity.rs`, new narrowly scoped endpoint implementation
+files and tests, and `docs/endpoint-detection.md`. Work branch: `lamp-a2-endpoint`.
+These specific paths are temporarily delegated by Main. Shared coordinator,
+provider worker, CLI, wire, workspace and lockfile changes require a separate
+integration patch agreed with Main. Do not edit camera/perception in this task.
+
+1. Audit pinned V1 main's actual configuration and paths:
+   `hal/drivers/voice/_internal/turn_endpoint.py`, `smart_turn.py`, Silero use in
+   `voice_service.py`, and their tests. Separate active defaults from optional
+   model behavior. Reuse useful semantics rather than porting every old rule.
+2. Reduce the current unconditional 1,200 ms end wait without splitting a person
+   mid-question. The earlier 600 ms policy did split a real question; simply
+   lowering the constant again is not the task. Evaluate a maintained local
+   end-of-turn model where justified, with actual Rust inference, pinned assets,
+   preprocessing parity and an explicit missing/failed-model fallback. Inspect
+   maintained primary sources before choosing a dependency. No Python runtime.
+3. Implement bounded asynchronous inference/decision handling: capture keeps
+   running, fresh resumed speech invalidates an old endpoint candidate, stale
+   results never close a newer utterance, privacy/cancellation win, and no model
+   startup or failure can hang a turn. Retain the opening and resumed PCM.
+   Do not assume Gemini input transcripts arrive before endpointing.
+4. Exercise complete short questions, yes/no, hesitations, self-corrections,
+   pauses of 0.3–1.5 s, a short answer followed by more speech, quiet onsets,
+   model timeout/failure, discontinuities and obsolete results. Use existing
+   cached fixtures where applicable; disclose synthetic versus physical input.
+   Target a 300–600 ms post-speech decision for clear completed utterances,
+   with no false split in the retained regression set. These are targets,
+   not claims about device latency or all human speech.
+5. Deliver a callable integration seam and regressions that execute the real
+   Rust candidate. Measure decision delay, false endpoints, retained-prefix
+   boundaries, CPU/RSS and inference cold/warm latency. Run fmt, strict Clippy,
+   tests and Linux/ARM64 build; label emulation separately from actual hardware.
+   Main activates it only after review and the one-variable physical comparison.
+
+Playback suppression and multi-speaker admission remain unchanged in this
+checkpoint. Endpointing does not prove addressee identification or natural
+barge-in; do not quietly enable a new interruption gate on negative-only clips.
+
+## Delivery and coordination
+
+Give Main an initial interface/first-checkpoint estimate after reading the current
+code; publish the first small tested patch as soon as it is useful. Do not wait
+for an entire 24-hour report. Put status in your own coordination file on your
+work branch and name MAIN-042 or MAIN-043. Include exact base/tested SHA, changed
+paths, commands, failures, measurements and remaining gaps. Exact-file commits,
+one-line messages, no trailers, no force push. No agent deploys or opens device
+hardware without Main scheduling that concrete experiment.
+
+The old Harness team context currently returns `CHANNEL_NOT_FOUND` (the task's
+swarm is no longer on the desk). These Git assignments are the durable fallback;
+publication does not mean either agent has acknowledged or started them. Do not
+bypass channel scope. Use an available scoped direct route when restored, and
+record acknowledgment in Git. Main checks both task branches at safe boundaries.

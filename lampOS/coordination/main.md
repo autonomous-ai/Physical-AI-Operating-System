@@ -7,6 +7,17 @@
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
+## Current agent assignments
+
+The owner requested a new split for the two available Claude Code agents.
+[MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech
+continuity and Agent 2 faster, reliable endpoint detection. Both start from
+`1a089863a`; Main retains the V1 cohort, device scheduling, camera/motor integration
+and shared coordinator. The detailed file ownership there supersedes the broader
+completion plan for these checkpoints. Delivery is published in Git; peer
+acknowledgment is pending. A fresh direct-context attempt still returned
+`CHANNEL_NOT_FOUND`; do not claim the assignments have reached their sessions.
+
 ## Direct coordination
 
 The existing sessions are members of Harness team **Lamp Rust implementation**.

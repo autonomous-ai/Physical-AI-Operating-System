@@ -3,13 +3,14 @@
 //! Model tests are ignored by default: install the pinned model under
 //! `.cache/endpoint/` (or set `LAMP_SMART_TURN_MODEL`), then run
 //! `cargo test -p lamp-endpoint -- --include-ignored`.
-use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, WINDOW_SAMPLES};
+use lamp_endpoint::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, WINDOW_SAMPLES, reference};
 use lamp_endpoint_ipc::{
     Availability, Classifier, Limits, ProcessClassifier, Submit, Teardown, Token, WorkerCommand,
 };
 use serde_json::Value;
 use std::{
     path::{Path, PathBuf},
+    process::Command,
     time::{Duration, Instant},
 };
 
@@ -96,6 +97,15 @@ fn features_match_pipecat_reference() {
             "{name} abs sum"
         );
     }
+}
+
+#[test]
+fn self_check_reference_is_the_fixture_signal() {
+    assert_eq!(reference::voiced(), signal("voiced_9s"));
+    let expected = reference()["cases"]["voiced_9s"]["probability"]
+        .as_f64()
+        .unwrap();
+    assert!((f64::from(reference::VOICED_PROBABILITY) - expected).abs() < 1e-7);
 }
 
 #[test]
@@ -234,4 +244,178 @@ fn worker_process_matches_reference_and_reports_stage_costs() {
         Teardown::Reaped
     );
     assert!(classifier.report().last_exit.is_some(), "{pid} not reaped");
+}
+
+fn scratch(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("lamp-endpoint-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// A truncated download and a same-size corrupt copy of the pinned model.
+fn damaged_models(dir: &Path) -> [(PathBuf, &'static str); 2] {
+    let bytes = std::fs::read(model_path()).unwrap();
+    let truncated = dir.join("truncated.onnx");
+    std::fs::write(&truncated, &bytes[..bytes.len() / 2]).unwrap();
+    let mut corrupt = bytes;
+    let middle = corrupt.len() / 2;
+    corrupt[middle] ^= 0x40;
+    let corrupt_path = dir.join("corrupt.onnx");
+    std::fs::write(&corrupt_path, corrupt).unwrap();
+    [
+        (truncated, "unexpected size"),
+        (corrupt_path, "pinned SHA256"),
+    ]
+}
+
+#[test]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
+fn check_model_verifies_the_installed_model_and_refuses_damaged_copies() {
+    let check = |path: &Path| {
+        Command::new(env!("CARGO_BIN_EXE_lamp-endpoint-worker"))
+            .arg("--check-model")
+            .arg(path)
+            .output()
+            .unwrap()
+    };
+    let output = check(&model_path());
+    assert!(output.status.success(), "{output:?}");
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    eprintln!("{report}");
+    assert_eq!(report["sha256"], SMART_TURN_V3_2.sha256);
+    let probability = report["probability"].as_f64().unwrap();
+    assert!((probability - f64::from(reference::VOICED_PROBABILITY)).abs() < 1e-4);
+    let dir = scratch("check");
+    for (path, expected) in damaged_models(&dir) {
+        let output = check(&path);
+        assert_eq!(output.status.code(), Some(2), "{output:?}");
+        assert!(output.stdout.is_empty());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(expected), "{stderr}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
+fn worker_process_refuses_truncated_and_corrupt_models_once() {
+    let dir = scratch("damaged");
+    for (path, expected) in damaged_models(&dir) {
+        let mut classifier = worker(&path);
+        assert_eq!(classifier.submit(TOKEN, &[1; 160]), Submit::Unavailable);
+        let Availability::Failed(reason) = settle(&classifier, Duration::from_secs(10)) else {
+            panic!("{} did not fail", path.display());
+        };
+        assert!(reason.contains(expected), "{reason}");
+        assert_eq!(
+            classifier.wait_finished(Duration::from_secs(2)),
+            Teardown::Reaped
+        );
+        let report = classifier.report();
+        assert_eq!((report.spawned, report.ready, report.kills), (1, 0, 0));
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// On Linux the serving worker runs without core files, under its 256 MiB
+/// address-space cap and at niceness 10 (`/proc/PID/limits` and `stat`).
+fn assert_bounded(pid: u32) {
+    if !cfg!(target_os = "linux") {
+        return;
+    }
+    let limits = std::fs::read_to_string(format!("/proc/{pid}/limits")).unwrap();
+    let limit = |name: &str| {
+        let line = limits.lines().find(|line| line.starts_with(name)).unwrap();
+        line[name.len()..]
+            .split_whitespace()
+            .take(2)
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(limit("Max core file size"), ["0", "0"]);
+    assert_eq!(limit("Max address space"), ["268435456", "268435456"]);
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+    // Fields after the parenthesized name: state is field 3, nice field 19.
+    let after_name = &stat[stat.rfind(')').unwrap() + 2..];
+    assert_eq!(after_name.split(' ').nth(16), Some("10"), "{stat}");
+}
+
+/// Resident and peak resident KiB of a child, from Linux `/proc`.
+fn child_memory_kib(pid: u32) -> Option<(u64, u64)> {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+    let field = |key: &str| {
+        status
+            .lines()
+            .find_map(|line| line.strip_prefix(key))
+            .and_then(|value| value.trim().trim_end_matches("kB").trim().parse().ok())
+    };
+    Some((field("VmRSS:")?, field("VmHWM:")?))
+}
+
+fn classify_reference(classifier: &mut ProcessClassifier, check: u8) -> f32 {
+    let token = Token { check, ..TOKEN };
+    assert_eq!(
+        classifier.submit(token, &reference::voiced()),
+        Submit::Accepted
+    );
+    let started = Instant::now();
+    loop {
+        if let Some(outcome) = classifier.poll() {
+            assert_eq!(outcome.token, token);
+            return outcome.result.unwrap().probability;
+        }
+        assert!(started.elapsed() < Duration::from_secs(10), "no result");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+
+/// `LAMP_ENDPOINT_IDLE_SECS` (default 5) sets the quiet period; the pilot
+/// evidence uses 600.
+#[test]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
+fn worker_process_stays_ready_and_bounded_across_idle_and_repeated_checks() {
+    let idle = std::env::var("LAMP_ENDPOINT_IDLE_SECS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(5u64);
+    let mut classifier = worker(&model_path());
+    assert_eq!(
+        settle(&classifier, Duration::from_secs(30)),
+        Availability::Ready
+    );
+    let pid = classifier.report().pid.unwrap();
+    assert_bounded(pid);
+    let close = |probability: f32| {
+        (probability - reference::VOICED_PROBABILITY).abs() < reference::TOLERANCE
+    };
+    assert!(close(classify_reference(&mut classifier, 0)));
+    let warm = child_memory_kib(pid);
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(idle) {
+        assert_eq!(classifier.availability(), Availability::Ready);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    let after_idle = child_memory_kib(pid);
+    for check in 1..=50 {
+        assert!(close(classify_reference(&mut classifier, check)));
+    }
+    let after_checks = child_memory_kib(pid);
+    let report = classifier.report();
+    assert_eq!(report.pid, Some(pid));
+    assert_eq!(
+        (report.spawned, report.kills, report.errors, report.verdicts),
+        (1, 0, 0, 51)
+    );
+    eprintln!(
+        "idle {idle} s; worker (VmRSS, VmHWM) KiB warm {warm:?}, after idle {after_idle:?}, after 50 checks {after_checks:?}"
+    );
+    if let (Some((_, warm_peak)), Some((_, peak))) = (warm, after_checks) {
+        // Repeated full-window checks reuse the warm buffers.
+        assert!(peak <= warm_peak + 8 * 1024, "{warm_peak} -> {peak} KiB");
+    }
+    classifier.close();
+    assert_eq!(
+        classifier.wait_finished(Duration::from_secs(5)),
+        Teardown::Reaped
+    );
 }

@@ -154,16 +154,30 @@ fn capture_peer(
     }
 }
 
-fn privacy_peer(mut channels: WorkerChannels, stop: Arc<AtomicBool>) {
+/// Fresh privacy observations every 10 ms; muted from capture block
+/// `mute_at` when given.
+fn privacy_peer(
+    mut channels: WorkerChannels,
+    seen: Arc<Mutex<Seen>>,
+    mute_at: Option<u64>,
+    stop: Arc<AtomicBool>,
+) {
     let mut generation = 0;
     let mut next = Instant::now();
     while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
         if Instant::now() >= next {
+            let muted = {
+                let seen = seen.lock().unwrap();
+                match (mute_at, seen.capture_started) {
+                    (Some(block), Some(_)) => Instant::now() >= seen.block(block),
+                    _ => false,
+                }
+            };
             channels
                 .control
                 .send(WorkerEvent::Privacy {
                     acquired_at_us: monotonic_us(),
-                    muted: false,
+                    muted,
                 })
                 .unwrap();
             next += Duration::from_millis(10);
@@ -347,6 +361,16 @@ fn run_with(
     endpoint: EndpointRig,
     reply: Option<ProviderReply>,
 ) -> Session {
+    run_muting(seconds, script, endpoint, reply, None)
+}
+
+fn run_muting(
+    seconds: u64,
+    script: Script,
+    endpoint: EndpointRig,
+    reply: Option<ProviderReply>,
+    mute_at: Option<u64>,
+) -> Session {
     let dir = SessionDirectory::create().unwrap();
     let (capture, capture_peer_channels) = Worker::sleeping_fixture(&dir.path, "capture");
     let (speaker, speaker_peer_channels) = Worker::sleeping_fixture(&dir.path, "speaker");
@@ -360,8 +384,8 @@ fn run_with(
             move || capture_peer(capture_peer_channels, script, seen, stop)
         }),
         thread::spawn({
-            let stop = stop.clone();
-            move || privacy_peer(privacy_peer_channels, stop)
+            let (stop, seen) = (stop.clone(), seen.clone());
+            move || privacy_peer(privacy_peer_channels, seen, mute_at, stop)
         }),
         thread::spawn({
             let (stop, seen) = (stop.clone(), seen.clone());
@@ -1047,4 +1071,24 @@ fn early_mode_without_a_usable_model_is_the_baseline() {
         assert!(seen.requests[0].ended_at.unwrap() >= seen.block(268));
         assert_eq!(chunk_turns(&session), [1]);
     }
+}
+
+#[test]
+fn privacy_during_the_provisional_end_stops_without_any_answer() {
+    let (endpoint, _) = confident(0.95, Duration::from_millis(60));
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(100),
+        packets: 2,
+    };
+    // The early end is at block 199; the mute arrives at block 230, while
+    // the answer is ready but held.
+    let session = run_muting(5, single, endpoint, Some(reply), Some(230));
+    let error = session.result.as_ref().unwrap_err().to_string();
+    assert!(error.contains("privacy"), "{error}");
+    assert!(session.seen.chunks.is_empty(), "spoke after the mute");
+    assert!(session.elapsed < Duration::from_secs(4));
+    assert_eq!(
+        endpoint_rows(&session)[0]["endpoint"]["basis"],
+        "model_early"
+    );
 }

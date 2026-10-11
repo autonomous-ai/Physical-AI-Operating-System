@@ -6,6 +6,7 @@
 //! device traces. This is a replay of recorded supply, not a device result.
 use super::*;
 use crate::options::PlayoutStart;
+use crate::provider_worker::{FailedStage, Fault};
 use lamp_audio::playout::{Continuity, OpenedBy};
 
 const REPLIES: &str = include_str!("../../../../audio/tests/playout_continuity/replies.tsv");
@@ -45,6 +46,18 @@ fn reply_with(start: PlayoutStart) -> Reply {
     reply.had_audio = false;
     reply.start = start.gate();
     reply
+}
+
+/// A reply that owns no playback yet, with its controller, for dispatch.
+fn fresh(start: PlayoutStart) -> (Controller, Reply) {
+    let (mut owner, mut reply, _) = active_reply();
+    owner
+        .playback_ended(now(), reply.playback.take().unwrap())
+        .unwrap();
+    reply.pcm.clear();
+    reply.had_audio = false;
+    reply.start = start.gate();
+    (owner, reply)
 }
 
 /// The slot of each generation's first block, the runs of slots with nothing
@@ -222,13 +235,7 @@ fn the_receipt_names_the_policy_the_lead_and_the_reason() {
 fn a_continuity_hold_mints_no_permit_and_leaves_the_pcm_alone() {
     let dir = SessionDirectory::create().unwrap();
     let (mut parent, mut speaker) = pair(&dir, "speaker");
-    let (mut owner, mut current, _) = active_reply();
-    owner
-        .playback_ended(now(), current.playback.take().unwrap())
-        .unwrap();
-    current.pcm.clear();
-    current.had_audio = false;
-    current.start = PlayoutStart::continuity().gate();
+    let (mut owner, mut current) = fresh(PlayoutStart::continuity());
     let original: Vec<i16> = (0..4_800).map(|i| (i % 100) as i16).collect();
     // 200 ms in hand opens the 200 ms horizon at once. Continuity holds it.
     current.append_provider_audio(original.clone(), monotonic_us());
@@ -271,4 +278,163 @@ fn a_continuity_hold_mints_no_permit_and_leaves_the_pcm_alone() {
         reply.unwrap().start.opened().unwrap().by,
         OpenedBy::Complete
     );
+}
+
+#[test]
+fn audio_before_the_final_block_leaves_joins_the_generation_being_played() {
+    let mut reply = reply_with(PlayoutStart::continuity());
+    reply.append_provider_audio(vec![7; 480], 1_000_000);
+    reply.generation_done = true;
+    assert!(reply.may_start(1_000_000));
+    let opened = reply.start.opened();
+    assert_eq!(reply.next_speaker_chunk(), Some((vec![7; 240], false)));
+    // The last block of the first generation is still in the queue when the
+    // next generation's audio arrives: no final block, no hold, no break.
+    reply.append_provider_audio(vec![9; 480], 1_015_000);
+    assert!(!reply.generation_done);
+    assert!(reply.may_start(1_015_000));
+    assert_eq!(reply.next_speaker_chunk(), Some((vec![7; 240], false)));
+    assert!(reply.may_start(1_025_000));
+    assert_eq!(reply.next_speaker_chunk(), Some((vec![9; 240], false)));
+    assert_eq!(reply.start.opened(), opened, "one start for both");
+    // The last block of the second waits for its own completion.
+    assert!(!reply.may_start(1_035_000));
+    reply.generation_done = true;
+    assert_eq!(reply.next_speaker_chunk(), Some((vec![9; 240], true)));
+}
+
+#[test]
+fn audio_after_the_final_block_left_is_held_from_its_own_arrival() {
+    for retired_after_us in [50_000_u64, 400_000] {
+        let mut reply = reply_with(PlayoutStart::continuity());
+        reply.append_provider_audio(vec![7; 480], 1_000_000);
+        reply.generation_done = true;
+        assert!(reply.may_start(1_000_000));
+        assert_eq!(reply.next_speaker_chunk(), Some((vec![7; 240], false)));
+        assert_eq!(reply.next_speaker_chunk(), Some((vec![7; 240], true)));
+        // As the coordinator does when the speaker accepts a final chunk.
+        reply.final_chunk = Some(44);
+        // The next generation arrives while that block is still playing.
+        let arrived = 1_100_000;
+        reply.append_provider_audio(vec![9; 4_800], arrived);
+        assert_eq!(reply.start.opened(), None, "a new start");
+        // Nothing leaves before the retirement receipt, however long ago
+        // the audio arrived.
+        assert!(!reply.may_start(arrived + 600_000));
+        assert!(reply.next_speaker_chunk().is_none());
+        assert_eq!(reply.start.opened(), None);
+        reply.final_chunk = None;
+        let retired = arrived + retired_after_us;
+        if retired_after_us < 290_000 {
+            // Retired early: the hold still runs from the arrival.
+            assert!(!reply.may_start(retired));
+            assert!(!reply.may_start(arrived + 289_999));
+            assert!(reply.may_start(arrived + 290_000));
+            let opened = reply.start.opened().unwrap();
+            assert_eq!((opened.held_us, opened.by), (290_000, OpenedBy::HoldBound));
+        } else {
+            // Retired late: the wait already was the margin.
+            assert!(reply.may_start(retired));
+            let opened = reply.start.opened().unwrap();
+            assert_eq!((opened.held_us, opened.by), (400_000, OpenedBy::Margin));
+        }
+        assert_eq!(reply.next_speaker_chunk(), Some((vec![9; 240], false)));
+        assert_eq!(reply.pcm.len(), 4_560);
+    }
+}
+
+#[test]
+fn cancellation_during_a_continuity_hold_sends_nothing_and_frees_the_next_reply() {
+    let dir = SessionDirectory::create().unwrap();
+    let (mut parent, mut speaker) = pair(&dir, "speaker");
+    let (mut owner, mut current) = fresh(PlayoutStart::continuity());
+    current.append_provider_audio(vec![7; 4_800], monotonic_us());
+    let old_owner = current.owner;
+    let mut reply = Some(current);
+    let mut pending = None;
+    let mut sequence = 0;
+    let mut snapshot = owner.snapshot(now()).unwrap();
+    for cancel in [false, true] {
+        if cancel {
+            cancel_reply(&mut owner, &mut reply, &mut Vec::new(), "user_interrupted").unwrap();
+        }
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut PlaybackMask::new(TurnTaking::V1Baseline),
+        )
+        .unwrap();
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        assert!(pending.is_none());
+        assert_eq!(sequence, 0);
+    }
+    assert!(reply.is_none());
+    assert_ne!(owner.snapshot(now()).unwrap().owner(), Some(old_owner));
+    // The next reply is held from its own first audio and no earlier.
+    let mut next = reply_with(PlayoutStart::continuity());
+    next.append_provider_audio(vec![9; 4_800], 5_000_000);
+    assert!(!next.may_start(5_289_999));
+    assert!(next.may_start(5_290_000));
+}
+
+#[test]
+fn a_complete_or_failed_short_answer_leaves_at_once_under_continuity() {
+    for failed in [false, true] {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&dir, "speaker");
+        let (mut owner, mut current) = fresh(PlayoutStart::continuity());
+        let request = current.owner.turn();
+        current.append_provider_audio(vec![7; 73], monotonic_us());
+        current.had_audio = true;
+        let mut reply = Some(current);
+        let mut pending = None;
+        let mut sequence = 0;
+        let mut snapshot = owner.snapshot(now()).unwrap();
+        // Three milliseconds of audio and no completion: held.
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut PlaybackMask::new(TurnTaking::V1Baseline),
+        )
+        .unwrap();
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        let terminal = if failed {
+            ProviderOutput::TurnFailed {
+                request,
+                stage: FailedStage::Responding,
+                reason: Fault::Transport,
+            }
+        } else {
+            ProviderOutput::TurnComplete {
+                request,
+                idle: true,
+            }
+        };
+        observe_provider_output(&mut CloudAvailability::default(), &mut reply, &terminal).unwrap();
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut PlaybackMask::new(TurnTaking::V1Baseline),
+        )
+        .unwrap();
+        let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        assert!(chunk.end_of_speech);
+        assert_eq!(&chunk.samples[..73], &[7; 73]);
+        assert_eq!(&chunk.samples[73..], &[0; 167]);
+        let current = reply.as_ref().unwrap();
+        assert_eq!(current.start.opened().unwrap().by, OpenedBy::Complete);
+        assert!(current.pcm.is_empty());
+    }
 }

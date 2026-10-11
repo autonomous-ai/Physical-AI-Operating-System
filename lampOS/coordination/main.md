@@ -122,9 +122,9 @@ Source manifest: `f2218b918b52f43f1932cac9def145abfa2a6dc90c34bb4d7236e3f16ee65d
 ARM binary: `608c2491c71ca9de52e9154a09ce7e64d8fbb248c1e8ae6bac01d1a130717781`.
 Only this status documentation changed after the source export.
 
-Main's next device comparison changes this endpoint window alone. The separate
-startup-buffer proposal remains private and inactive, so it cannot confound
-the comparison. Graceful coordinator termination is also being prepared to
+That device comparison changed the endpoint window alone; the startup-buffer
+candidate was absent. The next comparison now explicitly selects its 200 ms
+horizon after the combined host and ARM gates passed. Graceful coordinator termination is also being prepared to
 retain failed-run traces through the existing shutdown path; no fabricated
 diagnostic certification is permitted. Natural full duplex, language consistency,
 playback continuity and the broader embodied interaction goal remain unfinished.
@@ -382,7 +382,13 @@ capture/control loop running while initial audio accumulates. Default zero is
 unchanged; only an explicit 200 ms candidate will be compared next, keeping
 provider, endpoint, DSP and levels fixed. Host formatting, strict all-target
 Clippy for audio/live, and 508 serial tests passed, zero failed, two existing
-ignored. Linux ARM/device qualification is still pending for that candidate.
+ignored. Linux ARM release and strict audio/live Clippy passed, plus 60 focused QEMU
+tests (12 playout-start, 26 turn-taking, ten core, 11 StartGate and one arrival
+schedule). Native CLI/loader staging passed. Physical qualification is pending.
+Frozen source manifest: `c6d6edb5a94f69a4de597fa00c094e91d28bfc53d645aef27375b70ab57e36bf`;
+ARM binary: `a30055ba007d1e425205a771cfd022520ac702dea405adf8c654cbc53a75cf3c`.
+Only the three result/status documents changed after this source freeze.
+No graceful-signal patch is included.
 A small private recorder diagnostic change preserves the original failed
 request's phase and time; it does not retry or weaken privacy checks.
 

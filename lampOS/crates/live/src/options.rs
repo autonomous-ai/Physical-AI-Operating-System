@@ -74,8 +74,34 @@ impl FromStr for TurnTaking {
     }
 }
 
+/// Experimental coordinator horizon; zero preserves immediate dispatch.
+/// This is not an ALSA queue size or a promise of gap-free playback.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct PlayoutStart(u16);
+impl PlayoutStart {
+    pub fn new(milliseconds: u16) -> io::Result<Self> {
+        if milliseconds > 200 {
+            return Err(invalid_options());
+        }
+        Ok(Self(milliseconds))
+    }
+    pub fn as_micros(self) -> u64 {
+        u64::from(self.0) * 1_000
+    }
+}
+impl FromStr for PlayoutStart {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err(invalid_options());
+        }
+        Self::new(value.parse().map_err(|_| invalid_options())?)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
+    pub playout_start: PlayoutStart,
     pub turn_taking: TurnTaking,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
@@ -87,10 +113,15 @@ impl DirectedOptions {
         let mut options = Self::default();
         let mut noise_seen = false;
         let mut turn_seen = false;
+        let mut playout_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
                 "--diagnostics" if !options.diagnostics => options.diagnostics = true,
+                "--playout-start-ms" if !playout_seen => {
+                    options.playout_start = required_value(&mut arguments)?.parse()?;
+                    playout_seen = true;
+                }
                 "--turn-taking" if !turn_seen => {
                     options.turn_taking = required_value(&mut arguments)?.parse()?;
                     turn_seen = true;
@@ -224,6 +255,47 @@ mod tests {
         values.iter().map(|value| (*value).to_owned()).collect()
     }
     #[test]
+    fn startup_buffer_defaults_to_zero_and_bounds_cli_and_programmatic_callers() {
+        assert_eq!(
+            SessionOptions::default().directed.playout_start.as_micros(),
+            0
+        );
+        for ms in [0_u16, 1, 120, 160, 200] {
+            let parsed = SessionOptions::parse(&args(&[
+                "--playout-start-ms",
+                &ms.to_string(),
+                "--turn-taking",
+                "v1-baseline",
+                "--noise-suppression",
+                "off",
+            ]))
+            .unwrap();
+            assert_eq!(
+                parsed.directed.playout_start.as_micros(),
+                u64::from(ms) * 1_000
+            );
+            assert_eq!(parsed.directed.turn_taking, TurnTaking::V1Baseline);
+            assert!(!parsed.directed.diagnostics);
+        }
+        assert!(PlayoutStart::new(201).is_err());
+        assert!(PlayoutStart::new(u16::MAX).is_err());
+        for flags in [
+            vec!["--playout-start-ms"],
+            vec!["--playout-start-ms", "201"],
+            vec!["--playout-start-ms", "65536"],
+            vec!["--playout-start-ms", "-1"],
+            vec!["--playout-start-ms", "+1"],
+            vec!["--playout-start-ms", "0.2"],
+            vec!["--playout-start-ms", "--diagnostics"],
+            vec!["--playout-start-ms", "0", "--playout-start-ms", "200"],
+        ] {
+            assert!(SessionOptions::parse(&args(&flags)).is_err(), "{flags:?}");
+        }
+        assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), true).is_err());
+        assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), false).is_err());
+    }
+
+    #[test]
     fn turn_taking_is_explicit_and_default_remains_vad_only() {
         assert_eq!(
             SessionOptions::default().directed.turn_taking,
@@ -345,6 +417,7 @@ mod tests {
                 assert_eq!(
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
+                        playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
                         diagnostics: true,
                         noise_suppression: mode,

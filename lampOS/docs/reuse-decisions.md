@@ -204,3 +204,15 @@ configuration, Start itself requests interruption; its response is circular
 evidence. The bounded local gate preserves original audio and candidate identity
 while leaving pending/rejected output ownership intact. Directed qualification
 still chooses VAD-only acceptance and has no new classifier accuracy result.
+
+## Reply startup buffering experiment
+
+Before changing playback timing, the native V1 producer and persistent TTS
+stream were inspected at the pinned V1 commit. V1 requests at least 120 ms
+driver latency and immediately writes available native audio; its pending
+audio handles speaker contention rather than a fixed startup delay. Retain
+continuous speaker ownership and bounded cancellation, while reusing the Rust
+`7f24ea81d` startup-gate experiment behind explicit `--playout-start-ms 0..200`,
+default zero. The [contract and held-out enqueue replay](playout-start.md)
+distinguish queue-horizon modeling from driver and acoustic measurements.
+A language rewrite or a passing replay does not establish V1 playback parity.

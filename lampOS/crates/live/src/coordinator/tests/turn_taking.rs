@@ -57,6 +57,8 @@ impl Harness {
             final_chunk: None,
             playback_gaps: 0,
             last_provider_audio_at_us: None,
+            start: lamp_audio::playout::StartGate::new(0),
+            need: lamp_audio::playout::StartNeed::default(),
         };
         Self {
             owner,
@@ -180,6 +182,7 @@ impl Harness {
             &mut queue,
             accepted,
             1,
+            PlayoutStart::default(),
             &mut self.trace,
             |_| Ok(()),
         )

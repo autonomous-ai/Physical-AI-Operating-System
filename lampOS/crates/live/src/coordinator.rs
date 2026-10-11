@@ -12,7 +12,10 @@ use crate::{
     choreography::RingChoreographer,
     diagnostic_control::{self, DiagnosticFinished, DiagnosticStream},
     fixture_provider::{CueSink, Fixture, FixtureInfo, FixtureOptions},
-    options::{AudioWorkerOptions, DirectedOptions, NoiseSuppression, SessionOptions, TurnTaking},
+    options::{
+        AudioWorkerOptions, DirectedOptions, NoiseSuppression, PlayoutStart, SessionOptions,
+        TurnTaking,
+    },
     privacy::PrivacyGate,
     process::{SessionDirectory, Worker, new_boot},
     provider_flow::{MAX_REPLY_SAMPLES, OutputReceiver, PACKET_SAMPLES},
@@ -26,6 +29,7 @@ use crate::{
         WorkerEvent,
     },
 };
+use lamp_audio::playout::{StartGate, StartNeed};
 use lamp_interaction::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, OutputKind,
     OutputOwner, OutputPermit, Permission, PlaybackToken, Snapshot, TurnOwner,
@@ -98,9 +102,13 @@ struct Reply {
     final_chunk: Option<u64>,
     playback_gaps: u64,
     last_provider_audio_at_us: Option<u64>,
+    start: StartGate,
+    need: StartNeed,
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
+        self.start.audio_arrived(received_at_us);
+        self.need.arrival(received_at_us, samples.len());
         // Generation completion is not turn completion. A new generation may
         // arrive while the previous generation's accepted final PCM is still
         // playing. Preserve that receipt identity until it actually retires.
@@ -123,16 +131,40 @@ impl Reply {
         Ok(token)
     }
 
+    fn may_start(&mut self, at_us: u64) -> bool {
+        // The gate receipt describes a dispatchable first block. A lone held
+        // tail, empty queue, or prior unretired final cursor is not a start.
+        self.has_speaker_chunk() && self.start.open(at_us, self.pcm.len(), self.generation_done)
+    }
+
+    fn has_speaker_chunk(&self) -> bool {
+        self.final_chunk.is_none()
+            && !self.pcm.is_empty()
+            && (self.generation_done || self.pcm.len() > 240)
+    }
+
+    fn start_trace(&self) -> Value {
+        let opened = self.start.opened();
+        json!({
+            "horizon_us":self.start.horizon_us(),
+            "scope":"first_dispatchable_chunk_of_reply; later generations do not rebuffer",
+            "opened_at_us":opened.map(|event| event.at_us),
+            "age_since_first_audio_us":opened.map(|event| event.held_us),
+            "queued_frames_at_open":opened.map(|event| event.buffered_frames),
+            "opened_by_complete_flag":opened.map(|event| event.by == lamp_audio::playout::OpenedBy::Complete),
+            "included_final_holdback_frames":opened.map(|event| if event.by == lamp_audio::playout::OpenedBy::Complete {0} else {event.buffered_frames.min(240)}),
+            "added_latency_us":null,
+            "boundary":"coordinator queue condition; not accepted PCM or acoustic onset"
+        })
+    }
+
     // Retain at most one full block until generation completion identifies the
     // final block. The trace exposes this holdback separately from provider delay.
     fn next_speaker_chunk(&mut self) -> Option<(Vec<i16>, bool)> {
         // The speaker keeps one final cursor. Serialize playback occurrences
         // through its real retirement receipt instead of overwriting that
         // cursor when the same turn receives another Gemini generation.
-        if self.final_chunk.is_some()
-            || self.pcm.is_empty()
-            || (!self.generation_done && self.pcm.len() <= 240)
-        {
+        if !self.has_speaker_chunk() {
             return None;
         }
         let final_chunk = self.generation_done && self.pcm.len() <= 240;
@@ -181,6 +213,7 @@ struct Rig {
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
+    playout_start: PlayoutStart,
 }
 impl Rig {
     fn publish(&mut self, snapshot: Snapshot) -> io::Result<()> {
@@ -539,6 +572,7 @@ fn run_source(
     trace.push(json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":seconds,"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "software_processing_requested":options.noise_suppression.software_processing(),
+        "playout_start_horizon_us":options.playout_start.as_micros(),
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if options.turn_taking == TurnTaking::V1Baseline { Some(crate::turn_taking::TAIL_US) } else { None },
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}));
@@ -738,7 +772,8 @@ fn service_speaker_control(
                         *last_publish = monotonic_us();
                         record(
                             trace,
-                            json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured"}),
+                            json!({"kind":"speaker_first_write","turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
+                                "start_gate":current.start_trace()}),
                         )?;
                     }
                     if pending.accepted == 240 {
@@ -1286,6 +1321,7 @@ fn spawn_rig(
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
+        playout_start: options.playout_start,
     })
 }
 
@@ -1864,6 +1900,7 @@ fn conversation(
                         &mut provider_queue,
                         accepted,
                         provider_session,
+                        rig.playout_start,
                         trace,
                         |state| rig.publish(state),
                     )?;
@@ -1978,7 +2015,11 @@ fn conversation(
             record(
                 trace,
                 json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
-                    "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome}),
+                    "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,
+                "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
+                "start_horizon_needed_us":current.need.horizon_us(),
+                "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
+                "start_need_censored":!matches!(current.cloud.outcome,Some(RequestOutcome::Complete))}),
             )?;
             *reply = None;
         }
@@ -2114,6 +2155,7 @@ fn commit_admitted_input(
     provider_queue: &mut VecDeque<ProviderInput>,
     accepted: Accepted,
     provider_session: u64,
+    playout_start: PlayoutStart,
     trace: &mut Vec<Value>,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<Snapshot> {
@@ -2155,6 +2197,8 @@ fn commit_admitted_input(
         final_chunk: None,
         playback_gaps: 0,
         last_provider_audio_at_us: None,
+        start: StartGate::new(playout_start.as_micros()),
+        need: StartNeed::default(),
     };
     for audio in prefix {
         queue_input(
@@ -2246,7 +2290,8 @@ fn service_ring_with_clock(
 }
 
 /// Called only after this tick's retained input and cancellation work. Keeping
-/// one outstanding chunk bounds handoff without adding a playback jitter buffer.
+/// one outstanding chunk bounds handoff. The optional reply-start gate makes
+/// one bounded queue decision and never waits inside this loop.
 #[allow(clippy::too_many_arguments)]
 fn dispatch_speaker_chunk(
     owner: &mut Controller,
@@ -2267,6 +2312,9 @@ fn dispatch_speaker_chunk(
     // not invalidate previously owned PCM; the real input endpoint still does
     // determine when speaking is locally permissible.
     if !current.cloud.started || !current.local_input_ended {
+        return Ok(());
+    }
+    if !current.may_start(monotonic_us()) {
         return Ok(());
     }
     let Some((samples, final_chunk)) = current.next_speaker_chunk() else {
@@ -2422,7 +2470,11 @@ fn cancel_reply(
         record(
             trace,
             json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":monotonic_us(),"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
-                "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome}),
+                "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,
+                "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
+                "start_horizon_needed_us":current.need.horizon_us(),
+                "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
+                "start_need_censored":true}),
         )?;
         cancel?;
     }
@@ -2624,6 +2676,7 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod playout_start;
     mod provider_pair;
     mod turn_taking;
 
@@ -2740,6 +2793,7 @@ mod tests {
             diagnostic_directory: Some(directory.path.clone()),
             noise_suppression: NoiseSuppression::On,
             turn_taking: TurnTaking::VadOnly,
+            playout_start: PlayoutStart::default(),
         };
         let started = Instant::now();
         let mut trace = Vec::new();
@@ -3032,6 +3086,8 @@ mod tests {
                 final_chunk: None,
                 playback_gaps: 0,
                 last_provider_audio_at_us: None,
+                start: StartGate::new(0),
+                need: StartNeed::default(),
             },
             permit,
         )
@@ -3794,6 +3850,8 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             last_provider_audio_at_us: None,
+            start: StartGate::new(0),
+            need: StartNeed::default(),
         });
         let started = monotonic_us();
         let observed = started + 20_000;
@@ -4003,6 +4061,8 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             last_provider_audio_at_us: None,
+            start: StartGate::new(0),
+            need: StartNeed::default(),
         });
         handle_playback_discard(
             &mut owner,

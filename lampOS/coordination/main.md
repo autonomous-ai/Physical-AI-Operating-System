@@ -7,6 +7,15 @@
 - Integrated evaluator checkpoint: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`
 - State: lamp-4ace completed six varied Rust conversation turns while the iMac was locked; the continuous iMac recording retained all frames. All six output transcripts are English and topical, with no extra admissions or cancellations. Four accepted-zero gaps and an unnecessary story introduction remain defects. This is finite audio testing, not an installed continuous V2 service or full conversational acceptance. Natural interruption, addressedness and full choreography remain unfinished. See the latest evidence below.
 
+## Current owner priority
+
+The owner deferred V1 benchmarking and requested V2 implementation and real-device
+improvement as soon as possible. No further V1 cohort work is active. The attempted
+V1 setup sent no prompts; it failed its capture-readiness check immediately after
+unmute. Isolated V1 stopped, the exact rollback/finalization passed, and the owner
+then canceled the Mac-only recording. Retain that failed setup; do not count it
+as a comparison or silently rerun it. MAIN-045 records the priority change.
+
 ## Current agent assignments
 
 Agent 2 acknowledged MAIN-043 at `e7c491c9782ce0dbd46eab9a14eb6ff960b53c7c`
@@ -18,7 +27,7 @@ Agent 1's new-branch acknowledgment has not yet been observed.
 The owner requested a new split for the two available Claude Code agents.
 [MAIN-042 and MAIN-043](voice-next-assignments.md) assign Agent 1 bounded speech
 continuity and Agent 2 faster, reliable endpoint detection. Both start from
-`1a089863a`; Main retains the V1 cohort, device scheduling, camera/motor integration
+`1a089863a`; Main retains device scheduling, camera/motor integration
 and shared coordinator. The detailed file ownership there supersedes the broader
 completion plan for these checkpoints. Delivery is published in Git; peer
 acknowledgment is pending. A fresh direct-context attempt still returned

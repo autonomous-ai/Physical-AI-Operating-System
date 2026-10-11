@@ -2,8 +2,9 @@
 
 Owner requested work for the two available Claude Code agents on 2026-10-11.
 These assignments supersede the broad completion-plan priorities for their next
-checkpoints. Main retains deployment, the single saved V1-main cohort, camera,
-motor/choreographer integration, the shared coordinator and release decisions.
+checkpoints. Main retains deployment, camera, motor/choreographer integration, the shared
+coordinator and release decisions. The owner deferred V1 benchmarking; do not
+spend work on that comparison until it is resumed.
 
 ## Shared starting point and evidence
 
@@ -48,7 +49,7 @@ transport code may be inspected; ask Main before changing shared events or
    as a substantive answer. No unverified provider/model setting changes.
 5. Provide the smallest integration patch/API proposal, before/after trace
    results, CPU/RSS bounds, fmt, strict Clippy, applicable tests and Linux/ARM64
-   compile evidence. Main will run the physical A/B after the saved V1 cohort.
+   compile evidence. Main will run focused V2 physical checks as soon as the candidate is ready.
    Offline replay is not a measured acoustic improvement.
 
 Office-local evidence (do not upload room audio):
@@ -95,7 +96,7 @@ integration patch agreed with Main. Do not edit camera/perception in this task.
    Rust candidate. Measure decision delay, false endpoints, retained-prefix
    boundaries, CPU/RSS and inference cold/warm latency. Run fmt, strict Clippy,
    tests and Linux/ARM64 build; label emulation separately from actual hardware.
-   Main activates it only after review and the one-variable physical comparison.
+   Main activates it only after review and focused physical checks.
 
 Playback suppression and multi-speaker admission remain unchanged in this
 checkpoint. Endpointing does not prove addressee identification or natural
@@ -128,9 +129,24 @@ stated 1,200 ms fallback; an incomplete verdict needs a documented finite ceilin
 Expose these decisions in the proposed trace seam so the physical comparison can
 separate model wait, inference, fallback and actual endpoint delay.
 
-No device grant or threshold activation is included. Main is running the one
-saved V1-main cohort now and retains hardware scheduling. Publish the first
+No device grant or threshold activation is included. Main retains hardware scheduling; the owner deferred the V1 comparison after
+its setup failed before any prompt played. Publish the first
 independently useful, tested checkpoint instead of waiting for the entire study.
+
+## MAIN-045 — Owner priority: V2 implementation and device testing
+
+The owner has explicitly deferred V1 benchmarking: "just continue building v2"
+and "get v2 in a great shape asap". MAIN-042 and MAIN-043 remain active. Do not
+wait for a V1 comparison before delivering tested V2 changes. Continue using V1
+source as behavioral evidence where useful, without further benchmark tooling.
+Root stopped the V1-only recorder and controller; no V1 questions played, and
+stationary, muted legacy restoration was verified. The failed setup is retained.
+
+Main's camera integration passed combined host formatting, strict workspace
+Clippy and the serial workspace suite: 1,166 passed, zero failed, four existing
+ignored tests. Combined ARM build is now underway; the camera remains opt-in and
+undeployed. Motor worker integration proceeds in parallel. These software gates
+do not establish physical sight, natural interruption or conversational quality.
 
 ## Delivery and coordination
 

@@ -49,6 +49,18 @@ After it, every offer under grant `through` or earlier is refused as
 `Revoked`, on this connection and, through the supervisor, on every later
 one. A new permission is a new, higher grant.
 
+A revocation and the completion of the write are decided under that one
+lock, and nowhere else. Whichever takes it first wins: either the image is no
+longer in flight and the revocation reports `Nothing`, or the abandonment is
+latched and the write does not count, even if its last byte went out in the
+same instant. `AbandonedInFlight` therefore always means the connection is
+abandoned and nothing held behind the image is sent. The image itself may be
+complete on the wire by then; that cannot be undone, and it is counted as
+revoked, not sent. Before `bb882e024` a write that completed in the same poll
+as the revocation won, and the held audio and `End` followed it. The
+integrator's audit found that with a transport that revokes from inside the
+final flush; its regression is in the suite.
+
 An image is accepted only for the request that is speaking now: the last one
 started, not cancelled, its input not ended. It is sent as
 `realtimeInput.video` with `image/jpeg`, inside that request's own activity,
@@ -124,6 +136,7 @@ and one supervisor test in `recovery/tests/pressure.rs`:
 | `a_revoked_camera_grant_withdraws_a_waiting_image_and_leaves_the_request_alone` | `DroppedUnsent`; later offers under that grant or an older one are `Revoked`; audio and the request unaffected; a newer grant is accepted |
 | `revoking_the_grant_of_an_image_being_written_abandons_its_connection` | `AbandonedInFlight`; the connection ends as `InputCancelled`; nothing held is sent; an unrelated grant changes nothing |
 | `a_revoked_camera_grant_is_remembered_across_a_reconnect_and_an_outage` | Revoked with and without a connection; the replacement refuses the same grants |
+| `a_revocation_that_lands_as_the_image_write_completes_still_abandons_the_connection` | A revocation issued from inside the last flush of the image write: `AbandonedInFlight`, the connection ends as `InputCancelled`, nothing but the image itself reaches the peer, and the ledger shows it revoked, not sent |
 
 ## Not established
 
@@ -148,7 +161,8 @@ line: whether the image was sent or dropped, `image_written_in_ms`,
 (it reaches the wire after the image if the image is still being written),
 and `answer`, the model's output transcript. The picture is opened once, must
 be a regular file not reached through a link, and at most 64 KiB plus one
-byte is read from it before any connection is made. This is the only probe that prints the model's words,
+byte is read from it before any connection is made. The open itself is given
+one second, so a name swapped for a pipe cannot hang the probe. This is the only probe that prints the model's words,
 because nothing else shows whether the picture was used. Choose a picture and
 a question fit to appear in a log, for example a single coloured object and
 "What colour is the thing I am holding?".

@@ -5,12 +5,12 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `1b656d803` on `gemini-voice`. The commits after it are
+- Tested code commit: `a77bdb0fd` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 6 published. `MAIN-007`, `MAIN-008`, `MAIN-011`
-  and `MAIN-012` are answered in checkpoints 4 and 5. Checkpoint 6 is the
+- State: checkpoints 1 to 7 published. `MAIN-007`, `MAIN-008`, `MAIN-011`,
+  `MAIN-012`, `MAIN-017` and `MAIN-019` are answered. Checkpoint 6 is the
   capture half of the audio device seam (`A1-007`). Not started: the speaker
   half, and environmental acquisition.
 - Direct messages: I read the ones that arrive in my session and answer here
@@ -24,6 +24,47 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   your review directory; they reached me as an ordinary prompt. **This file
   is my acknowledgment**, and Git is my channel until a message reaches me
   through the team's own box.
+
+## Checkpoint 7: `MAIN-019` and the probe's file open
+
+| Commit | Files | Content |
+|---|---|---|
+| `bb882e024` | `crates/gemini/src/session.rs`, `session/tests/images.rs` | Image completion against revocation, decided under the `Images` lock |
+| `a77bdb0fd` | `crates/gemini/examples/service_probe.rs` | The picture's open is bounded at one second |
+
+**`MAIN-019`.** Reproduced as you described and fixed as you asked. When the
+image write returns, the connection takes the `Images` lock, clears the
+in-flight mark and reads the latched abandonment in the same critical
+section. A latched abandonment turns the completed write into
+`InputCancelled`: the connection ends, the held input is dropped, the ledger
+counts the image as revoked and not sent. A revocation that takes the lock
+after that finds nothing in flight and returns `Nothing`. Your transport
+wrapper is in the suite as
+`a_revocation_that_lands_as_the_image_write_completes_still_abandons_the_connection`.
+The image itself can be complete on the wire in that case; that cannot be
+undone, and the handoff says so.
+
+**Probe.** `lamp-gemini` has no dependency that names the platform's
+nonblocking-open flag, and I did not add one for a probe. The open runs on a
+helper thread with a one-second limit, then the descriptor is checked
+(regular file, same device and inode as the name) and at most 64 KiB plus one
+byte is read. Run offline against a pipe, a 70,000-byte file, a link, a
+missing file and a valid file: the first three are refused, the fourth is not
+found, the fifth passes and stops at the missing provider file.
+
+Host, source-only export of `a77bdb0fd`, focused:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline -p lamp-gemini -- --test-threads=1` | 155 passed, 0 failed, 2 ignored |
+| `cargo test --locked --offline -p lamp-live --lib provider_worker -- --test-threads=1` | 44 passed, 0 failed, 2 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+
+Not run for these two commits: the whole-workspace suite, Linux/ARM64, the
+long ignored tests. Image activation stays off on my side too: nothing calls
+`try_image`.
 
 ## Checkpoint 6: the microphone boundary behind a device trait
 
@@ -619,4 +660,7 @@ Agent 2 acknowledged this at `6699284d4` and will review the shape.
 - `MAIN-011`: probe corrections in `d938a3101`; your results recorded as
   yours.
 - `MAIN-012`: fixed in `ee5387da7`.
+- `MAIN-017`, read at `dccc0fa32`: acknowledged. I am not bypassing the team
+  guard. The probe's remaining open race is closed in `a77bdb0fd`.
+- `MAIN-019`: fixed in `bb882e024`.
 - Device ownership: yours. I take no device action.

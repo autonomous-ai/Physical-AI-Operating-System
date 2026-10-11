@@ -419,3 +419,75 @@ fn worker_process_stays_ready_and_bounded_across_idle_and_repeated_checks() {
         Teardown::Reaped
     );
 }
+
+/// Child mode of `inherited_lower_address_space_limits_are_kept`. With
+/// `LAMP_INHERITED_AS_SOFT` set, this process lowers only its own soft
+/// address-space limit and becomes the worker's self-check, which inherits
+/// both limits as it would from a service manager. Without it, nothing runs.
+#[cfg(target_os = "linux")]
+#[test]
+fn exec_check_model_under_inherited_limit() {
+    use rustix::process::{Resource, Rlimit, getrlimit, setrlimit};
+    use std::os::unix::process::CommandExt;
+    let Some(soft) = std::env::var("LAMP_INHERITED_AS_SOFT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+    else {
+        return;
+    };
+    let hard = getrlimit(Resource::As).maximum;
+    setrlimit(
+        Resource::As,
+        Rlimit {
+            current: Some(soft),
+            maximum: hard,
+        },
+    )
+    .unwrap();
+    let error = Command::new(env!("CARGO_BIN_EXE_lamp-endpoint-worker"))
+        .arg("--check-model")
+        .arg(model_path())
+        .exec();
+    panic!("exec: {error}");
+}
+
+/// A soft address-space limit inherited below the worker's 256 MiB cap, with
+/// a higher hard limit, stays in force: the worker never raises it.
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires the pinned model; see docs/endpoint-detection.md"]
+fn inherited_lower_address_space_limits_are_kept() {
+    let check_under = |soft_mib: u64| {
+        Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "exec_check_model_under_inherited_limit",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("LAMP_INHERITED_AS_SOFT", (soft_mib << 20).to_string())
+            .output()
+            .unwrap()
+    };
+    // The worker's JSON follows the test harness's own `test … ... ` prefix.
+    let report = |output: &std::process::Output| {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .find_map(|line| {
+                line.find("{\"model\"")
+                    .map(|start| line[start..].to_owned())
+            })
+            .map(|line| serde_json::from_str::<Value>(&line).unwrap())
+    };
+    // Above the worker's measured 113.5 MiB peak: the check passes and
+    // reports the inherited 200 MiB, not the worker's own 256 MiB cap.
+    let output = check_under(200);
+    assert!(output.status.success(), "{output:?}");
+    let limit = report(&output).unwrap()["address_space_limit_kib"].clone();
+    assert_eq!(limit, 200 * 1024, "{output:?}");
+    // Below the peak, as in the review finding (96 MiB): loading fails
+    // instead of running under a raised limit.
+    let output = check_under(96);
+    assert!(!output.status.success(), "{output:?}");
+    assert!(report(&output).is_none(), "{output:?}");
+}

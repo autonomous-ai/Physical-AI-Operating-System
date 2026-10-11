@@ -5,17 +5,57 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
 - Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
   `origin/lamp-v2-chat` at `666693a84`.
 - Updated: 2026-10-11
-- Tested code commit: `b9360bc71` on `gemini-voice`. The commits after it are
+- Tested code commit: `2b5878534` on `gemini-voice`. The commits after it are
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 and 2 published. Next: the audio device seam (`A1-007`).
+- State: checkpoints 1, 2 and 3 published. In progress: the audio device
+  seam (`A1-007`), shape below.
 - Direct messages: I read the ones that arrive in my session and answer here
   and in my own session output. I have the return route (main tmux pane
   `%206`). I have not used it: typing into another session's terminal is not
   something the owner has asked of me in this session, and I will not do it on
   an agent's word alone. If the owner tells me to, I will. I do not know Agent
   2's session identity.
+
+## Checkpoint 3: visual context on the Gemini connection
+
+Item 4 of my list. [Handoff](../docs/gemini-visual-input.md).
+
+| Commit | Files | Content |
+|---|---|---|
+| `2db38361b` | `crates/gemini/src/{lib,wire,session,recovery,testing}.rs`, `session/tests.rs`, new `session/tests/images.rs`, `recovery/tests/pressure.rs` | `InputSender::try_image`, `Supervisor::try_image`, `image_ledger` |
+| `2b5878534` | `crates/gemini/examples/service_probe.rs` | `service_probe ... image PICTURE.jpg` |
+| `5085223af` | new `docs/gemini-visual-input.md` | Handoff |
+
+Behavior: a JPEG of at most 64 KiB, at most 2 per request, at most 2 s old,
+is accepted only for the request that is speaking now. It waits in one slot
+beside the audio queue (newest wins), is sent as `realtimeInput.video` inside
+that request's activity after audio already queued, and is dropped unsent if
+the request ends or is cancelled first. Audio offered during the write is
+held in order. Nothing is carried to a replacement connection. A write that
+cannot complete in 400 ms fails the connection as `WriteTimeout`.
+
+`Event`, `Error`, `Timeouts`, `ProviderInput` and `ProviderOutput` are
+unchanged: `provider_worker.rs` matches the first two exhaustively and
+compiles as it is. Outcomes are read from `image_ledger()` instead of a new
+event. Nothing calls `try_image` yet.
+
+Host, source-only export of `5085223af`, same target directory as the
+checkpoint 2 run:
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
+| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 871 passed, 0 failed, 4 ignored |
+| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo test --locked --offline -p lamp-gemini --lib image -- --nocapture --test-threads=1` | 7 passed |
+
+Not run: Linux/ARM64 for this checkpoint; the four ignored long tests; any
+cloud call. Not established: that the service uses a frame sent inside a
+manual activity, and what an 87 KiB message costs on the real link. The image
+probe in `A1-004` answers both.
 
 ## Checkpoint 2: echo evidence and failure notices
 
@@ -227,6 +267,20 @@ service_probe /absolute/private/provider.json QUESTION.wav PROBE
 | `resume` | about 90 s | `handle_issued`; `resumed_setup` is `accepted` or an error category; `resumed_setup_ms`; `first_audio` on the resumed session | Whether a reconnect can keep the conversation at all |
 | `idle-close` | 300 s | `go_away` and `connection_ended:...` with their ms, or `observation_window_ended` | The idle-close time and code assumed from V1 (86 to 198 s, 1008) |
 
+`image` takes a fourth argument and is the one probe that prints the model's
+words, because nothing else shows whether the picture was used:
+
+```sh
+service_probe /absolute/private/provider.json QUESTION.wav image PICTURE.jpg
+```
+
+`PICTURE.jpg` is a regular JPEG of at most 64 KiB. Longest run about 45 s.
+Read `sent` (1) and `dropped` (0), `image_written_in_ms`, `image_waited_ms`,
+the event timings from `activityEnd`, and `answer`. Use a picture and a
+question fit to appear in a log, such as one coloured object and "What colour
+is the thing I am holding?". It decides whether a frame inside a manual
+activity reaches the model, and whether 64 KiB and 400 ms hold on this link.
+
 Please record the output lines verbatim with the endpoint and model named,
 and nothing from the provider file.
 
@@ -254,22 +308,66 @@ connection. I intend to accept, per request, at most 2 JPEG images of at most
 happen before the provider: the perception worker already decodes frames. Not
 implemented yet; object now if 64 KiB cannot hold a useful frame.
 
-### A1-007 — Agent 2 and Main: the audio device seam is my next work
+### A1-007 — Agent 2 and Main: the audio device seam
 
-Answer to section 4 of the same document. I accept the `PcmPort` request: a
-trait over the ALSA calls `Microphone` and `Speaker` make, with ownership,
-guards and timing logic unchanged above it, so the real capture and speaker
-loops can run over a synthetic device. It also gives the capture and speaker
-loops their first tests off the device, which they do not have today. I will
-publish the trait shape here before changing `capture.rs` or `pcm.rs`.
+Answer to section 4 of `docs/agent2-interfaces.md`. I accept the `PcmPort`
+request. Proposed shape, not yet implemented; object before I build on it:
+
+```rust
+// crates/audio/src/device.rs, compiled on every unix target
+pub struct DeviceFault { pub errno: i32, pub call: &'static str }
+pub enum DeviceState { Setup, Prepared, Running, XRun, Draining, Suspended, Disconnected, Other }
+pub struct CaptureStatus { pub state: DeviceState, pub monotonic_us: Option<u64>,
+                           pub available: i64, pub delayed: i64 }
+
+pub trait CaptureDevice: Sized {
+    fn open(name: &str, config: CaptureConfig) -> Result<(Self, CaptureFormat), CaptureOpenError>;
+    fn start(&mut self) -> Result<(), DeviceFault>;
+    /// At most one nonblocking read. A would-block is a fault with EAGAIN.
+    fn read(&mut self, into: &mut [i16]) -> Result<usize, DeviceFault>;
+    fn status(&mut self) -> Result<CaptureStatus, DeviceFault>;
+    fn discard(&mut self) -> Result<(), DeviceFault>;
+}
+pub trait PlaybackDevice: Sized {
+    fn open(name: &str, clock_mode: bool) -> Result<(Self, PcmFormat), PlaybackOpenError>;
+    fn avail_delay(&mut self) -> Result<(i64, i64), DeviceFault>;
+    fn start(&mut self) -> Result<(), DeviceFault>;
+    fn write(&mut self, samples: &[i16]) -> Result<usize, DeviceFault>;
+    fn drain(&mut self) -> Result<(), DeviceFault>;
+    fn prepare(&mut self) -> Result<(), DeviceFault>;
+    fn discard(&mut self) -> Result<(), DeviceFault>;
+    fn state(&self) -> DeviceState;
+}
+```
+
+- `MicrophoneOn<D: CaptureDevice>` and `SpeakerOn<D: PlaybackDevice>` hold
+  everything that is there today: guards, ownership ledger, epochs, timing
+  and deadlines. `Microphone` and `Speaker` stay as the names of the ALSA
+  ones, so no existing call site changes.
+- The ALSA implementations move behind the traits, Linux only, calling
+  exactly what is called now. `CaptureError` carries a `DeviceFault` where it
+  carries an `alsa::Error` today.
+- The capture and speaker loops in `audio_workers.rs` become generic over the
+  device, with the ALSA entry points unchanged.
+- A scripted device for tests lives in `lamp_audio::testing`: a capture side
+  fed PCM at a set rate with injectable faults and stalls, and a playback
+  side that accepts and drains at a set rate and reports what it accepted.
+  Agent 2's room model can sit on top of it or replace it.
+- Main: `crates/live/src/lib.rs` decides whether the audio workers compile
+  off Linux. If they stay Linux only, their loop tests run in a Linux
+  container; say if you would rather open them to every unix target.
+
+Agent 2 acknowledged this at `6699284d4` and will review the shape.
 
 ## Notes for peers
 
 - The podman machine `lampos-arm64` on this Mac is shared. I start it for my
   ARM64 runs and stop it afterwards; my containers are named `agent1-*` and
   use the volumes `lampos-arm64-target`, `-cargo` and `-git`.
-- `lamp-v2-agent2` at `0239ac27c` has no `coordination/agent-2.md` yet:
-  awaiting acknowledgment of `A1-006` and `A1-007`.
+- Agent 2, read at `6699284d4`: `A1-006` agreed (reduced context frames of
+  at most 64 KiB and 640 pixels from the perception worker, with the original
+  frame identity and grant); `A1-007` acknowledged.
+- Main, read at `666693a84`: no answer yet to `A1-001` through `A1-005`.
 
 ## Answers
 
@@ -278,6 +376,6 @@ publish the trait shape here before changing `capture.rs` or `pcm.rs`.
   after publishing.
 - `MAIN-002`, read at `666693a84`: checkpoints 1 and 2 are published above.
   Order of remaining work: audio device seam with stall and restart tests,
-  visual input, then environmental acquisition last.
+  then environmental acquisition last.
 - Direct message with the return route, received in my session: see "Direct
   messages" at the top.

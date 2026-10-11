@@ -267,7 +267,8 @@ fn recentred(blocks: u64) -> Run {
         "{:?}",
         run.causes()
     );
-    // Every 382 s after the first, and nothing else.
+    // Every 445 s after the first, seven blocks of drift from nine ahead
+    // back to two, and nothing else.
     assert!(
         run.causes()
             .iter()
@@ -283,7 +284,7 @@ fn recentred(blocks: u64) -> Run {
     assert!(
         between
             .iter()
-            .all(|blocks| (36_000..=40_000).contains(blocks)),
+            .all(|blocks| (44_000..=45_000).contains(blocks)),
         "{between:?}"
     );
     // The canceller was never bypassed and no counter was rewound: every
@@ -315,7 +316,7 @@ fn recentred_the_fixed_margin_goes_on_past_where_the_native_run_ended() {
 #[test]
 #[ignore]
 fn recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift() {
-    assert_eq!(recentred(360_000).reseeds, 9);
+    assert_eq!(recentred(360_000).reseeds, 8);
 }
 
 #[test]
@@ -346,10 +347,10 @@ fn an_idle_room_is_recentred_before_the_bound_and_a_busy_one_at_it() {
 #[test]
 fn a_recentred_canceller_warms_on_three_seconds_of_the_lamps_own_sound() {
     let mut state = ReferenceAssembly::recentring(Policy::BOUNDED);
-    let mut session = Session::new(RUN03_PPM, 80_000);
+    let mut session = Session::new(RUN03_PPM, 90_000);
     session.sound = true;
     let run = session.run(&mut state);
-    assert_eq!((run.blocks, run.fault), (80_000, None));
+    assert_eq!((run.blocks, run.fault), (90_000, None));
     let causes = run.causes();
     assert_eq!(causes.len(), 4, "{causes:?}");
     for pair in run.statuses.chunks(2) {
@@ -358,7 +359,7 @@ fn a_recentred_canceller_warms_on_three_seconds_of_the_lamps_own_sound() {
         // The block of the re-centre is the first of the three hundred.
         assert_eq!(pair[1].0 - pair[0].0, 299, "three seconds of sound");
     }
-    assert_eq!(run.trusted_blocks, 80_000 - 2 * 299);
+    assert_eq!(run.trusted_blocks, 90_000 - 2 * 299);
 }
 
 #[test]
@@ -812,4 +813,118 @@ fn stalls_on_both_sides_at_once_are_one_recovery() {
         run.bypassed
     );
     assert_eq!(run.timing.capture_blocks_processed, 9_000);
+}
+
+// Independent review regressions: production ReferenceAssembly calls only.
+#[test]
+fn audit_fixed_current_capture_stall_must_not_be_labelled_clock_drift() {
+    let mut state = ReferenceAssembly::recentring(Policy::BOUNDED);
+    let mut session = Session::new(RUN03_PPM, 30_010);
+    // A 20ms hold-up at a pre-existing drift margin: the preceding capture
+    // had no backlog, but the capture being serviced has 336 frames waiting.
+    session.capture_late = stall(30_000, 20_000);
+    let run = session.run(&mut state);
+    eprintln!(
+        "audit short stall blocks={} fault={:?} statuses={:?}",
+        run.blocks, run.fault, run.statuses
+    );
+    assert!(run.fault.is_some(), "current backlog was relabelled drift");
+    assert_eq!(run.reseeds, 0, "stall cannot certify drift-only recovery");
+}
+
+#[test]
+fn audit_expired_untrusted_deadline_cannot_be_healed_by_the_last_anchor_block() {
+    let mut state = recovering();
+    let run = Session::new(0.0, 100).run(&mut state);
+    assert_eq!(run.fault, None);
+    let mut echo = EchoProcessor::new(false);
+    let lost_at = START + 5_000 + 100 * 10_000;
+    let mut sequence = state.sequence + 2;
+    let mut cursor = state.timing().accepted_through + 240;
+    let mut send = |state: &mut ReferenceAssembly, at: u64, echo: &mut EchoProcessor| {
+        state
+            .accept(
+                RenderReference {
+                    playback_epoch: 1,
+                    privacy_generation: 2,
+                    sequence,
+                    first_sample: cursor,
+                    accepted_at_us: at,
+                    queue_observed_at_us: at,
+                    queued_frames: 456,
+                    payload: RenderPayload::Silence { frames: 240 },
+                },
+                at + 10,
+                2,
+                echo,
+            )
+            .unwrap();
+        sequence += 1;
+        cursor += 240;
+    };
+    send(&mut state, lost_at, &mut echo);
+    assert_eq!(state.trust(), Trust::Untrusted);
+    for block in 0..100 {
+        let at = lost_at + block * 10_000;
+        if block >= 96 {
+            send(&mut state, at, &mut echo);
+        }
+        assert_eq!(
+            state
+                .capture_step(16, at + 100, at + 100, &mut echo)
+                .unwrap(),
+            None
+        );
+    }
+    let deadline = lost_at + Policy::BOUNDED.untrusted_deadline_us;
+    send(&mut state, deadline, &mut echo);
+    let result = state.capture_step(16, deadline + 100, deadline + 100, &mut echo);
+    eprintln!(
+        "audit expired deadline result={:?} trust={:?} recovery={:?}",
+        result,
+        state.trust(),
+        state.recovery_counts()
+    );
+    assert!(result.is_err(), "expired untrusted interval was reseeded");
+    assert_eq!(
+        result
+            .unwrap_err()
+            .downcast_ref::<ReferenceFault>()
+            .unwrap()
+            .reason,
+        Kind::RecoveryTimedOut
+    );
+}
+
+#[test]
+fn audit_future_queue_observation_is_not_just_a_late_packet() {
+    let mut state = recovering();
+    let run = Session::new(0.0, 100).run(&mut state);
+    assert_eq!(run.fault, None);
+    let now = START + 5_000 + 100 * 10_000;
+    let mut echo = EchoProcessor::new(false);
+    let result = state.accept(
+        RenderReference {
+            playback_epoch: 1,
+            privacy_generation: 2,
+            sequence: state.sequence + 1,
+            first_sample: state.timing().accepted_through,
+            accepted_at_us: now - 100,
+            queue_observed_at_us: now + 100_000,
+            queued_frames: 456,
+            payload: RenderPayload::Silence { frames: 240 },
+        },
+        now,
+        2,
+        &mut echo,
+    );
+    eprintln!(
+        "audit future queue result={:?} counts={:?}",
+        result,
+        state.recovery_counts()
+    );
+    assert!(
+        result.is_err(),
+        "future queue time accepted and counted as merely late"
+    );
 }

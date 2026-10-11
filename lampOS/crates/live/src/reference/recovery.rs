@@ -54,7 +54,9 @@
 //! behind, a speaker that stopped, a lost packet: in the fixed mode those
 //! are still the faults they were. The capture-clocked reference never
 //! needs a re-centre, because its count does not drift.
-use super::{Kind, LEAD_FRAMES, MAX_REFERENCE_AGE_US, ReferenceAssembly, Result, fresh};
+use super::{
+    Kind, LEAD_FRAMES, MAX_AHEAD_BLOCKS, MAX_REFERENCE_AGE_US, ReferenceAssembly, Result, fresh,
+};
 use crate::wire::{
     RecoveryCounts, ReferenceCause as Cause, ReferenceStatus, ReferenceTrust as Trust,
     RenderPayload, RenderReference,
@@ -112,6 +114,15 @@ const HISTORY_BLOCKS: usize = 8;
 /// Fixed margin: from this many render blocks ahead a re-centre is made as
 /// soon as the room is idle. The bound itself is eight.
 const EARLY_AHEAD_BLOCKS: u64 = 6;
+/// Fixed margin: render blocks beyond the bound that may be taken in while
+/// the capture block that settles it is awaited. Four is all that can arrive
+/// inside the 40 ms a reference stays fresh.
+const AWAITED_BLOCKS: u64 = 4;
+/// How recent the other side's last sign of life must be for a margin at
+/// its bound to be the clocks' doing: two blocks. A lamp's capture reads
+/// were never more than 12.6 ms apart and its packets never more than
+/// 20.9 ms. Anything later is a hold-up, and a hold-up is not drift.
+const ON_TIME_US: u64 = 20_000;
 /// Capture blocks without speech, and render blocks of silence, that make
 /// the room idle: half a second.
 const IDLE_BLOCKS: u32 = 50;
@@ -274,16 +285,28 @@ impl ReferenceAssembly {
             self.state().capture_backlog_frames = capture_delayed_frames;
             let rendered = self.timing.analysed_through / RENDER_SAMPLES as u64;
             let running = self.running_capture_blocks();
+            let ahead = rendered.saturating_sub(running);
             let idle = {
                 let state = self.state();
                 state.still_blocks >= IDLE_BLOCKS && state.silent_blocks >= IDLE_BLOCKS
             };
-            if rendered <= running && fresh(self.timing.accepted_at_us, now, MAX_REFERENCE_AGE_US) {
+            // Only this block's own status says whether this loop is on
+            // time. A margin at its bound with the loop on time is the
+            // clocks. With the loop late it is a backlog, and stays the
+            // fault it was.
+            let on_time = self.capture_on_time(capture_delayed_frames, now);
+            if ahead > MAX_AHEAD_BLOCKS {
+                if !on_time {
+                    return Err(self.fault(Kind::ReferenceBacklog, now).into());
+                }
+                self.recentre(Side::Ahead, now, echo)?;
+            } else if rendered <= running && fresh(self.timing.accepted_at_us, now, ON_TIME_US) {
+                // No render block ahead of this capture block, and a speaker
+                // that is on time: the margin walked down to nothing. A
+                // speaker that is late is not that, and `before_capture`
+                // says so below.
                 self.recentre(Side::Behind, now, echo)?;
-            } else if rendered.saturating_sub(running) >= EARLY_AHEAD_BLOCKS
-                && idle
-                && self.drifted_ahead(now)
-            {
+            } else if ahead >= EARLY_AHEAD_BLOCKS && idle && on_time {
                 // Coming within two blocks anyway: better now, in silence.
                 self.recentre(Side::Ahead, now, echo)?;
             }
@@ -307,6 +330,13 @@ impl ReferenceAssembly {
         // waiting, and a capture loop that is on time. One still working
         // through a backlog reads blocks faster than the speaker supplies
         // them, and a ring filled then would be drained at once.
+        // The bound on being untrusted is absolute. Fresh reference that
+        // arrives at it does not buy another interval.
+        if self.trust() == Trust::Untrusted
+            && now.saturating_sub(self.state().untrusted_since_us) >= policy.untrusted_deadline_us
+        {
+            return Err(self.fault(Kind::RecoveryTimedOut, now).into());
+        }
         if self.trust() == Trust::Untrusted
             && self.state().run
             && capture_delayed_frames <= FRESH_CAPTURE_FRAMES
@@ -417,19 +447,24 @@ impl ReferenceAssembly {
         }
     }
 
-    /// Fixed margin at its upper bound: whether the clocks did it. The
-    /// packet in hand is fresh, or it would not have got this far. If the
-    /// capture loop is also on time and the microphone has no more waiting
-    /// than a block may be late, nothing fell behind: the count drifted.
-    pub(super) fn drifted_ahead(&self, now: u64) -> bool {
-        self.recovery.as_ref().is_some_and(|state| {
-            self.clock.is_none()
-                && self.timing.clock_started_at_us.is_some()
-                && state.capture_backlog_frames <= FRESH_CAPTURE_FRAMES
-                && self
-                    .last_capture_read_at_us
-                    .is_some_and(|read| fresh(read, now, MAX_REFERENCE_AGE_US))
-        })
+    /// Fixed margin: whether a packet that takes the count past its bound
+    /// may be taken in while the capture block that settles it is awaited.
+    pub(super) fn awaits_capture(&self, ahead: u64) -> bool {
+        self.recovery.is_some()
+            && self.clock.is_none()
+            && self.timing.clock_started_at_us.is_some()
+            && ahead <= MAX_AHEAD_BLOCKS + AWAITED_BLOCKS
+    }
+
+    /// Whether the capture block in hand finds this loop on time: the
+    /// microphone has no more waiting than a lamp shows with its loop
+    /// running, and the block before it was read no more than two blocks
+    /// ago. Judged on this block's own status, never an earlier one's.
+    fn capture_on_time(&self, capture_delayed_frames: i64, now: u64) -> bool {
+        (0..=FRESH_CAPTURE_FRAMES).contains(&capture_delayed_frames)
+            && self
+                .last_capture_read_at_us
+                .is_some_and(|read| fresh(read, now, ON_TIME_US))
     }
 
     /// Fixed margin: reset the canceller, give it its lead again from the
@@ -519,7 +554,11 @@ impl ReferenceAssembly {
         } else if reference.queued_frames > 960
             || reference.accepted_at_us > reference.queue_observed_at_us
             || reference.accepted_at_us > now
+            || reference.queue_observed_at_us > now
+            || reference.queue_observed_at_us < self.timing.queue_observed_at_us
         {
+            // A queue observation from the future, or from before the last
+            // one, is not late. It is wrong, and its timing is not taken.
             Some(Kind::QueueTiming)
         } else {
             None

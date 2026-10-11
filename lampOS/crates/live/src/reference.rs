@@ -363,14 +363,13 @@ impl ReferenceAssembly {
             return Ok(true);
         }
         let full_blocks = accepted / RENDER_SAMPLES as u64;
-        if full_blocks.saturating_sub(self.running_capture_blocks()) > MAX_AHEAD_BLOCKS {
-            // With recovery, a margin used up by the clocks alone is moved
-            // back, once and in the open. A capture loop that fell behind is
-            // not that, and stays the fault it was.
-            if !self.drifted_ahead(now) {
-                return Err(self.fault(Kind::ReferenceBacklog, now).into());
-            }
-            self.recentre(recovery::Side::Ahead, now, echo)?;
+        let ahead = full_blocks.saturating_sub(self.running_capture_blocks());
+        // With recovery the bound may be passed by a few blocks until the
+        // next capture block, which is the only place it can be told whether
+        // the clocks did it or the capture loop fell behind. Nothing is
+        // decided here on what an earlier capture block said.
+        if ahead > MAX_AHEAD_BLOCKS && !self.awaits_capture(ahead) {
+            return Err(self.fault(Kind::ReferenceBacklog, now).into());
         }
         let mut offset = 0;
         while offset < samples.len() {

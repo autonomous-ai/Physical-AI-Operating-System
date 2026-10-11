@@ -143,6 +143,28 @@ impl FromStr for ReferenceClock {
     }
 }
 
+/// Endpoint experiment. `smart-turn` confirms V1-baseline pauses with the
+/// separate `lamp-endpoint-worker` process and its pinned model, both
+/// installed beside this executable, and keeps the silence window as the
+/// fallback for every pause without a usable verdict. It is never a default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Endpoint {
+    #[default]
+    Silence,
+    SmartTurn,
+}
+impl FromStr for Endpoint {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "silence" => Ok(Self::Silence),
+            "smart-turn" => Ok(Self::SmartTurn),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 /// Experimental coordinator horizon; zero preserves immediate dispatch.
 /// This is not an ALSA queue size or a promise of gap-free playback.
 ///
@@ -238,6 +260,7 @@ pub struct DirectedOptions {
     /// Explicit opt-in for a person who goes on before the first answer has
     /// begun. Off leaves the provider worker's arguments as they were.
     pub provider_continuation: Continuation,
+    pub endpoint: Endpoint,
     pub diagnostics: bool,
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
@@ -263,6 +286,7 @@ impl DirectedOptions {
         let mut options = Self::default();
         let mut noise_seen = false;
         let mut turn_seen = false;
+        let mut endpoint_seen = false;
         let mut playout_seen = false;
         let mut reference_seen = false;
         let mut recovery_seen = false;
@@ -287,6 +311,10 @@ impl DirectedOptions {
                 "--turn-taking" if !turn_seen => {
                     options.turn_taking = required_value(&mut arguments)?.parse()?;
                     turn_seen = true;
+                }
+                "--endpoint" if !endpoint_seen => {
+                    options.endpoint = required_value(&mut arguments)?.parse()?;
+                    endpoint_seen = true;
                 }
                 "--noise-suppression" if !noise_seen => {
                     options.noise_suppression = required_value(&mut arguments)?.parse()?;
@@ -321,6 +349,12 @@ impl DirectedOptions {
         // that masks own playback has to be in force: `vad-only` masks nothing.
         if options.reference_recovery == ReferenceRecovery::Bounded
             && options.turn_taking == TurnTaking::VadOnly
+        {
+            return Err(invalid_options());
+        }
+        // Confirmation is defined against the baseline detector's silence
+        // fallback, which V1-baseline and duplex share; `vad-only` has none.
+        if options.endpoint == Endpoint::SmartTurn && options.turn_taking == TurnTaking::VadOnly
         {
             return Err(invalid_options());
         }
@@ -707,6 +741,42 @@ mod tests {
         }
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), true).is_err());
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), false).is_err());
+    }
+
+    #[test]
+    fn smart_turn_endpoint_is_explicit_and_requires_the_v1_baseline() {
+        assert_eq!(
+            SessionOptions::default().directed.endpoint,
+            Endpoint::Silence
+        );
+        let options = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "v1-baseline",
+            "--endpoint",
+            "smart-turn",
+        ]))
+        .unwrap();
+        assert_eq!(options.directed.endpoint, Endpoint::SmartTurn);
+        assert_eq!(
+            serde_json::to_value(options.directed.endpoint).unwrap(),
+            "smart-turn"
+        );
+        for values in [
+            vec!["--endpoint", "smart-turn"],
+            vec!["--turn-taking", "vad-only", "--endpoint", "smart-turn"],
+            vec!["--turn-taking", "v1-baseline", "--endpoint"],
+            vec!["--turn-taking", "v1-baseline", "--endpoint", "Smart-Turn"],
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "silence",
+                "--endpoint",
+                "smart-turn",
+            ],
+        ] {
+            assert!(SessionOptions::parse(&args(&values)).is_err(), "{values:?}");
+        }
     }
 
     #[test]
@@ -1161,6 +1231,7 @@ mod tests {
                         reference_clock: ReferenceClock::Fixed,
                         reference_recovery: ReferenceRecovery::Off,
                         provider_continuation: Continuation::Off,
+                        endpoint: Endpoint::Silence,
                         diagnostics: true,
                         noise_suppression: mode,
                         ring_channel_ceiling: None,

@@ -61,8 +61,10 @@ pub mod motor;
 use motor::{OptionalMotor, PreparedMotor};
 mod cloud;
 mod notices;
+mod endpoint;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
+use endpoint::EndpointRig;
 mod optional_ring;
 mod ring_trace;
 use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
@@ -284,6 +286,8 @@ struct Rig {
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
     playout_start: PlayoutStart,
+    /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
+    endpoint: Option<EndpointRig>,
 }
 impl Rig {
     fn publish(&mut self, snapshot: Snapshot) -> io::Result<()> {
@@ -573,6 +577,21 @@ impl Rig {
             && let Err(error) = watch.finish()
         {
             failure = Some(error);
+        }
+        // The endpoint client closed when the session's detector dropped. Its
+        // loss while running only meant the silence fallback, but a worker
+        // whose exit is not confirmed must keep this cleanup from succeeding,
+        // so no later runtime can start beside it.
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if let Some((event, teardown)) = self
+            .endpoint
+            .take()
+            .and_then(|endpoint| endpoint.finish(remaining.max(Duration::from_millis(500))))
+        {
+            let _ = record(trace, event);
+            if let Err(error) = teardown {
+                failure = Some(error);
+            }
         }
         if let Some(directory) = &self.diagnostic_directory {
             for (index, worker, leaf) in [
@@ -1558,6 +1577,8 @@ fn spawn_rig(
 ) -> Result<Rig> {
     termination.check()?;
     let executable = std::env::current_exe()?;
+    // Model loading overlaps the remaining startup; nothing waits for it.
+    let endpoint = EndpointRig::start(&options, &executable);
     let provider_boot = new_boot()?;
     let mut arguments = source.arguments()?;
     // Before the camera context, which the worker reads as the rest.
@@ -1738,6 +1759,7 @@ fn spawn_rig(
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
         playout_start: options.playout_start,
+        endpoint,
     })
 }
 
@@ -2017,17 +2039,17 @@ fn conversation(
         None
     };
     let mut ring_trace = RingTrace::default();
-    let mut detector = match rig.turn_taking {
-        // Duplex gates the scores this detector sees; its rule is unchanged.
-        TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
-        TurnTaking::VadOnly => TurnDetector::default(),
-    };
-    record(
-        trace,
-        json!({"kind":"endpoint_policy","at_us":monotonic_us(),
-        "turn_taking":rig.turn_taking,"silence_wait_ms":detector.endpoint_silence_ms(),
-        "basis":"consecutive_low_vad_scores","semantic_confirmation":false}),
+    let (mut detector, endpoint_policy) = EndpointRig::attach(
+        rig.endpoint.as_mut(),
+        rig.turn_taking,
+        match rig.turn_taking {
+            // Duplex gates the scores this detector sees; its rule is unchanged.
+            TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
+            TurnTaking::VadOnly => TurnDetector::default(),
+        },
     )?;
+    record(trace, endpoint_policy)?;
+    let mut endpoint_watch = endpoint::Watch::default();
     // Duplex is the conservative mask with ears. A candidate that began over
     // the lamp is held until the lamp's own sound has gone, so its decision
     // budget is longer; everything else about admission is unchanged.
@@ -2717,7 +2739,9 @@ fn conversation(
                     )?;
                     record(
                         trace,
-                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,"includes_silence_wait_ms":detector.endpoint_silence_ms(),"acoustic_speech_end":null}),
+                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
+                        "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
+                        "endpoint":detector.last_endpoint(),"acoustic_speech_end":null}),
                     )?;
                 }
             }
@@ -2726,6 +2750,10 @@ fn conversation(
             && monotonic_us().saturating_sub(at) >= INPUT_LEASE_US
         {
             return Err(io::Error::other("microphone retention heartbeat expired").into());
+        }
+        let monitor = rig.endpoint.as_ref().and_then(|e| e.monitor.as_ref());
+        if let Some(event) = endpoint_watch.observe(&detector, monitor) {
+            record(trace, event)?;
         }
         if clock.saturating_sub(last_publish) >= 20_000 {
             snapshot = owner.snapshot(now())?;
@@ -3769,6 +3797,7 @@ mod tests {
     mod duplex;
     mod failure_notice;
     mod pilot_faults;
+    mod endpoint_session;
     mod playout_continuity;
     mod playout_start;
     mod provider_pair;
@@ -3895,6 +3924,7 @@ mod tests {
             noise_suppression: NoiseSuppression::On,
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
+            endpoint: None,
         };
         let started = Instant::now();
         let mut trace = SessionState::default();

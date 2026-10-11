@@ -1163,6 +1163,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         noise_suppression: NoiseSuppression::On,
         turn_taking: script.turn_taking,
         playout_start: PlayoutStart::default(),
+        endpoint: None,
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();

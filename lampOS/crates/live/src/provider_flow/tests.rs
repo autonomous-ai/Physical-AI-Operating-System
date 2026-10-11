@@ -431,6 +431,7 @@ fn every_provider_event_consumes_one_credit_including_repeated_ready_and_old_aud
         ProviderOutput::Ready { setup_us: 1 },
         ProviderOutput::Started {
             request: 7,
+            session: 1,
             waiting_for_barrier: false,
         },
         audio(1, PACKET_SAMPLES),

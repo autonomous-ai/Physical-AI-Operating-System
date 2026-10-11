@@ -71,7 +71,7 @@ fn run() -> Result<()> {
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
             match role.as_str() {
-                "provider" => tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run(channels,parent,Path::new(extra)))?,
+                "provider" => tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_reporting(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated))?,
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }

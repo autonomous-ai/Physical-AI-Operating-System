@@ -1,20 +1,20 @@
 //! Cloud I/O stays in a separate process. Input is private, bounded and tied to
 //! its capture privacy generation; response lineage never follows a new turn.
 //!
-//! A lost provider connection is recovered here only when nothing accepted can
-//! be lost or repeated: while idle, or after an answer's generation completed
-//! and was delivered. Any other loss ends the worker with the request and the
-//! stage it had reached. Input is never replayed and no answer is requested
-//! twice. See `docs/gemini-session-reliability.md`.
+//! Production Legacy mode ends on a lost unfinished request. Explicit Typed
+//! and Coordinated modes retain its terminal outcome while recovering without
+//! replay. Coordinated availability bypasses PCM credit, not ownership or the
+//! ordered answer stream. See `docs/provider-link-channel.md`.
 use crate::{
     config::ProviderConfig,
     provider_flow::{OutputSender, PACKET_SAMPLES},
+    provider_link::{LinkClock, LinkFailure, PendingLink, ProviderLink},
     transport::{Channel, WorkerChannels},
     wire::{Control, WorkerEvent},
 };
 use lamp_gemini::{
     BarrierPolicy, Connect, Context, Dialer, Discard, Error, Event, Failure, FailureReason, Notice,
-    RecoveryPolicy, RequestId, Resumption, Stage, State, Supervisor,
+    RecoveryPolicy, RequestId, Resumption, SessionId, Stage, StartRefusal, State, Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
@@ -48,6 +48,8 @@ const RETAINED_INPUT_US: u64 = 100_000;
 pub enum ProviderInput {
     Start {
         request: u64,
+        /// The connection selected at admission, never replaced at dequeue.
+        session: u64,
         privacy_generation: u64,
     },
     Audio {
@@ -92,6 +94,8 @@ pub enum ProviderOutput {
     },
     Started {
         request: u64,
+        /// The connection that actually accepted Start, never current link state.
+        session: u64,
         waiting_for_barrier: bool,
     },
     Audio {
@@ -118,12 +122,28 @@ pub enum ProviderOutput {
         request: u64,
         idle: bool,
     },
+    TurnFailed {
+        request: u64,
+        stage: FailedStage,
+        reason: Fault,
+    },
+    OwnershipAssumed {
+        request: Option<u64>,
+        superseded: Option<u64>,
+    },
+    /// The upstream output stream has ended, after its retained PCM and turn
+    /// outcomes. This is not process EOF: a later local Start refusal can
+    /// still produce TurnFailed(NotDelivered), until explicit Stop.
+    Ended {
+        reason: LinkFailure,
+        fault: Fault,
+        attempts: u32,
+    },
 }
 
-/// Proposed additions to the provider-to-coordinator contract. They share the
-/// envelope and `kind` tag of [`ProviderOutput`] and are meant to become
-/// variants of it. Nothing sends them until the coordinator handles them: see
-/// [`Reporting`] and `docs/gemini-session-reliability.md`.
+/// Compatibility encoding for explicit Typed mode. Turn failures and ownership
+/// assumptions share the exact flat wire shape with [`ProviderOutput`].
+/// Coordinated link availability instead uses the separate control channel.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProviderStatus {
@@ -259,6 +279,9 @@ pub enum Reporting {
     Legacy,
     /// Send [`ProviderStatus`] and keep running through a lost request.
     Typed,
+    /// Availability uses priority control; ordered PCM and exact outcomes use
+    /// the credited data stream. This mode requires a coordinated consumer.
+    Coordinated,
 }
 
 pub(crate) struct Options {
@@ -281,7 +304,10 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
             return true;
         };
         let request = match event {
-            ProviderOutput::Ready { .. } => None,
+            ProviderOutput::Ready { .. }
+            | ProviderOutput::TurnFailed { .. }
+            | ProviderOutput::OwnershipAssumed { .. }
+            | ProviderOutput::Ended { .. } => None,
             ProviderOutput::Transcript { request, .. } => *request,
             ProviderOutput::Started { request, .. }
             | ProviderOutput::Audio { request, .. }
@@ -309,15 +335,43 @@ fn queue_undelivered(handoff: &mut InputHandoff, output: &mut VecDeque<Outbound>
 }
 
 pub async fn run(channels: WorkerChannels, boot: BootId, config_path: &Path) -> Result<()> {
+    run_with_reporting(channels, boot, config_path, Reporting::Legacy).await
+}
+
+/// Explicit consumer-contract selection. The default entry point stays Legacy
+/// until coordinated admission and terminal handling qualify together.
+pub async fn run_with_reporting(
+    channels: WorkerChannels,
+    boot: BootId,
+    config_path: &Path,
+    reporting: Reporting,
+) -> Result<()> {
     let config = ProviderConfig::load(config_path)?
         .into_session()?
         .resumption(RESUMPTION)
         .barrier_policy(BARRIER);
     let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;
-    let options = Options {
-        reporting: Reporting::Legacy,
-    };
+    let options = Options { reporting };
     serve(channels, boot, provider, options).await
+}
+
+/// Paired producer/consumer qualification uses the real loop without loading
+/// credentials or selecting a cloud endpoint. This seam is absent from builds.
+#[cfg(test)]
+pub(crate) async fn serve_coordinated_test<C: Connect>(
+    channels: WorkerChannels,
+    boot: BootId,
+    provider: Supervisor<C>,
+) -> Result<()> {
+    serve(
+        channels,
+        boot,
+        provider,
+        Options {
+            reporting: Reporting::Coordinated,
+        },
+    )
+    .await
 }
 
 async fn serve<C: Connect>(
@@ -327,7 +381,11 @@ async fn serve<C: Connect>(
     options: Options,
 ) -> Result<()> {
     channels.control.send(WorkerEvent::Ready)?;
-    let typed = options.reporting == Reporting::Typed;
+    let coordinated = options.reporting == Reporting::Coordinated;
+    let typed = options.reporting != Reporting::Legacy;
+    let mut link_clock = coordinated.then(LinkClock::sample).transpose()?;
+    let mut link_status = PendingLink::default();
+    let mut upstream_ended = false;
     let mut intake = ProviderIntake::new(boot, monotonic_us());
     intake.handoff.tolerate_outage = typed;
     let mut ticker = tokio::time::interval(Duration::from_millis(2));
@@ -349,7 +407,8 @@ async fn serve<C: Connect>(
                 if control == ControlDrain::Stopped { provider.shutdown(); return Ok(()); }
                 // Notice a dead connection and start its replacement now, even
                 // while no provider event is being taken.
-                provider.maintain();
+                service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
+                    channels.control.send(WorkerEvent::ProviderLink { link }))?;
                 // Local retirement cannot wait behind a full control slice.
                 intake.handoff.synchronize(&provider)?;
                 prune_retired_output(&mut output, intake.handoff.retired_through);
@@ -380,8 +439,11 @@ async fn serve<C: Connect>(
                     } else { break; }
                 }
             },
-            notice=provider.next(), if output.len() < OUTPUT_HIGH_WATER=>{
+            notice=next_notice(&mut provider, coordinated), if !upstream_ended && output.len() < OUTPUT_HIGH_WATER=>{
                 match notice {
+                    Ok(Notice::Ready {..} | Notice::Unavailable {..}) if coordinated => {
+                        return Err(io::Error::other("availability escaped the provider control plane").into());
+                    },
                     Ok(Notice::Ready {session,context,attempts,elapsed,after})=>{
                         let elapsed_us = elapsed.as_micros().try_into().unwrap_or(u64::MAX);
                         match (after, typed) {
@@ -436,11 +498,53 @@ async fn serve<C: Connect>(
                         // two outcome sources are disjoint.
                         output.push_back(Outbound::Status(ProviderStatus::TurnFailed { request, stage: stage.into(), reason: error.into() }));
                     },
+                    Err(failure) if coordinated => {
+                        // Stop polling the terminal future. The process remains
+                        // alive to drain retained output, refuse later input
+                        // exactly once, and service privacy and explicit Stop.
+                        output.push_back(Outbound::Output(ProviderOutput::Ended {
+                            reason: failure.reason.into(), fault: failure.error.into(), attempts: failure.attempts,
+                        }));
+                        upstream_ended = true;
+                    },
                     Err(failure)=>return Err(ended(failure).into()),
                 }
                 if output.len()>MAX_QUEUED_OUTPUT { return Err(io::Error::other("provider IPC output backlog exceeded bound").into()); }
             }
         }
+    }
+}
+
+/// Control upkeep has no PCM queue or credit argument. The callback must be a
+/// nonblocking transport send; WouldBlock preserves one original observation.
+fn service_link<C: Connect>(
+    provider: &mut Supervisor<C>,
+    clock: Option<&mut LinkClock>,
+    pending: &mut PendingLink,
+    send: impl FnMut(ProviderLink) -> io::Result<()>,
+) -> io::Result<()> {
+    if let Some(clock) = clock {
+        clock.tick()?;
+        if let Some(update) = provider.poll_link() {
+            pending.observe(clock.convert(update)?, monotonic_us())?;
+        }
+        pending.try_send(send)
+    } else {
+        provider.maintain();
+        Ok(())
+    }
+}
+
+/// Select one API for the entire worker lifetime. Both futures are cancellation
+/// safe, so the control tick never waits for data, backoff or a hung connection.
+async fn next_notice<C: Connect>(
+    provider: &mut Supervisor<C>,
+    coordinated: bool,
+) -> std::result::Result<Notice, Failure> {
+    if coordinated {
+        provider.next_output().await.map(Notice::from)
+    } else {
+        provider.next().await
     }
 }
 
@@ -457,6 +561,7 @@ fn forward(
             waiting_for_barrier,
         } => push(ProviderOutput::Started {
             request: lineage.request.get(),
+            session: lineage.session.get(),
             waiting_for_barrier,
         }),
         Event::Audio { lineage, pcm, .. } => {
@@ -764,7 +869,7 @@ struct InputHandoff {
     failed_through: u64,
     /// Report an undeliverable request instead of ending the worker.
     tolerate_outage: bool,
-    /// The sole unreported request whose Start was refused while disconnected.
+    /// The sole unreported request whose selected connection refused its Start.
     /// Drain it before receiving another command; it is never overwritten.
     undelivered: Option<u64>,
 }
@@ -862,6 +967,27 @@ impl InputHandoff {
         Err(error.into())
     }
 
+    /// These two checked refusals happen before enqueue or supersession. They
+    /// cannot create a supervisor terminal receipt, so the worker owes one.
+    /// Other errors keep their existing fatal semantics; in particular an
+    /// arbitrary StaleRequest is not proof of a replaced connection.
+    fn refused_start(&mut self, request: RequestId, refusal: StartRefusal) -> Result<()> {
+        let error = match refusal {
+            StartRefusal::NotConnected => Error::NotConnected,
+            StartRefusal::SessionMismatch { .. } => Error::StaleRequest,
+            StartRefusal::Refused(error) => return Err(error.into()),
+        };
+        if !self.tolerate_outage {
+            return Err(error.into());
+        }
+        if self.undelivered.is_some() {
+            return Err(io::Error::other("unreported refused Start must be drained").into());
+        }
+        self.fail(request.get());
+        self.undelivered = Some(request.get());
+        Ok(())
+    }
+
     fn submit(
         &mut self,
         command: ProviderInput,
@@ -888,12 +1014,13 @@ impl InputHandoff {
             return Err(io::Error::other("provider input has no matching current owner").into());
         }
         match command {
-            ProviderInput::Start { .. } => {
+            ProviderInput::Start { session, .. } => {
                 if self.submitted.is_some() {
                     return Err(io::Error::other("provider input already started").into());
                 }
-                if let Err(error) = input.start(request) {
-                    return self.refused(request, error, input);
+                let expected = SessionId::new(session)?;
+                if let Err(refusal) = input.start(expected, request) {
+                    return self.refused_start(request, refusal);
                 }
                 self.submitted = Some(SubmittedInput {
                     request,
@@ -947,7 +1074,11 @@ impl InputHandoff {
 /// The small seam lets regressions exercise cross-channel ordering without
 /// credentials or a socket.
 trait InputSink {
-    fn start(&self, request: RequestId) -> lamp_gemini::Result<()>;
+    fn start(
+        &self,
+        session: SessionId,
+        request: RequestId,
+    ) -> std::result::Result<(), StartRefusal>;
     fn audio(
         &self,
         request: RequestId,
@@ -965,8 +1096,12 @@ trait InputSink {
 }
 
 impl<C: Connect> InputSink for Supervisor<C> {
-    fn start(&self, request: RequestId) -> lamp_gemini::Result<()> {
-        self.try_start(request)
+    fn start(
+        &self,
+        session: SessionId,
+        request: RequestId,
+    ) -> std::result::Result<(), StartRefusal> {
+        self.try_start_for_session(session, request)
     }
     fn audio(
         &self,
@@ -1023,6 +1158,44 @@ mod tests {
     const NOW: u64 = 10_000_000;
 
     #[test]
+    fn started_wire_retains_actual_source_session_and_requires_it_on_decode() {
+        let mut output = VecDeque::new();
+        forward(
+            Event::InputStarted {
+                lineage: lamp_gemini::Lineage {
+                    session: lamp_gemini::SessionId::new(7).unwrap(),
+                    request: RequestId::new(23).unwrap(),
+                },
+                waiting_for_barrier: true,
+            },
+            &mut output,
+            &mut 0,
+            &mut DiscardLog::default(),
+        )
+        .unwrap();
+        let Some(Outbound::Output(started)) = output.pop_front() else {
+            panic!("missing Started");
+        };
+        let value = serde_json::to_value(&started).unwrap();
+        assert_eq!(value["session"], 7);
+        assert!(matches!(
+            serde_json::from_value::<ProviderOutput>(value).unwrap(),
+            ProviderOutput::Started {
+                request: 23,
+                session: 7,
+                waiting_for_barrier: true
+            }
+        ));
+        assert!(
+            serde_json::from_value::<ProviderOutput>(serde_json::json!({
+                "kind":"started", "request":23, "waiting_for_barrier":true
+            }))
+            .is_err(),
+            "a missing source session cannot borrow the current connection"
+        );
+    }
+
+    #[test]
     fn output_capacity_cannot_renew_authority_or_controller_heartbeat() {
         let mut intake = ProviderIntake::new(BootId::new([9; 16]).unwrap(), NOW);
         let mut budget = CONTROL_SLICE;
@@ -1065,6 +1238,7 @@ mod tests {
         }));
         queue.push_back(Outbound::Output(ProviderOutput::Started {
             request: 2,
+            session: 1,
             waiting_for_barrier: true,
         }));
         queue.push_back(Outbound::Output(ProviderOutput::Transcript {
@@ -1113,17 +1287,27 @@ mod tests {
         reject_end: Cell<bool>,
         reject_start: Cell<bool>,
         disconnected: Cell<bool>,
+        /// Zero means the initial session (1); tests can install a replacement.
+        session: Cell<u64>,
     }
     impl InputSink for RecordingSink {
-        fn start(&self, request: RequestId) -> lamp_gemini::Result<()> {
+        fn start(
+            &self,
+            session: SessionId,
+            request: RequestId,
+        ) -> std::result::Result<(), StartRefusal> {
             if self.disconnected.get() {
-                return Err(lamp_gemini::Error::NotConnected);
+                return Err(StartRefusal::NotConnected);
+            }
+            let live = SessionId::new(self.session.get().max(1)).unwrap();
+            if live != session {
+                return Err(StartRefusal::SessionMismatch { live });
             }
             if self.reject_start.get() {
-                return Err(lamp_gemini::Error::Backpressure);
+                return Err(StartRefusal::Refused(lamp_gemini::Error::Backpressure));
             }
             if self.open.get().is_some() || request.get() <= self.retired.get() {
-                return Err(lamp_gemini::Error::OverlappingInput);
+                return Err(StartRefusal::Refused(lamp_gemini::Error::OverlappingInput));
             }
             self.open.set(Some(request.get()));
             self.calls.borrow_mut().push(Call::Start(request.get()));
@@ -1204,8 +1388,86 @@ mod tests {
     }
     fn start(request: u64, handoff: &InputHandoff) -> ProviderInput {
         ProviderInput::Start {
+            session: 1,
             request,
             privacy_generation: generation(handoff),
+        }
+    }
+
+    #[test]
+    fn start_wire_requires_an_explicit_selected_session() {
+        let command = serde_json::json!({
+            "kind":"start", "request":1, "session":7, "privacy_generation":2
+        });
+        assert!(matches!(
+            serde_json::from_value::<ProviderInput>(command.clone()).unwrap(),
+            ProviderInput::Start {
+                request: 1,
+                session: 7,
+                privacy_generation: 2
+            }
+        ));
+        for field in ["request", "session", "privacy_generation"] {
+            let mut missing = command.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<ProviderInput>(missing).is_err());
+        }
+        let mut unknown = command;
+        unknown["current_session"] = serde_json::json!(8);
+        assert!(serde_json::from_value::<ProviderInput>(unknown).is_err());
+    }
+
+    #[test]
+    fn zero_session_fails_without_a_submission_or_not_delivered_receipt() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff {
+            tolerate_outage: true,
+            ..InputHandoff::default()
+        };
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = RecordingSink::default();
+        assert!(
+            handoff
+                .submit(
+                    ProviderInput::Start {
+                        request,
+                        session: 0,
+                        privacy_generation: generation(&handoff),
+                    },
+                    NOW,
+                    &sink
+                )
+                .is_err()
+        );
+        assert!(sink.calls.borrow().is_empty());
+        assert!(handoff.submitted.is_none());
+        assert!(handoff.undelivered.is_none());
+        assert_eq!(handoff.failed_through, 0);
+    }
+
+    #[test]
+    fn checked_session_refusal_is_typed_only_and_never_spends_the_live_input() {
+        for tolerate_outage in [false, true] {
+            let mut owner = controller();
+            let mut handoff = InputHandoff {
+                tolerate_outage,
+                ..InputHandoff::default()
+            };
+            let request = authorize(&mut owner, &mut handoff);
+            let sink = RecordingSink::default();
+            sink.session.set(2);
+            // The checked comparison must precede every mutating input call.
+            let result = handoff.submit(start(request, &handoff), NOW, &sink);
+            assert_eq!(result.is_ok(), tolerate_outage);
+            assert_eq!(handoff.undelivered, tolerate_outage.then_some(request));
+            assert_eq!(
+                handoff.failed_through,
+                if tolerate_outage { request } else { 0 }
+            );
+            assert!(handoff.submitted.is_none());
+            assert!(sink.calls.borrow().is_empty());
+            assert_eq!(sink.retired.get(), 0);
+            assert!(sink.open.get().is_none());
         }
     }
     fn audio(request: u64, sequence: u64, sample: i16, handoff: &InputHandoff) -> ProviderInput {
@@ -1281,6 +1543,7 @@ mod tests {
                                 .control
                                 .send(Control::Authority { snapshot: state })?;
                             parent.data.send(ProviderInput::Start {
+                                session: 1,
                                 request: turn.turn(),
                                 privacy_generation: state.microphone_generation(),
                             })?;
@@ -1336,6 +1599,7 @@ mod tests {
             rig.parent
                 .data
                 .send(ProviderInput::Start {
+                    session: 1,
                     request: 1,
                     privacy_generation: state.microphone_generation(),
                 })
@@ -1404,6 +1668,7 @@ mod tests {
                                 .send(Control::Authority { snapshot: state })?;
                             for command in [
                                 ProviderInput::Start {
+                                    session: 1,
                                     request: new.turn(),
                                     privacy_generation: state.microphone_generation(),
                                 },
@@ -1540,6 +1805,7 @@ mod tests {
             rig.parent
                 .data
                 .send(ProviderInput::Start {
+                    session: 1,
                     request: 2,
                     privacy_generation: privacy,
                 })
@@ -1638,6 +1904,7 @@ mod tests {
         rig.parent
             .data
             .send(ProviderInput::Start {
+                session: 1,
                 request: 2,
                 privacy_generation: generation(&rig.intake.handoff),
             })
@@ -1646,6 +1913,161 @@ mod tests {
         assert!(error.to_string().contains("no matching current owner"));
         assert!(rig.intake.retained.is_none());
         assert!(rig.intake.stopped);
+    }
+
+    #[test]
+    fn selected_session_survives_mixed_control_deferral_and_refused_tail_drain() {
+        let (_directory, mut parent, mut worker) = intake_channels();
+        let mut owner = controller();
+        let mut intake = ProviderIntake::new(BootId::new([9; 16]).unwrap(), NOW);
+        intake.handoff.tolerate_outage = true;
+        let sink = RecordingSink::default();
+        sink.session.set(2);
+        let request = authorize(&mut owner, &mut intake.handoff);
+        let privacy_generation = generation(&intake.handoff);
+        let mut controls: VecDeque<_> = (0..17)
+            .map(|i| {
+                if i % 2 == 0 {
+                    Control::Authority {
+                        snapshot: owner.snapshot(time()).unwrap(),
+                    }
+                } else {
+                    Control::ProviderOutputCapacity { through: 2 }
+                }
+            })
+            .collect();
+        parent.control.send(controls.pop_front().unwrap()).unwrap();
+        for command in [
+            start(request, &intake.handoff),
+            audio(request, 1, 61, &intake.handoff),
+            end(request, &intake.handoff),
+        ] {
+            parent.data.send(command).unwrap();
+        }
+        // Receive the original data, then interleave authority/capacity packets
+        // on the separate urgent socket until the shared control slice is full.
+        let mut budget = CONTROL_SLICE;
+        assert_eq!(
+            intake
+                .receive_inputs(
+                    &mut || NOW,
+                    &mut || {
+                        let packet = worker.control.receive()?;
+                        if packet.is_some()
+                            && let Some(next) = controls.pop_front()
+                        {
+                            parent.control.send(next)?;
+                        }
+                        Ok(packet)
+                    },
+                    &mut worker.data,
+                    &sink,
+                    &mut budget
+                )
+                .unwrap(),
+            ControlDrain::Deferred
+        );
+        assert_eq!(budget, 0);
+        assert!(controls.is_empty());
+        let retained = intake.retained.as_ref().unwrap();
+        assert_eq!(retained.received_at_us, NOW);
+        assert!(matches!(
+            retained.command,
+            ProviderInput::Start { session: 1, .. }
+        ));
+        assert!(sink.calls.borrow().is_empty());
+
+        let mut budget = CONTROL_SLICE;
+        assert_eq!(
+            intake
+                .receive_inputs(
+                    &mut || NOW + 1,
+                    &mut || worker.control.receive(),
+                    &mut worker.data,
+                    &sink,
+                    &mut budget
+                )
+                .unwrap(),
+            ControlDrain::Empty
+        );
+        assert_eq!(intake.handoff.undelivered, Some(request));
+        let mut output = VecDeque::new();
+        queue_undelivered(&mut intake.handoff, &mut output);
+        let mut budget = CONTROL_SLICE;
+        intake
+            .receive_inputs(
+                &mut || NOW + 2,
+                &mut || worker.control.receive(),
+                &mut worker.data,
+                &sink,
+                &mut budget,
+            )
+            .unwrap();
+        queue_undelivered(&mut intake.handoff, &mut output);
+        assert_eq!(output.len(), 1);
+        assert!(
+            matches!(output[0], Outbound::Status(ProviderStatus::TurnFailed {
+            request: got, stage: FailedStage::NotDelivered, ..
+        }) if got == request)
+        );
+        assert!(
+            sink.calls.borrow().is_empty(),
+            "A's prefix/tail must not reach B"
+        );
+        assert!(intake.handoff.submitted.is_none());
+
+        let next = owner.admit(time(), AdmittedInput::NewTurn).unwrap();
+        parent
+            .control
+            .send(Control::Authority {
+                snapshot: owner.snapshot(time()).unwrap(),
+            })
+            .unwrap();
+        for command in [
+            ProviderInput::Start {
+                request: next.turn(),
+                session: 2,
+                privacy_generation,
+            },
+            ProviderInput::Audio {
+                request: next.turn(),
+                privacy_generation,
+                sequence: 1,
+                read_completed_at_us: NOW - 200_000,
+                samples: vec![71; 160],
+            },
+            ProviderInput::End {
+                request: next.turn(),
+                privacy_generation,
+            },
+        ] {
+            parent.data.send(command).unwrap();
+        }
+        let mut budget = CONTROL_SLICE;
+        intake
+            .receive_inputs(
+                &mut || NOW + 3,
+                &mut || worker.control.receive(),
+                &mut worker.data,
+                &sink,
+                &mut budget,
+            )
+            .unwrap();
+        assert_eq!(
+            *sink.calls.borrow(),
+            vec![
+                Call::Retire(request),
+                Call::Start(next.turn()),
+                Call::Audio(next.turn(), 1, vec![71; 160]),
+                Call::End(next.turn())
+            ]
+        );
+        queue_undelivered(&mut intake.handoff, &mut output);
+        assert_eq!(
+            output.len(),
+            1,
+            "refused input has exactly one terminal report"
+        );
     }
 
     #[test]
@@ -2230,8 +2652,8 @@ mod tests {
     #[derive(Debug, Deserialize)]
     #[serde(untagged)]
     enum Wire {
-        Output(ProviderOutput),
         Status(ProviderStatus),
+        Output(ProviderOutput),
     }
 
     struct LiveRig {
@@ -2388,6 +2810,48 @@ mod tests {
             assert!(matches!(self.output().await, ProviderOutput::Ready { .. }));
             dial
         }
+        async fn link(&mut self) -> crate::provider_link::ProviderLink {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                self.publish();
+                match self.parent.control.receive::<WorkerEvent>().unwrap() {
+                    Some(WorkerEvent::Ready) | None => {}
+                    Some(WorkerEvent::ProviderLink { link }) => {
+                        link.validate(monotonic_us()).unwrap();
+                        return link;
+                    }
+                    Some(other) => panic!("unexpected provider control event: {other:?}"),
+                }
+                assert!(
+                    !self.worker.is_finished(),
+                    "worker ended before link observation"
+                );
+                assert!(Instant::now() < deadline, "no link observation in time");
+                tokio::time::sleep(Duration::from_millis(2)).await;
+            }
+        }
+        async fn coordinated_ready(&mut self) -> Dial {
+            let mut dial = self.dial().await;
+            assert!(self.service_message(&mut dial).await.get("setup").is_some());
+            dial.service.send(json!({"setupComplete": {}})).await;
+            let link = self.link().await;
+            assert!(matches!(
+                link.state,
+                crate::provider_link::ProviderLinkState::Ready {
+                    context: crate::provider_link::LinkContext::Initial,
+                    ..
+                }
+            ));
+            assert!(
+                self.take().is_none(),
+                "availability must not consume PCM credit"
+            );
+            dial
+        }
+        async fn stop(&mut self) {
+            self.parent.control.send(Control::Stop).unwrap();
+            self.exit().await.0.unwrap();
+        }
         /// Admit a request and submit its start, one block and optional end.
         async fn speak(&mut self, dial: &mut Dial, interruption: bool, end: bool) -> u64 {
             let input = if interruption {
@@ -2402,6 +2866,7 @@ mod tests {
             self.parent
                 .data
                 .send(ProviderInput::Start {
+                    session: dial.session.get(),
                     request,
                     privacy_generation,
                 })
@@ -2458,6 +2923,853 @@ mod tests {
     }
     fn idle_complete() -> serde_json::Value {
         json!({"serverContent":{"turnComplete":true,"interactionStatus":"IDLE"}})
+    }
+
+    async fn memory_link<C: Connect>(
+        provider: &mut Supervisor<C>,
+        clock: &mut LinkClock,
+        pending: &mut PendingLink,
+    ) -> ProviderLink {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                let mut received = None;
+                service_link(provider, Some(&mut *clock), pending, |link| {
+                    received = Some(link);
+                    Ok(())
+                })
+                .unwrap();
+                if let Some(link) = received {
+                    return link;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("in-memory provider link")
+    }
+
+    fn memory_provider(
+        policy: RecoveryPolicy,
+    ) -> (
+        Supervisor<lamp_gemini::testing::FakeConnector>,
+        UnboundedReceiver<Dial>,
+        LinkClock,
+        PendingLink,
+    ) {
+        let config = SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
+            .unwrap()
+            .resumption(RESUMPTION)
+            .barrier_policy(BARRIER);
+        let (connector, dials) = connector(config);
+        (
+            Supervisor::new(connector, policy).unwrap(),
+            dials,
+            LinkClock::sample().unwrap(),
+            PendingLink::default(),
+        )
+    }
+
+    /// Audit regression: root selected A before the worker received this Start.
+    /// Advance the real in-memory supervisor to B before consuming that command.
+    /// The selected session travels unchanged through the handoff. Refusal
+    /// produces one local outcome; neither its opening PCM nor tail reaches B.
+    #[tokio::test]
+    async fn audit_delayed_start_selected_on_a_must_not_reach_recovered_b() {
+        use crate::provider_link::ProviderLinkState;
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(quick_policy());
+        let mut first = next_dial(&mut dials).await;
+        first.service.accept().await;
+        let selected = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(selected.state, ProviderLinkState::Ready { .. }));
+        let mut owner = controller();
+        let mut handoff = InputHandoff {
+            tolerate_outage: true,
+            ..InputHandoff::default()
+        };
+        let request = authorize(&mut owner, &mut handoff);
+        let queued_before_outage = ProviderInput::Start {
+            request,
+            session: selected.session,
+            privacy_generation: generation(&handoff),
+        };
+
+        first.service.send(resumable()).await;
+        first
+            .service
+            .close(1012, "controlled audit transition")
+            .await;
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        let mut second = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(&mut provider, Some(&mut clock), &mut pending, |_| {
+                    panic!("replacement cannot be ready before setup")
+                })
+                .unwrap();
+                if let Ok(dial) = dials.try_recv() {
+                    break dial;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        second.service.accept().await;
+        let replacement = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(replacement.state, ProviderLinkState::Ready { .. }));
+        assert!(replacement.session > selected.session);
+
+        handoff
+            .submit(queued_before_outage, NOW, &provider)
+            .unwrap();
+        assert_eq!(handoff.undelivered, Some(request));
+        assert!(handoff.submitted.is_none());
+        let mut output = VecDeque::new();
+        queue_undelivered(&mut handoff, &mut output);
+        queue_undelivered(&mut handoff, &mut output);
+        for command in [
+            start(request, &handoff),
+            audio(request, 1, 7, &handoff),
+            end(request, &handoff),
+        ] {
+            handoff.submit(command, NOW, &provider).unwrap();
+        }
+        queue_undelivered(&mut handoff, &mut output);
+        assert_eq!(output.len(), 1);
+        assert!(matches!(output.pop_front(), Some(Outbound::Status(
+            ProviderStatus::TurnFailed { request: got, stage: FailedStage::NotDelivered,
+                reason: Fault::Local }
+        )) if got == request));
+        assert!(
+            second
+                .service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none()
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), next_notice(&mut provider, true))
+                .await
+                .is_err(),
+            "refused Start must not create a supervisor outcome or Started"
+        );
+
+        // A fresh, explicitly B-selected request works; the old refusal cannot
+        // borrow B, poison B's input queue, or replay the previous prefix.
+        let fresh = authorize(&mut owner, &mut handoff);
+        handoff
+            .submit(
+                ProviderInput::Start {
+                    request: fresh,
+                    session: replacement.session,
+                    privacy_generation: generation(&handoff),
+                },
+                NOW,
+                &provider,
+            )
+            .unwrap();
+        handoff
+            .submit(audio(fresh, 1, 23, &handoff), NOW, &provider)
+            .unwrap();
+        handoff
+            .submit(end(fresh, &handoff), NOW, &provider)
+            .unwrap();
+        assert!(matches!(next_notice(&mut provider, true).await.unwrap(),
+            Notice::Event(Event::InputStarted { lineage, .. })
+                if lineage.request.get() == fresh && lineage.session.get() == replacement.session));
+        assert!(
+            second.service.receive().await["realtimeInput"]
+                .get("activityStart")
+                .is_some()
+        );
+        assert!(
+            second.service.receive().await["realtimeInput"]
+                .get("audio")
+                .is_some()
+        );
+        assert!(
+            second.service.receive().await["realtimeInput"]
+                .get("activityEnd")
+                .is_some()
+        );
+        assert!(
+            second
+                .service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none()
+        );
+        // At the actual worker sink boundary, a late A-selected Start cannot
+        // retire B's already accepted response. Authority-driven cancellation
+        // is separate and is not invoked by this refusal.
+        assert_eq!(
+            InputSink::start(
+                &provider,
+                SessionId::new(selected.session).unwrap(),
+                RequestId::new(fresh + 1).unwrap()
+            ),
+            Err(StartRefusal::SessionMismatch {
+                live: second.session
+            })
+        );
+        second.service.send(provider_audio(29, 960)).await;
+        assert!(matches!(next_notice(&mut provider, true).await.unwrap(),
+            Notice::Event(Event::Audio { lineage, pcm, .. })
+                if lineage.request.get() == fresh && lineage.session == second.session
+                    && pcm == vec![29; 960]));
+        assert!(
+            second
+                .service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none()
+        );
+        provider.shutdown();
+    }
+
+    /// A successful local enqueue is not proof that activityStart was written.
+    #[tokio::test]
+    async fn audit_accepted_start_can_fail_before_started_acknowledgement() {
+        use crate::provider_link::ProviderLinkState;
+        use lamp_gemini::testing::next_dial;
+        for ended in [false, true] {
+            let (mut provider, mut dials, mut clock, mut pending) =
+                memory_provider(RecoveryPolicy {
+                    max_attempts: 0,
+                    ..RecoveryPolicy::default()
+                });
+            let mut first = next_dial(&mut dials).await;
+            first.service.accept().await;
+            assert!(matches!(
+                memory_link(&mut provider, &mut clock, &mut pending)
+                    .await
+                    .state,
+                ProviderLinkState::Ready { .. }
+            ));
+            let request = RequestId::new(1).unwrap();
+            provider.try_start(request).unwrap();
+            if ended {
+                provider.try_end(request).unwrap();
+            }
+            // No await between enqueue and peer drop: the current-thread actor
+            // has not consumed Start, so it cannot have emitted InputStarted.
+            drop(first);
+            assert!(matches!(
+                memory_link(&mut provider, &mut clock, &mut pending)
+                    .await
+                    .state,
+                ProviderLinkState::Unavailable { .. }
+            ));
+            assert!(matches!(
+                memory_link(&mut provider, &mut clock, &mut pending)
+                    .await
+                    .state,
+                ProviderLinkState::Terminal { .. }
+            ));
+            let expected = if ended {
+                Stage::AwaitingResponse
+            } else {
+                Stage::InputOpen
+            };
+            let actual = next_notice(&mut provider, true).await.unwrap();
+            eprintln!("audit: accepted_end={ended} first_ordered_notice={actual:?}");
+            assert!(matches!(actual, Notice::TurnLost { stage, .. } if stage == expected));
+            provider.shutdown();
+        }
+    }
+
+    #[tokio::test]
+    async fn coordinated_memory_control_reconnects_while_prior_answer_is_unconsumed() {
+        use crate::provider_link::{LinkContext, ProviderLinkState};
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(quick_policy());
+        let mut first = next_dial(&mut dials).await;
+        first.service.accept().await;
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Ready { .. }
+        ));
+        let request = RequestId::new(1).unwrap();
+        provider.try_start(request).unwrap();
+        assert!(matches!(
+            next_notice(&mut provider, true).await.unwrap(),
+            Notice::Event(Event::InputStarted { .. })
+        ));
+        provider.try_end(request).unwrap();
+        first.service.receive().await;
+        first.service.receive().await;
+        first.service.send(resumable()).await;
+        first.service.send(provider_audio(7, 1_920)).await;
+        first.service.close(1012, "unconsumed old answer").await;
+        let unavailable = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(
+            unavailable.state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        // This is the same control upkeep called by serve at zero output credit.
+        // Do not call next_output until B's setup has completed and been reported.
+        let mut second = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(&mut provider, Some(&mut clock), &mut pending, |_| {
+                    panic!("no setup yet")
+                })
+                .unwrap();
+                if let Ok(dial) = dials.try_recv() {
+                    break dial;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(second.resumed);
+        second.service.accept().await;
+        let ready = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(ready.revision > unavailable.revision);
+        assert_eq!(ready.session, second.session.get());
+        assert!(matches!(ready.state, ProviderLinkState::Ready {
+            context: LinkContext::Resumed, outage_started_at_us: Some(at), ..
+        } if at == unavailable.observed_at_us));
+        assert!(
+            matches!(next_notice(&mut provider, true).await.unwrap(), Notice::Event(Event::Audio { pcm, .. }) if pcm == vec![7; 1_920])
+        );
+        assert!(
+            matches!(next_notice(&mut provider, true).await.unwrap(), Notice::TurnLost {
+            lineage, stage: Stage::Responding, ..
+        } if lineage.request == request)
+        );
+        provider.shutdown();
+    }
+
+    #[tokio::test]
+    async fn coordinated_memory_blocked_link_send_keeps_latest_source_stamp_and_shutdown() {
+        use crate::provider_link::ProviderLinkState;
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(quick_policy());
+        let mut first = next_dial(&mut dials).await;
+        first.service.accept().await;
+        memory_link(&mut provider, &mut clock, &mut pending).await;
+        first.service.send(resumable()).await;
+        first.service.close(1012, "coalesced outage").await;
+        let mut latest = None;
+        let mut second = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(&mut provider, Some(&mut clock), &mut pending, |link| {
+                    latest = Some(link);
+                    Err(io::ErrorKind::WouldBlock.into())
+                })
+                .unwrap();
+                if let Ok(dial) = dials.try_recv() {
+                    break dial;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(matches!(
+            latest.unwrap().state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        second.service.accept().await;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(&mut provider, Some(&mut clock), &mut pending, |link| {
+                    latest = Some(link);
+                    Err(io::ErrorKind::WouldBlock.into())
+                })
+                .unwrap();
+                if matches!(latest.unwrap().state, ProviderLinkState::Ready { .. }) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let original = latest.unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert_eq!(
+            memory_link(&mut provider, &mut clock, &mut pending).await,
+            original
+        );
+        // Another unanswered setup must not defer local shutdown. A blocked
+        // control callback cannot keep the supervisor alive or replay input.
+        second.service.close(1012, "hung setup").await;
+        memory_link(&mut provider, &mut clock, &mut pending).await;
+        let _hanging = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(&mut provider, Some(&mut clock), &mut pending, |_| {
+                    Err(io::ErrorKind::WouldBlock.into())
+                })
+                .unwrap();
+                if let Ok(dial) = dials.try_recv() {
+                    break dial;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        provider.shutdown();
+        let terminal = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(
+            terminal.state,
+            ProviderLinkState::Terminal {
+                reason: LinkFailure::Shutdown,
+                ..
+            }
+        ));
+        assert_eq!(
+            next_notice(&mut provider, true).await.unwrap_err().reason,
+            FailureReason::Shutdown
+        );
+    }
+
+    #[tokio::test]
+    async fn coordinated_memory_terminal_control_does_not_erase_the_answer_or_turn_failure() {
+        use crate::provider_link::ProviderLinkState;
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) =
+            memory_provider(RecoveryPolicy::DISABLED);
+        let mut first = next_dial(&mut dials).await;
+        first.service.accept().await;
+        memory_link(&mut provider, &mut clock, &mut pending).await;
+        let request = RequestId::new(1).unwrap();
+        provider.try_start(request).unwrap();
+        next_notice(&mut provider, true).await.unwrap();
+        provider.try_end(request).unwrap();
+        first.service.receive().await;
+        first.service.receive().await;
+        first.service.send(provider_audio(9, 2_000)).await;
+        first
+            .service
+            .close(1012, "terminal with retained audio")
+            .await;
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Terminal { .. }
+        ));
+        assert!(
+            matches!(next_notice(&mut provider, true).await.unwrap(), Notice::Event(Event::Audio { pcm, .. }) if pcm == vec![9; 2_000])
+        );
+        assert!(
+            matches!(next_notice(&mut provider, true).await.unwrap(), Notice::TurnLost { lineage, stage: Stage::Responding, .. } if lineage.request == request)
+        );
+        assert_eq!(
+            next_notice(&mut provider, true).await.unwrap_err().reason,
+            FailureReason::NotRecoverable
+        );
+        assert_eq!(
+            provider.try_start(RequestId::new(2).unwrap()),
+            Err(Error::NotConnected)
+        );
+        assert!(dials.try_recv().is_err());
+        provider.shutdown();
+    }
+
+    #[tokio::test]
+    async fn coordinated_reconnect_and_link_status_progress_without_any_pcm_credit() {
+        use crate::provider_link::{LinkContext, ProviderLinkState};
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Coordinated,
+            },
+        );
+        let mut dial = rig.coordinated_ready().await;
+        dial.service.send(resumable()).await;
+        let request = rig.speak(&mut dial, false, true).await;
+        // Consume the two granted packets but return no credit. Read them
+        // promptly, so this is output backpressure rather than stale IPC.
+        dial.service.send(provider_audio(7, 1_920)).await;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut consumed = 0;
+        while consumed < 2 {
+            rig.publish();
+            if let Some(ProviderOutput::Audio {
+                request: got,
+                samples,
+                ..
+            }) = rig.parent.data.receive().unwrap()
+            {
+                assert_eq!(got, request);
+                assert_eq!(samples, vec![7; 960]);
+                rig.output_flow.received().unwrap();
+                consumed += 1;
+            }
+            assert!(Instant::now() < deadline);
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        dial.service.send(provider_audio(8, 1_920)).await;
+        dial.service.close(1012, "scripted restart").await;
+        let unavailable = rig.link().await;
+        assert!(matches!(
+            unavailable.state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        let mut next = rig.dial().await;
+        let setup = rig.service_message(&mut next).await;
+        assert!(setup["setup"].get("sessionResumption").is_some());
+        next.service.send(json!({"setupComplete":{}})).await;
+        let recovered = rig.link().await;
+        // This is the first resume from A's advertised point. Resumed does
+        // not acknowledge that the point includes the latest client messages;
+        // later-connection input with only an inherited A handle is a separate
+        // ResumedBeforeLatest case covered by the supervisor tests.
+        assert!(
+            matches!(recovered.state, ProviderLinkState::Ready {
+            context: LinkContext::Resumed, outage_started_at_us: Some(at), ..
+        } if at == unavailable.observed_at_us),
+            "recovered={recovered:?}; unavailable={unavailable:?}"
+        );
+        assert!(recovered.session > unavailable.session);
+        assert!(recovered.revision > unavailable.revision);
+        assert!(
+            rig.parent
+                .data
+                .receive::<ProviderOutput>()
+                .unwrap()
+                .is_none()
+        );
+        // The old answer and its exact terminal stage still follow in order.
+        rig.output_flow
+            .replenish(0, &mut rig.parent.control)
+            .unwrap();
+        for _ in 0..2 {
+            assert!(matches!(rig.output().await, ProviderOutput::Audio {
+                request: got, samples, ..
+            } if got == request && samples == vec![8; 960]));
+        }
+        assert!(
+            matches!(rig.wire().await, Wire::Status(ProviderStatus::TurnFailed {
+            request: got, stage: FailedStage::Responding, ..
+        }) if got == request)
+        );
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn coordinated_terminal_link_precedes_ordered_pcm_outcome_and_single_ended() {
+        use crate::provider_link::ProviderLinkState;
+        let mut rig = LiveRig::start_with(
+            RecoveryPolicy::DISABLED,
+            Options {
+                reporting: Reporting::Coordinated,
+            },
+        );
+        let mut dial = rig.coordinated_ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service.send(provider_audio(9, 3_840)).await;
+        // Drain only the two already granted packets, withholding more credit.
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut consumed = 0;
+        while consumed < 2 {
+            rig.publish();
+            if let Some(ProviderOutput::Audio { request: got, .. }) =
+                rig.parent.data.receive().unwrap()
+            {
+                assert_eq!(got, request);
+                rig.output_flow.received().unwrap();
+                consumed += 1;
+            }
+            assert!(Instant::now() < deadline);
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        dial.service.close(1012, "terminal").await;
+        let mut revisions = Vec::new();
+        loop {
+            let link = rig.link().await;
+            revisions.push(link.revision);
+            if matches!(link.state, ProviderLinkState::Terminal { .. }) {
+                break;
+            }
+            assert!(matches!(link.state, ProviderLinkState::Unavailable { .. }));
+        }
+        assert!(revisions.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(!rig.worker.is_finished());
+        assert!(
+            rig.parent
+                .data
+                .receive::<ProviderOutput>()
+                .unwrap()
+                .is_none()
+        );
+        rig.output_flow
+            .replenish(0, &mut rig.parent.control)
+            .unwrap();
+        for _ in 0..2 {
+            assert!(matches!(rig.output().await, ProviderOutput::Audio {
+                request: got, samples, ..
+            } if got == request && samples == vec![9; 960]));
+        }
+        assert!(
+            matches!(rig.wire().await, Wire::Status(ProviderStatus::TurnFailed {
+            request: got, stage: FailedStage::Responding, ..
+        }) if got == request)
+        );
+        assert!(matches!(rig.output().await, ProviderOutput::Ended { .. }));
+        rig.pump(Duration::from_millis(25)).await;
+        assert!(rig.take().is_none(), "Ended must be emitted once");
+        assert!(
+            rig.dials.try_recv().is_err(),
+            "disabled recovery must not replay input"
+        );
+        // An in-flight Start can arrive after Ended. It needs its own terminal
+        // receipt; upstream termination is not a silent local intake cutoff.
+        let old = rig.snapshot.owner().unwrap();
+        rig.owner.cancel_turn(real_time(), old).unwrap();
+        let newer = rig
+            .owner
+            .admit(real_time(), AdmittedInput::NewTurn)
+            .unwrap();
+        rig.publish();
+        let privacy_generation = rig.snapshot.microphone_generation();
+        rig.parent
+            .data
+            .send(ProviderInput::Start {
+                session: 1,
+                request: newer.turn(),
+                privacy_generation,
+            })
+            .unwrap();
+        assert!(
+            matches!(rig.wire().await, Wire::Status(ProviderStatus::TurnFailed {
+            request: got, stage: FailedStage::NotDelivered, ..
+        }) if got == newer.turn())
+        );
+        rig.parent
+            .data
+            .send(ProviderInput::Audio {
+                request: newer.turn(),
+                privacy_generation,
+                sequence: 1,
+                read_completed_at_us: monotonic_us(),
+                samples: vec![3; 160],
+            })
+            .unwrap();
+        rig.parent
+            .data
+            .send(ProviderInput::End {
+                request: newer.turn(),
+                privacy_generation,
+            })
+            .unwrap();
+        rig.pump(Duration::from_millis(25)).await;
+        assert!(
+            rig.take().is_none(),
+            "refused Start has exactly one outcome"
+        );
+        assert!(
+            rig.dials.try_recv().is_err(),
+            "terminal upstream must never reconnect"
+        );
+        assert!(
+            dial.service
+                .try_receive(Duration::from_millis(5))
+                .await
+                .is_none()
+        );
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn coordinated_stop_does_not_wait_for_hung_reconnect_or_data_credit() {
+        use crate::provider_link::ProviderLinkState;
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Coordinated,
+            },
+        );
+        let mut dial = rig.coordinated_ready().await;
+        dial.service.send(resumable()).await;
+        dial.service.close(1012, "outage").await;
+        assert!(matches!(
+            rig.link().await.state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        let mut hanging = rig.dial().await;
+        assert!(
+            rig.service_message(&mut hanging)
+                .await
+                .get("setup")
+                .is_some()
+        );
+        // Setup is deliberately left unanswered. Local control owns shutdown.
+        rig.parent.control.send(Control::Stop).unwrap();
+        let (result, elapsed) = rig.exit().await;
+        result.unwrap();
+        assert!(
+            elapsed < Duration::from_millis(250),
+            "Stop took {elapsed:?}"
+        );
+        assert!(
+            hanging
+                .service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn coordinated_full_control_send_is_bounded_and_does_not_consume_stop() {
+        use crate::provider_link::{ProviderLink, ProviderLinkState};
+        let (_directory, mut parent, mut worker) = intake_channels();
+        let mut blocked = false;
+        for _ in 0..4_096 {
+            match worker.control.send(WorkerEvent::Ready) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    blocked = true;
+                    break;
+                }
+                Err(error) => panic!("unexpected control send error: {error}"),
+            }
+        }
+        assert!(blocked, "control socket must have finite capacity");
+        let mut pending = PendingLink::default();
+        pending
+            .observe(
+                ProviderLink {
+                    revision: 1,
+                    session: 1,
+                    observed_at_us: monotonic_us(),
+                    source_clock: None,
+                    state: ProviderLinkState::Unavailable {
+                        reason: Fault::Transport,
+                    },
+                },
+                monotonic_us(),
+            )
+            .unwrap();
+        pending
+            .try_send(|link| worker.control.send(WorkerEvent::ProviderLink { link }))
+            .unwrap();
+        parent.control.send(Control::Stop).unwrap();
+        let mut intake = ProviderIntake::new(BootId::new([9; 16]).unwrap(), monotonic_us());
+        let mut budget = CONTROL_SLICE;
+        assert_eq!(
+            intake
+                .drain_control(
+                    &mut monotonic_us,
+                    &mut || worker.control.receive(),
+                    &mut budget
+                )
+                .unwrap(),
+            ControlDrain::Stopped
+        );
+        let mut recovered = 0;
+        pending
+            .try_send(|_| {
+                recovered += 1;
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(recovered, 1, "WouldBlock must retain exactly one status");
+    }
+
+    #[tokio::test]
+    async fn coordinated_privacy_revocation_stops_a_pending_connection() {
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Coordinated,
+            },
+        );
+        let mut dial = rig.coordinated_ready().await;
+        dial.service.send(resumable()).await;
+        dial.service.close(1012, "outage").await;
+        let _unavailable = rig.link().await;
+        let mut hanging = rig.dial().await;
+        assert!(
+            rig.service_message(&mut hanging)
+                .await
+                .get("setup")
+                .is_some()
+        );
+        rig.owner
+            .set_microphone_permission(real_time(), Permission::Denied)
+            .unwrap();
+        rig.snapshot = rig.owner.snapshot(real_time()).unwrap();
+        rig.parent
+            .control
+            .send(Control::Authority {
+                snapshot: rig.snapshot,
+            })
+            .unwrap();
+        let result = tokio::time::timeout(Duration::from_millis(250), &mut rig.worker)
+            .await
+            .unwrap()
+            .unwrap();
+        result.unwrap();
+        assert!(
+            hanging
+                .service
+                .try_receive(Duration::from_millis(10))
+                .await
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn coordinated_terminal_and_failure_receipts_keep_the_existing_full_output_bound() {
+        let mut output = VecDeque::from([Outbound::Output(ProviderOutput::Ended {
+            reason: LinkFailure::NotRecoverable,
+            fault: Fault::Transport,
+            attempts: 0,
+        })]);
+        for request in 1..MAX_QUEUED_OUTPUT as u64 {
+            output.push_back(Outbound::Output(ProviderOutput::TurnFailed {
+                request,
+                stage: FailedStage::Responding,
+                reason: Fault::Transport,
+            }));
+        }
+        // These are terminal receipts, not permission to play: cancellation
+        // cannot erase them just because their immutable owner was retired.
+        prune_retired_output(&mut output, u64::MAX);
+        assert_eq!(output.len(), MAX_QUEUED_OUTPUT);
+        let mut handoff = InputHandoff {
+            undelivered: Some(999),
+            ..InputHandoff::default()
+        };
+        queue_undelivered(&mut handoff, &mut output);
+        assert_eq!(output.len(), MAX_QUEUED_OUTPUT);
+        assert_eq!(handoff.undelivered, Some(999));
+        assert!(matches!(
+            output.pop_front(),
+            Some(Outbound::Output(ProviderOutput::Ended { .. }))
+        ));
+        queue_undelivered(&mut handoff, &mut output);
+        assert_eq!(output.len(), MAX_QUEUED_OUTPUT);
+        assert_eq!(handoff.undelivered, None);
+        assert!(matches!(
+            output.back(),
+            Some(Outbound::Status(ProviderStatus::TurnFailed {
+                request: 999,
+                stage: FailedStage::NotDelivered,
+                ..
+            }))
+        ));
+        queue_undelivered(&mut handoff, &mut output);
+        assert_eq!(output.len(), MAX_QUEUED_OUTPUT);
     }
 
     #[tokio::test]
@@ -2563,7 +3875,15 @@ mod tests {
                 );
             }
             let next = authorize(&mut owner, &mut handoff);
-            let result = handoff.submit(start(next, &handoff), NOW, &provider);
+            let result = handoff.submit(
+                ProviderInput::Start {
+                    request: next,
+                    session: replacement.session.get(),
+                    privacy_generation: generation(&handoff),
+                },
+                NOW,
+                &provider,
+            );
             if !typed {
                 assert!(result.unwrap_err().to_string().contains("StaleRequest"));
                 provider.shutdown();
@@ -2627,6 +3947,7 @@ mod tests {
         rig.parent
             .data
             .send(ProviderInput::Start {
+                session: 1,
                 request: next.turn(),
                 privacy_generation,
             })
@@ -2823,6 +4144,7 @@ mod tests {
         rig.parent
             .data
             .send(ProviderInput::Start {
+                session: 1,
                 request: owner.turn(),
                 privacy_generation: rig.snapshot.microphone_generation(),
             })
@@ -3334,6 +4656,7 @@ mod tests {
         rig.parent
             .data
             .send(ProviderInput::Start {
+                session: 1,
                 request: new,
                 privacy_generation,
             })
@@ -3595,6 +4918,7 @@ mod tests {
         rig.parent
             .data
             .send(ProviderInput::Start {
+                session: 1,
                 request,
                 privacy_generation,
             })

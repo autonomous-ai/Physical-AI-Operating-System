@@ -4,9 +4,9 @@
 //! Refuse to present its directed-session results as general desk-conversation
 //! qualification. Every worker failure ends the run and retains a failure trace.
 use crate::{
-    activity::{ObservedAudio, TurnDetector},
+    activity::{Activity, ObservedAudio, TurnDetector},
     admission::{
-        AcceptanceBasis, CaptureLineage, Context as AdmissionContext, Decision, Evidence,
+        AcceptanceBasis, Accepted, CaptureLineage, Context as AdmissionContext, Decision, Evidence,
         InputAdmission, Rejection, Step as AdmissionStep, Verdict,
     },
     choreography::RingChoreographer,
@@ -16,6 +16,7 @@ use crate::{
     privacy::PrivacyGate,
     process::{SessionDirectory, Worker, new_boot},
     provider_flow::{MAX_REPLY_SAMPLES, OutputReceiver, PACKET_SAMPLES},
+    provider_link::{ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
     ring_wire::{RingBlankReason, RingFeedback},
     transport::{Channel, WorkerChannels},
@@ -39,7 +40,9 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
+mod cloud;
 mod ring_trace;
+use cloud::{CloudAvailability, CloudRequest, RequestOutcome};
 use ring_trace::RingTrace;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -82,6 +85,8 @@ impl ProviderSlice {
 
 struct Reply {
     owner: TurnOwner,
+    cloud: CloudRequest,
+    local_input_ended: bool,
     plan: OutputOwner,
     playback: Option<PlaybackToken>,
     pcm: VecDeque<i16>,
@@ -148,7 +153,9 @@ impl Reply {
         }
     }
     fn delivery_outcome(&self) -> &'static str {
-        if !self.had_audio {
+        if matches!(self.cloud.outcome, Some(RequestOutcome::Failed { .. })) {
+            "provider_failed"
+        } else if !self.had_audio {
             "no_audio_answer"
         } else if self.playback_gaps > 0 {
             "audio_written_with_playback_gaps_unscored"
@@ -608,9 +615,269 @@ fn record(trace: &mut Vec<Value>, event: Value) -> Result<()> {
     trace.push(event);
     Ok(())
 }
+
+fn link_trace(link: ProviderLink, received_at_us: u64) -> Value {
+    let kind = match link.state {
+        ProviderLinkState::Ready { .. } => "provider_ready",
+        ProviderLinkState::Unavailable { .. } => "provider_unavailable",
+        ProviderLinkState::Terminal { .. } => "provider_terminal",
+    };
+    let mut event = json!({"kind":kind,"at_us":link.observed_at_us,
+        "at_us_upper":link.source_clock.map_or(link.observed_at_us, |bounds| bounds.observed_upper_us),
+        "at_us_role":if link.source_clock.is_some(){"source_interval_lower"}else{"host_native"},
+        "coordinator_observed_at_us":received_at_us,"link":link});
+    if let ProviderLinkState::Ready { setup_us, .. } = link.state {
+        event["setup_us"] = json!(setup_us);
+    }
+    event
+}
+
+/// One shared finite control budget per coordinator tick. Returning false
+/// defers cloud data/submission, but not capture, privacy or owned playback.
+fn service_provider_control(
+    channel: &mut Channel,
+    cloud: &mut CloudAvailability,
+    remaining: &mut usize,
+    trace: &mut Vec<Value>,
+) -> Result<bool> {
+    while *remaining > 0 {
+        let Some(event) = channel.receive::<WorkerEvent>()? else {
+            return Ok(true);
+        };
+        *remaining -= 1;
+        match event {
+            WorkerEvent::ProviderLink { link } => {
+                let at = monotonic_us();
+                cloud.observe(link, at)?;
+                record(trace, link_trace(link, at))?;
+            }
+            WorkerEvent::Fault { code } => return Err(io::Error::other(code).into()),
+            _ => return Err(io::Error::other("unexpected provider control event").into()),
+        }
+    }
+    Ok(false)
+}
+
+fn accepted_decision(decision: Decision, trace: &mut Vec<Value>) -> Result<Option<Accepted>> {
+    match decision {
+        Decision::Accepted(accepted) => Ok(Some(accepted)),
+        Decision::Rejected(rejection) => {
+            record_input_rejection(trace, rejection)?;
+            Ok(None)
+        }
+        Decision::Ignored => {
+            Err(io::Error::other("directed candidate decision lost its identity").into())
+        }
+    }
+}
+
+/// Only a successful local admission decision may interrupt an older answer.
+/// Cloud unavailability prevents submission, never that local cancellation.
+/// No provider session/request is invented for this never-submitted input.
+fn accepted_without_cloud(
+    accepted: Accepted,
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    admission: &mut InputAdmission,
+    trace: &mut Vec<Value>,
+) -> Result<(Snapshot, bool)> {
+    let displaced = reply.as_ref().map(|current| current.owner);
+    cancel_reply(owner, reply, trace, "user_interrupted")?;
+    admission.discard_stream_until_end(monotonic_us())?;
+    let state = owner.snapshot(now())?;
+    record(
+        trace,
+        json!({"kind":"input_not_submitted","at_us":monotonic_us(),
+        "candidate":accepted.candidate.id,"admission_basis":accepted.basis,
+        "interrupted_owner":displaced,"reason":"provider_unavailable_or_pending_control",
+        "provider_request":null,"provider_session":null,
+        "outcome":RequestOutcome::Failed { stage:crate::provider_worker::FailedStage::NotDelivered,
+            reason:crate::provider_worker::Fault::Local, local_not_submitted:true },
+        "prefix_first_host_read_us":accepted.audio.first().map(|frame| frame.captured_at_us)}),
+    )?;
+    Ok((state, !accepted.ended))
+}
+
+fn discard_request_input(
+    current: &mut Reply,
+    queue: &mut VecDeque<ProviderInput>,
+    admission: &mut InputAdmission,
+    draining: &mut bool,
+    trace: &mut Vec<Value>,
+    reason: &'static str,
+) -> Result<()> {
+    let discarded_commands = queue.len();
+    queue.clear();
+    current.cloud.input_abandoned = true;
+    if !current.local_input_ended {
+        admission.discard_stream_until_end(monotonic_us())?;
+        *draining = true;
+    }
+    record(
+        trace,
+        json!({"kind":"provider_input_abandoned","at_us":monotonic_us(),
+        "turn":current.owner.turn(),"provider_session":current.cloud.session,"reason":reason,
+        "start_submitted":current.cloud.start_submitted,"input_end_submitted":current.cloud.input_end_submitted,
+        "discarded_commands":discarded_commands}),
+    )?;
+    Ok(())
+}
+
+fn apply_submission_gate(
+    cloud: &CloudAvailability,
+    reply: &mut Option<Reply>,
+    queue: &mut VecDeque<ProviderInput>,
+    admission: &mut InputAdmission,
+    draining: &mut bool,
+    trace: &mut Vec<Value>,
+) -> Result<()> {
+    if let Some(current) = reply.as_mut()
+        && current.cloud.abandon_if_changed(cloud)
+    {
+        discard_request_input(
+            current,
+            queue,
+            admission,
+            draining,
+            trace,
+            "provider_link_changed",
+        )?;
+        if current.cloud.outcome.is_some() {
+            current.provider_idle = true;
+            current.generation_done = true;
+            record(
+                trace,
+                json!({"kind":"provider_turn_failed","at_us":monotonic_us(),
+                "turn":current.owner.turn(),"outcome":current.cloud.outcome}),
+            )?;
+        }
+    }
+    Ok(())
+}
+/// Validate ordered model evidence before it can mutate playback. Availability
+/// is solely the priority register: a stale credited Ready has no effect here.
+fn observe_provider_output(
+    cloud: &mut CloudAvailability,
+    reply: &mut Option<Reply>,
+    event: &ProviderOutput,
+) -> io::Result<()> {
+    if cloud.output_ended()
+        && !matches!(
+            event,
+            ProviderOutput::TurnFailed { .. }
+                | ProviderOutput::OwnershipAssumed { .. }
+                | ProviderOutput::Ready { .. }
+        )
+    {
+        return Err(io::Error::other("model output followed ordered Ended"));
+    }
+    // Keep match borrowing explicit: only this request's source receipt may
+    // change its delivery evidence; cancelled old owners are already terminal.
+    match event {
+        ProviderOutput::Ready { .. } | ProviderOutput::Transcript { .. } => {}
+        ProviderOutput::Ended { .. } => cloud.end_output()?,
+        ProviderOutput::OwnershipAssumed { .. } => {
+            return Err(io::Error::other(
+                "provider assumed ownership under Require policy",
+            ));
+        }
+        ProviderOutput::Started {
+            request, session, ..
+        } => {
+            if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == *request) {
+                current.cloud.confirm_start(*session)?;
+            }
+        }
+        ProviderOutput::Audio { request, .. } | ProviderOutput::Interrupted { request } => {
+            if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == *request) {
+                current.cloud.require_output()?;
+            }
+        }
+        ProviderOutput::GenerationComplete { request } => {
+            if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == *request) {
+                current.cloud.require_output()?;
+                current.generation_done = true;
+            }
+        }
+        ProviderOutput::TurnComplete { request, idle } => {
+            if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == *request) {
+                current.cloud.complete(*idle)?;
+                current.provider_idle = *idle;
+                if *idle {
+                    current.generation_done = true;
+                }
+            }
+        }
+        ProviderOutput::TurnFailed {
+            request,
+            stage,
+            reason,
+        } => {
+            if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == *request) {
+                current.cloud.failed(*stage, *reason)?;
+                // Prior PCM retains its owner but never becomes a successful
+                // answer. Flush even a partial held final block, then fail.
+                current.generation_done = true;
+                current.provider_idle = true;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Sending is bounded independently of answer delivery. No queued Audio/End
+/// can be moved to a replacement session, and WouldBlock is not delivery.
+fn flush_provider_input(
+    cloud: &CloudAvailability,
+    reply: &mut Option<Reply>,
+    queue: &mut VecDeque<ProviderInput>,
+    channel: &mut Channel,
+) -> io::Result<()> {
+    flush_provider_input_with(cloud, reply, queue, |command| channel.send(command))
+}
+
+fn flush_provider_input_with(
+    cloud: &CloudAvailability,
+    reply: &mut Option<Reply>,
+    queue: &mut VecDeque<ProviderInput>,
+    mut send: impl FnMut(&ProviderInput) -> io::Result<()>,
+) -> io::Result<()> {
+    for _ in 0..8 {
+        let Some(command) = queue.front() else {
+            break;
+        };
+        let current = reply
+            .as_mut()
+            .ok_or_else(|| io::Error::other("provider input lost its owner"))?;
+        if !current.cloud.can_submit(cloud) {
+            break;
+        }
+        let request = match command {
+            ProviderInput::Start { request, .. }
+            | ProviderInput::Audio { request, .. }
+            | ProviderInput::End { request, .. } => *request,
+        };
+        if request != current.owner.turn() {
+            return Err(io::Error::other(
+                "queued provider input has stale ownership",
+            ));
+        }
+        current.cloud.validate_submission(command)?;
+        match send(command) {
+            Ok(()) => {
+                current.cloud.submitted(command)?;
+                queue.pop_front();
+            }
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
 #[derive(Default)]
 struct StartupEvents {
-    provider_ready: bool,
+    cloud: CloudAvailability,
     output_flow: OutputReceiver,
     events: Vec<Value>,
 }
@@ -628,6 +895,11 @@ impl StartupEvents {
                 break;
             };
             match (&event, role) {
+                (WorkerEvent::ProviderLink { link }, "provider") => {
+                    let at = monotonic_us();
+                    self.cloud.observe(*link, at)?;
+                    self.push(link_trace(*link, at))?;
+                }
                 (WorkerEvent::CaptureDspReset { .. }, "capture") => self.push(
                     json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
                 )?,
@@ -655,8 +927,16 @@ impl StartupEvents {
                     // capacity sequence; it does not admit input by itself.
                     Some(ProviderOutput::Ready { setup_us }) => {
                         self.output_flow.received()?;
-                        self.provider_ready = true;
-                        self.push(json!({"kind":"provider_ready","at_us":monotonic_us(),"setup_us":setup_us}))?;
+                        self.push(json!({"kind":"provider_ready_data_ignored","at_us":monotonic_us(),"setup_us":setup_us}))?;
+                    }
+                    Some(ProviderOutput::Ended {
+                        reason,
+                        fault,
+                        attempts,
+                    }) => {
+                        self.output_flow.received()?;
+                        self.cloud.end_output()?;
+                        self.push(json!({"kind":"provider_output_ended","at_us":monotonic_us(),"reason":reason,"fault":fault,"attempts":attempts}))?;
                     }
                     Some(_) => {
                         return Err(io::Error::other("unexpected provider output before input"));
@@ -890,7 +1170,7 @@ fn conversation(
     reply: &mut Option<Reply>,
     cues: &mut Option<CueSink>,
 ) -> Result<()> {
-    let mut provider_ready = startup.provider_ready;
+    let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
     for event in startup.events {
         record(trace, event)?;
@@ -914,6 +1194,7 @@ fn conversation(
     let mut admission = InputAdmission::default();
     let mut capture_lineage: Option<CaptureLineage> = None;
     let mut provider_queue = VecDeque::with_capacity(64);
+    let mut submission_draining = false;
     let mut speaker_pending: Option<PendingSpeaker> = None;
     let mut speaker_sequence = 0u64;
     let mut snapshot = owner.snapshot(now())?;
@@ -946,7 +1227,9 @@ fn conversation(
                 _ => return Err(io::Error::other("unexpected privacy event").into()),
             }
         }
-        let can_open = provider_ready && gate.allowed(now());
+        // Provider loss closes cloud submissions, never the microphone authority
+        // needed to retain interruptions or finish already-owned playback.
+        let can_open = gate.allowed(now());
         if permitted && !can_open {
             return Err(io::Error::other("physical privacy closed or lost freshness").into());
         }
@@ -956,6 +1239,21 @@ fn conversation(
             snapshot = owner.snapshot(now())?;
             rig.publish(snapshot)?;
         }
+        let mut provider_control_budget = 16;
+        let mut provider_control_empty = service_provider_control(
+            &mut rig.provider.channels.control,
+            &mut cloud,
+            &mut provider_control_budget,
+            trace,
+        )?;
+        apply_submission_gate(
+            &cloud,
+            reply,
+            &mut provider_queue,
+            &mut admission,
+            &mut submission_draining,
+            trace,
+        )?;
         drain_capture_control(
             &mut rig.capture.channels.control,
             &mut capture_epoch,
@@ -1064,16 +1362,36 @@ fn conversation(
         // two cloud packets, even when more PCM is immediately available.
         // Render reference still goes directly between the audio workers.
         let mut provider_slice = ProviderSlice::new(monotonic_us());
-        while let Some(event) =
-            provider_slice.receive(&mut rig.provider.channels.data, monotonic_us())?
-        {
+        while provider_control_empty {
+            provider_control_empty = service_provider_control(
+                &mut rig.provider.channels.control,
+                &mut cloud,
+                &mut provider_control_budget,
+                trace,
+            )?;
+            apply_submission_gate(
+                &cloud,
+                reply,
+                &mut provider_queue,
+                &mut admission,
+                &mut submission_draining,
+                trace,
+            )?;
+            if !provider_control_empty {
+                break;
+            }
+            let Some(event) =
+                provider_slice.receive(&mut rig.provider.channels.data, monotonic_us())?
+            else {
+                break;
+            };
             output_flow.received()?;
+            observe_provider_output(&mut cloud, reply, &event)?;
             match event {
                 ProviderOutput::Ready { setup_us } => {
-                    provider_ready = true;
                     record(
                         trace,
-                        json!({"kind":"provider_ready","at_us":monotonic_us(),"setup_us":setup_us}),
+                        json!({"kind":"provider_ready_data_ignored","at_us":monotonic_us(),"setup_us":setup_us}),
                     )?;
                 }
                 ProviderOutput::Audio {
@@ -1124,22 +1442,12 @@ fn conversation(
                         )?;
                     }
                 }
-                ProviderOutput::GenerationComplete { request } => {
-                    if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == request) {
-                        current.generation_done = true;
-                    }
-                }
+                ProviderOutput::GenerationComplete { .. } => {}
                 ProviderOutput::TurnComplete { request, idle } => {
                     record(
                         trace,
                         json!({"kind":"provider_turn_complete","turn":request,"idle":idle,"at_us":monotonic_us()}),
                     )?;
-                    if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == request) {
-                        current.provider_idle = idle;
-                        if idle {
-                            current.generation_done = true;
-                        }
-                    }
                 }
                 ProviderOutput::Transcript {
                     request,
@@ -1158,11 +1466,18 @@ fn conversation(
                         .as_ref()
                         .is_some_and(|current| current.owner.turn() == request)
                     {
+                        let input_active = reply
+                            .as_ref()
+                            .is_some_and(|current| !current.local_input_ended);
                         cancel_reply(owner, reply, trace, "provider_interrupted")?;
                         speaker_pending = None;
                         provider_queue.clear();
-                        detector = TurnDetector::default();
-                        admission.reset();
+                        // Keep the detector's utterance boundary. Reconnecting or
+                        // cancellation must never reinterpret its tail as a new input.
+                        if input_active {
+                            admission.discard_stream_until_end(monotonic_us())?;
+                            submission_draining = true;
+                        }
                         snapshot = owner.snapshot(now())?;
                         rig.publish(snapshot)?;
                         last_publish = monotonic_us();
@@ -1170,16 +1485,59 @@ fn conversation(
                 }
                 ProviderOutput::Started {
                     request,
+                    session,
                     waiting_for_barrier,
-                } => record(
-                    trace,
-                    json!({"kind":"provider_input_started","turn":request,"waiting_for_barrier":waiting_for_barrier,"at_us":monotonic_us()}),
-                )?,
+                } => {
+                    record(
+                        trace,
+                        json!({"kind":"provider_input_started","turn":request,
+                        "provider_session":session,"waiting_for_barrier":waiting_for_barrier,"at_us":monotonic_us()}),
+                    )?;
+                }
+                ProviderOutput::TurnFailed {
+                    request,
+                    stage,
+                    reason,
+                } => {
+                    if let Some(current) = reply.as_mut().filter(|r| r.owner.turn() == request) {
+                        discard_request_input(
+                            current,
+                            &mut provider_queue,
+                            &mut admission,
+                            &mut submission_draining,
+                            trace,
+                            "provider_turn_failed",
+                        )?;
+                    }
+                    record(
+                        trace,
+                        json!({"kind":"provider_turn_failed","turn":request,
+                        "stage":stage,"reason":reason,"at_us":monotonic_us()}),
+                    )?;
+                }
+                ProviderOutput::OwnershipAssumed { .. } => {
+                    unreachable!("rejected by output validation")
+                }
+                ProviderOutput::Ended {
+                    reason,
+                    fault,
+                    attempts,
+                } => {
+                    record(
+                        trace,
+                        json!({"kind":"provider_output_ended","at_us":monotonic_us(),
+                        "reason":reason,"fault":fault,"attempts":attempts}),
+                    )?;
+                    apply_submission_gate(
+                        &cloud,
+                        reply,
+                        &mut provider_queue,
+                        &mut admission,
+                        &mut submission_draining,
+                        trace,
+                    )?;
+                }
             }
-        }
-        // Provider faults also have process-exit evidence if its control queue fails.
-        if let Some(event) = rig.provider.channels.control.receive::<WorkerEvent>()? {
-            return Err(io::Error::other(format!("provider control event: {event:?}")).into());
         }
         if deadline.is_some_and(|d| Instant::now() >= d) {
             // Drain fault channels and inspect children before accepting the
@@ -1235,7 +1593,11 @@ fn conversation(
                 now(),
                 AdmissionState::OpenUntil(MonoTime::from_micros(at + INPUT_LEASE_US)),
             )?;
-            if deadline.is_none() {
+            if deadline.is_none()
+                && cloud.available()
+                && provider_control_empty
+                && !submission_draining
+            {
                 deadline = Some(Instant::now() + Duration::from_secs(seconds));
                 record(
                     trace,
@@ -1265,11 +1627,27 @@ fn conversation(
                     .try_into()
                     .map_err(|_| io::Error::other("invalid capture block"))?,
             };
-            let update = admission.observe(
-                detector.push(observation, frame.probability),
-                context,
-                monotonic_us(),
-            )?;
+            let activity = detector.push(observation, frame.probability);
+            let discarded_endpoint = submission_draining && matches!(activity, Activity::End(_));
+            let update = admission.observe(activity, context, monotonic_us())?;
+            if discarded_endpoint {
+                submission_draining = false;
+                if let Some(current) = reply.as_mut()
+                    && current.cloud.input_abandoned
+                    && !current.local_input_ended
+                {
+                    current.local_input_ended = true;
+                    owner.input_ended(now(), current.owner)?;
+                    snapshot = owner.snapshot(now())?;
+                    rig.publish(snapshot)?;
+                    last_publish = monotonic_us();
+                }
+                record(
+                    trace,
+                    json!({"kind":"input_discarded_endpoint","at_us":at,
+                    "last_block_host_read_us":frame.read_completed_at_us}),
+                )?;
+            }
             if let Some(rejection) = update.rejection {
                 record_input_rejection(trace, rejection)?;
             }
@@ -1297,18 +1675,39 @@ fn conversation(
                         },
                         monotonic_us(),
                     )?;
-                    let accepted = match decision {
-                        Decision::Accepted(accepted) => accepted,
-                        Decision::Rejected(rejection) => {
-                            record_input_rejection(trace, rejection)?;
-                            continue;
-                        }
-                        Decision::Ignored => {
-                            return Err(io::Error::other(
-                                "directed candidate decision lost its identity",
-                            )
-                            .into());
-                        }
+                    let Some(accepted) = accepted_decision(decision, trace)? else {
+                        continue;
+                    };
+                    // Recheck priority immediately before admitting a new owner.
+                    // A coalesced recovery is a session change even when its outage
+                    // observation never fitted in the priority socket.
+                    provider_control_empty = service_provider_control(
+                        &mut rig.provider.channels.control,
+                        &mut cloud,
+                        &mut provider_control_budget,
+                        trace,
+                    )?;
+                    apply_submission_gate(
+                        &cloud,
+                        reply,
+                        &mut provider_queue,
+                        &mut admission,
+                        &mut submission_draining,
+                        trace,
+                    )?;
+                    let Some(provider_session) = cloud
+                        .ready_session()
+                        .filter(|_| provider_control_empty && !submission_draining)
+                    else {
+                        let (state, draining) =
+                            accepted_without_cloud(accepted, owner, reply, &mut admission, trace)?;
+                        provider_queue.clear();
+                        speaker_pending = None;
+                        submission_draining = draining;
+                        snapshot = state;
+                        rig.publish(snapshot)?;
+                        last_publish = monotonic_us();
+                        continue;
                     };
                     let prefix = accepted.audio;
                     let replacing = reply.is_some();
@@ -1328,14 +1727,17 @@ fn conversation(
                     last_publish = admitted_at_us;
                     record(
                         trace,
-                        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis}),
+                        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session}),
                     )?;
                     provider_queue.push_back(ProviderInput::Start {
+                        session: provider_session,
                         request: turn.turn(),
                         privacy_generation: snapshot.microphone_generation(),
                     });
                     let mut current = Reply {
                         owner: turn,
+                        cloud: CloudRequest::new(provider_session)?,
+                        local_input_ended: false,
                         plan,
                         playback: None,
                         pcm: VecDeque::new(),
@@ -1356,6 +1758,7 @@ fn conversation(
                         )?;
                     }
                     if accepted.ended {
+                        current.local_input_ended = true;
                         owner.input_ended(now(), current.owner)?;
                         provider_queue.push_back(ProviderInput::End {
                             request: current.owner.turn(),
@@ -1384,6 +1787,7 @@ fn conversation(
                         .as_mut()
                         .ok_or_else(|| io::Error::other("speech end lost its owner"))?;
                     let input_end_us = audio.captured_at_us;
+                    current.local_input_ended = true;
                     queue_input(
                         &mut provider_queue,
                         current,
@@ -1415,17 +1819,27 @@ fn conversation(
             rig.publish(snapshot)?;
             last_publish = clock;
         }
-        for _ in 0..8 {
-            let Some(command) = provider_queue.front() else {
-                break;
-            };
-            match rig.provider.channels.data.send(command) {
-                Ok(()) => {
-                    provider_queue.pop_front();
-                }
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
-                Err(error) => return Err(error.into()),
-            }
+        provider_control_empty = service_provider_control(
+            &mut rig.provider.channels.control,
+            &mut cloud,
+            &mut provider_control_budget,
+            trace,
+        )?;
+        apply_submission_gate(
+            &cloud,
+            reply,
+            &mut provider_queue,
+            &mut admission,
+            &mut submission_draining,
+            trace,
+        )?;
+        if provider_control_empty {
+            flush_provider_input(
+                &cloud,
+                reply,
+                &mut provider_queue,
+                &mut rig.provider.channels.data,
+            )?;
         }
         dispatch_speaker_chunk(
             owner,
@@ -1441,6 +1855,8 @@ fn conversation(
         )?;
         if let Some(current) = reply.as_mut()
             && current.provider_idle
+            && current.cloud.outcome.is_some()
+            && current.local_input_ended
             && current.pcm.is_empty()
             && speaker_pending.is_none()
             && current.playback.is_none()
@@ -1453,7 +1869,8 @@ fn conversation(
             last_publish = monotonic_us();
             record(
                 trace,
-                json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps}),
+                json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
+                    "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome}),
             )?;
             *reply = None;
         }
@@ -1558,6 +1975,12 @@ fn dispatch_speaker_chunk(
     let Some(current) = reply.as_mut() else {
         return Ok(());
     };
+    // Only source-confirmed output can acquire a speech permit. Link loss does
+    // not invalidate previously owned PCM; the real input endpoint still does
+    // determine when speaking is locally permissible.
+    if !current.cloud.started || !current.local_input_ended {
+        return Ok(());
+    }
     let Some((samples, final_chunk)) = current.next_speaker_chunk() else {
         return Ok(());
     };
@@ -1708,7 +2131,8 @@ fn cancel_reply(
         let cancel = owner.cancel_turn(now(), current.owner);
         record(
             trace,
-            json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":monotonic_us(),"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps}),
+            json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":monotonic_us(),"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
+                "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome}),
         )?;
         cancel?;
     }
@@ -1910,6 +2334,8 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod provider_pair;
+
     use super::*;
     use crate::wire::CaptureTiming;
     use lamp_interaction::BoundaryGuard;
@@ -2200,33 +2626,53 @@ mod tests {
         );
     }
 
+    fn ready_link(revision: u64, session: u64) -> ProviderLink {
+        let at = monotonic_us();
+        ProviderLink {
+            revision,
+            session,
+            observed_at_us: at,
+            source_clock: None,
+            state: ProviderLinkState::Ready {
+                setup_us: 1234,
+                attempts: 1,
+                context: if session == 1 {
+                    crate::provider_link::LinkContext::Initial
+                } else {
+                    crate::provider_link::LinkContext::Resumed
+                },
+                outage_started_at_us: (session > 1).then_some(at - 10),
+                after: (session > 1).then_some(crate::provider_worker::Fault::Transport),
+            },
+        }
+    }
+
     #[test]
     fn startup_consumes_provider_ready_before_later_worker_exceeds_packet_age() {
         let dir = SessionDirectory::create().unwrap();
         let (mut parent, mut provider) = pair(&dir, "provider");
         provider
-            .data
-            .send(ProviderOutput::Ready { setup_us: 1234 })
+            .control
+            .send(WorkerEvent::ProviderLink {
+                link: ready_link(1, 1),
+            })
             .unwrap();
         let mut startup = StartupEvents::default();
         startup.poll(&mut parent, "provider").unwrap();
-        // A real later-child startup can take seconds. The consumed notification
-        // remains state; it is no longer an unread expired transport packet.
+        // Readiness is retained state, not an unread packet whose 100 ms
+        // transport lease could expire during a later child's startup.
         std::thread::sleep(Duration::from_millis(120));
         startup.poll(&mut parent, "provider").unwrap();
-        assert!(startup.provider_ready);
-        assert_eq!(startup.events.len(), 1);
+        assert_eq!(startup.cloud.ready_session(), Some(1));
         assert_eq!(startup.events[0]["setup_us"], 1234);
         provider
-            .data
-            .send(ProviderOutput::Ready { setup_us: 2345 })
+            .control
+            .send(WorkerEvent::ProviderLink {
+                link: ready_link(3, 2),
+            })
             .unwrap();
         startup.poll(&mut parent, "provider").unwrap();
-        assert!(startup.provider_ready);
-        assert_eq!(startup.events.len(), 2);
-        assert_eq!(startup.events[1]["setup_us"], 2345);
-        // Recovery during later-child startup is legitimate. Output for an
-        // unaccepted request remains an error, even after a second Ready.
+        assert_eq!(startup.cloud.ready_session(), Some(2));
         provider
             .data
             .send(ProviderOutput::TurnComplete {
@@ -2235,6 +2681,25 @@ mod tests {
             })
             .unwrap();
         assert!(startup.poll(&mut parent, "provider").is_err());
+    }
+
+    fn submitted_request() -> CloudRequest {
+        let mut request = CloudRequest::new(1).unwrap();
+        request
+            .submitted(&ProviderInput::Start {
+                session: 1,
+                request: 1,
+                privacy_generation: 1,
+            })
+            .unwrap();
+        request.confirm_start(1).unwrap();
+        request
+            .submitted(&ProviderInput::End {
+                request: 1,
+                privacy_generation: 1,
+            })
+            .unwrap();
+        request
     }
 
     fn active_reply() -> (Controller, Reply, OutputPermit) {
@@ -2260,6 +2725,8 @@ mod tests {
             owner,
             Reply {
                 owner: turn,
+                cloud: submitted_request(),
+                local_input_ended: true,
                 plan,
                 playback: Some(playback),
                 pcm: vec![123; 480].into(),
@@ -2545,6 +3012,7 @@ mod tests {
             ProviderOutput::Ready { setup_us: 1 },
             ProviderOutput::Started {
                 request: 1,
+                session: 1,
                 waiting_for_barrier: false,
             },
         ]);
@@ -3012,6 +3480,8 @@ mod tests {
         let playback = controller.playback_started(now(), permit).unwrap();
         reply = Some(Reply {
             owner: successor,
+            cloud: submitted_request(),
+            local_input_ended: true,
             plan,
             playback: Some(playback),
             pcm: vec![456; 240].into(),
@@ -3219,6 +3689,8 @@ mod tests {
         let playback = owner.playback_started(now(), permit).unwrap();
         reply = Some(Reply {
             owner: turn,
+            cloud: submitted_request(),
+            local_input_ended: true,
             plan,
             playback: Some(playback),
             pcm: vec![456; 240].into(),
@@ -3288,6 +3760,681 @@ mod tests {
                         && event["expected_cancellation"] == false)
             );
         }
+    }
+
+    fn unavailable_link(revision: u64, session: u64) -> ProviderLink {
+        ProviderLink {
+            revision,
+            session,
+            observed_at_us: monotonic_us(),
+            source_clock: None,
+            state: ProviderLinkState::Unavailable {
+                reason: crate::provider_worker::Fault::Transport,
+            },
+        }
+    }
+
+    fn current_input() -> (Controller, Option<Reply>) {
+        let (mut owner, mut reply, _) = active_reply();
+        owner.cancel_turn(now(), reply.owner).unwrap();
+        reply.owner = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
+        reply.plan = owner
+            .plan_output(now(), reply.owner, OutputKind::Speech, None)
+            .unwrap();
+        reply.cloud = CloudRequest::new(1).unwrap();
+        reply.local_input_ended = false;
+        reply.playback = None;
+        reply.pcm.clear();
+        reply.had_audio = false;
+        (owner, Some(reply))
+    }
+
+    fn start_command(reply: &Option<Reply>) -> ProviderInput {
+        ProviderInput::Start {
+            session: reply.as_ref().unwrap().cloud.session,
+            request: reply.as_ref().unwrap().owner.turn(),
+            privacy_generation: 1,
+        }
+    }
+
+    fn end_command(reply: &Option<Reply>) -> ProviderInput {
+        ProviderInput::End {
+            request: reply.as_ref().unwrap().owner.turn(),
+            privacy_generation: 1,
+        }
+    }
+
+    fn ended_output() -> ProviderOutput {
+        ProviderOutput::Ended {
+            reason: crate::provider_link::LinkFailure::NoResumableContext,
+            fault: crate::provider_worker::Fault::Transport,
+            attempts: 1,
+        }
+    }
+
+    #[test]
+    fn priority_outage_wins_over_queued_data_ready_without_revoking_owned_playback() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut parent, mut provider) = pair(&dir, "provider");
+        let (mut speaker_parent, mut speaker) = pair(&dir, "speaker");
+        let (mut owner, current, _) = active_reply();
+        let original_owner = current.owner;
+        let mut reply = Some(current);
+        let mut cloud = CloudAvailability::default();
+        cloud.observe(ready_link(1, 1), monotonic_us()).unwrap();
+        provider
+            .control
+            .send(WorkerEvent::ProviderLink {
+                link: unavailable_link(2, 1),
+            })
+            .unwrap();
+        provider
+            .data
+            .send(ProviderOutput::Ready { setup_us: 999 })
+            .unwrap();
+        let mut trace = Vec::new();
+        assert!(
+            service_provider_control(&mut parent.control, &mut cloud, &mut 16, &mut trace).unwrap()
+        );
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &parent.data.receive().unwrap().unwrap(),
+        )
+        .unwrap();
+        assert!(!cloud.available());
+        let mut admission = InputAdmission::default();
+        let mut draining = false;
+        let mut queue = VecDeque::new();
+        apply_submission_gate(
+            &cloud,
+            &mut reply,
+            &mut queue,
+            &mut admission,
+            &mut draining,
+            &mut trace,
+        )
+        .unwrap();
+        assert!(!draining, "submitted End needs no utterance drain");
+        let mut state = owner.snapshot(now()).unwrap();
+        assert!(state.listening_ready(now()));
+        let mut pending = None;
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut speaker_parent.data,
+            &mut pending,
+            &mut 0,
+            &mut state,
+        )
+        .unwrap();
+        let packet = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        assert_eq!(packet.samples, vec![123; 240]);
+        assert_eq!(state.owner(), Some(original_owner));
+        assert_eq!(reply.as_ref().unwrap().pcm.len(), 240);
+        assert_eq!(trace[0]["kind"], "provider_unavailable");
+    }
+
+    #[test]
+    fn crossed_session_start_cannot_authorize_current_audio_or_a_speaker_write() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&dir, "speaker");
+        let (mut owner, mut reply) = current_input();
+        let command = start_command(&reply);
+        reply.as_mut().unwrap().cloud.submitted(&command).unwrap();
+        let request = reply.as_ref().unwrap().owner.turn();
+        let mut cloud = CloudAvailability::default();
+        cloud.observe(ready_link(3, 2), monotonic_us()).unwrap();
+        assert!(
+            observe_provider_output(
+                &mut cloud,
+                &mut reply,
+                &ProviderOutput::Started {
+                    request,
+                    session: 2,
+                    waiting_for_barrier: false
+                }
+            )
+            .is_err()
+        );
+        let mut event = provider_audio(1, vec![8; 480]);
+        if let ProviderOutput::Audio { request: id, .. } = &mut event {
+            *id = request;
+        }
+        assert!(observe_provider_output(&mut cloud, &mut reply, &event).is_err());
+        // Even an accidentally populated PCM queue cannot bypass source proof.
+        reply.as_mut().unwrap().pcm = vec![8; 480].into();
+        reply.as_mut().unwrap().local_input_ended = true;
+        owner
+            .input_ended(now(), reply.as_ref().unwrap().owner)
+            .unwrap();
+        let mut state = owner.snapshot(now()).unwrap();
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut None,
+            &mut 0,
+            &mut state,
+        )
+        .unwrap();
+        assert!(speaker.data.receive::<SpeakerChunk>().unwrap().is_none());
+        assert_eq!(reply.as_ref().unwrap().pcm.len(), 480);
+        assert!(!reply.as_ref().unwrap().cloud.started);
+    }
+
+    #[test]
+    fn would_block_end_is_not_submitted_and_recovery_never_replays_queued_tail() {
+        let (_owner, mut reply) = current_input();
+        let request = reply.as_ref().unwrap().owner.turn();
+        let mut cloud = CloudAvailability::default();
+        cloud.observe(ready_link(1, 1), monotonic_us()).unwrap();
+        let mut queue = VecDeque::from([start_command(&reply), end_command(&reply)]);
+        let mut sends = 0;
+        flush_provider_input_with(&cloud, &mut reply, &mut queue, |_| {
+            sends += 1;
+            if sends == 2 {
+                Err(io::ErrorKind::WouldBlock.into())
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap();
+        let current = reply.as_ref().unwrap();
+        assert!(current.cloud.start_submitted);
+        assert!(!current.cloud.input_end_submitted);
+        assert_eq!(queue.len(), 1);
+        // Skip directly to Ready B: its coalesced outage is sufficient.
+        cloud.observe(ready_link(3, 2), monotonic_us()).unwrap();
+        let mut admission = InputAdmission::default();
+        let mut draining = false;
+        apply_submission_gate(
+            &cloud,
+            &mut reply,
+            &mut queue,
+            &mut admission,
+            &mut draining,
+            &mut Vec::new(),
+        )
+        .unwrap();
+        assert!(draining);
+        assert!(queue.is_empty());
+        assert!(
+            reply.as_ref().unwrap().cloud.outcome.is_none(),
+            "submitted Start still needs its exact outcome"
+        );
+        flush_provider_input_with(&cloud, &mut reply, &mut queue, |_| panic!("tail replayed"))
+            .unwrap();
+        // A's delayed source-stamped Started is legitimate even though B is now
+        // available; it only confirms A, and cannot reopen input to B.
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &ProviderOutput::Started {
+                request,
+                session: 1,
+                waiting_for_barrier: false,
+            },
+        )
+        .unwrap();
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &ProviderOutput::TurnFailed {
+                request,
+                stage: crate::provider_worker::FailedStage::InputOpen,
+                reason: crate::provider_worker::Fault::Transport,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            reply.as_ref().unwrap().delivery_outcome(),
+            "provider_failed"
+        );
+        assert!(!reply.as_ref().unwrap().cloud.can_submit(&cloud));
+    }
+
+    #[test]
+    fn local_never_submitted_request_fails_without_fabricating_a_provider_receipt() {
+        let (_owner, mut reply) = current_input();
+        let mut queue = VecDeque::from([start_command(&reply)]);
+        let mut draining = false;
+        apply_submission_gate(
+            &CloudAvailability::default(),
+            &mut reply,
+            &mut queue,
+            &mut InputAdmission::default(),
+            &mut draining,
+            &mut Vec::new(),
+        )
+        .unwrap();
+        let current = reply.as_ref().unwrap();
+        assert!(matches!(
+            current.cloud.outcome,
+            Some(RequestOutcome::Failed {
+                stage: crate::provider_worker::FailedStage::NotDelivered,
+                local_not_submitted: true,
+                ..
+            })
+        ));
+        assert!(queue.is_empty());
+        assert!(!current.cloud.start_submitted);
+        assert!(
+            !current.local_input_ended,
+            "cloud loss is not an acoustic endpoint"
+        );
+        assert!(draining);
+    }
+
+    #[test]
+    fn ordered_failure_preserves_received_pcm_at_zero_new_credit_and_never_succeeds() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut parent, mut speaker) = pair(&dir, "speaker");
+        let (mut owner, mut current, _) = active_reply();
+        current.pcm = vec![44; 240].into();
+        let request = current.owner.turn();
+        let mut reply = Some(current);
+        let mut cloud = CloudAvailability::default();
+        cloud
+            .observe(unavailable_link(2, 1), monotonic_us())
+            .unwrap();
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &ProviderOutput::TurnFailed {
+                request,
+                stage: crate::provider_worker::FailedStage::Responding,
+                reason: crate::provider_worker::Fault::Transport,
+            },
+        )
+        .unwrap();
+        observe_provider_output(&mut cloud, &mut reply, &ended_output()).unwrap();
+        assert!(cloud.output_ended());
+        assert_eq!(reply.as_ref().unwrap().pcm.len(), 240);
+        let mut state = owner.snapshot(now()).unwrap();
+        let mut pending = None;
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut 0,
+            &mut state,
+        )
+        .unwrap();
+        let sent = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        assert!(sent.end_of_speech);
+        assert_eq!(sent.samples, vec![44; 240]);
+        assert_eq!(
+            reply.as_ref().unwrap().delivery_outcome(),
+            "provider_failed"
+        );
+        assert!(
+            reply.as_ref().unwrap().playback.is_some(),
+            "Ended is not playback retirement"
+        );
+        assert!(
+            observe_provider_output(&mut cloud, &mut reply, &provider_audio(2, vec![1; 240]))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn ended_waits_for_in_flight_start_refusal_and_does_not_mark_an_open_input_complete() {
+        let (_owner, mut reply) = current_input();
+        let request = reply.as_ref().unwrap().owner.turn();
+        let start = start_command(&reply);
+        reply.as_mut().unwrap().cloud.submitted(&start).unwrap();
+        let mut cloud = CloudAvailability::default();
+        cloud.observe(ready_link(1, 1), monotonic_us()).unwrap();
+        observe_provider_output(&mut cloud, &mut reply, &ended_output()).unwrap();
+        let mut queue = VecDeque::from([end_command(&reply)]);
+        let mut draining = false;
+        apply_submission_gate(
+            &cloud,
+            &mut reply,
+            &mut queue,
+            &mut InputAdmission::default(),
+            &mut draining,
+            &mut Vec::new(),
+        )
+        .unwrap();
+        assert!(reply.as_ref().unwrap().cloud.outcome.is_none());
+        let refused = ProviderOutput::TurnFailed {
+            request,
+            stage: crate::provider_worker::FailedStage::NotDelivered,
+            reason: crate::provider_worker::Fault::Transport,
+        };
+        observe_provider_output(&mut cloud, &mut reply, &refused).unwrap();
+        assert_eq!(
+            reply.as_ref().unwrap().delivery_outcome(),
+            "provider_failed"
+        );
+        assert!(!reply.as_ref().unwrap().local_input_ended);
+        assert!(
+            observe_provider_output(&mut cloud, &mut reply, &refused).is_err(),
+            "duplicate outcome"
+        );
+        assert!(observe_provider_output(&mut cloud, &mut reply, &ended_output()).is_err());
+    }
+
+    #[test]
+    fn abandoned_stream_recovery_keeps_original_endpoint_and_only_accepts_fresh_speech() {
+        let (mut owner, mut reply) = current_input();
+        let request = reply.as_ref().unwrap().owner.turn();
+        let start = start_command(&reply);
+        reply.as_mut().unwrap().cloud.submitted(&start).unwrap();
+        let mut cloud = CloudAvailability::default();
+        cloud.observe(ready_link(1, 1), monotonic_us()).unwrap();
+        let mut detector = TurnDetector::default();
+        let mut admission = InputAdmission::default();
+        let capture = CaptureLineage {
+            worker: new_boot().unwrap(),
+            epoch: 1,
+            dsp_epoch: 1,
+            privacy_generation: owner.snapshot(now()).unwrap().microphone_generation(),
+        };
+        let base = monotonic_us() - 1_000;
+        let mut first = None;
+        let mut draining = false;
+        let mut queue = VecDeque::new();
+        let mut trace = Vec::new();
+        for sequence in 1..=90 {
+            let context = AdmissionContext {
+                capture,
+                authority: owner.snapshot(now()).unwrap(),
+            };
+            let probability = if sequence <= 20 || sequence > 80 {
+                0.99
+            } else {
+                0.0
+            };
+            let activity = detector.push(
+                ObservedAudio {
+                    sequence,
+                    captured_at_us: base + sequence,
+                    samples: [sequence as i16; 160],
+                },
+                probability,
+            );
+            let is_endpoint = matches!(activity, Activity::End(_));
+            let update = admission
+                .observe(activity, context, monotonic_us())
+                .unwrap();
+            if sequence == 6 {
+                let AdmissionStep::Candidate(candidate) = update.step else {
+                    panic!("no opening prefix")
+                };
+                first = Some(candidate.id);
+                assert!(matches!(
+                    admission
+                        .decide(
+                            Evidence {
+                                candidate: candidate.id,
+                                through_sequence: candidate.trigger_sequence,
+                                produced_at_us: monotonic_us(),
+                                verdict: Verdict::Accept(AcceptanceBasis::DirectedSessionVadOnly)
+                            },
+                            context,
+                            monotonic_us()
+                        )
+                        .unwrap(),
+                    Decision::Accepted(_)
+                ));
+                cloud
+                    .observe(unavailable_link(2, 1), monotonic_us())
+                    .unwrap();
+                apply_submission_gate(
+                    &cloud,
+                    &mut reply,
+                    &mut queue,
+                    &mut admission,
+                    &mut draining,
+                    &mut trace,
+                )
+                .unwrap();
+                assert!(draining);
+            } else if sequence < 80 {
+                assert!(matches!(update.step, AdmissionStep::None));
+                if sequence == 10 {
+                    cloud.observe(ready_link(3, 2), monotonic_us()).unwrap();
+                }
+            } else if sequence == 80 {
+                assert!(is_endpoint);
+                assert!(matches!(update.step, AdmissionStep::None));
+                draining = false;
+                let current = reply.as_mut().unwrap();
+                current.local_input_ended = true;
+                owner.input_ended(now(), current.owner).unwrap();
+            } else if sequence == 86 {
+                let AdmissionStep::Candidate(candidate) = update.step else {
+                    panic!("fresh input lost")
+                };
+                assert_ne!(Some(candidate.id), first);
+                let accepted = admission
+                    .decide(
+                        Evidence {
+                            candidate: candidate.id,
+                            through_sequence: candidate.trigger_sequence,
+                            produced_at_us: monotonic_us(),
+                            verdict: Verdict::Accept(AcceptanceBasis::DirectedSessionVadOnly),
+                        },
+                        context,
+                        monotonic_us(),
+                    )
+                    .unwrap();
+                let Decision::Accepted(accepted) = accepted else {
+                    panic!("fresh input not accepted")
+                };
+                assert_eq!(accepted.audio.first().unwrap().sequence, 81);
+                break;
+            }
+        }
+        assert!(!draining);
+        assert_eq!(cloud.ready_session(), Some(2));
+        assert_eq!(reply.as_ref().unwrap().owner.turn(), request);
+        assert!(reply.as_ref().unwrap().cloud.input_abandoned);
+        assert!(queue.is_empty());
+        assert_eq!(trace.len(), 1);
+    }
+
+    #[test]
+    fn assumed_ownership_and_completion_without_submitted_end_fail_closed() {
+        let (_owner, mut reply) = current_input();
+        let start = start_command(&reply);
+        reply.as_mut().unwrap().cloud.submitted(&start).unwrap();
+        let request = reply.as_ref().unwrap().owner.turn();
+        let mut cloud = CloudAvailability::default();
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &ProviderOutput::Started {
+                request,
+                session: 1,
+                waiting_for_barrier: false,
+            },
+        )
+        .unwrap();
+        assert!(
+            observe_provider_output(
+                &mut cloud,
+                &mut reply,
+                &ProviderOutput::OwnershipAssumed {
+                    request: Some(request),
+                    superseded: None
+                }
+            )
+            .is_err()
+        );
+        assert!(
+            observe_provider_output(
+                &mut cloud,
+                &mut reply,
+                &ProviderOutput::TurnComplete {
+                    request,
+                    idle: true
+                }
+            )
+            .is_err()
+        );
+        assert!(reply.as_ref().unwrap().cloud.outcome.is_none());
+    }
+
+    #[test]
+    fn actual_fixture_worker_enters_the_same_priority_readiness_gate() {
+        use sha2::{Digest, Sha256};
+        let dir = SessionDirectory::create().unwrap();
+        let wav = dir.path.join("reply.wav");
+        let mut writer = hound::WavWriter::create(
+            &wav,
+            hound::WavSpec {
+                channels: 1,
+                sample_rate: 24_000,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            },
+        )
+        .unwrap();
+        for _ in 0..240 {
+            writer.write_sample(100_i16).unwrap();
+        }
+        writer.finalize().unwrap();
+        let hash = format!("{:x}", Sha256::digest(std::fs::read(&wav).unwrap()));
+        let (mut parent, worker) = pair(&dir, "provider");
+        let mut startup = StartupEvents::default();
+        std::thread::scope(|scope| {
+            let handle = scope
+                .spawn(|| crate::fixture_provider::run(worker, new_boot().unwrap(), &wav, &hash));
+            let until = Instant::now() + Duration::from_secs(1);
+            loop {
+                if let Some(event) = parent.control.receive::<WorkerEvent>().unwrap() {
+                    assert!(matches!(event, WorkerEvent::Ready));
+                    break;
+                }
+                assert!(Instant::now() < until, "fixture process readiness deadline");
+                std::thread::yield_now();
+            }
+            while !startup.cloud.available() {
+                startup.poll(&mut parent, "provider").unwrap();
+                assert!(
+                    Instant::now() < until,
+                    "fixture priority availability deadline"
+                );
+                std::thread::yield_now();
+            }
+            assert_eq!(startup.cloud.ready_session(), Some(1));
+            assert_eq!(startup.events.len(), 1);
+            assert_eq!(startup.events[0]["kind"], "provider_ready");
+            assert!(
+                parent.data.receive::<ProviderOutput>().unwrap().is_none(),
+                "no credited Ready may bypass the gate"
+            );
+            parent.control.send(Control::Stop).unwrap();
+            handle.join().unwrap().unwrap();
+        });
+    }
+
+    fn local_policy_decision(
+        owner: &mut Controller,
+        admission: &mut InputAdmission,
+        verdict: Verdict,
+    ) -> Decision {
+        let context = AdmissionContext {
+            capture: CaptureLineage {
+                worker: new_boot().unwrap(),
+                epoch: 1,
+                dsp_epoch: 1,
+                privacy_generation: owner.snapshot(now()).unwrap().microphone_generation(),
+            },
+            authority: owner.snapshot(now()).unwrap(),
+        };
+        let at = monotonic_us();
+        let update = admission
+            .observe(
+                Activity::Start(
+                    (1..=6)
+                        .map(|sequence| ObservedAudio {
+                            sequence,
+                            captured_at_us: at - 7 + sequence,
+                            samples: [123; 160],
+                        })
+                        .collect(),
+                ),
+                context,
+                at,
+            )
+            .unwrap();
+        let AdmissionStep::Candidate(candidate) = update.step else {
+            panic!("no candidate")
+        };
+        admission
+            .decide(
+                Evidence {
+                    candidate: candidate.id,
+                    through_sequence: candidate.trigger_sequence,
+                    produced_at_us: monotonic_us(),
+                    verdict,
+                },
+                context,
+                monotonic_us(),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn accepted_local_interruption_during_outage_revokes_old_playback_without_cloud_submission() {
+        let (mut owner, current, permit) = active_reply();
+        let old = current.owner;
+        let mut reply = Some(current);
+        let mut admission = InputAdmission::default();
+        let decision = local_policy_decision(
+            &mut owner,
+            &mut admission,
+            Verdict::Accept(AcceptanceBasis::DirectedSessionVadOnly),
+        );
+        let mut trace = Vec::new();
+        let accepted = accepted_decision(decision, &mut trace).unwrap().unwrap();
+        let (state, draining) =
+            accepted_without_cloud(accepted, &mut owner, &mut reply, &mut admission, &mut trace)
+                .unwrap();
+        assert!(reply.is_none());
+        assert!(draining);
+        assert!(state.owner().is_none());
+        assert!(state.listening_ready(now()));
+        let mut guard = BoundaryGuard::new(state.boot(), now());
+        guard.install(now(), state).unwrap();
+        assert!(guard.check(now(), permit, OutputKind::Speech).is_err());
+        assert_eq!(trace[0]["outcome"], "user_interrupted");
+        assert_eq!(trace[0]["turn"], old.turn());
+        assert_eq!(trace[1]["outcome"]["stage"], "not_delivered");
+        assert_eq!(trace[1]["outcome"]["local_not_submitted"], true);
+        assert!(trace[1]["provider_request"].is_null());
+        assert!(trace[1]["provider_session"].is_null());
+        assert!(
+            !trace
+                .iter()
+                .any(|event| event["kind"] == "provider_input_started")
+        );
+    }
+
+    #[test]
+    fn rejected_background_or_ignored_decision_during_outage_preserves_playback() {
+        let (mut owner, current, permit) = active_reply();
+        let old = current.owner;
+        let reply = Some(current);
+        let mut admission = InputAdmission::default();
+        let decision = local_policy_decision(&mut owner, &mut admission, Verdict::Reject);
+        let mut trace = Vec::new();
+        assert!(accepted_decision(decision, &mut trace).unwrap().is_none());
+        assert!(accepted_decision(Decision::Ignored, &mut trace).is_err());
+        let state = owner.snapshot(now()).unwrap();
+        assert_eq!(state.owner(), Some(old));
+        let mut guard = BoundaryGuard::new(state.boot(), now());
+        guard.install(now(), state).unwrap();
+        guard.check(now(), permit, OutputKind::Speech).unwrap();
+        assert_eq!(reply.as_ref().unwrap().pcm.len(), 480);
+        assert_eq!(trace.len(), 1);
+        assert_eq!(trace[0]["kind"], "input_candidate_rejected");
     }
 }
 

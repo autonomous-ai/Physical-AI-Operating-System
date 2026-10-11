@@ -3,8 +3,8 @@
 //! is ignored; unknown message kinds, tools, malformed audio and auth errors fail
 //! with fixed diagnostic categories and no retained raw payload.
 use crate::{
-    Error, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_WIRE_BYTES, Result,
-    Resumption, ResumptionHandle, SessionConfig, VoiceActivity,
+    Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_WIRE_BYTES,
+    Result, Resumption, ResumptionHandle, SessionConfig, VoiceActivity,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{
@@ -490,6 +490,20 @@ pub fn encode_audio(samples: &[i16]) -> Result<String> {
         .flat_map(|sample| sample.to_le_bytes())
         .collect();
     serde_json::to_string(&json!({"realtimeInput": {"audio": {"mimeType": "audio/pcm;rate=16000", "data": STANDARD.encode(bytes)}}})).map_err(|_| Error::InvalidAudio)
+}
+/// One JPEG as realtime video input. The caller has checked its size.
+pub fn encode_image(jpeg: &[u8]) -> Result<String> {
+    if jpeg.is_empty() || jpeg.len() > MAX_IMAGE_BYTES {
+        return Err(Error::MessageTooLarge);
+    }
+    let encoded = serde_json::to_string(
+        &json!({"realtimeInput": {"video": {"mimeType": "image/jpeg", "data": STANDARD.encode(jpeg)}}}),
+    )
+    .map_err(|_| Error::MalformedMessage)?;
+    if encoded.len() > MAX_WIRE_BYTES {
+        return Err(Error::MessageTooLarge);
+    }
+    Ok(encoded)
 }
 pub const ACTIVITY_START: &str = r#"{"realtimeInput":{"activityStart":{}}}"#;
 pub const ACTIVITY_END: &str = r#"{"realtimeInput":{"activityEnd":{}}}"#;

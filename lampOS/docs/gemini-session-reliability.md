@@ -19,7 +19,7 @@ combined:
 |---|---|---|
 | Host | macOS x86_64, scripted in-memory service | Transport and worker logic, bounds, ordering |
 | Linux/ARM64 | Cross-compiled in a container, tests under user-mode emulation | The target builds, type-checks and runs the same logic |
-| Cloud | **Nothing.** No provider credential exists on this host | Nothing yet; see [Service probes](#service-probes) |
+| Cloud | Nothing by Agent 1: no provider credential exists on this host. The integrator ran two probes from a board | That handles are issued unasked, and nothing else yet; see [service evidence](#service-evidence-reported-by-the-integrator) |
 | Device | **Nothing.** Lamp access is not restored | Nothing |
 
 Passing these tests does not establish natural voice interaction. It
@@ -160,7 +160,7 @@ is evidence of correct ownership.
 |---|---|---|
 | Output held for a consumer slower than the network | 300 s of audio (14.4 MB), configurable 1-600 s | Socket goes unread; transport flow control holds the service |
 | Event queue to the worker | 16 events | Events wait in the output buffer |
-| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure`; on a failed connection, the rest of its answer is dropped and the request reported lost |
+| Consumer accepts nothing while output waits (`deliver`) | 30 s (was 2 s) | `Backpressure`: the connection is replaced and the request reported lost; on an already failed connection, the rest of its answer is dropped and the request reported lost |
 | Worker IPC backlog | high-water 384 packets, hard bound 512 | Worker stops taking provider events |
 | Worker packets per 2 ms tick | 8, and never beyond granted output capacity | Remainder waits |
 | Silence of an earlier response after an interruption request (`barrier`) | 2 s | Policy above |
@@ -250,11 +250,26 @@ Past the limit:
   it has played some of its backlog. In the measured runs the worker ended
   33.7 s after playback resumed, having delivered everything the reply buffer,
   its own queue and the event queue held. The answer is cut there.
-- **The session ends, not just the answer.** `Backpressure` is classed as a
-  local fault and is not reconnected. Under `Legacy` reporting the worker
-  would end on the lost request anyway. Under `Typed` reporting the session
-  could survive if this failure were reconnected like a lost connection; that
-  classification is not changed here.
+- **The answer is lost; the session need not be.** When the table above was
+  measured, `Backpressure` was a local fault that was never reconnected, so
+  the supervisor ended. Since `f085868f3` (request `MAIN-007`) it is recovered
+  like a lost connection: the stuck connection is abandoned with what it still
+  held, the request is reported lost exactly once at `Responding`, and a
+  replacement is dialed with the resumption handle inside the usual attempt,
+  budget and recovery-rate bounds. Nothing is replayed. A session with no
+  resumable context still ends, as do authentication and quota refusals.
+  Under `Legacy` reporting the worker ends on the lost request either way, so
+  the worker-level table is unchanged until the coordinator consumes the
+  failure.
+- **Which bound fires depends on the answer.** The delivery bound is only
+  reached by an answer long enough that the service's own deadlines are later:
+  generation complete and more than about 15 s of audio still unplayed. A
+  short answer whose speaker stops is ended earlier by the stall or completion
+  bound, which were already recoverable.
+- **Input that overruns its queue** is the same failure seen from the other
+  side, and is recovered the same way: the request that was speaking is
+  reported lost at `InputOpen` and its remaining input is refused, not carried
+  to the replacement.
 
 The same bound applies to an answer still being drained from a connection that
 has already failed, and is tested in the transport on a paused clock. Stopped
@@ -644,9 +659,25 @@ answers and the seven stopped-playback trials.
 | 4 x 400 adversarial turns, seeds 2, 3, 5, 8, each interface | 343 and 352 min in total; 679 completed, 386 cancelled, 225 settled, 309 lost, 249 refused, 1,453 recoveries, 234 refused attempts, 231 dead on arrival, 341 speaker holds; identical rows through both interfaces |
 | Playback stopped with every holder full (real time) | See [a stopped speaker](#a-stopped-speaker) |
 
+### Linux/ARM64 results
+
+On `0f688994d`, which is this round's code plus the later audio work,
+cross-compiled and run under `qemu-aarch64` user-mode emulation from a
+read-only source-only export. **Not the device.**
+
+| Gate | Result |
+|---|---|
+| Strict Clippy, workspace, all targets, ARM64 target | pass |
+| Release build of `lamp-live`, `lamp-voice-eval` and the `service_probe` example | pass; ARM aarch64 ELF |
+| `lamp-gemini` tests, release build | 136 passed, 0 failed, 2 ignored |
+| Provider worker tests, release build | 44 passed, 0 failed, 2 ignored |
+| Prolonged adversarial conversations, release build | pass; every tally identical to the host run through both interfaces |
+
+Not run on ARM64 for this round: the whole-workspace suite, the debug
+profile, and the real-time 60 s, 180 s and stopped-playback tests.
+
 ### Not run for this round
 
-- **Linux/ARM64.** Not built or tested for these commits.
 - **Cloud.** Nothing. The five probes are unchanged and still have not run.
 - **Device.** Nothing.
 - The real coordinator. Every test here drives the supervisor or the worker
@@ -663,6 +694,85 @@ answers and the seven stopped-playback trials.
   any answer has started still ends the session after 2 s if the service
   never confirms the cut-off request. Only the `interrupt-before-output`
   probe can say whether it does.
+
+## After the third round: two requests from the integrator
+
+Both read from `coordination/main.md` at `51bd815e9`.
+
+| Commit | Files | Content |
+|---|---|---|
+| `e7b8d24b2`, renamed in `ee5387da7` | `crates/gemini/src/recovery.rs`, `lib.rs`, `recovery/tests.rs`, new `recovery/tests/checked.rs` | `MAIN-008`: `Supervisor::try_start_for_session(expected, request)` and `StartRefusal` |
+| `f085868f3` | `crates/gemini/src/lib.rs`, `recovery/tests/pressure.rs` | `MAIN-007`: `Error::Backpressure` is reconnected; three regressions |
+
+**Checked start.** A decision to start a request is taken while one
+connection is ready and may reach the supervisor after a recovery. The
+unchecked `try_start` would then send it to the replacement, which the caller
+never chose. `try_start_for_session` names the session, compares it with the
+ready connection in the same synchronous call, and refuses before anything is
+queued or any earlier request retired:
+
+| `StartRefusal` | Meaning |
+|---|---|
+| `NotConnected` | No connection is ready |
+| `SessionMismatch { live }` | A connection is ready and it is not the one named; `live` is the one that is |
+| `Refused(error)` | The right connection refused, as `try_start` would |
+
+A refusal sends nothing, supersedes no earlier answer and spends no request
+number. `try_start` is unchanged for existing callers. Audio and `End` were
+already bound to the exact session and request that started.
+
+| Test | What it pins |
+|---|---|
+| `start_chosen_for_a_replaced_connection_is_refused_before_anything_is_sent` | A start chosen for connection 1 arriving after connection 2 took over: `SessionMismatch`, the replacement hears nothing, the unread answer of connection 1 is delivered whole and settled, and the same request then starts on connection 2 |
+| `a_refused_start_leaves_the_request_on_the_live_connection_untouched` | With request 2 already speaking on the replacement, a late start for request 3 chosen for the dead connection is refused; request 2 keeps sending audio and ends normally; the service hears nothing of request 3; its number is not spent |
+| `a_request_lost_before_its_start_was_written_is_reported_without_input_started` | A connection that cannot take another byte: `try_start`, and `try_start` + audio + `try_end`, are accepted locally, the `activityStart` write times out, and the request is reported lost at `InputOpen` and `AwaitingResponse` with no `InputStarted` before it |
+| `checked_start_never_reaches_a_connection_other_than_the_one_named` | A session that does not exist yet; the ordinary refusals on the right session; `NotConnected` throughout an outage; no request number spent |
+| `a_stopped_speaker_past_the_delivery_bound_costs_the_answer_not_the_session` | One replacement with the handle, `Resumed`; an unbroken beginning of at most 16 events; one `TurnLost { Responding, Backpressure }`; nothing sent again; the next request served |
+| `a_stopped_speaker_still_ends_a_session_that_cannot_resume_its_context` | No handle and context required: no attempt, the request still reported once, then `NoResumableContext` |
+| `input_that_overruns_its_queue_loses_that_request_and_recovers_the_link` | The 33rd unserviced block: `Backpressure`, one `TurnLost { InputOpen }`, recovery, the rest of that request's input refused |
+
+**A lost request may have no `InputStarted`.** The stage is recorded when the
+caller's `try_start` (and `try_end`) is accepted, which is synchronous.
+`InputStarted` is emitted only once `activityStart` has been written. A
+connection that fails between the two reports `TurnLost { InputOpen }`, or
+`AwaitingResponse` if the `End` was accepted as well, with no `InputStarted`
+before it. That is the producer's contract, confirmed and now tested; a
+consumer must accept that exact loss without having seen the start.
+
+Host results are in
+[Agent 1's status](../coordination/agent-1.md).
+
+## Service evidence reported by the integrator
+
+Not run by Agent 1. The integrator ran the probe tool built from `64806f862`
+on board `lamp-a0ae` against the deployment endpoint (`campaign-api`, model
+`gemini-3.8-live-extended-thinking`, voice `Kore`, thinking `LOW`), opening no
+hardware, and reported in `MAIN-011`:
+
+| Probe | Reported | What it settles |
+|---|---|---|
+| `handles` | No handle after setup; a handle after one answer, marked current | Resumption handles are issued without being asked for. `Resumption::Retain`, as the worker is configured, has something to retain |
+| `interrupt-before-output` | Only request 2 produced events: first audio 3,387 ms after the second start, generation complete and idle completion at 5,538 and 5,539 ms. No `interrupted`, no terminal for request 1, no assumed barrier | **Nothing.** See below |
+
+The second result is not evidence about interruption. The probe queued the
+first `End` and the second `Start` back to back. `InputSender::try_start`
+retires earlier requests synchronously, so the second start overtook the
+first `End` inside the client: request 1 was treated as cancelled before it
+was committed, no `activityEnd` was sent for it, and both recordings went to
+the service as one question. The service was never asked to interrupt
+anything. The integrator suspected exactly this.
+
+Since `d938a3101` the probe waits 300 ms after the first `End`, records what
+the service sends meanwhile, and reports
+`first_request_committed_before_second_start` (taken from the transport's own
+`waiting_for_barrier` on the second start) and a `trial` label:
+`interrupt_before_output`, `interrupt_during_output` or `not_an_interruption`.
+Only the first label is a trial of the case in question. The `resume` probe
+now records `resumed_setup_ms` when setup completes, and times the resumed
+answer from its own question.
+
+**The barrier policy stays `Require`.** No service evidence yet says what the
+service does when interrupted before it has answered.
 
 ## Integration notes
 

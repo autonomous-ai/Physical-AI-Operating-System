@@ -228,16 +228,22 @@ measurement; portable socket tests do not establish a kernel or acoustic deadlin
 
 This slice records failures but does not yet guarantee an audible failure
 message when the provider or speaker fails. That remains required release work.
-The provider worker can begin replacing a failed connection while delivering
-received output. An answer whose generation completed before the disconnect
-can finish delivery. Recovery is reported as a repeated `provider_ready` and
-one line on standard error. A request whose answer had not finished generating
-when the connection failed still fails the trial, naming the request and its
-stage; legacy reporting does not promise to drain that failed answer before
-exit. Input is never replayed and no answer is requested twice, so no retry
-hides a failed trial. Typed per-turn failure events are implemented but not
-enabled. See
-[Gemini session reliability](gemini-session-reliability.md).
+The directed CLI now selects coordinated provider reporting. A priority channel
+reports connection availability independently of buffered answer PCM; the
+coordinator closes cloud submission during an outage while capture, privacy
+controls and authorized playback continue. Every new Start is checked against
+its selected provider session before submission. A failed answer retains its
+already-received audio and ends as `provider_failed`, with the actual request
+stage and cause. An input interrupted by an outage drains through its real
+endpoint before a fresh utterance may be submitted on the recovered session.
+Input is never replayed and no answer is requested twice. Require remains the
+cancellation policy; there is no automatic assumption of an unconfirmed cut-off.
+The library's explicit Legacy entry point remains for existing callers; worker
+and coordinator must be upgraded together. See the
+[coordinator outage contract](coordinator-outage-contract.md),
+[failure cue schema](../coordination/failure-cue-contract.md), and
+[Gemini session reliability](gemini-session-reliability.md). The coordinated
+integration has host/ARM verification, not native recovery qualification yet.
 
 A queued speaker-permission failure now retains one bounded discard receipt
 with its immutable owner, typed reason and discarded frame count. New PCM
@@ -338,10 +344,13 @@ is bounded at 30 seconds of queued 24 kHz PCM through
 not an answer-duration limit. Input handoff stays at 64 commands, and provider
 transport/IPC queues have separate limits. The Gemini provider passes scripted
 real-time 60 s and 180 s answers against this contract on the host
-([Gemini session reliability](gemini-session-reliability.md)); the coordinator
-and that provider have not yet been run together at speaking speed, and nothing
-here is cloud or device evidence. A trace failure cannot become a valid
-benchmark. A complete report with `completed_unscored` still needs a valid room
+([Gemini session reliability](gemini-session-reliability.md)). Those long-answer
+checks are scripted host evidence. The coordinated worker and consumer also
+pass paired in-memory integration tests; long speaking-speed and outage behavior
+on actual audio hardware still need qualification. Short physical trials and
+their defects are recorded separately in the
+[device pilot evidence](real-device-audio-pilot.md). A trace failure cannot
+become a valid benchmark. A complete report with `completed_unscored` still needs a valid room
 recording, acoustic annotation and correctness review.
 
 The Gemini session is voice-chat-only: native audio, manual activity boundaries,

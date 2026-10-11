@@ -15,7 +15,8 @@ use crate::{
 };
 use lamp_audio::{
     EchoProcessor, RENDER_SAMPLES,
-    capture::{CaptureConfig, ErrorKind as CaptureErrorKind, Microphone},
+    capture::{CaptureConfig, ErrorKind as CaptureErrorKind, MicrophoneOn},
+    device::{AlsaCapture, CaptureDevice},
     pcm::{Speaker, Written},
 };
 use lamp_interaction::{
@@ -169,6 +170,29 @@ pub fn capture(
 }
 
 pub fn capture_with_noise_suppression(
+    channels: WorkerChannels,
+    controller: BootId,
+    worker: BootId,
+    directory: &Path,
+    device: &str,
+    diagnostic_directory: Option<&Path>,
+    noise_suppression: NoiseSuppression,
+) -> Result<()> {
+    capture_on::<AlsaCapture>(
+        channels,
+        controller,
+        worker,
+        directory,
+        device,
+        diagnostic_directory,
+        noise_suppression,
+    )
+}
+
+/// The capture worker over any capture device. The entry points above are the
+/// board's and use ALSA. A process-level test names a scripted device instead
+/// and runs this same loop: nothing in it knows which one it has.
+pub fn capture_on<D: CaptureDevice>(
     mut channels: WorkerChannels,
     controller: BootId,
     worker: BootId,
@@ -184,7 +208,7 @@ pub fn capture_with_noise_suppression(
         Some(noise_suppression.software_processing()),
         &mut channels,
     )?;
-    let mut microphone = Microphone::new(device, controller, CaptureConfig::default())?;
+    let mut microphone = MicrophoneOn::<D>::new(device, controller, CaptureConfig::default())?;
     let result = capture_loop(
         &mut channels,
         &mut microphone,
@@ -214,9 +238,9 @@ pub fn capture_with_noise_suppression(
         .and(finish)
 }
 
-fn capture_loop(
+fn capture_loop<D: CaptureDevice>(
     channels: &mut WorkerChannels,
-    microphone: &mut Microphone,
+    microphone: &mut MicrophoneOn<D>,
     worker: BootId,
     directory: &Path,
     recording: &mut Option<Recording>,

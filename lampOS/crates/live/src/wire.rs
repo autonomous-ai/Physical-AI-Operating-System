@@ -65,6 +65,11 @@ impl<'de> Deserialize<'de> for Control {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WorkerEvent {
     Ready,
+    /// Cloud submission state; never grants microphone or playback authority.
+    /// This travels independently of credited provider answer packets.
+    ProviderLink {
+        link: crate::provider_link::ProviderLink,
+    },
     Ring {
         report: crate::ring_wire::RingFeedback,
     },

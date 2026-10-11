@@ -58,6 +58,22 @@ fn run() -> Result<()> {
             )?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
+        #[cfg(unix)]
+        Some("notices") => {
+            use lamp_audio::notice::{Approval, Notices};
+            let directory = args
+                .next()
+                .ok_or_else(|| usage("missing notice directory"))?;
+            let accept = match args.next().as_deref() {
+                None => Approval::Production,
+                Some("--accept-test") => Approval::Test,
+                Some(_) => return Err(usage("unknown notices option")),
+            };
+            no_extra(args)?;
+            // What a runtime given this directory could and could not say.
+            let capability = Notices::load(Path::new(&directory), accept).capability();
+            println!("{}", serde_json::to_string_pretty(&capability)?);
+        }
         Some("bench-aec") => {
             let blocks = args
                 .next()
@@ -101,7 +117,7 @@ fn run() -> Result<()> {
         }
         _ => {
             return Err(usage(
-                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
+                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] | notices DIR [--accept-test] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
             ));
         }
     }

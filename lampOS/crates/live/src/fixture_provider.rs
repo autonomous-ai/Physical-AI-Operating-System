@@ -3,6 +3,7 @@
 use crate::{
     options::{DirectedOptions, SessionOptions},
     provider_flow::{MAX_REPLY_SAMPLES, OutputSender, PACKET_SAMPLES},
+    provider_link::{LinkContext, ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
     transport::{Channel, WorkerChannels},
     wire::{Control, WorkerEvent},
@@ -338,6 +339,7 @@ impl FixtureProvider {
             ProviderInput::Start {
                 request,
                 privacy_generation,
+                ..
             }
             | ProviderInput::Audio {
                 request,
@@ -363,7 +365,12 @@ impl FixtureProvider {
             .filter(|owner| owner.turn() == request)
             .ok_or_else(|| invalid("fixture input has no matching admitted owner"))?;
         match command {
-            ProviderInput::Start { .. } => {
+            ProviderInput::Start { session, .. } => {
+                if session != 1 {
+                    return Err(invalid(
+                        "fixture Start selected an unknown provider session",
+                    ));
+                }
                 if self.input.is_some() {
                     return Err(invalid("fixture input already started"));
                 }
@@ -376,6 +383,7 @@ impl FixtureProvider {
                 });
                 self.event(ProviderOutput::Started {
                     request,
+                    session: 1,
                     waiting_for_barrier: false,
                 })?;
             }
@@ -598,7 +606,10 @@ impl FixtureProvider {
 }
 fn output_request(event: &ProviderOutput) -> Option<u64> {
     match event {
-        ProviderOutput::Ready { .. } => None,
+        ProviderOutput::Ready { .. }
+        | ProviderOutput::TurnFailed { .. }
+        | ProviderOutput::OwnershipAssumed { .. }
+        | ProviderOutput::Ended { .. } => None,
         ProviderOutput::Started { request, .. }
         | ProviderOutput::Audio { request, .. }
         | ProviderOutput::GenerationComplete { request }
@@ -615,10 +626,27 @@ pub fn run(mut channels: WorkerChannels, boot: BootId, wav: &Path, sha256: &str)
     let fixture = Fixture::load(wav, sha256)?;
     let loaded_us = monotonic_us();
     let mut provider = FixtureProvider::new(fixture, boot, loaded_us);
-    provider.pending = Some(ProviderOutput::Ready {
-        setup_us: loaded_us - started_us,
-    });
+    // Unit fixtures may expose a legacy data Ready, but the actual worker uses
+    // exactly the coordinated control-plane readiness gate as the live model.
+    provider.pending = None;
     channels.control.send(WorkerEvent::Ready)?;
+    let ready = ProviderLink {
+        revision: 1,
+        session: 1,
+        observed_at_us: loaded_us,
+        source_clock: None,
+        state: ProviderLinkState::Ready {
+            setup_us: loaded_us - started_us,
+            attempts: 1,
+            context: LinkContext::Initial,
+            outage_started_at_us: None,
+            after: None,
+        },
+    };
+    ready.validate(monotonic_us())?;
+    channels
+        .control
+        .send(WorkerEvent::ProviderLink { link: ready })?;
     loop {
         if !provider.service_step(
             monotonic_us,
@@ -813,6 +841,7 @@ impl CueSink {
                             "no_audio_answer"
                                 | "audio_written_unscored"
                                 | "audio_written_with_playback_gaps_unscored"
+                                | "provider_failed"
                         )
                     })
                     .ok_or_else(|| invalid("cue has no completion outcome"))?;

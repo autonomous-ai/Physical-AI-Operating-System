@@ -14,6 +14,12 @@
 //! and `language_code`. Probes: `interrupt-before-output`, `handles`,
 //! `handles-requested`, `resume`, `idle-close`. `fixture` is offline: it only
 //! reports what would be spoken from the WAV file.
+//!
+//! `image PICTURE.jpg` speaks the question with one JPEG of at most 64 KiB
+//! offered as visual context, and reports how long the image took to write
+//! and what the model said. It is the one probe that prints the model's own
+//! words, because nothing else shows whether the picture was used: choose a
+//! picture and a question that are fit to appear in a log.
 use lamp_gemini::{
     BarrierPolicy, Connection, Credential, Event, RequestId, Resumption, SessionConfig, SessionId,
     State, ThinkingLevel, Timeouts,
@@ -193,6 +199,20 @@ async fn observe(
             Some(Event::Interrupted { lineage }) => {
                 note("interrupted", Some(lineage.request.get()))
             }
+            // Written to the wire. `waiting_for_barrier` means an earlier
+            // request was already committed when this one started, so this
+            // start is a real interruption request.
+            Some(Event::InputStarted {
+                lineage,
+                waiting_for_barrier,
+            }) => note(
+                if waiting_for_barrier {
+                    "input_started_after_committed_request"
+                } else {
+                    "input_started"
+                },
+                Some(lineage.request.get()),
+            ),
             Some(Event::GenerationComplete { lineage }) => {
                 note("generation_complete", Some(lineage.request.get()));
             }
@@ -245,11 +265,34 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
             let mut connection =
                 lamp_gemini::connect(config.resumption(Resumption::Retain), SessionId::new(1)?)
                     .await?;
+            let first = Instant::now();
             say(&connection, 1, speech, true).await?;
+            // A second start issued at once would overtake the first End
+            // locally: the first request would never be committed and the two
+            // would be one question. Give the connection time to write the
+            // End, and record what the service does meanwhile. A trial in
+            // which the first answer has already begun is a different case
+            // and is labelled as one.
+            let before = observe(&mut connection, first, 0, Duration::from_millis(300)).await;
+            let answered_first = before.iter().any(|event| event["kind"] == "first_audio");
             let resumed = Instant::now();
             say(&connection, 2, speech, true).await?;
             let events = observe(&mut connection, resumed, 2, Duration::from_secs(40)).await;
-            serde_json::json!({"probe":name,"since":"second activityStart","events":events})
+            // Only this shows the intended state was reached: the second
+            // start found the first request committed.
+            let committed = events
+                .iter()
+                .any(|event| event["kind"] == "input_started_after_committed_request");
+            serde_json::json!({"probe":name,
+                "first_request_committed_before_second_start":committed,
+                "first_answer_began_before_second_start":answered_first,
+                "trial": match (committed, answered_first) {
+                    (true, false) => "interrupt_before_output",
+                    (true, true) => "interrupt_during_output",
+                    (false, _) => "not_an_interruption",
+                },
+                "before_second_start":before,
+                "since":"second start queued","events":events})
         }
         // Are resumption handles issued, unasked or when asked?
         "handles" | "handles-requested" => {
@@ -299,10 +342,14 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
                         "resumed_setup":format!("{error:?}")}));
                 }
             };
+            // Connect returns when setup has completed, and this is that moment.
+            let resumed_setup_ms = resumed.elapsed().as_millis() as u64;
+            let asked = Instant::now();
             say(&second, 1, speech, true).await?;
-            let events = observe(&mut second, resumed, 1, Duration::from_secs(40)).await;
+            let events = observe(&mut second, asked, 1, Duration::from_secs(40)).await;
             serde_json::json!({"probe":name,"handle_issued":true,"resumed_setup":"accepted",
-                "resumed_setup_ms":resumed.elapsed().as_millis() as u64,"events":events})
+                "resumed_setup_ms":resumed_setup_ms,
+                "since":"resumed question start queued","events":events})
         }
         // How long does an unused session live, and how does it end?
         "idle-close" => {
@@ -317,6 +364,115 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
     })
 }
 
+/// A regular file, not reached through a link, of at most `max` bytes. It is
+/// opened once: what is checked is the descriptor that is read, and no more
+/// than `max + 1` bytes are read from it whatever it becomes meanwhile.
+///
+/// A name that is swapped for a pipe after the first check would block its
+/// open for ever. The open therefore runs on a helper thread with a one
+/// second limit; if it has not returned, the probe refuses and exits with
+/// that thread still parked. This crate has no dependency that names the
+/// platform's nonblocking-open flag, and a probe is not worth adding one.
+fn bounded_regular_file(path: &Path, max: usize) -> Outcome<Vec<u8>> {
+    use std::{io::Read, os::unix::fs::MetadataExt};
+    let named = fs::symlink_metadata(path)?;
+    if !named.is_file() {
+        return Err("picture must be a regular file, not a link or a device".into());
+    }
+    let (opened, result) = std::sync::mpsc::channel();
+    let target = path.to_owned();
+    std::thread::spawn(move || {
+        let _ = opened.send(fs::File::open(target));
+    });
+    let file = result
+        .recv_timeout(Duration::from_secs(1))
+        .map_err(|_| "picture could not be opened within a second")??;
+    let info = file.metadata()?;
+    if !info.is_file() || (info.dev(), info.ino()) != (named.dev(), named.ino()) {
+        return Err("picture changed while it was being opened".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(max as u64 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > max {
+        return Err("picture must be at most 64 KiB".into());
+    }
+    Ok(bytes)
+}
+
+/// Does the service use a picture sent inside a manual activity, and what
+/// does sending one cost the audio behind it on this link?
+async fn image_probe(
+    config: SessionConfig,
+    speech: &[i16],
+    picture: &[u8],
+) -> Outcome<serde_json::Value> {
+    let mut connection =
+        lamp_gemini::connect(config.resumption(Resumption::Retain), SessionId::new(1)?).await?;
+    let request = RequestId::new(1)?;
+    let input = connection.input();
+    let started = Instant::now();
+    input.try_start(request)?;
+    let mut offer = None;
+    for (sequence, block) in speech.chunks(160).enumerate() {
+        input.try_audio(request, sequence as u64, Instant::now(), block)?;
+        // Once the question is under way, as a frame would arrive in use.
+        if sequence == 20 {
+            offer = Some(format!(
+                "{:?}",
+                input.try_image(request, 1, 1, Instant::now(), picture)
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    input.try_end(request)?;
+    let ended = Instant::now();
+    let (mut events, mut answer) = (Vec::new(), String::new());
+    let mut note = |kind: &str| {
+        events.push(serde_json::json!({"kind":kind,"ms":ended.elapsed().as_millis() as u64}));
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(40);
+    let mut speaking = false;
+    loop {
+        match tokio::time::timeout_at(deadline, connection.next_event()).await {
+            Err(_) => {
+                note("observation_window_ended");
+                break;
+            }
+            Ok(None) => {
+                note(&format!("connection_ended:{:?}", connection.state()));
+                break;
+            }
+            Ok(Some(Event::Audio { .. })) if !speaking => {
+                speaking = true;
+                note("first_audio");
+            }
+            Ok(Some(Event::OutputTranscript { text, .. })) => answer.push_str(&text),
+            Ok(Some(Event::GenerationComplete { .. })) => note("generation_complete"),
+            Ok(Some(Event::TurnComplete { idle: true, .. })) => {
+                note("turn_complete_idle");
+                break;
+            }
+            Ok(Some(_)) => {}
+        }
+    }
+    let ledger = input.image_ledger();
+    Ok(serde_json::json!({
+        "probe": "image",
+        // The End was accepted locally here. It reaches the wire after the
+        // image, if the image was still being written.
+        "since": "end queued locally",
+        "picture_bytes": picture.len(),
+        "offer": offer,
+        "sent": ledger.sent,
+        "dropped": ledger.dropped,
+        "image_written_in_ms": ledger.last_sent.map(|receipt| receipt.written_in.as_secs_f64() * 1e3),
+        "image_waited_ms": ledger.last_sent.map(|receipt| receipt.waited.as_secs_f64() * 1e3),
+        "question_ms": ended.duration_since(started).as_millis() as u64,
+        "events": events,
+        "answer": answer,
+    }))
+}
+
 fn main() -> Outcome<()> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -326,8 +482,15 @@ fn main() -> Outcome<()> {
 
 async fn run() -> Outcome<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let [provider, wav, name] = arguments.as_slice() else {
-        return Err("usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE".into());
+    let (provider, wav, name, picture) = match arguments.as_slice() {
+        [provider, wav, name] if name != "image" => (provider, wav, name, None),
+        [provider, wav, name, picture] if name == "image" => (provider, wav, name, Some(picture)),
+        _ => {
+            return Err(
+                "usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE | ... image PICTURE.jpg"
+                    .into(),
+            );
+        }
     };
     let decoded = speech(Path::new(wav))?;
     let speech = trim(&decoded);
@@ -343,7 +506,14 @@ async fn run() -> Outcome<()> {
         );
         return Ok(());
     }
-    let result = probe(session(Path::new(provider))?, speech, name).await?;
+    let result = match picture {
+        Some(picture) => {
+            // Read before any connection is made.
+            let picture = bounded_regular_file(Path::new(picture), lamp_gemini::MAX_IMAGE_BYTES)?;
+            image_probe(session(Path::new(provider))?, speech, &picture).await?
+        }
+        None => probe(session(Path::new(provider))?, speech, name).await?,
+    };
     println!("{result}");
     Ok(())
 }

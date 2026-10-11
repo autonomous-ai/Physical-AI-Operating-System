@@ -118,6 +118,7 @@ impl Rig {
     }
     fn start(&mut self) {
         self.command(ProviderInput::Start {
+            session: 1,
             request: self.turn.turn(),
             privacy_generation: self.privacy,
         });
@@ -260,6 +261,7 @@ fn no_audio_before_real_endpoint_or_without_admitted_authority() {
             .submit(
                 AT,
                 ProviderInput::Start {
+                    session: 1,
                     request: 1,
                     privacy_generation: 1
                 }
@@ -282,12 +284,38 @@ fn no_audio_before_real_endpoint_or_without_admitted_authority() {
 }
 
 #[test]
+fn fixture_rejects_a_start_bound_to_another_session() {
+    let private = Private::new();
+    for session in [0, 2, u64::MAX] {
+        let mut rig = Rig::new(&private);
+        let error = rig
+            .engine
+            .submit(
+                AT + 1,
+                ProviderInput::Start {
+                    request: rig.turn.turn(),
+                    session,
+                    privacy_generation: rig.privacy,
+                },
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("unknown provider session"));
+        assert!(
+            rig.engine
+                .send_one(AT + 2, |_| panic!("invalid Start emitted output"))
+                .is_err()
+        );
+    }
+}
+
+#[test]
 fn cancellation_overtaking_start_reserves_original_owner_and_never_relabels_reply() {
     let private = Private::new();
     let mut rig = Rig::new(&private);
     let old_privacy = rig.privacy;
     rig.replace();
     rig.command(ProviderInput::Start {
+        session: 1,
         request: 1,
         privacy_generation: old_privacy,
     });
@@ -690,6 +718,7 @@ fn real_fixture_worker_exchanges_exact_pcm_and_stops_without_devices_or_cloud() 
         .unwrap();
     for command in [
         ProviderInput::Start {
+            session: 1,
             request: 1,
             privacy_generation: state.microphone_generation(),
         },
@@ -909,6 +938,7 @@ fn separate_sockets_new_authority_in_empty_drain_gap_precedes_input_submission()
                             .control
                             .send(Control::Authority { snapshot: state })?;
                         parent.data.send(ProviderInput::Start {
+                            session: 1,
                             request: new_owner.turn(),
                             privacy_generation: rig.privacy,
                         })?;
@@ -924,6 +954,7 @@ fn separate_sockets_new_authority_in_empty_drain_gap_precedes_input_submission()
         parent.data.receive::<ProviderOutput>().unwrap(),
         Some(ProviderOutput::Started {
             request: 2,
+            session: 1,
             waiting_for_barrier: false
         })
     ));
@@ -966,6 +997,7 @@ fn separate_sockets_stop_or_privacy_in_empty_drain_gap_prevents_input_and_reply(
                             assert!(control.is_none());
                             parent.control.send(priority)?;
                             parent.data.send(ProviderInput::Start {
+                                session: 1,
                                 request: 1,
                                 privacy_generation: rig.privacy,
                             })?;
@@ -1012,6 +1044,7 @@ fn full_second_control_slice_retains_only_original_input_and_suppresses_output()
                             snapshot: states.pop_front().unwrap(),
                         })?;
                         parent.data.send(ProviderInput::Start {
+                            session: 1,
                             request: 2,
                             privacy_generation: rig.privacy,
                         })?;
@@ -1081,6 +1114,7 @@ fn deferred_input_keeps_original_age_and_cannot_wait_indefinitely_on_control() {
                             snapshot: states.pop_front().unwrap(),
                         })?;
                         parent.data.send(ProviderInput::Start {
+                            session: 1,
                             request: 1,
                             privacy_generation: rig.privacy,
                         })?;
@@ -1122,6 +1156,7 @@ fn empty_second_drain_does_not_retry_an_input_without_matching_authority() {
     parent
         .data
         .send(ProviderInput::Start {
+            session: 1,
             request: 2,
             privacy_generation: rig.privacy,
         })

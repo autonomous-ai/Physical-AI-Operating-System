@@ -19,7 +19,7 @@ pub use config::{
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
-    OutputNotice, RecoveryPolicy, Stage, Supervisor,
+    OutputNotice, RecoveryPolicy, Stage, StartRefusal, Supervisor,
 };
 use serde::{Deserialize, Serialize};
 pub use session::{Connection, InputSender, ResumptionPoint, connect};
@@ -37,6 +37,15 @@ pub const OUTPUT_BUFFER_BYTES: usize = 300 * 2 * OUTPUT_RATE as usize;
 pub const MAX_HANDLE_BYTES: usize = 8_192;
 pub const MAX_OUTPUT_SAMPLES: usize = 48_000;
 pub const MAX_WIRE_BYTES: usize = 262_144;
+/// Largest JPEG accepted as visual context. Audio and images share one
+/// connection in order, so an image delays the audio behind it by its own
+/// transmission time; this bound keeps that delay small on an ordinary link.
+pub const MAX_IMAGE_BYTES: usize = 64 * 1024;
+/// Images one request may carry. A newer image replacing one not yet sent
+/// does not count twice.
+pub const MAX_IMAGES_PER_REQUEST: u8 = 2;
+/// Oldest image accepted, from capture to offer and again to sending.
+pub const MAX_IMAGE_AGE: Duration = Duration::from_secs(2);
 pub const MAX_TEXT_BYTES: usize = 8_192;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -155,6 +164,73 @@ pub enum Event {
     },
 }
 
+/// Why an image was not accepted. None of these affects the connection or
+/// the request's audio.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ImageRefusal {
+    NotConnected,
+    /// Not the request now speaking: unknown, superseded, cancelled, or its
+    /// input has already ended.
+    NotCurrent,
+    TooLarge,
+    /// Not a complete JPEG by its markers. Contents are not decoded.
+    NotJpeg,
+    TooOld,
+    /// The request already carries [`MAX_IMAGES_PER_REQUEST`].
+    LimitReached,
+    /// Offered under a camera grant that has since been revoked.
+    Revoked,
+}
+
+/// What a revocation found. See `InputSender::revoke_images`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ImageRevocation {
+    /// No image of a revoked grant was waiting or being written.
+    Nothing,
+    /// One was waiting and has been dropped unsent.
+    DroppedUnsent,
+    /// One was being written. The write is abandoned and with it the
+    /// connection, because part of the image may already be on the wire.
+    AbandonedInFlight,
+}
+
+/// An accepted image waits in one slot until the connection can take it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ImageOffer {
+    Queued,
+    /// It took the place of an image of the same request not yet sent.
+    ReplacedUnsent,
+}
+
+/// The last image that reached the socket.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ImageReceipt {
+    pub request: RequestId,
+    /// The caller's own token for the frame, returned unchanged.
+    pub frame: u64,
+    pub bytes: u32,
+    /// From the offer until the write completed.
+    pub waited: Duration,
+    /// The write alone: how long audio behind it was held up locally.
+    pub written_in: Duration,
+}
+
+/// What became of the images offered on one connection. Counters only grow.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ImageLedger {
+    pub accepted: u64,
+    pub sent: u64,
+    /// Replaced by a newer image before being sent.
+    pub replaced: u64,
+    /// Accepted, then dropped unsent: its request ended, was cancelled or
+    /// superseded, or the image grew too old while waiting.
+    pub dropped: u64,
+    /// Accepted, then withdrawn because its camera grant was revoked, before
+    /// or during its write.
+    pub revoked: u64,
+    pub last_sent: Option<ImageReceipt>,
+}
+
 /// Why a server message was dropped instead of being attached to a request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Discard {
@@ -218,6 +294,8 @@ pub enum Error {
     StaleRequest,
     OverlappingInput,
     UnexpectedResponse,
+    /// Input that was being sent was withdrawn locally and its connection
+    /// abandoned: an image whose camera grant was revoked mid-write.
     InputCancelled,
     /// Input was offered while no provider connection was established.
     NotConnected,
@@ -236,7 +314,16 @@ impl Error {
             | Self::CompletionTimeout
             | Self::ServerUnavailable
             | Self::ServerGoAway
-            | Self::Transport => Recovery::Reconnect,
+            | Self::Transport
+            // A consumer that took nothing for the delivery bound, or input
+            // that overran its queue. The connection is abandoned with what
+            // it still held, the request in flight is reported lost once,
+            // and a new connection serves the next request. The connection
+            // itself was healthy; reconnecting is how its stuck work is shed.
+            | Self::Backpressure
+            // Input already partly on the wire was withdrawn locally, which
+            // can only be done by abandoning the connection that carries it.
+            | Self::InputCancelled => Recovery::Reconnect,
             // Application close codes observed on the deployment relay for a
             // missing key, an unconfigured route and an exhausted usage limit.
             Self::PeerClosed {
@@ -251,13 +338,11 @@ impl Error {
             | Self::UnsupportedMessage
             | Self::MessageTooLarge
             | Self::InvalidAudio
-            | Self::Backpressure
             | Self::StaleInput
             | Self::InputSequence
             | Self::StaleRequest
             | Self::OverlappingInput
             | Self::UnexpectedResponse
-            | Self::InputCancelled
             | Self::NotConnected
             | Self::Closed => Recovery::Fatal,
         }

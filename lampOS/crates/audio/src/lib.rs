@@ -9,13 +9,22 @@ use sonora::{AudioProcessing, Config, StreamConfig};
 use std::io;
 
 #[cfg(target_os = "linux")]
+mod alsa_device;
+#[cfg(unix)]
 pub mod capture;
+#[cfg(unix)]
+pub mod device;
+pub mod evidence;
+#[cfg(unix)]
+pub mod notice;
 pub mod ownership;
 #[cfg(target_os = "linux")]
 pub mod pcm;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;
+#[cfg(unix)]
+pub mod testing;
 
 pub const CAPTURE_RATE: u32 = 16_000;
 pub const RENDER_RATE: u32 = 24_000;
@@ -30,6 +39,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 /// A single microphone worker owns this processor; no shared mutex or network I/O.
 pub struct EchoProcessor {
     inner: AudioProcessing,
+    observer: evidence::EchoObserver,
     noise_suppression: bool,
     render_input: [f32; RENDER_SAMPLES],
     render_output: [f32; RENDER_SAMPLES],
@@ -41,6 +51,7 @@ impl EchoProcessor {
     pub fn new(noise_suppression: bool) -> Self {
         Self {
             inner: Self::build(noise_suppression),
+            observer: evidence::EchoObserver::new(),
             noise_suppression,
             render_input: [0.0; RENDER_SAMPLES],
             render_output: [0.0; RENDER_SAMPLES],
@@ -66,6 +77,7 @@ impl EchoProcessor {
     /// Reset is a cold operation and must be recorded as a discontinuity.
     pub fn reset(&mut self) {
         self.inner = Self::build(self.noise_suppression);
+        self.observer.reset();
         self.render_input.fill(0.0);
         self.render_output.fill(0.0);
         self.capture_input.fill(0.0);
@@ -77,6 +89,7 @@ impl EchoProcessor {
         self.inner
             .process_render_f32(&[&self.render_input], &mut [&mut self.render_output])
             .map_err(|e| io::Error::other(format!("AEC render: {e:?}")))?;
+        self.observer.render(samples);
         Ok(())
     }
 
@@ -105,7 +118,17 @@ impl EchoProcessor {
         if self.capture_output.iter().any(|sample| !sample.is_finite()) {
             return Err(io::Error::other("AEC returned non-finite audio").into());
         }
-        Ok(self.capture_output.map(float_to_pcm))
+        let clean = self.capture_output.map(float_to_pcm);
+        self.observer.capture(samples, &clean);
+        Ok(clean)
+    }
+
+    /// What the render explains of the capture block just processed, before
+    /// and after cancellation. `None` until a capture has run since the last
+    /// reset. These are measurements for an admission decision made
+    /// elsewhere; see [`evidence`].
+    pub fn evidence(&self) -> Option<evidence::EchoEvidence> {
+        self.observer.latest()
     }
 
     /// Cached AEC render-buffer alignment, in milliseconds. Reading it does not

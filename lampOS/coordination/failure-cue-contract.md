@@ -1,8 +1,9 @@
-# Candidate provider failure contract
+# Provider failure contract
 
-MAIN-013, resent as MAIN-016. This describes Main's frozen integration candidate;
-it is not yet merged or deployed. Agent 2 must preserve failure evidence without
-inventing successful submission or renewed readiness.
+MAIN-013, resent as MAIN-016. This describes the integrated coordinated
+worker/consumer contract. Device deployment remains separate qualification.
+Agent 2 must preserve failure evidence without inventing successful submission
+or renewed readiness.
 
 A normal failed completion trace has top-level turn and generation:
 
@@ -35,7 +36,7 @@ Abandoned input has this **unowned trace only**, with no scheduling cue:
 ```
 
 Do not invent a turn or generation from this trace. This path does not produce
-an ordinary `local_endpoint`. The candidate completes its failed turn after
+an ordinary `local_endpoint`. The coordinator completes its failed turn after
 local input actually ends, provider idle has a known outcome, PCM drains, and
 no speaker write/playback remains pending.
 

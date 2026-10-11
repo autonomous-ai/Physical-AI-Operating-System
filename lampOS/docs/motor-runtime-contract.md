@@ -4,8 +4,9 @@ This batch extends `lamp-motor` with a concrete serialized control core. It
 encodes and executes STS3215 read transactions and five-joint position broadcasts
 through one owned nonblocking `BusPort`. The existing Linux inspection executable
 remains read-only. An explicit Linux motion adapter now reuses the same serial
-owner and exposes only the guarded control API. There is no motion executable,
-live worker, automatic gesture, or device-qualified motion configuration yet.
+owner and exposes only the guarded control API. The opt-in
+[motor worker](motor-worker.md) adds a supervised executable and IPC boundary.
+There is still no automatic gesture or device-qualified motion configuration.
 No serial device was opened for this work.
 
 The path is an explicitly accepted movement segment → original interaction
@@ -63,8 +64,8 @@ There is no default device, calibration, envelope, or motion.
 | `cancel(motion_id)` | Cancels only the matching active occurrence; an old occurrence cannot cancel a successor. Local state is cleared before one host-output discard attempt. |
 | `control_lost()` / `shutdown()` | Terminal local inhibition. Call `shutdown` explicitly to retain cleanup errors. Drop attempts the same cleanup once as a fallback. |
 
-The future worker must install priority authority/control before each tick, own
-the serial endpoint exclusively, and supply fresh OS monotonic time in the same
+The opt-in worker installs priority authority/control before each tick, owns
+the serial endpoint exclusively, and supplies fresh OS monotonic time in the same
 domain as the interaction controller. Port calls must be nonblocking, with no
 internal retry or waiting. The core observes elapsed call time and faults on an
 overrun; it cannot preempt a blocking syscall or an incorrectly implemented port.

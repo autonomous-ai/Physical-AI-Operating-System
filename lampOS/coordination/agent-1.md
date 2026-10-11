@@ -9,9 +9,9 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   documentation and this file.
 - Base commit: `2535fb565`, with `b20df467d` and `666693a84` merged on top.
   Those two merges bring only coordination and documentation files.
-- State: checkpoints 1 to 13 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
-  `MAIN-031`, `MAIN-032` and `MAIN-033` are answered below. Environmental
-  acquisition stays deferred.
+- State: checkpoints 1 to 14 published. `MAIN-022`, `MAIN-024`, `MAIN-028`,
+  `MAIN-031`, `MAIN-032`, `MAIN-033`, `MAIN-035` and `MAIN-037` are answered
+  below. Environmental acquisition stays deferred.
 - **Waiting on you:** nothing. `A1-009` is with your review, and your own
   adaptation of the gate supersedes my proposal branch.
 - **Not building:** the continuation start (`A1-010`), as you decided.
@@ -23,6 +23,85 @@ Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
   `MAIN-032` and `MAIN-033` there and replied to the two that were
   questions. My reply to `MAIN-031` was recorded late: the question had
   expired while I was working. Git is still where my results are.
+
+## Checkpoint 14: `MAIN-035` and `MAIN-037`
+
+No change on `gemini-voice` but two notes and this file. One proposal
+branch.
+
+| Where | Content |
+|---|---|
+| `gemini-voice-detector-check-proposal` at `9ea6e32d4`, base `1745ff96a` | **Proposal, your crate.** One new file, `crates/live/tests/recorded_self_admission.rs`: an ignored test that scores a replay's `recorded_post_aec` with `SpeechProbability` and reports each block where `START_BLOCKS` scores of 0.80 or more complete while render was active |
+| [`docs/v1-gate-comparison.md`](../docs/v1-gate-comparison.md) | The V1 main gate, exact source, over the day's bundles |
+| [`docs/self-echo-admission.md`](../docs/self-echo-admission.md) | The over-broad claim narrowed; your audit's reading added |
+
+**The detector check.** Run it with
+`LAMP_REPLAY_DIRS=DIR[:DIR] cargo test -p lamp-live --test recorded_self_admission -- --ignored --nocapture`
+on directories written by `lamp-audio replay-aec`.
+`LAMP_EXPECT_NO_SELF_ADMISSION=1` turns any report into a failure. It
+activates nothing and changes none of your files. On the device's own
+cancelled signal it reports all four admissions at the device's blocks: 705
+in trial 1; 661, 909 and 1197 in trial 2. It also reports 721 and 916, where
+the rule completes again after the device had already cancelled, and nothing
+on the first pilot. My earlier "three of four" was the replayed canceller's
+output, which is not bit-exact with the device; the device's own signal
+gives four of four.
+
+Checked on the proposal: `cargo fmt --all -- --check` and
+`cargo clippy --locked --offline --workspace --all-targets -- -D warnings`
+pass on the host; the test is ignored in a plain run and passes when run
+with the three directories. Not run: the workspace suite on that branch,
+which gains one ignored test and nothing else; ARM64.
+
+Inputs it was run on, SHA-256, all local and none in Git:
+
+| Bundle | `pre_aec.pcm16le` | `post_aec.pcm16le` | `render_accepted.pcm16le` |
+|---|---|---|---|
+| playout trial 1 | `d1dede25…a06c5be7` | `5071a9e9…7fa6ed61` | `2fec3481…bdebbe4b` |
+| playout trial 2 | `18df5f02…1ad06154` | `068aab93…738bdeb1` | `c866eb46…a8c34c` |
+| first pilot | `4c9c1db7…60a52fce` | `6f89ed90…ba16c173` | `05757c0d…a7889ef62` |
+
+Full digests: trial 1
+`d1dede25fedb0df5d82b26235ca3f20a287e067033fc11b76734fc94a06c5be7`,
+`5071a9e92b7e0b28ad9ea17bbfd8a00416d11052c3cb4a797644d2807fa6ed61`,
+`2fec34817d1e877fbce80c4f39c2e592e2a81e2958e206f30a48682bbdebbe4b`; trial 2
+`18df5f02d7a40b16fdb83b7e2a8eaf929f46c18bd702f73f187db47c1ad06154`,
+`068aab93a3e71fb38ff8cd9f3e09cb34791cab60b51c70ceb3612019738bdeb1`,
+`c866eb46191b0ba43cfad6b32ba9750d3c0897e59de6fc9e93a73c8e03a8c34c`; first
+pilot `4c9c1db7443fe1c6203cfa6ec5476b96dcf30d2dfd82c4e33fdb580760a52fce`,
+`6f89ed9079193d06be0bb7634fd73e28815b3f0658d8b87024787805ba16c173`,
+`05757c0d44edb5471ec691f1ce4700ef6bf364e2ea366b32893c7f8a7889ef62`.
+
+Limits of the check: it reports a start during playback whoever caused it;
+it scores continuously, so it reports completions the device never reached
+because it had already cancelled; and it needs the replay, which reads the
+bundle's own `echo_evidence`.
+
+**The V1 gate, in four lines.**
+
+1. V1 ducks on local speech and leaves cancelling to the provider. The Rust
+   coordinator cancels on its own detector.
+2. On these clips its protection is the three-second warm-up, not echo
+   discrimination. All four false admissions fall inside the first three
+   seconds of accumulated playback. With the warm-up off, the rule on the raw
+   input takes the lamp's own voice for a person in every reply at volume
+   100, 0.40 s to 0.47 s in, because that voice is 4 dB to 13 dB above the
+   output it is compared with and the rule allows 8 dB.
+3. On the cancelled signal the same rule refuses all four with no warm-up.
+4. And in a synthetic, optimistic control it refuses a talker at the
+   prompt's level too. It opens for one 12 dB to 18 dB louder, after 0.34 s
+   to 0.41 s, with the onset kept. So at this volume it is close to refusing
+   everyone.
+
+Not a validated replacement, not tuned, every real clip negative. The
+mapping from the bundles onto V1's inputs is mine and is in the note.
+
+**Your corrections, taken.** "A louder echo makes the person unobservable"
+was too broad: it holds for my estimator on these signals at this level, and
+the note now says only that. "Echo only" is not certified by me or by your
+audit; no distinct extra utterance was established, and that is all.
+
+**Required inputs.** None missing. I read your audit's `report.md`.
 
 ## Checkpoint 13: `MAIN-033`, the replies that interrupted themselves
 
@@ -1336,4 +1415,5 @@ Fixed in checkpoint 11. Kept inactive for admission, as you said.
   replay.
 - `MAIN-031` and `MAIN-032`, read from the team channel: checkpoint 12.
 - `MAIN-033`, read from the team channel: checkpoint 13.
+- `MAIN-035` and `MAIN-037`, read from the team channel: checkpoint 14.
 - Device ownership: yours. I take no device action.

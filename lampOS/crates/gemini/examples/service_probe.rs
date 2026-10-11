@@ -14,6 +14,12 @@
 //! and `language_code`. Probes: `interrupt-before-output`, `handles`,
 //! `handles-requested`, `resume`, `idle-close`. `fixture` is offline: it only
 //! reports what would be spoken from the WAV file.
+//!
+//! `image PICTURE.jpg` speaks the question with one JPEG of at most 64 KiB
+//! offered as visual context, and reports how long the image took to write
+//! and what the model said. It is the one probe that prints the model's own
+//! words, because nothing else shows whether the picture was used: choose a
+//! picture and a question that are fit to appear in a log.
 use lamp_gemini::{
     BarrierPolicy, Connection, Credential, Event, RequestId, Resumption, SessionConfig, SessionId,
     State, ThinkingLevel, Timeouts,
@@ -317,6 +323,78 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
     })
 }
 
+/// Does the service use a picture sent inside a manual activity, and what
+/// does sending one cost the audio behind it on this link?
+async fn image_probe(
+    config: SessionConfig,
+    speech: &[i16],
+    picture: &[u8],
+) -> Outcome<serde_json::Value> {
+    let mut connection =
+        lamp_gemini::connect(config.resumption(Resumption::Retain), SessionId::new(1)?).await?;
+    let request = RequestId::new(1)?;
+    let input = connection.input();
+    let started = Instant::now();
+    input.try_start(request)?;
+    let mut offer = None;
+    for (sequence, block) in speech.chunks(160).enumerate() {
+        input.try_audio(request, sequence as u64, Instant::now(), block)?;
+        // Once the question is under way, as a frame would arrive in use.
+        if sequence == 20 {
+            offer = Some(format!(
+                "{:?}",
+                input.try_image(request, 1, Instant::now(), picture)
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    input.try_end(request)?;
+    let ended = Instant::now();
+    let (mut events, mut answer) = (Vec::new(), String::new());
+    let mut note = |kind: &str| {
+        events.push(serde_json::json!({"kind":kind,"ms":ended.elapsed().as_millis() as u64}));
+    };
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(40);
+    let mut speaking = false;
+    loop {
+        match tokio::time::timeout_at(deadline, connection.next_event()).await {
+            Err(_) => {
+                note("observation_window_ended");
+                break;
+            }
+            Ok(None) => {
+                note(&format!("connection_ended:{:?}", connection.state()));
+                break;
+            }
+            Ok(Some(Event::Audio { .. })) if !speaking => {
+                speaking = true;
+                note("first_audio");
+            }
+            Ok(Some(Event::OutputTranscript { text, .. })) => answer.push_str(&text),
+            Ok(Some(Event::GenerationComplete { .. })) => note("generation_complete"),
+            Ok(Some(Event::TurnComplete { idle: true, .. })) => {
+                note("turn_complete_idle");
+                break;
+            }
+            Ok(Some(_)) => {}
+        }
+    }
+    let ledger = input.image_ledger();
+    Ok(serde_json::json!({
+        "probe": "image",
+        "since": "activityEnd",
+        "picture_bytes": picture.len(),
+        "offer": offer,
+        "sent": ledger.sent,
+        "dropped": ledger.dropped,
+        "image_written_in_ms": ledger.last_sent.map(|receipt| receipt.written_in.as_secs_f64() * 1e3),
+        "image_waited_ms": ledger.last_sent.map(|receipt| receipt.waited.as_secs_f64() * 1e3),
+        "question_ms": ended.duration_since(started).as_millis() as u64,
+        "events": events,
+        "answer": answer,
+    }))
+}
+
 fn main() -> Outcome<()> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -326,8 +404,15 @@ fn main() -> Outcome<()> {
 
 async fn run() -> Outcome<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let [provider, wav, name] = arguments.as_slice() else {
-        return Err("usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE".into());
+    let (provider, wav, name, picture) = match arguments.as_slice() {
+        [provider, wav, name] if name != "image" => (provider, wav, name, None),
+        [provider, wav, name, picture] if name == "image" => (provider, wav, name, Some(picture)),
+        _ => {
+            return Err(
+                "usage: service_probe PRIVATE_PROVIDER.json QUESTION.wav PROBE | ... image PICTURE.jpg"
+                    .into(),
+            );
+        }
     };
     let decoded = speech(Path::new(wav))?;
     let speech = trim(&decoded);
@@ -343,7 +428,17 @@ async fn run() -> Outcome<()> {
         );
         return Ok(());
     }
-    let result = probe(session(Path::new(provider))?, speech, name).await?;
+    let result = match picture {
+        Some(picture) => {
+            // Checked before any connection is made.
+            let info = fs::symlink_metadata(picture)?;
+            if !info.is_file() || info.len() > lamp_gemini::MAX_IMAGE_BYTES as u64 {
+                return Err("picture must be a regular JPEG file of at most 64 KiB".into());
+            }
+            image_probe(session(Path::new(provider))?, speech, &fs::read(picture)?).await?
+        }
+        None => probe(session(Path::new(provider))?, speech, name).await?,
+    };
     println!("{result}");
     Ok(())
 }

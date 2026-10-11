@@ -102,6 +102,14 @@ fn wav(path: &Path) -> Result<hound::WavWriter<std::io::BufWriter<fs::File>>> {
     )?)
 }
 
+/// Removes the control socket this room bound.
+struct Unlink<'a>(&'a Path);
+impl Drop for Unlink<'_> {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(self.0);
+    }
+}
+
 /// Run the room until `Stop`, `max_seconds`, or an audio error.
 pub fn run(options: &RoomOptions) -> Result<()> {
     fs::create_dir(&options.out)?;
@@ -117,6 +125,8 @@ pub fn run(options: &RoomOptions) -> Result<()> {
     let speaker = open(&options.speaker_in, Direction::Capture)?;
     let mic = open(&options.mic_out, Direction::Playback)?;
     let control = UnixDatagram::bind(&options.control)?;
+    // Unlink on every exit path; a stale path makes the next bind fail.
+    let _unlink = Unlink(&options.control);
     fs::set_permissions(&options.control, fs::Permissions::from_mode(0o600))?;
     control.set_nonblocking(true)?;
     let mut speaker_wav = wav(&options.out.join("speaker.wav"))?;

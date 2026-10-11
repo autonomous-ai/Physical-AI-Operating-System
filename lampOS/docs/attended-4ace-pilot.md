@@ -3,11 +3,17 @@
 The installed stopped template runs Rust `lamp-live serve` on **lamp-4ace** from
 source `e9bdcea282be7b787abb0568eb46a5c7958a6cce`, binary
 `b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd`, with voice
-and ring channel ceiling 12. The [latest finite native check](verification/latest-runtime-20261011/README.md)
+and ring channel ceiling 12. The [last completed finite native check](verification/latest-runtime-20261011/README.md)
 completed 2/2 exchanges with zero reported playback gaps, 891 matching ring
 receipts, clean Stop and verified stationary restoration. Room recording and
 local ASR corroborate both replies; model still review shows ring on/off.
 Human-listened acoustic acceptance and physical mute/reopen remain pending.
+
+A later [eight-slot connected attempt](verification/installed-connected-20261011/README.md)
+remains incomplete: one completed greeting, one stale host-player spawn with
+brief output unknown, and six withheld slots. The runtime had no recorded gap,
+cancellation or fault; Stop, stationary rollback and mixer restoration verified.
+This does not add eight-turn or acoustic qualification to the installed build.
 
 The [stopped-template installation](verification/pilot-promotion-20261011/README.md)
 passed native validation and preservation checks. No service was started by that

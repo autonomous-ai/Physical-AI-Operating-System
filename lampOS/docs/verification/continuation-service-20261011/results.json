@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "scope": "Synthetic service-only observation; no production integration qualification",
+  "receipt_sha256": "f2109d30a499adc58cdbabc9ed9020d607467f8df0a05a224d3d517ce51494f1",
+  "artifact": {
+    "source_commit": "9016228314d58c3e8c8c7f48eaf3c8ec9dcddcec",
+    "binary_sha256": "08a80e49adac086a61258d68b9982917c95d5fd882f0901b004d4c2c47555551",
+    "bytes": 3819280,
+    "source_manifest_sha256": "8660e6796d5be70de5454fd3897a71d1fcfa8c152165fb0ae47b12c41ce233df",
+    "source_manifest_files_verified": 412
+  },
+  "preparation": {
+    "source_identity_sha256": "b5b909bb778e87530228b30713a9aab858dfd0185b07b3aa5e79defc460b0f62",
+    "frozen_file_count_verified": 50,
+    "plan_sha256": "48c2cddb89ef58a29cc847016b86259d4f57cf3ac641128fb64c25a636726cac",
+    "provider_config_sha256": "0f899a012a76077f1370fd66fd88c5790ff07d3e6ccc3843153713110b147477"
+  },
+  "provider_profile": {
+    "model": "gemini-3.8-live",
+    "voice": "Kore"
+  },
+  "settings": {
+    "barrier_policy": "Require",
+    "barrier_wait": "AtCommit",
+    "barrier_ms": 2000,
+    "hold_candidate_ms": 2500,
+    "input_sample_rate": 16000,
+    "output_sample_rate": 24000,
+    "generic_probe_instruction_not_product_prompt": true,
+    "barrier_audio_counts": "Earlier output received and discarded while barrier stood; not forwarded or heard"
+  },
+  "cases": [
+    {
+      "case": "atcommit-before-300",
+      "probe_exit": 1,
+      "strict_protocol_pass": false,
+      "outcome": "strict_barrier_timeout",
+      "events": 7,
+      "final_state": "Disconnected(BarrierTimeout)",
+      "input_samples_locally_queued": [
+        54533,
+        59877
+      ],
+      "received_audio_samples_24khz": [
+        0,
+        0
+      ],
+      "barrier": {
+        "outcome": "TimedOut",
+        "waited_ms": 6182,
+        "end_withheld_ms": 2003,
+        "start_held_ms": null,
+        "start_released_by": null,
+        "retained_samples": 0,
+        "audio_frames": 0,
+        "audio_samples": 0,
+        "interrupted": 0
+      },
+      "timing_us": {
+        "second_start_queued": 4098818,
+        "second_end_queued": 8277857,
+        "successor_first_audio_observed": null,
+        "successor_idle_observed": null,
+        "second_end_queue_to_first_audio": null,
+        "second_end_queue_to_idle": null,
+        "first_end_queue_to_second_start_queue": 300884,
+        "barrier_observed": 10281420
+      },
+      "output_transcript": null,
+      "relevance_review": "No answer available",
+      "aftermath": {
+        "observed_ms": null,
+        "requested_ms": 8000,
+        "window_complete": false
+      },
+      "events_after_successor_idle": null,
+      "process_seconds": 12.207207238,
+      "direct_child_reaped": true,
+      "process_group_gone": true,
+      "forced_kill": false,
+      "stdout_sha256": "9484bac1c140ddf5fc70ed6c22490eb7ea740df481fad39e5226da7b9cb33794",
+      "stderr_sha256": "9492ce8e09109b5d922a385f509eb9436f0e93cbdb42fe9ff827f27e06b8ede6"
+    },
+    {
+      "case": "kept-before-300",
+      "probe_exit": 0,
+      "strict_protocol_pass": true,
+      "outcome": "strict_barrier_confirmed_and_answered",
+      "events": 30,
+      "final_state": "Ready",
+      "input_samples_locally_queued": [
+        54533,
+        59877
+      ],
+      "received_audio_samples_24khz": [
+        0,
+        88560
+      ],
+      "barrier": {
+        "outcome": "Settled",
+        "waited_ms": 1182,
+        "end_withheld_ms": null,
+        "start_held_ms": 717,
+        "start_released_by": "FirstOutput",
+        "retained_samples": 10400,
+        "audio_frames": 6,
+        "audio_samples": 37680,
+        "interrupted": 1
+      },
+      "timing_us": {
+        "second_start_queued": 4089493,
+        "second_end_queued": 8261437,
+        "successor_first_audio_observed": 9216159,
+        "successor_idle_observed": 12910894,
+        "second_end_queue_to_first_audio": 954722,
+        "second_end_queue_to_idle": 4649457,
+        "first_end_queue_to_second_start_queue": 301255,
+        "barrier_observed": 5272186
+      },
+      "output_transcript": "The ocean's average depth is about twelve thousand one hundred feet.",
+      "relevance_review": "Addresses the requested correction to average depth; factual accuracy not assessed",
+      "aftermath": {
+        "observed_ms": 8001,
+        "requested_ms": 8000,
+        "window_complete": true
+      },
+      "events_after_successor_idle": 0,
+      "process_seconds": 23.57405591,
+      "direct_child_reaped": true,
+      "process_group_gone": true,
+      "forced_kill": false,
+      "stdout_sha256": "2f7917c5b5f8fb23c12a3b07a6db5fdfee1090a94c3b1be6ec68c97f74cb3b27",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "case": "kept-during-output",
+      "probe_exit": 0,
+      "strict_protocol_pass": true,
+      "outcome": "strict_barrier_confirmed_after_audio_and_answered",
+      "events": 36,
+      "final_state": "Ready",
+      "input_samples_locally_queued": [
+        54533,
+        59877
+      ],
+      "received_audio_samples_24khz": [
+        9360,
+        96240
+      ],
+      "barrier": {
+        "outcome": "Settled",
+        "waited_ms": 401,
+        "end_withheld_ms": null,
+        "start_held_ms": null,
+        "start_released_by": null,
+        "retained_samples": 0,
+        "audio_frames": 8,
+        "audio_samples": 62400,
+        "interrupted": 1
+      },
+      "timing_us": {
+        "second_start_queued": 5147529,
+        "second_end_queued": 9312917,
+        "successor_first_audio_observed": 10272466,
+        "successor_idle_observed": 14149814,
+        "second_end_queue_to_first_audio": 959549,
+        "second_end_queue_to_idle": 4836897,
+        "first_end_queue_to_second_start_queue": 1354203,
+        "barrier_observed": 5549499
+      },
+      "output_transcript": "The average depth of the ocean is about 3,700 meters.",
+      "relevance_review": "Addresses the requested correction to average depth; factual accuracy not assessed",
+      "aftermath": {
+        "observed_ms": 8001,
+        "requested_ms": 8000,
+        "window_complete": true
+      },
+      "events_after_successor_idle": 0,
+      "process_seconds": 24.132435526,
+      "direct_child_reaped": true,
+      "process_group_gone": true,
+      "forced_kill": false,
+      "stdout_sha256": "1be6a960d86fe0d4b7b8902d0d75c614f1c279c934ebede08bd51ff930975291",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "administration": {
+    "suite_completed": true,
+    "all_strict_pass": false,
+    "strict_passes": 2,
+    "strict_failures": 1,
+    "distinct_connections": 3,
+    "input_requests": 6,
+    "automatic_retries": 0,
+    "suite_seconds": 66.614690747,
+    "preserved_provider_identity": true,
+    "preserved_credential_identity_metadata": true,
+    "preserved_selected_legacy_state_and_pids": true,
+    "no_hardware_or_service_control_by_probe": true,
+    "all_owned_children_reaped": true,
+    "all_owned_process_groups_gone": true,
+    "forced_kills": 0,
+    "raw_stdout_reconstructed_to_recorded_hashes": true,
+    "raw_stderr_reconstructed_to_recorded_hashes": true
+  },
+  "limits": [
+    "One observation per configuration; no statistical reliability or causal effect size.",
+    "Relative event times are client dequeue observations; local queue acceptance is not server acceptance or an End wire ACK.",
+    "Before-output order is not atomic. During-output case had earlier request audio received, not heard.",
+    "717 ms is internal Start hold; 10400 input samples represent 650 ms of retained 16 kHz PCM. During-output hold was not exercised.",
+    "AtCommit control barrier lifetime was 6182 ms; 2003 ms End withholding is the boundary for its 2000 ms commit timeout.",
+    "Input transcripts are session-scoped. Reply relevance was text-reviewed only; no fact-check, listening, ASR, acoustic metric, hardware or deployed-runtime improvement claim.",
+    "Production default FromInterruption/AtOnce was not tested; both confirmed cases used opt-in AtCommit plus AfterFirstOutput.",
+    "Artifact 901622831 has a Root-reproduced retained-cancelled-End defect. These cases never cancel a held successor and cannot qualify its correction or production integration.",
+    "Remote original streams were not fetched in this audit; embedded JSON and source-defined stderr reproduce all recorded stream hashes exactly. Remote cleanup and preservation are wrapper-observed evidence, not an independent device inspection."
+  ]
+}

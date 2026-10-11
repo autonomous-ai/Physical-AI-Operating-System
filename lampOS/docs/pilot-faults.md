@@ -1,0 +1,258 @@
+# Supervised-pilot fault qualification
+
+Agent 2, branch `lamp-a2-pilot-faults`, base `lamp-v2-chat` `e63f3152`. Main
+owns scheduling, integration and release. Canonical `e9bdcea28` adds only the
+reviewed Gemini Stop fence to this base; as Main agreed, the matrix stays on
+`e63f3152`.
+
+| Commit | Content |
+| --- | --- |
+| `ff22184a` | First matrix (12 scenarios) and the F1 reproducer, ignored |
+| `1151380d` | Matrix completed and review fixes applied. Test file only |
+| `33a86363` | **F1 proposal**: production change in `coordinator.rs`, with its regression. Separate from the matrix commits |
+| `d787ba93` | This report, as reviewed |
+| `r2` commits | Main's F1 review gaps closed: required revocation, labelled Stop-only stall, partial-then-stall, control progress without settlement, Duplex controls. Branch `lamp-a2-pilot-faults-r2`; the reviewed branch is unchanged |
+
+## What this is, and is not
+
+Every result here comes from an injected fault in a test. Nothing is a Lamp,
+microphone, speaker, cloud or acoustic measurement, and no runtime flag was
+enabled. The tests show what the production coordinator does when one
+subsystem fails in a specific way. Whether real hardware fails in that way is
+not shown.
+
+## Harness (`crates/live/src/coordinator/tests/pilot_faults.rs`)
+
+**Evidence boundary.**
+
+- Each worker's lifecycle is a real child process (`cat`) with the
+  production Unix-socket channels, and the production supervisor reaps it.
+- Each role's behaviour (capture, privacy, provider, speaker, ring, camera)
+  is simulated by test threads on those channels.
+- This is real coordinator, channel and reaping evidence. It is not
+  evidence about the production worker processes, their drivers or the
+  hardware.
+
+- **Real loop.** Each test runs the production `conversation()` service loop
+  (`Lifetime::Serve`, default options, V1-baseline as in the pilot), then
+  `finish_active_run`. Rapid reopen also runs the production
+  `service::supervise` and `service_privacy::wait_worker`.
+- **Real children and IPC.**
+  - Every worker is a real child process (a cooperative fixture) on the
+    production Unix-socket channels.
+  - Peers answer for capture (10 ms frames), the provider (credit-limited
+    output), the speaker, and the optional ring and camera.
+  - Privacy runs on its own thread, as the privacy worker is its own process.
+    It sends a fresh observation every 5 ms.
+- **The speaker applies the production rule.**
+  - It accepts PCM at the device rate (240 samples per 10 ms).
+  - It installs every authority snapshot, and each chunk's own, in the
+    production `BoundaryGuard`.
+  - It checks each permit immediately before the write, as the real speaker
+    does.
+- **One fault per test, at an observed event.** Faults fire on events such as
+  "the speaker accepted 3 chunks", "the provider received End" or "the
+  authority snapshot shows no owner", not after fixed sleeps.
+- **No widened bounds.** Production leases, freshness bounds and deadlines are
+  unchanged. Emulated sessions run one at a time.
+
+**Invariants asserted after every run:**
+
+| Invariant | How it is checked |
+| --- | --- |
+| No stale dispatch | The coordinator never handed the speaker a chunk under an authority view issued after its owner finished, privacy was observed muted, or Stop was requested |
+| No stale write | At every write the speaker allowed, its installed authority named that owner with the microphone allowed, and was at least as new as the chunk's own. The speaker had not yet installed a state revoking that owner. Audio already accepted before revocation is counted, not hidden |
+| Bounded revocation | After the coordinator ended a turn, a speaker that installs authority must have installed authority without that owner within one channel packet age (100 ms). This is required: a missing revocation fails. It is exempt only for a speaker that installs nothing by design (the Stop-only stall, an abandoned peer) or had already stopped. Measured: 0.26–4.9 ms |
+| No duplicate answer | One `turn_finished` per turn; no request and no chunk sequence twice (a set count, so `[1, 2, 1]` fails) |
+| No false readiness | No `listening_ready` after a mute, a Stop or a terminal provider end. Across service cycles, readiness only inside a cycle, never while waiting |
+| No orphan | Every role saw Stop unless its peer was abandoned by design. Only an abandoned role may be force-killed, matched by role. Verified cleanup succeeded unless the scenario expects a failure. Every role's child had exited and been waited for when the run returned |
+| Bounded | Each run, including cleanup, ends within 12 s. Otherwise a test-only capture fault ends it and the test fails |
+
+## Matrix
+
+All scenarios use V1-baseline unless marked otherwise.
+
+| Fault | Injected when | Result | Test |
+| --- | --- | --- | --- |
+| None (control) | — | `audio_written_unscored`. Exactly 11,520 samples in 48 blocks of 240, no padding, only the last final, one `speech_final_sample_retired` | `control_one_question_is_answered_once_then_mute_ends_the_run` |
+| Provider TurnFailed before output | after End | `provider_failed`, no speech | `provider_failure_before_output_settles_failed_without_speech` |
+| Provider TurnFailed during output | after the first accepted chunk | `provider_failed`; audio that arrived before the failure plays; never a completed answer | `provider_failure_during_output_never_becomes_a_completed_answer` |
+| Provider process lost | after End / after 3 accepted chunks | `runtime_failed`; no speech / answer cut; run error "provider worker exited" | `provider_process_lost_before_output_ends_the_run_without_speech`, `provider_process_lost_during_output_stops_speech_and_fails_the_turn` |
+| Provider worker `Fault` | during output | `runtime_failed` | `provider_worker_fault_during_output_fails_the_turn_and_ends_the_run` |
+| Terminal provider link | during output | `provider_failed`; buffered audio retires; "terminal provider output settled; service stopped without retry" | `terminal_provider_link_during_output_settles_failed_and_ends_service` |
+| Speaker stall, **Stop-only and non-installing** (consumes control, installs no authority, acknowledges nothing; no evidence of authority progress) | after 3 accepted chunks | `runtime_failed`, "speaker write evidence expired", 200–210 ms after the stall (asserted 190–300 ms) | `stalled_speaker_during_output_is_bounded_and_never_completes_the_answer` |
+| Partial write, then stall (half of the next chunk accepted, nothing settled) | after 3 accepted chunks | V1: "speaker write evidence expired", 210 ms. `vad-only`: "speaker acknowledgment expired", 207 ms (both asserted 190–300 ms) | `partial_write_then_stall_is_bounded_under_v1_baseline`, `…_under_vad_only` |
+| Control progress without settlement (installs every authority snapshot, never settles) | after 3 accepted chunks | V1: "speaker write evidence expired", 201 ms. `vad-only`: "speaker acknowledgment expired", 207 ms. The revoked turn is observed at the speaker (asserted) | `control_progress_without_settlement_is_bounded_under_v1_baseline`, `…_under_vad_only` |
+| Duplex control and Duplex stall | — / after 3 accepted chunks | Answered once with exactly 11,520 samples. The stall ends with "speaker write evidence expired" at 208 ms: Duplex keeps V1-baseline's playback mask, whose lease reports first | `duplex_control_answers_once`, `duplex_stalled_speaker_is_bounded` |
+| Same, under `vad-only` (F1) | after 3 accepted chunks | Before `33a86363`: unbounded. After: `runtime_failed`, "speaker acknowledgment expired", 199–209 ms (asserted 190–300 ms) | `stalled_speaker_under_vad_only_is_bounded_too` |
+| Capture worker fault | during output | `runtime_failed` | `capture_fault_during_output_cancels_the_answer_and_ends_the_run` |
+| Capture stops sending frames | mid-question | `runtime_failed`; no End sent, no answer | `capture_stall_during_a_question_ends_the_run_without_an_answer` |
+| Ring fault (SPI) | during output | Ring degraded, blanked and exited; the answer completes in full; no new readiness; cleanup verified | `ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up` |
+| Ring exits without blanking | during output | The answer completes in full. Cleanup fails truthfully ("ring shutdown has no verified black-write receipt"), so the mute is not restartable | `ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully` |
+| Camera stops reporting progress | during output | One `camera_unavailable`; only sight revoked; the answer completes in full; no new readiness; revoke and teardown receipts verified | `camera_loss_during_an_answer_revokes_only_sight` |
+| Mute while answer speech is queued | after 3 accepted chunks | `privacy_muted`; nothing dispatched or written after revocation; nothing resumes | `mute_while_answer_speech_is_queued_cuts_it_and_never_resumes` |
+| Mute while the failure notice plays | after 3 notice chunks | `privacy_muted`; the notice is cut and never retired; never an answer | `mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure` |
+| Rapid mute and reopen, 4 cycles | each cycle muted after 3 accepted chunks, privacy reopened at once | Each `privacy_muted`. Every chunk carries its own cycle's controller boot. The next cycle spawns only after every child of the previous one was reaped (about 110 ms later). No readiness while waiting | `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` |
+| Real SIGTERM | while answer speech is pending | `service_stopped`, clean `Ok` | `sigterm_while_answer_speech_is_pending_stops_cleanly` |
+| Real SIGTERM | while the failure notice plays | Clean `Ok`; the notice is never retired | `sigterm_while_the_failure_notice_plays_stops_cleanly` |
+| Real SIGTERM with metadata storage stalled from the first event | after 10 accepted chunks | Audio flowed during the stall. Clean `Ok`; children reaped 4 ms after the signal. `finish_logging` gave up at its 500 ms bound (507 ms) and reported `acknowledged: false`, `degraded: true`, 63 unconfirmed events | `sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss` |
+| Failure notice | provider fails before output, then the person speaks during the notice | `provider_failed`; one attempt. The next owner is admitted only after the notice retires (the V1 mask holds speech over it), then answered. The notice is never replayed | `failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner` |
+| Same, `vad-only` cross-check | as above | The notice yields mid-play. A notice chunk in flight is refused by the guard. The record keeps the provider failure (N1) | `failure_notice_yields_mid_play_to_a_new_owner_under_vad_only` |
+
+Unit checks:
+
+- `distinct_rejects_an_item_that_returns_later`;
+- `speaker_progress_is_due_strictly_after_lease_plus_report_age` (F1).
+
+## Findings and proposals
+
+### F1. Stalled speaker unbounded outside V1-baseline (proposal `33a86363`)
+
+**What happened.** Under `vad-only` (the option default; the same holds for
+any policy without V1's write-evidence lease), the following leaves the
+answer open until something else ends the run:
+
+- the speaker stays connected and reads control,
+- but it stops acknowledging chunks.
+
+In the test, only the 12 s scenario limit ended it. The reproducer failed on
+macOS and on the Linux VM at `1151380d`. V1-baseline was already bounded at
+200 ms by its playback mask.
+
+**The proposal (`coordinator.rs` only, plus one field in a test literal):**
+
+- Each dispatched chunk carries a `report_due_us` deadline: the dispatch time,
+  plus the output lease requested for every speaker chunk (100 ms, now named
+  `SPEAKER_PERMIT_LEASE_US`), plus the 100 ms packet age every worker channel
+  already enforces.
+- **Why that deadline.**
+  - A permit never outlives its lease; it may expire sooner, clamped to the
+    input lease.
+  - Once it has expired, the speaker may not write the chunk.
+  - A live speaker therefore settles it (written, refused or discarded), and
+    its report arrives within the channel age.
+- If the chunk is still pending past the deadline, the run fails with "speaker
+  acknowledgment expired", under every policy.
+
+It is not a turn-taking decision:
+
+- The check is evaluated once per capture block, after that block's policy
+  checks, with the same block timestamp.
+- The total equals V1's decision budget (`200 ms`; a unit test asserts the
+  equality), and the check is strict where V1's is not. So V1-baseline's
+  existing lease always reports first, with its own reason.
+- **Measured over 6 runs each:**
+  - V1 always reported "speaker write evidence expired", 200–208 ms after the
+    stall;
+  - `vad-only` reported "speaker acknowledgment expired", 201–207 ms after
+    it.
+
+No lease was widened.
+
+An earlier draft used the permit's actual expiry. Because that expiry is
+clamped to the input lease, it fired before V1's mask and changed V1's
+reported reason. It was replaced before commit.
+
+Main's static review (GO, subject to combined gates) notes:
+
+- The deadline is checked on capture ticks.
+- It is not a hard acoustic stop guarantee.
+
+Not covered:
+
+- A speaker that also stops reading control is force-killed at shutdown.
+  That path existed before and is not changed.
+- The check runs per capture block. If capture also stops, the capture
+  lease ends the run first.
+
+### N1. Interrupted notice keeps the provider failure (no change needed)
+
+When a new owner interrupts a playing notice (`vad-only` only), the failed
+turn's single `turn_finished` record contains:
+
+- `"outcome": "user_interrupted"` for the output;
+- `"provider_outcome": {"kind": "failed", …}`, the provider's failure,
+  unchanged;
+- `"failure_notice": {"state": "attempted", "answer": false, "retired_at_us": null}`.
+
+`provider_turn_failed` also remains in the trace. The test asserts all of
+these. The cause is not erased, and the notice cancellation is separately
+visible. Under V1-baseline this case cannot arise.
+
+### Retained failures and observations
+
+- **FL1. Freshness loss, root cause in the harness.**
+  - Two failures ended a test with "service privacy freshness lost before
+    next observation" (50 ms production bound): one in the first batch, one
+    in the camera case.
+  - The retained log of the second shows the peer's own longest gap between
+    privacy sends was 52.8 ms. The coordinator correctly failed closed.
+  - Privacy now runs on its own thread. In the 13 later macOS runs the peer's
+    longest gap was 9.8–43.5 ms, still within 50 ms.
+  - Host scheduling on this busy M2 leaves little margin; Linux VM gaps are
+    listed below.
+- **FL2. One unidentified failure.** One serial macOS run had 1 failing test
+  whose log I discarded by filtering it. That was my error. Nothing
+  unidentified has recurred in the 34 later full macOS runs, whose complete
+  logs are kept. One of them failed, with FL1, and that log is kept too.
+- **O1. Intermittent failure in Main's test.**
+  `failure_notice::failure_notice_failed_transport_keeps_attempt_then_uses_existing_cancellation`
+  failed once in a full parallel macOS `lamp-live` run with F1 applied.
+  - It passed 10/10 alone.
+  - The test expects a send to a just-dropped speaker socket to fail, which
+    the Unix socket may accept once.
+  - F1 does not touch that path. It is reported, not changed.
+
+## Commands and results
+
+From source-only exports (`git archive` of the commit) on my own M2 and its
+Colima ARM64 VM (Rust 1.96.0, Debian bookworm); no office or device
+resources.
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace --no-fail-fast
+cargo test --locked -p lamp-live --lib pilot_faults
+cargo test --locked -p lamp-live --lib pilot_faults::stalled -- --nocapture --test-threads=1
+cargo test --locked -p lamp-live --lib
+```
+
+| Commit, host | Result |
+| --- | --- |
+| `1151380d`, Linux ARM64 VM | F1 reproducer (`--ignored`) fails, ended only by the 12 s scenario limit; `pilot_faults` 22 passed and 1 ignored, in 2 of 2 runs |
+| `1151380d` content, macOS | fmt and Clippy clean; `pilot_faults` 22 passed and 1 ignored in 13 of 13 runs (10 serial, 3 parallel) |
+| `33a86363`, Linux ARM64 VM | fmt and strict workspace Clippy clean. Workspace tests exit 0. Stalls: V1 "speaker write evidence expired" 204 ms, `vad-only` "speaker acknowledgment expired" 199 ms. `pilot_faults` 24/24 in 3 of 3 runs, with the peer's longest privacy gap 7.9, 32.1 and 10.0 ms. Full `lamp-live` library 501 passed, 0 failed, 4 ignored, in 3 of 3 runs |
+| `33a86363`, macOS | Clippy clean; the two stall tests in 6 of 6 runs with the reasons above; full `lamp-live` library 500 passed and 1 failed (O1) in one parallel run |
+
+| `95523a26` (r2), Linux ARM64 VM | fmt and strict workspace Clippy clean. `pilot_faults` 30/30 in 3 of 3 runs, with the peer's longest privacy gap 6.9–8.9 ms. Every stall control ended 199–210 ms after the stall with its expected reason. Full `lamp-live` library 507 passed, 0 failed, 4 ignored, in 2 of 2 runs |
+| `95523a26` content, macOS | Clippy clean; `pilot_faults` 30/30 in 5 of 5 serial runs, with the peer's longest privacy gap 14.5–32.6 ms |
+
+Earlier failures, all retained: FL1 (2), FL2 (1) and O1 (1), above. The
+`ff22184a` gates are in its checkpoint.
+
+## Main integration verification, 2026-10-11
+
+Main integrated only the reviewed four-file subset from `4505ccbe`, on
+`6bf2a17b2`, with production code unchanged from `33a86363`. The source-only
+composition passed `cargo fmt --all -- --check`,
+`cargo clippy --locked --offline -p lamp-live --all-targets -- -D warnings`,
+and `cargo test --locked --offline -p lamp-live --lib -- --test-threads=1`: 507
+passed, zero failed, four existing ignored. Independent review verified R2's
+required revocation and installing-stall assertions, plus the Duplex controls.
+The partial-write fixture sends half a chunk but does not independently assert
+that the coordinator consumed that particular report.
+
+Under Linux/ARM64 emulation, the same composition passed format, strict live
+all-target Clippy, all 30 `pilot_faults` tests and a release build. Main first
+used an incorrect `coordinator::pilot_faults` selector: Cargo ran zero tests,
+and the expected-count check correctly rejected that gate. The retained second
+attempt uses `pilot_faults`; no source changed and passed format/lint stages
+were not repeated. The ARM binary was exported and hash-verified locally.
+[Exact commands, digests and limitations](verification/pilot-fault-integration-20261011/results.json)
+remain separate from Agent 2's branch gates and all physical measurements.
+
+This adds a bounded speaker-acknowledgment failure under every policy. The
+V1/duplex playback-mask deadline still reports first. These are coordinator
+and injected-fault results, not a measured acoustic stop or a device deployment.
+The installed pilot continues to use the earlier qualified binary.

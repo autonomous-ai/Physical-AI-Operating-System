@@ -475,6 +475,7 @@ fn socket_pending(h: &mut Harness) -> Option<PendingSpeaker> {
         permit,
         accepted: 0,
         final_chunk: false,
+        report_due_us: u64::MAX,
     })
 }
 fn write_receipt(h: &Harness, frames: usize, first: u64, completed: u64) -> WorkerEvent {

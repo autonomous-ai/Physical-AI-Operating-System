@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "source_base": "6bf2a17b2e3459510ba0aa0669ffdffda717b734",
+  "proposal": "4505ccbe42831014026d894e92eb69a8b18d0ed5",
+  "production_commit": "33a86363246d1fbfa4b3a77bc9e6b42aef4626f7",
+  "composed_paths": [
+    "crates/live/src/coordinator.rs",
+    "crates/live/src/coordinator/tests/turn_taking.rs",
+    "crates/live/src/coordinator/tests/pilot_faults.rs",
+    "docs/pilot-faults.md"
+  ],
+  "source_manifest_sha256": "fec9ed5ab6536acdf7bb6cab158048ea2ee771551dd75e8c4da4a5b8b699318f",
+  "host": {
+    "format": "pass",
+    "strict_live_all_target_clippy": "pass",
+    "live_library": {
+      "passed": 507,
+      "failed": 0,
+      "ignored": 4,
+      "single_threaded": true
+    },
+    "receipt_sha256": "38fac40e47ce530696e5e8f87e5a51af0708b32077d610c638bf11e27806995a",
+    "commands": [
+      [
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      [
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-live",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      [
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-live",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ]
+    ]
+  },
+  "arm64_emulation": {
+    "format": "pass",
+    "strict_live_all_target_clippy": "pass",
+    "pilot_faults": {
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0
+    },
+    "release_build": "pass",
+    "first_attempt": {
+      "success": false,
+      "reason": "Root test selector coordinator::pilot_faults matched zero tests; expected-count gate rejected it. Source unchanged.",
+      "receipt_sha256": "fa9faa93350f71243b9deb8959b6fa2b34f976da8f18e00ef097869dcb2f5c75"
+    },
+    "corrected_attempt": {
+      "success": true,
+      "selector": "pilot_faults",
+      "receipt_sha256": "e12db8564d02bb220f73eff42028dab9c820783e0735853606fd2a4dcd7e04ac"
+    },
+    "source_verified_after": true,
+    "finished_utc": "2026-10-11T21:11:24.974031+00:00"
+  },
+  "artifact": {
+    "sha256": "9ae43f9d9e67ba51f7dcfebe0bb95d1919e4e080865b078ec2dbb3e7679e704c",
+    "bytes": 8681528,
+    "format": "ELF64 AArch64",
+    "export_receipt_sha256": "9e1d28f7fbb6dbe27a2b2cb0e4cb7feff5a69e99c4bb05b22053b56ddb367b2f",
+    "installed": false
+  },
+  "independent_review_sha256": "4ab0497268ceb1c8c13de003ffafe4c3b6e32fb2d12c50ac1c134cb751c4609a",
+  "device_or_acoustic_test": false,
+  "limitations": [
+    "Real coordinator and process lifecycle with simulated role threads; not actual audio drivers.",
+    "Capture-tick progress check, not a hard acoustic stop deadline.",
+    "Partial-write fixture sends half a chunk but does not independently assert coordinator consumption of that receipt.",
+    "Four existing ignored host tests stay ignored.",
+    "No full composed workspace or ARM live-library suite claimed.",
+    "Installed pilot remains e9bdcea28/b1c61a22."
+  ]
+}

@@ -14,9 +14,9 @@ use crate::{
     wire::{Control, WorkerEvent},
 };
 use lamp_gemini::{
-    BarrierPolicy, Connect, Context, Dialer, Discard, Error, Event, Failure, FailureReason, Notice,
-    RecoveryPolicy, RequestId, Resumption, SessionId, Stage, StartRefusal, State, SuccessorStart,
-    Supervisor,
+    BarrierPolicy, BarrierWait, Connect, Context, Dialer, Discard, Error, Event, Failure,
+    FailureReason, Notice, RecoveryPolicy, RequestId, Resumption, SessionConfig, SessionId, Stage,
+    StartRefusal, State, SuccessorStart, Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
@@ -25,6 +25,7 @@ use std::{
     collections::VecDeque,
     io,
     path::Path,
+    str::FromStr,
     time::{Duration, Instant},
 };
 
@@ -41,13 +42,81 @@ const RESUMPTION: Resumption = Resumption::Retain;
 /// must settle before a successor is committed. Quiet alone cannot attribute
 /// a late answer. The assumption policy remains explicit in transport tests.
 const BARRIER: BarrierPolicy = BarrierPolicy::Require;
-/// Proposed wiring, off. `SuccessorStart::AfterFirstOutput` keeps a next
-/// request's start and opening audio in the transport until the earlier
-/// answer begins or completes, so that a person who goes on before the first
-/// answer is not answered with a barrier timeout. It is not selected until
-/// the same real-service probes pass under it; a session option should
-/// replace this constant when it is.
-const SUCCESSOR: SuccessorStart = SuccessorStart::AtOnce;
+/// How long `Continuation::KeptStart` keeps a next request's start back. In
+/// the one real-service run that shows it, an answer's first audio came
+/// 1.43 s after its question ended. A proposed value, not a measured need.
+pub const KEPT_START_PATIENCE: Duration = Duration::from_millis(2_500);
+
+/// What the transport does when a person goes on speaking before the first
+/// answer has begun. Chosen once, by an explicit option, for the worker's
+/// lifetime; the policy stays `Require` either way.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Continuation {
+    /// As it has always been: the next request's start is written at once
+    /// and the barrier's quiet bound counts from that interruption.
+    #[default]
+    Off,
+    /// The next request's start and opening audio are kept in the transport
+    /// until the earlier answer begins, and is then interrupted, or
+    /// completes, for at most [`KEPT_START_PATIENCE`]; the barrier's quiet
+    /// bound counts only while a request's End is withheld; and how each
+    /// barrier ended is written to the worker's standard error.
+    KeptStart,
+}
+impl Continuation {
+    pub const FLAG: &'static str = "--provider-continuation";
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::KeptStart => "kept-start",
+        }
+    }
+    /// The provider worker's own arguments for this choice: none when off,
+    /// so that a worker started without the option is started as before.
+    pub fn arguments(self) -> Vec<String> {
+        match self {
+            Self::Off => Vec::new(),
+            Self::KeptStart => vec![Self::FLAG.to_owned(), self.as_str().to_owned()],
+        }
+    }
+    /// Take a leading `--provider-continuation VALUE` off a worker's flags.
+    pub fn take(flags: &[String]) -> io::Result<(Self, &[String])> {
+        match flags {
+            [flag, value, rest @ ..] if flag == Self::FLAG => Ok((value.parse()?, rest)),
+            [flag] if flag == Self::FLAG => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "provider continuation needs a value",
+            )),
+            _ => Ok((Self::Off, flags)),
+        }
+    }
+    fn apply(self, config: SessionConfig) -> io::Result<SessionConfig> {
+        match self {
+            Self::Off => Ok(config),
+            Self::KeptStart => config
+                .barrier_wait(BarrierWait::AtCommit)
+                .barrier_reports(true)
+                .successor_start(SuccessorStart::AfterFirstOutput {
+                    patience: KEPT_START_PATIENCE,
+                })
+                .map_err(|error| io::Error::other(format!("provider continuation: {error}"))),
+        }
+    }
+}
+impl FromStr for Continuation {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "off" => Ok(Self::Off),
+            "kept-start" => Ok(Self::KeptStart),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "provider continuation must be off or kept-start",
+            )),
+        }
+    }
+}
 const CONTROL_SLICE: usize = 16;
 const INPUT_SLICE: usize = 8;
 const RETAINED_INPUT_US: u64 = 100_000;
@@ -366,12 +435,33 @@ pub async fn run_with_visual_context(
     reporting: Reporting,
     visual: Option<(VisualSource, BootId)>,
 ) -> Result<()> {
-    let config = ProviderConfig::load(config_path)?
-        .into_session_with_camera(visual.is_some())?
-        .resumption(RESUMPTION)
-        .barrier_policy(BARRIER)
-        .successor_start(SUCCESSOR)
-        .map_err(|error| io::Error::other(format!("provider successor start: {error}")))?;
+    run_with_continuation(
+        channels,
+        boot,
+        config_path,
+        reporting,
+        visual,
+        Continuation::Off,
+    )
+    .await
+}
+
+/// The same, with an explicit choice of what happens when a person goes on
+/// before the first answer has begun.
+pub async fn run_with_continuation(
+    channels: WorkerChannels,
+    boot: BootId,
+    config_path: &Path,
+    reporting: Reporting,
+    visual: Option<(VisualSource, BootId)>,
+    continuation: Continuation,
+) -> Result<()> {
+    let config = continuation.apply(
+        ProviderConfig::load(config_path)?
+            .into_session_with_camera(visual.is_some())?
+            .resumption(RESUMPTION)
+            .barrier_policy(BARRIER),
+    )?;
     let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;
     let options = Options { reporting };
     let visual = visual
@@ -670,12 +760,13 @@ fn forward(
             superseded.map(RequestId::get),
             successor.map(RequestId::get)
         ),
-        // Only a session configured to report its barriers sends these, and
-        // this worker does not configure one. Counts, no audio and no text.
+        // Only a session configured to report its barriers sends these:
+        // `Continuation::KeptStart` configures one. Counts and times, no
+        // audio and no text.
         Event::Barrier {
             outcome, report, ..
         } => eprintln!(
-            "lamp-live provider: barrier {outcome:?}: superseded={:?} successor={:?} waited_ms={} quiet_ms={} successor_input_open={} end_withheld_ms={:?} withheld audio_frames={} text_frames={} generation_complete={} interrupted={} completions_not_idle={}",
+            "lamp-live provider: barrier {outcome:?}: superseded={:?} successor={:?} waited_ms={} quiet_ms={} successor_input_open={} end_withheld_ms={:?} withheld audio_frames={} text_frames={} generation_complete={} interrupted={} completions_not_idle={} start_held_ms={:?} start_released_by={:?} retained_samples={} waiting_for_input={} resumable_updates={} unresumable_updates={}",
             report.superseded.map(RequestId::get),
             report.successor.map(RequestId::get),
             report.waited.as_millis(),
@@ -686,7 +777,13 @@ fn forward(
             report.text_frames,
             report.generation_complete,
             report.interrupted,
-            report.completions_not_idle
+            report.completions_not_idle,
+            report.start_held.map(|held| held.as_millis()),
+            report.start_released_by,
+            report.retained_samples,
+            report.waiting_for_input,
+            report.resumable_updates,
+            report.unresumable_updates
         ),
     }
     Ok(())
@@ -2770,7 +2867,7 @@ mod tests {
             options: Options,
             barrier: BarrierPolicy,
         ) -> Self {
-            Self::start_all(policy, options, barrier, false)
+            Self::start_all(policy, options, barrier, false, Continuation::Off)
         }
         fn start_camera() -> Self {
             Self::start_all(
@@ -2780,6 +2877,7 @@ mod tests {
                 },
                 BARRIER,
                 true,
+                Continuation::Off,
             )
         }
         fn start_all(
@@ -2787,6 +2885,7 @@ mod tests {
             options: Options,
             barrier: BarrierPolicy,
             camera: bool,
+            continuation: Continuation,
         ) -> Self {
             let (directory, parent, worker) = intake_channels();
             let boot = BootId::new([9; 16]).unwrap();
@@ -2794,11 +2893,16 @@ mod tests {
             owner
                 .set_microphone_permission(real_time(), Permission::Allowed)
                 .unwrap();
-            let config =
-                SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
-                    .unwrap()
-                    .resumption(RESUMPTION)
-                    .barrier_policy(barrier);
+            // The configuration the worker itself builds, with its own choice
+            // of continuation applied by the same function.
+            let config = continuation
+                .apply(
+                    SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
+                        .unwrap()
+                        .resumption(RESUMPTION)
+                        .barrier_policy(barrier),
+                )
+                .unwrap();
             let (dialer, dials) = connector(config);
             let provider = Supervisor::new(dialer, policy).unwrap();
             let visual = if camera {
@@ -5342,6 +5446,413 @@ mod tests {
                 ProviderOutput::Audio { request, .. } if request == resumed
             ));
             assert!(!rig.worker.is_finished());
+        }
+    }
+
+    /// `Continuation::KeptStart` through the worker's own loop: the real
+    /// intake, hand-off and session, against the scripted service, with
+    /// input at the rate it is spoken and its own capture times.
+    mod kept_start {
+        use super::*;
+        use lamp_gemini::testing::sent_audio;
+
+        impl LiveRig {
+            fn start_kept() -> Self {
+                Self::start_all(
+                    quick_policy(),
+                    Options {
+                        reporting: Reporting::Legacy,
+                    },
+                    BARRIER,
+                    false,
+                    Continuation::KeptStart,
+                )
+            }
+            /// A person speaks again: a newly admitted request and its
+            /// Start. With the start kept the service sees nothing of it.
+            async fn begin(&mut self, dial: &Dial, input: AdmittedInput) -> u64 {
+                let owner = self.owner.admit(real_time(), input).unwrap();
+                let request = owner.turn();
+                self.publish();
+                self.parent
+                    .data
+                    .send(ProviderInput::Start {
+                        session: dial.session.get(),
+                        request,
+                        privacy_generation: self.snapshot.microphone_generation(),
+                    })
+                    .unwrap();
+                loop {
+                    match self.output().await {
+                        ProviderOutput::Started {
+                            request: started, ..
+                        } if started == request => return request,
+                        // The earlier request's own lifecycle may come first.
+                        ProviderOutput::Interrupted { .. }
+                        | ProviderOutput::TurnComplete { .. } => {}
+                        other => panic!("unexpected before the start: {other:?}"),
+                    }
+                }
+            }
+            /// Blocks of 10 ms, one every 10 ms, each read now. Every
+            /// sample of a block is `base` plus its sequence.
+            async fn say(&mut self, request: u64, blocks: std::ops::Range<u64>, base: i16) {
+                for sequence in blocks {
+                    self.publish();
+                    self.parent
+                        .data
+                        .send(ProviderInput::Audio {
+                            request,
+                            privacy_generation: self.snapshot.microphone_generation(),
+                            sequence,
+                            read_completed_at_us: monotonic_us(),
+                            samples: vec![base + sequence as i16; 160],
+                        })
+                        .unwrap();
+                    self.pump(Duration::from_millis(10)).await;
+                }
+            }
+            /// The current request's input ends.
+            fn finish(&mut self, request: u64) {
+                let owner = self.snapshot.owner().unwrap();
+                assert_eq!(owner.turn(), request);
+                self.owner.input_ended(real_time(), owner).unwrap();
+                self.publish();
+                self.parent
+                    .data
+                    .send(ProviderInput::End {
+                        request,
+                        privacy_generation: self.snapshot.microphone_generation(),
+                    })
+                    .unwrap();
+            }
+            /// What the scripted service receives until it has received
+            /// nothing for `quiet`: "start", "end", or the first sample of
+            /// an audio block.
+            async fn heard(&mut self, dial: &mut Dial, quiet: Duration) -> Vec<String> {
+                let mut all = Vec::new();
+                let mut last = Instant::now();
+                while last.elapsed() < quiet {
+                    self.publish();
+                    let Some(message) = dial.service.try_receive(Duration::from_millis(5)).await
+                    else {
+                        continue;
+                    };
+                    last = Instant::now();
+                    let input = &message["realtimeInput"];
+                    all.push(if input.get("activityStart").is_some() {
+                        "start".to_owned()
+                    } else if input.get("activityEnd").is_some() {
+                        "end".to_owned()
+                    } else {
+                        let samples = sent_audio(&message)
+                            .unwrap_or_else(|| panic!("unexpected client message {message}"));
+                        assert_eq!(samples.len(), 160);
+                        assert!(samples.iter().all(|sample| *sample == samples[0]));
+                        samples[0].to_string()
+                    });
+                }
+                all
+            }
+            /// The next output that is not the earlier request's lifecycle.
+            async fn answer(&mut self) -> ProviderOutput {
+                loop {
+                    match self.output().await {
+                        ProviderOutput::Interrupted { .. }
+                        | ProviderOutput::TurnComplete { .. } => {}
+                        other => return other,
+                    }
+                }
+            }
+        }
+        const QUIET: Duration = Duration::from_millis(60);
+        fn blocks(range: std::ops::Range<u64>, base: i16) -> Vec<String> {
+            range
+                .map(|sequence| (base + sequence as i16).to_string())
+                .collect()
+        }
+        fn interrupted() -> serde_json::Value {
+            json!({"serverContent":{"interrupted":true}})
+        }
+
+        #[tokio::test]
+        async fn a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered()
+         {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            let cut = rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            assert!(resumed > cut);
+            // A third of a second of speech. None of it reaches the service.
+            rig.say(resumed, 1..31, 0).await;
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            // The first answer begins, and goes on a little.
+            dial.service.send(provider_audio(7, 240)).await;
+            dial.service.send(provider_audio(7, 240)).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..31, 0));
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            // Interrupted while producing, the service confirms.
+            dial.service.send(interrupted()).await;
+            dial.service.send(idle_complete()).await;
+            // The person is still speaking: straight through now, then End.
+            rig.say(resumed, 31..41, 0).await;
+            rig.finish(resumed);
+            let mut expected = blocks(31..41, 0);
+            expected.push("end".to_owned());
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            // Nothing of the first answer was ever the coordinator's, and
+            // the next audio is the resumed request's.
+            dial.service.send(provider_audio(8, 240)).await;
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::Audio { request, samples, .. } if request == resumed && samples == [8; 240]
+            ));
+            assert!(!rig.worker.is_finished());
+            rig.stop().await;
+        }
+
+        #[tokio::test]
+        async fn two_resumed_utterances_are_delivered_in_order_as_one_question_with_one_end() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let second = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(second, 1..11, 0).await;
+            rig.finish(second);
+            // They go on again before anything has been answered.
+            let third = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(third, 1..11, 100).await;
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            dial.service.send(provider_audio(7, 240)).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..11, 0));
+            expected.extend(blocks(1..11, 100));
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            dial.service.send(interrupted()).await;
+            dial.service.send(idle_complete()).await;
+            rig.finish(third);
+            // One End: the second request was never committed by itself.
+            assert_eq!(rig.heard(&mut dial, QUIET).await, ["end"]);
+            dial.service.send(provider_audio(9, 240)).await;
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::Audio { request, .. } if request == third
+            ));
+            rig.stop().await;
+        }
+
+        #[tokio::test]
+        async fn a_first_answer_that_completes_with_nothing_lets_the_resumed_question_start() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(resumed, 1..11, 0).await;
+            rig.finish(resumed);
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            dial.service.send(idle_complete()).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..11, 0));
+            expected.push("end".to_owned());
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            dial.service.send(provider_audio(9, 240)).await;
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::Audio { request, .. } if request == resumed
+            ));
+            rig.stop().await;
+        }
+
+        #[tokio::test]
+        async fn a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it() {
+            for mute in [false, true] {
+                let mut rig = LiveRig::start_kept();
+                let mut dial = rig.ready().await;
+                rig.speak(&mut dial, false, true).await;
+                let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+                rig.say(resumed, 1..21, 0).await;
+                assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+                if mute {
+                    rig.owner
+                        .set_microphone_permission(real_time(), Permission::Denied)
+                        .unwrap();
+                    rig.snapshot = rig.owner.snapshot(real_time()).unwrap();
+                    rig.parent
+                        .control
+                        .send(Control::Authority {
+                            snapshot: rig.snapshot,
+                        })
+                        .unwrap();
+                } else {
+                    rig.parent.control.send(Control::Stop).unwrap();
+                }
+                // The worker ends by itself. No further heartbeat: a muted
+                // owner has no lease to renew.
+                let started = Instant::now();
+                while !rig.worker.is_finished() {
+                    assert!(started.elapsed() < Duration::from_secs(3), "worker hung");
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+                (&mut rig.worker).await.unwrap().unwrap();
+                // Kept, then dropped: not a start, not a block.
+                assert!(
+                    dial.service
+                        .try_receive(Duration::from_millis(50))
+                        .await
+                        .is_none(),
+                    "mute={mute}"
+                );
+            }
+        }
+
+        #[tokio::test]
+        async fn a_stop_while_the_kept_question_is_being_written_ends_the_writing() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(resumed, 1..151, 0).await;
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            dial.service.send(provider_audio(7, 240)).await;
+            let first = rig.service_message(&mut dial).await;
+            assert!(first["realtimeInput"].get("activityStart").is_some());
+            rig.parent.control.send(Control::Stop).unwrap();
+            rig.exit().await.0.unwrap();
+            let mut written = 0;
+            while let Some(message) = dial.service.try_receive(Duration::from_millis(50)).await {
+                assert!(sent_audio(&message).is_some(), "{message}");
+                written += 1;
+            }
+            assert!(written < 150, "all of it was written after the stop");
+        }
+
+        #[tokio::test]
+        async fn the_service_closing_while_the_question_is_kept_writes_none_of_it_and_replays_none()
+        {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(resumed, 1..11, 0).await;
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            dial.service.close(1008, "quota exceeded").await;
+            // Whatever the worker does next about the lost connection, the
+            // kept question was never written to it, and nothing of it is
+            // written to any connection that replaces it.
+            let deadline = Instant::now() + Duration::from_millis(600);
+            while Instant::now() < deadline && !rig.worker.is_finished() {
+                let _ = rig.heartbeat();
+                if let Ok(mut redial) = rig.dials.try_recv() {
+                    while let Some(message) =
+                        redial.service.try_receive(Duration::from_millis(100)).await
+                    {
+                        assert!(
+                            message.get("realtimeInput").is_none(),
+                            "replayed to a new connection: {message}"
+                        );
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(2)).await;
+            }
+        }
+
+        #[tokio::test]
+        async fn with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(resumed, 1..21, 0).await;
+            rig.finish(resumed);
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            // Nothing from the service at all. After the patience the start
+            // and the kept question are written anyway.
+            let kept_since = Instant::now();
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..21, 0));
+            let mut wire = Vec::new();
+            while wire.len() < expected.len() {
+                assert!(kept_since.elapsed() < Duration::from_secs(4), "{wire:?}");
+                wire.extend(rig.heard(&mut dial, QUIET).await);
+            }
+            assert_eq!(wire, expected);
+            assert!(kept_since.elapsed() >= KEPT_START_PATIENCE - Duration::from_millis(400));
+            // And then the strict wait, which nothing satisfies.
+            let (result, _) = {
+                let started = Instant::now();
+                while !rig.worker.is_finished() {
+                    assert!(started.elapsed() < Duration::from_secs(4), "worker hung");
+                    let _ = rig.heartbeat();
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+                ((&mut rig.worker).await.unwrap(), started.elapsed())
+            };
+            let error = result.unwrap_err().to_string();
+            assert!(error.contains("BarrierTimeout"), "{error}");
+            assert!(
+                dial.service
+                    .try_receive(Duration::from_millis(20))
+                    .await
+                    .is_none(),
+                "the question was committed without a confirmation"
+            );
+        }
+
+        /// The limitation, shown. A request cancelled while its opening is
+        /// kept is never committed by itself. What the transport had taken
+        /// from it is still written when the first answer begins, and stays
+        /// in the activity that the next request continues: the service
+        /// hears it as the beginning of that next question.
+        #[tokio::test]
+        async fn a_cancelled_kept_question_is_not_committed_but_its_audio_joins_the_next_one() {
+            let mut rig = LiveRig::start_kept();
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let cancelled = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(cancelled, 1..11, 0).await;
+            // The coordinator gives the turn up: not a continuation.
+            let owner = rig.snapshot.owner().unwrap();
+            rig.owner.cancel_turn(real_time(), owner).unwrap();
+            rig.pump(Duration::from_millis(30)).await;
+            assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+            dial.service.send(provider_audio(7, 240)).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..11, 0));
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            dial.service.send(interrupted()).await;
+            dial.service.send(idle_complete()).await;
+            // No End for it, however long nothing else happens.
+            assert!(
+                rig.heard(&mut dial, Duration::from_millis(150))
+                    .await
+                    .is_empty()
+            );
+            // The next question continues the open activity.
+            let next = rig.begin(&dial, AdmittedInput::NewTurn).await;
+            rig.say(next, 1..6, 200).await;
+            rig.finish(next);
+            let mut expected = blocks(1..6, 200);
+            expected.push("end".to_owned());
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+            dial.service.send(provider_audio(9, 240)).await;
+            assert!(matches!(
+                rig.answer().await,
+                ProviderOutput::Audio { request, .. } if request == next
+            ));
+            rig.stop().await;
+        }
+
+        #[tokio::test]
+        async fn without_the_option_a_resumed_question_is_written_at_once_as_before() {
+            let mut rig = LiveRig::start(quick_policy());
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, true).await;
+            let resumed = rig.begin(&dial, AdmittedInput::Interruption).await;
+            rig.say(resumed, 1..4, 0).await;
+            let mut expected = vec!["start".to_owned()];
+            expected.extend(blocks(1..4, 0));
+            assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
         }
     }
 }

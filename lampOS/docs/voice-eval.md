@@ -116,8 +116,107 @@ final line. Scoring can be repeated on an old ledger with `evaluate`.
 
 A physical attempt is **invalid** (listed, but excluded from every rate and
 latency) when its session transport closes before `session_end`, the relay
-reports an error or hard-deadline kill, or fewer trace lines arrive than the
-relay sent. A trace must contain both `run_start` and `run_end` to be scored.
+reports an error or hard-deadline kill, a relayed line fails framing, or fewer
+trace lines arrive than the relay sent. A trace must contain both `run_start`
+and `run_end` to be scored.
+
+### Final dispatch check (`MAIN-023`, `MAIN-025`, `MAIN-030`)
+
+**Runner.** At the planned start, the runner takes every event already
+delivered (at most 256) and then rechecks every condition the stimulus needs:
+- the session is open;
+- the provider is available;
+- the start is within the 100 ms lateness bound (`trigger_stale`);
+- for overlap steps, Lamp is still playing the triggering reply
+  (`precondition_lost`).
+
+**Backend.** Immediately before a stimulus starts, the physical backend takes
+every relay line already delivered and keeps those events for the runner.
+- If any taken event has not yet been observed by the runner, nothing starts.
+  The backend returns `revalidate`, and the runner observes those events,
+  rechecks and dispatches again.
+- The backend's drain is bounded at 1024 relay lines. When the budget runs
+  out, it also returns `revalidate` (receipt `drain_exhausted`).
+- After 8 such rounds, or a drain that does not settle, the step is withheld
+  as `trigger_stale` with the reason.
+- Immediately before the player starts, the original target's 100 ms
+  lateness bound is checked again on the local clock, even when no new event
+  surfaced. A missed bound returns `trigger_stale`.
+- The relay streams the runtime's final trace only after the runtime has
+  exited or been killed. The first relayed trace record therefore latches
+  `session_ended`, while the trace is still kept as evidence.
+- The first terminal cause seen on the attempt is latched, and no stimulus
+  starts after it. This includes a cause first seen in the backend's final
+  drain.
+
+| Cause | Latched from | Step status | Receipt `withheld_cause` |
+|---|---|---|---|
+| Provider failure | `turn_completed` with `provider_failed` | `provider_unavailable` | `provider_failed` |
+| Session ended | relayed `session_end`, a `run_end` cue, or the transport closing without `session_end` | `session_ended` | `session_ended` |
+| Protocol failure | an invalid or rejected cue, an unreadable stdout line, or any relay framing error | `session_ended` | `protocol_failed` |
+
+The step's `detail` and the receipt's `reason` name the exact cause, for
+example the relay's exit status or the rejected cue. A relay framing error
+also ends live scheduling as a protocol stop, because the lost line may have
+been a cue or the session's end.
+
+**Tests.**
+- `tests/final_dispatch.rs` uses the real backend, a local pipe transport and
+  a recording-only player.
+- Root's review regressions are `tests/audit_final_dispatch.rs` and
+  `tests/audit_runner_dispatch.rs`.
+- The runner's scripted cases are in `runner::occurrence_tests`.
+
+### Terminal provider failure (`MAIN-009`, provisional field names)
+
+A `turn_completed` cue or `turn_finished` trace record with outcome
+`provider_failed` ends the turn as a failed answer.
+
+- **Scoring.** It is scored `ProviderFailed { partial_audio }` with a
+  `provider_failed` finding. It counts in the completion denominator and never
+  in its numerator, and it is reported separately from silent missing
+  terminals.
+- **Audio evidence.** Audio already played stays as evidence. Every started
+  playback occurrence must have retired first, otherwise the completion
+  evidence is inconsistent.
+- **Endpoint.** No normal endpoint is required: an abandoned request may end on
+  the drain path, recorded as `input_discarded_endpoint`. That event is never
+  treated as a local endpoint and starts no answer latency.
+- **Runner.** A failed terminal never satisfies a completion trigger. A step
+  waiting on it is recorded as `provider_unavailable`, and nothing is played.
+- **Schema.** Field names follow the main agent's description and will be
+  aligned with its frozen producer schema. Tests: `tests/provider_failed.rs` and
+  the runner's `a_provider_failure_is_never_a_completion_trigger_and_is_reported`.
+
+### Relay framing and cleanup
+
+Both relay ends read lines incrementally with a fixed per-line bound and never
+truncate: a line is kept only up to its bound, and an oversized line is consumed
+through its newline without being retained. Oversized, non-UTF-8 and cut-off
+lines are explicit failures. Bounds (`physical/protocol.rs`):
+
+| Stream | Bound | Failure |
+|---|---|---|
+| Relay to runner, one encoded line | 64 KiB | protocol error; attempt invalid |
+| Relay to runner, one session | 96 MiB | reading stops; transport treated as closed |
+| Runtime stdout, one line | 16 KiB (and 64 KiB after JSON encoding) | `stdout_invalid` line and `session_end.error` |
+| `events.jsonl`, whole file | 64 MiB, checked before reading | `session_end.error`, nothing streamed |
+| `events.jsonl`, one record | 63 KiB | streaming stops at that record; `session_end.error` |
+| Runner to relay, one line | 1 KiB | `session_end.error` |
+
+`events_sha256` always covers the whole trace file, including bytes after a
+failure, and a file that changes length while relaying is reported. A final
+record without a newline is reported as cut off, not parsed.
+
+The relay starts `lamp-live` in its own process group. A hard-deadline stop, an
+early relay error and a closed runner transport all kill that group, so workers
+stop with the coordinator. If the runner transport closes before the runtime
+ends, the relay stops the runtime and reports it rather than leaving the
+microphone and speaker in an unattended session. After a normal exit, any process
+still in the group is killed and reported as `stray_processes_stopped` (evidence,
+not an invalid trace). The runner kills its transport, room recorder and players
+if it fails between session start and finish. Tests: `tests/relay_hardening.rs`,
+`physical::framing` and `physical::mac::relay_reader_tests`.
 
 ## Evaluation rules
 

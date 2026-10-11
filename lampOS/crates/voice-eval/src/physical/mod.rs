@@ -8,6 +8,7 @@
 //! or motor state; exclusive hardware ownership and restoration remain operator
 //! duties, as documented for `lamp-live directed`.
 pub mod fake_lamp;
+pub mod framing;
 pub mod mac;
 pub mod protocol;
 pub mod session;

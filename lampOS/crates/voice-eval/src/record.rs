@@ -81,7 +81,9 @@ pub enum StepStatus {
     TriggerMissed,
     /// The overlap precondition was false at injection time; nothing played.
     PreconditionLost,
-    /// The runtime session ended before the trigger.
+    /// The runtime session ended before the trigger, or before dispatch: the
+    /// session ended, its transport closed, or its cue/relay protocol failed.
+    /// `detail` names the cause when the final dispatch check withheld it.
     SessionEnded,
     /// Not attempted because an earlier step did not complete.
     Withheld,
@@ -91,6 +93,9 @@ pub enum StepStatus {
     TriggerStale,
     /// The player reported that the stimulus was not delivered.
     DeliveryFailed,
+    /// A terminal provider failure was observed while waiting; no stimulus
+    /// is scheduled while the provider is unavailable (MAIN-009).
+    ProviderUnavailable,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

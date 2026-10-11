@@ -853,6 +853,7 @@ impl Backend for FakeBackend<'_> {
             receipt["manifest_sha256"] = identity["manifest_sha256"].clone();
         }
         Ok(Injection {
+            withheld: None,
             started_us,
             receipt,
         })

@@ -58,6 +58,12 @@ pub enum EventKind {
     LocalEndpoint {
         last_block_read_us: Option<u64>,
     },
+    /// The detector end of a submitted request that was abandoned (for
+    /// example drained during a provider outage). Never a normal endpoint:
+    /// it does not start answer latency.
+    InputDiscardedEndpoint {
+        last_block_read_us: Option<u64>,
+    },
     ProviderFirstAudio,
     SpeakerFirstWrite,
     SpeechRetired,
@@ -119,6 +125,34 @@ pub struct RuntimeEvent {
     /// Original turn authority generation when the source records it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_generation: Option<u64>,
+    /// Provider evidence kept verbatim from a terminal or drain record:
+    /// `provider_session` and `provider_outcome` (stage, reason,
+    /// local_not_submitted). Bounded; never interpreted as success.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_detail: Option<Value>,
+}
+
+/// Largest retained `provider_detail` (serialized bytes).
+pub const MAX_PROVIDER_DETAIL_BYTES: usize = 2048;
+
+/// The provider fields of a trace record, bounded.
+fn provider_detail(record: &Value) -> Option<Value> {
+    let mut detail = serde_json::Map::new();
+    for key in ["provider_session", "provider_outcome"] {
+        if let Some(value) = record.get(key).filter(|v| !v.is_null()) {
+            detail.insert(key.into(), value.clone());
+        }
+    }
+    if detail.is_empty() {
+        return None;
+    }
+    let value = Value::Object(detail);
+    let bytes = value.to_string().len();
+    Some(if bytes > MAX_PROVIDER_DETAIL_BYTES {
+        json!({"truncated": true, "bytes": bytes})
+    } else {
+        value
+    })
 }
 
 impl RuntimeEvent {
@@ -139,6 +173,7 @@ impl RuntimeEvent {
             playback_sequence: None,
             completion_evidence_error: None,
             owner_generation: None,
+            provider_detail: None,
         }
     }
     pub fn name(&self) -> &'static str {
@@ -151,6 +186,7 @@ impl RuntimeEvent {
             EventKind::RingRequested { .. } => "ring_requested",
             EventKind::ProviderInputStarted => "provider_input_started",
             EventKind::LocalEndpoint { .. } => "local_endpoint",
+            EventKind::InputDiscardedEndpoint { .. } => "input_discarded_endpoint",
             EventKind::ProviderFirstAudio => "provider_first_audio",
             EventKind::SpeakerFirstWrite => "speaker_first_write",
             EventKind::SpeechRetired => "speech_retired",
@@ -201,6 +237,11 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
         },
         "provider_input_started" => EventKind::ProviderInputStarted,
         "local_endpoint" => EventKind::LocalEndpoint {
+            last_block_read_us: u64_field(record, "last_block_host_read_us"),
+        },
+        // A submitted request abandoned during a provider outage reaches its
+        // detector end here, not through the normal owned endpoint.
+        "input_discarded_endpoint" => EventKind::InputDiscardedEndpoint {
             last_block_read_us: u64_field(record, "last_block_host_read_us"),
         },
         "provider_first_audio" => EventKind::ProviderFirstAudio,
@@ -300,6 +341,9 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
             .and_then(|owner| owner.get("generation"))
             .or_else(|| record.get("generation"))
             .map(|v| v.as_u64().unwrap_or(0)),
+        provider_detail: matches!(kind, "turn_finished" | "input_discarded_endpoint")
+            .then(|| provider_detail(record))
+            .flatten(),
     })
 }
 
@@ -401,14 +445,24 @@ pub(crate) fn completion_gaps_match(outcome: &str, gaps: u64) -> bool {
     match outcome {
         "audio_written_unscored" | "no_audio_answer" => gaps == 0,
         "audio_written_with_playback_gaps_unscored" => gaps > 0,
+        // A terminal failure may follow a partial answer with or without gaps.
+        PROVIDER_FAILED => true,
         _ => false,
     }
 }
 
+/// Terminal provider failure (MAIN-009): a failed answer, before audio or
+/// after a partial answer whose played audio was retired. Provisional name
+/// until the coordinator publishes its frozen cue schema.
+pub const PROVIDER_FAILED: &str = "provider_failed";
+
 pub(crate) fn completion_outcome(value: &str) -> bool {
     matches!(
         value,
-        "no_audio_answer" | "audio_written_unscored" | "audio_written_with_playback_gaps_unscored"
+        "no_audio_answer"
+            | "audio_written_unscored"
+            | "audio_written_with_playback_gaps_unscored"
+            | PROVIDER_FAILED
     )
 }
 
@@ -450,6 +504,7 @@ impl Cue {
             playback_sequence: self.playback_sequence,
             completion_evidence_error: None,
             owner_generation: self.generation,
+            provider_detail: None,
         })
     }
 }
@@ -485,6 +540,10 @@ pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
         }
         EventKind::LocalEndpoint { last_block_read_us } => {
             json!({"kind":"local_endpoint","owner":owner,
+            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
+        }
+        EventKind::InputDiscardedEndpoint { last_block_read_us } => {
+            json!({"kind":"input_discarded_endpoint","owner":owner,
             "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
         }
         EventKind::ProviderFirstAudio => json!({"kind":"provider_first_audio"}),

@@ -11,12 +11,15 @@ use crate::{
     invalid,
     physical::{
         fake_lamp::ROOM_MAX_BYTES,
-        protocol::{RunnerLine, SessionLine},
+        framing::{Frame, LineFramer, STREAM_LIMIT},
+        protocol::{MAX_LINE_BYTES, MAX_SESSION_BYTES, RunnerLine, SessionLine},
     },
     plan::{ProviderKind, Scenario, Step},
     playback::PlaybackHistory,
     record::{ClockMapping, StimulusSource, Stratum},
-    runner::{AttemptContext, Backend, Begin, Finished, Injection},
+    runner::{
+        AttemptContext, Backend, Begin, Finished, Injection, MAX_TRIGGER_LATENESS_US, Withheld,
+    },
     stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
 };
 use lamp_ipc::monotonic_us;
@@ -24,11 +27,11 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     fs,
-    io::{BufRead, BufReader, Write},
+    io::Write,
     os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
-    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
     thread::{self, JoinHandle},
     time::Duration,
 };
@@ -174,6 +177,10 @@ pub struct PhysicalConfig {
     pub stimulus_source: StimulusSource,
 }
 
+/// Relay lines taken in one final dispatch drain before the backend asks the
+/// runner to revalidate instead of starting.
+const MAX_DISPATCH_DRAIN_LINES: usize = 1024;
+
 /// Keep refining the clock map during the session, within a bound.
 const PING_INTERVAL_US: u64 = 250_000;
 const MAX_PINGS: u64 = 400;
@@ -257,6 +264,24 @@ impl CueOrder {
                     }
                     // Retiring all current PCM is not whole-turn completion.
                     "cancelled" => owner.terminal = true,
+                    // A terminal provider failure needs no normal endpoint (an
+                    // abandoned request ends on the drain path) and may follow
+                    // a partial answer, whose audio must already be retired.
+                    "turn_completed"
+                        if cue.outcome.as_deref() == Some(crate::events::PROVIDER_FAILED)
+                            && !owner.playback.active() =>
+                    {
+                        if owner
+                            .playback
+                            .occurrences
+                            .last()
+                            .and_then(|p| p.retired_us)
+                            .is_some_and(|end| cue.event_us < end)
+                        {
+                            return Err(invalid("provider failure predates playback retirement"));
+                        }
+                        owner.terminal = true;
+                    }
                     "turn_completed" if owner.endpoint && !owner.playback.active() => {
                         let audio = cue.outcome.as_deref() != Some("no_audio_answer");
                         if (audio && !owner.playback.complete())
@@ -321,7 +346,15 @@ pub struct PhysicalBackend<'a> {
     playbacks: Vec<Playback>,
     attempt_directory: Option<PathBuf>,
     seconds: u16,
+    /// Events drained by the final dispatch check, returned by `next_event`.
+    pending: std::collections::VecDeque<RuntimeEvent>,
+    /// The first terminal cause seen on this attempt's session; no stimulus
+    /// starts after it.
+    unavailable: Option<Withheld>,
 }
+
+/// Run-end status of a runner-generated protocol stop.
+const CUE_PROTOCOL_INVALID: &str = "cue_protocol_invalid";
 
 /// End scheduling immediately, retaining the actual trace at finish. This is a
 /// runner-generated protocol stop, not a Lamp failure or an acoustic event.
@@ -330,7 +363,7 @@ fn cue_failure(session: &mut Session, reason: String, received_us: u64) -> Runti
     session.protocol_errors.push(reason.clone());
     RuntimeEvent::new(
         EventKind::RunEnd {
-            status: Some("cue_protocol_invalid".into()),
+            status: Some(CUE_PROTOCOL_INVALID.into()),
             error: Some(reason),
         },
         None,
@@ -355,7 +388,85 @@ impl<'a> PhysicalBackend<'a> {
             playbacks: Vec::new(),
             attempt_directory: None,
             seconds: 0,
+            pending: std::collections::VecDeque::new(),
+            unavailable: None,
         }
+    }
+
+    /// Latch the first terminal cause from a live event: a provider failure,
+    /// the session's end, or a cue/relay protocol failure.
+    fn note(&mut self, event: &RuntimeEvent) {
+        if self.unavailable.is_some() {
+            return;
+        }
+        self.unavailable = match &event.kind {
+            EventKind::TurnCompleted { outcome, .. }
+                if outcome == crate::events::PROVIDER_FAILED =>
+            {
+                Some(Withheld::ProviderFailed(format!(
+                    "turn {} ended with a provider failure before dispatch; no stimulus while the provider is unavailable",
+                    event.turn.unwrap_or(0)
+                )))
+            }
+            EventKind::RunEnd { status, error }
+                if status.as_deref() == Some(CUE_PROTOCOL_INVALID) =>
+            {
+                Some(Withheld::ProtocolFailed(format!(
+                    "cue or relay protocol failed before dispatch: {}",
+                    error.as_deref().unwrap_or("no detail")
+                )))
+            }
+            EventKind::RunEnd { .. } if event.source == EventSource::Cue => Some(
+                Withheld::SessionEnded("the runtime sent its run_end cue before dispatch".into()),
+            ),
+            EventKind::RunEnd { .. } => Some(Withheld::SessionEnded(
+                match self.session.as_ref().and_then(|s| s.end.as_ref()) {
+                    Some(SessionLine::SessionEnd {
+                        exit_code,
+                        killed,
+                        error,
+                        ..
+                    }) => format!(
+                        "the relay ended the session before dispatch (exit status {}{}{})",
+                        exit_code.map_or("unknown".into(), |c| c.to_string()),
+                        if *killed { ", killed" } else { "" },
+                        error.as_deref().map_or(String::new(), |e| format!(": {e}"))
+                    ),
+                    _ => "the runtime session ended before dispatch".into(),
+                },
+            )),
+            _ => None,
+        };
+    }
+
+    /// Convert one relayed line, live or in the final dispatch drain, and
+    /// latch any terminal cause. A relay framing error is a protocol failure:
+    /// the lost line may have been a cue or the session's end.
+    fn take(&mut self, line: std::result::Result<SessionLine, String>) -> Option<RuntimeEvent> {
+        // The relay streams the final trace only after the runtime exited or
+        // was killed: live admission closes at the first record (MAIN-030).
+        if matches!(line, Ok(SessionLine::Trace { .. })) && self.unavailable.is_none() {
+            self.unavailable = Some(Withheld::SessionEnded(
+                "the runtime has exited; the relay is streaming its final trace".into(),
+            ));
+        }
+        let event = match line {
+            Ok(line) => self.handle(line)?,
+            Err(error) => {
+                let session = self.session.as_mut()?;
+                if session.cue_failed {
+                    session.protocol_errors.push(error);
+                    return None;
+                }
+                cue_failure(
+                    session,
+                    format!("relay protocol failure: {error}"),
+                    monotonic_us(),
+                )
+            }
+        };
+        self.note(&event);
+        Some(event)
     }
 
     fn send_ping(&mut self, seq: u64) -> Result<()> {
@@ -482,6 +593,17 @@ impl<'a> PhysicalBackend<'a> {
                     EventSource::Stdout,
                 )
             }
+            SessionLine::StdoutInvalid { error, .. } => {
+                if session.cue_failed {
+                    return None;
+                }
+                // The unreadable line may have been readiness or a failure report.
+                cue_failure(
+                    session,
+                    format!("relay could not deliver a runtime stdout line: {error}"),
+                    received,
+                )
+            }
             SessionLine::Trace { record } => {
                 if session.trace.len() < crate::physical::protocol::MAX_TRACE_LINES {
                     session.trace.push(record);
@@ -549,13 +671,17 @@ impl<'a> PhysicalBackend<'a> {
     fn wait_line(&mut self, until_us: u64) -> Option<std::result::Result<SessionLine, String>> {
         let session = self.session.as_mut()?;
         let now = monotonic_us();
-        if now >= until_us {
-            return session.lines.try_recv().ok();
-        }
-        match session
-            .lines
-            .recv_timeout(Duration::from_micros(until_us - now))
-        {
+        let received = if now >= until_us {
+            session.lines.try_recv().map_err(|error| match error {
+                TryRecvError::Empty => RecvTimeoutError::Timeout,
+                TryRecvError::Disconnected => RecvTimeoutError::Disconnected,
+            })
+        } else {
+            session
+                .lines
+                .recv_timeout(Duration::from_micros(until_us - now))
+        };
+        match received {
             Ok(line) => Some(line),
             Err(RecvTimeoutError::Timeout) => None,
             Err(RecvTimeoutError::Disconnected) => {
@@ -568,6 +694,7 @@ impl<'a> PhysicalBackend<'a> {
                         events_sha256: None,
                         events_lines: 0,
                         error: Some("session transport closed without session_end".into()),
+                        stray_processes_stopped: false,
                     });
                     return Some(Ok(session.end.clone()?));
                 }
@@ -575,6 +702,68 @@ impl<'a> PhysicalBackend<'a> {
             }
         }
     }
+}
+
+/// An error or panic between `begin` and `finish` must not leave the
+/// transport, the room recorder or a player running. Closing the transport's
+/// input makes the Lamp relay stop the runtime; the transport itself is
+/// killed if it has not exited shortly afterwards.
+impl Drop for PhysicalBackend<'_> {
+    fn drop(&mut self) {
+        for playback in &self.playbacks {
+            let _ = fs::write(&playback.cancel_file, b"cancel\n");
+        }
+        if let Some(mut session) = self.session.take() {
+            drop(session.stdin.take());
+            let _ = wait_child(&mut session.child, monotonic_us() + 2_000_000);
+        }
+        if let Some((mut child, _, _)) = self.room.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+/// Frame relay lines with the protocol's per-line and per-session bounds on
+/// a separate thread. Any framing or parse failure becomes a protocol error.
+/// Above the session byte bound the reader stops, so the transport looks
+/// closed and the attempt is invalidated rather than buffered without limit.
+fn relay_reader<R: std::io::Read + Send + 'static>(
+    stdout: R,
+) -> Receiver<std::result::Result<SessionLine, String>> {
+    let (sender, lines) = mpsc::sync_channel(4096);
+    thread::spawn(move || {
+        // Raw bytes are counted before framing, so even one endless line
+        // without a newline ends the session at the bound.
+        let mut framer = LineFramer::with_total_limit(stdout, MAX_LINE_BYTES, MAX_SESSION_BYTES);
+        loop {
+            let frame = match framer.next_frame() {
+                Ok(Some(frame)) => frame,
+                Ok(None) => break,
+                Err(error) if error.to_string() == STREAM_LIMIT => {
+                    let _ = sender.send(Err(format!(
+                        "relay exceeded {MAX_SESSION_BYTES} bytes in one session; reading stopped"
+                    )));
+                    break;
+                }
+                Err(error) => {
+                    let _ = sender.send(Err(format!("relay transport read failed: {error}")));
+                    break;
+                }
+            };
+            let parsed = match frame {
+                Frame::Line(line) => serde_json::from_str::<SessionLine>(&line)
+                    .map_err(|e| format!("{e}: {line:.200}")),
+                other => Err(other
+                    .failure("relay transport", MAX_LINE_BYTES)
+                    .unwrap_or_default()),
+            };
+            if sender.send(parsed).is_err() {
+                break;
+            }
+        }
+    });
+    lines
 }
 
 fn wait_child(child: &mut Child, deadline_us: u64) -> Option<std::process::ExitStatus> {
@@ -666,6 +855,8 @@ impl Backend for PhysicalBackend<'_> {
         self.attempt_directory = Some(directory.clone());
         self.seconds = context.scenario.session_seconds;
         self.playbacks.clear();
+        self.pending.clear();
+        self.unavailable = None;
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -742,17 +933,7 @@ impl Backend for PhysicalBackend<'_> {
             .stdout
             .take()
             .ok_or_else(|| invalid("session stdout unavailable"))?;
-        let (sender, lines) = mpsc::sync_channel(4096);
-        thread::spawn(move || {
-            for line in BufReader::new(stdout).lines() {
-                let Ok(line) = line else { break };
-                let parsed = serde_json::from_str::<SessionLine>(&line)
-                    .map_err(|e| format!("{e}: {line:.200}"));
-                if sender.send(parsed).is_err() {
-                    break;
-                }
-            }
-        });
+        let lines = relay_reader(stdout);
         self.session = Some(Session {
             stdin: child.stdin.take(),
             next_ping_us: 0,
@@ -781,6 +962,9 @@ impl Backend for PhysicalBackend<'_> {
         monotonic_us()
     }
     fn next_event(&mut self, until_us: u64) -> Result<Option<RuntimeEvent>> {
+        if let Some(event) = self.pending.pop_front() {
+            return Ok(Some(event));
+        }
         loop {
             let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
                 (s.next_ping_us, s.pings.len() as u64)
@@ -800,17 +984,8 @@ impl Backend for PhysicalBackend<'_> {
                 }
                 continue;
             };
-            match line {
-                Ok(line) => {
-                    if let Some(event) = self.handle(line) {
-                        return Ok(Some(event));
-                    }
-                }
-                Err(error) => {
-                    if let Some(session) = self.session.as_mut() {
-                        session.protocol_errors.push(error);
-                    }
-                }
+            if let Some(event) = self.take(line) {
+                return Ok(Some(event));
             }
             if monotonic_us() >= until_us {
                 return Ok(None);
@@ -854,10 +1029,59 @@ impl Backend for PhysicalBackend<'_> {
             .clone()
             .ok_or_else(|| invalid("no attempt directory"))?;
         while monotonic_us() < at_us {
-            thread::sleep(Duration::from_micros((at_us - monotonic_us()).min(1_000)));
+            let remaining = at_us.saturating_sub(monotonic_us());
+            thread::sleep(Duration::from_micros(remaining.min(1_000)));
+        }
+        // Final dispatch check: take the lines already relayed, within a
+        // budget (keeping the events for the runner), and refuse to start
+        // after any terminal cause latched on this attempt, including one
+        // first seen in this drain.
+        let mut exhausted = true;
+        for _ in 0..MAX_DISPATCH_DRAIN_LINES {
+            let Some(line) = self.wait_line(monotonic_us()) else {
+                exhausted = false;
+                break;
+            };
+            if let Some(event) = self.take(line) {
+                self.pending.push_back(event);
+            }
+        }
+        if self.session.is_none() {
+            self.unavailable
+                .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
+        }
+        let refuse = |withheld: Withheld, pending: usize, exhausted: bool| {
+            let now = monotonic_us();
+            Injection {
+                started_us: now,
+                receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
+                    "withheld_cause": withheld.cause(), "reason": withheld.reason(),
+                    "unobserved_events": pending, "drain_exhausted": exhausted,
+                    "late_us": now.saturating_sub(at_us)}),
+                withheld: Some(withheld),
+            }
+        };
+        // Never start while the runner has not observed every consumed
+        // event, or while lines remain undrained: one may end the overlap or
+        // the session (MAIN-025, MAIN-030).
+        let withheld = self
+            .unavailable
+            .clone()
+            .or_else(|| (exhausted || !self.pending.is_empty()).then_some(Withheld::Revalidate));
+        if let Some(withheld) = withheld {
+            return Ok(refuse(withheld, self.pending.len(), exhausted));
         }
         let cancel_file = directory.join(format!("cancel-{}", step.id));
+        // The original target's lateness bound holds at the side effect
+        // itself, even when no new event surfaced (MAIN-030).
         let requested_us = monotonic_us();
+        if requested_us > at_us.saturating_add(MAX_TRIGGER_LATENESS_US) {
+            let stale = Withheld::Stale(format!(
+                "planned start passed {} ms before the player could start",
+                (requested_us - at_us) / 1000
+            ));
+            return Ok(refuse(stale, 0, false));
+        }
         let handle = self.player.start(
             &asset.wav,
             timing,
@@ -871,6 +1095,7 @@ impl Backend for PhysicalBackend<'_> {
             handle,
         });
         Ok(Injection {
+            withheld: None,
             started_us: requested_us,
             receipt: json!({"wav_sha256": asset.wav_sha256, "requested_runner_us": requested_us,
                 "late_us": requested_us.saturating_sub(at_us),
@@ -929,9 +1154,14 @@ impl Backend for PhysicalBackend<'_> {
             Some(_) if session.end_synthesized => {
                 Some("session transport closed before session_end; the trace may be partial".into())
             }
-            Some(SessionLine::SessionEnd { killed: true, .. }) => {
-                Some("the relay killed the runtime at its hard deadline".into())
-            }
+            Some(SessionLine::SessionEnd {
+                killed: true,
+                error,
+                ..
+            }) => Some(match error {
+                Some(error) => format!("the relay stopped the runtime: {error}"),
+                None => "the relay killed the runtime at its hard deadline".into(),
+            }),
             Some(SessionLine::SessionEnd {
                 error: Some(error), ..
             }) => Some(format!("relay: {error}")),
@@ -990,7 +1220,20 @@ impl Backend for PhysicalBackend<'_> {
                 None => unmapped += 1,
             }
         }
+        // Terminal provider failures and drain-path endpoints are kept
+        // verbatim (bounded) so provider session and outcome survive scoring.
+        let provider_records: Vec<&Value> = session
+            .trace
+            .iter()
+            .filter(|record| {
+                record["kind"] == "input_discarded_endpoint"
+                    || (record["kind"] == "turn_finished"
+                        && record["outcome"] == crate::events::PROVIDER_FAILED)
+            })
+            .take(32)
+            .collect();
         let evidence = json!({
+            "provider_failure_records": provider_records,
             "session_start": session.start,
             "session_end": session.end,
             "cue_receipts": session.cues,
@@ -1173,5 +1416,97 @@ mod cue_tests {
         let mut old = cue(3, "speaker_first_write", 1);
         old.playback_sequence = None;
         assert!(order.accept(&old, 32).is_err());
+    }
+}
+
+#[cfg(test)]
+mod relay_reader_tests {
+    use super::*;
+
+    fn read_all(bytes: Vec<u8>) -> Vec<std::result::Result<SessionLine, String>> {
+        relay_reader(std::io::Cursor::new(bytes)).iter().collect()
+    }
+
+    #[test]
+    fn oversized_non_utf8_and_cut_off_lines_are_protocol_errors() {
+        let pong = br#"{"type":"pong","seq":1,"lamp_us":5}"#;
+        let mut bytes = pong.to_vec();
+        bytes.push(b'\n');
+        bytes.extend(vec![b'x'; MAX_LINE_BYTES + 1]);
+        bytes.push(b'\n');
+        bytes.extend(b"\xff\n");
+        bytes.extend(pong);
+        bytes.push(b'\n');
+        bytes.extend(br#"{"type":"pong","#);
+        let items = read_all(bytes);
+        assert_eq!(items.len(), 5, "{items:?}");
+        assert_eq!(items[0], Ok(SessionLine::Pong { seq: 1, lamp_us: 5 }));
+        assert!(
+            items[1]
+                .as_ref()
+                .unwrap_err()
+                .contains("exceeds the 65536-byte limit")
+        );
+        assert!(items[2].as_ref().unwrap_err().contains("not valid UTF-8"));
+        assert!(items[3].is_ok());
+        assert!(
+            items[4]
+                .as_ref()
+                .unwrap_err()
+                .contains("closed inside a line")
+        );
+    }
+
+    /// Endless lines of `width` bytes, generated without storing them.
+    struct Lines {
+        width: usize,
+        position: usize,
+    }
+    impl std::io::Read for Lines {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            for byte in buffer.iter_mut() {
+                *byte = if self.position % (self.width + 1) == self.width {
+                    b'\n'
+                } else {
+                    b'y'
+                };
+                self.position += 1;
+            }
+            Ok(buffer.len())
+        }
+    }
+
+    /// An endless stream with no newline at all.
+    struct NoNewline;
+    impl std::io::Read for NoNewline {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            buffer.fill(b'z');
+            Ok(buffer.len())
+        }
+    }
+
+    #[test]
+    fn a_never_terminated_line_still_ends_at_the_session_byte_bound() {
+        let lines = relay_reader(NoNewline);
+        let item = lines
+            .recv_timeout(Duration::from_secs(60))
+            .expect("the reader kept consuming an unterminated line without limit");
+        let error = item.unwrap_err();
+        assert!(error.contains("reading stopped"), "{error}");
+        assert!(lines.recv_timeout(Duration::from_secs(5)).is_err());
+    }
+
+    #[test]
+    fn reading_stops_with_an_error_above_the_session_byte_bound() {
+        // Rejected oversized lines still count, so an endless stream ends.
+        let width = MAX_LINE_BYTES * 4;
+        let items: Vec<_> = relay_reader(Lines { width, position: 0 }).iter().collect();
+        let last = items.last().unwrap().as_ref().unwrap_err();
+        assert!(last.contains("reading stopped"), "{last}");
+        // Every complete line before the bound, then the stop.
+        assert_eq!(
+            items.len() as u64,
+            MAX_SESSION_BYTES / (width as u64 + 1) + 1
+        );
     }
 }

@@ -178,6 +178,20 @@ pub enum ImageRefusal {
     TooOld,
     /// The request already carries [`MAX_IMAGES_PER_REQUEST`].
     LimitReached,
+    /// Offered under a camera grant that has since been revoked.
+    Revoked,
+}
+
+/// What a revocation found. See `InputSender::revoke_images`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ImageRevocation {
+    /// No image of a revoked grant was waiting or being written.
+    Nothing,
+    /// One was waiting and has been dropped unsent.
+    DroppedUnsent,
+    /// One was being written. The write is abandoned and with it the
+    /// connection, because part of the image may already be on the wire.
+    AbandonedInFlight,
 }
 
 /// An accepted image waits in one slot until the connection can take it.
@@ -211,6 +225,9 @@ pub struct ImageLedger {
     /// Accepted, then dropped unsent: its request ended, was cancelled or
     /// superseded, or the image grew too old while waiting.
     pub dropped: u64,
+    /// Accepted, then withdrawn because its camera grant was revoked, before
+    /// or during its write.
+    pub revoked: u64,
     pub last_sent: Option<ImageReceipt>,
 }
 
@@ -277,6 +294,8 @@ pub enum Error {
     StaleRequest,
     OverlappingInput,
     UnexpectedResponse,
+    /// Input that was being sent was withdrawn locally and its connection
+    /// abandoned: an image whose camera grant was revoked mid-write.
     InputCancelled,
     /// Input was offered while no provider connection was established.
     NotConnected,
@@ -301,7 +320,10 @@ impl Error {
             // it still held, the request in flight is reported lost once,
             // and a new connection serves the next request. The connection
             // itself was healthy; reconnecting is how its stuck work is shed.
-            | Self::Backpressure => Recovery::Reconnect,
+            | Self::Backpressure
+            // Input already partly on the wire was withdrawn locally, which
+            // can only be done by abandoning the connection that carries it.
+            | Self::InputCancelled => Recovery::Reconnect,
             // Application close codes observed on the deployment relay for a
             // missing key, an unconfigured route and an exhausted usage limit.
             Self::PeerClosed {
@@ -321,7 +343,6 @@ impl Error {
             | Self::StaleRequest
             | Self::OverlappingInput
             | Self::UnexpectedResponse
-            | Self::InputCancelled
             | Self::NotConnected
             | Self::Closed => Recovery::Fatal,
         }

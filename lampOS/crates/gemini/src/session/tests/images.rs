@@ -1,7 +1,8 @@
 //! Visual context: one bounded image slot beside the audio queue.
 use super::*;
 use crate::{
-    ImageOffer, ImageRefusal, MAX_IMAGE_AGE, MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, testing::jpeg,
+    ImageOffer, ImageRefusal, ImageRevocation, MAX_IMAGE_AGE, MAX_IMAGE_BYTES,
+    MAX_IMAGES_PER_REQUEST, testing::jpeg,
 };
 
 /// A request that is speaking: started, with one block already sent.
@@ -48,7 +49,7 @@ async fn image_is_sent_once_inside_its_request_after_audio_already_queued() {
         .try_audio(request, 1, Instant::now(), &[101; 160])
         .unwrap();
     assert_eq!(
-        input.try_image(request, 41, Instant::now(), &image),
+        input.try_image(request, 41, 1, Instant::now(), &image),
         Ok(ImageOffer::Queued)
     );
     input
@@ -86,7 +87,7 @@ async fn a_refused_image_changes_nothing_else() {
     let image = jpeg(2_000, 3);
     let now = Instant::now;
     assert_eq!(
-        input.try_image(request(1), 0, now(), &image),
+        input.try_image(request(1), 0, 1, now(), &image),
         Err(ImageRefusal::NotCurrent),
         "nobody is speaking"
     );
@@ -97,31 +98,31 @@ async fn a_refused_image_changes_nothing_else() {
         // Cut off before its end marker.
         (image[..image.len() - 2].to_vec(), ImageRefusal::NotJpeg),
     ] {
-        assert_eq!(input.try_image(speaker, 0, now(), &wrong), Err(reason));
+        assert_eq!(input.try_image(speaker, 0, 1, now(), &wrong), Err(reason));
     }
     assert_eq!(
-        input.try_image(speaker, 0, now() - MAX_IMAGE_AGE, &image),
+        input.try_image(speaker, 0, 1, now() - MAX_IMAGE_AGE, &image),
         Err(ImageRefusal::TooOld)
     );
     assert_eq!(
-        input.try_image(speaker, 0, now() + Duration::from_secs(1), &image),
+        input.try_image(speaker, 0, 1, now() + Duration::from_secs(1), &image),
         Err(ImageRefusal::TooOld),
         "a capture time in the future is not fresh"
     );
     assert_eq!(
-        input.try_image(request(2), 0, now(), &image),
+        input.try_image(request(2), 0, 1, now(), &image),
         Err(ImageRefusal::NotCurrent)
     );
     // Up to the limit, then no more for this request.
     for frame in 0..u64::from(MAX_IMAGES_PER_REQUEST) {
         assert_eq!(
-            input.try_image(speaker, frame, now(), &image),
+            input.try_image(speaker, frame, 1, now(), &image),
             Ok(ImageOffer::Queued)
         );
         assert_eq!(picture(&receive(&mut server).await), image);
     }
     assert_eq!(
-        input.try_image(speaker, 9, now(), &image),
+        input.try_image(speaker, 9, 1, now(), &image),
         Err(ImageRefusal::LimitReached)
     );
     // None of that disturbed the request's audio or the connection.
@@ -130,7 +131,7 @@ async fn a_refused_image_changes_nothing_else() {
     input.try_end(speaker).unwrap();
     sent(&mut server, "activityEnd").await;
     assert_eq!(
-        input.try_image(speaker, 9, now(), &image),
+        input.try_image(speaker, 9, 1, now(), &image),
         Err(ImageRefusal::NotCurrent),
         "its input has ended"
     );
@@ -140,7 +141,7 @@ async fn a_refused_image_changes_nothing_else() {
     assert_eq!((ledger.accepted, ledger.sent), (2, 2));
     input.shutdown();
     assert_eq!(
-        input.try_image(speaker, 9, now(), &image),
+        input.try_image(speaker, 9, 1, now(), &image),
         Err(ImageRefusal::NotConnected)
     );
 }
@@ -153,22 +154,22 @@ async fn a_newer_image_replaces_one_not_yet_sent_and_counts_once() {
     let (older, newer, last) = (jpeg(3_000, 1), jpeg(3_000, 2), jpeg(3_000, 3));
     // Both offers land before the connection has had a turn to send.
     assert_eq!(
-        input.try_image(request, 1, Instant::now(), &older),
+        input.try_image(request, 1, 1, Instant::now(), &older),
         Ok(ImageOffer::Queued)
     );
     assert_eq!(
-        input.try_image(request, 2, Instant::now(), &newer),
+        input.try_image(request, 2, 1, Instant::now(), &newer),
         Ok(ImageOffer::ReplacedUnsent)
     );
     assert_eq!(picture(&receive(&mut server).await), newer);
     // The replaced one did not use up the request's allowance.
     assert_eq!(
-        input.try_image(request, 3, Instant::now(), &last),
+        input.try_image(request, 3, 1, Instant::now(), &last),
         Ok(ImageOffer::Queued)
     );
     assert_eq!(picture(&receive(&mut server).await), last);
     assert_eq!(
-        input.try_image(request, 4, Instant::now(), &last),
+        input.try_image(request, 4, 1, Instant::now(), &last),
         Err(ImageRefusal::LimitReached)
     );
     silent(&mut server).await;
@@ -193,7 +194,7 @@ async fn an_image_whose_request_ended_or_was_cancelled_first_is_dropped_unsent()
     let input = connection.input();
     let image = jpeg(3_000, 5);
     assert_eq!(
-        input.try_image(request, 1, Instant::now(), &image),
+        input.try_image(request, 1, 1, Instant::now(), &image),
         Ok(ImageOffer::Queued)
     );
     input.try_end(request).unwrap();
@@ -207,7 +208,7 @@ async fn an_image_whose_request_ended_or_was_cancelled_first_is_dropped_unsent()
     let request = speaking(&mut connection, &mut server, 1).await;
     let input = connection.input();
     assert_eq!(
-        input.try_image(request, 1, Instant::now(), &image),
+        input.try_image(request, 1, 1, Instant::now(), &image),
         Ok(ImageOffer::Queued)
     );
     input.retire(request);
@@ -241,7 +242,7 @@ async fn audio_offered_during_a_slow_image_write_is_held_and_sent_in_order() {
     let input = connection.input();
     let image = jpeg(MAX_IMAGE_BYTES, 7);
     assert_eq!(
-        input.try_image(request, 1, Instant::now(), &image),
+        input.try_image(request, 1, 1, Instant::now(), &image),
         Ok(ImageOffer::Queued)
     );
     // The image is far larger than the peer has room for, so its write is
@@ -279,7 +280,7 @@ async fn an_image_the_link_cannot_take_fails_the_connection_within_its_write_bou
     let input = connection.input();
     let offered = Clock::now();
     assert_eq!(
-        input.try_image(request, 1, Instant::now(), &jpeg(MAX_IMAGE_BYTES, 7)),
+        input.try_image(request, 1, 1, Instant::now(), &jpeg(MAX_IMAGE_BYTES, 7)),
         Ok(ImageOffer::Queued)
     );
     // The peer never reads.
@@ -292,4 +293,126 @@ async fn an_image_the_link_cannot_take_fails_the_connection_within_its_write_bou
     // A write timeout is a link failure a supervisor reconnects from.
     assert_eq!(Error::WriteTimeout.recovery(), crate::Recovery::Reconnect);
     drop(server);
+}
+
+/// A 64 KiB image stuck in its write behind a peer with 4 KiB of room, and
+/// one audio block and the request's End held locally behind it.
+async fn blocked_image_with_audio_held_behind_it() -> (Connection, MockSocket, InputSender) {
+    let (mut connection, mut server) = narrow(4_096).await;
+    let request = speaking(&mut connection, &mut server, 1).await;
+    let input = connection.input();
+    input
+        .try_image(request, 91, 1, Instant::now(), &jpeg(MAX_IMAGE_BYTES, 7))
+        .unwrap();
+    timeout(Duration::from_secs(1), async {
+        while input.shared.images().in_flight.is_none() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the image entered its blocked write");
+    input
+        .try_audio(request, 1, Instant::now(), &[1234; 160])
+        .unwrap();
+    input.try_end(request).unwrap();
+    timeout(Duration::from_secs(1), async {
+        while input.commands.capacity() != crate::INPUT_QUEUE_CAPACITY {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("audio and End are held locally while the image cannot finish");
+    assert_eq!(input.image_ledger().sent, 0);
+    (connection, server, input)
+}
+
+/// Everything the peer still receives, by kind, until the connection closes.
+async fn received_until_closed(server: &mut MockSocket) -> Vec<&'static str> {
+    let mut kinds = Vec::new();
+    loop {
+        match timeout(Duration::from_secs(1), server.next()).await {
+            Ok(Some(Ok(Message::Text(text)))) => {
+                let message: Value = serde_json::from_str(&text).unwrap();
+                for kind in ["audio", "activityEnd", "video"] {
+                    if message["realtimeInput"].get(kind).is_some() {
+                        kinds.push(kind);
+                    }
+                }
+            }
+            Ok(Some(Ok(_))) => {}
+            Ok(None | Some(Err(_))) => return kinds,
+            Err(_) => panic!("the connection was not closed"),
+        }
+    }
+}
+
+// Found in review by the integrator, whose regression this is.
+#[tokio::test]
+async fn shutdown_during_a_blocked_image_write_sends_nothing_that_was_held_behind_it() {
+    let (connection, mut server, input) = blocked_image_with_audio_held_behind_it().await;
+    input.shutdown();
+    assert_eq!(connection.state(), State::Closed);
+    // Part of the image may already be on the wire. The peer now reads; no
+    // microphone audio and no request for a response may follow a shutdown,
+    // and the image itself is never completed.
+    let after = received_until_closed(&mut server).await;
+    assert!(after.is_empty(), "sent after shutdown: {after:?}");
+    assert_eq!(input.image_ledger().sent, 0);
+}
+
+#[tokio::test]
+async fn a_revoked_camera_grant_withdraws_a_waiting_image_and_leaves_the_request_alone() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let request = speaking(&mut connection, &mut server, 1).await;
+    let input = connection.input();
+    let image = jpeg(3_000, 5);
+    assert_eq!(input.revoke_images(0), ImageRevocation::Nothing);
+    // Offered under grant 7 and revoked before the connection has had a turn.
+    assert_eq!(
+        input.try_image(request, 1, 7, Instant::now(), &image),
+        Ok(ImageOffer::Queued)
+    );
+    assert_eq!(input.revoke_images(7), ImageRevocation::DroppedUnsent);
+    // Nothing more under that grant or an older one, however fresh the frame.
+    for grant in [7, 3] {
+        assert_eq!(
+            input.try_image(request, 2, grant, Instant::now(), &image),
+            Err(ImageRefusal::Revoked)
+        );
+    }
+    // The person's audio never noticed.
+    input
+        .try_audio(request, 1, Instant::now(), &[101; 160])
+        .unwrap();
+    assert_eq!(label(&receive(&mut server).await), 101);
+    silent(&mut server).await;
+    // A new permission is a new grant, and its frames are accepted again.
+    assert_eq!(
+        input.try_image(request, 3, 8, Instant::now(), &image),
+        Ok(ImageOffer::Queued)
+    );
+    assert_eq!(picture(&receive(&mut server).await), image);
+    input.try_end(request).unwrap();
+    sent(&mut server, "activityEnd").await;
+    let ledger = input.image_ledger();
+    assert_eq!((ledger.sent, ledger.revoked, ledger.dropped), (1, 1, 0));
+    assert_eq!(ledger.last_sent.unwrap().frame, 3);
+    assert_eq!(connection.state(), State::Ready);
+}
+
+#[tokio::test]
+async fn revoking_the_grant_of_an_image_being_written_abandons_its_connection() {
+    let (connection, mut server, input) = blocked_image_with_audio_held_behind_it().await;
+    // A grant the image was not offered under changes nothing.
+    assert_eq!(input.revoke_images(0), ImageRevocation::Nothing);
+    assert_eq!(connection.state(), State::Ready);
+    assert_eq!(input.revoke_images(1), ImageRevocation::AbandonedInFlight);
+    assert_eq!(disconnected(&connection).await, Error::InputCancelled);
+    // The image is never completed and nothing held behind it is sent.
+    let after = received_until_closed(&mut server).await;
+    assert!(after.is_empty(), "sent after revocation: {after:?}");
+    let ledger = input.image_ledger();
+    assert_eq!((ledger.sent, ledger.revoked), (0, 1));
+    // The connection is replaced like any lost one; the request is lost once.
+    assert_eq!(Error::InputCancelled.recovery(), crate::Recovery::Reconnect);
 }

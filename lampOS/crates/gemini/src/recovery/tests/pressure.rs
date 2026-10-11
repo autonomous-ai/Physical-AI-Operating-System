@@ -126,13 +126,13 @@ async fn image_is_refused_during_an_outage_and_never_carried_to_the_replacement(
     let picture = jpeg(4_000, 9);
     let now = std::time::Instant::now;
     assert_eq!(
-        rig.0.try_image(request(1), 5, now(), &picture),
+        rig.0.try_image(request(1), 5, 1, now(), &picture),
         Err(ImageRefusal::NotCurrent),
         "nothing is speaking yet"
     );
     speak(&mut rig, &mut first, 1, false).await;
     assert_eq!(
-        rig.0.try_image(request(1), 5, now(), &picture),
+        rig.0.try_image(request(1), 5, 1, now(), &picture),
         Ok(ImageOffer::Queued)
     );
     assert!(
@@ -147,13 +147,13 @@ async fn image_is_refused_during_an_outage_and_never_carried_to_the_replacement(
     first.service.close(1011, "outage").await;
     failed_source(&mut rig.0).await;
     assert_eq!(
-        rig.0.try_image(request(1), 6, now(), &picture),
+        rig.0.try_image(request(1), 6, 1, now(), &picture),
         Err(ImageRefusal::NotConnected)
     );
     let (_, mut second) = replacement_without_output(&mut rig).await;
     // The request it belonged to did not move to the new connection.
     assert_eq!(
-        rig.0.try_image(request(1), 6, now(), &picture),
+        rig.0.try_image(request(1), 6, 1, now(), &picture),
         Err(ImageRefusal::NotCurrent)
     );
     assert_eq!(rig.0.image_ledger().unwrap().accepted, 0);
@@ -167,7 +167,7 @@ async fn image_is_refused_during_an_outage_and_never_carried_to_the_replacement(
     );
     rig.0.try_start(request(2)).unwrap();
     assert_eq!(
-        rig.0.try_image(request(2), 7, now(), &picture),
+        rig.0.try_image(request(2), 7, 1, now(), &picture),
         Ok(ImageOffer::Queued)
     );
     assert!(
@@ -612,5 +612,47 @@ async fn input_that_overruns_its_queue_loses_that_request_and_recovers_the_link(
             .is_none()
     );
     rig.0.try_start(request(2)).unwrap();
+    rig.0.shutdown();
+}
+
+#[tokio::test]
+async fn a_revoked_camera_grant_is_remembered_across_a_reconnect_and_an_outage() {
+    use crate::{ImageOffer, ImageRefusal, ImageRevocation, testing::jpeg};
+    let (mut rig, mut first) = connected(quick(), config()).await;
+    let picture = jpeg(4_000, 9);
+    let now = std::time::Instant::now;
+    speak(&mut rig, &mut first, 1, false).await;
+    assert_eq!(rig.0.revoke_images(4), ImageRevocation::Nothing);
+    assert_eq!(
+        rig.0.try_image(request(1), 1, 4, now(), &picture),
+        Err(ImageRefusal::Revoked)
+    );
+    first.service.close(1011, "outage").await;
+    failed_source(&mut rig.0).await;
+    // Revoked while no connection exists at all.
+    assert_eq!(rig.0.revoke_images(6), ImageRevocation::Nothing);
+    let (_, mut second) = replacement_without_output(&mut rig).await;
+    rig.0.try_start(request(2)).unwrap();
+    assert!(
+        second.service.receive().await["realtimeInput"]
+            .get("activityStart")
+            .is_some()
+    );
+    // The replacement refuses the same grants and takes a newer one.
+    for grant in [4, 6] {
+        assert_eq!(
+            rig.0.try_image(request(2), 2, grant, now(), &picture),
+            Err(ImageRefusal::Revoked)
+        );
+    }
+    assert_eq!(
+        rig.0.try_image(request(2), 3, 7, now(), &picture),
+        Ok(ImageOffer::Queued)
+    );
+    assert!(
+        second.service.receive().await["realtimeInput"]
+            .get("video")
+            .is_some()
+    );
     rig.0.shutdown();
 }

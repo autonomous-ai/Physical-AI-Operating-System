@@ -8,9 +8,9 @@
 //! survives only through a server-issued resumption handle; a reconnect
 //! without one is reported as fresh, never presented as continuity.
 use crate::{
-    Connection, Error, Event, ImageLedger, ImageOffer, ImageRefusal, InputSender, Lineage,
-    Recovery, RequestId, Result, ResumptionHandle, ResumptionPoint, SessionConfig, SessionId,
-    State,
+    Connection, Error, Event, ImageLedger, ImageOffer, ImageRefusal, ImageRevocation, InputSender,
+    Lineage, Recovery, RequestId, Result, ResumptionHandle, ResumptionPoint, SessionConfig,
+    SessionId, State,
 };
 use futures_util::FutureExt;
 use std::{
@@ -249,7 +249,7 @@ pub enum StartRefusal {
     NotConnected,
     /// A connection is ready, and it is not the one this request was chosen
     /// for: that one has been replaced since. `live` is the one ready now.
-    WrongSession { live: SessionId },
+    SessionMismatch { live: SessionId },
     /// The right connection refused it, for the reason [`Supervisor::try_start`]
     /// would give.
     Refused(Error),
@@ -525,6 +525,8 @@ pub struct Supervisor<C> {
     /// prevents an old request from being submitted to a replacement session.
     submitted: Cell<Option<Lineage>>,
     retired_through: Cell<u64>,
+    /// Camera grants revoked so far; applied to every new connection.
+    revoked_images: Cell<Option<u64>>,
     resume: Option<ResumptionPoint>,
     recoveries: VecDeque<Instant>,
     /// Exactly one unconsumed control update and one ordered drain outcome.
@@ -558,6 +560,7 @@ impl<C: Connect> Supervisor<C> {
             tracked: Cell::new(None),
             submitted: Cell::new(None),
             retired_through: Cell::new(0),
+            revoked_images: Cell::new(None),
             resume: None,
             recoveries: VecDeque::new(),
             pending_link: None,
@@ -589,19 +592,19 @@ impl<C: Connect> Supervisor<C> {
         let (input, session) = self.input()?;
         self.start(input, session, request)
     }
-    /// Start `request` on `session` and on no other connection. A caller that
+    /// Start `request` on `expected` and on no other connection. A caller that
     /// decided to start while one connection was ready may act on that
     /// decision later, after a recovery. An unchecked start would then reach
     /// the replacement, which the caller never chose and whose context it has
     /// not seen reported. This refuses instead, before anything is queued.
-    pub fn try_start_on(
+    pub fn try_start_for_session(
         &self,
-        session: SessionId,
+        expected: SessionId,
         request: RequestId,
     ) -> std::result::Result<(), StartRefusal> {
         let (input, live) = self.input().map_err(|_| StartRefusal::NotConnected)?;
-        if live != session {
-            return Err(StartRefusal::WrongSession { live });
+        if live != expected {
+            return Err(StartRefusal::SessionMismatch { live });
         }
         self.start(input, live, request)
             .map_err(StartRefusal::Refused)
@@ -678,14 +681,36 @@ impl<C: Connect> Supervisor<C> {
         &self,
         request: RequestId,
         frame: u64,
+        grant: u64,
         captured_at: std::time::Instant,
         jpeg: &[u8],
     ) -> std::result::Result<ImageOffer, ImageRefusal> {
+        if self
+            .revoked_images
+            .get()
+            .is_some_and(|revoked| grant <= revoked)
+        {
+            return Err(ImageRefusal::Revoked);
+        }
         let (input, session) = self.input().map_err(|_| ImageRefusal::NotConnected)?;
         if self.submitted.get() != Some(Lineage { session, request }) {
             return Err(ImageRefusal::NotCurrent);
         }
-        input.try_image(request, frame, captured_at, jpeg)
+        input.try_image(request, frame, grant, captured_at, jpeg)
+    }
+    /// See [`InputSender::revoke_images`]. Remembered across a reconnect, so
+    /// a replacement connection refuses the same grants, and effective
+    /// whether or not a connection exists.
+    pub fn revoke_images(&self, through: u64) -> ImageRevocation {
+        self.revoked_images.set(Some(
+            self.revoked_images
+                .get()
+                .map_or(through, |old| old.max(through)),
+        ));
+        match &self.link {
+            Link::Connected(live) => live.input.revoke_images(through),
+            _ => ImageRevocation::Nothing,
+        }
     }
     /// What became of the images offered on the live connection, if any.
     pub fn image_ledger(&self) -> Option<ImageLedger> {
@@ -1016,6 +1041,9 @@ impl<C: Connect> Supervisor<C> {
         let input = connection.input();
         if let Ok(retired) = RequestId::new(self.retired_through.get()) {
             input.retire(retired);
+        }
+        if let Some(revoked) = self.revoked_images.get() {
+            input.revoke_images(revoked);
         }
         if outage.is_some() {
             self.recoveries.push_back(completed_at);

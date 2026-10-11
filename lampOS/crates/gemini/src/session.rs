@@ -1,9 +1,9 @@
 use crate::{
     BarrierPolicy, Discard, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger,
-    ImageOffer, ImageReceipt, ImageRefusal, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES,
-    MAX_IMAGES_PER_REQUEST, MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE,
-    RequestId, Result, Resumption, ResumptionHandle, SessionConfig, SessionId, State, Timeouts,
-    wire,
+    ImageOffer, ImageReceipt, ImageRefusal, ImageRevocation, Lineage, MAX_IMAGE_AGE,
+    MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES,
+    OUTPUT_RATE, RequestId, Result, Resumption, ResumptionHandle, SessionConfig, SessionId, State,
+    Timeouts, wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -46,6 +46,8 @@ struct Shared {
     /// Highest request whose End has been queued.
     ended_through: AtomicU64,
     images: Mutex<Images>,
+    /// Wakes an image write that must be abandoned.
+    image_abort: Notify,
 }
 
 /// How long one image write may take. Commands that arrive meanwhile are
@@ -58,6 +60,7 @@ const HELD_COMMANDS: usize = 64;
 struct PendingImage {
     request: RequestId,
     frame: u64,
+    grant: u64,
     captured_at: Instant,
     offered_at: Clock,
     jpeg: Vec<u8>,
@@ -69,6 +72,17 @@ struct Images {
     /// The request being counted and how many of its images were accepted.
     counted: (u64, u8),
     ledger: ImageLedger,
+    /// Every camera grant up to this one has been revoked.
+    revoked_grant: Option<u64>,
+    /// The grant of the image being written now.
+    in_flight: Option<u64>,
+    /// That write must stop.
+    abandon: bool,
+}
+impl Images {
+    fn revoked(&self, grant: u64) -> bool {
+        self.revoked_grant.is_some_and(|revoked| grant <= revoked)
+    }
 }
 
 /// Complete by its markers: start of image and end of image. Nothing in
@@ -191,10 +205,15 @@ impl InputSender {
     /// it waits in one slot, is sent after audio already queued, inside the
     /// request's own activity, and is dropped unsent if the request ends or
     /// is cancelled first. A refusal changes nothing else.
+    ///
+    /// `grant` is the caller's number for the camera permission the frame
+    /// was captured under, increasing with every new permission. It is what
+    /// [`Self::revoke_images`] withdraws.
     pub fn try_image(
         &self,
         request: RequestId,
         frame: u64,
+        grant: u64,
         captured_at: Instant,
         jpeg: &[u8],
     ) -> std::result::Result<ImageOffer, ImageRefusal> {
@@ -221,6 +240,11 @@ impl InputSender {
             return Err(ImageRefusal::NotCurrent);
         }
         let mut images = self.shared.images();
+        // Checked under the same lock a revocation takes, so an offer and a
+        // revocation cannot pass each other.
+        if images.revoked(grant) {
+            return Err(ImageRefusal::Revoked);
+        }
         if images.counted.0 != id {
             images.counted = (id, 0);
         }
@@ -244,6 +268,7 @@ impl InputSender {
         images.pending = Some(PendingImage {
             request,
             frame,
+            grant,
             captured_at,
             offered_at: Clock::now(),
             jpeg: jpeg.to_vec(),
@@ -255,6 +280,37 @@ impl InputSender {
         } else {
             ImageOffer::Queued
         })
+    }
+    /// Withdraw every image offered under camera grant `through` or an
+    /// earlier one, and refuse any more of them. Synchronous, and independent
+    /// of the request: the person's audio is untouched unless an image was
+    /// already being written. That write cannot be undone, so it is abandoned
+    /// together with its connection, which ends as [`Error::InputCancelled`]
+    /// and is replaced like any lost connection. Nothing held behind the
+    /// image is sent.
+    pub fn revoke_images(&self, through: u64) -> ImageRevocation {
+        let mut images = self.shared.images();
+        images.revoked_grant = Some(images.revoked_grant.map_or(through, |old| old.max(through)));
+        let mut found = ImageRevocation::Nothing;
+        if images
+            .pending
+            .as_ref()
+            .is_some_and(|pending| pending.grant <= through)
+        {
+            images.pending = None;
+            images.ledger.revoked += 1;
+            found = ImageRevocation::DroppedUnsent;
+        }
+        if images.in_flight.is_some_and(|grant| grant <= through) {
+            images.abandon = true;
+            found = ImageRevocation::AbandonedInFlight;
+        }
+        drop(images);
+        if found == ImageRevocation::AbandonedInFlight {
+            self.shared.image_abort.notify_one();
+        }
+        self.shared.wake.notify_one();
+        found
     }
     /// What became of the images offered on this connection.
     pub fn image_ledger(&self) -> ImageLedger {
@@ -479,6 +535,7 @@ where
         resumption_invalidated: AtomicBool::new(false),
         ended_through: AtomicU64::new(0),
         images: Mutex::new(Images::default()),
+        image_abort: Notify::new(),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -777,26 +834,42 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     /// request now speaking. Audio already queued goes first. While the image
     /// is being written, commands that arrive are held and sent afterwards in
     /// order, so a slow write cannot overflow the command queue.
+    ///
+    /// Two things stop the write at once and send nothing that was held
+    /// behind it: a shutdown, and a revocation of the image's camera grant.
+    /// Part of the image may be on the wire by then, so the connection is
+    /// abandoned either way and never used again.
     async fn send_image(&mut self) -> Result<()> {
         if self.shared.images().pending.is_none() || !self.commands.is_empty() {
             return Ok(());
         }
-        let Some(image) = self.shared.images().pending.take() else {
-            return Ok(());
-        };
         let retired_through = self.retired_through();
-        let current = self.activity_open
-            && image.request.get() > retired_through
-            && self.current.as_ref().is_some_and(|turn| {
-                turn.lineage.request == image.request && turn.input.open && !turn.retired
-            });
-        let fresh = Instant::now()
-            .checked_duration_since(image.captured_at)
-            .is_some_and(|age| age < MAX_IMAGE_AGE);
-        if !current || !fresh {
-            self.shared.images().ledger.dropped += 1;
-            return Ok(());
-        }
+        let image = {
+            let mut images = self.shared.images();
+            let Some(image) = images.pending.take() else {
+                return Ok(());
+            };
+            let current = self.activity_open
+                && image.request.get() > retired_through
+                && self.current.as_ref().is_some_and(|turn| {
+                    turn.lineage.request == image.request && turn.input.open && !turn.retired
+                });
+            let fresh = Instant::now()
+                .checked_duration_since(image.captured_at)
+                .is_some_and(|age| age < MAX_IMAGE_AGE);
+            if images.revoked(image.grant) {
+                images.ledger.revoked += 1;
+                return Ok(());
+            }
+            if !current || !fresh {
+                images.ledger.dropped += 1;
+                return Ok(());
+            }
+            // From here a revocation finds it in flight, under this lock.
+            images.in_flight = Some(image.grant);
+            images.abandon = false;
+            image
+        };
         let message = Message::text(wire::encode_image(&image.jpeg)?);
         let started = Clock::now();
         let mut held = VecDeque::new();
@@ -807,6 +880,16 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             loop {
                 tokio::select! {
                     biased;
+                    _ = self.stop.changed() => {
+                        if let Some(stop) = *self.stop.borrow() {
+                            break Err(stop.error);
+                        }
+                    }
+                    _ = self.shared.image_abort.notified() => {
+                        if self.shared.images().abandon {
+                            break Err(Error::InputCancelled);
+                        }
+                    }
                     result = &mut write => break result,
                     command = self.commands.recv(), if open && held.len() < HELD_COMMANDS => {
                         match command {
@@ -817,20 +900,34 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 }
             }
         };
-        written?;
         let now = Clock::now();
         {
             let mut images = self.shared.images();
-            images.ledger.sent += 1;
-            images.ledger.last_sent = Some(ImageReceipt {
-                request: image.request,
-                frame: image.frame,
-                bytes: image.jpeg.len() as u32,
-                waited: now.duration_since(image.offered_at),
-                written_in: now.duration_since(started),
-            });
+            images.in_flight = None;
+            match written {
+                Ok(()) => {
+                    images.ledger.sent += 1;
+                    images.ledger.last_sent = Some(ImageReceipt {
+                        request: image.request,
+                        frame: image.frame,
+                        bytes: image.jpeg.len() as u32,
+                        waited: now.duration_since(image.offered_at),
+                        written_in: now.duration_since(started),
+                    });
+                }
+                Err(Error::InputCancelled) => images.ledger.revoked += 1,
+                Err(_) => {}
+            }
         }
+        // An abandoned write ends the connection here. What was held behind
+        // it is dropped with `held`, unsent.
+        written?;
         for command in held {
+            // A shutdown or failure recorded while the image was written, or
+            // while an earlier held command was: nothing further is sent.
+            if let Some(stop) = *self.stop.borrow() {
+                return Err(stop.error);
+            }
             self.command(command).await?;
         }
         Ok(())

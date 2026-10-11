@@ -343,7 +343,7 @@ async fn image_probe(
         if sequence == 20 {
             offer = Some(format!(
                 "{:?}",
-                input.try_image(request, 1, Instant::now(), picture)
+                input.try_image(request, 1, 1, Instant::now(), picture)
             ));
         }
         tokio::time::sleep(Duration::from_millis(10)).await;

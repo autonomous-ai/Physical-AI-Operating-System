@@ -823,12 +823,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 return Err(Error::ServerGoAway);
             }
             if self.ping_at.elapsed() >= self.timeouts.keepalive {
-                send(
-                    &mut self.socket,
-                    Message::Ping(Vec::new().into()),
-                    self.timeouts.write,
-                )
-                .await?;
+                self.write(Message::Ping(Vec::new().into()), self.timeouts.write)
+                    .await?;
                 self.ping_at = Clock::now();
             }
             // Output is buffered up to a fixed amount of audio so the answer is
@@ -845,14 +841,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 // free when the next iteration flushes the outbox into it.
                 ready = capacity(&self.events), if waiting => ready?,
                 command = self.commands.recv() => match command {
-                    // A stop recorded while this command waited wins: nothing
-                    // queued behind a stop is written. The next turn of the
-                    // loop ends the session with that stop.
+                    // Discard this command if a stop is already recorded.
+                    // The next turn of the loop ends the session with that
+                    // stop. A write already in progress is ended by `write`.
                     Some(_) if self.stop.borrow().is_some() => {}
                     Some(command) => self.command(command).await?,
                     None => return Ok(()),
                 },
                 incoming = self.socket.next(), if !gated => {
+                    // Likewise a message read after a stop is not acted on:
+                    // it could release a held End or answer a ping.
+                    if self.stop.borrow().is_some() {
+                        continue;
+                    }
                     let incoming = incoming
                         .ok_or(Error::PeerClosed { code: None })?
                         .map_err(transport_error)?;
@@ -1032,26 +1033,64 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         Ok(())
     }
+    /// Every write the session makes after setup, other than an image, goes
+    /// through here, which makes a stop a fence on the wire:
+    ///
+    /// - No write begins once a stop is recorded, whatever led to it: a
+    ///   queued command, a held End released by an incoming completion, a
+    ///   keepalive, the answer to a ping.
+    /// - A write waiting on the transport is abandoned when a stop is
+    ///   recorded. The stop is looked at before the transport on every
+    ///   poll, so the transport is not offered another byte after it.
+    ///
+    /// What the transport had already accepted stays accepted and cannot
+    /// be recalled. That can be a whole frame: a write may be waiting on the
+    /// transport's flush with every byte of its message already taken. What
+    /// had not been accepted is dropped with the connection, which is not
+    /// used again. A stop recorded by another thread while this task is
+    /// inside a poll is seen at the next poll; that one poll may still hand
+    /// the transport the rest of that one message, and nothing after it.
+    ///
+    /// An image is written by `send_image`, which ends on a stop in the
+    /// same way and has its own accounting.
+    async fn write(&mut self, message: Message, deadline: Duration) -> Result<()> {
+        if let Some(stop) = *self.stop.borrow() {
+            return Err(stop.error);
+        }
+        let write = send(&mut self.socket, message, deadline);
+        tokio::pin!(write);
+        loop {
+            tokio::select! {
+                biased;
+                changed = self.stop.changed() => {
+                    if let Some(stop) = *self.stop.borrow() {
+                        return Err(stop.error);
+                    }
+                    if changed.is_err() {
+                        // Defensive only. The stop channel closing is not
+                        // something dropping every input handle can cause:
+                        // this session holds the sending side itself,
+                        // through `Shared`. Without this arm a closed
+                        // channel would make this loop spin.
+                        return Err(Error::Closed);
+                    }
+                }
+                result = &mut write => return result,
+            }
+        }
+    }
     async fn start_activity(&mut self) -> Result<()> {
         if !self.activity_open {
-            send(
-                &mut self.socket,
-                Message::text(wire::ACTIVITY_START),
-                self.timeouts.write,
-            )
-            .await?;
+            self.write(Message::text(wire::ACTIVITY_START), self.timeouts.write)
+                .await?;
             self.activity_open = true;
         }
         Ok(())
     }
     /// Commit the current request: from here on the service owes it a response.
     async fn commit(&mut self) -> Result<()> {
-        send(
-            &mut self.socket,
-            Message::text(wire::ACTIVITY_END),
-            self.timeouts.write,
-        )
-        .await?;
+        self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
+            .await?;
         self.activity_open = false;
         if let Some(turn) = self.current.as_mut() {
             turn.end_held = false;
@@ -1205,7 +1244,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     .filter(|turn| turn.lineage.request == audio.request)
                     .ok_or(Error::StaleRequest)?;
                 turn.input.accept(&audio)?;
-                send_audio(&mut self.socket, &audio, self.timeouts.write).await?;
+                let age = check_age(audio.captured_at)?;
+                let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
+                self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
+                    .await?;
             }
             Command::End(request) => {
                 let retired_through = self.retired_through();
@@ -1244,7 +1286,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             Message::Text(text) => self.decode(text.as_bytes())?,
             Message::Binary(bytes) => self.decode(&bytes)?,
             Message::Ping(bytes) => {
-                send(&mut self.socket, Message::Pong(bytes), self.timeouts.write).await?;
+                self.write(Message::Pong(bytes), self.timeouts.write)
+                    .await?;
                 return Ok(());
             }
             Message::Pong(_) => return Ok(()),
@@ -1580,20 +1623,6 @@ fn check_age(captured_at: Instant) -> Result<Duration> {
         .checked_duration_since(captured_at)
         .filter(|age| *age < MAX_INPUT_AGE)
         .ok_or(Error::StaleInput)
-}
-async fn send_audio<S: AsyncRead + AsyncWrite + Unpin>(
-    socket: &mut WebSocketStream<S>,
-    audio: &Audio,
-    deadline: Duration,
-) -> Result<()> {
-    let age = check_age(audio.captured_at)?;
-    let deadline = deadline.min(MAX_INPUT_AGE - age);
-    send(
-        socket,
-        Message::text(wire::encode_audio(&audio.samples)?),
-        deadline,
-    )
-    .await
 }
 async fn send<S: AsyncRead + AsyncWrite + Unpin>(
     socket: &mut WebSocketStream<S>,

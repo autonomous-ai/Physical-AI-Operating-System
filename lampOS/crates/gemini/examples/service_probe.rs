@@ -199,6 +199,20 @@ async fn observe(
             Some(Event::Interrupted { lineage }) => {
                 note("interrupted", Some(lineage.request.get()))
             }
+            // Written to the wire. `waiting_for_barrier` means an earlier
+            // request was already committed when this one started, so this
+            // start is a real interruption request.
+            Some(Event::InputStarted {
+                lineage,
+                waiting_for_barrier,
+            }) => note(
+                if waiting_for_barrier {
+                    "input_started_after_committed_request"
+                } else {
+                    "input_started"
+                },
+                Some(lineage.request.get()),
+            ),
             Some(Event::GenerationComplete { lineage }) => {
                 note("generation_complete", Some(lineage.request.get()));
             }
@@ -251,11 +265,34 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
             let mut connection =
                 lamp_gemini::connect(config.resumption(Resumption::Retain), SessionId::new(1)?)
                     .await?;
+            let first = Instant::now();
             say(&connection, 1, speech, true).await?;
+            // A second start issued at once would overtake the first End
+            // locally: the first request would never be committed and the two
+            // would be one question. Give the connection time to write the
+            // End, and record what the service does meanwhile. A trial in
+            // which the first answer has already begun is a different case
+            // and is labelled as one.
+            let before = observe(&mut connection, first, 0, Duration::from_millis(300)).await;
+            let answered_first = before.iter().any(|event| event["kind"] == "first_audio");
             let resumed = Instant::now();
             say(&connection, 2, speech, true).await?;
             let events = observe(&mut connection, resumed, 2, Duration::from_secs(40)).await;
-            serde_json::json!({"probe":name,"since":"second activityStart","events":events})
+            // Only this shows the intended state was reached: the second
+            // start found the first request committed.
+            let committed = events
+                .iter()
+                .any(|event| event["kind"] == "input_started_after_committed_request");
+            serde_json::json!({"probe":name,
+                "first_request_committed_before_second_start":committed,
+                "first_answer_began_before_second_start":answered_first,
+                "trial": match (committed, answered_first) {
+                    (true, false) => "interrupt_before_output",
+                    (true, true) => "interrupt_during_output",
+                    (false, _) => "not_an_interruption",
+                },
+                "before_second_start":before,
+                "since":"second start queued","events":events})
         }
         // Are resumption handles issued, unasked or when asked?
         "handles" | "handles-requested" => {
@@ -305,10 +342,14 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
                         "resumed_setup":format!("{error:?}")}));
                 }
             };
+            // Connect returns when setup has completed, and this is that moment.
+            let resumed_setup_ms = resumed.elapsed().as_millis() as u64;
+            let asked = Instant::now();
             say(&second, 1, speech, true).await?;
-            let events = observe(&mut second, resumed, 1, Duration::from_secs(40)).await;
+            let events = observe(&mut second, asked, 1, Duration::from_secs(40)).await;
             serde_json::json!({"probe":name,"handle_issued":true,"resumed_setup":"accepted",
-                "resumed_setup_ms":resumed.elapsed().as_millis() as u64,"events":events})
+                "resumed_setup_ms":resumed_setup_ms,
+                "since":"resumed question start queued","events":events})
         }
         // How long does an unused session live, and how does it end?
         "idle-close" => {
@@ -321,6 +362,28 @@ async fn probe(config: SessionConfig, speech: &[i16], name: &str) -> Outcome<ser
         }
         _ => return Err("unknown probe".into()),
     })
+}
+
+/// A regular file, not reached through a link, of at most `max` bytes. It is
+/// opened once: what is checked is the descriptor that is read, and no more
+/// than `max + 1` bytes are read from it whatever it becomes meanwhile.
+fn bounded_regular_file(path: &Path, max: usize) -> Outcome<Vec<u8>> {
+    use std::{io::Read, os::unix::fs::MetadataExt};
+    let named = fs::symlink_metadata(path)?;
+    if !named.is_file() {
+        return Err("picture must be a regular file, not a link or a device".into());
+    }
+    let file = fs::File::open(path)?;
+    let opened = file.metadata()?;
+    if !opened.is_file() || (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
+        return Err("picture changed while it was being opened".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(max as u64 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > max {
+        return Err("picture must be at most 64 KiB".into());
+    }
+    Ok(bytes)
 }
 
 /// Does the service use a picture sent inside a manual activity, and what
@@ -382,7 +445,9 @@ async fn image_probe(
     let ledger = input.image_ledger();
     Ok(serde_json::json!({
         "probe": "image",
-        "since": "activityEnd",
+        // The End was accepted locally here. It reaches the wire after the
+        // image, if the image was still being written.
+        "since": "end queued locally",
         "picture_bytes": picture.len(),
         "offer": offer,
         "sent": ledger.sent,
@@ -430,12 +495,9 @@ async fn run() -> Outcome<()> {
     }
     let result = match picture {
         Some(picture) => {
-            // Checked before any connection is made.
-            let info = fs::symlink_metadata(picture)?;
-            if !info.is_file() || info.len() > lamp_gemini::MAX_IMAGE_BYTES as u64 {
-                return Err("picture must be a regular JPEG file of at most 64 KiB".into());
-            }
-            image_probe(session(Path::new(provider))?, speech, &fs::read(picture)?).await?
+            // Read before any connection is made.
+            let picture = bounded_regular_file(Path::new(picture), lamp_gemini::MAX_IMAGE_BYTES)?;
+            image_probe(session(Path::new(provider))?, speech, &picture).await?
         }
         None => probe(session(Path::new(provider))?, speech, name).await?,
     };

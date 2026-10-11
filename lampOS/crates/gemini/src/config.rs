@@ -163,6 +163,23 @@ pub enum BarrierPolicy {
     AssumeAfterQuiet,
 }
 
+/// From when a barrier's quiet bound, `Timeouts::barrier`, can end the
+/// connection under [`BarrierPolicy::Require`].
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum BarrierWait {
+    /// From the moment the earlier response was asked to stop, whether or
+    /// not the next request is still being spoken. As it has always been:
+    /// a person who goes on for longer than the bound is cut off.
+    #[default]
+    FromInterruption,
+    /// Only once the next request has ended its input and its `activityEnd`
+    /// is being withheld. While its input is open nothing waits on the
+    /// earlier response but the absolute bound, `Timeouts::response` from
+    /// the interruption. The strict wait is the same; it starts where
+    /// something is actually waiting.
+    AtCommit,
+}
+
 /// Opaque server token for resuming conversation state on a new connection.
 /// Held in memory only: no serialization, no value in Debug output.
 #[derive(Clone)]
@@ -194,6 +211,8 @@ pub struct SessionConfig {
     pub(crate) resumption: Resumption,
     pub(crate) resume: Option<ResumptionHandle>,
     pub(crate) barrier: BarrierPolicy,
+    pub(crate) barrier_wait: BarrierWait,
+    pub(crate) barrier_reports: bool,
     pub(crate) output_buffer: usize,
 }
 impl SessionConfig {
@@ -213,6 +232,8 @@ impl SessionConfig {
             resumption: Resumption::Off,
             resume: None,
             barrier: BarrierPolicy::Require,
+            barrier_wait: BarrierWait::FromInterruption,
+            barrier_reports: false,
             output_buffer: OUTPUT_BUFFER_BYTES,
         })
     }
@@ -274,6 +295,16 @@ impl SessionConfig {
     }
     pub fn barrier_policy(mut self, policy: BarrierPolicy) -> Self {
         self.barrier = policy;
+        self
+    }
+    pub fn barrier_wait(mut self, wait: BarrierWait) -> Self {
+        self.barrier_wait = wait;
+        self
+    }
+    /// Report how each barrier ended as [`crate::Event::Barrier`]. Off by
+    /// default, so that a caller's event stream is what it was.
+    pub fn barrier_reports(mut self, reports: bool) -> Self {
+        self.barrier_reports = reports;
         self
     }
     /// Seconds of generated audio held for a consumer slower than the network

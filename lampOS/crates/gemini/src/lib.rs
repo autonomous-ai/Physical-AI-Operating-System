@@ -14,8 +14,8 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, Credential, GOOGLE_ENDPOINT, Resumption, ResumptionHandle, SessionConfig,
-    ThinkingLevel, Timeouts,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, Resumption, ResumptionHandle,
+    SessionConfig, ThinkingLevel, Timeouts,
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
@@ -162,6 +162,52 @@ pub enum Event {
         superseded: Option<RequestId>,
         successor: Option<RequestId>,
     },
+    /// A barrier ended: the earlier response settled, or the wait for it ran
+    /// out. Counts only; no audio and no text.
+    Barrier {
+        session: SessionId,
+        outcome: BarrierOutcome,
+        report: BarrierReport,
+    },
+}
+
+/// How a barrier ended. An assumption is reported as
+/// [`Event::BarrierAssumed`], as before.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BarrierOutcome {
+    /// The earlier response's idle completion arrived.
+    Settled,
+    /// It did not within the bound, and the connection is about to fail
+    /// with [`Error::BarrierTimeout`].
+    TimedOut,
+}
+
+/// What stood behind a barrier while it stood: enough to tell a terminal
+/// that never came from one that came and was dropped. Everything counted
+/// here was received for the earlier response and withheld from the caller.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BarrierReport {
+    /// The response asked to stop. Unknown when the barrier was raised by
+    /// stray output with no response on record.
+    pub superseded: Option<RequestId>,
+    /// The request waiting behind it, if any.
+    pub successor: Option<RequestId>,
+    /// From the interruption to this report.
+    pub waited: Duration,
+    /// From the earlier response's last event, or the interruption, to this
+    /// report.
+    pub quiet: Duration,
+    /// Whether the successor was still being spoken when the barrier ended.
+    pub successor_input_open: bool,
+    /// How long the successor's `activityEnd` had been withheld.
+    pub end_withheld: Option<Duration>,
+    pub audio_frames: u32,
+    pub audio_samples: u64,
+    pub text_frames: u32,
+    pub generation_complete: u32,
+    pub interrupted: u32,
+    /// Completions that did not settle it: `turnComplete` without idle.
+    pub completions_not_idle: u32,
 }
 
 /// Why an image was not accepted. None of these affects the connection or

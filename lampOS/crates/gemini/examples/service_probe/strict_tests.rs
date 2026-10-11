@@ -9,6 +9,7 @@ async fn mock() -> (Connection, FakeService) {
             Credential::api_key("offline-test").unwrap(),
         )
         .unwrap(),
+        Barrier::DEFAULT,
     )
     .unwrap();
     let (connecting, mut service) = pair(config, SessionId::new(1).unwrap(), 1_048_576).await;

@@ -1,9 +1,9 @@
 use crate::{
-    BarrierPolicy, Discard, EVENT_QUEUE_CAPACITY, Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger,
-    ImageOffer, ImageReceipt, ImageRefusal, ImageRevocation, Lineage, MAX_IMAGE_AGE,
-    MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES,
-    OUTPUT_RATE, RequestId, Result, Resumption, ResumptionHandle, SessionConfig, SessionId, State,
-    Timeouts, wire,
+    BarrierOutcome, BarrierPolicy, BarrierReport, BarrierWait, Discard, EVENT_QUEUE_CAPACITY,
+    Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger, ImageOffer, ImageReceipt, ImageRefusal,
+    ImageRevocation, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST,
+    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId, Result, Resumption,
+    ResumptionHandle, SessionConfig, SessionId, State, Timeouts, wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -548,6 +548,8 @@ where
         timeouts: config.timeouts,
         retain: config.resumption != Resumption::Off,
         policy: config.barrier,
+        wait: config.barrier_wait,
+        reports: config.barrier_reports,
         output_buffer: config.output_buffer,
         commands,
         events: events_tx,
@@ -631,6 +633,8 @@ struct Turn {
     /// The person finished, but activityEnd is withheld until an earlier
     /// response has settled.
     end_held: bool,
+    /// Since when it has been withheld.
+    held_at: Option<Clock>,
     /// activityEnd sent: the service now owes a response or a terminal event.
     /// Until then nothing the service sends can belong to this request.
     ended_at: Option<Clock>,
@@ -647,6 +651,7 @@ impl Turn {
             input: InputState::new(),
             retired: false,
             end_held: false,
+            held_at: None,
             ended_at: None,
             first_output_at: None,
             progress_at: None,
@@ -667,6 +672,8 @@ struct Barrier {
     since: Clock,
     /// That moment, then the latest event of the earlier response.
     last_event_at: Clock,
+    /// What arrived for the earlier response and was withheld. Counts only.
+    seen: BarrierReport,
 }
 impl Barrier {
     fn new(old: Option<Lineage>) -> Self {
@@ -675,7 +682,29 @@ impl Barrier {
             old,
             since: now,
             last_event_at: now,
+            seen: BarrierReport::default(),
         }
+    }
+    fn count(&mut self, content: &wire::ServerContent) {
+        let seen = &mut self.seen;
+        if !content.audio.is_empty() {
+            seen.audio_frames = seen.audio_frames.saturating_add(1);
+            seen.audio_samples = seen
+                .audio_samples
+                .saturating_add(content.audio.len() as u64);
+        }
+        if !content.text.is_empty() {
+            seen.text_frames = seen.text_frames.saturating_add(1);
+        }
+        seen.generation_complete = seen
+            .generation_complete
+            .saturating_add(u32::from(content.generation_complete));
+        seen.interrupted = seen
+            .interrupted
+            .saturating_add(u32::from(content.interrupted));
+        seen.completions_not_idle = seen
+            .completions_not_idle
+            .saturating_add(u32::from(content.turn_complete && !content.idle));
     }
 }
 struct Actor<S> {
@@ -684,6 +713,8 @@ struct Actor<S> {
     timeouts: Timeouts,
     retain: bool,
     policy: BarrierPolicy,
+    wait: BarrierWait,
+    reports: bool,
     output_buffer: usize,
     commands: mpsc::Receiver<Command>,
     events: mpsc::Sender<Event>,
@@ -1020,6 +1051,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         self.activity_open = false;
         if let Some(turn) = self.current.as_mut() {
             turn.end_held = false;
+            turn.held_at = None;
             turn.ended_at = Some(Clock::now());
         }
         Ok(())
@@ -1058,16 +1090,33 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             return Ok(());
         };
         if barrier.since.elapsed() >= self.timeouts.response {
-            // Still producing this long after being asked to stop. Waiting on
-            // is not an option under either policy: the next request would
-            // never be committed.
+            // Unsettled this long after being asked to stop. Waiting on is
+            // not an option under either policy or either wait: the next
+            // request would never be committed.
+            self.report_barrier(BarrierOutcome::TimedOut);
             return Err(Error::BarrierTimeout);
         }
-        if barrier.last_event_at.elapsed() < self.timeouts.barrier {
+        // The quiet bound counts from the earlier response's last event. With
+        // `AtCommit` it counts only while a request's End is being withheld,
+        // and from no earlier than that: only then is anything waiting on
+        // the earlier response.
+        let mut quiet_from = barrier.last_event_at;
+        if self.wait == BarrierWait::AtCommit {
+            match self.current.as_ref().and_then(|turn| turn.held_at) {
+                // Nothing is waiting to be committed: only the absolute
+                // bound above applies.
+                None => return Ok(()),
+                Some(held_at) => quiet_from = quiet_from.max(held_at),
+            }
+        }
+        if quiet_from.elapsed() < self.timeouts.barrier {
             return Ok(());
         }
         match self.policy {
-            BarrierPolicy::Require => Err(Error::BarrierTimeout),
+            BarrierPolicy::Require => {
+                self.report_barrier(BarrierOutcome::TimedOut);
+                Err(Error::BarrierTimeout)
+            }
             BarrierPolicy::AssumeAfterQuiet => {
                 // Asked to stop and silent for the whole bound. The service
                 // never confirmed it, so whatever follows is flagged.
@@ -1082,6 +1131,33 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 self.release().await
             }
         }
+    }
+    /// Say how a barrier ended and what stood behind it. Call before the
+    /// barrier is taken down.
+    fn report_barrier(&mut self, outcome: BarrierOutcome) {
+        if !self.reports {
+            return;
+        }
+        let Some(barrier) = self.barrier.as_ref() else {
+            return;
+        };
+        let current = self.current.as_ref();
+        let report = BarrierReport {
+            superseded: barrier.old.map(|lineage| lineage.request),
+            successor: current.map(|turn| turn.lineage.request),
+            waited: barrier.since.elapsed(),
+            quiet: barrier.last_event_at.elapsed(),
+            successor_input_open: current.is_some_and(|turn| turn.input.open),
+            end_withheld: current
+                .and_then(|turn| turn.held_at)
+                .map(|held_at| held_at.elapsed()),
+            ..barrier.seen
+        };
+        self.emit(Event::Barrier {
+            session: self.session,
+            outcome,
+            report,
+        });
     }
     /// The earlier response has settled: a withheld End may go out now.
     async fn release(&mut self) -> Result<()> {
@@ -1144,6 +1220,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     // Withheld until the earlier response settles, so output
                     // after this End can only belong to this request.
                     turn.end_held = true;
+                    turn.held_at = Some(Clock::now());
                 } else {
                     self.commit().await?;
                 }
@@ -1283,6 +1360,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         let producing = payload || content.generation_complete;
         let settled = content.turn_complete && content.idle;
         let known = self.barrier.as_ref().and_then(|barrier| barrier.old);
+        if let Some(barrier) = self.barrier.as_mut() {
+            barrier.count(&content);
+        }
         if let Some(lineage) = known {
             // A response this client retired. Its output is dropped here; its
             // lifecycle is still reported under its own name.
@@ -1313,6 +1393,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             });
         }
         if settled {
+            self.report_barrier(BarrierOutcome::Settled);
             if self.barrier.take().is_some() {
                 self.release().await?;
             }

@@ -1385,3 +1385,5 @@ async fn resumption_handle_is_kept_only_when_configured_and_never_printed() {
     assert!(connection.next_event().await.is_none());
     assert!(connection.resumption().is_some());
 }
+
+mod continuation;

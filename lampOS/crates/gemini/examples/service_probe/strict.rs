@@ -1,8 +1,8 @@
 //! Explicit, bounded Require/2 s probes. This is not the production supervisor.
 use super::{Outcome, bounded_regular_file, session};
 use lamp_gemini::{
-    BarrierPolicy, Connection, Event, InputSender, Lineage, RequestId, Resumption, SessionConfig,
-    SessionId, State, Timeouts,
+    BarrierPolicy, BarrierWait, Connection, Event, InputSender, Lineage, RequestId, Resumption,
+    SessionConfig, SessionId, State, Timeouts,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -78,10 +78,54 @@ fn pcm(bytes: &[u8]) -> Outcome<Vec<i16>> {
         .collect())
 }
 
-fn config(config: SessionConfig) -> Outcome<SessionConfig> {
+/// The strict policy always. Two things may be set for a probe and are
+/// recorded in its result: where the quiet bound starts, and how long it is.
+/// A longer bound is for watching whether a terminal arrives late; it is not
+/// a production setting.
+#[derive(Clone, Copy)]
+struct Barrier {
+    wait: BarrierWait,
+    quiet: Duration,
+}
+impl Barrier {
+    const DEFAULT: Self = Self {
+        wait: BarrierWait::FromInterruption,
+        quiet: Duration::from_secs(2),
+    };
+    /// Trailing `barrier-wait=at-commit` and `barrier-ms=N`, removed from
+    /// `arguments`.
+    fn take(arguments: &mut Vec<String>) -> Outcome<Self> {
+        let mut barrier = Self::DEFAULT;
+        while let Some((key, value)) = arguments.last().and_then(|last| last.split_once('=')) {
+            match (key, value) {
+                ("barrier-wait", "at-commit") => barrier.wait = BarrierWait::AtCommit,
+                ("barrier-wait", "from-interruption") => {
+                    barrier.wait = BarrierWait::FromInterruption
+                }
+                ("barrier-ms", value) => {
+                    let quiet = value.parse::<u64>()?;
+                    if !(2_000..=20_000).contains(&quiet) {
+                        return Err("barrier-ms must be 2000 to 20000".into());
+                    }
+                    barrier.quiet = Duration::from_millis(quiet);
+                }
+                _ => return Err("unknown probe setting".into()),
+            }
+            arguments.pop();
+        }
+        Ok(barrier)
+    }
+}
+
+fn config(config: SessionConfig, barrier: Barrier) -> Outcome<SessionConfig> {
     Ok(config
-        .timeouts(Timeouts::default())?
+        .timeouts(Timeouts {
+            barrier: barrier.quiet,
+            ..Timeouts::default()
+        })?
         .barrier_policy(BarrierPolicy::Require)
+        .barrier_wait(barrier.wait)
+        .barrier_reports(true)
         .resumption(Resumption::Retain))
 }
 
@@ -223,6 +267,29 @@ impl Observed {
                 row["session"] = json!(session.get());
                 row["superseded"] = json!(superseded.map(RequestId::get));
                 row["successor"] = json!(successor.map(RequestId::get));
+            }
+            Event::Barrier {
+                session,
+                outcome,
+                report,
+            } => {
+                // Counts of what was received for the earlier response and
+                // withheld. No audio and no text.
+                row["kind"] = json!("barrier");
+                row["session"] = json!(session.get());
+                row["outcome"] = json!(format!("{outcome:?}"));
+                row["superseded"] = json!(report.superseded.map(RequestId::get));
+                row["successor"] = json!(report.successor.map(RequestId::get));
+                row["waited_ms"] = json!(report.waited.as_millis());
+                row["quiet_ms"] = json!(report.quiet.as_millis());
+                row["successor_input_open"] = json!(report.successor_input_open);
+                row["end_withheld_ms"] = json!(report.end_withheld.map(|held| held.as_millis()));
+                row["audio_frames"] = json!(report.audio_frames);
+                row["audio_samples"] = json!(report.audio_samples);
+                row["text_frames"] = json!(report.text_frames);
+                row["generation_complete"] = json!(report.generation_complete);
+                row["interrupted"] = json!(report.interrupted);
+                row["completions_not_idle"] = json!(report.completions_not_idle);
             }
             Event::Discarded { session, reason } => {
                 row["kind"] = json!("discarded");
@@ -412,7 +479,9 @@ async fn trial(
 }
 
 pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
-    let (provider, first_path, name, second_path, gap) = match arguments {
+    let mut arguments = arguments.to_vec();
+    let barrier = Barrier::take(&mut arguments)?;
+    let (provider, first_path, name, second_path, gap) = match arguments.as_slice() {
         [provider, first, name] if name == "repeat-before-output" => (provider, first, name, first, None),
         [provider, first, name, gap] if name == "repeat-before-output" => (provider, first, name, first, Some(gap)),
         [provider, first, name, second] if name == "continue-before-output" => (provider, first, name, second, None),
@@ -437,7 +506,7 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
     if name == "continue-before-output" && first == second {
         return Err("continuation must contain distinct PCM; use repeat-before-output for a repeated question".into());
     }
-    let config = config(session(Path::new(provider))?)?;
+    let config = config(session(Path::new(provider))?, barrier)?;
     let connecting = Instant::now();
     let mut result = match lamp_gemini::connect(config, SessionId::new(1)?).await {
         Ok(connection) => {
@@ -454,6 +523,12 @@ pub(super) async fn run(arguments: &[String]) -> Outcome<Value> {
             json!({"probe":name,"outcome":"setup_failed","error":format!("{error:?}"),"inputs":[],"events":[]})
         }
     };
+    result["barrier_ms"] = json!(barrier.quiet.as_millis());
+    result["barrier_wait"] = json!(match barrier.wait {
+        BarrierWait::FromInterruption => "from_interruption",
+        BarrierWait::AtCommit => "at_commit",
+    });
+    result["barrier_reports"] = json!(true);
     result["total_observed_ms"] = json!(connecting.elapsed().as_millis());
     result["source_files"] = json!([first_path, second_path]);
     result["input_transform"] = json!("none; exact mono16k PCM16");

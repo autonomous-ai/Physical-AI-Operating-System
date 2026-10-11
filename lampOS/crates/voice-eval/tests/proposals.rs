@@ -156,7 +156,7 @@ fn trial(label: &str) -> Trial {
     // The room hears a distinct stimulus, then the reply, in noise.
     let stimulus = speechlike(12, 32_000, 16_000.0);
     let reply_float: Vec<f32> = reply_pcm.iter().map(|v| f32::from(*v)).collect();
-    let reply_16k = align::resample(&reply_float, 24_000, 16_000);
+    let reply_16k = align::resample(&reply_float, 24_000, 16_000).unwrap();
     let mut room: Vec<f32> = speechlike(13, ROOM, 16_000.0)
         .iter()
         .map(|v| v * 0.02)
@@ -292,4 +292,94 @@ fn a_changed_room_recording_yields_no_proposal() {
     let entry = &out["attempts"][&t.record.attempt_id];
     assert_eq!(entry["room"]["verified"], false);
     assert_eq!(entry["replies"], json!([]));
+}
+
+/// A mono PCM16 WAV of `samples` at `rate`, with its header's sample rate
+/// and byte rate then overwritten (bytes 24..28 and 28..32).
+fn patched_wav(path: &Path, rate: u32, samples: u32, header_rate: u32) {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(path, spec).unwrap();
+    for index in 0..samples {
+        writer.write_sample((index % 64) as i16 * 100).unwrap();
+    }
+    writer.finalize().unwrap();
+    let mut bytes = fs::read(path).unwrap();
+    bytes[24..28].copy_from_slice(&header_rate.to_le_bytes());
+    bytes[28..32].copy_from_slice(&(header_rate.wrapping_mul(2)).to_le_bytes());
+    fs::write(path, bytes).unwrap();
+}
+
+/// MAIN-038: a stimulus whose header rate is zero is invalid input with a
+/// reason, never a panic (the 684-byte fixture from the review).
+#[test]
+fn a_zero_rate_stimulus_is_refused_not_a_panic() {
+    let dir = common::Private::new("stim-zero-rate");
+    let path = dir.join("zero.wav");
+    patched_wav(&path, 16_000, 320, 0);
+    assert_eq!(fs::metadata(&path).unwrap().len(), 684);
+    let result = std::panic::catch_unwind(|| proposals::read_stimulus(&path));
+    let failure = result
+        .expect("must not panic")
+        .err()
+        .expect("must be refused")
+        .to_string();
+    assert!(failure.contains("sample rate"), "{failure}");
+}
+
+/// MAIN-038: an extreme low rate, which would resample into an enormous
+/// buffer, is refused before any allocation.
+#[test]
+fn an_extreme_low_rate_stimulus_is_refused_not_a_panic() {
+    let dir = common::Private::new("stim-low-rate");
+    let path = dir.join("low.wav");
+    patched_wav(&path, 16_000, 32_000, 1);
+    let result = std::panic::catch_unwind(|| proposals::read_stimulus(&path));
+    let failure = result
+        .expect("must not panic")
+        .err()
+        .expect("must be refused")
+        .to_string();
+    assert!(failure.contains("sample rate"), "{failure}");
+}
+
+/// MAIN-038: resampling itself validates rates and bounds its output.
+#[test]
+fn resampling_refuses_invalid_rates_and_oversized_output() {
+    let short = vec![0.5_f32; 320];
+    for (from, to) in [(0, 16_000), (16_000, 0), (1, 16_000), (16_000, 400_000)] {
+        let result = std::panic::catch_unwind(|| align::resample(&short, from, to));
+        assert!(result.expect("must not panic").is_err(), "{from} -> {to}");
+    }
+    // 601 s at 8 kHz up to 192 kHz exceeds the 600 s output bound.
+    let long = vec![0.0_f32; 8_000 * 601];
+    assert!(align::resample(&long, 8_000, 192_000).is_err());
+    assert_eq!(align::resample(&short, 24_000, 16_000).unwrap().len(), 213);
+}
+
+/// Valid supported formats still load: 48 kHz stereo is downmixed to 16 kHz.
+#[test]
+fn a_valid_48k_stereo_stimulus_still_loads() {
+    let dir = common::Private::new("stim-48k");
+    let path = dir.join("stereo.wav");
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: 48_000,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+    for index in 0..48_000_u32 {
+        let sample = ((index % 64) as i16) * 100;
+        writer.write_sample(sample).unwrap();
+        writer.write_sample(sample).unwrap();
+    }
+    writer.finalize().unwrap();
+    let stimulus = proposals::read_stimulus(&path).unwrap();
+    assert_eq!(stimulus.pcm.len(), 16_000);
+    assert_eq!(stimulus.sha256, hash(&fs::read(&path).unwrap()));
 }

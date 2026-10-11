@@ -327,6 +327,18 @@ exact stimulus WAV supplied with `--stimulus-wav`. Without it, they are
 **Acoustic latency.** Proposals contribute no acoustic p50/p95. Acoustic
 latency comes only from listened annotations.
 
+**Malformed input (`MAIN-038`).** Stimulus and room WAVs are read once
+within a size bound, and decoded from the same bytes that were hashed. Before
+any resampling or allocation, the WAV must have:
+- a sample rate of 8 to 192 kHz;
+- 1 to 8 channels;
+- PCM16, PCM24, PCM32 or float32 samples;
+- a length greater than zero and at most 600 s.
+
+Resampling also refuses rates outside that range and outputs longer than
+600 s. A malformed file is refused with a reason, never a panic or an
+unbounded allocation.
+
 Tests: `align::tests`, with synthetic signals covering a distractor, 24 to
 16 kHz at 100 ppm drift, duplicates, absence, inversion and clipping; and
 `tests/proposals.rs`, which runs end to end from lamp-live's `Recorder`

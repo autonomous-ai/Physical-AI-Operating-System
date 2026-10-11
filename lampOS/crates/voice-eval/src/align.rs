@@ -11,6 +11,7 @@
 //! The result is a proposal with alternatives, never an annotation. The
 //! acceptance thresholds below are unqualified heuristics; every score and
 //! margin is reported so a person can judge it.
+use crate::{Result, invalid};
 use serde::Serialize;
 
 /// Envelope frame: 10 ms at 16 kHz.
@@ -68,17 +69,31 @@ impl Search {
     }
 }
 
+/// Supported sample rates for resampling, inclusive.
+pub const MIN_RATE: u32 = 8_000;
+pub const MAX_RATE: u32 = 192_000;
+/// Longest resampled output, in seconds at the output rate.
+pub const MAX_SECONDS: u64 = 600;
+
 /// Band-limited rational resampling with a Hann-windowed sinc (32 taps each
-/// side). Used to bring the 24 kHz render to the room's 16 kHz.
-pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
+/// side). Used to bring the 24 kHz render to the room's 16 kHz. Rates and
+/// the output length are validated before any division or allocation.
+pub fn resample(input: &[f32], from: u32, to: u32) -> Result<Vec<f32>> {
+    if !(MIN_RATE..=MAX_RATE).contains(&from) || !(MIN_RATE..=MAX_RATE).contains(&to) {
+        return Err(invalid("sample rate must be 8 to 192 kHz for resampling"));
+    }
+    let count = u64::try_from(input.len() as u128 * u128::from(to) / u128::from(from))
+        .ok()
+        .filter(|count| *count <= u64::from(to) * MAX_SECONDS)
+        .ok_or_else(|| invalid("resampled signal would exceed 600 s"))?;
     if from == to || input.is_empty() {
-        return input.to_vec();
+        return Ok(input.to_vec());
     }
     const TAPS: i64 = 32;
     let ratio = f64::from(from) / f64::from(to);
     // Low-pass at the lower Nyquist frequency.
     let cutoff = (f64::from(to) / f64::from(from)).min(1.0);
-    let count = ((input.len() as f64) / ratio).floor() as usize;
+    let count = count as usize;
     let mut output = Vec::with_capacity(count);
     for n in 0..count {
         let x = n as f64 * ratio;
@@ -107,7 +122,7 @@ pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
             0.0
         });
     }
-    output
+    Ok(output)
 }
 
 /// Root-mean-square energy per `FRAME` samples.
@@ -318,10 +333,10 @@ mod tests {
     #[test]
     fn a_24k_render_is_located_in_a_16k_room_and_drift_widens_nothing_much() {
         let reply_24k = speechlike(3, 36_000, 24_000.0);
-        let reply_16k = resample(&reply_24k, 24_000, 16_000);
+        let reply_16k = resample(&reply_24k, 24_000, 16_000).unwrap();
         assert_eq!(reply_16k.len(), 24_000);
         // The room hears the same audio on a clock 100 ppm fast.
-        let stretched = resample(&reply_24k, 24_000, 16_002);
+        let stretched = resample(&reply_24k, 24_000, 16_002).unwrap();
         let room = room_with(&[(&stretched, 40_000, 0.5)], 90_000, 0.02);
         let search = locate(&room, &reply_16k, None).unwrap();
         assert_eq!(search.status, Status::Located, "{search:?}");

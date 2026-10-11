@@ -10,14 +10,14 @@
 use crate::{
     Result,
     align::{self, Search},
-    import::verify_room_evidence,
+    import::{MAX_ROOM_WAV_BYTES, verify_room_evidence},
     invalid,
     record::{AttemptRecord, Attribution},
     target_audio::{self, RENDER_RATE, RenderSpan},
 };
 use lamp_acoustic::hash;
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, fs, io::Read, path::Path};
 
 pub const SCHEMA: u32 = 1;
 const ROOM_RATE: u32 = 16_000;
@@ -31,52 +31,79 @@ pub struct Stimulus {
     pub pcm: Vec<f32>,
 }
 
-/// A mono f32 signal at 16 kHz from a verified WAV (downmixed, resampled).
-fn read_wav_16k(path: &Path) -> Result<(Vec<f32>, Vec<i16>)> {
-    let mut reader = hound::WavReader::open(path)?;
+/// Longest stimulus file read into memory.
+const MAX_STIMULUS_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Read a regular file within `limit`; the caller hashes these exact bytes.
+fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>> {
+    let file = fs::File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(invalid("audio input must be a regular file"));
+    }
+    let mut bytes = Vec::new();
+    file.take(limit + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Err(invalid("audio input exceeds its size bound"));
+    }
+    Ok(bytes)
+}
+
+/// Decode WAV bytes already held (and hashed) by the caller into mono f32 at
+/// 16 kHz, so the parsed audio is exactly the hashed bytes. Rate, channels,
+/// sample format and duration are validated before any resampling.
+fn decode_wav_16k(bytes: &[u8]) -> Result<(Vec<f32>, Vec<i16>)> {
+    let mut reader = hound::WavReader::new(std::io::Cursor::new(bytes))?;
     let spec = reader.spec();
-    let channels = usize::from(spec.channels.max(1));
+    if !(align::MIN_RATE..=align::MAX_RATE).contains(&spec.sample_rate)
+        || !(1..=8).contains(&spec.channels)
+    {
+        return Err(invalid(
+            "WAV sample rate must be 8 to 192 kHz with 1 to 8 channels",
+        ));
+    }
+    let frames = u64::from(reader.duration());
+    if frames == 0 || frames > u64::from(spec.sample_rate) * align::MAX_SECONDS {
+        return Err(invalid("WAV is empty or longer than 600 s"));
+    }
+    let channels = usize::from(spec.channels);
     let samples: Vec<f32> = match (spec.sample_format, spec.bits_per_sample) {
         (hound::SampleFormat::Int, 16) => reader
             .samples::<i16>()
             .map(|s| s.map(f32::from))
             .collect::<std::result::Result<_, _>>()?,
-        (hound::SampleFormat::Int, bits) => {
+        (hound::SampleFormat::Int, bits @ (24 | 32)) => {
             let scale = 2_f32.powi(i32::from(bits) - 16);
             reader
                 .samples::<i32>()
                 .map(|s| s.map(|v| v as f32 / scale))
                 .collect::<std::result::Result<_, _>>()?
         }
-        (hound::SampleFormat::Float, _) => reader
+        (hound::SampleFormat::Float, 32) => reader
             .samples::<f32>()
             .map(|s| s.map(|v| v * 32767.0))
             .collect::<std::result::Result<_, _>>()?,
+        _ => return Err(invalid("WAV must be PCM16/24/32 or float32")),
     };
     let mono: Vec<f32> = samples
         .chunks(channels)
         .map(|frame| frame.iter().sum::<f32>() / frame.len() as f32)
         .collect();
-    let raw: Vec<i16> = mono
-        .iter()
-        .map(|v| v.round().clamp(-32768.0, 32767.0) as i16)
-        .collect();
-    let mono = align::resample(&mono, spec.sample_rate, ROOM_RATE);
-    let raw = if spec.sample_rate == ROOM_RATE {
-        raw
+    let raw: Vec<i16> = if spec.sample_rate == ROOM_RATE {
+        mono.iter()
+            .map(|v| v.round().clamp(-32768.0, 32767.0) as i16)
+            .collect()
     } else {
         Vec::new()
     };
+    let mono = align::resample(&mono, spec.sample_rate, ROOM_RATE)?;
     Ok((mono, raw))
 }
 
-/// Read an operator-supplied exact stimulus WAV.
+/// Read an operator-supplied exact stimulus WAV, hashing and decoding the
+/// same bytes. Malformed input is refused with a reason.
 pub fn read_stimulus(path: &Path) -> Result<Stimulus> {
-    let bytes = fs::read(path)?;
-    if bytes.len() > 64 * 1024 * 1024 {
-        return Err(invalid("stimulus WAV exceeds 64 MiB"));
-    }
-    let (pcm, _) = read_wav_16k(path)?;
+    let bytes = read_bounded(path, MAX_STIMULUS_BYTES)?;
+    let (pcm, _) = decode_wav_16k(&bytes)?;
     Ok(Stimulus {
         sha256: hash(&bytes),
         pcm,
@@ -172,11 +199,16 @@ fn attempt(record: &AttemptRecord, stimulus: Option<&Stimulus>) -> Value {
         "listened": false,
     });
     let room = (|| -> Result<(Vec<f32>, Vec<i16>)> {
-        verify_room_evidence(room_evidence)?;
+        let verified = verify_room_evidence(room_evidence)?;
         let path = room_evidence["wav_path"]
             .as_str()
             .ok_or_else(|| invalid("room recording has no WAV path"))?;
-        read_wav_16k(Path::new(path))
+        // Decode the bytes that match the verified hash, not a fresh open.
+        let bytes = read_bounded(Path::new(path), MAX_ROOM_WAV_BYTES)?;
+        if hash(&bytes) != verified.sha256 {
+            return Err(invalid("room WAV changed after verification"));
+        }
+        decode_wav_16k(&bytes)
     })();
     let (room, raw) = match room {
         Ok(room) => {
@@ -203,10 +235,17 @@ fn attempt(record: &AttemptRecord, stimulus: Option<&Stimulus>) -> Value {
                 .into_iter()
                 .map(|(turn, start, end)| {
                     let segment = &render[start as usize..end as usize];
-                    let reference = align::resample(segment, RENDER_RATE, ROOM_RATE);
                     let mut reply = json!({"turn": turn, "render_frames": [start, end],
                         "steps": steps_for(record, turn),
                         "caution": "earliest rendered reply audio at the room microphone; the first substantive word may be later and the opening may be inaudible; confirm by listening"});
+                    let reference = match align::resample(segment, RENDER_RATE, ROOM_RATE) {
+                        Ok(reference) => reference,
+                        Err(error) => {
+                            reply["status"] = json!("unavailable");
+                            reply["reason"] = json!(error.to_string());
+                            return reply;
+                        }
+                    };
                     match active(&reference).zip(align::locate(&room, &reference, clipped)) {
                         Some(((onset, last), search)) => {
                             if let (Some(fields), Some(found)) =

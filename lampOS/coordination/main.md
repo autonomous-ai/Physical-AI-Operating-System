@@ -1,11 +1,11 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 17:35 UTC
+- Updated: 2026-10-11 18:05 UTC
 - Branch: `lamp-v2-chat`
 - Runtime code: `55d7af98e149591eed7882b9ace7741486daa842`; non-doc source `b0bada56...73cdb8`, binary `738503a803d3...5b8d0`. Defaults unchanged; native pilot explicitly uses capture clock, V1 baseline, recovery off. Motor inactive.
 - Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
-- Pilot target: approximately 2026-10-12 03:18 UTC. Current sustained conversation gate passed; packaging, failure feedback, conservative endpoint review and pilot limitations remain active work.
+- Pilot target: approximately 2026-10-12 03:18 UTC. Current sustained conversation gate passed; stopped installation verified; failure feedback, installed-unit controls and pilot limitations remain active work.
 
 ## Native05 completed
 
@@ -20,7 +20,8 @@ playback gaps; acoustics are unscored. See [the complete evidence boundary](../d
 The latest software median is 1.145450 s from endpoint to first speaker write,
 excluding the 1.2 s endpoint wait. About 2.35 s with that wait is an estimate,
 not first-audible-word timing or a causal speedup claim. Independent local room
-content verification is underway; recordings are not uploaded.
+ASR corroborates all 16 question/reply windows; the three WAVs and ledgers were
+independently verified. Recordings are not uploaded.
 
 Agent 1 received the completed native results through its verified tmux pane.
 Its before-output continuation and separately reviewable queued-Stop fixes remain
@@ -39,6 +40,23 @@ format, strict audio/live all-target Clippy, 120 targeted tests and release buil
 No fresh full-workspace gate is claimed. Native04's startup mismatch and invalid
 observer remain retained. A separate local-notice implementation and standalone
 service package are being prepared without replacing the tested binary.
+
+## Installed pilot and endpoint decision
+
+The qualified binary is installed stopped under `/opt/lampOS/releases`, with
+private standalone provider files and a systemd template. Native unit, exact
+effective-property and Gemini setup checks pass; legacy PIDs/states, mixers and
+the stationary guard remain unchanged. No runtime start or cutover was performed.
+See [installation evidence](../docs/verification/installed-pilot-20261011/README.md)
+and [the runbook](../docs/attended-4ace-pilot.md). Physical mute/reopen, installed
+service shutdown and actual facilitator handoff remain unqualified.
+
+Agent 2's `lamp-a2-pilot` checkpoint `ad517f07f` is fetched for independent review.
+Keep the fixed baseline for the first attended sessions: its candidate saves at
+most 200 ms and added six held-out sentence splits in 1,167 clips. Before-output
+provider settlement is still unresolved. MAIN-059 delivered this decision and
+the inherited soft-resource-limit review finding through verified M2 tmux, with
+an observed turn start. No endpoint mode is integrated or activated here.
 
 The sections below preserve earlier checkpoints; the current identity and result
 are stated above.

@@ -48,6 +48,12 @@ Clean stop and stationary rollback are verified. All three 600-second Mac room
 recordings passed integrity and overlap coverage checks. Four short accepted-zero
 playback gaps remain, so seamless speech and acoustic latency are not claimed.
 See [the measured run and limits](verification/native05-20261011/README.md).
+The same binary is now [installed as a stopped standalone service](verification/installed-pilot-20261011/README.md).
+Its native unit and provider configuration checks passed; no cutover or start
+was performed. [The runbook](attended-4ace-pilot.md) keeps physical mute/reopen
+and installed-unit stop verification as separate pilot gates. Independent local
+ASR also corroborates all 16 Native05 question/reply windows.
+
 Main owns installation, process lifecycle and native qualification; Agent 1 owns
 provider continuation, and Agent 2 owns conservative endpointing. A separate
 same-owner failure-notice proposal is being implemented. All direct coordination
@@ -57,8 +63,7 @@ The latest native cohort has a 1.145450-second median from local endpoint to
 first speaker write (16 replies); adding the fixed 1.2-second wait gives roughly
 2.35 seconds. Earlier cohorts estimated 2.68–2.85 seconds. These are different
 generated replies and service conditions, not a causal A/B or accepted acoustic
-latency. No new V1
-benchmark is planned. Reliability and truthful pilot limits take priority over
+latency. No new V1 benchmark is planned. Reliability and truthful pilot limits take priority over
 turning an unqualified timing improvement into the default.
 
 ## Continuation prerequisite

@@ -60,7 +60,18 @@ The independently generated metadata summary is
 `/private/tmp/lamp-serve-native05-summary-20261011`; it checks native transfer
 hashes and receipt relations, but does not rehash or decode room WAVs itself.
 The recorder runner verified each finalized WAV and its ledger before claiming
-coverage. An additional independent raw-file/content audit is pending.
+coverage. An independent raw-file/content audit then verified all three WAVs,
+their contiguous callback ledgers, native archive/transfer identities and exact
+source files. Local ASR corroborated all 16 questions and corresponding English
+replies in 194.432 seconds of selected room windows, including the later eight.
+It did not review all idle audio or establish subjective smoothness.
+
+Independent local audit: `/private/tmp/lamp-native05-independent-floj9b`;
+report SHA-256 `af679e1d4174f113d9a4c8c31a91d3d993a624e31bd5a353873f19494dd9cab6`,
+receipt `655920f0118e4f27fb33decc2ea4405f75a409739aa6a5bd106c810c71d21386`,
+input manifest `c32af6397efb8eea42441e50cb2a7c9010fe7f923e80ffaaf211b4a2dd2e5834`.
+All 89 listed input/tool identities remained unchanged. Recordings stayed local;
+ASR is corroboration, not a human listening verdict or an accepted word boundary.
 
 `serve` intentionally records bounded metadata without continuous raw runtime
 PCM. Its `complete_evidence=false` and `diagnostics_certified=false` labels remain

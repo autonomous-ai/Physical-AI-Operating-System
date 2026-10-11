@@ -1002,7 +1002,19 @@ mod tests {
         state: &mut ReferenceAssembly,
         skew_ppm: f64,
         blocks: u64,
+        deliver: impl FnMut(u64) -> bool,
+    ) -> (u64, Option<Kind>) {
+        session_at(state, skew_ppm, blocks, deliver, |_| 0)
+    }
+
+    /// `late(block)` is how long after its time the capture loop reaches a
+    /// block, in microseconds: zero for a loop that is never kept waiting.
+    fn session_at(
+        state: &mut ReferenceAssembly,
+        skew_ppm: f64,
+        blocks: u64,
         mut deliver: impl FnMut(u64) -> bool,
+        late: impl Fn(u64) -> u64,
     ) -> (u64, Option<Kind>) {
         const START: u64 = 1_000_000;
         let mut echo = EchoProcessor::new(false);
@@ -1018,7 +1030,7 @@ mod tests {
         let mut sequence = 0_u64;
         for block in 0..blocks {
             // The capture reads half a block after the speaker's first write.
-            let now = START + 5_000 + block * 10_000;
+            let now = START + 5_000 + block * 10_000 + late(block);
             loop {
                 let accepted_at = START + ((packet + 1) as f64 * period) as u64;
                 if accepted_at > now {
@@ -1139,6 +1151,58 @@ mod tests {
         }
     }
 
+    /// A capture loop held up at block 3,000 for `stall_us`, which then
+    /// works through what it missed without waiting: each block it owes is
+    /// read 200 us after the one before, until it is back on time.
+    fn stall(stall_us: u64) -> impl Fn(u64) -> u64 {
+        move |block| match block.checked_sub(3_000) {
+            Some(behind) => (stall_us + behind * 200).saturating_sub(behind * 10_000),
+            None => 0,
+        }
+    }
+
+    #[test]
+    fn a_capture_loop_kept_waiting_catches_up_without_a_fault_in_either_mode() {
+        // The paced check woke the capture loop 27 ms late. It found the
+        // packets of that time waiting, and a ring of eight blocks with five
+        // in hand had no room for them. The same 27 ms, thirty seconds in.
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            let (blocks, fault) = session_at(&mut state, 98.0, 6_000, |_| true, stall(27_000));
+            assert_eq!((blocks, fault), (6_000, None), "clocked {clocked}");
+            if let Some(drift) = state.drift() {
+                // And it settles again where it was.
+                assert!(
+                    (TARGET_FRAMES - 240..=TARGET_FRAMES + 240).contains(&drift.unread_frames),
+                    "{drift:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_capture_loop_kept_waiting_longer_than_a_reference_keeps_is_a_fault_either_way() {
+        // Thirty-five milliseconds: the oldest packet waiting was accepted a
+        // block before that, and 45 ms is older than a reference may be.
+        // Neither mode pretends otherwise.
+        let mut faults = Vec::new();
+        for clocked in [false, true] {
+            let mut state = if clocked {
+                ReferenceAssembly::capture_clocked()
+            } else {
+                ReferenceAssembly::default()
+            };
+            let (blocks, fault) = session_at(&mut state, 98.0, 6_000, |_| true, stall(35_000));
+            assert_eq!(blocks, 3_000, "clocked {clocked}");
+            faults.push(fault.expect("a stale reference was used"));
+        }
+        assert_eq!(faults[0], faults[1]);
+    }
+
     #[test]
     fn a_skipped_packet_is_a_gap_and_never_a_clock_difference() {
         for clocked in [false, true] {
@@ -1159,18 +1223,18 @@ mod tests {
         let mut state = ReferenceAssembly::capture_clocked();
         let mut echo = EchoProcessor::new(false);
         state.prime(prime(1, None), 10_002, 2, &mut echo).unwrap();
-        // The ring holds eight blocks: the lead, the prime and three more.
-        for sequence in 1..=3 {
+        // The ring holds ten blocks: the lead, the prime and five more.
+        for sequence in 1..=5 {
             let packet = reference(sequence, 480 + (sequence - 1) * 240, 240);
             state.accept(packet, 10_102, 2, &mut echo).unwrap();
         }
         assert_fault(
-            state.accept(reference(4, 1_200, 240), 10_102, 2, &mut echo),
+            state.accept(reference(6, 1_680, 240), 10_102, 2, &mut echo),
             Kind::ReferenceBacklog,
         );
         // The refused packet changed nothing.
-        assert_eq!(state.timing().accepted_through, 1_200);
-        assert_eq!(state.drift().unwrap().unread_frames, 1_920);
+        assert_eq!(state.timing().accepted_through, 1_680);
+        assert_eq!(state.drift().unwrap().unread_frames, 2_400);
     }
 
     #[test]

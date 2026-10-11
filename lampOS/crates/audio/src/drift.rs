@@ -42,9 +42,14 @@ pub const MAX_PPM: f64 = 500.0;
 /// the caller lets a reference be in any case. The fixed margin allowed
 /// between one and seven, depending on how far the clocks had drifted.
 pub const TARGET_FRAMES: usize = RENDER_SAMPLES * 5;
-/// Most frames the ring will hold unread: eight blocks, as the fixed margin
-/// allowed before.
-pub const CAPACITY_FRAMES: usize = RENDER_SAMPLES * 8;
+/// Most frames the ring will hold unread: ten blocks. The five kept in hand,
+/// the four that can be waiting when the capture side has been held up for
+/// as long as it may be before the oldest of them is past the 40 ms at
+/// which a reference is too old to use anyway, and one for the jitter of
+/// the fill. With eight, as the fixed margin allowed, a capture loop woken
+/// 27 ms late overflowed the ring on its way back: the paced check found
+/// that, and no virtual-time test had.
+pub const CAPACITY_FRAMES: usize = RENDER_SAMPLES * 10;
 /// The most unread frames a block can need: the block at the fastest rate,
 /// and the interpolator's reach beyond its last sample.
 pub const READY_FRAMES: usize = RENDER_SAMPLES + TAPS - CENTRE + 1;

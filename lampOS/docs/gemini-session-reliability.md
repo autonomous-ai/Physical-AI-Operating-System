@@ -1007,6 +1007,34 @@ two second bound can pass and exit 0: that is a pass of this opt-in
 setting, which it would need before being turned on, and not a pass of
 production's default.
 
+### Watching for longer than five seconds (example only, observation only)
+
+`hold-end-ms=N`, trailing, 1 to 20000, last of the trailing settings, and
+only together with `barrier-wait=at-commit`. The probe keeps its own
+second End back for that long after its last sample. Under the at-commit
+wait nothing is waiting to be committed meanwhile, so the connection
+stays up, to the 30 s absolute bound and the trial's own 40 s, and
+whatever arrives for the first request is recorded as it comes, with its
+original time. When the hold is over the End is asked for and the strict
+wait runs as usual.
+
+```sh
+service_probe PROVIDER.json FIRST.wav continue-before-output SECOND.wav 300 barrier-wait=at-commit hold-end-ms=8000
+```
+
+It widens no bound: `Timeouts::barrier` is untouched and the library
+is not changed by it. It is not a pass of anything. The result records
+`end_hold_ms`, `absolute_barrier_bound_ms` and `observation_only: true`,
+and the probe exits non-zero whatever it saw. Without
+`barrier-wait=at-commit` it is refused before any file is opened, because
+the default wait would end the run first.
+
+What it can show: whether a terminal for a response interrupted before
+output arrives later than the five seconds `barrier-ms` can watch, while
+the second activity is still open. What it cannot: what the service does
+after a second End that nothing confirmed, because under `Require` that
+End is never written.
+
 ## Two additions to the strict probe (example only)
 
 Neither changes the library. Both exist to answer what the failed run

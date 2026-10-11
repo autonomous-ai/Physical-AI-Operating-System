@@ -33,7 +33,9 @@
 //! production's, and the probe exits non-zero whatever it saw. A trailing
 //! `barrier-wait=at-commit`, after `barrier-ms=N` when both are given, runs
 //! the trial with the library's opt-in wait; every barrier's end is recorded
-//! as a `barrier` row of counts. They print
+//! as a `barrier` row of counts. A trailing `hold-end-ms=N` after that, 1 to
+//! 20000, keeps the probe's own second End back for that long: observation
+//! only, refused without the at-commit wait. They print
 //! bounded model/input transcript observations for
 //! private review; input transcripts remain session-scoped. These modes use
 //! exact mono16k PCM16 without trimming. See the session reliability document

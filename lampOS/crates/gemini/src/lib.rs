@@ -19,7 +19,7 @@ pub use config::{
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
-    OutputNotice, RecoveryPolicy, Stage, Supervisor,
+    OutputNotice, RecoveryPolicy, Stage, StartRefusal, Supervisor,
 };
 use serde::{Deserialize, Serialize};
 pub use session::{Connection, InputSender, ResumptionPoint, connect};

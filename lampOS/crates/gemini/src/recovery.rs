@@ -241,6 +241,20 @@ impl From<OutputNotice> for Notice {
     }
 }
 
+/// Why a start that names its connection was refused. In every case nothing
+/// was queued or sent, and no earlier answer was superseded.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StartRefusal {
+    /// No connection is ready.
+    NotConnected,
+    /// A connection is ready, and it is not the one this request was chosen
+    /// for: that one has been replaced since. `live` is the one ready now.
+    WrongSession { live: SessionId },
+    /// The right connection refused it, for the reason [`Supervisor::try_start`]
+    /// would give.
+    Refused(Error),
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FailureReason {
     /// Local shutdown was requested.
@@ -573,6 +587,26 @@ impl<C: Connect> Supervisor<C> {
     /// while no connection is ready; accepted input is never buffered here.
     pub fn try_start(&self, request: RequestId) -> Result<()> {
         let (input, session) = self.input()?;
+        self.start(input, session, request)
+    }
+    /// Start `request` on `session` and on no other connection. A caller that
+    /// decided to start while one connection was ready may act on that
+    /// decision later, after a recovery. An unchecked start would then reach
+    /// the replacement, which the caller never chose and whose context it has
+    /// not seen reported. This refuses instead, before anything is queued.
+    pub fn try_start_on(
+        &self,
+        session: SessionId,
+        request: RequestId,
+    ) -> std::result::Result<(), StartRefusal> {
+        let (input, live) = self.input().map_err(|_| StartRefusal::NotConnected)?;
+        if live != session {
+            return Err(StartRefusal::WrongSession { live });
+        }
+        self.start(input, live, request)
+            .map_err(StartRefusal::Refused)
+    }
+    fn start(&self, input: &InputSender, session: SessionId, request: RequestId) -> Result<()> {
         if request.get() <= self.retired_through.get()
             || self
                 .submitted

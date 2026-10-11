@@ -347,10 +347,11 @@ lamp-observer play --output 'iMac Speakers' --wav CACHED.wav --out NEW_DIR \
    {"schema":1,"kind":"start","attempt_id":"<from the receipt>","expires_monotonic_ns":<absolute ns>}
    ```
 
-4. **Start.** A valid grant arms the callback. In the first callback after it,
-   the expiry is checked against that callback's host `CLOCK_MONOTONIC` time
-   *before the first source frame is copied*. If the time has passed, the
-   attempt latches `start_expired` and plays nothing, now or later.
+4. **Start.** A valid grant arms the callback. The callback reads
+   `CLOCK_MONOTONIC` afresh immediately before it would copy the first source
+   frame; it does not use the time it was entered. The deadline is exclusive:
+   at or after the expiry, the attempt latches `start_expired` and plays
+   nothing, now or later. Reading the clock is a system call, not I/O.
 5. **End.** The final report is printed after playback, as for a default
    `play`, and written to `metadata.json`.
 
@@ -365,8 +366,8 @@ lamp-observer play --output 'iMac Speakers' --wav CACHED.wav --out NEW_DIR \
 | Expiry at or before receipt | `grant_refused` (`grant_expired_on_receipt`) |
 | Expiry more than 2 s after receipt | `grant_refused` (`grant_horizon_exceeds_bound`) |
 | stdin closed before a grant | `stopped_before_grant` |
-| The cancel sentinel exists before a grant | `cancelled_before_grant` |
-| No grant within `MAX_WAIT_MS` | `grant_timeout` |
+| The cancel sentinel exists before a grant, or appears while the grant is received (it is read again immediately before the grant is published) | `cancelled_before_grant` |
+| No grant within `MAX_WAIT_MS`, including a grant whose receive returned after that deadline (the clock is checked again after every receive) | `grant_timeout` |
 | A stream fault, a 2 s callback stall, no first callback within 5 s, or the ready line cannot be written | `failed_before_grant` or `ready_not_published` |
 
 Further rules:
@@ -376,7 +377,15 @@ Further rules:
 - **Later lines.** Lines after the decision, including duplicate grants, are
   counted (`duplicate_grant_lines`, `control_lines_after_decision`). They
   never start, restart or replay anything.
-- **Cancellation after the grant** still stops before the first frame.
+- **Cancellation after the grant is asynchronous.**
+  - The controller polls the sentinel about every 2 ms and latches an atomic
+    flag, which the callback reads before every write.
+  - A sentinel created after the grant was published can therefore race the
+    first callback.
+  - Frames the callback has already submitted to CoreAudio cannot be
+    recalled.
+  - So such a cancellation stops later callbacks, not audio already
+    submitted.
 - **Unscored.** Every not-started or `start_expired` attempt has
   `valid: false` and exit `2`. It is never delivery evidence.
 - **No copy.** Tests prove no source sample is copied on any of these paths:
@@ -409,8 +418,13 @@ report = json.loads(p.stdout.read()); p.wait()  # status, prepared_start.grant, 
 The parent passes the receipt's own remaining budget as the expiry. It should
 not add slack: the player enforces the expiry at the first source frame, not
 when the parent's write returns. To stop before a grant, close stdin or create
-the cancel sentinel. Keep every ready receipt, grant and final report with the
-attempt.
+the cancel sentinel.
+
+Pre-arm before the readiness check. Keep result persistence off the path
+between the readiness receipt and the grant write. Keep every ready receipt,
+grant and final report with the attempt, together with the parent's own
+timestamps of every launch, check and refusal, including attempts whose
+launch or grant raised.
 
 **Verified, and not.**
 
@@ -420,6 +434,13 @@ attempt.
   first submission; expiry on receipt; malformed, foreign and duplicate
   grants; stop, cancel, timeout, stream faults and stalls; cancel after the
   grant.
+- Main's source review of `f9ea5352` found three holes. Each has a
+  regression that failed on that exact code and passes now:
+  - a first frame exactly at the expiry;
+  - a grant returned after the wait deadline;
+  - a real sentinel file created during the grant receive.
+- A further test moves the fresh clock past the expiry inside one callback,
+  with a control that reaches its copy before expiry.
 - CoreAudio's callback delivery is the only simulated part. The CPAL wiring
   in `src/playback/macos.rs` has not been run against the iMac speakers here,
   to keep host audio off. Run it on the office Mac before relying on it.

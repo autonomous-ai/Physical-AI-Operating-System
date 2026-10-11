@@ -231,6 +231,18 @@ fn conversion_budget_cancel_and_peak_are_enforced() {
     assert!(prepare(&invalid, 16000, 1, || Ok(false)).is_err());
 }
 
+thread_local! {
+    /// The renderer's injected CLOCK_MONOTONIC. `callback` sets it to the
+    /// callback's host time plus `CLOCK_SKEW`, the time spent in the callback
+    /// before the first copy.
+    static FAKE_NOW: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    static CLOCK_SKEW: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+fn fake_clock() -> u64 {
+    FAKE_NOW.with(std::cell::Cell::get)
+}
+
 fn renderer() -> Renderer {
     let source = decode_source(&wav(8000, 1, &[100, 200, 300, 400, 500, 600])).unwrap();
     Renderer {
@@ -238,6 +250,7 @@ fn renderer() -> Renderer {
         shared: Arc::default(),
         cursor: 0,
         previous: None,
+        clock: fake_clock,
     }
 }
 fn time(index: u64) -> Times {
@@ -413,6 +426,7 @@ fn grant(expires: u64) -> GrantInput {
 /// copy or missed zero-fill is visible.
 fn callback(renderer: &mut Renderer, index: u64) -> [f32; 4] {
     let mut output = [9.0; 4];
+    FAKE_NOW.with(|now| now.set(time(index).host_ns + CLOCK_SKEW.with(std::cell::Cell::get)));
     renderer.render(&mut output, time(index), false);
     output
 }
@@ -751,4 +765,108 @@ fn prepared_and_default_entry_points_refuse_each_others_options() {
         };
         assert!(invalid.validate().is_err());
     }
+}
+
+// Main's source review of f9ea5352: three ordering holes, red before green.
+
+#[test]
+fn review_a_first_frame_exactly_at_expiry_is_refused() {
+    // The deadline is exclusive, as in the parser's expired-on-receipt check.
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    renderer
+        .shared
+        .grant_expires_ns
+        .store(time(1).host_ns, Ordering::Release);
+    assert_never_played(&mut renderer, 1);
+    assert!(renderer.shared.snapshot().start_expired);
+}
+
+#[test]
+fn review_a_grant_returned_after_the_wait_deadline_is_refused() {
+    // The receive returns only after the original deadline has passed.
+    let renderer = armed();
+    let clock = std::cell::Cell::new(0_u64);
+    let mut delivered = false;
+    let outcome = wait_for_grant(
+        &renderer.shared,
+        &mut StartGate::new(ATTEMPT),
+        20_000_000,
+        || clock.get(),
+        || {
+            clock.set(25_000_000);
+            delivered = true;
+            Some(grant(1_000_000_000))
+        },
+        || Ok(false),
+    )
+    .unwrap();
+    assert!(delivered);
+    assert_eq!(
+        outcome,
+        GrantWait::NotStarted {
+            status: "grant_timeout",
+            reason: None
+        }
+    );
+    assert_eq!(renderer.shared.snapshot().grant_expires_ns, 0);
+}
+
+#[test]
+fn review_a_sentinel_created_during_the_receive_prevents_publication() {
+    // The real sentinel path: the file appears while the grant is received.
+    let temp = Temp::new();
+    let sentinel = temp.0.join("cancel");
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    let now = time(0).host_ns;
+    let outcome = wait_for_grant(
+        &renderer.shared,
+        &mut StartGate::new(ATTEMPT),
+        1_000_000_000,
+        || now,
+        || {
+            std::fs::write(&sentinel, b"").unwrap();
+            Some(grant(now + 500_000_000))
+        },
+        || cancellation_requested(Some(&sentinel)),
+    )
+    .unwrap();
+    assert_eq!(
+        outcome,
+        GrantWait::NotStarted {
+            status: "cancelled_before_grant",
+            reason: None
+        }
+    );
+    assert_eq!(renderer.shared.snapshot().grant_expires_ns, 0);
+    assert_never_played(&mut renderer, 1);
+}
+
+#[test]
+fn review_the_clock_is_read_at_the_first_copy_not_at_callback_entry() {
+    // The callback starts 1 ms before expiry but reaches its first copy 1 ms
+    // after it: the late fresh sample refuses the start.
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    renderer
+        .shared
+        .grant_expires_ns
+        .store(time(1).host_ns + 1_000_000, Ordering::Release);
+    CLOCK_SKEW.with(|skew| skew.set(2_000_000));
+    assert_never_played(&mut renderer, 1);
+    CLOCK_SKEW.with(|skew| skew.set(0));
+    assert!(renderer.shared.snapshot().start_expired);
+    // Control: the same grant, reached before expiry, plays from frame zero.
+    let mut renderer = armed();
+    callback(&mut renderer, 0);
+    renderer
+        .shared
+        .grant_expires_ns
+        .store(time(1).host_ns + 1_000_000, Ordering::Release);
+    assert_eq!(callback(&mut renderer, 1), renderer.prepared.samples[..4]);
+    assert_eq!(
+        renderer.shared.snapshot().source_started_host_ns,
+        time(1).host_ns
+    );
 }

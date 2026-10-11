@@ -776,6 +776,9 @@ struct Renderer {
     shared: Arc<Shared>,
     cursor: usize,
     previous: Option<(Times, usize)>,
+    /// CLOCK_MONOTONIC nanoseconds (`lamp_ipc::monotonic_ns`; injected in
+    /// tests). Sampled immediately before a prepared start's first copy.
+    clock: fn() -> u64,
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -847,15 +850,19 @@ impl Renderer {
         }
         if self.cursor == 0 && self.shared.armed.load(Ordering::Acquire) {
             // The grant's expiry is enforced here, at the first source-frame
-            // submission, not when the parent's request returned.
+            // submission, not when the parent's request returned. The clock
+            // is read now, not at callback entry: the callback may have run
+            // past the deadline. The deadline is exclusive.
             let expires = self.shared.grant_expires_ns.load(Ordering::Acquire);
-            if expires != 0
-                && time.host_ns > expires
-                && !self.shared.start_expired.load(Ordering::Acquire)
+            let now = if expires == 0 { 0 } else { (self.clock)() };
+            if expires != 0 && now >= expires && !self.shared.start_expired.load(Ordering::Acquire)
             {
                 self.shared.start_expired.store(true, Ordering::Release);
             }
-            if expires == 0 || self.shared.start_expired.load(Ordering::Acquire) {
+            if expires == 0
+                || self.shared.start_expired.load(Ordering::Acquire)
+                || self.shared.cancelled.load(Ordering::Acquire)
+            {
                 self.shared
                     .armed_zero_frames
                     .fetch_add(frames as u64, Ordering::Relaxed);
@@ -863,7 +870,7 @@ impl Renderer {
             }
             self.shared
                 .source_started_host_ns
-                .store(time.host_ns, Ordering::Release);
+                .store(now, Ordering::Release);
         }
         let remaining = self.prepared.samples.len() - self.cursor;
         let copied = remaining.min(output.len());
@@ -964,9 +971,17 @@ fn wait_for_grant(
             return not_started("failed_before_grant", Some("callback_stall"));
         }
         if let Some(input) = next() {
+            // The receive can return after the wait's own deadline.
             let received = now_ns();
+            if received.saturating_sub(began) >= max_wait_ns {
+                return not_started("grant_timeout", None);
+            }
             match gate.input(input, received) {
                 Some(GateDecision::Start { expires_ns }) => {
+                    // A sentinel created during the receive wins over the grant.
+                    if cancelled()? {
+                        return not_started("cancelled_before_grant", None);
+                    }
                     shared.grant_expires_ns.store(expires_ns, Ordering::Release);
                     return Ok(GrantWait::Granted {
                         expires_ns,

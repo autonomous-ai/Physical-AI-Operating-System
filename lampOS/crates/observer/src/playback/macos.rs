@@ -87,6 +87,7 @@ pub(super) fn play(
         shared: state.clone(),
         cursor: 0,
         previous: None,
+        clock: lamp_ipc::monotonic_ns,
     };
     let error_state = state.clone();
     report["build_started_host_monotonic_ns"] = json!(lamp_ipc::monotonic_ns());

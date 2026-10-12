@@ -2737,12 +2737,14 @@ fn conversation(
                         snapshot.microphone_generation(),
                         provider_queue_bound,
                     )?;
-                    record(
-                        trace,
-                        json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
+                    let mut endpoint_record = json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
                         "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
-                        "endpoint":detector.last_endpoint(),"acoustic_speech_end":null}),
-                    )?;
+                        "acoustic_speech_end":null});
+                    // Baseline records keep exactly their existing fields.
+                    if detector.confirmation_policy().is_some() {
+                        endpoint_record["endpoint"] = json!(detector.last_endpoint());
+                    }
+                    record(trace, endpoint_record)?;
                 }
             }
         }

@@ -1,0 +1,268 @@
+{
+  "schema": 1,
+  "review_date": "2026-10-12",
+  "source_commit": "170a1b85e7e6197097019e4175efdcbe416e3c2c",
+  "rust_comparison_commit": "4b07877922d542033cb1970179c7946975ba35e2",
+  "scope": "Source audit and offline helper calculations only. No device action, runtime modification or physical safety qualification.",
+  "helper_checks": {
+    "source_commit": "170a1b85e7e6197097019e4175efdcbe416e3c2c",
+    "python": "3.12.10 (main, Apr  8 2025, 11:35:47) [Clang 16.0.0 (clang-1600.0.26.6)]",
+    "boundary": "Offline production helpers, fake clock and service; no driver or hardware",
+    "source_sha256": {
+      "hal/drivers/tracking/constants.py": "500b27566c5391b4e177aaf250a560da5de12acf8273d51f37974ef10ea82da7",
+      "hal/drivers/tracking/filters.py": "1e4e73bb21a84be6ec768e010ef35373327049ea2cf93cf6e35b3c841858a7bf",
+      "hal/drivers/motors/overload.py": "8d5f732cf61eb2525363d4796abbb0caf99586773ed942fc7925d9a2dd78c8fd",
+      "hal/drivers/motors/contact_profile.py": "0681cac00eaad998f26cf0a03b9b068ce36a7ea0235ecfd11fae25b52b642574",
+      "hal/drivers/motors/hold.py": "8f1f2a09b3d8589df508fc3854a274bb2b5720378416c4d76239556b337a8e74",
+      "hal/drivers/motors/freeze_lease.py": "bcb173db8d2b90f4fe719bc34b7a9047edbc5a12e275fa82f3252e75b6335904",
+      "hal/drivers/motors/recording_stability.py": "e0911e0aae98d615d285c825feff37bd164a21c3a45aa04848cd779030e7c73f",
+      "hal/drivers/motors/recording_timing.py": "192a60849be2454fc8c77e41e42448cbb7e38cf88fc84ef46f18e4bb2347877c"
+    },
+    "checks": [
+      {
+        "check": "load_direction_bit_removed",
+        "passed": true,
+        "observed": {
+          "magnitude": 650
+        }
+      },
+      {
+        "check": "overload_dwell_and_retry",
+        "passed": true,
+        "observed": {
+          "trip_s": 1.5,
+          "rearmed_s": 121.5
+        }
+      },
+      {
+        "check": "failed_load_read_restarts_dwell_without_fault",
+        "passed": true,
+        "observed": {
+          "delayed_trip_s": 3.0
+        }
+      },
+      {
+        "check": "contact_dwell",
+        "passed": true,
+        "observed": {
+          "first_allowed_test_trip_s": 0.051
+        }
+      },
+      {
+        "check": "per_recording_neighbor_max_and_margins",
+        "passed": true,
+        "observed": {
+          "load_floor": 720,
+          "lag_floor": 75
+        }
+      },
+      {
+        "check": "smooth_damp_converges_without_overshoot",
+        "passed": true,
+        "observed": {
+          "final_position": 9.999999999999977,
+          "units": "V1 position units"
+        }
+      },
+      {
+        "check": "overlapping_camera_freeze_keeps_last_owner",
+        "passed": true,
+        "observed": {
+          "calls": [
+            "freeze",
+            "unfreeze"
+          ]
+        }
+      },
+      {
+        "check": "releasing_tracker_preserves_explicit_hold",
+        "passed": true,
+        "observed": {}
+      },
+      {
+        "check": "recording_timeline_stretches_fast_frame",
+        "passed": true,
+        "observed": {
+          "times_s": [
+            0,
+            0.4
+          ],
+          "policy": "None",
+          "fallback": 250.0
+        }
+      }
+    ]
+  },
+  "incident_calculation": {
+    "v1_commit": "170a1b85e7e6197097019e4175efdcbe416e3c2c",
+    "lerobot_commit": "55198de096f46a8e0447a8795129dd9ee84c088c",
+    "method": "Exact SDK _normalize AST body with in-memory motor/calibration attributes; exact V1 parse_urdf/check_stable/limit_lean_back pure functions. No HAL/serial imported.",
+    "warning": "V1 model treats normalized values as degrees. These are existing software guard outputs, not validated physical CoG or safety. Unsent target support is held at initial measured pose only.",
+    "limits_as_operational_normalized_units": {
+      "base_yaw": [
+        -105,
+        105
+      ],
+      "base_pitch": [
+        -2,
+        67
+      ],
+      "elbow_pitch": [
+        -11,
+        77
+      ],
+      "wrist_roll": [
+        -60,
+        60
+      ],
+      "wrist_pitch": [
+        -89,
+        57
+      ]
+    },
+    "rows": [
+      {
+        "label": "initial_measured",
+        "raw_counts": [
+          2009,
+          2049,
+          2047,
+          2040,
+          1896
+        ],
+        "normalized_pose": {
+          "base_yaw.pos": -4.28336079077431,
+          "base_pitch.pos": 0.073260073260073,
+          "elbow_pitch.pos": -0.024420024420024333,
+          "wrist_roll.pos": 7.785795670338018,
+          "wrist_pitch.pos": -46.2352209085252
+        },
+        "inside_current_joint_limits": true,
+        "v1_model_cog_mm": 19.891656644729235,
+        "v1_model_lean_back_mm": 19.891656644729238,
+        "recording_gate_22mm": "passes"
+      },
+      {
+        "label": "last_measured",
+        "raw_counts": [
+          2009,
+          2049,
+          2055,
+          2043,
+          2073
+        ],
+        "normalized_pose": {
+          "base_yaw.pos": -4.28336079077431,
+          "base_pitch.pos": 0.073260073260073,
+          "elbow_pitch.pos": 0.366300366300365,
+          "wrist_roll.pos": 8.013672616786934,
+          "wrist_pitch.pos": -24.206596141879274
+        },
+        "inside_current_joint_limits": true,
+        "v1_model_cog_mm": 17.777065600474355,
+        "v1_model_lean_back_mm": 17.777065600474355,
+        "recording_gate_22mm": "passes"
+      },
+      {
+        "label": "last_accepted_goal",
+        "raw_counts": [
+          2009,
+          2049,
+          2047,
+          2040,
+          2094
+        ],
+        "normalized_pose": {
+          "base_yaw.pos": -4.28336079077431,
+          "base_pitch.pos": 0.073260073260073,
+          "elbow_pitch.pos": -0.024420024420024333,
+          "wrist_roll.pos": 7.785795670338018,
+          "wrist_pitch.pos": -21.59303049159925
+        },
+        "inside_current_joint_limits": true,
+        "v1_model_cog_mm": 17.441201123313913,
+        "v1_model_lean_back_mm": 17.44120112331392,
+        "recording_gate_22mm": "passes"
+      },
+      {
+        "label": "unsent_target_support_at_initial",
+        "raw_counts": [
+          2009,
+          2049,
+          2047,
+          2040,
+          2238
+        ],
+        "normalized_pose": {
+          "base_yaw.pos": -4.28336079077431,
+          "base_pitch.pos": 0.073260073260073,
+          "elbow_pitch.pos": -0.024420024420024333,
+          "wrist_roll.pos": 7.785795670338018,
+          "wrist_pitch.pos": -3.671437461107658
+        },
+        "inside_current_joint_limits": true,
+        "v1_model_cog_mm": 16.180772685123202,
+        "v1_model_lean_back_mm": 16.180772685123205,
+        "recording_gate_22mm": "passes"
+      }
+    ],
+    "direct_path_limits": [
+      {
+        "ceiling_mm": 16,
+        "fraction": 1.0,
+        "requested": {
+          "wrist_pitch.pos": -3.671437461107658
+        },
+        "returned": {
+          "wrist_pitch.pos": -3.671437461107658
+        }
+      },
+      {
+        "ceiling_mm": 22,
+        "fraction": 1.0,
+        "requested": {
+          "wrist_pitch.pos": -3.671437461107658
+        },
+        "returned": {
+          "wrist_pitch.pos": -3.671437461107658
+        }
+      }
+    ],
+    "accepted_goal_count": 154,
+    "accepted_goals_all_inside_limits": true,
+    "accepted_goals_max_v1_model_cog_mm": 19.891656644729235,
+    "accepted_goals_max_v1_model_lean_back_mm": 19.891656644729238,
+    "normalized_unit_nominal_degrees_by_sdk_resolution": {
+      "base_yaw": 1.0672527472527473,
+      "base_pitch": 1.8000000000000003,
+      "elbow_pitch": 1.8000000000000003,
+      "wrist_roll": 1.1573626373626373,
+      "wrist_pitch": 0.7063736263736263
+    },
+    "input_sha256": {
+      "/private/tmp/lamp-4ace-uv-cache/git-v0/checkouts/b2400a7a62d6a7cf/55198de/src/lerobot/motors/motors_bus.py": "abb070ea6e58812a6e51da7adc438c95c33a0b21020c519af4b1090568e048a2",
+      "/private/tmp/lamp-v1-servo-audit-riohv10v/hal/drivers/motors/recording_stability.py": "e0911e0aae98d615d285c825feff37bd164a21c3a45aa04848cd779030e7c73f",
+      "/private/tmp/lamp-v1-servo-audit-riohv10v/robots/lamp/urdf/lamp.urdf": "89282c217ee4cc96bf78aac3096476bb0b0da79b12ee0cb84296af9ceaf84ecd",
+      "/private/tmp/lamp-v1-servo-audit-riohv10v/hal/calibration/robots/hal_follower/hal.json": "1b94ab243320c2bc9c762135b1e8182f17664642d004b226452627f974d63e9b",
+      "/private/tmp/lamp-head-30deg-te9us2f0/execution.json": "52e5bdd6c725c16e4f868f0d9d2784625440d319d77bb6899ef61a469f594fcc",
+      "/private/tmp/lamp-head-30deg-te9us2f0/plan.json": "8003bf90e565263266100b6717055f014e0122e72ae3bf7db75e4a3deaef28c5",
+      "/private/tmp/lamp-head-30deg-te9us2f0/incident.json": "38294c54773586830997319bdd1794aaea1efa429763101430ba862e829604a0"
+    }
+  },
+  "analysis_files_sha256": {
+    "/private/tmp/lamp-v1-servo-audit-riohv10v/probe.py": "b1fe42f3fa378ce76bd62a31e97bc69ea4019651646afe51e142099f067f18d0",
+    "/private/tmp/lamp-v1-servo-audit-riohv10v/probe-results.json": "2542ac65d917fe55d476dce2d41b293cfb93d3e3417b2f0000f645a217c9894e",
+    "/private/tmp/lamp-v1-servo-audit-b38uyfoa/incident_guard_calculation.py": "6b572d1c7166e5b9474c974529b2d910bc6f16cbb45d5af593a8984faaf7b7b9",
+    "/private/tmp/lamp-v1-servo-audit-b38uyfoa/incident-guard-calculation.json": "89d68de12f3a6be6753281072450e5cc1eb69bd00c77155d5a3a58a8d9a134af",
+    "/private/tmp/lamp-v1-servo-audit-b38uyfoa/report.txt": "baa0b64580a454b47683ce72b7cd0ef334fd24e4f3ec35fa1ed2ad1790892338",
+    "/private/tmp/lamp-v1-servo-audit-b38uyfoa/manifest.json": "d8c294dd3c1f056e17441636a9f9397c12088d66a7b48caafb3e96aad51cd358"
+  },
+  "verification": {
+    "production_helper_checks_passed": 9,
+    "loaded_production_source_hashes_match_git": true,
+    "independent_incident_rerun_byte_identical": true,
+    "full_v1_pytest_run": false,
+    "full_v1_pytest_limit": "pytest absent from inspected Python 3.12 environment",
+    "rust_build_or_device_run": false
+  }
+}

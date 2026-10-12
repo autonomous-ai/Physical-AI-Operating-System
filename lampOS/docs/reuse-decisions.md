@@ -6,6 +6,14 @@ The current Rust checkpoint is `64529dee4d1228dd9373298a807d506f94421dca`.
 External links below were inspected on the review date; rolling documentation
 can change. Implementation status is deliberately separate from the design.
 
+Motor-specific refresh, 12 October 2026: the [V1 servo audit](v1-servo-audit.md)
+reviews newer main `170a1b85e7e6197097019e4175efdcbe416e3c2c`, including
+final joint clamps, contact recovery and posture limits added after the baseline
+below. Preserve its smooth following, recording timing and measured-pose contact
+stop. Correct the normalized-position/degree mismatch and add pose-dependent
+collision checks; the retained head-contact path passes V1's current joint and
+posture gates in an offline calculation. The audit changes no runtime code.
+
 The rule is to preserve useful behavior and proven interfaces, reuse maintained
 implementations where they fit, and write Rust for the remaining Lamp-owned
 responsibilities. A new language alone does not fix timing, echo, ownership or

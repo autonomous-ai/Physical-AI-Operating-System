@@ -8,9 +8,15 @@
 use super::*;
 use crate::{activity::START_BLOCKS, admission::Hold, turn_taking::HEARING_STALE_US};
 use lamp_audio::{
+    duplex::Confirmation,
     evidence::{EchoEvidence, EchoMatch, Level},
     ownership::PlaybackCursor,
 };
+
+/// Blocks over the lamp that make it yield.
+const ONSET: usize = Confirmation::EVALUATED.onset_blocks as usize;
+/// The same as a capture sequence number.
+const ONSET_SEQUENCE: u64 = ONSET as u64;
 
 /// The render explains the microphone: the lamp's own voice.
 pub(super) const OWN: Option<(u8, u8)> = Some((97, 10));
@@ -321,16 +327,21 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
     assert_eq!(dispatched(&h.blocks(20, 0.99, Some(evidence(0, OWN)))), 20);
-    // Blocks 21 to 26: someone speaks over the lamp.
-    let onset = h.blocks(6, 0.9, Some(evidence(0, OVER)));
-    assert_eq!(dispatched(&onset[..5]), 5, "one block is not a person");
+    // From block 21 someone speaks over the lamp.
+    let onset = h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
+    assert_eq!(
+        dispatched(&onset[..ONSET - 1]),
+        ONSET - 1,
+        "one block is not a person"
+    );
     assert!(
-        onset[5].dispatched.is_none(),
+        onset[ONSET - 1].dispatched.is_none(),
         "the block that established the person still fed the speaker"
     );
+    let yielded_at = 20 + ONSET_SEQUENCE;
     let yielded = h.events("duplex_yield");
     assert_eq!(yielded.len(), 1);
-    assert_eq!(yielded[0]["frame_sequence"], 26);
+    assert_eq!(yielded[0]["frame_sequence"], yielded_at);
     assert_eq!(yielded[0]["owner"], serde_json::to_value(old).unwrap());
     assert_eq!(h.events("input_candidate").len(), 1);
     // What the speaker already has plays out; the lamp's sound dies away
@@ -356,14 +367,15 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
     assert_eq!(accepted.basis, AcceptanceBasis::DirectedSessionDuplex);
     let committed = h.events("duplex_commit");
     assert_eq!(committed.len(), 1);
-    assert_eq!(committed[0]["frame_sequence"], 64);
+    let committed_at = yielded_at + 38;
+    assert_eq!(committed[0]["frame_sequence"], committed_at);
     // The opening words, spoken over the lamp, are the start of the request:
     // one unbroken run from before the first block of the person to now.
     let heard = &accepted.audio;
-    assert!(heard[0] <= 21 && *heard.last().unwrap() == 64);
+    assert!(heard[0] <= 21 && *heard.last().unwrap() == committed_at);
     assert!(heard.windows(2).all(|pair| pair[1] == pair[0] + 1));
     assert_eq!(
-        accepted.trigger_sequence, 26,
+        accepted.trigger_sequence, yielded_at,
         "the same candidate, not a later one"
     );
     // The old reply went through the ordinary cancellation and a new request
@@ -398,9 +410,10 @@ fn a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
     let mut ticks = h.blocks(20, 0.99, Some(evidence(0, OWN)));
-    // "Mm-hm", 80 ms over the lamp.
-    ticks.extend(h.blocks(8, 0.9, Some(evidence(0, OVER))));
-    assert_eq!(h.events("duplex_yield")[0]["frame_sequence"], 26);
+    // "Mm-hm", 120 ms over the lamp.
+    ticks.extend(h.blocks(ONSET + 2, 0.9, Some(evidence(0, OVER))));
+    let yielded_at = 20 + ONSET_SEQUENCE;
+    assert_eq!(h.events("duplex_yield")[0]["frame_sequence"], yielded_at);
     // Then nobody speaks while the lamp's sound dies away, and after it.
     for quiet in 1..=29 {
         ticks.push(h.block(0.1, Some(evidence(quiet, None))));
@@ -413,7 +426,7 @@ fn a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply() {
     );
     let resumed = h.events("duplex_resume");
     assert_eq!(resumed.len(), 1);
-    assert_eq!(resumed[0]["frame_sequence"], 97);
+    assert_eq!(resumed[0]["frame_sequence"], yielded_at + 71);
     ticks.extend(still);
     ticks.extend(h.blocks(40, 0.99, Some(evidence(0, OWN))));
     // The pause, in blocks during which the speaker was offered nothing.
@@ -448,7 +461,7 @@ fn a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply() {
 fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     assert_eq!(h.events("duplex_yield").len(), 1);
     // The evidence goes on saying the lamp is sounding: no silence to confirm
     // a person in, so no commitment can be made.
@@ -457,7 +470,10 @@ fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     assert!(h.events("duplex_resume").is_empty());
     let last = h.block(0.9, Some(evidence(0, OVER)));
     assert!(last.dispatched.is_some() && last.accepted.is_none());
-    assert_eq!(h.events("duplex_resume")[0]["frame_sequence"], 116);
+    assert_eq!(
+        h.events("duplex_resume")[0]["frame_sequence"],
+        ONSET_SEQUENCE + 110
+    );
     assert_eq!(h.old(), old);
     assert!(h.events("turn_finished").is_empty());
     // The held candidate ended as a policy rejection inside its own budget,
@@ -500,7 +516,7 @@ fn a_reply_that_twice_yields_to_nothing_masks_like_the_baseline_until_it_ends() 
     let mut h = Harness::new(TurnTaking::Duplex, 600);
     let old = h.old();
     for _ in 0..2 {
-        h.blocks(8, 0.9, Some(evidence(0, OVER)));
+        h.blocks(ONSET + 2, 0.9, Some(evidence(0, OVER)));
         for quiet in 1..=29 {
             h.block(0.1, Some(evidence(quiet, None)));
         }
@@ -544,7 +560,7 @@ fn without_echo_evidence_duplex_decides_as_the_conservative_baseline_does() {
 #[test]
 fn a_microphone_that_stops_arriving_does_not_hold_the_reply_back() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     assert!(h.offer_speaker().is_none(), "yielded");
     // Muted or stalled: no further block is heard.
     std::thread::sleep(Duration::from_micros(HEARING_STALE_US + 20_000));
@@ -575,6 +591,8 @@ fn corrected_prefix_after_duplex_hold(
     last_sequence: u64,
 ) -> (Result<Option<Accepted>>, SessionState) {
     const BASE: u64 = 1_000_000;
+    /// The reply starts at block 31 and the person with it.
+    const YIELDED: u64 = 30 + ONSET_SEQUENCE;
     let instant = |micros| MonoTime::from_micros(micros);
     let mut owner = Controller::new(new_boot().unwrap(), instant(BASE));
     owner
@@ -645,10 +663,13 @@ fn corrected_prefix_after_duplex_hold(
         };
         let (probability, echo) = if sequence <= 30 {
             (0.1, (!missing_prefix_evidence).then(|| evidence(64, None)))
-        } else if sequence <= 36 {
+        } else if sequence <= YIELDED {
             (0.9, Some(evidence(0, OVER)))
         } else if sequence <= last_sequence - 6 {
-            (0.9, Some(evidence((sequence - 36).min(29) as u8, None)))
+            (
+                0.9,
+                Some(evidence((sequence - YIELDED).min(29) as u8, None)),
+            )
         } else {
             (0.9, Some(evidence(30, None)))
         };
@@ -678,10 +699,10 @@ fn corrected_prefix_after_duplex_hold(
             let (candidate, _) = admission
                 .pending_evidence(at, AcceptanceBasis::DirectedSessionDuplex)
                 .unwrap();
-            assert_eq!(candidate.trigger_sequence, 36);
+            assert_eq!(candidate.trigger_sequence, YIELDED);
             assert_eq!(
                 candidate.decision_deadline_us,
-                BASE + 360_000 + Hold::DUPLEX.decision_budget_us
+                BASE + YIELDED * 10_000 + Hold::DUPLEX.decision_budget_us
             );
             let result = decide_prospective_input(
                 &mask,
@@ -727,7 +748,7 @@ fn corrected_prefix_after_duplex_hold(
 
 #[test]
 fn expired_fallback_prefix_rejects_only_the_candidate_and_preserves_the_reply() {
-    let (result, trace) = corrected_prefix_after_duplex_hold(true, 71);
+    let (result, trace) = corrected_prefix_after_duplex_hold(true, 65 + ONSET_SEQUENCE);
     assert!(result.unwrap().is_none());
     let rejected: Vec<_> = trace
         .iter()
@@ -745,7 +766,7 @@ fn expired_fallback_prefix_rejects_only_the_candidate_and_preserves_the_reply() 
 
 #[test]
 fn complete_evidence_keeps_one_contiguous_opening_within_the_same_budget() {
-    for last in [71, 96] {
+    for last in [65 + ONSET_SEQUENCE, 90 + ONSET_SEQUENCE] {
         let (result, trace) = corrected_prefix_after_duplex_hold(false, last);
         let accepted = result.unwrap().unwrap();
         assert_eq!(
@@ -754,7 +775,7 @@ fn complete_evidence_keeps_one_contiguous_opening_within_the_same_budget() {
                 .iter()
                 .map(|f| f.sequence)
                 .collect::<Vec<_>>(),
-            (7..=last).collect::<Vec<_>>()
+            (1 + ONSET_SEQUENCE..=last).collect::<Vec<_>>()
         );
         assert_eq!(accepted.basis, AcceptanceBasis::DirectedSessionDuplex);
         assert!(
@@ -769,7 +790,7 @@ fn complete_evidence_keeps_one_contiguous_opening_within_the_same_budget() {
 fn missing_evidence_closes_the_yield_without_reclassifying_raw_gaps() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     let start = h.events("duplex_yield")[0].clone();
     assert!(h.block(0.99, None).dispatched.is_none());
     assert!(h.events("duplex_yield_end").is_empty());
@@ -779,9 +800,12 @@ fn missing_evidence_closes_the_yield_without_reclassifying_raw_gaps() {
     assert_eq!(end.len(), 1);
     assert_eq!(end[0]["owner"], serde_json::to_value(old).unwrap());
     assert_eq!(end[0]["started_at_us"], start["at_us"]);
-    assert_eq!(end[0]["first_frame_sequence"], 6);
-    assert_eq!(end[0]["ending_frame_sequence"], 8);
-    assert_eq!(end[0]["missing_evidence_since_sequence"], 7);
+    assert_eq!(end[0]["first_frame_sequence"], ONSET_SEQUENCE);
+    assert_eq!(end[0]["ending_frame_sequence"], ONSET_SEQUENCE + 2);
+    assert_eq!(
+        end[0]["missing_evidence_since_sequence"],
+        ONSET_SEQUENCE + 1
+    );
     assert_eq!(end[0]["outcome"], "evidence_discontinuity");
     assert_eq!(end[0]["starvation_excluded"], false);
     assert!(end[0]["at_us"].as_u64().unwrap() >= start["at_us"].as_u64().unwrap());
@@ -800,7 +824,7 @@ fn cancellation_closes_only_one_interval_without_resuming_the_old_reply() {
     ] {
         let mut h = Harness::new(TurnTaking::Duplex, 400);
         let old = h.old();
-        h.blocks(6, 0.9, Some(evidence(0, OVER)));
+        h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
         cancel_reply(&mut h.owner, &mut h.reply, &mut h.trace, reason).unwrap();
         assert!(h.reply.is_none());
         assert!(h.offer_speaker().is_none());
@@ -819,7 +843,7 @@ fn resume_and_commit_decisions_close_intervals_but_only_admission_replaces_owner
     for commit in [false, true] {
         let mut h = Harness::new(TurnTaking::Duplex, 400);
         let old = h.old();
-        h.blocks(6, 0.9, Some(evidence(0, OVER)));
+        h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
         for quiet in 1..=29 {
             h.block(if commit { 0.9 } else { 0.1 }, Some(evidence(quiet, None)));
         }
@@ -852,7 +876,7 @@ fn resume_and_commit_decisions_close_intervals_but_only_admission_replaces_owner
 fn stale_hearing_closes_observation_without_granting_new_input() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     let last = h.last_read;
     settle_duplex_yield_before_dispatch(
         &h.mask,
@@ -874,14 +898,14 @@ fn stale_hearing_closes_observation_without_granting_new_input() {
 #[test]
 fn regressing_hearing_time_is_not_a_successful_resume() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     let at = h.last_read - 1;
     assert!(
         hear_capture_block(
             &mut h.mask,
             &h.reply,
             &mut h.heard_reply,
-            7,
+            ONSET_SEQUENCE + 1,
             at,
             0.1,
             Some(&evidence(40, None)),
@@ -954,7 +978,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
 
 #[test]
 fn evicted_fallback_prefix_rejects_within_the_original_duplex_deadline() {
-    let (result, trace) = corrected_prefix_after_duplex_hold(true, 96);
+    let (result, trace) = corrected_prefix_after_duplex_hold(true, 90 + ONSET_SEQUENCE);
     assert!(result.unwrap().is_none());
     let rejected: Vec<_> = trace
         .iter()
@@ -969,13 +993,13 @@ fn evicted_fallback_prefix_rejects_within_the_original_duplex_deadline() {
 fn invalid_capture_ingress_cannot_take_the_history_loss_recovery_path() {
     for invalid in 0..3 {
         let mut h = Harness::new(TurnTaking::Duplex, 400);
-        h.blocks(6, 0.9, Some(evidence(0, OVER)));
+        h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
         let at = h.at();
         let context = AdmissionContext {
             capture: h.lineage,
             authority: h.owner.snapshot(MonoTime::from_micros(at)).unwrap(),
         };
-        let sequence = if invalid == 0 { 9 } else { 7 };
+        let sequence = ONSET_SEQUENCE + if invalid == 0 { 3 } else { 1 };
         let completed = if invalid == 1 { at + 1 } else { at };
         let first = if invalid == 2 {
             h.last_read - 1
@@ -1012,9 +1036,17 @@ fn invalid_capture_ingress_cannot_take_the_history_loss_recovery_path() {
 fn lineage_reset_closes_a_yield_and_does_not_lend_it_to_new_capture() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     let at = h.at();
-    clear_capture_lineage(&mut h.detector, &mut h.mask, &mut h.trace, at, 7, at).unwrap();
+    clear_capture_lineage(
+        &mut h.detector,
+        &mut h.mask,
+        &mut h.trace,
+        at,
+        ONSET_SEQUENCE + 1,
+        at,
+    )
+    .unwrap();
     assert!(!h.mask.yielded(at));
     assert!(h.trace.yield_interval.is_none());
     let ends = h.events("duplex_yield_end");
@@ -1028,7 +1060,7 @@ fn lineage_reset_closes_a_yield_and_does_not_lend_it_to_new_capture() {
 fn clearing_observation_storage_does_not_erase_the_open_yield_identity() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
-    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
     let start = h.trace.yield_interval.unwrap();
     // The real service periodically flushes/removes observation rows. This
     // injection also deletes the start row; the bounded slot is independent.

@@ -134,12 +134,16 @@ pub struct Confirmation {
 }
 
 impl Confirmation {
-    /// 60 ms to yield, 60 ms of speech in the clear to commit, 400 ms of
+    /// 100 ms to yield, 60 ms of speech in the clear to commit, 400 ms of
     /// stillness or 1.1 s in all to resume. Someone who has been spoken over
     /// waits a moment before going on; with 150 ms the lamp resumed in the
-    /// breath between a person's first word and their second.
+    /// breath between a person's first word and their second. The yield took
+    /// 60 ms until 2026-10-13: on lamp-4ace the lamp's own voice, misjudged
+    /// at the end of a word, ran to six to nine blocks and stopped the lamp
+    /// about once a minute of speech, and the one recorded person speaking
+    /// over it ran to sixteen.
     pub const EVALUATED: Self = Self {
-        onset_blocks: 6,
+        onset_blocks: 10,
         speech_blocks: 6,
         silence_blocks: 40,
         deadline_blocks: 110,
@@ -243,6 +247,15 @@ impl Interruption {
     /// Whether reply audio is being withheld from the speaker.
     pub fn yielded(&self) -> bool {
         matches!(self.state, State::Yielded { .. })
+    }
+
+    /// Consecutive [`Heard::Over`] blocks counted towards a yield that has
+    /// not happened: zero once it has, and while there is nothing to yield.
+    pub fn onset_run(&self) -> u8 {
+        match self.state {
+            State::Listening { over } => over,
+            State::Yielded { .. } => 0,
+        }
     }
 
     /// Blocks since the yield began, while one is in force.
@@ -412,20 +425,20 @@ mod tests {
     #[test]
     fn a_person_who_goes_on_speaking_is_yielded_to_and_then_committed_to() {
         let mut interruption = Interruption::new(Confirmation::EVALUATED);
-        // Own voice, then a person over it. The lamp yields on the sixth
-        // block. Its own sound takes 330 ms to go; the person is then heard
+        // Own voice, then a person over it. The lamp yields on the tenth
+        // block. Its own sound takes 290 ms to go; the person is then heard
         // in the clear and the sixth such block commits.
         let steps = run(
             &mut interruption,
             &[
                 (Heard::Own, 40),
-                (Heard::Over, 6),
                 (Heard::Over, 10),
+                (Heard::Over, 6),
                 (Heard::Unknown, 23),
                 (Heard::Clear, 6),
             ],
         );
-        assert_eq!(steps, [(45, Step::Yield), (84, Step::Commit)]);
+        assert_eq!(steps, [(49, Step::Yield), (84, Step::Commit)]);
         assert!(!interruption.yielded());
         assert_eq!(interruption.counts(), (1, 1, 0));
     }
@@ -443,10 +456,10 @@ mod tests {
                 (Heard::Own, 50),
             ],
         );
-        assert_eq!(steps, [(5, Step::Yield), (78, Step::Resume)]);
+        assert_eq!(steps, [(9, Step::Yield), (78, Step::Resume)]);
         assert_eq!(interruption.counts(), (1, 0, 1));
-        // The pause was 730 ms: from the yield to the resume.
-        assert_eq!(steps[1].0 - steps[0].0, 73);
+        // The pause was 690 ms: from the yield to the resume.
+        assert_eq!(steps[1].0 - steps[0].0, 69);
     }
 
     #[test]
@@ -458,10 +471,10 @@ mod tests {
                 (Heard::Own, 500),
                 (Heard::Unknown, 200),
                 (Heard::Under, 100),
-                // Five blocks of a person and one of own voice, repeated: never six in a row.
-                (Heard::Over, 5),
+                // Nine blocks of a person and one of own voice, repeated: never ten in a row.
+                (Heard::Over, 9),
                 (Heard::Own, 1),
-                (Heard::Over, 5),
+                (Heard::Over, 9),
                 (Heard::Own, 1),
             ],
         );
@@ -475,21 +488,21 @@ mod tests {
         // After the yield nothing is ever clear: the render never goes quiet.
         let steps = run(
             &mut interruption,
-            &[(Heard::Over, 6), (Heard::Unknown, 200)],
+            &[(Heard::Over, 10), (Heard::Unknown, 200)],
         );
-        assert_eq!(steps, [(5, Step::Yield), (115, Step::Resume)]);
+        assert_eq!(steps, [(9, Step::Yield), (119, Step::Resume)]);
         // And speech in the clear that stops short of 60 ms does not commit.
         let mut interruption = Interruption::new(Confirmation::EVALUATED);
         let steps = run(
             &mut interruption,
             &[
-                (Heard::Over, 6),
+                (Heard::Over, 10),
                 (Heard::Unknown, 30),
                 (Heard::Clear, 5),
                 (Heard::Still, 40),
             ],
         );
-        assert_eq!(steps, [(5, Step::Yield), (80, Step::Resume)]);
+        assert_eq!(steps, [(9, Step::Yield), (84, Step::Resume)]);
     }
 
     #[test]
@@ -499,10 +512,12 @@ mod tests {
             assert_eq!(interruption.block(Heard::Over, false), Step::Carry);
         }
         // A reply begins: the count starts from there.
-        for _ in 0..5 {
+        for run in 1..=9 {
             assert_eq!(interruption.block(Heard::Over, true), Step::Carry);
+            assert_eq!(interruption.onset_run(), run);
         }
         assert_eq!(interruption.block(Heard::Over, true), Step::Yield);
+        assert_eq!(interruption.onset_run(), 0);
         assert_eq!(interruption.yielded_blocks(), Some(0));
         interruption.clear();
         assert!(!interruption.yielded());

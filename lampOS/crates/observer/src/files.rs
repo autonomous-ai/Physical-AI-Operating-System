@@ -88,7 +88,7 @@ impl Attempt {
 #[cfg(any(target_os = "macos", test))]
 pub mod sink {
     use super::*;
-    use crate::capture::{Format, Packet, Shared};
+    use crate::capture::{Format, Packet, QUEUE_PACKETS, Shared};
     use rtrb::Consumer;
     use std::{
         io::{self, BufWriter},
@@ -104,6 +104,25 @@ pub mod sink {
         packets: u64,
         next_source_frame: u64,
         sequence_gaps: u64,
+        timing: Timing,
+    }
+
+    /// Writer-side timing, diagnostic only. A full queue means this thread
+    /// took no packet for longer than the queue holds; these say whether it
+    /// was inside a WAV/ledger write or flush, or not running (an idle sleep
+    /// that overslept). Validity rules are unchanged.
+    #[derive(Default)]
+    struct Timing {
+        /// Callback host time -> this thread taking its packet.
+        max_queue_wait_ns: u64,
+        max_queue_wait_callback: u64,
+        max_queue_wait_taken_ns: u64,
+        /// One packet's WAV and ledger write, including periodic flushes.
+        max_packet_write_ns: u64,
+        /// One idle sleep requested as 1 ms.
+        max_idle_sleep_ns: u64,
+        /// Packets queued when one was taken, that one included.
+        peak_queued_packets: usize,
     }
 
     impl Sink {
@@ -131,10 +150,11 @@ pub mod sink {
                 packets: 0,
                 next_source_frame: 0,
                 sequence_gaps: 0,
+                timing: Timing::default(),
             })
         }
 
-        pub fn packet(&mut self, packet: &Packet) -> Result<()> {
+        pub fn packet(&mut self, packet: &Packet, taken_host_ns: u64) -> Result<()> {
             if packet.len > packet.samples.len()
                 || packet.len as u64
                     != packet.info.retained_frames * u64::from(self.format.channels)
@@ -155,6 +175,7 @@ pub mod sink {
                 &mut self.ledger,
                 &json!({
                     "event": "audio_callback", "wav_frame_start": self.frames, "packet": packet.info,
+                    "writer_taken_host_ns": taken_host_ns,
                 }),
             )?;
             self.frames += packet.info.retained_frames;
@@ -171,9 +192,18 @@ pub mod sink {
             self.wav.finalize()?;
             self.ledger.flush()?;
             self.ledger.get_ref().sync_all()?;
+            let t = &self.timing;
             Ok(
                 json!({"written_frames": self.frames, "written_packets": self.packets,
-                "source_sequence_gaps": self.sequence_gaps}),
+                "source_sequence_gaps": self.sequence_gaps,
+                "timing": {"max_queue_wait_ns": t.max_queue_wait_ns,
+                    "max_queue_wait_callback_index": t.max_queue_wait_callback,
+                    "max_queue_wait_taken_host_ns": t.max_queue_wait_taken_ns,
+                    "max_packet_write_ns": t.max_packet_write_ns,
+                    "max_idle_sleep_ns": t.max_idle_sleep_ns,
+                    "peak_queued_packets": t.peak_queued_packets,
+                    "queue_capacity_packets": QUEUE_PACKETS,
+                    "note": "Writer thread host monotonic times; diagnostic only, not an acoustic or validity measure."}}),
             )
         }
 
@@ -193,11 +223,28 @@ pub mod sink {
                 }
                 match consumer.pop() {
                     Ok(packet) => {
-                        self.packet(&packet)?;
+                        let taken = lamp_ipc::monotonic_ns();
+                        let t = &mut self.timing;
+                        t.peak_queued_packets = t.peak_queued_packets.max(consumer.slots() + 1);
+                        let callback = packet.info.times.host_monotonic_ns;
+                        if callback > 0 && taken.saturating_sub(callback) > t.max_queue_wait_ns {
+                            t.max_queue_wait_ns = taken - callback;
+                            t.max_queue_wait_callback = packet.info.callback_index;
+                            t.max_queue_wait_taken_ns = taken;
+                        }
+                        self.packet(&packet, taken)?;
+                        let write = lamp_ipc::monotonic_ns().saturating_sub(taken);
+                        self.timing.max_packet_write_ns =
+                            self.timing.max_packet_write_ns.max(write);
                         shared.written_frames.store(self.frames, Ordering::Release);
                     }
                     Err(_) if shared.producer_stopped.load(Ordering::Acquire) => break,
-                    Err(_) => std::thread::sleep(Duration::from_millis(1)),
+                    Err(_) => {
+                        let idle = lamp_ipc::monotonic_ns();
+                        std::thread::sleep(Duration::from_millis(1));
+                        let slept = lamp_ipc::monotonic_ns().saturating_sub(idle);
+                        self.timing.max_idle_sleep_ns = self.timing.max_idle_sleep_ns.max(slept);
+                    }
                 }
             }
             self.finish()
@@ -326,5 +373,52 @@ mod tests {
                 .unwrap()
                 .contains("audio_callback")
         );
+    }
+    #[test]
+    fn writer_timing_reports_how_long_a_packet_waited_in_the_queue() {
+        let temp = Temp::new();
+        let options = RecordOptions {
+            input: "synthetic".into(),
+            seconds: 1,
+            output: temp.0.clone(),
+        };
+        let attempt = Attempt::create(&options).unwrap();
+        let format = Format {
+            sample_rate: 16_000,
+            channels: 1,
+        };
+        let (mut input, consumer, shared) = capture::channel(format, 1).unwrap();
+        // Two callbacks taken ~400 ms after the first one's host time, as
+        // when the writer did not run while the queue filled.
+        let callback = lamp_ipc::monotonic_ns() - 400_000_000;
+        for block in 0..2 {
+            input.receive(
+                &[0.25_f32; 160],
+                Times {
+                    host_monotonic_ns: callback + block * 10_000_000,
+                    capture_stream_ns: 1_000_000 + block * 10_000_000,
+                    callback_stream_ns: 1_000_001 + block * 10_000_000,
+                },
+                |x| x,
+            );
+        }
+        shared.producer_stopped.store(true, Ordering::Release);
+        let sink = sink::Sink::new(&attempt.directory, format).unwrap();
+        let result = sink
+            .consume(
+                consumer,
+                shared,
+                std::time::Instant::now() + std::time::Duration::from_secs(2),
+            )
+            .unwrap();
+        let timing = &result["timing"];
+        let waited = timing["max_queue_wait_ns"].as_u64().unwrap();
+        assert!((400_000_000..10_000_000_000).contains(&waited), "{timing}");
+        assert_eq!(timing["max_queue_wait_callback_index"], 0);
+        assert_eq!(timing["peak_queued_packets"], 2);
+        assert_eq!(timing["queue_capacity_packets"], capture::QUEUE_PACKETS);
+        assert!(timing["max_packet_write_ns"].as_u64().unwrap() > 0);
+        let ledger = fs::read_to_string(temp.0.join("ledger.jsonl")).unwrap();
+        assert_eq!(ledger.matches("writer_taken_host_ns").count(), 2);
     }
 }

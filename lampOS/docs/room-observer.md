@@ -127,6 +127,29 @@ and per-callback JSONL ledger. Lamp-owned callback code does not allocate, log,
 wait for the writer or acquire a mutex. That statement does not certify CPAL or
 CoreAudio's internal implementation as lock-free.
 
+The worker does every WAV and ledger write itself and sleeps 1 ms when the
+queue is empty. A queue overflow therefore means the worker took no packet for
+longer than the queue holds. At 512-frame callbacks and 48 kHz, 32 packets hold
+about 341 ms. Lamp-4ace's `invalid_capture` lost 27 consecutive callbacks
+(13,824 frames), so its worker made no progress for about 0.63 s. The cause is
+not established from the retained files. The worker therefore records
+diagnostics in final metadata under `writer.timing`, and each ledger callback
+carries `writer_taken_host_ns`:
+- the longest wait from a callback's host time to its packet being taken, with
+  that callback's index;
+- the longest single packet write (including periodic flushes);
+- the longest 1 ms idle sleep;
+- peak queue depth.
+
+A long wait with short writes and an overslept sleep points to the thread not
+running. A long packet write points to blocking file I/O. These fields are
+diagnostic and do not change validity.
+
+The bundle is an `LSUIElement` agent with no window, so macOS may apply App Nap
+(timer coalescing and throttled I/O) to its worker. `LSAppNapIsDisabled` opts it
+out. This is a mitigation for that code-level risk and is not yet verified
+against a long room capture; queue size is unchanged.
+
 Capture is bounded by the requested frame budget, at most 250,000 retained-window
 callbacks, a five-second readiness deadline, a two-second callback-stall deadline,
 and a wall deadline of requested seconds plus eight. A worker deadline is

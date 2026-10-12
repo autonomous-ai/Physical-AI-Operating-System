@@ -611,6 +611,20 @@ export async function removeMCPTool(name: string): Promise<boolean> {
   });
 }
 
+/** POST /api/device/fo/connect — returns the Wajo sign-in URL for the Fo MCP tool. */
+export async function startFoConnect(): Promise<{ auth_url: string }> {
+  return apiRequest<{ auth_url: string }>(`${API_BASE}/api/device/fo/connect`, { method: "POST" });
+}
+
+/** POST /api/device/fo/connect/finish — takes the localhost URL the browser landed on after sign-in. */
+export async function finishFoConnect(callbackURL: string): Promise<boolean> {
+  return apiRequest<boolean>(`${API_BASE}/api/device/fo/connect/finish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_url: callbackURL }),
+  });
+}
+
 export interface Plugin { name: string; version: string; description: string; status: string; url: string }
 
 /** GET /api/plugin */

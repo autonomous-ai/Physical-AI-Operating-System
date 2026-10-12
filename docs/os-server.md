@@ -204,7 +204,10 @@ for defaults, validation, payloads and use cases.
 | GET / PUT | `/api/device/config` | Admin-gated. GET returns the device config with secrets reduced to `Has*` booleans; PUT updates individual fields (saved to disk) |
 | GET / POST | `/api/device/agent-runtime` | Admin-gated. GET: `{current, options, ready, …}`; POST switches the agentic backend (`409` while another switch runs; see Device Ops Alerts below) |
 | GET / POST | `/api/device/mcp-tools` | Admin-gated: list / add remote MCP tool endpoints |
-| DELETE | `/api/device/mcp-tools/:name` | Admin-gated: remove a remote MCP tool |
+| DELETE | `/api/device/mcp-tools/:name` | Admin-gated: remove a remote MCP tool (removing `fo` also signs out of Wajo) |
+| POST | `/api/device/fo/connect` | Admin-gated: register with Wajo once (dynamic client registration) and return `{auth_url}`, the PKCE sign-in URL for Fo |
+| POST | `/api/device/fo/connect/finish` | Admin-gated: body `{callback_url}`, the `http://localhost:5000/oauth/fo/callback?code=…` URL the browser landed on (it fails to load; Wajo only accepts https or loopback redirects). Exchanges the code, stores tokens in `fo_auth`, and adds MCP tool `fo` pointing at `/api/fo-mcp` |
+| ANY | `/api/fo-mcp` | Local proxy the agent calls for Fo. Guarded by the `X-Fo-Proxy-Key` header (in the `tool_fo` MCP entry), not admin auth. Adds a live Wajo bearer token, refreshing it within 5 min of expiry and storing the rotated refresh token, so the MCP entry is never rewritten and the runtime never restarts on refresh |
 | POST | `/api/device/connectors/pat` | Admin-gated: save a static-credential (PAT) connector through the same writer as MQTT `connector.set.<code>` |
 | GET / DELETE | `/api/device/connectors/:code` | Admin-gated: connected state + non-secret identity fields / remove the connector |
 

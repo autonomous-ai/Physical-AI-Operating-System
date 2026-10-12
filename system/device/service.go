@@ -40,6 +40,8 @@ type Service struct {
 	// Optional HAL apply override for isolated cloud perception tests.
 	halCloudPerceptionApply func(context.Context, config.CloudPerception) error
 	cloudApply              cloudPerceptionApply
+	// foMu serializes Fo token refreshes (fo.go).
+	foMu sync.Mutex
 }
 
 func ProvideService(config *config.Config, ns *network.Service, gw domain.AgentGateway, be *beclient.Client, sled *statusled.Service) *Service {

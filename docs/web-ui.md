@@ -199,6 +199,15 @@ The OS saves the entry in `mcp_tools` and syncs it as `tool_pushary` to the acti
 runtime. OpenCode receives `mcp.tool_pushary` with `type: remote`; Hermes receives
 `mcp_servers.tool_pushary`. Both keep the URL and headers and enable the entry.
 
+**Fo (Wajo)** has its own card at the top of MCP Tools while it is not connected.
+It needs a Wajo account with Fo Pro. **Connect Fo** opens the Wajo sign-in in a
+new tab (with a link as fallback if the browser blocks it). After **Allow**, the
+browser lands on `http://localhost:5000/oauth/fo/callback?code=…`, which does not
+load: Wajo only accepts https or loopback redirects. Paste that full address into
+**Address after sign-in** and click **Finish**. Fo then appears in the list as
+tool `fo`, whose URL is os-server's local proxy (`/api/fo-mcp`); the Wajo tokens
+stay in os-server (see `docs/os-server.md`). **Remove** on `fo` signs out.
+
 An Add error can occur after the OS saved the entry, if the runtime config is
 missing or invalid. Reload the list before retrying: duplicate names are rejected.
 Fix the runtime setup and check the logs on the next startup sync. A listed entry

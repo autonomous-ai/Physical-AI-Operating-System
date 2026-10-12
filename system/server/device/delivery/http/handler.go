@@ -627,6 +627,37 @@ func (h *DeviceHandler) RemoveMCPTool(c *gin.Context) {
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
 }
 
+// StartFoConnect returns the Wajo sign-in URL for the Fo MCP tool.
+func (h *DeviceHandler) StartFoConnect(c *gin.Context) {
+	authURL, err := h.service.FoConnectStart()
+	if err != nil {
+		c.JSON(http.StatusBadGateway, serializers.ResponseError(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(gin.H{"auth_url": authURL}))
+}
+
+// FinishFoConnect takes the localhost URL the browser landed on after Wajo sign-in.
+func (h *DeviceHandler) FinishFoConnect(c *gin.Context) {
+	var req struct {
+		CallbackURL string `json:"callback_url" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	if err := h.service.FoConnectFinish(req.CallbackURL); err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
+}
+
+// FoMCPProxy forwards the agent's Fo MCP calls to Wajo (device.Service.ServeFoMCP).
+func (h *DeviceHandler) FoMCPProxy(c *gin.Context) {
+	h.service.ServeFoMCP(c.Writer, c.Request)
+}
+
 // ToggleVoiceInputMode handles a device gesture without a client-side stale read.
 func (h *DeviceHandler) ToggleVoiceInputMode(c *gin.Context) {
 	mode, err := h.service.ToggleVoiceInputMode()

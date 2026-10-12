@@ -76,6 +76,10 @@ func (s *Service) RemoveMCPTool(name string) error {
 			filtered = append(filtered, t)
 		}
 		c.MCPTools = filtered
+		// Removing Fo signs out; the client registration is kept for the next Connect.
+		if name == foToolName {
+			c.FoAuth = config.FoAuth{ClientID: c.FoAuth.ClientID}
+		}
 	}); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}

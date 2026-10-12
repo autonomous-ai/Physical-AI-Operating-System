@@ -197,7 +197,10 @@ SEN63C trước khi bật SEN55 + SCD41 thay thế. Xem [cảm biến môi trư�
 | GET / PUT | `/api/device/config` | Cần admin auth. GET trả config thiết bị, secret chỉ còn dạng boolean `Has*`; PUT cập nhật từng field (lưu xuống disk) |
 | GET / POST | `/api/device/agent-runtime` | Cần admin auth. GET: `{current, options, ready, …}`; POST đổi agentic backend (`409` khi một lần đổi khác đang chạy; xem Device Ops Alerts bên dưới) |
 | GET / POST | `/api/device/mcp-tools` | Cần admin auth: liệt kê / thêm endpoint MCP tool từ xa |
-| DELETE | `/api/device/mcp-tools/:name` | Cần admin auth: xoá một MCP tool từ xa |
+| DELETE | `/api/device/mcp-tools/:name` | Cần admin auth: xoá một MCP tool từ xa (xoá `fo` thì đăng xuất khỏi Wajo luôn) |
+| POST | `/api/device/fo/connect` | Cần admin auth: đăng ký với Wajo một lần (dynamic client registration) và trả `{auth_url}`, link đăng nhập PKCE cho Fo |
+| POST | `/api/device/fo/connect/finish` | Cần admin auth: body `{callback_url}`, URL `http://localhost:5000/oauth/fo/callback?code=…` mà trình duyệt nhảy tới (trang không tải được; Wajo chỉ nhận redirect https hoặc loopback). Đổi code lấy token, lưu vào `fo_auth`, thêm MCP tool `fo` trỏ tới `/api/fo-mcp` |
+| ANY | `/api/fo-mcp` | Proxy local mà agent gọi để dùng Fo. Bảo vệ bằng header `X-Fo-Proxy-Key` (nằm trong MCP entry `tool_fo`), không dùng admin auth. Gắn bearer token Wajo còn hạn, refresh khi còn dưới 5 phút và lưu refresh token mới (Wajo xoay vòng), nên MCP entry không bao giờ bị ghi lại và runtime không restart khi refresh |
 | POST | `/api/device/connectors/pat` | Cần admin auth: lưu connector dạng credential tĩnh (PAT) qua cùng writer với MQTT `connector.set.<code>` |
 | GET / DELETE | `/api/device/connectors/:code` | Cần admin auth: trạng thái kết nối + field định danh không bí mật / xoá connector |
 

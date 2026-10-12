@@ -52,6 +52,20 @@ func Dir() string {
 	return filepath.Dir(Path())
 }
 
+// FoAuth is the OAuth state for Fo (Wajo's MCP server). The agent never sees
+// these tokens: it calls os-server's local proxy, which adds them.
+type FoAuth struct {
+	ClientID     string `json:"client_id,omitempty" yaml:"clientId,omitempty"`
+	AccessToken  string `json:"access_token,omitempty" yaml:"accessToken,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty" yaml:"refreshToken,omitempty"`
+	ExpiresAt    int64  `json:"expires_at,omitempty" yaml:"expiresAt,omitempty"`
+	// ProxyKey is the secret the agent sends to the local proxy.
+	ProxyKey string `json:"proxy_key,omitempty" yaml:"proxyKey,omitempty"`
+	// PendingVerifier + PendingState belong to a sign-in started but not finished.
+	PendingVerifier string `json:"pending_verifier,omitempty" yaml:"pendingVerifier,omitempty"`
+	PendingState    string `json:"pending_state,omitempty" yaml:"pendingState,omitempty"`
+}
+
 // OSVersion is injected at build time via ldflags
 // (-X go.autonomous.ai/os/system/server/config.OSVersion=v1.2.3).
 var OSVersion = "dev"
@@ -274,6 +288,9 @@ type Config struct {
 	// MCPTools is the list of remote MCP tool endpoints (HF Spaces, public
 	// MCP servers) the agent can call.
 	MCPTools []MCPTool `json:"mcp_tools,omitempty" yaml:"mcpTools"`
+
+	// FoAuth is the Wajo sign-in behind the "fo" MCP tool (system/device/fo.go).
+	FoAuth FoAuth `json:"fo_auth,omitzero" yaml:"foAuth,omitempty"`
 
 	// AdminPasswordHash is the bcrypt hash of the admin login password set
 	// during device setup.

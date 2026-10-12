@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { C, SectionCard, LABEL_STYLE, INPUT_STYLE } from "@/components/setup/shared";
-import { listMCPTools, addMCPTool, removeMCPTool } from "@/lib/api";
+import { listMCPTools, addMCPTool, removeMCPTool, startFoConnect, finishFoConnect } from "@/lib/api";
 import type { MCPTool } from "@/lib/api";
 
 import "./settings-lists.css";
@@ -16,6 +16,9 @@ export function MCPToolsSection({ active }: { active: boolean }) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState<HeaderRow[]>([]);
+  const [foAuthURL, setFoAuthURL] = useState("");
+  const [foCallback, setFoCallback] = useState("");
+  const [foBusy, setFoBusy] = useState(false);
 
   useEffect(() => {
     listMCPTools()
@@ -72,6 +75,36 @@ export function MCPToolsSection({ active }: { active: boolean }) {
       setRemoving(null);
     }
   }
+
+  async function handleFoStart() {
+    setFoBusy(true);
+    try {
+      const { auth_url } = await startFoConnect();
+      setFoAuthURL(auth_url);
+      window.open(auth_url, "_blank", "noopener");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start Fo sign-in.");
+    } finally {
+      setFoBusy(false);
+    }
+  }
+
+  async function handleFoFinish() {
+    setFoBusy(true);
+    try {
+      await finishFoConnect(foCallback.trim());
+      setTools(await listMCPTools());
+      setFoAuthURL("");
+      setFoCallback("");
+      toast.success("Fo connected.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to connect Fo.");
+    } finally {
+      setFoBusy(false);
+    }
+  }
+
+  const foConnected = tools.some((t) => t.name === "fo");
 
   const headerCount = (t: MCPTool) => t.headers ? Object.keys(t.headers).length : 0;
 
@@ -138,6 +171,49 @@ export function MCPToolsSection({ active }: { active: boolean }) {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!foConnected && (
+            <div style={{
+              marginBottom: 16, padding: "10px 12px", background: C.surface,
+              border: `1px solid ${C.border}`, borderRadius: 8,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>Fo (Wajo)</div>
+              <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 8 }}>
+                Let the agent hand errands (email, calendar, calls, purchases) to your Fo
+                assistant. Needs a Wajo account with Fo Pro.
+              </div>
+              {!foAuthURL ? (
+                <button type="button" onClick={handleFoStart} disabled={foBusy} style={{ ...BTN, opacity: foBusy ? 0.5 : 1 }}>
+                  {foBusy ? "Opening…" : "Connect Fo"}
+                </button>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 6 }}>
+                    1. <a href={foAuthURL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>Open the Wajo sign-in</a> and allow access.<br />
+                    2. Your browser then lands on a <b>localhost</b> page that does not load. That is expected:
+                    copy the full address from the address bar and paste it below.
+                  </div>
+                  <label htmlFor="fo-callback" style={LABEL_STYLE}>Address after sign-in</label>
+                  <input
+                    id="fo-callback"
+                    type="text"
+                    value={foCallback}
+                    onChange={(e) => setFoCallback(e.target.value)}
+                    placeholder="http://localhost:5000/oauth/fo/callback?code=…"
+                    style={INPUT_STYLE}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFoFinish}
+                    disabled={foBusy || !foCallback.trim()}
+                    style={{ ...BTN, marginTop: 8, opacity: foBusy || !foCallback.trim() ? 0.5 : 1 }}
+                  >
+                    {foBusy ? "Connecting…" : "Finish"}
+                  </button>
+                </>
+              )}
             </div>
           )}
 

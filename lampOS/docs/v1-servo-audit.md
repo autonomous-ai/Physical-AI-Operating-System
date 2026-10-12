@@ -224,6 +224,10 @@ Do not repeat or widen the known colliding trajectory to obtain those results.
 
 ## Verification and retained evidence
 
+Implementation follow-through: [combined-pose clearance and measured stop](motor-clearance-stop.md)
+ports the first two motor-boundary improvements into Rust. The audit evidence
+below remains evidence about V1; it is not a hardware qualification of that port.
+
 Nine offline checks passed against exact production helpers: load-direction
 decoding; overload dwell/retry; timer reset on missing feedback; contact dwell;
 learned neighboring-frame margins; smooth convergence without overshoot;

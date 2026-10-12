@@ -152,7 +152,7 @@ INPUT WORKERS           ONE CORE PROCESS          OUTPUT WORKERS
 +-------------------+   | One shared state    |   +-------------------+
                         | One current turn    |
 +-------------------+   | Bounded queues      |   +-------------------+
-| Physical privacy  |-->| Permission checks   |-->| Head / body *     |
+| Physical privacy  |-->| Permission checks   |-->| Servo / motors *  |
 | Kyle              |   | Cancellation / Stop |   | Kyle              |
 +-------------------+   +---------------------+   +-------------------+
 ```
@@ -182,6 +182,34 @@ contracts, not a claim of zero latency or hard real-time Linux scheduling.
 The gesture producer and physical motion qualification are still pending;
 ordinary conversation does not dispatch a motor segment. This map does not
 claim every component is deployed.
+
+The former **Head / body** box is the **servo / motor-control subsystem**.
+It is not part of the camera or Gemini worker. Kyle is the proposed human owner;
+Main is implementing the Rust port while Agent 1 owns voice. Its code lives in
+`crates/motor`, and `lamp-motor-worker` is its independent process.
+
+```text
+CORE: lamp-live                         SEPARATE MOTOR PROCESS
++--------------------------+          +--------------------------------------+
+| Choreographer — Darren    |          | lamp-motor-worker — Kyle             |
+|                          |  intent  |                                      |
+| Chooses purposeful       |--------->| Admission + smooth trajectories      |
+| head/body gestures       |          | Calibration + joint limits           |
+|                          |<---------| Combined-pose clearance checks       |
+| Owner / privacy / Stop   | receipts | Fresh readback + bounded stop attempt|
++--------------------------+          +-------------------+------------------+
+                                                        |
+                                                 One serial writer
+                                                        |
+                                        Base / shoulder / elbow / wrist /
+                                                    head servos
+```
+
+The core chooses the interaction; the motor worker validates every motion at the
+actuator boundary. A gesture cannot bypass the motor worker's limits. See the
+[V1-based clearance and stop port](motor-clearance-stop.md) for implemented
+software checks and the remaining physical qualification. Declared clearance
+cells are per-device provisioning, not geometry inferred from joint limits.
 
 ```text
 ADDITIONAL WORKERS                PROPOSED OWNER       STATUS

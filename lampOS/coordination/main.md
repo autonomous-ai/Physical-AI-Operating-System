@@ -1,8 +1,42 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 06:37 UTC
+- Updated: 2026-10-12 11:05 UTC
 - Branch: `lamp-v2-chat`
+
+## Current scope: servo port
+
+The owner reassigned voice to Agent 1 and works directly with that agent.
+Main owns servos; Agent 2 works directly with the owner on its own component.
+The earlier broad goal is paused. The sections below preserve earlier voice
+evidence; they are not current Main assignments or a new device grant.
+
+The first Rust batch from the V1 servo audit is in `lamp-servo-v1-port`,
+code `7ca43da4a85f644ee51ded6a52901de323d88fbf`:
+calibrated combined-pose cells, swept-hull admission, and a bounded measured-pose
+stop after ordinary command inhibition. See
+[clearance/stop](../docs/motor-clearance-stop.md) and
+[architecture](../docs/architecture.md). No servo was moved or device changed.
+The head/base contact remains unresolved; no real clearance cells are supplied.
+The motor worker is the diagram's **Servo / motors** output box; Kyle is the
+proposed team owner and Main is implementing it.
+
+Gates: host motor 187/0; emulated Linux ARM64 motor 192/0, strict motor Clippy
+and release binaries; composed host motor/live all-target strict Clippy;
+live motor integration 28/0 through inert children and real local IPC. No full
+workspace suite or physical stop/collision test is claimed. New provisioning and
+stop receipts require parent and motor worker to be updated together.
+Exact commands and artifact hashes are in the
+[motor verification record](../docs/verification/motor-clearance-stop-20261012.md).
+
+Main used one bounded `main-servo-port-arm` container, now exited successfully.
+Both attempted resource FYIs through `harness send voice` returned
+`DIRECTORY_UNAVAILABLE`; no delivery is claimed. Agent 1 reported that this build
+overlapped its second 180 s voice run on 4ace; preserve that resource condition
+with those voice results. Main made no device/HAL/audio changes in this batch.
+
+## Earlier integration status (before voice handoff)
+
 - Latest native evidence: the fixed-source mic1/mic2 pair delivered identical full replies, but mic2's run stopped on extra inputs. A subsequent MIC1 Gemini run answered sunset but never admitted the coffee interruption; two provisional yields each caused 490 ms of accepted zero PCM before resuming. All three room recordings and restoration receipts verify; no human/acoustic acceptance. [Microphone pair](../docs/verification/microphone-path-pair-20261012/README.md), [MIC1 Gemini](../docs/verification/mic1-gemini-duplex-20261012/README.md). A1's recorded-signal analysis finds MIC1 echo arrives before its playback reference; its timing correction is in progress, not deployed.
 - Runner: A2 report-validity and recording-coverage fixes through `4be81ec73` are composed with Main's per-cue decision clock and microphone forwarding. Format, strict two-package all-target Clippy and all 328 observer/evaluator host tests pass; [verification](../docs/verification/report-validity-20261012/README.md). Native use remains pending.
 - Agent Messages: both A1 on office and A2 on M2 are reachable through `harness send`; queued work was delivered and A1 returned the microphone ARM build through that route. No tmux injection or owner relay.

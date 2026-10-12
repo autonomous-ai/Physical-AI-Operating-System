@@ -109,6 +109,66 @@ impl ResumptionMetadata for RetainedResumptionUpdate {
         Some(self.0)
     }
 }
+/// What a refused server message looked like: its field names, nested, the
+/// kind of each value, and the value itself only for a few schema
+/// enumerations. Never audio, text or a handle. Bounded.
+pub fn shape(bytes: &[u8]) -> String {
+    const ENUMERATIONS: [&str; 4] = ["interactionStatus", "mimeType", "type", "modality"];
+    const LIMIT: usize = 480;
+    fn name(text: &str, out: &mut String) {
+        out.extend(
+            text.chars()
+                .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '/' | ';' | '='))
+                .take(40),
+        );
+    }
+    fn walk(value: &serde_json::Value, key: Option<&str>, depth: usize, out: &mut String) {
+        if out.len() >= LIMIT {
+            return;
+        }
+        match value {
+            serde_json::Value::Object(map) if depth < 5 => {
+                out.push('{');
+                for (index, (field, inner)) in map.iter().enumerate() {
+                    if index > 0 {
+                        out.push(',');
+                    }
+                    name(field, out);
+                    walk(inner, Some(field), depth + 1, out);
+                }
+                out.push('}');
+            }
+            serde_json::Value::Object(_) => out.push_str("{..}"),
+            serde_json::Value::Array(items) => {
+                out.push('[');
+                if let Some(first) = items.first()
+                    && depth < 5
+                {
+                    walk(first, None, depth + 1, out);
+                }
+                out.push_str(&format!("]x{}", items.len()));
+            }
+            serde_json::Value::String(text) => {
+                if key.is_some_and(|key| ENUMERATIONS.contains(&key)) {
+                    out.push('=');
+                    name(text, out);
+                } else {
+                    out.push_str(":string");
+                }
+            }
+            serde_json::Value::Number(_) => out.push_str(":number"),
+            serde_json::Value::Bool(flag) => out.push_str(if *flag { ":true" } else { ":false" }),
+            serde_json::Value::Null => out.push_str(":null"),
+        }
+    }
+    let mut out = String::new();
+    match serde_json::from_slice::<serde_json::Value>(bytes) {
+        Ok(value) => walk(&value, None, 0, &mut out),
+        Err(_) => out.push_str("not JSON"),
+    }
+    out.truncate(LIMIT);
+    out
+}
 /// Read leniently: these counts are for observation, and a form this does
 /// not read must never fail a message that is otherwise valid.
 fn usage(raw: &serde_json::Value) -> Usage {
@@ -251,6 +311,8 @@ struct Blob {
 }
 #[derive(Deserialize)]
 struct RawTranscript {
+    // A closing transcript may carry only `finished`.
+    #[serde(default)]
     text: String,
     #[serde(default)]
     finished: bool,

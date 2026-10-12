@@ -57,7 +57,9 @@ async fn raw(supervisor: &mut Supervisor<FakeConnector>) -> std::result::Result<
 async fn failure(supervisor: &mut Supervisor<FakeConnector>) -> Failure {
     loop {
         match raw(supervisor).await {
-            Ok(Notice::Unavailable { .. }) => {}
+            // What a message the codec could not read looked like precedes
+            // the failure it caused.
+            Ok(Notice::Unavailable { .. } | Notice::Event(Event::Refused { .. })) => {}
             Ok(other) => panic!("expected a terminal failure, got {other:?}"),
             Err(failure) => return failure,
         }

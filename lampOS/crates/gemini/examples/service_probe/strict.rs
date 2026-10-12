@@ -349,6 +349,16 @@ impl Observed {
                     json!(awaiting.map(|(lineage, _)| lineage.request.get()));
                 row["since_commit_ms"] = json!(awaiting.map(|(_, since)| since.as_millis()));
             }
+            Event::Refused {
+                session,
+                error,
+                shape,
+            } => {
+                row["kind"] = json!("refused");
+                row["session"] = json!(session.get());
+                row["error"] = json!(format!("{error:?}"));
+                row["fields"] = json!(shape);
+            }
             Event::Usage { session, usage } => {
                 row["kind"] = json!("usage");
                 row["session"] = json!(session.get());

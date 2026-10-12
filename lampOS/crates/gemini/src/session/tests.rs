@@ -1212,6 +1212,39 @@ async fn token_counts_and_a_waiting_notice_are_reported_and_decide_nothing() {
     );
 }
 
+#[tokio::test]
+async fn a_refused_message_is_described_by_its_field_names_before_the_connection_ends() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    send_json(
+        &mut server,
+        json!({"serverContent":{"turnComplete":true,"interactionStatus":"SOMETHING_NEW",
+        "modelTurn":{"parts":[{"text":"words nobody should log"}]}}}),
+    )
+    .await;
+    match event(&mut connection).await {
+        Event::Refused { error, shape, .. } => {
+            assert_eq!(error, Error::MalformedMessage);
+            assert!(shape.contains("interactionStatus=SOMETHING_NEW"), "{shape}");
+            assert!(shape.contains("text:string"), "{shape}");
+            assert!(!shape.contains("nobody"), "{shape}");
+        }
+        other => panic!("expected the refusal, got {other:?}"),
+    }
+    assert_eq!(disconnected(&connection).await, Error::MalformedMessage);
+}
+
+#[tokio::test]
+async fn a_transcript_that_carries_no_text_is_not_a_malformed_message() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    send_json(
+        &mut server,
+        json!({"serverContent":{"outputTranscription":{"finished":true}}}),
+    )
+    .await;
+    discarded(&mut connection, Discard::UnownedOutput).await;
+    assert_eq!(connection.state(), State::Ready);
+}
+
 // ---- Follow-ups, interruptions and topic changes -----------------------
 
 #[tokio::test]

@@ -790,6 +790,9 @@ fn forward(
             awaiting.map(|(lineage, _)| lineage.request.get()),
             awaiting.map(|(_, since)| since.as_millis())
         ),
+        Event::Refused { error, shape, .. } => {
+            eprintln!("lamp-live provider: refused a server message ({error:?}); fields: {shape}");
+        }
         Event::Usage { usage, .. } => eprintln!(
             "lamp-live provider: usage total={:?} prompt={:?} prompt_audio={:?} response={:?} response_audio={:?} thoughts={:?} cached={:?}",
             usage.total,

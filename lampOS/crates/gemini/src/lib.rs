@@ -146,6 +146,14 @@ pub enum Event {
         session: SessionId,
         awaiting: Option<(Lineage, Duration)>,
     },
+    /// A server message this codec refused, just before the connection ends
+    /// with `error`. `shape` is its field names, nested, and the value of a
+    /// few schema enumerations; no audio, no text and no handle.
+    Refused {
+        session: SessionId,
+        error: Error,
+        shape: String,
+    },
     /// The service's own token counts, as it sent them. Counts only.
     Usage {
         session: SessionId,

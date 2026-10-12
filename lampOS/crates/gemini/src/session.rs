@@ -1656,12 +1656,29 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         Ok(())
     }
-    fn decode(&self, bytes: &[u8]) -> Result<wire::ServerFrame> {
-        if self.retain {
+    fn decode(&mut self, bytes: &[u8]) -> Result<wire::ServerFrame> {
+        let decoded = if self.retain {
             wire::decode_server_retaining(bytes)
         } else {
             wire::decode_server(bytes)
+        };
+        if let Err(
+            error @ (Error::MalformedMessage
+            | Error::UnsupportedMessage
+            | Error::MessageTooLarge
+            | Error::InvalidAudio),
+        ) = &decoded
+        {
+            // A message this codec could not read, not a refusal by the
+            // service. What was received before a failure is still
+            // delivered, so this says what that message looked like.
+            self.emit(Event::Refused {
+                session: self.session,
+                error: *error,
+                shape: wire::shape(bytes),
+            });
         }
+        decoded
     }
     async fn message(&mut self, message: Message) -> Result<()> {
         let frame = match message {

@@ -1,7 +1,49 @@
 # Agent 2 status
 
 Owner: Agent 2 (end-of-turn and whole-thought workstream), on M2.
-Communication with Main and Agent 1 is tmux only.
+Communication with Main and Agent 1 is Harness Agent Messages and Git.
+
+## Endpoint pilot composition on `675c71c62`
+
+- **Branch.** `lamp-a2-endpoint-pilot`, proposal only, base `lamp-v2-chat`
+  `675c71c62`. `lamp-a2-pilot` and `lamp-a2-pilot-limits` are unchanged.
+- **Tested code SHA.** `b1f43e50a`. The later docs commit changes only
+  `docs/endpoint-pilot.md` and this file.
+- **Content.**
+  - The ten package commits and their sharing are listed in
+    [the source closure](../docs/endpoint-pilot.md#source-closure).
+  - Defaults are unchanged. Without `--endpoint smart-turn` no worker starts,
+    and the baseline trace records keep their exact fields.
+  - `smart-turn-early` is absent.
+  - New on this base:
+    - smart-turn also on duplex, which gates the same baseline detector;
+    - `--endpoint` as a typed voice-eval runtime flag beside `--microphone`;
+    - an [opt-in trial configuration](../docs/endpoint-pilot.md#opt-in-latency-trial-on-cached-speech).
+- **Gates.**
+  - macOS on `549daeb7`:
+    - endpoint crates with the model, and IPC 12/12;
+    - live `endpoint_session`, `pilot_faults`, `duplex`, options and activity
+      90/0, and the real-worker session test with the release worker;
+    - `endpoint_confirmation` 22/0;
+    - voice-eval flags 8/0 and `serve_plan` 6/0.
+  - Final ARM gate on `b1f43e50a` (M2 Linux ARM64 VM, Rust 1.96.0):
+    - fmt and strict workspace Clippy;
+    - `lamp-endpoint` with the model 16/0 and IPC 16/0;
+    - real-worker `endpoint_session` 14/0 and `endpoint_confirmation` 22/0;
+    - fallback suites (`pilot_faults`, `duplex`, options, activity) 79/0;
+    - voice-eval flags 8/0 and `serve_plan` 6/0;
+    - release builds and three `--check-model` runs, all exit 0.
+  - No full workspace test run.
+- **A733 bundle.**
+  `lampOS/.cache/endpoint/artifacts/b1f43e50a/lamp-endpoint-check-b1f43e50a.tar`
+  on M2, SHA256 `71d5506e…162d`:
+  - worker `58852eb0…d7ec`;
+  - model `ab8dc64b…39be`;
+  - commands are in
+    [the bundle section](../docs/endpoint-pilot.md#a733-check-bundle-ready-to-copy).
+- **Not established.** A733 cost, real conversation, acoustic latency and the
+  continue-before-output barrier path. My recommendation is unchanged:
+  baseline first, and the candidate only in a separately labelled session.
 
 ## MAIN-057: conservative endpoint pilot package
 

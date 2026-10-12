@@ -1,17 +1,29 @@
 # End-of-turn pilot package (MAIN-057)
 
 This is a conservative, opt-in endpoint package for Main to compose into the
-supervised pilot ([supervised-pilot.md](supervised-pilot.md)). It is based on
-`lamp-v2-chat` `892ec0a1` and published as `lamp-a2-pilot`. Nothing here ran
-on a Lamp, the shared office VM or a cloud service. Every measurement below
-comes from an M2 Max and an ARM64 Linux VM on that host. Neither is an A733.
+supervised pilot ([supervised-pilot.md](supervised-pilot.md)).
+
+- **Base.** The current composition is on `lamp-v2-chat` `675c71c62`, branch
+  `lamp-a2-endpoint-pilot`. The first package (`lamp-a2-pilot`, base
+  `892ec0a1`) and its limit fix (`lamp-a2-pilot-limits`) are unchanged.
+- **Where it ran.** Nothing here ran on a Lamp, the shared office VM or a
+  cloud service. Every measurement comes from an M2 Max and an ARM64 Linux VM
+  on that host. Neither is an A733.
+- **Default unchanged.** Without `--endpoint smart-turn`, no endpoint worker
+  starts and the detector, admission, playback and provider paths are the
+  base's. The `endpoint_policy` and `local_endpoint` trace records keep
+  exactly their existing fields.
 
 ## What the pilot runs
 
 | | Command line | Endpoint |
 | --- | --- | --- |
-| Baseline (unchanged default) | `lamp-live directed … --turn-taking v1-baseline` | 1,200 ms of quiet; no endpoint worker starts |
-| Candidate | `lamp-live directed … --turn-taking v1-baseline --endpoint smart-turn` | Parity profile: a confident complete verdict ends at 1,000 ms of quiet, a clearly unfinished one at 1,500 ms, anything else and every failure at 1,200 ms |
+| Baseline (unchanged default) | `lamp-live directed … --turn-taking v1-baseline`, or `lamp-live serve … --turn-taking duplex` | 1,200 ms of quiet; no endpoint worker starts |
+| Candidate | The same command plus `--endpoint smart-turn` | Parity profile: a confident complete verdict ends at 1,000 ms of quiet, a clearly unfinished one at 1,500 ms, anything else and every failure at 1,200 ms |
+
+Duplex gates the scores that the same baseline detector sees, so the
+candidate confirms duplex pauses exactly as V1-baseline pauses. `vad-only`
+has no silence fallback and refuses `--endpoint smart-turn`.
 
 - **Rollback.** Restart without `--endpoint smart-turn`. Nothing else changes:
   - no rebuild is needed;
@@ -55,20 +67,71 @@ path:
 This is Main's decision; nothing in this package enables the candidate by
 default.
 
+## Opt-in latency trial on cached speech
+
+The trial compares the candidate with the existing cached-speech cohorts and
+changes nothing else.
+
+- **Configuration.**
+  - Use `fixtures/voice-eval-serve-endpoint-trial.example.json`. It is the
+    installed pilot configuration plus `"endpoint": "smart-turn"`.
+  - A dry-run test proves the two differ in nothing else and that the runner
+    forwards exactly the pilot flags followed by `--endpoint smart-turn`.
+  - Keep the same plan (`fixtures/voice-eval-serve-v1.json`), cached WAVs and
+    manifests (no synthesis), Lamp, room, microphone selection and output
+    volume as the baseline cohort it is compared with.
+  - Loudspeaker and direct-human cohorts stay separate.
+- **Pairing.** Alternate baseline and candidate attempts in one sitting,
+  labelled per attempt. Earlier sittings are context, not a control.
+- **Per turn, from the runtime's own records:**
+  - `local_endpoint.includes_silence_wait_ms`: the wait actually used, 1,000,
+    1,200 or 1,500 ms.
+  - `local_endpoint.endpoint`: the basis (`model_complete`,
+    `model_incomplete`, `model_uncertain`, `silence_fallback`) and the
+    fallback reason.
+  - `endpoint_worker` availability changes, and `endpoint_worker_final`
+    (`reaped` must be true).
+- **Measures.**
+  - The distribution of waits.
+  - Endpoint to first ALSA-accepted write, the boundary already reported.
+  - Their sum, the same estimate Main reports (for example 1.2 s + 1.275 s in
+    [pilot readiness](verification/pilot-readiness-20261012/README.md)).
+  - Acoustic timing comes only from verified, listened room recordings.
+- **Expected effect, and its limits.**
+  - At most 200 ms less on confident completed turns.
+  - The reply path after the endpoint is unchanged.
+  - Different generated replies prevent a causal reply-latency claim.
+- **Fallbacks kept:**
+  - A missing, loading, failed, hung or late worker ends on the 1,200 ms
+    window, with its reason.
+  - Interruption admission, the duplex yield, playback and the provider are
+    unchanged code.
+  - Their suites pass on this branch: `duplex`, `pilot_faults`, and the
+    endpoint full-session tests under V1-baseline and duplex.
+- **Stop.** The [rollback rule](#pilot-acceptance-and-rollback-rule) applies
+  unchanged. An unreaped worker fails runtime cleanup, so no later service
+  cycle starts beside it.
+
 ## Source closure
 
-Base `892ec0a1`. Each commit applies alone in order; the first four are
-reviewed code reused unchanged from `052eb703` and `425a76a7`.
+Base `675c71c62`. Each commit applies alone in order. The first seven are
+the reviewed `lamp-a2-pilot-limits` commits replayed onto this base; only the
+fourth needed conflict resolution, against the newer duplex, notice and
+motor code.
 
 | Commit | Files | Content | Shared? |
 | --- | --- | --- | --- |
-| `7b76b04b` | `crates/endpoint-ipc/**`, `crates/endpoint/**` | Worker, IPC, supervisor, features, pinned model loading, process and parity tests, fixture provenance | New crates only |
-| `2c4ee1a7` | `Cargo.toml`, `Cargo.lock`, `crates/live/Cargo.toml` | Two workspace members; `lamp-live` → `lamp-endpoint-ipc`; 65 added lock entries, none removed or changed | Shared |
-| `47a59d02` | `crates/live/src/activity.rs`, `crates/live/tests/endpoint_confirmation.rs` | Detector seam, baseline-exact pauses, parity `ConfirmPolicy`; no early end | Shared (`activity.rs`) |
-| `13495b3a` | `coordinator.rs`, `coordinator/endpoint.rs`, `options.rs`, `coordinator/tests/endpoint_session.rs`, and one `endpoint: None` field in the test `Rig` literals of `camera.rs`, `optional_ring_tests.rs`, `provider_terminal.rs`, `service_mute.rs`, `termination.rs` | `--endpoint smart-turn`, worker start in `spawn_rig`, traces, confirmed-reap teardown, full-session stress tests | Shared |
-| `fa33308f` | `crates/endpoint/{Cargo.toml,src/main.rs,src/lib.rs,src/reference.rs,tests/parity.rs}`, `crates/endpoint-ipc/tests/process.rs` | `--check-model` self-check, Linux resource bounds, damaged-model and idle tests | New crates only |
-| `4402caeb` | `crates/live/src/coordinator/tests/endpoint_session.rs` | Emulated endpoint sessions run one at a time | Agent 2 test file |
-| docs and status commit | `docs/endpoint-detection.md`, `docs/endpoint-pilot.md`, `coordination/agent-2.md` | This package | Agent 2 files |
+| `42a07701` | `crates/endpoint-ipc/**`, `crates/endpoint/**` | Worker, IPC, supervisor, features, pinned model loading, process and parity tests, fixture provenance | New crates only |
+| `1d94414d` | `Cargo.toml`, `Cargo.lock`, `crates/live/Cargo.toml` | Two workspace members; `lamp-live` → `lamp-endpoint-ipc`; 65 added lock entries, none removed or changed | Shared |
+| `ae5fea33` | `crates/live/src/activity.rs`, `crates/live/tests/endpoint_confirmation.rs` | Detector seam, baseline-exact pauses, parity `ConfirmPolicy`; no early end | Shared (`activity.rs`) |
+| `3de3b636` | `coordinator.rs`, `coordinator/endpoint.rs`, `options.rs`, `coordinator/tests/endpoint_session.rs`, and one `endpoint: None` field in the test `Rig` literals of `camera.rs`, `optional_ring_tests.rs`, `provider_terminal.rs`, `service_mute.rs`, `termination.rs`, `motor/tests.rs`, `tests/pilot_faults.rs` | `--endpoint smart-turn`, worker start in `spawn_rig`, traces, confirmed-reap teardown, full-session stress tests; the baseline `endpoint_policy` record keeps its fields | Shared |
+| `fc55a090` | `crates/endpoint/{Cargo.toml,src/main.rs,src/lib.rs,src/reference.rs,tests/parity.rs}`, `crates/endpoint-ipc/tests/process.rs` | `--check-model` self-check, Linux resource bounds, damaged-model and idle tests | New crates only |
+| `afd2c52b` | `crates/live/src/coordinator/tests/endpoint_session.rs` | Emulated endpoint sessions run one at a time | Agent 2 test file |
+| `eea0ac0c` | `crates/endpoint/src/main.rs` and tests | Worker bounds never raise an inherited soft or hard limit (MAIN-059) | New crates only |
+| `e053b100` | `crates/live/src/coordinator.rs` | Baseline `local_endpoint` records keep their exact fields | Shared |
+| `98075207` | `crates/voice-eval/src/{main.rs,physical/session.rs}`, `crates/voice-eval/tests/serve_plan.rs`, `fixtures/voice-eval-serve-endpoint-trial.example.json` | `--endpoint` as a typed runtime flag beside `--microphone`, validated by lamp-live's parser; the trial configuration | Agent 2 crate |
+| `549daeb7` | `crates/live/src/options.rs`, `coordinator/tests/endpoint_session.rs` (and formatting in `coordinator.rs`, `coordinator/endpoint.rs`) | Smart-turn on duplex, with duplex full-session tests | Shared (`options.rs`) |
+| docs commits | `docs/endpoint-detection.md`, `docs/endpoint-pilot.md`, `coordination/agent-2.md` | This package | Agent 2 files |
 
 The hash of the docs and status commit is in
 [coordination/agent-2.md](../coordination/agent-2.md).
@@ -95,7 +158,7 @@ refuses any other bytes before the ONNX parser reads them.
 
 | Binary | Links | Linux ARM64 VM size, release / stripped |
 | --- | --- | --- |
-| `lamp-live` | `lamp-endpoint-ipc` (no third-party crate added) | 8,406,016 at `892ec0a1` → 8,506,584 bytes / 6,165,560 → 6,231,096 bytes |
+| `lamp-live` | `lamp-endpoint-ipc` (no third-party crate added) | 9,665,032 bytes at `b1f43e50` (first package: 8,406,016 at `892ec0a1` → 8,506,584 bytes / 6,165,560 → 6,231,096 bytes) |
 | `lamp-endpoint-worker` | tract 0.23.8 and the crates below | 24,233,112 / 17,776,360 bytes |
 
 ### Rust dependencies
@@ -118,6 +181,44 @@ refuses any other bytes before the ONNX parser reads them.
     hosts, or optional features that are not activated.
   - All are MIT, Apache-2.0, Zlib, Unlicense, BSD-2-Clause or BlueOak-1.0.0
     licensed, alone or as alternatives.
+
+## A733 check bundle (ready to copy)
+
+The final ARM gate built the worker from `b1f43e50` on M2's Linux ARM64 VM
+(Rust 1.96.0, Debian bookworm, glibc 2.36). The worker needs glibc 2.34 or
+later. The bundle has no credentials and no audio. It is stored on M2 at
+`lampOS/.cache/endpoint/artifacts/b1f43e50a/lamp-endpoint-check-b1f43e50a.tar`
+(Git-ignored):
+
+| File | Bytes | SHA256 |
+| --- | --- | --- |
+| `lamp-endpoint-check-b1f43e50a.tar` | 56,650,752 | `71d5506e371ae9415a5eba7ef928c3f3bd2febe9c0c059c54d197d0ab317162d` |
+| `lamp-endpoint-worker` | 24,233,112 | `58852eb0697628d293af0d118614bd5fcf04c9d24a940044adcce1471b73d7ec` |
+| `smart-turn-v3.2-gpu.onnx` | 32,411,198 | `ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be` |
+| `README.txt` | 1,352 | `0fed97e9fa1b71c146a68f95098a60c3aa6f12d1cd4e45baced5e85ea1c22196` |
+
+The same gate's `lamp-live` is 9,665,032 bytes, SHA256
+`e0c306772c4ff6cd175894e8face40b6d7f3c9f7ecc74412e31d987abe61dc62`. It is not
+in the bundle: root builds and composes the shared runtime. Embedded build
+paths may change the hash of another build of the same commit.
+
+On the idle Lamp, as the service user and under the service's limits:
+
+```sh
+tar -xf lamp-endpoint-check-b1f43e50a.tar && cd lamp-endpoint-check-b1f43e50a
+sha256sum -c SHA256SUMS
+cat /proc/loadavg; grep -E "address space|core file" /proc/self/limits
+for i in 1 2 3; do ./lamp-endpoint-worker --check-model ./smart-turn-v3.2-gpu.onnx; echo "exit $?"; done
+```
+
+Before handing over, the bundle was extracted and verified in the VM and
+checked once more there; it exited 0. On the VM the three gate checks gave:
+- load 158–160 ms and cold 93–96 ms;
+- warm median 93–96 ms and warm max 97–101 ms;
+- 92–96 ms CPU per check;
+- VmPeak 116,216 KiB under the 262,144 KiB address-space limit, at niceness 10.
+
+These are not A733 numbers.
 
 ## Preparation and check (Rust only)
 

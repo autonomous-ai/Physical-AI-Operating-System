@@ -1,5 +1,15 @@
 # Lamp agent coordination
 
+## Current owner-directed split — 12 October 2026
+
+Agent 1 (`voice`, office/merry-zebra) owns voice and works directly with the
+owner. Main owns servos and the V1-to-Rust motor work. Agent 2 (`brain`,
+M2/noble-fox) receives its next component assignment directly from the owner.
+Read the [voice handoff](voice-handoff-20261012.md) for exact pending sources,
+real-device evidence and remaining failures. This split supersedes the older
+workstream assignments and Main-only voice routing below. Coordinate shared
+hardware and build resources; the historical assignments remain for provenance.
+
 The owner enabled **Harness Agent Messages** on 12 October 2026. Use the built-in
 `harness send` route between Main, Agent 1 and Agent 2. This supersedes the earlier
 tmux delivery requirement; revision `harness-messages-and-git-v4`. Git holds code,

@@ -35,3 +35,16 @@ For every subsystem handoff, define its owned process/files, bounded messages,
 readiness, crash behavior, privacy/stop response, measurable latency boundary and
 device test. Use independent processes where they isolate work or failure, with
 one writer per shared hardware bus. A Rust crate alone is not crash isolation.
+
+## Named V2 architecture map
+
+The [ASCII architecture](architecture.md#runtime-responsibilities) now puts these
+proposed owners directly beside each core responsibility and worker boundary.
+Darren owns proposed expressive behavior and ring presentation; Leo reviews ring
+driver contracts, whose V1 history is predominantly his. `ndtran11-png` owns the
+proposed audio/provider/end-of-turn workstream, and `loclt1011` owns camera and
+perception; neither account has been expanded into an unverified personal name.
+Kyle owns the proposed physical controls and enabled sensor drivers as well as
+the single motor-bus writer. A dedicated whole-interaction QA owner and future
+Harness/memory owners remain explicitly unassigned. This is a staffing proposal,
+not a change to current agent file ownership or an implementation-complete claim.

@@ -122,31 +122,75 @@ automatically a process. Different worker roles can share an executable while
 running as separate processes with their own lifetime and resource bounds.
 
 ```text
-Linux / service supervisor
-            |
-      lamp-live core
-      lifecycle, capabilities, turn ownership,
-      admission, privacy and one choreographer
-            |
-      bounded control and observations
-            |
-   +--------+-----------+-----------+-----------+
-   |        |           |           |           |
-capture   speaker    Gemini       camera      privacy /
-DSP/VAD   playback   transport    acquisition physical controls
-   ^        |                       |
-   +--------+                   perception
- accepted render                    |
- reference                    fresh evidence
+DESK SETUP / CALIBRATION
+Tony (setup UX) + Kyle (hardware limits)
+                    |
+LINUX + SYSTEMD / INSTALL / UPDATE
+Elvis (69tc)
+                    |
++--------------------------------------------------+
+| lamp-live: SMALL CORE — Leo                       |
+| Supervision, IPC, privacy, turn ownership,         |
+| admission, cancellation and capability health     |
+|                                                  |
+| Choreographer — Darren (Leo reviews contracts)    |
+| One intent coordinates voice, ring, head and body |
++--------------------------------------------------+
+                    |
+          bounded IPC + priority control
+                    |
+  +-- Microphone / DSP / VAD [process]
+  |     ndtran11-png
+  |
+  +-- Speaker / playback [process]
+  |     ndtran11-png
+  |     accepted playback feeds the echo reference
+  |
+  +-- Gemini Live transport [process]
+  |     ndtran11-png
+  |
+  +-- Camera acquisition [optional process]
+  |     loclt1011
+  |       `-- Perception [separate process; pending]
+  |             loclt1011
+  |
+  +-- Ring / light output [optional process]
+  |     Darren; Leo reviews the driver contracts
+  |
+  +-- Head / body: one servo-bus writer [process]
+  |     Kyle (kyle-aus); live integration pending
+  |
+  +-- Physical privacy / buttons / touch [process]
+  |     Kyle; privacy active, other controls pending
+  |
+  +-- Enabled environment sensors [pending process]
+  |     Kyle; lower priority for this release
+  |
+  `-- End-of-turn model [candidate process]
+        ndtran11-png; silence fallback stays local
 
-Additional independent workers:
-  ring output | head/body motor bus | enabled sensors
-  end-of-turn inference (candidate; outside the core)
+CROSS-COMPONENT ACCEPTANCE
+Leo: integration     Dedicated QA owner: UNASSIGNED
 
-Future, outside the live interaction path:
-  task adapter -> Harness
-  shared memory/context service
+FUTURE ONLY — outside the live conversation path
+  Harness task adapter             Owner: TBD
+  Shared memory / context service  Owner: TBD
 ```
+
+These are **proposed human assignments**, based on the
+[V1 ownership evidence](team-ownership.md), not confirmed staffing. Preserve
+Git account names where the person's name is not established. Darren is proposed
+as the expression owner; V1 ring-driver history supports Leo as its technical
+reviewer. Tony and Kyle share the setup handoff, not one hardware writer.
+
+The diagram is the V2 responsibility map, not a claim that every worker is
+already deployed. `process` means an independent OS lifetime; the choreographer
+is policy inside the core, not another authority or actuator writer. Capture and
+speaker are separate processes even though they share the audio crate. Perception,
+end-of-turn inference and the live motor connection still require their own
+integration/qualification gates. The current physical privacy process does not
+imply that every future button/touch behavior is implemented.
+
 
 Keep continuous capture, echo processing and local cancellation independent of
 network calls, inference, presentation and persistent storage. The capture

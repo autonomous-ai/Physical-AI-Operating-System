@@ -6,7 +6,11 @@
 //! measured in time are tested where they live: the decision budget in
 //! `admission`, the tail and the staleness of hearing in `turn_taking`.
 use super::*;
-use crate::{activity::START_BLOCKS, admission::Hold, turn_taking::HEARING_STALE_US};
+use crate::{
+    activity::{PRE_ROLL_BLOCKS, START_BLOCKS},
+    admission::Hold,
+    turn_taking::HEARING_STALE_US,
+};
 use lamp_audio::{
     evidence::{EchoEvidence, EchoMatch, Level},
     ownership::PlaybackCursor,
@@ -566,6 +570,81 @@ fn a_person_who_speaks_once_the_lamp_is_silent_is_an_ordinary_turn() {
     let accepted = ticks[5].accepted.as_ref().unwrap();
     assert_eq!(accepted.basis, AcceptanceBasis::DirectedSessionDuplex);
     assert!(h.events("duplex_yield").is_empty());
+}
+
+// Where an admitted request begins. Two controls for the onset of what a
+// person says, through the same hearing, detector, retention and admission as
+// the tests above. They describe what the code does today; neither changes it.
+
+/// Positive control. A person who begins while the lamp is silent: the
+/// request reaches back before their first word.
+#[test]
+fn a_request_begun_while_the_lamp_is_silent_starts_before_its_first_word() {
+    let mut h = Harness::new(TurnTaking::Duplex, 20);
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    for quiet in 1..=29 {
+        h.block(0.1, Some(evidence(quiet, None)));
+    }
+    h.blocks(10, 0.1, Some(evidence(40, None)));
+    // Blocks 1 to 59 are behind us. The first word is block 60.
+    let first_word = 60;
+    let ticks = h.blocks(usize::from(START_BLOCKS), 0.95, Some(evidence(50, None)));
+    let accepted = ticks[5].accepted.as_ref().unwrap();
+    assert_eq!(accepted.trigger_sequence, first_word + 5);
+    let pre_roll = PRE_ROLL_BLOCKS as u64 - 1;
+    assert_eq!(accepted.audio[0], accepted.trigger_sequence - pre_roll);
+    assert!(
+        accepted.audio[0] < first_word,
+        "the request starts at block {}, after the first word",
+        accepted.audio[0]
+    );
+    let whole: Vec<u64> = (accepted.audio[0]..=accepted.trigger_sequence).collect();
+    assert_eq!(accepted.audio, whole);
+}
+
+/// Negative control: the loss measured in the native run of 2026-10-12. A
+/// person speaks over the lamp for two seconds and none of it is heard as
+/// speech; then six blocks are, and the lamp yields. The request reaches
+/// back from those six blocks by the detector's pre-roll and no further, so
+/// the two seconds before are not in it. Nothing downstream of admission can
+/// put them back.
+#[test]
+fn words_not_heard_as_speech_before_the_lamp_yields_are_not_in_the_request() {
+    let mut h = Harness::new(TurnTaking::Duplex, 600);
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    // Blocks 21 to 220: the person is speaking over the lamp. The block
+    // scores are low, as the lab found them while the lamp sounds, so each
+    // is heard as nothing speech-like and none is a step toward a yield.
+    let first_word = 21;
+    let unheard = h.blocks(200, 0.2, Some(evidence(0, OVER)));
+    assert!(unheard.iter().all(|tick| tick.accepted.is_none()));
+    assert!(h.events("duplex_yield").is_empty());
+    assert!(h.events("input_candidate").is_empty());
+    // Blocks 221 to 226 are heard: the lamp yields on the sixth.
+    h.blocks(6, 0.9, Some(evidence(0, OVER)));
+    let yielded = h.events("duplex_yield");
+    assert_eq!(yielded.len(), 1);
+    assert_eq!(yielded[0]["frame_sequence"], 226);
+    // Its sound dies away while the person goes on, and they are let in.
+    h.blocks(3, 0.9, Some(evidence(0, OVER)));
+    for quiet in 1..=29 {
+        h.block(0.9, Some(evidence(quiet, OVER)));
+    }
+    let clear = h.blocks(6, 0.9, Some(evidence(30, None)));
+    let accepted = clear[5]
+        .accepted
+        .as_ref()
+        .expect("the person was not let in");
+    assert_eq!(accepted.basis, AcceptanceBasis::DirectedSessionDuplex);
+    assert_eq!(accepted.trigger_sequence, 226);
+    // The request begins the pre-roll before the block that made the lamp
+    // yield: block 197. Blocks 21 to 196, 1.76 s of what the person said,
+    // are not in it.
+    let pre_roll = PRE_ROLL_BLOCKS as u64 - 1;
+    assert_eq!(accepted.audio[0], 226 - pre_roll);
+    assert_eq!(accepted.audio[0] - first_word, 176);
+    let whole: Vec<u64> = (accepted.audio[0]..=*accepted.audio.last().unwrap()).collect();
+    assert_eq!(accepted.audio, whole);
 }
 
 // Independent review probes. Production source is unchanged; this module

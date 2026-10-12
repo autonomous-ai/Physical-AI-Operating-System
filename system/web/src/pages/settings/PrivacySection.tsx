@@ -77,7 +77,7 @@ export function PrivacySection({ active }: { active: boolean }) {
     try {
       await updateDeviceConfig({ cloud_perception: draft });
       setSaved(draft);
-      toast.success("Privacy settings applied");
+      toast.success("Applied on the lamp");
     } catch (e) {
       toast.error((e as Error).message || "Could not apply privacy settings");
     } finally {
@@ -96,8 +96,9 @@ export function PrivacySection({ active }: { active: boolean }) {
         Face detection, Face ID, presence and gaze run on this device and send no images.
         The features below need a cloud server: when on, the lamp uploads camera images for
         analysis. They are off until you turn them on. Anyone in view of the camera is
-        included, not only you. Turning a feature off stops its capture and uploads right
-        away; it does not recall images already sent.
+        included, not only you. Turning a feature off stops its new uploads once the lamp
+        confirms the change; an upload already in progress may still finish, and images
+        already sent are not recalled.
       </div>
       <div style={{ fontSize: 12.5, color: C.text, marginBottom: 14 }}>
         Images are sent to: <strong>{recipient || "no server configured (nothing is sent)"}</strong>
@@ -146,7 +147,7 @@ export function PrivacySection({ active }: { active: boolean }) {
               {applying ? "Applying…" : "Apply"}
             </button>
             <span style={{ fontSize: 12, color: C.textMuted }}>
-              Changes take effect immediately.
+              Apply waits until the lamp confirms the change.
             </span>
           </div>
         </>
@@ -158,7 +159,7 @@ export function PrivacySection({ active }: { active: boolean }) {
           message={`The lamp will upload camera images to ${destination} for cloud analysis: `
             + `${newlyEnabled.map((o) => o.short).join("; ")}. `
             + "Anyone in view of the camera is included. You can turn this off at any time; "
-            + "that stops new uploads but does not recall images already sent."}
+            + "the lamp then stops new uploads once it confirms, but images already sent are not recalled."}
           confirmLabel="Turn on and upload"
           onConfirm={() => { setConfirming(false); void apply(); }}
           onCancel={() => setConfirming(false)}

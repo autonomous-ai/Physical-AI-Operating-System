@@ -1318,8 +1318,8 @@ type UpdateConfigRequest struct {
 	WakeLight      *config.WakeLight `json:"wake_light,omitempty"`
 	VoiceInputMode *string           `json:"voice_input_mode,omitempty" binding:"omitempty,oneof=automatic tap_to_talk"`
 
-	// CloudPerception replaces all camera cloud opt-ins; omit to leave them unchanged.
-	CloudPerception *config.CloudPerception `json:"cloud_perception,omitempty"`
+	// CloudPerception changes camera cloud opt-ins; omitted keys and an omitted object keep their value.
+	CloudPerception *CloudPerceptionSetData `json:"cloud_perception,omitempty"`
 
 	// Realtime is the same payload as MQTT realtime.set; omit to leave it unchanged.
 	Realtime *RealtimeSetData `json:"realtime,omitempty"`

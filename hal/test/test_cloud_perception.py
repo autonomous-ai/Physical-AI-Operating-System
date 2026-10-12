@@ -161,6 +161,25 @@ def test_retire_when_idle_cleans_up_immediately():
     assert p.runs == 0
 
 
+def test_retire_drops_a_check_still_waiting_in_the_queue():
+    # Occupy every shared pool worker so the next check waits in the queue.
+    gate = threading.Event()
+    blockers = [Perception._pool.submit(gate.wait, 5) for _ in range(Perception._pool._max_workers)]
+    p = _SlowPerception()
+    p.release.set()
+    p.check("frame")  # queued, not started
+    p.retire()
+    gate.set()
+    for b in blockers:
+        b.result(5)
+    for _ in range(100):
+        if p.cleanups:
+            break
+        threading.Event().wait(0.02)
+    assert p.runs == 0, "a queued check uploaded after the opt-in was turned off"
+    assert p.cleanups == 1
+
+
 class _CountingEstimator:
     def __init__(self, *a, **k):
         self.uploads = 0

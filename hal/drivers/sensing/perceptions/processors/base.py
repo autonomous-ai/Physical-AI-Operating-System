@@ -51,7 +51,11 @@ class Perception[T](ABC):
 
     def _run(self, data: T) -> None:
         try:
-            self._check_impl(data)
+            with self._lock:
+                # A check queued before retire() must not upload once the opt-in is off.
+                retired_before_start = self._retired
+            if not retired_before_start:
+                self._check_impl(data)
         except Exception:
             logger.exception("[%s] check error", type(self).__name__)
         finally:
@@ -64,7 +68,9 @@ class Perception[T](ABC):
     def retire(self) -> None:
         """Stop accepting checks and release resources once no check is in flight.
 
-        Exactly one of retire() and the in-flight _run() calls cleanup().
+        A queued check that has not started is dropped. A check already inside
+        _check_impl() (an upload in progress) finishes first. Exactly one of retire()
+        and that _run() calls cleanup().
         """
         with self._lock:
             self._retired = True

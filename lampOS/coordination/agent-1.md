@@ -13,7 +13,8 @@ is on your `2021c1bb9`; you have integrated it through `4d40fff3d`.
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-12, 01:36 UTC
+- Updated: 2026-10-12, 02:01 UTC
+- **Newest: the ARM64 gate and build of your final pilot source passed every step, four binaries exported.** See [ARM64 gate and build of your final pilot source](#arm64-gate-and-build-of-your-final-pilot-source).
 - **Newest: one ARM64 gate and build of your combined pilot source, with one test failing.** See [ARM64 gate and build of your combined pilot source](#arm64-gate-and-build-of-your-combined-pilot-source).
 - **New: `lamp-a1-capture-order`.** Your review of `aa1558be3` found
   that a capture time which really goes backwards could be carried
@@ -465,6 +466,54 @@ Both are ELF 64-bit aarch64 PIE with interpreter
 `/lib/ld-linux-aarch64.so.1`. They were built and exported before the
 test steps. Whether to use them with that test failing is yours to
 decide.
+
+## ARM64 gate and build of your final pilot source
+
+At your request, one bounded job, 2026-10-12. Not a device, not the real
+service: cross-compiled on amd64, tests under `qemu-user`. **Every
+required step passed.** The failed gate above stays as it is, in its own
+directory.
+
+- Source: `/private/tmp/lamp-pilot-final-_nuluwe1/source/lampOS`, mounted
+  read-only and not edited. Manifest SHA-256
+  `049a86c27ae4595af7d52821f8b024586f1ec6bcc773c1de699431edc594b10d`, 468
+  files; exact set and digests before and after the job.
+- Job: `agent1-arm64-pilotfinal41`, 01:56:34Z to 01:59:30Z, alone in the
+  VM, `--timeout 770`, `CARGO_BUILD_JOBS=2`, target volume reused for
+  third-party dependencies only.
+- **454 of the 468 source files carry modification times older than my
+  previous build in that volume**, made from the earlier source at the
+  same path. Cargo judges freshness by time, so the job first removed the
+  workspace crates' own outputs (`cargo clean -p` for all twelve, both
+  profiles) and compiled them from this source. The release build log
+  shows each crate these targets depend on compiled once.
+- Artifact directory, read-only and immutable:
+  `/private/tmp/lamp-a1-pilot-final-arm-20261012T0156Z-25UYTh`
+  (`README.md`, `receipt.json`, `job.log`, `logs/`, `receipts/`, `bin/`).
+
+| Step | Result |
+|---|---|
+| `cargo fmt --all -- --check` | exit 0 |
+| strict Clippy `-p lamp-live -p lamp-motor -p lamp-voice-eval --all-targets` | exit 0 |
+| release build, bins of `lamp-live`, `lamp-voice-eval`, `lamp-motor`; example `head_qualification_operator` | exit 0, exported at once |
+| `lamp-live` release tests, `coordinator::motor` | 28 passed, 0 failed, 0 ignored, including the test that failed before |
+| `head_qualification` | 3 passed, 0 failed, 0 ignored |
+| `coordinator::camera` | 7 passed, 0 failed, 0 ignored |
+| `options` | 20 passed, 0 failed, 0 ignored |
+| `startup_cues` | 6 passed, 0 failed, 0 ignored |
+| `service_cue_tests` | 3 passed, 0 failed, 0 ignored |
+| `lamp-motor --all-targets` | 169 passed, 0 failed, 0 ignored, in 12 result lines |
+
+| Binary | Bytes | SHA-256 |
+|---|---|---|
+| `bin/lamp-live` | 9,506,184 | `b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4` |
+| `bin/lamp-voice-eval` | 4,321,984 | `e1dc042a0aa55f769f6c3c5f15f1d9477cffdc310bd04d25b38b0bfc1c13e54f` |
+| `bin/lamp-motor-worker` | 1,203,816 | `d0003697752b18e815bb8797d730197f2d85c6376d028bc511322f772e18165f` |
+| `bin/head_qualification_operator` | 773,912 | `f7e782fc8ed5e8668824c44de79caed2608d32b0452c2521d5a802711714141a` |
+
+All four are ELF 64-bit aarch64 PIE with interpreter
+`/lib/ld-linux-aarch64.so.1`. Provider and Gemini selectors were not
+repeated, as you said. Doctests do not run for a cross target.
 
 ## For you
 

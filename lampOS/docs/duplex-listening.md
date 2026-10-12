@@ -287,6 +287,30 @@ because the turn detector starts on six blocks in a row: with a run its
 start can be made to end exactly on the yield, and with a window it
 cannot.
 
+### The first moments of a reply
+
+When the lamp starts to speak, the render is sounding but its echo has not
+reached the microphone, and the alignment the evidence holds is the one the
+last reply left. For 0.2 s to 0.45 s on lamp-4ace the render explained
+none of each block. The canceller has not converged then either, the
+lamp's first word comes through it, the detector scores it as speech, and
+the block is a person over the lamp by every rule above, and a plain one.
+Most of the yields the lamp made with nobody speaking were there. With the
+rule for a short word heard plainly, one of them became an interruption:
+half a second into a story the lamp stopped itself, sent its own first
+words to the model and said "Sorry, I missed that."
+
+A block now says nothing about who is speaking (`Unknown`) unless the
+render explained at least half of the microphone, at the alignment in use,
+within the last 40 blocks (`EchoMatch.alignment_age_blocks`,
+`Hearing.fresh_blocks`). A block the render does explain sets that age to
+zero, so in the middle of a reply every block is fresh, and a person who
+starts over the lamp there is heard as before. A person who starts in the
+first moments of a reply is not heard over it until the lamp's own sound
+has been matched once. Someone who goes on speaking just before the lamp
+starts is a different case and is not affected: they are heard in the
+clear, before there is anything to yield.
+
 ### A short word, heard plainly
 
 Until 2026-10-13 a yield became an interruption only if speech went on

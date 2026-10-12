@@ -73,6 +73,14 @@ pub struct Hearing {
     /// more than this, in percent, holds a person plainly: the lamp's own
     /// voice is next to nothing in it.
     pub plain_percent: u8,
+    /// Blocks since the render last explained half of the microphone at the
+    /// alignment in use, beyond which a block says nothing about who is
+    /// speaking. When the lamp starts to speak its sound has not reached the
+    /// microphone yet and the alignment is the one its last reply left: for
+    /// 0.2 s to 0.45 s on lamp-4ace the render explained none of the block,
+    /// and the lamp's own first word, let through by a canceller that had
+    /// not converged either, was heard as a person, plainly.
+    pub fresh_blocks: u16,
 }
 
 impl Hearing {
@@ -86,6 +94,7 @@ impl Hearing {
         floor_percent: 80,
         clear_after_blocks: 30,
         plain_percent: 20,
+        fresh_blocks: 40,
     };
 
     pub fn heard(&self, probability: f32, evidence: &EchoEvidence) -> Heard {
@@ -98,6 +107,10 @@ impl Hearing {
         }
         match evidence.echo {
             None => Heard::Unknown,
+            // Nothing recent says where the lamp's own sound lies in this
+            // block. A block the render does explain is never stale: it
+            // sets the age to zero.
+            Some(echo) if echo.alignment_age_blocks > self.fresh_blocks => Heard::Unknown,
             Some(echo)
                 if echo.capture_explained <= self.explained_percent
                     && echo.residual_playback_floor <= self.floor_percent =>
@@ -418,6 +431,35 @@ mod tests {
         let mut loud = evidence(0, Some((97, 10)));
         loud.residual_level = level(-8.0);
         assert_eq!(HEARING.heard(0.99, &loud), Heard::Own);
+    }
+
+    #[test]
+    fn a_block_with_no_recent_match_says_nothing_about_who_is_speaking() {
+        // The lamp begins a reply: the render is sounding, the alignment is
+        // the one its last reply left, and none of the block is explained.
+        let mut starting = evidence(0, Some((0, 0)));
+        let stale = |evidence: &mut EchoEvidence, age: u16| {
+            evidence.echo.as_mut().unwrap().alignment_age_blocks = age;
+        };
+        stale(&mut starting, 300);
+        assert_eq!(HEARING.heard(0.99, &starting), Heard::Unknown);
+        assert!(!HEARING.plain(HEARING.heard(0.99, &starting), &starting));
+        // The same block a moment after the render last explained the
+        // microphone is a person, and plainly one.
+        stale(&mut starting, HEARING.fresh_blocks);
+        assert_eq!(HEARING.heard(0.99, &starting), Heard::Over);
+        assert!(HEARING.plain(Heard::Over, &starting));
+        stale(&mut starting, HEARING.fresh_blocks + 1);
+        assert_eq!(HEARING.heard(0.99, &starting), Heard::Unknown);
+        // Without speech it is the lamp sounding and nothing else, as ever.
+        assert_eq!(HEARING.heard(0.1, &starting), Heard::Under);
+        // So the lamp's own first word never stops it, however long.
+        let mut interruption = Interruption::new(Confirmation::EVALUATED);
+        for _ in 0..60 {
+            let heard = HEARING.heard(0.99, &starting);
+            let plain = HEARING.plain(heard, &starting);
+            assert_eq!(interruption.observe(heard, plain, true), Step::Carry);
+        }
     }
 
     #[test]

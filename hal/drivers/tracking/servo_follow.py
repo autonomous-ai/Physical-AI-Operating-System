@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Dict, Optional
 
-from hal.drivers.motors.recording_stability import cog_xy_mm
+from hal.drivers.motors.recording_stability import lean_back_mm, limit_lean_back
 from hal.drivers.tracking import constants as C
 from hal.drivers.tracking.filters import smooth_damp
 
@@ -35,20 +35,6 @@ PITCH_AXIS_HARD = {
 }
 
 
-_geometry = None  # BodyGeometry from ROBOT.md urdf_ref; None = no lean-back guard
-
-
-def set_geometry(geometry) -> None:
-    global _geometry
-    _geometry = geometry
-
-
-def _lean_back_mm(pose: Dict[str, float]) -> float:
-    """How far (mm) the CoG sits behind the base axis, along the arm's own heading."""
-    frame = {j: v for j, v in pose.items() if j != "base_yaw.pos"}
-    return -cog_xy_mm(frame, _geometry)[0]
-
-
 def distribute_pitch(
     current: Dict[str, float],
     pitch_deg: float,
@@ -65,20 +51,12 @@ def distribute_pitch(
         current, pitch_deg, PITCH_AXIS_SIGN, PITCH_AXIS_WEIGHT, PITCH_AXIS_HARD,
         C.PITCH_TRAVEL_MIN, C.PITCH_TRAVEL_MAX, travel_min, travel_max,
     )
-    if _geometry is None:
-        return target
     start = {j: float(current.get(j, 0.0)) for j in target}
-    limit = max(C.MAX_LEAN_BACK_MM, _lean_back_mm(start))
-    if _lean_back_mm(target) <= limit:
-        return target
-    lo, hi = 0.0, 1.0  # fraction of the step that still fits
-    for _ in range(10):
-        mid = (lo + hi) / 2
-        pose = {j: start[j] + (target[j] - start[j]) * mid for j in target}
-        lo, hi = (mid, hi) if _lean_back_mm(pose) <= limit else (lo, mid)
-    logger.info("[lean-back] pitch %.2f° cut to %.0f%% — CoG would sit %.0f mm back (limit %.0f)",
-                pitch_deg, lo * 100, _lean_back_mm(target), limit)
-    return {j: start[j] + (target[j] - start[j]) * lo for j in target}
+    capped, fraction = limit_lean_back(start, target, C.MAX_LEAN_BACK_MM)
+    if fraction < 1.0:
+        logger.info("[lean-back] pitch %.2f° cut to %.0f%% — CoG would sit %.0f mm back (limit %.0f)",
+                    pitch_deg, fraction * 100, lean_back_mm(target), C.MAX_LEAN_BACK_MM)
+    return capped
 
 
 def _allocate(current, want, signs, weights_by_joint, hard,

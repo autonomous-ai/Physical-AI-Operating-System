@@ -77,7 +77,7 @@ mới là pass-through.
 | 3b | `motion.stop_always` | — | — | **được khai báo / đảm bảo theo cấu trúc** — chưa có route-level gate nào dùng field này (xem bên dưới) |
 | 4 | trạng thái fail-safe (mất mạng/gateway → dừng tracking; lỗi board → cô lập `503`; `thermal.max_temp_c` → health event quá nhiệt SoC + dừng tracking; chạm vật cản → dừng tại chỗ (giữ torque) + chime + tạm dừng ngắn; giới hạn torque servo ở các khớp chịu trọng lượng; quá tải servo → cắt torque + chime + thử lại theo giờ; setup dự trữ) | hook WS-disconnect + `503` theo từng capability + monitor nhiệt (`thermal_over`/`read_soc_temp_c`) + guard contact + overload (`OverloadGuard`) | `services` khi gateway WS disconnect + route HAL/`/health` + `server.py` `_thermal_monitor` + `animation_service.py` `_overload_tick` | **thực thi một phần (v1)** (setup dự trữ) |
 | 5 | trần `audio.max_volume` | `clamp_volume` | route `/audio/volume`, phía trên chỗ rẽ nhánh loa/sink BT | **thực thi (v1)** |
-| 6 | `motion.max_cog_offset_mm` (theo sự hiện diện) | chấm trọng tâm toàn thân theo từng frame (`recording_stability.py`) | lúc load recording (`resample_recording`), cả driver thật lẫn mock | **thực thi (v1)** |
+| 6 | `motion.max_cog_offset_mm` (theo sự hiện diện) | chấm trọng tâm toàn thân theo từng frame (`recording_stability.py`) | lúc load recording (`resample_recording`), cả driver thật lẫn mock; `POST /servo/move` và `/servo/nudge` thì cắt ngắn tư thế | **thực thi (v1)** |
 
 Mỗi slice thêm field vào `SafetyPolicy` và gate function rồi nối một/nhiều route;
 loader và contract front-matter **không** đổi hình dạng giữa các slice (chỉ thêm field
@@ -195,7 +195,12 @@ thì ghi log là không chấm được tư thế rồi pass-through chứ khôn
 khai 22 mm (đo được: clip bên thứ ba làm lật lamp-0c89 đạt đỉnh 31.6 mm, recording
 tệ nhất trong bộ ship là 17.7 mm, 28 cái còn lại ≤ 17.6 mm — xem
 `robots/lamp/docs/motion-playback.md`); chưa thân nào khác khai, nên không có gì
-khác đổi hành vi. Mỗi thân phải tự suy ra con số từ thư viện animation của chính
+khác đổi hành vi. Lệnh di chuyển trực tiếp cũng được chấm: `POST /servo/move` và
+`/servo/nudge` không từ chối tư thế vượt trần mà **cắt ngắn** nó (`limit_lean_back`),
+chỉ đi tới chỗ trọng tâm còn trong trần, và `/servo/move` báo mục tiêu thực gửi
+trong `clamped`. Các vòng lặp thị giác (tracking, gaze, aim) cắt y như vậy với trần
+riêng chặt hơn 16 mm (`MAX_LEAN_BACK_MM`), vì mặt nằm trên khung hình khiến chúng
+cứ đòi ngẩng thêm. Mỗi thân phải tự suy ra con số từ thư viện animation của chính
 nó — đó là milimet theo hình học và khối lượng của thân đó, không phải hằng số để
 chép lại.
 

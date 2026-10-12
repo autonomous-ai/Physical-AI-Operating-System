@@ -682,7 +682,7 @@ class ServoMoveRequest(BaseModel):
 class ServoMoveResponse(BaseModel):
     status: str
     requested: dict[str, float]
-    clamped: Optional[dict[str, float]] = Field(default=None, description="Legacy field; null because drivers do not expose a confirmed clamped target.")
+    clamped: Optional[dict[str, float]] = Field(default=None, description="The target actually sent when SAFETY.md motion.max_cog_offset_mm cut the move short (it would have leaned the lamp back too far); null when the requested pose was sent as is.")
     actual: dict[str, float] = Field(default_factory=dict, description="Driver-reported positions after the command; some drivers fall back to cached targets. Not a guarantee the target was reached.")
     duration: float
     errors: Optional[dict[str, str]] = None

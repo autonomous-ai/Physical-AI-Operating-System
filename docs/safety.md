@@ -79,7 +79,7 @@ pass-through.
 | 3b | `motion.stop_always` | — | — | **declared / structurally guaranteed** — no route-level gate consumes this field (see below) |
 | 4 | fail-safe states (network/gateway loss → stop tracking; board fault → 503 isolation; `thermal.max_temp_c` → SoC over-temp health event + stop tracking; servo contact → halt in place + chime + short pause; servo torque cap on the weight-bearing joints; servo overload → torque cut-off + chime + timed retry; setup reserved) | WS-disconnect hook + per-capability `503` + thermal monitor (`thermal_over`/`read_soc_temp_c`) + contact + overload guards (`OverloadGuard`) | `services` on WS disconnect + HAL routes/`/health` + `server.py` `_thermal_monitor` + `animation_service.py` `_overload_tick` | **partially enforced (v1)** (setup reserved) |
 | 5 | `audio.max_volume` ceiling | `clamp_volume` | `/audio/volume` route, above the speaker/BT-sink split | **enforced (v1)** |
-| 6 | `motion.max_cog_offset_mm` (presence-driven) | whole-body centre-of-gravity score per frame (`recording_stability.py`) | recording load (`resample_recording`), physical + mock drivers | **enforced (v1)** |
+| 6 | `motion.max_cog_offset_mm` (presence-driven) | whole-body centre-of-gravity score per frame (`recording_stability.py`) | recording load (`resample_recording`), physical + mock drivers; `POST /servo/move` and `/servo/nudge` cut a pose short instead | **enforced (v1)** |
 
 Each slice adds fields to the `SafetyPolicy` and gate functions and wires one or more
 routes; the loader and the front-matter contract do not change shape between slices
@@ -206,7 +206,13 @@ through rather than failing closed. Lamp declares 22 mm (measured: the
 third-party clip that tipped lamp-0c89 peaked at 31.6 mm, the worst shipped
 recording at 17.7 mm, the other 28 at or below 17.6 mm — see
 `robots/lamp/docs/motion-playback.md`); no other body declares it, so nothing
-else changes behaviour. Derive the number per body from its own animation
+else changes behaviour. Direct moves are scored too: `POST /servo/move` and
+`/servo/nudge` do not refuse a pose past the ceiling but **cut it short**
+(`limit_lean_back`), moving only as far as the centre of gravity stays within the
+ceiling, and `/servo/move` reports the target it sent in `clamped`. The vision
+loops (tracking, gaze, aim) apply the same cut with their own tighter 16 mm
+(`MAX_LEAN_BACK_MM`), because a face above the frame keeps them asking for more
+lift. Derive the number per body from its own animation
 library — it is millimetres of that body's geometry and mass, never a constant to
 copy.
 

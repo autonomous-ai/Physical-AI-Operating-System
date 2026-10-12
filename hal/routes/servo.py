@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, File, Form, UploadFile
 
 import hal.app_state as state
 from hal.drivers.motors import hold
+from hal.drivers.motors.recording_stability import limit_lean_back
 from hal.safety.policy import min_move_duration
 from hal.models import (
     ServoAimRequest,
@@ -314,27 +315,36 @@ def move_servo(req: ServoMoveRequest):
             known_pose = False
         if not known_pose:
             raise HTTPException(503, "Cannot enforce motion speed limit without a valid current pose")
-    eff_duration = min_move_duration(policy, req.positions, current, req.duration)
+    # Safety gate (SAFETY.md motion.max_cog_offset_mm): an absolute pose that would lean the
+    # lamp back further than recordings may is cut short, the same cap the tracker obeys.
+    target, clamped = req.positions, None
+    if policy and policy.motion and policy.motion.max_cog_offset_mm is not None:
+        target, fraction = limit_lean_back(current, req.positions, policy.motion.max_cog_offset_mm)
+        if fraction < 1.0:
+            clamped = target
+            state.logger.warning("move: cut to %.0f%% — would lean the lamp back past %s mm",
+                                 fraction * 100, policy.motion.max_cog_offset_mm)
+    eff_duration = min_move_duration(policy, target, current, req.duration)
 
     errors = {}
     actual = {}
 
     try:
-        svc.move_and_hold(req.positions, duration=eff_duration)
+        svc.move_and_hold(target, duration=eff_duration)
     except Exception as e:
         errors["move"] = str(e)
 
     try:
         obs = svc.get_positions()
-        for joint, target in req.positions.items():
+        for joint, goal in target.items():
             measured = float(obs[joint])
             if not math.isfinite(measured):
                 raise ValueError(f"Non-finite position for {joint}")
             actual[joint] = measured
-            error = abs(measured - target)
+            error = abs(measured - goal)
             if error > 5.0:
                 errors[joint] = (
-                    f"position error {error:.1f} (target={target:.1f}, actual={measured:.1f})"
+                    f"position error {error:.1f} (target={goal:.1f}, actual={measured:.1f})"
                 )
     except Exception as e:
         errors["read_position"] = str(e)
@@ -342,7 +352,7 @@ def move_servo(req: ServoMoveRequest):
     return {
         "status": "error" if "move" in errors else "ok",
         "requested": req.positions,
-        "clamped": None,
+        "clamped": clamped,
         "actual": actual,
         "duration": eff_duration,
         "errors": errors if errors else None,

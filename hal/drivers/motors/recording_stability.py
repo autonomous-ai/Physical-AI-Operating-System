@@ -162,6 +162,43 @@ def cog_xy_mm(frame: Dict[str, float], geometry: BodyGeometry) -> Tuple[float, f
     return moment[0] / total * 1000.0, moment[1] / total * 1000.0
 
 
+# This body's geometry, set once at boot; None = no lean-back cap anywhere.
+_body: Optional[BodyGeometry] = None
+
+
+def set_body_geometry(geometry: Optional[BodyGeometry]) -> None:
+    global _body
+    _body = geometry
+
+
+def lean_back_mm(pose: Dict[str, float], geometry: Optional[BodyGeometry] = None) -> float:
+    """How far (mm) the CoG sits behind the base axis, along the arm's own heading."""
+    frame = {j: v for j, v in pose.items() if j.removesuffix(".pos") != "base_yaw"}
+    return -cog_xy_mm(frame, geometry or _body)[0]
+
+
+def limit_lean_back(start: Dict[str, float], target: Dict[str, float],
+                    ceiling_mm: float) -> Tuple[Dict[str, float], float]:
+    """``(pose, fraction)``: `target` cut short so the CoG stays within `ceiling_mm` back.
+
+    A pose already past the ceiling may only come forward. Returns `target` and 1.0
+    when there is no geometry or the move fits.
+    """
+    if _body is None:
+        return target, 1.0
+    full = lambda f: {**start, **{j: start.get(j, 0.0) + (v - start.get(j, 0.0)) * f
+                                  for j, v in target.items()}}
+    limit = max(ceiling_mm, lean_back_mm(start))
+    if lean_back_mm(full(1.0)) <= limit:
+        return target, 1.0
+    lo, hi = 0.0, 1.0
+    for _ in range(10):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if lean_back_mm(full(mid)) <= limit else (lo, mid)
+    cut = full(lo)
+    return {j: cut[j] for j in target}, lo
+
+
 def worst_frame(frames: Iterable[Dict[str, float]],
                 geometry: BodyGeometry) -> Tuple[int, float, Dict[str, float]]:
     """``(index, offset_mm, frame)`` of the pose that reaches furthest out."""

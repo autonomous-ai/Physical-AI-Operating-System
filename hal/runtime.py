@@ -990,10 +990,9 @@ _device_dir = os.path.join(_devices_dir(), _resolve_device_type())
 _safety = _boot.safety
 
 # Unreadable or absent geometry is a warning and pass-through, never a boot failure.
-from hal.drivers.motors.recording_stability import load_geometry
+from hal.drivers.motors.recording_stability import load_geometry, set_body_geometry
 _geometry = load_geometry(_device_dir, _profile.urdf_ref)
-from hal.drivers.tracking import servo_follow as _servo_follow
-_servo_follow.set_geometry(_geometry)
+set_body_geometry(_geometry)
 
 if "policy" in _declared:
     from hal.policy.service import LoggingPolicyService

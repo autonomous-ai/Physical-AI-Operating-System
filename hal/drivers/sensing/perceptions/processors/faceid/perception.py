@@ -57,6 +57,29 @@ def _current_boot_id() -> str:
 
 _FAMILIAR_VISIT_THRESHOLD = 2
 
+# How often the familiar-stranger snapshot folder is swept while the camera runs.
+_SNAPSHOT_PRUNE_EVERY_S = 3600.0
+
+
+def prune_stranger_snapshots(now: float) -> int:
+    """Delete familiar-stranger snapshots older than the retention window; return the count."""
+    cutoff = now - config.STRANGER_SNAPSHOT_RETENTION_S
+    removed = 0
+    try:
+        files = list(_STRANGER_SNAPSHOTS_DIR.glob("*.jpg"))
+    except OSError:
+        return 0
+    for f in files:
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError as e:
+            logger.warning("[face] failed to prune stranger snapshot %s: %s", f, e)
+    if removed:
+        logger.info("[face] pruned %d stranger snapshot(s) older than %.0f s", removed, config.STRANGER_SNAPSHOT_RETENTION_S)
+    return removed
+
 _ENROLL_IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
@@ -113,6 +136,8 @@ class FacePerception(Perception[cv2.typing.MatLike]):
         self._face_present: bool = False
         self._people_data_dict: dict[str, PersonData] = {}
         self._last_stranger_enter_ts: float = 0.0
+        # 0 sweeps on the first tick, which also covers snapshots left from before a restart.
+        self._last_snapshot_prune_ts: float = 0.0
         self._last_presence_save_ts: float = 0.0
         self._load_presence_state()
         self._owners: set[str] = set()
@@ -386,6 +411,9 @@ class FacePerception(Perception[cv2.typing.MatLike]):
             return
 
         cur_ts = time.time()
+        if cur_ts - self._last_snapshot_prune_ts >= _SNAPSHOT_PRUNE_EVERY_S:
+            self._last_snapshot_prune_ts = cur_ts
+            prune_stranger_snapshots(cur_ts)
 
         faces = self._face_recognizer.detect(frame)
 

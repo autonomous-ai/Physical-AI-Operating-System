@@ -401,6 +401,8 @@ When a stranger's visit count first reaches the threshold (`_FAMILIAR_VISIT_THRE
 
 The `face-enroll` skill (Lamp side) parses that hint and addresses the camera-person directly: "I've seen you 2 times now — mind if I remember you? What's your name?". On a name reply it calls `POST /face/enroll` with the saved image path. On decline, the skill acknowledges and stops; the threshold is a one-shot trigger (`count == 2`), so the same `stranger_id` is never re-prompted by lelamp. Visit counts above 2 do not re-fire — by then the stranger has either been enrolled (no longer a stranger) or has explicitly declined.
 
+The snapshot only serves that turn. HAL deletes snapshots older than `HAL_STRANGER_SNAPSHOT_RETENTION_S` (default 86400 s = 24 h): it sweeps the folder on the first face tick after HAL starts and then at most once an hour while the camera runs.
+
 ---
 
 ## Wellbeing (AI-Driven Hydration + Break Reminders)

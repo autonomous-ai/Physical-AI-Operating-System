@@ -90,6 +90,11 @@ LIGHT_CHANGE_THRESHOLD = int(os.environ.get("HAL_LIGHT_CHANGE_THRESHOLD", "100")
 
 USERS_DIR: str = os.environ.get("HAL_USERS_DIR", "/root/local/users")
 STRANGERS_DIR: str = os.environ.get("HAL_STRANGERS_DIR", "/root/local/strangers")
+# A familiar-stranger snapshot only serves the "may I remember you?" turn right after it
+# is taken; older ones are deleted.
+STRANGER_SNAPSHOT_RETENTION_S = float(
+    os.environ.get("HAL_STRANGER_SNAPSHOT_RETENTION_S", "86400")
+)
 YUNET_CONFIDENCE_THRESHOLD = float(
     os.environ.get("HAL_YUNET_CONFIDENCE_THRESHOLD", "0.35")
 )

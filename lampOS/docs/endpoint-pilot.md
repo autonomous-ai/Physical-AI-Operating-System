@@ -25,6 +25,20 @@ Duplex gates the scores that the same baseline detector sees, so the
 candidate confirms duplex pauses exactly as V1-baseline pauses. `vad-only`
 has no silence fallback and refuses `--endpoint smart-turn`.
 
+**With a shorter silence window.** `--end-silence-ms` at or under 1,000 ms
+cannot hold the parity profile, whose confident verdict waits a full second.
+With `--endpoint smart-turn` such a window selects the quicker profile instead
+(`ConfirmPolicy::responsive`): a confident complete verdict ends the turn at
+400 ms of quiet, a clearly unfinished one holds it to 1,500 ms, and anything
+else, with every failure, ends on the window that was chosen. A window of
+400 ms or less leaves nothing to confirm and is refused at startup. This
+profile adds cutoffs at pauses between sentences on labelled speech (see the
+review below), so it is for a path on which a person who goes on speaking is
+continued: `--provider-continuation kept-start`. It is selected on lamp-4ace
+with a 700 ms window since 2026-10-12 as the lamp's owner asked for the
+shortest wait before an answer; what it does to real conversations there is
+not measured yet.
+
 - **Rollback.** Restart without `--endpoint smart-turn`. Nothing else changes:
   - no rebuild is needed;
   - the worker and model may stay installed, unused;

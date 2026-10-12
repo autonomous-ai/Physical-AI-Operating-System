@@ -71,8 +71,19 @@ impl EndpointRig {
             .classifier
             .take()
             .ok_or_else(|| io::Error::other("endpoint classifier already in use"))?;
+        // The parity profile ends a confident turn after one second, which
+        // only makes sense under a longer silence window. A window chosen
+        // shorter than that asks for a quicker lamp, so a confident verdict
+        // ends the turn at 400 ms and the window itself decides the rest.
+        let policy = if detector.endpoint_silence_ms()
+            > u64::from(ConfirmPolicy::default().commit_blocks) * 10
+        {
+            ConfirmPolicy::default()
+        } else {
+            ConfirmPolicy::responsive()
+        };
         detector = detector
-            .with_confirmation(classifier, ConfirmPolicy::default())
+            .with_confirmation(classifier, policy)
             .map_err(io::Error::other)?;
         let event = policy_event(
             turn_taking,
@@ -182,5 +193,59 @@ impl EndpointRig {
             "availability":availability_json(&monitor.availability()),
             "report":report_json(&monitor.report())});
         Some((event, result))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lamp_endpoint_ipc::{Outcome, Submit, Token};
+
+    struct Silent;
+    impl Classifier for Silent {
+        fn submit(&mut self, _: Token, _: &[i16]) -> Submit {
+            Submit::Unavailable
+        }
+        fn poll(&mut self) -> Option<Outcome> {
+            None
+        }
+        fn availability(&self) -> Availability {
+            Availability::Loading
+        }
+        fn cancel(&mut self) {}
+    }
+
+    fn attached(detector: TurnDetector) -> io::Result<ConfirmPolicy> {
+        let mut rig = EndpointRig::double(Box::new(Silent));
+        let (detector, _) = EndpointRig::attach(Some(&mut rig), TurnTaking::V1Baseline, detector)?;
+        Ok(detector.confirmation_policy().unwrap())
+    }
+
+    #[test]
+    fn a_short_silence_window_selects_the_quicker_profile_and_stays_the_fallback() {
+        // The baseline window keeps the parity profile exactly.
+        let parity = attached(TurnDetector::v1_baseline()).unwrap();
+        assert_eq!(
+            (
+                parity.commit_blocks,
+                parity.fallback_blocks,
+                parity.incomplete_blocks
+            ),
+            (100, 120, 150)
+        );
+        // 700 ms chosen: a confident verdict ends at 400 ms, an unfinished one
+        // holds to 1.5 s, and everything else ends on the 700 ms chosen.
+        let quick = attached(TurnDetector::v1_baseline().with_end_silence(70).unwrap()).unwrap();
+        assert_eq!(
+            (
+                quick.commit_blocks,
+                quick.fallback_blocks,
+                quick.incomplete_blocks
+            ),
+            (40, 70, 150)
+        );
+        assert_eq!(quick.complete_probability, parity.complete_probability);
+        // A window no longer than the quick commit leaves nothing to confirm.
+        assert!(attached(TurnDetector::v1_baseline().with_end_silence(40).unwrap()).is_err());
     }
 }

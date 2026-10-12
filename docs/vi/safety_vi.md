@@ -435,11 +435,19 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       sàn cố định. Khi không recording nào sở hữu thân máy (quay nhìn theo gaze, tracking,
       `/servo/move`, giữ tư thế) thì map tùy chọn `contact.off_playback` được áp thay: sàn
       load theo tên khớp và sàn lag dạng `lag:<joint>` (Lamp: `base_pitch` 57 %,
-      `elbow_pitch` 52 %; lag `base_yaw` 10°, `base_pitch` 14°, `elbow_pitch` 12°,
+      không có sàn tải `elbow_pitch`, vì elbow của lamp-a0ae chạm trần torque 60 % ngay cả
+      khi nâng tay không ai chạm; lag `base_yaw` 10°, `base_pitch` 14°, `elbow_pitch` 12°,
       `wrist_roll` 9°, `wrist_pitch` 12°, lưu theo 0,1 độ). Ở trần torque 60 % các khớp
       trễ nhiều hơn: các sàn lấy từ dữ liệu trần 70 % đã trip nhầm 5 lần trong một lượt
       học trên lamp-52e6, còn các sàn này không trip nhầm lần nào qua ~3 phút (6
-      recording + 90 s idle). Trên lamp-52e6, gaze cắt ngang phần lớn recording chỉ trong một giây mỗi
+      recording + 90 s idle). Các sàn này đứng ngoài trong lúc một lệnh xoay trực tiếp chạy
+      (`move_to`/`move_to_raw`: gaze/search quay, aim, `/servo/move`, khởi động, zero, park) và thêm `OFF_PLAYBACK_SETTLE_S`
+      (0,5 s) sau đó, lúc này chỉ còn các sàn cố định: lệnh nhanh chạy trước đà tăng tốc
+      của servo, và trên lamp-a0ae độ trễ đó (`wrist_roll` 12-14°) cùng tải lúc khởi động
+      (`elbow_pitch` 54 %) đã dừng tay đèn 0,2 s sau khi bắt đầu những lần xoay không ai
+      chạm. Máy đã học recording đang chạy — kể cả idle đã ổn định — dùng envelope của
+      chính nó thay cho `off_playback` (elbow nặng hơn của lamp-a0ae khi idle lên 54-60 %
+      so với sàn 52 % lấy từ lamp-52e6). Trên lamp-52e6, gaze cắt ngang phần lớn recording chỉ trong một giây mỗi
       khi có người ngồi trước đèn, nên đây là chỗ tay người thường gặp tay đèn. Học lại
       sau khi hiệu chuẩn lại tay đèn hoặc đổi `torque_limit`.
       `GET /health.servo_overload.contact.profile` hiện `margin`, số recording đã học và

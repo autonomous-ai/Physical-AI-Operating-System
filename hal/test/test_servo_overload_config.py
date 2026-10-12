@@ -40,7 +40,7 @@ class TestServoOverloadConfig(unittest.TestCase):
                 800, 1.5, 120.0,
                 ContactStopConfig({"base_yaw": 550, "wrist_roll": 750, "wrist_pitch": 650},
                                   0.05, 3.0, 120, 35, {
-                                      "base_pitch": 570, "elbow_pitch": 520,
+                                      "base_pitch": 570,
                                       "lag:base_yaw": 100, "lag:base_pitch": 140,
                                       "lag:elbow_pitch": 120, "lag:wrist_roll": 90,
                                       "lag:wrist_pitch": 120,

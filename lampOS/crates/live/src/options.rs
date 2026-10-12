@@ -177,8 +177,13 @@ pub struct PlayoutStart {
     continuity: bool,
 }
 impl PlayoutStart {
+    /// The longest plain horizon accepted. On lamp-4ace a 200 ms horizon ran
+    /// dry in the first quarter second of 10 of 24 replies: after its first
+    /// burst the service was up to 153 ms short of real time.
+    pub const LONGEST_MS: u16 = 500;
+
     pub fn new(milliseconds: u16) -> io::Result<Self> {
-        if milliseconds > 200 {
+        if milliseconds > Self::LONGEST_MS {
             return Err(invalid_options());
         }
         Ok(Self {
@@ -724,7 +729,7 @@ mod tests {
             SessionOptions::default().directed.playout_start.as_micros(),
             0
         );
-        for ms in [0_u16, 1, 120, 160, 200] {
+        for ms in [0_u16, 1, 120, 160, 200, 350, 500] {
             let parsed = SessionOptions::parse(&args(&[
                 "--playout-start-ms",
                 &ms.to_string(),
@@ -741,11 +746,11 @@ mod tests {
             assert_eq!(parsed.directed.turn_taking, TurnTaking::V1Baseline);
             assert!(!parsed.directed.diagnostics);
         }
-        assert!(PlayoutStart::new(201).is_err());
+        assert!(PlayoutStart::new(501).is_err());
         assert!(PlayoutStart::new(u16::MAX).is_err());
         for flags in [
             vec!["--playout-start-ms"],
-            vec!["--playout-start-ms", "201"],
+            vec!["--playout-start-ms", "501"],
             vec!["--playout-start-ms", "65536"],
             vec!["--playout-start-ms", "-1"],
             vec!["--playout-start-ms", "+1"],

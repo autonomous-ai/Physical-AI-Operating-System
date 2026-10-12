@@ -38,8 +38,8 @@ Source: `trial-01-ns-off-target/runtime/events.jsonl`, SHA-256
 
 ## Runtime contract
 
-Both `directed` and `directed-fixture` accept `--playout-start-ms N`, where N is
-an integer from 0 through 200. Missing, duplicate, negative, fractional or
+`directed`, `directed-fixture` and `serve` accept `--playout-start-ms N`, where
+N is an integer from 0 through 500 (200 until 2026-10-12). Missing, duplicate, negative, fractional or
 out-of-range values are rejected before worker creation. The typed
 `PlayoutStart` also bounds programmatic callers. It is orthogonal to diagnostics,
 noise suppression, ring output and `--turn-taking v1-baseline|vad-only`.
@@ -140,3 +140,26 @@ its approximately 390 ms gate age is not all buffer-added latency. No actual
 added-start latency or acoustic first-word boundary is claimed. Source and
 target settings were restored. Detailed evidence identities are in the
 [coordination result](../coordination/main.md#completed-buffered-run-and-next-model-comparison).
+
+## Where a 200 ms horizon runs dry: the first quarter second (lamp-4ace, 2026-10-12)
+
+One `serve` session on lamp-4ace with `--playout-start-ms 200`, 24 played
+lines answered in a row (`gemini-3.8-live` through the relay, thinking budget
+zero). Ten of the 24 replies recorded a playback gap. For the fourteen replies
+still in the rolling trace when it was read, the audio in hand was followed
+against real time from the first accepted write, from the enqueue records:
+
+- in every one of the six that recorded a gap, the smallest lead fell
+  between 0.11 s and 0.24 s after the first write, and it was at or under
+  7 ms: 7, -8 (the one reply with two gaps), -12, -52, -71 and -153 ms;
+- in the eight without a gap the smallest lead was 10 to 120 ms, and in five
+  of them it was the lead at the first write itself.
+
+So on this path the service sends a first burst, falls behind real time for a
+moment, and then keeps up: a reply that runs dry does so inside its first
+word. `start_horizon_needed_us` in the same sessions asks for 115 to 381 ms.
+The bound on `--playout-start-ms` is 500 for that reason. The opt-in
+continuity start was also tried there, eight replies: first sound 1.40 to
+1.72 s after the end-of-speech decision against 1.00 to 1.35 s with the 200 ms
+horizon, and two of the eight still recorded a gap.
+

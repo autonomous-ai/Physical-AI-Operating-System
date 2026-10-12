@@ -49,6 +49,13 @@ const FOLLOW: f32 = 7.0;
 /// short of a goal and goes on pushing at it: on lamp-4ace the yaw servo sat
 /// 8 counts short at a load of 44 for as long as it rested.
 const REST_STEPS: u16 = 50;
+/// A joint that met resistance is left where it is for this many steps, two
+/// seconds, before it is asked to move again.
+const EASE_STEPS: u16 = 100;
+/// How often that may happen before the run ends: the fourth time within
+/// this many steps, a minute.
+const EASES_ALLOWED: usize = 3;
+const EASE_MEMORY_STEPS: u64 = 3_000;
 const REST_SLACK: u16 = 24;
 
 /// The joints this body commands, in the order of every array of three here.
@@ -196,6 +203,8 @@ pub struct Glimpse {
     pub goals: [u16; 3],
     pub positions: [u16; 3],
     pub loads: [u16; 3],
+    /// Times so far that each joint met resistance and was left where it was.
+    pub eased: [u16; 3],
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -253,6 +262,8 @@ pub struct BodyReport {
     pub missed_reads: u64,
     pub peak_load: [u16; 3],
     pub peak_temperature: [u8; 3],
+    /// Times each commanded joint met resistance and was left where it was.
+    pub eased: [u16; 3],
     /// The goals written to stop pushing, when the run ended on a surprise.
     pub held_at: Option<[u16; 3]>,
     pub last: Option<[Sample; 5]>,
@@ -495,6 +506,7 @@ pub(crate) fn run(
         profile_writes: 0,
         missed_reads: 0,
         peak_load: [0; 3],
+        eased: [0; 3],
         peak_temperature: [0; 3],
         held_at: None,
         last: None,
@@ -622,6 +634,10 @@ pub(crate) fn run(
     let mut heard: Option<(Mood, u8, Duration)> = None;
     let mut over_load = [0u8; 3];
     let mut off_track = [0u8; 3];
+    // Steps left for which a joint that met resistance is not asked to move,
+    // and the steps on which any joint last did.
+    let mut easing = [0u16; 3];
+    let mut eased_at = [0u64; EASES_ALLOWED];
     let mut misses = 0u8;
     let mut leaving: Option<Duration> = None;
     let mut resting_steps = 0u16;
@@ -670,9 +686,19 @@ pub(crate) fn run(
             roll * limits.roll,
             yaw * limits.yaw,
         ];
+        // A joint that met resistance is asked nothing for now, at rest or not.
+        let held = easing.map(|left| left > 0);
+        for left in &mut easing {
+            *left = left.saturating_sub(1);
+        }
         for (index, offset) in offsets.into_iter().enumerate() {
+            if held[index] {
+                velocity[index] = 0.0;
+                goals[index] = commanded[index].round() as u16;
+                continue;
+            }
             if relaxed {
-                break;
+                continue;
             }
             let wanted = (f32::from(home[index]) + offset).clamp(low[index], high[index]);
             let pull =
@@ -736,6 +762,7 @@ pub(crate) fn run(
             goals: written,
             positions: COMMANDED.map(|joint| samples[joint.index()].position),
             loads: COMMANDED.map(|joint| samples[joint.index()].load),
+            eased: report.eased,
         });
         let mut surprise = None;
         for joint in Joint::ALL {
@@ -778,10 +805,31 @@ pub(crate) fn run(
                 0
             };
             if over_load[index] >= limits.load_steps.max(1) {
-                surprise.get_or_insert(Stop::Load {
-                    joint: joint.id(),
-                    load: is.load,
-                });
+                // Something resists. A living thing stops pushing; it does
+                // not faint. The joint's goal becomes where it is and it is
+                // left there for two seconds. Loaded still with nothing
+                // asked of it, or resisted for the fourth time in a minute,
+                // and the run ends as it always did.
+                let often = eased_at
+                    .iter()
+                    .all(|at| *at != 0 && report.steps - *at < EASE_MEMORY_STEPS);
+                if held[index] || often {
+                    surprise.get_or_insert(Stop::Load {
+                        joint: joint.id(),
+                        load: is.load,
+                    });
+                } else {
+                    commanded[index] = f32::from(is.position).clamp(
+                        low[index].min(commanded[index]),
+                        high[index].max(commanded[index]),
+                    );
+                    velocity[index] = 0.0;
+                    easing[index] = EASE_STEPS;
+                    over_load[index] = 0;
+                    eased_at.rotate_left(1);
+                    eased_at[EASES_ALLOWED - 1] = report.steps;
+                    report.eased[index] = report.eased[index].saturating_add(1);
+                }
             } else if off_track[index] >= limits.tracking_steps {
                 surprise.get_or_insert(Stop::Tracking {
                     joint: joint.id(),

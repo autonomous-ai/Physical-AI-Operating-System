@@ -42,6 +42,10 @@ struct Lamp {
     short: Option<(usize, f32)>,
     silent_from: Option<Duration>,
     event: Option<(Duration, usize, Event)>,
+    /// Loads one servo reads for a while whatever it is doing: from, until,
+    /// servo, load. Afterwards it reads what it read before.
+    strains: Vec<(Duration, Duration, usize, u16)>,
+    unstrained: Option<[u16; 5]>,
     /// A temperature to put back once it has been read once.
     blip: Option<(usize, u8)>,
     simulated_to: Duration,
@@ -93,6 +97,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             short: None,
             silent_from: None,
             event: None,
+            strains: Vec::new(),
+            unstrained: None,
             blip: None,
             simulated_to: Duration::ZERO,
         },
@@ -122,6 +128,20 @@ impl Lamp {
                     self.blip = Some((index, self.servos[index].temperature));
                     self.servos[index].temperature = to;
                 }
+            }
+        }
+        if !self.strains.is_empty() {
+            let before = *self
+                .unstrained
+                .get_or_insert_with(|| self.servos.map(|servo| servo.load));
+            for (index, servo) in self.servos.iter_mut().enumerate() {
+                servo.load = self
+                    .strains
+                    .iter()
+                    .find(|(from, until, strained, _)| {
+                        *strained == index && (*from..*until).contains(&now)
+                    })
+                    .map_or(before[index], |strain| strain.3);
             }
         }
         for (index, servo) in self.servos.iter_mut().enumerate() {
@@ -457,6 +477,118 @@ fn a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after() {
             .goal
             .abs_diff(lamp.servos[PITCH].position.round() as u16)
             <= 1
+    );
+}
+
+#[test]
+fn a_joint_that_meets_resistance_stops_pushing_for_two_seconds_and_then_goes_on() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    // The head, a fifth of a second into its lift, as on lamp-4ace: 217 for
+    // a moment and nothing in its way.
+    let ms = Duration::from_millis;
+    lamp.strains = vec![(ms(1_200), ms(1_400), PITCH, 217)];
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.eased, report.peak_load[0]), ([1, 0, 0], 217));
+    // It gave way on the sixth step over the bound, where it was. A step is
+    // watched before it is judged, so the next one is the first to show it.
+    let strained = seen
+        .iter()
+        .position(|glimpse| glimpse.loads[0] == 217)
+        .unwrap();
+    let gave = seen
+        .iter()
+        .position(|glimpse| glimpse.eased[0] == 1)
+        .unwrap();
+    assert_eq!(gave, strained + 6);
+    let held = seen[gave].goals[0];
+    assert!(
+        held.abs_diff(seen[gave - 1].positions[0]) <= 1,
+        "{:?}",
+        seen[gave - 1]
+    );
+    assert_ne!(held, HOME[0], "it had begun to lift");
+    // For two seconds its goal does not change, while the other joints go
+    // on with what the lamp is doing.
+    let waiting = &seen[gave..gave + usize::from(EASE_STEPS) - 1];
+    assert!(waiting.iter().all(|glimpse| glimpse.goals[0] == held));
+    assert!(waiting.iter().any(|glimpse| glimpse.goals[1] != HOME[1]));
+    // Then it moves again, from where it stopped.
+    let after = &seen[gave + usize::from(EASE_STEPS)..];
+    assert!(
+        after
+            .iter()
+            .any(|glimpse| glimpse.goals[0].abs_diff(held) >= 10)
+    );
+    assert!(
+        after
+            .windows(2)
+            .all(|pair| pair[1].goals[0].abs_diff(pair[0].goals[0]) <= 2),
+        "it jumped"
+    );
+}
+
+#[test]
+fn resistance_for_the_fourth_time_in_a_minute_ends_the_run() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    let ms = Duration::from_millis;
+    lamp.strains = [1_200, 6_000, 12_000, 18_000]
+        .map(|at| (ms(at), ms(at + 200), YAW, 180))
+        .to_vec();
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(
+        report.stop,
+        Stop::Load {
+            joint: 1,
+            load: 180
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.eased, [0, 0, 3]);
+    assert!(clock.time.get() < ms(18_200), "{:?}", clock.time.get());
+    // Three in a minute and a fourth later are four separate moments.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(90));
+    lamp.strains = [1_200, 6_000, 12_000, 75_000]
+        .map(|at| (ms(at), ms(at + 200), YAW, 180))
+        .to_vec();
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.eased, [0, 0, 4]);
+}
+
+#[test]
+fn a_joint_still_loaded_after_it_stopped_pushing_ends_the_run() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    let ms = Duration::from_millis;
+    // Half a second of it: longer than giving way explains.
+    lamp.strains = vec![(ms(1_200), ms(1_700), PITCH, 240)];
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!(
+        report.stop,
+        Stop::Load {
+            joint: 5,
+            load: 240
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.eased, [1, 0, 0]);
+    // Twelve steps: six to give way and six more of the same.
+    let ended = clock.time.get();
+    assert!(
+        (ms(1_200 + 11 * 20)..ms(1_200 + 13 * 20)).contains(&ended),
+        "{ended:?}"
     );
 }
 

@@ -50,12 +50,23 @@ written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
-| Load on a commanded joint, six steps in a row (120 ms) | pitch 170, roll 150, yaw 150 |
+| Load on a commanded joint, six steps in a row (120 ms), for the fourth time in a minute, or again within two seconds of the joint giving way | pitch 170, roll 150, yaw 150 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read that fails, three steps in a row | missing, late, malformed or unexpected bytes |
+
+A load over its bound for six steps does not by itself end the run. The
+joint gives way: its goal becomes where it is, and nothing is asked of it for
+two seconds while the other joints go on. Then it moves again from there. If
+it still reads over the bound six steps after it stopped pushing, something
+is pushing it and the run ends; so it does the fourth time any joint gives
+way within a minute. Each time is counted in the report (`eased`) and written
+to the log. Until 2026-10-13 the first such load ended the run, and with it
+all motion until someone started the body again: on lamp-4ace that happened
+twice in a quarter of an hour, at 217 and at 190 on the head joint, with
+nothing in its way either time.
 
 A status flag that was already latched at start on a joint it does not command
 is not a reason to stop or to refuse: lamp-4ace's elbow has carried `0x20`
@@ -184,6 +195,13 @@ load on the yaw joint in that run was 104. From this: the nod is 15% of the
 reach where it was 25% and follows the voice a third more slowly, the
 commanded pose changes speed at six times the top speed a second where it
 was eight, and the load rule wants six steps in a row, not three.
+
+Three minutes into the next run it stopped the same way, at 190, the head
+9 counts short of its thinking pose with the base turned to one side; it
+had reached that pose at a load of 74 twenty minutes before. A photograph
+shows nothing against the head. What resists it there is not known. Since
+then a joint that meets resistance gives way and goes on (see "When it
+stops").
 
 ## Verification without a lamp
 

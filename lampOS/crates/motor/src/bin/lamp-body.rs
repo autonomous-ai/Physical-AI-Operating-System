@@ -261,12 +261,20 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // One line to the journal on each change of mood, and twice a second
     // while the goals are changing: what it did, afterwards.
     let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3])> = None;
+    let mut eased = [0u16; 3];
     let watch = |glimpse: &lamp_motor::body::Glimpse| {
         let due = match said {
             None => true,
             Some((mood, _, _)) if mood != glimpse.mood => true,
             Some((_, step, goals)) => goals != glimpse.goals && glimpse.step - step >= 25,
         };
+        if glimpse.eased != eased {
+            eased = glimpse.eased;
+            eprintln!(
+                "lamp-body: step {} met resistance and stopped pushing; so far {:?}; positions {:?} loads {:?}",
+                glimpse.step, glimpse.eased, glimpse.positions, glimpse.loads
+            );
+        }
         if due {
             said = Some((glimpse.mood, glimpse.step, glimpse.goals));
             eprintln!(

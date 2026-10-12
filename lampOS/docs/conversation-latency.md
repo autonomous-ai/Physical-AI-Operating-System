@@ -34,7 +34,17 @@ unwanted responses and gaps alongside latency and sample counts. Acoustic bounda
 proposals remain unscored until verified. Provider/log/ALSA receipts are separate
 software measurements and must not be relabeled as first audible words.
 
-## Current evidence, 2026-10-11
+## Latest ordinary conversation, 2026-10-12
+
+The latest [real-Lamp run](verification/ordinary-b318-20261012/README.md) completed
+six replies; the seventh was cancelled by an unplanned detected input and the
+eighth stimulus was withheld. Endpoint to first ALSA write was 1.424 s median
+(range 1.266–1.505 s). Adding the configured 1.2 s silence wait yields an estimated
+2.624 s total; it is not an acoustic measurement. The 180-second room recording
+is valid and retained locally. This failed/incomplete run establishes no causal
+improvement over earlier cohorts and does not meet the natural-conversation goal.
+
+## Earlier evidence, 2026-10-11
 
 The six-turn 4ace run `lamp-4ace-varied-12io918n` used source `6e6c58b42`,
 `v1-baseline`, a 1,200 ms local silence window, and a 200 ms playout horizon.

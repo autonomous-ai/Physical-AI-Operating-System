@@ -1,0 +1,1091 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-10-12T03:49:17.125377+00:00",
+  "scope": "Local read-only audit of this single run; no device/network/cloud or acoustic scoring.",
+  "source_directory": "/private/tmp/lamp-ordinary-b318-executed-wpezmg8i",
+  "status": "incomplete_or_failed_preserved",
+  "stimulus_type": "loudspeaker_synthetic",
+  "candidate_identity": {
+    "candidate_code_commit": "frozen-export-049a86c27ae4595a",
+    "candidate_source_base": "3c92d67d54555694b450fe0c1457589b13fab59f",
+    "candidate_source_overlay": "c51da7102b5d36b43a7ae17cc0ae74a260562f92;caller=6a3166262a70ac1e91e4cbcad78b3d9718a7eb5e89499ac3886cc2f640f6cefa;motor_failure=bf05f068b5fcd7dcfec15fe4b5e32f0548ee232d9cfa44a10b6a6fbf834c7235",
+    "candidate_binary_sha256": "b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4"
+  },
+  "source_result": {
+    "status": "incomplete_or_failed",
+    "error": "ValueError: Relay ended before requested evidence",
+    "operational_success": false,
+    "voice_operational_success": false,
+    "rollback_verified": true,
+    "restored_mixers_match": true
+  },
+  "counts": {
+    "planned_stimuli": 8,
+    "delivered_stimuli_valid_receipts": 7,
+    "requested_software_completed_replies": 6,
+    "requested_cancelled_before_provider_audio": 1,
+    "planned_stimuli_withheld": 1,
+    "runtime_admissions": 8,
+    "unplanned_runtime_turns": 1,
+    "runtime_turns_service_stopped": 1,
+    "acoustically_scored_turns": 0
+  },
+  "run_configuration": {
+    "acoustic_score": null,
+    "at_us": 69160078915,
+    "audio_diagnostics_requested": false,
+    "camera_context_requested": false,
+    "cue_requested": false,
+    "fixture": null,
+    "kind": "run_start",
+    "mode": "serve",
+    "motor_worker_requested": false,
+    "playout_continuity": null,
+    "playout_start_horizon_us": 200000,
+    "provider_continuation": "kept-start",
+    "provider_kind": "gemini",
+    "reference_clock": "capture",
+    "reference_recovery": "off",
+    "ring_channel_ceiling_requested": 12,
+    "scope": "directed_voice_with_ring",
+    "seconds": null,
+    "service_sequence": 1,
+    "software_processing_requested": {
+      "aec": "sonora_aec3",
+      "noise_suppression": false
+    },
+    "turn_taking": "v1-baseline",
+    "turn_taking_tail_us": 100000
+  },
+  "endpoint_policy": {
+    "at_us": 69160208198,
+    "basis": "consecutive_low_vad_scores",
+    "kind": "endpoint_policy",
+    "semantic_confirmation": false,
+    "service_sequence": 8,
+    "silence_wait_ms": 1200,
+    "turn_taking": "v1-baseline"
+  },
+  "trace_integrity": {
+    "service_events": 7425,
+    "unique_service_sequences": 7425,
+    "range_inclusive": [
+      1,
+      7425
+    ],
+    "missing": [],
+    "duplicates": [],
+    "parse_errors": [],
+    "segment_headers_without_service_sequence": 2,
+    "empty_future_segments": 2,
+    "segments": [
+      {
+        "member": "runtime/metadata/events-0.jsonl",
+        "rows": 3843,
+        "service_events": 3842,
+        "first_sequence": 1,
+        "last_sequence": 3842,
+        "headers": [
+          {
+            "kind": "service_segment",
+            "generation": 0,
+            "first_writer_event": 0,
+            "evidence": "rolling_best_effort_not_benchmark"
+          }
+        ]
+      },
+      {
+        "member": "runtime/metadata/events-1.jsonl",
+        "rows": 3584,
+        "service_events": 3583,
+        "first_sequence": 3843,
+        "last_sequence": 7425,
+        "headers": [
+          {
+            "kind": "service_segment",
+            "generation": 1,
+            "first_writer_event": 3842,
+            "evidence": "rolling_best_effort_not_benchmark"
+          }
+        ]
+      },
+      {
+        "member": "runtime/metadata/events-2.jsonl",
+        "rows": 0,
+        "service_events": 0,
+        "first_sequence": null,
+        "last_sequence": null,
+        "headers": []
+      },
+      {
+        "member": "runtime/metadata/events-3.jsonl",
+        "rows": 0,
+        "service_events": 0,
+        "first_sequence": null,
+        "last_sequence": null,
+        "headers": []
+      }
+    ],
+    "all_archive_member_digests_match_result": true,
+    "health_file": {
+      "complete_evidence": false,
+      "coordinator_finish_ack_required": true,
+      "generation": 1,
+      "health": {
+        "acknowledged": false,
+        "degraded": false,
+        "dropped_events": 0,
+        "finish_attempted": false,
+        "initialization_failed": false,
+        "oversized_events": 0,
+        "rotations": 1,
+        "unconfirmed_events": 0,
+        "writer_failed": false,
+        "written_events": 7425
+      },
+      "history_is_rolling": true,
+      "latest_segment": 1,
+      "maximum_metadata_bytes": 16777216,
+      "writer_finished": true
+    },
+    "journal_finish_receipt": {
+      "complete_evidence": false,
+      "health": {
+        "acknowledged": true,
+        "degraded": false,
+        "dropped_events": 0,
+        "finish_attempted": true,
+        "initialization_failed": false,
+        "oversized_events": 0,
+        "rotations": 1,
+        "unconfirmed_events": 0,
+        "writer_failed": false,
+        "written_events": 7425
+      },
+      "kind": "service_metadata_finished",
+      "output": "/var/lib/lampOS/pilot-4ace/sessions/check-provider-wpezmg8i"
+    },
+    "adjacent_at_us_inversions": {
+      "count": 6,
+      "max_us": 5,
+      "kinds": "provider_first_audio then provider_audio_enqueued"
+    },
+    "ordering": "service_sequence, not re-sorting asynchronous event timestamps",
+    "claim_limit": "Archived sequences reconcile with written_events; rolling complete_evidence=false is preserved.",
+    "secondary_helper_error": "ValueError: Missing/duplicate service metadata sequence",
+    "assessment": "Missing/duplicate-sequence error is unsupported by archived rows. Header rows have no sequence. Helper implementation root cause was not audited."
+  },
+  "latency_boundaries": {
+    "clock": "Same Lamp at_us clock only; delta / 1000 = ms.",
+    "start": "local_endpoint.at_us, after 1200 ms of consecutive low-VAD endpoint wait; acoustic_speech_end=null.",
+    "provider_audio": "provider_first_audio.at_us, software first provider-audio observation.",
+    "alsa": "speaker_first_write.at_us, ALSA accepted PCM; not DAC or audible word onset.",
+    "retirement": "speech_final_sample_retired.at_us, ALSA delay retirement; not acoustic end.",
+    "percentile_method": "Linear interpolation at sorted index (n-1)*p; observed completed replies only.",
+    "missing_answers": "Turn 7 cancellation and unplanned turn 8 retained in counts and rows; no imputed latency.",
+    "acoustic": "Unscored. Do not add 1200 ms and relabel the sum acoustic latency.",
+    "target": "The final human-like target remains acoustic p50 300\u2013500 ms and p95 <=1000 ms; this failed run does not qualify it or the prior 2 s intermediate milestone."
+  },
+  "latency_summary": {
+    "detected_endpoint_to_provider_first_audio": {
+      "n": 6,
+      "p50_ms": 1287.3295,
+      "p95_ms": 1406.38675,
+      "min_ms": 1184.291,
+      "max_ms": 1427.056
+    },
+    "provider_first_audio_to_alsa_first_write": {
+      "n": 6,
+      "p50_ms": 124.3455,
+      "p95_ms": 181.879,
+      "min_ms": 45.782,
+      "max_ms": 184.919
+    },
+    "detected_endpoint_to_alsa_first_write": {
+      "n": 6,
+      "p50_ms": 1423.9575,
+      "p95_ms": 1496.75925,
+      "min_ms": 1265.957,
+      "max_ms": 1504.733
+    },
+    "alsa_first_write_to_final_sample_retired": {
+      "n": 6,
+      "p50_ms": 4680.082,
+      "p95_ms": 6089.8345,
+      "min_ms": 2521.467,
+      "max_ms": 6299.606
+    }
+  },
+  "per_turn": [
+    {
+      "runtime_turn": 1,
+      "planned_slot": 1,
+      "owner_generation": 3,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 19,
+        "at_us": 69162609711,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 20
+      },
+      "local_endpoint": {
+        "service_sequence": 298,
+        "at_us": 69165429445,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 299
+      },
+      "provider_first_audio": {
+        "service_sequence": 418,
+        "at_us": 69166624705,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 419
+      },
+      "speaker_first_write": {
+        "service_sequence": 434,
+        "at_us": 69166695402,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 435
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 746,
+        "at_us": 69169216869,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 747
+      },
+      "turn_finished": {
+        "service_sequence": 747,
+        "at_us": 69169218670,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 748
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1195.26,
+        "provider_first_audio_to_alsa_first_write": 70.697,
+        "detected_endpoint_to_alsa_first_write": 1265.957,
+        "alsa_first_write_to_final_sample_retired": 2521.467
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 2,
+      "planned_slot": 2,
+      "owner_generation": 5,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 753,
+        "at_us": 69170007993,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 754
+      },
+      "local_endpoint": {
+        "service_sequence": 1125,
+        "at_us": 69173778177,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1126
+      },
+      "provider_first_audio": {
+        "service_sequence": 1249,
+        "at_us": 69175011923,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1250
+      },
+      "speaker_first_write": {
+        "service_sequence": 1275,
+        "at_us": 69175196842,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1276
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 1861,
+        "at_us": 69179935534,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1862
+      },
+      "turn_finished": {
+        "service_sequence": 1862,
+        "at_us": 69179937486,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1863
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1233.746,
+        "provider_first_audio_to_alsa_first_write": 184.919,
+        "detected_endpoint_to_alsa_first_write": 1418.665,
+        "alsa_first_write_to_final_sample_retired": 4738.692
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 3,
+      "planned_slot": 3,
+      "owner_generation": 7,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 1867,
+        "at_us": 69180669679,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 1868
+      },
+      "local_endpoint": {
+        "service_sequence": 2285,
+        "at_us": 69184919320,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 2286
+      },
+      "provider_first_audio": {
+        "service_sequence": 2405,
+        "at_us": 69186103611,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 2406
+      },
+      "speaker_first_write": {
+        "service_sequence": 2429,
+        "at_us": 69186276370,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 2430
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 3209,
+        "at_us": 69192575976,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3210
+      },
+      "turn_finished": {
+        "service_sequence": 3210,
+        "at_us": 69192576675,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3211
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1184.291,
+        "provider_first_audio_to_alsa_first_write": 172.759,
+        "detected_endpoint_to_alsa_first_write": 1357.05,
+        "alsa_first_write_to_final_sample_retired": 6299.606
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 4,
+      "planned_slot": 4,
+      "owner_generation": 9,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 3215,
+        "at_us": 69193279269,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3216
+      },
+      "local_endpoint": {
+        "service_sequence": 3668,
+        "at_us": 69197877932,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3669
+      },
+      "provider_first_audio": {
+        "service_sequence": 3803,
+        "at_us": 69199222311,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3804
+      },
+      "speaker_first_write": {
+        "service_sequence": 3818,
+        "at_us": 69199307182,
+        "member": "runtime/metadata/events-0.jsonl",
+        "line": 3819
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 4286,
+        "at_us": 69203075926,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 445
+      },
+      "turn_finished": {
+        "service_sequence": 4287,
+        "at_us": 69203076950,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 446
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1344.379,
+        "provider_first_audio_to_alsa_first_write": 84.871,
+        "detected_endpoint_to_alsa_first_write": 1429.25,
+        "alsa_first_write_to_final_sample_retired": 3768.744
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 5,
+      "planned_slot": 5,
+      "owner_generation": 11,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 4292,
+        "at_us": 69204061244,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 451
+      },
+      "local_endpoint": {
+        "service_sequence": 4840,
+        "at_us": 69209621111,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 999
+      },
+      "provider_first_audio": {
+        "service_sequence": 4974,
+        "at_us": 69210962024,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 1133
+      },
+      "speaker_first_write": {
+        "service_sequence": 4996,
+        "at_us": 69211125844,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 1155
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 5569,
+        "at_us": 69215747316,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 1728
+      },
+      "turn_finished": {
+        "service_sequence": 5570,
+        "at_us": 69215748616,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 1729
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1340.913,
+        "provider_first_audio_to_alsa_first_write": 163.82,
+        "detected_endpoint_to_alsa_first_write": 1504.733,
+        "alsa_first_write_to_final_sample_retired": 4621.472
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 6,
+      "planned_slot": 6,
+      "owner_generation": 13,
+      "outcome": "audio_written_unscored",
+      "provider_session": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 5574,
+        "at_us": 69216482596,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 1733
+      },
+      "local_endpoint": {
+        "service_sequence": 5980,
+        "at_us": 69220604087,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2139
+      },
+      "provider_first_audio": {
+        "service_sequence": 6124,
+        "at_us": 69222031143,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2283
+      },
+      "speaker_first_write": {
+        "service_sequence": 6137,
+        "at_us": 69222076925,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2296
+      },
+      "speech_final_sample_retired": {
+        "service_sequence": 6812,
+        "at_us": 69227537445,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2971
+      },
+      "turn_finished": {
+        "service_sequence": 6813,
+        "at_us": 69227538229,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2972
+      },
+      "latencies_ms": {
+        "detected_endpoint_to_provider_first_audio": 1427.056,
+        "provider_first_audio_to_alsa_first_write": 45.782,
+        "detected_endpoint_to_alsa_first_write": 1472.838,
+        "alsa_first_write_to_final_sample_retired": 5460.52
+      },
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 7,
+      "planned_slot": 7,
+      "owner_generation": 15,
+      "outcome": "user_interrupted",
+      "provider_session": 1,
+      "provider_outcome": null,
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 6818,
+        "at_us": 69228266398,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2977
+      },
+      "local_endpoint": {
+        "service_sequence": 7283,
+        "at_us": 69232986218,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3442
+      },
+      "provider_first_audio": null,
+      "speaker_first_write": null,
+      "speech_final_sample_retired": null,
+      "turn_finished": {
+        "service_sequence": 7410,
+        "at_us": 69234235678,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3569
+      },
+      "latencies_ms": null,
+      "acoustic_last_phoneme_to_first_word_ms": null
+    },
+    {
+      "runtime_turn": 8,
+      "planned_slot": null,
+      "owner_generation": 17,
+      "outcome": "service_stopped",
+      "provider_session": 1,
+      "provider_outcome": null,
+      "playback_gaps_reported": 0,
+      "input_admitted": {
+        "service_sequence": 7411,
+        "at_us": 69234235834,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3570
+      },
+      "local_endpoint": null,
+      "provider_first_audio": null,
+      "speaker_first_write": null,
+      "speech_final_sample_retired": null,
+      "turn_finished": {
+        "service_sequence": 7421,
+        "at_us": 69234285027,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3580
+      },
+      "latencies_ms": null,
+      "acoustic_last_phoneme_to_first_word_ms": null
+    }
+  ],
+  "room_integrity": {
+    "independently_verified": true,
+    "source_status": "captured_unscored",
+    "wav_format": "WAVE_FORMAT_EXTENSIBLE / IEEE float32 mono",
+    "sample_rate_hz": 48000,
+    "frames": 8640000,
+    "duration_s": 180.0,
+    "file_bytes": 34560068,
+    "wav_sha256": "73af7957b18af8e7b4e2565819849a223690a8296de1ce8ed4ea35465ce16db9",
+    "peak_normalized": 0.6151938438415527,
+    "nonfinite_samples": 0,
+    "clipped_samples": 0,
+    "callbacks": 16875,
+    "callback_frames": 512,
+    "source_and_wav_frames_contiguous": true,
+    "final_ledger_report_matches_metadata": true,
+    "zero_fault_counters": {
+      "backend_xruns": 0,
+      "faults": 0,
+      "queue_dropped_frames": 0,
+      "rejected_frames": 0,
+      "stream_errors": 0,
+      "timestamp_discontinuities": 0,
+      "nonfinite_samples": 0,
+      "clipped_samples": 0
+    },
+    "capture_clock_step_ns": {
+      "min": 10640494,
+      "max": 10674247,
+      "ideal_512_frame_step": 10666666.666666666
+    },
+    "source_sequence_gaps_reported": 0,
+    "observed_host_CLOCK_MONOTONIC_coverage": {
+      "target_start_ns": 2303297271679000,
+      "target_end_ns": 2303383553500000,
+      "capture_callback_start_ns": 2303295279164000,
+      "capture_callback_end_ns": 2303475289036000,
+      "covers_target": true,
+      "before_margin_ms": 1992.515,
+      "after_margin_ms": 91735.536
+    },
+    "acoustic_score": null,
+    "human_listened_in_source": false,
+    "claim_limit": "Observed file/callback integrity, not source identity, audibility, meaning, or word onset."
+  },
+  "stimulus_delivery_receipts": [
+    {
+      "slot": 1,
+      "status": "completed_delivery_checks",
+      "source_sha256": "991819cd1f568ec46179310676b58e446ad0f8f0aa05a20929cf49b5d6dde8ae",
+      "duration_s": 1.9306875,
+      "valid": true,
+      "submitted_frames": 92673,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 2,
+      "status": "completed_delivery_checks",
+      "source_sha256": "618944dbbceb8f993934d47d4711f02c5a42fa07347c18dbdfcb73a92891c3ff",
+      "duration_s": 2.82525,
+      "valid": true,
+      "submitted_frames": 135612,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 3,
+      "status": "completed_delivery_checks",
+      "source_sha256": "5176bf4819eba740c5079fa1f3093d4eb2f4f30f10b995d3605f4585c48d32cb",
+      "duration_s": 3.4083125,
+      "valid": true,
+      "submitted_frames": 163599,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 4,
+      "status": "completed_delivery_checks",
+      "source_sha256": "7b446f874ec31e259304e165877993f71d7daf74214d326df507344ff5add125",
+      "duration_s": 3.7423125,
+      "valid": true,
+      "submitted_frames": 179631,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 5,
+      "status": "completed_delivery_checks",
+      "source_sha256": "f13d1dfa079caa6f646345b290428005e21ff272ecc5db12c58a0963c45fcdaf",
+      "duration_s": 4.519625,
+      "valid": true,
+      "submitted_frames": 216942,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 6,
+      "status": "completed_delivery_checks",
+      "source_sha256": "5ec6aec7dbb0ddd79f2180042faee8c125616d5cef70eadc9015d541a2bc831b",
+      "duration_s": 3.428875,
+      "valid": true,
+      "submitted_frames": 164586,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    },
+    {
+      "slot": 7,
+      "status": "completed_delivery_checks",
+      "source_sha256": "ae1316d061a297f5153ee0cb4622b49fceb5fabb5a43f95c375b0c38c0131ba2",
+      "duration_s": 3.616,
+      "valid": true,
+      "submitted_frames": 173568,
+      "matches_expected_frames": true,
+      "cancelled": false,
+      "start_expired": false
+    }
+  ],
+  "failure": {
+    "primary_helper_error": "ValueError: Unsuccessful or cancelled turn outcome",
+    "timeline": [
+      {
+        "service_sequence": 6813,
+        "at_us": 69227538229,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2972,
+        "kind": "turn_finished",
+        "relative_to_turn7_detected_endpoint_ms": -5447.989,
+        "turn": 6,
+        "outcome": "audio_written_unscored"
+      },
+      {
+        "service_sequence": 6815,
+        "at_us": 69227638932,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2974,
+        "kind": "turn_taking_availability",
+        "relative_to_turn7_detected_endpoint_ms": -5347.286,
+        "prospective_input_available": true
+      },
+      {
+        "service_sequence": 6817,
+        "at_us": 69228266136,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2976,
+        "kind": "input_candidate",
+        "relative_to_turn7_detected_endpoint_ms": -4720.082,
+        "candidate": {
+          "first_read_at_us": 69227971724,
+          "trigger_read_at_us": 69228262499,
+          "trigger_sequence": 6795,
+          "serial": 7
+        },
+        "displaced_owner": null
+      },
+      {
+        "service_sequence": 6818,
+        "at_us": 69228266398,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2977,
+        "kind": "input_admitted",
+        "relative_to_turn7_detected_endpoint_ms": -4719.82,
+        "turn": 7,
+        "admission_basis": "directed_session_v1_baseline"
+      },
+      {
+        "service_sequence": 6820,
+        "at_us": 69228270112,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 2979,
+        "kind": "provider_input_started",
+        "relative_to_turn7_detected_endpoint_ms": -4716.106,
+        "turn": 7,
+        "waiting_for_barrier": false
+      },
+      {
+        "service_sequence": 7283,
+        "at_us": 69232986218,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3442,
+        "kind": "local_endpoint",
+        "relative_to_turn7_detected_endpoint_ms": 0.0,
+        "turn": 7
+      },
+      {
+        "service_sequence": 7343,
+        "at_us": 69233579864,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3502,
+        "kind": "transcript",
+        "relative_to_turn7_detected_endpoint_ms": 593.646,
+        "turn": null,
+        "input_correlation": "unreliable; session scoped",
+        "finished": false,
+        "text_omitted": true,
+        "text_characters": 67,
+        "text_sha256": "2985577cee13596f05346245b62628c92eb9b949d833aa342385195c64634d6e"
+      },
+      {
+        "service_sequence": 7409,
+        "at_us": 69234235616,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3568,
+        "kind": "input_candidate",
+        "relative_to_turn7_detected_endpoint_ms": 1249.398,
+        "candidate": {
+          "first_read_at_us": 69233942824,
+          "trigger_read_at_us": 69234233419,
+          "trigger_sequence": 7392,
+          "serial": 8
+        },
+        "displaced_owner": {
+          "turn": 7,
+          "generation": 15
+        }
+      },
+      {
+        "service_sequence": 7410,
+        "at_us": 69234235678,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3569,
+        "kind": "turn_finished",
+        "relative_to_turn7_detected_endpoint_ms": 1249.46,
+        "turn": 7,
+        "outcome": "user_interrupted",
+        "provider_audio_seen": false
+      },
+      {
+        "service_sequence": 7411,
+        "at_us": 69234235834,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3570,
+        "kind": "input_admitted",
+        "relative_to_turn7_detected_endpoint_ms": 1249.616,
+        "turn": 8,
+        "admission_basis": "directed_session_v1_baseline"
+      },
+      {
+        "service_sequence": 7413,
+        "at_us": 69234239623,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3572,
+        "kind": "provider_input_started",
+        "relative_to_turn7_detected_endpoint_ms": 1253.405,
+        "turn": 8,
+        "waiting_for_barrier": true
+      },
+      {
+        "service_sequence": 7420,
+        "at_us": 69234284999,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3579,
+        "kind": "service_stop_requested",
+        "relative_to_turn7_detected_endpoint_ms": 1298.781,
+        "signal": "SIGTERM"
+      },
+      {
+        "service_sequence": 7421,
+        "at_us": 69234285027,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3580,
+        "kind": "turn_finished",
+        "relative_to_turn7_detected_endpoint_ms": 1298.809,
+        "turn": 8,
+        "outcome": "service_stopped",
+        "provider_audio_seen": false
+      },
+      {
+        "service_sequence": 7425,
+        "at_us": 69234309463,
+        "member": "runtime/metadata/events-1.jsonl",
+        "line": 3584,
+        "kind": "run_end",
+        "relative_to_turn7_detected_endpoint_ms": 1323.245
+      }
+    ],
+    "relay_stop_requested_at_us": 69234256518,
+    "relay_stop_requested_after_endpoint_ms": 1270.3,
+    "turn7_endpoint_to_cancel_ms": 1249.46,
+    "candidate_to_turn7_cancel_us": 62,
+    "turn7_cancel_to_turn8_admission_us": 156,
+    "turn8_admission_to_service_stop_ms": 49.165,
+    "trace_proves": [
+      "Input remained available while turn 7 awaited provider output; last availability=true after turn 6.",
+      "Candidate 8 explicitly displaced turn 7; user_interrupted outcome precedes admission of turn 8 and helper-requested SIGTERM.",
+      "Turn 7 had no provider_first_audio, speaker_first_write or provider_turn_complete; provider_audio_seen=false.",
+      "Scheduled stimulus 8 was withheld. Runtime admission 8 is unplanned, not evidence of played slot 8.",
+      "Turn 8 started waiting_for_barrier=true and was stopped without output.",
+      "The preceding transcript explicitly has unreliable session-scoped input correlation."
+    ],
+    "not_proven": [
+      "Human intent to interrupt; user_interrupted is an internal outcome label.",
+      "Physical source of candidate 8: room speech, noise, screen/TV, stimulus tail, echo or VAD false positive.",
+      "A provider/network failure: turn 7 was cancelled before observing a provider result.",
+      "Semantic correctness, naturalness, audible completeness or first-word latency."
+    ],
+    "conclusion": "A new capture candidate displaced the pending turn 7 under directed_session_v1_baseline. The runner rejected that cancelled outcome and stopped the service. Correcting the secondary metadata error does not turn the conversation into a pass."
+  },
+  "source_digests": [
+    {
+      "path": "result.json",
+      "bytes": 454070,
+      "sha256": "3c4320a0acddef89af95276f83adfd67a88edea7d3a4bcf485108ea0fcafd022"
+    },
+    {
+      "path": "plan.json",
+      "bytes": 11134,
+      "sha256": "dd980d6f06df1293892de698e2dba3a37cd0846fd986448972ba55ebe13a96e8"
+    },
+    {
+      "path": "native-evidence.tar",
+      "bytes": 8212480,
+      "sha256": "0f54caca8ce2cd8d7ed308f40437dfa6d5f5b689a5b519579e2d8395d12f04b1"
+    },
+    {
+      "path": "relay.jsonl",
+      "bytes": 645494,
+      "sha256": "1dc33452998f446a48d0c67e92ab16394b4936ef15b871b6469898e764341be3"
+    },
+    {
+      "path": "room-1/recording/metadata.json",
+      "bytes": 6449,
+      "sha256": "f8039639f0c3334f0239bdb362e6fb9f5613498744fd5777c600a83c09c6d741"
+    },
+    {
+      "path": "room-1/recording/ledger.jsonl",
+      "bytes": 5947560,
+      "sha256": "31f6926f94e1ce1ee14b49c9eeb6ba260c594529cd3b29b6acf34964bca40451"
+    },
+    {
+      "path": "room-1/recording/room.wav",
+      "bytes": 34560068,
+      "sha256": "73af7957b18af8e7b4e2565819849a223690a8296de1ce8ed4ea35465ce16db9"
+    },
+    {
+      "path": "sources/01.wav",
+      "bytes": 65878,
+      "sha256": "991819cd1f568ec46179310676b58e446ad0f8f0aa05a20929cf49b5d6dde8ae"
+    },
+    {
+      "path": "sources/02.wav",
+      "bytes": 94504,
+      "sha256": "618944dbbceb8f993934d47d4711f02c5a42fa07347c18dbdfcb73a92891c3ff"
+    },
+    {
+      "path": "sources/03.wav",
+      "bytes": 113162,
+      "sha256": "5176bf4819eba740c5079fa1f3093d4eb2f4f30f10b995d3605f4585c48d32cb"
+    },
+    {
+      "path": "sources/04.wav",
+      "bytes": 123850,
+      "sha256": "7b446f874ec31e259304e165877993f71d7daf74214d326df507344ff5add125"
+    },
+    {
+      "path": "sources/05.wav",
+      "bytes": 148724,
+      "sha256": "f13d1dfa079caa6f646345b290428005e21ff272ecc5db12c58a0963c45fcdaf"
+    },
+    {
+      "path": "sources/06.wav",
+      "bytes": 113820,
+      "sha256": "5ec6aec7dbb0ddd79f2180042faee8c125616d5cef70eadc9015d541a2bc831b"
+    },
+    {
+      "path": "sources/07.wav",
+      "bytes": 119808,
+      "sha256": "ae1316d061a297f5153ee0cb4622b49fceb5fabb5a43f95c375b0c38c0131ba2"
+    },
+    {
+      "path": "sources/08.wav",
+      "bytes": 109426,
+      "sha256": "e0e6aa837716e4fc15cf97b7ca12ff968e2b25aec86bcf633f3fd6bf5099480f"
+    },
+    {
+      "path": "step-01/playback/metadata.json",
+      "bytes": 5767,
+      "sha256": "50e09bd83261183ec48aee6c5173bf85c598ae4d3a2950302e6feef20ddd89c5"
+    },
+    {
+      "path": "step-02/playback/metadata.json",
+      "bytes": 5765,
+      "sha256": "f1e292d8ca9c7bc24dcc9bb2fd8c114987c67363a067604825664ea3f4d73cf8"
+    },
+    {
+      "path": "step-03/playback/metadata.json",
+      "bytes": 5770,
+      "sha256": "c5d2365f8f55433433d6a625b391d48fab8b26e45a8b24f751663db8eb730be9"
+    },
+    {
+      "path": "step-04/playback/metadata.json",
+      "bytes": 5770,
+      "sha256": "8f27161e8e6565cd35eef2fabf5d40ca924a8619d502444001b8994935d82b3b"
+    },
+    {
+      "path": "step-05/playback/metadata.json",
+      "bytes": 5768,
+      "sha256": "e7f64328f450ab9ba7c6fd5794b679c0b47881d64e44e5d3e21615aa7f160447"
+    },
+    {
+      "path": "step-06/playback/metadata.json",
+      "bytes": 5767,
+      "sha256": "f09751033646ba23129079420361ecb2009f104e7c0c3d0a43a4a08539b81b15"
+    },
+    {
+      "path": "step-07/playback/metadata.json",
+      "bytes": 5762,
+      "sha256": "280306369cd495e5888bc7fe7e1e5b64298816528aa8350ab2819978885ba747"
+    }
+  ],
+  "archive_member_digests": [
+    {
+      "member": "stage-receipt.json",
+      "bytes": 7361,
+      "sha256": "2ce3a51b1c904afca4361a421aa2fa112c5eb99614544e303cfb4803e8cf37fc"
+    },
+    {
+      "member": "cutover-receipt.json",
+      "bytes": 15198,
+      "sha256": "2d36d85343debebc0411216fe0fa26b90761a98b9a2aa86eb542451c09463b40"
+    },
+    {
+      "member": "rollback-receipt.json",
+      "bytes": 6565,
+      "sha256": "fff1a2f94631ebc2a77bc69a9eeae4f0147a39174283e1bb3c9249954d1c6756"
+    },
+    {
+      "member": "relay-result.json",
+      "bytes": 24943,
+      "sha256": "2c84adae681e903023d0c590fea421a3a6d66b581b287647ed9948447389f0b7"
+    },
+    {
+      "member": "journal.jsonl",
+      "bytes": 3197,
+      "sha256": "b8bb7ff1c54b383d10a170c5c18bc92b833bad3603e1544aa6af34eb326abefc"
+    },
+    {
+      "member": "ring-override-ownership.json",
+      "bytes": 228,
+      "sha256": "a0ffca87632fce35e2b977e33af8bd1e4addd5f47466d10b1842d6179373c46b"
+    },
+    {
+      "member": "runtime/metadata/health.json",
+      "bytes": 408,
+      "sha256": "29b351b6c78f50aaa3db92aa56f3c1591aa8f66a6125cc597d1b376d022f795f"
+    },
+    {
+      "member": "runtime/metadata/events-0.jsonl",
+      "bytes": 4193568,
+      "sha256": "abf0c4e9bf7775f109cee25a956a1c30dcd672b5947ee06fd92963b0a07dcb66"
+    },
+    {
+      "member": "runtime/metadata/events-1.jsonl",
+      "bytes": 3939321,
+      "sha256": "bca1592d30c67dc3f66cc7a3413033766ad4249b23efeb04779b4c17e6f53190"
+    },
+    {
+      "member": "runtime/metadata/events-2.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "member": "runtime/metadata/events-3.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "audit_artifact": {
+    "path": "/private/tmp/lamp-ordinary-b318-audit-79ziv0yl/report.json",
+    "sha256": "063994b91bf0c3d2669d7c44a900e683671ced6a931d3c9baf2b433b9f3bf7c8",
+    "script_path": "/private/tmp/lamp-ordinary-b318-audit-79ziv0yl/audit.py",
+    "script_sha256": "7ca570b3028cfce7c6418be34c592581a6f454c9643a22d39ea123a68e989638"
+  },
+  "estimated_total_ms": {
+    "n": 6,
+    "p50": 2623.9575,
+    "min": 2465.957,
+    "max": 2704.733,
+    "method": "Add the configured 1200 ms silence wait to same-Lamp detected-endpoint-to-first-ALSA-write delta. Estimate only; VAD end and accepted PCM are not acoustic word boundaries."
+  },
+  "local_retention": ".cache/physical-audio/20261012/ordinary-b318-wpezmg8i; Git-ignored hard links to complete original artifacts, no uploads or regeneration"
+}

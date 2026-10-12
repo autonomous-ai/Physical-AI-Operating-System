@@ -1,9 +1,9 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 02:24 UTC
+- Updated: 2026-10-12 03:54 UTC
 - Branch: `lamp-v2-chat`
-- Latest native evidence: final `a9cae6d17` source / `b3186e7e…73f4` handled eight inputs, six completed replies and two planned supersessions. One 30 ms supply gap and coffee-context loss remain; room recording invalid after a later queue overflow. Shutdown/restoration verify. Camera/motors were off.
+- Latest native evidence: `b3186e7e…73f4` ordinary conversation completed six replies; the seventh requested answer was cancelled by an unplanned input, eighth stimulus withheld. Estimated response delay 2.624 s median (1.2 s endpoint wait plus 1.424 s to ALSA; acoustic timing unscored). Valid 180 s room recording saved. See [the current results](../docs/verification/ordinary-b318-20261012/README.md).
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
 - Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
@@ -16,8 +16,10 @@ are retained as failures: the head worker refused inherited CAP_SYS_ADMIN,
 and the serve runner rejected its first startup cue before playing a question.
 Administrative restoration verified; no completed conversation is claimed.
 The 10:15 office-time attended pilot target was missed. A2 is fixing runner
-startup while root prepares the previously qualified ordinary-conversation
-controller for the latest runtime. Full V2 remains unfinished.
+startup. Root has now run the ordinary-conversation controller against the latest
+runtime: six replies completed, one failed and one was withheld. A finite duplex
+recording with raw microphone and render diagnostics follows. Full V2 remains
+unfinished.
 
 The owner enabled Harness Agent Messages on 12 October. Main verified
 `harness send` lists both A1 on office and A2 on M2, and queued focused messages

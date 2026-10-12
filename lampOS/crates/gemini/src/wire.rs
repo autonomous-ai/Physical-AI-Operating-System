@@ -570,6 +570,12 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
             "includeThoughts": false
         });
     }
+    if let Some(budget) = config.thinking_budget {
+        setup["setup"]["generationConfig"]["thinkingConfig"] = json!({
+            "thinkingBudget": budget,
+            "includeThoughts": false
+        });
+    }
     if let Some(language) = &config.language_code {
         setup["setup"]["generationConfig"]["speechConfig"]["languageCode"] = json!(language);
     }

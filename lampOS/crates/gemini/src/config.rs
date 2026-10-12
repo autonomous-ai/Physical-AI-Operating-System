@@ -264,6 +264,7 @@ pub struct SessionConfig {
     pub(crate) model: String,
     pub(crate) voice: String,
     pub(crate) thinking_level: Option<ThinkingLevel>,
+    pub(crate) thinking_budget: Option<u32>,
     pub(crate) language_code: Option<String>,
     pub(crate) instruction: String,
     pub(crate) timeouts: Timeouts,
@@ -286,6 +287,7 @@ impl SessionConfig {
             model: "gemini-3.8-live".into(),
             voice: "Kore".into(),
             thinking_level: None,
+            thinking_budget: None,
             language_code: None,
             instruction: String::new(),
             timeouts: Timeouts::default(),
@@ -320,7 +322,22 @@ impl SessionConfig {
     /// unknown proxy model capabilities remain the provider's responsibility.
     pub fn thinking_level(mut self, level: ThinkingLevel) -> Result<Self> {
         validate_thinking_level(&self.model, Some(level))?;
+        if self.thinking_budget.is_some() {
+            return Err(Error::InvalidConfiguration);
+        }
         self.thinking_level = Some(level);
+        Ok(self)
+    }
+    /// The most tokens the model may spend thinking before it answers; zero
+    /// asks for none. Sent as `thinkingConfig.thinkingBudget`, and never
+    /// together with a thinking level. `gemini-3.8-live` refuses a level and
+    /// accepted a budget of zero on lamp-4ace on 2026-10-12: five answers
+    /// then reported no thinking tokens, against 48 to 387 without it.
+    pub fn thinking_budget(mut self, tokens: u32) -> Result<Self> {
+        if self.thinking_level.is_some() || tokens > MAX_THINKING_BUDGET {
+            return Err(Error::InvalidConfiguration);
+        }
+        self.thinking_budget = Some(tokens);
         Ok(self)
     }
     /// Speech language tag, preserved exactly rather than inferred or expanded.
@@ -405,6 +422,9 @@ impl fmt::Debug for SessionConfig {
         f.write_str("SessionConfig([PRIVATE])")
     }
 }
+/// A bound on what is accepted here, not a limit of the service.
+pub const MAX_THINKING_BUDGET: u32 = 32_768;
+
 fn validate_thinking_level(model: &str, level: Option<ThinkingLevel>) -> Result<()> {
     // These exact combinations are evidenced by the pinned V1 setup. Do not
     // infer capabilities of unknown aliases from substrings or clamp silently.

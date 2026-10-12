@@ -19,6 +19,10 @@ pub struct ProviderConfig {
     voice: String,
     #[serde(default)]
     thinking_level: Option<ThinkingLevel>,
+    /// The most tokens the model may think before it answers; zero for none.
+    /// Not together with `thinking_level`.
+    #[serde(default)]
+    thinking_budget: Option<u32>,
     #[serde(default)]
     language_code: Option<String>,
     credential_file: String,
@@ -219,6 +223,9 @@ impl ProviderConfig {
         if let Some(level) = self.thinking_level {
             session = session.thinking_level(level)?;
         }
+        if let Some(tokens) = self.thinking_budget {
+            session = session.thinking_budget(tokens)?;
+        }
         if let Some(language) = self.language_code {
             session = session.language_code(&language)?;
         }
@@ -338,6 +345,17 @@ mod tests {
                 .recovery_policy()
                 .require_context
         );
+    }
+
+    #[test]
+    fn a_thinking_budget_is_read_as_a_number_of_tokens() {
+        assert_eq!(parsed("").unwrap().thinking_budget, None);
+        assert_eq!(
+            parsed(r#","thinking_budget":0"#).unwrap().thinking_budget,
+            Some(0)
+        );
+        assert!(parsed(r#","thinking_budget":"none""#).is_err());
+        assert!(parsed(r#","thinking_budget":-1"#).is_err());
     }
 
     #[test]

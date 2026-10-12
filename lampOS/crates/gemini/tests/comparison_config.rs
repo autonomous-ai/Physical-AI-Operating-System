@@ -86,6 +86,42 @@ fn matched_v1_setup_places_explicit_fields_in_the_google_generation_config() {
 }
 
 #[test]
+fn a_thinking_budget_is_sent_as_given_and_never_with_a_level() {
+    for budget in [0u32, 512] {
+        let value = setup(&configuration().thinking_budget(budget).unwrap());
+        assert_eq!(
+            value["setup"]["generationConfig"]["thinkingConfig"],
+            json!({"thinkingBudget": budget, "includeThoughts": false})
+        );
+    }
+    assert!(
+        configuration()
+            .thinking_budget(lamp_gemini::MAX_THINKING_BUDGET + 1)
+            .is_err()
+    );
+    // One or the other: a level after a budget, or a budget after a level.
+    let extended = || {
+        configuration()
+            .model("gemini-3.8-live-extended-thinking")
+            .unwrap()
+    };
+    assert!(
+        extended()
+            .thinking_budget(0)
+            .unwrap()
+            .thinking_level(ThinkingLevel::Low)
+            .is_err()
+    );
+    assert!(
+        extended()
+            .thinking_level(ThinkingLevel::Low)
+            .unwrap()
+            .thinking_budget(0)
+            .is_err()
+    );
+}
+
+#[test]
 fn thinking_levels_parse_and_serialize_only_explicit_protocol_values() {
     for (text, level) in [
         ("MINIMAL", ThinkingLevel::Minimal),

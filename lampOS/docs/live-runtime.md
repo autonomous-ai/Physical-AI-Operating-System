@@ -285,10 +285,18 @@ once into these independent files; credentials stay outside source and reports.
 
 The JSON fields are `endpoint` (the complete secure WebSocket URL), `model`,
 `voice`, `credential_file`, and optional `authentication` (`api_key`, `bearer`,
-or `ephemeral`), `thinking_level`, `language_code`, and `resumption` (`retain`
-or `off`). Thinking/language remain
+or `ephemeral`), `thinking_level`, `thinking_budget`, `language_code`, and
+`resumption` (`retain` or `off`). Thinking/language remain
 omitted by default; explicit values are validated and sent without a silent
-fallback. `resumption` decides what a reconnect after an outage presents:
+fallback. `thinking_budget` is the most tokens the model may think before it
+answers, zero for none, sent as `thinkingConfig.thinkingBudget`; it cannot be
+combined with `thinking_level`. `gemini-3.8-live` refuses a level but accepted
+a budget of zero on lamp-4ace on 2026-10-12. Five played questions in one
+sitting on each setting: with the budget at zero every answer reported no
+thinking tokens and first sound was written 1.21 to 1.43 s after the
+end-of-speech decision (five of five); without it the answers reported 57,
+387, 48, 56 and 54 thinking tokens and first sound came after 1.19 to 1.51 s
+on four, with no first write recorded in time for the fifth. `resumption` decides what a reconnect after an outage presents:
 `retain`, the default, presents the handle the service last volunteered so the
 conversation continues; `off` always opens a new conversation. Use `off` on a
 path where a resumed session accepts audio and never answers: on lamp-4ace

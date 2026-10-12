@@ -41,6 +41,7 @@ struct Lamp {
     /// does against its own friction.
     short: Option<(usize, f32)>,
     silent_from: Option<Duration>,
+    silent_until: Option<Duration>,
     event: Option<(Duration, usize, Event)>,
     /// Loads one servo reads for a while whatever it is doing: from, until,
     /// servo, load. Afterwards it reads what it read before.
@@ -96,6 +97,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             wall: None,
             short: None,
             silent_from: None,
+            silent_until: None,
             event: None,
             strains: Vec::new(),
             unstrained: None,
@@ -201,7 +203,10 @@ impl Lamp {
 
     fn answer(&mut self, id: u8, data: &[u8]) {
         let servo = self.servos[usize::from(id) - 1];
-        let silent = self.silent_from.is_some_and(|from| self.time.get() >= from);
+        let silent = self.silent_from.is_some_and(|from| self.time.get() >= from)
+            && self
+                .silent_until
+                .is_none_or(|until| self.time.get() < until);
         if !servo.answers || silent {
             return;
         }
@@ -925,14 +930,50 @@ fn a_joint_that_has_arrived_is_not_pushed_at_and_a_small_change_does_not_move_it
 }
 
 #[test]
-fn a_wire_that_goes_silent_stops_it_after_three_steps() {
+fn a_wire_that_goes_silent_stops_it_after_half_a_second() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.silent_from = Some(Duration::from_millis(1_500));
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert!(matches!(report.stop, Stop::Bus { .. }), "{:?}", report.stop);
-    assert_eq!(report.missed_reads, 3);
-    assert!(clock.time.get() < Duration::from_millis(1_600));
+    assert_eq!(report.missed_reads, u64::from(WIRE_STEPS));
+    assert!(clock.time.get() < Duration::from_millis(1_500 + 20 * 27));
+    // Nothing was asked of the joints once the wire had gone silent, but
+    // the hold: no goal moved further from where the joints were.
+    let last = lamp.goals.last().unwrap();
+    for (id, goal) in last {
+        let servo = lamp.servos[usize::from(*id) - 1];
+        assert!(
+            goal.abs_diff(servo.position.round() as u16) <= 8,
+            "{last:?}"
+        );
+    }
+}
+
+#[test]
+fn a_wire_that_fails_for_a_moment_is_ridden_out() {
+    // Four steps of nothing, as after a stall of the whole machine, in the
+    // middle of the look away.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.silent_from = Some(Duration::from_millis(3_400));
+    lamp.silent_until = Some(Duration::from_millis(3_480));
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!((3..=6).contains(&report.missed_reads), "{report:?}");
+    // It went on with the look away afterwards and came home at the end.
+    assert!(seen.iter().any(|glimpse| glimpse.mood == Mood::Thinking
+        && glimpse.step > 3_500 / 20
+        && glimpse.goals[2].abs_diff(HOME[2]) >= 25));
+    assert_eq!(lamp.goals.last().unwrap()[0], (5, HOME[0]));
 }
 
 #[test]

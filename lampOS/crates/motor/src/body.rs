@@ -69,6 +69,13 @@ const WAKE_COUNTS: f32 = 20.0;
 const ARRIVED_COUNTS: f32 = 6.0;
 const ARRIVED_SPEED: f32 = 15.0;
 const ARRIVED_STEPS: u8 = 15;
+/// Steps in a row on which a read, or a write, may fail before the run
+/// ends: half a second. While one is failing nothing new is asked of the
+/// joints. Three steps were not enough: on lamp-4ace one stall of the whole
+/// machine (the ring's own write overran in the same second) left a late
+/// reply on the wire, the next three exchanges tripped over it, and the lamp
+/// had no body until someone started it again.
+const WIRE_STEPS: u8 = 25;
 
 /// The joints this body commands, in the order of every array of three here.
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
@@ -651,6 +658,7 @@ pub(crate) fn run(
     let mut easing = [0u16; 3];
     let mut eased_at = [0u64; EASES_ALLOWED];
     let mut misses = 0u8;
+    let mut unsent = 0u8;
     let mut leaving: Option<Duration> = None;
     let mut resting_steps = 0u16;
     let mut relaxed = false;
@@ -709,7 +717,12 @@ pub(crate) fn run(
         for left in &mut easing {
             *left = left.saturating_sub(1);
         }
+        // The wire is failing: nothing new is asked until it answers again.
+        let blind = misses > 0 || unsent > 0;
         for (index, offset) in offsets.into_iter().enumerate() {
+            if blind {
+                continue;
+            }
             if held[index] {
                 velocity[index] = 0.0;
                 goals[index] = commanded[index].round() as u16;
@@ -739,12 +752,23 @@ pub(crate) fn run(
             goals[index] = commanded[index].round() as u16;
         }
         if goals != written {
-            if let Err(detail) = bus.send(&goals_write(goals)) {
-                break Stop::Bus { detail };
+            match bus.send(&goals_write(goals)) {
+                Ok(()) => {
+                    unsent = 0;
+                    written = goals;
+                    report.goal_writes += 1;
+                    report.moved = true;
+                }
+                Err(detail) => {
+                    report.missed_reads += 1;
+                    unsent += 1;
+                    if unsent >= WIRE_STEPS {
+                        break Stop::Bus { detail };
+                    }
+                    bus.sleep_until(due);
+                    continue;
+                }
             }
-            written = goals;
-            report.goal_writes += 1;
-            report.moved = true;
         }
         let samples = match bus.samples() {
             Ok(samples) => {
@@ -754,13 +778,15 @@ pub(crate) fn run(
             Err(detail) => {
                 report.missed_reads += 1;
                 misses += 1;
-                if misses >= 3 {
+                if misses >= WIRE_STEPS {
                     break Stop::Bus { detail };
                 }
                 bus.sleep_until(due);
                 continue;
             }
         };
+        // A write below that fails changes nothing and is tried again.
+        let mut failed: Option<String> = None;
         report.last = Some(samples);
         if resting_steps >= REST_STEPS && !relaxed {
             let positions = COMMANDED.map(|joint| samples[joint.index()].position);
@@ -769,20 +795,28 @@ pub(crate) fn run(
                     && velocity[index].abs() < 3.0
             });
             if near {
-                relaxed = true;
-                if positions != written {
-                    if let Err(detail) = bus.send(&goals_write(positions)) {
-                        break Stop::Bus { detail };
-                    }
-                    written = positions;
-                    report.goal_writes += 1;
+                let sent = positions == written
+                    || match bus.send(&goals_write(positions)) {
+                        Ok(()) => {
+                            written = positions;
+                            report.goal_writes += 1;
+                            true
+                        }
+                        Err(detail) => {
+                            failed = Some(detail);
+                            false
+                        }
+                    };
+                if sent {
+                    relaxed = true;
+                    commanded = positions.map(f32::from);
+                    velocity = [0.0; 3];
                 }
-                commanded = positions.map(f32::from);
-                velocity = [0.0; 3];
             }
         }
         // A joint that has arrived stops being pushed at, whatever the mood.
         let mut rested = written;
+        let mut arrived: [Option<f32>; 3] = [None; 3];
         for index in 0..3 {
             let there = !asleep[index]
                 && !held[index]
@@ -797,22 +831,46 @@ pub(crate) fn run(
             };
             let position = samples[COMMANDED[index].index()].position;
             if arriving[index] >= ARRIVED_STEPS && position.abs_diff(written[index]) <= REST_SLACK {
-                asleep[index] = true;
-                arriving[index] = 0;
-                commanded[index] = f32::from(position).clamp(
+                let at = f32::from(position).clamp(
                     low[index].min(commanded[index]),
                     high[index].max(commanded[index]),
                 );
-                velocity[index] = 0.0;
-                rested[index] = commanded[index].round() as u16;
+                arrived[index] = Some(at);
+                rested[index] = at.round() as u16;
             }
         }
-        if rested != written {
-            if let Err(detail) = bus.send(&goals_write(rested)) {
-                break Stop::Bus { detail };
+        let sent = failed.is_none()
+            && (rested == written
+                || match bus.send(&goals_write(rested)) {
+                    Ok(()) => {
+                        written = rested;
+                        report.goal_writes += 1;
+                        true
+                    }
+                    Err(detail) => {
+                        failed = Some(detail);
+                        false
+                    }
+                });
+        if sent {
+            for index in 0..3 {
+                if let Some(at) = arrived[index] {
+                    asleep[index] = true;
+                    arriving[index] = 0;
+                    commanded[index] = at;
+                    velocity[index] = 0.0;
+                }
             }
-            written = rested;
-            report.goal_writes += 1;
+        }
+        match failed {
+            Some(detail) => {
+                report.missed_reads += 1;
+                unsent += 1;
+                if unsent >= WIRE_STEPS {
+                    break Stop::Bus { detail };
+                }
+            }
+            None => unsent = 0,
         }
         watch(&Glimpse {
             step: report.steps,

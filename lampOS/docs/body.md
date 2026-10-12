@@ -55,7 +55,7 @@ written after that, when:
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
-| A read that fails, three steps in a row | missing, late, malformed or unexpected bytes |
+| A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
 
 A load over its bound for six steps does not by itself end the run. The
 joint gives way: its goal becomes where it is, and nothing is asked of it for
@@ -67,6 +67,14 @@ to the log. Until 2026-10-13 the first such load ended the run, and with it
 all motion until someone started the body again: on lamp-4ace that happened
 twice in a quarter of an hour, at 217 and at 190 on the head joint, with
 nothing in its way either time.
+
+While the wire is failing nothing new is asked of the joints, and the
+write that failed is tried again on the next step. Until 2026-10-13 three
+failed reads in a row, or one failed write, ended the run. On lamp-4ace
+that took one stall of the whole machine: at 04:00:40, with the lamp idle,
+the ring's write overran its 10 ms budget and in the same second the body
+found 41 bytes of a late reply on the wire and stopped after its third
+missed read. It had run for 36 minutes without a fault.
 
 A status flag that was already latched at start on a joint it does not command
 is not a reason to stop or to refuse: lamp-4ace's elbow has carried `0x20`

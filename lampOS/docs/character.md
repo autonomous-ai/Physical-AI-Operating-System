@@ -20,13 +20,20 @@ changing the file and nothing else.
 | Without the rule | The rule | Before | After |
 |---|---|---|---|
 | Spoken over in the middle of a story, the lamp stopped and then went on with the story instead of answering | "If someone starts talking while you are speaking, you have been interrupted… never finish the sentence you were in, never pick the story up again… answer only what they just said." | 0 of 3 answered the new request | 5 of 5 |
-| Beside two people talking to each other it asked "Were you talking to me?" | What is for it (its name, what follows from its own conversation, what a person says to a lamp on their desk), what is not (other people's plans and work, an answer to someone else, a request for hands), and "When you cannot tell, stay silent. Never ask whether they were talking to you." | 2 of 9 lines answered with that question | 0 of 39 lines answered, in five runs |
-| With that rule in place, "Hey Lamp, what should we have for lunch?" after such a conversation went unanswered: the service's own transcript had it as "Helen, what do you think…", and another time as "Weilan" | "Your name is Lamp… Your ears often get it wrong: it can come out as 'lamb', 'Helen', 'Weilan', 'Liam'… Nobody in the room is called any of those. When a sentence begins with a word that sounds anything like 'Lamp'… it is you they are calling, and you answer, whatever was being said before." | 1 of 3 answered | NAME_AFTER |
+| Beside two people talking to each other it asked "Were you talking to me?" | What is for it and what is not, by what was said: something a lamp on a desk could answer or chat about is for it; other people's own business, a request for hands, an answer to someone else is not. "When you really cannot tell, stay silent. Never ask whether they were talking to you." | 2 of 9 lines answered with that question | 0 of 45 lines answered, in five runs |
+| Told only to stay out of other people's talk, it also stayed out when called: "Hey Lamp, what should we have for lunch?" after such a conversation went unanswered in 6 of 9 runs. The service's own transcripts had the call as "Helen", "Weilan", "Wei Lan" and "Hey, man" | "Your ears often mishear it as some other name… So never go by the name you think you heard. Go by what was said." A sentence a lamp could answer is for it most of all when it starts with a call or a name, even one that is not its own, whatever was being said before | 3 of 9 answered | 5 of 5, and the follow-up without a name each time |
+| Replies ended like an assistant's: "Anything you'd like to chat about today?", "Let me know if you need anything else." | Five short examples of how it sounds ("Thank you." "Anytime.") and three of how it does not | 4 of 7 replies to greetings and thanks ended that way | 0 of 18 |
 
-Two things about these counts. They are small, and each is one voice in one
-room. And the second and third rule pull against each other: a lamp told
-to stay out of other people's talk needs to be told just as plainly what
-being called sounds like.
+The third row took three tries. A list of what its name can sound like
+worked twice and then failed five times running, and so did a firmer
+version of it: the model heard "Wei Lan, what do you think…" after two
+people had been talking and took Wei Lan for one of them. What worked was
+to stop asking the model to recognise its name and ask it to judge the
+sentence.
+
+These counts are small, and each is played voices in one room. Model
+behavior also varies from run to run on the same file: run every check
+below after any change, more than once.
 
 A fourth rule was tried and taken out. Since 2026-10-13 a short word
 heard plainly over the lamp stops it and is sent to the model even when
@@ -63,8 +70,11 @@ a person. What to play and what to expect:
 | Two people talking | Seven to nine lines of a conversation between two voices, less than a second apart, then "Hey Lamp, what do you think we should have for lunch?" and a follow-up without the name | Nothing during the conversation; both of the last two answered |
 | Spoken over | A request for a long story, and four seconds into the answer a second voice: "Lamp, stop. What is two plus two?" | The lamp stops and the next thing it says is the answer, not the story |
 
-On 2026-10-13 the file here gave 7 and 3, 8 of 8, 7 lines ignored and both
-questions answered in two runs, and 5 of 5.
+On 2026-10-13 the file here gave: seven answers and nothing for the three;
+8 of 8; nothing during the conversation and both questions answered, in
+two runs; and for the last, of five requests spoken over the lamp that it
+stopped for, four were answered. The fifth was "Wait, wait, wait.", which
+reached the model as "wave wave wave", and the lamp went on with its story.
 
 ## What it does not decide
 

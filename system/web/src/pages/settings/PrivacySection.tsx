@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { C, ConfirmDialog, SectionCard } from "@/components/setup/shared";
-import { getDeviceConfig, updateDeviceConfig } from "@/lib/api";
+import { disableGuardMode, getDeviceConfig, getGuardMode, updateDeviceConfig } from "@/lib/api";
 import type { CloudPerception } from "@/lib/api";
 
 const ALL_OFF: CloudPerception = { motion: false, emotion: false, pose: false, fire_hazard: false };
@@ -12,9 +12,11 @@ const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upl
   {
     key: "pose",
     label: "Posture reminders",
-    purpose: "Uses the camera to notice when you sit badly for a long time and reminds you to adjust.",
+    purpose: "Uses the camera to notice when you sit badly for a long time and reminds you to adjust. "
+      + "A reminder sent to your Telegram includes the photos with the worst posture.",
     upload: "Uploads one full camera image for cloud analysis about every 30 seconds while someone is in front of the lamp.",
-    short: "Posture reminders (one full image about every 30 s while someone is in front of the lamp)",
+    short: "Posture reminders (one full image about every 30 s while someone is in front of the lamp; "
+      + "reminders sent to Telegram include photos)",
   },
   {
     key: "fire_hazard",
@@ -60,6 +62,8 @@ export function PrivacySection({ active }: { active: boolean }) {
   const [applying, setApplying] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [guard, setGuard] = useState<boolean | null>(null);
+  const [guardBusy, setGuardBusy] = useState(false);
 
   useEffect(() => {
     getDeviceConfig()
@@ -70,7 +74,21 @@ export function PrivacySection({ active }: { active: boolean }) {
         setRecipient(recipientHost(cfg.llm_base_url));
       })
       .catch(() => toast.error("Could not load privacy settings"));
+    getGuardMode().then(setGuard).catch(() => setGuard(null));
   }, []);
+
+  async function turnOffGuard() {
+    setGuardBusy(true);
+    try {
+      await disableGuardMode();
+      setGuard(false);
+      toast.success("Guard mode is off");
+    } catch (e) {
+      toast.error((e as Error).message || "Could not turn off guard mode");
+    } finally {
+      setGuardBusy(false);
+    }
+  }
 
   async function apply() {
     setApplying(true);
@@ -93,7 +111,9 @@ export function PrivacySection({ active }: { active: boolean }) {
   return (
     <SectionCard id="privacy" title="Privacy" active={active}>
       <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 14, lineHeight: 1.6 }}>
-        Face detection, Face ID, presence and gaze run on this device and send no images.
+        Face detection, Face ID, presence and gaze run on this device and send no images to
+        a cloud server. When a face without a name has been seen twice, the lamp keeps one
+        photo on the device for 24 hours so it can ask whether to remember that person.
         The features below need a cloud server: when on, the lamp uploads camera images for
         analysis. They are off until you turn them on. Anyone in view of the camera is
         included, not only you. Turning a feature off stops its new uploads once the lamp
@@ -152,6 +172,30 @@ export function PrivacySection({ active }: { active: boolean }) {
           </div>
         </>
       )}
+
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 18, paddingTop: 14 }}>
+        <div style={{ fontSize: 13.5, color: C.text }}>
+          Guard mode: <strong>{guard === null ? "unknown" : guard ? "on" : "off"}</strong>
+        </div>
+        <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, marginTop: 4 }}>
+          While guard mode is on, each person, movement or fire hint the lamp notices is sent to
+          your Telegram with a camera photo. It is off until you ask the lamp to guard the room.
+        </div>
+        {guard && (
+          <button
+            type="button"
+            onClick={() => void turnOffGuard()}
+            disabled={guardBusy}
+            style={{
+              marginTop: 10, padding: "6px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "none", cursor: guardBusy ? "not-allowed" : "pointer",
+              background: C.amber, color: "var(--lm-on-amber)", opacity: guardBusy ? 0.6 : 1,
+            }}
+          >
+            {guardBusy ? "Turning off…" : "Turn off guard mode"}
+          </button>
+        )}
+      </div>
 
       {confirming && (
         <ConfirmDialog

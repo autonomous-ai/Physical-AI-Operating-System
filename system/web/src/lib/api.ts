@@ -542,6 +542,15 @@ export async function updateDeviceConfig(body: Partial<Record<string, unknown>>)
   });
 }
 
+export async function getGuardMode(): Promise<boolean> {
+  const r = await apiRequest<{ guard_mode: boolean }>(`${API_BASE}/api/guard`);
+  return r.guard_mode;
+}
+
+export async function disableGuardMode(): Promise<void> {
+  await apiRequest(`${API_BASE}/api/guard/disable`, { method: "POST" });
+}
+
 /** Read-side of a static-credential connector (Facebook Fan Page, Gmail app password, …). */
 export interface ConnectorInfo {
   connector: string;

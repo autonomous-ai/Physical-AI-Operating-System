@@ -398,6 +398,8 @@ Khi visit count của một stranger lần đầu chạm ngưỡng (`_FAMILIAR_V
 
 Skill `face-enroll` (phía Lamp) parse hint đó và nói trực tiếp với người trước cam: "I've seen you 2 times now — mind if I remember you? What's your name?" (skill chạy bằng tiếng Anh, agent tự dịch nếu cần). Khi có tên trả về thì gọi `POST /face/enroll` với image path đã lưu. Nếu từ chối, skill chỉ ghi nhận rồi dừng; threshold là one-shot (`count == 2`), nên cùng `stranger_id` đó sẽ KHÔNG bị lelamp prompt lại lần nữa. Count vượt qua 2 không re-fire — lúc đó stranger hoặc đã được enroll (không còn là stranger) hoặc đã chủ động từ chối.
 
+Ảnh này chỉ dùng cho lượt hỏi tên đó. HAL xoá ảnh cũ hơn `HAL_STRANGER_SNAPSHOT_RETENTION_S` (mặc định 86400 s = 24 giờ): quét thư mục ở tick dò mặt đầu tiên sau khi HAL khởi động, sau đó tối đa mỗi giờ một lần khi camera đang chạy.
+
 ---
 
 ## Chăm sóc sức khỏe (Wellbeing — Nhắc uống nước + Nghỉ ngơi, AI-Driven)

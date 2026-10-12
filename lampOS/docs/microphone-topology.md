@@ -145,3 +145,26 @@ finding or spatial separation. The team drawing supplies relative placement,
 not measured capsule spacing or a qualified beam pattern. No enclosure was
 opened or movement commanded. The later finite [microphone control experiments](microphone-control-experiments.md) changed only advertised Jieli gain/AGC and restored both; no new runtime setting was promoted.
 Evidence: `artifacts/microphone-layout-20261010/`.
+
+## Fixed-source microphone-path pair, 12 October 2026
+
+The [retained microphone-path pair](verification/microphone-path-pair-20261012/README.md)
+completed one MIC1 diagnostic; MIC2 remains failed/incomplete because the helper
+stopped on additional admissions. Both paths accepted the exact same full
+337,680-frame fixed reply and retired its original owner with zero reported
+speech gaps. Both software diagnostic streams and 100-second room recordings
+passed the independent integrity checks, and both rollback receipts verified
+stationary muted restoration with unchanged final mixers.
+
+This was physical iMac loudspeaker replay under V1-baseline masking, not a
+human or cloud conversation test. Captured admission sources remain unclassified.
+No listening, ASR, acoustic score, causal gain/AGC explanation, or default
+microphone promotion follows from it. The original copied plan contains inherited
+mixer-trial fields; verified executed evidence records no mixer writes. Exact
+hashes, commands, outcomes and preservation limits are in the linked report.
+
+The subsequent [MIC1 Gemini duplex diagnostic](verification/mic1-gemini-duplex-20261012/README.md)
+answered the initial question but did not admit the interruption. A1's separate
+recorded-signal analysis identifies a late playback reference on MIC1; that
+correction must be tested before judging MIC1's duplex capability. No default
+microphone or gain change is selected.

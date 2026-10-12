@@ -1,9 +1,9 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 05:52 UTC
+- Updated: 2026-10-12 06:26 UTC
 - Branch: `lamp-v2-chat`
-- Latest native evidence: the next ordinary run completed two replies, then an unplanned input withheld prompt three and stopped the plan. Estimated response delay 2.475 s (two samples, acoustic timing unscored). A separate grouped mic2 gain/AGC trial interrupted the answer but lost the coffee request's opening; later extra input ended it. USB disconnect was recorded near shutdown, with distinct source and journal receipt timestamps; its cause remains unresolved; separate verified recovery restored the original settings and stationary muted legacy. [Exact failed cohorts and recovery](../docs/verification/pilot-readiness-20261012/README.md). No new pilot acceptance or full V2 readiness claim.
+- Latest native evidence: the fixed-source mic1/mic2 pair delivered identical full replies, but mic2's run stopped on extra inputs. A subsequent MIC1 Gemini run answered sunset but never admitted the coffee interruption; two provisional yields each caused 490 ms of accepted zero PCM before resuming. All three room recordings and restoration receipts verify; no human/acoustic acceptance. [Microphone pair](../docs/verification/microphone-path-pair-20261012/README.md), [MIC1 Gemini](../docs/verification/mic1-gemini-duplex-20261012/README.md). A1's recorded-signal analysis finds MIC1 echo arrives before its playback reference; its timing correction is in progress, not deployed.
 - Runner: A2 startup correction through `32ca80f61` plus Main's per-cue decision clock is integrated at `368e770da`. Format, strict package Clippy, 39 focused tests and release build pass; [verification](../docs/verification/serve-startup-clock-20261012/README.md). Native use is still pending.
 - Agent Messages: both A1 on office and A2 on M2 are reachable through `harness send`; queued work was delivered and A1 returned the microphone ARM build through that route. No tmux injection or owner relay.
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
@@ -20,11 +20,12 @@ all originals are cached. Final legacy mic/speaker mute was verified after
 startup mute reassertion; uninterrupted privacy is not claimed.
 
 The [explicit microphone selector](../docs/verification/microphone-choice-20261012/README.md)
-has passed focused host and emulated ARM checks. Default mic2, gains, AEC and
-turn-taking are unchanged. Main is preparing a fixed-source mic1/mic2 comparison
-with independent room recording and no cloud generation. A1 continues audio
-onset/admission analysis; A2 owns evaluator corrections followed by the isolated
-endpoint pilot proposal. This is not a readiness or microphone-quality claim.
+is pushed at `675c71c62` and its exact ARM artifact was used for both fixed-source
+runs and the MIC1 Gemini diagnostic. Default mic2, gains, AEC and turn-taking are
+unchanged. Original media and receipts are cached for replay. A1 now owns the
+MIC1 reference-timing correction; speech-floor work follows it. Root is composing
+A2's reviewed reporting/recording-coverage fixes while A2's isolated endpoint
+worker remains an opt-in proposal. No temporary test service remains running.
 
 ## Fresh native failures and testing priority
 

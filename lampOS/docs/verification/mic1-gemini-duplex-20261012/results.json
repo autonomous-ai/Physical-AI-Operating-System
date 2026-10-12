@@ -1,0 +1,473 @@
+{
+  "schema": 1,
+  "date": "2026-10-12",
+  "scope": "MIC1 physical loudspeaker replay into finite Gemini duplex; receipt/preservation audit only",
+  "collection_status": "diagnostic_collected_unscored",
+  "functional_result": {
+    "sunset_reply_present": true,
+    "coffee_source_delivered": true,
+    "coffee_admitted": false,
+    "coffee_reply_present": false,
+    "duplex_commits": 0,
+    "successful_interruption_demonstrated": false,
+    "default_microphone_promoted": false
+  },
+  "provenance": {
+    "original_root": "/private/tmp/lamp-mic1-gemini-executed-o7lfc33c",
+    "cache_relative_to_lampOS": ".cache/physical-audio/20261012/mic1-gemini-o7lfc33c",
+    "cache_manifest_sha256": "1063fdfab66517fc6a7f897d78ba278a06e55abd737f4e1abcd1be9080e48946",
+    "original_and_provenance_files": 119,
+    "copied_bytes": 60911074,
+    "original_sources_unchanged": true,
+    "all_copied_hashes_verified": true,
+    "independent_receipt_audit_sha256": "934bb0d423bcb92d694c64eed0d8c6c21a9ee8ee17191a7ce7df84bbde941beb",
+    "result_sha256": "15d09e14494551b299cbf8da623eb7b069bbc55d35791a310f175ec347801092",
+    "native_archive_sha256": "9a8efefb20c0fe723d805ac97b15d5f842aad17fd3ffd7b31daef3cd7dedc311",
+    "native_manifest_sha256": "e94e15e3d9cb93f5e7ba655b615fa36584ab2dfdfda039f8e306251271874310",
+    "controller_freeze_sha256": "021b2e15a4cb8e8f4d4cd47efa9a539beda72291ebf87a0a383cb6d9d10d9b13",
+    "runtime_sha256": "14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e",
+    "runtime_bytes": 9502808,
+    "runtime_source_manifest_sha256": "114063ae5789fa0d5760f81515f45beb548162dda7be87ab972dc8b456743abb",
+    "runtime_arm_receipt_sha256": "5a25e719c657e431dce80d448ff259261d24afae46d27a35ec51b90904772d2a",
+    "provider_config_sha256": "0f899a012a76077f1370fd66fd88c5790ff07d3e6ccc3843153713110b147477",
+    "provider_config_content_copied": false,
+    "historical_command": "/usr/local/bin/python3.12 -B /private/tmp/lamp-mic1-gemini-duplex-o7lfc33c/run_once.py --freeze-sha256 021b2e15a4cb8e8f4d4cd47efa9a539beda72291ebf87a0a383cb6d9d10d9b13 --out /private/tmp/lamp-mic1-gemini-executed-o7lfc33c --execute"
+  },
+  "settings": {
+    "acoustic_score": null,
+    "at_us": 78677054719,
+    "audio_diagnostics_requested": true,
+    "camera_context_requested": false,
+    "capture_device_requested": "plug:device_micro1",
+    "cue_requested": true,
+    "fixture": null,
+    "kind": "run_start",
+    "microphone": "mic1",
+    "mode": "finite",
+    "motor_worker_requested": false,
+    "playout_continuity": null,
+    "playout_start_horizon_us": 200000,
+    "provider_continuation": "kept-start",
+    "provider_kind": "gemini",
+    "reference_clock": "capture",
+    "reference_recovery": "off",
+    "ring_channel_ceiling_requested": 12,
+    "scope": "directed_voice_with_ring",
+    "seconds": 70,
+    "software_processing_requested": {
+      "aec": "sonora_aec3",
+      "noise_suppression": false
+    },
+    "turn_taking": "duplex",
+    "turn_taking_tail_us": 100000
+  },
+  "stimulus": {
+    "kind": "Physical iMac loudspeaker replay of cached synthetic speech; no direct microphone PCM injection",
+    "clips": [
+      {
+        "slot": 1,
+        "scene": "follow-up-sunset",
+        "text": "So why does it turn orange at sunset?",
+        "voice": "Samantha",
+        "wpm": 205,
+        "frames": 32576,
+        "sample_rate": 16000,
+        "wav_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77"
+      },
+      {
+        "slot": 2,
+        "scene": "topic-change",
+        "text": "Actually, Lamp, let's talk about coffee instead. Why does it smell so good?",
+        "voice": "Daniel",
+        "wpm": 210,
+        "frames": 320000,
+        "sample_rate": 16000,
+        "wav_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc"
+      }
+    ],
+    "second_trigger": "Original-owner actual first-write observation, after first player completion and while same owner/occurrence remains active; no five-second warmed wait",
+    "second_first_write_observation_to_grant_ms": 310.948,
+    "prepared_player_first_copy_deadline_ms": 100,
+    "fresh_lamp_authority_claim": false,
+    "acoustic_overlap_accepted": false
+  },
+  "runtime_boot": [
+    72,
+    162,
+    18,
+    191,
+    38,
+    55,
+    193,
+    203,
+    238,
+    180,
+    224,
+    135,
+    1,
+    79,
+    245,
+    10
+  ],
+  "admissions": [
+    {
+      "turn": 1,
+      "generation": 3,
+      "at_us": 78679469590
+    }
+  ],
+  "endpoint_count": 1,
+  "terminals": [
+    {
+      "turn": 1,
+      "generation": 3,
+      "at_us": 78697694534,
+      "outcome": "audio_written_with_playback_gaps_unscored",
+      "playback_gaps": 2
+    }
+  ],
+  "provider_output_transcript": "At sunset, sunlight travels through more of the atmosphere, which scatters away the blue light and lets the longer red and orange wavelengths pass through to your eyes.",
+  "provider_input_transcripts": [
+    {
+      "at_us": 78686747078,
+      "finished": false,
+      "input_correlation": "unreliable; session scoped",
+      "kind": "transcript",
+      "text": "So why does it turn orange at sunset?",
+      "turn": null
+    }
+  ],
+  "transcript_limit": "Provider metadata only; input transcript is session scoped and never treated as current admission authority. No human listening or independent ASR.",
+  "provider_reply": {
+    "frames": 216240,
+    "pcm_sha256": "eb9bb55eaa2fcbe4c42def7b85435602eda8fe2f7dc6398ceba365cc81548c74",
+    "first_accepted_at_us": 78687694044,
+    "last_accepted_at_us": 78697673839,
+    "final_retired_at_us": 78697692339,
+    "one_original_owner": true,
+    "reported_gaps": 2
+  },
+  "duplex_summary": {
+    "at_us": 78749020754,
+    "commits": 0,
+    "fallen_back_at_end": false,
+    "hearing_margin_db": null,
+    "kind": "duplex_summary",
+    "margin_scope": "person in the clear against own voice, both before cancellation; not addressee evidence",
+    "resumes": 2,
+    "yields": 2
+  },
+  "accepted_zero_gaps": [
+    {
+      "at_us": 78690294480,
+      "boundary": "actual zero PCM accepted while reply unfinished; acoustic gap unmeasured",
+      "coordinator_observed_at_us": 78690296774,
+      "gap": {
+        "end_sample": {
+          "epoch": 1,
+          "frame": 312960
+        },
+        "first_sample": {
+          "epoch": 1,
+          "frame": 301200
+        },
+        "last_zero_accepted_at_us": 78690283753,
+        "owner": {
+          "boot": [
+            72,
+            162,
+            18,
+            191,
+            38,
+            55,
+            193,
+            203,
+            238,
+            180,
+            224,
+            135,
+            1,
+            79,
+            245,
+            10
+          ],
+          "generation": 3,
+          "turn": 1
+        },
+        "started_at_us": 78689803663,
+        "zero_frames": 11760
+      },
+      "held_final_frames_at_observation": 0,
+      "kind": "playback_gap",
+      "last_provider_audio_enqueued_at_us": 78689386006,
+      "origin": "provider",
+      "phase": "resumed",
+      "reply_queued_frames_at_observation": 165121,
+      "speaker_pending_sequence_at_observation": 212,
+      "zero_duration_ms": 490.0
+    },
+    {
+      "at_us": 78691323348,
+      "boundary": "actual zero PCM accepted while reply unfinished; acoustic gap unmeasured",
+      "coordinator_observed_at_us": 78691324965,
+      "gap": {
+        "end_sample": {
+          "epoch": 1,
+          "frame": 337680
+        },
+        "first_sample": {
+          "epoch": 1,
+          "frame": 325920
+        },
+        "last_zero_accepted_at_us": 78691313040,
+        "owner": {
+          "boot": [
+            72,
+            162,
+            18,
+            191,
+            38,
+            55,
+            193,
+            203,
+            238,
+            180,
+            224,
+            135,
+            1,
+            79,
+            245,
+            10
+          ],
+          "generation": 3,
+          "turn": 1
+        },
+        "started_at_us": 78690832647,
+        "zero_frames": 11760
+      },
+      "held_final_frames_at_observation": 0,
+      "kind": "playback_gap",
+      "last_provider_audio_enqueued_at_us": 78689386006,
+      "origin": "provider",
+      "phase": "resumed",
+      "reply_queued_frames_at_observation": 152161,
+      "speaker_pending_sequence_at_observation": 266,
+      "zero_duration_ms": 490.0
+    }
+  ],
+  "gap_boundary": "Exact accepted-zero PCM count at 24 kHz; acoustic gaps were not measured.",
+  "diagnostics": {
+    "capture": {
+      "certificate_sha256": "9deb35a61b7bc623805eb3b7c277f9840fc155bdee76a9abf4e089280bdbf3af",
+      "records": 7180,
+      "capture_frames": 1148000,
+      "render_frames": 0,
+      "accepted_zero_frames": 0,
+      "zero_kinds_frames": {},
+      "all_file_hashes_verified": true,
+      "record_sequences_and_offsets_contiguous": true,
+      "faults": 0,
+      "end": {
+        "at_us": 78749037081,
+        "reason": "privacy_closed"
+      }
+    },
+    "render": {
+      "certificate_sha256": "9d683527eebd6356917857385694269173990eb17ddf6362a3d4880e8506e743",
+      "records": 7183,
+      "capture_frames": 0,
+      "render_frames": 1722480,
+      "accepted_zero_frames": 1506240,
+      "zero_kinds_frames": {
+        "speech_gap": 23520,
+        "idle": 1482240,
+        "prime": 480
+      },
+      "all_file_hashes_verified": true,
+      "record_sequences_and_offsets_contiguous": true,
+      "faults": 0,
+      "end": {
+        "at_us": 78749032841,
+        "reason": "privacy_closed"
+      }
+    }
+  },
+  "room": {
+    "frames": 4800000,
+    "rate": 48000,
+    "seconds": 100,
+    "format": "float32 mono",
+    "callbacks": 9375,
+    "wav_sha256": "e17f7ed428e7dd978f86a62777ce8b4085fa6dfedd0cc3aa96759775e29d25ec",
+    "metadata_sha256": "6b6f9efd4ab94426d55eafe95bf5f1f714e013958771d8dc29d9f57ee393f179",
+    "ledger_sha256": "097345be34c7938b2c3f3f620798341f6be6aae834730c97676eeb07c349a5ea",
+    "continuous_ledger_verified": true,
+    "faults": 0,
+    "clipped_samples": 0,
+    "target_host_interval_covered": true,
+    "target_clock_to_room_sample_transform": null
+  },
+  "players": [
+    {
+      "slot": 1,
+      "source_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+      "metadata_sha256": "47661e6874cfce2295e9dbaac12db51d6a95553b28530d9054eda82309b86ede",
+      "source_frames": 32576,
+      "delivered_output_frames": 97728,
+      "source_first_copy_host_clock_ns": 2312816400560000,
+      "expires_host_clock_ns": 2312816492105000,
+      "original_trigger_linux_event_us": 78679019827,
+      "first_write_receipt_to_grant_ms": null
+    },
+    {
+      "slot": 2,
+      "source_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+      "metadata_sha256": "cfabac3090341abda7f6267a14b971ea1844b9844b160eb6065cee39e97b0828",
+      "source_frames": 320000,
+      "delivered_output_frames": 960000,
+      "source_first_copy_host_clock_ns": 2312825172023000,
+      "expires_host_clock_ns": 2312825263380000,
+      "original_trigger_linux_event_us": 78687694044,
+      "first_write_receipt_to_grant_ms": 310.948
+    }
+  ],
+  "runtime_returncode": 0,
+  "transport_returncode": 0,
+  "run_end": {
+    "at_us": 78749213453,
+    "cue_valid": true,
+    "error": null,
+    "kind": "run_end",
+    "status": "completed_unscored",
+    "termination_signal": null
+  },
+  "runtime_cleanup": [
+    {
+      "name": "runtime",
+      "pid": 239262,
+      "forced_kill": false,
+      "returncode": 0,
+      "reaped_at_us": 78749356732
+    }
+  ],
+  "rollback": {
+    "verified": true,
+    "sha256": "fd25f208b3d30586c71949218f04fc264d86468cca9d1f38e5bfae08be87fd0b",
+    "same_boot": true,
+    "owned_trial_released": true,
+    "hardware_owners_before_restore": {},
+    "original_writable_controls_restored": true,
+    "final_raw_mixer_strings_identical": true,
+    "software_mic_muted": true,
+    "software_speaker_muted": true,
+    "stationary_legacy_restored": true,
+    "trial_dropins_empty": true,
+    "mixer_writes": [],
+    "receipt_path": "rollback-receipt.stdout"
+  },
+  "a1_reported_fixed_pair_analysis": {
+    "original_root": "/private/tmp/lamp-a1-micpair-20261012T0613Z-kLDAtP",
+    "cache_path": "_provenance/a1-fixed-pair-analysis/",
+    "manifest_path": "_provenance/a1-analysis-manifest.json",
+    "manifest_sha256": "177fca581f70485aaa81c6651d981a415f389715fce6c5defba01fa0c06d496a",
+    "readme_sha256": "b896a05d146e26bd24fd7344dc999ff5df293a752d3268a2cdfdad98dd15d523",
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 6629,
+        "sha256": "b896a05d146e26bd24fd7344dc999ff5df293a752d3268a2cdfdad98dd15d523"
+      },
+      {
+        "path": "mic1-bundle.json",
+        "bytes": 20191,
+        "sha256": "37940d4b7c6fead683bd9b1bfa90451e25bf74a2319212bf90e3e57e9d26f797"
+      },
+      {
+        "path": "mic1-pair.json",
+        "bytes": 6933,
+        "sha256": "6a6ca01e9da11ae9ec239c026c22c5e4b091136e047d1ec0c98fd8147eaf4a80"
+      },
+      {
+        "path": "mic1-reply-starts.json",
+        "bytes": 1268,
+        "sha256": "6a67bcf6bebb76370b1150758007432a5d96aede4fa077b8938eecf18fd24aab"
+      },
+      {
+        "path": "mic1-timing.txt",
+        "bytes": 1375,
+        "sha256": "8c69f6b9cb69a36f2e530eea3a4702efc881fc8ea5a20ee0ed999ba4300d5278"
+      },
+      {
+        "path": "mic2-bundle.json",
+        "bytes": 16185,
+        "sha256": "6bd4b66f0732903a87a6e2aab44c72aaa1f806aa4321ae52e54e12db3f016ae8"
+      },
+      {
+        "path": "mic2-pair.json",
+        "bytes": 6917,
+        "sha256": "c0a44ce7e493331177e8c7b4129f049b832c59213d7dee3ed669d019b0a65809"
+      },
+      {
+        "path": "mic2-reply-starts.json",
+        "bytes": 1273,
+        "sha256": "e72bd17932691a489d675e94a2e296bfe7a56ea025ae7b141563e0e60beea828"
+      },
+      {
+        "path": "mic2-timing.txt",
+        "bytes": 1402,
+        "sha256": "34c0fd631188512f5a6f59575faf61c8b801fee67e7156cc0afee421154e5565"
+      },
+      {
+        "path": "scripts/analyse_run.sh",
+        "bytes": 2143,
+        "sha256": "dd371486360fc9442f5f905d6e95c44ef1079d3976f9e055fb046ac254bd7d6a"
+      },
+      {
+        "path": "scripts/micpair.py",
+        "bytes": 15217,
+        "sha256": "3eb2839237eb7ee9f1dcc0bb86c75616cea0ad342432ee1552db60908c5e662b"
+      },
+      {
+        "path": "scripts/micpair_onsets.py",
+        "bytes": 1873,
+        "sha256": "f52bff8360b0b8fc6295fd496e15cad4ee6d7fbc2e1b5e78b740c7c1d49aaa35"
+      },
+      {
+        "path": "scripts/micpair_print.py",
+        "bytes": 948,
+        "sha256": "baa856704301dcb4b1e54c62068a0243917adfcddc446f3a0b3be842dd6e0538"
+      },
+      {
+        "path": "scripts/micpair_timing.py",
+        "bytes": 5152,
+        "sha256": "5c9420cc661d1bd7e8b12ba8696d8ad3b2492266dac93111ae7b6fb13c356450"
+      },
+      {
+        "path": "scripts/native_bundle.py",
+        "bytes": 21414,
+        "sha256": "6debc5e434ea16dcce04599e13ffd4c264c38c261dd21cbe673d88d98e4b5b64"
+      }
+    ],
+    "attribution": "Agent1 reported analysis of the earlier fixed-source microphone pair, not this Gemini recording",
+    "independently_rerun": false,
+    "reported_observations": [
+      "MIC1 loud Lamp sound appears in two capture blocks before the corresponding loud render is available to the canceller cursor.",
+      "MIC1 Lamp-only reduction was reported as 5.2 dB and 1.6 dB in the two selected reply copies."
+    ],
+    "interpretation_limit": "Preserved author-reported signal/timing findings; no independent reproduction here, no calibrated acoustic latency, and no evidence that the microphone is incapable. Root assigned Agent1 the timing correction."
+  },
+  "limits": [
+    "Administrative collection completed, but coffee was not admitted or answered.",
+    "Accepted-zero PCM gaps are not measured acoustic gaps.",
+    "Input transcript is session-scoped and is not fresh admission authority.",
+    "Host, Linux, CoreAudio and WAV clocks have no calibrated cross-domain transform.",
+    "The separately preserved A1 fixed-pair signal analysis was not independently rerun.",
+    "No conclusion that MIC1 is incapable; no microphone default promotion.",
+    "Both source clips were fully delivered; collection success does not mean the topic change succeeded.",
+    "The two provisional yields do not prove source attribution, addressee recognition or natural-human interruption.",
+    "A1 fixed-pair findings and this Gemini run remain distinct evidence sets."
+  ],
+  "human_listened": false,
+  "asr_performed": false,
+  "acoustic_score": null
+}

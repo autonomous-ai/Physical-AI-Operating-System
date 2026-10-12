@@ -1,0 +1,543 @@
+{
+  "schema": 1,
+  "date": "2026-10-12",
+  "scope": "Fixed-source physical loudspeaker replay; microphone-path diagnostic and independent preservation audit only",
+  "independent_audit": {
+    "path": "/private/tmp/lamp-micpath-independent-bgl2iyc2/report.json",
+    "sha256": "e4012d72754ea0df5998cab5d24795cb8476d53ab5f96bf0997e4be08a1fc152",
+    "scope": "Integrity and lifecycle only; no ASR, listening, AEC replay or signal-path diagnosis",
+    "new_signal_analysis_for_this_document": false
+  },
+  "runtime": {
+    "sha256": "14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e",
+    "bytes": 9502808,
+    "source_manifest_sha256": "114063ae5789fa0d5760f81515f45beb548162dda7be87ab972dc8b456743abb",
+    "arm_receipt_sha256": "5a25e719c657e431dce80d448ff259261d24afae46d27a35ec51b90904772d2a",
+    "build_identity": "Frozen source manifest; base 813ebf61f plus the microphone-selector delta. Do not substitute a later documentation or integration commit for the build identity."
+  },
+  "common_settings": {
+    "acoustic_score": null,
+    "audio_diagnostics_requested": true,
+    "camera_context_requested": false,
+    "cue_requested": true,
+    "fixture": {
+      "channels": 1,
+      "frames": 337680,
+      "pcm_sha256": "3d98cfa176290e5e120f6c5350c04a127bdffaace3711e64b7aaa23d0a630ebe",
+      "rail_samples": 0,
+      "rate": 24000,
+      "wav_sha256": "65ffe03cdcd90707119202bacb21e79821f1f6c518756ba74978db6a39dd0004"
+    },
+    "mode": "finite",
+    "motor_worker_requested": false,
+    "playout_continuity": null,
+    "playout_start_horizon_us": 200000,
+    "provider_continuation": "off",
+    "provider_kind": "one_cached_reply",
+    "reference_clock": "capture",
+    "reference_recovery": "off",
+    "ring_channel_ceiling_requested": 12,
+    "scope": "directed_voice_with_ring",
+    "seconds": 70,
+    "software_processing_requested": {
+      "aec": "sonora_aec3",
+      "noise_suppression": false
+    },
+    "turn_taking": "v1-baseline",
+    "turn_taking_tail_us": 100000
+  },
+  "stimulus": {
+    "route": "Cached synthetic speech played through the iMac loudspeaker into the physical Lamp microphones; no direct PCM injection",
+    "player_sha256": "d51eb60f36234f1e9df0bce9f8a660f2a4b6903bec856d12efe1f5ed418890aa",
+    "first_trigger": "Observed listening_ready",
+    "second_trigger": "First player completed; at least 5000 ms after host receipt of original-owner first write, with that owner/occurrence still unretired and unterminated",
+    "local_first_copy_deadline_ms": 100,
+    "fresh_lamp_authority_claim": false,
+    "acoustic_overlap_accepted": false,
+    "source_scene_semantic_preconditions_recreated": false,
+    "clips": [
+      {
+        "slot": 1,
+        "scene": "follow-up-sunset",
+        "text": "So why does it turn orange at sunset?",
+        "voice": "Samantha",
+        "wpm": 205,
+        "wav_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+        "pcm_sha256": "c0ab6b67d7f6435e6d10ee5b40c28ca8b55fea2bf1a5fdf931ef17b27a904af8",
+        "frames": 32576,
+        "sample_rate": 16000,
+        "duration_s": 2.036
+      },
+      {
+        "slot": 2,
+        "scene": "topic-change",
+        "text": "Actually, Lamp, let's talk about coffee instead. Why does it smell so good?",
+        "voice": "Daniel",
+        "wpm": 210,
+        "wav_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+        "pcm_sha256": "56ee29900f390dc9a8fdd1071bcaa491afb2b056c59a7ae870fd8bfcb6997d71",
+        "frames": 320000,
+        "sample_rate": 16000,
+        "duration_s": 20.0
+      }
+    ]
+  },
+  "actual_mixer_treatment": {
+    "writes": [],
+    "final_raw_strings_identical_in_both_runs": true,
+    "inherited_plan_caveat": "The retained plan.json mic_comparison field lists historical AGC/gain trial values. Those values are not the actual treatment: the independently verified command/rollback evidence records no mixer writes. Original metadata is preserved."
+  },
+  "runs": [
+    {
+      "microphone": "mic1",
+      "status": "diagnostic_collected_unscored",
+      "errors": [],
+      "result_sha256": "406c9dc5b6be299471ca385148e4d0121908cd82778a1dc86b7d87df30c05cc8",
+      "native_archive_sha256": "a7eabf17a3051e3c3d2dbaa9c5b6ece3ddff2b249f690897ea73a1b57912b2f9",
+      "native_files_verified": 20,
+      "native_tar_members_including_manifest": 21,
+      "metadata_events": 533,
+      "runtime_boot": [
+        17,
+        23,
+        130,
+        44,
+        231,
+        42,
+        245,
+        201,
+        8,
+        168,
+        136,
+        94,
+        171,
+        94,
+        19,
+        63
+      ],
+      "admissions": [
+        {
+          "turn": 1,
+          "generation": 3,
+          "at_us": 77861328156
+        }
+      ],
+      "endpoint_count": 1,
+      "terminals": [
+        {
+          "turn": 1,
+          "generation": 3,
+          "at_us": 77879192174,
+          "outcome": "audio_written_unscored",
+          "playback_gaps": 0
+        }
+      ],
+      "fixed_reply": {
+        "frames": 337680,
+        "pcm_sha256": "3d98cfa176290e5e120f6c5350c04a127bdffaace3711e64b7aaa23d0a630ebe",
+        "exact_fixture_match": true,
+        "first_accepted_at_us": 77865111202,
+        "last_accepted_at_us": 77879170664,
+        "final_retired_at_us": 77879191174,
+        "one_original_owner": true,
+        "reported_gaps": 0
+      },
+      "diagnostics": {
+        "capture": {
+          "certificate_sha256": "b3eb4f60496e59f27bd5802c054f04806787563eb944bd6393477f2b6c910825",
+          "records": 7005,
+          "capture_frames": 1120000,
+          "render_frames": 0,
+          "accepted_zero_frames": 0,
+          "zero_kinds_frames": {},
+          "all_file_hashes_verified": true,
+          "record_sequences_and_offsets_contiguous": true,
+          "faults": 0,
+          "end": {
+            "at_us": 77930872963,
+            "reason": "privacy_closed"
+          }
+        },
+        "render": {
+          "certificate_sha256": "baa85ca6b4996c3c4781076fc96b4ec25386782d46498a2ca8f2004365af39d2",
+          "records": 7009,
+          "capture_frames": 0,
+          "render_frames": 1680720,
+          "accepted_zero_frames": 1343040,
+          "zero_kinds_frames": {
+            "idle": 1342560,
+            "prime": 480
+          },
+          "all_file_hashes_verified": true,
+          "record_sequences_and_offsets_contiguous": true,
+          "faults": 0,
+          "end": {
+            "at_us": 77930872685,
+            "reason": "privacy_closed"
+          }
+        }
+      },
+      "room": {
+        "frames": 4800000,
+        "rate": 48000,
+        "seconds": 100,
+        "format": "float32 mono",
+        "callbacks": 9375,
+        "wav_sha256": "69374054ff44316a1ab3735da7d65c7c387e095d2526a6e01a09f29b1efc4e57",
+        "metadata_sha256": "9d4b6c95721e26a332f52a6d14a71903c3e4b291ea15fc3728bb3d9e11e02fad",
+        "ledger_sha256": "a1d5d094a5f04195365a95962d8d126677942e4ea61eabdb5ddcb46cd17a852c",
+        "continuous_ledger_verified": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "target_host_interval_covered": true,
+        "target_clock_to_room_sample_transform": null
+      },
+      "players": [
+        {
+          "slot": 1,
+          "source_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+          "metadata_sha256": "16f0a0205cc6c5574625c7e612fdffe34a96c42fbd27b7d8c445a971e6587ae7",
+          "source_frames": 32576,
+          "delivered_output_frames": 97728,
+          "source_first_copy_host_clock_ns": 2311998305604000,
+          "expires_host_clock_ns": 2311998396202000,
+          "original_trigger_linux_event_us": 77860855803,
+          "first_write_receipt_to_grant_ms": null
+        },
+        {
+          "slot": 2,
+          "source_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+          "metadata_sha256": "f69648f1b075eb9cd6b76d9b9c62ab996ba6585986b8adc053b6aee51c46915a",
+          "source_frames": 320000,
+          "delivered_output_frames": 960000,
+          "source_first_copy_host_clock_ns": 2312007651207000,
+          "expires_host_clock_ns": 2312007741605000,
+          "original_trigger_linux_event_us": 77865111202,
+          "first_write_receipt_to_grant_ms": 5318.548
+        }
+      ],
+      "runtime_returncode": 0,
+      "transport_returncode": 0,
+      "run_end": {
+        "at_us": 77930949198,
+        "cue_valid": true,
+        "error": null,
+        "kind": "run_end",
+        "status": "completed_unscored",
+        "termination_signal": null
+      },
+      "host_stop_requested_at_us": null,
+      "runtime_cleanup": [
+        {
+          "name": "runtime",
+          "pid": 235777,
+          "forced_kill": false,
+          "returncode": 0,
+          "reaped_at_us": 77931185653
+        }
+      ],
+      "rollback": {
+        "verified": true,
+        "sha256": "bd3d691d1a70f457a5278f973183a244bbf24d6f42357369031776573e690ffd",
+        "same_boot": true,
+        "owned_trial_released": true,
+        "hardware_owners_before_restore": {},
+        "original_writable_controls_restored": true,
+        "final_raw_mixer_strings_identical": true,
+        "software_mic_muted": true,
+        "software_speaker_muted": true,
+        "stationary_legacy_restored": true,
+        "trial_dropins_empty": true,
+        "mixer_writes": [],
+        "receipt_path": "rollback-receipt.stdout"
+      },
+      "original_root": "/private/tmp/lamp-micpath-mic1-executed-lw4abily",
+      "cache_root_relative_to_lampOS": ".cache/physical-audio/20261012/micpath-mic1-lw4abily",
+      "capture_device_requested": "plug:device_micro1",
+      "run_start_linux_monotonic_us": 77860636166,
+      "admission_source_classification": "unclassified",
+      "preservation": {
+        "manifest_path": "preservation-manifest.json",
+        "manifest_sha256": "86576e30073a6dc921fecd918611990585c60cc3379e0760fe30ac2e8df07604",
+        "original_files": 57,
+        "original_bytes": 59576536,
+        "provenance_files": 44,
+        "originals_sha256_unchanged": true
+      },
+      "controller_freeze_sha256": "64842901067abc12e5ff68a518f2df661e77a8740441127d9b9da04252a1dce4",
+      "historical_executed_command": "/usr/local/bin/python3.12 -B /private/tmp/lamp-microphone-path-pair-lw4abily/mic1/run_once.py --freeze-sha256 64842901067abc12e5ff68a518f2df661e77a8740441127d9b9da04252a1dce4 --out /private/tmp/lamp-micpath-mic1-executed-lw4abily --execute",
+      "historical_runtime_argv": [
+        "/opt/lampOS/releases/14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e/lamp-live",
+        "directed-fixture",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic1/reply.wav",
+        "65ffe03cdcd90707119202bacb21e79821f1f6c518756ba74978db6a39dd0004",
+        "70",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic1/work/duplex-once/runtime",
+        "--diagnostics",
+        "--noise-suppression",
+        "off",
+        "--turn-taking",
+        "v1-baseline",
+        "--microphone",
+        "mic1",
+        "--reference-clock",
+        "capture",
+        "--reference-recovery",
+        "off",
+        "--playout-start-ms",
+        "200",
+        "--ring-channel-ceiling",
+        "12",
+        "--cue-socket",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic1/work/duplex-once/cue.sock"
+      ],
+      "command_scope": "Historical commands only; existing output leaves are retained, not rerunnable destinations."
+    },
+    {
+      "microphone": "mic2",
+      "status": "failed_or_incomplete_diagnostic",
+      "errors": [
+        "ValueError: Extra input retained; experiment stops"
+      ],
+      "result_sha256": "c8d9098fc8bb19cce54691abc833dd4adcf1d09f1cbc7e63600f0e3480483a0c",
+      "native_archive_sha256": "0650c2e613566ee03edb62ac5723dcae3f20264a118b478f7683686e81951f45",
+      "native_files_verified": 20,
+      "native_tar_members_including_manifest": 21,
+      "metadata_events": 527,
+      "runtime_boot": [
+        198,
+        96,
+        161,
+        93,
+        136,
+        136,
+        63,
+        165,
+        30,
+        148,
+        225,
+        244,
+        110,
+        97,
+        208,
+        206
+      ],
+      "admissions": [
+        {
+          "turn": 1,
+          "generation": 3,
+          "at_us": 78012483551
+        },
+        {
+          "turn": 2,
+          "generation": 5,
+          "at_us": 78033036066
+        },
+        {
+          "turn": 3,
+          "generation": 7,
+          "at_us": 78046196037
+        }
+      ],
+      "endpoint_count": 2,
+      "terminals": [
+        {
+          "turn": 1,
+          "generation": 3,
+          "at_us": 78032101460,
+          "outcome": "audio_written_unscored",
+          "playback_gaps": 0
+        },
+        {
+          "turn": 2,
+          "generation": 5,
+          "at_us": 78034542715,
+          "outcome": "no_audio_answer",
+          "playback_gaps": 0
+        },
+        {
+          "turn": 3,
+          "at_us": 78046202066,
+          "outcome": "runtime_failed",
+          "playback_gaps": 0
+        }
+      ],
+      "fixed_reply": {
+        "frames": 337680,
+        "pcm_sha256": "3d98cfa176290e5e120f6c5350c04a127bdffaace3711e64b7aaa23d0a630ebe",
+        "exact_fixture_match": true,
+        "first_accepted_at_us": 78018019483,
+        "last_accepted_at_us": 78032079273,
+        "final_retired_at_us": 78032099766,
+        "one_original_owner": true,
+        "reported_gaps": 0
+      },
+      "diagnostics": {
+        "capture": {
+          "certificate_sha256": "2345c5b1472715a3b42c07d1a1c579d88642da9bb910dde4f879de31aac01428",
+          "records": 3428,
+          "capture_frames": 547680,
+          "render_frames": 0,
+          "accepted_zero_frames": 0,
+          "zero_kinds_frames": {},
+          "all_file_hashes_verified": true,
+          "record_sequences_and_offsets_contiguous": true,
+          "faults": 0,
+          "end": {
+            "at_us": 78046218327,
+            "reason": "privacy_closed"
+          }
+        },
+        "render": {
+          "certificate_sha256": "a9b42b30835493b8465011075b7cef9999abcae76fa239c1ce9859b73e606d6f",
+          "records": 3432,
+          "capture_frames": 0,
+          "render_frames": 822240,
+          "accepted_zero_frames": 484560,
+          "zero_kinds_frames": {
+            "idle": 484080,
+            "prime": 480
+          },
+          "all_file_hashes_verified": true,
+          "record_sequences_and_offsets_contiguous": true,
+          "faults": 0,
+          "end": {
+            "at_us": 78046217924,
+            "reason": "privacy_closed"
+          }
+        }
+      },
+      "room": {
+        "frames": 4800000,
+        "rate": 48000,
+        "seconds": 100,
+        "format": "float32 mono",
+        "callbacks": 9375,
+        "wav_sha256": "e6eedab3c98100a8a4287c4e6f9df3f3eb3dbcbef3f01f3c1d15698e22dcf9f8",
+        "metadata_sha256": "e6c241dd7d55433949bc8e628b51ec9115ddd54b733208f98c429bca586f1b12",
+        "ledger_sha256": "a4549f4eab78c031ebc654bdf751ae5982322324235841a07b5b08ae38b4b8b2",
+        "continuous_ledger_verified": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "target_host_interval_covered": true,
+        "target_clock_to_room_sample_transform": null
+      },
+      "players": [
+        {
+          "slot": 1,
+          "source_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+          "metadata_sha256": "5d8d6303e1f2f5a88ca08f139fd8b37a0918feb11f6119e1a84d2b294c934c67",
+          "source_frames": 32576,
+          "delivered_output_frames": 97728,
+          "source_first_copy_host_clock_ns": 2312149389059000,
+          "expires_host_clock_ns": 2312149480072000,
+          "original_trigger_linux_event_us": 78011974944,
+          "first_write_receipt_to_grant_ms": null
+        },
+        {
+          "slot": 2,
+          "source_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+          "metadata_sha256": "04032b9c52fcb449573b43add8edd19abd990b7f8038107ac26de855e1032c76",
+          "source_frames": 320000,
+          "delivered_output_frames": 960000,
+          "source_first_copy_host_clock_ns": 2312160544504000,
+          "expires_host_clock_ns": 2312160634995000,
+          "original_trigger_linux_event_us": 78018019483,
+          "first_write_receipt_to_grant_ms": 5313.092
+        }
+      ],
+      "runtime_returncode": 1,
+      "transport_returncode": 2,
+      "run_end": {
+        "at_us": 78046360899,
+        "cue_valid": true,
+        "error": "directed run interrupted by SIGTERM",
+        "kind": "run_end",
+        "status": "failed",
+        "termination_signal": "SIGTERM"
+      },
+      "host_stop_requested_at_us": 78046200194,
+      "runtime_cleanup": [
+        {
+          "name": "runtime",
+          "pid": 236783,
+          "forced_kill": false,
+          "term_at_us": 78046200302,
+          "returncode": 1,
+          "reaped_at_us": 78046565691
+        }
+      ],
+      "rollback": {
+        "verified": true,
+        "sha256": "ebddb4486b11ae4d83debe861b79b85843cb46d4519827455b49459838e0fc23",
+        "same_boot": true,
+        "owned_trial_released": true,
+        "hardware_owners_before_restore": {},
+        "original_writable_controls_restored": true,
+        "final_raw_mixer_strings_identical": true,
+        "software_mic_muted": true,
+        "software_speaker_muted": true,
+        "stationary_legacy_restored": true,
+        "trial_dropins_empty": true,
+        "mixer_writes": [],
+        "receipt_path": "rollback-receipt.stdout"
+      },
+      "original_root": "/private/tmp/lamp-micpath-mic2-executed-lw4abily",
+      "cache_root_relative_to_lampOS": ".cache/physical-audio/20261012/micpath-mic2-lw4abily",
+      "capture_device_requested": "plug:device_micro2",
+      "run_start_linux_monotonic_us": 78011736777,
+      "admission_source_classification": "unclassified",
+      "preservation": {
+        "manifest_path": "preservation-manifest.json",
+        "manifest_sha256": "139274ac9f13eed93e081c5187028a6ebb0d25a5e8fcfc6cf4acccd6b9d2a4d7",
+        "original_files": 57,
+        "original_bytes": 41701629,
+        "provenance_files": 44,
+        "originals_sha256_unchanged": true
+      },
+      "controller_freeze_sha256": "8bd4e11d0c57854478a71f65b26c1a8dd12d59f491597693184b1460e243508f",
+      "historical_executed_command": "/usr/local/bin/python3.12 -B /private/tmp/lamp-microphone-path-pair-lw4abily/mic2/run_once.py --freeze-sha256 8bd4e11d0c57854478a71f65b26c1a8dd12d59f491597693184b1460e243508f --out /private/tmp/lamp-micpath-mic2-executed-lw4abily --execute",
+      "historical_runtime_argv": [
+        "/opt/lampOS/releases/14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e/lamp-live",
+        "directed-fixture",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic2/reply.wav",
+        "65ffe03cdcd90707119202bacb21e79821f1f6c518756ba74978db6a39dd0004",
+        "70",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic2/work/duplex-once/runtime",
+        "--diagnostics",
+        "--noise-suppression",
+        "off",
+        "--turn-taking",
+        "v1-baseline",
+        "--microphone",
+        "mic2",
+        "--reference-clock",
+        "capture",
+        "--reference-recovery",
+        "off",
+        "--playout-start-ms",
+        "200",
+        "--ring-channel-ceiling",
+        "12",
+        "--cue-socket",
+        "/var/lib/lampos-4ace-micpath-lw4abily-mic2/work/duplex-once/cue.sock"
+      ],
+      "command_scope": "Historical commands only; existing output leaves are retained, not rerunnable destinations."
+    }
+  ],
+  "limits": [
+    "Fixed fixture and V1-baseline masking, not conversational or interruption acceptance.",
+    "Mic2 later extra admissions and SIGTERM failure remain failed; completed fixed reply is a separately verified prefix.",
+    "Host, Linux monotonic, CoreAudio stream and WAV sample clocks are not calibrated against each other.",
+    "Equal accepted PCM is not equal acoustic arrival or microphone gain.",
+    "No reason for the extra microphone-2 admissions is inferred here.",
+    "Final cgroup/owner/rollback evidence is retained remote receipt evidence, not a new current device inspection.",
+    "Captured admission sources remain unclassified; no echo, human, replay, or other-noise label is assigned.",
+    "No causal gain/AGC or hardware-DSP conclusion, default microphone promotion, or production duplex qualification.",
+    "No listening, ASR, AEC re-execution, or acoustic scoring was performed by this preservation audit."
+  ],
+  "human_listened": false,
+  "asr_performed": false,
+  "acoustic_score": null,
+  "default_promotion": false
+}

@@ -315,7 +315,7 @@ Both markers are stripped before the message reaches the LLM (mirror of `[snapsh
 
 ### `/dm` auto-attach (Telegram)
 
-When the agent decides to nudge via `/dm`, Lamp's SSE handler calls `ConsumePoseBucketRun(runID)` (mirror of `ConsumeGuardRun`). If the run has a stashed bucket, the worst-snapshot filenames are resolved against `/tmp/hal-sensing-snapshots/sensing_pose/buckets/<bid>/` and shipped to Telegram via `sendMediaGroup` — caption rides on the first photo, the rest appear as a gallery. The agent itself stays unaware of file paths; image attachment is decided entirely by Lamp based on whether the originating `motion.activity` carried a bucket.
+When the agent decides to nudge via `/dm`, Lamp's SSE handler calls `ConsumePoseBucketRun(runID)` (mirror of `ConsumeGuardRun`). If the run has a stashed bucket, the worst-snapshot filenames are resolved against `/tmp/hal-sensing-snapshots/sensing_pose/buckets/<bid>/` and shipped to Telegram via `sendMediaGroup` — caption rides on the first photo, the rest appear as a gallery. The agent itself stays unaware of file paths; image attachment is decided entirely by Lamp based on whether the originating `motion.activity` carried a bucket. Photos go only to the owner: when the DM recipient is not `telegram_user_id` (or none is set), the text is sent without images and `dm pose images withheld` is logged.
 
 ### Angle sign workaround (temporary)
 

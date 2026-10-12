@@ -312,7 +312,7 @@ Cả 2 marker đều bị strip trước khi message tới LLM (mirror `[snapsho
 
 ### `/dm` tự đính ảnh (Telegram)
 
-Khi agent quyết định nudge qua `/dm`, SSE handler của Lamp gọi `ConsumePoseBucketRun(runID)` (mirror `ConsumeGuardRun`). Nếu run có bucket stash, các `worst_snapshots` filenames được resolve thành path tuyệt đối dưới `/tmp/hal-sensing-snapshots/sensing_pose/buckets/<bid>/` rồi gửi Telegram qua `sendMediaGroup` — caption nằm trên photo đầu, còn lại hiển thị thành gallery. Agent không biết bất kỳ file path nào; việc đính ảnh hoàn toàn do Lamp quyết định dựa trên việc `motion.activity` gốc có mang bucket hay không.
+Khi agent quyết định nudge qua `/dm`, SSE handler của Lamp gọi `ConsumePoseBucketRun(runID)` (mirror `ConsumeGuardRun`). Nếu run có bucket stash, các `worst_snapshots` filenames được resolve thành path tuyệt đối dưới `/tmp/hal-sensing-snapshots/sensing_pose/buckets/<bid>/` rồi gửi Telegram qua `sendMediaGroup` — caption nằm trên photo đầu, còn lại hiển thị thành gallery. Agent không biết bất kỳ file path nào; việc đính ảnh hoàn toàn do Lamp quyết định dựa trên việc `motion.activity` gốc có mang bucket hay không. Ảnh chỉ gửi cho chủ máy: nếu người nhận DM không phải `telegram_user_id` (hoặc chưa đặt), chỉ gửi chữ, không kèm ảnh, và log ghi `dm pose images withheld`.
 
 ### Workaround sign góc (tạm thời)
 

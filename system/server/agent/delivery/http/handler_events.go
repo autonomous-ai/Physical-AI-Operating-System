@@ -33,6 +33,13 @@ func buildPoseBucketImagePaths(bucketID string, filenames []string) []string {
 	return paths
 }
 
+// posePhotoRecipientIsOwner reports whether a posture DM may carry camera photos: only the
+// owner's own Telegram ID qualifies, so a turn that DMs someone else sends the text alone.
+func posePhotoRecipientIsOwner(ownerTelegramID, recipient string) bool {
+	owner := strings.TrimSpace(ownerTelegramID)
+	return owner != "" && owner == strings.TrimSpace(recipient)
+}
+
 // HandleEvent processes incoming WebSocket events from the OpenClaw gateway.
 func (h *AgentHandler) HandleEvent(ctx context.Context, evt domain.WSEvent) error {
 	defer h.observeExternalHistory(evt)

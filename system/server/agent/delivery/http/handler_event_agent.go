@@ -932,7 +932,10 @@ func (h *AgentHandler) handleAgentStreamEvent(evt domain.WSEvent) error {
 					// Attach the worst pose frames when a posture nudge triggered this turn.
 					poseBucket, poseFiles, hasPoseBucket := h.agentGateway.ConsumePoseBucketRun(flowRunID)
 					var poseImagePaths []string
-					if hasPoseBucket {
+					if hasPoseBucket && !posePhotoRecipientIsOwner(h.config.TelegramUserID, dmTelegramID) {
+						slog.Info("dm pose images withheld, recipient is not the owner",
+							"component", "agent", "run_id", flowRunID, "telegram_id", dmTelegramID)
+					} else if hasPoseBucket {
 						poseImagePaths = buildPoseBucketImagePaths(poseBucket, poseFiles)
 						slog.Info("dm attaching pose bucket images",
 							"component", "agent", "run_id", flowRunID,

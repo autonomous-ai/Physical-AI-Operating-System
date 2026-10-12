@@ -298,6 +298,8 @@ class AnimationService:
     def start(self, skip_wake: bool = False):
         """skip_wake: come up without the startup pose + idle loop."""
         self.robot = LeLampFollower(self.robot_config)
+        motion = getattr(self._safety_policy, "motion", None)
+        self.robot.joint_limits = dict(getattr(motion, "joint_limits", None) or {})
         try:
             self.robot.connect(calibrate=False)
         except Exception as e:

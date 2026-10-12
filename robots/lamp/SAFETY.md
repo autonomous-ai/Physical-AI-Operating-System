@@ -21,6 +21,15 @@ motion:
   max_speed: 120             # deg/s ceiling; the servo route stretches a move's duration so no joint exceeds it
   stop_always: true          # motion.stop/release are deterministic, never gated
   max_cog_offset_mm: 22      # mm the centre of gravity may sit off the base axis; recordings reaching further are refused, /servo/move and /servo/nudge stop short (needs urdf_ref)
+  # deg each joint may be commanded to; every Goal_Position write is clamped into it, whoever
+  # asked (recording, tracking, agent, web). The union of what recordings, aim presets and
+  # tracking use, plus 5 deg, so nothing shipped is changed — it only stops stray commands.
+  joint_limits:
+    base_yaw:    [-105, 105]
+    base_pitch:  [-2, 67]
+    elbow_pitch: [-11, 77]
+    wrist_roll:  [-60, 60]
+    wrist_pitch: [-89, 57]
   # max_accel: <int>         # (reserved) — no acceleration model yet
 
 thermal:

@@ -54,6 +54,9 @@ motion:
   max_speed: 120             # deg/s; the servo route stretches a move's duration so no joint exceeds it
   stop_always: true          # motion.stop/release are deterministic and never gated
   max_cog_offset_mm: 22      # mm the centre of gravity may sit off the base axis (needs ROBOT.md urdf_ref)
+  joint_limits:              # deg each joint may be commanded to; every goal write is clamped into it
+    base_yaw:    [-105, 105]
+    base_pitch:  [-2, 67]
   # max_accel: <int>         # reserved
 ---
 ```
@@ -71,6 +74,7 @@ request, so the bound changes with the time of day without a restart.
 | `audio.quiet_hours` | no | **enforced (v1)** | `{ start, end }`. Inside the window loud discretionary output (music via `/audio/play`) is suppressed; spoken replies still play. (Slice 2.) |
 | `motion.max_speed` | no | **enforced (v1)** | deg/s ceiling. The servo route stretches a move's duration so no joint exceeds it (the move still reaches its target). (Slice 3.) |
 | `motion.max_cog_offset_mm` | no | **enforced (v1)** | Millimetres the whole-body centre of gravity may sit from the base axis. Recordings are scored frame by frame against the body's own geometry (`ROBOT.md` `urdf_ref`) and one that reaches further is refused rather than played; a direct move (`/servo/move`, `/servo/nudge`) past it is cut short to the last pose within it — a tip-over is a combination of joint angles, so no per-joint bound can express it. Requires `urdf_ref`: declared without it, the gate logs that it cannot run and passes through. Derive the number per body from its own library (the widest shipped animation, plus headroom), never copy another robot's. (Slice 6.) |
+| `motion.joint_limits` | no | **enforced (v1)** | `joint: [min, max]` in degrees, one indented line per joint (joint names as the motor bus names them). Every `Goal_Position` write is clamped into the range at the driver, whoever sent it — recording, tracking, agent, web — so no route can command a joint past it. Joints not listed are not limited; a malformed line or `min >= max` fails boot. Derive the ranges from what the body's own recordings, presets and vision loops use, plus headroom, so nothing shipped changes. (Slice 7.) |
 | `motion.max_accel` | no | reserved | Acceleration ceiling. (Reserved — no accel model yet.) |
 | `motion.stop_always` | no | declared (v1) | `motion.stop`/release/zero/hold are currently deterministic recovery actions because no route gates them. The field is parsed and reported, but no HAL route consumes it as an independent enforcement gate. |
 | **(motion declared, no bounds)** | — | **pass-through (v1)** | Presence-driven, like light/audio: a device that ships no `motion:` bounds moves unrestricted (that is the *off* state, not a refusal). A declared `max_speed` is enforced; an absent one is not. |

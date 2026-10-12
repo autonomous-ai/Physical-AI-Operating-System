@@ -654,6 +654,12 @@ struct Session {
     /// When the relay's session_start was taken. Only pings written after it
     /// measure the live transport and may define the clock map.
     started_runner_us: Option<u64>,
+    /// Cues taken before a live clock map, in order, with their original
+    /// runner receipt and relay receipt times. Nothing is published from them
+    /// until a live map proves each unexpired at its decision.
+    held: std::collections::VecDeque<(u64, u64, Value)>,
+    /// Events of held cues just decided, for `take` to latch and queue.
+    released: std::collections::VecDeque<RuntimeEvent>,
 }
 
 struct Playback {
@@ -811,6 +817,107 @@ fn cue_failure(session: &mut Session, reason: String, received_us: u64) -> Runti
     )
 }
 
+/// Most cues held before a live clock map. Startup sends a handful.
+const MAX_HELD_CUES: usize = 64;
+
+/// Whether a live mapping proves a cue unexpired at `decided_us` on the
+/// runner clock: its upper Lamp-time bound must be before the original
+/// expiry. Equality refuses. Returns the upper bound and the decision.
+fn proves_unexpired(map: &ClockMapping, decided_us: u64, expires_us: u64) -> (i128, bool) {
+    let upper_lamp_us =
+        i128::from(decided_us) + i128::from(map.offset_us) + i128::from(map.uncertainty_us);
+    (upper_lamp_us, upper_lamp_us < i128::from(expires_us))
+}
+
+/// Decide one cue at `decided_us`: identity, order and freshness. Its
+/// original runner receipt (`received_us`) and relay receipt stay its times;
+/// nothing is restamped or extended. Freshness needs a live clock map: the
+/// relay's own receipt is not proof at the runner's decision.
+fn decide_cue(
+    session: &mut Session,
+    received_us: u64,
+    decided_us: u64,
+    lamp_received_us: u64,
+    cue: Value,
+) -> Option<RuntimeEvent> {
+    if session.cue_failed {
+        return None;
+    }
+    // The mapping this freshness decision used, retained with it.
+    let mut freshness = json!({"mapping": null});
+    let result = (|| -> Result<Cue> {
+        if session.start.is_none() {
+            return Err(invalid("cue arrived without relay capability receipt"));
+        }
+        if session.cues.len() >= crate::physical::protocol::MAX_TRACE_LINES {
+            return Err(invalid("cue receipt limit exceeded"));
+        }
+        let parsed = parse_cue(&serde_json::to_vec(&cue)?)?;
+        // The Lamp relay validates local receipt; the runner's live clock
+        // map must also prove the cue unexpired when it is decided.
+        let map = session
+            .best
+            .as_ref()
+            .ok_or_else(|| invalid("no live clock map proves the cue unexpired"))?;
+        let (upper_lamp_us, fresh) = proves_unexpired(map, decided_us, parsed.expires_us);
+        freshness = json!({"offset_us": map.offset_us,
+            "uncertainty_us": map.uncertainty_us, "method": map.method,
+            "runner_received_us": received_us, "decided_runner_us": decided_us,
+            "held_us": decided_us.saturating_sub(received_us),
+            "upper_lamp_us": i64::try_from(upper_lamp_us).ok(),
+            "expires_us": parsed.expires_us,
+            "margin_us": i64::try_from(i128::from(parsed.expires_us) - upper_lamp_us).ok()});
+        if !fresh {
+            return Err(invalid("stale cue at runner (including clock uncertainty)"));
+        }
+        if session
+            .cue_order
+            .boot
+            .is_some_and(|boot| boot != parsed.boot)
+        {
+            session
+                .boot_changes
+                .push(json!({"sequence": parsed.sequence,
+                "kind": parsed.kind, "event_lamp_us": parsed.event_us,
+                "runner_received_us": received_us}));
+        }
+        session.cue_order.accept(&parsed, lamp_received_us)?;
+        // A terminal provider link ends a serve run as well.
+        session.runtime_ended |= parsed.kind == "run_end"
+            || (parsed.kind == "provider_link" && parsed.link.as_deref() == Some("terminal"));
+        Ok(parsed)
+    })();
+    if session.cues.len() < crate::physical::protocol::MAX_TRACE_LINES {
+        session
+            .cues
+            .push(json!({"cue": cue, "lamp_received_us": lamp_received_us,
+            "runner_received_us": received_us, "accepted": result.is_ok(),
+            "error": result.as_ref().err().map(ToString::to_string),
+            "freshness": freshness}));
+    }
+    let mut event = match result {
+        Ok(cue) => cue.event()?,
+        Err(error) => return Some(cue_failure(session, error.to_string(), decided_us)),
+    };
+    // Both modes report readiness on stdout and the cue socket.
+    if matches!(event.kind, EventKind::ListeningReady)
+        && std::mem::replace(&mut session.ready_seen, true)
+    {
+        return None;
+    }
+    event.received_us = Some(received_us);
+    Some(event)
+}
+
+/// Decide every held cue, in order, once a live clock map exists.
+fn release_held(session: &mut Session, decided_us: u64) {
+    while let Some((received_us, lamp_received_us, cue)) = session.held.pop_front() {
+        if let Some(event) = decide_cue(session, received_us, decided_us, lamp_received_us, cue) {
+            session.released.push_back(event);
+        }
+    }
+}
+
 impl<'a> PhysicalBackend<'a> {
     pub fn new(
         config: PhysicalConfig,
@@ -869,6 +976,42 @@ impl<'a> PhysicalBackend<'a> {
         Ok(())
     }
 
+    /// A cue held for 100 ms of runner time without a live clock map has
+    /// certainly expired: the relay showed it arrived no earlier than its
+    /// event, so its Lamp age is at least the hold. It is refused, never
+    /// published; later held cues stay undecided in the evidence.
+    fn expire_held(&mut self, now_us: u64) -> Option<RuntimeEvent> {
+        let session = self.session.as_mut()?;
+        let &(received, _, _) = session.held.front()?;
+        if session.cue_failed || now_us < received.saturating_add(crate::events::CUE_FRESH_US) {
+            return None;
+        }
+        let (received, lamp_received_us, cue) = session.held.pop_front()?;
+        if session.cues.len() < crate::physical::protocol::MAX_TRACE_LINES {
+            session
+                .cues
+                .push(json!({"cue": cue, "lamp_received_us": lamp_received_us,
+                "runner_received_us": received, "accepted": false,
+                "error": "held for its whole 100 ms lease without a live clock map",
+                "freshness": {"mapping": null, "decided_runner_us": now_us,
+                    "held_us": now_us - received}}));
+        }
+        let event = cue_failure(
+            session,
+            "no live clock map proved a held cue unexpired within its 100 ms lease".into(),
+            now_us,
+        );
+        self.note(&event);
+        Some(event)
+    }
+
+    /// When the oldest held cue's lease ends on the runner clock.
+    fn held_due(&self) -> Option<u64> {
+        let session = self.session.as_ref()?;
+        let &(received, _, _) = session.held.front()?;
+        Some(received.saturating_add(crate::events::CUE_FRESH_US))
+    }
+
     /// Take every relayed line that has already arrived, keeping its events
     /// in order for `next_event`, and keep the clock map's pings on time.
     /// Used while a prepared player loads, so a cue is judged on arrival.
@@ -884,6 +1027,9 @@ impl<'a> PhysicalBackend<'a> {
             if let Some(event) = self.take(line) {
                 self.pending.push_back(event);
             }
+        }
+        if let Some(event) = self.expire_held(monotonic_us()) {
+            self.pending.push_back(event);
         }
     }
 
@@ -1139,20 +1285,31 @@ impl<'a> PhysicalBackend<'a> {
             ));
         }
         let event = match line {
-            Ok(line) => self.handle(line)?,
+            Ok(line) => self.handle(line),
             Err(error) => {
                 let session = self.session.as_mut()?;
                 if session.cue_failed {
                     session.protocol_errors.push(error);
                     return None;
                 }
-                cue_failure(
+                Some(cue_failure(
                     session,
                     format!("relay protocol failure: {error}"),
                     monotonic_us(),
-                )
+                ))
             }
         };
+        // Held cues a live clock sample has just decided, in their order.
+        let released: Vec<RuntimeEvent> = self
+            .session
+            .as_mut()
+            .map(|session| session.released.drain(..).collect())
+            .unwrap_or_default();
+        for released in released {
+            self.note(&released);
+            self.pending.push_back(released);
+        }
+        let event = event?;
         self.note(&event);
         Some(event)
     }
@@ -1216,6 +1373,7 @@ impl<'a> PhysicalBackend<'a> {
                     }
                     if better {
                         session.best = Some(mapping);
+                        release_held(session, received);
                     }
                 }
                 return None;
@@ -1227,67 +1385,23 @@ impl<'a> PhysicalBackend<'a> {
                 if session.cue_failed {
                     return None;
                 }
-                // The mapping this freshness decision used, retained with it.
-                let mut freshness = json!({"mapping": null});
-                let result = (|| -> Result<Cue> {
-                    if session.start.is_none() {
-                        return Err(invalid("cue arrived without relay capability receipt"));
+                // Before a live clock map (or behind cues already waiting), a
+                // cue waits in order with its original receipt times; nothing
+                // is published from it until a map can decide it.
+                if session.start.is_some() && (session.best.is_none() || !session.held.is_empty()) {
+                    if session.held.len() >= MAX_HELD_CUES {
+                        return Some(cue_failure(
+                            session,
+                            format!(
+                                "more than {MAX_HELD_CUES} cues arrived before a live clock map"
+                            ),
+                            received,
+                        ));
                     }
-                    if session.cues.len() >= crate::physical::protocol::MAX_TRACE_LINES {
-                        return Err(invalid("cue receipt limit exceeded"));
-                    }
-                    let parsed = parse_cue(&serde_json::to_vec(&cue)?)?;
-                    // The Lamp relay validates local receipt; a clock map also
-                    // rejects cues that expired while crossing the transport.
-                    // The upper uncertainty bound must still be before expiry.
-                    if let Some(map) = &session.best {
-                        let upper_lamp_us = i128::from(received)
-                            + i128::from(map.offset_us)
-                            + i128::from(map.uncertainty_us);
-                        freshness = json!({"offset_us": map.offset_us,
-                            "uncertainty_us": map.uncertainty_us, "method": map.method,
-                            "runner_received_us": received,
-                            "upper_lamp_us": i64::try_from(upper_lamp_us).ok(),
-                            "expires_us": parsed.expires_us,
-                            "margin_us": i64::try_from(i128::from(parsed.expires_us) - upper_lamp_us).ok()});
-                        if upper_lamp_us >= i128::from(parsed.expires_us) {
-                            return Err(invalid(
-                                "stale cue at runner (including clock uncertainty)",
-                            ));
-                        }
-                    } else if parsed.turn.is_some() {
-                        return Err(invalid("owned cue has no clock mapping to prove freshness"));
-                    }
-                    if session
-                        .cue_order
-                        .boot
-                        .is_some_and(|boot| boot != parsed.boot)
-                    {
-                        session
-                            .boot_changes
-                            .push(json!({"sequence": parsed.sequence,
-                            "kind": parsed.kind, "event_lamp_us": parsed.event_us,
-                            "runner_received_us": received}));
-                    }
-                    session.cue_order.accept(&parsed, lamp_received_us)?;
-                    // A terminal provider link ends a serve run as well.
-                    session.runtime_ended |= parsed.kind == "run_end"
-                        || (parsed.kind == "provider_link"
-                            && parsed.link.as_deref() == Some("terminal"));
-                    Ok(parsed)
-                })();
-                if session.cues.len() < crate::physical::protocol::MAX_TRACE_LINES {
-                    session
-                        .cues
-                        .push(json!({"cue": cue, "lamp_received_us": lamp_received_us,
-                        "runner_received_us": received, "accepted": result.is_ok(),
-                        "error": result.as_ref().err().map(ToString::to_string),
-                        "freshness": freshness}));
+                    session.held.push_back((received, lamp_received_us, cue));
+                    return None;
                 }
-                match result {
-                    Ok(cue) => cue.event()?,
-                    Err(error) => cue_failure(session, error.to_string(), received),
-                }
+                return decide_cue(session, received, received, lamp_received_us, cue);
             }
             SessionLine::CueInvalid { error, .. } => {
                 if session.cue_failed {
@@ -1718,6 +1832,8 @@ impl Backend for PhysicalBackend<'_> {
             stdout_readiness_us: Vec::new(),
             clock_samples: Vec::new(),
             started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
         });
         self.send_ping(1)?;
         fs::write(
@@ -1737,6 +1853,9 @@ impl Backend for PhysicalBackend<'_> {
             if let Some(event) = self.poll_evidence() {
                 return Ok(Some(event));
             }
+            if let Some(event) = self.expire_held(monotonic_us()) {
+                return Ok(Some(event));
+            }
             let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
                 (s.next_ping_us, s.pings.len() as u64)
             });
@@ -1753,6 +1872,9 @@ impl Backend for PhysicalBackend<'_> {
                 // Player and recorder ends are polled, not signalled.
                 wait_until = wait_until.min(monotonic_us() + 20_000);
             }
+            if let Some(due) = self.held_due() {
+                wait_until = wait_until.min(due);
+            }
             let Some(line) = self.wait_line(wait_until) else {
                 if monotonic_us() >= until_us {
                     return Ok(None);
@@ -1760,6 +1882,10 @@ impl Backend for PhysicalBackend<'_> {
                 continue;
             };
             if let Some(event) = self.take(line) {
+                return Ok(Some(event));
+            }
+            // Held cues a clock sample has just decided, in their order.
+            if let Some(event) = self.pending.pop_front() {
                 return Ok(Some(event));
             }
             if monotonic_us() >= until_us {
@@ -1880,6 +2006,9 @@ impl Backend for PhysicalBackend<'_> {
                 self.pending.push_back(event);
             }
         }
+        if let Some(event) = self.expire_held(monotonic_us()) {
+            self.pending.push_back(event);
+        }
         if self.session.is_none() {
             self.unavailable
                 .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
@@ -1898,10 +2027,11 @@ impl Backend for PhysicalBackend<'_> {
         // Never start while the runner has not observed every consumed
         // event, or while lines remain undrained: one may end the overlap or
         // the session (MAIN-025, MAIN-030).
-        let withheld = self
-            .unavailable
-            .clone()
-            .or_else(|| (exhausted || !self.pending.is_empty()).then_some(Withheld::Revalidate));
+        // Cues still waiting for a live clock map are unobserved evidence too.
+        let held = self.session.as_ref().is_some_and(|s| !s.held.is_empty());
+        let withheld = self.unavailable.clone().or_else(|| {
+            (exhausted || held || !self.pending.is_empty()).then_some(Withheld::Revalidate)
+        });
         if let Some(withheld) = withheld {
             return Ok(refuse(withheld, self.pending.len(), exhausted));
         }
@@ -2232,6 +2362,18 @@ impl Backend for PhysicalBackend<'_> {
             })
             .take(32)
             .collect();
+        // Cues never decided (no live clock map before the end) are kept
+        // as refused receipts, never as scheduling evidence.
+        while let Some((received, lamp_received_us, cue)) = session.held.pop_front() {
+            if session.cues.len() < crate::physical::protocol::MAX_TRACE_LINES {
+                session
+                    .cues
+                    .push(json!({"cue": cue, "lamp_received_us": lamp_received_us,
+                    "runner_received_us": received, "accepted": false,
+                    "error": "undecided: no live clock map before the session ended",
+                    "freshness": {"mapping": null}}));
+            }
+        }
         let evidence = json!({
             "provider_failure_records": provider_records,
             "session_start": session.start,
@@ -2668,6 +2810,8 @@ mod audit_grant_tests {
             stdout_readiness_us: Vec::new(),
             clock_samples: Vec::new(),
             started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
         });
         backend.trigger = Some((
             TriggerObservation {
@@ -2800,6 +2944,8 @@ mod audit_grant_tests {
             stdout_readiness_us: Vec::new(),
             clock_samples: Vec::new(),
             started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
         });
 
         drop(tx);
@@ -2944,6 +3090,8 @@ mod audit_grant_tests {
             stdout_readiness_us: Vec::new(),
             clock_samples: Vec::new(),
             started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
         });
 
         drop(tx);
@@ -2963,5 +3111,289 @@ mod audit_grant_tests {
             observed.is_none(),
             "stdout receipt became scheduling authority with a newly minted time: {observed:?}"
         );
+    }
+
+    #[test]
+    fn audit_startup_unmapped_expired_readiness_cannot_be_accepted() {
+        let root =
+            std::env::temp_dir().join(format!("lve-unmapped-startup-audit-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("objects")).unwrap();
+        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
+        // An already-reaped inert child supplies the Session's OS identity only.
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (tx, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: Vec::new(),
+            best: None,
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: true,
+            protocol_errors: Vec::new(),
+            start: None,
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
+        });
+
+        drop(tx);
+        let session = backend.session.as_mut().unwrap();
+        session.start = Some(json!({"schema":1,"mode":"serve","cue_socket":true}));
+        session.ready_seen = false;
+        // Original schema-1 time/expiry remain intact. The relay took the cue
+        // while fresh; a host-side stall delivered it after its 100 ms lease.
+        // This is the post-session-start, pre-first-usable-pong state newly
+        // made normal by discarding the pre-session ping.
+        let event_us = 1;
+        let expires_us = event_us + crate::events::CUE_FRESH_US;
+        assert!(monotonic_us() > expires_us);
+        let observed = backend.handle(SessionLine::Cue {
+            lamp_received_us: event_us + 2,
+            cue: json!({"schema":1,"sequence":1,"kind":"listening_ready",
+                "boot":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                "turn":null,"generation":null,"capture_epoch":1,
+                "reference_epoch_context":1,"event_us":event_us,
+                "sent_us":event_us + 1,"expires_us":expires_us}),
+        });
+        // Held, unpublished, until no live map has appeared for its whole
+        // lease (A2 adaptation: the decision is now at the hold's end).
+        assert!(observed.is_none());
+        let expired = backend.expire_held(monotonic_us() + crate::events::CUE_FRESH_US);
+        assert!(matches!(
+            expired.as_ref().map(|e| &e.kind),
+            Some(EventKind::RunEnd { status: Some(s), .. }) if s == CUE_PROTOCOL_INVALID
+        ));
+        let receipt = backend
+            .session
+            .as_ref()
+            .unwrap()
+            .cues
+            .last()
+            .cloned()
+            .unwrap();
+        backend.session = None;
+        drop(backend);
+        fs::remove_dir_all(root).unwrap();
+        assert!(
+            !observed.is_some_and(|event| matches!(event.kind, EventKind::ListeningReady))
+                && receipt["accepted"] != true,
+            "expired readiness accepted without any clock proof: {receipt}"
+        );
+    }
+
+    /// A serve backend whose session took `session_start` at `started_us`
+    /// and wrote ping 1 at `sent_us`; no clock map yet.
+    fn unmapped_session(root: &Path, started_us: u64, sent_us: u64) -> PhysicalBackend<'static> {
+        fs::create_dir_all(root.join("objects")).unwrap();
+        let assets: &'static AssetIndex = Box::leak(Box::new(
+            AssetIndex::load(root, &[], &StimulusCatalog::load().unwrap()).unwrap(),
+        ));
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, assets, Box::new(NoAudio));
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (_, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: vec![(1, sent_us)],
+            best: None,
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: false,
+            protocol_errors: Vec::new(),
+            start: Some(json!({"schema":1,"mode":"serve","cue_socket":true})),
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: Some(started_us),
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
+        });
+        backend
+    }
+
+    /// Lamp time is the runner's plus this offset in these controls.
+    const LAMP_AHEAD_US: u64 = 1_000_000_000;
+
+    fn startup_cue(sequence: u64, kind: &str, age_us: u64, extra: Value) -> SessionLine {
+        let event_us = monotonic_us() + LAMP_AHEAD_US - age_us;
+        let mut cue = json!({"schema":1,"sequence":sequence,"kind":kind,
+            "boot":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            "turn":null,"generation":null,"capture_epoch":1,"reference_epoch_context":1,
+            "event_us":event_us,"sent_us":event_us + 1,
+            "expires_us":event_us + crate::events::CUE_FRESH_US});
+        for (key, value) in extra.as_object().unwrap() {
+            cue[key] = value.clone();
+        }
+        SessionLine::Cue {
+            lamp_received_us: event_us + 2,
+            cue,
+        }
+    }
+
+    fn live_pong() -> SessionLine {
+        // Ping 1 was written 1 ms ago, after session_start; the relay's
+        // clock reads LAMP_AHEAD_US ahead at the round trip's midpoint.
+        SessionLine::Pong {
+            seq: 1,
+            lamp_us: monotonic_us() + LAMP_AHEAD_US - 500,
+        }
+    }
+
+    #[test]
+    fn fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times() {
+        let root = std::env::temp_dir().join(format!("lve-held-fast-{}", std::process::id()));
+        let now = monotonic_us();
+        let mut backend = unmapped_session(&root, now - 5_000, now - 1_000);
+        let availability = backend.take(Ok(startup_cue(
+            1,
+            "input_availability",
+            10_000,
+            json!({"available": true}),
+        )));
+        let ready = backend.take(Ok(startup_cue(2, "listening_ready", 9_000, json!({}))));
+        // Nothing is published before a live map exists.
+        assert!(availability.is_none() && ready.is_none());
+        assert!(backend.pending.is_empty());
+        let received: Vec<u64> = backend
+            .session
+            .as_ref()
+            .unwrap()
+            .held
+            .iter()
+            .map(|h| h.0)
+            .collect();
+        assert!(backend.take(Ok(live_pong())).is_none());
+        let published: Vec<RuntimeEvent> = backend.pending.drain(..).collect();
+        assert!(matches!(
+            published[0].kind,
+            EventKind::InputAvailability { available: true }
+        ));
+        assert!(matches!(published[1].kind, EventKind::ListeningReady));
+        // Original runner receipt times, never the decision time.
+        assert_eq!(
+            published
+                .iter()
+                .map(|e| e.received_us.unwrap())
+                .collect::<Vec<_>>(),
+            received
+        );
+        let cues = backend.session.as_ref().unwrap().cues.clone();
+        backend.session = None;
+        drop(backend);
+        let _ = fs::remove_dir_all(&root);
+        for receipt in &cues {
+            assert_eq!(receipt["accepted"], true, "{receipt}");
+            assert!(
+                receipt["freshness"]["margin_us"].as_i64().unwrap() > 0,
+                "{receipt}"
+            );
+            assert!(
+                receipt["freshness"]["held_us"].as_u64().is_some(),
+                "{receipt}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_held_startup_cue_that_expired_before_the_live_map_is_refused() {
+        let root = std::env::temp_dir().join(format!("lve-held-late-{}", std::process::id()));
+        let now = monotonic_us();
+        let mut backend = unmapped_session(&root, now - 5_000, now - 1_000);
+        // Fresh at the relay, but 150 ms old when the live map decides it.
+        assert!(
+            backend
+                .take(Ok(startup_cue(1, "listening_ready", 150_000, json!({}))))
+                .is_none()
+        );
+        assert!(backend.take(Ok(live_pong())).is_none());
+        let published: Vec<RuntimeEvent> = backend.pending.drain(..).collect();
+        let cues = backend.session.as_ref().unwrap().cues.clone();
+        backend.session = None;
+        drop(backend);
+        let _ = fs::remove_dir_all(&root);
+        assert!(
+            !published
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::ListeningReady))
+        );
+        assert!(matches!(
+            &published[0].kind,
+            EventKind::RunEnd { status: Some(s), .. } if s == CUE_PROTOCOL_INVALID
+        ));
+        assert_eq!(cues[0]["accepted"], false);
+        assert_eq!(
+            cues[0]["error"],
+            "stale cue at runner (including clock uncertainty)"
+        );
+    }
+
+    #[test]
+    fn the_original_expiry_refuses_at_equality() {
+        let map = ClockMapping {
+            from: ClockDomain::RunnerMonotonic,
+            to: ClockDomain::LampMonotonic,
+            offset_us: 1_000,
+            uncertainty_us: 2_000,
+            path_allowance_us: 0,
+            method: "test".into(),
+        };
+        // Upper bound 10_000 + 1_000 + 2_000 = 13_000.
+        assert!(!proves_unexpired(&map, 10_000, 13_000).1);
+        assert!(proves_unexpired(&map, 10_000, 13_001).1);
+        assert!(!proves_unexpired(&map, 10_001, 13_000).1);
     }
 }

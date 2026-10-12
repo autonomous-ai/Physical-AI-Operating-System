@@ -218,10 +218,23 @@ are unchanged. Two startup rules keep the decision on live evidence:
   receipt is awaited within its unchanged 10 s bound in 2 ms polls. Between
   polls the runner takes every relayed line and keeps pinging, so a cue is
   judged when it arrives. Its events are kept in order for the runner.
+- **No cue is published before a live map.** The relay's receipt is not
+  proof at the runner. A cue taken before the first live map waits, as does
+  any cue behind one already waiting. It keeps its original event, send,
+  relay and runner receipt times and its order (at most 64 wait).
+  - **Release.** The first live sample decides waiting cues in order. Each is
+    published only if the map's upper bound at that decision is before the
+    original expiry; equality refuses.
+  - **Hold limit.** A cue still waiting 100 ms of runner time after its receipt
+    is refused. The relay showed it arrived no earlier than its event, so it
+    has certainly expired. This is a proof, not a new deadline.
+  - **Retention.** Cues still waiting at the end are kept as refused receipts.
+    Nothing is restamped or extended.
 
 Each cue receipt keeps the mapping its decision used under `freshness`:
-offset, uncertainty, upper Lamp-time bound, expiry and margin. Every ping is
-kept in `clock_samples` with its round trip and whether it was usable.
+offset, uncertainty, decision time, time held, upper Lamp-time bound, expiry
+and margin. Every ping is kept in `clock_samples` with its round trip and
+whether it was usable.
 
 Lamp-4ace attempt wdqcviuk showed the failure. Its first player took ~293 ms to
 prepare. The first `input_availability` cue was refused as stale including

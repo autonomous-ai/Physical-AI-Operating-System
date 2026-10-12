@@ -250,7 +250,15 @@ fn a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure() {
 #[test]
 fn a_known_run_end_cue_withholds_dispatch() {
     let rig = Rig::new("disp-runend");
-    let mut backend = rig.backend(&[start_line(), run_end_cue()], "0", "", Then::StayOpen);
+    // The live pong lets the runner decide the cue; without any live clock
+    // map it would be refused, never published.
+    let pong = json!({"type":"pong","seq":2,"lamp_us":1_000});
+    let mut backend = rig.backend(
+        &[start_line(), pong, run_end_cue()],
+        "0",
+        "",
+        Then::StayOpen,
+    );
     rig.begin(&mut backend);
     until_run_end(&mut backend);
     let now = backend.now_us();

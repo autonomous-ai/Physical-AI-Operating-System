@@ -61,6 +61,11 @@ pub struct ServeFaults {
     pub stop: Option<(u64, u32)>,
     /// SIGTERM is ignored, so only a forced kill ends the runtime.
     pub ignore_sigterm: bool,
+    /// A readiness status line printed at start, before the runtime is
+    /// ready: stale stdout that must never become a readiness event.
+    pub early_ready_stdout: bool,
+    /// Exit with this code after a clean, acknowledged metadata finish.
+    pub exit_code: Option<i32>,
 }
 
 impl ServeFaults {
@@ -102,6 +107,8 @@ impl ServeFaults {
                 self.stop = Some((n[0], ms(n[1])?));
             }
             "--fake-ignore-sigterm" if value == "yes" => self.ignore_sigterm = true,
+            "--fake-early-ready-stdout" if value == "yes" => self.early_ready_stdout = true,
+            "--fake-exit-code" => self.exit_code = Some(value.parse()?),
             _ => return Ok(false),
         }
         Ok(true)
@@ -114,6 +121,8 @@ impl ServeFaults {
             && self.mute.is_none()
             && self.stop.is_none()
             && !self.ignore_sigterm
+            && !self.early_ready_stdout
+            && self.exit_code.is_none()
     }
 }
 
@@ -267,6 +276,16 @@ pub fn run(serve: FakeServe) -> Result<i32> {
         .as_ref()
         .map_or_else(|| serve.cue_path.clone(), |relay| relay.path.clone());
     let mut cues = CueSink::connect(&sink_path)?;
+    let stdout = std::io::stdout();
+    if serve.faults.early_ready_stdout {
+        let mut lock = stdout.lock();
+        writeln!(
+            lock,
+            "{}",
+            json!({"status":"listening_ready","seconds":null})
+        )?;
+        lock.flush()?;
+    }
     let now = monotonic_us();
     metadata.record(
         json!({"kind":"run_start","at_us":now,"mode":"serve","seconds":null,
@@ -278,7 +297,6 @@ pub fn run(serve: FakeServe) -> Result<i32> {
     let mut outage_ends: Option<u64> = None;
     let mut fired = std::collections::BTreeSet::new();
     let mut muted_until: Option<u64> = None;
-    let stdout = std::io::stdout();
     loop {
         let now = monotonic_us();
         if signal.load(Ordering::SeqCst) != 0 && !serve.faults.ignore_sigterm {
@@ -389,7 +407,11 @@ pub fn run(serve: FakeServe) -> Result<i32> {
     if let Some(path) = &serve.room {
         let _ = fs::remove_file(path);
     }
-    Ok(if failed.is_some() { 1 } else { 0 })
+    Ok(if failed.is_some() {
+        1
+    } else {
+        serve.faults.exit_code.unwrap_or(0)
+    })
 }
 
 fn link(state: &str, at_us: u64) -> Value {

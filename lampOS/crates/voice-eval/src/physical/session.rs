@@ -990,6 +990,17 @@ pub fn run<R: Read + Send + 'static>(
             errors.push("processes outlived the serve runtime and were killed".into());
         }
     }
+    // A serve runtime that exits nonzero or by signal never ended a session
+    // cleanly, even when its metadata was finished and acknowledged.
+    if serve
+        && let Some(status) = status
+        && !status.success()
+    {
+        errors.push(match status.code() {
+            Some(code) => format!("the serve runtime exited with status {code}"),
+            None => format!("the serve runtime ended by signal ({status})"),
+        });
+    }
     let group_reaped = !serve || group_gone(child, 2_000_000);
     if !group_reaped {
         errors.push("the runtime's process group was still present 2 s after its end".into());

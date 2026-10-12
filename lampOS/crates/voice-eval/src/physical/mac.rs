@@ -604,6 +604,8 @@ struct Session {
     stop_sent: bool,
     /// The runtime's own `run_end` cue was accepted: it is ending by itself.
     runtime_ended: bool,
+    /// Serve: relay receipt times of stdout readiness lines (diagnostic only).
+    stdout_readiness_us: Vec<u64>,
 }
 
 struct Playback {
@@ -623,6 +625,16 @@ struct Armed {
     prepared: PreparedStart,
     cancel_file: PathBuf,
     armed_us: u64,
+}
+
+/// The original deadline's margin when the grant was sent, signed. A pause
+/// after the pre-send check can put the send at or past expiry; the player
+/// then refuses at its first copy, and this keeps that evidence instead of
+/// inventing a positive headroom.
+fn grant_margin(deadline_us: u64, sent_us: u64) -> Value {
+    let headroom = i128::from(deadline_us) - i128::from(sent_us);
+    json!({"headroom_at_grant_us": i64::try_from(headroom).unwrap_or(if headroom < 0 { i64::MIN } else { i64::MAX }),
+        "expired_at_send": sent_us >= deadline_us})
 }
 
 /// The longest a prepared player may wait for its grant (the observer's
@@ -817,7 +829,11 @@ impl<'a> PhysicalBackend<'a> {
         let earliest_us = mapping
             .to_runner(event_at)
             .saturating_sub(mapping.uncertainty_us);
-        let deadline_us = earliest_us + delay_us + MAX_TRIGGER_LATENESS_US;
+        let (deadline_us, expires_ns) = earliest_us
+            .checked_add(delay_us)
+            .and_then(|at| at.checked_add(MAX_TRIGGER_LATENESS_US))
+            .and_then(|deadline| Some((deadline, deadline.checked_mul(1000)?)))
+            .ok_or_else(|| Withheld::Stale("the original deadline overflows the clock".into()))?;
         let armed = match self.armed.take() {
             Some(armed) if armed.step == step.id => armed,
             other => {
@@ -829,7 +845,7 @@ impl<'a> PhysicalBackend<'a> {
                 return Err(Withheld::PlayerFailed(reason));
             }
         };
-        let now = monotonic_us();
+        let now = grant_clock_us();
         if now >= deadline_us {
             let late = now - deadline_us;
             self.armed = Some(armed);
@@ -837,7 +853,6 @@ impl<'a> PhysicalBackend<'a> {
                 "the original deadline passed {late} us before the grant"
             )));
         }
-        let expires_ns = deadline_us * 1000;
         let line = json!({"schema": 1, "kind": "start",
             "attempt_id": armed.prepared.ready["attempt_id"], "expires_monotonic_ns": expires_ns})
         .to_string();
@@ -853,14 +868,14 @@ impl<'a> PhysicalBackend<'a> {
                 report["status"], report["error"]
             )));
         }
-        let sent_us = monotonic_us();
+        let sent_us = grant_clock_us();
         let receipt = json!({"ready": armed.prepared.ready,
             "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
             "expires_monotonic_ns": expires_ns,
             "deadline": {"event_at_lamp_us": event_at, "mapped_runner_us": mapping.to_runner(event_at),
                 "clock_uncertainty_us": mapping.uncertainty_us, "earliest_event_runner_us": earliest_us,
-                "delay_us": delay_us, "lateness_bound_us": MAX_TRIGGER_LATENESS_US,
-                "headroom_at_grant_us": deadline_us - sent_us}});
+                "delay_us": delay_us, "lateness_bound_us": MAX_TRIGGER_LATENESS_US},
+            "margin": grant_margin(deadline_us, sent_us)});
         Ok((
             Playback {
                 step: step.id.clone(),
@@ -969,6 +984,7 @@ impl<'a> PhysicalBackend<'a> {
     /// Convert one relay line into a runtime event, updating the clock map.
     fn handle(&mut self, line: SessionLine) -> Option<RuntimeEvent> {
         let received = monotonic_us();
+        let serve = self.serve();
         // Human speech has no inferred onset window. Its timing must be
         // reviewed; timed acceptance is withheld by the evaluator.
         let path_allowance = match self.config.stimulus_source {
@@ -1076,6 +1092,16 @@ impl<'a> PhysicalBackend<'a> {
                     || session.start.is_none()
                     || status["status"] != "listening_ready"
                 {
+                    return None;
+                }
+                // Serve readiness comes only from the accepted schema-1 cue,
+                // which carries the runtime's own event time. A stdout line
+                // has only the relay's receipt time and may be buffered: it
+                // is kept as a diagnostic, never as a readiness event.
+                if serve {
+                    if session.stdout_readiness_us.len() < 16 {
+                        session.stdout_readiness_us.push(lamp_received_us);
+                    }
                     return None;
                 }
                 if std::mem::replace(&mut session.ready_seen, true) {
@@ -1467,6 +1493,7 @@ impl Backend for PhysicalBackend<'_> {
             boot_changes: Vec::new(),
             stop_sent: false,
             runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
         });
         self.send_ping(1)?;
         fs::write(
@@ -1795,6 +1822,16 @@ impl Backend for PhysicalBackend<'_> {
                 Some(error) => format!("the relay stopped the runtime: {error}"),
                 None => "the relay killed the runtime at its hard deadline".into(),
             }),
+            // A serve runtime that exited nonzero or by signal cannot have
+            // completed its session, whatever its metadata says.
+            Some(SessionLine::SessionEnd { exit_code, .. })
+                if self.serve() && *exit_code != Some(0) =>
+            {
+                Some(format!(
+                    "the serve runtime exited with status {}; not a completed serve session",
+                    exit_code.map_or("none (signal or unknown)".into(), |code| code.to_string())
+                ))
+            }
             Some(SessionLine::SessionEnd {
                 error: Some(error), ..
             }) => Some(format!("relay: {error}")),
@@ -1941,6 +1978,7 @@ impl Backend for PhysicalBackend<'_> {
             "protocol_errors": session.protocol_errors,
             "playbacks": playbacks,
             "unused_prepared_players": unused,
+            "stdout_readiness_relay_us": session.stdout_readiness_us,
             "serve_continuity": continuity,
             "room_audio": room,
             "attempt_directory": self.attempt_directory.as_ref().map(|d| d.display().to_string()),
@@ -1968,6 +2006,23 @@ impl Backend for PhysicalBackend<'_> {
 #[cfg(test)]
 mod cue_tests {
     use super::*;
+
+    #[test]
+    fn a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow() {
+        assert_eq!(
+            grant_margin(1_000_100, 1_000_000),
+            json!({"headroom_at_grant_us": 100, "expired_at_send": false})
+        );
+        // A scheduler pause after the pre-send check: the margin is negative
+        // and the send is marked expired; nothing wraps or panics.
+        assert_eq!(
+            grant_margin(1_000_000, 1_000_150),
+            json!({"headroom_at_grant_us": -150, "expired_at_send": true})
+        );
+        assert_eq!(grant_margin(5, 5)["expired_at_send"], true);
+        assert_eq!(grant_margin(0, u64::MAX)["headroom_at_grant_us"], i64::MIN);
+        assert_eq!(grant_margin(u64::MAX, 0)["headroom_at_grant_us"], i64::MAX);
+    }
 
     fn cue(sequence: u64, kind: &str, turn: u64) -> Cue {
         Cue {
@@ -2230,6 +2285,330 @@ mod relay_reader_tests {
         assert_eq!(
             items.len() as u64,
             MAX_SESSION_BYTES / (width as u64 + 1) + 1
+        );
+    }
+}
+
+// Test-only clock seam from the independent serve-boundary review
+// (coordination/reviews/serve-boundaries-20261012): tests can model a
+// scheduler pause between the grant check and its send.
+fn grant_clock_us() -> u64 {
+    #[cfg(test)]
+    if let Some(now) = audit_grant_tests::CLOCK.with(|times| times.borrow_mut().pop_front()) {
+        return now;
+    }
+    monotonic_us()
+}
+
+#[cfg(test)]
+/// The independent review's production-path reproductions, adapted.
+mod audit_grant_tests {
+    use super::*;
+    use crate::plan::{Expectation, Trigger, TriggerEvent};
+    use std::{
+        cell::RefCell,
+        collections::VecDeque,
+        panic::{AssertUnwindSafe, catch_unwind},
+    };
+    thread_local! {
+        pub(super) static CLOCK: RefCell<VecDeque<u64>> = const { RefCell::new(VecDeque::new()) };
+    }
+    struct NoAudio;
+    impl Player for NoAudio {
+        fn start(
+            &mut self,
+            _: &Path,
+            _: &SceneTiming,
+            _: &Path,
+            _: &Path,
+        ) -> Result<JoinHandle<Value>> {
+            panic!("no audio may start in this audit test")
+        }
+        fn describe(&self) -> Value {
+            json!({"audit": true})
+        }
+    }
+
+    fn exercise(sent: u64) -> (bool, bool, bool) {
+        let root =
+            std::env::temp_dir().join(format!("lve-grant-audit-{}-{sent}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("objects")).unwrap();
+        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
+        // An already-reaped inert child supplies the Session's OS identity only.
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (_tx, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: Vec::new(),
+            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: true,
+            protocol_errors: Vec::new(),
+            start: None,
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+        });
+        backend.trigger = Some((
+            TriggerObservation {
+                event: TriggerEvent::ListeningReady,
+                turn: None,
+                event_at_us: Some(1_000),
+                event_domain: ClockDomain::LampMonotonic,
+                runner_us: 1_000,
+                runner_time_method: "injected same clock".into(),
+            },
+            0,
+        ));
+        let (grant, rx) = mpsc::sync_channel(1);
+        let handle = thread::spawn(|| Value::Null);
+        backend.armed = Some(Armed {
+            step: "one".into(),
+            prepared: PreparedStart {
+                ready: json!({"attempt_id": "original-attempt"}),
+                grant,
+                handle,
+            },
+            cancel_file: root.join("cancel"),
+            armed_us: 500,
+        });
+        let step = Step {
+            id: "one".into(),
+            scene: None,
+            trigger: Trigger {
+                after: TriggerEvent::ListeningReady,
+                delay_ms: 0,
+                deadline_ms: 1000,
+                require_lamp_speaking: false,
+            },
+            expect: Expectation::Answer,
+            reference: String::new(),
+            addressed: Vec::new(),
+        };
+        // The first sample is valid. The second sample models descheduling
+        // after try_send. Native expiry is unchanged at 101,000 microseconds.
+        CLOCK.with(|times| *times.borrow_mut() = [100_999, sent].into());
+        let outcome = catch_unwind(AssertUnwindSafe(|| backend.grant(&step)));
+        let sent_original = matches!(rx.try_recv(), Ok(GrantInput::Line(line))
+            if serde_json::from_str::<Value>(&line).unwrap()["expires_monotonic_ns"] == 101_000_000_u64);
+        let tracked = backend.armed.is_some() || !backend.playbacks.is_empty();
+        let did_not_panic = outcome.is_ok();
+        if let Ok(Ok((mut playback, _receipt))) = outcome {
+            playback.handle.take().unwrap().join().unwrap();
+        }
+        // No remote/audio subprocess existed; the inert child is already reaped.
+        backend.session = None;
+        drop(backend);
+        fs::remove_dir_all(root).unwrap();
+        (did_not_panic, sent_original, tracked)
+    }
+    #[test]
+    fn audit_grant_within_deadline_control() {
+        let (did_not_panic, original, _) = exercise(100_999);
+        assert!(did_not_panic && original);
+    }
+    #[test]
+    fn audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking() {
+        let (did_not_panic, original, tracked) = exercise(101_001);
+        assert!(original, "the original, unextended grant must be preserved");
+        assert!(
+            did_not_panic,
+            "grant panicked after sending original expiry; player tracked={tracked}"
+        );
+    }
+
+    fn exit_report(code: i32) -> Finished {
+        let root =
+            std::env::temp_dir().join(format!("lve-exit-audit-{}-{code}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("objects")).unwrap();
+        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
+        // An already-reaped inert child supplies the Session's OS identity only.
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (tx, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: Vec::new(),
+            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: true,
+            protocol_errors: Vec::new(),
+            start: None,
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+        });
+
+        drop(tx);
+        let session = backend.session.as_mut().unwrap();
+        session.start = Some(json!({"schema": 1, "mode": "serve", "cue_socket": true}));
+        session.end = Some(SessionLine::SessionEnd {
+            lamp_us: 10,
+            exit_code: Some(code),
+            killed: false,
+            events_sha256: None,
+            events_lines: 0,
+            error: None,
+            stray_processes_stopped: false,
+            serve: Some(Box::new(crate::physical::protocol::ServeEnd {
+                stop_cause: "runtime_exited".into(),
+                stop_reason: None,
+                stop_requested_us: None,
+                signal_sent_us: None,
+                signal_error: None,
+                exited_us: Some(10),
+                forced_kill: false,
+                group_reaped: true,
+                metadata: crate::physical::protocol::ServeMetadata::default(),
+            })),
+        });
+        let catalog = StimulusCatalog::load().unwrap();
+        let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
+        let context = AttemptContext {
+            attempt_id: "exit-audit".into(),
+            run_id: "audit".into(),
+            scenario: &plan.plan.scenarios[0],
+            repetition: 0,
+            order: 0,
+            seed: 1,
+            run_directory: root.clone(),
+        };
+        let finished = backend.finish(&context).unwrap();
+        drop(backend);
+        fs::remove_dir_all(root).unwrap();
+        finished
+    }
+    #[test]
+    fn audit_successful_runtime_exit_control() {
+        assert!(exit_report(0).aborted.is_none());
+    }
+    #[test]
+    fn audit_nonzero_runtime_exit_must_invalidate_attempt() {
+        let result = exit_report(1);
+        assert_eq!(result.evidence["session_end"]["exit_code"], 1);
+        assert!(
+            result.aborted.is_some(),
+            "runtime exit 1 was retained but did not invalidate attempt"
+        );
+    }
+
+    #[test]
+    fn audit_serve_stdout_readiness_cannot_mint_an_original_cue() {
+        let root = std::env::temp_dir().join(format!("lve-stdout-audit-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("objects")).unwrap();
+        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
+        // An already-reaped inert child supplies the Session's OS identity only.
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (tx, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: Vec::new(),
+            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: true,
+            protocol_errors: Vec::new(),
+            start: None,
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+        });
+
+        drop(tx);
+        let session = backend.session.as_mut().unwrap();
+        session.start = Some(json!({"schema":1,"mode":"serve","cue_socket":true}));
+        session.ready_seen = false;
+        let received = monotonic_us();
+        let observed = backend.handle(SessionLine::Stdout {
+            lamp_received_us: received,
+            // The line has no source observation, owner, boot or expiry.
+            line: r#"{"status":"listening_ready","seconds":60}"#.into(),
+        });
+        backend.session = None;
+        drop(backend);
+        fs::remove_dir_all(root).unwrap();
+        assert!(
+            observed.is_none(),
+            "stdout receipt became scheduling authority with a newly minted time: {observed:?}"
         );
     }
 }

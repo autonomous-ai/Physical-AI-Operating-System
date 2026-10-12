@@ -205,10 +205,9 @@ fn assert_granted(record: &AttemptRecord, step: &str) {
     );
     let prepared = &step_record.receipt["prepared"];
     let expires = prepared["expires_monotonic_ns"].as_u64().unwrap();
-    let headroom = prepared["deadline"]["headroom_at_grant_us"]
-        .as_u64()
-        .unwrap();
-    assert!(headroom <= 100_000, "{step}: {prepared}");
+    let headroom = prepared["margin"]["headroom_at_grant_us"].as_i64().unwrap();
+    assert!((1..=100_000).contains(&headroom), "{step}: {prepared}");
+    assert_eq!(prepared["margin"]["expired_at_send"], false);
     assert!(
         prepared["armed_runner_us"].as_u64().unwrap()
             < step_record.trigger.as_ref().unwrap().runner_us,
@@ -467,6 +466,11 @@ fn a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it() {
     let serve = serve_end(&record);
     assert_eq!(serve["stop_cause"], "runtime_exited", "{serve}");
     assert_eq!(record.evidence["session_end"]["exit_code"], 1);
+    assert!(
+        matches!(&record.status, AttemptStatus::Aborted { reason } if reason.contains("exited with status 1")),
+        "{:?}",
+        record.status
+    );
     assert_reaped(&record);
 }
 
@@ -660,4 +664,51 @@ fn the_runner_forwards_pilot_runtime_settings_through_the_relay() {
         "serve"
     );
     assert_clean_stop(&record);
+}
+
+#[test]
+fn serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout() {
+    let record = run(Control {
+        steps: Some(1),
+        fake_args: vec!["--fake-early-ready-stdout", "yes"],
+        ..Control::default()
+    });
+    // The runtime's own readiness record, which its cue carries.
+    let ready = record
+        .events
+        .iter()
+        .find(|e| e.kind == EventKind::ListeningReady)
+        .and_then(|e| e.at_us)
+        .unwrap();
+    let trigger = step(&record, "sky").trigger.clone().unwrap();
+    assert_eq!(
+        trigger.event_at_us,
+        Some(ready),
+        "triggered on stale stdout"
+    );
+    assert!(
+        record
+            .live_events
+            .iter()
+            .all(|e| !(e.kind == EventKind::ListeningReady && e.source == EventSource::Stdout))
+    );
+    assert_eq!(statuses(&record), [StepStatus::Injected]);
+    assert_granted(&record, "sky");
+    assert_clean_stop(&record);
+}
+
+#[test]
+fn a_nonzero_runtime_exit_never_completes_a_serve_attempt() {
+    let record = run(Control {
+        steps: Some(1),
+        fake_args: vec!["--fake-exit-code", "2"],
+        ..Control::default()
+    });
+    assert_eq!(statuses(&record), [StepStatus::Injected]);
+    assert_eq!(record.evidence["session_end"]["exit_code"], 2);
+    assert!(
+        matches!(&record.status, AttemptStatus::Aborted { reason } if reason.contains("exited with status 2")),
+        "{:?}",
+        record.status
+    );
 }

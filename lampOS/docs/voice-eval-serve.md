@@ -111,6 +111,14 @@ their hashes are unchanged; the default plan still hashes to `e9dad734…`.
   first-copy time. That is still not an acoustic onset; room audio stays a
   separate boundary.
 
+In serve mode, listening readiness comes only from the accepted schema-1 cue,
+which carries the runtime's own event time. A stdout readiness line has only
+the relay's receipt time and may be buffered, so it is kept as a diagnostic
+(`stdout_readiness_relay_us`) and never triggers a step. The grant receipt
+keeps a signed `margin`: `headroom_at_grant_us` and `expired_at_send`. A send
+delayed past expiry shows as negative headroom and is refused by the player at
+its first copy; it never wraps around into a positive margin.
+
 `local_endpoint` binds to the one turn admitted since the previous step.
 
 - **Not dispatched:** a second admission, or the turn finishing or speaking
@@ -149,6 +157,8 @@ is waited for (10 s) rather than stopped, so its own end keeps its provenance.
 The following are relay errors, so the attempt is aborted, never scored as a
 clean conversation:
 
+- a nonzero or signalled runtime exit, even after complete, acknowledged
+  metadata (the runner checks the exit status as well);
 - a forced kill;
 - processes left in the group;
 - a closed transport;

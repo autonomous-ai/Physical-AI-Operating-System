@@ -298,3 +298,27 @@ fn the_pilot_runtime_settings_reach_the_serve_child_exactly() {
     assert_eq!(error(end), "", "{end:?}");
     assert!(!serve.forced_kill && serve.group_reaped);
 }
+
+#[test]
+fn a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error() {
+    let dir = common::Private::new("rly");
+    let (code, lines) = relay(
+        &options(&dir, 60, &["--fake-exit-code", "3"]),
+        Runner::StopAfter(Duration::from_secs(3)),
+    );
+    let (end, serve) = end(&lines);
+    assert_eq!(code, 0);
+    assert!(matches!(
+        end,
+        SessionLine::SessionEnd {
+            killed: false,
+            exit_code: Some(3),
+            ..
+        }
+    ));
+    // The metadata itself is complete and acknowledged ...
+    assert_eq!(serve.metadata.sequence_gaps, 0);
+    assert!(serve.metadata.error.is_none() && !serve.forced_kill && serve.group_reaped);
+    // ... but a nonzero exit never qualifies a serve session.
+    assert!(error(end).contains("exited with status 3"), "{end:?}");
+}

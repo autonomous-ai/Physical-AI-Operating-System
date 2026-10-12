@@ -117,3 +117,17 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 		return true
 	}
 }
+
+// setTelegramDMPolicy lets only the configured owner message the bot. Without a user
+// ID nobody can: an open bot would let anyone who finds it command the device,
+// camera snapshots included. A "*" left by an older config is removed.
+func setTelegramDMPolicy(telegramMap map[string]any, userID string) {
+	allow := make([]string, 0)
+	for _, v := range mergeStringList(telegramMap["allowFrom"], userID) {
+		if v != "*" {
+			allow = append(allow, v)
+		}
+	}
+	telegramMap["dmPolicy"] = "allowlist"
+	telegramMap["allowFrom"] = allow
+}

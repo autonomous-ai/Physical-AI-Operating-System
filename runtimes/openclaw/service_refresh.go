@@ -58,13 +58,7 @@ func (s *OpenclawService) RefreshChannelConfig(ctx context.Context, req domain.R
 		telegramMap := ensureMap(channelsMap, domain.ChannelTelegram)
 		telegramMap["enabled"] = true
 		telegramMap["botToken"] = req.TelegramBotToken
-		if req.TelegramUserID != "" {
-			telegramMap["dmPolicy"] = "allowlist"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], req.TelegramUserID)
-		} else {
-			telegramMap["dmPolicy"] = "open"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], "*")
-		}
+		setTelegramDMPolicy(telegramMap, req.TelegramUserID)
 		channelsMap[domain.ChannelTelegram] = telegramMap
 		ensureMap(entriesMap, domain.ChannelTelegram)["enabled"] = true
 	default:

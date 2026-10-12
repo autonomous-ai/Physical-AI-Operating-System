@@ -1,7 +1,7 @@
 //! The real Coordinated worker and Supervisor use private Unix IPC; the model
 //! service is in memory. These are protocol tests, not process/acoustic timing.
 use super::*;
-use crate::provider_worker::{FailedStage, Fault, serve_coordinated_test};
+use crate::provider_worker::{Continuation, FailedStage, Fault, serve_coordinated_test};
 use lamp_gemini::{
     Attempt, BarrierPolicy, Connect, Credential, RecoveryPolicy, Resumption, ResumptionHandle,
     SessionConfig, SessionId, Supervisor,
@@ -67,6 +67,11 @@ impl Paired {
     }
 
     async fn with_capacity(capacity: usize) -> Self {
+        Self::with(capacity, Continuation::Off).await
+    }
+
+    /// The worker's session configured as `--provider-continuation` does it.
+    async fn with(capacity: usize, continuation: Continuation) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let (channels, child) = pair(&directory, "provider");
         let (mut owner, reply) = current_input();
@@ -78,6 +83,7 @@ impl Paired {
         .unwrap()
         .resumption(Resumption::Retain)
         .barrier_policy(BarrierPolicy::Require);
+        let config = continuation.apply(config).unwrap();
         let (sender, dials) = tokio::sync::mpsc::unbounded_channel();
         let provider = Supervisor::new(
             ScriptedConnector {
@@ -697,4 +703,497 @@ fn correlated_link_trace_retains_oldest_and_upper_bounds_without_exact_latency_c
     assert_eq!(trace["at_us_role"], "source_interval_lower");
     assert_eq!(trace["coordinator_observed_at_us"], 200);
     assert_eq!(trace["link"]["source_clock"]["observed_upper_us"], 150);
+}
+
+/// Continuation and abandonment through the real hand-off: the coordinator's
+/// own `cancel_reply`, authority and `flush_provider_input`, the Coordinated
+/// worker and Supervisor over private IPC, and the real session against the
+/// in-memory service. The worker is started as `--provider-continuation
+/// kept-start` starts it.
+mod continuation_or_discard {
+    use super::*;
+    use lamp_gemini::testing::sent_audio;
+
+    const QUIET: Duration = Duration::from_millis(60);
+
+    impl Paired {
+        async fn kept() -> (Self, Dial, CloudAvailability) {
+            let mut rig =
+                Self::with(lamp_gemini::MAX_WIRE_BYTES * 2, Continuation::KeptStart).await;
+            let dial = rig.ready().await;
+            let mut selected = CloudAvailability::default();
+            selected
+                .observe(ready_link(1, dial.session.get()), monotonic_us())
+                .unwrap();
+            (rig, dial, selected)
+        }
+        /// A reply for a newly admitted owner, as the coordinator makes one.
+        fn admit(&mut self, input: AdmittedInput, session: u64) -> u64 {
+            let (_, mut reply, _) = active_reply();
+            let turn = self.owner.admit(now(), input).unwrap();
+            reply.owner = turn;
+            reply.plan = self
+                .owner
+                .plan_output(now(), turn, OutputKind::Speech, None)
+                .unwrap();
+            reply.cloud = CloudRequest::new(session).unwrap();
+            reply.local_input_ended = false;
+            reply.playback = None;
+            reply.pcm.clear();
+            reply.had_audio = false;
+            self.reply = Some(reply);
+            self.publish();
+            turn.turn()
+        }
+        /// The person speaks again: the coordinator cancels the current
+        /// reply as a user interruption and admits a newer owner at once,
+        /// with no authority published between the two.
+        fn continued(&mut self, session: u64) -> u64 {
+            cancel_reply(
+                &mut self.owner,
+                &mut self.reply,
+                &mut self.trace,
+                "user_interrupted",
+            )
+            .unwrap();
+            self.queue.clear();
+            self.admit(AdmittedInput::Interruption, session)
+        }
+        /// The coordinator gives the current request up: no owner follows.
+        fn abandoned(&mut self, reason: &str) {
+            cancel_reply(&mut self.owner, &mut self.reply, &mut self.trace, reason).unwrap();
+            self.queue.clear();
+            self.publish();
+        }
+        fn flush(&mut self, selected: &CloudAvailability) {
+            flush_provider_input(
+                selected,
+                &mut self.reply,
+                &mut self.queue,
+                &mut self.channels.data,
+            )
+            .unwrap();
+            assert!(self.queue.is_empty());
+        }
+        /// The current request's Start.
+        fn start(&mut self, selected: &CloudAvailability) {
+            let current = self.reply.as_ref().unwrap();
+            let privacy_generation = self.owner.snapshot(now()).unwrap().microphone_generation();
+            self.queue.push_back(ProviderInput::Start {
+                request: current.owner.turn(),
+                session: current.cloud.session,
+                privacy_generation,
+            });
+            self.publish();
+            self.flush(selected);
+        }
+        /// Blocks of 10 ms at about the rate they are spoken, each read now.
+        async fn say(
+            &mut self,
+            selected: &CloudAvailability,
+            blocks: std::ops::Range<u64>,
+            value: i16,
+        ) {
+            for sequence in blocks {
+                let request = self.reply.as_ref().unwrap().owner.turn();
+                let privacy_generation =
+                    self.owner.snapshot(now()).unwrap().microphone_generation();
+                self.queue.push_back(ProviderInput::Audio {
+                    request,
+                    privacy_generation,
+                    sequence,
+                    read_completed_at_us: monotonic_us(),
+                    samples: vec![value; 160],
+                });
+                self.flush(selected);
+                for _ in 0..4 {
+                    self.tick(true).await;
+                }
+            }
+        }
+        /// The current request's input ends.
+        fn end(&mut self, selected: &CloudAvailability) {
+            let current = self.reply.as_ref().unwrap();
+            let privacy_generation = self.owner.snapshot(now()).unwrap().microphone_generation();
+            self.queue.push_back(ProviderInput::End {
+                request: current.owner.turn(),
+                privacy_generation,
+            });
+            self.owner.input_ended(now(), current.owner).unwrap();
+            self.reply.as_mut().unwrap().local_input_ended = true;
+            self.publish();
+            self.flush(selected);
+        }
+        /// What the service receives until it has received nothing for
+        /// `quiet`: "start", "end", or an audio block's first sample.
+        async fn heard(&mut self, dial: &mut Dial, quiet: Duration) -> Vec<String> {
+            let mut all = Vec::new();
+            let mut last = Instant::now();
+            while last.elapsed() < quiet {
+                self.tick(true).await;
+                while let Some(message) = dial.service.try_receive(Duration::from_millis(1)).await {
+                    last = Instant::now();
+                    let input = &message["realtimeInput"];
+                    all.push(if input.get("activityStart").is_some() {
+                        "start".to_owned()
+                    } else if input.get("activityEnd").is_some() {
+                        "end".to_owned()
+                    } else {
+                        let samples = sent_audio(&message)
+                            .unwrap_or_else(|| panic!("unexpected client message {message}"));
+                        assert!(samples.iter().all(|sample| *sample == samples[0]));
+                        samples[0].to_string()
+                    });
+                }
+            }
+            all
+        }
+        fn discards(&self) -> Vec<(u64, u64, u64)> {
+            self.outputs
+                .iter()
+                .filter_map(|event| match event {
+                    ProviderOutput::InputDiscarded {
+                        request,
+                        dropped_samples,
+                        sent_samples,
+                    } => Some((*request, *dropped_samples, *sent_samples)),
+                    _ => None,
+                })
+                .collect()
+        }
+        /// The first request: committed, and the service has all of it.
+        async fn first_committed(&mut self, dial: &mut Dial, selected: &CloudAvailability) -> u64 {
+            let first = self.reply.as_ref().unwrap().owner.turn();
+            self.submit(selected, true);
+            self.until(true, |rig| rig.reply.as_ref().unwrap().cloud.started)
+                .await;
+            assert_eq!(self.heard(dial, QUIET).await, ["start", "73", "end"]);
+            first
+        }
+    }
+    fn of(value: i16, count: usize) -> Vec<String> {
+        vec![value.to_string(); count]
+    }
+    fn interrupted() -> serde_json::Value {
+        json!({"serverContent":{"interrupted":true}})
+    }
+    fn idle() -> serde_json::Value {
+        json!({"serverContent":{"turnComplete":true,"interactionStatus":"IDLE"}})
+    }
+
+    #[tokio::test]
+    async fn continued_twice_the_words_are_one_question_in_order_and_nothing_is_discarded() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        // The person goes on, and its input ends.
+        rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        rig.end(&selected);
+        // And goes on again before anything was answered.
+        let last = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 20).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // The first answer begins.
+        dial.service.send(audio(97, 240)).await;
+        let mut expected = vec!["start".to_owned()];
+        expected.extend(of(10, 5));
+        expected.extend(of(20, 5));
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        dial.service.burst([interrupted(), idle()]).await;
+        rig.end(&selected);
+        assert_eq!(rig.heard(&mut dial, QUIET).await, ["end"]);
+        dial.service.send(audio(98, 240)).await;
+        rig.until(true, |rig| {
+            rig.outputs.iter().any(
+                |event| matches!(event, ProviderOutput::Audio { request, .. } if *request == last),
+            )
+        })
+        .await;
+        // Continued, never abandoned: nothing was discarded.
+        assert!(rig.discards().is_empty());
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn abandoned_while_kept_none_of_it_is_sent_and_the_next_question_is_heard_alone() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        // The coordinator's own cancellation with no successor.
+        rig.abandoned("deadline_cancelled");
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 5 * 160, 0)]);
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // The first answer begins late: interrupted, with nothing behind
+        // the start. Its audio is nobody's.
+        dial.service.send(audio(97, 240)).await;
+        assert_eq!(rig.heard(&mut dial, QUIET).await, ["start"]);
+        dial.service.burst([interrupted(), idle()]).await;
+        assert!(
+            rig.heard(&mut dial, Duration::from_millis(120))
+                .await
+                .is_empty()
+        );
+        let next = rig.admit(AdmittedInput::NewTurn, session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 30).await;
+        rig.end(&selected);
+        let mut expected = of(30, 3);
+        expected.push("end".to_owned());
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        dial.service.send(audio(98, 240)).await;
+        rig.until(true, |rig| {
+            rig.outputs.iter().any(
+                |event| matches!(event, ProviderOutput::Audio { request, .. } if *request == next),
+            )
+        })
+        .await;
+        assert!(!rig.outputs.iter().any(
+            |event| matches!(event, ProviderOutput::Audio { request, .. } if *request != next)
+        ));
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn continued_then_abandoned_then_a_new_question_only_the_new_one_is_sent() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 10).await;
+        rig.end(&selected);
+        let second = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 20).await;
+        // The whole uncommitted thought is given up: both parts.
+        rig.abandoned("playback_discarded");
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(second, 6 * 160, 0)]);
+        // A new question while the first answer still has not begun: kept.
+        let next = rig.admit(AdmittedInput::NewTurn, session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 30).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        dial.service.send(audio(97, 240)).await;
+        let mut expected = vec!["start".to_owned()];
+        expected.extend(of(30, 3));
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        dial.service.burst([interrupted(), idle()]).await;
+        rig.end(&selected);
+        assert_eq!(rig.heard(&mut dial, QUIET).await, ["end"]);
+        dial.service.send(audio(98, 240)).await;
+        rig.until(true, |rig| {
+            rig.outputs.iter().any(
+                |event| matches!(event, ProviderOutput::Audio { request, .. } if *request == next),
+            )
+        })
+        .await;
+        rig.stop().await;
+    }
+
+    /// The transport boundary through the whole hand-off. Abandoned after
+    /// the kept words went out, nothing is left to drop and the outcome
+    /// says sent, not discarded: the next question is heard after them.
+    #[tokio::test]
+    async fn abandoned_after_the_words_were_written_the_outcome_says_sent_and_not_discarded() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        dial.service.send(audio(97, 240)).await;
+        let mut expected = vec!["start".to_owned()];
+        expected.extend(of(10, 5));
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        rig.abandoned("deadline_cancelled");
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 0, 5 * 160)]);
+        dial.service.burst([interrupted(), idle()]).await;
+        // Never committed by itself, and the connection is not abandoned.
+        assert!(
+            rig.heard(&mut dial, Duration::from_millis(120))
+                .await
+                .is_empty()
+        );
+        rig.admit(AdmittedInput::NewTurn, session);
+        rig.start(&selected);
+        rig.say(&selected, 1..3, 30).await;
+        rig.end(&selected);
+        let mut expected = of(30, 2);
+        expected.push("end".to_owned());
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        assert_eq!(rig.cloud.ready_session(), Some(session));
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn abandoned_with_no_first_answer_only_the_start_is_written_and_late_output_is_nobodys() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        rig.abandoned("provider_interrupted");
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 5 * 160, 0)]);
+        // No first answer and no terminal. After the patience the start is
+        // written by itself, to stop an answer nobody wants.
+        let kept_since = Instant::now();
+        let mut wire = Vec::new();
+        while wire.is_empty() {
+            assert!(kept_since.elapsed() < Duration::from_secs(4));
+            wire = rig.heard(&mut dial, QUIET).await;
+        }
+        assert_eq!(wire, ["start"]);
+        // Output that comes after all that is nobody's.
+        dial.service.send(audio(97, 240)).await;
+        dial.service.burst([interrupted(), idle()]).await;
+        assert!(
+            rig.heard(&mut dial, Duration::from_millis(120))
+                .await
+                .is_empty()
+        );
+        assert!(
+            !rig.outputs
+                .iter()
+                .any(|event| matches!(event, ProviderOutput::Audio { .. }))
+        );
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn abandoned_with_no_output_credit_it_is_dropped_at_once_and_reported_when_credit_returns()
+     {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        // The coordinator takes outputs and returns no credit: the worker's
+        // output is under pressure.
+        for _ in 0..20 {
+            rig.tick(false).await;
+        }
+        rig.abandoned("deadline_cancelled");
+        for _ in 0..20 {
+            rig.tick(false).await;
+        }
+        // Dropped in the transport whatever the worker can report: the
+        // first answer finds only the start.
+        dial.service.send(audio(97, 240)).await;
+        let mut wire = Vec::new();
+        for _ in 0..40 {
+            rig.tick(false).await;
+            while let Some(message) = dial.service.try_receive(Duration::from_millis(1)).await {
+                wire.push(message);
+            }
+        }
+        assert_eq!(wire.len(), 1);
+        assert!(wire[0]["realtimeInput"].get("activityStart").is_some());
+        // The report needs capacity like every packet, and is not lost.
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 5 * 160, 0)]);
+        rig.stop().await;
+    }
+
+    /// Authority changes that the worker reads in one turn of its loop. An
+    /// abandonment followed at once by a new question and its continuation
+    /// must still be an abandonment of what came before.
+    #[tokio::test]
+    async fn an_abandonment_is_not_lost_when_a_new_question_and_its_continuation_follow_at_once() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        let given_up = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // Three authority packets with no turn of the worker between them:
+        // no owner, a new question, and that question continued.
+        rig.abandoned("deadline_cancelled");
+        rig.admit(AdmittedInput::NewTurn, session);
+        let last = rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..4, 30).await;
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        assert_eq!(rig.discards(), [(given_up, 5 * 160, 0)]);
+        // The first answer begins: the start, and the new question alone.
+        dial.service.send(audio(97, 240)).await;
+        let mut expected = vec!["start".to_owned()];
+        expected.extend(of(30, 3));
+        assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
+        dial.service.burst([interrupted(), idle()]).await;
+        rig.end(&selected);
+        assert_eq!(rig.heard(&mut dial, QUIET).await, ["end"]);
+        dial.service.send(audio(98, 240)).await;
+        rig.until(true, |rig| {
+            rig.outputs.iter().any(
+                |event| matches!(event, ProviderOutput::Audio { request, .. } if *request == last),
+            )
+        })
+        .await;
+        rig.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_mute_while_the_question_is_kept_writes_none_of_it_and_ends_cleanly() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        assert!(rig.heard(&mut dial, QUIET).await.is_empty());
+        // The microphone is closed: authority says so once, and there is no
+        // lease to renew afterwards.
+        rig.owner
+            .set_microphone_permission(now(), Permission::Denied)
+            .unwrap();
+        let snapshot = rig.owner.snapshot(now()).unwrap();
+        rig.channels
+            .control
+            .send(Control::Authority { snapshot })
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), rig.worker.take().unwrap())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        // Kept, then dropped with the session: not a start, not a block.
+        assert!(
+            dial.service
+                .try_receive(Duration::from_millis(50))
+                .await
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_stop_after_an_abandonment_writes_nothing_and_ends_cleanly() {
+        let (mut rig, mut dial, selected) = Paired::kept().await;
+        rig.first_committed(&mut dial, &selected).await;
+        let session = dial.session.get();
+        rig.continued(session);
+        rig.start(&selected);
+        rig.say(&selected, 1..6, 10).await;
+        rig.abandoned("service_stopped");
+        rig.until(true, |rig| !rig.discards().is_empty()).await;
+        rig.stop().await;
+        assert!(
+            dial.service
+                .try_receive(Duration::from_millis(50))
+                .await
+                .is_none()
+        );
+    }
 }

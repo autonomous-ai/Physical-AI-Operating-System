@@ -1278,7 +1278,11 @@ fn observe_provider_output(
     // Keep match borrowing explicit: only this request's source receipt may
     // change its delivery evidence; cancelled old owners are already terminal.
     match event {
-        ProviderOutput::Ready { .. } | ProviderOutput::Transcript { .. } => {}
+        // Evidence about input of a request that is already retired: it
+        // changes no request's delivery state.
+        ProviderOutput::Ready { .. }
+        | ProviderOutput::Transcript { .. }
+        | ProviderOutput::InputDiscarded { .. } => {}
         ProviderOutput::Ended { .. } => cloud.end_output()?,
         ProviderOutput::OwnershipAssumed { .. } => {
             return Err(io::Error::other(
@@ -2226,6 +2230,19 @@ fn conversation(
                 }
                 ProviderOutput::OwnershipAssumed { .. } => {
                     unreachable!("rejected by output validation")
+                }
+                ProviderOutput::InputDiscarded {
+                    request,
+                    dropped_samples,
+                    sent_samples,
+                } => {
+                    record(
+                        trace,
+                        json!({"kind":"provider_input_discarded","at_us":monotonic_us(),
+                        "through_turn":request,"dropped_unsent_samples":dropped_samples,
+                        "already_sent_samples":sent_samples,
+                        "boundary":"transport bookkeeping; samples already sent were not discarded and precede the next request in its activity"}),
+                    )?;
                 }
                 ProviderOutput::Ended {
                     reason,

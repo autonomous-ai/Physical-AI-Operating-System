@@ -1455,6 +1455,7 @@ async fn resumption_handle_is_kept_only_when_configured_and_never_printed() {
 }
 
 mod continuation;
+mod open_activity;
 mod retain;
 
 /// A stop as a fence on the wire. The transport here can hold a write before
@@ -1476,7 +1477,7 @@ pub(super) mod stop_fence {
         /// While set, the transport accepts `allowance` more bytes and then
         /// holds every write.
         pub(in crate::session::tests) hold: Arc<AtomicBool>,
-        allowance: Arc<AtomicUsize>,
+        pub(in crate::session::tests) allowance: Arc<AtomicUsize>,
         /// A write is being held.
         pub(in crate::session::tests) held: Arc<Notify>,
         waker: Arc<Mutex<Option<Waker>>>,

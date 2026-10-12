@@ -506,6 +506,91 @@ async fn quota_refusal_and_local_faults_do_not_reconnect() {
     );
 }
 
+/// The session's bound on what it remembers of an open activity, reached
+/// through the supervisor with a start that can be kept. The failure is by
+/// name and terminal. No connection is made for it: it says nothing about
+/// the link, and nothing shows that the activity could be carried over.
+#[tokio::test]
+async fn an_overrun_open_activity_ends_the_supervisor_by_name_and_is_never_redialled() {
+    let bound = crate::MAX_OPEN_ACTIVITY_REQUESTS as u64;
+    let keeping = config()
+        .successor_start(crate::SuccessorStart::AfterFirstOutput {
+            patience: Duration::from_secs(2),
+        })
+        .unwrap();
+    let (mut rig, mut dial) = connected(quick(), keeping).await;
+    for id in 1..=bound + 1 {
+        let supervisor = &mut rig.0;
+        supervisor.try_start(request(id)).unwrap();
+        if id == 1 {
+            assert!(
+                dial.service.receive().await["realtimeInput"]
+                    .get("activityStart")
+                    .is_some()
+            );
+        }
+        assert!(matches!(
+            notice(supervisor).await,
+            Notice::Event(Event::InputStarted { lineage, .. }) if lineage.request.get() == id
+        ));
+        supervisor
+            .try_audio(request(id), 0, std::time::Instant::now(), &[id as i16; 160])
+            .unwrap();
+        if id > bound {
+            break;
+        }
+        // Heard by the service, then superseded before its End: the
+        // activity stays open behind it.
+        let heard = crate::testing::sent_audio(&dial.service.receive().await).unwrap();
+        assert_eq!(heard[0], id as i16);
+        supervisor.retire(request(id));
+        supervisor.try_end(request(id)).unwrap();
+    }
+    // One request more than is remembered. Its block was refused before it
+    // was sent, its loss is reported once, and the supervisor ends.
+    let mut lost = Vec::new();
+    let ended = loop {
+        match raw(&mut rig.0).await {
+            Ok(Notice::Unavailable { error }) => assert_eq!(error, Error::OpenActivityOverrun),
+            Ok(Notice::TurnLost {
+                lineage,
+                stage,
+                error,
+            }) => lost.push((lineage.request.get(), stage, error)),
+            Ok(other) => panic!("expected the overrun and nothing else, got {other:?}"),
+            Err(failure) => break failure,
+        }
+    };
+    assert_eq!(
+        ended,
+        Failure {
+            error: Error::OpenActivityOverrun,
+            reason: FailureReason::NotRecoverable,
+            attempts: 0,
+        }
+    );
+    assert_eq!(
+        lost,
+        [(bound + 1, Stage::InputOpen, Error::OpenActivityOverrun)]
+    );
+    assert!(
+        dial.service
+            .try_receive(Duration::from_millis(80))
+            .await
+            .is_none()
+    );
+    assert!(
+        timeout(Duration::from_millis(80), rig.1.recv())
+            .await
+            .is_err()
+    );
+    // Ended: input is refused from here, as after any terminal failure.
+    assert_eq!(
+        rig.0.try_start(request(bound + 2)),
+        Err(Error::NotConnected)
+    );
+}
+
 #[tokio::test]
 async fn refused_handle_falls_back_to_a_fresh_session_only_when_policy_allows() {
     for require_context in [true, false] {

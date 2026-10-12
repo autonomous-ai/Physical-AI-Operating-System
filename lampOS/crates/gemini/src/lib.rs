@@ -14,9 +14,9 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_RETAINED_SAMPLES,
-    MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig, SuccessorStart,
-    ThinkingLevel, Timeouts,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_OPEN_ACTIVITY_REQUESTS,
+    MAX_RETAINED_SAMPLES, MAX_SUCCESSOR_PATIENCE, Resumption, ResumptionHandle, SessionConfig,
+    SuccessorStart, ThinkingLevel, Timeouts,
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
@@ -170,6 +170,20 @@ pub enum Event {
         outcome: BarrierOutcome,
         report: BarrierReport,
     },
+    /// Input up to `through` was abandoned, not continued, while some of it
+    /// was still kept here or already written but not committed. Only with
+    /// [`SuccessorStart::AfterFirstOutput`]. Counts only.
+    InputDiscarded {
+        session: SessionId,
+        /// Every request up to this one.
+        through: RequestId,
+        /// Kept and never handed to the socket: dropped, and never sent.
+        dropped_samples: u64,
+        /// Already handed to the socket in an activity that has no End yet.
+        /// **Not discarded and not recallable:** it stays in that activity,
+        /// and the next request that continues it is heard after it.
+        sent_samples: u64,
+    },
 }
 
 /// How a barrier ended. An assumption is reported as
@@ -224,6 +238,9 @@ pub struct BarrierReport {
     /// says it cannot be while the model is generating. An observation.
     pub resumable_updates: u32,
     pub unresumable_updates: u32,
+    /// Kept samples dropped unsent while the barrier stood, because the
+    /// request they belonged to was abandoned and not continued.
+    pub discarded_samples: u64,
 }
 
 /// What ended the keeping back of a next request's `activityStart`.
@@ -365,6 +382,10 @@ pub enum Error {
     MessageTooLarge,
     InvalidAudio,
     Backpressure,
+    /// One request more than [`MAX_OPEN_ACTIVITY_REQUESTS`] offered audio to
+    /// an activity that none of them ended and no abandonment had reported.
+    /// That audio could not be accounted for and was not sent. Terminal.
+    OpenActivityOverrun,
     StaleInput,
     InputSequence,
     StaleRequest,
@@ -414,6 +435,11 @@ impl Error {
             | Self::UnsupportedMessage
             | Self::MessageTooLarge
             | Self::InvalidAudio
+            // This side's own bound on an open activity, exhausted. Not a
+            // fault of the connection, and no evidence that a new one, or
+            // anything sent again on one, would be right for what that
+            // activity held: it is not retried.
+            | Self::OpenActivityOverrun
             | Self::StaleInput
             | Self::InputSequence
             | Self::StaleRequest

@@ -2,9 +2,9 @@ use crate::{
     BarrierOutcome, BarrierPolicy, BarrierReport, BarrierWait, Discard, EVENT_QUEUE_CAPACITY,
     Error, Event, INPUT_QUEUE_CAPACITY, ImageLedger, ImageOffer, ImageReceipt, ImageRefusal,
     ImageRevocation, Lineage, MAX_IMAGE_AGE, MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST,
-    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_RETAINED_SAMPLES, MAX_WIRE_BYTES, OUTPUT_RATE, RequestId,
-    Result, Resumption, ResumptionHandle, SessionConfig, SessionId, StartRelease, State,
-    SuccessorStart, Timeouts, wire,
+    MAX_INPUT_AGE, MAX_INPUT_SAMPLES, MAX_OPEN_ACTIVITY_REQUESTS, MAX_RETAINED_SAMPLES,
+    MAX_WIRE_BYTES, OUTPUT_RATE, RequestId, Result, Resumption, ResumptionHandle, SessionConfig,
+    SessionId, StartRelease, State, SuccessorStart, Timeouts, wire,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::{
@@ -35,8 +35,19 @@ struct Stopped {
     observed_at: Clock,
 }
 
+#[cfg(test)]
+struct DiscardPublicationPause {
+    published: std::sync::mpsc::Sender<()>,
+    proceed: std::sync::mpsc::Receiver<()>,
+}
+
 struct Shared {
+    // Test-only deterministic preemption between discard's existing atomics.
+    #[cfg(test)]
+    discard_publication_pause: Mutex<Option<DiscardPublicationPause>>,
     retired_through: AtomicU64,
+    /// Through which request input was abandoned and not continued.
+    discarded_through: AtomicU64,
     submitted_through: AtomicU64,
     wake: Notify,
     stop: watch::Sender<Option<Stopped>>,
@@ -326,6 +337,44 @@ impl InputSender {
             .fetch_max(request.get(), Ordering::AcqRel);
         self.shared.wake.notify_one();
     }
+    /// Retirement of input that is abandoned, as opposed to continued by a
+    /// newer request. Like [`Self::retire`] it is synchronous and cannot be
+    /// blocked by a full queue.
+    ///
+    /// With [`SuccessorStart::AfterFirstOutput`], whatever of the requests up
+    /// to `request` is still kept here, not yet handed to the socket, is
+    /// dropped and never written, where `retire` leaves it to be written in
+    /// order as the opening of whatever continues it. What has already been
+    /// handed to the socket cannot be recalled and is not dropped: it is
+    /// counted and reported as sent in [`Event::InputDiscarded`]. Without
+    /// that setting nothing is ever kept and this is exactly `retire`.
+    pub fn discard(&self, request: RequestId) {
+        // Retirement is published first. From that store on no audio of the
+        // request is accepted or taken, so that when the session sees the
+        // abandonment and drops what it kept, nothing of the request can
+        // still arrive behind that. Published the other way round, a block
+        // accepted between the two stores outlived the drop and was written.
+        self.shared
+            .retired_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        #[cfg(test)]
+        {
+            let pause = self
+                .shared
+                .discard_publication_pause
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take();
+            if let Some(pause) = pause {
+                pause.published.send(()).unwrap();
+                pause.proceed.recv().unwrap();
+            }
+        }
+        self.shared
+            .discarded_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        self.shared.wake.notify_one();
+    }
     pub fn shutdown(&self) {
         self.shared.fail(Error::Closed);
     }
@@ -528,7 +577,10 @@ where
     let (state_tx, state) = watch::channel(State::Ready);
     let (stop, stop_rx) = watch::channel(None);
     let shared = Arc::new(Shared {
+        #[cfg(test)]
+        discard_publication_pause: Mutex::new(None),
         retired_through: AtomicU64::new(0),
+        discarded_through: AtomicU64::new(0),
         submitted_through: AtomicU64::new(0),
         wake: Notify::new(),
         stop,
@@ -562,6 +614,8 @@ where
         waiting_since: None,
         gated: false,
         purged_through: 0,
+        discard_applied: 0,
+        open_activity: OpenActivity::default(),
         shared,
         stop: stop_rx,
         current: None,
@@ -720,6 +774,42 @@ struct Held {
     audio: VecDeque<Audio>,
     samples: usize,
 }
+/// Audio samples written into the activity now open, which has no End yet,
+/// by the request they belong to and in order: what a request that continues
+/// the activity will be heard after. One entry per request, oldest first, and
+/// never more than [`MAX_OPEN_ACTIVITY_REQUESTS`] of them.
+#[derive(Default)]
+struct OpenActivity(VecDeque<(u64, u64)>);
+impl OpenActivity {
+    /// Account for `samples` of `request` about to be sent. Refused, with
+    /// nothing changed, when that would take one entry more than the bound:
+    /// nothing is sent that could not later be attributed.
+    fn note(&mut self, request: u64, samples: u64) -> Result<()> {
+        if let Some((_, total)) = self.0.back_mut().filter(|(last, _)| *last == request) {
+            *total = total.saturating_add(samples);
+            return Ok(());
+        }
+        if self.0.len() >= MAX_OPEN_ACTIVITY_REQUESTS {
+            return Err(Error::OpenActivityOverrun);
+        }
+        self.0.push_back((request, samples));
+        Ok(())
+    }
+    /// What the requests through `through` have sent. They are abandoned and
+    /// this is their report: counted once, and forgotten.
+    fn take_through(&mut self, through: u64) -> u64 {
+        let mut sent = 0u64;
+        while let Some((_, samples)) = self.0.front().filter(|(request, _)| *request <= through) {
+            sent = sent.saturating_add(*samples);
+            self.0.pop_front();
+        }
+        sent
+    }
+    /// The activity started or ended: nothing sent before is in it.
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 /// Kept audio written per turn of the session loop once the start is out,
 /// so that commands, incoming messages and a stop stay live while it drains.
 const RELEASE_BLOCKS: usize = 32;
@@ -747,6 +837,11 @@ struct Actor<S> {
     waiting_since: Option<Clock>,
     gated: bool,
     purged_through: u64,
+    /// Through which request a discard has been applied.
+    discard_applied: u64,
+    /// What the activity now open has been sent, by request. Empty unless a
+    /// start can be kept: only then is an abandonment reported at all.
+    open_activity: OpenActivity,
     shared: Arc<Shared>,
     stop: watch::Receiver<Option<Stopped>>,
     /// The newest request: the only one that accepts input.
@@ -828,6 +923,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 return Err(stop.error);
             }
             self.retire_active().await?;
+            self.apply_discard();
             self.purge_retired();
             self.enforce_barrier().await?;
             self.drain_held().await?;
@@ -1110,6 +1206,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.write(Message::text(wire::ACTIVITY_START), self.timeouts.write)
                 .await?;
             self.activity_open = true;
+            self.open_activity.clear();
         }
         Ok(())
     }
@@ -1136,6 +1233,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
             .await?;
         self.activity_open = false;
+        self.open_activity.clear();
         if let Some(turn) = self.current.as_mut() {
             turn.end_held = false;
             turn.held_at = None;
@@ -1288,6 +1386,68 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     fn holding(&self) -> bool {
         self.held.as_ref().is_some_and(|held| held.holding)
     }
+    /// A block is about to be handed to the socket in the open activity.
+    /// One that cannot be accounted for is refused here, before it is sent.
+    fn note_sent(&mut self, audio: &Audio) -> Result<()> {
+        if !matches!(
+            self.successor_start,
+            SuccessorStart::AfterFirstOutput { .. }
+        ) {
+            // Nothing is kept, so an abandonment reports nothing: no account.
+            return Ok(());
+        }
+        self.open_activity
+            .note(audio.request.get(), audio.samples.len() as u64)
+    }
+    /// Apply an abandonment recorded by [`InputSender::discard`]: drop what
+    /// is still kept of the abandoned requests, and say what was dropped and
+    /// what had already gone. Only where something can be kept at all;
+    /// otherwise an abandonment is a retirement and nothing more.
+    fn apply_discard(&mut self) {
+        let through = self.shared.discarded_through.load(Ordering::Acquire);
+        let applied = self.discard_applied;
+        if through <= applied {
+            return;
+        }
+        self.discard_applied = through;
+        if !matches!(
+            self.successor_start,
+            SuccessorStart::AfterFirstOutput { .. }
+        ) {
+            return;
+        }
+        let mut dropped = 0;
+        if let Some(held) = self.held.as_mut() {
+            held.audio.retain(|audio| {
+                let abandoned = audio.request.get() <= through;
+                if abandoned {
+                    dropped += audio.samples.len();
+                }
+                !abandoned
+            });
+            held.samples -= dropped;
+        }
+        let dropped = dropped as u64;
+        if let Some(barrier) = self.barrier.as_mut() {
+            barrier.seen.discarded_samples = barrier.seen.discarded_samples.saturating_add(dropped);
+        }
+        // What was handed to the socket before this is in an activity that
+        // has no End: it cannot be taken back and is not called discarded.
+        // Only the abandoned requests' own samples: a newer request's audio
+        // in the same activity is not theirs. Reported here once and no
+        // longer remembered.
+        let sent = self.open_activity.take_through(through);
+        if (dropped > 0 || sent > 0)
+            && let Ok(through) = RequestId::new(through)
+        {
+            self.emit(Event::InputDiscarded {
+                session: self.session,
+                through,
+                dropped_samples: dropped,
+                sent_samples: sent,
+            });
+        }
+    }
     /// Stop keeping the next request's start back: write it, and let what
     /// was kept behind it follow in order. With a barrier still standing
     /// this is the interruption, and its quiet bound counts from here.
@@ -1316,6 +1476,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         // audio is otherwise allowed to be, and no older.
         let bound = MAX_INPUT_AGE + patience;
         for _ in 0..RELEASE_BLOCKS {
+            // An abandonment recorded while the block before this one was
+            // being written is applied before this one is taken.
+            self.apply_discard();
             let Some(held) = self.held.as_mut().filter(|held| !held.holding) else {
                 return Ok(());
             };
@@ -1328,6 +1491,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 .filter(|age| *age < bound)
                 .ok_or(Error::StaleInput)?;
             let deadline = self.timeouts.write.min(bound - age);
+            // An abandoned request's block cannot be here: its retirement
+            // was published before its abandonment, so none was accepted
+            // after the drop. Were one here all the same, it is not written.
+            if audio.request.get() <= self.discard_applied {
+                continue;
+            }
+            // Handed to the socket from here: no longer droppable.
+            self.note_sent(&audio)?;
             self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                 .await?;
         }
@@ -1394,6 +1565,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     return Ok(());
                 }
                 let deadline = self.timeouts.write.min(MAX_INPUT_AGE - age);
+                self.note_sent(&audio)?;
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
             }

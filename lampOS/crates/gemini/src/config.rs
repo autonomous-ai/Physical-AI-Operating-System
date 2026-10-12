@@ -169,6 +169,16 @@ pub const MAX_SUCCESSOR_PATIENCE: Duration = Duration::from_secs(4);
 /// six seconds. More than the longest patience, so that audio arriving at
 /// the rate it is spoken cannot fill it first.
 pub const MAX_RETAINED_SAMPLES: usize = 16_000 * 6;
+/// The most requests in a row whose audio one open activity is accounted
+/// for: requests that each sent audio into an activity that was neither
+/// ended nor abandoned in between. A bound on what is remembered and
+/// nothing else: the account lets a late abandonment report exactly its own
+/// audio, and an entry leaves it only when the activity ends or when the
+/// abandonment that reports it is applied. One more request than this fails
+/// the connection with [`Error::OpenActivityOverrun`] before any of its
+/// audio is sent, and that failure is not retried. Only where a start can be
+/// kept at all; otherwise there is no account and no such bound.
+pub const MAX_OPEN_ACTIVITY_REQUESTS: usize = 64;
 
 /// What happens to the next request when it starts while a committed
 /// request's response has produced nothing yet.

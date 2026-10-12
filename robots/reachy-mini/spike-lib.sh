@@ -21,6 +21,21 @@ say() { printf '\n========== %s ==========\n' "$1" >&2; }
 info() { printf '[%s] %s\n' "${SPIKE_TAG:-spike}" "$1" >&2; }
 die() { printf '[%s] ERROR: %s\n' "${SPIKE_TAG:-spike}" "$1" >&2; exit 1; }
 
+# df -Pk reports KiB; keep the exact counts beside the readable MiB values.
+require_disk_space() {
+  local required_kb="$1" purpose="$2" available_kb shortfall_kb
+  available_kb="$(df -Pk / | awk 'NR==2 {print $4}')" \
+    || die "could not read free space on /"
+  case "$available_kb" in
+    ''|*[!0-9]*) die "invalid free-space reading on /" ;;
+  esac
+  info "free space on /: $available_kb KiB ($(awk -v k="$available_kb" 'BEGIN {printf "%.3f", k/1024}') MiB)"
+  if [ "$available_kb" -lt "$required_kb" ]; then
+    shortfall_kb=$((required_kb - available_kb))
+    die "insufficient space for $purpose: required $required_kb KiB ($(awk -v k="$required_kb" 'BEGIN {printf "%.3f", k/1024}') MiB), available $available_kb KiB; shortfall $shortfall_kb KiB ($(awk -v k="$shortfall_kb" 'BEGIN {printf "%.3f", k/1024}') MiB). Free space before retrying this step."
+  fi
+}
+
 ensure_root() {
   [ "$(id -u)" -eq 0 ] || die "run as root:  sudo bash $0 $*"
 }

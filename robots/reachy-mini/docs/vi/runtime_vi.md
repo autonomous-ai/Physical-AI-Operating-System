@@ -182,6 +182,12 @@ Mọi script con đều nhận `--stop` và `--uninstall`. Cờ riêng: `spike-h
 --no-deps`, `spike-device.sh --keep-env` (giữ nguyên `/opt/hal/.env` đang có),
 `spike-bootstrap.sh --no-start` (cài và enable, không start).
 
+Nếu một bước cài đặt thất bại, `spike.sh` thoát với trạng thái lỗi và in các lệnh
+chạy lại từ bước đó đến các bước còn lại không bị `--skip`. Sau khi xử lý lỗi,
+chạy các lệnh này theo thứ tự và dừng nếu bất kỳ lệnh nào lỗi; không cần chạy
+lại các bước đã thành công. Các lệnh được in chỉ giữ `--no-deps` cho HAL, và
+script không tự chạy các bước tiếp theo sau lỗi.
+
 `spike-lib.sh` là thư viện dùng chung mà mọi script source vào — fetch metadata,
 `ota_unpack` / `ota_install_binary`, `write_unit` / `start_unit`, `wait_http`.
 Snapshot metadata cache ở `/tmp/.spike-ota-metadata.json`; `spike.sh` xoá nó ở
@@ -189,14 +195,26 @@ Snapshot metadata cache ở `/tmp/.spike-ota-metadata.json`; `spike.sh` xoá nó
 vào giữa lượt không thể đẩy os-server và hal sang hai build lệch nhau. Chạy lại
 một script con lẻ thì cache không tự xoá — xoá tay hoặc mở shell mới.
 
-Hai guard đáng nhớ:
+Các guard đáng nhớ:
 
 - `spike-os.sh` **từ chối cài** nếu `set_up_completed` chưa `true` **và**
   `/usr/local/bin/device-ap-mode` tồn tại: bật os-server lúc boot khi đó sẽ gọi
   `SwitchToAPMode()`, phá WiFi station và mất robot qua SSH.
-- `spike-hal.sh` đòi tối thiểu **4 GB** trống trên `/` trước khi `uv sync` (venv
-  ~2 GB, cache uv chừng đó nữa, trên eMMC 14 GB đã đầy ~60%). Với `--no-deps` thì
-  bỏ qua kiểm tra này.
+- `spike-hal.sh` đòi tối thiểu **4 GiB** trống trên `/` khi tạo môi trường mới,
+  hoặc **1 GiB** nếu `/opt/hal/.venv/bin/uvicorn` đã có quyền thực thi.
+  `--no-deps` bỏ qua kiểm tra dung lượng và đồng bộ dependency nhưng vẫn yêu cầu
+  executable này tồn tại.
+- `spike-agent.sh` kiểm tra riêng, yêu cầu **1.5 GiB** trống cho Node và OpenClaw.
+  Lỗi hiển thị dung lượng hiện có, yêu cầu và còn thiếu bằng MiB kèm số KiB chính
+  xác, tránh thông báo GB làm tròn gây hiểu nhầm.
+
+Qua kiểm tra HAL không bảo đảm đủ chỗ cho toàn bộ stack. Số ~1.8 GB trống sau
+cài đặt là quan sát trước đây, không phải bảo đảm cho image gốc hoặc package
+hiện tại; [issue #627](https://github.com/autonomous-ai/Physical-AI-Operating-System/issues/627)
+báo chỉ còn ~1.4 GB sau HAL. Các ngưỡng này giữ nguyên; bản sửa chưa đo dung lượng
+đỉnh khi cài trên Reachy hiện tại. HAL giữ cache uv trong `/opt/hal/.uv-cache`
+và vẫn chạy `uv cache prune` sau khi sync thành công. Bản sửa không thêm dọn dẹp
+tự động; kích thước cache được báo không bảo đảm lượng dung lượng có thể thu hồi.
 
 Vhost spike **không phải** vhost production — bản thật do
 `scripts/provision/setup.sh` viết vào `/etc/nginx/conf.d/<type>.conf`, bản spike

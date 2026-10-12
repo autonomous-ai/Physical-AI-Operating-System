@@ -191,6 +191,12 @@ robot is still cleanable. `spike.sh` clears the metadata cache at the start of a
 run and the six steps then share one snapshot of the feed, so a publish landing
 mid-install cannot leave os-server and HAL on mismatched builds.
 
+If an install step fails, `spike.sh` exits with failure and prints commands from
+that step through the remaining non-skipped steps. After resolving the error,
+run those commands in order, stopping if any command fails; earlier successful
+steps need not run again. The printed commands preserve `--no-deps` only for
+HAL, and no later step executes automatically after the failure.
+
 Everything runs under **systemd** (`hal`, `os-server`, `openclaw`, `bootstrap`)
 and survives a reboot; tmux is gone. That is also why `--stop` and `--uninstall`
 differ: `--stop` leaves the unit *enabled*, so the service comes back on the next
@@ -595,10 +601,21 @@ profile is measured.
    sudo bash ~/reachy-mini/spike-hal.sh --stop       # stop + hand media back
    ```
 
-   `spike-hal.sh` refuses to run the venv build with less than 4 GB free on `/`
-   (the venv is ~2 GB — torch, opencv, polars, pyarrow — and uv's wheel cache can
-   add as much again on a 14 GB eMMC that ships ~60 % full). It keeps that cache
-   in `/opt/hal/.uv-cache` so `--uninstall` reclaims every byte it wrote.
+   `spike-hal.sh` requires **4 GiB** free on `/` for a fresh environment, or
+   **1 GiB** when `/opt/hal/.venv/bin/uvicorn` is already executable.
+   `--no-deps` skips this check and dependency sync but still requires that
+   executable. The later `spike-agent.sh` check independently requires
+   **1.5 GiB** for Node and OpenClaw. Errors show available, required, and
+   missing space in MiB with exact KiB values, avoiding ambiguous rounded GB.
+
+   Passing HAL's check does not guarantee the whole stack fits. The earlier
+   observation of ~1.8 GB free after installation is not a guarantee for current
+   stock images or packages; [issue #627](https://github.com/autonomous-ai/Physical-AI-Operating-System/issues/627)
+   reports ~1.4 GB remaining after HAL. These thresholds are unchanged; peak
+   installation usage on current Reachy hardware has not been measured for this
+   fix. HAL keeps its uv cache in `/opt/hal/.uv-cache` and runs the existing
+   `uv cache prune` after a successful sync. This fix adds no automatic cleanup;
+   reported cache size is not a promise of recoverable disk space.
 
 3. **Manual install** (if not using the spike scripts):
 

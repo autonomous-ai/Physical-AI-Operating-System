@@ -110,9 +110,7 @@ ensure_openclaw_node() {
 }
 
 say "2/5  Ensure compatible Node.js (NodeSource 24.x when needed)"
-avail_kb="$(df -Pk / | awk 'NR==2 {print $4}')"
-info "free space: $(awk -v k="$avail_kb" 'BEGIN {printf "%.1f", k/1048576}') GB"
-[ "$avail_kb" -ge 1572864 ] || die "need at least 1.5 GB free on / for node + the openclaw package"
+require_disk_space 1572864 "Node.js and OpenClaw (1.5 GiB)"
 ensure_openclaw_node
 
 say "3/5  Install openclaw@$NPM_SPEC"

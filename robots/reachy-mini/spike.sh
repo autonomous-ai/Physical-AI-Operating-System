@@ -35,6 +35,22 @@ skipped() {
   return 1
 }
 
+# Print only the failed and remaining requested steps; never rerun completed work.
+show_resume_commands() {
+  local failed="$1" remaining=0 candidate
+  info "Step '$failed' failed. After fixing the error, run these commands in order; stop if any fails:"
+  for candidate in "${STEPS[@]}"; do
+    [ "$candidate" != "$failed" ] || remaining=1
+    [ "$remaining" -eq 1 ] || continue
+    skipped "$candidate" && continue
+    printf '  sudo bash %q' "$(script_for "$candidate")" >&2
+    if [ "$candidate" = "hal" ] && [ "${#PASS_ARGS[@]}" -gt 0 ]; then
+      printf ' %q' "${PASS_ARGS[@]}" >&2
+    fi
+    printf '\n' >&2
+  done
+}
+
 # Teardown in reverse order so bootstrap cannot reinstall a component being removed.
 if [ "$MODE" != "install" ]; then
   flag="--stop"; [ "$MODE" = "uninstall" ] && flag="--uninstall"
@@ -71,11 +87,15 @@ for step in "${STEPS[@]}"; do
   fi
   say "STEP: $step"
 # --no-deps is HAL-only; other steps reject unknown flags.
-  if [ "$step" = "hal" ]; then
-    bash "$(script_for "$step")" ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
-  else
-    bash "$(script_for "$step")"
+  step_args=()
+  if [ "$step" = "hal" ] && [ "${#PASS_ARGS[@]}" -gt 0 ]; then
+    step_args=("${PASS_ARGS[@]}")
   fi
+  bash "$(script_for "$step")" ${step_args[@]+"${step_args[@]}"} || {
+    status=$?
+    show_resume_commands "$step"
+    exit "$status"
+  }
 done
 
 say "Bring-up complete in $(( (SECONDS - START_TS) / 60 ))m $(( (SECONDS - START_TS) % 60 ))s"

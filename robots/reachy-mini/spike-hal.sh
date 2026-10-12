@@ -49,22 +49,16 @@ fi
   || die "no $DEVICES_DIR/$DEVICE_TYPE/ROBOT.md — run: sudo bash spike-device.sh"
 
 say "1/4  Preflight: disk space"
-# A built venv leaves ~1.8 GB free, so re-runs need a smaller threshold than first install.
-AVAIL_KB="$(df -Pk / | awk 'NR==2 {print $4}')"
-info "free space on /: $(awk -v k="$AVAIL_KB" 'BEGIN {printf "%.1f GB", k/1048576}')"
+# Incremental sync needs less headroom than building a fresh venv.
 if [ "$SKIP_DEPS" = "0" ]; then
   if [ -x "$HAL_DIR/.venv/bin/uvicorn" ]; then
-    NEED_KB=1048576   # 1 GB — incremental sync over an existing venv
-    NEED_LABEL="1 GB (updating an existing venv)"
+    NEED_KB=1048576   # 1 GiB for incremental sync
+    NEED_LABEL="HAL incremental sync (1 GiB)"
   else
-    NEED_KB=4194304   # 4 GB — download + build from nothing
-    NEED_LABEL="4 GB (building the venv from scratch)"
+    NEED_KB=4194304   # 4 GiB for download and a fresh venv build
+    NEED_LABEL="HAL fresh venv build (4 GiB)"
   fi
-  if [ "$AVAIL_KB" -lt "$NEED_KB" ]; then
-    die "need at least $NEED_LABEL.
-Free space first (journalctl --vacuum-size=100M, uv cache clean), or re-run
-with --no-deps to skip the sync entirely."
-  fi
+  require_disk_space "$NEED_KB" "$NEED_LABEL"
 fi
 
 say "2/4  Install HAL from OTA"

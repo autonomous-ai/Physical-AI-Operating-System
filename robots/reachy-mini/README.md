@@ -47,8 +47,11 @@ sudo bash /opt/devices/reachy-mini/spike.sh --uninstall   # remove it
   that is already set up and on your network
 - SSH access to it — on the shipped Pollen OS that is the `pollen` user, which
   has passwordless sudo. Root cannot SSH in directly.
-- ~4 GB free on the eMMC. The installer checks and refuses rather than wedging
-  the robot, since a full disk hurts the Pollen daemon more than it hurts us.
+- At least **4 GiB free on `/`** before building a fresh HAL environment. An
+  existing executable `/opt/hal/.venv/bin/uvicorn` lowers the HAL check to
+  **1 GiB**; the later agent step separately requires **1.5 GiB**. Passing the
+  HAL check does not guarantee enough space for the full installation. Errors
+  report available, required, and missing space in MiB with exact KiB values.
 
 ### Options
 
@@ -116,8 +119,10 @@ Reachy Mini Lite (the daemon runs on your laptop) is not supported yet — it ne
   `[HW:/servo/play:{"recording":"dance1"}]`.
 
 `--stop` puts it back to sleep and hands everything straight back. What lands:
-four systemd units, nginx, Node 22, one `/etc/asound.conf`, ~1.8 GB left on a
-stock unit. Web UI: `http://reachy-mini.local/monitor`, login = last 4
+four systemd units, nginx, Node 22, one `/etc/asound.conf`. The ~1.8 GB free
+reported after an earlier install was a historical observation, not a guarantee
+for current stock images or package versions; [issue #627](https://github.com/autonomous-ai/Physical-AI-Operating-System/issues/627)
+reports only ~1.4 GB remaining after HAL. Web UI: `http://reachy-mini.local/monitor`, login = last 4
 characters of the Pi's serial (`grep Serial /proc/cpuinfo | tail -c 5`).
 
 ## Files
@@ -214,7 +219,15 @@ something about everyone else's build. Point it elsewhere with
 
 Each component script also takes `--stop` and `--uninstall`; `spike-hal.sh` takes
 `--no-deps`, `spike-device.sh` takes `--keep-env`, `spike-bootstrap.sh` takes
-`--no-start`.
+`--no-start`. `--no-deps` skips HAL dependency sync and its space check, but
+requires an existing executable `/opt/hal/.venv/bin/uvicorn`; it does not bypass
+the agent's space check.
+
+If a step fails, `spike.sh` exits with failure and prints commands to retry that
+step and then run the remaining steps in order, respecting `--skip` and passing
+`--no-deps` only to HAL. Resolve the reported error, then run the printed commands
+in order, stopping if any command fails. Earlier successful steps need not run
+again; the remaining steps are not executed automatically after a failure.
 
 What this is **not**: `scripts/provision/setup.sh`, the production provisioning
 path used by the imager, which additionally sets up the WiFi AP fallback and the

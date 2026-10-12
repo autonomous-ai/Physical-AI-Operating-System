@@ -5,9 +5,11 @@ Treat this directory as the root of a standalone repository. Follow the
 
 For the three-agent effort, follow [agent coordination](coordination/README.md).
 Read assignments and device reservations from the fetched integration branch.
-Use tmux terminals for all communication between Main and the two agents;
-publish code checkpoints and durable decisions on your own work branch.
-Do not use Harness team/channel messages or Git as a message queue.
+Use the built-in Harness Agent Messages (`harness send`) for communication
+between Main and the two agents. The owner enabled this route on 12 October
+2026, superseding tmux delivery. Publish code checkpoints and durable decisions
+on your own work branch; Git is not a message queue. Never paste peer reports
+into the owner-facing composer.
 The owner does not relay routine agent reports.
 
 - First release: chat with a physical robot beside one person at a desk.

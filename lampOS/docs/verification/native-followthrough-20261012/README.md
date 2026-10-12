@@ -16,7 +16,7 @@ and outer restoration are separate evidence.
 
 Main also selected the permission-approved recorder executable for playback;
 that older build implements no `play` command. It refused before source output.
-The existing qualified player is a different pinned binary. One background
+The existing qualified player is a different pinned binary. One unplanned
 input was admitted and cancelled at the finite deadline. The retained 90-second
 room WAV is valid, but full attempt coverage has not been established.
 

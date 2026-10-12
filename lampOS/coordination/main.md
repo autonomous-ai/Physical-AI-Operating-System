@@ -1,6 +1,6 @@
 # Main agent status
 
-- Protocol: `tmux-and-git-v3`
+- Protocol: `harness-messages-and-git-v4`
 - Updated: 2026-10-12 02:24 UTC
 - Branch: `lamp-v2-chat`
 - Latest native evidence: final `a9cae6d17` source / `b3186e7e…73f4` handled eight inputs, six completed replies and two planned supersessions. One 30 ms supply gap and coffee-context loss remain; room recording invalid after a later queue overflow. Shutdown/restoration verify. Camera/motors were off.
@@ -52,10 +52,10 @@ Agent 1's publication/abandonment/ledger corrections through `4d40fff3d` are
 now integrated; the source-clock correction has also passed its narrow final review and is integrated. See [the capture-clock evidence](../docs/verification/provider-capture-clock-20261012/README.md).
 The earlier pending-race descriptions below are historical, not current blockers.
 
-Agent coordination still uses tmux, but agents must never paste or press Enter
-in Main's owner-facing composer. Agent 1's earlier update entered a half-written
-owner message. Peer reports now remain in their own panes and durable branch
-status; Main reads them at safe boundaries. No owner relay is required.
+Agent coordination now uses Harness Agent Messages. The owner enabled this
+route after a tmux report was pasted into a half-written owner message. Never
+paste peer reports into Main's owner-facing composer. Git retains code and
+durable evidence; no owner relay is required.
 
 ## Latest native candidate control
 

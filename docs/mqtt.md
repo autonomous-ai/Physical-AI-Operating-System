@@ -57,6 +57,7 @@ The OS server uses MQTT to communicate with the backend server (status reporting
   "time": "2026-03-26T17:00:00Z",
   "wakeword_enabled": false,
   "voice_input_mode": "automatic",
+  "cloud_perception": { "motion": false, "emotion": false, "pose": false, "fire_hazard": false },
   "agent_runtime": "openclaw"
 }
 ```
@@ -69,7 +70,9 @@ The OS server uses MQTT to communicate with the backend server (status reporting
 `codex_version`, `claudecode_version`, `opencode_version`, `local_ip`, `tts_provider`, `tts_voice`,
 `stt_language`, `timezone`, `unsupported_channels`, `skills`. `wakeword_enabled` is always
 present and reports the effective top-level wake-word gate from config
-(`true` or `false`; a missing legacy config value reports `false`). `timezone` is the device's
+(`true` or `false`; a missing legacy config value reports `false`). `cloud_perception` is always
+present and reports the saved camera cloud opt-ins (a missing legacy value reports all `false`); see
+[`cloud_perception.set`](#cloud_perceptionset). `timezone` is the device's
 **live** IANA zone (e.g. `Asia/Ho_Chi_Minh`), read fresh from `/etc/timezone`
 (falling back to config), not just the config record. The six per-runtime
 versions are all probed at startup (each from its own `--version`) and
@@ -354,6 +357,7 @@ before synthesis; valid requests acknowledge `starting`, then `success` or
 | `tts.set` | Persist TTS voice/provider/language/speed config | `provider`, `voice`, `language`, optional `speed` |
 | `tts.preview` | One-shot TTS preview (no config write) | `text` (required), optional `provider`/`voice`/`language`/`speed` |
 | `wakeword.gate` | Set the top-level wake-word gate (async; acks `starting`) | `enabled` (required boolean) |
+| `cloud_perception.set` | Turn camera cloud perceptions **off** (opt-out only; async; acks `starting`) | any of `motion`, `emotion`, `pose`, `fire_hazard` (must be `false`) |
 | `voice.input_mode` | Select voice input behavior (async ack) | `mode`: `automatic` or `tap_to_talk` |
 | `timezone.set` | Apply the device's IANA timezone (async; acks `starting`) | `timezone` (required, e.g. `Asia/Ho_Chi_Minh`) |
 | `oauth.set` | Store/replace an OAuth token for a provider | `provider`, `access_token`, optional `refresh_token`/`token_type`/`expires_at`/`scopes`/`user_email`/`client_id` |
@@ -597,6 +601,22 @@ already be saved when a restart fails. Within the current os-server process, a
 pending wake apply is retained after a save or restart failure, so retrying the
 same desired value retries the apply. Once applied successfully, an unchanged
 wake value does not trigger another restart.
+
+#### `cloud_perception.set`
+
+Turns camera perceptions that upload images to the DL backend **off**. MQTT has no
+sender authentication, so it can only withdraw consent: any key set to `true` is
+rejected with `status:"failure"` and the config is not changed. Turning a perception
+on stays a local choice in the device's web **Settings > Privacy**
+([os-server.md](os-server.md#cloud-camera-perception)). Keys left out keep their saved value.
+
+**Receive:** `{"cmd":"data","kind":"cloud_perception.set","data":{"pose":false}}`
+
+Valid requests ack `starting`, then save through the same path as
+`PUT /api/device/config` (applied live in HAL, HAL restart only if that fails) and
+ack `success` or `failure` with the resulting four values in `data`. An empty payload,
+invalid JSON or any `true` value acks `failure` before mutation. `info` reports the
+saved state in `cloud_perception`.
 
 #### `timezone.set`
 

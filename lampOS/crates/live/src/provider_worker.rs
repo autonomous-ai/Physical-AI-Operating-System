@@ -15,8 +15,7 @@ use crate::{
 };
 use lamp_gemini::{
     BarrierWait, Connect, Context, Dialer, Discard, Error, Event, Failure, FailureReason, Notice,
-    RecoveryPolicy, RequestId, SessionConfig, SessionId, Stage, StartRefusal, State,
-    SuccessorStart, Supervisor,
+    RequestId, SessionConfig, SessionId, Stage, StartRefusal, State, SuccessorStart, Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
@@ -46,6 +45,9 @@ const RESUMPTION: lamp_gemini::Resumption = lamp_gemini::Resumption::Retain;
 /// a late answer. The assumption policy remains explicit in transport tests.
 #[cfg(test)]
 use lamp_gemini::BarrierPolicy;
+// In production the private configuration decides this too.
+#[cfg(test)]
+use lamp_gemini::RecoveryPolicy;
 #[cfg(test)]
 const BARRIER: BarrierPolicy = BarrierPolicy::Require;
 /// How long `Continuation::KeptStart` keeps a next request's start back. In
@@ -478,12 +480,13 @@ pub async fn run_with_continuation(
 ) -> Result<()> {
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
+    let recovery = provider_config.recovery_policy();
     let config = continuation.apply(
         provider_config
             .into_session_with_camera(visual.is_some())?
             .barrier_policy(barrier),
     )?;
-    let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;
+    let provider = Supervisor::new(Dialer::new(config), recovery)?;
     let options = Options { reporting };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -767,6 +770,19 @@ fn forward(
             request: lineage.request.get(),
             idle,
         }),
+        // The service chose not to answer. For the coordinator the request is
+        // complete and had no audio; the connection and conversation stay.
+        Event::Unanswered { lineage, waited } => {
+            eprintln!(
+                "lamp-live provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
+                lineage.request.get(),
+                waited.as_millis()
+            );
+            push(ProviderOutput::TurnComplete {
+                request: lineage.request.get(),
+                idle: true,
+            });
+        }
         Event::GoAway { time_left, .. } => eprintln!(
             "lamp-live provider: service announced a close; time_left_ms={:?}",
             time_left.map(|left| left.as_millis())

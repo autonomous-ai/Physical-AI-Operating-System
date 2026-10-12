@@ -503,6 +503,11 @@ fn observe(tracked: &Cell<Option<Tracked>>, event: &Event) {
             tracked.set(None);
             return;
         }
+        // Closed without an answer: nothing of it is in flight any more.
+        Event::Unanswered { lineage, .. } if *lineage == request.lineage => {
+            tracked.set(None);
+            return;
+        }
         _ => None,
     };
     if let Some(stage) = stage {

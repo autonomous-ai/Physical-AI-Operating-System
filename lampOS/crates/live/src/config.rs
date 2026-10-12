@@ -1,6 +1,8 @@
 //! Explicit private configuration. Neither the HAL nor os-server configuration
 //! is read by this runtime. Provisioning may migrate values once outside source.
-use lamp_gemini::{BarrierPolicy, Credential, Resumption, SessionConfig, ThinkingLevel, Timeouts};
+use lamp_gemini::{
+    BarrierPolicy, Credential, RecoveryPolicy, Resumption, SessionConfig, ThinkingLevel, Timeouts,
+};
 use serde::Deserialize;
 use std::{
     fs::OpenOptions,
@@ -29,6 +31,15 @@ pub struct ProviderConfig {
     /// Longest wait for the first output of a response, in milliseconds.
     #[serde(default)]
     response_timeout_ms: Option<u32>,
+    /// How long a request may go without any output before it is taken as
+    /// one the service chose not to answer, in milliseconds. The request then
+    /// ends without an answer and the connection stays. Absent: a request
+    /// with no output fails the connection at the response timeout. On
+    /// lamp-4ace a service instructed to stay quiet for speech not meant for
+    /// it sent nothing at all for such a request, and the ten-second timeout
+    /// ended the connection.
+    #[serde(default)]
+    no_reply_after_ms: Option<u32>,
     /// A private text file that replaces the built-in instruction.
     #[serde(default)]
     instruction_file: Option<String>,
@@ -125,11 +136,33 @@ impl ProviderConfig {
                 "response timeout must be 2 to 60 seconds",
             ));
         }
+        let response_ms = config
+            .response_timeout_ms
+            .map_or(Timeouts::default().response.as_millis(), u128::from);
+        if config
+            .no_reply_after_ms
+            .is_some_and(|ms| !(1_000..=30_000).contains(&ms) || u128::from(ms) >= response_ms)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "no-reply wait must be 1 to 30 seconds and shorter than the response timeout",
+            ));
+        }
         Ok(config)
     }
     /// What the provider worker does about a response that goes silent.
     pub fn barrier_policy(&self) -> BarrierPolicy {
         self.silent_response.into()
+    }
+    /// What a lost connection is replaced with. A configuration that opens a
+    /// new conversation on every reconnect never holds a handle, so requiring
+    /// one would turn every loss, including the service's own periodic
+    /// close, into the end of the process.
+    pub fn recovery_policy(&self) -> RecoveryPolicy {
+        RecoveryPolicy {
+            require_context: self.resumption == ReconnectContext::Retain,
+            ..RecoveryPolicy::default()
+        }
     }
     pub fn into_session(self) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
         self.into_session_with_camera(false)
@@ -174,10 +207,13 @@ impl ProviderConfig {
             .voice(&self.voice)?
             .instruction(instruction)?
             .resumption(self.resumption.into());
-        if let Some(ms) = self.response_timeout_ms {
+        if self.response_timeout_ms.is_some() || self.no_reply_after_ms.is_some() {
+            let standard = Timeouts::default();
+            let ms = |value: u32| std::time::Duration::from_millis(u64::from(value));
             session = session.timeouts(Timeouts {
-                response: std::time::Duration::from_millis(u64::from(ms)),
-                ..Timeouts::default()
+                response: self.response_timeout_ms.map_or(standard.response, ms),
+                unanswered: self.no_reply_after_ms.map(ms),
+                ..standard
             })?;
         }
         if let Some(level) = self.thinking_level {
@@ -279,6 +315,29 @@ mod tests {
         assert_eq!(config.instruction_file.as_deref(), Some("/etc/x"));
         assert!(parsed(r#","response_timeout_ms":"8000""#).is_err());
         assert!(parsed(r#","instruction_file":7"#).is_err());
+    }
+
+    #[test]
+    fn a_request_without_an_answer_fails_the_connection_unless_a_no_reply_wait_is_set() {
+        assert_eq!(parsed("").unwrap().no_reply_after_ms, None);
+        assert_eq!(
+            parsed(r#","no_reply_after_ms":4000"#)
+                .unwrap()
+                .no_reply_after_ms,
+            Some(4_000)
+        );
+        assert!(parsed(r#","no_reply_after_ms":"4000""#).is_err());
+    }
+
+    #[test]
+    fn a_reconnect_without_context_is_allowed_only_when_every_reconnect_is_a_new_conversation() {
+        assert!(parsed("").unwrap().recovery_policy().require_context);
+        assert!(
+            !parsed(r#","resumption":"off""#)
+                .unwrap()
+                .recovery_policy()
+                .require_context
+        );
     }
 
     #[test]

@@ -294,11 +294,22 @@ conversation continues; `off` always opens a new conversation. Use `off` on a
 path where a resumed session accepts audio and never answers: on lamp-4ace
 through its relay, after the first failed exchange seven requests in a row
 went unanswered, each on a session reported as resumed, while every fresh
-session answered. Three more optional fields: `silent_response` (`fail`, the
-default, or `assume_over`) says what happens when a response that was asked to
-stop sends neither more output nor its completion: fail the connection, or take
-the response as over and let the next request proceed; `response_timeout_ms`
-(2,000 to 60,000) replaces the 30 s wait for the first output of a response;
+session answered. With `off` a lost connection is replaced by a new
+conversation inside the same process; with `retain` a loss with no handle to
+present still ends the process. Four more optional fields: `silent_response`
+(`fail`, the default, or `assume_over`) says what happens when a response that
+was asked to stop sends neither more output nor its completion: fail the
+connection, or take the response as over and let the next request proceed (the
+coordinator records `provider_ownership_assumed` and grants that request
+nothing it would not otherwise have); `response_timeout_ms` (2,000 to 60,000)
+replaces the 30 s wait for the first output of a response; `no_reply_after_ms`
+(1,000 to 30,000, and shorter than the response timeout) makes a request with
+no output at all for that long end as one the service chose not to answer: the
+turn finishes with outcome `no_audio_answer`, the connection and the
+conversation stay, and an answer that still arrives later is dropped. Without
+it such a request fails the connection at the response timeout. On lamp-4ace a
+service instructed to stay quiet for speech not meant for it sent nothing at
+all for such a request, and the ten-second timeout ended the process;
 `instruction_file` names a private text file of at most 16 KiB that replaces
 the built-in instruction.
 

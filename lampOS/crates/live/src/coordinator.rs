@@ -1341,12 +1341,11 @@ fn observe_provider_output(
         ProviderOutput::Ready { .. }
         | ProviderOutput::Transcript { .. }
         | ProviderOutput::InputDiscarded { .. } => {}
+        // Only a provider configured to take a silent earlier response as
+        // over reports this. It grants nothing here: the request still needs
+        // its own Started before any of its output is usable.
+        ProviderOutput::OwnershipAssumed { .. } => {}
         ProviderOutput::Ended { .. } => cloud.end_output()?,
-        ProviderOutput::OwnershipAssumed { .. } => {
-            return Err(io::Error::other(
-                "provider assumed ownership under Require policy",
-            ));
-        }
         ProviderOutput::Started {
             request, session, ..
         } => {
@@ -2415,8 +2414,16 @@ fn conversation(
                         "stage":stage,"reason":reason,"at_us":monotonic_us()}),
                     )?;
                 }
-                ProviderOutput::OwnershipAssumed { .. } => {
-                    unreachable!("rejected by output validation")
+                ProviderOutput::OwnershipAssumed {
+                    request,
+                    superseded,
+                } => {
+                    record(
+                        trace,
+                        json!({"kind":"provider_ownership_assumed","at_us":monotonic_us(),
+                        "turn":request,"superseded_turn":superseded,
+                        "basis":"earlier response silent after it was asked to stop; not confirmed by the service"}),
+                    )?;
                 }
                 ProviderOutput::InputDiscarded {
                     request,
@@ -5777,7 +5784,7 @@ mod tests {
     }
 
     #[test]
-    fn assumed_ownership_and_completion_without_submitted_end_fail_closed() {
+    fn assumed_ownership_grants_nothing_and_completion_without_submitted_end_fails_closed() {
         let (_owner, mut reply) = current_input();
         let start = start_command(&reply);
         reply.as_mut().unwrap().cloud.submitted(&start).unwrap();
@@ -5793,17 +5800,16 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(
-            observe_provider_output(
-                &mut cloud,
-                &mut reply,
-                &ProviderOutput::OwnershipAssumed {
-                    request: Some(request),
-                    superseded: None
-                }
-            )
-            .is_err()
-        );
+        observe_provider_output(
+            &mut cloud,
+            &mut reply,
+            &ProviderOutput::OwnershipAssumed {
+                request: Some(request),
+                superseded: None,
+            },
+        )
+        .unwrap();
+        assert!(reply.as_ref().unwrap().cloud.outcome.is_none());
         assert!(
             observe_provider_output(
                 &mut cloud,

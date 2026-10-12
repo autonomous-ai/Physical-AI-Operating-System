@@ -342,6 +342,12 @@ impl Observed {
                 row["dropped_samples"] = json!(dropped_samples);
                 row["sent_samples"] = json!(sent_samples);
             }
+            Event::Unanswered { lineage, waited } => {
+                // The probe sets no wait for it; recorded if one ever is.
+                row["kind"] = json!("unanswered");
+                row["request"] = json!(lineage.request.get());
+                row["waited_ms"] = json!(waited.as_millis());
+            }
             Event::Discarded { session, reason } => {
                 row["kind"] = json!("discarded");
                 row["session"] = json!(session.get());

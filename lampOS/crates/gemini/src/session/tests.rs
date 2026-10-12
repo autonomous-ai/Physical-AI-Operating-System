@@ -1030,6 +1030,73 @@ async fn silence_before_and_during_an_answer_have_separate_bounded_failures() {
     assert_eq!(disconnected(&connection).await, Error::ResponseTimeout);
 }
 
+#[tokio::test]
+async fn a_request_the_service_does_not_answer_ends_unanswered_and_keeps_the_connection() {
+    let timeouts = Timeouts {
+        unanswered: Some(Duration::from_millis(60)),
+        response: Duration::from_millis(300),
+        ..Timeouts::default()
+    };
+    let (mut connection, mut server) = mock(timeouts).await;
+    let first = ended_turn(&mut connection, &mut server, 1).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Unanswered { lineage, waited }
+            if lineage.request == first && waited >= Duration::from_millis(60)
+    ));
+    // The bound that fails a connection without this choice passes unnoticed.
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    assert_eq!(connection.state(), State::Ready);
+    // An answer that comes after all is dropped, and so is its completion.
+    send_json(&mut server, audio(1)).await;
+    discarded(&mut connection, Discard::UnownedOutput).await;
+    send_json(&mut server, idle()).await;
+    discarded(&mut connection, Discard::UnownedOutput).await;
+    // The next request is answered as any other.
+    let second = ended_turn(&mut connection, &mut server, 2).await;
+    send_json(&mut server, audio(2)).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, .. } if lineage.request == second)
+    );
+    send_json(&mut server, idle()).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::TurnComplete { lineage, idle: true } if lineage.request == second)
+    );
+}
+
+#[tokio::test]
+async fn an_answer_that_has_begun_is_never_closed_as_unanswered() {
+    let timeouts = Timeouts {
+        unanswered: Some(Duration::from_millis(60)),
+        ..Timeouts::default()
+    };
+    let (mut connection, mut server) = mock(timeouts).await;
+    let request = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, audio(1)).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, .. } if lineage.request == request)
+    );
+    tokio::time::sleep(Duration::from_millis(120)).await;
+    quiet(&mut connection).await;
+    send_json(&mut server, idle()).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::TurnComplete { lineage, idle: true } if lineage.request == request)
+    );
+}
+
+#[test]
+fn the_wait_for_no_answer_must_end_before_the_failure_bound_for_a_response() {
+    let with = |unanswered| Timeouts {
+        unanswered,
+        response: Duration::from_secs(10),
+        ..Timeouts::default()
+    };
+    assert!(with(None).validate().is_ok());
+    assert!(with(Some(Duration::from_secs(4))).validate().is_ok());
+    assert!(with(Some(Duration::from_secs(10))).validate().is_err());
+    assert!(with(Some(Duration::ZERO)).validate().is_err());
+}
+
 // ---- Follow-ups, interruptions and topic changes -----------------------
 
 #[tokio::test]

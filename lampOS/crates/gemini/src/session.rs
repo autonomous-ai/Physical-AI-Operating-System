@@ -928,6 +928,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.enforce_barrier().await?;
             self.drain_held().await?;
             self.flush();
+            self.close_unanswered();
             self.check_deadlines()?;
             self.send_image().await?;
             if self.go_away
@@ -1105,6 +1106,31 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     fn delivery_expired(&self) -> bool {
         self.waiting_since
             .is_some_and(|since| since.elapsed() >= self.timeouts.deliver)
+    }
+    /// A committed request with no output for `Timeouts::unanswered` is one
+    /// the service chose not to answer. It ends here without an answer; the
+    /// connection and the conversation are kept.
+    fn close_unanswered(&mut self) {
+        let Some(bound) = self.timeouts.unanswered else {
+            return;
+        };
+        if self.gated {
+            // The socket is deliberately unread: an answer may be waiting.
+            return;
+        }
+        let Some(turn) = self.current.as_ref() else {
+            return;
+        };
+        let Some(ended) = turn.ended_at else {
+            return;
+        };
+        let waited = ended.elapsed();
+        if turn.first_output_at.is_some() || waited < bound {
+            return;
+        }
+        let lineage = turn.lineage;
+        self.current = None;
+        self.emit(Event::Unanswered { lineage, waited });
     }
     fn check_deadlines(&self) -> Result<()> {
         if self.delivery_expired() {

@@ -57,6 +57,13 @@ pub struct Timeouts {
     pub barrier: Duration,
     /// Ended input to the first output of its response.
     pub response: Duration,
+    /// Ended input to the moment a response that has produced nothing is
+    /// taken as the service having chosen not to answer. The request then
+    /// ends with [`crate::Event::Unanswered`] and the connection stays. A
+    /// service told that it may stay silent sends nothing at all in that
+    /// case, not an empty completion. `None`: only `response` bounds the
+    /// wait, and reaching it fails the connection.
+    pub unanswered: Option<Duration>,
     /// Longest silence between outputs before generation completes.
     pub stall: Duration,
     /// Allowance beyond the received audio's real-time duration for the idle
@@ -80,6 +87,7 @@ impl Default for Timeouts {
             read: Duration::from_secs(60),
             barrier: Duration::from_secs(2),
             response: Duration::from_secs(30),
+            unanswered: None,
             stall: Duration::from_secs(10),
             completion: Duration::from_secs(15),
             turn: Duration::from_secs(300),
@@ -108,6 +116,13 @@ impl Timeouts {
             }
         }
         if self.keepalive >= self.read {
+            return Err(Error::InvalidConfiguration);
+        }
+        // Not a failure bound: it has to end before the one for a response.
+        if self
+            .unanswered
+            .is_some_and(|wait| wait < Duration::from_millis(1) || wait >= self.response)
+        {
             return Err(Error::InvalidConfiguration);
         }
         Ok(())

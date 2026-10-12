@@ -130,6 +130,14 @@ pub enum Event {
         lineage: Lineage,
         idle: bool,
     },
+    /// The request was committed and the service sent nothing for
+    /// [`Timeouts::unanswered`]. It is closed here as one the service chose
+    /// not to answer. The service never said so: output that still arrives
+    /// for it is dropped as unowned, and holds the next commit until it ends.
+    Unanswered {
+        lineage: Lineage,
+        waited: Duration,
+    },
     /// Google gives input transcripts no reliable per-turn ordering.
     UncorrelatedInputTranscript {
         session: SessionId,

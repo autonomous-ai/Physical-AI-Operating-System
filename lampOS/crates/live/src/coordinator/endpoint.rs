@@ -6,7 +6,7 @@
 //! verdict ends on the unchanged silence window. Nothing here waits for the
 //! worker; its process lifetime is supervised by the client, not by `Rig`.
 use crate::{
-    activity::{ConfirmPolicy, TurnDetector},
+    activity::{ConfirmPolicy, EarlyEnd, TurnDetector},
     options::{DirectedOptions, Endpoint, TurnTaking},
 };
 use lamp_endpoint_ipc::{
@@ -18,6 +18,7 @@ use serde_json::{Value, json};
 use std::{io, path::Path, time::Duration};
 
 pub(super) struct EndpointRig {
+    policy: ConfirmPolicy,
     /// Moved into the session's detector when the conversation starts.
     classifier: Option<Box<dyn Classifier>>,
     /// Absent for in-process test doubles.
@@ -28,29 +29,42 @@ pub(super) struct EndpointRig {
 impl EndpointRig {
     /// Starts loading at once; the session never waits for it.
     pub(super) fn start(options: &DirectedOptions, executable: &Path) -> Option<Self> {
-        if options.endpoint != Endpoint::SmartTurn {
-            return None;
-        }
+        let policy = match options.endpoint {
+            Endpoint::Silence => return None,
+            Endpoint::SmartTurn => ConfirmPolicy::default(),
+            Endpoint::SmartTurnEarly => ConfirmPolicy {
+                early: Some(EarlyEnd::CANDIDATE),
+                ..ConfirmPolicy::default()
+            },
+        };
         let directory = executable.parent().unwrap_or(Path::new("/"));
         let command = WorkerCommand::smart_turn(
             directory.join(WORKER_EXECUTABLE),
             directory.join(SMART_TURN_MODEL_FILE),
         );
-        Some(Self::process(command, Limits::default()))
+        Some(Self::process(command, Limits::default()).with_policy(policy))
     }
 
     pub(super) fn process(command: WorkerCommand, limits: Limits) -> Self {
         let classifier = ProcessClassifier::spawn(command.clone(), limits);
         Self {
+            policy: ConfirmPolicy::default(),
             monitor: Some(classifier.monitor()),
             classifier: Some(Box::new(classifier)),
             command: Some(command),
         }
     }
 
+    /// The confirmation policy this rig attaches.
+    pub(super) fn with_policy(mut self, policy: ConfirmPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
     #[cfg(test)]
     pub(super) fn double(classifier: Box<dyn Classifier>) -> Self {
         Self {
+            policy: ConfirmPolicy::default(),
             classifier: Some(classifier),
             monitor: None,
             command: None,
@@ -72,7 +86,7 @@ impl EndpointRig {
             .take()
             .ok_or_else(|| io::Error::other("endpoint classifier already in use"))?;
         detector = detector
-            .with_confirmation(classifier, ConfirmPolicy::default())
+            .with_confirmation(classifier, endpoint.policy)
             .map_err(io::Error::other)?;
         let event = policy_event(
             turn_taking,

@@ -115,6 +115,10 @@ struct Reply {
     owner: TurnOwner,
     cloud: CloudRequest,
     local_input_ended: bool,
+    /// An early end (`smart-turn-early`): the local stream has ended, but the
+    /// owner's input stays open and nothing is heard until the caller's
+    /// detector confirms the pause.
+    input_end_held: bool,
     plan: OutputOwner,
     playback: Option<PlaybackToken>,
     pcm: VecDeque<i16>,
@@ -2050,6 +2054,10 @@ fn conversation(
     )?;
     record(trace, endpoint_policy)?;
     let mut endpoint_watch = endpoint::Watch::default();
+    // `smart-turn-early`: the reply whose input ended early, and when. Its
+    // provider work starts at once; input stays open for the owner and the
+    // speaker until the detector confirms the pause or the person goes on.
+    let mut held_input_end: Option<(TurnOwner, u64)> = None;
     // Duplex is the conservative mask with ears. A candidate that began over
     // the lamp is held until the lamp's own sound has gone, so its decision
     // budget is longer; everything else about admission is unchanged.
@@ -2586,6 +2594,13 @@ fn conversation(
                 observed_at_us,
             )?;
             check_speaker_progress(speaker_pending.as_ref(), observed_at_us)?;
+            if let Some(event) = detector.take_endpoint_event() {
+                record(
+                    trace,
+                    json!({"kind":"endpoint_provisional","at_us":at,
+                    "owner":held_input_end.map(|(held, _)| held),"event":event}),
+                )?;
+            }
             let discarded_endpoint = submission_draining && input_ended;
             if discarded_endpoint {
                 submission_draining = false;
@@ -2688,7 +2703,11 @@ fn conversation(
                         last_publish = monotonic_us();
                         continue;
                     };
-                    snapshot = commit_admitted_input(
+                    // An admitted utterance that already ended early keeps
+                    // its input open like any other early end.
+                    let hold_end =
+                        accepted.ended && detector.endpoint_provisional() && !early_hold_removed();
+                    snapshot = commit_admitted_input_holding(
                         owner,
                         reply,
                         &mut speaker_pending,
@@ -2696,10 +2715,14 @@ fn conversation(
                         accepted,
                         provider_session,
                         rig.playout_start,
+                        hold_end,
                         trace,
                         |state| rig.publish(state),
                     )?;
                     last_publish = monotonic_us();
+                    if hold_end && let Some(current) = reply.as_ref() {
+                        hold_input_end(&mut held_input_end, current.owner, trace)?;
+                    }
                 }
                 AdmissionStep::Audio(audio) => {
                     if let Some(current) = reply.as_mut() {
@@ -2719,7 +2742,11 @@ fn conversation(
                         .as_mut()
                         .ok_or_else(|| io::Error::other("speech end lost its owner"))?;
                     let input_end_us = audio.captured_at_us;
+                    // An early end (`smart-turn-early`) ends provider input
+                    // now but holds the owner's input and the speaker.
+                    let hold = detector.endpoint_provisional() && !early_hold_removed();
                     current.local_input_ended = true;
+                    current.input_end_held = hold;
                     queue_input(
                         &mut provider_queue,
                         current,
@@ -2727,10 +2754,14 @@ fn conversation(
                         audio,
                         provider_queue_bound,
                     )?;
-                    owner.input_ended(now(), current.owner)?;
-                    snapshot = owner.snapshot(now())?;
-                    rig.publish(snapshot)?;
-                    last_publish = monotonic_us();
+                    if hold {
+                        hold_input_end(&mut held_input_end, current.owner, trace)?;
+                    } else {
+                        owner.input_ended(now(), current.owner)?;
+                        snapshot = owner.snapshot(now())?;
+                        rig.publish(snapshot)?;
+                        last_publish = monotonic_us();
+                    }
                     queue_input_end(
                         &mut provider_queue,
                         current,
@@ -2784,6 +2815,36 @@ fn conversation(
                 &mut rig.provider.channels.data,
             )?;
         }
+        if let Some((held, since_us)) = held_input_end {
+            let at_us = monotonic_us();
+            match reply.as_mut() {
+                Some(current) if current.owner == held && current.input_end_held => {
+                    if !detector.endpoint_provisional() {
+                        // Confirmed, or a continuation that ended without
+                        // admission: the held answer may now be heard.
+                        current.input_end_held = false;
+                        owner.input_ended(now(), held)?;
+                        snapshot = owner.snapshot(now())?;
+                        rig.publish(snapshot)?;
+                        last_publish = monotonic_us();
+                        record(
+                            trace,
+                            json!({"kind":"endpoint_confirmed","owner":held,"turn":held.turn(),
+                            "at_us":at_us,"held_us":at_us.saturating_sub(since_us)}),
+                        )?;
+                        held_input_end = None;
+                    }
+                }
+                _ => {
+                    record_hold_ended(
+                        trace,
+                        (held, since_us),
+                        reply.as_ref().map(|current| current.owner),
+                    )?;
+                    held_input_end = None;
+                }
+            }
+        }
         select_failure_notice(notices, reply, &speaker_pending, trace)?;
         let prior_speaker_sequence = speaker_sequence;
         settle_duplex_yield_before_dispatch(&playback_mask, reply, monotonic_us(), trace)?;
@@ -2828,6 +2889,7 @@ fn conversation(
             && current.provider_idle
             && current.cloud.outcome.is_some()
             && current.local_input_ended
+            && !current.input_end_held
             && current.pcm.is_empty()
             && speaker_pending.is_none()
             && current.playback.is_none()
@@ -2991,7 +3053,10 @@ fn hear_capture_block(
     // lamp's sound still accepted, queued or within its tail.
     let speaking = !mask.available(at_us)
         || reply.as_ref().is_some_and(|current| {
-            current.cloud.started && current.local_input_ended && !current.pcm.is_empty()
+            current.cloud.started
+                && current.local_input_ended
+                && !current.input_end_held
+                && !current.pcm.is_empty()
         });
     let listened = mask.listen(sequence, probability, echo, speaking, at_us)?;
     if let Some(interval) = trace.yield_interval.as_mut() {
@@ -3198,6 +3263,56 @@ fn decide_prospective_input(
     accepted_decision(admission.decide(evidence, context, at_us)?, trace)
 }
 
+/// Marks `held` as the reply whose early end is held. A different reply
+/// still marked was replaced before the loop saw it: record it as ended.
+fn hold_input_end(
+    marked: &mut Option<(TurnOwner, u64)>,
+    held: TurnOwner,
+    trace: &mut SessionState,
+) -> Result<()> {
+    if let Some(previous) = marked.take()
+        && previous.0 != held
+    {
+        record_hold_ended(trace, previous, Some(held))?;
+    }
+    *marked = Some((held, monotonic_us()));
+    Ok(())
+}
+
+/// A held reply replaced by a continuation, or ended, before its release:
+/// nothing of it was audible.
+fn record_hold_ended(
+    trace: &mut SessionState,
+    (held, since_us): (TurnOwner, u64),
+    current: Option<TurnOwner>,
+) -> Result<()> {
+    let at_us = monotonic_us();
+    record(
+        trace,
+        json!({"kind":"endpoint_hold_ended","owner":held,"turn":held.turn(),
+        "at_us":at_us,"held_us":at_us.saturating_sub(since_us),"current":current}),
+    )?;
+    Ok(())
+}
+
+/// Negative control only: a test removes the early-end hold to prove its
+/// own assertions would see the answer before confirmation.
+#[cfg(test)]
+static EARLY_HOLD_REMOVED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(test)]
+fn early_hold_removed() -> bool {
+    EARLY_HOLD_REMOVED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[cfg(not(test))]
+fn early_hold_removed() -> bool {
+    false
+}
+
+/// Tests' view of admission without an early end.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 fn commit_admitted_input(
     owner: &mut Controller,
@@ -3207,6 +3322,36 @@ fn commit_admitted_input(
     accepted: Accepted,
     provider_session: u64,
     playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    commit_admitted_input_holding(
+        owner,
+        reply,
+        speaker_pending,
+        provider_queue,
+        accepted,
+        provider_session,
+        playout_start,
+        false,
+        trace,
+        publish,
+    )
+}
+
+/// As `commit_admitted_input`; with `hold_end`, an admitted utterance that
+/// already ended early keeps the owner's input open (provider input still
+/// ends) until the caller's detector confirms the pause.
+#[allow(clippy::too_many_arguments)]
+fn commit_admitted_input_holding(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    accepted: Accepted,
+    provider_session: u64,
+    playout_start: PlayoutStart,
+    hold_end: bool,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
 ) -> Result<Snapshot> {
@@ -3241,6 +3386,7 @@ fn commit_admitted_input(
         owner: turn,
         cloud: CloudRequest::new(provider_session)?,
         local_input_ended: false,
+        input_end_held: false,
         plan,
         playback: None,
         pcm: VecDeque::new(),
@@ -3268,8 +3414,13 @@ fn commit_admitted_input(
         )?;
     }
     if accepted.ended {
+        // `hold_end`: an early end keeps the owner's input open until the
+        // caller's detector confirms it; provider input ends now either way.
         current.local_input_ended = true;
-        owner.input_ended(now(), current.owner)?;
+        current.input_end_held = hold_end;
+        if !hold_end {
+            owner.input_ended(now(), current.owner)?;
+        }
         queue_input_end(
             provider_queue,
             &current,
@@ -3404,7 +3555,10 @@ fn dispatch_speaker_chunk(
     let origin = current.notice.origin();
     // Local notices never forge a provider Started receipt. Provider PCM keeps
     // its exact existing proof; both sources require the real local endpoint.
-    if !current.local_input_ended || (origin == SpeechOrigin::Provider && !current.cloud.started) {
+    if !current.local_input_ended
+        || current.input_end_held
+        || (origin == SpeechOrigin::Provider && !current.cloud.started)
+    {
         return Ok(None);
     }
     if origin == SpeechOrigin::Provider && !current.may_start(monotonic_us()) {
@@ -4211,6 +4365,7 @@ mod tests {
                 owner: turn,
                 cloud: submitted_request(),
                 local_input_ended: true,
+                input_end_held: false,
                 plan,
                 playback: Some(playback),
                 pcm: vec![123; 480].into(),
@@ -4989,6 +5144,7 @@ mod tests {
             owner: successor,
             cloud: submitted_request(),
             local_input_ended: true,
+            input_end_held: false,
             plan,
             playback: Some(playback),
             pcm: vec![456; 240].into(),
@@ -5214,6 +5370,7 @@ mod tests {
             owner: turn,
             cloud: submitted_request(),
             local_input_ended: true,
+            input_end_held: false,
             plan,
             playback: Some(playback),
             pcm: vec![456; 240].into(),

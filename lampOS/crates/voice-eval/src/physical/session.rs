@@ -171,6 +171,7 @@ impl RuntimeFlags {
                 match endpoint {
                     Endpoint::Silence => "silence",
                     Endpoint::SmartTurn => "smart-turn",
+                    Endpoint::SmartTurnEarly => "smart-turn-early",
                 },
             );
         }
@@ -1452,6 +1453,25 @@ mod runtime_flag_tests {
         assert_eq!(options.turn_taking, TurnTaking::Duplex);
     }
 
+    /// The opt-in early end rides on the pilot's own kept start and is
+    /// forwarded as lamp-live accepts it.
+    #[test]
+    fn the_early_endpoint_reaches_serve_after_the_pilot_settings() {
+        let mut serve = vec!["--serve-config", "/p.json"];
+        serve.extend(PILOT);
+        serve.extend(["--endpoint", "smart-turn-early"]);
+        let argv = argv(&serve);
+        let at = argv.iter().position(|a| a == "--endpoint").unwrap();
+        assert_eq!(argv[at + 1], "smart-turn-early");
+        let forwarded = &argv[4..argv.len() - 2];
+        let options = lamp_live::options::DirectedOptions::parse(forwarded).unwrap();
+        assert_eq!(options.endpoint, Endpoint::SmartTurnEarly);
+        assert_eq!(
+            options.provider_continuation,
+            lamp_live::provider_worker::Continuation::KeptStart
+        );
+    }
+
     #[test]
     fn values_and_combinations_lamp_live_refuses_are_refused_before_any_child() {
         for (extra, expected) in [
@@ -1466,8 +1486,24 @@ mod runtime_flag_tests {
                 ],
                 "would refuse",
             ),
+            // The early end needs the baseline detector and the kept start.
             (
                 vec!["--serve-config", "/p", "--endpoint", "smart-turn-early"],
+                "would refuse",
+            ),
+            (
+                vec![
+                    "--serve-config",
+                    "/p",
+                    "--turn-taking",
+                    "duplex",
+                    "--endpoint",
+                    "smart-turn-early",
+                ],
+                "would refuse",
+            ),
+            (
+                vec!["--serve-config", "/p", "--endpoint", "smart-turn-late"],
                 "invalid --endpoint",
             ),
             (

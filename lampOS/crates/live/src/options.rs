@@ -154,6 +154,13 @@ pub enum Endpoint {
     #[default]
     Silence,
     SmartTurn,
+    /// `smart-turn` plus an early end of input on an unambiguously finished
+    /// utterance: provider work starts at 500 ms of quiet while the first
+    /// audible reply waits for the baseline's 1.2 s confirmation. Speech
+    /// that resumes first retires the unspoken answer and continues the
+    /// thought through `--provider-continuation kept-start`, which it
+    /// requires. Never a default.
+    SmartTurnEarly,
 }
 impl FromStr for Endpoint {
     type Err = io::Error;
@@ -161,6 +168,7 @@ impl FromStr for Endpoint {
         match value {
             "silence" => Ok(Self::Silence),
             "smart-turn" => Ok(Self::SmartTurn),
+            "smart-turn-early" => Ok(Self::SmartTurnEarly),
             _ => Err(invalid_options()),
         }
     }
@@ -355,7 +363,14 @@ impl DirectedOptions {
         }
         // Confirmation is defined against the baseline detector's silence
         // fallback, which V1-baseline and duplex share; `vad-only` has none.
-        if options.endpoint == Endpoint::SmartTurn && options.turn_taking == TurnTaking::VadOnly {
+        if options.endpoint != Endpoint::Silence && options.turn_taking == TurnTaking::VadOnly {
+            return Err(invalid_options());
+        }
+        // An early end may be continued only through the coordinated kept
+        // start; without it a continuation is the immediate-Start path.
+        if options.endpoint == Endpoint::SmartTurnEarly
+            && options.provider_continuation != Continuation::KeptStart
+        {
             return Err(invalid_options());
         }
         Ok(options)
@@ -787,6 +802,82 @@ mod tests {
         ] {
             assert!(SessionOptions::parse(&args(&values)).is_err(), "{values:?}");
         }
+    }
+
+    #[test]
+    fn early_endpoint_is_explicit_and_requires_the_baseline_detector_and_the_kept_start() {
+        for turn_taking in ["v1-baseline", "duplex"] {
+            let options = SessionOptions::parse(&args(&[
+                "--turn-taking",
+                turn_taking,
+                "--endpoint",
+                "smart-turn-early",
+                "--provider-continuation",
+                "kept-start",
+            ]))
+            .unwrap();
+            assert_eq!(options.directed.endpoint, Endpoint::SmartTurnEarly);
+            assert_eq!(
+                serde_json::to_value(options.directed.endpoint).unwrap(),
+                "smart-turn-early"
+            );
+        }
+        // Refused before any worker is started: without the kept start a
+        // continuation would be the immediate Start, and `vad-only` has no
+        // silence fallback to confirm against.
+        for values in [
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "smart-turn-early",
+            ],
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "smart-turn-early",
+                "--provider-continuation",
+                "off",
+            ],
+            vec![
+                "--endpoint",
+                "smart-turn-early",
+                "--provider-continuation",
+                "kept-start",
+            ],
+            vec![
+                "--turn-taking",
+                "vad-only",
+                "--endpoint",
+                "smart-turn-early",
+                "--provider-continuation",
+                "kept-start",
+            ],
+            vec![
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "smart-turn",
+                "--endpoint",
+                "smart-turn-early",
+                "--provider-continuation",
+                "kept-start",
+            ],
+        ] {
+            assert!(SessionOptions::parse(&args(&values)).is_err(), "{values:?}");
+        }
+        // A reply fixture refuses the kept start, so it cannot end early.
+        assert!(
+            crate::fixture_provider::FixtureOptions::parse(&args(&[
+                "--diagnostics",
+                "--turn-taking",
+                "v1-baseline",
+                "--endpoint",
+                "smart-turn-early",
+            ]))
+            .is_err()
+        );
     }
 
     #[test]

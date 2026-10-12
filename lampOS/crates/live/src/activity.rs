@@ -371,7 +371,9 @@ pub struct ConfirmPolicy {
     pub result_timeout_blocks: u16,
     /// Pause endpoint without a decisive verdict: the detector's own window.
     pub fallback_blocks: u16,
-    /// Opt-in recoverable early end of input; `None` keeps every endpoint final.
+    /// Opt-in recoverable early end of input; `None` keeps every endpoint
+    /// final, and keeps the recorded policy exactly as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub early: Option<EarlyEnd>,
 }
 

@@ -440,6 +440,7 @@ mod tests {
             owner: turn,
             cloud: CloudRequest::new(1).unwrap(),
             local_input_ended: false,
+            input_end_held: false,
             plan,
             playback: None,
             pcm: std::collections::VecDeque::new(),

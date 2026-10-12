@@ -47,6 +47,7 @@ impl Harness {
             owner: turn,
             cloud: submitted_request(),
             local_input_ended: true,
+            input_end_held: false,
             plan,
             playback: None,
             pcm: vec![7; 480].into(),

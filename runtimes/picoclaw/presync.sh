@@ -207,7 +207,10 @@ PT="$PICO_TOKEN" yq -i '.channel_list.pico.settings.token = strenv(PT) | .channe
 log "security channel_list.pico.settings.token synced"
 
 TG_TOKEN="$(dev telegram_bot_token)"; TG_USER="$(dev telegram_user_id)"
-if [ -n "$TG_TOKEN" ]; then
+if [ -n "$TG_TOKEN" ] && [ -z "$TG_USER" ]; then
+  # An empty allow_from would let anyone who finds the bot command the device.
+  log "telegram: bot token set but no telegram_user_id — left disabled until one is configured"
+elif [ -n "$TG_TOKEN" ]; then
   enable_channel telegram
   sec_set telegram token "$TG_TOKEN"
   sec_allow_from telegram "$TG_USER"

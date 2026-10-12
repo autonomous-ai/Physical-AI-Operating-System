@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "source_commit": "a75a8ddad",
+  "runtime_sha256": "b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4",
+  "date": "2026-10-12",
+  "head_attempt": {
+    "status": "failed_or_incomplete",
+    "runtime_exit": 2,
+    "rollback_verified": true,
+    "cached_prompt_played": false,
+    "player_failure": "Wrong observer executable: permission-approved recorder build has no play command. No source audio submitted.",
+    "motor_failure": "CAP_SYS_ADMIN preflight refused before tty open; no motor goal sent.",
+    "cleanup_boundary": "Worker failed without structured release evidence; runtime cleanup unconfirmed. Administrative outer restoration verified.",
+    "voice_boundary": "Background input admitted; directed deadline cancelled it. No requested exchange completed.",
+    "recording": "90 s valid room recording; full attempt coverage not verified.",
+    "runtime_archive_sha256": "9ffdee36937f87e8667fc94a720c6d2a5ffe25d4c5808cec45ed5b97a1f85f40"
+  },
+  "serve_attempt": {
+    "status": {
+      "reason": "invalid scheduling/transport evidence: stale cue at runner (including clock uncertainty)",
+      "status": "aborted"
+    },
+    "planned_inputs": 8,
+    "played_inputs": 0,
+    "rollback_verified": true,
+    "cue_receipts": [
+      {
+        "accepted": false,
+        "cue": {
+          "available": true,
+          "boot": [
+            113,
+            156,
+            205,
+            247,
+            76,
+            66,
+            62,
+            233,
+            24,
+            49,
+            99,
+            65,
+            200,
+            6,
+            12,
+            60
+          ],
+          "capture_epoch": null,
+          "event_us": 68166199948,
+          "expires_us": 68166299948,
+          "generation": null,
+          "kind": "input_availability",
+          "reference_epoch_context": null,
+          "schema": 1,
+          "sent_us": 68166199985,
+          "sequence": 1,
+          "turn": null
+        },
+        "error": "stale cue at runner (including clock uncertainty)",
+        "lamp_received_us": 68166200162,
+        "runner_received_us": 2302303943094
+      }
+    ],
+    "final_clock_mapping": {
+      "from": "runner_monotonic",
+      "method": "ping/pong over the session transport, best round trip 7015 us",
+      "offset_us": -2234137721634,
+      "path_allowance_us": 250000,
+      "to": "lamp_monotonic",
+      "uncertainty_us": 4507
+    },
+    "decision_time_clock_mapping": "not retained; final mapping cannot be substituted",
+    "room_valid": true,
+    "room_duration_s": 330.0,
+    "room_wav_sha256": "009a16f631ba1b85a86ea958a5e3a731b14c650955f0ebb651db480edc995e96",
+    "room_errors": [],
+    "ledger_sha256": "c2a1576a3eb92b5915e985590866dec98554d9cbdddca4fc0e8975a642b63fc2",
+    "acoustic_score": null
+  },
+  "all_attempts_retained": true,
+  "raw_audio_location": "private local evidence only",
+  "human_listened": false
+}

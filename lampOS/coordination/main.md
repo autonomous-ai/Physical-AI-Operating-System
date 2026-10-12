@@ -8,6 +8,23 @@
 - Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
 
+## Fresh native failures and testing priority
+
+The owner explicitly requested more repeated real conversations and reusable
+saved audio. [Two new attempts](../docs/verification/native-followthrough-20261012/README.md)
+are retained as failures: the head worker refused inherited CAP_SYS_ADMIN,
+and the serve runner rejected its first startup cue before playing a question.
+Administrative restoration verified; no completed conversation is claimed.
+The 10:15 office-time attended pilot target was missed. A2 is fixing runner
+startup while root prepares the previously qualified ordinary-conversation
+controller for the latest runtime. Full V2 remains unfinished.
+
+The owner enabled Harness Agent Messages on 12 October. Main verified
+`harness send` lists both A1 on office and A2 on M2, and queued focused messages
+to both. A1's response is visible through `harness show`. Use this built-in route
+instead of injecting text into another agent's tmux composer; Git keeps code
+checkpoints and durable evidence.
+
 ## Latest finite native serve result
 
 The [final composed candidate](../docs/verification/final-serve-pilot-20261012/README.md)

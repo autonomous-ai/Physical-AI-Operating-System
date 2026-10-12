@@ -309,7 +309,7 @@ fn the_three_writes_are_exactly_these_bytes() {
 fn a_folded_lamp_listens_thinks_speaks_and_comes_home() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert!(report.moved);
     assert_eq!(report.home, Some(HOME));
@@ -386,7 +386,7 @@ fn it_does_not_start_on_a_lamp_that_is_not_as_expected() {
         let (mut lamp, mut clock) = folded(Duration::from_secs(2));
         change(&mut lamp);
         let news = script(&clock.time);
-        let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+        let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
         assert!(
             matches!(report.stop, Stop::Refused { .. }),
             "{:?}",
@@ -415,7 +415,7 @@ fn a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after() {
     // Something in the way of the head's tilt, ten counts from home.
     lamp.wall = Some((ROLL, 2_054.0));
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(
         report.stop,
         Stop::Load {
@@ -452,7 +452,7 @@ fn a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it() {
         let (mut lamp, mut clock) = folded(Duration::from_secs(8));
         lamp.event = Some((Duration::from_millis(1_500), index, event));
         let news = script(&clock.time);
-        let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+        let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
         // At once, except for heat, which has to last a second to count.
         let by = if matches!(event, Event::Heat(_)) {
             2_600
@@ -504,7 +504,7 @@ fn one_hot_reading_while_it_moves_is_not_heat() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.event = Some((Duration::from_millis(3_200), YAW, Event::HeatOnce(72)));
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.peak_temperature[2], 72);
 }
@@ -519,7 +519,14 @@ fn a_home_it_is_given_is_reached_slowly_from_where_it_is_found() {
     lamp.servos[YAW].goal = 2_033;
     let home = [1_930, 2_044, 2_015];
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, Some(home), news);
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(home),
+        news,
+        |_| {},
+    );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.home, Some(home));
     // Every write is a small step from the one before, starting where it was.
@@ -553,7 +560,7 @@ fn a_home_it_is_given_is_reached_slowly_from_where_it_is_found() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(2));
     let news = script(&clock.time);
     let far = Some([1_900, 2_044, 2_015]);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, far, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, far, news, |_| {});
     assert!(
         matches!(&report.stop, Stop::Refused { why } if why.contains("100 counts")),
         "{:?}",
@@ -626,7 +633,7 @@ fn a_wider_reach_and_speed_can_be_chosen_only_inside_their_caps() {
         lamp.servos[servo].acceleration = 100;
     }
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, limits, None, news);
+    let report = run(&mut lamp, &mut clock, limits, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     let farthest = |joint: Joint, home: u16| {
         lamp.goals
@@ -652,11 +659,46 @@ fn a_wider_reach_and_speed_can_be_chosen_only_inside_their_caps() {
 }
 
 #[test]
+fn every_step_can_be_watched_with_the_mood_it_acted_on() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled);
+    assert_eq!(seen.len() as u64, report.steps);
+    let moods: Vec<Mood> = seen.iter().map(|glimpse| glimpse.mood).collect();
+    for mood in [
+        Mood::Resting,
+        Mood::Listening,
+        Mood::Thinking,
+        Mood::Speaking,
+    ] {
+        assert!(moods.contains(&mood), "{mood:?}");
+    }
+    // While it looked away its goal and its position were both off home.
+    let away = seen
+        .iter()
+        .find(|glimpse| glimpse.mood == Mood::Thinking && glimpse.goals[2] != 2_015);
+    assert!(away.is_some());
+    assert!(
+        seen.iter()
+            .any(|glimpse| glimpse.positions[2].abs_diff(2_015) >= 20)
+    );
+}
+
+#[test]
 fn a_wire_that_goes_silent_stops_it_after_three_steps() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.silent_from = Some(Duration::from_millis(1_500));
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert!(matches!(report.stop, Stop::Bus { .. }), "{:?}", report.stop);
     assert_eq!(report.missed_reads, 3);
     assert!(clock.time.get() < Duration::from_millis(1_600));
@@ -668,7 +710,7 @@ fn a_mood_that_stops_arriving_is_rest() {
     let time = clock.time.clone();
     // Listening for a second and a half, then the sender is gone.
     let news = move || (time.get() < Duration::from_millis(1_500)).then_some((Mood::Listening, 90));
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled);
     let tilted = lamp
         .goals
@@ -689,7 +731,7 @@ fn the_heads_pitch_never_passes_its_window_however_it_is_found() {
     lamp.servos[PITCH].position = 2_018.0;
     lamp.servos[PITCH].goal = 2_018;
     let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     let highest = lamp
         .goals

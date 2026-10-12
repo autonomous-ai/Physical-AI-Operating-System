@@ -258,7 +258,29 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             .servo_acceleration
             .unwrap_or(folded.servo_acceleration),
     })?;
-    let result = run_body(&config, limits, arguments.home, news, || {
+    // One line to the journal on each change of mood, and twice a second
+    // while a goal is away from where the joint is: what it did, afterwards.
+    let mut said: Option<(lamp_motor::gesture::Mood, u64)> = None;
+    let watch = |glimpse: &lamp_motor::body::Glimpse| {
+        let moving = glimpse
+            .goals
+            .iter()
+            .zip(glimpse.positions)
+            .any(|(goal, position)| goal.abs_diff(position) > 3);
+        let due = match said {
+            None => true,
+            Some((mood, _)) if mood != glimpse.mood => true,
+            Some((_, step)) => moving && glimpse.step - step >= 25,
+        };
+        if due {
+            said = Some((glimpse.mood, glimpse.step));
+            eprintln!(
+                "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?}",
+                glimpse.step, glimpse.mood, glimpse.goals, glimpse.positions, glimpse.loads
+            );
+        }
+    };
+    let result = run_body(&config, limits, arguments.home, news, watch, || {
         if !cancelled {
             cancelled = signal_fd
                 .read_signal()

@@ -177,6 +177,18 @@ pub struct Sample {
     pub status: u8,
 }
 
+/// One step as the body saw it, for whoever wants to watch: the mood it
+/// acted on, the goals in force and what the three joints read. Pitch, roll,
+/// yaw.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct Glimpse {
+    pub step: u64,
+    pub mood: Mood,
+    pub goals: [u16; 3],
+    pub positions: [u16; 3],
+    pub loads: [u16; 3],
+}
+
 /// Why the run ended. Only `Cancelled` is an ordinary end.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -462,6 +474,7 @@ pub(crate) fn run(
     limits: Limits,
     home: Option<[u16; 3]>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
+    mut watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut report = BodyReport {
         limits,
@@ -674,6 +687,13 @@ pub(crate) fn run(
             }
         };
         report.last = Some(samples);
+        watch(&Glimpse {
+            step: report.steps,
+            mood,
+            goals: written,
+            positions: COMMANDED.map(|joint| samples[joint.index()].position),
+            loads: COMMANDED.map(|joint| samples[joint.index()].load),
+        });
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], samples[joint.index()]);

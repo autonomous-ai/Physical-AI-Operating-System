@@ -244,6 +244,7 @@ pub fn run_body(
     limits: crate::body::Limits,
     home: Option<[u16; 3]>,
     news: impl FnMut() -> Option<(crate::gesture::Mood, u8)>,
+    watch: impl FnMut(&crate::body::Glimpse),
     mut cancelled: impl FnMut() -> io::Result<bool>,
 ) -> BodyResult {
     let origin = Instant::now();
@@ -260,7 +261,14 @@ pub fn run_body(
             let mut io = LinuxPort {
                 fd: owner.fd.as_ref().expect("prepared tty"),
             };
-            body = Some(crate::body::run(&mut io, &mut runtime, limits, home, news));
+            body = Some(crate::body::run(
+                &mut io,
+                &mut runtime,
+                limits,
+                home,
+                news,
+                watch,
+            ));
         }
         Err(error) => port.preparation_error = Some(error),
     }

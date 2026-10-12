@@ -97,12 +97,21 @@ class OverloadGuard:
                 worst_floor = floor
         if worst is None:
             return None
-        self._over_since.clear()
-        self._locked_until = now + self.retry_s
-        self.trips += 1
-        self.last_trip = worst
-        self.last_floor = worst_floor
+        self.trip(*worst, floor=worst_floor)
         return worst
+
+    def trip(self, joint: str, load: int, floor: Optional[int] = None) -> None:
+        """Start the lockout now, as if `joint` had just tripped it."""
+        self._over_since.clear()
+        self._locked_until = self._clock() + self.retry_s
+        self.trips += 1
+        self.last_trip = (joint, load)
+        self.last_floor = floor
+
+    def clear(self) -> None:
+        """End a lockout early (another guard took over the body)."""
+        self._locked_until = None
+        self._over_since.clear()
 
     def retry_due(self) -> bool:
         """True exactly once, when the lockout has run out; the guard is armed again."""

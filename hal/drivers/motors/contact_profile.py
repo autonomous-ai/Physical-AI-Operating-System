@@ -39,29 +39,27 @@ class ContactProfile:
 
     @classmethod
     def load(
-        cls, path: str, margin: int, default_path: Optional[str] = None,
-        lag_margin: Optional[int] = None,
+        cls, path: str, margin: int, lag_margin: Optional[int] = None,
     ) -> "ContactProfile":
-        """This unit's learned profile, else the device default; a learn run saves to `path`.
+        """This unit's learned profile, or an empty one; a learn run saves to `path`.
 
-        A missing or unreadable file falls through to the next one, then to empty.
+        Only this unit's own: servo load and friction differ unit to unit, and an
+        envelope learned on lamp-52e6 tripped lamp-a0ae's idle every 8 s. Missing or
+        unreadable = empty, so only the fixed floors apply until the unit learns.
         """
-        for source in (path, default_path):
-            if not source:
-                continue
-            try:
-                with open(source) as f:
-                    data = json.load(f)
-                if not isinstance(data, dict):
-                    raise ValueError("not an object")
-            except FileNotFoundError:
-                continue
-            except (OSError, ValueError) as e:
-                logger.warning("[contact] ignoring unreadable profile %s: %s", source, e)
-                continue
-            logger.info("[contact] load envelope from %s (%d recordings)", source, len(data))
-            return cls(path, margin, data, lag_margin)
-        return cls(path, margin, lag_margin=lag_margin)
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("not an object")
+        except FileNotFoundError:
+            logger.info("[contact] no learned envelope at %s — fixed floors only until a learn run", path)
+            return cls(path, margin, lag_margin=lag_margin)
+        except (OSError, ValueError) as e:
+            logger.warning("[contact] ignoring unreadable profile %s: %s", path, e)
+            return cls(path, margin, lag_margin=lag_margin)
+        logger.info("[contact] load envelope from %s (%d recordings)", path, len(data))
+        return cls(path, margin, data, lag_margin)
 
     def recordings(self) -> List[str]:
         return sorted(self._data)

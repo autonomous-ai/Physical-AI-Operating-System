@@ -348,6 +348,10 @@ async def lifespan(app: FastAPI):
                         _servo_overload_config.contact.off_playback
                         if _servo_overload_config and _servo_overload_config.contact else None
                     ),
+                    contact_release_s=(
+                        _servo_overload_config.contact.release_after_s
+                        if _servo_overload_config and _servo_overload_config.contact else None
+                    ),
                 )
             else:
                 # SDK backends carry the safety policy themselves.
@@ -1101,22 +1105,12 @@ def _contact_profile():
         return None
     from hal.config import CONTACT_PROFILE_PATH
     from hal.drivers.motors.contact_profile import ContactProfile
-    # The device ships a default envelope learned on a reference unit; a learn run on
-    # this unit writes CONTACT_PROFILE_PATH, which then takes precedence.
-    return ContactProfile.load(
-        CONTACT_PROFILE_PATH, contact.profile_margin,
-        os.path.join(_device_dir, "contact_profile.json"),
-        contact.lag_margin,
-    )
+    # Only what this unit learned (POST /servo/contact/learn); no shared default.
+    return ContactProfile.load(CONTACT_PROFILE_PATH, contact.profile_margin, contact.lag_margin)
 
 
 def _on_servo_contact(joint: str, load: int) -> None:
-    """Contact stop fired: the "uh-oh" chime, and the tracker stops driving the arm."""
-    try:
-        if state.tts_service is not None:
-            state.tts_service.play_contact_chime()
-    except Exception as e:
-        logger.warning("[contact] chime failed: %s", e)
+    """Contact stop fired: the tracker stops driving the arm. Silent on purpose."""
     try:
         if state.tracker_service and state.tracker_service.is_tracking:
             state.tracker_service.stop()

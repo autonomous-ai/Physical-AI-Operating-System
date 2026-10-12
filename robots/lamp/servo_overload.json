@@ -13,6 +13,7 @@
         },
         "hold_s": 0.05,
         "pause_s": 3,
+        "release_after_s": 1.0,
         "profile_margin": 120,
         "lag_margin": 35,
         "off_playback": {

@@ -7,7 +7,7 @@ from typing import Dict, Optional, Union
 
 _FIELDS = {"enabled", "load", "hold_s", "retry_s", "contact", "torque_limit"}
 _CONTACT_FIELDS = {"load", "hold_s", "pause_s"}
-_CONTACT_OPTIONAL = {"profile_margin", "lag_margin", "off_playback"}
+_CONTACT_OPTIONAL = {"profile_margin", "lag_margin", "off_playback", "release_after_s"}
 
 
 def _check_load(value) -> None:
@@ -51,6 +51,9 @@ class ContactStopConfig:
     # Floors while no recording plays (gaze, tracking, moves, holds): joint names for
     # load (0.1 %), "lag:<joint>" for how far it trails its goal (0.1 deg).
     off_playback: Optional[Dict[str, int]] = None
+    # Still pushed past the contact floors this long into the pause (a hand holding
+    # the arm, not a bump): cut torque like the overload cut-off. None: never.
+    release_after_s: Optional[float] = None
 
     def __post_init__(self):
         if self.off_playback is not None:
@@ -67,6 +70,11 @@ class ContactStopConfig:
                 raise ValueError(f"{name} must be an integer 1..1000")
         if self.lag_margin is not None and self.profile_margin is None:
             raise ValueError("lag_margin needs profile_margin (the learned envelope)")
+        if self.release_after_s is not None:
+            if (isinstance(self.release_after_s, bool)
+                    or not isinstance(self.release_after_s, (int, float))
+                    or not 0 < self.release_after_s < self.pause_s):
+                raise ValueError("release_after_s must be > 0 and shorter than pause_s")
 
 
 @dataclass(frozen=True)
@@ -133,7 +141,7 @@ def load_servo_overload_config(device_dir: str, board_id: str) -> Optional[Servo
                 contact = ContactStopConfig(
                     contact["load"], contact["hold_s"], contact["pause_s"],
                     contact.get("profile_margin"), contact.get("lag_margin"),
-                    contact.get("off_playback"),
+                    contact.get("off_playback"), contact.get("release_after_s"),
                 )
             configs[board] = ServoOverloadConfig(
                 entry["load"], entry["hold_s"], entry["retry_s"], contact,

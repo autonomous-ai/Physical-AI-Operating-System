@@ -175,8 +175,8 @@ Ngưỡng quá tải servo cũng do device quản lý, trong `robots/lamp/servo_
 (map `boards`: `load`, `hold_s`, `retry_s`, cùng `enabled`, `contact` và `torque_limit`
 tùy chọn), đọc bởi `hal/board/servo_overload.py`. Khớp được theo dõi ở mức sàn
 `contact.load` của nó trở lên trong `contact.hold_s` làm driver feetech dừng tại chỗ
-(torque vẫn bật), phát chime "uh-oh" riêng và đứng yên trong `contact.pause_s` rồi mới chạy tiếp vào
-idle. Khớp nào ở mức `load` trở lên trong `hold_s` sẽ cắt torque mọi servo, phát ack chime và
+(torque vẫn bật), không phát âm thanh, và đứng yên trong `contact.pause_s` rồi mới chạy tiếp vào
+idle; vẫn bị giữ sau `contact.release_after_s` trong lúc dừng thì nhả torque như cut-off. Khớp nào ở mức `load` trở lên trong `hold_s` sẽ cắt torque mọi servo, phát ack chime và
 từ chối chuyển động trong `retry_s` rồi mới resume. `torque_limit` giới hạn lực đẩy tối đa
 của một khớp. Không có file, không có entry board hoặc `enabled: false` nghĩa là không có
 cơ chế nào trong số này, còn file sai định dạng bị từ chối khi startup. Lamp theo dõi

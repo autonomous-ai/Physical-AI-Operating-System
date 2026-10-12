@@ -397,14 +397,18 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       đa) trong `contact.hold_s` (Lamp: `0.05` s, khoảng hai mẫu 50 ms) sẽ dừng chuyển
       động đang chạy, và khớp nào vượt **envelope đã học** khi một recording đã học đang
       chạy cũng vậy (xem đoạn tiếp theo); khi đó driver ghim tư thế hiện tại và giữ **torque bật**, nên tay đèn không rơi;
-      runtime phát chime riêng của contact stop, một tiếng "uh-oh" nhẹ đi xuống (G5 rồi
-      E5, hai nốt 90 ms, `play_contact_chime`, qua `on_contact`), và dừng vision tracker.
+      runtime dừng vision tracker qua `on_contact`, không phát âm thanh (bỏ chime vì
+      kêu quá thường xuyên, gây khó chịu).
       Trong `contact.pause_s` (Lamp: `3` s)
       mọi lệnh ghi goal bị chặn để không lái ngược vào vật cản, và `/servo/move`,
       `/servo/aim`, `/servo/nudge` lỗi với "Servo contact stop active". Sau đó trạng thái
       được đọc lại từ phần cứng và idle chạy tiếp; thân máy đã được park trong lúc đó thì
       giữ nguyên. Contact stop được kiểm tra trước cut-off, và tay đang giữ mà vẫn bị ép
-      thì cut-off vẫn trip như cũ. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
+      thì cut-off vẫn trip như cũ. Khi đặt `contact.release_after_s` (Lamp: `1` s), tay
+      vẫn **giữ** tay đèn lâu chừng đó trong lúc tạm dừng — khớp nào còn vượt sàn contact
+      hoặc sàn tải/lag `off_playback` — thì không phải va chạm thoáng qua: driver log
+      `[contact] … releasing torque` và chuyển sang cắt torque như cut-off (tay đèn rũ,
+      khoá `retry_s`, chime của cut-off). Chạm rồi buông trong khoảng đó thì chỉ tạm dừng. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
       `resume_in_s`, `trips`, `last_trip`, các ngưỡng). Sàn của Lamp lấy từ lamp-52e6
       (2026-10-09): qua 19 recording, đỉnh chuyển động tự do là `base_yaw` 46 %,
       `wrist_roll` 52 %, `wrist_pitch` 43 %, còn lấy tay chặn `base_yaw` đẩy nó lên
@@ -414,8 +418,10 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       **Envelope đã học (như lượt học của cửa thang máy).** Load của một lượt chạy tự do ở
       mỗi frame của recording lặp lại được, nên khi đặt `contact.profile_margin` (Lamp:
       `120` = 12 %) driver giữ một envelope riêng cho từng máy ở
-      `/var/lib/hal/contact_profile.json` (`HAL_CONTACT_PROFILE_PATH`, rơi về
-      `robots/<device>/contact_profile.json` khi máy chưa tự học): `{recording: {joint:
+      `/var/lib/hal/contact_profile.json` (`HAL_CONTACT_PROFILE_PATH`; không có bản mặc
+      định dùng chung, vì tải và ma sát khác nhau giữa các máy — envelope học trên
+      lamp-52e6 làm idle của lamp-a0ae dừng nhầm mỗi 8 giây — nên máy chưa tự học chỉ
+      chạy với các sàn cố định): `{recording: {joint:
       [load tối đa mỗi frame], "lag:<joint>": [|goal - present| tối đa mỗi frame, 0,1
       độ]}}`. Các entry lag có ích ở chỗ load bất lực: một khớp đang chạm trần torque,
       hoặc một khớp mềm mà tay chỉ làm chậm lại, sẽ tụt sau goal của nó. Khi đặt

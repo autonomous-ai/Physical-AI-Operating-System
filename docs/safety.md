@@ -418,13 +418,18 @@ Six conditions are enforced today; setup-incomplete is reserved.
       `contact.hold_s` (Lamp: `0.05` s, about two 50 ms samples) halts motion in flight,
       and so does any joint above its **learned envelope** while a learned recording
       plays (see the next paragraph), pins the current pose and keeps **torque on**, so the arm
-      does not drop; the runtime plays its own soft falling "uh-oh" chime (G5 then E5,
-      two 90 ms notes, `play_contact_chime`) and stops the vision tracker. For
+      does not drop; the runtime stops the vision tracker, silently (no chime: it
+      fired too often to be welcome). For
       `contact.pause_s` (Lamp: `3` s) goal writes are blocked so nothing drives back
       into the obstacle, and `/servo/move`, `/servo/aim`, `/servo/nudge` fail with
       "Servo contact stop active". Then the state is re-read from hardware and idle
       resumes; a body parked meanwhile stays put. It is checked before the cut-off, and
-      an arm still forced while held trips the cut-off as before. Surfaced at
+      an arm still forced while held trips the cut-off as before. With
+      `contact.release_after_s` set (Lamp: `1` s), a hand still **holding** the arm that
+      long into the pause — any joint still past its contact floor or `off_playback`
+      load/lag floor — is not a bump: the driver logs `[contact] … releasing torque` and
+      hands over to the cut-off's torque-off (arm goes limp, `retry_s` lockout, the
+      cut-off's chime). A bump let go within the window only pauses. Surfaced at
       `GET /health.servo_overload.contact` (`active`, `resume_in_s`, `trips`,
       `last_trip`, thresholds). Lamp's floors come from lamp-52e6 (2026-10-09): over
       19 recordings the free-motion peaks were `base_yaw` 46 %, `wrist_roll` 52 %,
@@ -435,8 +440,10 @@ Six conditions are enforced today; setup-incomplete is reserved.
       **Learned envelope (an elevator door's learn run).** What a free run loads at each
       frame of a recording repeats, so with `contact.profile_margin` set (Lamp: `120` =
       12 %) the driver keeps a per-unit envelope at `/var/lib/hal/contact_profile.json`
-      (`HAL_CONTACT_PROFILE_PATH`, falling back to `robots/<device>/contact_profile.json`
-      when the unit has not learned one): `{recording: {joint: [max load per frame],
+      (`HAL_CONTACT_PROFILE_PATH`; there is no shared default, because load and friction
+      differ unit to unit — an envelope learned on lamp-52e6 tripped lamp-a0ae's idle
+      every 8 s — so a unit that has not learned one runs on the fixed floors only):
+      `{recording: {joint: [max load per frame],
       "lag:<joint>": [max |goal - present| per frame, 0.1 deg]}}`. The lag entries
       matter where load cannot help: a joint at its torque cap, or a soft one a hand
       simply slows, falls behind its goal. With `contact.lag_margin` set (Lamp: `35` =

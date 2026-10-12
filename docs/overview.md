@@ -174,7 +174,8 @@ Servo overload thresholds are device-owned too, in `robots/lamp/servo_overload.j
 (`boards` map: `load`, `hold_s`, `retry_s`, optional `enabled`, `contact` and
 `torque_limit`), read by `hal/board/servo_overload.py`. A watched joint at or above its
 `contact.load` floor for `contact.hold_s` makes the feetech driver halt in place (torque
-stays on), play a soft "uh-oh" chime and hold still for `contact.pause_s` before easing back into idle. A
+stays on), silently, and hold still for `contact.pause_s` before easing back into idle; still
+held `contact.release_after_s` into that pause, it releases torque like the cut-off. A
 joint at or above `load` for `hold_s` cuts torque on every servo, plays the ack chime and refuses
 motion for `retry_s` before resuming. `torque_limit` caps how hard a joint can push. No
 file, no board entry or `enabled: false` means none of these, and a malformed file

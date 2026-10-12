@@ -85,7 +85,8 @@ class AnimationService:
                  torque_limits: Optional[Dict[str, int]] = None,
                  contact_profile: Optional[ContactProfile] = None,
                  contact_off_playback: Optional[Dict[str, int]] = None,
-                 on_contact: Optional[Callable[[str, int], None]] = None):
+                 on_contact: Optional[Callable[[str, int], None]] = None,
+                 contact_release_s: Optional[float] = None):
         self.port = port
         self.lamp_id = lamp_id
         self.fps = fps
@@ -190,6 +191,10 @@ class AnimationService:
         # on_contact(joint, load) runs after a contact stop (its own chime); without
         # it the contact stop falls back to on_overload.
         self._on_contact = on_contact
+        # A hand still holding the arm this long into the contact pause cuts torque
+        # (the overload cut-off's lockout). Timed by its own guard, armed per stop.
+        self._contact_release_s = contact_release_s
+        self._contact_hold: Optional[OverloadGuard] = None
         self._overload_stop = threading.Event()
         self._overload_thread: Optional[threading.Thread] = None
         self._overload_read_ok = True
@@ -1127,6 +1132,15 @@ class AnimationService:
         if contact is not None and contact.locked and contact.retry_due():
             self._contact_recover()
         loads = self._read_loads()
+        if contact is not None and contact.locked and self._contact_hold is not None and loads:
+            samples = dict(loads)
+            lags = self._read_lags()
+            if lags:
+                samples.update(lags)
+            held = self._contact_hold.observe(samples, self._contact_off_playback or None)
+            if held:
+                self._contact_release(*held)
+                return
         if contact is not None:
             samples, floors = self._contact_samples(loads)
             hit = contact.observe(samples, floors)
@@ -1152,13 +1166,26 @@ class AnimationService:
         self._overload_read_ok = True
         return {motor: load_magnitude(val) for motor, val in raw.items()}
 
-    def _overload_cut(self, joint: str, load: int) -> None:
+    def _contact_release(self, joint: str, value: int) -> None:
+        """Still held through the contact pause: hand over to the cut-off's torque-off."""
+        unit = "deg behind" if joint.startswith(LAG_PREFIX) else "% load"
+        logger.warning(
+            "[contact] %s still %.1f%s after %.1fs held — releasing torque, retry in %.0fs",
+            joint, value / 10.0, unit, self._contact_release_s, self._overload.retry_s,
+        )
+        self._contact_hold = None
+        self._contact.clear()
+        self._overload.trip(joint, value)
+        self._overload_cut(joint, value, logged=True)
+
+    def _overload_cut(self, joint: str, load: int, logged: bool = False) -> None:
         """Stop motion and cut torque on every servo. No park move: the arm is blocked."""
         guard = self._overload
-        logger.warning(
-            "[overload] %s load %.1f%% >= %.1f%% for %.1fs — cutting torque, retry in %.0fs",
-            joint, load / 10.0, guard.threshold / 10.0, guard.hold_s, guard.retry_s,
-        )
+        if not logged:
+            logger.warning(
+                "[overload] %s load %.1f%% >= %.1f%% for %.1fs — cutting torque, retry in %.0fs",
+                joint, load / 10.0, guard.threshold / 10.0, guard.hold_s, guard.retry_s,
+            )
         self._halt.set()
         # Block and cut under one lock hold, so no goal write can land in between and
         # re-engage torque.
@@ -1330,6 +1357,9 @@ class AnimationService:
             except Exception as e:
                 logger.warning("[contact] could not pin current position: %s", e)
             self.robot.goal_writes_blocked = True
+        if self._contact_release_s is not None:
+            self._contact_hold = OverloadGuard(
+                self._contact.threshold, self._contact_release_s, 0.0, clock=self._contact._clock)
         # Logged after the stop: nothing here may delay or skip it.
         unit = "deg behind" if joint.startswith(LAG_PREFIX) else "% load"
         logger.warning(
@@ -1346,6 +1376,7 @@ class AnimationService:
 
     def _contact_recover(self) -> None:
         """Pause over: allow goal writes again and ease back into idle from where it stopped."""
+        self._contact_hold = None
         if self.overload_active:
             # The cut-off took over meanwhile; its own recovery unblocks the goals.
             return

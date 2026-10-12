@@ -643,6 +643,34 @@ def test_still_forced_while_held_falls_through_to_the_cut_off(contact_rig):
     assert contact_rig.svc.robot.goal_writes_blocked is True
 
 
+def test_a_hand_still_holding_through_the_pause_releases_torque(contact_rig):
+    """Held, not bumped: past release_after_s into the pause the arm goes limp for retry_s."""
+    contact_rig.svc._contact_release_s = 0.5     # under the rig cut-off's own 1 s hold
+    _hit(contact_rig, "base_yaw", 1000)
+    for _ in range(12):                          # the hand stays on for 0.6 s
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    svc = contact_rig.svc
+    assert svc.overload_active and not svc.contact_active
+    assert contact_rig.bus.writes == [("Torque_Enable", joint, 0) for joint in JOINTS]
+    assert svc.robot.goal_writes_blocked is True
+    assert contact_rig.fired[-1] == ("base_yaw", 1000)   # the cut-off's handler (chime)
+    assert contact_rig.guard.retry_in_s() == pytest.approx(120.0, abs=0.1)
+
+
+def test_a_bump_let_go_within_the_window_only_pauses(contact_rig):
+    contact_rig.svc._contact_release_s = 1.0
+    _hit(contact_rig, "base_yaw", 1000)
+    contact_rig.bus.loads = dict(IDLE)           # the hand is gone
+    for _ in range(70):
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    svc = contact_rig.svc
+    assert not svc.overload_active and not svc.contact_active
+    assert contact_rig.bus.writes == []
+    svc.dispatch.assert_called_once_with(SERVO_CMD_PLAY, svc.idle_recording)
+
+
 def test_status_reports_the_contact_stop(contact_rig):
     assert contact_rig.svc.overload_status()["contact"]["trips"] == 0
     _hit(contact_rig)
@@ -684,15 +712,14 @@ def test_profile_round_trips_through_its_file(tmp_path):
     assert ContactProfile.load(str(tmp_path / "none.json"), 150).recordings() == []
 
 
-def test_this_units_profile_wins_over_the_device_default(tmp_path):
-    default = tmp_path / "default.json"
-    default.write_text('{"nod": {"base_yaw": [100]}}')
+def test_a_unit_that_never_learned_has_no_envelope(tmp_path):
+    """No shared default: another unit's envelope tripped lamp-a0ae's idle every 8 s."""
     unit = str(tmp_path / "unit.json")
-    profile = ContactProfile.load(unit, 150, str(default))
-    assert profile.floors("nod", 0) == {"base_yaw": 250}
+    profile = ContactProfile.load(unit, 150)
+    assert profile.floors("nod", 0) is None
     assert profile.path == unit                      # a learn run saves per unit
     (tmp_path / "unit.json").write_text('{"nod": {"base_yaw": [300]}}')
-    assert ContactProfile.load(unit, 150, str(default)).floors("nod", 0) == {"base_yaw": 450}
+    assert ContactProfile.load(unit, 150).floors("nod", 0) == {"base_yaw": 450}
 
 
 def test_per_sample_floors_override_the_configured_ones():

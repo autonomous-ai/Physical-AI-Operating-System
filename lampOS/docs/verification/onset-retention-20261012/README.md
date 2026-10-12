@@ -1,5 +1,9 @@
 # Where the opening of the coffee request went, 2026-10-12
 
+> The analysis scripts named below are Python and shell. They are no longer
+> in the repository, which holds Rust only under `lampOS/`: they are kept on
+> the office host in `/private/tmp/lamp-a1-analysis-scripts-onset-20261012T0728Z-tAv6gW`, and `scripts.sha256` here names their digests.
+
 An audit of onset retention in the native serve run on lamp `4ace`
 (`docs/verification/final-serve-pilot-20261012`), by Agent 1. The cached
 stimulus said "Actually, Lamp, let's talk about coffee instead. Why does

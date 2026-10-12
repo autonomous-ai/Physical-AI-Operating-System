@@ -1476,6 +1476,10 @@ nguyên vẹn để backend trả đúng client đã hỏi; cả hai tuỳ chọ
   và `.log` không được serve (config JSON của runtime chứa gateway token); path
   phải resolve (`EvalSymlinks`) vào trong root, nên `..` lẫn symlink thoát ra đều
   chết.
+- **MQTT còn từ chối ảnh camera của HAL trong `/tmp/hal-*`** (ảnh sensing,
+  motion, emotion và tư thế). MQTT không xác thực người gửi và tên file là
+  timestamp đoán được, nên chỉ web chat đã đăng nhập mới hiện được. Ảnh agent chụp
+  ("chụp ảnh đi") nằm trong `media/` của runtime nên vẫn được trả bình thường.
 - **Mọi trường hợp từ chối đều trả cùng một message**, `"file not available"`.
   Nói rõ là sai đuôi / ngoài root / không tồn tại thì kẻ dò biết được cấu trúc
   filesystem của device; lý do thật ghi vào log trên device.

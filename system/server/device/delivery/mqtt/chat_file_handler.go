@@ -45,6 +45,9 @@ func (h *DeviceMQTTHandler) handleChatFileGet(env domain.MQTTDataCommand) error 
 // against the system/agentfile allow-list) and builds the reply payload.
 func buildChatFile(req domain.MQTTChatFileGetData) (domain.MQTTChatFileData, error) {
 	resolved, mime, err := agentfile.Resolve(req.Path, agentfile.Roots())
+	if err == nil && isHALCameraTmp(resolved) {
+		err = errors.New("HAL camera output is not served over MQTT")
+	}
 	if err != nil {
 		// Deliberately vague: the refusal reason would reveal the filesystem.
 		return domain.MQTTChatFileData{}, errors.New("file not available")
@@ -75,4 +78,17 @@ func buildChatFile(req domain.MQTTChatFileGetData) (domain.MQTTChatFileData, err
 	}
 	out.Content = base64.StdEncoding.EncodeToString(body)
 	return out, nil
+}
+
+// isHALCameraTmp reports whether resolved is under HAL's /tmp camera output
+// (/tmp/hal-sensing-snapshots, hal-motion-snapshots, hal-emotion-snapshots, ...).
+// MQTT has no sender auth and those names are guessable timestamps, so only the
+// logged-in web chat may show them. Agent "take a photo" output lives under a
+// runtime's media/ and is unaffected.
+func isHALCameraTmp(resolved string) bool {
+	tmp, err := filepath.EvalSymlinks("/tmp")
+	if err != nil {
+		tmp = "/tmp"
+	}
+	return strings.HasPrefix(resolved, filepath.Join(tmp, "hal-"))
 }

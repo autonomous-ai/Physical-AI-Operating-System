@@ -75,7 +75,18 @@ func TestBuildChatFileRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	halDir, err := os.MkdirTemp("/tmp", "hal-sensing-snapshots-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(halDir) })
+	halSnap := filepath.Join(halDir, "1791779369779.jpg")
+	if err := os.WriteFile(halSnap, make([]byte, 16), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	cases := []struct{ name, path string }{
+		{"HAL camera output in /tmp", halSnap},
 		{"unserved extension in a served root", unserved},
 		{"runtime config json", "/root/.openclaw/openclaw.json"},
 		{"outside every root", "/etc/shadow"},

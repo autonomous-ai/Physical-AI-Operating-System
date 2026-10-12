@@ -1517,6 +1517,10 @@ are optional, since a file can be requested long after its run ended.
   `workspace/` per runtime plus `/tmp`; `.json` and `.log` are not served (a
   runtime's config JSON holds gateway tokens); the path must resolve
   (`EvalSymlinks`) inside a root, so `..` and symlink escapes both fail.
+- **MQTT also refuses HAL's camera output in `/tmp/hal-*`** (sensing, motion,
+  emotion and posture snapshots). MQTT has no sender auth and those file names
+  are guessable timestamps, so only the logged-in web chat shows them. Agent
+  photos ("take a photo") live under a runtime's `media/` and are still served.
 - **Every refusal is the same message**, `"file not available"`. Which of wrong
   type / outside the roots / absent it was would tell a prober about the
   device's filesystem; the real reason is logged on the device.

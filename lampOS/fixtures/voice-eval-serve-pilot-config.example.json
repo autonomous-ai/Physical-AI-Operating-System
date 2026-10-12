@@ -1,0 +1,20 @@
+{
+  "lamp_command": ["/usr/bin/ssh", "-o", "BatchMode=yes", "LAMP_USER@LAMP_HOST",
+    "/opt/lampOS/voice-eval/BUILD/lamp-voice-eval", "lamp-session",
+    "--runtime", "/opt/lampOS/voice-eval/BUILD/lamp-live"],
+  "lamp_work_root": "/var/lib/lampOS/voice-eval-runs",
+  "serve_config": "/etc/lampOS/pilot-4ace/provider.json",
+  "noise_suppression": "off",
+  "turn_taking": "duplex",
+  "reference_clock": "capture",
+  "reference_recovery": "off",
+  "playout_start_ms": 200,
+  "provider_continuation": "kept-start",
+  "ring_channel_ceiling": 12,
+  "allowance_seconds": 40,
+  "stimulus_source": "loudspeaker_synthetic",
+  "output_device": "iMac Speakers",
+  "room_recorder": ["open", "-n", "-W", "-a", "/private/tmp/LampRoomObserver.app", "--args",
+    "record", "--input", "EXACT INPUT NAME", "--seconds", "{seconds}", "--out", "{out}"],
+  "room_independent": true
+}

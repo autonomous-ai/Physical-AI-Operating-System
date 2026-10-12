@@ -8,6 +8,11 @@ on a Lamp or played any audio**. There are no physical attempts yet, so there is
 **no positive V2 overlap/interruption cohort**; none may be derived from the fake
 runtime. Ranked, reproducible defects are in [voice defects](voice-eval-defects.md).
 
+A long-lived [serve-session runner](voice-eval-serve.md) carries one
+conversation of up to 20 context-linked turns in a single `lamp-live serve`
+runtime. Each stimulus is armed before readiness and started by one original
+expiring grant. It is also tested offline only.
+
 `crates/voice-eval` turns the [comparison protocol](comparison-protocol.md) into
 a repeatable runner: pre-registered scenarios, stimuli started from actual
 runtime/playback events with bounded deadlines, an append-only attempt ledger,
@@ -119,6 +124,72 @@ latency) when its session transport closes before `session_end`, the relay
 reports an error or hard-deadline kill, a relayed line fails framing, or fewer
 trace lines arrive than the relay sent. A trace must contain both `run_start`
 and `run_end` to be scored.
+
+### Next-turn readiness (`next_turn_ready`)
+
+Whole-turn completion is not listening readiness. Under V1-baseline, input
+stays unavailable for the playback tail after the final sample retires (Main's
+native run measured 100.865 ms), and the availability update can arrive after
+the completion. A `turn_completed` trigger cannot see that; with a short
+delay the next question starts while input is still withheld.
+
+A step with `"after": "next_turn_ready"` therefore waits by event. It is ready
+at the first event after which all of these hold:
+
+- every turn admitted since the previous step's dispatch (newer than every
+  turn then known) has finished, completed or cancelled, and at least one did;
+- the latest reported input availability is true;
+- the latest reported provider link is `ready`.
+
+Each condition is the latest event-reported state at that point. A value cached
+when the turn finished is never used: an unavailable state waits for its
+update, and an available state reported once (`vad-only` never withdraws it)
+holds. The delay counts from readiness.
+
+| Situation | Result |
+| --- | --- |
+| Any input candidate or admission after those turns finished | `precondition_lost` ("unplanned input during the next-turn wait"); a whole extra turn is not waited out |
+| Input, lost availability or a non-ready link between readiness and the planned start (final dispatch check) | `precondition_lost` |
+| Provider link reported `terminal` | `provider_unavailable`, latched for the attempt |
+| Provider link `unavailable` | Waits for `ready` by event, within the step deadline, else `trigger_missed` |
+| A turn admitted or finished twice, or resumed after it finished | `session_ended` ("runtime owner evidence inconsistent"); on the live cue path `CueOrder` already rejects these as a protocol failure |
+| The attempt's events carry no availability or link at all | `trigger_unavailable` at once; nothing waits on evidence the runtime does not send |
+
+Rules:
+
+- `next_turn_ready` may follow only a step that expects an admitted turn.
+- Its scene must declare a "Lamp speech ended" trigger.
+- Withheld steps stay in the ledger; nothing is replayed.
+
+**Sources.**
+
+- Traces map `turn_taking_availability` (`prospective_input_available`) to
+  `input_availability`, and `provider_ready`, `provider_unavailable` and
+  `provider_terminal` to `provider_link`.
+- The fake runtime reports both before `listening_ready`, as lamp-live does.
+- Live physical sessions need the cue kinds proposed in
+  [the cue contract](voice-eval-directed-cues.md#proposed-readiness-cues).
+  Without them a physical `next_turn_ready` step is `trigger_unavailable`.
+  With the proposed lamp-live cue sink, `tests/physical_loopback.rs` runs a
+  physical follow-up through the real relay on those cues.
+- Existing plans keep their `turn_completed` triggers and hashes.
+
+**Tests.**
+
+- `runner::occurrence_tests`:
+  - the native e9/b1 timeline (completion, then availability 100.865 ms
+    later);
+  - availability never withdrawn;
+  - a cancelled finish;
+  - an extra candidate or extra turn in the wait;
+  - input or lost availability before dispatch;
+  - terminal and recovering links;
+  - a duplicate finish;
+  - missing evidence;
+  - an audit case showing a zero-delay `turn_completed` trigger starts inside
+    the reopen window.
+- `events::tests` covers trace and cue parsing; `cue_tests` covers sequencing.
+- `tests/next_turn_ready.rs` covers plan rules and the fake runtime end to end.
 
 ### Final dispatch check (`MAIN-023`, `MAIN-025`, `MAIN-030`)
 
@@ -420,7 +491,8 @@ owners are active, and such an attempt is retained as failed.
 ```
 
    Use `provider_config` (a private provider JSON on the Lamp) instead of the
-   fixture pair for Gemini. For a direct-human cohort set `"stimulus_source":
+   fixture pair for Gemini, or `serve_config` for one long-lived serve runtime
+   per attempt (see [serve-session runner](voice-eval-serve.md)). For a direct-human cohort set `"stimulus_source":
    "direct_human"` and `"human_speaker": "person-1"` (a label, not a name); the
    console then shows each line to say at its trigger and nothing is played.
    Prompt-only timed attempts stay unscored until reviewed attribution is supplied.
@@ -488,9 +560,10 @@ owners and exact reproduction commands.
   estimates of clip boundaries.
 - **P3: fault injection for physical provider tests.** Optional, test-only
   provider delays, stalls and disconnects for the recovery and delay scenarios.
-- **P4: armed playback in `lamp-observer`.** A prepare/open-then-start API and a
-  report of the first callback carrying nonzero samples would shorten and
-  measure trigger-to-sound latency on the iMac.
+- **P4 implemented for serve:** the serve runner arms `lamp-observer`'s
+  prepared player before readiness and starts it with one expiring grant
+  enforced at the first source copy. Finite directed runs keep their
+  single-phase player.
 - **P5: opening-word retention from capture diagnostics.** Align the stimulus in
   `pre_aec.pcm16le` with `prefix_first_host_read_us` in the same Lamp clock.
 - **P6: a trace event for spoken failure notices**, once the runtime has one.

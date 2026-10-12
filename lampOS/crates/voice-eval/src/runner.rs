@@ -17,7 +17,10 @@ use crate::{
     stimulus::{SceneTiming, StimulusCatalog},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+};
 
 pub struct AttemptContext<'a> {
     pub attempt_id: String,
@@ -62,6 +65,9 @@ pub enum Withheld {
     /// nothing started. The runner observes them, rechecks eligibility and
     /// may dispatch again. Never recorded as a step outcome by itself.
     Revalidate,
+    /// The prepared player for this stimulus is missing, failed or cannot
+    /// receive its start; nothing started.
+    PlayerFailed(String),
 }
 
 impl Withheld {
@@ -72,6 +78,7 @@ impl Withheld {
             Self::ProtocolFailed(_) => "protocol_failed",
             Self::Stale(_) => "trigger_stale",
             Self::Revalidate => "revalidate",
+            Self::PlayerFailed(_) => "player_failed",
         }
     }
     pub fn reason(&self) -> &str {
@@ -79,7 +86,8 @@ impl Withheld {
             Self::ProviderFailed(reason)
             | Self::SessionEnded(reason)
             | Self::ProtocolFailed(reason)
-            | Self::Stale(reason) => reason,
+            | Self::Stale(reason)
+            | Self::PlayerFailed(reason) => reason,
             Self::Revalidate => {
                 "events arrived during the final dispatch drain and must be observed first"
             }
@@ -92,6 +100,7 @@ impl Withheld {
             Self::ProviderFailed(_) => StepStatus::ProviderUnavailable,
             Self::SessionEnded(_) | Self::ProtocolFailed(_) => StepStatus::SessionEnded,
             Self::Stale(_) | Self::Revalidate => StepStatus::TriggerStale,
+            Self::PlayerFailed(_) => StepStatus::DeliveryFailed,
         }
     }
 }
@@ -138,6 +147,15 @@ pub trait Backend {
     fn timing(&mut self, catalog: &StimulusCatalog, scene: &str) -> Result<SceneTiming> {
         catalog.estimate(scene)
     }
+    /// Prepare `step`'s stimulus before its trigger wait, so that no process
+    /// creation or audio preparation sits between readiness and the start.
+    /// Backends without a two-phase player do nothing.
+    fn arm(&mut self, _step: &Step, _scene: &str, _timing: &SceneTiming) -> Result<()> {
+        Ok(())
+    }
+    /// The trigger the next `inject` serves and the step's configured delay,
+    /// so a backend can place the original deadline on its player's clock.
+    fn trigger_observed(&mut self, _observation: &TriggerObservation, _delay_us: u64) {}
     fn inject(
         &mut self,
         step: &Step,
@@ -173,10 +191,30 @@ struct LiveView {
     /// No authoritative re-ready cue exists yet, so it holds for the rest
     /// of the attempt: no later stimulus is dispatched.
     failed: Option<u64>,
+    /// Latched when the provider link is reported terminal.
+    link_terminal: bool,
+    /// Turn lifecycle by receipt index, for next-turn readiness.
+    admitted: BTreeMap<u64, usize>,
+    finished: BTreeMap<u64, usize>,
+    /// The first owner contradiction: a turn admitted or finished twice, or
+    /// a finished turn that starts again. Evidence after it is not trusted.
+    owner_fault: Option<String>,
+    /// The first lost runner evidence (an undelivered stimulus or an ended
+    /// room recording); every later stimulus is withheld.
+    evidence_lost: Option<String>,
+}
+
+/// A next-turn wait's outcome once it is decided.
+enum NextTurn {
+    /// Ready at this observation and receipt index.
+    Ready(TriggerObservation, usize),
+    /// The wait was invalidated; the step is withheld with this reason.
+    Lost(String),
 }
 
 impl LiveView {
     fn observe(&mut self, event: RuntimeEvent, runner_us: u64, method: String) {
+        let index = self.events.len();
         if let Some(turn) = event.turn {
             self.max_turn = self.max_turn.max(turn);
         }
@@ -186,7 +224,211 @@ impl LiveView {
         if failed_terminal(&event.kind) {
             self.failed.get_or_insert(event.turn.unwrap_or(0));
         }
+        if matches!(&event.kind, EventKind::ProviderLink { state } if state == "terminal") {
+            self.link_terminal = true;
+        }
+        if let EventKind::EvidenceLost { source, reason } = &event.kind {
+            self.evidence_lost
+                .get_or_insert_with(|| format!("{source}: {reason}"));
+        }
+        if let Some(turn) = event.turn {
+            let conflict = match event.kind {
+                EventKind::InputAdmitted { .. } => self
+                    .admitted
+                    .insert(turn, index)
+                    .map(|_| format!("turn {turn} admitted twice")),
+                EventKind::TurnCompleted { .. } | EventKind::TurnCancelled { .. } => self
+                    .finished
+                    .insert(turn, index)
+                    .map(|_| format!("turn {turn} finished twice")),
+                EventKind::LocalEndpoint { .. } | EventKind::SpeakerFirstWrite
+                    if self.finished.contains_key(&turn) =>
+                {
+                    Some(format!("turn {turn} resumed after it finished"))
+                }
+                _ => None,
+            };
+            if let Some(conflict) = conflict {
+                self.owner_fault.get_or_insert(conflict);
+            }
+        }
         self.events.push((event, runner_us, method));
+    }
+
+    /// Whether the events carry the evidence a next-turn wait needs.
+    fn reports_readiness(&self) -> bool {
+        let seen = |want: fn(&EventKind) -> bool| self.events.iter().any(|(e, _, _)| want(&e.kind));
+        seen(|kind| matches!(kind, EventKind::InputAvailability { .. }))
+            && seen(|kind| matches!(kind, EventKind::ProviderLink { .. }))
+    }
+
+    /// Where a next-turn wait stands after `from_index` (the previous step's
+    /// dispatch). Ready at the first event after which: every turn newer than
+    /// `known_turn` admitted since then has finished (at least one was), the
+    /// latest reported input availability is true and the latest provider
+    /// link is ready. Each condition is the latest event-reported state at
+    /// that point, never a value cached when the turn finished: V1-baseline
+    /// reports availability again only after its playback tail. Any input
+    /// candidate or admission after those turns finished ends the wait.
+    fn next_turn(&self, known_turn: u64, from_index: usize) -> Option<NextTurn> {
+        let (mut available, mut link) = (false, false);
+        let mut last_finish: Option<usize> = None;
+        let mut open = BTreeSet::new();
+        for (index, (event, runner_us, method)) in self.events.iter().enumerate() {
+            match &event.kind {
+                EventKind::InputAvailability { available: now } => available = *now,
+                EventKind::ProviderLink { state } => link = state == "ready",
+                _ => {}
+            }
+            if index < from_index {
+                continue;
+            }
+            let newer = event.turn.is_some_and(|turn| turn > known_turn);
+            match event.kind {
+                EventKind::InputAdmitted { .. } if newer && last_finish.is_none() => {
+                    open.insert(event.turn);
+                }
+                EventKind::InputCandidate { .. } | EventKind::InputAdmitted { .. }
+                    if last_finish.is_some() =>
+                {
+                    return Some(NextTurn::Lost(format!(
+                        "unplanned input during the next-turn wait ({})",
+                        event.name()
+                    )));
+                }
+                EventKind::TurnCompleted { .. } | EventKind::TurnCancelled { .. }
+                    if newer && open.remove(&event.turn) && open.is_empty() =>
+                {
+                    last_finish = Some(index);
+                }
+                _ => {}
+            }
+            if let Some(finish) = last_finish
+                && self.owner_fault.is_none()
+                && available
+                && link
+            {
+                return Some(NextTurn::Ready(
+                    TriggerObservation {
+                        event: TriggerEvent::NextTurnReady,
+                        turn: self.events[finish].0.turn,
+                        event_at_us: event.at_us,
+                        event_domain: event.domain,
+                        runner_us: *runner_us,
+                        runner_time_method: method.clone(),
+                    },
+                    index,
+                ));
+            }
+        }
+        None
+    }
+
+    /// Why a next-turn stimulus must not start now, rechecked at dispatch:
+    /// input arrived since readiness, or availability or the link was lost.
+    fn next_turn_lost(&self, ready_index: usize) -> Option<String> {
+        let mut available = None;
+        let mut link = None;
+        for (index, (event, _, _)) in self.events.iter().enumerate() {
+            match &event.kind {
+                EventKind::InputAvailability { available: now } => available = Some(*now),
+                EventKind::ProviderLink { state } => link = Some(state.as_str()),
+                EventKind::InputCandidate { .. } | EventKind::InputAdmitted { .. }
+                    if index > ready_index =>
+                {
+                    return Some(format!(
+                        "unplanned input during the next-turn wait ({})",
+                        event.name()
+                    ));
+                }
+                _ => {}
+            }
+        }
+        if available != Some(true) {
+            return Some("input became unavailable before dispatch".into());
+        }
+        if link != Some("ready") {
+            return Some(format!(
+                "provider link {} at dispatch",
+                link.unwrap_or("unreported")
+            ));
+        }
+        None
+    }
+
+    /// A local-endpoint trigger bound to its owned turn: the one turn newer
+    /// than `known_turn` admitted since the previous dispatch. A second
+    /// admission or that turn finishing before its endpoint ends the wait.
+    fn endpoint(&self, known_turn: u64, from_index: usize) -> Option<NextTurn> {
+        let mut bound = None;
+        for (index, (event, runner_us, method)) in self.events.iter().enumerate().skip(from_index) {
+            let Some(turn) = event.turn.filter(|turn| *turn > known_turn) else {
+                continue;
+            };
+            match event.kind {
+                EventKind::InputAdmitted { .. } if bound.is_some() => {
+                    return Some(NextTurn::Lost(format!(
+                        "turn {turn} was admitted before the expected turn's endpoint"
+                    )));
+                }
+                EventKind::InputAdmitted { .. } => bound = Some(turn),
+                EventKind::LocalEndpoint { .. } if bound == Some(turn) => {
+                    return Some(NextTurn::Ready(
+                        TriggerObservation {
+                            event: TriggerEvent::LocalEndpoint,
+                            turn: Some(turn),
+                            event_at_us: event.at_us,
+                            event_domain: event.domain,
+                            runner_us: *runner_us,
+                            runner_time_method: method.clone(),
+                        },
+                        index,
+                    ));
+                }
+                EventKind::SpeakerFirstWrite
+                | EventKind::TurnCompleted { .. }
+                | EventKind::TurnCancelled { .. }
+                    if bound == Some(turn) =>
+                {
+                    return Some(NextTurn::Lost(format!(
+                        "turn {turn} reached {} before its endpoint",
+                        event.name()
+                    )));
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Why a before-output correction must not start now: the bound turn
+    /// has output or has finished, or other input arrived after its endpoint.
+    fn before_output_lost(&self, turn: Option<u64>, endpoint_index: usize) -> Option<String> {
+        let turn = turn?;
+        for (index, (event, _, _)) in self.events.iter().enumerate() {
+            match event.kind {
+                EventKind::SpeakerFirstWrite
+                | EventKind::TurnCompleted { .. }
+                | EventKind::TurnCancelled { .. }
+                    if event.turn == Some(turn) =>
+                {
+                    return Some(format!(
+                        "turn {turn} reached {} before the correction could start",
+                        event.name()
+                    ));
+                }
+                EventKind::InputCandidate { .. } | EventKind::InputAdmitted { .. }
+                    if index > endpoint_index =>
+                {
+                    return Some(format!(
+                        "other input arrived after turn {turn}'s endpoint ({})",
+                        event.name()
+                    ));
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     /// The first matching event received after `from_index` that belongs to a
@@ -262,12 +504,34 @@ fn ineligible(
     step: &Step,
     record: &mut StepRecord,
     target_us: u64,
+    ready_index: Option<usize>,
+    endpoint_index: Option<usize>,
 ) -> bool {
     if view.ended {
         record.status = StepStatus::SessionEnded;
         return true;
     }
     if provider_unavailable(view, record) {
+        return true;
+    }
+    if evidence_lost(view, record) {
+        return true;
+    }
+    if let Some(lost) =
+        endpoint_index.and_then(|index| view.before_output_lost(record.bound_turn, index))
+    {
+        record.status = StepStatus::PreconditionLost;
+        record.detail = Some(lost);
+        return true;
+    }
+    if let Some(fault) = &view.owner_fault {
+        record.status = StepStatus::SessionEnded;
+        record.detail = Some(format!("runtime owner evidence inconsistent: {fault}"));
+        return true;
+    }
+    if let Some(lost) = ready_index.and_then(|index| view.next_turn_lost(index)) {
+        record.status = StepStatus::PreconditionLost;
+        record.detail = Some(lost);
         return true;
     }
     let now_us = backend.now_us();
@@ -308,8 +572,25 @@ fn failed_terminal(kind: &EventKind) -> bool {
     matches!(kind, EventKind::TurnCompleted { outcome, .. } if outcome == crate::events::PROVIDER_FAILED)
 }
 
+/// Mark the step withheld once runner evidence was lost: a conversation
+/// whose earlier stimulus never reached the room has diverged from its plan.
+fn evidence_lost(view: &LiveView, record: &mut StepRecord) -> bool {
+    let Some(lost) = &view.evidence_lost else {
+        return false;
+    };
+    record.status = StepStatus::PreconditionLost;
+    record.detail = Some(format!("runner evidence lost before this step: {lost}"));
+    true
+}
+
 /// Mark the step withheld when a terminal provider failure has been seen.
 fn provider_unavailable(view: &LiveView, record: &mut StepRecord) -> bool {
+    if view.link_terminal {
+        record.status = StepStatus::ProviderUnavailable;
+        record.detail =
+            Some("the provider link is terminal; no stimulus after the service ended".into());
+        return true;
+    }
     let Some(turn) = view.provider_failure() else {
         return false;
     };
@@ -337,12 +618,60 @@ fn execute(
         let step = &scenario.steps[index];
         let record = &mut steps[index];
         let deadline_us = anchor_us + u64::from(step.trigger.deadline_ms) * 1000;
+        let next_turn = step.trigger.after == TriggerEvent::NextTurnReady;
+        if next_turn && !view.reports_readiness() {
+            // Never wait on evidence this runtime does not send.
+            record.status = StepStatus::TriggerUnavailable;
+            record.detail = Some(
+                "the runtime's events carry no input availability or provider link; \
+                 next_turn_ready cannot be observed"
+                    .into(),
+            );
+            return Ok(());
+        }
+        if let (Some(scene), Some(timing)) = (&step.scene, &timings[index]) {
+            backend.arm(step, scene, timing)?;
+        }
+        let endpoint = step.trigger.after == TriggerEvent::LocalEndpoint;
+        let mut ready_index = None;
+        let mut endpoint_index = None;
         let observation = loop {
             // Never schedule a stimulus on a failed terminal.
-            if provider_unavailable(view, record) {
+            if provider_unavailable(view, record) || evidence_lost(view, record) {
                 return Ok(());
             }
-            if let Some(found) = view.find(step.trigger.after, known_turn, anchor_index) {
+            if let Some(fault) = &view.owner_fault {
+                record.status = StepStatus::SessionEnded;
+                record.detail = Some(format!("runtime owner evidence inconsistent: {fault}"));
+                return Ok(());
+            }
+            if next_turn {
+                match view.next_turn(known_turn, anchor_index) {
+                    Some(NextTurn::Ready(found, index)) => {
+                        ready_index = Some(index);
+                        break Some(found);
+                    }
+                    Some(NextTurn::Lost(reason)) => {
+                        record.status = StepStatus::PreconditionLost;
+                        record.detail = Some(reason);
+                        return Ok(());
+                    }
+                    None => {}
+                }
+            } else if endpoint {
+                match view.endpoint(known_turn, anchor_index) {
+                    Some(NextTurn::Ready(found, index)) => {
+                        endpoint_index = Some(index);
+                        break Some(found);
+                    }
+                    Some(NextTurn::Lost(reason)) => {
+                        record.status = StepStatus::PreconditionLost;
+                        record.detail = Some(reason);
+                        return Ok(());
+                    }
+                    None => {}
+                }
+            } else if let Some(found) = view.find(step.trigger.after, known_turn, anchor_index) {
                 break Some(found);
             }
             if view.ended || !observe_next(backend, view, deadline_us)? {
@@ -362,6 +691,7 @@ fn execute(
             return Ok(());
         };
         let target_us = observation.runner_us + u64::from(step.trigger.delay_ms) * 1000;
+        backend.trigger_observed(&observation, u64::from(step.trigger.delay_ms) * 1000);
         record.bound_turn = observation.turn;
         record.trigger = Some(observation);
         record.target_us = Some(target_us);
@@ -369,6 +699,7 @@ fn execute(
         while !view.ended
             && backend.now_us() < target_us
             && view.provider_failure().is_none()
+            && view.evidence_lost.is_none()
             && observe_next(backend, view, target_us)?
         {}
         // Final dispatch: take everything already delivered, then recheck
@@ -389,7 +720,15 @@ fn execute(
                 ));
                 return Ok(());
             }
-            if ineligible(backend, view, step, record, target_us) {
+            if ineligible(
+                backend,
+                view,
+                step,
+                record,
+                target_us,
+                ready_index,
+                endpoint_index,
+            ) {
                 return Ok(());
             }
             let (Some(scene), Some(timing)) = (&step.scene, &timings[index]) else {
@@ -1198,5 +1537,429 @@ mod occurrence_tests {
             "{:?}",
             steps[0].detail
         );
+    }
+
+    // Next-turn readiness (MAIN, after native run e9/b1): completion is not
+    // listening readiness, availability arrives late, extra input during the
+    // wait, terminal link, and contradictory owners.
+
+    const COMPLETED_AT: u64 = 4_000_000;
+    /// The native e9/b1 reopen: availability 100.865 ms after final retirement.
+    const REOPEN_AT: u64 = COMPLETED_AT + 100_865;
+
+    fn admitted() -> EventKind {
+        EventKind::InputAdmitted {
+            prefix_first_read_us: None,
+            candidate: None,
+            basis: None,
+        }
+    }
+
+    fn availability(available: bool) -> EventKind {
+        EventKind::InputAvailability { available }
+    }
+
+    fn link(state: &str) -> EventKind {
+        EventKind::ProviderLink {
+            state: state.into(),
+        }
+    }
+
+    fn candidate() -> EventKind {
+        EventKind::InputCandidate {
+            candidate: Value::Null,
+        }
+    }
+
+    /// Startup evidence, the first question answered as turn 1 under
+    /// V1-baseline (availability withdrawn while Lamp speaks), then `tail`.
+    fn answered_then(tail: Vec<Scripted>) -> Vec<Scripted> {
+        let mut events = vec![
+            (0, link("ready"), None),
+            (0, availability(true), None),
+            (1_000, EventKind::ListeningReady, None),
+            (1_000_000, candidate(), None),
+            (1_100_000, admitted(), Some(1)),
+            (
+                2_000_000,
+                EventKind::LocalEndpoint {
+                    last_block_read_us: None,
+                },
+                Some(1),
+            ),
+            (3_000_000, availability(false), None),
+            (3_000_000, EventKind::SpeakerFirstWrite, Some(1)),
+            (COMPLETED_AT, EventKind::SpeechRetired, Some(1)),
+            (COMPLETED_AT, completed("audio_written_unscored"), Some(1)),
+        ];
+        events.extend(tail);
+        events.push((
+            30_000_000,
+            EventKind::RunEnd {
+                status: None,
+                error: None,
+            },
+            None,
+        ));
+        events
+    }
+
+    /// `follow-up-chain` with its second step waiting for the next turn.
+    fn next_turn_run(
+        delay_ms: u32,
+        events: Vec<Scripted>,
+    ) -> (Vec<StepRecord>, Vec<(String, u64)>) {
+        run_script_with(
+            "follow-up-chain",
+            |scenario| {
+                scenario.steps[1].trigger.after = TriggerEvent::NextTurnReady;
+                scenario.steps[1].trigger.delay_ms = delay_ms;
+            },
+            events,
+        )
+    }
+
+    #[test]
+    fn completion_is_not_readiness_the_late_reopen_is_awaited_by_event() {
+        let (steps, injected) = next_turn_run(
+            0,
+            answered_then(vec![(REOPEN_AT, availability(true), None)]),
+        );
+        // The cached state at completion said unavailable; the step neither
+        // starts then nor gives up, it starts on the actual reopen.
+        assert_eq!(injected[1], ("why".into(), REOPEN_AT), "{injected:?}");
+        let trigger = steps[1].trigger.as_ref().unwrap();
+        assert_eq!(trigger.event, TriggerEvent::NextTurnReady);
+        assert_eq!(trigger.turn, Some(1));
+        assert_eq!(trigger.event_at_us, Some(REOPEN_AT));
+        assert_eq!(steps[1].status, StepStatus::Injected);
+    }
+
+    #[test]
+    fn availability_never_withdrawn_is_ready_at_the_finish_not_before_admission() {
+        // `vad-only` reports availability once. Ready means the previous
+        // step's turn was admitted and finished, never just "available".
+        let events: Vec<Scripted> = answered_then(Vec::new())
+            .into_iter()
+            .filter(|(_, kind, _)| *kind != availability(false))
+            .collect();
+        let (_, injected) = next_turn_run(0, events);
+        assert_eq!(injected[1], ("why".into(), COMPLETED_AT), "{injected:?}");
+    }
+
+    #[test]
+    fn a_cancelled_turn_also_finishes_the_wait() {
+        let mut events = answered_then(vec![(REOPEN_AT, availability(true), None)]);
+        events.retain(|(_, kind, _)| !matches!(kind, EventKind::TurnCompleted { .. }));
+        events.push((
+            COMPLETED_AT,
+            EventKind::TurnCancelled {
+                reason: Some("deadline_cancelled".into()),
+                provider_audio_seen: Some(true),
+            },
+            Some(1),
+        ));
+        events.sort_by_key(|(at, _, _)| *at);
+        let (_, injected) = next_turn_run(0, events);
+        assert_eq!(injected[1], ("why".into(), REOPEN_AT), "{injected:?}");
+    }
+
+    #[test]
+    fn an_extra_candidate_during_the_wait_withholds_the_next_turn() {
+        let (steps, injected) = next_turn_run(
+            0,
+            answered_then(vec![
+                (COMPLETED_AT + 50_000, candidate(), None),
+                (REOPEN_AT, availability(true), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_ref()
+                .unwrap()
+                .contains("unplanned input")
+        );
+        assert_eq!(steps[1].started_us, None);
+    }
+
+    #[test]
+    fn an_extra_admitted_turn_during_the_wait_is_not_waited_out() {
+        // A whole unplanned turn would otherwise finish and look ready again.
+        let (steps, injected) = next_turn_run(
+            0,
+            answered_then(vec![
+                (COMPLETED_AT + 50_000, admitted(), Some(2)),
+                (
+                    COMPLETED_AT + 900_000,
+                    completed("audio_written_unscored"),
+                    Some(2),
+                ),
+                (COMPLETED_AT + 1_000_000, availability(true), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+    }
+
+    #[test]
+    fn input_between_readiness_and_dispatch_is_rechecked_at_dispatch() {
+        let (steps, injected) = next_turn_run(
+            300,
+            answered_then(vec![
+                (REOPEN_AT, availability(true), None),
+                (REOPEN_AT + 100_000, candidate(), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(steps[1].trigger.is_some(), "readiness itself was observed");
+        assert!(
+            steps[1]
+                .detail
+                .as_ref()
+                .unwrap()
+                .contains("unplanned input")
+        );
+    }
+
+    #[test]
+    fn availability_withdrawn_before_dispatch_withholds() {
+        let (steps, injected) = next_turn_run(
+            300,
+            answered_then(vec![
+                (REOPEN_AT, availability(true), None),
+                (REOPEN_AT + 100_000, availability(false), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(steps[1].detail.as_ref().unwrap().contains("unavailable"));
+    }
+
+    #[test]
+    fn a_terminal_link_during_the_wait_is_provider_unavailable() {
+        let (steps, injected) = next_turn_run(
+            0,
+            answered_then(vec![
+                (COMPLETED_AT + 50_000, link("terminal"), None),
+                (REOPEN_AT, availability(true), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::ProviderUnavailable);
+        assert!(steps[1].detail.as_ref().unwrap().contains("terminal"));
+    }
+
+    #[test]
+    fn a_link_outage_is_waited_out_by_event() {
+        let recovered = COMPLETED_AT + 400_000;
+        let (_, injected) = next_turn_run(
+            0,
+            answered_then(vec![
+                (COMPLETED_AT + 10_000, link("unavailable"), None),
+                (REOPEN_AT, availability(true), None),
+                (recovered, link("ready"), None),
+            ]),
+        );
+        assert_eq!(injected[1], ("why".into(), recovered), "{injected:?}");
+    }
+
+    #[test]
+    fn a_turn_finished_twice_is_an_owner_fault() {
+        let (steps, injected) = next_turn_run(
+            0,
+            answered_then(vec![
+                (
+                    COMPLETED_AT + 1_000,
+                    completed("audio_written_unscored"),
+                    Some(1),
+                ),
+                (REOPEN_AT, availability(true), None),
+            ]),
+        );
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::SessionEnded);
+        assert!(steps[1].detail.as_ref().unwrap().contains("finished twice"));
+    }
+
+    #[test]
+    fn a_stream_without_readiness_evidence_never_waits_on_it() {
+        let events: Vec<Scripted> = answered_then(vec![(REOPEN_AT, availability(true), None)])
+            .into_iter()
+            .filter(|(_, kind, _)| {
+                !matches!(
+                    kind,
+                    EventKind::InputAvailability { .. } | EventKind::ProviderLink { .. }
+                )
+            })
+            .collect();
+        let (steps, injected) = next_turn_run(0, events);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::TriggerUnavailable);
+    }
+
+    #[test]
+    fn audit_a_completion_trigger_starts_inside_the_reopen_window() {
+        // The class this replaces: `turn_completed` cannot see availability,
+        // so with no delay the next question starts while V1-baseline still
+        // withholds input. Only a planned delay hides it, and only by luck.
+        let (_, injected) = run_script_with(
+            "follow-up-chain",
+            |scenario| scenario.steps[1].trigger.delay_ms = 0,
+            answered_then(vec![(REOPEN_AT, availability(true), None)]),
+        );
+        assert_eq!(injected[1], ("why".into(), COMPLETED_AT), "{injected:?}");
+        const { assert!(COMPLETED_AT < REOPEN_AT) };
+    }
+
+    /// `follow-up-chain` with its second step a correction on the first
+    /// turn's local endpoint.
+    fn endpoint_run(delay_ms: u32, events: Vec<Scripted>) -> (Vec<StepRecord>, Vec<(String, u64)>) {
+        run_script_with(
+            "follow-up-chain",
+            |scenario| {
+                scenario.steps[1].trigger.after = TriggerEvent::LocalEndpoint;
+                scenario.steps[1].trigger.delay_ms = delay_ms;
+            },
+            events,
+        )
+    }
+
+    fn endpoint() -> EventKind {
+        EventKind::LocalEndpoint {
+            last_block_read_us: None,
+        }
+    }
+
+    #[test]
+    fn a_correction_binds_to_the_turn_admitted_since_the_previous_step() {
+        // Output starts at 3.0 s; the correction is due at 2.3 s.
+        let (steps, injected) = endpoint_run(300, answered_then(Vec::new()));
+        assert_eq!(
+            steps[1].status,
+            StepStatus::Injected,
+            "{:?}",
+            steps[1].detail
+        );
+        assert_eq!(injected[1], ("why".into(), 2_300_000));
+        let trigger = steps[1].trigger.as_ref().unwrap();
+        assert_eq!(
+            (trigger.event, trigger.turn),
+            (TriggerEvent::LocalEndpoint, Some(1))
+        );
+    }
+
+    #[test]
+    fn a_correction_due_after_output_started_is_withheld() {
+        let (steps, injected) = endpoint_run(1_500, answered_then(Vec::new()));
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .is_some_and(|d| d.contains("speaker_first_write")),
+            "{:?}",
+            steps[1].detail
+        );
+    }
+
+    #[test]
+    fn a_correction_after_new_input_or_a_second_owner_is_withheld() {
+        let mut after_endpoint = answered_then(Vec::new());
+        after_endpoint.push((2_100_000, candidate(), None));
+        after_endpoint.sort_by_key(|(at, _, _)| *at);
+        let (steps, injected) = endpoint_run(300, after_endpoint);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("after turn 1's endpoint")
+        );
+
+        // A second admission before any endpoint: the expected owner is ambiguous.
+        let second = vec![
+            (0, link("ready"), None),
+            (0, availability(true), None),
+            (1_000, EventKind::ListeningReady, None),
+            (1_100_000, admitted(), Some(1)),
+            (1_500_000, admitted(), Some(2)),
+            (2_000_000, endpoint(), Some(2)),
+            (
+                30_000_000,
+                EventKind::RunEnd {
+                    status: None,
+                    error: None,
+                },
+                None,
+            ),
+        ];
+        let (steps, injected) = endpoint_run(300, second);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("turn 2 was admitted")
+        );
+
+        // The expected turn finishing before its endpoint is no correction point.
+        let finished = vec![
+            (0, link("ready"), None),
+            (1_000, EventKind::ListeningReady, None),
+            (1_100_000, admitted(), Some(1)),
+            (
+                1_800_000,
+                EventKind::TurnCancelled {
+                    reason: Some("runtime_failed".into()),
+                    provider_audio_seen: Some(false),
+                },
+                Some(1),
+            ),
+            (2_000_000, endpoint(), Some(1)),
+            (
+                30_000_000,
+                EventKind::RunEnd {
+                    status: None,
+                    error: None,
+                },
+                None,
+            ),
+        ];
+        let (steps, _) = endpoint_run(300, finished);
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(
+            steps[1]
+                .detail
+                .as_deref()
+                .unwrap()
+                .contains("before its endpoint")
+        );
+    }
+
+    #[test]
+    fn lost_runner_evidence_withholds_the_next_step_at_once() {
+        let mut events = answered_then(vec![(REOPEN_AT, availability(true), None)]);
+        events.push((
+            3_500_000,
+            EventKind::EvidenceLost {
+                source: "player:ask".into(),
+                reason: "stimulus not delivered: start_expired".into(),
+            },
+            None,
+        ));
+        events.sort_by_key(|(at, _, _)| *at);
+        let (steps, injected) = next_turn_run(0, events);
+        assert_eq!(injected.len(), 1, "{injected:?}");
+        assert_eq!(steps[1].status, StepStatus::PreconditionLost);
+        assert!(steps[1].detail.as_deref().unwrap().contains("player:ask"));
     }
 }

@@ -777,6 +777,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "signal-hook",
 ]
 
 [[package]]

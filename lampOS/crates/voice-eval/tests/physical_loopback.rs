@@ -8,7 +8,7 @@ use lamp_voice_eval::{
     evaluate::{self, FindingKind, Outcome},
     events::{EventKind, EventSource},
     physical::mac::{FakeRoomPlayer, LampMode, PhysicalBackend, PhysicalConfig},
-    plan::LoadedPlan,
+    plan::{LoadedPlan, TriggerEvent},
     record::{AttemptStatus, StepStatus, Stratum},
     runner::{Backend, SuiteOptions, run_suite},
     stimulus::{AssetIndex, StimulusCatalog},
@@ -70,6 +70,7 @@ fn config_with_fault(
         allowance_seconds: 10,
         ring_channel_ceiling: None,
         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+        runtime_flags: Default::default(),
     }
 }
 
@@ -106,8 +107,29 @@ fn run_mode(
     lamp_voice_eval::record::AttemptRecord,
     evaluate::AttemptScore,
 ) {
+    run_plan(
+        lamp_voice_eval::plan::DEFAULT_PLAN,
+        scenario,
+        scenes,
+        mode,
+        seconds,
+        fault,
+    )
+}
+
+fn run_plan(
+    source: &str,
+    scenario: &str,
+    scenes: &[&str],
+    mode: LampMode,
+    seconds: u16,
+    fault: Option<&str>,
+) -> (
+    lamp_voice_eval::record::AttemptRecord,
+    evaluate::AttemptScore,
+) {
     let catalog = StimulusCatalog::load().unwrap();
-    let plan = LoadedPlan::default_plan(&catalog).unwrap();
+    let plan = LoadedPlan::parse(source, &catalog).unwrap();
     let dir = common::Private::new("loop");
     let tones: Vec<_> = scenes
         .iter()
@@ -676,4 +698,52 @@ fn missing_or_stale_whole_completion_withholds_followup_after_valid_retirement()
         assert_eq!(record.evidence["playbacks"].as_array().unwrap().len(), 1);
         assert_ne!(score.outcome, Outcome::Passed);
     }
+}
+
+/// lamp-live's own cue sink now sends input availability, the provider link
+/// and candidates, so a physical next-turn wait follows real readiness cues
+/// through the relay: it starts only after the turn completed and the
+/// runtime reported availability and a ready link.
+#[test]
+fn physical_next_turn_ready_follows_lamp_live_readiness_cues() {
+    let mut source: serde_json::Value =
+        serde_json::from_str(lamp_voice_eval::plan::DEFAULT_PLAN).unwrap();
+    for scenario in source["scenarios"].as_array_mut().unwrap() {
+        if scenario["id"] == "rapid-follow-up" {
+            scenario["steps"][1]["trigger"]["after"] = serde_json::json!("next_turn_ready");
+        }
+    }
+    let (record, _) = run_plan(
+        &source.to_string(),
+        "rapid-follow-up",
+        &["mid-sentence-address", "rapid-followup"],
+        directed(),
+        22,
+        None,
+    );
+    assert_directed_receipts(&record);
+    assert!(
+        record
+            .steps
+            .iter()
+            .all(|s| s.status == StepStatus::Injected)
+    );
+    let followup = &record.steps[1];
+    let trigger = followup.trigger.as_ref().unwrap();
+    assert_eq!(trigger.event, TriggerEvent::NextTurnReady);
+    assert_eq!(trigger.turn, Some(1));
+    let completed = cue_time(&record, "turn_completed", 1);
+    assert!(trigger.event_at_us.unwrap() >= completed);
+    let kinds: Vec<_> = record.evidence["cue_receipts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["accepted"] == true)
+        .map(|r| r["cue"]["kind"].as_str().unwrap().to_owned())
+        .collect();
+    for kind in ["input_availability", "provider_link"] {
+        assert!(kinds.iter().any(|k| k == kind), "{kind} missing: {kinds:?}");
+    }
+    // The new turn starts only after the follow-up was played.
+    assert!(cue_time(&record, "input_admitted", 2) > completed);
 }

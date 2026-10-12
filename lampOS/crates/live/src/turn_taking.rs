@@ -30,9 +30,6 @@ const MAX_HEARD: usize = 128;
 /// Yields in one reply that came to nothing before the mask stops yielding
 /// for the rest of that reply and masks as the conservative baseline does.
 pub const FRUITLESS_YIELDS: u8 = 2;
-/// The first blocks of a run over the lamp that the turn detector is not
-/// told about: what the yield takes less what the detector takes to start.
-const ONSET_LEAD: u8 = Confirmation::EVALUATED.onset_blocks - START_BLOCKS as u8;
 /// Hearing older than this withholds nothing. Capture blocks arrive every
 /// 10 ms; a muted or stalled microphone must not hold a reply back.
 pub const HEARING_STALE_US: u64 = 100_000;
@@ -248,10 +245,16 @@ impl PlaybackMask {
             // Fallen back for this reply: a person over the lamp is not let
             // through either, as in the conservative baseline.
             0.0
-        } else if (1..=ONSET_LEAD).contains(&duplex.interruption.onset_run()) {
+        } else if (1..=duplex
+            .interruption
+            .onset_needed()
+            .saturating_sub(START_BLOCKS as u8))
+            .contains(&duplex.interruption.onset_run())
+        {
             // Over the lamp, and not yet for long enough to stop it. The
-            // detector hears nothing either, so that its own six blocks end
-            // on the block that yields and never before it.
+            // detector hears nothing of the first blocks of the run, as many
+            // as the yield takes more than its own six, so that its start
+            // ends on the block that yields and never before it.
             0.0
         } else {
             Hearing::detector_score(heard, probability)
@@ -1254,8 +1257,11 @@ mod tests {
         steps
     }
 
-    /// Blocks over the lamp that make it yield.
-    const ONSET: u64 = Confirmation::EVALUATED.onset_blocks as u64;
+    /// Blocks over the lamp that make it yield in the first second it has
+    /// something to say, which is where these tests take place.
+    const ONSET: u64 = Confirmation::EVALUATED.early_onset_blocks as u64;
+    /// The first blocks of such a run that the detector is not told about.
+    const ONSET_LEAD: u8 = Confirmation::EVALUATED.early_onset_blocks - START_BLOCKS as u8;
 
     fn disposition(mask: &PlaybackMask, trigger: u64) -> Option<Disposition> {
         PlaybackMask::heard_disposition(mask.duplex.as_ref().unwrap(), trigger - 5, trigger)
@@ -1345,6 +1351,51 @@ mod tests {
     }
 
     #[test]
+    fn a_second_into_a_reply_the_shorter_run_stops_it_and_the_detector_starts_on_the_yield() {
+        let rule = Confirmation::EVALUATED;
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        assert_eq!(
+            hear(
+                &mut mask,
+                &mut sequence,
+                u64::from(rule.early_blocks),
+                0.9,
+                &evidence(0, OWN),
+                true
+            ),
+            []
+        );
+        let late = usize::from(rule.onset_blocks);
+        let mut heard = Vec::new();
+        for _ in 0..late {
+            let listened = mask
+                .listen(
+                    sequence,
+                    0.9,
+                    Some(&evidence(0, OVER)),
+                    true,
+                    sequence * 10_000,
+                )
+                .unwrap();
+            heard.push((listened.score, listened.step));
+            sequence += 1;
+        }
+        let lead = late - usize::from(START_BLOCKS);
+        assert!(
+            heard[..lead]
+                .iter()
+                .all(|heard| *heard == (0.0, Step::Carry))
+        );
+        assert!(
+            heard[lead..late - 1]
+                .iter()
+                .all(|heard| *heard == (1.0, Step::Carry))
+        );
+        assert_eq!(heard[late - 1], (1.0, Step::Yield));
+    }
+
+    #[test]
     fn without_evidence_the_duplex_mask_is_the_conservative_mask() {
         let mut mask = PlaybackMask::duplex();
         let blind = mask.listen(1, 0.99, None, true, 10_000).unwrap();
@@ -1425,9 +1476,17 @@ mod tests {
         assert_eq!(steps, [(word + 70, Step::Commit)]);
         assert_eq!(disposition(&mask, ONSET).unwrap(), Disposition::Pass);
         assert_eq!(mask.duplex_summary(), Some(((1, 1, 0), false)));
-        // One block fewer and it is an acknowledgment: a pause.
+        // One plain block fewer and it is an acknowledgment: a pause.
         let mut mask = PlaybackMask::duplex();
         let mut sequence = 1;
+        hear(
+            &mut mask,
+            &mut sequence,
+            ONSET - (word - 1),
+            0.9,
+            &evidence(0, OVER),
+            true,
+        );
         hear(
             &mut mask,
             &mut sequence,
@@ -1438,7 +1497,7 @@ mod tests {
         );
         hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
         let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
-        assert_eq!(steps, [(word + 69, Step::Resume)]);
+        assert_eq!(steps, [(ONSET + 70, Step::Resume)]);
     }
 
     #[test]

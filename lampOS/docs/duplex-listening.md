@@ -168,8 +168,10 @@ A run of blocks becomes at most three moments (`Interruption`):
 1. **Yield.** Seven consecutive `Over` blocks while the lamp has something
    to say. The coordinator hands nothing more to the speaker. It cancels
    nothing and drops nothing: the reply, its owner and its queue stay.
-   (Six blocks until 2026-10-13; see "Seven blocks" below. The lab tables
-   further down were measured with six.)
+   Ten in the first 1.2 s after an answer's audio arrives, which is its
+   first second of sound, and again after a resume. (Six blocks until
+   2026-10-13; see "Seven blocks" below. The lab tables further down were
+   measured with six.)
 2. **Commit.** Six `Clear` blocks after the yield: the lamp is silent, the
    room has gone quiet of it, and speech-like input remains. This is a
    hearing decision, not addressee evidence or completed input admission.
@@ -286,6 +288,20 @@ behaved like eight and ten in a row to within one clip. A run was kept
 because the turn detector starts on six blocks in a row: with a run its
 start can be made to end exactly on the yield, and with a window it
 cannot.
+
+### The first second of a reply
+
+With the head still and the first moments of a reply set aside (next
+section), the lamp still stopped for nobody twice in six long stories and
+three times in ten more replies. Three of those five were within 0.6 s of
+the lamp starting to speak, where the canceller is still settling and lets
+more of the lamp through for longer: runs of 8, 9 and 12 `Over` blocks.
+Ten blocks instead of seven were worth four missed cut-ins in twenty when
+they applied everywhere. They now apply only while the lamp has had
+something to say for 1.2 s or less, counted from the answer's audio
+arriving (it plays about a quarter of a second later), and again from the
+moment a reply is resumed. A person is that much harder to hear in the
+lamp's first second and no harder after it.
 
 ### The first moments of a reply
 

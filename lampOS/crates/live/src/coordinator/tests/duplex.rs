@@ -13,8 +13,9 @@ use lamp_audio::{
     ownership::PlaybackCursor,
 };
 
-/// Blocks over the lamp that make it yield.
-const ONSET: usize = Confirmation::EVALUATED.onset_blocks as usize;
+/// Blocks over the lamp that make it yield in the first second it has
+/// something to say, which is where these tests take place.
+const ONSET: usize = Confirmation::EVALUATED.early_onset_blocks as usize;
 /// The same as a capture sequence number.
 const ONSET_SEQUENCE: u64 = ONSET as u64;
 

@@ -163,6 +163,12 @@ pub struct Confirmation {
     /// Plain blocks, in the run that made the lamp yield and after it, with
     /// which a yield that ends in stillness is an interruption all the same.
     pub plain_blocks: u8,
+    /// Consecutive [`Heard::Over`] blocks that make the lamp yield while it
+    /// has only just had something to say, and for how many blocks that is.
+    /// A canceller takes its first second of a reply to settle, and what it
+    /// lets through of the lamp then is misjudged for longer than later on.
+    pub early_onset_blocks: u8,
+    pub early_blocks: u16,
 }
 
 impl Confirmation {
@@ -179,6 +185,10 @@ impl Confirmation {
         silence_blocks: 40,
         deadline_blocks: 110,
         plain_blocks: 10,
+        // 1.2 s from the answer's first audio arriving: its first second
+        // of sound and the quarter second it is held before it plays.
+        early_onset_blocks: 10,
+        early_blocks: 120,
     };
 }
 
@@ -217,6 +227,9 @@ const LISTENING: State = State::Listening { over: 0, plain: 0 };
 pub struct Interruption {
     rule: Confirmation,
     state: State,
+    /// Blocks in a row for which there has been something to yield, since
+    /// there last was nothing or since the reply was last resumed.
+    spoken: u16,
     yields: u32,
     commits: u32,
     resumes: u32,
@@ -227,6 +240,7 @@ impl Interruption {
         Self {
             rule,
             state: LISTENING,
+            spoken: 0,
             yields: 0,
             commits: 0,
             resumes: 0,
@@ -251,6 +265,12 @@ impl Interruption {
     /// as likely as anything, and the lamp does not talk over that. The
     /// deadline resumes it whatever was heard.
     pub fn observe(&mut self, heard: Heard, plain: bool, speaking: bool) -> Step {
+        self.spoken = if speaking {
+            self.spoken.saturating_add(1)
+        } else {
+            0
+        };
+        let needed = self.onset_needed();
         match &mut self.state {
             State::Listening { over, plain: seen } => {
                 if speaking && heard == Heard::Over {
@@ -260,7 +280,7 @@ impl Interruption {
                     *over = 0;
                     *seen = 0;
                 }
-                if *over < self.rule.onset_blocks.max(1) {
+                if *over < needed {
                     return Step::Carry;
                 }
                 self.state = State::Yielded {
@@ -300,6 +320,8 @@ impl Interruption {
                 } else if quiet || *blocks >= self.rule.deadline_blocks {
                     self.state = LISTENING;
                     self.resumes += 1;
+                    // Going on after a pause is a beginning again.
+                    self.spoken = 0;
                     Step::Resume
                 } else {
                     Step::Carry
@@ -311,6 +333,18 @@ impl Interruption {
     /// Whether reply audio is being withheld from the speaker.
     pub fn yielded(&self) -> bool {
         matches!(self.state, State::Yielded { .. })
+    }
+
+    /// Consecutive [`Heard::Over`] blocks that make the lamp yield as things
+    /// stand: more while it has only just begun to speak.
+    pub fn onset_needed(&self) -> u8 {
+        let rule = &self.rule;
+        if self.spoken <= rule.early_blocks {
+            rule.early_onset_blocks.max(rule.onset_blocks)
+        } else {
+            rule.onset_blocks
+        }
+        .max(1)
     }
 
     /// Consecutive [`Heard::Over`] blocks counted towards a yield that has
@@ -500,8 +534,12 @@ mod tests {
         assert!(!Heard::Own.person() && !Heard::Unknown.person() && !Heard::Under.person());
     }
 
-    /// Blocks over the lamp that make it yield.
-    const ONSET: usize = Confirmation::EVALUATED.onset_blocks as usize;
+    /// Blocks over the lamp that make it yield in the first second it has
+    /// something to say, which is where every run below takes place unless
+    /// it says otherwise.
+    const ONSET: usize = Confirmation::EVALUATED.early_onset_blocks as usize;
+    /// And later in a reply.
+    const LATE: usize = Confirmation::EVALUATED.onset_blocks as usize;
 
     fn run(interruption: &mut Interruption, blocks: &[(Heard, usize)]) -> Vec<(usize, Step)> {
         let mut steps = Vec::new();
@@ -596,12 +634,10 @@ mod tests {
         assert_eq!(counts, (1, 0, 1));
         // Plain blocks count from the first of the run to the last heard
         // over the lamp's dying sound, and one short of enough is not enough.
-        for (after, step) in [
-            (plain - ONSET, Step::Commit),
-            (plain - ONSET - 1, Step::Resume),
-        ] {
+        for (after, step) in [(1, Step::Commit), (0, Step::Resume)] {
             let (steps, _) = play(&[
-                (Heard::Over, true, ONSET),
+                (Heard::Over, false, ONSET - (plain - 1)),
+                (Heard::Over, true, plain - 1),
                 (Heard::Own, false, 5),
                 (Heard::Over, true, after),
                 (Heard::Under, false, 30),
@@ -625,6 +661,67 @@ mod tests {
     }
 
     #[test]
+    fn a_lamp_that_has_only_just_begun_to_speak_takes_longer_to_stop() {
+        let rule = Confirmation::EVALUATED;
+        let (early, late) = (
+            usize::from(rule.early_onset_blocks),
+            usize::from(rule.onset_blocks),
+        );
+        assert!(late < early);
+        let beginning = usize::from(rule.early_blocks);
+        // A second and more into a reply: the shorter run is enough.
+        let mut interruption = Interruption::new(rule);
+        let steps = run(
+            &mut interruption,
+            &[(Heard::Own, beginning), (Heard::Over, late)],
+        );
+        assert_eq!(steps, [(beginning + late - 1, Step::Yield)]);
+        // The same run in its first second is not, and the longer one is.
+        let mut interruption = Interruption::new(rule);
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Own, 30),
+                (Heard::Over, late),
+                (Heard::Own, 1),
+                (Heard::Over, early),
+            ],
+        );
+        assert_eq!(steps, [(30 + late + early, Step::Yield)]);
+        // A reply that goes on after a pause has begun again.
+        let mut interruption = Interruption::new(rule);
+        let steps = run(
+            &mut interruption,
+            &[
+                (Heard::Own, beginning),
+                (Heard::Over, late),
+                (Heard::Under, 30),
+                (Heard::Still, 40),
+                (Heard::Own, 20),
+                (Heard::Over, late),
+                (Heard::Own, 1),
+                (Heard::Over, early),
+            ],
+        );
+        let resumed = beginning + late + 70 - 1;
+        assert_eq!(
+            steps,
+            [
+                (beginning + late - 1, Step::Yield),
+                (resumed, Step::Resume),
+                (resumed + 20 + late + 1 + early, Step::Yield)
+            ]
+        );
+        // With nothing to yield the count of what has been spoken starts over.
+        let mut interruption = Interruption::new(rule);
+        for _ in 0..beginning + 50 {
+            interruption.observe(Heard::Own, false, true);
+        }
+        interruption.observe(Heard::Still, false, false);
+        assert_eq!(usize::from(interruption.onset_needed()), early);
+    }
+
+    #[test]
     fn the_lamps_own_voice_never_yields_however_long_or_loud() {
         let mut interruption = Interruption::new(Confirmation::EVALUATED);
         let steps = run(
@@ -634,9 +731,9 @@ mod tests {
                 (Heard::Unknown, 200),
                 (Heard::Under, 100),
                 // One block short of a yield and one of own voice, repeated.
-                (Heard::Over, ONSET - 1),
+                (Heard::Over, LATE - 1),
                 (Heard::Own, 1),
-                (Heard::Over, ONSET - 1),
+                (Heard::Over, LATE - 1),
                 (Heard::Own, 1),
             ],
         );
@@ -680,7 +777,7 @@ mod tests {
             assert_eq!(interruption.block(Heard::Over, false), Step::Carry);
         }
         // A reply begins: the count starts from there.
-        for run in 1..Confirmation::EVALUATED.onset_blocks {
+        for run in 1..Confirmation::EVALUATED.early_onset_blocks {
             assert_eq!(interruption.block(Heard::Over, true), Step::Carry);
             assert_eq!(interruption.onset_run(), run);
         }

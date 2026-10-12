@@ -139,7 +139,8 @@ allowance`) all start it.
 1. SIGTERM goes only to the runtime the relay started, the leader of the
    process group it created. This matches the pilot unit's coordinator-first
    `KillMode=mixed`; there is no group-wide SIGTERM.
-2. After a 5 s grace (the unit's `TimeoutStopSec`), the relay kills that group.
+2. After a 10 s grace (`SERVE_STOP_GRACE_US`; longer than the pilot unit's
+   5 s `TimeoutStopSec`), the relay kills that group.
 3. The relay then confirms the group is gone.
 
 `session_end.serve` keeps these separately:
@@ -153,6 +154,17 @@ allowance`) all start it.
 
 A runtime that sends its own `run_end`, or reports a terminal provider link,
 is waited for (10 s) rather than stopped, so its own end keeps its provenance.
+
+On the Mac, a serve attempt is certified only after the outer transport has
+been reaped with a successful exit. The transport is the `lamp-session` relay,
+normally over SSH. The runner waits for it for at most 5 s after closing its
+input. A nominal runtime end (exit 0, acknowledged metadata) does not
+certify the attempt if the transport then exits nonzero, by signal, or has
+to be killed at that bound.
+
+- The runtime's outcome stays in `session_end`.
+- The transport's outcome is recorded separately: `transport_exit`,
+  `transport_status` and `transport_forced_kill`.
 
 The following are relay errors, so the attempt is aborted, never scored as a
 clean conversation:
@@ -223,7 +235,7 @@ unchanged; no lease was widened.
 | Player prepare failure | `player_failed` → `delivery_failed`; rest withheld |
 | Runtime stopped externally | `session_ended`; `runtime_exited`; clean metadata |
 | Physical mute and new cycle | withheld at the new boot; continuity lost; restart verified from metadata |
-| SIGTERM ignored | forced kill after 5 s; attempt aborted, never clean |
+| SIGTERM ignored | forced kill after the 10 s grace; attempt aborted, never clean |
 | Room recorder ends early | `evidence_lost` (room recorder); rest withheld |
 | Relay: stop / transport closed / deadline / SIGTERM ignored | each cause, signal, exit, forced kill and reap recorded separately |
 

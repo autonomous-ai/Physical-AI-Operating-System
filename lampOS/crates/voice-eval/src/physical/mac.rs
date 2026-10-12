@@ -640,6 +640,9 @@ fn grant_margin(deadline_us: u64, sent_us: u64) -> Value {
 /// The longest a prepared player may wait for its grant (the observer's
 /// own bound).
 const MAX_PREPARED_WAIT_MS: u32 = 120_000;
+/// How long the session transport may take to exit once its input closed.
+const TRANSPORT_EXIT_BOUND_US: u64 = 5_000_000;
+
 /// How long a serve runtime that sent its own `run_end` may take to exit
 /// before the runner stops it.
 const SELF_END_BOUND_US: u64 = 10_000_000;
@@ -1800,7 +1803,22 @@ impl Backend for PhysicalBackend<'_> {
             });
         };
         drop(session.stdin.take());
-        let exited = wait_child(&mut session.child, monotonic_us() + 5_000_000);
+        let exited = wait_child(&mut session.child, monotonic_us() + TRANSPORT_EXIT_BOUND_US);
+        // A serve attempt is certified only with its outer transport (the
+        // relay, normally over SSH) reaped after a successful exit. A nominal
+        // runtime end inside a failed or killed transport is not enough. The
+        // runtime's and the transport's outcomes are kept separately.
+        let transport_failure = match exited {
+            _ if !self.serve() => None,
+            None => Some(format!(
+                "the session transport did not exit within {} s and was killed",
+                TRANSPORT_EXIT_BOUND_US / 1_000_000
+            )),
+            Some(status) if !status.success() => Some(format!(
+                "the session transport exited unsuccessfully ({status})"
+            )),
+            Some(_) => None,
+        };
         // A partial trace must never be scored as a complete one.
         let aborted = match &session.end {
             _ if !session.protocol_errors.is_empty() => Some(format!(
@@ -1844,6 +1862,10 @@ impl Backend for PhysicalBackend<'_> {
                 ))
             }
             _ => None,
+        };
+        let aborted = match (aborted, transport_failure) {
+            (Some(reason), Some(transport)) => Some(format!("{reason}; {transport}")),
+            (reason, transport) => reason.or(transport),
         };
         let playback_bound = monotonic_us() + 25_000_000;
         let mut playbacks = Vec::new();
@@ -1975,6 +1997,8 @@ impl Backend for PhysicalBackend<'_> {
             "session_end": session.end,
             "cue_receipts": session.cues,
             "transport_exit": exited.map(|s| s.code()),
+            "transport_status": exited.map(|s| s.to_string()),
+            "transport_forced_kill": exited.is_none(),
             "protocol_errors": session.protocol_errors,
             "playbacks": playbacks,
             "unused_prepared_players": unused,
@@ -2445,8 +2469,17 @@ mod audit_grant_tests {
     }
 
     fn exit_report(code: i32) -> Finished {
-        let root =
-            std::env::temp_dir().join(format!("lve-exit-audit-{}-{code}", std::process::id()));
+        exit_report_with(code, &["/usr/bin/true"], true, "reaped")
+    }
+
+    /// A serve attempt whose runtime ended with `code`, finished through the
+    /// production `finish()` while the outer transport (the relay, normally
+    /// over SSH) is the real process `transport`, reaped first or not.
+    fn exit_report_with(code: i32, transport: &[&str], reaped: bool, label: &str) -> Finished {
+        let root = std::env::temp_dir().join(format!(
+            "lve-exit-audit-{}-{code}-{label}",
+            std::process::id()
+        ));
         fs::create_dir(&root).unwrap();
         fs::create_dir(root.join("objects")).unwrap();
         let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
@@ -2466,9 +2499,15 @@ mod audit_grant_tests {
             runtime_flags: Default::default(),
         };
         let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
-        // An already-reaped inert child supplies the Session's OS identity only.
-        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
-        child.wait().unwrap();
+        // An inert local process stands in for the relay transport; no
+        // Lamp, SSH, audio or network is involved.
+        let mut child = Command::new(transport[0])
+            .args(&transport[1..])
+            .spawn()
+            .unwrap();
+        if reaped {
+            child.wait().unwrap();
+        }
         let (tx, lines) = mpsc::channel();
         backend.session = Some(Session {
             child,
@@ -2531,6 +2570,47 @@ mod audit_grant_tests {
         fs::remove_dir_all(root).unwrap();
         finished
     }
+    #[test]
+    fn audit_failed_outer_transport_cannot_certify_nominal_runtime_end() {
+        // Nominal runtime end (exit 0, complete session_end), but the outer
+        // relay/SSH transport process itself exits nonzero.
+        let result = exit_report_with(0, &["/usr/bin/false"], false, "false");
+        assert_eq!(result.evidence["session_end"]["exit_code"], 0);
+        assert_eq!(result.evidence["transport_exit"], 1);
+        assert!(
+            result
+                .aborted
+                .as_deref()
+                .is_some_and(|r| r.contains("transport")),
+            "{:?}",
+            result.aborted
+        );
+    }
+
+    #[test]
+    fn audit_reaped_successful_transport_certifies_nominal_runtime_end() {
+        let result = exit_report_with(0, &["/usr/bin/true"], false, "true");
+        assert_eq!(result.evidence["transport_exit"], 0);
+        assert_eq!(result.evidence["transport_forced_kill"], false);
+        assert!(result.aborted.is_none(), "{:?}", result.aborted);
+    }
+
+    #[test]
+    fn audit_transport_that_outlives_its_bound_is_killed_and_never_certified() {
+        let result = exit_report_with(0, &["/bin/sleep", "30"], false, "sleep");
+        assert_eq!(result.evidence["session_end"]["exit_code"], 0);
+        assert_eq!(result.evidence["transport_forced_kill"], true);
+        assert!(result.evidence["transport_exit"].is_null());
+        assert!(
+            result
+                .aborted
+                .as_deref()
+                .is_some_and(|r| r.contains("transport")),
+            "{:?}",
+            result.aborted
+        );
+    }
+
     #[test]
     fn audit_successful_runtime_exit_control() {
         assert!(exit_report(0).aborted.is_none());

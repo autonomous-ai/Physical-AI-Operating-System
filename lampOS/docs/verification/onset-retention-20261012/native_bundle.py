@@ -8,7 +8,7 @@ from scipy import signal
 runtime, features, coffee_path, coffee_sha, sunset_path, sunset_sha, nominal, out = sys.argv[1:9]
 nominal = int(nominal)
 BETWEEN_SOURCE_STARTS_S = float(sys.argv[9])
-LAMP_ALONE_AT_S = float(sys.argv[10]) if len(sys.argv) > 10 and sys.argv[10] != '-' else None
+LAMP_ALONE_ARG = sys.argv[10] if len(sys.argv) > 10 else '-'
 MIXERS = sys.argv[11] if len(sys.argv) > 11 else None
 def clip(path, sha):
     raw = open(path, 'rb').read(); assert hashlib.sha256(raw).hexdigest() == sha, 'clip digest ' + path
@@ -114,6 +114,57 @@ res['per_block_over_the_clip'] = {'frame_sequences': [int(seq[b0]), int(seq[b1 -
 # the same detector on the sunset question in the clear, for comparison
 sb0 = s0 // 160; sb1 = (s0 + len(sunset)) // 160 + 1; sv = vad[sb0:sb1]
 res['sunset_in_the_clear']['device_score'] = {'blocks': int(sb1 - sb0), 'from_0_5': int((sv >= 0.5).sum()), 'from_0_8': int((sv >= 0.8).sum()), 'string': ''.join('.' if x < 0.5 else ('s' if x < 0.8 else 'S') for x in sv)}
+# --- the part of the clip the lamp spoke through: to the first yield inside the clip, else all of it
+OVERLAP_MS = cseg[-1][1]
+_trace = runtime + '/events.jsonl'
+import os
+if os.path.exists(_trace):
+    for line in open(_trace):
+        if 'duplex_yield' in line:
+            e = json.loads(line)
+            if e.get('kind') == 'duplex_yield':
+                t = (e['frame_sequence'] - int(seq[c0 // 160])) * 10
+                if 300 < t < cseg[-1][1]: OVERLAP_MS = t; break
+# Where the lamp yielded with at least 0.6 s of the clip still to come, that remainder is heard with the lamp
+# silent: its position fixes the clip's place better than the players' clocks do.
+res['coffee_over_the_reply']['alignment'] = {'by': 'players\' clocks only', 'shift_ms': 0.0}
+if OVERLAP_MS + 150 + 600 <= cseg[-1][1]:
+    t0_ = OVERLAP_MS + 150; tail = coffee[t0_ * 16:]
+    k_, peak_, sharp_ = find(tail, c0 + t0_ * 16 - 3200, c0 + t0_ * 16 + 3200)
+    if sharp_ >= 2.5:
+        shift = k_ - (c0 + t0_ * 16); c0 = c0 + shift
+        res['coffee_over_the_reply']['alignment'] = {'by': 'the part of the clip heard after the lamp yielded', 'from_clip_ms': t0_, 'shift_ms': round(shift / 16, 1),
+                                                     'matched_filter': round(peak_, 3), 'peak_over_99th_percentile': round(sharp_, 1),
+                                                     'coherent_share_db_512': db(*reversed(powers(tail, pre[c0 + t0_ * 16:c0 + t0_ * 16 + len(tail)], 512)[:2])),
+                                                     'microphone_level_dbfs': db(float((pre[c0 + t0_ * 16:c0 + t0_ * 16 + len(tail)] ** 2).mean()), 32768.0 ** 2),
+                                                     'clip_level_dbfs': db(float((tail ** 2).mean()), 32768.0 ** 2)}
+res['coffee_over_the_reply']['placed_at_sample_after_alignment'] = c0
+part = coffee[:OVERLAP_MS * 16]
+ptot = float((pre[c0:c0 + len(part)] ** 2).mean()); pperson = gain * float((part ** 2).mean())
+_, ppeak, _ = find(part, c0 - 480, c0 + 480)
+res['coffee_while_the_lamp_spoke'] = {'window_ms': [0, OVERLAP_MS], 'microphone_level_dbfs': db(ptot, 32768.0 ** 2),
+    'person_level_predicted_from_the_sunset_gain_dbfs': db(pperson, 32768.0 ** 2), 'person_against_everything_else_predicted_db': db(pperson, max(ptot - pperson, 1e-9)),
+    'matched_filter': round(ppeak, 3),
+    'coherent_share_db_512': db(*reversed(powers(part, pre[c0:c0 + len(part)], 512)[:2])), 'coherent_share_db_2048': db(*reversed(powers(part, pre[c0:c0 + len(part)], 2048)[:2])),
+    'after_cancellation': {'level_dbfs': db(float((post[c0 + 144:c0 + 144 + len(part)] ** 2).mean()), 32768.0 ** 2),
+                           'coherent_share_db_512': db(*reversed(powers(part, post[c0 + 144:c0 + 144 + len(part)], 512)[:2])), 'coherent_share_db_2048': db(*reversed(powers(part, post[c0 + 144:c0 + 144 + len(part)], 2048)[:2]))}}
+# --- the lamp's own pauses while the clip was speaking: render level under -45 dBFS
+ren = F['render_tenths'] / 10; fb = c0 // 160; yb = fb + OVERLAP_MS // 10
+qr = ren[fb:yb + 1] < -45; pauses = []; i = 0
+while i < len(qr):
+    if qr[i]:
+        j = i
+        while j < len(qr) and qr[j]: j += 1
+        in_speech = any(lo <= i * 10 < hi for lo, hi in cseg) and any(lo < j * 10 <= hi for lo, hi in cseg)
+        pauses.append({'ms_after_the_clip_arrived': i * 10, 'length_ms': (j - i) * 10, 'inside_the_clip_speech': bool(in_speech)})
+        i = j
+    else: i += 1
+res['lamp_pauses_before_the_yield'] = {'what': 'stretches where the lamp rendered under -45 dBFS, from the clip\'s arrival to the first yield (or the clip\'s end)',
+    'pauses': pauses, 'yield_ms': OVERLAP_MS if OVERLAP_MS < cseg[-1][1] else None,
+    'render_dbfs_in_the_30_blocks_to_the_yield': [int(round(v)) for v in ren[max(yb - 29, 0):yb + 1]]}
+bsp = [k for k in range(fb, yb) if any(lo <= (k - fb) * 10 < hi for lo, hi in cseg)]
+res['before_the_yield'] = {'speech_blocks_of_the_clip': len(bsp), 'device_score_under_0_5': int(sum(1 for k in bsp if vad[k] < 0.5)),
+    'replay_hearing': {n: int((F['heard'][fb:yb].astype(int) == c).sum()) for n, c in (('under', 2), ('own', 3), ('over', 4), ('unknown', 5))}}
 # --- the microphone's own gain: quiet floor and loud level second by second, clipping, and the canceller's reduction
 nsec = min(len(pre), len(post) - 144) // 16000
 lvl = lambda v: round(float(10 * np.log10(max(float((v ** 2).mean()), 1e-3) / 32768.0 ** 2)), 1)
@@ -143,15 +194,50 @@ def find_in(sig, x, lo, hi):
     return round(float(r.max()), 3)
 def share_db(x, y, nper):
     a = powers(x, y, nper); return db(a[1], a[0])
+# where only the lamp speaks: given, or the stretch from 0.55 s after the clip if the lamp renders through most of it
+LAMP_ALONE_AT_S = None
+if LAMP_ALONE_ARG == 'auto':
+    need = len(coffee) // 160 + 10; ra = F['render_active'] > 0
+    taken = [(c0 // 160 - 20, (c0 + len(coffee)) // 160 + 50), (s0 // 160 - 20, (s0 + len(sunset)) // 160 + 50)]
+    quiet_person = F['heard'] != 4                      # not where the replay heard a person over the lamp
+    for k in range(0, len(ra) - need, 10):
+        if any(lo < k + need and k < hi for lo, hi in taken): continue
+        if float(ra[k:k + need].mean()) > 0.8 and float(quiet_person[k:k + need].mean()) > 0.98: LAMP_ALONE_AT_S = round(k / 100, 2); break
+elif LAMP_ALONE_ARG != '-':
+    LAMP_ALONE_AT_S = float(LAMP_ALONE_ARG)
 if LAMP_ALONE_AT_S is not None:
-    b0_ = int(LAMP_ALONE_AT_S * 16000); host = pre[b0_ - 800:b0_ + len(coffee) + 800]
-    cal = [{'added_dbfs': None, 'matched_filter': find_in(host, coffee, 320, 1280), 'coherent_share_db_512': share_db(coffee, host[800:800 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, host[800:800 + len(coffee)], 2048)}]
-    for target in (-20, -25, -30, -35, -40, -45):
-        y = host.copy(); y[800:800 + len(coffee)] += coffee * 10 ** ((target - lvl(coffee)) / 20)
-        cal.append({'added_dbfs': target, 'matched_filter': find_in(y, coffee, 320, 1280), 'coherent_share_db_512': share_db(coffee, y[800:800 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, y[800:800 + len(coffee)], 2048)})
-    res['calibration'] = {'what': 'the clean coffee clip added in software, at a chosen level, to a stretch where only the lamp speaks; the first row has nothing added', 'lamp_alone_from_second': LAMP_ALONE_AT_S,
+    b0_ = max(int(LAMP_ALONE_AT_S * 16000), 800); host = pre[b0_ - 800:b0_ + len(part) + 800]
+    cal = [{'added_dbfs': None, 'matched_filter': find_in(host, part, 320, 1280), 'coherent_share_db_512': share_db(part, host[800:800 + len(part)], 512), 'coherent_share_db_2048': share_db(part, host[800:800 + len(part)], 2048)}]
+    for target in (-10, -15, -20, -25, -30, -35, -40, -45):
+        y = host.copy(); y[800:800 + len(part)] += part * 10 ** ((target - lvl(part)) / 20)
+        cal.append({'added_dbfs': target, 'matched_filter': find_in(y, part, 320, 1280), 'coherent_share_db_512': share_db(part, y[800:800 + len(part)], 512), 'coherent_share_db_2048': share_db(part, y[800:800 + len(part)], 2048)})
+    res['calibration'] = {'what': 'the part of the clean coffee clip the lamp spoke through, added in software at a chosen level to a stretch where only the lamp speaks; the first row has nothing added', 'lamp_alone_from_second': LAMP_ALONE_AT_S,
                           'lamp_alone_level_dbfs': lvl(host), 'rows': cal,
-                          'real_overlap': {'matched_filter': find_in(pre, coffee, c0 - 480, c0 + 480), 'coherent_share_db_512': share_db(coffee, pre[c0:c0 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, pre[c0:c0 + len(coffee)], 2048)}}
+                          'window_ms': [0, OVERLAP_MS],
+                          'real_overlap': {'matched_filter': find_in(pre, part, c0 - 480, c0 + 480), 'coherent_share_db_512': share_db(part, pre[c0:c0 + len(part)], 512), 'coherent_share_db_2048': share_db(part, pre[c0:c0 + len(part)], 2048)}}
+# --- what the coordinator decided, from the trace beside the audio
+import os
+trace_path = runtime + '/events.jsonl'
+if os.path.exists(trace_path):
+    tr = []
+    for line in open(trace_path):
+        line = line.strip()
+        if line:
+            try: tr.append(json.loads(line))
+            except ValueError: pass
+    first_frame = int(seq[c0 // 160])
+    def rel(e): return (e['frame_sequence'] - first_frame) * 10 if 'frame_sequence' in e else None
+    res['trace'] = {
+        'run_start': {k: v for e in tr if e.get('kind') == 'run_start' for k, v in e.items() if k in ('turn_taking', 'reference_clock', 'provider_continuation', 'audio_diagnostics_requested', 'software_processing_requested', 'mode')},
+        'duplex_steps': [{'kind': e['kind'], 'frame_sequence': e['frame_sequence'], 'ms_after_the_clip_arrived': rel(e), 'hearing_margin_db': None if e.get('hearing_margin_db') is None else round(e['hearing_margin_db'], 1)}
+                         for e in tr if e.get('kind') in ('duplex_yield', 'duplex_commit', 'duplex_resume')],
+        'candidates': [{'serial': e['candidate']['id']['serial'], 'trigger_sequence': e['candidate']['trigger_sequence'], 'trigger_ms_after_the_clip_arrived': (e['candidate']['trigger_sequence'] - first_frame) * 10,
+                        'displaced_an_owner': bool(e['candidate']['displaced_owner'])} for e in tr if e.get('kind') == 'input_candidate'],
+        'rejected': [{'serial': e['candidate']['serial'], 'reason': e.get('reason')} for e in tr if e.get('kind') == 'input_candidate_rejected'],
+        'admitted': [{'serial': e['candidate']['serial'], 'turn': e.get('turn'), 'basis': e.get('admission_basis')} for e in tr if e.get('kind') == 'input_admitted'],
+        'turns': [{'turn': i + 1, 'outcome': e.get('outcome'), 'playback_gaps': e.get('playback_gaps')} for i, e in enumerate(x for x in tr if x.get('kind') == 'turn_finished')],
+        'input_transcripts': [e.get('text') for e in tr if e.get('kind') == 'transcript' and e.get('turn') is None],
+        'clip_speech_ends_ms': cseg[-1][1]}
 if MIXERS:
     found = {}
     def walk(node, name=''):

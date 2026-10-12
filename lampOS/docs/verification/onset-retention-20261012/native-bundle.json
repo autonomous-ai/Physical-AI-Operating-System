@@ -81,7 +81,12 @@
    "share_after_cancellation_db": -18.7,
    "canceller_changes_the_speech_by_db": -9.4,
    "segments": 70
-  }
+  },
+  "alignment": {
+   "by": "players' clocks only",
+   "shift_ms": 0.0
+  },
+  "placed_at_sample_after_alignment": 108772
  },
  "per_block_over_the_clip": {
   "frame_sequences": [
@@ -117,6 +122,86 @@
   },
   "clip_string": "###########################################################                  #####################################                       ##########################################################################################################################################################################                     ################################################################################################################################ ",
   "legend": "device: . under 0.5, s 0.5 to 0.8, S 0.8 and over; replay: S still, C clear, u under, O own, V over, x unknown; clip: # speech"
+ },
+ "coffee_while_the_lamp_spoke": {
+  "window_ms": [
+   0,
+   4330
+  ],
+  "microphone_level_dbfs": -14.1,
+  "person_level_predicted_from_the_sunset_gain_dbfs": -20.0,
+  "person_against_everything_else_predicted_db": -4.7,
+  "matched_filter": 0.033,
+  "coherent_share_db_512": -26.6,
+  "coherent_share_db_2048": -21.6,
+  "after_cancellation": {
+   "level_dbfs": -26.8,
+   "coherent_share_db_512": -25.2,
+   "coherent_share_db_2048": -19.4
+  }
+ },
+ "lamp_pauses_before_the_yield": {
+  "what": "stretches where the lamp rendered under -45 dBFS, from the clip's arrival to the first yield (or the clip's end)",
+  "pauses": [
+   {
+    "ms_after_the_clip_arrived": 1450,
+    "length_ms": 60,
+    "inside_the_clip_speech": true
+   },
+   {
+    "ms_after_the_clip_arrived": 2760,
+    "length_ms": 40,
+    "inside_the_clip_speech": true
+   },
+   {
+    "ms_after_the_clip_arrived": 4280,
+    "length_ms": 60,
+    "inside_the_clip_speech": true
+   }
+  ],
+  "yield_ms": 4330,
+  "render_dbfs_in_the_30_blocks_to_the_yield": [
+   -26,
+   -26,
+   -26,
+   -26,
+   -26,
+   -26,
+   -26,
+   -26,
+   -27,
+   -27,
+   -27,
+   -27,
+   -26,
+   -26,
+   -27,
+   -27,
+   -27,
+   -28,
+   -28,
+   -29,
+   -29,
+   -30,
+   -32,
+   -36,
+   -46,
+   -54,
+   -55,
+   -56,
+   -57,
+   -57
+  ]
+ },
+ "before_the_yield": {
+  "speech_blocks_of_the_clip": 371,
+  "device_score_under_0_5": 331,
+  "replay_hearing": {
+   "under": 383,
+   "own": 37,
+   "over": 11,
+   "unknown": 2
+  }
  },
  "microphone_per_second": {
   "what": "floor and loud are the 10th and 90th percentile of the 10 ms block levels before cancellation; reduction is the mean level before minus after the device canceller",
@@ -806,58 +891,178 @@
   ]
  },
  "calibration": {
-  "what": "the clean coffee clip added in software, at a chosen level, to a stretch where only the lamp speaks; the first row has nothing added",
+  "what": "the part of the clean coffee clip the lamp spoke through, added in software at a chosen level to a stretch where only the lamp speaks; the first row has nothing added",
   "lamp_alone_from_second": 11.9,
-  "lamp_alone_level_dbfs": -13.4,
+  "lamp_alone_level_dbfs": -13.2,
   "rows": [
    {
     "added_dbfs": null,
     "matched_filter": 0.045,
-    "coherent_share_db_512": -25.2,
-    "coherent_share_db_2048": -21.2
+    "coherent_share_db_512": -24.9,
+    "coherent_share_db_2048": -20.9
+   },
+   {
+    "added_dbfs": -10,
+    "matched_filter": 0.839,
+    "coherent_share_db_512": -1.7,
+    "coherent_share_db_2048": -1.8
+   },
+   {
+    "added_dbfs": -15,
+    "matched_filter": 0.662,
+    "coherent_share_db_512": -4.0,
+    "coherent_share_db_2048": -4.0
    },
    {
     "added_dbfs": -20,
-    "matched_filter": 0.459,
-    "coherent_share_db_512": -7.2,
-    "coherent_share_db_2048": -7.3
+    "matched_filter": 0.456,
+    "coherent_share_db_512": -7.3,
+    "coherent_share_db_2048": -7.4
    },
    {
     "added_dbfs": -25,
-    "matched_filter": 0.293,
-    "coherent_share_db_512": -11.1,
-    "coherent_share_db_2048": -11.2
+    "matched_filter": 0.29,
+    "coherent_share_db_512": -11.2,
+    "coherent_share_db_2048": -11.3
    },
    {
     "added_dbfs": -30,
-    "matched_filter": 0.184,
+    "matched_filter": 0.183,
     "coherent_share_db_512": -15.0,
     "coherent_share_db_2048": -14.9
    },
    {
     "added_dbfs": -35,
-    "matched_filter": 0.12,
+    "matched_filter": 0.119,
     "coherent_share_db_512": -18.3,
     "coherent_share_db_2048": -17.8
    },
    {
     "added_dbfs": -40,
     "matched_filter": 0.083,
-    "coherent_share_db_512": -20.9,
-    "coherent_share_db_2048": -19.5
+    "coherent_share_db_512": -20.8,
+    "coherent_share_db_2048": -19.3
    },
    {
     "added_dbfs": -45,
     "matched_filter": 0.062,
-    "coherent_share_db_512": -22.6,
-    "coherent_share_db_2048": -20.4
+    "coherent_share_db_512": -22.5,
+    "coherent_share_db_2048": -20.1
    }
+  ],
+  "window_ms": [
+   0,
+   4330
   ],
   "real_overlap": {
    "matched_filter": 0.033,
    "coherent_share_db_512": -26.6,
-   "coherent_share_db_2048": -21.5
+   "coherent_share_db_2048": -21.6
   }
+ },
+ "trace": {
+  "run_start": {
+   "audio_diagnostics_requested": true,
+   "mode": "finite",
+   "provider_continuation": "kept-start",
+   "reference_clock": "capture",
+   "software_processing_requested": {
+    "aec": "sonora_aec3",
+    "noise_suppression": false
+   },
+   "turn_taking": "duplex"
+  },
+  "duplex_steps": [
+   {
+    "kind": "duplex_yield",
+    "frame_sequence": 1113,
+    "ms_after_the_clip_arrived": 4330,
+    "hearing_margin_db": -22.1
+   },
+   {
+    "kind": "duplex_resume",
+    "frame_sequence": 1163,
+    "ms_after_the_clip_arrived": 4830,
+    "hearing_margin_db": -22.1
+   },
+   {
+    "kind": "duplex_yield",
+    "frame_sequence": 2941,
+    "ms_after_the_clip_arrived": 22610,
+    "hearing_margin_db": -30.9
+   },
+   {
+    "kind": "duplex_resume",
+    "frame_sequence": 2991,
+    "ms_after_the_clip_arrived": 23110,
+    "hearing_margin_db": -31.0
+   }
+  ],
+  "candidates": [
+   {
+    "serial": 1,
+    "trigger_sequence": 226,
+    "trigger_ms_after_the_clip_arrived": -4540,
+    "displaced_an_owner": false
+   },
+   {
+    "serial": 2,
+    "trigger_sequence": 1113,
+    "trigger_ms_after_the_clip_arrived": 4330,
+    "displaced_an_owner": true
+   },
+   {
+    "serial": 3,
+    "trigger_sequence": 2557,
+    "trigger_ms_after_the_clip_arrived": 18770,
+    "displaced_an_owner": false
+   },
+   {
+    "serial": 4,
+    "trigger_sequence": 2941,
+    "trigger_ms_after_the_clip_arrived": 22610,
+    "displaced_an_owner": true
+   }
+  ],
+  "rejected": [
+   {
+    "serial": 2,
+    "reason": "policy"
+   },
+   {
+    "serial": 4,
+    "reason": "policy"
+   }
+  ],
+  "admitted": [
+   {
+    "serial": 1,
+    "turn": 1,
+    "basis": "directed_session_duplex"
+   },
+   {
+    "serial": 3,
+    "turn": 2,
+    "basis": "directed_session_duplex"
+   }
+  ],
+  "turns": [
+   {
+    "turn": 1,
+    "outcome": "audio_written_with_playback_gaps_unscored",
+    "playback_gaps": 2
+   },
+   {
+    "turn": 2,
+    "outcome": "audio_written_with_playback_gaps_unscored",
+    "playback_gaps": 1
+   }
+  ],
+  "input_transcripts": [
+   "Why does it turn orange at sunset?",
+   "\u00bfQu\u00e9?"
+  ],
+  "clip_speech_ends_ms": 4560
  },
  "mixer_snapshot": {
   "path": "/private/tmp/lamp-duplex-diagnostic-fhld3dr3/expected-mixers.json",

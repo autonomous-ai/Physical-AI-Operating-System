@@ -7,7 +7,19 @@ serve trial, for a causal audit of onset retention. The branch is your
 the last status of the continuation and capture-order work is on
 `lamp-a1-capture-order` at `6c311b4d1`.
 
-- Updated: 2026-10-12, 04:05 UTC
+- Updated: 2026-10-12, 05:55 UTC
+- **Newest: your R4, gain control off, is analysed against the first
+  device run.** The control was costing a person 10.6 dB of level once
+  the lamp had spoken; off, 1.8 dB, and the run reached a commit, 0.9 s
+  sooner. **In both runs the lamp yielded where its own speech paused,**
+  and the request began at the last sentence. While the lamp is actually
+  sounding the person is still 12 to 15 dB weaker in the microphone
+  signal than the same loudspeaker is in silence; not the gain switch,
+  not compression of the lamp's voice, not the emission. See "The second
+  device recording" in the audit.
+- **One inference of mine from the first run is withdrawn:** the quiet
+  floor as evidence of the gain control. With the control off the floor
+  fell by the same 10 dB while speech kept its level.
 - **Newest: your device recording is analysed. The interruption is lost
   at the microphone input, before any software.** While the lamp speaks,
   the microphone signal the software receives holds the coffee clip at
@@ -89,7 +101,8 @@ a device result and chooses no gate.
 
 | Id | |
 |---|---|
-| `A1-030` | **The next native comparison, and nothing in software before it.** The same two clips with (1) the microphone's `Auto Gain Control` mixer switch off and its capture volume fixed where the lamp's own voice stays below full scale, and (2) two complete replies before the overlap, as in the pilot, so the canceller has heard the lamp; recorded with `--diagnostics`. It shows whether the floor holds still, how far below the lamp's voice a person really is, what the converged canceller leaves of them, and whether the lamp yields sooner. A mixer setting and a longer scene, not a threshold |
+| `A1-031` | **Where the 12 to 15 dB go while the lamp sounds.** One recording without a conversation: the lamp plays a fixed sound while the same cached clip is played to it, once per microphone setting or capture device that can be chosen (`device_cmedia` has a capture control too). It separates the microphone's own processing from everything after it. Yours to decide and run |
+| `A1-030` | First half done by you in R4, thank you. Still owed: the pilot's precondition, two complete replies before the overlap, gain control off, recorded the same way, to see what a canceller that has heard the lamp leaves of a person. As first written: **The next native comparison, and nothing in software before it.** The same two clips with (1) the microphone's `Auto Gain Control` mixer switch off and its capture volume fixed where the lamp's own voice stays below full scale, and (2) two complete replies before the overlap, as in the pilot, so the canceller has heard the lamp; recorded with `--diagnostics`. It shows whether the floor holds still, how far below the lamp's voice a person really is, what the converged canceller leaves of them, and whether the lamp yields sooner. A mixer setting and a longer scene, not a threshold |
 | `A1-028` | Done by you, thank you: `/private/tmp/lamp-duplex-diagnostic-executed-fhld3dr3`. It was not the pilot's scene (first playback of the session, clip 0.45 s into it), which the plan says. What it was: **The one next native diagnostic.** Repeat only `sunset` then `coffee`, same cached clips, same duplex settings, in a run that records the microphone bundle with `--diagnostics`, as the `lamp-connected-*` runs of 2026-10-11 did. The serve runner refuses raw audio diagnostics, so not that runner. Give me the bundle path; the lab's replay then shows how every block of the overlap was heard on the device, what the canceller left of the speech, and when it arrived. No further device time |
 | `A1-029` | If raw audio may not be recorded there: a bounded per-block hearing history in the trace at each yield, audio-free. Not built; it would be one coordinator proposal commit. Say if you want it |
 | `A1-013` | Still open from the duplex work and the same thing: a recording of speech over the lamp through the real acoustic path |
@@ -108,6 +121,13 @@ service. The lab runs are offline on the host.
 
 ## My faults here
 
+- **I read the microphone's quiet floor as its gain.** It fell 7 to
+  10 dB after the lamp's first sound in the first device run, the gain
+  control was on, and I put the two together and told you so. In R4,
+  with the control off, the floor fell the same way and speech did not.
+  The gain was shown by the level of the same clip in silence before and
+  after, which I also had; the floor was not evidence and I do not know
+  what it follows.
 - **I took two recordings made at two microphone gains for one
   acoustic fact.** In the duplex work I measured prompts spoken with the
   lamp silent and replies with the lamp speaking, found them about as

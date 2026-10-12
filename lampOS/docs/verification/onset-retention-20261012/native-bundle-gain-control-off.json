@@ -1,0 +1,957 @@
+{
+ "clips": {
+  "coffee_speech_ms": [
+   [
+    0,
+    590
+   ],
+   [
+    770,
+    1140
+   ],
+   [
+    1370,
+    3070
+   ],
+   [
+    3280,
+    4560
+   ]
+  ],
+  "sunset_speech_ms": [
+   [
+    10,
+    1870
+   ]
+  ]
+ },
+ "sunset_in_the_clear": {
+  "found_at_sample": 34198,
+  "frame_sequence": 214,
+  "matched_filter_peak": 0.645,
+  "peak_over_99th_percentile": 10.1,
+  "microphone_level_dbfs": -12.6,
+  "room_floor_dbfs": -74.5,
+  "loudspeaker_to_microphone_gain_db": 8.8,
+  "coherent_512": {
+   "share_of_microphone_db": -2.5,
+   "share_after_cancellation_db": -2.7,
+   "canceller_changes_the_speech_by_db": -0.4,
+   "segments": 115
+  },
+  "coherent_2048": {
+   "share_of_microphone_db": -1.4,
+   "share_after_cancellation_db": -1.4,
+   "canceller_changes_the_speech_by_db": -0.2,
+   "segments": 28
+  },
+  "device_score": {
+   "blocks": 188,
+   "from_0_5": 166,
+   "from_0_8": 160,
+   "string": "............ssSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSs.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.SSSSSSSSSs..s.SSSSSSSSSSSSSSSSSSSSSS.....sSSSSSSSSSSSSSSS"
+  }
+ },
+ "coffee_over_the_reply": {
+  "nominal_start_sample": 314971,
+  "placed_at_sample": 316837,
+  "placed_after_nominal_ms": 116.6,
+  "placement": "sunset position plus the difference of the two source-start times on the host clock",
+  "matched_filter_peak_within_30ms_of_the_placement": 0.037,
+  "at_ms_from_the_placement": 10.2,
+  "unconstrained_search": {
+   "found_ms_after_nominal": 154.2,
+   "peak": 0.089,
+   "peak_over_99th_percentile": 2.9,
+   "note": "no clear peak anywhere within a second: the clip cannot be located from the microphone signal alone"
+  },
+  "first_frame_sequence": 1981,
+  "microphone_level_dbfs": -13.4,
+  "person_level_predicted_from_the_sunset_gain_dbfs": -17.3,
+  "person_against_everything_else_at_the_microphone_db": -1.5,
+  "after_cancellation_level_dbfs": -23.3,
+  "coherent_512": {
+   "share_of_microphone_db": -29.9,
+   "share_after_cancellation_db": -21.9,
+   "canceller_changes_the_speech_by_db": -2.2,
+   "segments": 284
+  },
+  "coherent_2048": {
+   "share_of_microphone_db": -20.5,
+   "share_after_cancellation_db": -12.7,
+   "canceller_changes_the_speech_by_db": -1.9,
+   "segments": 70
+  },
+  "alignment": {
+   "by": "the part of the clip heard after the lamp yielded",
+   "from_clip_ms": 3590,
+   "shift_ms": 37.8,
+   "matched_filter": 0.664,
+   "peak_over_99th_percentile": 3.5,
+   "coherent_share_db_512": -1.0,
+   "microphone_level_dbfs": -19.8,
+   "clip_level_dbfs": -24.8
+  },
+  "placed_at_sample_after_alignment": 317442
+ },
+ "per_block_over_the_clip": {
+  "frame_sequences": [
+   1981,
+   2437
+  ],
+  "blocks": 457,
+  "speech_blocks_of_the_clip": 394,
+  "device_score": {
+   "under_0_5": 360,
+   "from_0_5": 97,
+   "from_0_8": 76,
+   "under_0_5_in_speech_blocks": 299,
+   "longest_run_from_0_5": 45,
+   "longest_run_from_0_8": 22,
+   "string": "......sss......................................................................................................................ss...........................................................s..............s.......................................................................................................................................ssssSSSSSSSSSSSSSSSSssSSSSSSSSSSSSSSSSSSSSSSs.............SSSSSSSSSSSSSSSSSSs...ssssSSSSSSSSSSSSSs......SSSSSSSs......"
+  },
+  "replay_hearing": {
+   "under": 319,
+   "own": 16,
+   "over": 28,
+   "unknown": 10,
+   "clear_or_still": 84,
+   "longest_over_run": 22,
+   "string": "uuuuuOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOuuOuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuOOOOuuuuuuuuuuuVVVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVVVVVVVVVVVVVVVVVVxxxxxxxxxxCCCCCCCCCCCSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCSSSSSSCCCCCCCCSSSSSS",
+   "capture_explained_percent_median_where_speech_scored": 0.0
+  },
+  "replay_score_against_device_score": {
+   "correlation": 0.964,
+   "both_from_0_5": 95,
+   "device_only": 2,
+   "replay_only": 15
+  },
+  "clip_string": "###########################################################                  #####################################                       ##########################################################################################################################################################################                     ################################################################################################################################ ",
+  "legend": "device: . under 0.5, s 0.5 to 0.8, S 0.8 and over; replay: S still, C clear, u under, O own, V over, x unknown; clip: # speech"
+ },
+ "coffee_while_the_lamp_spoke": {
+  "window_ms": [
+   0,
+   3440
+  ],
+  "microphone_level_dbfs": -12.5,
+  "person_level_predicted_from_the_sunset_gain_dbfs": -17.8,
+  "person_against_everything_else_predicted_db": -3.8,
+  "matched_filter": 0.065,
+  "coherent_share_db_512": -21.6,
+  "coherent_share_db_2048": -20.2,
+  "after_cancellation": {
+   "level_dbfs": -25.1,
+   "coherent_share_db_512": -18.6,
+   "coherent_share_db_2048": -17.2
+  }
+ },
+ "lamp_pauses_before_the_yield": {
+  "what": "stretches where the lamp rendered under -45 dBFS, from the clip's arrival to the first yield (or the clip's end)",
+  "pauses": [
+   {
+    "ms_after_the_clip_arrived": 1990,
+    "length_ms": 20,
+    "inside_the_clip_speech": true
+   },
+   {
+    "ms_after_the_clip_arrived": 3250,
+    "length_ms": 200,
+    "inside_the_clip_speech": false
+   }
+  ],
+  "yield_ms": 3440,
+  "render_dbfs_in_the_30_blocks_to_the_yield": [
+   -31,
+   -32,
+   -33,
+   -33,
+   -37,
+   -38,
+   -40,
+   -43,
+   -39,
+   -43,
+   -46,
+   -50,
+   -50,
+   -49,
+   -49,
+   -48,
+   -48,
+   -48,
+   -48,
+   -48,
+   -48,
+   -48,
+   -48,
+   -48,
+   -49,
+   -49,
+   -49,
+   -50,
+   -50,
+   -50
+  ]
+ },
+ "before_the_yield": {
+  "speech_blocks_of_the_clip": 282,
+  "device_score_under_0_5": 268,
+  "replay_hearing": {
+   "under": 315,
+   "own": 16,
+   "over": 13,
+   "unknown": 0
+  }
+ },
+ "microphone_per_second": {
+  "what": "floor and loud are the 10th and 90th percentile of the 10 ms block levels before cancellation; reduction is the mean level before minus after the device canceller",
+  "rows": [
+   {
+    "second": 0,
+    "floor_dbfs": -75.9,
+    "loud_dbfs": -52.3,
+    "before_dbfs": -51.0,
+    "after_dbfs": -51.5,
+    "reduction_db": 0.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 1,
+    "floor_dbfs": -75.5,
+    "loud_dbfs": -73.7,
+    "before_dbfs": -74.5,
+    "after_dbfs": -75.2,
+    "reduction_db": 0.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 2,
+    "floor_dbfs": -50.2,
+    "loud_dbfs": -8.2,
+    "before_dbfs": -12.6,
+    "after_dbfs": -13.0,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 3,
+    "floor_dbfs": -24.0,
+    "loud_dbfs": -9.3,
+    "before_dbfs": -13.2,
+    "after_dbfs": -13.6,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 4,
+    "floor_dbfs": -32.9,
+    "loud_dbfs": -9.7,
+    "before_dbfs": -14.0,
+    "after_dbfs": -14.2,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 5,
+    "floor_dbfs": -74.7,
+    "loud_dbfs": -11.9,
+    "before_dbfs": -15.9,
+    "after_dbfs": -16.0,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 6,
+    "floor_dbfs": -74.9,
+    "loud_dbfs": -14.1,
+    "before_dbfs": -19.1,
+    "after_dbfs": -19.2,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 7,
+    "floor_dbfs": -61.3,
+    "loud_dbfs": -10.5,
+    "before_dbfs": -14.3,
+    "after_dbfs": -14.5,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 8,
+    "floor_dbfs": -33.0,
+    "loud_dbfs": -11.7,
+    "before_dbfs": -15.9,
+    "after_dbfs": -16.0,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 9,
+    "floor_dbfs": -74.8,
+    "loud_dbfs": -12.2,
+    "before_dbfs": -18.7,
+    "after_dbfs": -18.9,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 10,
+    "floor_dbfs": -76.9,
+    "loud_dbfs": -14.0,
+    "before_dbfs": -19.4,
+    "after_dbfs": -19.5,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 11,
+    "floor_dbfs": -75.2,
+    "loud_dbfs": -12.9,
+    "before_dbfs": -16.8,
+    "after_dbfs": -17.0,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 12,
+    "floor_dbfs": -75.0,
+    "loud_dbfs": -11.1,
+    "before_dbfs": -16.4,
+    "after_dbfs": -16.5,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 13,
+    "floor_dbfs": -32.4,
+    "loud_dbfs": -13.2,
+    "before_dbfs": -16.8,
+    "after_dbfs": -17.0,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 14,
+    "floor_dbfs": -57.0,
+    "loud_dbfs": -16.1,
+    "before_dbfs": -19.8,
+    "after_dbfs": -20.0,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 15,
+    "floor_dbfs": -37.3,
+    "loud_dbfs": -15.0,
+    "before_dbfs": -19.0,
+    "after_dbfs": -19.2,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 16,
+    "floor_dbfs": -75.2,
+    "loud_dbfs": -21.9,
+    "before_dbfs": -27.4,
+    "after_dbfs": -27.6,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 17,
+    "floor_dbfs": -75.7,
+    "loud_dbfs": -73.7,
+    "before_dbfs": -66.0,
+    "after_dbfs": -66.3,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 18,
+    "floor_dbfs": -75.4,
+    "loud_dbfs": -42.3,
+    "before_dbfs": -38.2,
+    "after_dbfs": -38.5,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 19,
+    "floor_dbfs": -72.0,
+    "loud_dbfs": -2.8,
+    "before_dbfs": -10.5,
+    "after_dbfs": -40.9,
+    "reduction_db": 30.4,
+    "clipped_samples": 212
+   },
+   {
+    "second": 20,
+    "floor_dbfs": -36.2,
+    "loud_dbfs": -7.0,
+    "before_dbfs": -10.5,
+    "after_dbfs": -29.5,
+    "reduction_db": 19.0,
+    "clipped_samples": 4
+   },
+   {
+    "second": 21,
+    "floor_dbfs": -30.2,
+    "loud_dbfs": -9.1,
+    "before_dbfs": -13.5,
+    "after_dbfs": -20.8,
+    "reduction_db": 7.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 22,
+    "floor_dbfs": -33.2,
+    "loud_dbfs": -10.2,
+    "before_dbfs": -14.5,
+    "after_dbfs": -31.1,
+    "reduction_db": 16.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 23,
+    "floor_dbfs": -42.4,
+    "loud_dbfs": -17.6,
+    "before_dbfs": -22.1,
+    "after_dbfs": -22.4,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 24,
+    "floor_dbfs": -76.0,
+    "loud_dbfs": -16.8,
+    "before_dbfs": -22.5,
+    "after_dbfs": -22.6,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 25,
+    "floor_dbfs": -76.9,
+    "loud_dbfs": -74.1,
+    "before_dbfs": -75.1,
+    "after_dbfs": -75.7,
+    "reduction_db": 0.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 26,
+    "floor_dbfs": -76.8,
+    "loud_dbfs": -74.4,
+    "before_dbfs": -75.3,
+    "after_dbfs": -76.0,
+    "reduction_db": 0.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 27,
+    "floor_dbfs": -75.9,
+    "loud_dbfs": -7.9,
+    "before_dbfs": -12.4,
+    "after_dbfs": -25.4,
+    "reduction_db": 13.0,
+    "clipped_samples": 75
+   },
+   {
+    "second": 28,
+    "floor_dbfs": -38.0,
+    "loud_dbfs": -7.8,
+    "before_dbfs": -12.6,
+    "after_dbfs": -25.4,
+    "reduction_db": 12.8,
+    "clipped_samples": 1
+   },
+   {
+    "second": 29,
+    "floor_dbfs": -43.2,
+    "loud_dbfs": -5.8,
+    "before_dbfs": -11.1,
+    "after_dbfs": -18.7,
+    "reduction_db": 7.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 30,
+    "floor_dbfs": -36.5,
+    "loud_dbfs": -5.8,
+    "before_dbfs": -11.4,
+    "after_dbfs": -32.9,
+    "reduction_db": 21.5,
+    "clipped_samples": 2
+   },
+   {
+    "second": 31,
+    "floor_dbfs": -30.4,
+    "loud_dbfs": -4.5,
+    "before_dbfs": -10.1,
+    "after_dbfs": -29.8,
+    "reduction_db": 19.7,
+    "clipped_samples": 12
+   },
+   {
+    "second": 32,
+    "floor_dbfs": -39.8,
+    "loud_dbfs": -6.3,
+    "before_dbfs": -11.7,
+    "after_dbfs": -28.1,
+    "reduction_db": 16.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 33,
+    "floor_dbfs": -84.7,
+    "loud_dbfs": -11.3,
+    "before_dbfs": -17.2,
+    "after_dbfs": -71.2,
+    "reduction_db": 54.0,
+    "clipped_samples": 0
+   },
+   {
+    "second": 34,
+    "floor_dbfs": -86.5,
+    "loud_dbfs": -83.4,
+    "before_dbfs": -84.2,
+    "after_dbfs": -86.4,
+    "reduction_db": 2.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 35,
+    "floor_dbfs": -86.7,
+    "loud_dbfs": -83.6,
+    "before_dbfs": -84.6,
+    "after_dbfs": -86.9,
+    "reduction_db": 2.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 36,
+    "floor_dbfs": -87.0,
+    "loud_dbfs": -83.3,
+    "before_dbfs": -84.5,
+    "after_dbfs": -86.8,
+    "reduction_db": 2.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 37,
+    "floor_dbfs": -86.6,
+    "loud_dbfs": -83.3,
+    "before_dbfs": -84.7,
+    "after_dbfs": -87.1,
+    "reduction_db": 2.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 38,
+    "floor_dbfs": -85.8,
+    "loud_dbfs": -79.6,
+    "before_dbfs": -80.6,
+    "after_dbfs": -81.6,
+    "reduction_db": 1.0,
+    "clipped_samples": 0
+   },
+   {
+    "second": 39,
+    "floor_dbfs": -86.6,
+    "loud_dbfs": -83.4,
+    "before_dbfs": -84.8,
+    "after_dbfs": -87.3,
+    "reduction_db": 2.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 40,
+    "floor_dbfs": -86.9,
+    "loud_dbfs": -83.7,
+    "before_dbfs": -84.9,
+    "after_dbfs": -87.3,
+    "reduction_db": 2.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 41,
+    "floor_dbfs": -86.6,
+    "loud_dbfs": -83.5,
+    "before_dbfs": -84.6,
+    "after_dbfs": -87.2,
+    "reduction_db": 2.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 42,
+    "floor_dbfs": -86.5,
+    "loud_dbfs": -83.5,
+    "before_dbfs": -84.7,
+    "after_dbfs": -87.1,
+    "reduction_db": 2.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 43,
+    "floor_dbfs": -86.9,
+    "loud_dbfs": -83.6,
+    "before_dbfs": -84.7,
+    "after_dbfs": -87.2,
+    "reduction_db": 2.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 44,
+    "floor_dbfs": -86.6,
+    "loud_dbfs": -83.4,
+    "before_dbfs": -84.7,
+    "after_dbfs": -87.2,
+    "reduction_db": 2.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 45,
+    "floor_dbfs": -86.3,
+    "loud_dbfs": -83.5,
+    "before_dbfs": -84.6,
+    "after_dbfs": -87.1,
+    "reduction_db": 2.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 46,
+    "floor_dbfs": -84.0,
+    "loud_dbfs": -45.4,
+    "before_dbfs": -49.4,
+    "after_dbfs": -49.8,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 47,
+    "floor_dbfs": -84.3,
+    "loud_dbfs": -80.8,
+    "before_dbfs": -82.1,
+    "after_dbfs": -83.6,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 48,
+    "floor_dbfs": -83.5,
+    "loud_dbfs": -80.9,
+    "before_dbfs": -81.9,
+    "after_dbfs": -83.7,
+    "reduction_db": 1.8,
+    "clipped_samples": 0
+   },
+   {
+    "second": 49,
+    "floor_dbfs": -83.7,
+    "loud_dbfs": -80.8,
+    "before_dbfs": -81.9,
+    "after_dbfs": -83.5,
+    "reduction_db": 1.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 50,
+    "floor_dbfs": -84.2,
+    "loud_dbfs": -81.0,
+    "before_dbfs": -81.9,
+    "after_dbfs": -83.4,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 51,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -81.0,
+    "before_dbfs": -82.0,
+    "after_dbfs": -83.4,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 52,
+    "floor_dbfs": -82.1,
+    "loud_dbfs": -78.4,
+    "before_dbfs": -80.4,
+    "after_dbfs": -81.6,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 53,
+    "floor_dbfs": -82.1,
+    "loud_dbfs": -76.0,
+    "before_dbfs": -77.7,
+    "after_dbfs": -78.5,
+    "reduction_db": 0.8,
+    "clipped_samples": 0
+   },
+   {
+    "second": 54,
+    "floor_dbfs": -82.4,
+    "loud_dbfs": -78.1,
+    "before_dbfs": -78.4,
+    "after_dbfs": -79.3,
+    "reduction_db": 0.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 55,
+    "floor_dbfs": -82.4,
+    "loud_dbfs": -77.1,
+    "before_dbfs": -79.9,
+    "after_dbfs": -80.9,
+    "reduction_db": 1.0,
+    "clipped_samples": 0
+   },
+   {
+    "second": 56,
+    "floor_dbfs": -82.4,
+    "loud_dbfs": -76.1,
+    "before_dbfs": -78.4,
+    "after_dbfs": -79.1,
+    "reduction_db": 0.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 57,
+    "floor_dbfs": -82.5,
+    "loud_dbfs": -78.7,
+    "before_dbfs": -80.6,
+    "after_dbfs": -81.8,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 58,
+    "floor_dbfs": -83.1,
+    "loud_dbfs": -80.8,
+    "before_dbfs": -81.7,
+    "after_dbfs": -83.4,
+    "reduction_db": 1.7,
+    "clipped_samples": 0
+   }
+  ],
+  "peak_abs_sample": 32768,
+  "clipped_samples": 306
+ },
+ "microphone_minus_clip_level": {
+  "what": "level of the microphone signal minus the level of the clip itself, per 50 ms where the clip is above -45 dBFS; a change between the two rows is a change of gain on the way to the microphone signal",
+  "sunset_lamp_silent": {
+   "median_db": 8.5,
+   "steps": 37
+  },
+  "coffee_last_400_ms": [
+   [
+    4150,
+    2.9
+   ],
+   [
+    4200,
+    7.1
+   ],
+   [
+    4250,
+    7.2
+   ],
+   [
+    4300,
+    6.7
+   ],
+   [
+    4350,
+    7.2
+   ],
+   [
+    4400,
+    5.7
+   ],
+   [
+    4450,
+    1.0
+   ],
+   [
+    4500,
+    -8.5
+   ]
+  ]
+ },
+ "calibration": {
+  "what": "the part of the clean coffee clip the lamp spoke through, added in software at a chosen level to a stretch where only the lamp speaks; the first row has nothing added",
+  "lamp_alone_from_second": 26.3,
+  "lamp_alone_level_dbfs": -12.8,
+  "rows": [
+   {
+    "added_dbfs": null,
+    "matched_filter": 0.016,
+    "coherent_share_db_512": -33.4,
+    "coherent_share_db_2048": -28.3
+   },
+   {
+    "added_dbfs": -10,
+    "matched_filter": 0.824,
+    "coherent_share_db_512": -2.0,
+    "coherent_share_db_2048": -2.2
+   },
+   {
+    "added_dbfs": -15,
+    "matched_filter": 0.631,
+    "coherent_share_db_512": -4.5,
+    "coherent_share_db_2048": -4.9
+   },
+   {
+    "added_dbfs": -20,
+    "matched_filter": 0.413,
+    "coherent_share_db_512": -8.4,
+    "coherent_share_db_2048": -9.2
+   },
+   {
+    "added_dbfs": -25,
+    "matched_filter": 0.243,
+    "coherent_share_db_512": -13.4,
+    "coherent_share_db_2048": -14.6
+   },
+   {
+    "added_dbfs": -30,
+    "matched_filter": 0.135,
+    "coherent_share_db_512": -19.2,
+    "coherent_share_db_2048": -20.6
+   },
+   {
+    "added_dbfs": -35,
+    "matched_filter": 0.072,
+    "coherent_share_db_512": -26.6,
+    "coherent_share_db_2048": -25.7
+   },
+   {
+    "added_dbfs": -40,
+    "matched_filter": 0.036,
+    "coherent_share_db_512": -32.7,
+    "coherent_share_db_2048": -28.3
+   },
+   {
+    "added_dbfs": -45,
+    "matched_filter": 0.019,
+    "coherent_share_db_512": -35.4,
+    "coherent_share_db_2048": -28.7
+   }
+  ],
+  "window_ms": [
+   0,
+   3440
+  ],
+  "real_overlap": {
+   "matched_filter": 0.065,
+   "coherent_share_db_512": -21.6,
+   "coherent_share_db_2048": -20.2
+  }
+ },
+ "trace": {
+  "run_start": {
+   "audio_diagnostics_requested": true,
+   "mode": "finite",
+   "provider_continuation": "kept-start",
+   "reference_clock": "capture",
+   "software_processing_requested": {
+    "aec": "sonora_aec3",
+    "noise_suppression": false
+   },
+   "turn_taking": "duplex"
+  },
+  "duplex_steps": [
+   {
+    "kind": "duplex_yield",
+    "frame_sequence": 2325,
+    "ms_after_the_clip_arrived": 3400,
+    "hearing_margin_db": -17.1
+   },
+   {
+    "kind": "duplex_commit",
+    "frame_sequence": 2378,
+    "ms_after_the_clip_arrived": 3930,
+    "hearing_margin_db": -17.1
+   }
+  ],
+  "candidates": [
+   {
+    "serial": 1,
+    "trigger_sequence": 233,
+    "trigger_ms_after_the_clip_arrived": -17520,
+    "displaced_an_owner": false
+   },
+   {
+    "serial": 2,
+    "trigger_sequence": 2325,
+    "trigger_ms_after_the_clip_arrived": 3400,
+    "displaced_an_owner": true
+   },
+   {
+    "serial": 3,
+    "trigger_sequence": 5935,
+    "trigger_ms_after_the_clip_arrived": 39500,
+    "displaced_an_owner": false
+   }
+  ],
+  "rejected": [],
+  "admitted": [
+   {
+    "serial": 1,
+    "turn": 1,
+    "basis": "directed_session_duplex"
+   },
+   {
+    "serial": 2,
+    "turn": 2,
+    "basis": "directed_session_duplex"
+   },
+   {
+    "serial": 3,
+    "turn": 3,
+    "basis": "directed_session_duplex"
+   }
+  ],
+  "turns": [
+   {
+    "turn": 1,
+    "outcome": "user_interrupted",
+    "playback_gaps": 2
+   },
+   {
+    "turn": 2,
+    "outcome": "audio_written_unscored",
+    "playback_gaps": 0
+   },
+   {
+    "turn": 3,
+    "outcome": "runtime_failed",
+    "playback_gaps": 0
+   }
+  ],
+  "input_transcripts": [
+   "So why does it turn orange at sunset?",
+   "Why does it smell so good?"
+  ],
+  "clip_speech_ends_ms": 4560
+ },
+ "mixer_snapshot": {
+  "path": "/private/tmp/lamp-duplex-mic-r4-executed-jw756u6z/native/mixer-transaction.json",
+  "which": "trial_readback",
+  "devices": {
+   "device_micro2": {
+    "auto_gain_control": "off",
+    "mic_capture_volume": "91"
+   },
+   "device_cmedia": {
+    "auto_gain_control": "on",
+    "mic_capture_volume": "4"
+   }
+  }
+ }
+}

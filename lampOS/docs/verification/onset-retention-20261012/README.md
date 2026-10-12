@@ -31,9 +31,19 @@ lost at the microphone input, before any software.** See
 the microphone signal handed to the software holds the interrupting
 speech at least 20 dB weaker than the same loudspeaker delivered five
 seconds earlier with the lamp silent. The microphone's hardware
-`Auto Gain Control` is on, and its quiet floor drops 7 to 10 dB at the
-lamp's first sound and needs more than 30 s to come back. The canceller,
-the detector and the hearing rule then did what their input allowed.
+`Auto Gain Control` is on and costs a person about 10 dB of level once
+the lamp has spoken. The canceller, the detector and the hearing rule
+then did what their input allowed.
+
+**A second device recording, with that gain control off, 2026-10-12
+about 05:00 UTC.** See
+[The second device recording](#the-second-device-recording-gain-control-off).
+The 10 dB came back and the lamp yielded 0.9 s sooner, but still only
+when its own speech paused, and the request again began at the last
+sentence. **In both recordings the lamp heard the person only in a pause
+of its own voice.** While it is actually sounding, the person is 12 to
+15 dB weaker in the microphone signal than the same loudspeaker is with
+the lamp silent, gain control or not. What does that is not established.
 
 Nothing here is a listening test. No audio is in this directory.
 
@@ -185,10 +195,12 @@ So the clip's coherent part is below about −40 dBFS there: at least
 - `expected-mixers.json` of the run, the state every rollback restores:
   `'Auto Gain Control'` is `on` and `'Mic Capture Volume'` is 147, its
   maximum, on `device_micro2`.
-- Quiet floor before any playback: −74 to −77 dBFS. After the lamp's
-  first sound: −82 to −86 dBFS, for the twelve quiet seconds after the
-  reply too. Thirty-three seconds after the second reply: −78 dBFS.
 - 89 samples clip in the first second of the first reply.
+- *Withdrawn as evidence of the gain:* the quiet floor, −74 to −77 dBFS
+  before any playback and −82 to −86 dBFS after the lamp's first sound.
+  With the gain control off the floor fell by the same 10 dB, after the
+  second reply, while speech kept its level. I do not know what the
+  floor follows. The evidence for the gain is the next point.
 - With the lamp's render silent at the end of the clip, the microphone
   is about 5 dB below the clip's own level (−6.5 to +0.8 dB over seven
   50 ms steps). In the clear it was 5.3 dB above. About 10 dB lower.
@@ -228,8 +240,10 @@ the microphone, came from the same two gains and is withdrawn.
 - Whether the canceller, once it has converged on a reply or two, leaves
   enough of a person to be scored as speech.
 
-**The smallest next native comparison.** The same two clips, with two
-changes and nothing else:
+**The smallest next native comparison**, as proposed then. Its first
+half has run; see the next section.
+
+The same two clips, with two changes and nothing else:
 
 1. The microphone's `Auto Gain Control` mixer switch off, and its capture
    volume fixed where the lamp's own voice stays below full scale.
@@ -243,6 +257,101 @@ whether the lamp yields sooner. It is a mixer setting and a longer
 scene, not a threshold: a gain control ahead of an echo canceller
 changes the very path the canceller has learned, whatever this one
 negative says. No software correction is proposed until it has run.
+
+## The second device recording: gain control off
+
+The integrator's R4 on `4ace`, runtime `b318`:
+`/private/tmp/lamp-duplex-mic-r4-executed-jw756u6z`. The same cold scene
+and clips. On `device_micro2`, `Auto Gain Control` off and
+`Mic Capture Volume` 91 in place of 147, read back before the run;
+nothing else changed. `analyse_run.sh` on each run, then
+`compare_bundles.py`; outputs `native-bundle.json` and
+`native-bundle-gain-control-off.json`.
+
+| | Gain control on, capture 147 | Gain control off, capture 91 |
+|---|---|---|
+| Sunset question, lamp silent: microphone level | −15.5 dBFS | −12.6 dBFS |
+| Microphone level against the clip's own, lamp silent | +5.3 dB | +8.5 dB |
+| The same at the end of the coffee clip, after the lamp had spoken | **−5.3 dB** | **+6.7 dB** (seven 50 ms steps, +1.0 to +7.2) |
+| The lamp yielded, after the clip arrived | 4,330 ms | **3,400 ms** |
+| What followed | resumed after 500 ms, candidate rejected | committed at 3,930 ms, request admitted |
+| What the service transcribed | nothing of the clip | "Why does it smell so good?" |
+| The lamp's own margin at the yield | −22.1 dB | −17.1 dB |
+| Clip, while the lamp spoke: level expected from the gain measured with the lamp silent | −20.0 dBFS | −17.8 dBFS |
+| Share of the microphone signal coherent with the clip there, 32 ms and 128 ms windows | −26.6 and −21.6 dB | −21.6 and −20.2 dB |
+| The clip level that reads the same when added in software to the lamp alone | −45 dBFS or less | about −30 dBFS |
+| Device detector under 0.5 in the clip's speech blocks before the yield | 331 of 371 | 268 of 282 |
+| Hearing by replay before the yield: nothing speech-like, own, person | 383, 37, 11 | 315, 16, 13 |
+| Canceller reduction in each whole second of the overlap | 9.8 to 20.4 dB | 7.3 to 19.0 dB |
+| Clipped samples in the recording | 106 | 306 |
+
+In the second run the clip's position is fixed from its last second,
+heard with the lamp silent after the yield (matched filter 0.664, 38 ms
+from where the players' clocks put it). The first run has no such
+stretch, so its 32 ms figure is the less sure of its two.
+
+**What the gain control was costing.** With it on, a person who spoke
+after the lamp arrived 10.6 dB lower than one who spoke before it. With
+it off, 1.8 dB. That part of the first recording's finding stands, and
+turning it off is what let this run reach a commit.
+
+**What it was not costing.** The person is still not in the signal while
+the lamp is sounding. With the control off, the clip is at about
+−30 dBFS there where the gain measured in silence puts it at −17.8 dBFS:
+12 to 15 dB short. The lamp's own voice shows no compression in the
+same recording (microphone level against render level is flat within
+1 dB from −30 to −15 dBFS of render). The room recording has the whole
+clip emitted evenly (room against clip level by stretch: +0.3, +1.5, 0.0
+and −0.8 dB).
+
+**The lamp yielded where its own speech paused, both times.**
+
+| | Pauses of the lamp from the clip's arrival to the yield (render under −45 dBFS) | Yield |
+|---|---|---|
+| Gain control on | 60 ms at 1,450 ms; 40 ms at 2,760 ms; 60 ms at 4,280 ms | 4,330 ms |
+| Gain control off | 20 ms at 1,990 ms; 200 ms from 3,250 ms | 3,400 ms |
+
+- In the first run the pause at 1,450 ms is where the device scored its
+  one run of speech before the end, seven blocks; the replay heard it as
+  a person, two blocks with no alignment, a person, then the lamp's own.
+- In the second, the lamp paused as the clip's last sentence began, at
+  3,280 ms, and six blocks later it yielded.
+- So the time to yield here was the time to the lamp's next pause that
+  the person was speaking in, and the request began the pre-roll before
+  that. Nothing earlier was in the signal to retain or to detect.
+
+**Also in the second run.**
+
+- The sunset request stayed open for 15.6 s: other sounds in the room at
+  about 7 to 8 s and 13 to 15 s kept the endpoint from closing. Not from
+  either player. Not attributed.
+- 212 of the 306 clipped samples are in the first second of the first
+  reply: capture 91 is still above what the lamp's own onset allows.
+- The canceller was cold again: the reply was the session's first
+  playback.
+
+**Not established.**
+
+- What removes 12 to 15 dB of a person from the microphone signal while
+  the lamp sounds, and only then. Not the gain control switch, not
+  compression of the lamp's voice, not the emission. The microphone's own
+  processing is the obvious candidate and I have no evidence for it.
+- What the floor follows.
+- What a canceller that has heard a reply or two leaves of a person.
+  Both recordings are of a cold one.
+
+**What I propose, and what I do not.**
+
+- No threshold, and no change to how far back a request reaches: in both
+  runs there was nothing earlier in the signal.
+- Keep the gain control off for the comparison that is still owed: the
+  pilot's precondition, two complete replies before the overlap, recorded
+  the same way. It answers the third point above.
+- For the first point, one recording that needs no lamp speech from the
+  service: the lamp plays a fixed sound while the same clip is played to
+  it, once per microphone setting or capture device that can be chosen.
+  It says where the 12 to 15 dB go without a conversation in the way.
+  The device and its mixer are the integrator's.
 
 ## What is missing, exactly
 
@@ -306,6 +415,8 @@ is not built.
 ## Reproduce
 
 ```sh
+SP=... ./analyse_run.sh EXECUTED_DIR PLAN_DIR WORK_DIR OUT.json [MIXERS.json]
+python3.12 -I compare_bundles.py NAME_A A.json NAME_B B.json
 python3.12 -I native_timeline.py AUDIT.json METADATA_DIR .
 python3.12 -I coffee_lab.py DUPLEX_LAB LAB_ROOT SESSION CLIP.wav CLIP_SHA256 OUT 0,-6 120
 python3.12 -I summarise.py OUT plain six ext

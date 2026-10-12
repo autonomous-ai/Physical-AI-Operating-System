@@ -1560,9 +1560,10 @@ or the real service.
 | `53e58fe93` and the tests of `aa1558be3` | The duplex test through the worker, 400 runs | 400 passed |
 | the same | Pair, duplex, worker `kept_start` and clock tests, 25 tests, 8 runs | 7 runs of 25; in the other `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` failed once (output kept; see the status file) |
 | `aa1558be3` | Focused, from a source export of the exact commit, 00:30:11Z to 00:32:58Z | format clean; strict Clippy for both crates clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 135 passed, 0 failed, 2 ignored |
+| `aa1558be3` | Emulated ARM64, `agent1-arm64-verify39`, 00:38:14Z to 00:40:19Z, alone in the VM | strict Clippy for both crates; `lamp-gemini` release tests 196 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, `duplex_through_the_worker`, the duplex coordinator tests, the clock regression, options and fixture 67 passed, 0 failed; release build of `lamp-live`, ELF aarch64, SHA-256 `951c66ce58f5aca4f3c4592e7185fffc47641f8ea476a6766aea9b762ad06da8` |
 
-Not run on `aa1558be3`: the whole workspace, and ARM64. Not run at all:
-anything against the real service or on a lamp.
+Not run on `aa1558be3`: the whole workspace. Not run at all: anything
+against the real service or on a lamp.
 
 ### On the probe, and on a Lamp
 

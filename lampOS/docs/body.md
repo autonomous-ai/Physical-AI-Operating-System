@@ -27,14 +27,16 @@ Status on 2026-10-12: built, and run against simulated servos only (below).
   base (found at 2,095 on lamp-4ace on 2026-10-12) is refused, with nothing
   written.
 - Every goal is within a fixed reach of the pose found at start: pitch 45
-  counts up and 25 down, roll 30 either way, yaw 40 either way (11.4 counts
+  counts up and 15 down, roll 30 either way, yaw 40 either way (11.4 counts
   to a degree). The head's pitch goal is also never over 2,030: on lamp-4ace
   the head crossed 1,766 to 2,043 with no load and met the base near 2,045 to
   2,056.
-- The commanded pose moves at 70 counts a second at most (about 6 degrees a
-  second), under the 75 the head followed within 20 counts on the servo
-  profile written here (goal speed 150, acceleration 50). No goal moves more
-  than two counts between two writes, 20 ms apart.
+- The commanded pose moves at 50 counts a second at most (about 4 degrees a
+  second). That is the speed the head was moved at when it was backed off the
+  base on lamp-4ace on 2026-10-12 (47 counts a second at most), which it
+  followed within 13 counts on the servo profile written here (goal speed 150,
+  acceleration 50). No goal moves more than two counts between two writes,
+  20 ms apart.
 
 ## When it stops
 
@@ -44,7 +46,7 @@ written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
-| Load on a commanded joint, two steps in a row | pitch 140, roll 110, yaw 110 |
+| Load on a commanded joint, two steps in a row | pitch 160, roll 110, yaw 110 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |

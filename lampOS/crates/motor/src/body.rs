@@ -80,20 +80,22 @@ pub struct Limits {
 impl Limits {
     /// For a lamp folded in its rest pose. On lamp-4ace the head crossed
     /// 1766 to 2043 with no load and met the base near 2045 to 2056, so its
-    /// goal stays at or under 2030. Speed is under the 75 counts a second
-    /// the head followed within 20 counts on the profile written here.
+    /// goal stays at or under 2030 and it dips little. Speed is what the head
+    /// was moved at when it was backed off the base on 2026-10-12: 47 counts
+    /// a second at most, which it followed within 13 counts on the profile
+    /// written here, reading a load of up to 116 on the way and 68 at rest.
     pub const FOLDED: Self = Self {
         pitch_home: (1_760, 2_020),
         pitch_window: (1_740, 2_030),
         pitch_up: 45.0,
-        pitch_down: 25.0,
+        pitch_down: 15.0,
         roll: 30.0,
         yaw: 40.0,
-        speed: 70.0,
-        acceleration: 450.0,
+        speed: 50.0,
+        acceleration: 400.0,
         servo_speed: 150,
         servo_acceleration: 50,
-        load: [140, 110, 110],
+        load: [160, 110, 110],
         tracking: 30,
         tracking_steps: 10,
         bystander_drift: 6,

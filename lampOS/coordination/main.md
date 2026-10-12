@@ -1,12 +1,24 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-12 02:10 UTC
+- Updated: 2026-10-12 02:24 UTC
 - Branch: `lamp-v2-chat`
-- Latest native evidence: two camera-enabled replies on `2021c1bb9` / `96d5a03a…fa4fc44b`; original helper verifier failed, independent replay corrected its schema mismatch and verified shutdown without changing the original result. Camera description accuracy remains unscored; motors inactive.
-- Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). No newer integration is deployed yet. The latest temporary candidate override was removed after verified Stop/restoration.
+- Latest native evidence: final `a9cae6d17` source / `b3186e7e…73f4` handled eight inputs, six completed replies and two planned supersessions. One 30 ms supply gap and coffee-context loss remain; room recording invalid after a later queue overflow. Shutdown/restoration verify. Camera/motors were off.
+- Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
 - Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
+
+## Latest finite native serve result
+
+The [final composed candidate](../docs/verification/final-serve-pilot-20261012/README.md)
+handled eight inputs, six completed replies and the two planned supersessions in
+one provider session. Runtime/transport exits and restoration verify. This is
+not a clean acceptance pass: one 30 ms supply gap, a coffee-topic clarification
+suggesting a missing prefix, an invalid room recording with a later 288 ms loss,
+and evaluator attribution disagreements remain. Camera/motors were off. The
+installed binaries are current, but the completed trial restored legacy; an
+attended pilot still needs exclusive startup and actual facilitator mute/volume
+checks. Full natural interaction is not declared complete.
 
 ## Current integration boundary
 

@@ -1,0 +1,176 @@
+{
+  "status": "finite_native_conversation_completed_with_known_defects_and_unscored_acoustics",
+  "code_commit": "a9cae6d17",
+  "source_manifest_sha256": "049a86c27ae4595af7d52821f8b024586f1ec6bcc773c1de699431edc594b10d",
+  "live_sha256": "b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4",
+  "relay_sha256": "e1dc042a0aa55f769f6c3c5f15f1d9477cffdc310bd04d25b38b0bfc1c13e54f",
+  "profile": {
+    "turn_taking": "duplex",
+    "provider_continuation": "kept-start",
+    "reference_clock": "capture",
+    "reference_recovery": "off",
+    "noise_suppression": "off",
+    "playout_start_ms": 200,
+    "ring_channel_ceiling": 12,
+    "camera": false,
+    "motor": false
+  },
+  "delivered_steps": 8,
+  "admitted_turns": 8,
+  "endpoints": 8,
+  "completed_replies": 6,
+  "intentionally_superseded_turns": [
+    3,
+    5
+  ],
+  "provider_sessions": 1,
+  "runtime_cycles": 1,
+  "runtime_exit": 0,
+  "outer_transport_exit": 0,
+  "group_reaped": true,
+  "rollback_verified": true,
+  "turn_outcomes": [
+    {
+      "outcome": "audio_written_with_playback_gaps_unscored",
+      "playback_gaps": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 1
+    },
+    {
+      "outcome": "audio_written_unscored",
+      "playback_gaps": 0,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 2
+    },
+    {
+      "outcome": "user_interrupted",
+      "playback_gaps": 1,
+      "provider_audio_seen": true,
+      "provider_outcome": null,
+      "turn": 3
+    },
+    {
+      "outcome": "audio_written_unscored",
+      "playback_gaps": 0,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 4
+    },
+    {
+      "outcome": "user_interrupted",
+      "playback_gaps": 0,
+      "provider_audio_seen": false,
+      "provider_outcome": null,
+      "turn": 5
+    },
+    {
+      "outcome": "audio_written_unscored",
+      "playback_gaps": 0,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 6
+    },
+    {
+      "outcome": "audio_written_unscored",
+      "playback_gaps": 0,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 7
+    },
+    {
+      "outcome": "audio_written_unscored",
+      "playback_gaps": 0,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "turn": 8
+    }
+  ],
+  "provider_output_transcripts": {
+    "1": "It's because of Rayleigh scattering. The Earth's atmosphere scatters shorter blue light waves from the sun more than the other colors.",
+    "2": "Gas molecules in the air are very small, so they scatter the shorter, choppier blue waves much more than the longer red ones.",
+    "3": "At sunset, the sunlight travels through much more atmosphere, scattering away the blue light and letting the longer red and orange waves reach your eyes.",
+    "4": "Could you clarify what you're smelling?",
+    "5": "",
+    "6": "12 times 3 is 36.",
+    "7": "Sounds good. What would you like to discuss next?",
+    "8": "12 divided by 3 is 4."
+  },
+  "supply_gap_ms": 30,
+  "intentional_yield_until_cancellation_zero_interval_ms": 470,
+  "endpoint_to_first_ALSA_completed_replies_ms": {
+    "n": 6,
+    "values": [
+      1204.801,
+      1254.912,
+      1385.422,
+      1255.007,
+      1664.473,
+      1389.926
+    ],
+    "median": 1320.2145,
+    "excludes_silence_wait_ms": 1200,
+    "acoustic_score": null
+  },
+  "room_recording": {
+    "valid": false,
+    "status": "invalid_capture",
+    "fault": "queue_full",
+    "dropped_frames": 13824,
+    "source_rate": 48000,
+    "lost_source_interval_seconds": [
+      193.205,
+      193.493
+    ],
+    "loss_after_conversation": true,
+    "human_listened": false,
+    "acoustic_score": null
+  },
+  "semantic_limit": "Coffee interruption produced a clarification rather than the requested explanation. Provider input transcript contains only the tail; missing opening audio is a hypothesis, not established from transcription alone.",
+  "evaluator": {
+    "original_outcome": "failed",
+    "original_preserved": true,
+    "review": "Cancellation/admission and intentional before-output correction findings disagree with the raw runtime events. No report was rewritten to pass. Its 600ms profile label is not the actual 1200ms endpoint policy."
+  },
+  "evidence": [
+    {
+      "name": "events-0.jsonl",
+      "bytes": 4194001,
+      "sha256": "38c80986048b07be15cc179d4baabccd1151d34cbe3cd4658feebad507fa11c0"
+    },
+    {
+      "name": "events-1.jsonl",
+      "bytes": 3525248,
+      "sha256": "8d1c4ae4fb3dd1b1380035019991b1ab7f7368f9556e9c9da5e34c2f9ac80fb1"
+    },
+    {
+      "name": "events-2.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "events-3.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "health.json",
+      "bytes": 408,
+      "sha256": "0d5202753a33d1b7d8d061c3418782982a16cd90cd9f0dd8b95162eced6d4522"
+    }
+  ],
+  "limits": [
+    "loudspeaker synthetic, not live humans",
+    "recording invalid, no certified acoustic latency",
+    "physical mute/reopen and chair audibility require the facilitator",
+    "camera and motors off",
+    "latest binaries installed but not selected as a continuously running pilot service"
+  ]
+}

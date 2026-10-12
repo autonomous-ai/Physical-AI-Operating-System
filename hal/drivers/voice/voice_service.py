@@ -2479,6 +2479,8 @@ class VoiceService:
         realtime_deferred = False
         realtime_turn_started = False
         realtime_start_failed = False
+        # start_realtime_turn() retries on every audio chunk; log the fallback once.
+        realtime_unavailable_logged = False
         audio_turn = None
         prepare_started = False
         prepare_endpoint_waited = False
@@ -2520,7 +2522,7 @@ class VoiceService:
             nonlocal realtime_deferred, realtime_turn_started, realtime_start_failed
             nonlocal sent_turn_speaker, turn_context_sent
             nonlocal wakeword_followup_active
-            nonlocal audio_turn
+            nonlocal audio_turn, realtime_unavailable_logged
             if not realtime_allowed or realtime_turn_started or realtime_start_failed:
                 return False
 
@@ -2537,9 +2539,11 @@ class VoiceService:
                 if not prepare_capture_session():
                     return False
                 if self._realtime.rebuilding or not self._realtime.available:
-                    logger.info(
-                        "[realtime] Wake-word turn falls back — session unavailable after final confirmation"
-                    )
+                    if not realtime_unavailable_logged:
+                        realtime_unavailable_logged = True
+                        logger.info(
+                            "[realtime] Wake-word turn falls back — session unavailable after final confirmation"
+                        )
                     return False
                 try:
                     audio_turn = self._realtime.bind_audio_turn()

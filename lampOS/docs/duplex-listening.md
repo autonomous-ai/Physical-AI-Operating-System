@@ -442,7 +442,12 @@ holds one character per capture block in four strings of the same length:
 `heard` (0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown), and in
 tenths the detector's score, the share of the capture the render explains
 and the share of the cancelled signal that must be playback; `-` marks a
-block that was not judged. No audio and nothing audio can be rebuilt from.
+block that was not judged. With them come three levels before
+cancellation, in dBFS: the loudest block of that second
+(`loudest_capture_db`: with the lamp speaking alone, its own voice at its
+microphone) and the two slow averages the margin is made of, a person
+heard with the lamp silent (`person_db`) and the lamp's own voice where
+the canceller let it through (`own_db`). No audio and nothing audio can be rebuilt from.
 It is there because a yield that comes late, or never, cannot be explained
 from the yield events alone. A finite directed session does not write it:
 it can record the audio itself.

@@ -3063,7 +3063,15 @@ fn hear_capture_block(
             current.cloud.started && current.local_input_ended && !current.pcm.is_empty()
         });
     let listened = mask.listen(sequence, probability, echo, speaking, at_us)?;
-    trace.heard(sequence, speaking, listened.heard, probability, echo, at_us)?;
+    trace.heard(
+        sequence,
+        speaking,
+        listened.heard,
+        probability,
+        echo,
+        mask.hearing_levels_db(),
+        at_us,
+    )?;
     if let Some(interval) = trace.yield_interval.as_mut() {
         interval.last_frame_sequence = sequence;
         if echo.is_none() && interval.missing_evidence_since.is_none() {

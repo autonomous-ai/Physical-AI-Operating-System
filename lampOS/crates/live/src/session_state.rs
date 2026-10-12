@@ -38,6 +38,10 @@ struct HearingTrail {
     speech: String,
     explained: String,
     floor: String,
+    /// Loudest block before cancellation since the trail began, in tenths
+    /// of a decibel: with the lamp speaking alone, its own voice at its
+    /// microphone.
+    loudest: Option<i16>,
 }
 /// A share or a score in tenths, as one digit.
 fn tenth(value: Option<f32>) -> char {
@@ -112,6 +116,7 @@ impl SessionState {
     /// One capture block as duplex hearing read it. Kept only in serve mode
     /// and only while the lamp has something to yield; written a second at a
     /// time and when that ends.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn heard(
         &mut self,
         sequence: u64,
@@ -119,6 +124,7 @@ impl SessionState {
         heard: Option<Heard>,
         probability: f32,
         evidence: Option<&EchoEvidence>,
+        levels_db: (Option<f32>, Option<f32>),
         at_us: u64,
     ) -> io::Result<()> {
         if !self.continuous {
@@ -145,6 +151,11 @@ impl SessionState {
             self.hearing.floor.push(tenth(
                 echo.map(|echo| f32::from(echo.residual_playback_floor) / 100.0),
             ));
+            if let Some(evidence) = evidence {
+                let level = evidence.capture_level.tenths_of_db();
+                self.hearing.loudest =
+                    Some(self.hearing.loudest.map_or(level, |was| was.max(level)));
+            }
         }
         if self.hearing.heard.len() >= TRAIL_BLOCKS || (!speaking && !self.hearing.heard.is_empty())
         {
@@ -153,7 +164,9 @@ impl SessionState {
                 "first_frame_sequence":trail.first_frame_sequence,
                 "heard":trail.heard,"speech":trail.speech,
                 "explained":trail.explained,"floor":trail.floor,
-                "boundary":"one character per 10 ms capture block while a reply had something to yield; heard: 0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown; the rest in tenths; - where not judged"}))?;
+                "loudest_capture_db":trail.loudest.map(|tenths| f32::from(tenths) / 10.0),
+                "person_db":levels_db.0,"own_db":levels_db.1,
+                "boundary":"one character per 10 ms capture block while a reply had something to yield; heard: 0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown; the rest in tenths; - where not judged; levels in dBFS before cancellation: the loudest block of this trail, and the slow averages of a person heard in the clear and of the lamp's own voice let through"}))?;
         }
         Ok(())
     }
@@ -306,7 +319,15 @@ mod tests {
         let own = evidence(90, 85);
         for block in 0..TRAIL_BLOCKS as u64 + 3 {
             state
-                .heard(500 + block, true, Some(Heard::Own), 0.62, Some(&own), block)
+                .heard(
+                    500 + block,
+                    true,
+                    Some(Heard::Own),
+                    0.62,
+                    Some(&own),
+                    (Some(-31.5), Some(-12.0)),
+                    block,
+                )
                 .unwrap();
         }
         assert_eq!(state.len(), 1);
@@ -316,16 +337,22 @@ mod tests {
         assert_eq!(state[0]["speech"], "6".repeat(TRAIL_BLOCKS));
         assert_eq!(state[0]["explained"], "9".repeat(TRAIL_BLOCKS));
         assert_eq!(state[0]["floor"], "8".repeat(TRAIL_BLOCKS));
+        // The levels as they stood when the second was written.
+        assert_eq!(state[0]["loudest_capture_db"], -20.0);
+        assert_eq!(
+            (&state[0]["person_db"], &state[0]["own_db"]),
+            (&json!(-31.5), &json!(-12.0))
+        );
         // Nothing left to yield: the three blocks still held are written,
         // and the silent block itself is not.
         state
-            .heard(603, false, Some(Heard::Still), 0.0, None, 700)
+            .heard(603, false, Some(Heard::Still), 0.0, None, (None, None), 700)
             .unwrap();
         assert_eq!(state.len(), 2);
         assert_eq!(state[1]["first_frame_sequence"], 600);
         assert_eq!(state[1]["heard"], "333");
         state
-            .heard(604, false, Some(Heard::Still), 0.0, None, 701)
+            .heard(604, false, Some(Heard::Still), 0.0, None, (None, None), 701)
             .unwrap();
         assert_eq!(state.len(), 2);
     }
@@ -333,20 +360,34 @@ mod tests {
     #[test]
     fn hearing_marks_what_was_not_judged_and_stays_out_of_a_finite_trace() {
         let mut state = service();
-        state.heard(1, true, None, f32::NAN, None, 0).unwrap();
         state
-            .heard(2, true, Some(Heard::Over), 1.0, Some(&evidence(40, 0)), 1)
+            .heard(1, true, None, f32::NAN, None, (None, None), 0)
             .unwrap();
-        state.heard(3, false, None, 0.0, None, 2).unwrap();
+        state
+            .heard(
+                2,
+                true,
+                Some(Heard::Over),
+                1.0,
+                Some(&evidence(40, 0)),
+                (None, None),
+                1,
+            )
+            .unwrap();
+        state
+            .heard(3, false, None, 0.0, None, (None, None), 2)
+            .unwrap();
         assert_eq!(state[0]["heard"], "-4");
         assert_eq!(state[0]["speech"], "-9");
         assert_eq!(state[0]["explained"], "-4");
         assert_eq!(state[0]["floor"], "-0");
         let mut finite = SessionState::finite();
         finite
-            .heard(1, true, Some(Heard::Over), 1.0, None, 0)
+            .heard(1, true, Some(Heard::Over), 1.0, None, (None, None), 0)
             .unwrap();
-        finite.heard(2, false, None, 0.0, None, 1).unwrap();
+        finite
+            .heard(2, false, None, 0.0, None, (None, None), 1)
+            .unwrap();
         assert!(finite.is_empty());
     }
 }

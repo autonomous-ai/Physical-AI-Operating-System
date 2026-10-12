@@ -348,6 +348,14 @@ impl PlaybackMask {
     pub fn hearing_margin_db(&self) -> Option<f32> {
         self.duplex.as_ref().and_then(|duplex| duplex.margin.db())
     }
+    /// The two levels the margin is the difference of, before cancellation,
+    /// in dBFS: a person heard with the lamp silent, and the lamp's own voice
+    /// where the canceller let it through. Slow averages of each.
+    pub fn hearing_levels_db(&self) -> (Option<f32>, Option<f32>) {
+        self.duplex.as_ref().map_or((None, None), |duplex| {
+            (duplex.margin.person_db(), duplex.margin.own_db())
+        })
+    }
     /// Yields, commits and resumes so far, and whether this reply has fallen
     /// back to the conservative mask.
     pub fn duplex_summary(&self) -> Option<((u32, u32, u32), bool)> {

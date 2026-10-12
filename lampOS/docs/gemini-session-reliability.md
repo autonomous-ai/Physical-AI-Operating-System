@@ -1439,14 +1439,130 @@ Tests, at three levels:
   authority between cancelling and admitting a continuation would have
   that continuation treated as an abandonment. `commit_admitted_input`
   does not; the property is the coordinator's to keep.
-- Mute while kept is tested through the worker under both contracts, not
-  through the coordinator pair.
+- Mute while kept is tested through the worker under both contracts and,
+  on the pilot branch below, through the coordinator pair.
 - No real-service run abandons a kept request.
 
 Known limits of this candidate: the barrier report is a line on standard
 error and not a typed event the coordinator records; the patience is a
 constant; a kept start has had one real-service attempt; nothing here
 has been through a microphone or a speaker.
+
+### After review: four corrections, one more defect found by a new test, and the pilot's tests
+
+Branch `lamp-a1-continuation-pilot`, on top of the frozen `1fab3e22d`.
+Still only with `--provider-continuation kept-start`. The default is
+unchanged, keeps nothing and remembers nothing.
+
+The integrator's review of `1fab3e22d` reproduced the first defect below
+and named the third, which my own regression then confirmed; it required
+the second row; and its question about bounded memory found the fourth,
+in my fix for the second. All four were mine. The first and the third
+have a regression committed failing before the fix.
+
+| Defect | Cause | Now |
+|---|---|---|
+| A block accepted between the two publications of a `discard` outlived the purge and was written. The integrator's regression showed 320 samples on the wire | `InputSender::discard` published the abandonment before the retirement, so for an instant the request was abandoned and still accepting | Retirement is published first. From that instant no block of the request is accepted, so the purge that follows finds everything there will ever be. A block at or below the applied abandonment is skipped at drain time all the same |
+| A late abandonment of an older request reported a newer request's sent audio as its own | Sent samples were one total for the open activity | Counted by request. An abandonment reports the requests it covers and no others, once |
+| An abandonment read in the same worker turn as a newer owner and that owner's continuation never reached the transport | The worker derived abandonment from retirement progress, which the newer owner had already advanced | `InputHandoff` keeps abandonment progress on its own, and `synchronize` sends `discard` before `retire` |
+| The count by request had no bound. A run of requests that each added to an activity none of them ended kept an entry each, and under the default too | New in the second fix | See below |
+
+**Between the two publications** a request is retired and not yet
+abandoned. Nothing of it is accepted; what is kept of it is dropped a
+moment later instead of at once. A block offered in that window is
+refused as `StaleRequest`, which is what a retirement means in any case.
+
+**What is remembered, and its bound.** With a start that can be kept, the
+session remembers how many samples each request has had handed to the
+socket in the activity now open: one entry per request, oldest first.
+
+- An entry is removed when the abandonment that reports it is applied,
+  and all of them when the activity starts or ends.
+- At most `MAX_OPEN_ACTIVITY_REQUESTS`, 64. A block that would need one
+  more entry is refused **before** it is handed to the socket, and the
+  session fails with `Error::OpenActivityOverrun`. Nothing is ever sent
+  that could not afterwards be attributed, and no attribution is merged
+  or dropped to make room.
+- That failure is terminal (`Recovery::Fatal`): it is this side's own
+  bound, exhausted, and no evidence that a new connection would be right
+  for what the activity held. The supervisor reports the request in
+  flight lost once and ends without dialling. To the coordinator it is
+  the existing `Fault::Local`.
+- Reaching it takes 64 requests in a row that each sent audio into one
+  activity, with none committed and none abandoned in between.
+- Without the kept start nothing is remembered and there is no such
+  bound: an abandonment reports nothing there, so there is nothing to
+  attribute.
+
+**Already-sent context, kept as a named limit.** Audio of an abandoned
+request that was handed to the socket before the abandonment stays in the
+open activity and is heard with the request that next continues it.
+Removing it would need the connection replaced, and keeping the rest of
+the conversation across that would need replay or a guess. Neither is
+done. It is reported, exactly, as `sent_samples`.
+
+**Found by the new duplex test: capture times that seem to go backwards.**
+The test that takes a duplex admission from `commit_admitted_input`
+through the real worker and session ended the provider in 5 of 171 runs
+with `Failure { error: InputSequence, reason: NotRecoverable }`. The
+sequence numbers were contiguous. The session's `accept` also refuses a
+block whose capture instant is earlier than the one before it, and the
+worker carried each block's capture time over by reading two clocks one
+after the other, for every block: the age from the shared microsecond
+clock, taken off `Instant::now()` read a moment later. Whatever passed
+between the two readings made that block seem captured that much later,
+so the next block could seem captured before it.
+
+- The harness spaces capture blocks microseconds apart, which is why it
+  showed. With blocks 10 ms apart it needs a delay of 10 ms inside a
+  window a few microseconds wide. Rare, and terminal when it happens.
+- Now the worker hands a block its predecessor's instant, never an
+  earlier one, wherever the shared times themselves are in order. Times
+  that really go backwards are passed on as they are and are still
+  refused by the session.
+- A block clamped this way seems younger than it is by at most the delay
+  that caused it. The age bound of one second is otherwise unchanged.
+- Regression, committed failing first:
+  `provider_worker::tests::a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one`
+  ("handed over as captured 49.888835ms before the earlier one"). With
+  the fix the duplex test passed 400 runs of 400.
+
+**Tests added on the pilot branch.**
+
+| What | Level | Tests |
+|---|---|---|
+| The publication race, the integrator's regression and its control | Session, gated transport | `discard_publication_race_cannot_leave_a_later_kept_frame_alive`, `discard_publication_complete_control_drops_kept_audio_and_refuses_late_input` |
+| A late abandonment and a newer request in the same activity | Session | `retain::a_late_abandonment_of_an_older_request_does_not_touch_or_claim_the_newer_ones_audio`, `a_late_abandonment_drops_the_older_requests_kept_blocks_and_keeps_the_newer_ones` |
+| An abandonment, a new owner and its continuation read in one worker turn | Coordinator pair | `continuation_or_discard::an_abandonment_is_not_lost_when_a_new_question_and_its_continuation_follow_at_once` |
+| Mute while a question is kept | Coordinator pair | `a_mute_while_the_question_is_kept_writes_none_of_it_and_ends_cleanly` |
+| The bound on what is remembered | Session, production path | `open_activity::one_request_more_than_the_account_holds_fails_the_connection_before_its_audio_is_sent`, `a_full_account_reports_every_request_exactly_and_is_emptied_by_the_report`, `an_endless_run_of_short_requests_that_are_abandoned_in_time_never_reaches_the_bound` (640 requests in one activity), `by_default_nothing_is_remembered_and_no_number_of_requests_fails` (257 requests) |
+| The same bound through recovery | Supervisor | `recovery::tests::an_overrun_open_activity_ends_the_supervisor_by_name_and_is_never_redialled` |
+| The account alone | Unit | `the_account_refuses_one_entry_more_than_the_bound_and_is_left_as_it_was`, `the_account_counts_a_request_once_and_forgets_what_it_has_reported` |
+| The same bound reached by the coordinator's own continuations: 64 heard in order, the 65th ends the provider with `Fault::Local` and none of its words written | Coordinator pair | `continuation_or_discard::one_continuation_more_than_the_transport_remembers_ends_the_provider_with_its_local_fault` |
+| A pause for breath inside a kept question; a change of subject once the first answer has begun | Coordinator pair | `a_pause_for_breath_inside_a_kept_question_loses_nothing_and_times_nothing_out`, `interrupting_an_answer_that_has_begun_keeps_nothing_and_is_the_ordinary_interruption` |
+| A stale callback: an interruption that arrives after the kept question was committed | Session | `retain::a_late_interruption_after_the_kept_question_is_committed_is_dropped_and_answers_nothing` |
+| **A duplex interruption end to end**: the coordinator's own hearing, admission and `commit_admitted_input` for a person speaking over the lamp, `flush_provider_input`, the Coordinated worker, the Supervisor and the session. The service receives one start and the admitted blocks in order, then the End, and the answer is the new request's. Capture blocks and their evidence are scripted | Coordinator duplex harness with the real worker | `duplex_through_the_worker::a_person_speaking_over_the_lamp_reaches_the_service_as_one_question_with_their_opening_words` |
+| Capture times across the worker's two clocks | Worker unit | `a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one` |
+
+**Results on the pilot branch.** Host unless marked; emulated ARM64 is
+not a device, and nothing here has been through a microphone, a speaker
+or the real service.
+
+| Commit | What ran | Result |
+|---|---|---|
+| `0a70ab3cb` | Full pass, 2 jobs, every step's output kept, 23:36:42Z to 23:57:48Z. Its `cargo` was suspended from 23:48:38Z to 23:56:11Z for a recording on the lamp; the test binary then running finished by itself and no other started in that time | format clean; workspace strict Clippy clean; 1,575 passed, 0 failed, 7 ignored single-threaded; release build ok; all exit 0 |
+| `0a70ab3cb` | Emulated ARM64, `agent1-arm64-verify37`, 23:34:14Z to 23:36:36Z, alone in the VM | strict Clippy for `lamp-gemini` and `lamp-live`; `lamp-gemini` release tests 188 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, options and fixture 41 passed, 0 failed; release build |
+| `4d40fff3d` | Focused, from a source export of the exact commit, 00:00:12Z to 00:02:51Z | format clean; strict Clippy `-p lamp-gemini -p lamp-live --all-targets` clean; `lamp-gemini` 236 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, options and fixture 109 passed, 0 failed, 2 ignored |
+| `4d40fff3d` | Red control: the same seven bound tests with only the check of the bound removed | 3 of 7 fail (the session's overrun, the supervisor's, the unit test of the bound); with it, 7 pass |
+| `4d40fff3d` | Emulated ARM64, `agent1-arm64-verify38`, 00:14:41Z to 00:16:45Z, alone in the VM | strict Clippy for both crates; `lamp-gemini` release tests 195 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests as above 41 passed, 0 failed; release build of `lamp-live`, ELF aarch64, SHA-256 `03c0907be469e4bea126e62ab877ce7b72d061a7363b1a4bbe7837e01d743efd` |
+| `688f81b22` | The worker regression alone, before the fix | fails: "the later block was handed over as captured 49.888835ms before the earlier one" |
+| before `53e58fe93` | The duplex test through the worker, 171 runs in batches of 1, 8, 40 and 122, the last with a temporary diagnostic line in the worker | 5 ended the provider with `InputSequence`; outputs kept |
+| `53e58fe93` and the tests of `aa1558be3` | The duplex test through the worker, 400 runs | 400 passed |
+| the same | Pair, duplex, worker `kept_start` and clock tests, 25 tests, 8 runs | 7 runs of 25; in the other `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` failed once (output kept; see the status file) |
+| `aa1558be3` | Focused, from a source export of the exact commit, 00:30:11Z to 00:32:58Z | format clean; strict Clippy for both crates clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 135 passed, 0 failed, 2 ignored |
+
+Not run on `aa1558be3`: the whole workspace, and ARM64. Not run at all:
+anything against the real service or on a lamp.
 
 ### On the probe, and on a Lamp
 

@@ -1,25 +1,35 @@
 # Agent 1 status
 
 Owner: Agent 1 (audio and Gemini). This file on
-`lamp-a1-continuation-discard` is the status of `MAIN-056` with the
-continue-or-abandon contract added, already merged onto your `2021c1bb9`.
+`lamp-a1-continuation-pilot` is the status of `MAIN-056` after your
+review of `lamp-a1-continuation-discard` `1fab3e22d`: the corrections you
+asked for, a bound you asked about, one defect a new test found, and the
+pilot's tests. See [The pilot branch](#the-pilot-branch). The branch is
+`1fab3e22d` plus commits and is on your `2021c1bb9`.
 `lamp-a1-continuation-provider` (`8ab02d2c6`, which you integrated),
 `lamp-a1-continuation-retain` (`55ccc4a1a`) and `lamp-a1-continuation`
 (`9ec2f8cfe`) are left exactly as they were. Reference recovery (`MAIN-053`, `054`, `058`) is
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-11, 22:40 UTC
+- Updated: 2026-10-12, 00:30 UTC
+- **New: the pilot branch.** Two defects your review reproduced are
+  fixed, each with its regression committed failing first. The count of
+  sent samples by request is bounded at 64 entries with a terminal, named
+  failure before one more, as you decided. A duplex admission is now
+  taken through the real worker and session in a test, and that test
+  found capture instants that could seem to go backwards across the
+  worker's two clocks and end the provider; fixed in the worker alone,
+  regression first.
 - **New on this branch: a kept request that is abandoned is told apart
   from one that is continued, end to end, and what is still unsent of it
   is dropped.** No new message from the coordinator: the authority it
   already publishes says which it is. What had already been handed to the
   socket is reported as sent and never as discarded. See
   [Continued or abandoned](#continued-or-abandoned).
-- **Your terminal showed a usage limit at about 22:15Z** ("try again at
-  Oct 18th, 2026 5:28 PM"), in answer to my gate announcement. From then
-  on my notes there are unread. I finished my own gates, pushed, and
-  stopped: no device, no cloud, nothing of yours touched.
+- Your terminal showed a usage limit from about 22:15Z until you were
+  back. Notes I pasted in that time may not have been read; everything
+  in them is in this file or the document.
 - **`MAIN-056`: one explicit option, `--provider-continuation kept-start`,
   off by default, carries the kept start, the at-commit wait and barrier
   reports from `lamp-live serve` to the session.** Verified through the
@@ -41,11 +51,14 @@ on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 
 ## Branches
 
-Three, so that each can be taken or left by itself. You have taken the
-second: `e9bdcea28` on `lamp-v2-chat` carries its three files.
+Separate, so that each can be taken or left by itself. You have taken
+the stop fence (`e9bdcea28` on `lamp-v2-chat` carries its three files)
+and the provider candidate (your `2021c1bb9`).
 
 | Branch | Head | Base | What |
 |---|---|---|---|
+| `lamp-a1-continuation-pilot` | this commit | `lamp-a1-continuation-discard` `1fab3e22d`, on your `2021c1bb9` | The corrections after your review, the bound, the capture-instant fix and the pilot's tests. Commit by commit under [The pilot branch](#the-pilot-branch) |
+| `lamp-a1-continuation-discard` | `1fab3e22d`, untouched | your `2021c1bb9` | The continue-or-abandon contract as you reviewed it |
 | `lamp-a1-continuation-probe` | `7ab7e30b9` | your `235f50297` | Example only. During-output mode, the observation bound, the exit rule |
 | `lamp-a1-stop-queued` | `53f303c7e` | your `55d7af98e` | Six commits. `5479f9b2b` two regressions that fail, `9c6c1637a` the queue guard; then, after your review, `2bec36350` three more that fail, `e70324912` the fence, `2fd77a417` its document, `53f303c7e` your wording corrections. Nothing to do with continuation |
 | `lamp-a1-continuation-provider` | this commit | `55ccc4a1a` | `bdc1708de` two regressions that fail, `04dcb8f6c` the retirement fix with your regression, `66960b3f1` the provider worker's continuation choice and nine tests, `20889d416` **the shared commit**: `options.rs`, `main.rs`, `coordinator.rs`, `74d996eb1` the document, `6717a4f86` **a second small shared commit** after your review: `fixture_provider.rs`, `main.rs`, `options.rs`, `b19cadd09` two worker cases under the coordinated contract |
@@ -326,6 +339,72 @@ The cut-off first part stays in the model's context with whatever the
 service kept of its interrupted answer. Whether the model then answers
 the whole thought well is model behavior and is not scored anywhere yet.
 
+## The pilot branch
+
+`lamp-a1-continuation-pilot`. Only with `--provider-continuation
+kept-start`; the default keeps nothing and remembers nothing. Detail and
+the test list are in the document under "After review".
+
+| Commit | What |
+|---|---|
+| `b1bbc139b` | Shared test, proposed: a mute while a question is kept, through the coordinator pair |
+| `c4488603f` | Your regression, as you wrote it, failing: a block accepted between the two publications of a discard is written (320 samples) |
+| `52bd28564` | Library fix: retirement is published before abandonment; a block at or below the applied abandonment is skipped at drain time; sent samples are counted by request, so a late abandonment reports its own and no other's |
+| `7ce437ff2` | Shared test, proposed, failing: an abandonment read in one worker turn together with a new owner and that owner's continuation never reaches the transport |
+| `0a70ab3cb` | Worker fix: abandonment progress is kept apart from retirement progress; `discard` is sent before `retire` |
+| `4d40fff3d` | Library: the count by request is bounded. `MAX_OPEN_ACTIVITY_REQUESTS` = 64; a block that would need a 65th entry is refused before it is handed to the socket and the session ends with `Error::OpenActivityOverrun`, `Recovery::Fatal` as you decided, `Fault::Local` to the coordinator; an abandonment removes the entries it reports; without the kept start nothing is counted. One arm and one assertion in `provider_worker.rs`. **This is the commit you reviewed and are integrating** |
+| `41e504fa1` | Session test: an interruption that arrives after the kept question was committed is dropped and answers nothing |
+| `688f81b22` | Worker regression, failing: a delay between the two clock readings for one block hands the next block over as captured before it ("49.888835ms before the earlier one") |
+| `53e58fe93` | Worker fix, `provider_worker.rs` only: a block is handed its predecessor's instant, never an earlier one, wherever the shared times are in order. Times that really go backwards are passed on and still refused |
+| `aa1558be3` | Shared tests, proposed (`provider_pair.rs`, and visibility only in `duplex.rs`): a pause for breath, an interruption of an answer that has begun, the bound reached by 65 continuations, and a duplex admission through the real worker |
+
+**How the fourth defect showed.** The duplex test ended the provider in 5
+of 171 runs before the fix, with `Failure { error: InputSequence, reason:
+NotRecoverable, attempts: 0 }` and contiguous sequence numbers. After the
+fix, 400 of 400. The five failing outputs are kept. With real 10 ms
+blocks it needs a 10 ms delay inside a window a few microseconds wide; I
+have not seen it outside this harness and have no rate for a device.
+
+**Limits, named.**
+
+- Audio of an abandoned request that was already handed to the socket
+  stays in the open activity and is heard with the next request.
+  Reported as `sent_samples`, not prevented: preventing it would need the
+  connection replaced, and keeping the conversation across that would
+  need replay or a guess.
+- The overrun is terminal. Through the supervisor it is one `TurnLost`
+  for the request in flight and a `NotRecoverable` end with no dial. Its
+  Coordinated path in the worker is exercised by the pair test only.
+- The duplex test scripts the capture blocks and their echo evidence. It
+  is not a microphone or a speaker, and its blocks are microseconds
+  apart.
+- `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end`
+  failed once in 8 repeats on the host while other work ran (output
+  kept): the worker reported request 2 abandoned and dropped its 3,200
+  kept samples. That test never cancels, so the only way I can see for
+  its authority to lose the owner is the rig's own 100 ms input lease
+  lapsing between two heartbeats, which the controller answers by
+  revoking the turn. That is an inference: I have no timing record of
+  that run. It passed 6 of 6 before, and under emulation.
+
+**Verification of this branch.**
+
+| Commit | What ran | Result |
+|---|---|---|
+| `0a70ab3cb` | Full pass, 2 jobs, every step's output kept, 23:36:42Z to 23:57:48Z. Its `cargo` was suspended from 23:48:38Z to 23:56:11Z for a recording on the lamp; the test binary then running finished by itself and no other started in that time | format clean; workspace strict Clippy clean; 1,575 passed, 0 failed, 7 ignored single-threaded; release build ok; all exit 0 |
+| `0a70ab3cb` | Emulated ARM64, `agent1-arm64-verify37`, 23:34:14Z to 23:36:36Z, alone in the VM | strict Clippy for `lamp-gemini` and `lamp-live`; `lamp-gemini` release tests 188 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, options and fixture 41 passed, 0 failed; release build |
+| `4d40fff3d` | Focused, from a source export of the exact commit, 00:00:12Z to 00:02:51Z | format clean; strict Clippy `-p lamp-gemini -p lamp-live --all-targets` clean; `lamp-gemini` 236 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, options and fixture 109 passed, 0 failed, 2 ignored |
+| `4d40fff3d` | Red control: the same seven bound tests with only the check of the bound removed | 3 of 7 fail (the session's overrun, the supervisor's, the unit test of the bound); with it, 7 pass |
+| `4d40fff3d` | Emulated ARM64, `agent1-arm64-verify38`, 00:14:41Z to 00:16:45Z, alone in the VM | strict Clippy for both crates; `lamp-gemini` release tests 195 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests as above 41 passed, 0 failed; release build of `lamp-live`, ELF aarch64, SHA-256 `03c0907be469e4bea126e62ab877ce7b72d061a7363b1a4bbe7837e01d743efd` |
+| `688f81b22` | The worker regression alone, before the fix | fails: "the later block was handed over as captured 49.888835ms before the earlier one" |
+| before `53e58fe93` | The duplex test through the worker, 171 runs in batches of 1, 8, 40 and 122, the last with a temporary diagnostic line in the worker | 5 ended the provider with `InputSequence`; outputs kept |
+| `53e58fe93` and the tests of `aa1558be3` | The duplex test through the worker, 400 runs | 400 passed |
+| the same | Pair, duplex, worker `kept_start` and clock tests, 25 tests, 8 runs | 7 runs of 25; in the other `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` failed once (output kept; see the status file) |
+| `aa1558be3` | Focused, from a source export of the exact commit, 00:30:11Z to 00:32:58Z | format clean; strict Clippy for both crates clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 135 passed, 0 failed, 2 ignored |
+
+Not run on `aa1558be3`: the whole workspace, and ARM64. Not run at all:
+anything against the real service or on a lamp.
+
 ## For you
 
 | Id | |
@@ -350,6 +429,23 @@ activity 2 is open. That is an expectation, not an observation. It is
 separate so that you can leave it.
 
 ## My faults here
+
+- **`InputSender::discard` published the abandonment before the
+  retirement**, so a block accepted in between outlived the purge and
+  was written. Your review found and reproduced it. Fixed in `52bd28564`.
+- **An abandonment read together with a newer owner was lost in the
+  worker.** I derived abandonment from retirement progress. Your review
+  named the hypothesis; my end-to-end regression confirmed it. Fixed in
+  `0a70ab3cb`.
+- **My fix for the per-request count had no bound, and counted under the
+  default too.** Your question found it. Fixed in `4d40fff3d`.
+- **Two assertions in my new bound tests guessed what a call returns
+  after the failure** (`OpenActivityOverrun`; it is `Closed` at the
+  session and `NotConnected` at the supervisor, as after any end). Wrong
+  in the test, corrected before the commit.
+- **My first version of the duplex test left a gap of more than 50 ms in
+  its scripted capture**, which the detector rightly refused. Corrected
+  before the commit.
 
 - **The first worker test of a cancelled kept request asserted the
   limitation as if it were the contract.** It is rewritten here for what
@@ -529,8 +625,8 @@ Clippy for the crate; release build of the example.
   discard is in-memory service and scripted transport.
 - Audio of an abandoned request that had already been sent is still
   heard with the next request. Reported, not prevented.
-- Mute while kept is tested through the worker under both contracts and
-  not through the coordinator pair.
+- Mute while kept is now tested through the coordinator pair as well
+  (`b1bbc139b`).
 - The session loop's own record of `provider_input_discarded` is two arms
   I added in `coordinator.rs`; the pair tests assert the typed output and
   not that trace line, because the pair harness has its own receive loop.

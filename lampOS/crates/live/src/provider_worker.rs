@@ -1087,6 +1087,9 @@ struct SubmittedInput {
     request: RequestId,
     session: SessionId,
     open: bool,
+    /// The last block handed over: its capture time on the shared clock,
+    /// and the instant that was carried over as.
+    captured: Option<(u64, Instant)>,
 }
 
 impl InputHandoff {
@@ -1255,6 +1258,7 @@ impl InputHandoff {
                     request,
                     session: expected,
                     open: true,
+                    captured: None,
                 });
             }
             ProviderInput::Audio {
@@ -1269,9 +1273,27 @@ impl InputHandoff {
                     .map(Duration::from_micros)
                     .filter(|age| *age < lamp_gemini::MAX_INPUT_AGE)
                     .ok_or_else(|| io::Error::other("invalid or stale capture time"))?;
-                let captured = Instant::now()
+                let mut captured = Instant::now()
                     .checked_sub(age)
                     .ok_or_else(|| io::Error::other("invalid capture age"))?;
+                // The age comes from one clock and is taken off another, read
+                // a moment later, for every block. Whatever passes between
+                // the two readings makes that block seem captured that much
+                // later, so the block after it can seem captured before it,
+                // and the transport refuses that for good. Where the shared
+                // times are in order the instants are kept in order: the
+                // block is given its predecessor's instant, never an earlier
+                // one. Times that really go backwards are passed on as they
+                // are and stay the transport's to refuse.
+                if let Some(submitted) = self.submitted.as_mut() {
+                    if let Some((last_us, last)) = submitted.captured
+                        && read_completed_at_us >= last_us
+                        && captured < last
+                    {
+                        captured = last;
+                    }
+                    submitted.captured = Some((read_completed_at_us, captured));
+                }
                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
                     return self.refused(request, error, input);
                 }

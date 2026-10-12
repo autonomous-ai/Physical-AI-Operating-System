@@ -10,9 +10,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const PLAN_VERSION: u32 = 2;
 pub const DEFAULT_PLAN: &str = include_str!("../../../fixtures/voice-eval-v2.json");
+/// A small reusable cached-scene conversation for one serve runtime: eight
+/// context-linked turns, each started by its own readiness evidence.
+pub const SERVE_PLAN: &str = include_str!("../../../fixtures/voice-eval-serve-v1.json");
 /// Startup before readiness is outside the session; this bounds the wait for it.
 pub const MAX_DEADLINE_MS: u32 = 60_000;
 pub const MAX_SESSION_SECONDS: u16 = 600;
+/// Steps in one scenario: one runtime session of up to 20 turns.
+pub const MAX_STEPS: usize = 20;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -76,6 +81,8 @@ pub enum Cohort {
     ProviderDelay,
     ProviderFailure,
     ProviderDisconnect,
+    /// One runtime session carrying many context-linked turns.
+    LongConversation,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -151,6 +158,19 @@ pub enum TriggerEvent {
     TurnCompleted,
     /// A reply revoked for any reason (lamp-live's `cancelled` cue).
     TurnCancelled,
+    /// Ready for the next turn: every turn admitted since the previous step
+    /// has finished, and the runtime then reports prospective input available
+    /// and its provider link ready, with no other input candidate since that
+    /// finish. Completion alone is not readiness: V1-baseline reopens input
+    /// only after its playback tail. Needs the input-availability and
+    /// provider-link evidence of `docs/voice-eval.md`.
+    NextTurnReady,
+    /// The local endpoint of the one turn admitted since the previous step,
+    /// for a correction spoken before any output. At dispatch that turn must
+    /// still have no output and no finish, and no other input may have
+    /// arrived since its endpoint. Dispatch evidence only: whether the
+    /// runtime superseded the turn is judged from its trace.
+    LocalEndpoint,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -286,6 +306,11 @@ pub struct FakeProfile {
     /// changes only; the real policy also renews each static cue every 20 ms).
     #[serde(default)]
     pub ring_cues: bool,
+    /// V1-baseline-like input availability: withdrawn when Lamp's playback
+    /// starts and reported again this long after the turn finished. `None`
+    /// reports it once, available (as `vad-only` does).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_reopen_ms: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -433,8 +458,8 @@ impl Scenario {
         if !valid_id(id) || self.description.is_empty() {
             return Err(fail("invalid id or description"));
         }
-        if self.steps.is_empty() || self.steps.len() > 8 {
-            return Err(fail("needs 1..8 steps"));
+        if self.steps.is_empty() || self.steps.len() > MAX_STEPS {
+            return Err(fail("needs 1..20 steps"));
         }
         if !(5..=MAX_SESSION_SECONDS).contains(&self.session_seconds)
             || self.observe_ms > MAX_DEADLINE_MS
@@ -486,6 +511,36 @@ impl Scenario {
             // reply to an earlier step, so readiness cannot recur.
             if (index == 0) != (trigger.after == TriggerEvent::ListeningReady) {
                 return Err(fail("only the first step may follow listening_ready"));
+            }
+            // The next-turn wait follows the turn the previous step admitted;
+            // a step that expects no turn leaves nothing to finish first.
+            if trigger.after == TriggerEvent::NextTurnReady
+                && !index.checked_sub(1).is_some_and(|previous| {
+                    matches!(
+                        self.steps[previous].expect,
+                        Expectation::Answer
+                            | Expectation::InterruptAndAnswer
+                            | Expectation::HonestFailure
+                            | Expectation::RecoverAndAnswer
+                    )
+                })
+            {
+                return Err(fail(
+                    "next_turn_ready must follow a step that expects an admitted turn",
+                ));
+            }
+            // A correction before output follows the request it corrects.
+            if trigger.after == TriggerEvent::LocalEndpoint
+                && !index.checked_sub(1).is_some_and(|previous| {
+                    matches!(
+                        self.steps[previous].expect,
+                        Expectation::Answer | Expectation::Fragment
+                    ) && self.steps[previous].scene.is_some()
+                })
+            {
+                return Err(fail(
+                    "local_endpoint must follow a step whose stimulus is a request",
+                ));
             }
             if trigger.require_lamp_speaking && trigger.after != TriggerEvent::SpeakerFirstWrite {
                 return Err(fail(
@@ -553,6 +608,13 @@ impl Scenario {
                     }
                     // A fresh question after a revocation is declared as a scene start.
                     TriggerEvent::TurnCancelled => (TriggerKind::SceneStart, 0),
+                    // The delay counts from readiness, which follows the end of
+                    // Lamp's speech by the runtime's own reopen time.
+                    TriggerEvent::NextTurnReady => (TriggerKind::LampSpeechEnded, trigger.delay_ms),
+                    // The scene's own content needs no Lamp speech. This only
+                    // matches the stimulus declaration; the runner still binds
+                    // the step to the earlier turn and its before-output state.
+                    TriggerEvent::LocalEndpoint => (TriggerKind::SceneStart, 0),
                 };
                 if expected != actual {
                     return Err(fail(&format!(

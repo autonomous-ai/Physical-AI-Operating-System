@@ -1,0 +1,115 @@
+{
+  "version": 2,
+  "id": "voice-eval-serve-v1",
+  "answer_deadline_ms": 15000,
+  "targets": {
+    "answer_p50_ms": 2000,
+    "answer_p95_ms": 4000,
+    "yield_p95_ms": 200
+  },
+  "fixed_reply": {
+    "text": "I'm doing well, thank you. I'm ready to chat or help with anything you need today.",
+    "frames": 107760,
+    "rate_hz": 24000,
+    "sha256": "d5bd0d6f880434b81846accf5181b9bf5ab28ac91479827aa9f73ddf8b52e144"
+  },
+  "profiles": {
+    "v2-serve-v1-reopen": {
+      "description": "Policy simulation for the serve-session runner: every detected speech run is admitted and cancels any current reply; input availability is withdrawn while Lamp's playback is owed and reported again 100 ms after the turn finishes, like V1-baseline's tail. Not a measurement of the Lamp.",
+      "startup_ms": 2000,
+      "first_audio_ms": 1500,
+      "first_audio_jitter_ms": 200,
+      "fixed_reply_first_audio_ms": 10,
+      "generation_speed_percent": 100,
+      "first_burst_ms": 120,
+      "speaker_dispatch_ms": 3,
+      "alsa_delay_ms": 20,
+      "cancel_tail_ms": 14,
+      "echo": {"kind": "none"},
+      "timing_speech_probability": 0.95,
+      "timing_silence_probability": 0.05,
+      "spoken_failure_notice": false,
+      "input_reopen_ms": 100
+    }
+  },
+  "scenarios": [
+    {
+      "id": "serve-conversation",
+      "cohort": "long_conversation",
+      "capability": "conversation",
+      "description": "Eight context-linked turns in one serve runtime and one provider session: a question, two follow-ups waiting for real readiness, an interruption during output, a follow-up superseded by a correction before output, and two more turns. Cached speech only.",
+      "provider": "gemini",
+      "physical": true,
+      "session_seconds": 240,
+      "observe_ms": 8000,
+      "steps": [
+        {
+          "id": "sky",
+          "scene": "mid-sentence-address",
+          "trigger": {"after": "listening_ready", "delay_ms": 500, "deadline_ms": 30000},
+          "expect": "answer",
+          "reference": "Explains why the sky looks blue."
+        },
+        {
+          "id": "why",
+          "scene": "fast-followup",
+          "trigger": {"after": "next_turn_ready", "delay_ms": 500, "deadline_ms": 45000},
+          "expect": "answer",
+          "reference": "Keeps the sky context: why blue light scatters more, without needing the name."
+        },
+        {
+          "id": "sunset",
+          "scene": "follow-up-sunset",
+          "trigger": {"after": "next_turn_ready", "delay_ms": 600, "deadline_ms": 45000},
+          "expect": "answer",
+          "reference": "Keeps the sky context and explains orange sunsets."
+        },
+        {
+          "id": "coffee",
+          "scene": "topic-change",
+          "trigger": {"after": "speaker_first_write", "delay_ms": 1200, "deadline_ms": 30000, "require_lamp_speaking": true},
+          "expect": "interrupt_and_answer",
+          "reference": "Yields the sunset answer and explains why coffee smells good."
+        },
+        {
+          "id": "more",
+          "scene": "rapid-followup",
+          "trigger": {"after": "next_turn_ready", "delay_ms": 150, "deadline_ms": 45000},
+          "expect": "fragment",
+          "reference": "A follow-up about coffee that the next step corrects before any reply; judged through the correction."
+        },
+        {
+          "id": "correct",
+          "scene": "self-correction",
+          "trigger": {"after": "local_endpoint", "delay_ms": 0, "deadline_ms": 20000},
+          "expect": "answer",
+          "reference": "Answers the corrected request (thirty-six). The trace shows whether the earlier follow-up was superseded before output or interrupted after it started."
+        },
+        {
+          "id": "change",
+          "scene": "short-no",
+          "trigger": {"after": "next_turn_ready", "delay_ms": 700, "deadline_ms": 45000},
+          "expect": "answer",
+          "reference": "Accepts the change of topic in context."
+        },
+        {
+          "id": "math",
+          "scene": "recovery-question",
+          "trigger": {"after": "next_turn_ready", "delay_ms": 3000, "deadline_ms": 45000},
+          "expect": "answer",
+          "reference": "Answers four in the same continuing session."
+        }
+      ],
+      "fake_replies": [
+        {"text": "The sky looks blue because air scatters blue sunlight more than red.", "speech_ms": 4000},
+        {"text": "Blue light has a shorter wavelength, so air molecules scatter it more strongly.", "speech_ms": 3500},
+        {"text": "At sunset the light crosses much more air, so the blue scatters away and orange is left.", "speech_ms": 6000},
+        {"text": "Roasting creates hundreds of aromatic compounds, which is why coffee smells so good.", "speech_ms": 4000},
+        {"text": "Roasting browns sugars and amino acids into those aromas.", "speech_ms": 3000},
+        {"text": "Twelve times three is thirty-six.", "speech_ms": 2000},
+        {"text": "Sure. What would you like to talk about instead?", "speech_ms": 2000},
+        {"text": "Twelve divided by three is four.", "speech_ms": 2000}
+      ]
+    }
+  ]
+}

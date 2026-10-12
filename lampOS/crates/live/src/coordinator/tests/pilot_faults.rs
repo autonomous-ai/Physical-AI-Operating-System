@@ -1317,6 +1317,28 @@ fn control_one_question_is_answered_once_then_mute_ends_the_run() {
 }
 
 #[test]
+fn readiness_publishes_the_link_state_it_was_validated_against() {
+    let _one = one_session();
+    let run = run(Script::question(Answer::Complete(12)));
+    run.assert_invariants();
+    let current = run.events("provider_link_current");
+    assert_eq!(current.len(), 1);
+    let at = |kind: &str| {
+        run.trace
+            .iter()
+            .position(|event| event["kind"] == kind)
+            .unwrap()
+    };
+    // Recorded with readiness, at the same tick and just before it.
+    assert_eq!(at("provider_link_current") + 1, at("listening_ready"));
+    let ready = run.events("listening_ready")[0];
+    assert_eq!(current[0]["at_us"], ready["at_us"]);
+    assert_eq!(current[0]["state"], "ready");
+    // The fixture's one provider session.
+    assert_eq!(current[0]["session"], 1);
+}
+
+#[test]
 fn distinct_rejects_an_item_that_returns_later() {
     // A sort-free `dedup` would miss this order.
     assert!(!distinct(&[1, 2, 1]));

@@ -145,6 +145,7 @@ impl Rig {
             allowance_seconds: 10,
             ring_channel_ceiling: None,
             stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
         };
         PhysicalBackend::new(
             config,

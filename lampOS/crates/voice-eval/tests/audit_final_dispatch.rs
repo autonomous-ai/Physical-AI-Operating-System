@@ -58,6 +58,7 @@ fn final_dispatch(kind: &str) -> usize {
             events_lines: 0,
             error: None,
             stray_processes_stopped: false,
+            serve: None,
         },
         "cue_invalid" => SessionLine::CueInvalid {
             lamp_received_us: base,
@@ -107,6 +108,7 @@ fn final_dispatch(kind: &str) -> usize {
         allowance_seconds: 5,
         ring_channel_ceiling: None,
         stimulus_source: StimulusSource::LoudspeakerSynthetic,
+        runtime_flags: Default::default(),
     };
     let calls = Arc::new(AtomicUsize::new(0));
     let mut backend =

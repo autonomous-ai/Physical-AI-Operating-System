@@ -76,6 +76,67 @@ cannot qualify microphone pickup, speech quality, source identity, semantic
 correctness, audibility, or end-to-end latency. Those still require valid room
 recordings and independent review.
 
+## Proposed readiness cues
+
+The runner's `next_turn_ready` wait needs three more schema-1 kinds from
+`fixture_provider::CueSink::observe_event`. They are proposed in a separate
+lamp-live commit with no coordinator change (branch `lamp-a2-readiness-cues`)
+and are not yet integrated. The runner accepts them strictly. All three are unowned: no `turn`
+and no `generation`, and the existing envelope, sequence, boot and freshness
+checks apply.
+
+| Kind | From trace record | Extra field |
+| --- | --- | --- |
+| `input_availability` | `turn_taking_availability` | `available`: its `prospective_input_available` (required) |
+| `provider_link` | `provider_ready`, `provider_unavailable`, `provider_terminal` | `link`: `ready`, `unavailable` or `terminal` (required) |
+| `input_candidate` | `input_candidate` | none; the candidate identity stays in the final trace |
+
+`available` is valid only on `input_availability`, and `link` only on
+`provider_link`.
+
+Each producer record already has `at_us`. A provider link record's `at_us`
+is the provider worker's own observation, which can be older than the cue
+freshness bound. Its cue therefore uses the record's
+`coordinator_observed_at_us`, when the coordinator learned it. The runner
+orders by cue sequence, not by timestamp. A `turn_taking_availability` record
+without `prospective_input_available` latches the usual cue fault; it is never
+guessed. lamp-live already records availability and the link before
+`listening_ready`, so a runtime that sends these cues is recognized from the
+start of every attempt. Deploy the producer and the runner together, as for
+the other schema-1 kinds.
+
+### Startup history and current link state (proposed fix)
+
+Root reproduced a defect in the first proposal. A valid provider Ready is
+retained while later workers start (`StartupEvents`) and recorded only at
+conversation entry. If that startup takes longer than 100 ms, the Ready is too
+old to send. The sink then latched `cue_invalid_or_unavailable` and published
+nothing more, not even `listening_ready`. Two separate lamp-live proposal
+commits correct this without weakening packet freshness or identity checks.
+
+1. **Startup history.** Before a boot's own listening readiness, a
+   `provider_*` or `turn_taking_availability` record already older than the cue
+   bound is startup history:
+   - it is not sent and latches no fault;
+   - it is counted in `historical_state_skipped`;
+   - it is never re-stamped.
+
+   Future-stamped records, foreign or stale identities, and every record after
+   readiness keep the strict bound. A new boot starts a new startup.
+   `coordinator/tests/startup_cues.rs` runs this through the production
+   `StartupEvents` retention, conversation-entry recording and the real sink.
+   On the unfixed sink the 120 ms case failed with exactly the reported latch;
+   the 20 ms control, the post-readiness stale record and the future-stamped
+   record behaved the same before and after.
+2. **Current link state.** When `conversation()` records `listening_ready`, it
+   has just validated `cloud.available()`. It now first records
+   `provider_link_current` with the same `at_us`, `state: "ready"` and the
+   ready session. The sink publishes it as a fresh `provider_link` cue under
+   the strict bound. This is a newly validated current-state publication, not
+   cached history, and it is the only coordinator change. Without it, a slow
+   startup would leave the runner without link evidence, and `next_turn_ready`
+   would be `trigger_unavailable`.
+
 ## Offline regression path
 
 `tests/physical_loopback.rs` starts the real `lamp-session` subprocess and a

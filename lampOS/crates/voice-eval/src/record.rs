@@ -20,6 +20,8 @@ pub enum Stratum {
     PhysicalFixture,
     /// Real Lamp, `lamp-live directed` with Gemini; source recorded separately.
     PhysicalGemini,
+    /// Real Lamp, one `lamp-live serve` runtime carrying a whole conversation.
+    PhysicalServe,
     /// An existing lamp-live trace scored against a declared scenario.
     ImportedTrace,
 }
@@ -27,7 +29,10 @@ impl Stratum {
     pub fn is_physical(self) -> bool {
         matches!(
             self,
-            Self::PhysicalFixture | Self::PhysicalGemini | Self::ImportedTrace
+            Self::PhysicalFixture
+                | Self::PhysicalGemini
+                | Self::PhysicalServe
+                | Self::ImportedTrace
         )
     }
     pub fn label(self) -> &'static str {
@@ -38,6 +43,7 @@ impl Stratum {
             }
             Self::PhysicalFixture => "physical Lamp, cached fixed reply",
             Self::PhysicalGemini => "physical Lamp, Gemini",
+            Self::PhysicalServe => "physical Lamp, one Gemini serve session per conversation",
             Self::ImportedTrace => "imported lamp-live trace, declared attribution",
         }
     }

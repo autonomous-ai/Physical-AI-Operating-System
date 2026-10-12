@@ -692,6 +692,10 @@ pub enum CueKind {
     SpeechRetired,
     TurnCompleted,
     RunEnd,
+    /// Unowned readiness evidence for event-driven next-turn scheduling.
+    InputAvailability,
+    ProviderLink,
+    InputCandidate,
 }
 #[derive(Serialize)]
 struct Cue<'a> {
@@ -714,6 +718,12 @@ struct Cue<'a> {
     outcome: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     playback_gaps: Option<u64>,
+    /// `input_availability` only: the policy's prospective input availability.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    available: Option<bool>,
+    /// `provider_link` only: `ready`, `unavailable` or `terminal`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link: Option<&'static str>,
 }
 struct FixedBytes {
     bytes: [u8; CUE_MAX_BYTES],
@@ -743,6 +753,10 @@ pub struct CueSink {
     reference_epoch: Option<u64>,
     trace_offset: usize,
     fault: Option<&'static str>,
+    /// This boot's listening readiness was published. Before it, retained
+    /// startup state is history, not a live update.
+    listening: bool,
+    historical_state_skipped: u64,
 }
 impl CueSink {
     pub fn connect(path: &Path) -> io::Result<Self> {
@@ -783,14 +797,22 @@ impl CueSink {
             reference_epoch: None,
             trace_offset: 0,
             fault: None,
+            listening: false,
+            historical_state_skipped: 0,
         })
     }
     pub fn set_boot(&mut self, boot: BootId) {
         if self.boot != Some(boot) {
             self.capture_epoch = None;
             self.reference_epoch = None;
+            self.listening = false;
         }
         self.boot = Some(boot);
+    }
+    /// Startup state records not published because they were already older
+    /// than the cue bound before this boot's listening readiness.
+    pub fn historical_state_skipped(&self) -> u64 {
+        self.historical_state_skipped
     }
     pub fn fault(&self) -> Option<&'static str> {
         self.fault
@@ -823,7 +845,10 @@ impl CueSink {
             Some("reference_clock") => {
                 self.reference_epoch = event["details"]["playback_epoch"].as_u64()
             }
-            Some("listening_ready") => self.emit(CueKind::ListeningReady, event, sent_us),
+            Some("listening_ready") => {
+                self.emit(CueKind::ListeningReady, event, sent_us);
+                self.listening = true;
+            }
             Some("input_admitted") => self.emit(CueKind::InputAdmitted, event, sent_us),
             Some("local_endpoint") => self.emit(CueKind::LocalEndpoint, event, sent_us),
             Some("speaker_first_write") => self.emit(CueKind::SpeakerFirstWrite, event, sent_us),
@@ -835,8 +860,39 @@ impl CueSink {
             }
             Some("turn_finished") => self.emit(CueKind::TurnCompleted, event, sent_us),
             Some("run_end") => self.emit(CueKind::RunEnd, event, sent_us),
+            Some("turn_taking_availability") if !self.historical(event, sent_us) => {
+                self.emit(CueKind::InputAvailability, event, sent_us)
+            }
+            Some("provider_ready" | "provider_unavailable" | "provider_terminal")
+                if !self.historical(event, sent_us) =>
+            {
+                self.emit(CueKind::ProviderLink, event, sent_us)
+            }
+            // A current-state publication is never history: strict bound.
+            Some("provider_link_current") => self.emit(CueKind::ProviderLink, event, sent_us),
+            Some("input_candidate") => self.emit(CueKind::InputCandidate, event, sent_us),
             _ => {}
         }
+    }
+    /// A state record retained during startup (for example a provider Ready
+    /// received while later workers were still starting) and flushed after
+    /// the cue bound is history: it is neither sent nor a fault, and it is
+    /// never re-stamped. Only state kinds qualify, only before this boot's
+    /// listening readiness; afterwards every record keeps the strict bound.
+    fn historical(&mut self, event: &Value, sent_us: u64) -> bool {
+        if self.listening {
+            return false;
+        }
+        let observed = event["coordinator_observed_at_us"]
+            .as_u64()
+            .or_else(|| event["at_us"].as_u64());
+        let stale = observed
+            .and_then(|at| at.checked_add(CUE_FRESH_US))
+            .is_some_and(|expires| sent_us >= expires);
+        if stale {
+            self.historical_state_skipped = self.historical_state_skipped.saturating_add(1);
+        }
+        stale
     }
     fn emit(&mut self, kind: CueKind, event: &Value, sent_us: u64) {
         if self.fault.is_some() {
@@ -846,9 +902,15 @@ impl CueSink {
             let boot = self
                 .boot
                 .ok_or_else(|| invalid("cue has no session identity"))?;
-            let event_us = event["at_us"]
-                .as_u64()
-                .ok_or_else(|| invalid("cue has no event timestamp"))?;
+            // A provider link is known here when the coordinator observed it;
+            // the provider worker's own observation can be older.
+            let event_us = match kind {
+                CueKind::ProviderLink => event["coordinator_observed_at_us"]
+                    .as_u64()
+                    .or_else(|| event["at_us"].as_u64()),
+                _ => event["at_us"].as_u64(),
+            }
+            .ok_or_else(|| invalid("cue has no event timestamp"))?;
             let expires_us = event_us
                 .checked_add(CUE_FRESH_US)
                 .ok_or_else(|| invalid("cue deadline overflow"))?;
@@ -915,6 +977,29 @@ impl CueSink {
                 playback_sequence,
                 outcome,
                 playback_gaps,
+                available: if matches!(kind, CueKind::InputAvailability) {
+                    Some(
+                        event["prospective_input_available"]
+                            .as_bool()
+                            .ok_or_else(|| invalid("cue has no input availability"))?,
+                    )
+                } else {
+                    None
+                },
+                link: match (kind, event["kind"].as_str()) {
+                    (CueKind::ProviderLink, Some("provider_ready")) => Some("ready"),
+                    (CueKind::ProviderLink, Some("provider_unavailable")) => Some("unavailable"),
+                    (CueKind::ProviderLink, Some("provider_terminal")) => Some("terminal"),
+                    (CueKind::ProviderLink, Some("provider_link_current")) => {
+                        match event["state"].as_str() {
+                            Some("ready") => Some("ready"),
+                            Some("unavailable") => Some("unavailable"),
+                            Some("terminal") => Some("terminal"),
+                            _ => return Err(invalid("current link record has no valid state")),
+                        }
+                    }
+                    _ => None,
+                },
             };
             let mut bytes = FixedBytes {
                 bytes: [0; CUE_MAX_BYTES],
@@ -941,6 +1026,74 @@ impl CueSink {
 mod service_cue_tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn readiness_records_become_unowned_sequenced_cues() {
+        let directory = crate::process::SessionDirectory::create().unwrap();
+        let path = directory.path.join("cue.sock");
+        let receiver = UnixDatagram::bind(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        let mut sink = CueSink::connect(&path).unwrap();
+        sink.set_boot(crate::process::new_boot().unwrap());
+        let at = lamp_ipc::monotonic_us();
+        // The provider's own observation is older than the cue bound; the
+        // coordinator observed it just now, which is what the cue carries.
+        let records = [
+            serde_json::json!({"kind":"turn_taking_availability","at_us":at,"policy":"v1_baseline",
+                "prospective_input_available":false,"hard_capture_authority_unchanged":true}),
+            serde_json::json!({"kind":"provider_ready","at_us":at - 500_000,
+                "coordinator_observed_at_us":at,"link":{}}),
+            serde_json::json!({"kind":"provider_terminal","at_us":at,"link":{}}),
+            serde_json::json!({"kind":"input_candidate","at_us":at,
+                "candidate":{"id":{"serial":1}}}),
+            serde_json::json!({"kind":"turn_taking_availability","at_us":at,
+                "prospective_input_available":true}),
+        ];
+        assert_eq!(sink.scan(&records, at + 1), None);
+        let mut cues = Vec::new();
+        let mut bytes = [0; 512];
+        while let Ok(n) = receiver.recv(&mut bytes) {
+            cues.push(serde_json::from_slice::<Value>(&bytes[..n]).unwrap());
+        }
+        let shape: Vec<_> = cues
+            .iter()
+            .map(|cue| {
+                (
+                    cue["kind"].clone(),
+                    cue["available"].clone(),
+                    cue["link"].clone(),
+                )
+            })
+            .collect();
+        let (null, text) = (Value::Null, |v: &str| Value::from(v));
+        assert_eq!(
+            shape,
+            [
+                (text("input_availability"), Value::from(false), null.clone()),
+                (text("provider_link"), null.clone(), text("ready")),
+                (text("provider_link"), null.clone(), text("terminal")),
+                (text("input_candidate"), null.clone(), null.clone()),
+                (text("input_availability"), Value::from(true), null),
+            ]
+        );
+        for (index, cue) in cues.iter().enumerate() {
+            assert_eq!(cue["sequence"], index as u64 + 1);
+            assert!(
+                cue["turn"].is_null() && cue["generation"].is_null(),
+                "{cue}"
+            );
+        }
+        assert_eq!(cues[1]["event_us"], at);
+        // An availability record without its value is a cue fault, never a guess.
+        let mut faulty = CueSink::connect(&path).unwrap();
+        faulty.set_boot(crate::process::new_boot().unwrap());
+        let missing = [serde_json::json!({"kind":"turn_taking_availability","at_us":at})];
+        assert_eq!(
+            faulty.scan(&missing, at + 1),
+            Some("cue_invalid_or_unavailable")
+        );
+    }
+
     #[test]
     fn new_service_boot_clears_old_epochs_without_reusing_sequence_or_repairing_fault() {
         let directory = crate::process::SessionDirectory::create().unwrap();

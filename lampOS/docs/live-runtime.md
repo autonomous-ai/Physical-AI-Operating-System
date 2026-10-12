@@ -324,7 +324,8 @@ it such a request fails the connection at the response timeout. On lamp-4ace a
 service instructed to stay quiet for speech not meant for it sent nothing at
 all for such a request, and the ten-second timeout ended the process;
 `instruction_file` names a private text file of at most 16 KiB that replaces
-the built-in instruction.
+the built-in instruction. The one lamp-4ace runs, and what it has to say for
+the lamp to behave, is in [character.md](character.md).
 
 With both `assume_over` and `no_reply_after_ms`, a request that starts behind
 one the service never answered does not wait for it beyond that same wait

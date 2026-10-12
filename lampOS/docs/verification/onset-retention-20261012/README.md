@@ -142,7 +142,8 @@ The integrator's finite diagnostic on `4ace`, runtime `b318`, with
 `--diagnostics`: `/private/tmp/lamp-duplex-diagnostic-executed-fhld3dr3`.
 `sunset` then `coffee`, same cached clips, duplex, capture-clocked
 reference, kept start, noise suppression off. Analysis in
-`native_bundle.py`, output `native-bundle.json`.
+`native_bundle.py`, output `native-bundle.json`; every figure below is
+in that file.
 
 **What happened.** The lamp never stopped for the coffee request.
 
@@ -173,7 +174,7 @@ the coffee clip 67.2 ms after its own, matched-filter peaks 0.552 and
 | Level expected for the clip from the sunset's loudspeaker-to-microphone gain | | −20.1 dBFS |
 
 Calibration, in the same recording: the clean clip added in software to
-a stretch where the lamp speaks alone gives 0.185 and −14.9 dB at
+a stretch where the lamp speaks alone gives 0.184 and −15 dB at
 −30 dBFS, 0.083 and about −20 dB at −40 dBFS, and 0.045 and −25.2 /
 −21.2 dB with nothing added. The real overlap reads as nothing added.
 So the clip's coherent part is below about −40 dBFS there: at least
@@ -181,15 +182,16 @@ So the clip's coherent part is below about −40 dBFS there: at least
 
 **The microphone's gain moves.**
 
-- `expected-mixers.json` of the run: `'Auto Gain Control'` is `on` for
-  the microphone.
+- `expected-mixers.json` of the run, the state every rollback restores:
+  `'Auto Gain Control'` is `on` and `'Mic Capture Volume'` is 147, its
+  maximum, on `device_micro2`.
 - Quiet floor before any playback: −74 to −77 dBFS. After the lamp's
   first sound: −82 to −86 dBFS, for the twelve quiet seconds after the
   reply too. Thirty-three seconds after the second reply: −78 dBFS.
 - 89 samples clip in the first second of the first reply.
 - With the lamp's render silent at the end of the clip, the microphone
-  is about 5 dB below the clip's own level (−6.6 to +0.8 dB over seven
-  50 ms steps). In the clear it was 5.2 dB above. About 10 dB lower.
+  is about 5 dB below the clip's own level (−6.5 to +0.8 dB over seven
+  50 ms steps). In the clear it was 5.3 dB above. About 10 dB lower.
 - The device's own hearing margin at the yield: −22.1 dB, the person
   against the lamp's own voice at the microphone. In the pilot's trace it
   read −2.2 dB.

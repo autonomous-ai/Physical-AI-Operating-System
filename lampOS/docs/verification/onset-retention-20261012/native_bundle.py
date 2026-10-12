@@ -1,6 +1,6 @@
 """What the device's microphone, canceller and detector did with a cached
 clip played over the lamp's own reply. python3.12 -I with NumPy and SciPy.
-argv: RUNTIME_DIR LAB_FEATURES.tsv COFFEE.wav COFFEE_SHA SUNSET.wav SUNSET_SHA COFFEE_NOMINAL_START_LAMP_US OUT.json SECONDS_BETWEEN_THE_TWO_SOURCE_STARTS
+argv: RUNTIME_DIR LAB_FEATURES.tsv COFFEE.wav COFFEE_SHA SUNSET.wav SUNSET_SHA COFFEE_NOMINAL_START_LAMP_US OUT.json SECONDS_BETWEEN_THE_TWO_SOURCE_STARTS [LAMP_ALONE_FROM_SECOND|-] [MIXERS.json]
 Reads only. Nothing is uploaded and no clip is changed."""
 import sys, json, wave, hashlib
 import numpy as np
@@ -8,6 +8,8 @@ from scipy import signal
 runtime, features, coffee_path, coffee_sha, sunset_path, sunset_sha, nominal, out = sys.argv[1:9]
 nominal = int(nominal)
 BETWEEN_SOURCE_STARTS_S = float(sys.argv[9])
+LAMP_ALONE_AT_S = float(sys.argv[10]) if len(sys.argv) > 10 and sys.argv[10] != '-' else None
+MIXERS = sys.argv[11] if len(sys.argv) > 11 else None
 def clip(path, sha):
     raw = open(path, 'rb').read(); assert hashlib.sha256(raw).hexdigest() == sha, 'clip digest ' + path
     w = wave.open(path, 'rb'); assert (w.getframerate(), w.getnchannels(), w.getsampwidth()) == (16000, 1, 2)
@@ -112,5 +114,57 @@ res['per_block_over_the_clip'] = {'frame_sequences': [int(seq[b0]), int(seq[b1 -
 # the same detector on the sunset question in the clear, for comparison
 sb0 = s0 // 160; sb1 = (s0 + len(sunset)) // 160 + 1; sv = vad[sb0:sb1]
 res['sunset_in_the_clear']['device_score'] = {'blocks': int(sb1 - sb0), 'from_0_5': int((sv >= 0.5).sum()), 'from_0_8': int((sv >= 0.8).sum()), 'string': ''.join('.' if x < 0.5 else ('s' if x < 0.8 else 'S') for x in sv)}
+# --- the microphone's own gain: quiet floor and loud level second by second, clipping, and the canceller's reduction
+nsec = min(len(pre), len(post) - 144) // 16000
+lvl = lambda v: round(float(10 * np.log10(max(float((v ** 2).mean()), 1e-3) / 32768.0 ** 2)), 1)
+per_second = []
+for sec in range(nsec):
+    a = pre[sec * 16000:(sec + 1) * 16000]; b = post[sec * 16000 + 144:(sec + 1) * 16000 + 144]
+    blocks = 10 * np.log10(np.maximum((a.reshape(-1, 160) ** 2).mean(axis=1), 1e-3) / 32768.0 ** 2)
+    per_second.append({'second': sec, 'floor_dbfs': round(float(np.percentile(blocks, 10)), 1), 'loud_dbfs': round(float(np.percentile(blocks, 90)), 1),
+                       'before_dbfs': lvl(a), 'after_dbfs': lvl(b), 'reduction_db': round(lvl(a) - lvl(b), 1), 'clipped_samples': int((np.abs(a) >= 32000).sum())})
+res['microphone_per_second'] = {'what': 'floor and loud are the 10th and 90th percentile of the 10 ms block levels before cancellation; reduction is the mean level before minus after the device canceller',
+                                'rows': per_second, 'peak_abs_sample': int(np.abs(pre).max()), 'clipped_samples': int((np.abs(pre) >= 32000).sum())}
+# --- the clip's level against its own, where the lamp is silent: the sunset question, and the end of the coffee clip
+def against_clip(start, x, lo_ms, hi_ms, step=50):
+    rows_ = []
+    for t in range(lo_ms, hi_ms, step):
+        a = x[t * 16:(t + step) * 16]; b = pre[start + t * 16:start + (t + step) * 16]
+        if len(a) == step * 16 and len(b) == step * 16 and lvl(a) > -45: rows_.append([t, round(lvl(b) - lvl(a), 1)])
+    return rows_
+sun_rows = against_clip(s0, sunset, 0, len(sunset) // 16)
+res['microphone_minus_clip_level'] = {'what': 'level of the microphone signal minus the level of the clip itself, per 50 ms where the clip is above -45 dBFS; a change between the two rows is a change of gain on the way to the microphone signal',
+    'sunset_lamp_silent': {'median_db': float(np.median([r[1] for r in sun_rows])), 'steps': len(sun_rows)},
+    'coffee_last_400_ms': against_clip(c0, coffee, len(coffee) // 16 - 410, len(coffee) // 16)}
+# --- what these measures can see: the clean clip added in software to a stretch of this recording where only the lamp speaks
+def find_in(sig, x, lo, hi):
+    seg = sig[lo:hi + len(x)]
+    r = signal.correlate(seg, x, mode='valid', method='fft') / (np.sqrt(signal.correlate(seg ** 2, np.ones(len(x)), mode='valid', method='fft').clip(1e-9)) * np.sqrt((x ** 2).sum()))
+    return round(float(r.max()), 3)
+def share_db(x, y, nper):
+    a = powers(x, y, nper); return db(a[1], a[0])
+if LAMP_ALONE_AT_S is not None:
+    b0_ = int(LAMP_ALONE_AT_S * 16000); host = pre[b0_ - 800:b0_ + len(coffee) + 800]
+    cal = [{'added_dbfs': None, 'matched_filter': find_in(host, coffee, 320, 1280), 'coherent_share_db_512': share_db(coffee, host[800:800 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, host[800:800 + len(coffee)], 2048)}]
+    for target in (-20, -25, -30, -35, -40, -45):
+        y = host.copy(); y[800:800 + len(coffee)] += coffee * 10 ** ((target - lvl(coffee)) / 20)
+        cal.append({'added_dbfs': target, 'matched_filter': find_in(y, coffee, 320, 1280), 'coherent_share_db_512': share_db(coffee, y[800:800 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, y[800:800 + len(coffee)], 2048)})
+    res['calibration'] = {'what': 'the clean coffee clip added in software, at a chosen level, to a stretch where only the lamp speaks; the first row has nothing added', 'lamp_alone_from_second': LAMP_ALONE_AT_S,
+                          'lamp_alone_level_dbfs': lvl(host), 'rows': cal,
+                          'real_overlap': {'matched_filter': find_in(pre, coffee, c0 - 480, c0 + 480), 'coherent_share_db_512': share_db(coffee, pre[c0:c0 + len(coffee)], 512), 'coherent_share_db_2048': share_db(coffee, pre[c0:c0 + len(coffee)], 2048)}}
+if MIXERS:
+    found = {}
+    def walk(node, name=''):
+        if isinstance(node, dict):
+            for k, v in node.items(): walk(v, k)
+        elif isinstance(node, list):
+            for v in node: walk(v, name)
+        elif isinstance(node, str) and "name='Auto Gain Control'" in node:
+            entry = {'auto_gain_control': node.split("name='Auto Gain Control'")[1].split(': values=')[1].split('\n')[0].strip()}
+            if "name='Mic Capture Volume'" in node:
+                entry['mic_capture_volume'] = node.split("name='Mic Capture Volume'")[1].split(': values=')[1].split('\n')[0].strip()
+            found[name] = entry
+    walk(json.load(open(MIXERS)))
+    res['mixer_snapshot'] = {'path': MIXERS, 'devices': found}
 json.dump(res, open(out, 'w'), indent=1)
-print(json.dumps(res, indent=1))
+print(json.dumps({k: v for k, v in res.items() if k not in ('per_block_over_the_clip', 'microphone_per_second')}, indent=1))

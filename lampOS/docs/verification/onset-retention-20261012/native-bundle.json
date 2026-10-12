@@ -117,5 +117,759 @@
   },
   "clip_string": "###########################################################                  #####################################                       ##########################################################################################################################################################################                     ################################################################################################################################ ",
   "legend": "device: . under 0.5, s 0.5 to 0.8, S 0.8 and over; replay: S still, C clear, u under, O own, V over, x unknown; clip: # speech"
+ },
+ "microphone_per_second": {
+  "what": "floor and loud are the 10th and 90th percentile of the 10 ms block levels before cancellation; reduction is the mean level before minus after the device canceller",
+  "rows": [
+   {
+    "second": 0,
+    "floor_dbfs": -77.0,
+    "loud_dbfs": -73.7,
+    "before_dbfs": -42.3,
+    "after_dbfs": -42.6,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 1,
+    "floor_dbfs": -76.0,
+    "loud_dbfs": -74.2,
+    "before_dbfs": -74.9,
+    "after_dbfs": -76.0,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 2,
+    "floor_dbfs": -74.4,
+    "loud_dbfs": -12.3,
+    "before_dbfs": -15.9,
+    "after_dbfs": -16.3,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 3,
+    "floor_dbfs": -35.1,
+    "loud_dbfs": -12.6,
+    "before_dbfs": -15.6,
+    "after_dbfs": -16.0,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 4,
+    "floor_dbfs": -76.8,
+    "loud_dbfs": -62.5,
+    "before_dbfs": -61.2,
+    "after_dbfs": -61.8,
+    "reduction_db": 0.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 5,
+    "floor_dbfs": -75.7,
+    "loud_dbfs": -74.0,
+    "before_dbfs": -74.8,
+    "after_dbfs": -75.5,
+    "reduction_db": 0.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 6,
+    "floor_dbfs": -75.5,
+    "loud_dbfs": -7.7,
+    "before_dbfs": -14.4,
+    "after_dbfs": -43.2,
+    "reduction_db": 28.8,
+    "clipped_samples": 89
+   },
+   {
+    "second": 7,
+    "floor_dbfs": -30.6,
+    "loud_dbfs": -7.4,
+    "before_dbfs": -11.9,
+    "after_dbfs": -21.7,
+    "reduction_db": 9.8,
+    "clipped_samples": 0
+   },
+   {
+    "second": 8,
+    "floor_dbfs": -36.8,
+    "loud_dbfs": -10.4,
+    "before_dbfs": -15.6,
+    "after_dbfs": -36.0,
+    "reduction_db": 20.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 9,
+    "floor_dbfs": -38.3,
+    "loud_dbfs": -8.8,
+    "before_dbfs": -13.9,
+    "after_dbfs": -30.3,
+    "reduction_db": 16.4,
+    "clipped_samples": 2
+   },
+   {
+    "second": 10,
+    "floor_dbfs": -32.3,
+    "loud_dbfs": -12.4,
+    "before_dbfs": -17.0,
+    "after_dbfs": -30.5,
+    "reduction_db": 13.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 11,
+    "floor_dbfs": -82.1,
+    "loud_dbfs": -20.0,
+    "before_dbfs": -15.1,
+    "after_dbfs": -36.8,
+    "reduction_db": 21.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 12,
+    "floor_dbfs": -35.6,
+    "loud_dbfs": -9.2,
+    "before_dbfs": -12.6,
+    "after_dbfs": -23.7,
+    "reduction_db": 11.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 13,
+    "floor_dbfs": -37.7,
+    "loud_dbfs": -11.0,
+    "before_dbfs": -14.5,
+    "after_dbfs": -65.7,
+    "reduction_db": 51.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 14,
+    "floor_dbfs": -43.5,
+    "loud_dbfs": -10.7,
+    "before_dbfs": -13.9,
+    "after_dbfs": -72.8,
+    "reduction_db": 58.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 15,
+    "floor_dbfs": -29.2,
+    "loud_dbfs": -8.9,
+    "before_dbfs": -12.5,
+    "after_dbfs": -64.1,
+    "reduction_db": 51.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 16,
+    "floor_dbfs": -39.9,
+    "loud_dbfs": -10.6,
+    "before_dbfs": -15.3,
+    "after_dbfs": -54.2,
+    "reduction_db": 38.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 17,
+    "floor_dbfs": -85.7,
+    "loud_dbfs": -22.7,
+    "before_dbfs": -27.7,
+    "after_dbfs": -64.3,
+    "reduction_db": 36.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 18,
+    "floor_dbfs": -82.6,
+    "loud_dbfs": -50.7,
+    "before_dbfs": -55.1,
+    "after_dbfs": -55.5,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 19,
+    "floor_dbfs": -82.1,
+    "loud_dbfs": -49.7,
+    "before_dbfs": -50.2,
+    "after_dbfs": -50.5,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 20,
+    "floor_dbfs": -83.5,
+    "loud_dbfs": -81.2,
+    "before_dbfs": -82.1,
+    "after_dbfs": -83.6,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 21,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -80.4,
+    "before_dbfs": -82.0,
+    "after_dbfs": -83.9,
+    "reduction_db": 1.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 22,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -81.1,
+    "before_dbfs": -82.3,
+    "after_dbfs": -83.8,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 23,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -81.0,
+    "before_dbfs": -82.2,
+    "after_dbfs": -84.1,
+    "reduction_db": 1.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 24,
+    "floor_dbfs": -83.2,
+    "loud_dbfs": -80.6,
+    "before_dbfs": -81.4,
+    "after_dbfs": -82.9,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 25,
+    "floor_dbfs": -83.8,
+    "loud_dbfs": -80.7,
+    "before_dbfs": -81.6,
+    "after_dbfs": -83.1,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 26,
+    "floor_dbfs": -83.5,
+    "loud_dbfs": -77.4,
+    "before_dbfs": -67.7,
+    "after_dbfs": -67.9,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 27,
+    "floor_dbfs": -83.8,
+    "loud_dbfs": -81.1,
+    "before_dbfs": -82.3,
+    "after_dbfs": -83.9,
+    "reduction_db": 1.6,
+    "clipped_samples": 0
+   },
+   {
+    "second": 28,
+    "floor_dbfs": -83.9,
+    "loud_dbfs": -67.1,
+    "before_dbfs": -61.2,
+    "after_dbfs": -61.6,
+    "reduction_db": 0.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 29,
+    "floor_dbfs": -84.8,
+    "loud_dbfs": -8.2,
+    "before_dbfs": -15.4,
+    "after_dbfs": -21.2,
+    "reduction_db": 5.8,
+    "clipped_samples": 0
+   },
+   {
+    "second": 30,
+    "floor_dbfs": -49.9,
+    "loud_dbfs": -8.9,
+    "before_dbfs": -13.1,
+    "after_dbfs": -33.1,
+    "reduction_db": 20.0,
+    "clipped_samples": 0
+   },
+   {
+    "second": 31,
+    "floor_dbfs": -27.9,
+    "loud_dbfs": -7.2,
+    "before_dbfs": -12.2,
+    "after_dbfs": -71.6,
+    "reduction_db": 59.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 32,
+    "floor_dbfs": -29.3,
+    "loud_dbfs": -10.2,
+    "before_dbfs": -14.3,
+    "after_dbfs": -62.0,
+    "reduction_db": 47.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 33,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -10.5,
+    "before_dbfs": -14.5,
+    "after_dbfs": -31.9,
+    "reduction_db": 17.4,
+    "clipped_samples": 7
+   },
+   {
+    "second": 34,
+    "floor_dbfs": -30.6,
+    "loud_dbfs": -9.5,
+    "before_dbfs": -14.3,
+    "after_dbfs": -42.5,
+    "reduction_db": 28.2,
+    "clipped_samples": 1
+   },
+   {
+    "second": 35,
+    "floor_dbfs": -37.1,
+    "loud_dbfs": -10.2,
+    "before_dbfs": -12.5,
+    "after_dbfs": -32.2,
+    "reduction_db": 19.7,
+    "clipped_samples": 7
+   },
+   {
+    "second": 36,
+    "floor_dbfs": -34.1,
+    "loud_dbfs": -6.8,
+    "before_dbfs": -12.1,
+    "after_dbfs": -35.3,
+    "reduction_db": 23.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 37,
+    "floor_dbfs": -43.2,
+    "loud_dbfs": -14.2,
+    "before_dbfs": -18.9,
+    "after_dbfs": -62.3,
+    "reduction_db": 43.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 38,
+    "floor_dbfs": -84.3,
+    "loud_dbfs": -75.6,
+    "before_dbfs": -65.1,
+    "after_dbfs": -78.8,
+    "reduction_db": 13.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 39,
+    "floor_dbfs": -84.3,
+    "loud_dbfs": -81.9,
+    "before_dbfs": -83.1,
+    "after_dbfs": -84.9,
+    "reduction_db": 1.8,
+    "clipped_samples": 0
+   },
+   {
+    "second": 40,
+    "floor_dbfs": -85.0,
+    "loud_dbfs": -83.0,
+    "before_dbfs": -84.0,
+    "after_dbfs": -85.9,
+    "reduction_db": 1.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 41,
+    "floor_dbfs": -84.1,
+    "loud_dbfs": -44.8,
+    "before_dbfs": -48.3,
+    "after_dbfs": -48.5,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 42,
+    "floor_dbfs": -80.8,
+    "loud_dbfs": -52.2,
+    "before_dbfs": -54.1,
+    "after_dbfs": -54.4,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 43,
+    "floor_dbfs": -82.4,
+    "loud_dbfs": -48.0,
+    "before_dbfs": -53.3,
+    "after_dbfs": -53.6,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 44,
+    "floor_dbfs": -79.7,
+    "loud_dbfs": -75.7,
+    "before_dbfs": -65.1,
+    "after_dbfs": -65.4,
+    "reduction_db": 0.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 45,
+    "floor_dbfs": -80.8,
+    "loud_dbfs": -76.8,
+    "before_dbfs": -76.4,
+    "after_dbfs": -77.6,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 46,
+    "floor_dbfs": -79.4,
+    "loud_dbfs": -77.3,
+    "before_dbfs": -78.2,
+    "after_dbfs": -79.4,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 47,
+    "floor_dbfs": -80.9,
+    "loud_dbfs": -79.0,
+    "before_dbfs": -79.8,
+    "after_dbfs": -80.9,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 48,
+    "floor_dbfs": -80.8,
+    "loud_dbfs": -78.7,
+    "before_dbfs": -79.7,
+    "after_dbfs": -80.8,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 49,
+    "floor_dbfs": -80.2,
+    "loud_dbfs": -77.7,
+    "before_dbfs": -79.0,
+    "after_dbfs": -80.3,
+    "reduction_db": 1.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 50,
+    "floor_dbfs": -80.9,
+    "loud_dbfs": -77.9,
+    "before_dbfs": -79.3,
+    "after_dbfs": -80.7,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 51,
+    "floor_dbfs": -81.6,
+    "loud_dbfs": -79.5,
+    "before_dbfs": -80.4,
+    "after_dbfs": -81.6,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 52,
+    "floor_dbfs": -80.5,
+    "loud_dbfs": -77.6,
+    "before_dbfs": -79.0,
+    "after_dbfs": -80.3,
+    "reduction_db": 1.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 53,
+    "floor_dbfs": -79.3,
+    "loud_dbfs": -76.9,
+    "before_dbfs": -77.9,
+    "after_dbfs": -78.8,
+    "reduction_db": 0.9,
+    "clipped_samples": 0
+   },
+   {
+    "second": 54,
+    "floor_dbfs": -79.6,
+    "loud_dbfs": -77.1,
+    "before_dbfs": -78.1,
+    "after_dbfs": -79.4,
+    "reduction_db": 1.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 55,
+    "floor_dbfs": -77.4,
+    "loud_dbfs": -36.2,
+    "before_dbfs": -37.7,
+    "after_dbfs": -37.9,
+    "reduction_db": 0.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 56,
+    "floor_dbfs": -79.0,
+    "loud_dbfs": -75.7,
+    "before_dbfs": -77.1,
+    "after_dbfs": -78.5,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 57,
+    "floor_dbfs": -78.1,
+    "loud_dbfs": -75.7,
+    "before_dbfs": -76.8,
+    "after_dbfs": -78.2,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 58,
+    "floor_dbfs": -78.5,
+    "loud_dbfs": -75.9,
+    "before_dbfs": -77.0,
+    "after_dbfs": -78.1,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 59,
+    "floor_dbfs": -78.2,
+    "loud_dbfs": -75.7,
+    "before_dbfs": -76.8,
+    "after_dbfs": -78.0,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 60,
+    "floor_dbfs": -78.1,
+    "loud_dbfs": -75.9,
+    "before_dbfs": -76.9,
+    "after_dbfs": -78.2,
+    "reduction_db": 1.3,
+    "clipped_samples": 0
+   },
+   {
+    "second": 61,
+    "floor_dbfs": -78.9,
+    "loud_dbfs": -76.2,
+    "before_dbfs": -77.3,
+    "after_dbfs": -78.8,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 62,
+    "floor_dbfs": -78.6,
+    "loud_dbfs": -76.1,
+    "before_dbfs": -77.3,
+    "after_dbfs": -79.0,
+    "reduction_db": 1.7,
+    "clipped_samples": 0
+   },
+   {
+    "second": 63,
+    "floor_dbfs": -77.8,
+    "loud_dbfs": -75.7,
+    "before_dbfs": -76.6,
+    "after_dbfs": -77.7,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 64,
+    "floor_dbfs": -77.7,
+    "loud_dbfs": -75.9,
+    "before_dbfs": -76.7,
+    "after_dbfs": -77.9,
+    "reduction_db": 1.2,
+    "clipped_samples": 0
+   },
+   {
+    "second": 65,
+    "floor_dbfs": -78.8,
+    "loud_dbfs": -75.8,
+    "before_dbfs": -76.8,
+    "after_dbfs": -78.2,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 66,
+    "floor_dbfs": -78.6,
+    "loud_dbfs": -75.5,
+    "before_dbfs": -76.7,
+    "after_dbfs": -78.1,
+    "reduction_db": 1.4,
+    "clipped_samples": 0
+   },
+   {
+    "second": 67,
+    "floor_dbfs": -78.2,
+    "loud_dbfs": -69.2,
+    "before_dbfs": -67.6,
+    "after_dbfs": -67.7,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 68,
+    "floor_dbfs": -78.3,
+    "loud_dbfs": -75.9,
+    "before_dbfs": -76.9,
+    "after_dbfs": -78.4,
+    "reduction_db": 1.5,
+    "clipped_samples": 0
+   },
+   {
+    "second": 69,
+    "floor_dbfs": -78.7,
+    "loud_dbfs": -75.6,
+    "before_dbfs": -76.9,
+    "after_dbfs": -78.0,
+    "reduction_db": 1.1,
+    "clipped_samples": 0
+   },
+   {
+    "second": 70,
+    "floor_dbfs": -77.6,
+    "loud_dbfs": -52.2,
+    "before_dbfs": -57.3,
+    "after_dbfs": -57.4,
+    "reduction_db": 0.1,
+    "clipped_samples": 0
+   }
+  ],
+  "peak_abs_sample": 32768,
+  "clipped_samples": 106
+ },
+ "microphone_minus_clip_level": {
+  "what": "level of the microphone signal minus the level of the clip itself, per 50 ms where the clip is above -45 dBFS; a change between the two rows is a change of gain on the way to the microphone signal",
+  "sunset_lamp_silent": {
+   "median_db": 5.3,
+   "steps": 37
+  },
+  "coffee_last_400_ms": [
+   [
+    4150,
+    -6.5
+   ],
+   [
+    4200,
+    -4.9
+   ],
+   [
+    4250,
+    -2.1
+   ],
+   [
+    4300,
+    0.8
+   ],
+   [
+    4350,
+    -5.8
+   ],
+   [
+    4400,
+    -4.3
+   ],
+   [
+    4450,
+    -5.7
+   ],
+   [
+    4500,
+    -10.5
+   ]
+  ]
+ },
+ "calibration": {
+  "what": "the clean coffee clip added in software, at a chosen level, to a stretch where only the lamp speaks; the first row has nothing added",
+  "lamp_alone_from_second": 11.9,
+  "lamp_alone_level_dbfs": -13.4,
+  "rows": [
+   {
+    "added_dbfs": null,
+    "matched_filter": 0.045,
+    "coherent_share_db_512": -25.2,
+    "coherent_share_db_2048": -21.2
+   },
+   {
+    "added_dbfs": -20,
+    "matched_filter": 0.459,
+    "coherent_share_db_512": -7.2,
+    "coherent_share_db_2048": -7.3
+   },
+   {
+    "added_dbfs": -25,
+    "matched_filter": 0.293,
+    "coherent_share_db_512": -11.1,
+    "coherent_share_db_2048": -11.2
+   },
+   {
+    "added_dbfs": -30,
+    "matched_filter": 0.184,
+    "coherent_share_db_512": -15.0,
+    "coherent_share_db_2048": -14.9
+   },
+   {
+    "added_dbfs": -35,
+    "matched_filter": 0.12,
+    "coherent_share_db_512": -18.3,
+    "coherent_share_db_2048": -17.8
+   },
+   {
+    "added_dbfs": -40,
+    "matched_filter": 0.083,
+    "coherent_share_db_512": -20.9,
+    "coherent_share_db_2048": -19.5
+   },
+   {
+    "added_dbfs": -45,
+    "matched_filter": 0.062,
+    "coherent_share_db_512": -22.6,
+    "coherent_share_db_2048": -20.4
+   }
+  ],
+  "real_overlap": {
+   "matched_filter": 0.033,
+   "coherent_share_db_512": -26.6,
+   "coherent_share_db_2048": -21.5
+  }
+ },
+ "mixer_snapshot": {
+  "path": "/private/tmp/lamp-duplex-diagnostic-fhld3dr3/expected-mixers.json",
+  "devices": {
+   "device_micro2": {
+    "auto_gain_control": "on",
+    "mic_capture_volume": "147"
+   },
+   "device_cmedia": {
+    "auto_gain_control": "on",
+    "mic_capture_volume": "4"
+   }
+  }
  }
 }

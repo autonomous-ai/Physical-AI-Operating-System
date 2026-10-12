@@ -118,12 +118,15 @@ impl Face {
             // rounds at its own fixed point, so a level between two steps is
             // shown as some pixels on the higher one: a dim breath stays
             // smooth instead of stepping, and nothing flickers in time.
-            let dither = f32::from(pixel_order(pixel)) / PIXEL_COUNT as f32;
-            let step = |share: f32| {
+            // Each colour rounds at a different pixel, so that a pixel is
+            // not one step up in every colour at once.
+            let step = |share: f32, shift: usize| {
+                let order = pixel_order((pixel + shift) % PIXEL_COUNT);
+                let dither = f32::from(order) / PIXEL_COUNT as f32;
                 let value = (share.clamp(0.0, 1.0) * f32::from(ceiling) + dither).floor();
                 value.min(f32::from(ceiling)) as u8
             };
-            *out = Rgb::new(step(shown[0]), step(shown[1]), step(shown[2]));
+            *out = Rgb::new(step(shown[0], 0), step(shown[1], 11), step(shown[2], 21));
         }
         frame
     }
@@ -152,10 +155,12 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32) -> [f32; 3] {
             // A warm, low breath, with a soft brighter patch that wanders
             // around the ring so that two breaths never look the same. Low
             // on purpose: on this ring a few steps of 255 are already a
-            // clear glow, and V1 rested at one.
+            // clear glow, and V1 rested at one. Amber with no blue at all:
+            // at two or three steps a little blue lands on some pixels and
+            // not on others, and the ring looks pink in places.
             let breath = wave(seconds, 5.2, 0.0, 0.0);
             let patch = wave(seconds, 23.0, 1.0, angle).powi(4);
-            ([1.0, 0.62, 0.22], 0.05 + 0.05 * breath + 0.03 * patch)
+            ([1.0, 0.55, 0.0], 0.07 + 0.06 * breath + 0.03 * patch)
         }
         Mood::Listening => {
             // Cool and open at once, brighter with the person's voice, with
@@ -167,7 +172,7 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32) -> [f32; 3] {
             // An amber point circling the ring with a fading tail behind it.
             let head = TAU * (seconds / 1.15).fract();
             let behind = (head - angle).rem_euclid(TAU);
-            ([1.0, 0.55, 0.10], 0.14 + 0.80 * (-behind / 0.75).exp())
+            ([1.0, 0.52, 0.04], 0.14 + 0.80 * (-behind / 0.75).exp())
         }
         Mood::Speaking => {
             // Warm, and as bright as the lamp's own voice is loud, with a

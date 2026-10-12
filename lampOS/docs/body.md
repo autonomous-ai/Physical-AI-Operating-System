@@ -118,13 +118,17 @@ and reach above.
 A joint that has arrived rests, in any mood: once the commanded pose has
 been within 6 counts of the wanted one and slower than 15 counts a second
 for 0.3 s, the joint's goal becomes its own position, and it is asked
-nothing more until the wanted pose is 12 counts or more from where it is. A
+nothing more until the wanted pose is 20 counts or more from where it is. A
 servo asked for less than it can move pushes and stays where it is. So a nod
-smaller than 12 counts does not happen, and at the reach lamp-4ace runs
-with that is most of them: the head comes back to the person as the answer
-arrives and then keeps still while the lamp talks, moving again for a nod
-only on its loudest syllables. That is also when its microphone needs it
-still ([duplex-listening.md](duplex-listening.md), "Seven blocks").
+smaller than 20 counts does not happen, and at the reach lamp-4ace runs
+with that is all of them: the head comes back to the person as the answer
+arrives and then keeps still while the lamp talks. That is also when its
+microphone needs it still ([duplex-listening.md](duplex-listening.md),
+"Seven blocks"). Nodding as it speaks is still in the gestures and comes
+back with a head joint that starts for a small move, or a reach wide enough
+to make every nod a large one. At the reach used without `--reach` the
+lift for listening is 18 counts and does not happen either; the tilt, the
+look away and the way back do.
 
 ## Running it
 
@@ -220,7 +224,11 @@ time it sat at 1,936 or 1,937 with its goal 3 to 8 counts above, the goal
 of a small nod, and did not move while its load climbed from 48 past 170
 in a second and a half. The nods had been made smaller the same night and
 had gone under what the joint can move. Since then a joint that has
-arrived rests until it is asked for a move of 12 counts or more.
+arrived rests until it is asked for a move large enough to make. Twelve
+counts was not enough: over the next ten minutes the head gave way four
+more times, each time at rest at 1,937 and asked to lift 11 or 12 counts,
+which it did not begin to do while its load passed 170. It lifts 40 from
+rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 

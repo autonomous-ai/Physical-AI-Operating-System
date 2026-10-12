@@ -483,10 +483,10 @@ fn a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after() {
 #[test]
 fn a_joint_that_meets_resistance_stops_pushing_for_two_seconds_and_then_goes_on() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
-    // The head, a fifth of a second into its lift, as on lamp-4ace: 217 for
-    // a moment and nothing in its way.
+    // A fifth of a second into its tilt, a load like the one the head read on
+    // lamp-4ace: 217 for a moment and nothing in its way.
     let ms = Duration::from_millis;
-    lamp.strains = vec![(ms(1_200), ms(1_400), PITCH, 217)];
+    lamp.strains = vec![(ms(1_200), ms(1_400), ROLL, 217)];
     let news = script(&clock.time);
     let mut seen = Vec::new();
     let report = run(
@@ -498,41 +498,41 @@ fn a_joint_that_meets_resistance_stops_pushing_for_two_seconds_and_then_goes_on(
         |glimpse| seen.push(*glimpse),
     );
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    assert_eq!((report.eased, report.peak_load[0]), ([1, 0, 0], 217));
+    assert_eq!((report.eased, report.peak_load[1]), ([0, 1, 0], 217));
     // It gave way on the sixth step over the bound, where it was. A step is
     // watched before it is judged, so the next one is the first to show it.
     let strained = seen
         .iter()
-        .position(|glimpse| glimpse.loads[0] == 217)
+        .position(|glimpse| glimpse.loads[1] == 217)
         .unwrap();
     let gave = seen
         .iter()
-        .position(|glimpse| glimpse.eased[0] == 1)
+        .position(|glimpse| glimpse.eased[1] == 1)
         .unwrap();
     assert_eq!(gave, strained + 6);
-    let held = seen[gave].goals[0];
+    let held = seen[gave].goals[1];
     assert!(
-        held.abs_diff(seen[gave - 1].positions[0]) <= 1,
+        held.abs_diff(seen[gave - 1].positions[1]) <= 1,
         "{:?}",
         seen[gave - 1]
     );
-    assert_ne!(held, HOME[0], "it had begun to lift");
+    assert_ne!(held, HOME[1], "it had begun to tilt");
     // For two seconds its goal does not change, while the other joints go
     // on with what the lamp is doing.
     let waiting = &seen[gave..gave + usize::from(EASE_STEPS) - 1];
-    assert!(waiting.iter().all(|glimpse| glimpse.goals[0] == held));
-    assert!(waiting.iter().any(|glimpse| glimpse.goals[1] != HOME[1]));
+    assert!(waiting.iter().all(|glimpse| glimpse.goals[1] == held));
+    assert!(waiting.iter().any(|glimpse| glimpse.goals[2] != HOME[2]));
     // Then it moves again, from where it stopped.
     let after = &seen[gave + usize::from(EASE_STEPS)..];
     assert!(
         after
             .iter()
-            .any(|glimpse| glimpse.goals[0].abs_diff(held) >= 10)
+            .any(|glimpse| glimpse.goals[1].abs_diff(held) >= 10)
     );
     assert!(
         after
             .windows(2)
-            .all(|pair| pair[1].goals[0].abs_diff(pair[0].goals[0]) <= 2),
+            .all(|pair| pair[1].goals[1].abs_diff(pair[0].goals[1]) <= 2),
         "it jumped"
     );
 }
@@ -572,18 +572,18 @@ fn a_joint_still_loaded_after_it_stopped_pushing_ends_the_run() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     let ms = Duration::from_millis;
     // Half a second of it: longer than giving way explains.
-    lamp.strains = vec![(ms(1_200), ms(1_700), PITCH, 240)];
+    lamp.strains = vec![(ms(1_200), ms(1_700), ROLL, 240)];
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
     assert_eq!(
         report.stop,
         Stop::Load {
-            joint: 5,
+            joint: 4,
             load: 240
         },
         "{report:?}"
     );
-    assert_eq!(report.eased, [1, 0, 0]);
+    assert_eq!(report.eased, [0, 1, 0]);
     // Twelve steps: six to give way and six more of the same.
     let ended = clock.time.get();
     assert!(

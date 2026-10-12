@@ -62,8 +62,9 @@ const REST_SLACK: u16 = 24;
 /// from where it is. Asked for less, a servo pushes and does not move: on
 /// lamp-4ace the head sat 3 to 8 counts from the goals of its nods while its
 /// load climbed from 48 to 178 in a second and a half, three times in a
-/// minute.
-const WAKE_COUNTS: f32 = 12.0;
+/// minute. With 12 here it did the same for nods of 11 and 12 counts, four
+/// times in ten minutes: from rest that joint does not start for so little.
+const WAKE_COUNTS: f32 = 20.0;
 /// Arrived: this close to the wanted pose and this slow, for this many steps.
 const ARRIVED_COUNTS: f32 = 6.0;
 const ARRIVED_SPEED: f32 = 15.0;

@@ -13,6 +13,9 @@ from hal.routes import led
 def lamp(monkeypatch, tmp_path, lamp_presets):
     for key, value in lamp_presets["ambient_led"]["resting"].items():
         monkeypatch.setitem(presets.AMBIENT_RESTING_LED, key, value)
+    # These tests exercise presentation policy; worker ordering is tested separately.
+    monkeypatch.setattr(state, "_speech_led", Mock(submit=lambda request:
+                        state._present_tts_led(request, lambda: True)))
     monkeypatch.setattr(state, "rgb_service", Mock())
     monkeypatch.setattr(state, "sensing_service", None)
     monkeypatch.setattr(state, "_user_led_state", None)

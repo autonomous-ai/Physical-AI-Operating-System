@@ -1,0 +1,240 @@
+{
+ "runtime": "/private/tmp/lamp-mic1-timing-executed-69rmqb_6/native/runtime",
+ "reply": {
+  "first_render_sample": 85200,
+  "copies_start_at_capture_s": [
+   3.53,
+   8.319,
+   13.108
+  ],
+  "render_to_microphone_delay_ms": 23.0,
+  "copy_2_against_copy_1": {
+   "lag_samples": 9.71,
+   "correlation": 0.9985,
+   "gain": 1.0
+  },
+  "copy_3_against_copy_1": {
+   "lag_samples": 18.83,
+   "correlation": 0.9924,
+   "gain": 0.993
+  }
+ },
+ "clip_starts_seconds_into_the_second_copy": 0.58,
+ "clip_alone_in_the_lamp_pause": {
+  "pause_found_seconds_into_a_copy": [
+   4.2,
+   4.84
+  ],
+  "correlation_with_the_dry_clip": 0.697,
+  "placement_moved_ms": -0.7,
+  "microphone_minus_clip_level_db": -18.0
+ },
+ "original_request_lamp_silent": {
+  "microphone_level_dbfs": -44.9,
+  "idle_floor_dbfs": -59.1,
+  "loudspeaker_to_microphone_gain_db": -23.5,
+  "matched_filter_peak": 0.519,
+  "device_score_blocks": 188,
+  "from_0_8": 133
+ },
+ "lamp_own_voice_alone": {
+  "idle_floor_before_dbfs": -55.4,
+  "first_copy_before_cancellation_dbfs": -14.8,
+  "first_copy_after_cancellation_dbfs": -42.7,
+  "third_copy_before_cancellation_dbfs": -15.4,
+  "third_copy_after_cancellation_dbfs": -38.0,
+  "first_copy_device_score_from_0_8": 0,
+  "third_copy_device_score_from_0_8": 10,
+  "first_copy_blocks": 430,
+  "third_copy_blocks": 360,
+  "most_a_fixed_linear_filter_of_the_render_could_remove_db": {
+   "first_copy": 12.6,
+   "third_copy": 12.6
+  }
+ },
+ "method_floor": {
+  "what": "one playing taken from another where neither holds the clip: level left, and how far under the lamp it is",
+  "copy_2_before_the_clip_left_dbfs": -46.1,
+  "copy_2_before_the_clip_lamp_dbfs": -12.4,
+  "copy_3_after_the_clip_left_dbfs": -34.1,
+  "copy_3_after_the_clip_lamp_dbfs": -15.4
+ },
+ "clip_over_the_second_copy": [
+  {
+   "stretch": "first words",
+   "clip_ms": [
+    0,
+    590
+   ],
+   "seconds_into_the_copy": [
+    0.58,
+    1.17
+   ],
+   "clip_level_expected_from_the_sunset_gain_dbfs": -50.6,
+   "clip_level_expected_from_its_own_gain_in_the_lamp_pause_dbfs": -45.1,
+   "lamp_own_voice_dbfs": -14.7,
+   "before_cancellation": {
+    "left_after_taking_the_first_copy_away_dbfs": -43.2,
+    "same_in_the_copy_without_the_clip_dbfs": -44.3,
+    "correlation_with_the_clip": 0.273,
+    "same_in_the_copy_without_the_clip": 0.041,
+    "part_that_follows_the_clip_dbfs": -51.3,
+    "same_in_the_copy_without_the_clip_part_dbfs": -68.8
+   },
+   "after_cancellation": {
+    "with_the_clip_dbfs": -39.6,
+    "first_copy_same_place_dbfs": -42.8,
+    "third_copy_same_place_dbfs": -40.3,
+    "correlation_with_the_clip": 0.014,
+    "same_in_the_first_copy": 0.017,
+    "same_in_the_third_copy": 0.014
+   },
+   "device_score_blocks": {
+    "n": 59,
+    "with_the_clip_from_0_8": 0,
+    "with_the_clip_from_0_5": 0,
+    "first_copy_from_0_8": 0,
+    "first_copy_from_0_5": 0,
+    "third_copy_from_0_8": 0,
+    "third_copy_from_0_5": 0
+   }
+  },
+  {
+   "stretch": "first words",
+   "clip_ms": [
+    770,
+    1140
+   ],
+   "seconds_into_the_copy": [
+    1.35,
+    1.72
+   ],
+   "clip_level_expected_from_the_sunset_gain_dbfs": -52.6,
+   "clip_level_expected_from_its_own_gain_in_the_lamp_pause_dbfs": -47.1,
+   "lamp_own_voice_dbfs": -22.1,
+   "before_cancellation": {
+    "left_after_taking_the_first_copy_away_dbfs": -31.5,
+    "same_in_the_copy_without_the_clip_dbfs": -32.5,
+    "correlation_with_the_clip": 0.052,
+    "same_in_the_copy_without_the_clip": 0.01,
+    "part_that_follows_the_clip_dbfs": -54.0,
+    "same_in_the_copy_without_the_clip_part_dbfs": -69.2
+   },
+   "after_cancellation": {
+    "with_the_clip_dbfs": -52.1,
+    "first_copy_same_place_dbfs": -51.8,
+    "third_copy_same_place_dbfs": -54.9,
+    "correlation_with_the_clip": 0.25,
+    "same_in_the_first_copy": 0.045,
+    "same_in_the_third_copy": 0.046
+   },
+   "device_score_blocks": {
+    "n": 37,
+    "with_the_clip_from_0_8": 0,
+    "with_the_clip_from_0_5": 0,
+    "first_copy_from_0_8": 0,
+    "first_copy_from_0_5": 0,
+    "third_copy_from_0_8": 0,
+    "third_copy_from_0_5": 0
+   }
+  },
+  {
+   "stretch": "first words",
+   "clip_ms": [
+    1370,
+    3070
+   ],
+   "seconds_into_the_copy": [
+    1.95,
+    3.65
+   ],
+   "clip_level_expected_from_the_sunset_gain_dbfs": -48.8,
+   "clip_level_expected_from_its_own_gain_in_the_lamp_pause_dbfs": -43.3,
+   "lamp_own_voice_dbfs": -14.3,
+   "before_cancellation": {
+    "left_after_taking_the_first_copy_away_dbfs": -33.0,
+    "same_in_the_copy_without_the_clip_dbfs": -32.7,
+    "correlation_with_the_clip": 0.141,
+    "same_in_the_copy_without_the_clip": 0.019,
+    "part_that_follows_the_clip_dbfs": -46.9,
+    "same_in_the_copy_without_the_clip_part_dbfs": -63.8
+   },
+   "after_cancellation": {
+    "with_the_clip_dbfs": -37.6,
+    "first_copy_same_place_dbfs": -40.3,
+    "third_copy_same_place_dbfs": -35.5,
+    "correlation_with_the_clip": 0.009,
+    "same_in_the_first_copy": 0.014,
+    "same_in_the_third_copy": 0.005
+   },
+   "device_score_blocks": {
+    "n": 170,
+    "with_the_clip_from_0_8": 0,
+    "with_the_clip_from_0_5": 0,
+    "first_copy_from_0_8": 0,
+    "first_copy_from_0_5": 2,
+    "third_copy_from_0_8": 10,
+    "third_copy_from_0_5": 13
+   }
+  },
+  {
+   "stretch": "last sentence, lamp still sounding",
+   "clip_ms": [
+    3280,
+    3933
+   ],
+   "seconds_into_the_copy": [
+    3.86,
+    4.51
+   ],
+   "clip_level_expected_from_the_sunset_gain_dbfs": -47.6,
+   "clip_level_expected_from_its_own_gain_in_the_lamp_pause_dbfs": -42.1,
+   "lamp_own_voice_dbfs": -19.6,
+   "before_cancellation": {
+    "left_after_taking_the_first_copy_away_dbfs": -36.1,
+    "same_in_the_copy_without_the_clip_dbfs": -51.6,
+    "correlation_with_the_clip": 0.23,
+    "same_in_the_copy_without_the_clip": 0.069,
+    "part_that_follows_the_clip_dbfs": -45.7,
+    "same_in_the_copy_without_the_clip_part_dbfs": -71.7
+   },
+   "after_cancellation": {
+    "with_the_clip_dbfs": -49.2,
+    "first_copy_same_place_dbfs": -55.9,
+    "third_copy_same_place_dbfs": -52.8,
+    "correlation_with_the_clip": 0.181,
+    "same_in_the_first_copy": 0.056,
+    "same_in_the_third_copy": 0.039
+   },
+   "device_score_blocks": {
+    "n": 66,
+    "with_the_clip_from_0_8": 0,
+    "with_the_clip_from_0_5": 0,
+    "first_copy_from_0_8": 0,
+    "first_copy_from_0_5": 0,
+    "third_copy_from_0_8": 0,
+    "third_copy_from_0_5": 0
+   }
+  }
+ ],
+ "clip_in_the_lamp_pause_after_the_second_copy": {
+  "seconds_into_the_copy": [
+   4.23,
+   4.83
+  ],
+  "clip_ms": [
+   3650,
+   4250
+  ],
+  "clip_level_expected_from_the_sunset_gain_dbfs": -48.1,
+  "before_cancellation_with_the_clip_dbfs": -42.6,
+  "before_cancellation_after_the_first_copy_dbfs": -54.5,
+  "correlation_with_the_clip": 0.7,
+  "same_after_the_first_copy": 0.088,
+  "after_cancellation_with_the_clip_dbfs": -43.1,
+  "after_cancellation_after_the_first_copy_dbfs": -55.5,
+  "device_score_from_0_8_with_the_clip": 0,
+  "device_score_from_0_8_after_the_first_copy": 0,
+  "blocks": 60
+ }
+}

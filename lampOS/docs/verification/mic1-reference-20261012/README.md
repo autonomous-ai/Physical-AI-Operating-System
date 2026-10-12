@@ -1,7 +1,8 @@
 # mic1: the canceller was given the render after its echo
 
 Agent 1, 2026-10-12. A proposal on `lamp-a1-mic1-reference`, on
-`lamp-v2-chat` `675c71c62`. Not integrated, not run on a lamp.
+`lamp-v2-chat` `675c71c62`. Not integrated. Main has run it once on lamp
+`4ace`: see [On the lamp](#on-the-lamp).
 
 With `--microphone mic1` and `--reference-clock capture`, each captured
 frame now waits four capture blocks (40 ms) before it is cancelled and
@@ -149,6 +150,24 @@ did not print the fault's times, so this is not established. Since
 `f18362fa9` one session is run first and thrown away, and a fault's times
 are printed. In the second job the first session ran through.
 
+## On the lamp
+
+Main ran the fixed-source recording again on `4ace` through `mic1` with
+the binary built from `f18362fa9` (`lamp-mic1-timing-executed-69rmqb_6`).
+`native/README.md` has it against the baseline, with the tables.
+
+| | Baseline | With the hold | Replay had said |
+|---|---|---|---|
+| Lamp's own voice removed, whole reply | 2.8 dB | 24.7 dB | |
+| Copy 1, copy 3 | 5.2, 1.6 dB | 27.9, 22.6 dB | 23.2, 27.9 dB |
+| Lamp alone scored 0.8 or over | 114 of 430, 193 of 360 | 0 of 430, 10 of 360 | 4, 0 |
+| A frame processed after its own read, median | 1.0 ms | 40.5 ms | |
+| Reference's capture count minus the frame's sequence | 0 | 4 in every row | |
+| The lamp's voice against its render at a reply start | two blocks before | two blocks after | |
+| The clip over the lamp, blocks scored 0.8 or over | 136 of 337 | 0 of 332 | 1 of 337 |
+
+One recording. It is not a conversation and qualifies no interruption.
+
 ## Limits
 
 - The replay runs a canceller that starts cold on this host, with the
@@ -159,7 +178,7 @@ are printed. In the second job the first session ran through.
 - With the fixed reference every accepted block goes to the canceller as it
   arrives. Nothing is held there, and there is no `mic1` recording with it.
 - The voice-eval fake does not go through the capture worker.
-- Nothing here ran on a lamp.
+- On a lamp it has run once, by Main, with a fixed reply and no service.
 
 ## Files
 
@@ -170,6 +189,7 @@ are printed. In the second job the first session ran through.
 | `lab-hold-sweep.txt` | the replay at each hold |
 | `mic1-lab-hold{0,3,4}-pair.json` | the comparison run on the replay's output |
 | `inputs.sha256` | digests of the bundle files, clips and lab binary used |
+| `native/` | the run on the lamp with the hold against the baseline: tables, per-row timing, digests |
 | `scripts/` | what produced them; `scripts/analyse_run.sh` names the order |
 
 The bundles are local recordings and are not in the repository.

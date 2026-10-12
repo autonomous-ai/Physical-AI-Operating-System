@@ -1,0 +1,39 @@
+{
+ "rows": 7001,
+ "first_sequence": 1,
+ "sequences_contiguous": true,
+ "audio_offsets_contiguous": true,
+ "read_times_increasing": true,
+ "between_reads_us_min_5_50_95_max": [
+  8135,
+  8245,
+  10305,
+  10365,
+  12001
+ ],
+ "processed_after_own_read_us_min_5_50_95_max": [
+  39073,
+  39969,
+  40511,
+  43004,
+  47018
+ ],
+ "reference_capture_blocks_processed_minus_frame_sequence_values": [
+  4
+ ],
+ "accepted_minus_analysed_frames_5_50_95": [
+  1067,
+  1109,
+  1189
+ ],
+ "delay_hint_ms_values": [
+  0,
+  1,
+  2,
+  3
+ ],
+ "aec_internal_alignment_ms_values": [
+  0,
+  8
+ ]
+}

@@ -5,7 +5,7 @@ is the status of one task: your request of 2026-10-12, after the
 fixed-source microphone pair, for a `mic1` reference-timing correction as
 a separate proposal on `675c71c62`. My other branches are as they were.
 
-- Updated: 2026-10-12, 06:53 UTC
+- Updated: 2026-10-12, 07:05 UTC
 - **The canceller on `mic1` was given each render block after its echo.**
   The capture-clocked reference keeps five blocks of render in hand;
   `mic1` has the sound back two capture blocks before that render reaches
@@ -17,7 +17,10 @@ a separate proposal on `675c71c62`. My other branches are as they were.
 - **It stops the lamp hearing itself. It does not make `mic1` hear a
   person over the lamp:** in the replay the clip is still scored in one
   block of 337.
-- Not run on a lamp. Nothing pushed to any branch but this one.
+- **Main ran it once on `4ace`: 24.7 dB of the lamp's own voice removed
+  over the whole reply, against 2.8 dB;** every frame processed 39 to 47 ms
+  after its own read; the clip over the lamp still not scored.
+  `docs/verification/mic1-reference-20261012/native/README.md`.
 
 Evidence, numbers, limits and scripts:
 `lampOS/docs/verification/mic1-reference-20261012/README.md`.

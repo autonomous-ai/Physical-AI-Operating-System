@@ -1,0 +1,1 @@
+lamp sounding, 948 blocks: before -14.1 dBFS, after -17.0 dBFS, removed 2.8 dB

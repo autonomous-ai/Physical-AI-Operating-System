@@ -173,8 +173,15 @@ A run of blocks becomes at most three moments (`Interruption`):
 2. **Commit.** Six `Clear` blocks after the yield: the lamp is silent, the
    room has gone quiet of it, and speech-like input remains. This is a
    hearing decision, not addressee evidence or completed input admission.
-3. **Resume.** Forty consecutive `Still` blocks, or 1.1 s without a
-   commit. The coordinator hands the speaker the next sample of the reply.
+   Or, since 2026-10-13, forty consecutive `Still` blocks after a yield
+   in which at least ten `Over` blocks were **plain**: the render explained
+   no more than 20% of the microphone. A short word that the lamp's own
+   voice cannot account for is a person telling it something, "stop" as
+   likely as anything, and the lamp does not talk over that. See "A short
+   word, heard plainly" below.
+3. **Resume.** Forty consecutive `Still` blocks with fewer plain blocks
+   than that, or 1.1 s without a commit. The coordinator hands the speaker
+   the next sample of the reply.
    (Fifteen blocks and 600 ms until 2026-10-12. On lamp-4ace a played
    "Lamp, stop. What is two plus two?" over a reply made the lamp yield
    0.5 s after the clip began, resume 0.5 s later, in the breath after the
@@ -208,8 +215,12 @@ What that means for a person in the room:
 - Someone who starts a new question over the lamp is heard from their
   first word, the lamp falls silent, and their whole sentence reaches the
   model.
-- Someone who says "mm-hm" makes the lamp pause for about half a second
-  and carry on. Nothing of the reply is lost or repeated.
+- Someone who says "mm-hm" quietly makes the lamp pause for about 0.7 s
+  and carry on. Nothing of the reply is lost or repeated. Said plainly
+  over the lamp it is an interruption like any other word: the lamp stops,
+  the word goes to the model, and what happens next is the character
+  file's (`docs/character.md`: carry on for an acknowledgment, stop for
+  "stop").
 - The lamp's own voice, when the evidence misjudges it, costs the same
   pause and nothing else.
 
@@ -275,6 +286,37 @@ behaved like eight and ten in a row to within one clip. A run was kept
 because the turn detector starts on six blocks in a row: with a run its
 start can be made to end exactly on the yield, and with a window it
 cannot.
+
+### A short word, heard plainly
+
+Until 2026-10-13 a yield became an interruption only if speech went on
+once the lamp was silent, which takes at least 300 ms after the yield. A
+lone "Stop." is over by then. In the last batch of played cut-ins before
+this rule the lamp paused for both "Lamp, stop." and "Stop.", waited, and
+went on with its story.
+
+What tells such a word from the lamp's own voice misjudged as a person is
+how much of the block the render explains. Over 855 s of lamp sound on
+lamp-4ace, 72 runs of seven or more `Over` blocks, counting the blocks of
+each run (and of the 300 ms after its seventh) of which the render
+explained under 20%:
+
+| | Runs | With ten or more such blocks |
+|---|---|---|
+| While a played voice was speaking over the lamp | 58 | 27 |
+| With no clip playing | 14 | 2 |
+
+Ten of those fourteen held none at all, and two more held two and seven:
+the render still explained 30% to 75% of them, as it does when the
+canceller lets the lamp through at the end of a word. The two that would
+have stopped the lamp were 160 ms and 170 ms of something speech-like
+that the render did not explain at all,
+in an office at night with nobody in it; what they were is not known. At
+that rate the lamp gives up a reply to a sound that was no person about
+once in seven minutes of its own speech. Among the played clips, "Stop."
+by one voice held 19 such blocks and "Lamp, stop." by another held none:
+the rule makes a short word work when it is heard well, and changes
+nothing when it is not.
 
 ### After the interruption: what the model says
 

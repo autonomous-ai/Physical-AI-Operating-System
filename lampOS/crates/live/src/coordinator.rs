@@ -2087,6 +2087,8 @@ fn conversation(
             "commit_after_clear_blocks":Confirmation::EVALUATED.speech_blocks,
             "resume_after_still_blocks":Confirmation::EVALUATED.silence_blocks,
             "resume_deadline_blocks":Confirmation::EVALUATED.deadline_blocks,
+            "plain_percent":Hearing::EVALUATED.plain_percent,
+            "commit_on_stillness_after_plain_blocks":Confirmation::EVALUATED.plain_blocks,
             "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
             "decision_budget_us":hold.decision_budget_us,
             "provider_queue_bound":provider_queue_bound(hold),

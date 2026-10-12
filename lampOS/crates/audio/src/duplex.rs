@@ -69,6 +69,10 @@ pub struct Hearing {
     /// Render blocks of silence after which nothing of the lamp's is still
     /// arriving at the microphone.
     pub clear_after_blocks: u8,
+    /// A block of a person over the lamp of which the render explains no
+    /// more than this, in percent, holds a person plainly: the lamp's own
+    /// voice is next to nothing in it.
+    pub plain_percent: u8,
 }
 
 impl Hearing {
@@ -81,6 +85,7 @@ impl Hearing {
         explained_percent: 75,
         floor_percent: 80,
         clear_after_blocks: 30,
+        plain_percent: 20,
     };
 
     pub fn heard(&self, probability: f32, evidence: &EchoEvidence) -> Heard {
@@ -101,6 +106,17 @@ impl Hearing {
             }
             Some(_) => Heard::Own,
         }
+    }
+
+    /// Whether a block heard as a person over the lamp holds that person
+    /// plainly. On lamp-4ace the lamp's own voice, misjudged as a person,
+    /// was still 30% to 75% explained by the render; a played "Stop." was
+    /// under 10% for twenty blocks.
+    pub fn plain(&self, heard: Heard, evidence: &EchoEvidence) -> bool {
+        heard == Heard::Over
+            && evidence
+                .echo
+                .is_some_and(|echo| echo.capture_explained <= self.plain_percent)
     }
 
     /// The score to give a detector that starts a turn on consecutive speech
@@ -131,6 +147,9 @@ pub struct Confirmation {
     pub silence_blocks: u8,
     /// Blocks after which an undecided yield is given up.
     pub deadline_blocks: u16,
+    /// Plain blocks, in the run that made the lamp yield and after it, with
+    /// which a yield that ends in stillness is an interruption all the same.
+    pub plain_blocks: u8,
 }
 
 impl Confirmation {
@@ -146,6 +165,7 @@ impl Confirmation {
         speech_blocks: 6,
         silence_blocks: 40,
         deadline_blocks: 110,
+        plain_blocks: 10,
     };
 }
 
@@ -156,7 +176,8 @@ pub enum Step {
     Carry,
     /// Stop handing reply audio to the speaker. Keep everything.
     Yield,
-    /// The person went on speaking once the lamp was silent: an interruption.
+    /// The person went on speaking once the lamp was silent, or said
+    /// something short that was heard plainly: an interruption.
     Commit,
     /// Nobody went on speaking: hand reply audio to the speaker again.
     Resume,
@@ -164,9 +185,19 @@ pub enum Step {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum State {
-    Listening { over: u8 },
-    Yielded { blocks: u16, speech: u8, still: u8 },
+    Listening {
+        over: u8,
+        plain: u8,
+    },
+    Yielded {
+        blocks: u16,
+        speech: u8,
+        still: u8,
+        plain: u8,
+    },
 }
+
+const LISTENING: State = State::Listening { over: 0, plain: 0 };
 
 /// One reply's worth of yielding. Counts are kept for the trace.
 #[derive(Clone, Copy, Debug)]
@@ -182,24 +213,40 @@ impl Interruption {
     pub const fn new(rule: Confirmation) -> Self {
         Self {
             rule,
-            state: State::Listening { over: 0 },
+            state: LISTENING,
             yields: 0,
             commits: 0,
             resumes: 0,
         }
     }
 
+    /// One capture block that is not known to hold a person plainly. See
+    /// [`Self::observe`].
+    pub fn block(&mut self, heard: Heard, speaking: bool) -> Step {
+        self.observe(heard, false, speaking)
+    }
+
     /// One capture block. `speaking` is whether the lamp has reply audio it
     /// would otherwise be handing to the speaker; without it there is nothing
-    /// to yield and a person is an ordinary new turn.
-    pub fn block(&mut self, heard: Heard, speaking: bool) -> Step {
+    /// to yield and a person is an ordinary new turn. `plain` is
+    /// [`Hearing::plain`] for the block.
+    ///
+    /// A yield ends in one of three ways. Speech once the lamp is silent
+    /// commits it. Stillness resumes the reply, unless what made the lamp
+    /// yield was heard plainly for long enough: a short word that the lamp's
+    /// own voice cannot account for is a person telling it something, "stop"
+    /// as likely as anything, and the lamp does not talk over that. The
+    /// deadline resumes it whatever was heard.
+    pub fn observe(&mut self, heard: Heard, plain: bool, speaking: bool) -> Step {
         match &mut self.state {
-            State::Listening { over } => {
-                *over = if speaking && heard == Heard::Over {
-                    over.saturating_add(1)
+            State::Listening { over, plain: seen } => {
+                if speaking && heard == Heard::Over {
+                    *over = over.saturating_add(1);
+                    *seen = seen.saturating_add(u8::from(plain));
                 } else {
-                    0
-                };
+                    *over = 0;
+                    *seen = 0;
+                }
                 if *over < self.rule.onset_blocks.max(1) {
                     return Step::Carry;
                 }
@@ -207,6 +254,7 @@ impl Interruption {
                     blocks: 0,
                     speech: 0,
                     still: 0,
+                    plain: *seen,
                 };
                 self.yields += 1;
                 Step::Yield
@@ -215,6 +263,7 @@ impl Interruption {
                 blocks,
                 speech,
                 still,
+                plain: seen,
             } => {
                 *blocks = blocks.saturating_add(1);
                 match heard {
@@ -223,17 +272,20 @@ impl Interruption {
                         *still = 0;
                     }
                     Heard::Still => *still = still.saturating_add(1),
+                    // The person going on over the lamp's dying sound.
+                    Heard::Over => *seen = seen.saturating_add(u8::from(plain)),
                     // The lamp's own sound is still dying away: no evidence.
-                    Heard::Under | Heard::Own | Heard::Over | Heard::Unknown => {}
+                    Heard::Under | Heard::Own | Heard::Unknown => {}
                 }
-                if *speech >= self.rule.speech_blocks.max(1) {
-                    self.state = State::Listening { over: 0 };
+                let quiet = *still >= self.rule.silence_blocks.max(1);
+                if *speech >= self.rule.speech_blocks.max(1)
+                    || (quiet && *seen >= self.rule.plain_blocks.max(1))
+                {
+                    self.state = LISTENING;
                     self.commits += 1;
                     Step::Commit
-                } else if *still >= self.rule.silence_blocks.max(1)
-                    || *blocks >= self.rule.deadline_blocks
-                {
-                    self.state = State::Listening { over: 0 };
+                } else if quiet || *blocks >= self.rule.deadline_blocks {
+                    self.state = LISTENING;
                     self.resumes += 1;
                     Step::Resume
                 } else {
@@ -252,7 +304,7 @@ impl Interruption {
     /// not happened: zero once it has, and while there is nothing to yield.
     pub fn onset_run(&self) -> u8 {
         match self.state {
-            State::Listening { over } => over,
+            State::Listening { over, .. } => over,
             State::Yielded { .. } => 0,
         }
     }
@@ -273,7 +325,7 @@ impl Interruption {
     /// Forget a yield in force, for a reply that ended or was cancelled
     /// another way. The counts stay.
     pub fn clear(&mut self) {
-        self.state = State::Listening { over: 0 };
+        self.state = LISTENING;
     }
 }
 
@@ -462,6 +514,72 @@ mod tests {
         assert_eq!(interruption.counts(), (1, 0, 1));
         // The pause was 720 ms: from the yield to the resume.
         assert_eq!(steps[1].0 - steps[0].0, 79 - ONSET);
+    }
+
+    #[test]
+    fn a_short_word_heard_plainly_is_an_interruption_though_nothing_follows_it() {
+        let rule = Confirmation::EVALUATED;
+        let plain = usize::from(rule.plain_blocks);
+        let play = |blocks: &[(Heard, bool, usize)]| {
+            let mut interruption = Interruption::new(rule);
+            let mut steps = Vec::new();
+            let mut index = 0;
+            for &(heard, plainly, count) in blocks {
+                for _ in 0..count {
+                    match interruption.observe(heard, plainly, true) {
+                        Step::Carry => {}
+                        step => steps.push((index, step)),
+                    }
+                    index += 1;
+                }
+            }
+            (steps, interruption.counts())
+        };
+        // "Stop.": 200 ms that the render cannot account for, then nobody.
+        let (steps, counts) = play(&[
+            (Heard::Over, true, 20),
+            (Heard::Under, false, 30),
+            (Heard::Still, false, 40),
+        ]);
+        assert_eq!(steps, [(ONSET - 1, Step::Yield), (89, Step::Commit)]);
+        assert_eq!(counts, (1, 1, 0));
+        // The same length with the lamp's own voice half of every block: a
+        // pause, as for any acknowledgment.
+        let (steps, counts) = play(&[
+            (Heard::Over, false, 20),
+            (Heard::Under, false, 30),
+            (Heard::Still, false, 40),
+        ]);
+        assert_eq!(steps, [(ONSET - 1, Step::Yield), (89, Step::Resume)]);
+        assert_eq!(counts, (1, 0, 1));
+        // Plain blocks count from the first of the run to the last heard
+        // over the lamp's dying sound, and one short of enough is not enough.
+        for (after, step) in [
+            (plain - ONSET, Step::Commit),
+            (plain - ONSET - 1, Step::Resume),
+        ] {
+            let (steps, _) = play(&[
+                (Heard::Over, true, ONSET),
+                (Heard::Own, false, 5),
+                (Heard::Over, true, after),
+                (Heard::Under, false, 30),
+                (Heard::Still, false, 40),
+            ]);
+            assert_eq!(steps.last().unwrap().1, step, "{after} after the yield");
+        }
+        // A run that broke before the yield lends the next one nothing.
+        let (steps, _) = play(&[
+            (Heard::Over, true, ONSET - 1),
+            (Heard::Own, false, 1),
+            (Heard::Over, false, ONSET),
+            (Heard::Over, true, plain - 1),
+            (Heard::Under, false, 30),
+            (Heard::Still, false, 40),
+        ]);
+        assert_eq!(steps.last().unwrap().1, Step::Resume);
+        // And the deadline resumes whatever was heard.
+        let (steps, _) = play(&[(Heard::Over, true, 30), (Heard::Unknown, false, 200)]);
+        assert_eq!(steps.last().unwrap().1, Step::Resume);
     }
 
     #[test]

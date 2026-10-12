@@ -237,7 +237,8 @@ impl PlaybackMask {
         duplex.margin.observe(heard, evidence);
         // A reply that keeps yielding to nothing stops yielding.
         let may_yield = speaking && duplex.fruitless < FRUITLESS_YIELDS;
-        let step = duplex.interruption.block(heard, may_yield);
+        let plain = duplex.hearing.plain(heard, evidence);
+        let step = duplex.interruption.observe(heard, plain, may_yield);
         if duplex.heard.len() == MAX_HEARD {
             duplex.heard.pop_front();
         }
@@ -1397,6 +1398,47 @@ mod tests {
         assert!(!mask.yielded((sequence - 1) * 10_000));
         assert_eq!(disposition(&mask, yielded).unwrap(), Disposition::Pass);
         assert_eq!(mask.duplex_summary(), Some(((1, 1, 0), false)));
+    }
+
+    #[test]
+    fn a_short_word_heard_plainly_passes_though_nobody_goes_on() {
+        // The render explains a tenth of the block: not the lamp.
+        const PLAIN: Option<(u8, u8)> = Some((10, 0));
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        let word = u64::from(Confirmation::EVALUATED.plain_blocks);
+        let steps = hear(
+            &mut mask,
+            &mut sequence,
+            word,
+            0.9,
+            &evidence(0, PLAIN),
+            true,
+        );
+        assert_eq!(steps, [(ONSET, Step::Yield)]);
+        hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
+        assert_eq!(
+            disposition(&mask, ONSET).unwrap(),
+            Disposition::AwaitWriteEvidence
+        );
+        let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
+        assert_eq!(steps, [(word + 70, Step::Commit)]);
+        assert_eq!(disposition(&mask, ONSET).unwrap(), Disposition::Pass);
+        assert_eq!(mask.duplex_summary(), Some(((1, 1, 0), false)));
+        // One block fewer and it is an acknowledgment: a pause.
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        hear(
+            &mut mask,
+            &mut sequence,
+            word - 1,
+            0.9,
+            &evidence(0, PLAIN),
+            true,
+        );
+        hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
+        let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
+        assert_eq!(steps, [(word + 69, Step::Resume)]);
     }
 
     #[test]

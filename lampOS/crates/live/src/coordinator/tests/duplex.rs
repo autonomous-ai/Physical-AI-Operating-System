@@ -489,6 +489,49 @@ fn a_person_who_pauses_longer_than_the_endpoint_wait_and_goes_on_still_interrupt
 }
 
 #[test]
+fn a_short_word_heard_plainly_stops_the_reply_though_nothing_follows_it() {
+    // "Stop.", 200 ms, of which the render explains a tenth. Then nobody.
+    let mut h = Harness::new(TurnTaking::Duplex, 400);
+    let old = h.old();
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    let word = h.blocks(20, 0.9, Some(evidence(0, Some((10, 0)))));
+    assert_eq!(dispatched(&word), ONSET - 1);
+    let mut after = Vec::new();
+    for quiet in 1..=29 {
+        after.push(h.block(0.1, Some(evidence(quiet, None))));
+    }
+    after.extend(h.blocks(40, 0.1, Some(evidence(40, None))));
+    // Nothing more of the reply was handed to the speaker, and at the block
+    // that would have resumed it the word was taken as an interruption.
+    assert_eq!(dispatched(&after), 0);
+    assert!(after[..68].iter().all(|tick| tick.accepted.is_none()));
+    let accepted = after[68].accepted.as_ref().expect("the word was let in");
+    assert_eq!(accepted.trigger_sequence, 20 + ONSET_SEQUENCE);
+    assert!(accepted.audio.windows(2).all(|pair| pair[1] == pair[0] + 1));
+    assert!(accepted.audio[0] <= 21);
+    assert_eq!(h.events("duplex_commit").len(), 1);
+    assert!(h.events("duplex_resume").is_empty());
+    let finished = h.events("turn_finished");
+    assert_eq!(finished.len(), 1);
+    assert_eq!(finished[0]["outcome"], "user_interrupted");
+    assert_ne!(h.old(), old);
+    assert!(h.offer_speaker().is_none());
+    // The same word with the lamp's voice half of every block is the
+    // acknowledgment it always was.
+    let mut h = Harness::new(TurnTaking::Duplex, 400);
+    let old = h.old();
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    h.blocks(20, 0.9, Some(evidence(0, OVER)));
+    for quiet in 1..=29 {
+        h.block(0.1, Some(evidence(quiet, None)));
+    }
+    h.blocks(40, 0.1, Some(evidence(40, None)));
+    assert_eq!(h.events("duplex_resume").len(), 1);
+    assert!(h.events("turn_finished").is_empty());
+    assert_eq!(h.old(), old);
+}
+
+#[test]
 fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();

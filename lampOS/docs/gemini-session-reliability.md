@@ -1517,9 +1517,23 @@ so the next block could seem captured before it.
   showed. With blocks 10 ms apart it needs a delay of 10 ms inside a
   window a few microseconds wide. Rare, and terminal when it happens.
 - Now the worker hands a block its predecessor's instant, never an
-  earlier one, wherever the shared times themselves are in order. Times
-  that really go backwards are passed on as they are and are still
-  refused by the session.
+  earlier one, wherever the shared times themselves are in order.
+- **Corrected after a second review (`lamp-a1-capture-order`).** I had
+  written that times which really go backwards were passed on and still
+  refused by the session. That was wrong. The same delay that can carry
+  a later block back can carry an earlier one forward, and the session
+  sees only the instant: the integrator's regression had a shared time
+  one microsecond earlier than its predecessor's accepted and carried
+  forward by 50 ms. The worker now decides order on the shared clock,
+  per request, before anything is carried over: a block whose
+  `read_completed_at_us` is below the last one handed over for the same
+  request is refused with "capture time went backwards", nothing of it
+  is submitted and nothing is remembered of it. An equal time is in
+  order. A newer request begins its own order. The age bounds and the
+  defaults are unchanged and nothing is replayed.
+- That refusal ends the worker's intake, like the "invalid or stale
+  capture time" check beside it. Before, such a block either reached the
+  session and ended it with `InputSequence`, or was accepted.
 - A block clamped this way seems younger than it is by at most the delay
   that caused it. The age bound of one second is otherwise unchanged.
 - Regression, committed failing first:
@@ -1543,6 +1557,7 @@ so the next block could seem captured before it.
 | A stale callback: an interruption that arrives after the kept question was committed | Session | `retain::a_late_interruption_after_the_kept_question_is_committed_is_dropped_and_answers_nothing` |
 | **A duplex interruption end to end**: the coordinator's own hearing, admission and `commit_admitted_input` for a person speaking over the lamp, `flush_provider_input`, the Coordinated worker, the Supervisor and the session. The service receives one start and the admitted blocks in order, then the End, and the answer is the new request's. Capture blocks and their evidence are scripted | Coordinator duplex harness with the real worker | `duplex_through_the_worker::a_person_speaking_over_the_lamp_reaches_the_service_as_one_question_with_their_opening_words` |
 | Capture times across the worker's two clocks | Worker unit | `a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one` |
+| A capture time that really goes backwards (the integrator's regression, as written), and its positive controls: the same time twice, a refusal that changes nothing, a newer request's own order | Worker unit | `audit_shared_clock_regression_cannot_be_hidden_by_a_later_clock_gap`, `capture_order_is_decided_per_request_and_a_refusal_changes_nothing` |
 
 **Results on the pilot branch.** Host unless marked; emulated ARM64 is
 not a device, and nothing here has been through a microphone, a speaker
@@ -1561,9 +1576,13 @@ or the real service.
 | the same | Pair, duplex, worker `kept_start` and clock tests, 25 tests, 8 runs | 7 runs of 25; in the other `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` failed once (output kept; see the status file) |
 | `aa1558be3` | Focused, from a source export of the exact commit, 00:30:11Z to 00:32:58Z | format clean; strict Clippy for both crates clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 135 passed, 0 failed, 2 ignored |
 | `aa1558be3` | Emulated ARM64, `agent1-arm64-verify39`, 00:38:14Z to 00:40:19Z, alone in the VM | strict Clippy for both crates; `lamp-gemini` release tests 196 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, `duplex_through_the_worker`, the duplex coordinator tests, the clock regression, options and fixture 67 passed, 0 failed; release build of `lamp-live`, ELF aarch64, SHA-256 `951c66ce58f5aca4f3c4592e7185fffc47641f8ea476a6766aea9b762ad06da8` |
+| `241e64dfd` | The integrator's regression alone, before the fix | fails: "a genuinely regressing shared capture timestamp was accepted and mapped forward by Some(50.002566ms)" |
+| `da9891f7e` | The same regression, my delay control and the new positive controls, after the fix | 3 passed |
+| `da9891f7e` | Focused, from a source export of the exact commit, 00:58:46Z to 01:01:25Z | format clean; strict Clippy `-p lamp-gemini -p lamp-live --all-targets` clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 137 passed, 0 failed, 2 ignored |
 
-Not run on `aa1558be3`: the whole workspace. Not run at all: anything
-against the real service or on a lamp.
+Not run on `aa1558be3` or after it: the whole workspace. No ARM64 run
+after `aa1558be3`. Not run at all: anything against the real service or
+on a lamp.
 
 ### On the probe, and on a Lamp
 

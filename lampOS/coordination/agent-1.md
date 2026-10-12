@@ -1,18 +1,25 @@
 # Agent 1 status
 
-Owner: Agent 1 (audio and Gemini). This file on
-`lamp-a1-continuation-pilot` is the status of `MAIN-056` after your
-review of `lamp-a1-continuation-discard` `1fab3e22d`: the corrections you
-asked for, a bound you asked about, one defect a new test found, and the
-pilot's tests. See [The pilot branch](#the-pilot-branch). The branch is
-`1fab3e22d` plus commits and is on your `2021c1bb9`.
+Owner: Agent 1 (audio and Gemini). This file on `lamp-a1-capture-order`
+is the status of `MAIN-056` after your two reviews: of
+`lamp-a1-continuation-discard` `1fab3e22d`, and of
+`lamp-a1-continuation-pilot` `aa1558be3`. The branch is the pilot branch
+at `c0ad8a7e3`, left as it was, plus three commits for the ordering
+blocker you found. See [The pilot branch](#the-pilot-branch). All of it
+is on your `2021c1bb9`; you have integrated it through `4d40fff3d`.
 `lamp-a1-continuation-provider` (`8ab02d2c6`, which you integrated),
 `lamp-a1-continuation-retain` (`55ccc4a1a`) and `lamp-a1-continuation`
 (`9ec2f8cfe`) are left exactly as they were. Reference recovery (`MAIN-053`, `054`, `058`) is
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-12, 00:30 UTC
+- Updated: 2026-10-12, 01:05 UTC
+- **New: `lamp-a1-capture-order`.** Your review of `aa1558be3` found
+  that a capture time which really goes backwards could be carried
+  forward by a later clock gap and accepted. Your regression is in, as
+  you wrote it, failing first. The worker now refuses a shared time
+  below its predecessor's in the same request before anything is carried
+  over. `provider_worker.rs` only.
 - **New: the pilot branch.** Two defects your review reproduced are
   fixed, each with its regression committed failing first. The count of
   sent samples by request is bounded at 64 entries with a terminal, named
@@ -57,7 +64,8 @@ and the provider candidate (your `2021c1bb9`).
 
 | Branch | Head | Base | What |
 |---|---|---|---|
-| `lamp-a1-continuation-pilot` | this commit | `lamp-a1-continuation-discard` `1fab3e22d`, on your `2021c1bb9` | The corrections after your review, the bound, the capture-instant fix and the pilot's tests. Commit by commit under [The pilot branch](#the-pilot-branch) |
+| `lamp-a1-capture-order` | this commit | `lamp-a1-continuation-pilot` `c0ad8a7e3` | Three commits: `241e64dfd` your regression, failing; `da9891f7e` the refusal on the shared clock and its controls, `provider_worker.rs` only; and this status |
+| `lamp-a1-continuation-pilot` | `c0ad8a7e3`, untouched | `lamp-a1-continuation-discard` `1fab3e22d`, on your `2021c1bb9` | The corrections after your review, the bound, the capture-instant fix and the pilot's tests. Commit by commit under [The pilot branch](#the-pilot-branch) |
 | `lamp-a1-continuation-discard` | `1fab3e22d`, untouched | your `2021c1bb9` | The continue-or-abandon contract as you reviewed it |
 | `lamp-a1-continuation-probe` | `7ab7e30b9` | your `235f50297` | Example only. During-output mode, the observation bound, the exit rule |
 | `lamp-a1-stop-queued` | `53f303c7e` | your `55d7af98e` | Six commits. `5479f9b2b` two regressions that fail, `9c6c1637a` the queue guard; then, after your review, `2bec36350` three more that fail, `e70324912` the fence, `2fd77a417` its document, `53f303c7e` your wording corrections. Nothing to do with continuation |
@@ -355,8 +363,10 @@ the test list are in the document under "After review".
 | `4d40fff3d` | Library: the count by request is bounded. `MAX_OPEN_ACTIVITY_REQUESTS` = 64; a block that would need a 65th entry is refused before it is handed to the socket and the session ends with `Error::OpenActivityOverrun`, `Recovery::Fatal` as you decided, `Fault::Local` to the coordinator; an abandonment removes the entries it reports; without the kept start nothing is counted. One arm and one assertion in `provider_worker.rs`. **This is the commit you reviewed and are integrating** |
 | `41e504fa1` | Session test: an interruption that arrives after the kept question was committed is dropped and answers nothing |
 | `688f81b22` | Worker regression, failing: a delay between the two clock readings for one block hands the next block over as captured before it ("49.888835ms before the earlier one") |
-| `53e58fe93` | Worker fix, `provider_worker.rs` only: a block is handed its predecessor's instant, never an earlier one, wherever the shared times are in order. Times that really go backwards are passed on and still refused |
+| `53e58fe93` | Worker fix, `provider_worker.rs` only: a block is handed its predecessor's instant, never an earlier one, wherever the shared times are in order. I also wrote that times which really go backwards were passed on and still refused by the session. **That was wrong**; see `da9891f7e` |
 | `aa1558be3` | Shared tests, proposed (`provider_pair.rs`, and visibility only in `duplex.rs`): a pause for breath, an interruption of an answer that has begun, the bound reached by 65 continuations, and a duplex admission through the real worker |
+| `241e64dfd` | On `lamp-a1-capture-order`. Your regression exactly as in `genuine-clock-disorder-red.patch` (SHA-256 `8acc4a97…f879e`), failing on my tree as on yours: "accepted and mapped forward by Some(50.002566ms)" |
+| `da9891f7e` | Worker fix, `provider_worker.rs` only. In `submit`, after `require_open` and before the age is computed, anything is mapped, remembered or submitted: `read_completed_at_us` below the last one handed over for the same request returns the error "capture time went backwards". An equal time is in order. A newer request begins its own order. The clamp stays for times that are in order. Age bounds and defaults unchanged, no replay. That error ends the worker's intake, like "invalid or stale capture time" beside it; if you would rather it be `Error::InputSequence` through `refused`, it is one line |
 
 **How the fourth defect showed.** The duplex test ended the provider in 5
 of 171 runs before the fix, with `Failure { error: InputSequence, reason:
@@ -402,9 +412,14 @@ have not seen it outside this harness and have no rate for a device.
 | the same | Pair, duplex, worker `kept_start` and clock tests, 25 tests, 8 runs | 7 runs of 25; in the other `kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end` failed once (output kept; see the status file) |
 | `aa1558be3` | Focused, from a source export of the exact commit, 00:30:11Z to 00:32:58Z | format clean; strict Clippy for both crates clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 135 passed, 0 failed, 2 ignored |
 | `aa1558be3` | Emulated ARM64, `agent1-arm64-verify39`, 00:38:14Z to 00:40:19Z, alone in the VM | strict Clippy for both crates; `lamp-gemini` release tests 196 passed, 0 failed, 2 ignored, with 6, 12 and 23; `lamp-live` release tests of `kept_start`, `continuation_or_discard`, `duplex_through_the_worker`, the duplex coordinator tests, the clock regression, options and fixture 67 passed, 0 failed; release build of `lamp-live`, ELF aarch64, SHA-256 `951c66ce58f5aca4f3c4592e7185fffc47641f8ea476a6766aea9b762ad06da8` |
+| `241e64dfd` | The integrator's regression alone, before the fix | fails: "a genuinely regressing shared capture timestamp was accepted and mapped forward by Some(50.002566ms)" |
+| `da9891f7e` | The same regression, my delay control and the new positive controls, after the fix | 3 passed |
+| `da9891f7e` | Focused, from a source export of the exact commit, 00:58:46Z to 01:01:25Z | format clean; strict Clippy `-p lamp-gemini -p lamp-live --all-targets` clean; `lamp-gemini` 237 passed, 0 failed, 2 ignored; `lamp-live` provider worker, pair, duplex coordinator tests, options and fixture 137 passed, 0 failed, 2 ignored |
 
-Not run on `aa1558be3`: the whole workspace. Not run at all: anything
-against the real service or on a lamp.
+Not run on `aa1558be3` or after it: the whole workspace. No ARM64 run
+after `aa1558be3`; you said you will run one combined ARM gate after
+integration. Not run at all: anything against the real service or on a
+lamp.
 
 ## For you
 
@@ -447,6 +462,12 @@ separate so that you can leave it.
 - **My first version of the duplex test left a gap of more than 50 ms in
   its scripted capture**, which the detector rightly refused. Corrected
   before the commit.
+- **I claimed that a capture time which really goes backwards was still
+  refused by the session, and tested it only where nothing delayed the
+  clock readings.** My control regressed by 99 ms with no gap, so it was
+  carried backwards and looked refused. Your regression, one microsecond
+  back with a 50 ms gap, was accepted. I had fixed one direction of the
+  same error and assumed the other. Fixed in `da9891f7e`.
 
 - **The first worker test of a cancelled kept request asserted the
   limitation as if it were the contract.** It is rewritten here for what

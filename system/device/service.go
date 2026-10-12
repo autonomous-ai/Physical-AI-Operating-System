@@ -36,6 +36,7 @@ type Service struct {
 	wakeApply       wakeWordApply
 	// Optional command override for isolated service tests.
 	halRestartCommand func(context.Context) error
+	halInputModeApply func(context.Context, string, bool) error
 }
 
 func ProvideService(config *config.Config, ns *network.Service, gw domain.AgentGateway, be *beclient.Client, sled *statusled.Service) *Service {

@@ -1,5 +1,7 @@
 """Physical tap routing and actions for device tap-to-talk input."""
 
+import time
+
 import hal.app_state as state
 from hal.drivers import button_actions
 
@@ -36,6 +38,7 @@ def physical_short_tap(source: str = "button", announce: bool = False):
         if voice:
             voice.device_input.cancel()
         button_actions._wake_if_sleepy(source)
+        button_actions.play_ack_chime(source)
         return
     from hal.routes.voice import stop_tts, unmute_mic
     if state.tts_service and state.tts_service.speaking:
@@ -43,6 +46,7 @@ def physical_short_tap(source: str = "button", announce: bool = False):
             voice.device_input.cancel()
         button_actions._cancel_agent_speech(source)
         stop_tts()
+        button_actions.play_ack_chime(source)
         return
     if voice is None:
         return
@@ -50,11 +54,19 @@ def physical_short_tap(source: str = "button", announce: bool = False):
         voice.device_input.finish()
         return
     from hal.routes.music import audio_stop, unmute_speaker
-    button_actions._cancel_agent_speech(source)
+    # Taking the floor supersedes pending replies, even before playback starts.
+    # Cancel locally before reserving B; remote suppression is timestamp-scoped.
+    voice.device_input.cancel()
+    cutoff = int(time.time() * 1000)
+    from hal.drivers.voice.tts.turn_supersession import suppress_before
+    suppress_before(cutoff)
+    button_actions._cancel_agent_speech(source, before_ms=cutoff)
+    stop_tts()
     state.note_music_cancel()
-    audio_stop()
+    if state._music_playing or (state.music_service and state.music_service.playing):
+        audio_stop()
     if state._speaker_muted:
         unmute_speaker()
     if state._mic_muted:
         unmute_mic()
-    voice.device_input.start()
+    voice.device_input.start(after_ms=cutoff)

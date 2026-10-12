@@ -2,6 +2,8 @@
 
 Yêu cầu sleep/wake hướng tới thiết bị (kể cả “Can you sleep?”) được chuyển im lặng sang main, không trả lời như câu hỏi về bản thân. Main vẫn kiểm tra khả năng và điều kiện chặn sleep khi bật Harness voice, chỉ xác nhận kết quả thực tế. “Do robots need sleep?” là kiến thức chung; “I can’t sleep” nói về sức khỏe người dùng, không phải lệnh cho máy ngủ. Quy tắc áp dụng cho mọi prompt realtime, kể cả GPT Live backend.
 
+Rule sleep/wake cũng bao gồm yêu cầu hướng tới máy dùng cách nói chung hoặc đính chính như “Can we sleep now?”, “I mean, can you sleep now?”, và “Ngủ đi”. Rule ưu tiên hơn mặc định trả lời trực tiếp/persona và ưu tiên tránh latency delegate. Realtime phải handoff trước khi nói, không thay thực thi bằng giải thích về giấc ngủ sinh học, chúc ngủ ngon, hứa hạ đèn/im lặng hoặc `complete_response`. Đây vẫn là rule prompt theo ngữ cảnh, không phải router bắt từ khóa sleep; test nội dung prompt không chứng minh model thực tế tuân thủ.
+
 ## Tiếng Nhật và giọng ElevenLabs
 
 Dùng `stt_language: "ja"` cho tiếng Nhật. HAL có phrase tiếng Nhật cho thông báo
@@ -211,15 +213,38 @@ thành một nhãn phân loại — đây là một chỉ dẫn prompt, không p
 code. `test_turn_routing_log.py` ghim cách ghép message; không gì ghim được việc
 model có tuân thủ hay không.
 
+Wake đã được xác nhận trong lượt thu hiện tại được giữ là `voice_command` khi gửi main agent, kể cả khi STT sửa tên từ partial sang final đã được chấp nhận (ví dụ “Lamp” thành “lamb”). Không phân loại lại lượt đã xác nhận thành ambient chỉ dựa vào transcript cuối. Giữ nguyên điều kiện xác nhận wake; tên gần giống đứng riêng không đủ để cho phép lượt. Không thêm I/O hay thời gian chờ.
+
 ### Chế độ nhập giọng nói trên thiết bị
 
-Cấu hình top-level `voice_input_mode` chọn `automatic` (mặc định, kể cả config cũ thiếu trường) hoặc `tap_to_talk` khi Harness voice-only OFF. Automatic giữ nguyên VAD, realtime và wake enable/disable hiện tại. Tap-to-talk chỉ mở recorder khi có thao tác chạm; chạm lần nữa chốt STT và gửi một transcript qua route OS hiện có đến runtime trên thiết bị dưới dạng `voice_command` (lời nói trực tiếp của user, không phải `voice` ambient). Trong lúc thu, đường này bỏ qua audio realtime, chuyển vào live, tự kết thúc câu và lời backchannel.
+Cấu hình top-level `voice_input_mode` chọn `automatic` (mặc định, kể cả config cũ thiếu trường) hoặc `tap_to_talk` khi Harness voice-only OFF. Automatic giữ nguyên VAD, realtime và wake enable/disable hiện tại. Tap đầu mở recorder và upload lời nói song song tới STT và realtime. Tap thứ hai công bố endpoint trước tone kết thúc để realtime commit mà không chờ transcript STT cuối hay nhận diện người nói. Realtime trả lời hoặc delegate đến main agent; nếu realtime tắt/không khả dụng, transcript STT sẵn có đi qua route OS hiện có dưới dạng `voice_command` (lời nói trực tiếp của user, không phải `voice` ambient). Capture không chuyển vào live, tự kết thúc câu hay phát lời backchannel. Cả nhánh realtime streaming và gửi audio đã thu trên device đều chặn timer wait filler tự động của HAL, nên lúc chờ realtime trả lời không yêu cầu OS phát “Ừm…”. Chime bắt đầu/kết thúc vẫn giữ nguyên; thay đổi này không lọc lời do model sinh ra và không đổi filler của main agent sau khi delegate. Gemini và OpenAI hỗ trợ streaming với commit thủ công này. Pipecat cũng stream audio nhưng giữ bước `finalize_stt` nội bộ. GPT Live không có manual commit nên giữ audio trong buffer tới tap kết thúc; đây là ngoại lệ đối với streaming trong lúc thu.
 
-**Ranh giới code:** `hal/drivers/device_tap_actions.py` quản lý quyết định từ tap vật lý; `_internal/device_input.py` cung cấp controller thu trên device; `_internal/input_policy.py` quản lý chọn mode, quyền sở hữu route, quy tắc realtime/dispatch theo lượt và phản hồi đèn khi thu. `voice_service.py` nối các phần này qua những điểm gọi nhỏ và giữ pipeline recorder/STT dùng chung. `HarnessCapture` nhận callback kiểm tra route, mặc định vẫn dùng matcher Harness cũ; không chứa quy tắc riêng của mode trên device.
+Đổi riêng mode qua HTTP/MQTT không restart hai tiến trình. OS lưu config.json rồi gọi HAL `POST /voice/input-mode` với `{ "mode": "automatic" | "tap_to_talk", "wakeword": true | false }`. HAL tuần tự hóa chuyển mode, hủy input đang chờ, cấu hình lại voice worker và realtime session, giữ sleep/privacy. Các dịch vụ phần cứng khác tiếp tục chạy. Success xác nhận áp dụng tại máy, không xác nhận kết nối cloud. Apply lỗi được báo và có thể thử lại cùng mode tường minh. Request đồng thời đổi trường chỉ đọc lúc boot vẫn có thể cần restart HAL. Kết nối cloud ban đầu chạy trong một worker nền với tối đa một yêu cầu chờ có thể thay thế, nên đổi ngược mode ngay không phải chờ handshake trước. Stop vô hiệu hóa generation startup và event retry cũ; kết nối hoặc session thay thế trả về muộn bị đóng, không được trở thành session đang dùng. Đổi mode liên tiếp chỉ giữ yêu cầu kết nối mới nhất. `hal/realtime/startup.py` quản lý cơ chế startup có giới hạn này.
 
-Cờ `wakeword` đã lưu được giữ nguyên. `WAKEWORD_ENABLED` hiệu dụng của HAL là false trong tap-to-talk, nên gaze, presence, focus từ boot greeting và wake phrase không mở bản ghi hay cửa sổ follow-up. Chuyển về automatic khôi phục lựa chọn wake đã lưu. Harness ON giữ chính sách thu thủ công hiện tại, độc lập với cấu hình này.
+**Ranh giới code:** `_internal/input_mode.py` quản lý chuyển mode nóng tuần tự; `hal/drivers/voice_mode_gesture.py` quản lý client action vật lý cấu hình được và xác nhận.  `hal/drivers/device_tap_actions.py` quản lý quyết định từ tap vật lý; `_internal/device_input.py` cung cấp controller thu trên device; `_internal/input_policy.py` quản lý chọn mode, quyền sở hữu route, quy tắc realtime/dispatch theo lượt và phản hồi đèn khi thu. `voice_service.py` nối các phần này qua những điểm gọi nhỏ và giữ pipeline recorder/STT dùng chung. `HarnessCapture` nhận callback kiểm tra route, mặc định vẫn dùng matcher Harness cũ; không chứa quy tắc riêng của mode trên device.
 
-Bản ghi trên thiết bị dùng lại bộ điều khiển thu thủ công với nhãn owner device và generation định tuyến Harness có thẩm quyền. Bật Harness, mất snapshot định tuyến, đổi generation, stop/mute voice service hoặc restart HAL sẽ hủy input đang dở; bản ghi không được chuyển sang owner khác. Dispatch cuối kiểm tra lại owner. Im lặng không tự gửi; lỗi provider hoặc chạm giới hạn `HAL_MAX_SESSION_DURATION_S` (mặc định 30 giây) làm hủy bản ghi. Chạm kết thúc trước khi STT sẵn sàng cũng hủy. Beep sẵn sàng và hiệu ứng listening báo recorder đã mở; beep kết thúc xác nhận tap gửi hợp lệ. Khi TTS đang phát, tap chỉ ngắt; khi đang ngủ, tap chỉ đánh thức. Tap tiếp theo mới thu. Khóa mic vật lý luôn có quyền ưu tiên.
+Cờ `wakeword` đã lưu được giữ nguyên. `WAKEWORD_ENABLED` hiệu dụng của HAL là false trong tap-to-talk, nên gaze, presence, focus từ boot greeting và wake phrase không mở bản ghi hay cửa sổ follow-up. Tap-to-talk cũng ép giá trị hiệu dụng `LIVE_MODE=false` và `REALTIME_TURN_DETECTION=off`, kể cả khi biến môi trường yêu cầu Live hoặc server VAD, để chỉ tap kết thúc mới commit lượt. Chuyển về automatic khôi phục cấu hình Live/turn detection và lựa chọn wake đã lưu. Harness ON giữ chính sách thu thủ công hiện tại, độc lập với cấu hình này.
+
+Bản ghi trên thiết bị dùng lại bộ điều khiển thu thủ công với nhãn owner device và generation định tuyến Harness có thẩm quyền. Bật Harness, mất snapshot định tuyến, đổi generation, stop/mute voice service hoặc restart HAL sẽ hủy input đang dở; bản ghi không được chuyển sang owner khác. Owner được kiểm tra lại trước khi upload audio sang realtime, commit và dispatch cuối; nếu mất quyền sau đó thì activity realtime đang chờ bị loại bỏ. Hủy trước tap kết thúc hợp lệ ngăn commit và loại bỏ/reset phiên provider, kể cả audio đã upload. Im lặng không tự commit; lỗi recorder hoặc chạm giới hạn `HAL_MAX_SESSION_DURATION_S` (mặc định 30 giây) làm hủy bản ghi. Phản hồi thu trên device do `_internal/device_capture.py` quản lý: sau frame mic đầu tiên, tone ngắn 40 ms và hiệu ứng listening báo recorder cục bộ sẵn sàng, không chờ kết nối STT. Audio được giữ trong buffer lúc kết nối trong giới hạn thời lượng bản ghi (mặc định 30 giây). Tap kết thúc dừng input và công bố endpoint realtime trước tone đi xuống và trước khi chờ cloud chốt transcript; tone xác nhận đã dừng thu, không xác nhận đã gửi thành công. Tap kết thúc sau khi mic sẵn sàng nhưng trước khi STT kết nối vẫn giữ audio để gửi khi kết nối thành công. Tap trước khi mic sẵn sàng hủy và không gửi. Một worker nền có giới hạn warm code bộ lọc tham chiếu khử vọng ngay khi tạo pipeline, kể cả đang mute hoặc ngủ, không mở mic hay thay trạng thái AEC đang chạy. Lần đánh thức đầu không phải trả chi phí import lạnh này. Input thủ công device bỏ chờ khởi động voice cố định 500 ms; Automatic và Harness giữ nguyên. Tap trên device được chấp nhận sẽ đánh thức recorder worker ngay. Arecord của device dùng period 10 ms (giữ buffer mặc định), đọc 10 ms đầu để xác nhận mic; capture kiểm tra dừng giữa các lần đọc 10 ms, còn STT vẫn gom gói 64 ms. Thời gian chờ terminate giới hạn 100 ms trước khi kill/reap để pipe đầy sau khi chốt không giữ tap kế tiếp hai giây. Cấu hình recorder automatic/Harness không đổi. Khi TTS đang phát, tap chỉ ngắt; nếu realtime đang trả lời thì tap cũng hủy stream phản hồi để các đoạn audio tiếp theo không phát trở lại. Khi đang ngủ, tap chỉ đánh thức. Tap tiếp theo mới thu. Khóa mic vật lý luôn có quyền ưu tiên.
+
+Thu âm trên device và chốt kết quả qua mạng được tách trong `_internal/device_voice_pipeline.py`. `_internal/device_turn_queue.py` giữ chỗ cho tối đa hai lượt chưa hoàn tất trước khi nhận bản ghi, gồm lượt đang thu và lượt đang upload/chốt kết quả. Khi kết thúc, recorder được giải phóng sau tone dừng cục bộ; tap tiếp theo có thể thu trong lúc STT của lượt trước còn chốt. Mỗi lượt sở hữu một worker realtime trong `_internal/device_realtime.py`; công việc model chạy tuần tự theo thứ tự thu, độc lập với FIFO dispatch STT. Transcript STT, nhận diện người nói, sự kiện đồng bộ OS đã xử lý và fallback transcript có thể hoàn tất sau trên FIFO đó. STT chậm hoặc lỗi không hủy realtime; fallback cần transcript sẵn có. Giới hạn hai chỗ giữ áp dụng cho tổng công việc chưa hoàn tất, và công việc mạng không chặn thu âm. Audio trực tiếp từ model cũng đợi guard input mic trên device được nhả trước khi phát, và có thể hủy trong lúc đợi. Worker chốt không ghi đè hiệu ứng thinking/listening của bản ghi mới hơn. Nếu cả hai chỗ đều bận, bản ghi mới bị từ chối trước tone sẵn sàng. Hủy làm vô hiệu các lượt đang chờ; uploader vẫn giữ chỗ đến khi provider giải phóng tài nguyên. TTS trả lời bắt buộc đợi trong lúc input device giữ mic, không báo đang phát; lời nói tùy chọn giữ chính sách chặn hiện có. Nhận input và nhận playback dùng cùng cơ chế đồng bộ; guard chỉ nhả sau khi mic đóng. Hàng đợi lời trả lời bắt buộc giới hạn 32 yêu cầu / 64 KiB văn bản; khi đầy sẽ từ chối yêu cầu mới. Bắt đầu bản ghi mới hủy lượt STT/realtime cũ và xóa lời nói đang chờ dù TTS chưa phát. OS nhận mốc thời gian để chặn lời trả lời và filler cũ, không hủy tác vụ hay hành động phần cứng của agent. Mốc được lấy trước khi nhận bản ghi mới nên yêu cầu hủy đến muộn không chặn lượt mới; fallback giữ thời điểm thu gốc dù đến OS muộn. Hủy cục bộ không đợi HTTP. Chặn phía OS là best effort nếu OS không truy cập được; uploader đã hủy vẫn giữ chỗ trong giới hạn đến khi dọn tài nguyên xong. Đổi provider hoặc giọng TTS sẽ hủy lời trả lời đang chờ của output service cũ; guard và cue của bản ghi đang thu được chuyển sang service mới trước khi công bố instance đó, còn guard cũ được giữ đến khi mic đóng.
+
+Với STT thực sự trả kết quả rỗng, tap-to-talk đợi cả STT và realtime kết thúc. Chỉ khi bộ phát hiện lời nói xác nhận có speech và realtime không khả dụng, chưa chạy, gặp lỗi hoặc không tạo output, `_internal/device_retry_feedback.py` mới phát câu ngắn theo ngôn ngữ thiết bị: “Mình chưa nghe rõ. Bạn nói lại giúp mình nhé?”. Câu này không thay thế câu trả lời hay delegation của realtime, không ghi đè quyết định từ chối/hủy, và không đáp lại im lặng. Transcript bị bộ lọc echo hoặc lời bịa loại bỏ không thuộc trường hợp phục hồi STT rỗng. Automatic không dùng câu nhắc này. Câu được render sẵn cùng các câu vòng đời, có thể ngắt, tuân thủ mute của loa, và kiểm tra validity cùng timestamp của capture để tap mới chặn phản hồi cũ.
+
+Tính embedding người nói bắt đầu sau endpoint kết thúc và chạy song song với giai đoạn STT chốt transcript. FIFO finalizer sở hữu tối đa một worker nhận diện; cleanup join worker trước khi nhả chỗ giữ. Nhận diện giữ cùng chính sách cắt audio, chừa khoảng 200 ms sau frame lời nói cuối. Tính embedding sớm chưa lưu WAV đầu vào hay cập nhật cụm người lạ lâu dài cho đến khi transcript cuối được giữ và realtime không từ chối lượt đó. Capture rỗng, bị loại do noise hoặc đã hủy sẽ bỏ kết quả nhận diện sớm.
+
+Replay qua proxy trên device ngày **2026-10-09** so sánh cùng 11 capture tiếng Việt đã lưu (16 kHz, mono):
+
+| Đường STT | Transcript rỗng | Tail trung vị | Tail lớn nhất |
+|---|---:|---:|---:|
+| Streaming Nova-3 | 0/11 | 524 ms | 610.6 ms |
+| Streaming Nova-2 | 1/11 | 782.7 ms | 11.667,9 ms |
+| Raw-WAV batch Nova-3 | 0/11 | 1.262,4 ms | 2.549,8 ms |
+| Raw-WAV batch Nova-2 | 6/11 | 1.669,3 ms | 4.082,9 ms |
+
+Mốc đo từ endpoint kết thúc capture tới kết quả STT, không gồm thu âm. Streaming dùng WebSocket đã kết nối; batch gồm thiết lập kết nối/yêu cầu HTTP, upload và xử lý. Response batch được đối chiếu với thời lượng audio đã decode. Đây là replay provider, không phải test đầu-cuối bằng tap và microphone thật. Chưa có transcript chuẩn; các capture đã lưu thiên về lượt từng thành công và không có bản ghi “3+3” bị lỗi. Vì vậy số đo này chưa xác định model chính xác hơn cho mọi lời nói tiếng Việt. Giữ streaming Nova-3 cho tiếng Việt; chưa thêm batch retry tự động dựa trên mẫu này.
+
+Trên cùng lamp, replay sáu WAV trong tập mẫu qua STT và speaker recognizer thật giảm trung vị từ endpoint đến điểm dispatch được chặn để đo từ **1.645 ms xuống 1.116 ms (32%)**. Lượt đầu mỗi process mất **3.093 ms trước sửa và 2.659 ms sau sửa**, gồm nạp bộ tiền xử lý lần đầu. Mỗi lượt có identity cache rỗng và cùng bản sao kho enrollment/stranger; benchmark tắt migration nền của kho. Realtime-unavailable và kết quả có lời nói được mô phỏng, chặn dispatch ra OS, không đo thu mic hoặc phát loa. Số liệu chứng minh giảm chờ ở đường fallback, không phải tăng tốc sinh audio của Realtime. Kiểm tra riêng trên device dùng admission TTS cache thật với WAV im lặng tạo sẵn: đúng một cue cho mỗi lượt trong mười lượt rỗng đủ điều kiện; không có cue khi handled/delegated/rejected/cancelled/im lặng hoặc đang có capture mới. Phép kiểm tra này không đo âm thanh phát ra loa.
 
 ### Điều khiển agent qua Harness bằng giọng nói
 
@@ -386,6 +411,7 @@ cuối một turn. Các giá trị (`ROUTE_*` trong `realtime_turn.py`):
 | `realtime_unavailable` | Không có session sống để commit — agent chính trả lời. |
 | `noise_dropped` | Noise guard chặn; đây là terminal kể cả khi STT bịa transcript ngắn, nên turn không tới ai cả. |
 | `realtime_not_started` | Realtime tắt, hoặc capture này không mở turn nào. |
+| `realtime_cancelled` | Lượt thu thủ công bị hủy; dừng output, không retry, đồng bộ history hay fallback sang agent chính. |
 
 Khi model gọi delegate, `stream_output()` **break turn ngay lập tức** sau khi
 yield `DelegateSignal` — *không* chờ `turn_complete` của model. Model đã delegate
@@ -588,7 +614,8 @@ Flux nhận chúng dưới dạng param `keyterm` lặp lại, không trọng s�
 dùng `keyterm`; các model nova cũ hơn dùng `keywords` kèm intensifier `:3`.
 
 Mọi lượt wake-word đã được STT final xác nhận đều đi qua dispatch. Nó mở một
-cửa sổ focus follow-up 20 giây, nên câu tiếp theo có thể bỏ wake phrase và
+cửa sổ focus follow-up theo cấu hình (profile lamp 5 giây; HAL mặc định 20 giây),
+nên câu tiếp theo có thể bỏ wake phrase và
 được gửi với type `voice_followup`. Với turn đã được phép, thời gian chờ chỉ bắt
 đầu khi cả xử lý lẫn queue TTS của turn đã xong, không phải lúc dispatch hay filler
 đầu tiên. Vision/grounding, main agent, tổng hợp và các đoạn trả lời đang xếp hàng
@@ -619,8 +646,7 @@ main agent. Focus đã chốt vẫn được giữ nếu hết hạn giữa câu
 được áp dụng.
 
 Cửa sổ đó được chốt lúc mở phiên và cập nhật trong lúc thu cùng cuối câu cho
-**dispatch**, để cửa sổ hết hạn giữa câu không cắt lời người đang nói. Còn những cue tự nhận mình là người được
-gọi — LED listening, backchannel — thì hỏi `is_addressed()`, và hàm này đọc lại
+**dispatch**, để cửa sổ hết hạn giữa câu không cắt lời người đang nói. LED listening và điều kiện cho phép backchannel hỏi `is_addressed()`, và hàm này đọc lại
 cửa sổ **theo thời gian thực**. Lý do là gaze: nó có thể mở cửa sổ ngay giữa
 chính câu nói mà nó đang xác nhận. Đo trên lamp-0c89 04/09/2026 — lúc bắt đầu
 nói, camera chưa có bằng chứng khuôn mặt nào (`of 0` mẫu) nên cờ chốt là False,
@@ -846,6 +872,55 @@ Silero **riêng** — cái thứ ba, bên cạnh gate đầu vào và noise guar
 phiên. Nó fail-open: model lỗi thì coi như có tiếng nói, nên thiết bị không bao
 giờ cắt lời ai.
 
+Với capture tự động, cửa sổ âm thanh lớn đã được Silero xác nhận không phải
+tiếng nói cũng chạy kiểm tra đồng hồ im lặng và chính sách chốt lượt hiện có
+(gồm Smart Turn). Trước đây chỉ frame dưới ngưỡng RMS mới đi qua kiểm tra này,
+nên tiếng ồn liên tục có thể giữ câu đã nhận diện tới giới hạn capture 180 giây.
+Cửa sổ âm thanh lớn chưa phân loại và tiếng nói đã xác nhận không kích hoạt
+kiểm tra này. Không thêm inference hay request mạng: tiếng ồn liên tục được
+kiểm tra theo cửa sổ Silero hiện có (mặc định 3 × 64ms audio), cộng thời gian
+inference, với cùng ngưỡng chốt lượt như nền yên. Dừng thủ công và endpoint
+của Live không thay đổi. Cách này không phân biệt tiếng người khác với lời nói
+hướng tới thiết bị.
+
+### Filler tự động chỉ ở lượt mở hội thoại trên lamp Standard và Pro
+
+Tạm tắt phát opening filler của main agent: `PlayOpeningFillerNow` return sớm
+trước khi chọn hoặc gửi audio. Timer continuation của main cũng xóa timer đang
+chờ và return trước khi chọn hoặc phát filler. Giữ nguyên cả hai phần triển khai
+để có thể bật lại. Việc tạm tắt ưu tiên hơn điều kiện filler ở lượt mở bên dưới.
+Pool opening được giữ lại có cùng nội dung với continuation ở mọi ngôn ngữ hỗ trợ
+(tiếng Anh: `Hmm...`).
+
+Wait filler realtime tự động chỉ được bật sau khi chuẩn bị session và mở lượt
+thành công, kể cả nhánh STT đang drain. Khi session không khả dụng/hết quota
+hoặc mở lượt thất bại, fallback không bật filler realtime trước khi dispatch
+sang main. Timer filler hiện có bắt đầu sau khi mở lượt; không thêm chờ mạng.
+Lượt bị hoãn để luồng realtime bật filler khi session đã sẵn sàng.
+
+Lamp Standard và Pro cùng bật `HAL_VOICE_OPENING_FILLERS_ONLY=true` vì dùng
+cùng mic (HAL mặc định `false`; overlay `pro-xvf3800` và `pro-respeaker-lite`
+vẫn tắt tùy chọn này).
+Chỉ áp dụng khi Automatic, Live tắt và wake gate bật. Khi VAD bắt đầu nhận lời
+nói, HAL chốt wake window đã mở hay chưa, **trước khi** gaze có thể mở hoặc gia
+hạn cửa sổ cho lần thu đó:
+
+- Window đóng lúc bắt đầu thu: giữ điều kiện cue hiện có sau khi wake phrase
+  hoặc gaze cho phép lượt đó. Đây là lượt mở hội thoại.
+- Window đã mở: chặn backchannel tự động, wait filler realtime (kể cả nhánh
+  early-STT), opening/continuation filler của main agent. Wake phrase lặp lại,
+  gaze gia hạn hoặc window hết hạn trong lúc thu không đổi follow-up thành lượt mở.
+
+Trạng thái chốt này tách biệt với kiểm tra focus trực tiếp để cho phép capture
+và LED listening. Dispatch sang main mang metadata sensing tùy chọn
+`suppress_auto_fillers: true`, được giữ qua delegate/resume. LED listening,
+lời nói thực của model, cue tool tường minh, tool và routing không đổi. Input
+manual/Harness, Live và profile tắt tùy chọn giữ hành vi hiện có. Không thêm
+lượt gọi model hoặc chờ mạng; follow-up thực sự dành cho lamp có thể phải chờ
+im lặng trong khoảng trễ phản hồi hiện hữu. Cơ chế này ngăn cue tự động phát
+sớm, không ngăn mọi câu trả lời nhầm của model. Độ trễ phần cứng và độ chính
+xác nhận biết người được nói tới vẫn cần kiểm chứng trên thiết bị.
+
 ### Mic bỏ qua chính cue backchannel của mình
 
 Cue lắng nghe của backchannel ("Ok", "Mm", "Oh") được phát mà **không** set cờ
@@ -876,7 +951,7 @@ người dùng vẫn có thể nói đè lên nó.
 nhận được chữ dùng trần lượt riêng 180s mô tả ở trên; lời nói thực tế có thể
 dài hơn 20 giây. Cũng file đó trước kia ghi `WAKEWORD_FOLLOWUP_TIMEOUT_S=60` mà
 thiếu prefix `HAL_`, nên nó không có tác dụng gì và thiết bị chạy default 20 s;
-nay key đã là `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S=60`.
+nay profile lamp dùng `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S=5` (HAL vẫn mặc định 20 s).
 
 Nếu kết nối provider **ban đầu** lỗi ngay khi HAL khởi động, orchestrator tạo
 session mới bằng retry loop nền (thử lại một lần ngay, rồi backoff luỹ thừa từ 2s,
@@ -3194,14 +3269,20 @@ từng chọn, còn máy đã chọn thì giữ. Muốn bỏ pin thì xoá `pinn
 lúc import, đổi config phải **restart HAL** mới ăn. Sửa lúc đang chạy thì restart
 liền (`restartHAL` trong `system/device/service.go`).
 
+Giới hạn ký tự của chế độ chia mệnh đề đầu tiên chỉ tính lời nói ngoài tag điều khiển/giọng đọc trong ngoặc vuông. Tag emotion dài không làm cắt lời sớm hoặc vô hiệu hóa việc chia tại ranh giới từ.
+
+Thời lượng giữ ngưỡng bắt đầu nói của VAD được tính theo audio đã thu, không theo thời gian xử lý thực. Đọc nhanh các frame đã đệm không làm bỏ lỡ lời nói hợp lệ; tác vụ bị treo ngắn cũng không biến âm thanh ngắn thành lời nói kéo dài. Nhánh thường tính thời lượng audio sau frame hợp lệ đầu tiên để giữ số frame cần thiết khi thu đều; nhánh live có AEC phần cứng vẫn tính toàn bộ buffer như trước. Không thêm lời gọi mạng hay thời gian chờ.
+
 ### Model và ngôn ngữ STT
 
-`stt_language` chọn `stt_model` được lưu: English dùng `flux-general-en`; tiếng
-Việt và các ngôn ngữ không phải English được hỗ trợ dùng `nova-3-general` với mã
-BCP-47 đã chọn. Cặp đó được truyền cho proxy AutonomousSTT, kể cả lúc healthwatch
-khởi động lại voice pipeline. Vì vậy cấu hình tiếng Việt đã lưu vẫn có hiệu lực
-sau khi proxy restart; điều này không có nghĩa một model duy nhất xử lý chính xác
-mọi trường hợp code-switching Việt–Anh.
+`stt_language` chọn `nova-3-general` cho tiếng Anh và các ngôn ngữ được hỗ trợ,
+với mã BCP-47 đã chọn. AutonomousSTT cũng mặc định Nova-3 tiếng Anh khi không có
+model/ngôn ngữ. Lưu lại tiếng Anh trên cấu hình Flux sẽ chuyển model đã lưu sang
+Nova và restart HAL mà không reset hội thoại agent; lưu lại cấu hình Nova giống
+hiện tại không gây restart. Model đã lưu vẫn được dùng cho tới khi lưu lại lựa
+chọn ngôn ngữ. Thay đổi này áp dụng cho STT, gồm fallback sang main agent khi
+realtime hết quota; không đổi model realtime và không đảm bảo loại bỏ lời nói
+bằng ngôn ngữ khác.
 
 **Chỉ restart khi config thực sự đổi.** os-server *không* restart HAL mỗi lần
 os-server restart — làm vậy sẽ rớt voice pipeline vô ích. Thay vào đó nó hash
@@ -3326,7 +3407,7 @@ trong `config.json`:
 | Biến | Mặc định | Ghi chú |
 |------|----------|---------|
 | `HAL_REALTIME_ENABLED` | `true` | Cổng tổng cho pipeline realtime |
-| `voice_input_mode` | `automatic` | `automatic` giữ VAD/realtime và wake hiện tại; `tap_to_talk` chỉ thu giữa hai tap vật lý khi Harness OFF và gửi transcript đã chốt đến runtime trên thiết bị. Cờ wake đã lưu bị bỏ qua, không bị xóa. Harness ON giữ nguyên. |
+| `voice_input_mode` | `automatic` | `automatic` giữ VAD/realtime và wake hiện tại; `tap_to_talk` chỉ thu giữa hai tap vật lý khi Harness OFF, stream song song tới STT và realtime, commit realtime khi tap kết thúc mà không chờ STT/identity; GPT Live giữ audio tới lúc kết thúc vì không có manual commit. Realtime tắt/không khả dụng thì fallback sang STT `voice_command` sẵn có. Live hiệu dụng là false và turn detection là off. Cờ wake đã lưu bị bỏ qua, không bị xóa. Harness ON giữ nguyên. |
 | `wakeword` | `voice.wakeword` trong ROBOT.md khi config còn mới, ngược lại `false` | Chỉ có tác dụng khi `voice_input_mode: automatic`. Cổng wake word top-level trong config file. Khi bật, partial khớp chỉ là tín hiệu tạm: HAL chỉ commit audio buffer sang realtime hoặc forward command sau khi STT **final** xác nhận wake phrase. Transcript được tách thành câu (`.` `!` `?`) và phrase được chấp nhận ở đầu **hoặc cuối** bất kỳ câu nào; xuất hiện giữa câu bị từ chối. Bước xác nhận kiểm lại trên transcript đã ghép mà vẫn còn dấu câu, để bước merge chỉ giữ `\w+` không rút lại cái gate mà một partial đã mở. Nếu bước kiểm khớp tuyệt đối đó trượt nhưng trước đó đã có một partial khớp chính xác, thì riêng chữ TÊN được phép lệch 1 ký tự và gate vẫn được xác nhận: STT tự viết lại giả thuyết của nó ở final, và trên lamp-0c89 (04/09/2026) partial `hello lamp` quay lại thành `Hello, lamb.` làm rơi cả lượt — không mở lượt realtime, không có cue thinking, câu hỏi rơi xuống main agent chậm hơn nhiều. Tiền tố (`hello`, `hey`, …) vẫn phải khớp tuyệt đối, và luật lỏng này KHÔNG BAO GIỜ mở được gate mà chỉ xác nhận lại gate do một partial khớp chính xác đã mở, nên một từ gần giống trong lời nói xung quanh vẫn không đánh thức được gì. Nó được log riêng thành `Wake-word confirmed with a one-letter STT slip` để còn đếm được — nhiều dòng này nghĩa là keyterm boost đang không làm tròn việc. Các prefix hỗ trợ là `hello`, `hey`, `hi`, `alo`, `okay`, `ok`, `wake up`, áp dụng cho alias chung cố định (`hey autonomous`), device type (`hey lamp`) và tên agent hiện tại (`hey Luna`). Runtime rename chỉ cập nhật alias theo tên agent. Bare name và các prefix khác không mở gate. Một câu bị từ chối sẽ bị bỏ và LED `listening` tạm thời được restore về trạng thái nghỉ bình thường; không bao giờ để hiệu ứng `idle` cố định tiếp tục chạy. Một lượt đã xác nhận mở cửa sổ focus follow-up; lượt trong cửa sổ đó được forward dưới type `voice_followup` mà không cần wake phrase khác. Mọi lượt được phép đều dispatch sang os-server: câu realtime đã nói thành event đồng bộ im lặng `voice_agent_handled`; realtime unavailable, im lặng, lỗi hoặc delegate đi theo đường thường. Nếu realtime tắt hoặc không khả dụng, final transcript đã xác nhận đi theo đường os-server/main agent thường. Với Live ON và realtime khả dụng, lần thu đã xác nhận chuyển sang live song công mà không commit audio thủ công. Thiếu/`false` giữ nguyên luồng luôn lắng nghe trước gate. Với `config.json` do os-server tạo ra, giá trị khởi tạo lấy từ `voice.wakeword` của body (xem phần Cổng wake word ở trên); config nạp lên mà không có key thì vẫn là `false`. HAL restart sau khi lưu ở local Settings hoặc MQTT `wakeword.gate`. |
 | `HAL_HARNESS_PROGRESS_SPEAK_P` | `0.15` | Xác suất một snapshot Harness chỉ có progress được đọc; `0` tắt đọc progress. Xem [Thông báo cập nhật Harness](#thông-báo-cập-nhật-harness). |
 | `HAL_HARNESS_PROGRESS_MIN_GAP_S` | `60` | Tối đa một dòng progress được đọc cho mỗi run Harness trong khoảng này. |
@@ -3336,6 +3417,7 @@ trong `config.json`:
 | `HAL_HARNESS_ANNOUNCE_GRACE_S` | `1.5` | Thời gian yên lặng sau bất kỳ lời nói hay transcript người dùng nào trước snapshot tiếp theo. |
 | `HAL_HARNESS_ANNOUNCE_CONTENT_MAX_CHARS` | `4000` | Văn bản Harness đưa cho bộ diễn đạt bị cắt tới độ dài này. |
 | `HAL_HARNESS_ANNOUNCE_SUMMARIZER_TIMEOUT_S` | `12` | Giới hạn thời gian của summarizer fallback trước khi đọc văn bản đã làm sạch thay thế. |
+| `HAL_VOICE_OPENING_FILLERS_ONLY` | `false` | Với Automatic, Live tắt và wake gate bật, chặn filler/backchannel tự động nếu wake window đã mở khi bắt đầu thu. Lamp Standard và Pro bật; pro-xvf3800 và pro-respeaker-lite tắt. |
 | `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` | `20` | Số giây idle của cửa sổ focus sau lệnh. Mỗi `voice_command` hoặc `voice_followup` được nhận sẽ refresh cửa sổ. `0` tắt follow-up và buộc mỗi phiên mic phải có wake phrase. Bị bỏ qua khi `wakeword` là false. |
 | `HAL_ENDPOINT_SILENCE_S` | `0.8` | Thời gian im lặng từ lúc STT final về, chỉ áp dụng khi `final_ts >= last_confirmed_speech`. Nếu có tiếng nói được xác nhận sau final đó, quay lại ngưỡng dự phòng 2.5s tới khi có final mới. `0` tắt đồng hồ ngắn, chỉ dùng `HAL_SILENCE_TIMEOUT`. Khi bật gate dùng chung, đây chỉ là đề xuất kết thúc; `HAL_TURN_END_*` quyết định đóng lượt. |
 | `HAL_TURN_END_ENABLED` | `true` | Gate kết thúc lượt tạm thời dùng chung cho thu hands-free khi Live tắt, trước commit; không đổi Live hoặc thu thủ công. `false` khôi phục đồng hồ im lặng và trần phiên cũ. |
@@ -3356,6 +3438,8 @@ trong `config.json`:
 | `HAL_REALTIME_AI_REJECT_FILTER` | `true` | Đăng ký `reject_turn` và bật policy gate tách riêng `should_drop_realtime_rejection()`. Tool call rõ ràng sẽ bỏ transcript trước OS dispatch; model im lặng, timeout hay lỗi vẫn fallback sang main agent. Noise guard deterministic riêng cũng terminal cho audio mà nó đã phân loại là không phải tiếng nói. Đặt `false` để tắt filter AI thử nghiệm này mà không đổi phần routing realtime còn lại. |
 | `HAL_REALTIME_FIRST_CHUNK_MAX_CHARS` | `0` | Mặc định nói ngay câu hoàn chỉnh đầu tiên và tổng hợp trước các câu sau qua hàng đợi, không chờ toàn bộ câu trả lời. Giá trị dương bật cắt mệnh đề đầu, hoặc cắt theo khoảng trắng khi vượt giới hạn này; câu hoàn chỉnh bỏ qua bộ cắt. Giữ nguyên voice tag trong ngoặc vuông (kể cả khi cắt theo khoảng trắng), bỏ qua dấu phẩy/hai chấm trong số và dấu hai chấm của URL, yêu cầu 8 ký tự hiển thị ngoài tag. Cắt sớm vẫn có thể tạo khoảng ngắt giữa các yêu cầu tổng hợp. |
 | `HAL_REALTIME_MIN_COMMIT_DURATION_S` | `0.8` | Session ngắn hơn ngưỡng này mà không có STT transcript bị coi là nhiễu VAD, không commit lên model. Chỉ xét khi `HAL_REALTIME_REQUIRE_TRANSCRIPT=false`. |
+| `HAL_REALTIME_NOISE_SPEECH_RATIO` | `0.55` | Mật độ voiced tối thiểu trong span từ frame voiced đầu tới frame cuối. Áp dụng cho automatic và tap-to-talk trên device, cả fallback OS khi realtime tắt hoặc không khả dụng. |
+| `HAL_VOICE_NOISE_MIN_VOICED_MS` | `0` | Tổng thời lượng voiced tối thiểu bổ sung: `span_ratio * span_seconds * 1000`. Phải đạt cả mật độ lẫn thời lượng; chỉ frame được phân loại voiced mới được tính (32 ms với chunk mặc định, kể cả frame cuối có zero-padding). `0` giữ chính sách chỉ xét ratio cũ. Silero thiếu/lỗi vẫn fail-open. Tính trên audio đã thu, không thêm thời gian chờ thu hoặc lượt inference. |
 | `HAL_REALTIME_NOISE_GUARD_MAX_WORDS` | `3` | Mở rộng guard voiced-ratio của Silero sang cả turn CÓ transcript, tối đa ngần này từ. STT bịa một từ đệm ngắn từ tiếng ồn phòng và báo confidence tối đa cho nó, nên turn kiểu đó trước đây lọt hết mọi guard (guard chỉ chạy khi transcript rỗng) và commit nhiễu thuần lên model. Transcript nhiều nhất ngần này từ sẽ bị kiểm lại theo `HAL_REALTIME_NOISE_SPEECH_RATIO` và bị bỏ nếu audio chưa từng voiced; lệnh ngắn nói thật vẫn là voiced nên vẫn commit. Tỉ lệ được đo trên **span voiced** — từ chunk voiced đầu tới chunk voiced cuối — chứ không phải toàn buffer, vì bản capture luôn kèm pre-roll của VAD ở đầu và 200ms đuôi giữ lại ở cuối; phần đệm cố định đó làm loãng câu ngắn nặng hơn câu dài rất nhiều. Đo toàn buffer từng vứt nhầm một câu `Yes, that's right.` nói thật ở mức 0.500 (`peak=1.000`) — tức là guard quay ra phạt đúng lớp câu nó sinh ra để soi. Tiếng ồn kéo dài vẫn rớt, vì các chunk voiced của nó thưa ngay bên trong span. Transcript dài hơn không bao giờ bị kiểm lại, nên ngưỡng này không thể làm câm một câu nói thật. `0` = tắt. |
 | `HAL_REALTIME_SESSION_IDLE_RESET_S` | `240` | Kiểm soát chi phí: khi một turn đến sau ngần này giây im lặng (tính từ mốc muộn hơn giữa turn trước và lúc session hiện tại kết nối), recycle (rebuild) session **sau** turn đó để turn kế tiếp bỏ phần context mỗi-turn mà provider re-bill trên session sống lâu. Turn sau khoảng nghỉ dài coi như cuộc hội thoại mới; trí nhớ dài hạn vẫn còn nhờ nạp lại `summary.md`. Với Gemini native-audio, bước này bị bỏ qua nếu pre-turn recycle thành công đã làm mới session cho chính idle gap đó. `0` = tắt. Dùng lại đường rebuild của zombie-recovery. |
 | `HAL_GEMINI_SESSION_RESUMPTION` | `false` | Resume cùng session Gemini qua reconnect. Mặc định OFF — proxy `campaign-api` không forward đúng resumption handshake nên resume qua nó tạo session zombie (cold reconnect thì chạy được). Chỉ bật khi endpoint hỗ trợ. |
@@ -3566,3 +3650,63 @@ nhưng thêm thời gian reconnect trước turn sau; inference provider đã ch
 thể phát sinh thêm usage. LIVE ON, session bật resumption,
 provider khác và reject đến muộn sau khi output đã bắt đầu vẫn giữ ACK như cũ.
 Không thay tiêu chí nhận diện turn cần reject.
+
+### Dừng loa giải phóng lượt trả lời automatic
+
+Khi Live tắt, thao tác vật lý dừng/nghe cũng hủy phần chờ realtime của lượt
+automatic. Trước đây chỉ TTS dừng: vòng mic có thể vẫn chờ provider kết thúc lượt
+(log Lamp ghi nhận 19,66 giây). Cả đường trả lời thường và đường chạy song song
+với STT final drain đều mang stop event riêng cho capture. Provider receive kiểm
+tra event mỗi 100 ms. Hủy lượt sẽ bỏ text/audio native còn lại, filler, history
+và fallback main của lượt đó. Callback STT đến muộn của capture đã hủy bị bỏ qua.
+
+Provider đã hủy được loại ngay; reconnect chạy nền và không dùng lại session cũ
+khi kết nối lỗi. Capture mic không chờ reconnect hoặc STT final drain đang chạy.
+Mỗi voice service giữ một worker STT drain, tối đa một lệnh close chưa hoàn tất;
+khi worker bận, capture sau dùng đường close thường thay vì xếp thêm drain.
+Bỏ cooldown session 300 ms sau khi hủy trả lời automatic bằng thao tác dừng.
+Chính sách trả lời của Live và manual capture vẫn tách riêng.
+
+`[automic-stop] reply cancellation requested` và
+`[automic-stop] receive released; VAD resumed after ...ms` đo từ yêu cầu hủy tới
+lúc trở lại vòng VAD. Mục tiêu dưới 500 ms khi provider im lặng và reconnect chậm;
+đây chưa phải phép đo sẵn sàng nghe về âm học. Timing thiết bị thu, chống echo sau
+phát và STT keepalive tùy chọn vẫn có thể ảnh hưởng thời điểm nhận câu tiếp theo.
+Cần đo riêng phần đó trên phần cứng.
+
+### Lời nhắc sensing nhường lượt thu automatic
+
+Lời nhắc thụ động từ agent (ví dụ phản hồi `environment.update`) không được giành
+loa khi HAL đang thu lời người dùng. OS giữ nguồn event theo run ID và gửi
+`passive_sensing: true` trên từng đoạn TTS có run ID, gồm thông báo cached và
+lệnh TTS được intercept. Phân loại dùng `speakergate.WaitsForSpeaker` hiện có:
+voice/chat và `fire_hazard.detected` được miễn. Đây là nguồn event, không phải
+bộ nhận diện lời nói xung quanh có hướng tới thiết bị hay không.
+
+HAL kiểm tra trước khi ngắt loa hoặc thay sequence, kiểm tra lại lúc nhận quyền
+phát, và bỏ đoạn passive đang chờ nếu capture bắt đầu trước playback. Đoạn bỏ
+được ghi là chưa phát khi có yêu cầu realtime feedback. HTTP 200 với
+`status: "suppressed_capture"` được ánh xạ thành `ErrCaptureActive`; OS ghi
+`tts_cancelled` với `source: "input_capture"`, không retry audio hoặc phát câu
+fallback. Giữ chính sách FIFO của thao tác nhập trực tiếp trên device, phản hồi
+người dùng thông thường, quyền sở hữu LIVE và preemption khi không capture.
+
+Quyết định admission không thêm request provider hoặc khoảng chờ chủ động.
+Không giữ khóa capture khi ghi history hoặc chờ tổng hợp; worker tổng hợp đoạn
+đã hủy thoát được kể cả khi frame queue đầy. Mục tiêu regression local là capture
+mới vẫn lấy được reservation khi callback ghi history chưa phát đang bị chặn,
+không phải chờ callback đó. Latency phản hồi âm thanh và độ sẵn sàng của mic cần
+đo riêng trên device; test local không chứng minh các kết quả đó. Bản sửa này
+không cải thiện độ chính xác STT hoặc nhận diện ngôn ngữ.
+
+### STT final thay thế nội dung tạm thời
+
+Capture automatic và thao tác nhập trên device chỉ thêm mỗi segment final một
+lần, rồi xóa partial tương ứng. Final ngắn hơn hoặc đổi định dạng không làm
+partial cũ quay lại: `Forty six plus six.` rồi final `46 plus 6.` chỉ tạo
+`46 plus 6.`. Các segment final riêng vẫn nối đúng thứ tự; giữ fallback hiện có
+cho partial cuối chưa có final. Xác nhận wake từ partial trước đó vẫn được giữ
+độc lập với cách viết của final.
+Quy tắc theo [ngữ nghĩa interim/final của Deepgram](https://developers.deepgram.com/docs/understand-endpointing-interim-results),
+không thêm khoảng chờ hoặc request provider. Bản sửa ngăn giả thuyết cũ/lặp đi
+vào agent, nhưng không sửa được một bản STT final vốn đã nhận sai.

@@ -647,6 +647,57 @@ def test_interpolating_into_idle_is_still_a_real_move(monkeypatch):
     assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
 
 
+def test_first_idle_playback_cycle_can_sample_after_settling(monkeypatch):
+    """The actual playback loop must not starve gaze for one whole idle cycle."""
+    from hal.drivers.motors.animation_service import AnimationService
+    from hal.drivers.tracking import aim
+
+    clock = [100.0]
+    monkeypatch.setattr(gaze.time, "monotonic", lambda: clock[0])
+
+    class StationaryRobot:
+        last_write_monotonic = 0.0
+
+        def send_action(self, action):
+            self.last_write_monotonic = clock[0]
+
+    svc = AnimationService("/unused", "test")
+    svc.robot = StationaryRobot()
+    action = {"base_yaw.pos": 0.0}
+    svc._current_state = action.copy()
+    monkeypatch.setattr(svc, "_load_recording", lambda _: [action.copy() for _ in range(300)])
+    svc._handle_play(svc.idle_recording)
+
+    while svc._interpolation_frames:
+        svc._continue_playback()
+        assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
+        clock[0] += 1.0 / svc.fps
+
+    svc._continue_playback()
+    started = clock[0]
+    assert not svc._idle_settled
+    assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
+    clock[0] = started + aim.FRAME_SETTLE_S - 0.001
+    svc._continue_playback()
+    assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
+    clock[0] = started + aim.FRAME_SETTLE_S + 0.001
+    svc._continue_playback()
+    assert not svc._idle_settled
+    assert _sample_reason(svc, monkeypatch) == "detector busy with a live look"
+
+    # A new transition must invalidate the earlier idle allowance.
+    svc._handle_play(svc.idle_recording)
+    assert svc._idle_playback_started_at == 0.0
+    svc._continue_playback()
+    assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
+
+
+def test_interpolation_blocks_even_a_stale_settled_flag(monkeypatch):
+    svc = _BreathingSvc(ago=0.01, settled=True)
+    svc._interpolation_frames = 1
+    assert _sample_reason(svc, monkeypatch) == "head still settling from a move"
+
+
 def test_another_recording_playing_is_not_breathing(monkeypatch):
     from hal.drivers.tracking import aim
 
@@ -1676,6 +1727,7 @@ def sweeper(monkeypatch):
 def test_the_gaze_sweep_looks_for_the_user(sweeper):
     gaze._maybe_sweep(gaze.time.monotonic(), confirmed_miss=True)
     assert sweeper and sweeper[0].get("for_user") is True
+    assert sweeper[0].get("glance") is True, "an unasked look-around must be a glance"
 
 
 def test_a_repoint_that_finds_nobody_looks_around(sweeper):
@@ -1867,6 +1919,30 @@ def test_speaking_twice_gets_two_looks(body, monkeypatch):
         "the second reacquire was refused by a cooldown meant for the automatic path"
     )
     assert len(body.moves) > moves_after_first or True
+
+
+def test_speech_after_a_missed_repoint_waits_out_the_cooldown(body):
+    """Chatter from an empty bearing gets one turn, not one per sentence."""
+    now = gaze.time.monotonic()
+    _absent_for(config.GAZE_REPOINT_AFTER_S + 1)
+    assert gaze._maybe_repoint(now, force=True)
+    gaze._last_repoint_missed = True  # what _score_repoint(False, ...) leaves behind
+
+    assert not gaze._maybe_repoint(now + 5.0, force=True), (
+        "voice turned the lamp again toward a bearing that just came up empty"
+    )
+    assert gaze._maybe_repoint(now + config.GAZE_REPOINT_COOLDOWN_S + 1.0, force=True)
+
+
+def test_scoring_a_repoint_records_whether_it_missed(monkeypatch):
+    from hal.drivers.tracking import user_bearing
+
+    monkeypatch.setattr(user_bearing, "record_prediction", lambda hit: False)
+    monkeypatch.setattr(gaze, "_maybe_sweep", lambda *a, **kw: None)
+    gaze._score_repoint(False, "nobody", gaze.time.monotonic())
+    assert gaze._last_repoint_missed is True
+    gaze._score_repoint(True, "found them", gaze.time.monotonic())
+    assert gaze._last_repoint_missed is False
 
 
 def test_the_automatic_repoint_still_waits_out_its_cooldown(body):

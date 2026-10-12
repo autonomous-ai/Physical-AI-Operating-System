@@ -32,7 +32,7 @@ from hal.presets import (
 )
 
 # Background emotions skip the LED so the user's color stays visible.
-_BACKGROUND_EMOTIONS = {EMO_IDLE, EMO_THINKING}
+_BACKGROUND_EMOTIONS = {EMO_IDLE}
 from hal.drivers.rgb.effects import run_effect as _run_effect
 
 logger = logging.getLogger("hal.server")
@@ -134,6 +134,15 @@ def voice_user() -> tuple[str, str, float]:
         return _voice_user, _voice_user_display or _voice_user, age
 
 
+def cancel_still_idle_timer() -> None:
+    """Drop a pending still-emotion idle resume: a newer emotion or an aim owns the body."""
+    global _still_idle_timer, _still_idle_deferred
+    if _still_idle_timer is not None:
+        _still_idle_timer.cancel()
+        _still_idle_timer = None
+    _still_idle_deferred = None
+
+
 def face_user() -> tuple[str, float]:
     """Return (label, age_s) for the face-derived user; ("", 0.0) for nobody.
 
@@ -179,6 +188,8 @@ _active_scene: Optional[str] = None
 
 _user_led_state: Optional[dict] = None
 _restore_timer: Optional[threading.Timer] = None
+_restore_lock = threading.RLock()
+_restore_generation = 0
 _sleeping: bool = False
 _current_emotion: Optional[str] = None
 _emotion_state_lock = threading.Lock()
@@ -225,15 +236,16 @@ def _schedule_emotion_idle(delay_s, generation):
 _thinking_cue_active: bool = False
 # Cancelled the moment the emotion changes away from sleepy.
 _sleepy_release_timer: Optional[threading.Timer] = None
-# Speaker drain so the going-to-sleep line isn't swallowed by the mute.
+# Scene confirmations may finish before muting; sleep mutes immediately.
 SLEEPY_SPEAKER_GRACE_S = 2.0       # wait this long for an announcement to START
 SLEEPY_SPEAKER_DRAIN_MAX_S = 15.0  # hard cap on the whole drain
 _SLEEPY_DRAIN_POLL_S = 0.1
-_sleepy_drain_cancel: Optional[threading.Event] = None
 # Same drain for scenes with speaker "off".
 _scene_drain_cancel: Optional[threading.Event] = None
 # Resume idle after a still emotion halted the loop.
 _still_idle_timer: Optional[threading.Timer] = None
+# Still emotion whose idle resume found the body held; replayed when the look hold releases.
+_still_idle_deferred: Optional[str] = None
 # Last-resort net: idle after `thinking` is held too long.
 _thinking_reset_timer: Optional[threading.Timer] = None
 # LED-only cue bridging VAD confirmation and the first STT partial (1.5-2.5s).
@@ -318,11 +330,13 @@ def _stop_current_effect():
 
 
 def _cancel_pending_restore():
-    """Cancel any pending emotion restore timer."""
-    global _restore_timer
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    """Invalidate queued restores and order replacement after any running restore."""
+    global _restore_timer, _restore_generation
+    with _restore_lock:
+        _restore_generation += 1
+        if _restore_timer is not None:
+            _restore_timer.cancel()
+            _restore_timer = None
 
 
 # Boot-scoped sidecars (restored on service restart, cleared on reboot).
@@ -497,6 +511,10 @@ def _finalize_sleepy_peripherals(mute_mic: bool, mute_speaker: bool):
     if _current_emotion != EMO_SLEEPY:
         return
 
+    if mute_speaker:
+        _cancel_scene_speaker_drain()
+        _mute_speaker_for_sleep()
+
     _cancel_pending_restore()
     if rgb_service:
         _stop_current_effect()
@@ -509,16 +527,12 @@ def _finalize_sleepy_peripherals(mute_mic: bool, mute_speaker: bool):
             voice_service.stop(background=True)
 
     if mute_speaker:
-        # Music is never an announcement; the speaker goes to the drain.
+        # Music must stop as well as queued and active speech.
         if music_service and music_service.playing:
             music_service.stop()
-        if not _speaker_muted:
-            # A pending scene drain yields to sleep so wake can restore the mute.
-            _cancel_scene_speaker_drain()
-            _start_sleepy_speaker_drain()
 
     _persist_sleep_state()
-    logger.info("Sleepy finalized: LED off, mic muted, speaker draining")
+    logger.info("Sleepy finalized: LED off, mic muted, speaker muted")
 
 
 def _run_speaker_drain(cancel: threading.Event, commit, name: str) -> None:
@@ -540,28 +554,11 @@ def _run_speaker_drain(cancel: threading.Event, commit, name: str) -> None:
     threading.Thread(target=_drain, daemon=True, name=name).start()
 
 
-def _start_sleepy_speaker_drain():
-    """Mute the speaker once the going-to-sleep announcement has played (a wake cancels it)."""
-    global _sleepy_drain_cancel
-    _cancel_sleepy_speaker_drain()
-    cancel = threading.Event()
-    _sleepy_drain_cancel = cancel
-    _run_speaker_drain(cancel, _mute_speaker_for_sleep, "sleepy-speaker-drain")
-
-
-def _cancel_sleepy_speaker_drain():
-    """Stop a pending drain. Safe to call when none is running."""
-    global _sleepy_drain_cancel
-    if _sleepy_drain_cancel is not None:
-        _sleepy_drain_cancel.set()
-        _sleepy_drain_cancel = None
-
-
 def _start_scene_speaker_drain(scene: str):
     """Mute the speaker for `scene` once its confirmation line has played (skipped while sleep owns it)."""
     global _scene_drain_cancel
     _cancel_scene_speaker_drain()
-    if _sleeping or _sleepy_drain_cancel is not None:
+    if _sleeping:
         logger.info("Scene %s: speaker mute left to sleep", scene)
         return
     cancel = threading.Event()
@@ -599,31 +596,29 @@ def _mute_speaker_for_scene(scene: str):
 
 
 def _mute_speaker_for_sleep():
-    """Commit the deferred mute, re-reading sleep state under privacy.lock (same lock as wake)."""
+    """Mute immediately, preserving ownership so wake never undoes a manual mute."""
     global _speaker_muted, _sleepy_auto_muted_speaker
     with privacy.lock:
         if not _sleeping or _current_emotion != EMO_SLEEPY:
-            logger.info("Sleepy speaker drain: awake again -- speaker left live")
+            logger.info("Sleepy speaker mute: awake again -- speaker left live")
             return
-        if _speaker_muted:
-            return
-        _speaker_muted = True
-        _sleepy_auto_muted_speaker = True
-        _persist_sleep_state()
+        if not _speaker_muted:
+            _speaker_muted = True
+            _sleepy_auto_muted_speaker = True
+            _persist_sleep_state()
 
-    # The flag only gates playback not yet started; stop TTS so the cap is a real bound.
+    # Also invalidate synthesis and clear queued speech while playback is idle.
     # Outside the lock: stop() can block on the audio device.
-    if tts_service and tts_service.speaking:
+    if tts_service:
         tts_service.stop()
-    logger.info("Sleepy speaker drain done -- speaker muted")
+    logger.info("Sleepy speaker muted immediately")
 
 
 def _wake_sleepy_peripherals():
     """Restore only mic/speaker states that sleepy itself muted."""
     global _sleepy_auto_muted_mic, _sleepy_auto_muted_speaker, _mic_muted, _speaker_muted
-    # Cancel and restore under ONE lock, or a drain past its guard re-mutes an awake device.
+    # Restore under the same lock used by the sleep mute.
     with privacy.lock:
-        _cancel_sleepy_speaker_drain()
         if _sleepy_auto_muted_speaker:
             if privacy.speaker_muted:
                 # Wake removes sleep's temporary mute under the lock so privacy can't restore it.
@@ -832,9 +827,7 @@ def _start_preset_effect(preset: dict, thread_name: str):
     global _restore_timer, _effect_thread, _effect_name, _effect_base_color
     if not rgb_service:
         return
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
     _stop_current_effect()
     color = tuple(preset["color"])
     if preset["effect"] == LST_SOLID:
@@ -975,10 +968,17 @@ def _flash_backend_error():
     ).start()
 
 
-def _restore_user_led():
-    """Restore LED to user state after emotion animation completes."""
-    global _restore_timer
-    _restore_timer = None
+def _restore_user_led(generation=None):
+    """Reject obsolete timers; serialize an admitted restore with replacement."""
+    with _restore_lock:
+        if generation is not None and generation != _restore_generation:
+            return
+        _cancel_pending_restore()
+        _restore_user_led_display()
+
+
+def _restore_user_led_display():
+    """Restore LED state while the caller owns the restore lifecycle lock."""
 
     # Sleep is terminal: late restores must not repaint the strip.
     if _sleeping:
@@ -1131,14 +1131,15 @@ def clear_listening_pending_cue(cue_id: Optional[int] = None, restore: bool = Tr
 
 
 def _schedule_led_restore(delay_s: float):
-    """Schedule _restore_user_led to run after delay_s seconds."""
+    """Schedule a restore tied to this generation, even after Timer.cancel races."""
     global _restore_timer
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-    t = threading.Timer(delay_s, _restore_user_led)
-    t.daemon = True
-    t.start()
-    _restore_timer = t
+    with _restore_lock:
+        _cancel_pending_restore()
+        generation = _restore_generation
+        timer = threading.Timer(delay_s, lambda: _restore_user_led(generation))
+        timer.daemon = True
+        _restore_timer = timer
+        timer.start()
 
 
 def _on_tts_speak_start():
@@ -1152,13 +1153,15 @@ def _on_tts_speak_start():
         return
 
     color = _get_current_led_color()
+    if not any(color):
+        # Off is an ambient preference, not a request to hide active speech.
+        # Reuse the device's dim listening color without saving a new preference.
+        color = tuple(EMOTION_PRESETS[EMO_LISTENING]["color"])
     logger.info("TTS speaking LED start: color=%s", color)
 
     _tts_speaking = True
 
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
 
     _stop_current_effect()
 
@@ -1239,9 +1242,7 @@ def _on_music_play_start():
 
     _music_playing = True
 
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
 
     _stop_current_effect()
 
@@ -1284,7 +1285,7 @@ def _apply_emotion_led_display(
 ) -> Optional[list]:
     """Apply LED effect + display for an emotion; returns the scaled LED color or None.
 
-    force_led bypasses only the background-emotion guard (realtime thinking cue).
+    force_led bypasses only the idle background-emotion guard, never sleep.
     """
     preset = EMOTION_PRESETS.get(emotion)
     if not preset:
@@ -1311,6 +1312,7 @@ def _apply_emotion_led_display(
                 logger.warning("Emotion display failed: %s", e)
         return None
     if rgb_service and preset.get("color"):
+        _cancel_pending_restore()
         scaled = [int(c * intensity) for c in preset["color"]]
         try:
             if preset.get("effect"):

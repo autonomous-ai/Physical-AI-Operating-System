@@ -9,6 +9,7 @@ import time
 import requests
 
 import hal.app_state as state
+from hal import config
 from hal.i18n import (
     HEAD_PAT_PHRASES_BY_LANG,
     MIC_MUTED_PHRASES_BY_LANG,
@@ -65,7 +66,7 @@ def _notify_head_pat(spoken: str):
         pass
 
 
-def _cancel_agent_speech(source: str):
+def _cancel_agent_speech(source: str, *, before_ms=None):
     """Tell the OS server to stop speaking for every turn currently in flight.
 
     Fire-and-forget on its own thread: the click's felt latency is the whole point of
@@ -82,7 +83,9 @@ def _cancel_agent_speech(source: str):
 
     def _post():
         try:
-            requests.post(OS_SPEECH_CANCEL_URL, json={}, timeout=1.0)
+            requests.post(OS_SPEECH_CANCEL_URL,
+                          json={} if before_ms is None else {"before_ms": before_ms},
+                          timeout=1.0)
         except Exception as e:
             logger.warning("%s speech-cancel call failed: %s", source, e)
 
@@ -427,7 +430,7 @@ def sleep_action(source: str = "button"):
     logger.info("%s sleep hold -- announcing sleepy emotion", source)
     if _tts_available():
         state.tts_service.speak_cached(_phrase(PHRASE_SLEEP))
-        time.sleep(5)
+        time.sleep(config.SLEEP_ANNOUNCEMENT_DELAY_S)
 
     try:
         from hal.models import EmotionRequest

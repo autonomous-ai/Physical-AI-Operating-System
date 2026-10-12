@@ -1,6 +1,7 @@
 """Voice route handlers: /voice/*, /tts/* (strangers live in hal.routes.speaker)."""
 
 import asyncio
+from functools import wraps
 import json
 import threading
 import time
@@ -14,6 +15,7 @@ from fastapi.responses import StreamingResponse
 
 import hal.app_state as state
 from hal.telemetry import tts_hooks
+from hal.drivers.voice.tts.device_input_gate import PassiveSpeechSuppressed
 from hal.config import AUDIO_INPUT_ALSA, get_tts_speed, TTS_VOICE, TTS_INSTRUCTIONS
 from hal.models import (
     HarnessUpdateRequest,
@@ -22,6 +24,7 @@ from hal.models import (
     StatusResponse,
     TTSConfigRequest,
     VoiceConfigRequest,
+    VoiceInputModeRequest,
     VoiceStartRequest,
     VoiceStatusResponse,
 )
@@ -82,32 +85,34 @@ def start_voice(req: VoiceStartRequest):
         or (state.tts_service and getattr(state.tts_service, "_provider", None) != req.tts_provider)
     )
     if need_tts:
-        if state.tts_service and state.tts_service.speaking:
-            state.tts_service.stop()
-        # Release the old OutputStream first, or the new service's rate probe fails (device busy).
-        if state.tts_service and hasattr(state.tts_service, "release_stream"):
-            try:
-                state.tts_service.release_stream()
-            except Exception:
-                pass
         try:
-            state.tts_service = TTSService(
-                api_key=tts_api_key,
-                base_url=tts_base_url,
-                sound_device_module=sd,
-                numpy_module=np,
-                output_device=state.audio_output_device,
-                voice=voice,
-                speed=get_tts_speed(),
-                instructions=instructions,
-                on_speak_start=state._on_tts_speak_start,
-                on_speak_end=state._on_tts_speak_end,
-                provider=req.tts_provider,
-                # Same tracking hooks as the boot-time instance, or metrics go blind after a swap.
-                on_playback_audio=tts_hooks.on_playback_audio,
-                on_playback_done=tts_hooks.on_playback_done,
-                on_playback_muted=tts_hooks.on_playback_muted,
-            )
+            def create_tts():
+                previous = state.tts_service
+                if previous is not None:
+                    # A provider replacement also invalidates deferred old-voice
+                    # replies, even when no audio is currently playing.
+                    previous.stop()
+                    if hasattr(previous, "release_stream"):
+                        previous.release_stream()
+                return TTSService(
+                    api_key=tts_api_key,
+                    base_url=tts_base_url,
+                    sound_device_module=sd,
+                    numpy_module=np,
+                    output_device=state.audio_output_device,
+                    voice=voice,
+                    speed=get_tts_speed(),
+                    instructions=instructions,
+                    on_speak_start=state._on_tts_speak_start,
+                    on_speak_end=state._on_tts_speak_end,
+                    provider=req.tts_provider,
+                    # Same tracking hooks as the boot-time instance, or metrics go blind after a swap.
+                    on_playback_audio=tts_hooks.on_playback_audio,
+                    on_playback_done=tts_hooks.on_playback_done,
+                    on_playback_muted=tts_hooks.on_playback_muted,
+                )
+            replace = getattr(state.voice_service, "replace_tts_service", None)
+            state.tts_service = replace(create_tts) if replace else create_tts()
             state.logger.info("TTSService started (provider=%s, voice=%s)", req.tts_provider, voice)
             if state.music_service:
                 state.music_service._tts_service = state.tts_service
@@ -180,6 +185,19 @@ def update_voice_config(req: VoiceConfigRequest):
     if not state.voice_service:
         return {"status": "ok"}
     state.voice_service.set_wake_words(req.wake_words)
+    return {"status": "ok"}
+
+
+@router.post("/voice/input-mode", response_model=StatusResponse)
+def update_voice_input_mode(req: VoiceInputModeRequest):
+    """Quiesce capture and apply input policy without restarting HAL."""
+    from hal.drivers.voice._internal.input_mode import set_input_mode
+
+    try:
+        set_input_mode(req.mode, req.wakeword)
+    except Exception as error:
+        state.logger.exception("Voice input mode transition failed")
+        raise HTTPException(503, f"Failed to apply voice input mode: {error}") from error
     return {"status": "ok"}
 
 
@@ -263,7 +281,19 @@ def get_voices(provider: Optional[str] = None, lang: Optional[str] = None):
     return {"provider": provider, "voices": ["alloy", "ash", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer"]}
 
 
+def _capture_suppression_response(endpoint):
+    """A deliberate passive drop is not an unavailable TTS backend."""
+    @wraps(endpoint)
+    def wrapped(req: SpeakRequest):
+        try:
+            return endpoint(req)
+        except PassiveSpeechSuppressed:
+            return {"status": "suppressed_capture"}
+    return wrapped
+
+
 @router.post("/voice/speak", response_model=StatusResponse)
+@_capture_suppression_response
 def speak_text(req: SpeakRequest):
     """Synthesize text to speech and play through the speaker."""
     if req.harness_result and (req.cached or req.prerender):
@@ -342,6 +372,7 @@ def speak_text(req: SpeakRequest):
             req.text,
             interruptible=req.interruptible,
             prerender=req.prerender,
+            **({"passive_sensing": True} if req.passive_sensing else {}),
             realtime_feedback=req.realtime_feedback,
             # Metrics ownership only; turn_seq gating stays exclusive to /voice/speak-queue.
             turn_id=req.turn_id,
@@ -357,6 +388,7 @@ def speak_text(req: SpeakRequest):
         interruptible=req.interruptible,
         realtime_feedback=req.realtime_feedback,
         turn_id=req.turn_id,
+        **({"passive_sensing": True} if req.passive_sensing else {}),
         **({"speed": req.speed} if req.speed is not None else {}),
         **({"harness_result": True} if req.harness_result else {}),
         **({"preview": preview} if preview is not None else {}),
@@ -393,6 +425,7 @@ def realtime_history(req: RealtimeHistoryRequest):
 
 
 @router.post("/voice/speak-queue", response_model=StatusResponse)
+@_capture_suppression_response
 def speak_queue_text(req: SpeakRequest):
     """Speak text, queueing seamlessly behind current speech (409 while music plays, 503 without TTS)."""
     if not state.tts_service:
@@ -415,7 +448,7 @@ def speak_queue_text(req: SpeakRequest):
         req.interruptible,
     )
     # Evaluate ownership inside TTS admission, not at an earlier HTTP snapshot.
-    queue_options = {}
+    queue_options = {"passive_sensing": True} if req.passive_sensing else {}
     if getattr(state.voice_service, "live_active", False):
         queue_options["defer_preemption"] = lambda: state.voice_service.live_speaker_busy
     ok = state.tts_service.speak_queue(
@@ -433,7 +466,9 @@ def speak_queue_text(req: SpeakRequest):
 
 @router.post("/tts/stop", response_model=StatusResponse)
 def stop_tts():
-    """Interrupt active TTS playback immediately."""
+    """Interrupt playback and release a turn-based realtime reply wait."""
+    if state.voice_service:
+        state.voice_service.cancel_automatic_reply()
     if state.tts_service:
         state.tts_service.stop()
     return {"status": "ok"}

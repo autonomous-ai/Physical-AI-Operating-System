@@ -229,7 +229,7 @@ Khi kích hoạt scene, `POST /scene` thực hiện theo thứ tự:
 3. **Servo hold** — nếu `"servo": "hold"`, giữ servo **sau khi** aim xong (aim → hold trong cùng 1 thread), với chủ sở hữu là `scene`. Không giữ nếu scene đã kết thúc trong lúc tay đèn còn đang di chuyển. Được nhả khi chuyển sang scene không có hold, khi tắt scene, hoặc khi có lệnh LED không transient.
 4. **Camera** — tự động bật/tắt qua `_auto_camera_on`/`_auto_camera_off`
 5. **Mic** — mute dừng voice pipeline (STT), unmute khởi động lại
-6. **Speaker** — `off` dừng nhạc ngay và mute giọng nói theo **drain** (`_start_scene_speaker_drain`, xem `sensing-behavior_vi.md`): câu xác nhận của chính scene, do os-server gửi sau marker `/scene`, vẫn phát xong rồi loa mới đóng; `sleepy` ghép trong cùng reply sẽ tiếp quản drain để wake trả loa lại được. `on` bật lại output. Tắt scene khi privacy đang khoá sẽ đổi snapshot của khoá để lúc nhả loa/camera mở lại (xem `physical-controls_vi.md`).
+6. **Speaker** — `off` dừng nhạc ngay và mute giọng nói theo **drain** (`_start_scene_speaker_drain`, xem `sensing-behavior_vi.md`): câu xác nhận của chính scene, do os-server gửi sau marker `/scene`, vẫn phát xong rồi loa mới đóng; `sleepy` ghép trong cùng reply sẽ huỷ drain và mute ngay, chặn câu xác nhận đến muộn; wake khôi phục mute do sleep sở hữu. `on` bật lại output. Tắt scene khi privacy đang khoá sẽ đổi snapshot của khoá để lúc nhả loa/camera mở lại (xem `physical-controls_vi.md`).
 
 **Chỉ có kích hoạt scene mới aim.** Một lần restore LED — sau emotion, khi TTS kết thúc, khi nhạc
 dừng, khi bỏ mute mic, khi tắt cue lắng nghe — chỉ vẽ lại strip chứ không làm gì khác, và một
@@ -241,7 +241,7 @@ khi animation kết thúc — nó nội suy về idle. Muốn khôi phục tư t
 
 ### Chủ sở hữu của hold (#544)
 
-Servo hold có chủ sở hữu: `scene`, `tracking` và `explicit` (`POST /servo/hold`), được quản lý
+Servo hold có chủ sở hữu: `scene`, `tracking`, `explicit` (`POST /servo/hold`) và `look`, được quản lý
 trong `hal/drivers/motors/hold.py`. `_hold_mode` là true khi còn ít nhất một chủ sở hữu, và mỗi
 đường chỉ nhả phần giữ của chính nó. Kết thúc scene không bao giờ nhả hold của tracking hay
 explicit, và một phiên tracking kết thúc giữa lúc scene reading đang bật vẫn để nguyên hold của
@@ -251,6 +251,8 @@ Log khi nhả cho biết tay đèn đã rảnh chưa: `Scene off: servo released
 `Scene off: scene hold released, servo still held by explicit` khi vẫn còn. Tương tự, gaze log
 `framing released (servo held by scene, idle waits)` thay cho `(idle has the arm)` khi kết thúc
 một cuộc hội thoại lúc servo đang bị giữ.
+
+`look` là nội bộ của `POST /api/vision/look` ở os-server: nó claim `POST /servo/hold/claim {"owner":"look"}` trước cue "taking a look" và nhả bằng `POST /servo/hold/release {"owner":"look"}` ngay khi chụp ảnh xong, để timer idle hoặc still-emotion không thể xoay đầu giữa lúc chụp. Nhả `look` không bao giờ nhả chủ sở hữu khác: sau "quay phải và giữ nguyên ở đó" thì hold explicit vẫn giữ tay đèn. Nếu os-server không nhả (nó chết giữa chừng), HAL tự nhả hold `look` sau 30 s (`LOOK_HOLD_MAX_S`). Khi nhả, idle resume của still emotion bị hoãn trong lúc body bị giữ sẽ chạy ngay, trừ khi còn chủ sở hữu khác giữ tay đèn hoặc thiết bị đang ngủ. Khi không có resume bị hoãn nào chạy, việc nhả cũng trả tay đèn về idle (`body.release_to_idle("look hold released")`) nếu đường khác (hand-back của `/servo/search`, tracker kết thúc) đã bỏ qua việc restart idle của nó trong lúc `look` đang giữ, trừ khi body đang bị listening-halt, đang phát một recording hoặc còn owner khác giữ. Chỉ `look` được chấp nhận trên hai route này (422 nếu khác); agent vẫn dùng `POST /servo/hold`.
 
 **Lưới an toàn.** Một hold `scene` mà không có scene nào đang active là hold cũ (stale). Nó được
 nhả, kèm log `[hold] scene hold released -- no scene is active (stale)`, ở lần kế tiếp có chỗ đọc
@@ -445,8 +447,13 @@ HAL trong cùng lần boot; reboot xóa state boot-scoped và dùng mặc địn
 Sidecar cũ `{"type":"off"}` vẫn được đổi thành không có state.
 
 `led_should_stay_dark()` nhận cả solid đen do user chọn lẫn default tối, để
-TTS/music wave và presence restore tôn trọng tắt đèn. Status và mic-privacy giữ
-ưu tiên hiện tại. Intent `light on` vẫn dùng trắng ấm [255, 220, 180], không lấy
+music wave và presence restore tôn trọng tắt đèn. Trạng thái voice đang hoạt
+động vẫn hiển thị: listening và thinking dùng preset emotion của device dù đã
+lưu tùy chọn tắt đèn; TTS dùng màu listening mờ nếu màu nền là đen. Các luồng
+restore cue/kết thúc/hủy hiện có trả về tùy chọn mới nhất, kể cả off. Không ghi
+đè tùy chọn, không thêm network request hoặc thời gian chờ. Sleep vẫn chặn
+các cue này; mic privacy giữ ưu tiên indicator lúc nghỉ hiện có. Chưa có
+tùy chọn full-blackout riêng. Intent `light on` vẫn dùng trắng ấm [255, 220, 180], không lấy
 preset ambient mờ.
 
 ## LED Trong Emotion
@@ -494,3 +501,7 @@ realtime đang giữ mà không chờ TTS. Phản hồi mute hoặc không có l
 giữ cue vô hạn. Cleanup giữ emotion mới, khôi phục LED đã lưu (kể cả tắt/dim);
 TTS/nhạc đang phát giữ overlay tới teardown bình thường. Lượt do agent xử lý
 vẫn giữ cue thinking.
+
+### Quyền sở hữu timer khôi phục
+
+Mỗi timer khôi phục LED mang một mã thế hệ. Thay thế hoặc hủy sẽ vô hiệu hóa cả callback timer đã được đưa vào chạy; callback cũ không được đổi đèn hay xóa timer mới. Khôi phục trực tiếp cũng vô hiệu hóa timer đang chờ. Nếu lượt khôi phục đã bắt đầu vẽ, lượt đó hoàn tất trước khi bên mới nhận quyền, thông qua khóa vòng đời tái nhập. Không thêm cửa chờ hay network call, nhưng hủy có thể phải đợi phần vẽ/dừng hiệu ứng hiện tại; thay đổi này chưa loại bỏ giới hạn chờ thread hiệu ứng hai giây đang có.

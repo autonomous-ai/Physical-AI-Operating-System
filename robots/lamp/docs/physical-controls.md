@@ -152,7 +152,7 @@ Deploy the updated HAL before uploading JSON with these new fields.
 
 The table above covers the primary GPIO button and TTP223. The dedicated reset button on pin 37 only factory-resets when released after a hold of at least 5 s. Shorter holds and single/triple taps do nothing; it never invokes sleep or shutdown. LED stays unchanged below 5 s and uses the shared solid-red factory-reset preset from 5 s onward.
 
-With Harness OFF, MPR121 also supports release-to-commit holds and the same hold-tier LED feedback, as detailed in its detection section. The sleep and destructive hold tiers **commit on release, not on a timer firing while held**. MPR121 stops at shutdown: it has no factory-reset tier, so a 10 s+ touch hold still shuts down (`hold_release_action(..., factory_reset=False)`). Only the GPIO buttons factory-reset.
+With Harness OFF, Lamp maps an MPR121 hold of at least 2 seconds followed by release to switching voice input mode. This binding is configurable; sleep/shutdown holds remain disabled. GPIO destructive holds retain their separate behavior.
 
 ## Interrupting Lamp while it speaks (barge-in)
 
@@ -160,20 +160,23 @@ In automatic input mode, the spoken "Listening" cue is temporarily disabled for
 a tap/wake latency experiment. Gesture callers remain, and the original TTS
 launch is commented out for rollback. The short acknowledgement chime remains;
 it confirms the gesture, not microphone or Gemini readiness. Normal reply TTS
-mic gating and the 0.5 s voice startup delay are unchanged. Manual tap-to-talk
-and Harness recording cues retain their existing behavior.
+mic gating and the Automatic/Harness 0.5 s voice startup delay are unchanged. Device tap-to-talk skips that fixed delay. Manual tap-to-talk uses the local recorder cues described below; Harness recording cues retain their existing behavior.
 
 The 1-tap gesture is Lamp's primary **barge-in and attention-cancel mechanism**: it first stops any active object-tracking session, then tap the MPR121 control surface or press the GPIO button once during an in-flight TTS to cancel the current utterance mid-word, stop any music, and unmute the mic so Lamp listens for the next thing the user says. A user/scene speaker mute is also relaxed (unless a voice enrollment is recording) so the chime and the reply are audible again. Stopping tracking also works while the hardware mic kill switch is off; it does not wake or unmute the mic. The spoken "Listening" cue is disabled; the short chime remains when audio is permitted.
 
-When wake word is enabled, the click also **counts as a wake event**: `single_click_action` calls `voice_service.grant_wakeword_focus(source)`, which opens the same follow-up focus window (`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, default 20 s) a spoken wake phrase opens. Without it the device would acknowledge the tap and then drop the user's answer for missing the wake phrase. The window is re-checked at dispatch time, not only latched at mic-session start, so a click during an already-open session still authorizes the sentence being spoken. No-op when wake word is off (every utterance already dispatches) or when the follow-up timeout is 0.
+When wake word is enabled, the click also **counts as a wake event**: `single_click_action` calls `voice_service.grant_wakeword_focus(source)`, which opens the same follow-up focus window (`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, 5 s in the lamp packaged `.env`; code fallback 20 s) a spoken wake phrase opens. Without it the device would acknowledge the tap and then drop the user's answer for missing the wake phrase. The window is re-checked at dispatch time, not only latched at mic-session start, so a click during an already-open session still authorizes the sentence being spoken. No-op when wake word is off (every utterance already dispatches) or when the follow-up timeout is 0.
 
 ### Tap-to-talk for the device runtime
 
 The normal attention/wake behavior above applies to `voice_input_mode: "automatic"`, the default. Select **Tap to talk** in General settings (or MQTT `voice.input_mode`) to use explicit start/finish taps while Harness OFF. This mode preserves the saved wake checkbox but ignores the wake gate and all focus openers until automatic input is restored.
 
-GPIO and MPR121 short taps use `physical_short_tap`: first tap starts recording, next tap stops and sends the finalized transcript to the device runtime. Each separate short release counts, including two taps inside the usual multi-click window; there is no deferred spoken Listening cue. A ready beep and listening visual appear only when STT is ready, and the finish beep confirms the send tap. Silence does not send. Timeout (default 30 seconds), provider failure, privacy/stop, or a Harness routing change discards capture. A tap before readiness cancels without sending.
+GPIO and MPR121 short taps use `physical_short_tap`: first tap starts recording with parallel STT and realtime upload; the next tap stops local capture and publishes the realtime endpoint before the finish tone, without waiting for STT finalization or speaker identity. Realtime answers or delegates to the main agent, with an available STT transcript as `voice_command` fallback when realtime is disabled/unavailable. Gemini/OpenAI stream with manual commit; Pipecat streams but retains internal STT finalization; GPT Live lacks manual commit and buffers until finish. Each separate short release counts, including two taps inside the usual multi-click window; there is no deferred spoken Listening cue. A short 40 ms ready tone and listening visual appear after the first microphone frame, without waiting for STT to connect. Speech is buffered during connection within the recording limit (default 30 seconds). The finish tone acknowledges local input stopping before STT finalization; it is not a delivery receipt. Finishing while STT is connecting preserves already captured speech for submission once the connection succeeds. Silence does not send. Timeout (default 30 seconds), recorder failure, privacy/stop, or a Harness routing change discards capture; cancellation before a valid finish prevents commit and resets provider audio already uploaded. Slow or failed STT does not cancel realtime. A tap before local microphone readiness cancels without sending.
 
-A tap during TTS only interrupts; the next tap starts recording. A sleeping lamp first wakes without recording. A software-muted mic can be unmuted for capture; hardware privacy blocks it. GPIO holds/factory reset, MPR121 swipes/holds and TTP223 pet gestures retain their existing roles. Startup and privacy-switch actions still use the original wake action and never simulate a recording tap. Harness ON retains its separate gesture policy below.
+After the local stop cue, the recorder is released independently of STT finalization. A new tap can start the next recording while the previous turn is still finalizing. Up to two outstanding turns are reserved; if both are occupied, a new recording is rejected before its ready tone. Runtime speech waits until recording closes, so it cannot speak over the next utterance. Per-turn realtime workers serialize model work in capture order independently of the STT dispatch FIFO, where transcripts, identity, OS handled sync or fallback can finish later. Both paths share the two-turn reservation bound and leave capture independent.
+
+Starting a new recording supersedes the previous pending voice reply, including when TTS has not begun: local STT/realtime work is cancelled, deferred TTS is cleared, and OS suppresses older speech without aborting the agent task. Remote suppression runs asynchronously with a capture-time cutoff, so a delayed cancellation cannot silence the new turn. Cancelled provider work retains its slot until cleanup; the two-slot limit still applies.
+
+A tap during TTS only interrupts; during a realtime reply it also cancels the response stream to prevent later audio segments from playing. The next tap starts recording. A sleeping lamp first wakes without recording. Both interruption and wake play the existing short acknowledgment ping (~120 ms), after stopping TTS or restoring sleep-owned speaker state respectively. This is distinct from the capture-ready tone and does not mean the mic is recording; explicit speaker mute is still respected. A software-muted mic can be unmuted for capture; hardware privacy blocks it. GPIO holds/factory reset, MPR121 swipes/holds and TTP223 pet gestures retain their existing roles. Startup and privacy-switch actions still use the original wake action and never simulate a recording tap. Harness ON retains its separate gesture policy below.
 
 ### Presence enter and turning toward the lamp as wake triggers
 
@@ -211,11 +214,11 @@ When several faces are in frame, the one whose head counts is the one **nearest 
 | `HAL_GAZE_MIN_SAMPLES` | 2 | Below this there is not enough evidence to decide either way. The loop achieves ~2 samples/s whatever the rate asks for — it is paced by fetching a frame and running the detector — so 3 rejected users the rest of the pipeline agreed were facing the lamp. The `[gaze] sampling at N/s` line counts samples actually RECORDED, and reports separately how many frames were blocked before they could be measured (settling from a servo write, or the detector held by a live look). Counting attempts instead once reported 5.7/s while the buffer held nothing newer than the 1.5 s window — under 1/s of real evidence. |
 | `HAL_GAZE_SAMPLE_FPS` | 6 | Sampling rate. The gesture is slow, but the decision is a vote and only measured samples count — at 3 fps a window often held one usable sample, refusing a user facing the lamp dead-on. |
 | `HAL_GAZE_BUFFER_S` | 4.0 | Yaw history retained. Must exceed `WINDOW_S` so the lookback can see far enough back. It briefly had to be twice that, for a transition test that has since been removed; 4.0 is kept because the extra second costs nothing and `trail=` reads better with more history behind it. |
-| `HAL_GAZE_WAKE_FOCUS_S` | 10 | Follow-up window a *gaze* wake opens, shorter than the 20 s a spoken phrase or click opens. A glance claims less than a deliberate act. Capped by `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, never above it. |
+| `HAL_GAZE_WAKE_FOCUS_S` | 10 | Follow-up window a *gaze* wake requests. Capped by `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, so the lamp packaged `.env` limits it to 5 s as well. |
 | `HAL_GAZE_COOLDOWN_S` | 5 | Minimum gap between gaze-opened gates, so one conversation cannot open one per sentence. |
 | `HAL_GAZE_REPOINT` | `true` | Turn toward the remembered bearing when nobody has been visible. |
-| `HAL_GAZE_REPOINT_AFTER_S` | 12 | How long nobody must be visible first. A voice-triggered empty-evidence recovery bypasses this delay, but not the movement cooldown. |
-| `HAL_GAZE_REPOINT_COOLDOWN_S` | 60 | At most one turn per this interval, including a voice-triggered recovery. |
+| `HAL_GAZE_REPOINT_AFTER_S` | 12 | How long nobody must be visible first. A voice-triggered empty-evidence recovery bypasses this delay. |
+| `HAL_GAZE_REPOINT_COOLDOWN_S` | 60 | At most one automatic turn per this interval. A voice-triggered recovery bypasses it (a second sentence gets a second look) unless the last repoint found nobody: chatter toward an empty bearing gets one turn, then waits this out. |
 | `HAL_GAZE_REPOINT_MIN_CONFIDENCE` | 0.2 | Bearing confidence below which turning is not worth it. Matched to look-aim's own threshold: at 0.5 the watcher refused bearings the aim and the search were happily using — a bearing good enough to point a live conversational turn at is good enough to turn the head toward between them. |
 | `HAL_GAZE_REPOINT_SKIP_IF_FACE_S` | 3 | Decline a speech-triggered reacquire when a face was seen this recently. After the climb has found the user's face *above* the bearing, obeying the bearing means turning back down to look at nobody. |
 | `HAL_GAZE_WELL_FRAMED_EDGE` | 0.6 | How far off frame centre a face may sit and still count as "somebody is here, no need to turn". A face at the very edge is about to leave frame; treating it as well framed let the absence timer reset forever while the user drifted out of view — measured at edge 0.71–0.75 with the lamp still refusing to repoint. |
@@ -322,7 +325,7 @@ does not modify boot overlays automatically:
       "release_threshold": 4,
       "autoconfig": true,
       "poll_ms": 10,
-      "debounce_ms": 30,
+      "debounce_ms": 10,
       "chip_debounce": 2,
       "tap_min_electrodes": 3,
       "ffi": 34,
@@ -335,7 +338,7 @@ does not modify boot overlays automatically:
 
 `bus` is required for an enabled entry. Lamp explicitly sets touch/release
 thresholds to `6 / 4` in `mpr121.json`; omitted thresholds retain the generic
-`MPR121Config` defaults `2 / 1`. The other values above except `swipe_axis`, `ffi`, `chip_debounce` and `tap_min_electrodes` are defaults;
+`MPR121Config` defaults `2 / 1`. The other values above except `swipe_axis`, `ffi`, `chip_debounce`, `debounce_ms` and `tap_min_electrodes` are defaults;
 address 90 means `0x5A` (allowed addresses: 90–93). Selected electrodes must be
 unique numbers from 0–11, with at least one selected. Thresholds must satisfy
 `0 <= release_threshold < touch_threshold <= 255`. Polling accepts 1–1000 ms;
@@ -344,14 +347,25 @@ and motor noise. Configuration is loaded at boot; restart HAL after changes.
 
 Lamp sets `tap_min_electrodes: 3`: a contact must contain at least three selected
 pads active simultaneously, after the per-pad filter, continuously for
-`debounce_ms` (30 ms) to qualify as a tap. Qualification is retained until full
-release, so staggered finger lift still produces one tap. One/two-pad contacts
+`debounce_ms` (10 ms on Lamp) to qualify as a tap. Qualification is retained until full
+release, so staggered finger lift still produces one tap. On the sampled edge
+where the count falls below the minimum, evaluate the elapsed qualifying
+interval before clearing it; an irregular poll must not discard a contact
+that already met the duration. Separate sub-threshold intervals never add up. One/two-pad contacts
 and brief third-pad spikes produce no single-tap action or multi-tap cue/count.
 The count uses active selected pads, not the newly touched delta in the log and
 not the union of pads visited. Once resolved as a swipe, the existing travel
 rules still apply even when only one pad is active at a time. Hold detection,
 including Harness's two-second exit hold, is unchanged. This filter also applies
 to Harness capture taps and declarations without a swipe axis.
+
+Lamp uses `debounce_ms: 10` for quick palm taps that lift immediately, in
+both normal and Harness modes. The chip still requires three consecutive
+detections (`chip_debounce: 2`), thresholds stay `6 / 4`, and a tap still needs
+three pads. This removes excess software dwell on top of chip filtering;
+it does not require the user to hold a tap. It does not recover a pulse the
+chip never reports. Validate quick taps and untouched noise on the assembled
+base; sampled-mask unit tests do not establish a physical minimum tap duration.
 
 The generic default is 1 (legacy behavior); valid values are integers from 1 to
 the number of selected electrodes. Small real fingertip taps covering fewer
@@ -383,14 +397,49 @@ requires N+1 consecutive touch or release detections before the status changes:
 0 requires one detection; 2 requires three. Lamp sets `chip_debounce: 2`
 (`0x5B = 0x22`) with thresholds `6 / 4`, the values validated on hardware with
 `mpr121_opi_test.py test --touch 6 --release 4 --debounce 2`. Software contact
-(30 ms) and swipe footprint (5 ms) debounce still apply on top, and each
+(10 ms on Lamp) and swipe footprint (5 ms) debounce still apply on top, and each
 touch/release transition requires two additional consecutive detections compared
 with `chip_debounce: 0`. See [NXP AN3892, page 7](https://www.nxp.com/docs/en/application-note/AN3892.pdf#page=7).
 HAL validates the filter values at boot.
 Verify idle stability, tap, hold and swipe on the installed pads when tuning
-thresholds (the standalone `mpr121_opi_test.py` probe this section used to
-reference is not in the repository; `hal/test/test_mpr121*.py` cover the driver
-logic only). Stop HAL before probing the bus by hand; it owns the bus.
+thresholds. The older `mpr121_opi_test.py` is not in this repository.
+Use the read-only probe from the repository root on an authorized device:
+
+```bash
+sudo python3 -m hal.scripts.mpr121_probe --bus 0 --address 0x5a \
+  --seconds 30 --label idle --output /tmp/mpr121-idle.json
+```
+
+The probe reads live registers without resetting/configuring the chip or
+triggering actions. It can coexist with this driver's polling: each I²C read
+uses one adapter-serialized repeated-start transfer. HAL continues handling
+physical gestures during capture. Stop HAL before using other tools that write
+chip configuration; never run two configuration owners. The output includes
+per-electrode filtered data, baseline, signed delta, touch/release thresholds,
+fault flags, sample timing and mask transitions. Output files must not already
+exist. Baseline registers omit the lowest two bits, so displayed delta can be
+up to 3 counts below the internal delta; a bulk read also need not align with
+a chip update. Do not interpret a small mismatch with touch status as a fault.
+The probe adds I²C traffic; inspect `read_ms` and actual sample intervals and
+verify final interaction latency again without the probe.
+
+For an assembled base, record separate operator-labelled windows: untouched,
+normal light taps at several locations, and untouched with motor/LED/speaker
+activity. Compare idle noise and real touch deltas per electrode, including
+brief peaks and repeatability. `touch_threshold: 6` is a signal threshold, not
+a sensitivity level: lowering it increases sensitivity **and** false-touch
+risk. The three-pad rule filters gestures; it cannot improve the sensor's
+signal-to-noise ratio and can reject genuine narrow contacts. Do not lower both
+settings blindly or infer automatic thresholds from an unlabelled recording.
+
+Cover thickness, pad size and air gaps affect touch signal; see the
+[NXP design guide](https://community.nxp.com/pwmxy87654/attachments/pwmxy87654/sensors/6464/1/MPR121%20%20design%20guideline.pdf).
+Keep the sensing wall thickness consistent and the electrode against the inner
+surface without air gaps. If idle noise overlaps weak touch signals, improve
+mounting, pad geometry, wiring/grounding or power noise before weakening the
+threshold. Tune and validate each physical revision; one global threshold is
+not evidence that every printed base behaves identically. Changes must retain
+responsive tap/release timing as well as reject idle false actions.
 
 A missing file or board entry, or `"enabled": false`, skips MPR121 and retains
 the existing GPIO/TTP223 handlers. There is no legacy MPR121 bus fallback.
@@ -399,7 +448,8 @@ If the configured I²C bus is missing or the sensor does not acknowledge, initia
 
 After initialization, the driver allows 100 ms for sensing to settle before
 reading the initial touch state, then polls every 10 ms by default. Touch and
-release transitions use 30 ms debounce. Overlapping touches across selected
+release transitions use configured debounce (10 ms on Lamp, generic default 30 ms),
+with spatial release grace as described below. Overlapping touches across selected
 electrodes form one contact; release means **all selected electrodes** are
 released. A contact held at startup is ignored until release.
 
@@ -412,14 +462,30 @@ functions **while Harness mode is OFF**. Harness ON uses the separate policy bel
 | First short release in a click burst | `single_click_action(source="MPR121", announce=False)` stops tracking/audio after contact resolution, unmutes as permitted and plays the ack chime. |
 | 1, 2 or 4+ short taps, then 0.4 s quiet | Resolve the listening-cue event without speech; repeated taps do not repeat the initial single-click action. |
 | Exactly 3 short taps, then 0.4 s quiet | Reboot is disabled in the MPR121 wrapper; no additional action or listening cue. The first-tap single-click action still runs. |
-| Hold 2–<5 s, then release | Disabled; no sleep action. |
-| Hold ≥5 s, then release | Disabled; no shutdown or factory reset. |
+| Hold ≥2 s, then release | Lamp default: toggle `automatic` ↔ `tap_to_talk`. No shutdown or factory reset, even when held longer. |
 | Swipe right to left, then release (user facing the lamp) | `swipe_action` sleeps; no click or destructive action for this moving contact. |
 | Swipe left to right, then release (user facing the lamp) | Enable Harness voice through the Go API; no click or destructive action for this moving contact. |
 
 A short contact lasts less than 2 s. The click window does not resolve while
 any selected electrode remains touched. Releasing a hold clears the pending
 click burst. Destructive actions never commit while held.
+
+### Configurable voice-mode gesture
+
+Lamp `mpr121.json` binds the feature independently of the recognizer:
+
+```json
+"gesture_actions": {"hold": "toggle_voice_input_mode"},
+"hold_action_s": 2
+```
+
+Allowed bindings are `hold`, `swipe_left`, and `swipe_right`; the supported action is `toggle_voice_input_mode`. Swipe names follow the user facing the lamp. A bound swipe replaces that direction’s default action while Harness OFF. Omitted/empty `gesture_actions` leaves legacy actions in place and holds inactive. `hold_action_s` accepts 0.5–10 seconds. Gesture configuration loads at HAL startup; switching the voice mode itself is hot-applied.
+
+The default hold needs the configured `tap_min_electrodes` qualification, arms a cyan LED cue at the threshold, and commits once on release. It does not also fire a tap. Short taps retain their existing timing; no double-tap detection delay is added. Sleep, privacy, enrollment and unknown Harness state block this feature. Harness ON retains its own 2-second hold-to-exit policy. TTP223 remains pet input.
+
+A dedicated worker permits at most one mode change in flight; repeated mode gestures while pending are ignored. Slow HTTP does not block the touch action worker. The local dispatch target is under 20 ms, excluding recognition/release grace and mode application. A macOS synthetic check with the HTTP action blocked measured `ModeToggleWorker.submit()` at 0.091 ms on first use and 0.059 ms p95 over 29 repeats; rejecting another pending toggle took at most 0.002 ms. These are worker-admission measurements, not device touch-to-audio latency.
+
+The isolated action calls OS `POST /api/device/voice-input-mode/toggle` once, with no automatic retry. OS serializes read/toggle/save/apply with HTTP/MQTT updates and returns standard `status: 1` with `data.mode` only after HAL applies it. Local callers use loopback; remote callers require admin authentication. HAL announces the resulting mode only on success. On timeout/failure, check the configured mode before issuing another toggle; retrying a toggle may reverse an already-applied change. Explicit mode sets are safe to retry. Changing modes reseeds the MPR recognizer and ignores an already-held contact until release.
 
 ### MPR121 directional swipe
 
@@ -436,6 +502,14 @@ actions apply with Harness OFF; with Harness ON, right to left selects the
 previous agent and left to right selects the next agent. Verify electrode
 placement when assembling the lamp; the array order defines the sign reported
 by the detector, not the user's left-to-right direction.
+Entering swipe recognition requires both a new electrode arrival and departure
+of at least one electrode from the initial footprint, in addition to centroid
+movement. A stationary palm whose footprint expands as pads cross threshold
+stays a tap candidate; shrinking on release alone cannot make it a swipe.
+Keeping all initial pads held is treated as expansion, not travel. This adds
+no debounce or polling delay and preserves the existing 30 ms fast release
+for qualified device tap-to-talk contacts.
+
 A swipe need not cross the entire strip: the centroid must travel at least 3
 positions over at least 30 ms. Fast swipes may skip pads whose dwell is shorter
 than a poll plus the footprint filter; a centroid leap beyond 3 positions is
@@ -444,7 +518,7 @@ a second finger otherwise.
 Missing/null `swipe_axis` disables only swipe detection and preserves legacy
 click/hold recognition. Install HAL support before deploying JSON with this field.
 
-Contact debounce remains 30 ms by default; the spatial footprint uses up to 5 ms
+Contact debounce is 10 ms on Lamp (generic default 30 ms); the spatial footprint uses up to 5 ms
 stability (normally consecutive 10 ms polls) to retain fast electrode transitions.
 The detector follows the debounced contact footprint instead of counting every
 overlapping electrode as a separate tap. Stationary multi-electrode touches
@@ -453,7 +527,13 @@ and hold LED feedback are canceled for that contact; a valid swipe invokes its
 directional action once after release. Travel that reverses within one contact
 or is otherwise invalid does not trigger reboot/shutdown/reset.
 A release grace of 120 ms joins brief electrode handoffs, so tap/hold actions
-with swipe enabled resolve after that grace. Boot-held contacts remain ignored.
+with swipe enabled normally resolve after that grace. Device `tap_to_talk`
+with Harness OFF commits a stationary, qualified three-or-more-electrode tap
+once all electrodes have remained released for 30 ms (or the configured contact
+debounce if higher, capped at 120 ms). A shorter release bounce remains the same
+contact; after that tap commits, a new touch starts a new gesture. Unqualified
+contacts, moving swipes, Harness ON and Automatic retain the 120 ms handoff
+window. Boot-held contacts remain ignored.
 Logs record swipe direction, displacement and verdict alongside action dispatch.
 Tests replay measured mask sequences plus synthetic gesture/lifecycle cases;
 the runtime and swipe JSON were deployed to Lamp `lamp-0c4e` on 2026-09-11.
@@ -477,14 +557,14 @@ Hold LED feedback is verified with mocked local tests; it has not been checked
 on the live device. These tests do not execute real reboot, shutdown or reset.
 
 Operation logs use logger `hal.drivers.mpr121` in the normal HAL log/journal;
-there is no separate raw trace file. INFO entries cover initialization and
-configuration (bus, address, electrodes, thresholds and timing), per-electrode
-raw touch/release changes, debounced transitions, suppressed startup touches,
-click counts, hold duration/tier, action queueing/discarding, action begin/end
-and lifecycle. `gesture_id` correlates a click burst or hold with queued,
-discarded or executed actions. Failures include
-error logs. Unchanged 10 ms polls produce no INFO entry, so idle operation does not
-flood the log. Follow the service log with `journalctl -u hal.service -f` and
+there is no continuous raw trace file. INFO covers initialization/configuration,
+suppressed startup touches, rejection/discard reasons, action begin/end and
+lifecycle; failures include error logs. Electrode transitions, per-gesture
+diagnostics (counts, hold duration/tier) and action queueing use DEBUG so normal
+polling avoids synchronous log-handler work on each edge. `gesture_id` still
+correlates executed/discarded actions at INFO. Enabling DEBUG can affect sample
+timing; prefer a bounded read-only probe for signal analysis. Unchanged polls
+produce no entry. Follow the service log with `journalctl -u hal.service -f` and
 filter for `hal.drivers.mpr121` when investigating a missed or duplicate tap.
 
 ## TTP223 detection (`hal/drivers/ttp223.py`)
@@ -554,7 +634,7 @@ The actions live in one place so the GPIO button, TTP223, MPR121, and any future
 | `single_click_action(source)` | Stop active object tracking. Then relax a user/scene speaker mute (skipped while `_enrolling`). Stamp the music-cancel watermark and stop music — on **both** branches, so a click always silences the loudest thing in the room. Then, if mic is muted: unmute; else stop TTS. Then open the wake-word follow-up window (no-op when wake word is off) and play the short acknowledgement chime; the spoken "Listening" cue is disabled. Tracking still stops when the hardware mic kill switch is on; the voice action remains suppressed. | Yes — calls `stop_tts()`. |
 | `triple_click_action(source)` | Gesture mapping only: calls `reboot_action(source)`. | Yes |
 | `reboot_action(source)` | Speak "Rebooting now" → wait 5 s for the cached clip → `reboot_os()` (`sudo reboot`). | Yes |
-| `sleep_action(source)` | Speak the localized sleep announcement, then invoke `sleepy`: LED off, camera/mic/speaker off, then servo release after 1 s. | Yes — the sleepy pipeline stops active TTS/music after the announcement. |
+| `sleep_action(source)` | Speak the localized sleep announcement, wait `HAL_SLEEP_ANNOUNCEMENT_DELAY_S` (default 2 s, minimum 0; no wait when TTS is unavailable), then invoke `sleepy`: LED off, camera/mic/speaker off, then servo release after 1 s. | Yes — the sleepy pipeline stops active TTS/music after the announcement. |
 | `hold_release_action(held, source)` | Hold-signal mapping: chooses sleep, shutdown, or factory reset from the released duration. | Depends on selected action |
 | `shutdown_action(source)` | Speak "Shutting down now" → wait 5 s → `release_servos()` (so the lamp doesn't slam down mid-pose) → `shutdown_os()` (`sudo shutdown -h now`). | Yes |
 | `factory_reset_action(source)` | Speak "Factory reset starting. Rebooting now" → `release_servos()` → POST `/api/system/factory-reset` on the OS server (the server owns the wipe + reboot, see below). | Yes |
@@ -716,3 +796,9 @@ An explicit speaker-mute request during sleep takes ownership from sleep and is 
 Harness recording feedback uses a dedicated rising two-note cue to start and a falling two-note cue to finish; neither uses the normal gesture ping. The finish cue confirms recording has ended, not that the remote agent accepted or completed the task. The tap that interrupts TTS retains the normal acknowledgment ping and does not open capture.
 
 While Harness mode stays ON, the MPR121 mode watcher maintains a dim lime breathing indicator from `button_led.harness_on` in the device presets. OFF uses one brief dim blink from `harness_off`. The indicator yields to sleep, privacy and active voice/music feedback, returns on normal LED restore, and never changes saved user light settings. Devices without RGB skip LED feedback.
+
+With Live off, the stop/listen tap also cancels an active automatic realtime reply
+wait, not only TTS. Late reply output and main fallback are discarded; provider
+reconnection happens in the background so it does not hold the mic loop. See
+[automatic reply cancellation](../../../docs/realtime-voice.md#stop-playback-releases-automatic-reply-capture)
+for latency boundaries and diagnostic logs.

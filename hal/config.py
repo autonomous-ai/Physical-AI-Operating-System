@@ -45,6 +45,8 @@ if _sensing_device_env:
         AUDIO_SENSING_DEVICE = _sensing_device_env
 # 1.0 = normal, max 4.0.
 TTS_SPEED: float = float(os.environ.get("HAL_TTS_SPEED", "1.2"))
+# Physical sleep gesture: allow the announcement to play before sleepy mutes audio.
+SLEEP_ANNOUNCEMENT_DELAY_S = max(0.0, float(os.environ.get("HAL_SLEEP_ANNOUNCEMENT_DELAY_S", "2.0")))
 TTS_VOICE: str = os.environ.get("TTS_VOICE", "nova")
 TTS_INSTRUCTIONS: str = os.environ.get("HAL_TTS_INSTRUCTIONS", "Friendly")
 # ElevenLabs WebSocket stream-input instead of HTTP chunked streaming.
@@ -555,6 +557,10 @@ WAKEWORD_ENABLED: bool = VOICE_INPUT_MODE == "automatic" and _os_cfg_get("wakewo
 WAKEWORD_FOLLOWUP_TIMEOUT_S: float = max(
     0.0, float(os.environ.get("HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S", "20"))
 )
+# Package opt-in: automatic follow-ups stay visually responsive without unsolicited audio.
+VOICE_OPENING_FILLERS_ONLY: bool = os.environ.get(
+    "HAL_VOICE_OPENING_FILLERS_ONLY", "false"
+).lower() in ("1", "true", "yes")
 # Max gap between output events before the turn falls back (keep just above first-token latency).
 REALTIME_RECV_QUEUE_TIMEOUT_S: float = float(
     os.environ.get("HAL_REALTIME_RECV_QUEUE_TIMEOUT_S", "8.0")
@@ -614,6 +620,11 @@ REALTIME_REQUIRE_SPEECH_ON_EMPTY_STT: bool = os.environ.get(
 REALTIME_NOISE_SPEECH_RATIO: float = float(
     os.environ.get("HAL_REALTIME_NOISE_SPEECH_RATIO", "0.55")
 )
+# Cumulative voiced time, not span length or elapsed recording time. Zero keeps
+# legacy ratio-only behavior until a device has been acoustically calibrated.
+VOICE_NOISE_MIN_VOICED_MS: float = max(0.0, float(
+    os.environ.get("HAL_VOICE_NOISE_MIN_VOICED_MS", "0")
+))
 # Never commit an empty-STT turn (Gemini invents a reply); false uses the Silero gate instead.
 REALTIME_REQUIRE_TRANSCRIPT: bool = os.environ.get(
     "HAL_REALTIME_REQUIRE_TRANSCRIPT", "true"
@@ -640,8 +651,9 @@ REALTIME_NONACTIONABLE_FILLERS: frozenset[str] = frozenset(
 REALTIME_FOREIGN_SCRIPT_GUARD: bool = os.environ.get(
     "HAL_REALTIME_FOREIGN_SCRIPT_GUARD", "true"
 ).lower() in ("1", "true", "yes")
-# Live (full-duplex) mode is a whole-process choice: it forces REALTIME_TURN_DETECTION.
-LIVE_MODE: bool = os.environ.get("HAL_LIVE_MODE", "false").lower() in (
+# Tap-to-talk owns the turn boundary. Keep the environment preference intact so
+# switching back to automatic input restores full-duplex mode on HAL restart.
+LIVE_MODE: bool = VOICE_INPUT_MODE == "automatic" and os.environ.get("HAL_LIVE_MODE", "false").lower() in (
     "1",
     "true",
     "yes",
@@ -662,7 +674,9 @@ LIVE_VAD_SILENCE_MS: int = int(os.environ.get("HAL_LIVE_VAD_SILENCE_MS", "0"))
 
 # "server_vad" | "semantic_vad" | "off"
 REALTIME_TURN_DETECTION: str = os.environ.get("HAL_REALTIME_TURN_DETECTION", "off")
-if LIVE_MODE and REALTIME_TURN_DETECTION.strip().lower() in ("off", "none", ""):
+if VOICE_INPUT_MODE == "tap_to_talk":
+    REALTIME_TURN_DETECTION = "off"
+elif LIVE_MODE and REALTIME_TURN_DETECTION.strip().lower() in ("off", "none", ""):
     REALTIME_TURN_DETECTION = "server_vad"
 
 # Play the model's own audio for realtime-handled turns instead of our TTS.
@@ -825,6 +839,11 @@ DEFAULT_USER: str = os.environ.get("HAL_DEFAULT_USER", "unknown")
 # Survives reboots (not a boot sidecar).
 USER_BEARING_PATH: str = os.environ.get(
     "HAL_USER_BEARING_PATH", "/var/lib/hal/user_bearing.json"
+)
+# Learned per-frame servo load envelope for the contact stop (per unit, like a
+# calibration); survives reboots and OTA. Re-learn after recalibrating the arm.
+CONTACT_PROFILE_PATH: str = os.environ.get(
+    "HAL_CONTACT_PROFILE_PATH", "/var/lib/hal/contact_profile.json"
 )
 # Owner's resting LED choice from the web UI; survives reboots and OTA.
 RESTING_LED_PATH: str = os.environ.get(

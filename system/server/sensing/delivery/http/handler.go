@@ -96,6 +96,10 @@ func truncateHarnessFollowupContext(text string) string {
 
 // SensingEventRequest is the payload from HAL sensing detectors.
 type SensingEventRequest struct {
+	// CapturedAtMS preserves manual-device turn age across delayed dispatch.
+	CapturedAtMS int64 `json:"captured_at_ms,omitempty"`
+	// SuppressAutoFillers keeps unaddressed follow-ups silent while the agent decides.
+	SuppressAutoFillers bool `json:"suppress_auto_fillers,omitempty"`
 	// VoiceTurnType records wake admission for diagnostics, never routing.
 	VoiceTurnType string `json:"voice_turn_type,omitempty"`
 	// Type is the event category: motion, sound, presence.enter, presence.leave, light.level, etc.
@@ -246,6 +250,9 @@ func (h *SensingHandler) PostEvent(c *gin.Context) {
 		req.InteractionID = telemetry.ReportTaskStarted(req.Type, req.InteractionID, "")
 	}
 	startPayload := map[string]any{"type": req.Type, "message": req.Message, "interaction_id": req.InteractionID}
+	if req.SuppressAutoFillers {
+		startPayload["suppress_auto_fillers"] = true
+	}
 	if kind := req.voiceTurnType(); kind != "" {
 		startPayload["voice_turn_type"] = kind
 	}
@@ -523,7 +530,11 @@ func (h *SensingHandler) PostEvent(c *gin.Context) {
 			var queuedRunID string
 			if isChat || isVoice {
 				_, queuedRunID = h.agentGateway.NextChatRunID()
+				queuedRunID = manualCaptureRunID(queuedRunID, req, time.Now())
 				telemetry.ReportTaskStarted(req.Type, req.InteractionID, queuedRunID)
+				if isVoice && req.SuppressAutoFillers {
+					DefaultFillerManager.SuppressRun(queuedRunID)
+				}
 				if isChat {
 					h.agentGateway.MarkWebChatRun(queuedRunID)
 				}
@@ -600,6 +611,8 @@ func (h *SensingHandler) PostEvent(c *gin.Context) {
 	}
 
 	reqID, runID := h.agentGateway.NextChatRunID()
+	runID = manualCaptureRunID(runID, req, time.Now())
+	hal.RegisterTurnSpeechPolicy(runID, speakergate.WaitsForSpeaker(req.Type))
 	req.InteractionID = telemetry.ReportTaskStarted(req.Type, req.InteractionID, runID)
 	startPayload["interaction_id"] = req.InteractionID
 	flow.SetTrace(runID)
@@ -666,11 +679,17 @@ func (h *SensingHandler) PostEvent(c *gin.Context) {
 	// mark. Delegated turns skip the opening filler (realtime already gave one).
 	if isVoice {
 		hal.StartVoiceFollowup(followupInteractionID, runID)
-		if realtimeAlreadySpoke(req.Message) {
+		if req.SuppressAutoFillers {
+			DefaultFillerManager.SuppressRun(runID)
+		} else if realtimeAlreadySpoke(req.Message) {
 			DefaultFillerManager.MarkDelegatedVoiceRun(runID, req.InteractionID)
 		} else {
 			DefaultFillerManager.MarkVoiceRun(runID, req.InteractionID)
-			go PlayOpeningFillerNow(fillerOwner(req.InteractionID, runID))
+			go func() {
+				if !DefaultFillerManager.Superseded(runID) {
+					PlayOpeningFillerNow(fillerOwner(req.InteractionID, runID))
+				}
+			}()
 		}
 	}
 

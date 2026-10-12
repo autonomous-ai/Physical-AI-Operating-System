@@ -416,6 +416,15 @@ Known failures recorded in V1 docs and issues:
 
 ## 13. Unverified
 
+One fielded Lamp answers part of this. The office Lamp `4ace`, inventoried by
+Agent 1 on 12 October 2026 before V1 was removed (one device, not the fleet):
+
+- `config.json` has `wakeword=false`, `agent_runtime=hermes` and
+  `realtime.gemini.model=gemini-3.8-live-extended-thinking`;
+- it runs Hermes Agent v0.21.5 (2026.9.24).
+
+Still unverified:
+
 - Which hardware variant buyers receive. The fleet's wake word and
   `cloud_perception` values. Whether shipped images set the default agent.
 - What `Auto-AI` resolves to. Whether Lamps use Hermes native Runs (steering)

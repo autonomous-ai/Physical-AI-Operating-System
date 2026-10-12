@@ -50,7 +50,9 @@ list (`VS:418-427`, `HC:188-196`).
 follow-up focus (`is_addressed`, `hal/drivers/voice/_internal/wakeword_focus.py:136-150`) plus the realtime model's
 `reject_turn` tool (model-dependent).
 
-"Presence-warm STT": no such mechanism in V1. The only STT pre-connect is `HAL_STT_KEEPALIVE` (default false, lamp false,
+"Presence-warm STT": no such mechanism in V1. It arrives in commit `56b29e8f1` ("voice: presence-warm STT, conversation
+window, name anywhere, session keepalive, grace cut, experience map"), also only on `origin/lamp-release` and not an ancestor
+of `170a1b85e` (same for the follow-ups `471a48fb5` and `f3dd5a911`). The only STT pre-connect is `HAL_STT_KEEPALIVE` (default false, lamp false,
 `VC:77-81`, LENV:8). Presence affects voice only by granting wake focus on `presence.enter` of an enrolled face
 (`hal/drivers/sensing/sensing_service.py:272-273,312-326`).
 

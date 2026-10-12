@@ -60,8 +60,8 @@ mod camera;
 pub mod motor;
 use motor::{OptionalMotor, PreparedMotor};
 mod cloud;
-mod notices;
 mod endpoint;
+mod notices;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
 use endpoint::EndpointRig;
@@ -3797,9 +3797,9 @@ fn handle_playback_gap(
 #[cfg(test)]
 mod tests {
     mod duplex;
+    mod endpoint_session;
     mod failure_notice;
     mod pilot_faults;
-    mod endpoint_session;
     mod playout_continuity;
     mod playout_start;
     mod provider_pair;

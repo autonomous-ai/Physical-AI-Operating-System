@@ -116,7 +116,7 @@ của mọi khớp ở 20 Hz (`hal/drivers/motors/overload.py`).
   ở mức load mà một lượt chạy tự do đạt ở frame đó cộng 12 % (`contact.profile_margin`),
   và ở mức trễ so với goal tại đó cộng 3,5° (`contact.lag_margin`), nên vẫn thấy được
   tay chặn một khớp đã chạm trần torque. Envelope được học riêng từng máy bằng
-  `POST /servo/contact/learn` (mỗi recording chạy tự do hai lần, giữ giá trị tối đa từng
+  `POST /servo/contact/learn` hoặc nút **Learn** trên trang Servo của web Monitor (mỗi recording chạy tự do hai lần, giữ giá trị tối đa từng
   frame, lưu vào `/var/lib/hal/contact_profile.json`). Chỉ số frame được tra là frame
   playback, nên envelope bám theo recording sau khi resample theo giới hạn tốc độ; học
   lại sau khi hiệu chuẩn, đổi `torque_limit` hoặc có recording mới. Ngoài playback

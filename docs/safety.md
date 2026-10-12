@@ -448,7 +448,8 @@ Six conditions are enforced today; setup-incomplete is reserved.
       matter where load cannot help: a joint at its torque cap, or a soft one a hand
       simply slows, falls behind its goal. With `contact.lag_margin` set (Lamp: `35` =
       3.5°) a joint trailing its learned lag by that much is a hit too.
-      `POST /servo/contact/learn` (`{"recordings": [...], "runs": 2}`; default every
+      `POST /servo/contact/learn` (or **Learn** under Touch Sensitivity on the web
+      Monitor Servo page; `{"recordings": [...], "runs": 2}`; default every
       recording except `music_*`) plays each recording free `runs` times in the
       background and saves the per-frame max; the area around the arm must be clear,
       since whatever it touches is learned as normal. While a learned recording plays

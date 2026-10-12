@@ -18,6 +18,13 @@ interface ServoDetail {
   error?: string | null;
 }
 
+// GET /health servo_overload.contact.profile: this lamp's learned contact envelope.
+interface ContactProfileState {
+  margin: number;
+  recordings: number;
+  learning: string | null;
+}
+
 export function ServoSection() {
   const [servo, setServo] = useState<ServoState | null>(null);
   const [servos, setServos] = useState<Record<string, ServoDetail> | null>(null);
@@ -29,6 +36,7 @@ export function ServoSection() {
   const [moveDuration, setMoveDuration] = useState<number>(2.0);
   const [moving, setMoving] = useState(false);
   const [liveDrag, setLiveDrag] = useState(false);
+  const [touch, setTouch] = useState<ContactProfileState | null>(null);
   // Throttle live drag; a trailing send guarantees the final value lands.
   const liveLastSent = useRef(0);
   const liveTrailing = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,12 +62,14 @@ export function ServoSection() {
   }, []);
 
   usePolling(async (signal) => {
-    const [sr, st] = await Promise.all([
+    const [sr, st, hl] = await Promise.all([
       fetch(`${HW}/servo`, { signal }).then((r) => r.json()).catch(() => null),
       fetch(`${HW}/servo/status`, { signal }).then((r) => r.json()).catch(() => null),
+      fetch(`${HW}/health`, { signal }).then((r) => r.json()).catch(() => null),
     ]);
     if (sr) setServo(sr);
     if (st?.servos) setServos(st.servos);
+    if (hl) setTouch(hl?.servo_overload?.contact?.profile ?? null);
   }, 3000);
 
   const flash = (msg: string) => {
@@ -135,6 +145,19 @@ export function ServoSection() {
     flash("Hold — freezing current pose");
     await fetch(`${HW}/servo/hold`, { method: "POST", headers: { accept: "application/json" } }).catch(() => {});
     setTimeout(refresh, 500);
+  };
+  const learnTouch = async () => {
+    const resp = await fetch(`${HW}/servo/contact/learn`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ runs: 2 }),
+    }).catch(() => null);
+    if (resp?.ok) {
+      flash("Learning — the lamp plays each animation twice");
+    } else {
+      const err = await resp?.json().catch(() => null);
+      flash(`Learn failed: ${err?.detail ?? "HAL unreachable"}`);
+    }
   };
   const resumeServos = async () => {
     flash("Resuming animation");
@@ -304,6 +327,33 @@ export function ServoSection() {
             <ControlButton onClick={release}      color="var(--lm-red)"              title="Release"   hint="Disable torque; move by hand" />
           </div>
         </div>
+
+        {touch && (
+          <div style={{ ...S.card, alignSelf: "start" }}>
+            <div style={cardTitle}>Touch Sensitivity</div>
+            <div style={{ fontSize: 13, color: "var(--lm-text-dim)", marginBottom: 10, lineHeight: 1.4 }}>
+              {touch.learning
+                ? `Learning… now playing ${touch.learning}. Keep hands and objects away.`
+                : touch.recordings > 0
+                  ? `Learned on this lamp: ${touch.recordings} animations. Relearn after a servo is replaced.`
+                  : "Not learned yet: only hard pushes stop the arm during animations."}
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(96px, max-content) 1fr",
+              rowGap: 8, columnGap: 10,
+              alignItems: "center",
+            }}>
+              <ControlButton
+                onClick={learnTouch}
+                disabled={!!touch.learning}
+                color="var(--lm-teal)"
+                title={touch.learning ? "Learning…" : "Learn"}
+                hint="Clear the space around the lamp first; it plays every animation twice (a few minutes)."
+              />
+            </div>
+          </div>
+        )}
 
         <div style={{ ...S.card, alignSelf: "start" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 6 }}>
@@ -568,22 +618,25 @@ function ChipButton({ children, onClick, active }: {
 }
 
 // Renders two grid cells (button + hint) so buttons align in a 2-column grid.
-function ControlButton({ onClick, color, title, hint }: {
+function ControlButton({ onClick, color, title, hint, disabled = false }: {
   onClick: () => void;
   color: string;
   title: string;
   hint: string;
+  disabled?: boolean;
 }) {
   return (
     <>
       <button
         onClick={onClick}
+        disabled={disabled}
         style={{
+          opacity: disabled ? 0.5 : 1,
           fontSize: 13, minHeight: 40, padding: "8px 14px", borderRadius: 6, width: "100%",
           background: `color-mix(in srgb, ${color} 18%, transparent)`,
           border: `1.5px solid color-mix(in srgb, ${color} 70%, transparent)`,
           color,
-          cursor: "pointer", fontWeight: 700,
+          cursor: disabled ? "not-allowed" : "pointer", fontWeight: 700,
           whiteSpace: "nowrap",
           transition: "background 0.15s, transform 0.05s",
           boxShadow: `0 1px 0 color-mix(in srgb, ${color} 30%, transparent) inset`,

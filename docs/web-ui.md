@@ -544,6 +544,10 @@ Overview is organized into three always-visible zones: **System health** (Agent,
 - Each can be played via `POST /hw/servo/play` (recording name)
 - UI also provides an `Upload CSV` button to add/replace recordings via `POST /hw/servo/upload` (multipart: `file`, `recording_name`)
 
+**Touch Sensitivity** (Servo section, `?debug=true`; shown when HAL reports a contact profile)
+- Status from `GET /hw/health` → `servo_overload.contact.profile`: learning (and which animation is playing), learned on this lamp (`recordings` count), or not learned yet (only the fixed floors stop the arm during animations)
+- `Learn` calls `POST /hw/servo/contact/learn` (`{"runs": 2}`): the lamp plays every animation except `music_*` twice and saves this unit's envelope. Clear the space around the lamp first; the button is disabled while a learn run is in progress
+
 > **Layout & pill clouds.** The device cluster (row 2) splits into two equal
 > columns: the right column holds the expressive cards (Emotion, Servo Pose,
 > Versions) and the left column holds the compact status cards (Hardware, Scene,

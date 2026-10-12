@@ -115,7 +115,8 @@ samples every joint's `Present_Load` at 20 Hz (`hal/drivers/motors/overload.py`)
   is held to what a free run loaded at that frame plus 12 % (`contact.profile_margin`),
   and to how far it trailed its goal there plus 3.5° (`contact.lag_margin`), which
   still sees a hand on a joint already at its torque cap.
-  The envelope is learned per unit by `POST /servo/contact/learn` (each recording
+  The envelope is learned per unit by `POST /servo/contact/learn`, or the **Learn**
+  button on the web Monitor Servo page (each recording
   played free twice, the per-frame max kept, saved to
   `/var/lib/hal/contact_profile.json`). The frame index it looks up is the playback
   frame, so the envelope follows the recording after speed-cap resampling; re-learn

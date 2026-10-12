@@ -531,6 +531,10 @@ Overview chia thành ba vùng luôn hiển thị: **System health** (Agent, Netw
 - Mỗi recording có thể phát qua `POST /hw/servo/play` (tên recording)
 - UI có nút `Upload CSV` để thêm/replace recording qua `POST /hw/servo/upload` (multipart: `file`, `recording_name`)
 
+**Touch Sensitivity** (mục Servo, `?debug=true`; chỉ hiện khi HAL báo có contact profile)
+- Trạng thái lấy từ `GET /hw/health` → `servo_overload.contact.profile`: đang học (kèm animation đang chạy), đã học trên đèn này (số `recordings`), hoặc chưa học (lúc chạy animation chỉ ngưỡng cố định mới dừng được tay đèn)
+- Nút `Learn` gọi `POST /hw/servo/contact/learn` (`{"runs": 2}`): đèn chạy mọi animation trừ `music_*` hai lần và lưu envelope riêng của máy. Dọn trống quanh đèn trước; nút bị khoá trong lúc đang học
+
 > **Bố cục & pill cloud.** Cụm thiết bị (hàng 2) chia thành hai cột bằng nhau:
 > cột phải cho các card biểu cảm (Emotion, Servo Pose, Versions) và cột trái cho
 > các card trạng thái gọn (Hardware, Scene, Power); dưới ~860px hai cột gộp về

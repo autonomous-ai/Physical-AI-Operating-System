@@ -3,6 +3,55 @@
 Owner: Agent 2 (end-of-turn and whole-thought workstream), on M2.
 Communication with Main and Agent 1 is Harness Agent Messages and Git.
 
+## Opt-in fast endpoint on `7e28dc7ac`
+
+- **Branch.** `lamp-a2-endpoint-fast`, proposal only. Its base is
+  `lamp-v2-chat` `7e28dc7ac` (with `f9c6b0ea8`) plus the pilot through
+  `ad0b2e329`.
+- **Tested code SHA.** `57ed58110`. The docs commit after it changes only
+  `docs/` and this file.
+- **Package.** [docs/endpoint-fast.md](../docs/endpoint-fast.md). Commits:
+
+  | Commit | Content | Shared? |
+  | --- | --- | --- |
+  | `209ae425f`, `9e23f60bf` | `EarlyEnd`, provisional confirmation, continuation events and hold (`activity.rs`, `tests/endpoint_confirmation.rs`) | Shared (`activity.rs`) |
+  | `97d939b7b` | `--endpoint smart-turn-early`, refusal rules, `Reply::input_end_held`, the hold and release, traces, the test-only removed-hold switch (`coordinator.rs`, `coordinator/{cloud,endpoint}.rs`, `options.rs`, `activity.rs`, one test field in `coordinator/tests/turn_taking.rs`, voice-eval `physical/session.rs`) | Shared |
+  | `d7e164df8`, `57ed58110` | Real-loop sessions (`coordinator/tests/endpoint_fast.rs`), test visibility in `endpoint_session.rs`, one `mod` line in `coordinator.rs`, the test-only `Termination::shared` | Agent 2 tests (one shared line) |
+  | `1b7cf291b` | `crates/endpoint-eval` with the kept-start seam; workspace member and one lock entry, no third-party crate | New crate |
+  | docs | `docs/endpoint-fast.md`, `docs/endpoint-detection.md`, `docs/endpoint-pilot.md`, this file | Agent 2 files |
+
+- **Defaults unchanged.**
+  - `silence` stays the default.
+  - `smart-turn` keeps its 1,000 / 1,200 / 1,500 ms profile and its exact
+    records.
+  - `smart-turn-early` is refused without `--provider-continuation
+    kept-start` and the baseline detector.
+- **Gates (M2 macOS only).**
+
+  - fmt and strict Clippy (`-D warnings`, all targets) for `lamp-live`,
+    `lamp-voice-eval` and `lamp-endpoint-eval` on `57ed58110`. The same
+    checks also pass on each intermediate commit, `97d939b7b` and `d7e164df8`.
+  - `lamp-live`, everything except the motor and optional-ring groups, run
+    in parallel: lib 562/0 (5 ignored); integration suites 188/0, including
+    `endpoint_confirmation` 30/0.
+  - The motor and optional-ring groups, serially: 46/0.
+    - In a parallel run they time out starting children on this host.
+    - They fail the same way at the unchanged base `7e28dc7ac`, so the cause
+      is the host, not this change.
+  - `endpoint_fast` (17 real-loop sessions): 17/0 in each of three
+    consecutive runs.
+  - voice-eval: 285/0.
+  - Held-out turn evaluation: shards 4 and 5 at verdict costs of 130, 400
+    and 550 ms ([results](../docs/endpoint-fast.md#held-out-evaluation)).
+  - Not run: the Linux VM, the office VM, any device or service, or audio.
+
+- **Not established.**
+  - Gemini settling a request interrupted before output, and keeping both
+    parts of a continued thought in context.
+  - Real provider latency, Lamp acoustics, A733 verdict time, and physical
+    Stop and mute.
+  - Main schedules every service and device trial.
+
 ## Endpoint pilot composition on `675c71c62`
 
 - **Branch.** `lamp-a2-endpoint-pilot`, proposal only, base `lamp-v2-chat`

@@ -7,16 +7,19 @@ conservative `--endpoint smart-turn` path. The pilot package, its manifest,
 stress evidence and acceptance/rollback rule are in
 [endpoint-pilot.md](endpoint-pilot.md).
 
-Not on this branch:
+Opt-in fast path:
 
-- **The early end of input** (`--endpoint smart-turn-early`, MAIN-052) stays on
-  `lamp-a2-continuation`. It was parked after Main's strict continuation probe
-  failed with `BarrierTimeout`
-  ([result](verification/strict-continuation-20261011/README.md)) and stays
-  off. The later single `kept-start` successes do not qualify an early end.
+- **The early end of input** (`--endpoint smart-turn-early`) is proposed
+  separately on `lamp-a2-endpoint-fast`, against the current coordinated
+  `kept-start` contract; see [endpoint-fast.md](endpoint-fast.md). It requires
+  `--provider-continuation kept-start` and is refused without it.
+  - The first proposal (`lamp-a2-continuation`) was parked after Main's
+    strict continuation probe failed with `BarrierTimeout` on the immediate
+    Start ([result](verification/strict-continuation-20261011/README.md)).
+  - The single later `kept-start` successes do not qualify it either.
 - **The evaluation crate** (`lamp-endpoint-eval`: probe, replay, cohorts,
-  profiling) also stays on `lamp-a2-continuation`. The numbers below were
-  produced with it.
+  profiling, turns) is part of that branch. The numbers below were produced
+  with it.
 
 ## Summary
 

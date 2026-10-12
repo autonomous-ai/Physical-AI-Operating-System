@@ -29,14 +29,16 @@ has no silence fallback and refuses `--endpoint smart-turn`.
   - no rebuild is needed;
   - the worker and model may stay installed, unused;
   - no default, threshold or provider setting differs.
-- **Excluded from the pilot**, and absent from this branch:
-  - `--endpoint smart-turn-early` and the continuation hold
-    (`lamp-a2-continuation`). They were parked after Main's strict
-    continuation probe failed with `BarrierTimeout`
-    ([result](verification/strict-continuation-20261011/README.md)). No
-    speculative early endpoint is proposed until Main decides on current
-    evidence.
-  - The evaluation crate `lamp-endpoint-eval`.
+- **Excluded from the pilot:**
+  - `--endpoint smart-turn-early` and its hold. The first version
+    (`lamp-a2-continuation`) was parked after Main's strict continuation
+    probe failed with `BarrierTimeout` on the immediate Start
+    ([result](verification/strict-continuation-20261011/README.md)).
+    - A separate opt-in proposal against the current `kept-start` contract is
+      on `lamp-a2-endpoint-fast` ([endpoint-fast.md](endpoint-fast.md)).
+    - It changes neither this package's defaults nor its 1,000 / 1,200 /
+      1,500 ms profile.
+  - The evaluation crate `lamp-endpoint-eval`, also on that branch.
   - Any change to the barrier policy, provider, camera or motor code.
 - **Expected effect.** At most 200 ms less endpoint wait on confident finished
   turns: 77% of finished held-out turns. It does not shorten the 1.1–1.6 s from

@@ -1,0 +1,428 @@
+{
+  "ordinary": {
+    "source": "/private/tmp/lamp-ordinary-startup-executed-0srh7fxs",
+    "status": "incomplete_or_failed",
+    "runtime_sha256": "b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4",
+    "rollback_verified": true,
+    "writable_mixers_restored": true,
+    "controller_error": "ValueError: Target ended during readiness check",
+    "human_listened": false,
+    "acoustic_latency_ms": null,
+    "steps": [
+      {
+        "slot": 1,
+        "status": "spoken_reply_completed_unscored"
+      },
+      {
+        "slot": 2,
+        "status": "spoken_reply_completed_unscored"
+      },
+      {
+        "slot": 3,
+        "status": "attempt_incomplete"
+      },
+      {
+        "slot": 4,
+        "status": "withheld"
+      },
+      {
+        "slot": 5,
+        "status": "withheld"
+      },
+      {
+        "slot": 6,
+        "status": "withheld"
+      },
+      {
+        "slot": 7,
+        "status": "withheld"
+      },
+      {
+        "slot": 8,
+        "status": "withheld"
+      }
+    ],
+    "contiguous_events": 3326,
+    "metadata_health": {
+      "acknowledged": false,
+      "degraded": false,
+      "dropped_events": 0,
+      "finish_attempted": false,
+      "initialization_failed": false,
+      "oversized_events": 0,
+      "rotations": 0,
+      "unconfirmed_events": 0,
+      "writer_failed": false,
+      "written_events": 3326
+    },
+    "native_archive_sha256": "fc8e96fab355d2a0e284e1c802d7295cfaa841102b05496db2ab18c9c1b15c2b",
+    "startup_rejections": [],
+    "provider_ready_count": 1,
+    "turns": [
+      {
+        "turn": 1,
+        "outcome": "audio_written_unscored",
+        "provider_outcome": {
+          "kind": "complete"
+        },
+        "playback_gaps": 0,
+        "endpoint_us": 73854973117,
+        "first_write_us": 73856218852,
+        "final_sample_retired": true,
+        "admitted": true,
+        "detected_endpoint_to_first_write_ms": 1245.735,
+        "estimated_silence_start_to_first_write_ms": 2445.7349999999997,
+        "endpoint_to_provider_audio_ms": 1199.676
+      },
+      {
+        "turn": 2,
+        "outcome": "audio_written_unscored",
+        "provider_outcome": {
+          "kind": "complete"
+        },
+        "playback_gaps": 0,
+        "endpoint_us": 73871754240,
+        "first_write_us": 73873058952,
+        "final_sample_retired": true,
+        "admitted": true,
+        "detected_endpoint_to_first_write_ms": 1304.712,
+        "estimated_silence_start_to_first_write_ms": 2504.712,
+        "endpoint_to_provider_audio_ms": 1205.971
+      },
+      {
+        "turn": 3,
+        "outcome": "service_stopped",
+        "provider_outcome": null,
+        "playback_gaps": 0,
+        "endpoint_us": null,
+        "first_write_us": null,
+        "final_sample_retired": false,
+        "admitted": true,
+        "detected_endpoint_to_first_write_ms": null,
+        "estimated_silence_start_to_first_write_ms": null,
+        "endpoint_to_provider_audio_ms": null
+      }
+    ],
+    "latency": {
+      "completed_sample_count": 2,
+      "endpoint_to_first_write_median_ms": 1275.2235,
+      "estimate_total_median_ms": 2475.2235,
+      "boundary": "Software endpoint to first ALSA write; adding configured silence wait estimates total, not acoustic word onset."
+    },
+    "room": {
+      "sha256": "a03f5314943de84ec9f5ba24be4c88cc3dc0a6f67017e3041a498d7e91fe65ea",
+      "valid": true,
+      "errors": [],
+      "frames": 8640000,
+      "callbacks": 16875,
+      "capture": {
+        "backend_xruns": 0,
+        "callbacks": 16875,
+        "clipped_samples": 0,
+        "done": true,
+        "faults": 0,
+        "first_capture_ns": 2308025931521479,
+        "first_host_ns": 2307980926185000,
+        "last_capture_ns": 2308205912222587,
+        "last_host_ns": 2308160902120000,
+        "max_callback_frames": 512,
+        "max_host_callback_gap_ns": 10910000,
+        "min_callback_frames": 512,
+        "nonfinite_samples": 0,
+        "nonzero_samples": 8640000,
+        "peak": 0.4591038227081299,
+        "queue_dropped_frames": 0,
+        "received_frames": 8640000,
+        "rejected_frames": 0,
+        "retained_frames": 8640000,
+        "stream_error_kinds": 0,
+        "stream_errors": 0,
+        "tail_callbacks": 2,
+        "tail_first_host_ns": 2308160912809000,
+        "tail_input_frames": 1024,
+        "tail_last_capture_ns": 2308205933554892,
+        "tail_last_host_ns": 2308160923432000,
+        "timestamp_discontinuities": 0,
+        "writer_failed": false,
+        "written_frames": 8640000
+      },
+      "covers_target": true
+    },
+    "runtime_finish": [
+      {
+        "at_us": 73880101652,
+        "complete_evidence": false,
+        "error": null,
+        "kind": "run_end",
+        "service_sequence": 3326,
+        "status": "stopped_unscored",
+        "termination_signal": "SIGTERM"
+      }
+    ],
+    "helper_error": "ValueError: Not current ready/idle",
+    "stop_verified": true,
+    "stop_request_to_unit_stopped_ms": 276.371,
+    "final_metadata_acknowledgments": [
+      {
+        "complete_evidence": false,
+        "health": {
+          "acknowledged": true,
+          "degraded": false,
+          "dropped_events": 0,
+          "finish_attempted": true,
+          "initialization_failed": false,
+          "oversized_events": 0,
+          "rotations": 0,
+          "unconfirmed_events": 0,
+          "writer_failed": false,
+          "written_events": 3326
+        },
+        "kind": "service_metadata_finished",
+        "output": "/var/lib/lampOS/pilot-4ace/sessions/check-provider-0srh7fxs"
+      }
+    ],
+    "unplanned_third_input": [
+      {
+        "at_us": 73879651622,
+        "hard_capture_authority_unchanged": true,
+        "kind": "turn_taking_availability",
+        "policy": "v1-baseline",
+        "prospective_input_available": true,
+        "service_sequence": 3301
+      },
+      {
+        "at_us": 73879916049,
+        "candidate": {
+          "capture": {
+            "dsp_epoch": 1,
+            "epoch": 1,
+            "privacy_generation": 2,
+            "worker": [
+              112,
+              247,
+              197,
+              155,
+              233,
+              7,
+              43,
+              35,
+              66,
+              238,
+              130,
+              53,
+              114,
+              11,
+              31,
+              170
+            ]
+          },
+          "decision_deadline_us": 73880112033,
+          "displaced_owner": null,
+          "first_read_at_us": 73879651142,
+          "id": {
+            "controller": [
+              246,
+              224,
+              227,
+              250,
+              189,
+              124,
+              153,
+              213,
+              2,
+              120,
+              119,
+              230,
+              191,
+              28,
+              67,
+              153
+            ],
+            "serial": 3
+          },
+          "trigger_read_at_us": 73879912033,
+          "trigger_sequence": 3369
+        },
+        "kind": "input_candidate",
+        "service_sequence": 3302
+      },
+      {
+        "admission_basis": "directed_session_v1_baseline",
+        "at_us": 73879916322,
+        "authority_issued_at_us": 73879916157,
+        "candidate": {
+          "controller": [
+            246,
+            224,
+            227,
+            250,
+            189,
+            124,
+            153,
+            213,
+            2,
+            120,
+            119,
+            230,
+            191,
+            28,
+            67,
+            153
+          ],
+          "serial": 3
+        },
+        "kind": "input_admitted",
+        "owner": {
+          "boot": [
+            246,
+            224,
+            227,
+            250,
+            189,
+            124,
+            153,
+            213,
+            2,
+            120,
+            119,
+            230,
+            191,
+            28,
+            67,
+            153
+          ],
+          "generation": 7,
+          "turn": 3
+        },
+        "prefix_first_host_read_us": 73879651142,
+        "provider_session": 1,
+        "service_sequence": 3303,
+        "turn": 3
+      },
+      {
+        "at_us": 73879922201,
+        "kind": "provider_input_started",
+        "provider_session": 1,
+        "service_sequence": 3306,
+        "turn": 3,
+        "waiting_for_barrier": false
+      }
+    ]
+  },
+  "microphone_comparison": {
+    "source": "/private/tmp/lamp-duplex-mic-r4-executed-jw756u6z",
+    "original_status": "failed_or_incomplete_diagnostic",
+    "original_rollback_verified": false,
+    "archive_sha256": "2d4f188e6420b597110b9aa30517f1add24a0c1574839ea9dd293a3cad51d87a",
+    "archive_members_verified": 22,
+    "raw_certificates": [
+      {
+        "stream": "capture",
+        "complete_sha256": "0cc1575201ac7d053184e1ea299d6421dfc36f5e1222e27209914c2c14fa8e63",
+        "ack_at_us": 74470058514,
+        "capture_frames": 949600,
+        "render_frames": 0,
+        "accepted_zero_frames": 0,
+        "end": {
+          "at_us": 74469894491,
+          "reason": "privacy_closed"
+        }
+      },
+      {
+        "stream": "render",
+        "complete_sha256": "ed2916cc8d241006fe9ca4c6002022b6764d7f8d41fc0ce879b00392891fac5d",
+        "ack_at_us": 74470058471,
+        "capture_frames": 0,
+        "render_frames": 1425120,
+        "accepted_zero_frames": 1171920,
+        "end": {
+          "at_us": 74469894008,
+          "reason": "privacy_closed"
+        }
+      }
+    ],
+    "room": {
+      "sha256": "4aac0f031cfd135db0117a94a93d3b91de5cd79c514353942a56bf9296d16f13",
+      "frames": 4800000,
+      "seconds": 100.0,
+      "callbacks": 9375,
+      "continuous_valid": true
+    },
+    "admissions": [
+      {
+        "turn": 1,
+        "at_us": 74412847474,
+        "prefix_first_host_read_us": 74412555015,
+        "capture_frame_sequence": 204,
+        "first_pcm_sample": 32480,
+        "prefix_minus_coffee_predicted_ms": -17772.3125,
+        "prefix_minus_coffee_whole_peak_ms": -17809.9375
+      },
+      {
+        "turn": 2,
+        "at_us": 74434298315,
+        "prefix_first_host_read_us": 74433474669,
+        "capture_frame_sequence": 2296,
+        "first_pcm_sample": 367200,
+        "prefix_minus_coffee_predicted_ms": 3147.6875,
+        "prefix_minus_coffee_whole_peak_ms": 3110.0625
+      },
+      {
+        "turn": 3,
+        "at_us": 74469871674,
+        "prefix_first_host_read_us": 74469580068,
+        "capture_frame_sequence": 5906,
+        "first_pcm_sample": 944800,
+        "prefix_minus_coffee_predicted_ms": 39247.6875,
+        "prefix_minus_coffee_whole_peak_ms": 39210.0625
+      }
+    ],
+    "session_scoped_input_transcripts": [
+      {
+        "at_us": 74429016152,
+        "text": "So why does it turn orange at sunset?",
+        "correlation": "unreliable; session scoped"
+      },
+      {
+        "at_us": 74436652963,
+        "text": "Why does it smell so good?",
+        "correlation": "unreliable; session scoped"
+      }
+    ],
+    "output_transcripts_by_owner": {
+      "1": "When the sun is low, its light travels through more atmosphere. This scatters the blue light, letting only the reds and oranges reach your eyes.",
+      "2": "That likely comes from the cooling air, which can release earthy scents or the smell of nearby plants and flowers.",
+      "3": ""
+    },
+    "report_path": "/private/tmp/lamp-mic-r4-timeline-j37ofbve/report.json",
+    "report_sha256": "23e0f4bfca199304b08715bda2abeeb19ade8589350cf1a2b4db97ef6ed1142c",
+    "acoustic_score": null,
+    "human_listened": false,
+    "native_pass": false
+  },
+  "separate_recovery": {
+    "path": "/private/tmp/lamp-r4-explicit-usb-restore-t38h83mz/rollback-receipt.json",
+    "sha256": "9fa1e88b3e3faca45be82de5624cce1cfab4b15ece956b89aaa3f8e72a44b192",
+    "success": true,
+    "writable_mixer_controls_restored": true,
+    "privacy": {
+      "mic_muted": true,
+      "hw_mic_switch_muted": false,
+      "speaker_muted": true,
+      "attempts": 1,
+      "elapsed_s": 0.4376097049971577,
+      "startup_mute_preserved": false,
+      "continuous_privacy_verified": false,
+      "startup_mute_reasserted": true,
+      "mute_response": "ok",
+      "mute_request_count": 1
+    },
+    "capture_stopped_us": 74469895108,
+    "usb_kernel_sha256": "2d9a321c36b3ef1b1f345b896e2f7d0aefff3b95b7b4c70d3084c1c21ff16643",
+    "cause": "unknown; journal receipt follows capture stop but source timestamp precedes extra input; neither establishes cause of input or stop; coffee answer completed before both timestamps",
+    "usb_disconnect_journal_receipt_us": 74469924086,
+    "usb_disconnect_source_monotonic_us": 74468380066,
+    "usb_reenumeration_journal_receipt_us": 74474356169,
+    "usb_reenumeration_source_monotonic_us": 74472811975
+  }
+}

@@ -36,7 +36,14 @@ software measurements and must not be relabeled as first audible words.
 
 ## Latest ordinary conversation, 2026-10-12
 
-The latest [real-Lamp run](verification/ordinary-b318-20261012/README.md) completed
+The [newest ordinary attempt](verification/pilot-readiness-20261012/README.md)
+completed two replies, then admitted an unplanned input before the third prompt.
+The remaining plan was stopped/withheld. The two endpoint-to-first-ALSA-write
+samples are 1.246 and 1.305 s (median 1.275 s); adding the configured 1.2 s wait
+estimates 2.475 s. Room audio is saved, but acoustic latency is unscored. This is
+an incomplete cohort, not a causal improvement or a pilot acceptance pass.
+
+The preceding [real-Lamp run](verification/ordinary-b318-20261012/README.md) completed
 six replies; the seventh was cancelled by an unplanned detected input and the
 eighth stimulus was withheld. Endpoint to first ALSA write was 1.424 s median
 (range 1.266–1.505 s). Adding the configured 1.2 s silence wait yields an estimated

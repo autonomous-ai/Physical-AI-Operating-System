@@ -186,10 +186,13 @@ impl Wire {
             }
             0x83 => {
                 assert_eq!(&bytes[5..7], &[42, 2]);
-                let goals = std::array::from_fn(|i| {
-                    assert_eq!(bytes[7 + i * 3], i as u8 + 1);
-                    u16::from_le_bytes([bytes[8 + i * 3], bytes[9 + i * 3]])
-                });
+                let mut goals = self.positions;
+                let mut previous = 0;
+                for entry in bytes[7..bytes.len() - 1].chunks_exact(3) {
+                    assert!(entry[0] > previous && entry[0] <= 5);
+                    previous = entry[0];
+                    goals[usize::from(entry[0] - 1)] = u16::from_le_bytes([entry[1], entry[2]]);
+                }
                 self.goals.push(goals);
                 if !self.hold_position {
                     self.positions = goals;
@@ -1253,4 +1256,100 @@ fn shared_normalization_never_widens_separate_eeprom_command_bounds() {
         rig.motor.stop_report().is_some(),
         "discovered register/range fault remains terminal"
     );
+}
+
+#[test]
+fn selected_core_omits_body_ids_and_retains_exact_unselected_read_counts() {
+    use lamp_motor::command::JointSelection;
+    let mut rig = Rig::with_span(0, 4095);
+    // 650 is an existing regression value whose floating round trip loses a count.
+    rig.wire.borrow_mut().positions = [650, 651, 652, 653, 654];
+    rig.ready();
+    let (permit, placement) = rig.authority();
+    let target = n(674.5 / 4095.0 * 200.0 - 100.0);
+    let selected = JointSelection::from_mask(0x10).unwrap();
+    let motion = rig
+        .motor
+        .start_selected_segment(permit, placement, [target; 5], 80_000, selected)
+        .unwrap();
+    let mut reached = false;
+    let mut accepted = 0;
+    for _ in 0..90 {
+        match rig.step().unwrap() {
+            Tick::PositionAccepted {
+                selection,
+                motion: id,
+                counts,
+                ..
+            } => {
+                assert_eq!(selection, selected);
+                assert_eq!(id, motion);
+                assert_eq!(
+                    counts[..4].iter().map(|c| c.get()).collect::<Vec<_>>(),
+                    [650, 651, 652, 653]
+                );
+                accepted += 1;
+            }
+            Tick::Reached { motion: id, .. } => {
+                assert_eq!(id, motion);
+                reached = true;
+                break;
+            }
+            _ => {}
+        }
+    }
+    assert!(reached && accepted > 0);
+    let wire = rig.wire.borrow();
+    assert_eq!(wire.positions, [650, 651, 652, 653, 674]);
+    for packet in wire.packets.iter().filter(|p| p[4] == 0x83) {
+        assert_eq!(packet.len(), 11);
+        assert_eq!(&packet[5..8], &[42, 2, 5]);
+    }
+}
+
+#[test]
+fn selected_core_preserves_cancel_boundary_after_partial_request() {
+    use lamp_motor::command::JointSelection;
+    let mut rig = Rig::new();
+    rig.ready();
+    let (permit, placement) = rig.authority();
+    let motion = rig
+        .motor
+        .start_selected_segment(
+            permit,
+            placement,
+            [n(10.0); 5],
+            80_000,
+            JointSelection::from_mask(0x18).unwrap(),
+        )
+        .unwrap();
+    rig.wire.borrow_mut().write_max = 2;
+    for _ in 0..30 {
+        rig.step().unwrap();
+        if !rig.wire.borrow().partial.is_empty() {
+            break;
+        }
+    }
+    assert_eq!(rig.wire.borrow().partial.len(), 2);
+    let report = rig.motor.cancel(motion).unwrap();
+    assert_eq!(report.partial_request_bytes, 2);
+    assert!(report.position_request);
+    assert!(rig.step().is_err());
+    assert!(rig.wire.borrow().goals.is_empty());
+    assert_eq!(rig.wire.borrow().discards, 1);
+    assert_eq!(rig.motor.shutdown(), report);
+}
+
+#[test]
+fn exported_readback_keeps_original_time_and_never_survives_expiry_or_stop() {
+    let mut r = Rig::new();
+    assert_eq!(r.motor.readback(), Err(Error::NotInspected));
+    r.ready();
+    let first = r.motor.readback().unwrap();
+    r.clock.advance(10_000);
+    assert_eq!(r.motor.readback().unwrap(), first);
+    r.clock.advance(200_000);
+    assert_eq!(r.motor.readback(), Err(Error::ReadbackExpired));
+    r.motor.shutdown();
+    assert_eq!(r.motor.readback(), Err(Error::Stopped));
 }

@@ -227,3 +227,5 @@ or partial I/O may fault or miss that target; no hard kernel deadline is claimed
 Linux inert-file tests verify common device locks conflict and release across
 explicit cleanup/Drop; they never open a serial device. Numerical, simulated and
 ARM/QEMU tests do not establish actuator speed, stopping or placement safety.
+
+Explicit [selected-joint segments](motor-selected-joints.md) preserve the same authority and whole-mechanism readback gates while omitting every unselected ID from position packets. They do not provide a qualified gesture or automatic movement policy.

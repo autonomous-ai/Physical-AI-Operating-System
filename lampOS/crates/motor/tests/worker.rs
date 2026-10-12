@@ -475,3 +475,174 @@ fn audit_fatal_command_emits_monotonic_receipt_times() {
         "worker emits a timestamp regression that Supervisor::event refuses"
     );
 }
+
+fn selected_command(command: Command, mask: u8) -> Command {
+    let mut value = serde_json::to_value(command).unwrap();
+    value["kind"] = "selected_segment".into();
+    value["selection"] = mask.into();
+    serde_json::from_value(value).expect("explicit selected-joint command must be supported")
+}
+
+#[test]
+fn selected_command_reaches_actual_core_and_reports_exact_emitted_ids() {
+    let mut r = Rig::new();
+    r.inspect();
+    let command = selected_command(r.segment(), 0x10);
+    r.send(&command);
+    let began = r.clock.now().as_micros();
+    let motion = r.first_goal();
+    for _ in 0..70 {
+        r.step().unwrap();
+        if r.events
+            .iter()
+            .any(|e| matches!(e, Event::ReadbackReached { .. }))
+        {
+            break;
+        }
+    }
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e,Event::ReadbackReached{motion:m,..} if *m==motion))
+    );
+    let receipts: Vec<_> = r
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Event::HostAccepted { .. } => Some(serde_json::to_value(e).unwrap()),
+            _ => None,
+        })
+        .collect();
+    assert!(!receipts.is_empty());
+    assert!(receipts[0]["at_us"].as_u64().unwrap() - began < 20_000);
+    for receipt in receipts {
+        assert_eq!(receipt["selection"], 0x10);
+        assert_eq!(receipt["counts"][0], 2000);
+    }
+    for packet in r.wire.borrow().packets.iter().filter(|p| p[4] == 0x83) {
+        assert_eq!(packet.len(), 11);
+        assert_eq!(&packet[5..8], &[42, 2, 5]);
+    }
+    assert_eq!(
+        *r.wire.borrow().goals.last().unwrap(),
+        [2000, 2000, 2000, 2000, 2100]
+    );
+    r.parent
+        .control
+        .send(&Control::Stop {}, r.clock.now())
+        .unwrap();
+    assert!(r.step().unwrap());
+    r.finish().unwrap();
+    assert_eq!(r.wire.borrow().discards, 1);
+}
+
+#[test]
+fn selected_stop_and_privacy_before_first_tick_send_no_position_or_torque() {
+    for privacy in [false, true] {
+        let mut r = Rig::new();
+        r.inspect();
+        let command = selected_command(r.segment(), 0x18);
+        r.send(&command);
+        if privacy {
+            r.clock.advance(1);
+            r.controller
+                .set_microphone_permission(r.clock.now(), Permission::Denied)
+                .unwrap();
+            r.authority();
+            assert!(r.step().is_err());
+            assert!(r.finish().is_err());
+        } else {
+            r.parent
+                .control
+                .send(&Control::Stop {}, r.clock.now())
+                .unwrap();
+            assert!(r.step().unwrap());
+            r.finish().unwrap();
+        }
+        assert!(r.wire.borrow().goals.is_empty());
+        assert!(r.wire.borrow().packets.iter().all(|p| p[4] == 0x82));
+        assert_eq!(r.wire.borrow().discards, 1);
+    }
+}
+
+#[test]
+fn selected_partial_cancel_never_completes_packet_or_publishes_acceptance() {
+    let mut r = Rig::new();
+    r.inspect();
+    let command = selected_command(r.segment(), 0x18);
+    r.send(&command);
+    r.wire.borrow_mut().write_max = 2;
+    for _ in 0..30 {
+        r.step().unwrap();
+        if !r.wire.borrow().partial.is_empty() {
+            break;
+        }
+    }
+    let motion = r
+        .events
+        .iter()
+        .find_map(|e| match e {
+            Event::Started { motion, .. } => Some(*motion),
+            _ => None,
+        })
+        .unwrap();
+    r.parent
+        .control
+        .send(&Control::Cancel { motion }, r.clock.now())
+        .unwrap();
+    assert!(r.step().unwrap());
+    r.finish().unwrap();
+    assert!(r.wire.borrow().goals.is_empty());
+    assert!(
+        !r.events
+            .iter()
+            .any(|e| matches!(e, Event::HostAccepted { .. }))
+    );
+    assert!(r.events.iter().any(|e|matches!(e,Event::Inhibited{report,..} if report.partial_request_bytes==2&&report.position_request)));
+}
+
+#[test]
+fn initial_and_reached_receipts_retain_actual_counts_and_original_read_times() {
+    let mut r = Rig::new();
+    r.inspect();
+    let initial = r
+        .events
+        .iter()
+        .find(|e| matches!(e, Event::Inspected { .. }))
+        .unwrap();
+    let value = serde_json::to_value(initial).unwrap();
+    assert_eq!(value["readback"]["joints"][4]["counts"], 2000);
+    assert!(
+        value["readback"]["joints"][4]["received_at_us"]
+            .as_u64()
+            .unwrap()
+            <= value["at_us"].as_u64().unwrap()
+    );
+    let c = r.segment();
+    r.send(&c);
+    r.first_goal();
+    for _ in 0..70 {
+        r.step().unwrap();
+        if r.events
+            .iter()
+            .any(|e| matches!(e, Event::ReadbackReached { .. }))
+        {
+            break;
+        }
+    }
+    let reached = r
+        .events
+        .iter()
+        .find(|e| matches!(e, Event::ReadbackReached { .. }))
+        .unwrap();
+    let value = serde_json::to_value(reached).unwrap();
+    assert_eq!(value["readback"]["joints"][4]["counts"], 2100);
+    assert_eq!(value["readback"]["joints"][4]["moving_raw"], 0);
+    assert_eq!(value["readback"]["joints"][4]["velocity_raw"], 0);
+    r.parent
+        .control
+        .send(&Control::Stop {}, r.clock.now())
+        .unwrap();
+    assert!(r.step().unwrap());
+    r.finish().unwrap();
+}

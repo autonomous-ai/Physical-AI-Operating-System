@@ -6,6 +6,7 @@ pub mod channel;
 pub mod config;
 #[cfg(target_os = "linux")]
 pub mod native;
+pub mod qualification;
 pub mod supervisor;
 pub mod wire;
 pub mod worker;

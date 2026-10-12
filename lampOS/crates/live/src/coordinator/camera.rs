@@ -597,6 +597,7 @@ mod tests {
             privacy,
             ring: None.into(),
             camera: Some(camera),
+            motor: None,
             ring_channel_ceiling: None,
             diagnostic_directory: None,
             noise_suppression: NoiseSuppression::On,

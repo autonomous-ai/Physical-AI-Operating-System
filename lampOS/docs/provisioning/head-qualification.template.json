@@ -1,0 +1,11 @@
+{
+  "unit": "lamp-4ace",
+  "qualification_record": null,
+  "expected_initial_counts": [2015, 2048, 2047, 2039, 1765],
+  "minimum_count": null,
+  "maximum_count": null,
+  "outbound_count": null,
+  "segment_duration_us": null,
+  "maximum_duration_us": null,
+  "readback_age_us": null
+}

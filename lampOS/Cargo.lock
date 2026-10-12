@@ -711,6 +711,7 @@ dependencies = [
  "lamp-gemini",
  "lamp-interaction",
  "lamp-ipc",
+ "lamp-motor",
  "lamp-ring",
  "rtrb",
  "rustix",

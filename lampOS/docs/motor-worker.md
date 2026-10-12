@@ -1,8 +1,8 @@
 # Supervised motor worker
 
 `lamp-motor-worker` is an opt-in, separate Rust process over the existing
-`MotorControl` and `linux::motion::LinuxMotor`. It adds no gesture policy and is
-not launched by `lamp-live`. The read-only `lamp-motor-inspect` is unchanged.
+`MotorControl` and `linux::motion::LinuxMotor`. It adds no gesture policy. `lamp-live` can explicitly opt into an idle worker;
+see [live motor integration](live-motor-integration.md). No default invocation launches it. The read-only `lamp-motor-inspect` is unchanged.
 Opening the explicitly provisioned port starts idle: no probes, goals, park,
 torque, speed, acceleration, mode or EEPROM writes occur automatically.
 
@@ -61,7 +61,7 @@ host-monotonic send time. Future, reordered and older-than-100-ms packets fault.
 There is no reconnect/rebind or unbounded application queue.
 
 Priority control accepts only `Authority { snapshot }`, `Cancel { motion }` and
-`Stop {}`. Data accepts `Inspect` and `Segment`, each with a strictly increasing
+`Stop {}`. Data accepts `Inspect`, `Segment` and explicit `SelectedSegment`, each with a strictly increasing
 request ID and original request timestamp. Unknown fields and variants fail
 closed. The worker handles at most 16 controls and one data command per tick,
 checking control again after receiving the command and immediately before a core
@@ -90,7 +90,7 @@ failure rules. No arbitrary-byte/register API is exposed by this runtime.
 Receipts retain original worker/turn owner/local motion sequence:
 
 - `Started` acknowledges local segment acceptance, with its command request ID.
-- `HostAccepted` contains actual accepted counts and host-acceptance time. It is
+- `HostAccepted` contains the emitted selection, counts and host-acceptance time. Counts for omitted joints are retained readbacks, not transmitted goals. It is
   not a servo broadcast acknowledgement or physical-arrival measurement.
 - `ReadbackReached` reports the core's five stationary, in-tolerance readbacks.
   It does not establish optical arrival, collision clearance or force.
@@ -160,20 +160,12 @@ valid segment request and priority cancellation on the next tick (at most 20 ms)
 Host scheduling, kernel driver calls, bus transmission and mechanical arrival are
 separate. A process supervisor cannot guarantee prompt physical stopping.
 
-## Opt-in live integration proposal — not applied
+## Opt-in live integration
 
-The voice/camera/ring/service source is unchanged. The coordinator can later own
-one optional `Supervisor`, service it nonblockingly before ordinary data work,
-and send the exact current snapshot on its priority channel. Spawn/open preparation
-must remain independent of audio. A qualified choreography decision would send
-one explicit segment with the current Motion permit and original placement
-observation. Feedback is evidence, never a way to create conversational ownership.
-
-Mute, owner revocation and Stop must reach this channel independently of audio or
-provider backpressure. Fault the motor output only, retain healthy voice, and
-record termination/cleanup before considering replacement. A new owner does not
-implicitly authorize a new movement. This proposal adds no main CLI flag, default
-head nod, body motion, room scan or automatic restart.
+See [the live integration contract](live-motor-integration.md) for explicit CLI
+provisioning, pre-capture startup, original movement offers, optional degradation,
+and separate verified privacy release. This adds no default head nod, body
+motion, room scan or failed-worker restart.
 
 ## Verification boundaries
 
@@ -210,5 +202,7 @@ The extracted AArch64 worker SHA-256 is
 ELF inspection and inert QEMU CLI usage passed without opening hardware. Exact
 commands, logs and extraction receipts are retained locally under
 `/private/tmp/lamp-motor-composed-_8riuiv1/arm/evidence/`. The worker is integrated
-as an inactive component; `lamp-live` does not start it. No on-device motion or
+as an opt-in component; default `lamp-live` invocations do not start it. No on-device motion or
 physical stop latency has been measured for this worker.
+
+The additive `SelectedSegment` command is described in the [selected-joint contract](motor-selected-joints.md). Existing `Segment` retains all-five behavior; host receipts identify the emitted selection.

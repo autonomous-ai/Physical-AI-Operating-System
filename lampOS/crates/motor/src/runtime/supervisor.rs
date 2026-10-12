@@ -180,6 +180,11 @@ pub struct Supervisor {
     inhibited_received: Option<u64>,
     stopped: bool,
     expect_serial: bool,
+    privacy_revision: Option<u64>,
+    sent_privacy: Option<(u64, u64)>,
+    release_io_verified: bool,
+    release_discard_verified: bool,
+    lifecycle_fault: bool,
     killed_at: Option<u64>,
     exit: Option<ExitStatus>,
     failure: Option<String>,
@@ -245,6 +250,11 @@ impl Supervisor {
             inhibited_received: None,
             stopped: false,
             expect_serial: false,
+            privacy_revision: None,
+            sent_privacy: None,
+            release_io_verified: false,
+            release_discard_verified: false,
+            lifecycle_fault: false,
             killed_at: None,
             exit: None,
             failure: None,
@@ -306,6 +316,24 @@ impl Supervisor {
             && self.failure.is_none()
             && self.killed_at.is_none()
     }
+    /// Ownership/cleanup proof for an expected explicit privacy closure, kept
+    /// separate from the failed operation's original reason and exit status.
+    /// Never accepts timeout, forced kill, malformed IPC, discard/close failure,
+    /// or a fresh caller revision substituted for the consumed original denial.
+    pub fn privacy_release_confirmed(&self, revision: u64) -> bool {
+        revision != 0
+            && self.privacy_revision == Some(revision)
+            && self.sent_privacy.is_some_and(|(sent, _)| sent == revision)
+            && self.release_io_verified
+            && self.release_discard_verified
+            && !self.lifecycle_fault
+            && self.exit.is_some_and(|status| status.code().is_some())
+            && self.directory.peers_cleaned
+            && self.directory.cleanup_error.is_none()
+            && self.stopped
+            && self.inhibited
+            && self.killed_at.is_none()
+    }
     pub fn send_control(&mut self, c: &Control) -> io::Result<()> {
         if matches!(c, Control::Stop {}) {
             return self.stop();
@@ -320,6 +348,16 @@ impl Supervisor {
                 n.as_micros(),
             );
             return Err(e);
+        }
+        if let Control::Authority { snapshot } = c
+            && snapshot.boot() == self.parent
+            && snapshot.issued_at() <= n
+            && n < snapshot.expires_at()
+            && (snapshot.microphone_permission() == lamp_interaction::Permission::Denied
+                || snapshot.camera_permission() == lamp_interaction::Permission::Denied)
+        {
+            self.sent_privacy
+                .get_or_insert((snapshot.revision(), n.as_micros()));
         }
         Ok(())
     }
@@ -347,6 +385,7 @@ impl Supervisor {
         Ok(())
     }
     fn fail(&mut self, why: &str, n: u64) {
+        self.lifecycle_fault = true;
         self.ready = false;
         self.failure
             .get_or_insert_with(|| super::wire::bounded(why));
@@ -405,6 +444,8 @@ impl Supervisor {
                     || report.stopped_at_us > at
                     || report.accepted_request_bytes > 23
                     || report.partial_request_bytes > 23
+                    || report.privacy_revision == Some(0)
+                    || (report.privacy_revision.is_some() && report.reason != "ControlLost")
                     || report.reason.len() > 192
                     || report.discard_error.as_ref().is_some_and(|s| s.len() > 192)
                 {
@@ -413,6 +454,15 @@ impl Supervisor {
                 if let Some(m) = motion {
                     self.motion(*m)?;
                 }
+                if let Some(revision) = report.privacy_revision
+                    && !self
+                        .sent_privacy
+                        .is_some_and(|(sent, at)| sent == revision && at <= report.stopped_at_us)
+                {
+                    return Err(invalid("privacy release has no matching sent denial"));
+                }
+                self.privacy_revision = report.privacy_revision;
+                self.release_discard_verified = report.discard_error.is_none();
                 if !matches!(report.reason.as_str(), "Shutdown" | "Cancelled") {
                     self.failure
                         .get_or_insert_with(|| format!("motor inhibited: {}", report.reason));
@@ -430,6 +480,9 @@ impl Supervisor {
                     return Err(invalid("motor close without unique inhibition"));
                 }
                 self.stopped = true;
+                self.release_io_verified = cleanup.serial_closed == Some(true)
+                    && cleanup.settings_restored == Some(true)
+                    && cleanup.error.is_none();
                 if self.expect_serial
                     && (cleanup.serial_closed != Some(true)
                         || cleanup.settings_restored != Some(true))

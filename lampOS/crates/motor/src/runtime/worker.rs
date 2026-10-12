@@ -5,6 +5,7 @@ use super::{
     wire::{self, Command, Control, Event, Motion},
 };
 use crate::{
+    command::JointSelection,
     control::{self, BusPort, Clock, MotionId, MotorControl, Placement, Tick},
     units::NormalizedPosition,
 };
@@ -29,7 +30,23 @@ pub trait Backend {
         target: [NormalizedPosition; 5],
         duration_us: u64,
     ) -> Result<MotionId, control::Error>;
+    fn start_selected(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        target: [NormalizedPosition; 5],
+        duration_us: u64,
+        selection: JointSelection,
+    ) -> Result<MotionId, control::Error> {
+        if selection != JointSelection::ALL {
+            return Err(control::Error::Configuration);
+        }
+        self.start(permit, placement, target, duration_us)
+    }
     fn tick(&mut self) -> Result<Tick, control::Error>;
+    fn readback(&mut self) -> Result<control::Readback, control::Error> {
+        Err(control::Error::NotInspected)
+    }
     fn cancel(&mut self, id: MotionId) -> Result<control::StopReport, control::Error>;
     fn inhibit(&mut self, normal: bool) -> control::StopReport;
     fn stopped(&self) -> Option<control::StopReport>;
@@ -50,6 +67,19 @@ impl<P: BusPort, C: Clock> Backend for MotorControl<P, C> {
         d: u64,
     ) -> Result<MotionId, control::Error> {
         self.start_segment(p, o, t, d)
+    }
+    fn start_selected(
+        &mut self,
+        p: OutputPermit,
+        o: Placement,
+        t: [NormalizedPosition; 5],
+        d: u64,
+        selection: JointSelection,
+    ) -> Result<MotionId, control::Error> {
+        self.start_selected_segment(p, o, t, d, selection)
+    }
+    fn readback(&mut self) -> Result<control::Readback, control::Error> {
+        self.readback()
     }
     fn tick(&mut self) -> Result<Tick, control::Error> {
         self.tick()
@@ -110,6 +140,7 @@ pub struct Worker<B: Backend, C: Clock> {
     failed: Option<String>,
     inhibited_sent: bool,
     normal_stop: bool,
+    privacy_revision: Option<u64>,
 }
 impl<B: Backend, C: Clock> Worker<B, C> {
     pub fn new(
@@ -143,6 +174,7 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             failed: None,
             inhibited_sent: false,
             normal_stop: false,
+            privacy_revision: None,
         })
     }
     /// Native open already consumed this exact priority snapshot. It is not renewed.
@@ -229,6 +261,11 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                         }
                         Err(e) => return Err(invalid(e)),
                     }
+                    if snapshot.microphone_permission() == Permission::Denied
+                        || snapshot.camera_permission() == Permission::Denied
+                    {
+                        self.privacy_revision = Some(snapshot.revision());
+                    }
                     self.authority()?;
                     self.backend.install(snapshot).map_err(invalid)?;
                 }
@@ -273,13 +310,25 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                 Ok(()) => self.inspection = Some(request),
                 Err(e) => self.reject(link, request, e)?,
             },
-            Command::Segment {
-                permit,
-                placement,
-                target,
-                duration_us,
-                ..
-            } => {
+            command @ (Command::Segment { .. } | Command::SelectedSegment { .. }) => {
+                let (permit, placement, target, duration_us, selection) = match command {
+                    Command::Segment {
+                        permit,
+                        placement,
+                        target,
+                        duration_us,
+                        ..
+                    } => (permit, placement, target, duration_us, JointSelection::ALL),
+                    Command::SelectedSegment {
+                        permit,
+                        placement,
+                        target,
+                        duration_us,
+                        selection,
+                        ..
+                    } => (permit, placement, target, duration_us, selection),
+                    Command::Inspect { .. } => unreachable!("matched segment"),
+                };
                 if placement.source_boot != self.placement_source
                     || placement.frame_sequence <= self.last_frame
                 {
@@ -292,10 +341,13 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                         Err(e) => return self.reject(link, request, e),
                     }
                 }
-                match self
-                    .backend
-                    .start(permit, placement.into(), values, duration_us)
-                {
+                match self.backend.start_selected(
+                    permit,
+                    placement.into(),
+                    values,
+                    duration_us,
+                    selection,
+                ) {
                     Ok(m) => {
                         if m.worker_boot() != self.worker_boot {
                             return Err(invalid("backend returned wrong worker identity"));
@@ -368,16 +420,30 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                             .inspection
                             .take()
                             .ok_or_else(|| invalid("unsolicited inspection receipt"))?;
+                        let readback = self.backend.readback().map_err(invalid)?;
                         let at_us = self.now()?.as_micros();
-                        self.publish(link, Event::Inspected { request, at_us })?
+                        self.publish(
+                            link,
+                            Event::Inspected {
+                                request,
+                                at_us,
+                                readback,
+                            },
+                        )?
                     }
-                    Tick::PositionAccepted { motion, at, counts } => {
+                    Tick::PositionAccepted {
+                        selection,
+                        motion,
+                        at,
+                        counts,
+                    } => {
                         if self.active != Some(motion) {
                             return Err(invalid("wrong active position receipt"));
                         }
                         self.publish(
                             link,
                             Event::HostAccepted {
+                                selection,
                                 motion: motion.into(),
                                 counts: counts.map(|c| c.get()),
                                 at_us: at.as_micros(),
@@ -389,11 +455,13 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                             return Err(invalid("wrong endpoint receipt"));
                         }
                         self.active = None;
+                        let readback = self.backend.readback().map_err(invalid)?;
                         self.publish(
                             link,
                             Event::ReadbackReached {
                                 motion: motion.into(),
                                 at_us: at.as_micros(),
+                                readback,
                             },
                         )?;
                     }
@@ -431,6 +499,8 @@ impl<B: Backend, C: Clock> Worker<B, C> {
     pub fn finish(mut self, link: &mut impl Link) -> io::Result<()> {
         self.pending = None;
         let report = self.backend.inhibit(self.normal_stop);
+        let mut evidence = wire::StopEvidence::from(report);
+        evidence.privacy_revision = self.privacy_revision;
         let mut failure = self.failed.take();
         if report.discard_error.is_some() {
             failure.get_or_insert_with(|| "motor discard failed".into());
@@ -441,7 +511,7 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                 Event::Inhibited {
                     at_us: self.clock.now().as_micros(),
                     motion: self.active.map(Into::into),
-                    report: report.into(),
+                    report: evidence,
                 },
             ) {
                 failure.get_or_insert_with(|| wire::bounded(e));

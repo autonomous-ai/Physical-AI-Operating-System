@@ -1,4 +1,5 @@
 //! Strict bounded motor messages. No raw registers or arbitrary byte payloads.
+use crate::command::JointSelection;
 use crate::control::{MotionId, Placement, StopReport};
 use lamp_interaction::{BootId, CameraGrant, MonoTime, OutputPermit, Snapshot, TurnOwner};
 use serde::{Deserialize, Serialize};
@@ -65,6 +66,15 @@ pub enum Command {
         target: [f64; 5],
         duration_us: u64,
     },
+    SelectedSegment {
+        request: u64,
+        requested_at_us: u64,
+        permit: OutputPermit,
+        placement: Observation,
+        target: [f64; 5],
+        duration_us: u64,
+        selection: JointSelection,
+    },
 }
 impl Command {
     pub fn identity(&self) -> (u64, u64) {
@@ -77,6 +87,11 @@ impl Command {
                 request,
                 requested_at_us,
                 ..
+            }
+            | Self::SelectedSegment {
+                request,
+                requested_at_us,
+                ..
             } => (*request, *requested_at_us),
         }
     }
@@ -84,6 +99,10 @@ impl Command {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StopEvidence {
+    /// Present only when this exact fresh explicit denial was consumed. It is
+    /// not a clean-operation or physical-stop claim; legacy absence stays None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_revision: Option<u64>,
     pub reason: String,
     pub stopped_at_us: u64,
     pub accepted_request_bytes: usize,
@@ -94,6 +113,7 @@ pub struct StopEvidence {
 impl From<StopReport> for StopEvidence {
     fn from(r: StopReport) -> Self {
         Self {
+            privacy_revision: None,
             reason: bounded(r.reason),
             stopped_at_us: r.stopped_at.as_micros(),
             accepted_request_bytes: r.accepted_request_bytes,
@@ -132,6 +152,7 @@ pub enum Event {
     Inspected {
         request: u64,
         at_us: u64,
+        readback: crate::control::Readback,
     },
     Started {
         request: u64,
@@ -139,6 +160,8 @@ pub enum Event {
         at_us: u64,
     },
     HostAccepted {
+        /// Only these IDs were transmitted; other counts are retained readbacks.
+        selection: JointSelection,
         motion: Motion,
         counts: [u16; 5],
         at_us: u64,
@@ -146,6 +169,7 @@ pub enum Event {
     ReadbackReached {
         motion: Motion,
         at_us: u64,
+        readback: crate::control::Readback,
     },
     Inhibited {
         /// Publication observation; report.stopped_at_us is the original core fault/stop time.

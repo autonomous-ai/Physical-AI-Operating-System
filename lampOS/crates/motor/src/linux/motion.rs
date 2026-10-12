@@ -168,6 +168,20 @@ impl<C: Clock> LinuxMotor<C> {
         self.control
             .start_segment(permit, placement, target, duration_us)
     }
+    pub fn start_selected_segment(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        target: [NormalizedPosition; JOINT_COUNT],
+        duration_us: u64,
+        selection: crate::command::JointSelection,
+    ) -> Result<MotionId, control::Error> {
+        self.control
+            .start_selected_segment(permit, placement, target, duration_us, selection)
+    }
+    pub fn readback(&mut self) -> Result<control::Readback, control::Error> {
+        self.control.readback()
+    }
     pub fn tick(&mut self) -> Result<Tick, control::Error> {
         self.control.tick()
     }

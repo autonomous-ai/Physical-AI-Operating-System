@@ -307,6 +307,13 @@ impl NoticeOptions {
 
 /// Optional observation of a finite conversation. Cues contain lifecycle
 /// metadata only; enabling them does not enable microphone PCM diagnostics.
+/// Explicit dedicated motor executable and qualification; no defaults.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MotorOptions {
+    pub worker: PathBuf,
+    pub config: PathBuf,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SessionOptions {
     pub directed: DirectedOptions,
@@ -314,6 +321,7 @@ pub struct SessionOptions {
     /// Opt-in direct camera context; absent means no camera process or device.
     pub camera_config: Option<PathBuf>,
     pub failure_notices: Option<NoticeOptions>,
+    pub motor: Option<MotorOptions>,
 }
 impl SessionOptions {
     pub fn validate_serve(&self) -> io::Result<()> {
@@ -330,18 +338,28 @@ impl SessionOptions {
         let mut remaining = Vec::new();
         let mut cue_socket = None;
         let mut camera_config = None;
+        let mut motor_worker = None;
+        let mut motor_config = None;
         let mut notice_directory = None;
         let mut notice_language = None;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             if matches!(
                 argument.as_str(),
-                "--cue-socket" | "--camera-config" | "--failure-notice-dir"
+                "--cue-socket"
+                    | "--camera-config"
+                    | "--failure-notice-dir"
+                    | "--motor-worker"
+                    | "--motor-config"
             ) {
                 let slot = if argument == "--cue-socket" {
                     &mut cue_socket
                 } else if argument == "--camera-config" {
                     &mut camera_config
+                } else if argument == "--motor-worker" {
+                    &mut motor_worker
+                } else if argument == "--motor-config" {
+                    &mut motor_config
                 } else {
                     &mut notice_directory
                 };
@@ -369,6 +387,11 @@ impl SessionOptions {
             cue_socket,
             camera_config,
             failure_notices,
+            motor: match (motor_worker, motor_config) {
+                (None, None) => None,
+                (Some(worker), Some(config)) => Some(MotorOptions { worker, config }),
+                _ => return Err(invalid_options()),
+            },
         })
     }
 }

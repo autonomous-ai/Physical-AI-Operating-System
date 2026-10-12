@@ -76,6 +76,7 @@ fn run_with_notice_policy(
         privacy: spawn("privacy"),
         ring: None.into(),
         camera: None,
+        motor: None,
         ring_channel_ceiling: None,
         diagnostic_directory: None,
         noise_suppression: NoiseSuppression::On,

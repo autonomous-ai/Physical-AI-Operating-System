@@ -36,6 +36,19 @@ impl<C: Clock> Backend for LinuxMotor<C> {
     ) -> Result<MotionId, control::Error> {
         self.start_segment(p, o, t, d)
     }
+    fn start_selected(
+        &mut self,
+        p: OutputPermit,
+        o: Placement,
+        t: [NormalizedPosition; 5],
+        d: u64,
+        selection: crate::command::JointSelection,
+    ) -> Result<MotionId, control::Error> {
+        self.start_selected_segment(p, o, t, d, selection)
+    }
+    fn readback(&mut self) -> Result<control::Readback, control::Error> {
+        self.readback()
+    }
     fn tick(&mut self) -> Result<Tick, control::Error> {
         self.tick()
     }

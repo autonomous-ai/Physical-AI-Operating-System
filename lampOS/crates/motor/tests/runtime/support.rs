@@ -156,10 +156,13 @@ impl Wire {
             }
             0x83 => {
                 assert_eq!(&v[5..7], &[42, 2]);
-                let counts = std::array::from_fn(|i| {
-                    assert_eq!(v[7 + i * 3], i as u8 + 1);
-                    u16::from_le_bytes([v[8 + i * 3], v[9 + i * 3]])
-                });
+                let mut counts = self.positions;
+                let mut previous = 0;
+                for entry in v[7..v.len() - 1].chunks_exact(3) {
+                    assert!(entry[0] > previous && entry[0] <= 5);
+                    previous = entry[0];
+                    counts[usize::from(entry[0] - 1)] = u16::from_le_bytes([entry[1], entry[2]]);
+                }
                 self.positions = counts;
                 self.goals.push(counts);
             }

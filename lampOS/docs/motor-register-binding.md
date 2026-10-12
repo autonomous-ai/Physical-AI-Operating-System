@@ -37,7 +37,7 @@ into apparent validity.
 These observations are a regression fixture, **not a motion qualification**.
 They do not supply safe velocity, acceleration, load, contact, joint/cable
 clearance, combined-body travel, or a measured mapping to angles. A unit label
-is not authenticated identity. Position writes still address all five servos.
+is not authenticated identity. Existing all-joint calls retain all five IDs; the separate [selected-joint contract](motor-selected-joints.md) omits unselected IDs explicitly.
 
 The finite inspector adds only a `(40,8)` sync read to its existing bounded plan.
 Report schema 2 contains ten transactions (five pings and five all-joint reads),

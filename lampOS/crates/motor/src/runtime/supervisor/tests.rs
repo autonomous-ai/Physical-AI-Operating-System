@@ -153,6 +153,171 @@ fn ready(s: &mut Supervisor, c: &mut Controller) {
         s.is_ready()
     });
 }
+
+#[test]
+fn qualification_rejects_wrong_supervisor_before_any_channel_dispatch() {
+    use crate::control::{EncoderReadback, Readback};
+    use crate::runtime::qualification::{HeadPlan, HeadQualification, OriginalEvidence, Phase};
+    use lamp_interaction::{AdmissionState, AdmittedInput, CaptureState, OutputKind};
+
+    // The real Supervisor owns a bounded inert child. Its command/control
+    // channels are replaced with real socket pairs so each publication is
+    // observed without allowing any serial or hardware access.
+    for (matching, action) in [false, true].into_iter().flat_map(|matching| {
+        ["inspect", "segment", "authority", "poll"].map(|action| (matching, action))
+    }) {
+        let (mut s, mut c) = fixture("hang");
+        until(&mut s, |s| {
+            s.poll().unwrap();
+            s.connected()
+        });
+        let (parent, mut peer) = Channels::pair(s.parent, s.worker).unwrap();
+        s.channels = parent;
+        s.connected = true;
+        s.ready = true;
+        let now = SystemClock.now();
+        s.last_observed = now.as_micros();
+        let deadline = lamp_interaction::MonoTime::from_micros(now.as_micros() + 500_000);
+        c.set_capture(now, CaptureState::RetainingUntil(deadline))
+            .unwrap();
+        c.set_admission(now, AdmissionState::OpenUntil(deadline))
+            .unwrap();
+        let owner = c.admit(now, AdmittedInput::NewTurn).unwrap();
+        let camera = c.camera_grant(now).unwrap();
+        let output = c
+            .plan_output(now, owner, OutputKind::Motion, Some(camera))
+            .unwrap();
+        let permit = c.issue_output(now, output, 240_000).unwrap();
+        let snapshot = c.snapshot(now).unwrap();
+        let calibration = UnitCalibration::new(
+            UnitId::new("inert").unwrap(),
+            Joint::ALL.map(|joint| CalibrationRecord {
+                joint,
+                id: joint.id() as u16,
+                drive_mode: 0,
+                homing_offset: 333,
+                range_min: 1000,
+                range_max: 3000,
+            }),
+        )
+        .unwrap();
+        let expected_worker = if matching {
+            s.worker
+        } else {
+            new_boot().unwrap()
+        };
+        assert_eq!(expected_worker == s.worker, matching);
+        let placement_source = new_boot().unwrap();
+        let mut q = HeadQualification::new(
+            HeadPlan {
+                unit: "inert".into(),
+                qualification_record: [7; 32],
+                expected_initial_counts: [2000; 5],
+                minimum_count: 1990,
+                maximum_count: 2020,
+                outbound_count: 2010,
+                segment_duration_us: 80_000,
+                maximum_duration_us: 2_000_000,
+                readback_age_us: 200_000,
+            },
+            calibration,
+            s.parent,
+            expected_worker,
+            placement_source,
+            now,
+        )
+        .unwrap();
+        q.authority(now, snapshot).unwrap();
+        let mut evidence = OriginalEvidence {
+            permit,
+            placement: wire::Observation {
+                source_boot: placement_source,
+                frame_sequence: 1,
+                acquired_at_us: now.as_micros(),
+                valid_until_us: deadline.as_micros(),
+                camera,
+                qualification_record: [7; 32],
+            },
+        };
+        if action == "segment" {
+            q.inspect(now, evidence).unwrap();
+            q.observe(
+                now,
+                &Event::Inspected {
+                    request: 1,
+                    at_us: now.as_micros(),
+                    readback: Readback {
+                        joints: [EncoderReadback {
+                            counts: 2000,
+                            received_at_us: now.as_micros(),
+                            velocity_raw: 0,
+                            load_magnitude_raw: 0,
+                            moving_raw: 0,
+                            status_raw: 0,
+                        }; 5],
+                    },
+                },
+            )
+            .unwrap();
+            evidence.placement.frame_sequence = 2;
+        }
+        let result = match action {
+            "inspect" => q.send_inspection(&mut s, now, evidence),
+            "segment" => q.send_segment(&mut s, now, evidence),
+            "authority" => q.send_authority(&mut s, now, snapshot),
+            "poll" => q.poll(&mut s, |_| {}),
+            _ => unreachable!(),
+        };
+        let command = peer
+            .data
+            .receive::<MotorCommand>(SystemClock.now())
+            .unwrap();
+        let control = peer.control.receive::<Control>(SystemClock.now()).unwrap();
+        let unrelated_was_stopped = s.stop_at.is_some();
+        // Explicit test cleanup remains independent from the operation result.
+        s.fail(
+            "inert qualification identity test cleanup",
+            SystemClock.now().as_micros(),
+        );
+        until(&mut s, |s| {
+            let _ = s.poll();
+            s.reaped()
+        });
+        if matching {
+            assert!(result.is_ok(), "{action} rejected its original Supervisor");
+            assert_ne!(q.phase(), Phase::Inhibited);
+            match action {
+                "inspect" => assert!(matches!(
+                    command,
+                    Some(MotorCommand::Inspect { request: 1, .. })
+                )),
+                "segment" => assert!(
+                    matches!(command, Some(MotorCommand::SelectedSegment { request: 2, selection, .. }) if selection.mask() == 16)
+                ),
+                _ => assert!(command.is_none()),
+            }
+            assert_eq!(
+                matches!(control, Some(Control::Authority { .. })),
+                action == "authority"
+            );
+        } else {
+            assert!(
+                result.is_err(),
+                "{action} accepted a different Supervisor worker"
+            );
+            assert_eq!(q.phase(), Phase::Inhibited, "{action}");
+            assert!(command.is_none(), "{action} sent data to the wrong worker");
+            assert!(
+                control.is_none(),
+                "{action} sent control to the wrong worker"
+            );
+        }
+        assert!(
+            !unrelated_was_stopped,
+            "{action} stopped the supplied worker"
+        );
+    }
+}
 #[test]
 fn actual_child_uses_same_worker_loop_and_stop_reaps_before_clean_replacement() {
     let (mut s, mut c) = fixture("normal");
@@ -373,6 +538,7 @@ fn serial_cleanup_failure_and_stalled_teardown_never_become_clean_exit() {
                 at_us: n,
                 motion: None,
                 report: wire::StopEvidence {
+                    privacy_revision: None,
                     reason: "Shutdown".into(),
                     stopped_at_us: n,
                     accepted_request_bytes: 0,
@@ -536,6 +702,7 @@ fn inhibition_measurement_must_be_between_spawn_and_publication() {
             at_us: n,
             motion: None,
             report: wire::StopEvidence {
+                privacy_revision: None,
                 reason: "Shutdown".into(),
                 stopped_at_us: if before_spawn { s.started - 1 } else { n + 1 },
                 accepted_request_bytes: 0,

@@ -147,15 +147,16 @@ impl FixtureOptions {
             cue_socket,
             camera_config,
             failure_notices,
+            motor,
         } = SessionOptions::parse(arguments)?;
         if failure_notices.is_some() {
             return Err(invalid(
                 "local failure notices are only for Gemini chat, never reply fixtures",
             ));
         }
-        if camera_config.is_some() {
+        if camera_config.is_some() || motor.is_some() {
             return Err(invalid(
-                "camera context is supported only by directed Gemini chat",
+                "camera/motor components are supported only by directed Gemini chat",
             ));
         }
         if directed.provider_continuation != crate::provider_worker::Continuation::Off {

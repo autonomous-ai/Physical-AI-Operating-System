@@ -8,7 +8,7 @@
 use crate::{
     JOINT_COUNT, Joint, STS3215_MODEL_NUMBER,
     calibration::{CalibrationError, UnitCalibration, UnitId},
-    command::{POSITION_FRAME_BYTES, PositionFrame},
+    command::{JointSelection, POSITION_FRAME_BYTES, SelectedPositionFrame},
     protocol::{ReadOnlyRequest, ReadWindow, ReplyError, ReplyTracker, StatusParser},
     readback::{HomingModeRegisters, PositionLimitRegisters, RawTelemetry},
     trajectory::{JointEnvelope, Segment, TrajectoryError},
@@ -212,13 +212,60 @@ pub struct StopReport {
     pub stopped_at: MonoTime,
 }
 
+/// Actual checked telemetry from one complete all-five read transaction. Times
+/// are host monotonic receipt observations, not device acquisition timestamps.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EncoderReadback {
+    pub counts: u16,
+    pub received_at_us: u64,
+    pub velocity_raw: i16,
+    pub load_magnitude_raw: u16,
+    pub moving_raw: u8,
+    pub status_raw: u8,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Readback {
+    /// Fixed bus order: IDs 1 through 5. Never a requested goal or a cached pose.
+    pub joints: [EncoderReadback; JOINT_COUNT],
+}
+impl Readback {
+    pub fn validate(self, at: MonoTime, maximum_age_us: u64) -> Result<(), Error> {
+        for joint in Joint::ALL {
+            let sample = self.joints[joint.index()];
+            EncoderCounts::new(i32::from(sample.counts)).map_err(|_| Error::Position(joint))?;
+            if age(at, MonoTime::from_micros(sample.received_at_us))? > maximum_age_us {
+                return Err(Error::ReadbackExpired);
+            }
+            if sample.status_raw != 0
+                || sample.moving_raw > 1
+                || sample.load_magnitude_raw > 1023
+                || sample.velocity_raw == i16::MIN
+            {
+                return Err(Error::Readback(joint));
+            }
+        }
+        Ok(())
+    }
+    pub fn stationary(self) -> bool {
+        self.joints
+            .iter()
+            .all(|s| s.moving_raw == 0 && s.velocity_raw == 0)
+    }
+    pub fn counts(self) -> [u16; JOINT_COUNT] {
+        self.joints.map(|s| s.counts)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Tick {
     Idle,
     Progress,
     Inspected,
-    /// Host accepted all 23 bytes. Broadcast has no individual status ACK.
+    /// Host accepted the complete selected-ID frame. No individual status ACK.
     PositionAccepted {
+        selection: JointSelection,
         motion: MotionId,
         at: MonoTime,
         counts: [EncoderCounts; JOINT_COUNT],
@@ -295,10 +342,17 @@ impl Transaction {
             counts: None,
         }
     }
-    fn position(counts: [EncoderCounts; JOINT_COUNT], now: MonoTime) -> Self {
+    fn position(
+        selection: JointSelection,
+        counts: [EncoderCounts; JOINT_COUNT],
+        now: MonoTime,
+    ) -> Self {
+        let frame = SelectedPositionFrame::encode(selection, counts);
+        let mut bytes = [0; POSITION_FRAME_BYTES];
+        bytes[..frame.bytes().len()].copy_from_slice(frame.bytes());
         Self {
-            bytes: *PositionFrame::encode(counts).bytes(),
-            length: POSITION_FRAME_BYTES,
+            bytes,
+            length: frame.bytes().len(),
             written: 0,
             stage: None,
             parser: StatusParser::default(),
@@ -319,6 +373,7 @@ impl Transaction {
 
 #[derive(Clone, Copy)]
 struct Active {
+    selection: JointSelection,
     id: MotionId,
     permit: OutputPermit,
     placement: Placement,
@@ -437,6 +492,46 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
 
     /// Explicit read-only initialization/refresh; no automatic probe or retry.
     /// Twenty milliseconds observed quiet is not proof of absent delayed data.
+    /// No bus I/O. Exports only the current complete checked transaction, never
+    /// substitutes goals for readback. A fault, partial read or expiry rejects it.
+    pub fn readback(&mut self) -> Result<Readback, Error> {
+        let now = self.now()?;
+        if self.inspected_at.is_none() || self.inspect_next.is_some() || self.transaction.is_some()
+        {
+            return Err(Error::NotInspected);
+        }
+        let mut joints = [EncoderReadback {
+            counts: 0,
+            received_at_us: 0,
+            velocity_raw: 0,
+            load_magnitude_raw: 0,
+            moving_raw: 0,
+            status_raw: 0,
+        }; JOINT_COUNT];
+        for joint in Joint::ALL {
+            let sample = self.samples[joint.index()].ok_or(Error::NotInspected)?;
+            self.position(joint, sample.value)?;
+            if self.qualification.is_some() {
+                self.check_sample(joint, sample, now, None)?;
+            }
+            joints[joint.index()] = EncoderReadback {
+                counts: sample
+                    .value
+                    .position()
+                    .single_turn_counts()
+                    .map_err(|_| Error::Position(joint))?
+                    .get(),
+                received_at_us: sample.received_at.as_micros(),
+                velocity_raw: sample.value.velocity().signed_raw(),
+                load_magnitude_raw: sample.value.load().magnitude_raw(),
+                moving_raw: sample.value.moving_raw(),
+                status_raw: sample.value.status_raw(),
+            };
+        }
+        let result = Readback { joints };
+        result.validate(now, self.timing.readback_age_us)?;
+        Ok(result)
+    }
     pub fn inspect(&mut self) -> Result<(), Error> {
         let now = self.now()?;
         if self.transaction.is_some()
@@ -462,7 +557,21 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         target: [NormalizedPosition; JOINT_COUNT],
         duration_us: u64,
     ) -> Result<MotionId, Error> {
-        let result = self.start_segment_inner(permit, placement, target, duration_us);
+        self.start_selected_segment(permit, placement, target, duration_us, JointSelection::ALL)
+    }
+
+    /// Start a finite segment that writes only the selected joint IDs. All five
+    /// remain inspected and qualified. Unselected goals retain exact read counts,
+    /// not a potentially lossy normalize/denormalize round trip.
+    pub fn start_selected_segment(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        target: [NormalizedPosition; JOINT_COUNT],
+        duration_us: u64,
+        selection: JointSelection,
+    ) -> Result<MotionId, Error> {
+        let result = self.start_segment_inner(permit, placement, target, duration_us, selection);
         // Bad requests may be corrected. A discovered device/readback fault
         // cannot be healed by changing the request or qualification record.
         if let Err(
@@ -485,8 +594,9 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         &mut self,
         permit: OutputPermit,
         placement: Placement,
-        target: [NormalizedPosition; JOINT_COUNT],
+        mut target: [NormalizedPosition; JOINT_COUNT],
         duration_us: u64,
+        selection: JointSelection,
     ) -> Result<MotionId, Error> {
         let now = self.now()?;
         if self.transaction.is_some()
@@ -511,18 +621,11 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .map_err(Error::Calibration)?;
         let mut start = target;
         let mut quantized_target = target;
-        let endpoint_counts =
+        let mut endpoint_counts =
             Joint::ALL.map(|joint| bound.joint(joint).denormalize(target[joint.index()]));
         for joint in Joint::ALL {
             let i = joint.index();
             let limits = qualification.limits[i];
-            if !bound
-                .joint(joint)
-                .register_binding()
-                .contains(endpoint_counts[i])
-            {
-                return Err(Error::Position(joint));
-            }
             let profile = self.profiles[i].ok_or(Error::NotInspected)?;
             // A position command must not silently re-engage a disabled servo.
             // Never repair torque, speed or acceleration as part of admission.
@@ -538,6 +641,21 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 return Err(Error::NotAtRest(joint));
             }
             start[i] = self.position(joint, sample.value)?;
+            if !selection.contains(joint) {
+                target[i] = start[i];
+                endpoint_counts[i] = sample
+                    .value
+                    .position()
+                    .single_turn_counts()
+                    .map_err(|_| Error::Position(joint))?;
+            }
+            if !bound
+                .joint(joint)
+                .register_binding()
+                .contains(endpoint_counts[i])
+            {
+                return Err(Error::Position(joint));
+            }
             quantized_target[i] = bound
                 .joint(joint)
                 .normalize(endpoint_counts[i])
@@ -566,6 +684,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             sequence: self.sequence,
         };
         self.active = Some(Active {
+            selection,
             id,
             permit,
             placement,
@@ -656,10 +775,16 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 let counts = if elapsed >= active.segment.duration_us() {
                     active.endpoint_counts
                 } else {
-                    Joint::ALL.map(|joint| bound.joint(joint).denormalize(sample[joint.index()]))
+                    Joint::ALL.map(|joint| {
+                        if active.selection.contains(joint) {
+                            bound.joint(joint).denormalize(sample[joint.index()])
+                        } else {
+                            active.endpoint_counts[joint.index()]
+                        }
+                    })
                 };
                 self.check_goal(now, counts)?;
-                self.transaction = Some(Transaction::position(counts, now));
+                self.transaction = Some(Transaction::position(active.selection, counts, now));
                 return Ok(Tick::Progress);
             }
         }
@@ -723,8 +848,10 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 active.final_written =
                     age(tx.entered_at, active.started_at)? >= active.segment.duration_us();
                 let id = active.id;
+                let selection = active.selection;
                 self.transaction = None;
                 return Ok(Tick::PositionAccepted {
+                    selection,
                     motion: id,
                     at: after,
                     counts,

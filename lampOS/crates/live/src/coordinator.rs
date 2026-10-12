@@ -1,6 +1,6 @@
 //! Finite, explicitly directed voice qualification on real hardware.
 //!
-//! This integration has optional guarded ring cues, but no addressee inference or motors.
+//! This integration has optional guarded ring cues, but no addressee inference or automatic motor gestures.
 //! Refuse to present its directed-session results as general desk-conversation
 //! qualification. Audio-critical failures end the run; optional ring failure disables
 //! presentation while retaining the child and truthful cleanup evidence.
@@ -57,6 +57,8 @@ use std::{
     time::{Duration, Instant},
 };
 mod camera;
+pub mod motor;
+use motor::{OptionalMotor, PreparedMotor};
 mod cloud;
 mod notices;
 mod service;
@@ -276,6 +278,7 @@ struct Rig {
     privacy: Worker,
     ring: OptionalRing,
     camera: Option<OptionalCamera>,
+    motor: Option<OptionalMotor>,
     ring_channel_ceiling: Option<u16>,
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
@@ -284,6 +287,10 @@ struct Rig {
 }
 impl Rig {
     fn publish(&mut self, snapshot: Snapshot) -> io::Result<()> {
+        // Motor revocation precedes mandatory audio sends, including their failure.
+        if let Some(motor) = &mut self.motor {
+            motor.publish(snapshot);
+        }
         for worker in [
             &mut self.speaker,
             &mut self.capture,
@@ -329,6 +336,9 @@ impl Rig {
         };
         let deadline = Instant::now() + grace;
         let stop_requested_at_us = monotonic_us();
+        if let Some(motor) = &mut self.motor {
+            motor.begin_shutdown();
+        }
         let mut camera_watch = self.camera.as_mut().map(|camera| {
             camera.begin_shutdown(stop_requested_at_us);
             for event in camera.shutdown_events.iter().flatten() {
@@ -364,6 +374,9 @@ impl Rig {
         let mut ring_blank_confirmed = self.ring.blank_confirmed();
         let mut final_drain = false;
         loop {
+            if let Some(motor) = &mut self.motor {
+                motor.poll(|event| { let _ = record(trace, json!({"kind":"motor_shutdown_receipt","at_us":monotonic_us(),"details":event,"physical_stop_verified":false})); });
+            }
             // Keep the 100 ms control channel fresh while independent diagnostic
             // writers finish. A serial wait could age a valid finish receipt.
             for (index, worker) in [
@@ -501,7 +514,9 @@ impl Rig {
                     }
                 }
             }
-            if exited.iter().all(|done| *done) {
+            if exited.iter().all(|done| *done)
+                && self.motor.as_ref().is_none_or(OptionalMotor::reaped)
+            {
                 // A final receipt may arrive between the earlier receive and
                 // waitpid. Re-drain once after every sender has definitely exited.
                 if final_drain {
@@ -537,7 +552,17 @@ impl Rig {
             }
             std::thread::sleep(Duration::from_millis(2));
         }
-        // No hardware is active during bounded metadata reads. Native kill/wait
+        if let Some(motor) = &self.motor {
+            let cleanup = motor.finish();
+            let _ = record(
+                trace,
+                json!({"kind":"motor_cleanup","at_us":monotonic_us(),"worker":motor.identity().map(|i|i.worker),"started":motor.started(),"reaped":motor.reaped(),"confirmed":cleanup.is_ok(),"error":cleanup.as_ref().err().map(ToString::to_string),"physical_stop_verified":false}),
+            );
+            if let Err(error) = cleanup {
+                failure = Some(error);
+            }
+        }
+        // Mandatory hardware cleanup preceded bounded metadata reads. Native kill/wait
         // has no userspace hard deadline; its result is never hidden as success.
         if !ring_blank_confirmed {
             failure = Some(io::Error::other(
@@ -628,6 +653,7 @@ pub fn run_fixture(
         options.directed,
         None,
         None,
+        None,
         Some(info),
         cues,
         &termination,
@@ -669,6 +695,7 @@ pub fn run_directed_with_options(
             directed: options,
             cue_socket: None,
             camera_config: None,
+            motor: None,
             failure_notices: None,
         },
     )
@@ -694,6 +721,7 @@ pub fn run_directed_session(
         output,
         options.directed,
         options.camera_config.as_deref(),
+        options.motor.as_ref(),
         options.failure_notices.as_ref(),
         None,
         cues,
@@ -717,6 +745,7 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
         output,
         options.directed,
         options.camera_config.as_deref(),
+        options.motor.as_ref(),
         options.failure_notices.as_ref(),
         None,
         cues,
@@ -731,6 +760,7 @@ fn run_source(
     output: &Path,
     options: DirectedOptions,
     camera_config: Option<&Path>,
+    motor_options: Option<&crate::options::MotorOptions>,
     notice_options: Option<&crate::options::NoticeOptions>,
     fixture: Option<FixtureInfo>,
     mut cues: Option<CueSink>,
@@ -757,6 +787,7 @@ fn run_source(
         json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":lifetime.seconds(),"mode":if lifetime.continuous(){"serve"}else{"finite"},"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "camera_context_requested":camera_config.is_some(),
+        "motor_worker_requested":motor_options.is_some(),
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
         "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
@@ -769,6 +800,7 @@ fn run_source(
     )?;
     // Bounded local reads happen once before any capture/speaker worker.
     let notices = FailureNotices::load(notice_options);
+    let mut motor_rearm = true;
     record(
         &mut trace,
         json!({"kind":"failure_notice_capability","at_us":monotonic_us(),
@@ -803,6 +835,8 @@ fn run_source(
                         None,
                         options,
                         camera_config,
+                        motor_options,
+                        &mut motor_rearm,
                         &notices,
                         cues,
                         termination,
@@ -817,6 +851,8 @@ fn run_source(
                 diagnostic_directory.as_deref(),
                 options,
                 camera_config,
+                motor_options,
+                &mut motor_rearm,
                 &notices,
                 &mut cues,
                 termination,
@@ -1699,6 +1735,7 @@ fn spawn_rig(
         privacy,
         ring,
         camera,
+        motor: None,
         ring_channel_ceiling: options.ring_channel_ceiling,
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
@@ -1715,6 +1752,8 @@ fn run_inner(
     diagnostic_directory: Option<&Path>,
     options: DirectedOptions,
     camera_config: Option<&Path>,
+    motor_options: Option<&crate::options::MotorOptions>,
+    motor_rearm: &mut bool,
     notices: &FailureNotices,
     cues: &mut Option<CueSink>,
     termination: &Termination,
@@ -1730,6 +1769,17 @@ fn run_inner(
         json!({"kind":"session_boot","at_us":monotonic_us(),"boot":boot}),
     )?;
     let mut owner = Controller::new(boot, now());
+    let motor = motor_options.filter(|_| *motor_rearm).and_then(|options| match PreparedMotor::load(options, &directory.path) {
+        Ok(prepared) => {
+            let _ = record(trace, json!({"kind":"motor_configured","at_us":monotonic_us(),"identity":prepared.identity(),"automatic_motion":false}));
+            Some(prepared)
+        }
+        Err(error) => {
+            let _ = record(trace, json!({"kind":"motor_unavailable","at_us":monotonic_us(),"stage":"configuration","error":motor::bounded(error),"audio_continues":true}));
+            *motor_rearm = false;
+            None
+        }
+    });
     let mut startup = StartupEvents::default();
     let camera = camera_config.and_then(|path| {
         match PreparedCamera::load(path, &directory.path) {
@@ -1760,6 +1810,7 @@ fn run_inner(
         lifetime,
         termination,
     )?;
+    rig.motor = motor.map(|prepared| OptionalMotor::new(boot, Some(prepared)));
     let mut reply = None;
     let result = (|| {
         termination.check()?;
@@ -1789,7 +1840,14 @@ fn run_inner(
             notices,
         )
     })();
+    let physical_mute = result
+        .as_ref()
+        .err()
+        .is_some_and(|error| error.downcast_ref::<PhysicalMute>().is_some());
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
+    if let Some(motor) = &rig.motor {
+        *motor_rearm &= motor.may_rearm_after_cycle(physical_mute);
+    }
     // Reopening is allowed only after all child and local endpoint ownership
     // has ended. Never accumulate per-cycle output/IPC directories.
     drop(rig);
@@ -1798,6 +1856,26 @@ fn run_inner(
     } else {
         result
     }
+}
+
+fn service_motor(rig: &mut Rig, trace: &mut SessionState) -> Result<()> {
+    if let Some(motor) = &mut rig.motor {
+        let mut error = None;
+        motor.poll(|event| {
+            if let Err(e) = record(trace, json!({"kind":"motor_lifecycle","at_us":monotonic_us(),"details":event,"listening_readiness":false,"physical_stop_verified":false})) { error.get_or_insert(e); }
+        });
+        let worker = motor.identity().map(|identity| identity.worker);
+        if let Some(reason) = motor.take_failure() {
+            record(
+                trace,
+                json!({"kind":"motor_degraded","at_us":monotonic_us(),"worker":worker,"reason":reason,"audio_continues":true,"physical_stop_verified":false}),
+            )?;
+        }
+        if let Some(error) = error {
+            return Err(error);
+        }
+    }
+    Ok(())
 }
 
 fn finish_active_run(
@@ -2038,6 +2116,18 @@ fn conversation(
             rig.publish(snapshot)?;
         }
         service_camera(rig, owner, can_open, trace)?;
+        // One pre-capture spawn; no initial denied authority is suppressed.
+        if can_open
+            && !capture_requested
+            && let Some(motor) = &mut rig.motor
+        {
+            motor.start_before_capture(
+                owner.snapshot(now())?,
+                false,
+                rig.camera.as_ref().is_some_and(|camera| !camera.failed),
+            );
+        }
+        service_motor(rig, trace)?;
         let mut provider_control_budget = 16;
         let mut provider_control_empty = service_provider_control(
             &mut rig.provider.channels.control,
@@ -3723,6 +3813,7 @@ mod tests {
             privacy,
             ring: Some(ring).into(),
             camera: None,
+            motor: None,
             ring_channel_ceiling: Some(24),
             diagnostic_directory: Some(directory.path.clone()),
             noise_suppression: NoiseSuppression::On,

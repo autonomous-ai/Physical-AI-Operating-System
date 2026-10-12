@@ -1157,6 +1157,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         privacy: spawn("privacy"),
         ring: ring.into(),
         camera,
+        motor: None,
         ring_channel_ceiling,
         diagnostic_directory: None,
         noise_suppression: NoiseSuppression::On,

@@ -252,6 +252,7 @@ fn isolated_signal_child() {
     ];
     let mut rig = Rig {
         camera: None,
+        motor: None,
         provider,
         capture,
         speaker,
@@ -457,6 +458,7 @@ fn service_signal_child(
     });
     let mut rig = Rig {
         camera: None,
+        motor: None,
         provider,
         capture,
         speaker,

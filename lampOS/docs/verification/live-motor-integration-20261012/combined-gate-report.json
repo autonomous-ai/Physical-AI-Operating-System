@@ -1,0 +1,122 @@
+{
+  "status": "passed",
+  "source_manifest_sha256": "2be649c7cecc067c4d35d599fb013ad605e03b7b04774011853dd76f81a97f24",
+  "environment": {
+    "CARGO_TARGET_DIR": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "commands": [
+    {
+      "argv": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsed_s": 1.589175087865442,
+      "log": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/evidence/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected_passed": null,
+      "passed": null,
+      "failed": null,
+      "ignored": null
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-j2",
+        "-p",
+        "lamp-live",
+        "-p",
+        "lamp-motor",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit": 0,
+      "elapsed_s": 16.402074650861323,
+      "log": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/evidence/clippy.log",
+      "sha256": "dbf72050aa3a476d2341f69edbf393e055c7eb7e52517faa1c1a146b53520802",
+      "expected_passed": null,
+      "passed": null,
+      "failed": null,
+      "ignored": null
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-j2",
+        "-p",
+        "lamp-live",
+        "--lib",
+        "coordinator::motor::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "elapsed_s": 32.59450151538476,
+      "log": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/evidence/live-motor.log",
+      "sha256": "450a573591a6f770f0b41cbe1e9ea7ae6d0d4c5d7d971c0c422c2616b60bca9e",
+      "expected_passed": 16,
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-j2",
+        "-p",
+        "lamp-live",
+        "--lib",
+        "provider_pair::continuation_or_discard",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "elapsed_s": 6.283600679133087,
+      "log": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/evidence/provider-pair.log",
+      "sha256": "6239cbf9a07a64ee058919665b0d2ce88e7e408053ee00f8c85b2bcc3ecbd7a1",
+      "expected_passed": 9,
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.cargo/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-j2",
+        "-p",
+        "lamp-motor",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "elapsed_s": 12.018990071956068,
+      "log": "/private/tmp/lamp-motor-readback-composed-ejfzsvtb/evidence/motor.log",
+      "sha256": "dd679879c90b078ba001ff843341cdb484aac4e687f0a879310fe260e00bc6bc",
+      "expected_passed": 153,
+      "passed": 153,
+      "failed": 0,
+      "ignored": 0
+    }
+  ],
+  "device_actions": false,
+  "readback_extension_included": true,
+  "source_unchanged": true
+}

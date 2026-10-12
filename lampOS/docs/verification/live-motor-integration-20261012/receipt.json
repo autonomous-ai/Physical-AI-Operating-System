@@ -1,0 +1,16 @@
+{
+  "artifact_manifest_sha256": "14da9ab2b79d60095e49b5f6e5c97df085b026d8a6a74d123644a6b3760294ad",
+  "base": "7bfe408a3e43995e1ca70b79e6ee8943e60daffe",
+  "correction_patch_sha256": "0d5cb9f53fda2dda22c0f614a93a09ec7faebfe3d4e12d8c6f4763776bcf5edc",
+  "device_actions": false,
+  "failed": 0,
+  "files": 445,
+  "gates_sha256": "24cfb15ebe4bd6915d803e04cd6077316e11254552344511a4b9154aec491ce3",
+  "ignored": 0,
+  "integration_patch_sha256": "03bab2a48fa537751e6b5f8dc5c769ffa095943bcd95b1d369dd4e9775c838f1",
+  "review_sha256": "a1b87a36afe341d83c9fa9dfcfe956a261655d86cb28841dc654fa781dfcf5ac",
+  "source_frozen": true,
+  "source_manifest_sha256": "2be649c7cecc067c4d35d599fb013ad605e03b7b04774011853dd76f81a97f24",
+  "status": "qualified_for_root_review_and_combined_ARM_gate_not_physical_use",
+  "tests_passed": 178
+}

@@ -26,6 +26,7 @@ fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Pe
             privacy,
             ring: Some(ring).into(),
             camera: None,
+            motor: None,
             ring_channel_ceiling: Some(24),
             diagnostic_directory: None,
             noise_suppression: NoiseSuppression::On,

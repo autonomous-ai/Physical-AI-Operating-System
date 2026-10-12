@@ -178,8 +178,10 @@ turn ownership and expiring permissions, checked again at the hardware boundary.
 Camera payloads have their own bounded stream. These are scheduling and ownership
 contracts, not a claim of zero latency or hard real-time Linux scheduling.
 
-`*` The motor worker exists; its connection to live choreography is still being
-integrated and qualified. This map does not claim every component is deployed.
+`*` The motor worker is connected through an opt-in live supervision path.
+The gesture producer and physical motion qualification are still pending;
+ordinary conversation does not dispatch a motor segment. This map does not
+claim every component is deployed.
 
 ```text
 ADDITIONAL WORKERS                PROPOSED OWNER       STATUS
@@ -210,7 +212,7 @@ The diagram is the V2 responsibility map, not a claim that every worker is
 already deployed. `process` means an independent OS lifetime; the choreographer
 is policy inside the core, not another authority or actuator writer. Capture and
 speaker are separate processes even though they share the audio crate. Perception,
-end-of-turn inference and the live motor connection still require their own
+end-of-turn inference and motor gestures still require their own
 integration/qualification gates. The current physical privacy process does not
 imply that every future button/touch behavior is implemented.
 

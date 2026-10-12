@@ -75,6 +75,28 @@ still paint after clear returns; effect ownership and cancellation remain the
 caller's responsibility. The diagnostic reads software memory, not physical
 LED feedback, so a black buffer does not prove the hardware is dark.
 
+### Speech presentation does not block first audio
+
+The TTS start callback publishes speech priority immediately and submits the
+latest LED state to one presentation worker with one pending slot. Effect stop,
+join and restore run outside the audio writer. Superseded transitions are checked
+again after a slow effect stop; sleep and explicit LED overrides revoke pending
+speech presentation. A resting restore does not revoke an active speech wave.
+
+Speech-wave frames carry an ownership check and a 100 ms maximum frame age.
+RGB checks both under its event-slot lock before admission and under its driver
+lock before writing, so a revoked frame cannot evict a newer user command or
+repaint later. An already-started hardware write cannot be retracted. This is a
+bounded Python presentation worker, not V2 process isolation or a complete
+choreographer for all V1 effects.
+
+Reply-end emotion/body cleanup remains synchronous to preserve its existing
+semantics; only the explicit LED stop/restore is deferred. A slow end cannot
+publish an obsolete restore after a newer speech start. Thus the target is a
+TTS-start handoff below 5 ms under test load, not a bound on the full end callback
+or on physical LED/audio latency. HAL closes the worker before effect teardown;
+its 2.5 s join is best effort and logs a warning on timeout.
+
 ### Transient emotion status
 
 Transient expressions (such as `laugh` and `shock`) return `/emotion/status`'s

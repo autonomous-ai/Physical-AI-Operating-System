@@ -73,6 +73,26 @@ khi clear đã trả về; quản lý và hủy effect vẫn thuộc bên gọi.
 bộ nhớ phần mềm, không phải phản hồi từ LED thật, nên buffer đen không chứng minh
 phần cứng đã tắt.
 
+### LED khi nói không chặn audio đầu tiên
+
+Callback bắt đầu TTS đặt ưu tiên đang nói ngay rồi gửi trạng thái LED mới nhất
+cho một worker với một ô chờ. Dừng effect, join và restore chạy ngoài luồng ghi
+audio. Worker kiểm tra lại lệnh đã bị thay thế sau khi dừng effect chậm; sleep và
+lệnh LED trực tiếp thu hồi quyền hiển thị đang chờ của speech. Restore trạng
+thái nghỉ không thu hồi speaking wave đang hoạt động.
+
+Frame speaking wave mang điều kiện quyền sở hữu và tuổi tối đa 100 ms. RGB kiểm
+tra cả hai dưới khóa ô sự kiện trước khi nhận và dưới khóa driver trước khi ghi,
+để frame đã bị thu hồi không làm mất lệnh người dùng mới hoặc tô lại muộn. Không
+thể thu hồi thao tác ghi hardware đã bắt đầu. Đây là worker Python có hàng chờ
+giới hạn, chưa phải tách process như V2 hay choreographer cho mọi effect V1.
+
+Cleanup emotion/body cuối câu vẫn đồng bộ để giữ hành vi hiện có; chỉ phần dừng
+LED/restore trực tiếp được chuyển sang worker. End chậm không thể gửi restore cũ
+sau start mới. Mục tiêu là bàn giao TTS-start dưới 5 ms trong test tải, không phải
+giới hạn toàn bộ callback end hay latency LED/audio vật lý. HAL đóng worker trước
+khi dọn effect; join tối đa 2.5 giây là best effort, có cảnh báo khi timeout.
+
 ### Trạng thái emotion tạm thời
 
 Biểu cảm tạm thời (như `laugh`, `shock`) đưa `current_emotion` của

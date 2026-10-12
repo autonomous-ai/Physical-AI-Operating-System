@@ -47,8 +47,10 @@ binaries were executed under QEMU for the following checks:
 
 `missing_executable_fails_at_once` first failed with `worker closed its output`.
 A separate QEMU syscall-traced rerun failed the test's 20 ms immediate-failure
-assertion instead. Neither failure is discarded, and the first failure's root
-cause has not been established. The original gate stopped at the IPC failure;
+assertion instead. Neither failure is discarded. The first failure's cause was
+found later the same day: the emulator reports a successful start for a
+program that does not exist
+([probe](../voice-owner-20261012/README.md)). The original gate stopped at the IPC failure;
 separate follow-through commands produced the live/local results above. The
 planned model suite with `--include-ignored` did not complete, and no full
 workspace pass is claimed. The ignored live test requires an actual worker and

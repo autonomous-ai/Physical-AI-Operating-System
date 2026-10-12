@@ -547,7 +547,7 @@ fn resistance_for_the_fourth_time_in_a_minute_ends_the_run() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(40));
     let ms = Duration::from_millis;
     lamp.strains = [1_200, 6_000, 12_000, 18_000]
-        .map(|at| (ms(at), ms(at + 200), YAW, 180))
+        .map(|at| (ms(at), ms(at + 200), YAW, 260))
         .to_vec();
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
@@ -555,7 +555,7 @@ fn resistance_for_the_fourth_time_in_a_minute_ends_the_run() {
         report.stop,
         Stop::Load {
             joint: 1,
-            load: 180
+            load: 260
         },
         "{report:?}"
     );
@@ -564,7 +564,7 @@ fn resistance_for_the_fourth_time_in_a_minute_ends_the_run() {
     // Three in a minute and a fourth later are four separate moments.
     let (mut lamp, mut clock) = folded(Duration::from_secs(90));
     lamp.strains = [1_200, 6_000, 12_000, 75_000]
-        .map(|at| (ms(at), ms(at + 200), YAW, 180))
+        .map(|at| (ms(at), ms(at + 200), YAW, 260))
         .to_vec();
     let news = script(&clock.time);
     let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});

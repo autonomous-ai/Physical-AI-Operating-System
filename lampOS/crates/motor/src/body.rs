@@ -100,9 +100,14 @@ pub struct Limits {
     /// The profile written to each commanded servo at start.
     pub servo_speed: u16,
     pub servo_acceleration: u8,
-    /// A load above this on `load_steps` steps in a row ends the run.
+    /// A load above this on `load_steps` steps in a row makes the joint give
+    /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
     pub load_steps: u8,
+    /// A joint found carrying more than this is not started on: at rest it
+    /// should be carrying next to nothing, and one that is not is leaning
+    /// on something.
+    pub start_load: [u16; 3],
     /// A position this far from its goal for `tracking_steps` steps ends it.
     pub tracking: u16,
     pub tracking_steps: u8,
@@ -192,8 +197,15 @@ impl Limits {
         // Six steps, 120 ms: a head that reverses quickly reads over the
         // bound for a few steps (217 on the third, once in eleven minutes
         // of talking) and under it again; something in its way does not.
-        load: [170, 150, 150],
+        // The head's bound was 170 and the base's 150 until 2026-10-13.
+        // Starting to lift from rest the head read 173 to 203 for longer
+        // than that, and the base 208 turning back in the middle of its look
+        // away, with nothing in the way of either; a joint that pushes and
+        // does not move is now put to rest within half a second whatever
+        // it reads, so the bound only has to catch what is pushed hard.
+        load: [240, 150, 220],
         load_steps: 6,
+        start_load: [170, 150, 150],
         tracking: 30,
         tracking_steps: 10,
         bystander_drift: 6,
@@ -562,7 +574,7 @@ pub(crate) fn run(
             Some(format!("{joint} status is {:#04x}", sample.status))
         } else if sample.temperature >= limits.temperature {
             Some(format!("{joint} is at {} already", sample.temperature))
-        } else if sample.load > limits.load[index] {
+        } else if sample.load > limits.start_load[index] {
             Some(format!("{joint} already carries load {}", sample.load))
         } else {
             None

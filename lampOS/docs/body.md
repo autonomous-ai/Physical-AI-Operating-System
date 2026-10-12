@@ -50,7 +50,7 @@ written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
-| Load on a commanded joint, six steps in a row (120 ms), for the fourth time in a minute, or again within two seconds of the joint giving way | pitch 170, roll 150, yaw 150 |
+| Load on a commanded joint, six steps in a row (120 ms), for the fourth time in a minute, or again within two seconds of the joint giving way | pitch 240, roll 150, yaw 220 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |
@@ -67,6 +67,17 @@ to the log. Until 2026-10-13 the first such load ended the run, and with it
 all motion until someone started the body again: on lamp-4ace that happened
 twice in a quarter of an hour, at 217 and at 190 on the head joint, with
 nothing in its way either time.
+
+The bounds for the head and the base were 170 and 150 until 2026-10-13.
+With everything above in place the head still gave way now and then when
+it began to lift from rest, reading 173 to 203 for a little over 120 ms
+before it moved, and the base once at 208, turning back in the middle of
+its look away. Nothing was in the way of either. Since a joint that pushes
+without moving is put to rest within half a second whatever it reads, the
+bound no longer has to stop that; it is there for a joint that is pushed
+hard, and 240 and 220 are a quarter of what these servos can exert. To
+start at all a joint must still be found under the old bounds (170, 150,
+150): at rest it should be carrying next to nothing.
 
 While the wire is failing nothing new is asked of the joints, and the
 write that failed is tried again on the next step. Until 2026-10-13 three

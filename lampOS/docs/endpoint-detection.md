@@ -10,9 +10,10 @@ stress evidence and acceptance/rollback rule are in
 Not on this branch:
 
 - **The early end of input** (`--endpoint smart-turn-early`, MAIN-052) stays on
-  `lamp-a2-continuation`. Main's strict continuation probe failed with
-  `BarrierTimeout` ([result](verification/strict-continuation-20261011/README.md)),
-  so it must not be activated.
+  `lamp-a2-continuation`. It was parked after Main's strict continuation probe
+  failed with `BarrierTimeout`
+  ([result](verification/strict-continuation-20261011/README.md)) and stays
+  off. The later single `kept-start` successes do not qualify an early end.
 - **The evaluation crate** (`lamp-endpoint-eval`: probe, replay, cohorts,
   profiling) also stays on `lamp-a2-continuation`. The numbers below were
   produced with it.
@@ -254,10 +255,16 @@ held-out clips (598 finished turns), L = 1.1 s as in Main's measurements:
 | parity | 594 | 585 | 3 | 16 | 2,147 / 2,100 ms |
 
 The interruption barrier is the path a person takes when they resume after
-the endpoint but before the reply is audible. Main's strict continuation probe
-failed on this path with `BarrierTimeout`. A later real-service trial that
-continued *during* output succeeded, but the before-output path remains
-unresolved. Parity takes it in 7 more clips than the baseline; [endpoint-pilot.md](endpoint-pilot.md) makes that the first
+the endpoint but before the reply is audible.
+- **History.** With an immediate successor Start, Main's strict
+  continuation probe failed on this path with `BarrierTimeout` (11 October).
+- **Since then.** With Agent 1's retained Start (`kept-start`, on
+  `675c71c62`), one service-only probe settled and answered a before-output
+  continuation. One native serve run superseded a pending turn before output
+  with its correction. Physical continuation evidence remains limited to
+  such single cases.
+
+Parity takes this path in 7 more clips than the baseline; [endpoint-pilot.md](endpoint-pilot.md) makes that the first
 rollback trigger.
 
 ### Synthetic `say` cohort
@@ -348,8 +355,9 @@ LAMP_ENDPOINT_WORKER=target/release/lamp-endpoint-worker \
    - Only English and Spanish are covered.
 4. **Small gain.** The parity profile saves at most 200 ms of the endpoint
    wait. Larger gains need a continuation path that lets a person keep
-   speaking after an early endpoint. That path depends on the provider
-   settlement that Main's probe did not observe.
+   speaking after an early endpoint. That path depends on provider
+   settlement. It failed with an immediate Start and has single successful
+   `kept-start` cases, not a qualified rate.
 5. **Memory and size.** The worker is a separate 24 MB binary with its own
    resident memory. A smaller runtime or a corrected int8 path is future work.
 6. **Endpointing only.** This does not identify an addressee and is not an

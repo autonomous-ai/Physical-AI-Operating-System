@@ -114,6 +114,8 @@ export function PrivacySection({ active }: { active: boolean }) {
         Face detection, Face ID, presence and gaze run on this device and send no images to
         a cloud server. When a face without a name has been seen twice, the lamp keeps one
         photo on the device for 24 hours so it can ask whether to remember that person.
+        It also keeps a photo each time someone arrives (for 72 hours) and a few dozen recent
+        frames used to aim where it looks; these stay on the device and are not uploaded.
         The features below need a cloud server: when on, the lamp uploads camera images for
         analysis. They are off until you turn them on. Anyone in view of the camera is
         included, not only you. Turning a feature off stops its new uploads once the lamp

@@ -329,13 +329,7 @@ def _persist_hit(frame: Any, box: Any, label: str) -> Optional[str]:
                             f"snap_{int(time.time() * 1000)}.jpg")
         with open(path, "wb") as f:
             f.write(jpg)
-        state._snapshot_paths.append(path)
-        while len(state._snapshot_paths) > state._SNAPSHOT_MAX:
-            oldest = state._snapshot_paths.pop(0)
-            try:
-                os.remove(oldest)
-            except OSError:
-                pass
+        state.prune_snapshot_dir()
         return path
     except Exception as e:
         logger.warning("[search] could not persist the winning frame: %s", e)

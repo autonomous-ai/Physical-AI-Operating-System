@@ -61,6 +61,18 @@ def test_open_vocab_target_always_reaches_remote(monkeypatch):
     assert calls == ["rubik cube"]
 
 
+def test_people_never_reach_remote(monkeypatch):
+    """Unprompted look-arounds search for people; a miss must not upload the frame."""
+    calls: list = []
+    det = _detector(monkeypatch, calls)
+    monkeypatch.setattr(detection, "_detect_face_yunet", lambda frame: None)
+    for target in ("person", "people", "human", "face", "human face"):
+        assert det.detect(_frame(), target, strict=False) is None
+    monkeypatch.setattr(detection, "_get_local_yolo", lambda: None)  # weights missing
+    assert det.detect(_frame(), "person", strict=False) is None
+    assert calls == []
+
+
 def test_trust_window_floors_at_the_constant_for_a_fast_detector():
     """YuNet at ~30ms keeps exactly the window face tracking always had."""
     assert trust_window_s(0.03) == C.TRUST_TRACKER_S

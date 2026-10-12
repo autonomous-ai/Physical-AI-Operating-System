@@ -1728,6 +1728,20 @@ class RealtimeOrchestrator:
                 ]
             )
             return False
+        # Only a person who just spoke may make the lamp capture: the prompt tells the
+        # model to look only when asked, and this holds even when it does not listen.
+        if not state.someone_spoke_within(config.REALTIME_LOOK_SPEECH_WINDOW_S):
+            logger.info("[realtime] look: nobody spoke recently; not capturing")
+            look_debug.abandon("no_recent_speech")
+            self._agent.send(
+                [
+                    FunctionCallResultInput(
+                        call_id=output.call_id,
+                        output='{"error": "nobody asked to look; only look when the user asks about what you see"}',
+                    )
+                ]
+            )
+            return False
         now: float = time.monotonic()
         # Cost guard (also the replay-turn path): no new image within the interval or twice per turn.
         min_interval: float = config.REALTIME_GEMINI_VISION_MIN_INTERVAL_S
@@ -1950,6 +1964,7 @@ class RealtimeOrchestrator:
                     pass
             state.realtime_look_frame_path = path
             state.realtime_look_frame_ts = time.monotonic()
+            state.prune_snapshot_dir()
             return path
         except Exception:
             logger.exception("[realtime] look: persist frame failed")

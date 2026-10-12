@@ -77,9 +77,10 @@ The camera runs **1280×720**. Every heavy vision component — the ViT tracker 
 |------|----------|------|--------------|
 | 0 | **YuNet** face detector (`face_detection_yunet_2023mar.onnx`) | target ∈ {`face`, `human face`, `khuôn mặt`, `mặt`} | ~30 ms |
 | 1 | **Local YOLOv8n** (COCO classes, `yolov8n.pt`, imgsz=448) | target maps to a COCO class | ~310–530 ms, median ~360 ms (measured on lamp-0c89, 1280x720 input) |
-| 2 | **Remote YOLOWorld** open-vocab (`{DL_BACKEND_URL}/detect/yoloworld`) | non-COCO target, or local miss (fallback) | **~0.55 s median** (334 ms min, 1.1 s p90, 2.0 s max; n=49 on lamp-0c89) |
+| 2 | **Remote YOLOWorld** open-vocab (`{DL_BACKEND_URL}/detect/yoloworld`) | non-COCO target, or local miss (fallback); never `person`/`people`/`human` or a face alias | **~0.55 s median** (334 ms min, 1.1 s p90, 2.0 s max; n=49 on lamp-0c89) |
 
 - COCO has no hand/face class, so `hand`/`face` intentionally fall through to YuNet/YOLOWorld instead of mapping to `person` (which locked onto the whole body).
+- **People and faces never go remote.** `person`/`people`/`human` and the face aliases stay on YuNet and local YOLOv8n; a local miss (or missing local weights) returns no box. The lamp looks for people on its own (gaze look-around, bearing samples), so a fallback here would upload frames of the room nobody asked for.
 - On a local-YOLO miss the code falls back to remote YOLOWorld, **throttled** to at most one attempt per `REMOTE_FALLBACK_MIN_INTERVAL` (2.0 s) so a genuinely unseeable target doesn't hit remote every redetect.
 - **The fallback is off for routine redetects** (`allow_remote_fallback=False`, passed by the loop's background scan). Once a COCO target is locked, a local miss is ordinary — the object turned, one blurred frame — and the detect thread is single-flight, so a remote round-trip stretches a ~0.5 s confirm cycle to ~3 s, trips the trust gate and parks the servo with the object still in frame. Local is the authority for a class it was trained on; the next redetect confirms. Seeding and post-loss recovery (`_do_retry`) still allow remote, and an open-vocab target is unaffected — with no local path there is nothing to fall back from.
 - Detection quality filters: confidence ≥ `DETECT_MIN_CONFIDENCE` (0.15), area between `DETECT_MIN_AREA_RATIO` (0.3%) and `DETECT_MAX_AREA_RATIO` (80%) of frame.
@@ -604,7 +605,9 @@ The response is a structured body, not one prose string:
   as a person, and teaching the estimator that a keyboard is where the user sits is how the bearing
   quietly rots.
 - `image_path` is the winning frame, written into the active runtime's `media/hal-snapshots` — the
-  same capped, rotated pool `/camera/snapshot?save=true` uses (`_SNAPSHOT_MAX` = 20). It carries the
+  same capped, rotated pool `/camera/snapshot?save=true` and the realtime `look` frame use
+  (`_SNAPSHOT_MAX` = 20). `app_state.prune_snapshot_dir()` counts the `.jpg` files on disk after each
+  write and deletes the oldest by mtime, so frames from before a HAL restart are removed too. It carries the
   detection box drawn on it, via `look_debug.encode_annotated(..., centre_lines=False)`: the box is
   the answer, while the green/red full-height dx lines are the aim's working and would land on top
   of each other in the middle of a centred frame. The frame and the box always come from the **same**

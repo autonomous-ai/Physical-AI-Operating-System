@@ -1677,6 +1677,14 @@ before the camera was turned off is not handed off to the main agent either. The
 is `app_state.camera_blocked_by_user()`, the same check `/camera/snapshot` applies
 before, during and after its capture.
 
+**Only after someone spoke.** The prompt tells the model to look only when the user
+asks, but a model acting on its own (TV speech, injected context) is not stopped by a
+prompt. `_handle_look_call` therefore also refuses with
+`{"error": "nobody asked to look; only look when the user asks about what you see"}`
+unless the device's own STT heard speech within `HAL_REALTIME_LOOK_SPEECH_WINDOW_S`
+(default 30 s). The check is `app_state.someone_spoke_within()`, shared with the owner
+rule on `/camera/enable`.
+
 Gating (all three required, else visual questions fall back to delegation):
 
 - **Capability:** a camera is present (`app_state.camera_capture` is set). This is

@@ -776,6 +776,11 @@ REALTIME_GEMINI_VISION: bool = (
     ).lower()
     in ("1", "true", "yes")
 )
+# The realtime model may only capture a frame for `look` if the device's STT heard
+# someone speak this recently; a model acting on its own (TV, injected context) cannot.
+REALTIME_LOOK_SPEECH_WINDOW_S: float = float(
+    os.environ.get("HAL_REALTIME_LOOK_SPEECH_WINDOW_S", "30")
+)
 REALTIME_GEMINI_VISION_MAX_WIDTH: int = int(
     os.environ.get("HAL_GEMINI_VISION_MAX_WIDTH", "768")
 )

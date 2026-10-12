@@ -107,9 +107,7 @@ def _owner_is_here(request: Request) -> bool:
     an agent acting on its own have neither."""
     if request.headers.get(OWNER_ACTION_HEADER) == "1":
         return True
-    voice = state.voice_service
-    last = getattr(voice, "last_transcript_ts", 0.0) if voice is not None else 0.0
-    return bool(last) and time.time() - last < OWNER_VOICE_WINDOW_S
+    return state.someone_spoke_within(OWNER_VOICE_WINDOW_S)
 
 
 @router.post("/camera/enable", response_model=StatusResponse)
@@ -211,14 +209,7 @@ def camera_snapshot(
     filepath = os.path.join(state._SNAPSHOT_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(buf.tobytes())
-    state._snapshot_paths.append(filepath)
-
-    while len(state._snapshot_paths) > state._SNAPSHOT_MAX:
-        oldest = state._snapshot_paths.pop(0)
-        try:
-            os.remove(oldest)
-        except OSError:
-            pass
+    state.prune_snapshot_dir()
 
     return JSONResponse({"path": filepath})
 

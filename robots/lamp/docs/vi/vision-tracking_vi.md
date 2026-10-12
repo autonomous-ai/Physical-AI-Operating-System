@@ -77,9 +77,10 @@ Camera chạy **1280×720**. Mọi thành phần vision nặng — ViT tracker v
 |------|----------|---------|---------------|
 | 0 | **YuNet** face detector (`face_detection_yunet_2023mar.onnx`) | target ∈ {`face`, `human face`, `khuôn mặt`, `mặt`} | ~30 ms |
 | 1 | **Local YOLOv8n** (COCO classes, `yolov8n.pt`, imgsz=448) | target map tới một COCO class | ~310–530 ms, trung vị ~360 ms (đo trên lamp-0c89, input 1280x720) |
-| 2 | **Remote YOLOWorld** open-vocab (`{DL_BACKEND_URL}/detect/yoloworld`) | target không thuộc COCO, hoặc local miss (fallback) | **~0.55 s trung vị** (min 334 ms, p90 1.1 s, max 2.0 s; n=49 trên lamp-0c89) |
+| 2 | **Remote YOLOWorld** open-vocab (`{DL_BACKEND_URL}/detect/yoloworld`) | target không thuộc COCO, hoặc local miss (fallback); không bao giờ dùng cho `person`/`people`/`human` hay alias khuôn mặt | **~0.55 s trung vị** (min 334 ms, p90 1.1 s, max 2.0 s; n=49 trên lamp-0c89) |
 
 - COCO không có class hand/face, nên `hand`/`face` cố ý rơi xuống YuNet/YOLOWorld thay vì map tới `person` (vốn khóa vào toàn thân).
+- **Người và khuôn mặt không bao giờ gửi lên remote.** `person`/`people`/`human` và các alias khuôn mặt chỉ dùng YuNet và YOLOv8n local; local miss (hoặc thiếu weights local) thì trả về không có box. Đèn tự tìm người (gaze nhìn quanh, bearing sample), nên fallback ở đây sẽ gửi ảnh căn phòng lên cloud mà không ai yêu cầu.
 - Khi local-YOLO miss, code fallback về remote YOLOWorld, **throttle** tối đa một lần mỗi `REMOTE_FALLBACK_MIN_INTERVAL` (2.0 s) để một target thật sự không thể thấy không gọi remote mỗi lần redetect.
 - **Fallback bị tắt cho redetect thường kỳ** (`allow_remote_fallback=False`, do background scan của loop truyền vào). Khi target COCO đã khoá được rồi thì một lần local miss là chuyện bình thường — vật xoay đi, một khung hình nhoè — mà thread detect chỉ chạy một luồng, nên một vòng gọi remote kéo chu kỳ confirm từ ~0.5 s lên ~3 s, vượt cổng trust và làm servo đứng im trong khi vật vẫn còn trong khung. Local là thẩm quyền cho class mà nó được huấn luyện; để lần redetect sau xác nhận. Lúc seed và lúc phục hồi sau khi mất lock (`_do_retry`) vẫn cho phép remote, còn target open-vocab thì không ảnh hưởng — không có đường local thì chẳng có gì để fallback.
 - Bộ lọc chất lượng detection: confidence ≥ `DETECT_MIN_CONFIDENCE` (0.15), diện tích nằm giữa `DETECT_MIN_AREA_RATIO` (0.3%) và `DETECT_MAX_AREA_RATIO` (80%) của frame.
@@ -599,8 +600,10 @@ Response là một body có cấu trúc, không phải một chuỗi văn xuôi 
   bearing đã ghi nhớ; pha quét tìm thấy đồ vật cũng thường xuyên như tìm thấy người, và dạy cho
   estimator rằng bàn phím là nơi người dùng ngồi chính là cách bearing mục ruỗng một cách âm thầm.
 - `image_path` là frame trúng đích, được ghi vào `media/hal-snapshots` của runtime đang hoạt động —
-  đúng cái pool có giới hạn và xoay vòng mà `/camera/snapshot?save=true` đang dùng (`_SNAPSHOT_MAX`
-  = 20). Frame này có vẽ sẵn box của vật thể phát hiện được, qua
+  đúng cái pool có giới hạn và xoay vòng mà `/camera/snapshot?save=true` và frame `look` của
+  realtime đang dùng (`_SNAPSHOT_MAX` = 20). Sau mỗi lần ghi, `app_state.prune_snapshot_dir()` đếm các
+  file `.jpg` trên đĩa và xoá file cũ nhất theo mtime, nên frame có từ trước khi HAL restart cũng bị
+  xoá. Frame này có vẽ sẵn box của vật thể phát hiện được, qua
   `look_debug.encode_annotated(..., centre_lines=False)`: cái box mới là câu trả lời, còn hai đường
   dx cao hết khung màu xanh/đỏ là phần tính toán nội bộ của aim và sẽ nằm chồng lên nhau ngay giữa
   một frame đã canh giữa. Frame và box luôn đến từ **cùng một** lần chụp — vẽ box đo trước khi hiệu

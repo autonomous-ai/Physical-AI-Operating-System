@@ -314,7 +314,31 @@ from hal import config as _hal_config
 
 _SNAPSHOT_DIR = _hal_config.SNAPSHOT_DIR
 _SNAPSHOT_MAX = 20
-_snapshot_paths: list = []
+
+
+def prune_snapshot_dir() -> None:
+    """Keep only the newest _SNAPSHOT_MAX frames in _SNAPSHOT_DIR.
+
+    Counts the files on disk, not an in-memory list, so frames written before a
+    HAL restart are still removed instead of piling up forever.
+    """
+    try:
+        names = [n for n in os.listdir(_SNAPSHOT_DIR) if n.endswith(".jpg")]
+    except OSError:
+        return
+    paths = sorted((os.path.join(_SNAPSHOT_DIR, n) for n in names), key=_mtime_or_zero)
+    for old in paths[:-_SNAPSHOT_MAX]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+
+
+def _mtime_or_zero(path: str) -> float:
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
 
 
 DEFAULT_USER = config.DEFAULT_USER
@@ -1424,6 +1448,17 @@ def camera_blocked_by_user() -> bool:
     one frame. A manual off (Settings, "don't watch me") always does.
     """
     return privacy.camera_muted or (_camera_disabled and _camera_manual_override)
+
+
+def someone_spoke_within(window_s: float) -> bool:
+    """True when the device's own STT heard speech in the last window_s seconds.
+
+    Sensing events, schedules, remote chat channels and a model acting on its own
+    never update this, so it tells "a person in the room just talked" apart from them.
+    """
+    voice = voice_service
+    last = getattr(voice, "last_transcript_ts", 0.0) if voice is not None else 0.0
+    return bool(last) and time.time() - last < window_s
 
 
 @privacy.serialized

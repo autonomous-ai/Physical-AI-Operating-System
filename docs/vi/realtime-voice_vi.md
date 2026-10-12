@@ -1612,6 +1612,14 @@ khi người dùng tắt camera cũng không được chuyển cho main agent. L
 `app_state.camera_blocked_by_user()`, cũng là phép kiểm `/camera/snapshot` dùng trước,
 trong và sau khi chụp.
 
+**Chỉ khi vừa có người nói.** Prompt dặn model chỉ nhìn khi user hỏi, nhưng prompt không
+chặn được một model tự ý hành động (tiếng TV, context được chèn vào). Vì vậy
+`_handle_look_call` còn từ chối bằng
+`{"error": "nobody asked to look; only look when the user asks about what you see"}`
+nếu STT trên máy không nghe thấy lời nói nào trong `HAL_REALTIME_LOOK_SPEECH_WINDOW_S`
+(mặc định 30 s). Phép kiểm là `app_state.someone_spoke_within()`, dùng chung với luật
+chủ máy của `/camera/enable`.
+
 Điều kiện kích hoạt (cần cả ba, nếu không câu hỏi thị giác sẽ rơi về delegate):
 
 - **Capability:** có camera (`app_state.camera_capture` được set). Đây chính là

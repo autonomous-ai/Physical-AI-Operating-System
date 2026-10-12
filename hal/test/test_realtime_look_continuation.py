@@ -18,6 +18,8 @@ def test_fresh_look_replays_only_legacy_sessions(monkeypatch, async_status):
     for name in ("start", "note_capture"):
         monkeypatch.setattr(look_debug, name, Mock())
     monkeypatch.setattr(look_debug, "stage", lambda *args: nullcontext())
+    import hal.app_state as state
+    monkeypatch.setattr(state, "someone_spoke_within", lambda window_s: True)  # the user just asked
     rt = object.__new__(orchestrator.RealtimeOrchestrator)
     rt._agent = Mock(supports_look_continuation=async_status)
     rt._last_look_sent_monotonic = 0

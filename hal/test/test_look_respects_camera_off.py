@@ -65,3 +65,43 @@ def test_predicate_matches_the_snapshot_route_rule(monkeypatch):
         monkeypatch.setattr(state, "_camera_disabled", disabled)
         monkeypatch.setattr(state, "_camera_manual_override", manual)
         assert state.camera_blocked_by_user() is blocked
+
+
+class FakeAgent:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, inputs):
+        self.sent.extend(inputs)
+
+
+def test_look_without_recent_speech_does_not_capture(camera, monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(state, "_camera_disabled", False)
+    monkeypatch.setattr(state, "_camera_manual_override", False)
+    monkeypatch.setattr(state, "voice_service", SimpleNamespace(last_transcript_ts=0.0))
+    captures = []
+    monkeypatch.setattr(RealtimeOrchestrator, "_capture_frame",
+                        staticmethod(lambda *a, **k: captures.append(1)))
+    orch = RealtimeOrchestrator.__new__(RealtimeOrchestrator)
+    orch._agent = FakeAgent()
+
+    assert orch._handle_look_call(SimpleNamespace(call_id="c1")) is False
+    assert captures == []
+    assert "nobody asked" in orch._agent.sent[0].output
+
+
+def test_someone_spoke_within(monkeypatch):
+    import time
+    from types import SimpleNamespace
+
+    voice = SimpleNamespace(last_transcript_ts=0.0)
+    monkeypatch.setattr(state, "voice_service", voice)
+    assert state.someone_spoke_within(30) is False  # never heard anyone
+    voice.last_transcript_ts = time.time() - 5
+    assert state.someone_spoke_within(30) is True
+    voice.last_transcript_ts = time.time() - 31
+    assert state.someone_spoke_within(30) is False
+    monkeypatch.setattr(state, "voice_service", None)
+    assert state.someone_spoke_within(30) is False

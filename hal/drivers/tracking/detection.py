@@ -42,10 +42,12 @@ _YUNET_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models",
                                  "face_detection_yunet_2023mar.onnx")
 _FACE_TARGET_ALIASES = {"face", "human face", "khuôn mặt", "mặt"}
 
+_COCO_PERSON = 0
+
 _COCO_CLASSES = {
     # NOTE: "hand" / "face" intentionally NOT mapped — COCO has no hand/face class.
     # Mapping them to "person" caused bbox to lock onto whole body (25-78% frame),
-    # triggering "object too close" stop. Let them fall through to YOLOWorld remote.
+    # triggering "object too close" stop. "face" is YuNet-only (never remote).
     "person": 0, "people": 0, "human": 0,
     "bicycle": 1, "car": 2, "motorcycle": 3, "airplane": 4, "bus": 5,
     "train": 6, "truck": 7, "boat": 8, "traffic light": 9, "fire hydrant": 10,
@@ -336,6 +338,10 @@ class ObjectDetector:
                 return scale_bbox(face_bbox, _up)
 
         coco_idx = _COCO_CLASSES.get(target_key)
+        # People and faces are found on the device only. The lamp looks for people on
+        # its own (look-around, bearing samples, gaze), and a frame of the room must
+        # not leave the device without the user asking; remote stays for objects.
+        local_only = coco_idx == _COCO_PERSON or target_key in _FACE_TARGET_ALIASES
         if _DETECT_LOCAL_ENABLED and coco_idx is not None:
             model = _get_local_yolo()
             if model is not None:
@@ -375,8 +381,9 @@ class ObjectDetector:
                                     target, bbox, conf, area_ratio * 100, t_ms)
                         return scale_bbox(bbox, _up)
                     logger.info("[tracking_yolo_local] target='%s' not found latency=%.0fms", target, t_ms)
-                    if not allow_remote_fallback:
-                        # Mid-session redetect on a COCO target. The tracker already
+                    if not allow_remote_fallback or local_only:
+                        # A person never goes remote. Otherwise this is a
+                        # mid-session redetect on a COCO target. The tracker already
                         # holds a lock; this call only has to confirm it, and a single
                         # local miss (the object turned, motion blur, one bad frame) is
                         # ordinary.
@@ -388,9 +395,13 @@ class ObjectDetector:
                     logger.info("[tracking_yolo_local] miss → remote YOLOWorld fallback target='%s'", target)
                 except Exception as e:
                     logger.warning("Local YOLO inference failed: %s — falling back to remote", e)
-        elif coco_idx is None:
+        elif coco_idx is None and not local_only:
             logger.info("[tracking_yolo] target='%s' not in COCO — using remote", target)
 
+        # Also covers a failed or missing local model.
+        if local_only:
+            logger.info("[tracking_yolo] target='%s' not found locally; people stay on-device", target)
+            return None
         return self._detect_remote(frame, target, _up)
 
     def detect_candidates(self, frame: npt.NDArray[np.uint8], target: str,

@@ -718,7 +718,6 @@ def test_the_winning_frame_is_written_where_the_agent_can_read_it(tmp_path):
 
     with (
         mock.patch.object(state, "_SNAPSHOT_DIR", str(tmp_path), create=True),
-        mock.patch.object(state, "_snapshot_paths", [], create=True),
         mock.patch("hal.drivers.tracking.aim.centre_on_box", _fake_centre),
     ):
         res, _svc, _det = _run_target(target="keyboard", hits=(1,))
@@ -744,7 +743,6 @@ def test_a_find_always_has_an_image_even_when_centring_never_got_a_frame(tmp_pat
 
     with (
         mock.patch.object(state, "_SNAPSHOT_DIR", str(tmp_path), create=True),
-        mock.patch.object(state, "_snapshot_paths", [], create=True),
         mock.patch("hal.drivers.tracking.aim.centre_on_box", _fake_centre),
     ):
         res, _svc, _det = _run_target(target="keyboard", hits=(1,))
@@ -770,7 +768,6 @@ def test_the_saved_image_carries_the_box_and_not_the_aim_debug_lines(tmp_path):
 
     with (
         mock.patch.object(state, "_SNAPSHOT_DIR", str(tmp_path), create=True),
-        mock.patch.object(state, "_snapshot_paths", [], create=True),
         mock.patch("hal.drivers.tracking.aim.centre_on_box", _fake_centre),
         mock.patch("hal.drivers.tracking.look_debug.encode_annotated", _spy),
     ):
@@ -789,18 +786,20 @@ def test_the_snapshot_pool_is_rotated_like_the_camera_route(tmp_path):
         return CentreResult(True, "centred", 1, 5.0, 0.01, (10, 10, 20, 20),
                             np.zeros((480, 640, 3), dtype=np.uint8))
 
+    # Frames left by an earlier HAL run: only the files on disk know about them.
     kept = [str(tmp_path / f"old_{i}.jpg") for i in range(state._SNAPSHOT_MAX)]
-    for p in kept:
+    for i, p in enumerate(kept):
         open(p, "wb").write(b"x")
+        os.utime(p, (1000 + i, 1000 + i))
 
     with (
         mock.patch.object(state, "_SNAPSHOT_DIR", str(tmp_path), create=True),
-        mock.patch.object(state, "_snapshot_paths", list(kept), create=True),
         mock.patch("hal.drivers.tracking.aim.centre_on_box", _fake_centre),
     ):
         res, _svc, _det = _run_target(target="keyboard", hits=(1,))
-        assert len(state._snapshot_paths) == state._SNAPSHOT_MAX
-        assert res.image_path in state._snapshot_paths
+        left = sorted(str(f) for f in tmp_path.glob("*.jpg"))
+        assert len(left) == state._SNAPSHOT_MAX
+        assert res.image_path in left
         assert not os.path.exists(kept[0]), "the oldest snapshot was not removed"
 
 

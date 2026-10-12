@@ -2338,6 +2338,14 @@ fn conversation(
                 && !submission_draining
             {
                 session_clock.activate(Instant::now())?;
+                // The link state readiness was just validated against, as a
+                // current-state publication. Retained startup link records can
+                // be older than the cue bound; they stay history, never re-stamped.
+                record(
+                    trace,
+                    json!({"kind":"provider_link_current","at_us":at,"state":"ready",
+                    "session":cloud.ready_session(),"basis":"coordinator link register at listening readiness"}),
+                )?;
                 record(
                     trace,
                     json!({"kind":"listening_ready","at_us":at,"scope":"explicit directed session; addressee inference absent"}),
@@ -3610,6 +3618,7 @@ mod tests {
     mod provider_terminal;
     mod service;
     mod service_mute;
+    mod startup_cues;
     mod termination;
     mod turn_taking;
 

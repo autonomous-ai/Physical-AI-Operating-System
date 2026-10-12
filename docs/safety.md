@@ -458,11 +458,19 @@ Six conditions are enforced today; setup-incomplete is reserved.
       recording has no envelope and keeps the fixed floors. While no recording owns the
       body (gaze turns, tracking, `/servo/move`, holds) the optional
       `contact.off_playback` map applies instead: load floors by joint name and lag
-      floors as `lag:<joint>` in 0.1 deg (Lamp: `base_pitch` 57 %, `elbow_pitch` 52 %;
+      floors as `lag:<joint>` in 0.1 deg (Lamp: `base_pitch` 57 %; no `elbow_pitch` load
+      floor, since lamp-a0ae's elbow reaches its 60 % torque cap in untouched lifts;
       lag `base_yaw` 10°, `base_pitch` 14°, `elbow_pitch` 12°, `wrist_roll` 9°,
       `wrist_pitch` 12°). Joints lag more under the 60 % torque cap: floors taken from
       70 %-cap data tripped falsely 5 times during a learn run on lamp-52e6, these gave
-      no false trip over ~3 min (6 recordings + 90 s idle). On
+      no false trip over ~3 min (6 recordings + 90 s idle). They sit out a direct move
+      (`move_to`/`move_to_raw`: gaze/search turns, aim, `/servo/move`, startup, zero, park) and `OFF_PLAYBACK_SETTLE_S`
+      (0.5 s) after it, when only the fixed floors apply: a fast move outruns the
+      servo's acceleration ramp, and on lamp-a0ae that lag (`wrist_roll` 12-14°) and
+      spin-up load (`elbow_pitch` 54 %) stopped the arm 0.2 s into untouched moves. A
+      unit that has learned the recording playing — settled idle included — uses its
+      own envelope instead of `off_playback` (lamp-a0ae's heavier elbow idles at
+      54-60 % against the 52 % taken from lamp-52e6). On
       lamp-52e6 the gaze cut most recordings short within a second whenever someone
       sat in front of it, so this is where a hand usually meets the arm. Re-learn after recalibrating the arm or changing `torque_limit`.
       `GET /health.servo_overload.contact.profile` shows `margin`, how many recordings

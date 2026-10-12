@@ -210,13 +210,7 @@ func (s *OpenclawService) SetupAgent(data domain.SetupRequest) error {
 		telegramMap := ensureMap(channelsMap, "telegram")
 		telegramMap["enabled"] = true
 		telegramMap["botToken"] = data.TelegramBotToken
-		if data.TelegramUserID != "" {
-			telegramMap["dmPolicy"] = "allowlist"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], data.TelegramUserID)
-		} else {
-			telegramMap["dmPolicy"] = "open"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], "*")
-		}
+		setTelegramDMPolicy(telegramMap, data.TelegramUserID)
 		channelsMap["telegram"] = telegramMap
 		telegramEntryMap := ensureMap(entriesMap, "telegram")
 		telegramEntryMap["enabled"] = true
@@ -412,13 +406,7 @@ func (s *OpenclawService) AddChannel(ctx context.Context, data domain.AddChannel
 		telegramMap := ensureMap(channelsMap, domain.ChannelTelegram)
 		telegramMap["enabled"] = true
 		telegramMap["botToken"] = data.TelegramBotToken
-		if data.TelegramUserID != "" {
-			telegramMap["dmPolicy"] = "allowlist"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], data.TelegramUserID)
-		} else {
-			telegramMap["dmPolicy"] = "open"
-			telegramMap["allowFrom"] = mergeStringList(telegramMap["allowFrom"], "*")
-		}
+		setTelegramDMPolicy(telegramMap, data.TelegramUserID)
 		channelsMap[domain.ChannelTelegram] = telegramMap
 		telegramEntryMap := ensureMap(entriesMap, domain.ChannelTelegram)
 		telegramEntryMap["enabled"] = true

@@ -121,7 +121,9 @@ của mọi khớp ở 20 Hz (`hal/drivers/motors/overload.py`).
   playback, nên envelope bám theo recording sau khi resample theo giới hạn tốc độ; học
   lại sau khi hiệu chuẩn, đổi `torque_limit` hoặc có recording mới. Ngoài playback
   (gaze, tracking, `/servo/move`, giữ tư thế) dùng sàn `contact.off_playback`:
-  `base_pitch` 57 %, `elbow_pitch` 52 %, lag 9-14° tuỳ khớp.
+  `base_pitch` 57 % (elbow chỉ xét lag), lag 9-14° tuỳ khớp; trừ lúc đang chạy một lệnh
+  xoay trực tiếp và 0,5 s sau đó (lệnh nhanh chạy trước đà tăng tốc của servo).
+  Idle đã ổn định dùng envelope của chính máy nếu máy đã học idle, không thì `off_playback`.
 - **Cắt torque khi quá tải.** Khớp nào ở mức 80 % trở lên trong 1.5 s (tay đang giữ vẫn
   bị ép) sẽ cắt torque mọi servo, phát ack chime và chặn mọi lệnh ghi goal trong 120 s. Sau đó
   thân máy resume vào idle từ vị trí tay đang nằm. Với trần 60 %, thực tế cut-off chỉ

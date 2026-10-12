@@ -10,6 +10,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"go.autonomous.ai/os/system/server/config"
+	"go.autonomous.ai/os/system/server/session"
 )
 
 // hardwareProxy is a wildcard reverse proxy from /api/hardware/* to HAL on
@@ -103,3 +106,20 @@ func stripProxyCredential(req *http.Request) {
 		req.URL.RawQuery = query.Encode()
 	}
 }
+
+// ownerActionHeader tells HAL a hardware call came from a logged-in owner (session
+// cookie or session token). A Bearer LLM key (scripts, the agent) does not count, and
+// any client-supplied value is dropped so it cannot be forged through the proxy.
+func ownerActionHeader(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Header.Del(halOwnerActionHeader)
+		bearer := strings.TrimSpace(strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer "))
+		if session.HasValid(c, cfg) || session.VerifyToken(bearer, cfg) {
+			c.Request.Header.Set(halOwnerActionHeader, "1")
+		}
+		c.Next()
+	}
+}
+
+// halOwnerActionHeader mirrors OWNER_ACTION_HEADER in hal/routes/camera.py.
+const halOwnerActionHeader = "X-OS-Owner-Action"

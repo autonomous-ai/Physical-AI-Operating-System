@@ -166,7 +166,9 @@ the watcher leaves that skill's version pending and retries it on the next poll.
   `discord_user_id`), slack (`slack_bot_token` + `slack_app_token` + `slack_user_id`),
   whatsapp native (`whatsapp_user_id` → `allow_from`, no token, QR pairing on first
   run). Secrets land in `.security.yml` under `channel_list.<ch>.settings`; structure
-  stays in `config.json`.
+  stays in `config.json`. A Telegram bot token without `telegram_user_id` leaves the
+  channel disabled: an empty `allow_from` would let anyone who finds the bot command
+  the device.
 
 The running gateway logs confirm the wiring on boot (`Gateway started on
 127.0.0.1:18790`, health at `/health` `/ready` `/reload`, `Channels enabled:

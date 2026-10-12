@@ -45,6 +45,13 @@ REST_RAW = {
 
 STARTUP_MOVE_DURATION = 5.0
 
+# The off_playback floors sit out a direct move (gaze, search, aim, /servo/move, startup,
+# zero and park) and this
+# long after it: a fast move outruns the servo's own acceleration ramp, so every joint
+# trails its goal for a moment. On lamp-a0ae that lag (12-14 deg on wrist_roll) and the
+# spin-up load (54 % on elbow_pitch) stopped the arm 0.2 s into moves no one touched.
+OFF_PLAYBACK_SETTLE_S = 0.5
+
 # Plays per recording a learn run allows before giving up on a full pass.
 LEARN_ATTEMPTS = 3
 
@@ -195,6 +202,9 @@ class AnimationService:
         # (the overload cut-off's lockout). Timed by its own guard, armed per stop.
         self._contact_release_s = contact_release_s
         self._contact_hold: Optional[OverloadGuard] = None
+        # A direct move in flight, and when the last one ended (contact guard clock).
+        self._direct_move = False
+        self._direct_move_ended = float("-inf")
         self._overload_stop = threading.Event()
         self._overload_thread: Optional[threading.Thread] = None
         self._overload_read_ok = True
@@ -736,6 +746,9 @@ class AnimationService:
             logger.warning("[halt] could not pin current position: %s", e)
         logger.info("[halt] motion halted, holding position (torque ON)")
 
+    def _contact_now(self) -> float:
+        return self._contact._clock() if self._contact is not None else time.monotonic()
+
     def move_to(
         self,
         target_positions: Dict[str, float],
@@ -743,6 +756,14 @@ class AnimationService:
         should_abort: Optional[Callable[[], bool]] = None,
     ):
         """Smoothly move servos to target positions using software interpolation."""
+        self._direct_move = True
+        try:
+            return self._move_to(target_positions, duration, should_abort)
+        finally:
+            self._direct_move = False
+            self._direct_move_ended = self._contact_now()
+
+    def _move_to(self, target_positions, duration, should_abort):
         if not self.robot:
             raise RuntimeError("Robot not connected")
         self._refuse_if_overloaded()
@@ -844,6 +865,14 @@ class AnimationService:
 
         The release/park path passes None — parking must always finish.
         """
+        self._direct_move = True
+        try:
+            return self._move_to_raw(target_raw, duration, should_abort)
+        finally:
+            self._direct_move = False
+            self._direct_move_ended = self._contact_now()
+
+    def _move_to_raw(self, target_raw, duration, should_abort):
         if not self.robot:
             raise RuntimeError("Robot not connected")
         if self.overload_active:
@@ -1245,28 +1274,36 @@ class AnimationService:
         if not loads:
             return loads, None
         off = self._contact_off_playback
+        if off and (
+            self._direct_move
+            or self._contact_now() - self._direct_move_ended < OFF_PLAYBACK_SETTLE_S
+        ):
+            return loads, None
+        profile = self._contact_profile
+        position = self._playback_position()
+        learning = self._learning
+        if profile is not None and position is not None:
+            samples = dict(loads)
+            lags = self._read_lags()
+            if lags:
+                samples.update(lags)
+            if learning is not None:
+                if position[0] in learning:
+                    profile.learn(position[0], position[1], samples)
+                return loads, None
+            # This unit's envelope wins over off_playback, settled idle included: the
+            # fixed floors came from lamp-52e6, and lamp-a0ae's heavier elbow idles at
+            # 54-60 % against their 52 %.
+            floors = profile.floors(*position)
+            if floors:
+                return samples, floors
         if off and (self._current_recording is None or self._idle_settled):
             samples = dict(loads)
             lags = self._read_lags()
             if lags:
                 samples.update(lags)
             return samples, off
-        profile = self._contact_profile
-        if profile is None:
-            return loads, None
-        position = self._playback_position()
-        if position is None:
-            return loads, None
-        samples = dict(loads)
-        lags = self._read_lags()
-        if lags:
-            samples.update(lags)
-        learning = self._learning
-        if learning is not None:
-            if position[0] in learning:
-                profile.learn(position[0], position[1], samples)
-            return loads, None
-        return samples, profile.floors(*position)
+        return loads, None
 
     def _read_lags(self) -> Optional[Dict[str, int]]:
         """Per-joint |goal - present| in 0.1 deg, or None when the bus read fails."""

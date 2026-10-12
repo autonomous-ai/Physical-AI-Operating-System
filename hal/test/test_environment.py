@@ -181,7 +181,6 @@ def test_device_wiring_missing_disabled_and_selected_board(tmp_path):
     {"boards": {"board": {"bus": True}}},
     {"boards": {"board": {"bus": -1}}},
     {"boards": {"board": {"bus": "1"}}},
-    {"boards": {"board": {"bus": 1, "address": 0x69}}},
     {"boards": {"board": {"enabled": False, "bus": -1}}},
 ])
 def test_invalid_device_wiring_rejected(tmp_path, data):

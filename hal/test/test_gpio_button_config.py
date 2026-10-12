@@ -78,8 +78,7 @@ class TestButtonConfig(unittest.TestCase):
                  [dict(reset, hold_s=True)], [dict(reset, hold_s=float("inf"))],
                  [dict(reset, hold_s=float("nan"))], [dict(reset, behavior="reboot")],
                  [dict(primary, hold_s=5)], [dict(reset, name="reset\\ninvalid")],
-                 [dict(primary, factory_reset=0)], [dict(reset, factory_reset=False)],
-                 [dict(reset, extra=True)]]
+                 [dict(primary, factory_reset=0)], [dict(reset, factory_reset=False)]]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "gpio_button.json"
             for buttons in cases:

@@ -159,7 +159,9 @@ và thử lại ở poll kế tiếp.
   discord (`discord_bot_token` + `discord_user_id`), slack (`slack_bot_token` +
   `slack_app_token` + `slack_user_id`), whatsapp native (`whatsapp_user_id` →
   `allow_from`, không token, quét QR lần đầu). Secrets nằm trong `.security.yml` dưới
-  `channel_list.<ch>.settings`; phần cấu trúc ở `config.json`.
+  `channel_list.<ch>.settings`; phần cấu trúc ở `config.json`. Có bot token Telegram
+  mà thiếu `telegram_user_id` thì kênh vẫn tắt: `allow_from` rỗng sẽ cho bất kỳ ai tìm
+  thấy bot ra lệnh cho thiết bị.
 
 Log của gateway xác nhận cấu hình khi boot (`Gateway started on 127.0.0.1:18790`,
 health ở `/health` `/ready` `/reload`, `Channels enabled: [pico]`). Cảnh báo

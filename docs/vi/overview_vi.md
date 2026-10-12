@@ -179,7 +179,12 @@ tùy chọn), đọc bởi `hal/board/servo_overload.py`. Khớp được theo d
 idle; vẫn bị giữ sau `contact.release_after_s` trong lúc dừng thì nhả torque như cut-off. Khớp nào ở mức `load` trở lên trong `hold_s` sẽ cắt torque mọi servo, phát ack chime và
 từ chối chuyển động trong `retry_s` rồi mới resume. `torque_limit` giới hạn lực đẩy tối đa
 của một khớp. Không có file, không có entry board hoặc `enabled: false` nghĩa là không có
-cơ chế nào trong số này, còn file sai định dạng bị từ chối khi startup. Lamp theo dõi
+cơ chế nào trong số này, còn file sai định dạng bị từ chối khi startup. Trường mà HAL
+không biết thì không tính là sai định dạng: mọi config theo board (`servo_overload`,
+`gpio_button`, `mpr121`, `ttp223`, `privacy_button`, `sen55`, `sen63c`, `scd41`) ghi log
+rồi bỏ qua nó (`hal/board/config_fields.py`), vì gói device và HAL cập nhật riêng, gói
+mới hơn không được làm chết HAL cũ hơn (lamp-52e6 khởi động lỗi 6 lần vì
+`contact.release_after_s` với HAL 0.1.282). Lamp theo dõi
 `base_yaw` 55 %, `wrist_roll` 75 %, `wrist_pitch` 65 % trong 0.05 s với pause 3 s, và
 khi một recording chạy thì mọi khớp bị giữ trong envelope đã học theo từng frame + 12 %
 load hoặc + 3,5° lag (`contact.profile_margin`, `contact.lag_margin`, học riêng từng máy

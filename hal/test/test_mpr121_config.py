@@ -71,8 +71,7 @@ class TestMPR121Config(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "mpr121.json"
             for value in ("{", "null", '{"boards": []}',
-                          '{"boards": {"orangepi_sun60": {}}}',
-                          '{"boards": {"orangepi_sun60": {"bus": 5, "adress": 90}}}'):
+                          '{"boards": {"orangepi_sun60": {}}}'):
                 with self.subTest(value=value):
                     path.write_text(value)
                     with self.assertRaisesRegex(ValueError, "mpr121.json"):

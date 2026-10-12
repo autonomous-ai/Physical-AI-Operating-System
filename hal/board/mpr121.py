@@ -4,6 +4,8 @@ import json
 import math
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+from hal.board.config_fields import known_fields
 from typing import Optional
 
 # Allowed MPR121 filter values mapped to their register codes (datasheet CONFIG1/CONFIG2).
@@ -101,8 +103,7 @@ def load_mpr121_config(device_dir: str, board_id: str) -> Optional[MPR121Config]
             values = dict(entry)
             # Retired setting that older device declarations may still carry.
             values.pop("harness_voice_chord", None)
-            if set(values) - allowed:
-                raise ValueError(f"{board}: invalid MPR121 configuration fields")
+            values = known_fields(values, allowed, f"{path} {board}")
             enabled = values.pop("enabled", True)
             if type(enabled) is not bool:
                 raise ValueError(f"{board}: enabled must be a boolean")

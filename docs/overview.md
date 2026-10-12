@@ -179,7 +179,11 @@ held `contact.release_after_s` into that pause, it releases torque like the cut-
 joint at or above `load` for `hold_s` cuts torque on every servo, plays the ack chime and refuses
 motion for `retry_s` before resuming. `torque_limit` caps how hard a joint can push. No
 file, no board entry or `enabled: false` means none of these, and a malformed file
-rejects startup. Lamp watches `base_yaw` 55 %, `wrist_roll` 75 %, `wrist_pitch` 65 %
+rejects startup. A field HAL does not know is not malformed: every per-board config
+(`servo_overload`, `gpio_button`, `mpr121`, `ttp223`, `privacy_button`, `sen55`,
+`sen63c`, `scd41`) logs and drops it (`hal/board/config_fields.py`), because the device
+package and HAL update separately and a newer package must not take down an older HAL
+(lamp-52e6 failed boot six times on `contact.release_after_s` with HAL 0.1.282). Lamp watches `base_yaw` 55 %, `wrist_roll` 75 %, `wrist_pitch` 65 %
 for 0.05 s with a 3 s pause, and while a recording plays every joint is held to its
 learned per-frame envelope + 12 % load or + 3.5° lag (`contact.profile_margin`,
 `contact.lag_margin`, learned per unit by `POST /servo/contact/learn`), gaze turns,

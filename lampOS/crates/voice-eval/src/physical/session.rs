@@ -34,7 +34,8 @@ use crate::{
 use lamp_ipc::monotonic_us;
 use lamp_live::{
     options::{
-        DirectedOptions, Microphone, PlayoutStart, ReferenceClock, ReferenceRecovery, TurnTaking,
+        DirectedOptions, Endpoint, Microphone, PlayoutStart, ReferenceClock, ReferenceRecovery,
+        TurnTaking,
     },
     provider_worker::Continuation,
 };
@@ -76,6 +77,8 @@ pub struct RuntimeFlags {
     pub reference_recovery: Option<ReferenceRecovery>,
     pub playout_start_ms: Option<u16>,
     pub provider_continuation: Option<Continuation>,
+    /// Opt-in end-of-turn experiment; absent keeps lamp-live's default.
+    pub endpoint: Option<Endpoint>,
 }
 
 impl RuntimeFlags {
@@ -123,6 +126,7 @@ impl RuntimeFlags {
                 value.parse().map_err(|_| bad())?,
                 flag,
             )?,
+            "--endpoint" => set(&mut self.endpoint, value.parse().map_err(|_| bad())?, flag)?,
             _ => return Ok(false),
         }
         Ok(true)
@@ -160,6 +164,15 @@ impl RuntimeFlags {
         }
         if let Some(continuation) = self.provider_continuation {
             push(Continuation::FLAG, continuation.as_str());
+        }
+        if let Some(endpoint) = self.endpoint {
+            push(
+                "--endpoint",
+                match endpoint {
+                    Endpoint::Silence => "silence",
+                    Endpoint::SmartTurn => "smart-turn",
+                },
+            );
         }
         argv
     }
@@ -1422,9 +1435,41 @@ mod runtime_flag_tests {
         assert!(lamp_live::options::DirectedOptions::parse(forwarded).is_ok());
     }
 
+    /// The opt-in endpoint trial: the pilot's settings plus `--endpoint
+    /// smart-turn`, forwarded last and accepted by lamp-live's own parser.
+    #[test]
+    fn the_endpoint_trial_reaches_serve_after_the_pilot_settings() {
+        let mut serve = vec!["--serve-config", "/p.json"];
+        serve.extend(PILOT);
+        serve.extend(["--endpoint", "smart-turn"]);
+        let argv = argv(&serve);
+        let at = argv.iter().position(|a| a == "--endpoint").unwrap();
+        assert_eq!(argv[at + 1], "smart-turn");
+        assert_eq!(argv[at - 2], "--provider-continuation");
+        let forwarded = &argv[4..argv.len() - 2];
+        let options = lamp_live::options::DirectedOptions::parse(forwarded).unwrap();
+        assert_eq!(options.endpoint, Endpoint::SmartTurn);
+        assert_eq!(options.turn_taking, TurnTaking::Duplex);
+    }
+
     #[test]
     fn values_and_combinations_lamp_live_refuses_are_refused_before_any_child() {
         for (extra, expected) in [
+            (
+                vec![
+                    "--serve-config",
+                    "/p",
+                    "--turn-taking",
+                    "vad-only",
+                    "--endpoint",
+                    "smart-turn",
+                ],
+                "would refuse",
+            ),
+            (
+                vec!["--serve-config", "/p", "--endpoint", "smart-turn-early"],
+                "invalid --endpoint",
+            ),
             (
                 vec!["--serve-config", "/p", "--turn-taking", "full-duplex"],
                 "invalid --turn-taking",

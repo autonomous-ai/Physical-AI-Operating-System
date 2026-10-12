@@ -700,6 +700,9 @@ struct PhysicalFile {
     playout_start_ms: Option<u16>,
     #[serde(default)]
     provider_continuation: Option<String>,
+    /// Opt-in end-of-turn experiment (`smart-turn`); absent is the default.
+    #[serde(default)]
+    endpoint: Option<String>,
 }
 fn default_source() -> StimulusSource {
     StimulusSource::LoudspeakerSynthetic
@@ -721,6 +724,7 @@ impl PhysicalFile {
             ("--reference-recovery", &self.reference_recovery),
             ("--playout-start-ms", &playout),
             ("--provider-continuation", &self.provider_continuation),
+            ("--endpoint", &self.endpoint),
         ] {
             if let Some(value) = value {
                 flags.take(flag, value)?;

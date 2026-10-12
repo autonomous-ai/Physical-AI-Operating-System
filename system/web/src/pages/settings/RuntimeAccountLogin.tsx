@@ -100,7 +100,7 @@ export function RuntimeAccountLogin({ runtime, visible, disabled, onBusyChange, 
     {error && <div role="alert" style={{ color: C.amber }}>
       {error} <button type="button" style={buttonStyle} disabled={requesting} onClick={() => setReload((value) => value + 1)}>Check again</button>
     </div>}
-    {!state ? <p style={{ margin: 0, color: C.textDim }}>Checking sign-in options…</p> : !state.providers.length ? fallback : <>
+    {!state ? !error && <p style={{ margin: 0, color: C.textDim }}>Checking sign-in options…</p> : !state.providers.length ? fallback : <>
       <p style={{ margin: 0, color: C.textDim }}><strong style={{ color: C.amber }}>Experimental</strong> — Web sign-in is still being tested. You can also sign in using Terminal.</p>
       <p style={{ margin: 0, color: C.textDim }}>Sign in on your provider’s website. Your current AI connection stays selected until sign-in succeeds; applying the account briefly restarts the runtime.</p>
       {!ongoing(session) && <>

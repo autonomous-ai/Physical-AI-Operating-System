@@ -153,7 +153,7 @@ Defined at `.lm-root` in `index.css`:
 
 The Runtime section presents two ordered steps: choose a runtime and use its Switch button, then configure AI for the active runtime. AI configuration is disabled while another runtime is selected or a switch is in progress. Both LLM choices are visible radio options. **Use OS AI Brain** uses the local **Save Changes** button. **Use my own account** shows **Connect account** for supported runtimes: selecting the radio does not save runtime mode or disconnect the current OS provider. Users open the provider's HTTPS sign-in link, enter its device code if shown, or paste the returned code/callback URL into Settings. Passwords are entered on the provider's website, not in Settings.
 
-Web account sign-in is labeled **Experimental** while end-to-end device validation remains incomplete. The UI also points users to Terminal as an alternative; the label does not change OS AI Brain defaults or automatically start a login.
+Web account sign-in is labeled **Experimental** while end-to-end device validation remains incomplete. The UI also points users to Terminal as an alternative; the label does not change OS AI Brain defaults or automatically start a login. If the login endpoint returns HTTP 404, Settings asks users to update OS Server and stops showing the checking message. Non-JSON error responses retain their HTTP status rather than exposing a JSON parser error.
 
 | Runtime | Web account sign-in |
 |---|---|

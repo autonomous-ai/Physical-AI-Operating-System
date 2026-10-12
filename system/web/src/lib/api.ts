@@ -145,7 +145,15 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
     headers.set("Authorization", `Bearer ${apiToken}`);
   }
   const res = await fetch(url, { credentials: "include", ...options, headers });
-  const json = (await res.json()) as JSONResponse<T>;
+  let json: JSONResponse<T>;
+  try {
+    json = await res.json() as JSONResponse<T>;
+  } catch (cause) {
+    if (options?.signal?.aborted) throw cause;
+    const err = new Error(res.ok ? "The server returned an invalid response. Try again." : `Request failed (HTTP ${res.status}).`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   if (json.status !== 1) {
     const msg =
       typeof json.message === "string" ? json.message : res.ok ? "Request failed" : res.statusText;
@@ -379,8 +387,15 @@ export interface RuntimeLoginState {
   session?: RuntimeLoginSession;
 }
 
-export function getRuntimeLogin(signal?: AbortSignal): Promise<RuntimeLoginState> {
-  return apiRequest(`${API_BASE}/api/device/runtime-login`, { signal, cache: "no-store" });
+export async function getRuntimeLogin(signal?: AbortSignal): Promise<RuntimeLoginState> {
+  try {
+    return await apiRequest(`${API_BASE}/api/device/runtime-login`, { signal, cache: "no-store" });
+  } catch (err) {
+    if ((err as Error & { status?: number }).status === 404) {
+      throw new Error("Web sign-in is unavailable on this OS Server. Update OS Server and try again. You can also sign in using Terminal.");
+    }
+    throw err;
+  }
 }
 
 export function startRuntimeLogin(runtime: string, provider: string, signal?: AbortSignal): Promise<RuntimeLoginSession> {

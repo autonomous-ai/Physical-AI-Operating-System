@@ -353,8 +353,10 @@ fn the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailab
     let rig = Rig::new("disp-provider");
     let now = [
         start_line(),
-        // Answers the backend's first ping, so owned cues have a clock map.
-        json!({"type":"pong","seq":1,"lamp_us":50_000_000}),
+        // Answers the ping the backend writes once session_start is taken
+        // (ping 1 precedes it and never defines the map), so owned cues have
+        // a clock map.
+        json!({"type":"pong","seq":2,"lamp_us":50_000_000}),
         cue(1, "listening_ready", None, json!({})),
         cue(2, "input_admitted", Some((1, 1)), json!({})),
         cue(

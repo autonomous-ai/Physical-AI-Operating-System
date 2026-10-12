@@ -45,7 +45,8 @@ const USAGE: &str = "usage:
       [--scenario ID]... [--repetitions N] [--seed N] [--attempt-seed N] [--execute]
   lamp-voice-eval serve-offline --out NEW_DIR --cache DIR --manifest FILE... [--plan FILE]
       [--scenario ID] [--repetitions N] [--seed N] [--fake-profile ID] [--lamp-root NEW_ABS_DIR]
-      [--fake-arg ARG]... [--player-fault N:late:MS|N:prepare]... [--recorder-fail-after-ms MS]
+      [--fake-arg ARG]... [--player-fault N:late:MS|N:prepare|N:slow-prepare:MS]...
+      [--recorder-fail-after-ms MS]
   lamp-voice-eval lamp-session --runtime LAMP_LIVE --work NEW_ABS_DIR --seconds N
       (--fixture-reply WAV --fixture-sha256 SHA | --provider-config FILE | --serve-config FILE)
       [--noise-suppression on|off] [--diagnostics] [--allowance-seconds N]";
@@ -188,6 +189,7 @@ fn run() -> Result<i32> {
         }
         "fake-lamp-live" => return fake_lamp::run(&all),
         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
+        "fake-slow-transport" => return fake_lamp::slow_transport(&all),
         _ => {}
     }
     let mut args = Args { values: all };
@@ -636,7 +638,14 @@ fn parse_player_fault(text: &str) -> Result<(usize, FakePlayerFault)> {
             delay_ms: ms.parse()?,
         },
         [_, "prepare"] => FakePlayerFault::PrepareFails,
-        _ => return Err(invalid("--player-fault is N:late:MS or N:prepare")),
+        [_, "slow-prepare", ms] => FakePlayerFault::SlowPrepare {
+            delay_ms: ms.parse()?,
+        },
+        _ => {
+            return Err(invalid(
+                "--player-fault is N:late:MS, N:prepare or N:slow-prepare:MS",
+            ));
+        }
     };
     if number == 0 {
         return Err(invalid("--player-fault counts preparations from 1"));

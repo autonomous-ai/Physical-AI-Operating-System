@@ -462,7 +462,11 @@ Six conditions are enforced today; setup-incomplete is reserved.
       lag `base_yaw` 10°, `base_pitch` 14°, `elbow_pitch` 12°, `wrist_roll` 9°,
       `wrist_pitch` 12°). Joints lag more under the 60 % torque cap: floors taken from
       70 %-cap data tripped falsely 5 times during a learn run on lamp-52e6, these gave
-      no false trip over ~3 min (6 recordings + 90 s idle). On
+      no false trip over ~3 min (6 recordings + 90 s idle). They sit out a direct move
+      (`move_to`: gaze/search turns, aim, `/servo/move`) and `OFF_PLAYBACK_SETTLE_S`
+      (0.5 s) after it, when only the fixed floors apply: a fast move outruns the
+      servo's acceleration ramp, and on lamp-a0ae that lag (`wrist_roll` 12-14°) and
+      spin-up load (`elbow_pitch` 54 %) stopped the arm 0.2 s into untouched moves. On
       lamp-52e6 the gaze cut most recordings short within a second whenever someone
       sat in front of it, so this is where a hand usually meets the arm. Re-learn after recalibrating the arm or changing `torque_limit`.
       `GET /health.servo_overload.contact.profile` shows `margin`, how many recordings

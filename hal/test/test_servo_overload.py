@@ -850,6 +850,32 @@ def test_off_playback_floors_watch_gaze_moves_and_holds(contact_rig):
     assert contact_rig.fired == [("lag:base_pitch", 130)]
 
 
+def test_off_playback_floors_sit_out_a_direct_move_and_its_settle(contact_rig):
+    """A fast gaze/search move outruns the servo's ramp: lag then is not a hand."""
+    from hal.drivers.motors.animation_service import OFF_PLAYBACK_SETTLE_S
+    svc = contact_rig.svc
+    svc._contact = OverloadGuard({"base_yaw": 650}, 0.05, 3.0, clock=contact_rig.clock)
+    svc._contact_off_playback = {"lag:wrist_roll": 90}
+    svc._current_recording = None
+    bus = contact_rig.bus
+    bus.goals = {**bus.positions, "wrist_roll": 10.0 + 13.0}   # 13 deg behind, as on a0ae
+
+    def ticks(n):
+        for _ in range(n):
+            svc._overload_tick()
+            contact_rig.clock.advance(0.06)
+
+    svc._direct_move = True
+    ticks(5)
+    assert not svc.contact_active, "lag during the move itself"
+    svc._direct_move = False
+    svc._direct_move_ended = contact_rig.clock()
+    ticks(int(OFF_PLAYBACK_SETTLE_S / 0.06) - 1)
+    assert not svc.contact_active, "lag while the servo catches up"
+    ticks(4)
+    assert svc.contact_active, "still that far behind after settling: a hand"
+
+
 def test_off_playback_floors_stay_out_of_a_playing_recording(contact_rig):
     svc = contact_rig.svc
     svc._contact_off_playback = {"lag:base_pitch": 120}

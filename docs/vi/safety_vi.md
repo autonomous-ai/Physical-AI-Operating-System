@@ -439,7 +439,12 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       `wrist_roll` 9°, `wrist_pitch` 12°, lưu theo 0,1 độ). Ở trần torque 60 % các khớp
       trễ nhiều hơn: các sàn lấy từ dữ liệu trần 70 % đã trip nhầm 5 lần trong một lượt
       học trên lamp-52e6, còn các sàn này không trip nhầm lần nào qua ~3 phút (6
-      recording + 90 s idle). Trên lamp-52e6, gaze cắt ngang phần lớn recording chỉ trong một giây mỗi
+      recording + 90 s idle). Các sàn này đứng ngoài trong lúc một lệnh xoay trực tiếp chạy
+      (`move_to`: gaze/search quay, aim, `/servo/move`) và thêm `OFF_PLAYBACK_SETTLE_S`
+      (0,5 s) sau đó, lúc này chỉ còn các sàn cố định: lệnh nhanh chạy trước đà tăng tốc
+      của servo, và trên lamp-a0ae độ trễ đó (`wrist_roll` 12-14°) cùng tải lúc khởi động
+      (`elbow_pitch` 54 %) đã dừng tay đèn 0,2 s sau khi bắt đầu những lần xoay không ai
+      chạm. Trên lamp-52e6, gaze cắt ngang phần lớn recording chỉ trong một giây mỗi
       khi có người ngồi trước đèn, nên đây là chỗ tay người thường gặp tay đèn. Học lại
       sau khi hiệu chuẩn lại tay đèn hoặc đổi `torque_limit`.
       `GET /health.servo_overload.contact.profile` hiện `margin`, số recording đã học và

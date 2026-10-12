@@ -298,6 +298,8 @@ class AnimationService:
     def start(self, skip_wake: bool = False):
         """skip_wake: come up without the startup pose + idle loop."""
         self.robot = LeLampFollower(self.robot_config)
+        motion = getattr(self._safety_policy, "motion", None)
+        self.robot.joint_limits = dict(getattr(motion, "joint_limits", None) or {})
         try:
             self.robot.connect(calibrate=False)
         except Exception as e:
@@ -1480,6 +1482,14 @@ class AnimationService:
             positions["base_yaw.pos"] = current_positions.get("base_yaw.pos", 0) + yaw
         if pitch != 0:
             positions["base_pitch.pos"] = current_positions.get("base_pitch.pos", 0) + pitch
+        motion = getattr(safety_policy, "motion", None)
+        ceiling = getattr(motion, "max_cog_offset_mm", None) if motion else None
+        if ceiling is not None:
+            from hal.drivers.motors.recording_stability import limit_lean_back
+            positions, fraction = limit_lean_back(current_positions, positions, ceiling)
+            if fraction < 1.0:
+                logger.warning("nudge: cut to %.0f%% — would lean the lamp back past %s mm",
+                               fraction * 100, ceiling)
 
         eff_duration = min_move_duration(safety_policy, positions, current_positions, duration)
         self.move_and_hold(positions, duration=eff_duration)

@@ -527,7 +527,7 @@ def test_the_follower_drops_goals_while_blocked():
 
     robot = types.SimpleNamespace(
         is_connected=True, goal_writes_blocked=True, bus=mock.Mock(),
-        config=types.SimpleNamespace(max_relative_target=None), last_write_monotonic=0.0,
+        config=types.SimpleNamespace(max_relative_target=None), last_write_monotonic=0.0, joint_limits={},
     )
     assert LeLampFollower.send_action(robot, {"base_yaw.pos": 5.0}) == {}
     robot.bus.sync_write.assert_not_called()

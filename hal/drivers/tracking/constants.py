@@ -78,8 +78,12 @@ PITCH_WEIGHT_WRIST = 0.20
 
 # Travel each pitch joint actually has, measured on lamp-ac82 2026-08-25 by commanding
 # each joint alone and reading the position error `/servo/move` reports.
+#
+# base_pitch's floor is a safety bound, not its travel: lower base_pitch leans the whole
+# arm back, and a face above the frame (user standing) drove it to -18 and tipped the
+# lamp over backward on lamp-52e6. No designed recording goes below 9.3 (music_waltz).
 PITCH_TRAVEL_MIN = {
-    "base_pitch.pos":  -18.0,
+    "base_pitch.pos":   10.0,
     "elbow_pitch.pos":  -4.0,
     "wrist_pitch.pos": -33.0,
 }
@@ -96,6 +100,11 @@ PITCH_TRAVEL_MAX = {
     "elbow_pitch.pos":  58.0,
     "wrist_pitch.pos":  32.0,
 }
+
+# How far (mm) the whole-body CoG may sit behind the base axis after a tracking, gaze or
+# aim pitch correction (needs ROBOT.md urdf_ref). idle/listening reach 15.1 mm; a user
+# standing over lamp-52e6 drove it to 30-48 mm and tipped the lamp back.
+MAX_LEAN_BACK_MM = 16.0
 
 # Elbow servo polarity.
 ELBOW_PITCH_SIGN = -1.0

@@ -11,7 +11,7 @@ import re
 import urllib.request
 from dataclasses import dataclass
 from datetime import time as dtime
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from hal.clock import device_now
 
@@ -44,6 +44,8 @@ class MotionBounds:
     stop_always: bool = False
     # Max CoG offset (mm) from the base axis; needs ROBOT.md `urdf_ref`. None = undeclared.
     max_cog_offset_mm: Optional[int] = None
+    # {joint: (min_deg, max_deg)} every Goal_Position write is clamped into. None = undeclared.
+    joint_limits: Optional[Dict[str, Tuple[float, float]]] = None
 
 
 @dataclass(frozen=True)
@@ -161,11 +163,38 @@ def _parse_motion(motion_body: str) -> Optional[MotionBounds]:
         raise ValueError(
             f"SAFETY.md motion.max_cog_offset_mm {max_cog} must be > 0 (mm)"
         )
-    if max_speed is None and not stop_always and max_cog is None:
+    joint_limits = _parse_joint_limits(motion_body)
+    if max_speed is None and not stop_always and max_cog is None and joint_limits is None:
         return None
     return MotionBounds(
-        max_speed=max_speed, stop_always=stop_always, max_cog_offset_mm=max_cog
+        max_speed=max_speed, stop_always=stop_always, max_cog_offset_mm=max_cog,
+        joint_limits=joint_limits,
     )
+
+
+_NUM = r"(-?\d+(?:\.\d+)?)"
+
+
+def _parse_joint_limits(motion_body: str) -> Optional[Dict[str, Tuple[float, float]]]:
+    """`joint_limits:` followed by indented `joint: [min, max]` lines (degrees), or None."""
+    m = re.search(r"\bjoint_limits:[^\n]*\n((?:[ \t]{3,}\S.*\n?)*)", motion_body)
+    if not m:
+        return None
+    limits: Dict[str, Tuple[float, float]] = {}
+    for line in m.group(1).splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        lm = re.fullmatch(r"(\w+):\s*\[\s*" + _NUM + r"\s*,\s*" + _NUM + r"\s*\]", line)
+        if not lm:
+            raise ValueError(f"SAFETY.md motion.joint_limits line {line!r} is not 'joint: [min, max]'")
+        lo, hi = float(lm.group(2)), float(lm.group(3))
+        if lo >= hi:
+            raise ValueError(f"SAFETY.md motion.joint_limits.{lm.group(1)} min {lo} must be < max {hi}")
+        limits[lm.group(1)] = (lo, hi)
+    if not limits:
+        raise ValueError("SAFETY.md motion.joint_limits is declared but lists no joints")
+    return limits
 
 
 def _parse_thermal(thermal_body: str) -> Optional[ThermalBounds]:

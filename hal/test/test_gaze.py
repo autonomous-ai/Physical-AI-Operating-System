@@ -807,7 +807,7 @@ class _PitchSvc(_Svc):
         "wrist_pitch.pos": "wrist",
     }
 
-    def __init__(self, wrist=-70.0, base=10.0, elbow=5.0):
+    def __init__(self, wrist=-70.0, base=25.0, elbow=5.0):
         super().__init__()
         self.wrist = wrist
         self.base = base
@@ -861,14 +861,14 @@ def test_a_face_above_centre_tilts_the_camera_up(neck):
     gaze._maybe_pitch(gaze.time.monotonic())
     assert neck.moves, "a clipped-high face should raise the camera"
     assert neck.moves[0]["elbow_pitch.pos"] > 5.0
-    assert neck.moves[0]["base_pitch.pos"] < 10.0
+    assert neck.moves[0]["base_pitch.pos"] < 25.0
 
 
 def test_a_face_below_centre_tilts_the_camera_down(neck):
     _fill_dy(0.4)
     gaze._maybe_pitch(gaze.time.monotonic())
     assert neck.moves[0]["elbow_pitch.pos"] < 5.0
-    assert neck.moves[0]["base_pitch.pos"] > 10.0
+    assert neck.moves[0]["base_pitch.pos"] > 25.0
 
 
 def test_the_lift_does_not_lean_on_the_joint_that_cannot_lift(neck):
@@ -877,7 +877,7 @@ def test_the_lift_does_not_lean_on_the_joint_that_cannot_lift(neck):
     gaze._maybe_pitch(gaze.time.monotonic())
     moved = neck.moves[0]
     wrist_delta = abs(moved["wrist_pitch.pos"] - (-70.0))
-    lifting = abs(moved["elbow_pitch.pos"] - 5.0) + abs(moved["base_pitch.pos"] - 10.0)
+    lifting = abs(moved["elbow_pitch.pos"] - 5.0) + abs(moved["base_pitch.pos"] - 25.0)
     assert lifting > wrist_delta, (
         "the wrist cannot deliver an upward correction on this arm; the lift has "
         "to come from base_pitch and elbow_pitch"
@@ -924,7 +924,7 @@ def test_one_correction_is_bounded(neck):
     _fill_dy(-1.0)
     gaze._maybe_pitch(gaze.time.monotonic())
     moved = neck.moves[0]
-    before = {"base_pitch.pos": 10.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
+    before = {"base_pitch.pos": 25.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
     # elbow is mounted reversed, so its joint delta counts against the camera.
     tilt = (
         (moved["base_pitch.pos"] - before["base_pitch.pos"])
@@ -1105,7 +1105,7 @@ def test_each_climb_step_is_a_fixed_size(neck, monkeypatch, height_store):
     gaze._maybe_pitch(gaze.time.monotonic())
 
     moved = neck.moves[0]
-    before = {"base_pitch.pos": 10.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
+    before = {"base_pitch.pos": 25.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
     tilt = ((moved["base_pitch.pos"] - before["base_pitch.pos"])
             + (moved["wrist_pitch.pos"] - before["wrist_pitch.pos"])
             - (moved["elbow_pitch.pos"] - before["elbow_pitch.pos"]))
@@ -1686,7 +1686,7 @@ def test_the_lift_still_happens_when_the_elbow_is_dead(neck, height_store):
 
     _fill_dy(-0.5)
     gaze._maybe_pitch(now)
-    assert neck.base < 10.0, "base_pitch must carry the lift the elbow refused"
+    assert neck.base < 25.0, "base_pitch must carry the lift the elbow refused"
 
     gaze._last_pitch_t = now - 10_000.0
     base_before = neck.base

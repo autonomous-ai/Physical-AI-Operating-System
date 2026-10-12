@@ -511,7 +511,7 @@ Truy cập qua nginx proxy: `/hw/*` → `127.0.0.1:5001`
 
 `/servo/move`, `/servo/aim`, `/servo/nudge`, `/servo/resume` và `/servo/track` trả HTTP 409 khi đang ngủ, không khởi động chuyển động hay đánh thức thiết bị. `/servo/play` giữ phản hồi `ignored`. Giới hạn chuyển động vẫn do từng driver xử lý.
 
-Phản hồi move tách `requested` khỏi vị trí đọc lại `actual`. Trường cũ `clamped` nay là `null`: driver không cung cấp mục tiêu sau clamp đã xác nhận. Aim/nudge trả mục tiêu lệnh trong `requested`, vị trí quan sát trong `positions`. Đây là vị trí do driver báo, không bảo đảm đã tới đích: một số driver chạy bất đồng bộ và Reachy có thể trả mục tiêu cache khi lỗi đọc phần cứng. Lỗi đọc lại do driver trả ra được ghi vào `errors.read_position`, số đo có thể thiếu hoặc rỗng; không chạy lại lệnh. Client cần chấp nhận `clamped: null` và dùng số đo cho vị trí quan sát.
+Phản hồi move tách `requested` khỏi vị trí đọc lại `actual`. `clamped` là `null` trừ khi SAFETY.md `motion.max_cog_offset_mm` cắt ngắn lệnh (tư thế sẽ làm đèn ngả ra sau quá xa); khi đó nó chứa mục tiêu thực gửi. `/servo/nudge` cũng bị cắt như vậy. Aim/nudge trả mục tiêu lệnh trong `requested`, vị trí quan sát trong `positions`. Đây là vị trí do driver báo, không bảo đảm đã tới đích: một số driver chạy bất đồng bộ và Reachy có thể trả mục tiêu cache khi lỗi đọc phần cứng. Lỗi đọc lại do driver trả ra được ghi vào `errors.read_position`, số đo có thể thiếu hoặc rỗng; không chạy lại lệnh. Client cần chấp nhận `clamped: null` và dùng số đo cho vị trí quan sát.
 
 ### LED (64 WS2812, grid 8x5)
 

@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Dict, Optional
 
+from hal.drivers.motors.recording_stability import lean_back_mm, limit_lean_back
 from hal.drivers.tracking import constants as C
 from hal.drivers.tracking.filters import smooth_damp
 
@@ -40,11 +41,22 @@ def distribute_pitch(
     travel_min: Optional[Dict[str, float]] = None,
     travel_max: Optional[Dict[str, float]] = None,
 ) -> Dict[str, float]:
-    """Spread one camera-pitch correction across the three pitch joints."""
-    return _allocate(
+    """Spread one camera-pitch correction across the three pitch joints.
+
+    Never leans the arm further back than C.MAX_LEAN_BACK_MM: a face above the frame
+    (user standing) otherwise tilts the lamp over backward. A pose already past it
+    may only come forward. The step shrinks until it fits, so the camera stops short.
+    """
+    target = _allocate(
         current, pitch_deg, PITCH_AXIS_SIGN, PITCH_AXIS_WEIGHT, PITCH_AXIS_HARD,
         C.PITCH_TRAVEL_MIN, C.PITCH_TRAVEL_MAX, travel_min, travel_max,
     )
+    start = {j: float(current.get(j, 0.0)) for j in target}
+    capped, fraction = limit_lean_back(start, target, C.MAX_LEAN_BACK_MM)
+    if fraction < 1.0:
+        logger.info("[lean-back] pitch %.2f° cut to %.0f%% — CoG would sit %.0f mm back (limit %.0f)",
+                    pitch_deg, fraction * 100, lean_back_mm(target), C.MAX_LEAN_BACK_MM)
+    return capped
 
 
 def _allocate(current, want, signs, weights_by_joint, hard,

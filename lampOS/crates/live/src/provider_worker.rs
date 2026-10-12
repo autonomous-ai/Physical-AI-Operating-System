@@ -1730,6 +1730,45 @@ mod tests {
     }
 
     #[test]
+    fn audit_shared_clock_regression_cannot_be_hidden_by_a_later_clock_gap() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = RecordingSink::default();
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        // A valid previously accepted pair. At the following Instant read,
+        // 100 ms has elapsed since that handoff. Its shared capture timestamp
+        // was 200 ms old at that first handoff, hence this Instant is 300 ms old.
+        let prior_us = NOW - 200_000;
+        let prior = Instant::now() - Duration::from_millis(300);
+        handoff.submitted.as_mut().unwrap().captured = Some((prior_us, prior));
+        sink.captured.borrow_mut().push(prior);
+        // The second shared-clock sample is 50 ms after the first handoff;
+        // another 50 ms passes before its Instant read. The original capture
+        // time really regresses by 1 us. No sleep or timeout widening is needed
+        // to seed this legal prior state and a delayed current clock sample.
+        let result = handoff.submit(
+            ProviderInput::Audio {
+                request,
+                privacy_generation: generation(&handoff),
+                sequence: 2,
+                read_completed_at_us: prior_us - 1,
+                samples: vec![2; 160],
+            },
+            NOW + 50_000,
+            &sink,
+        );
+        let captured = sink.captured.borrow();
+        assert!(
+            result.is_err() || captured.last().is_some_and(|at| *at < prior),
+            "a genuinely regressing shared capture timestamp was accepted and mapped forward by {:?}; Gemini's Instant-only order check cannot reject it",
+            captured.last().unwrap().checked_duration_since(prior)
+        );
+    }
+
+    #[test]
     fn zero_session_fails_without_a_submission_or_not_delivered_receipt() {
         let mut owner = controller();
         let mut handoff = InputHandoff {

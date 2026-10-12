@@ -21,13 +21,13 @@ changing the file and nothing else.
 |---|---|---|---|
 | Spoken over in the middle of a story, the lamp stopped and then went on with the story instead of answering | "If someone starts talking while you are speaking, you have been interrupted… never finish the sentence you were in, never pick the story up again… answer only what they just said." | 0 of 3 answered the new request | 5 of 5 |
 | Beside two people talking to each other it asked "Were you talking to me?" | What is for it and what is not, by what was said: something a lamp on a desk could answer or chat about is for it; other people's own business, a request for hands, an answer to someone else is not. "When you really cannot tell, stay silent. Never ask whether they were talking to you." | 2 of 9 lines answered with that question | 0 of 45 lines answered, in five runs |
-| Told only to stay out of other people's talk, it also stayed out when called: "Hey Lamp, what should we have for lunch?" after such a conversation went unanswered in 6 of 9 runs. The service's own transcripts had the call as "Helen", "Weilan", "Wei Lan" and "Hey, man" | "Your ears often mishear it as some other name… So never go by the name you think you heard. Go by what was said." A sentence a lamp could answer is for it most of all when it starts with a call or a name, even one that is not its own, whatever was being said before | 3 of 9 answered | 5 of 5, and the follow-up without a name each time |
-| Replies ended like an assistant's: "Anything you'd like to chat about today?", "Let me know if you need anything else." | Five short examples of how it sounds ("Thank you." "Anytime.") and three of how it does not | 4 of 7 replies to greetings and thanks ended that way | 0 of 18 |
+| Told only to stay out of other people's talk, it also stayed out when called: "Hey Lamp, what should we have for lunch?" after such a conversation went unanswered in 7 of 10 runs. The service's own transcripts had the call as "Helen", "Weilan", "Wei Lan" and "Hey, man" | "Your ears often mishear it as some other name… So never go by the name you think you heard. Go by what was said." A sentence a lamp could answer is for it most of all when it starts with a call or a name, even one that is not its own, whatever was being said before | 3 of 10 answered | 5 of 5, and the follow-up without a name each time |
+| Replies ended like an assistant's: "Anything you'd like to chat about today?", "Let me know if you need anything else." | Five short examples of how it sounds ("Thank you." "Anytime.") and three of how it does not | 3 of 7 replies to greetings and thanks ended that way | 0 of 18 |
 
 The third row took three tries. A list of what its name can sound like
-worked twice and then failed five times running, and so did a firmer
-version of it: the model heard "Wei Lan, what do you think…" after two
-people had been talking and took Wei Lan for one of them. What worked was
+worked twice and then failed twice, and a firmer version of it failed
+three times in three: the model heard "Wei Lan, what do you think…" after
+two people had been talking and took Wei Lan for one of them. What worked was
 to stop asking the model to recognise its name and ask it to judge the
 sentence.
 

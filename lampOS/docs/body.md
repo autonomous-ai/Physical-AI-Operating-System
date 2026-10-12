@@ -82,7 +82,15 @@ that person's level, so the head turns its attention to them at once and goes
 back to `speaking` if the reply resumes. And `speaking` is sent from the
 moment the answer's first audio arrives, a few hundred milliseconds before
 it is played, so that the head is back on the person when the first word
-comes and is not making its largest move while the lamp speaks. Nothing comes back, and a body that is absent,
+comes and is not making its largest move while the lamp speaks.
+
+The head also settles when the talk around the lamp is not for it. After
+two turns in a row that the lamp did not answer, `listening` and `thinking`
+are no longer sent and the head stays at rest: a lamp beside two people
+talking to each other looks up at the first sentences and then leaves them
+to it. The ring still shows that it hears. The first answer the lamp does
+give brings the head back, from the moment that answer arrives, and so
+does half a minute without a turn. Nothing comes back, and a body that is absent,
 slow or stopped changes nothing in the voice service. A mood older than 1.5 s
 is rest. Anything that is not exactly that object is ignored.
 

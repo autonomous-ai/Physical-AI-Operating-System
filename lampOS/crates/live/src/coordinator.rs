@@ -2051,6 +2051,7 @@ fn conversation(
     } else {
         None
     };
+    let mut attention = crate::body_link::Attention::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2923,10 +2924,19 @@ fn conversation(
             let about_to_speak = reply
                 .as_ref()
                 .is_some_and(|current| current.had_audio && current.local_input_ended);
+            attention.observe(
+                reply
+                    .as_ref()
+                    .map(|current| (current.owner.turn(), current.had_audio)),
+                clock,
+            );
             body.tell(
                 match phase {
                     Some(RingPhase::Speaking) if attending => Some(RingPhase::Listening),
                     Some(RingPhase::Waiting) if about_to_speak => Some(RingPhase::Speaking),
+                    // The talk around it has not been for it: the head
+                    // stays where it is until the lamp has something to say.
+                    Some(RingPhase::Listening | RingPhase::Waiting) if attention.settled() => None,
                     phase => phase,
                 },
                 voice_level,

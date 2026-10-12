@@ -14,6 +14,53 @@ pub const ENVIRONMENT: &str = "LAMP_BODY_MOOD_SOCKET";
 /// the voice level arrives and the body knows this side is alive.
 const REPEAT_US: u64 = 40_000;
 
+/// Turns in a row the lamp did not answer after which its head stops
+/// lifting for what it hears: the talk around it is not for it.
+const SETTLE_AFTER: u8 = 2;
+/// Quiet after which that is forgotten and the next voice gets its head again.
+const FORGET_US: u64 = 30_000_000;
+
+/// Whether what the lamp has been hearing lately was for it. A lamp beside
+/// two people talking to each other looks up at the first sentences and then
+/// settles; it does not lift its head and look away at every one. The light
+/// still shows that it hears, and it still answers when it is spoken to: the
+/// answer brings the head back and clears this.
+#[derive(Default)]
+pub struct Attention {
+    /// The turn in progress and whether the lamp has had anything to say in it.
+    turn: Option<(u64, bool)>,
+    unanswered: u8,
+    ended_us: u64,
+}
+
+impl Attention {
+    /// Call every tick with the turn that owns the lamp, if any, and whether
+    /// an answer to it has arrived.
+    pub fn observe(&mut self, turn: Option<(u64, bool)>, now_us: u64) {
+        if self.turn.map(|(id, _)| id) != turn.map(|(id, _)| id)
+            && let Some((_, answered)) = self.turn
+        {
+            self.unanswered = if answered {
+                0
+            } else {
+                self.unanswered.saturating_add(1)
+            };
+            self.ended_us = now_us;
+        }
+        self.turn = turn;
+        if turn.is_some_and(|(_, answered)| answered)
+            || (turn.is_none() && now_us.saturating_sub(self.ended_us) >= FORGET_US)
+        {
+            self.unanswered = 0;
+        }
+    }
+
+    /// The head stays down for listening and thinking.
+    pub fn settled(&self) -> bool {
+        self.unanswered >= SETTLE_AFTER
+    }
+}
+
 pub struct BodyLink {
     socket: UnixDatagram,
     path: PathBuf,
@@ -61,6 +108,62 @@ impl BodyLink {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One turn: heard, thought about, perhaps answered, then over.
+    fn turn(attention: &mut Attention, now: &mut u64, id: u64, answered: bool) {
+        for step in 0..3 {
+            *now += 500_000;
+            attention.observe(Some((id, answered && step == 2)), *now);
+        }
+        *now += 500_000;
+        attention.observe(None, *now);
+    }
+
+    #[test]
+    fn the_head_settles_after_two_turns_it_did_not_answer_and_comes_back_for_one_it_does() {
+        let mut attention = Attention::default();
+        let mut now = 0;
+        assert!(!attention.settled());
+        turn(&mut attention, &mut now, 1, false);
+        assert!(!attention.settled(), "one sentence is not a conversation");
+        turn(&mut attention, &mut now, 2, false);
+        assert!(attention.settled());
+        // Spoken to: the answer arrives and the head is free again at once,
+        // while that turn is still in progress.
+        attention.observe(Some((3, false)), now + 1);
+        assert!(attention.settled());
+        attention.observe(Some((3, true)), now + 2);
+        assert!(!attention.settled());
+        turn(&mut attention, &mut now, 3, true);
+        assert!(!attention.settled());
+        // One turn replacing another before any answer counts each of them.
+        attention.observe(Some((4, false)), now + 3);
+        attention.observe(Some((5, false)), now + 4);
+        attention.observe(None, now + 5);
+        assert!(attention.settled());
+    }
+
+    #[test]
+    fn half_a_minute_of_quiet_gives_the_next_voice_the_head_again() {
+        let mut attention = Attention::default();
+        for id in 1..=3 {
+            attention.observe(Some((id, false)), id * 1_000_000);
+            attention.observe(None, id * 1_000_000 + 500_000);
+        }
+        assert!(attention.settled());
+        attention.observe(None, 3_500_000 + FORGET_US - 1);
+        assert!(attention.settled());
+        attention.observe(None, 3_500_000 + FORGET_US);
+        assert!(!attention.settled());
+        // A long turn is not quiet.
+        let mut attention = Attention::default();
+        attention.observe(Some((1, false)), 0);
+        attention.observe(None, 1);
+        attention.observe(Some((2, false)), 2);
+        attention.observe(Some((2, false)), 2 + 2 * FORGET_US);
+        attention.observe(None, 3 + 2 * FORGET_US);
+        assert!(attention.settled());
+    }
     use std::sync::atomic::{AtomicU32, Ordering};
 
     fn listener() -> (UnixDatagram, PathBuf) {

@@ -1,12 +1,30 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-11 23:34 UTC
+- Updated: 2026-10-12 01:06 UTC
 - Branch: `lamp-v2-chat`
-- Latest connected attempt: `2021c1bb9` / `96d5a03a…fa4fc44b`, **8/8 complete ordinary replies** with kept-start enabled, one provider session and zero extra inputs/cancellations/reported playback gaps. Valid local recording; no ASR or human listening on this run. Pilot uses capture clock, V1 baseline, recovery off; motors inactive.
-- Integration source: `2021c1bb9`; the installed stopped default remains the separately qualified `e9bdcea28` / `b1c61a22…643edbd` voice/ring binary. The latest temporary candidate override was removed after verified Stop/restoration.
-- Integrated evaluator: `4127dd2bed2bf9b478fe86d721b3576ece45a5bf`.
+- Latest native evidence: two camera-enabled replies on `2021c1bb9` / `96d5a03a…fa4fc44b`; original helper verifier failed, independent replay corrected its schema mismatch and verified shutdown without changing the original result. Camera description accuracy remains unscored; motors inactive.
+- Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). No newer integration is deployed yet. The latest temporary candidate override was removed after verified Stop/restoration.
+- Pending integration: A1 source-clock ordering correction `da9891f7e` and paired tests; A2 serve-runner `c7dc0978`, whose eight independent boundary controls pass, being composed onto current source. Combined ARM gate and next native run follow composition.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
+
+## Current integration boundary
+
+The [motor supervision composition](../docs/verification/live-motor-integration-20261012/README.md)
+is committed at `605ebce7e`, with 178 passing focused host tests and strict
+package Clippy. Its gesture producer, explicit selected-profile preparation and
+native qualification are unfinished; ordinary speech triggers no motion.
+The [latest camera evidence](../docs/verification/camera-conversation-20261012/README.md)
+keeps the original verifier failure and separate successful revalidation.
+The prior eight-turn control below remains a distinct ordinary-conversation cohort.
+Agent 1's publication/abandonment/ledger corrections through `4d40fff3d` are
+now integrated; the source-clock correction is held for its narrow final review.
+The earlier pending-race descriptions below are historical, not current blockers.
+
+Agent coordination still uses tmux, but agents must never paste or press Enter
+in Main's owner-facing composer. Agent 1's earlier update entered a half-written
+owner message. Peer reports now remain in their own panes and durable branch
+status; Main reads them at safe boundaries. No owner relay is required.
 
 ## Latest native candidate control
 

@@ -1,7 +1,8 @@
 # Supervised real-user pilot
 
-Owner priority, 2026-10-11: prepare Lamp for real-user feedback within 12 hours,
-approximately 2026-10-12 03:18 UTC / 10:18 Vietnam time. This is a supervised
+Owner priority updated 2026-10-11: prepare Lamp for real-user feedback by
+approximately 2026-10-12 02:24 UTC / 09:24 Vietnam time, following the owner's
+subsequent three-hour target. This is a supervised
 pilot target, not a claim of release qualification or human-level latency.
 The complete live-interaction goal remains in [architecture](architecture.md).
 

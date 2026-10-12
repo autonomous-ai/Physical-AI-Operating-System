@@ -31,9 +31,11 @@ has no silence fallback and refuses `--endpoint smart-turn`.
   - no default, threshold or provider setting differs.
 - **Excluded from the pilot**, and absent from this branch:
   - `--endpoint smart-turn-early` and the continuation hold
-    (`lamp-a2-continuation`). Main's strict continuation probe failed with
-    `BarrierTimeout`
-    ([result](verification/strict-continuation-20261011/README.md)).
+    (`lamp-a2-continuation`). They were parked after Main's strict
+    continuation probe failed with `BarrierTimeout`
+    ([result](verification/strict-continuation-20261011/README.md)). No
+    speculative early endpoint is proposed until Main decides on current
+    evidence.
   - The evaluation crate `lamp-endpoint-eval`.
   - Any change to the barrier policy, provider, camera or motor code.
 - **Expected effect.** At most 200 ms less endpoint wait on confident finished
@@ -48,17 +50,37 @@ labelled session under the rule below. The reason is the continue-before-output
 path:
 
 - A person who resumes after the endpoint but before the reply is audible
-  takes the interruption barrier.
-- On this path one real Lamp run and Main's strict probe both ended in
-  `BarrierTimeout` ([real-device-audio-pilot.md](real-device-audio-pilot.md),
-  "Repeated trial").
-- Main later reported one real-service trial in which a continuation
-  *during* reply output succeeded under `Require` and the 2 s bound. That
-  is a different path: before any output, settlement remains unresolved, and
-  Agent 1 is correcting the at-commit timeout separately. Every case parity
-  adds is before output.
-- In the held-out turn model, parity takes that path in 16 of 1,167 clips
-  against the baseline's 9.
+  takes the interruption barrier. Every case parity adds is on this path. In
+  the held-out turn model, parity takes it in 16 of 1,167 clips against the
+  baseline's 9.
+- **History, retained.** On 11 October, with an immediate successor Start,
+  one real Lamp run and Main's strict probe both ended in `BarrierTimeout` on
+  this path ([real-device-audio-pilot.md](real-device-audio-pilot.md),
+  "Repeated trial"; [strict probe](verification/strict-continuation-20261011/README.md)).
+- **Current base `675c71c62`.**
+  - Agent 1's retained successor Start is composed behind
+    `--provider-continuation kept-start`. It is off by default; the installed
+    pilot configuration and the trial configuration select it.
+  - Bounded kept-input accounting, with abandonment separated from
+    continuation (`7a0684b2a`), and the capture-clock correction are also
+    composed.
+  - Three service-only probes each ran once, with cached input sent
+    directly to Gemini, no microphone or speaker
+    ([evidence](verification/continuation-service-20261011/README.md)):
+    - immediate Start again timed out;
+    - retained Start settled and answered the before-output case (Start held
+      717 ms) and the during-output case.
+  - These probes do not exercise the retained-cancellation defect and do not
+    qualify the integration.
+- **Physical.** The final native serve run used `kept-start`. It superseded
+  one pending turn before output with its correction, and the correction was
+  answered ([result](verification/final-serve-pilot-20261012/README.md)).
+  That is one case, not a rate: physical continuation remains limited.
+- **So** this path is no longer known to fail when `kept-start` is selected,
+  but it is not qualified.
+  - The candidate should run only with `kept-start`, as the trial
+    configuration does.
+  - Without it, the immediate-Start failure applies.
 - The saving is at most 200 ms, while a barrier failure ends the provider
   connection.
 - The [review of the six added splits](#review-of-the-six-added-held-out-splits)
@@ -355,13 +377,21 @@ What the pilot would do in each case:
    is audible.
 2. The existing path cancels the pending reply (`user_interrupted`). It then
    admits the continuation as an interruption, behind the provider barrier.
-3. Main's probe and one real Lamp run show `BarrierTimeout` on this
-   before-output path. The 2 s settlement bound expires while the successor
-   is still speaking. Every one of these continuations lasts over 1 s, and
-   five last 5 s or more. Main's one successful trial continued during
-   output, which does not cover these cases.
-4. So in the pilot, each case like these may cost the provider connection,
-   not only the person's whole thought.
+3. History: with an immediate successor Start, Main's probe and one real Lamp
+   run showed `BarrierTimeout` on this before-output path (11 October). The
+   2 s settlement bound expired while the successor was still speaking.
+4. Current evidence covers `kept-start` on `675c71c62`:
+   - one service-only probe settled and answered a before-output
+     continuation;
+   - one native serve run superseded a pending turn before output with its
+     correction.
+
+   Neither is a rate. Every one of these six continuations lasts over 1 s,
+   and five last 5 s or more, longer than the tested cases.
+5. So in the pilot each case like these still takes the barrier. With
+   `kept-start` it is expected to settle, but physical evidence is limited.
+   A failure would cost the provider connection, not only the person's whole
+   thought.
 
 ### Rationale for keeping the profile conservative, without re-tuning
 

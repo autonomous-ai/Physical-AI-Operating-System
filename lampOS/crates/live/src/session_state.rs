@@ -5,6 +5,7 @@ use crate::{
     receipt_history::ReceiptHistory,
     service_trace::{self, ServiceTrace},
 };
+use lamp_audio::{duplex::Heard, evidence::EchoEvidence};
 use lamp_interaction::TurnOwner;
 use serde_json::{Value, json};
 use std::{
@@ -25,11 +26,34 @@ pub(crate) struct YieldInterval {
     pub last_frame_sequence: u64,
     pub missing_evidence_since: Option<u64>,
 }
+/// Blocks of hearing written as one event: a second.
+const TRAIL_BLOCKS: usize = 100;
+/// What duplex hearing made of each capture block while the lamp had
+/// something to yield, one character per block. Metadata only: it is how a
+/// yield that came late, or never, is explained afterwards.
+#[derive(Default)]
+struct HearingTrail {
+    first_frame_sequence: u64,
+    heard: String,
+    speech: String,
+    explained: String,
+    floor: String,
+}
+/// A share or a score in tenths, as one digit.
+fn tenth(value: Option<f32>) -> char {
+    match value {
+        Some(value) if value.is_finite() => {
+            char::from(b'0' + (value.clamp(0.0, 0.99) * 10.0) as u8)
+        }
+        _ => '-',
+    }
+}
 #[derive(Default)]
 pub(crate) struct SessionState {
     events: Vec<Value>,
     pub(crate) receipts: ReceiptHistory,
     pub(crate) yield_interval: Option<YieldInterval>,
+    hearing: HearingTrail,
     continuous: bool,
     writer: Option<ServiceTrace>,
     dropped: u64,
@@ -82,6 +106,54 @@ impl SessionState {
             }
         } else {
             self.events.push(event);
+        }
+        Ok(())
+    }
+    /// One capture block as duplex hearing read it. Kept only in serve mode
+    /// and only while the lamp has something to yield; written a second at a
+    /// time and when that ends.
+    pub(crate) fn heard(
+        &mut self,
+        sequence: u64,
+        speaking: bool,
+        heard: Option<Heard>,
+        probability: f32,
+        evidence: Option<&EchoEvidence>,
+        at_us: u64,
+    ) -> io::Result<()> {
+        if !self.continuous {
+            return Ok(());
+        }
+        if speaking {
+            if self.hearing.heard.is_empty() {
+                self.hearing.first_frame_sequence = sequence;
+            }
+            let echo = evidence.and_then(|evidence| evidence.echo);
+            self.hearing.heard.push(match heard {
+                Some(Heard::Still) => '0',
+                Some(Heard::Clear) => '1',
+                Some(Heard::Under) => '2',
+                Some(Heard::Own) => '3',
+                Some(Heard::Over) => '4',
+                Some(Heard::Unknown) => '5',
+                None => '-',
+            });
+            self.hearing.speech.push(tenth(Some(probability)));
+            self.hearing.explained.push(tenth(
+                echo.map(|echo| f32::from(echo.capture_explained) / 100.0),
+            ));
+            self.hearing.floor.push(tenth(
+                echo.map(|echo| f32::from(echo.residual_playback_floor) / 100.0),
+            ));
+        }
+        if self.hearing.heard.len() >= TRAIL_BLOCKS || (!speaking && !self.hearing.heard.is_empty())
+        {
+            let trail = std::mem::take(&mut self.hearing);
+            self.record(json!({"kind":"duplex_hearing","at_us":at_us,
+                "first_frame_sequence":trail.first_frame_sequence,
+                "heard":trail.heard,"speech":trail.speech,
+                "explained":trail.explained,"floor":trail.floor,
+                "boundary":"one character per 10 ms capture block while a reply had something to yield; heard: 0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown; the rest in tenths; - where not judged"}))?;
         }
         Ok(())
     }
@@ -195,5 +267,86 @@ impl SessionState {
             writer: Some(writer),
             ..Self::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lamp_audio::evidence::{EchoMatch, Level};
+
+    fn evidence(explained: u8, floor: u8) -> EchoEvidence {
+        let level = Level::from_tenths_of_db(-200);
+        EchoEvidence {
+            blocks: 1_000,
+            render_active_blocks: 50,
+            render_quiet_blocks: 0,
+            capture_level: level,
+            residual_level: level,
+            echo: Some(EchoMatch {
+                render_level: level,
+                capture_explained: explained,
+                residual_explained: 10,
+                residual_playback_floor: floor,
+                alignment_age_blocks: 0,
+            }),
+        }
+    }
+
+    fn service() -> SessionState {
+        SessionState {
+            continuous: true,
+            ..SessionState::default()
+        }
+    }
+
+    #[test]
+    fn hearing_is_written_a_second_at_a_time_and_when_the_lamp_falls_silent() {
+        let mut state = service();
+        let own = evidence(90, 85);
+        for block in 0..TRAIL_BLOCKS as u64 + 3 {
+            state
+                .heard(500 + block, true, Some(Heard::Own), 0.62, Some(&own), block)
+                .unwrap();
+        }
+        assert_eq!(state.len(), 1);
+        assert_eq!(state[0]["kind"], "duplex_hearing");
+        assert_eq!(state[0]["first_frame_sequence"], 500);
+        assert_eq!(state[0]["heard"], "3".repeat(TRAIL_BLOCKS));
+        assert_eq!(state[0]["speech"], "6".repeat(TRAIL_BLOCKS));
+        assert_eq!(state[0]["explained"], "9".repeat(TRAIL_BLOCKS));
+        assert_eq!(state[0]["floor"], "8".repeat(TRAIL_BLOCKS));
+        // Nothing left to yield: the three blocks still held are written,
+        // and the silent block itself is not.
+        state
+            .heard(603, false, Some(Heard::Still), 0.0, None, 700)
+            .unwrap();
+        assert_eq!(state.len(), 2);
+        assert_eq!(state[1]["first_frame_sequence"], 600);
+        assert_eq!(state[1]["heard"], "333");
+        state
+            .heard(604, false, Some(Heard::Still), 0.0, None, 701)
+            .unwrap();
+        assert_eq!(state.len(), 2);
+    }
+
+    #[test]
+    fn hearing_marks_what_was_not_judged_and_stays_out_of_a_finite_trace() {
+        let mut state = service();
+        state.heard(1, true, None, f32::NAN, None, 0).unwrap();
+        state
+            .heard(2, true, Some(Heard::Over), 1.0, Some(&evidence(40, 0)), 1)
+            .unwrap();
+        state.heard(3, false, None, 0.0, None, 2).unwrap();
+        assert_eq!(state[0]["heard"], "-4");
+        assert_eq!(state[0]["speech"], "-9");
+        assert_eq!(state[0]["explained"], "-4");
+        assert_eq!(state[0]["floor"], "-0");
+        let mut finite = SessionState::finite();
+        finite
+            .heard(1, true, Some(Heard::Over), 1.0, None, 0)
+            .unwrap();
+        finite.heard(2, false, None, 0.0, None, 1).unwrap();
+        assert!(finite.is_empty());
     }
 }

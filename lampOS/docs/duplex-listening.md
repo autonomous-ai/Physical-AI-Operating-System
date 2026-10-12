@@ -203,6 +203,41 @@ it, and so will a television. The mode knows that a sound is speech-like
 and is not the lamp. It knows nothing else, and its acceptance basis in
 the trace, `directed_session_duplex`, says so.
 
+### After the interruption: what the model says
+
+Stopping the speaker is half of an interruption. The other half is the next
+reply, and that is the model's. On lamp-4ace on 2026-10-12, with
+`gemini-3.8-live` and played prompts, "Lamp, stop. What is two plus two?"
+was played 4 s into a story:
+
+| Character prompt | Runs | Service reported the turn `interrupted` | Reply answered the question | Reply went on with the story |
+|---|---|---|---|---|
+| "If someone cuts in while you are speaking, drop what you were saying and go with them." | 3 | 3 | 0 | 3 |
+| The same prompt, where the service had already completed the story's turn | 2 | 0 | 2 | 0 |
+| "…you have been interrupted… never finish the sentence you were in, never pick the story up again… answer only what they just said." | 5 | 5 | 5 | 0 |
+
+In the first row the input transcript held the question each time, and the
+reply took up the story from about where the service's own account of the
+interrupted turn ends, 2.1 s to 2.4 s after the end-of-speech decision. In
+the third the reply was "That's four." after 1.5 s to 1.7 s. Ten runs, one
+question, one played voice: enough to change the prompt, not to call the
+behavior of the service understood. The character prompt is deployment
+configuration (`instruction_file` in the provider configuration) and is not in
+this repository; a deployment that writes its own needs the stronger rule.
+
+### What was heard, block by block
+
+In serve mode the trace carries a `duplex_hearing` event for every second
+in which the lamp had something to yield, and one more when that ends. It
+holds one character per capture block in four strings of the same length:
+`heard` (0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown), and in
+tenths the detector's score, the share of the capture the render explains
+and the share of the cancelled signal that must be playback; `-` marks a
+block that was not judged. No audio and nothing audio can be rebuilt from.
+It is there because a yield that comes late, or never, cannot be explained
+from the yield events alone. A finite directed session does not write it:
+it can record the audio itself.
+
 ### The limit: how loud the person is against the lamp
 
 Every stage after the canceller sees only what the canceller left. When

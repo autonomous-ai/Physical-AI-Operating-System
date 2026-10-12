@@ -9,7 +9,7 @@
 //! lamp's own sound has gone and speech is still there. Without evidence for
 //! a block it is the conservative mask again, block by block.
 use crate::{
-    activity::{ObservedAudio, START_BLOCKS},
+    activity::{ObservedAudio, SILENCE_PROBABILITY, START_BLOCKS},
     admission::Candidate,
     options::TurnTaking,
 };
@@ -226,7 +226,11 @@ impl PlaybackMask {
             // A yield in force still runs to its deadline.
             let step = duplex.interruption.block(Heard::Unknown, speaking);
             Self::settle(duplex, sequence, step);
-            return Ok(Listened { step, ..unjudged });
+            return Ok(Listened {
+                step,
+                score: Self::held_open(duplex, probability),
+                ..unjudged
+            });
         };
         duplex.blind = false;
         let heard = duplex.hearing.heard(probability, evidence);
@@ -253,9 +257,22 @@ impl PlaybackMask {
         };
         Ok(Listened {
             heard: Some(heard),
-            score,
+            score: Self::held_open(duplex, score),
             step,
         })
+    }
+    /// While the lamp has stopped for someone, what it hears is one
+    /// utterance until the yield is settled: the detector is never given a
+    /// score it would count towards the end of speech. A yield can stay open
+    /// for longer than the detector waits for that end. On lamp-4ace it
+    /// closed the utterance 600 ms into a yield, the person went on 40 ms
+    /// later, and the commit that followed had nothing current to admit.
+    fn held_open(duplex: &Duplex, score: f32) -> f32 {
+        if duplex.interruption.yielded() {
+            score.max(SILENCE_PROBABILITY)
+        } else {
+            score
+        }
     }
     fn settle(duplex: &mut Duplex, sequence: u64, step: Step) {
         match step {

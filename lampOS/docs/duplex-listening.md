@@ -182,6 +182,17 @@ A run of blocks becomes at most three moments (`Interruption`):
    lamp that has been spoken over now waits 400 ms of stillness before it
    goes on.)
 
+While a yield is open, what the lamp hears is one utterance. The detector
+is never given a score it would count towards the end of speech (anything
+it hears is given as at least 0.35, its own boundary for silence), so it
+cannot close the utterance before the yield is settled. It used to be able
+to: a yield can stay open for 1.1 s and the detector waits 600 ms for the
+end of speech. On lamp-4ace on 2026-10-13 a sound over the lamp was
+followed by 640 ms of nothing and then by speech; the detector had closed
+the utterance 40 ms before, the commit found nothing current to admit, and
+the process ended with `directed candidate decision lost its identity`.
+Now that is one request: the first sound, the pause and what came after.
+
 The candidate the detector raised at the yield is held, not decided, while
 the yield is open. A hearing commit still requires current privacy,
 ownership, capture lineage, deadline and original-read evidence. Only then
@@ -284,8 +295,10 @@ interrupted turn ends, 2.1 s to 2.4 s after the end-of-speech decision. In
 the third the reply was "That's four." after 1.5 s to 1.7 s. Ten runs, one
 question, one played voice: enough to change the prompt, not to call the
 behavior of the service understood. The character prompt is deployment
-configuration (`instruction_file` in the provider configuration) and is not in
-this repository; a deployment that writes its own needs the stronger rule.
+configuration (`instruction_file` in the provider configuration); the one
+lamp-4ace runs is `deploy/character/lamp.txt`, described in
+[character.md](character.md). A deployment that writes its own needs the
+stronger rule.
 
 ### What was heard, block by block
 

@@ -458,6 +458,37 @@ fn a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply() {
 }
 
 #[test]
+fn a_person_who_pauses_longer_than_the_endpoint_wait_and_goes_on_still_interrupts() {
+    // As on lamp-4ace on 2026-10-13: a word over the lamp, 640 ms of nothing
+    // and then speech, with the lamp still waiting. The detector's own wait
+    // for the end of speech is 600 ms there and had closed the utterance, so
+    // the commit found nothing current to admit and the process ended.
+    let mut h = Harness::new(TurnTaking::Duplex, 400);
+    h.detector = TurnDetector::v1_baseline().with_end_silence(60).unwrap();
+    let old = h.old();
+    h.blocks(20, 0.99, Some(evidence(0, OWN)));
+    h.blocks(ONSET, 0.9, Some(evidence(0, OVER)));
+    assert_eq!(h.events("duplex_yield").len(), 1);
+    for quiet in 1..=29 {
+        h.block(0.1, Some(evidence(quiet, None)));
+    }
+    let waiting = h.blocks(35, 0.1, Some(evidence(40, None)));
+    assert_eq!(dispatched(&waiting), 0, "still waiting for them");
+    assert!(h.events("local_endpoint").is_empty());
+    let clear = h.blocks(6, 0.9, Some(evidence(40, None)));
+    let accepted = clear[5].accepted.as_ref().expect("the person was let in");
+    assert_eq!(accepted.trigger_sequence, 20 + ONSET_SEQUENCE);
+    // One request: the word, the pause and what came after it.
+    assert!(accepted.audio.windows(2).all(|pair| pair[1] == pair[0] + 1));
+    assert_eq!(*accepted.audio.last().unwrap(), 20 + ONSET_SEQUENCE + 70);
+    assert_eq!(h.events("duplex_commit").len(), 1);
+    let finished = h.events("turn_finished");
+    assert_eq!(finished.len(), 1);
+    assert_eq!(finished[0]["outcome"], "user_interrupted");
+    assert_ne!(h.old(), old);
+}
+
+#[test]
 fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();

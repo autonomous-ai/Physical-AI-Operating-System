@@ -19,7 +19,7 @@ pub const MAX_UTTERANCE_BLOCKS: u32 = 12_000;
 pub const MIN_END_SILENCE_BLOCKS: u16 = 30;
 pub const MAX_END_SILENCE_BLOCKS: u16 = 200;
 /// Scores below this are a low-activity block for every endpoint policy.
-const SILENCE_PROBABILITY: f32 = 0.35;
+pub(crate) const SILENCE_PROBABILITY: f32 = 0.35;
 
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,

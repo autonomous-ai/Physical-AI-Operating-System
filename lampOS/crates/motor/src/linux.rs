@@ -226,6 +226,48 @@ pub fn inspect_once_reporting_faults(
     inspect_once_with(config, cancelled, true)
 }
 
+/// How the servo port was taken and given back around one body run, and
+/// what the body itself reports. `port.inspection` is always absent.
+#[derive(Debug, Serialize)]
+pub struct BodyResult {
+    pub port: InspectionResult,
+    pub body: Option<crate::body::BodyReport>,
+}
+
+/// Own the servo port and run the expressive body on it until `cancelled`
+/// says so or the body stops itself. `news` is asked once a step for the
+/// latest mood and must not wait. See [`crate::body`] for what the body may
+/// write; nothing else is written here.
+#[must_use]
+pub fn run_body(
+    config: &InspectionConfig,
+    limits: crate::body::Limits,
+    news: impl FnMut() -> Option<(crate::gesture::Mood, u8)>,
+    mut cancelled: impl FnMut() -> io::Result<bool>,
+) -> BodyResult {
+    let origin = Instant::now();
+    let mut port = empty_result(config);
+    let mut owner = Owner::default();
+    let mut body = None;
+    match owner.prepare(config, None, &mut port, origin, &mut cancelled) {
+        Ok(()) => {
+            port.prepared_us = Some(micros(origin));
+            let mut runtime = HostRuntime {
+                origin,
+                cancelled: &mut cancelled,
+            };
+            let mut io = LinuxPort {
+                fd: owner.fd.as_ref().expect("prepared tty"),
+            };
+            body = Some(crate::body::run(&mut io, &mut runtime, limits, news));
+        }
+        Err(error) => port.preparation_error = Some(error),
+    }
+    port.cleanup = owner.finish(origin, false);
+    port.elapsed_us = micros(origin);
+    BodyResult { port, body }
+}
+
 fn inspect_once_with(
     config: &InspectionConfig,
     mut cancelled: impl FnMut() -> io::Result<bool>,

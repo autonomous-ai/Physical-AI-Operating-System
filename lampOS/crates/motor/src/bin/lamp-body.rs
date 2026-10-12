@@ -1,0 +1,252 @@
+//! The lamp's small expressive body: one process that owns the servo port
+//! and moves the head a few degrees for what the lamp is doing.
+
+use lamp_motor::calibration::UnitId;
+use std::{ffi::OsString, path::PathBuf};
+
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\nwhere they are found, for the mood it is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+
+#[derive(Debug)]
+struct Arguments {
+    device: PathBuf,
+    unit_id: UnitId,
+    lock_directory: PathBuf,
+    mood_socket: PathBuf,
+}
+
+fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, &'static str> {
+    let mut args = args.into_iter();
+    let (mut device, mut unit_id, mut lock_directory, mut mood_socket) = (None, None, None, None);
+    while let Some(key) = args.next() {
+        if key == "--help" {
+            if device.is_some()
+                || unit_id.is_some()
+                || lock_directory.is_some()
+                || mood_socket.is_some()
+                || args.next().is_some()
+            {
+                return Err("--help must be used alone");
+            }
+            return Ok(None);
+        }
+        let value = args.next().ok_or("every option requires a value")?;
+        match key.to_str() {
+            Some("--device") if device.is_none() => device = Some(PathBuf::from(value)),
+            Some("--lock-directory") if lock_directory.is_none() => {
+                lock_directory = Some(PathBuf::from(value));
+            }
+            Some("--mood-socket") if mood_socket.is_none() => {
+                mood_socket = Some(PathBuf::from(value));
+            }
+            Some("--unit-id") if unit_id.is_none() => {
+                unit_id = Some(
+                    UnitId::new(value.to_str().ok_or("unit ID must be UTF-8")?)
+                        .map_err(|_| "invalid explicit unit ID")?,
+                );
+            }
+            _ => return Err("unknown or duplicate option"),
+        }
+    }
+    let result = Arguments {
+        device: device.ok_or("--device is required")?,
+        unit_id: unit_id.ok_or("--unit-id is required")?,
+        lock_directory: lock_directory.ok_or("--lock-directory is required")?,
+        mood_socket: mood_socket.ok_or("--mood-socket is required")?,
+    };
+    for path in [&result.device, &result.lock_directory, &result.mood_socket] {
+        if !path.is_absolute()
+            || path.as_os_str().len() > 100
+            || path.to_str().is_none()
+            || path
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            return Err("paths must be short absolute UTF-8 paths without parent traversal");
+        }
+    }
+    Ok(Some(result))
+}
+
+/// One datagram from the voice service. Anything else is ignored.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn mood_of(datagram: &[u8]) -> Option<(lamp_motor::gesture::Mood, u8)> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Message {
+        mood: lamp_motor::gesture::Mood,
+        level: u8,
+    }
+    let message: Message = serde_json::from_slice(datagram).ok()?;
+    Some((message.mood, message.level))
+}
+
+fn main() -> std::process::ExitCode {
+    let arguments = match parse(std::env::args_os().skip(1)) {
+        Ok(None) => {
+            print!("{USAGE}");
+            return std::process::ExitCode::SUCCESS;
+        }
+        Ok(Some(arguments)) => arguments,
+        Err(error) => {
+            eprintln!("{error}\n{USAGE}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    match run(arguments) {
+        Ok(true) => std::process::ExitCode::SUCCESS,
+        Ok(false) => std::process::ExitCode::FAILURE,
+        Err(error) => {
+            eprintln!("lamp-body failed: {error}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
+    let _ = (arguments.unit_id, arguments.mood_socket);
+    Err("the body requires Linux; no device was opened".into())
+}
+
+#[cfg(target_os = "linux")]
+fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
+    use lamp_motor::{
+        body::{Limits, Stop},
+        linux::{InspectionConfig, run_body},
+    };
+    use nix::sys::{
+        signal::{SigSet, Signal},
+        signalfd::{SfdFlags, SignalFd},
+    };
+    use std::{io::Write, os::unix::net::UnixDatagram};
+
+    struct SignalMask(SigSet);
+    impl Drop for SignalMask {
+        fn drop(&mut self) {
+            let _ = self.0.thread_set_mask();
+        }
+    }
+    let config = InspectionConfig::new(
+        arguments.device,
+        arguments.unit_id,
+        arguments.lock_directory,
+    )?;
+    // A socket file left by an earlier run is not a listener: replace it.
+    match std::fs::remove_file(&arguments.mood_socket) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    let moods = UnixDatagram::bind(&arguments.mood_socket)?;
+    moods.set_nonblocking(true)?;
+    let old_mask = SigSet::thread_get_mask()?;
+    let mut mask = SigSet::empty();
+    mask.add(Signal::SIGINT);
+    mask.add(Signal::SIGTERM);
+    mask.thread_block()?;
+    let restore = SignalMask(old_mask);
+    let signal_fd = SignalFd::with_flags(&mask, SfdFlags::SFD_CLOEXEC | SfdFlags::SFD_NONBLOCK)?;
+    let mut cancelled = false;
+    let news = || {
+        // Everything waiting, and only the newest of it counts.
+        let mut latest = None;
+        let mut datagram = [0u8; 128];
+        for _ in 0..32 {
+            match moods.recv(&mut datagram) {
+                Ok(length) => latest = mood_of(&datagram[..length]).or(latest),
+                Err(_) => break,
+            }
+        }
+        latest
+    };
+    let result = run_body(&config, Limits::FOLDED, news, || {
+        if !cancelled {
+            cancelled = signal_fd
+                .read_signal()
+                .map_err(|error| std::io::Error::from_raw_os_error(error as i32))?
+                .is_some();
+        }
+        Ok(cancelled)
+    });
+    let _ = std::fs::remove_file(&arguments.mood_socket);
+    let mut output = std::io::stdout().lock();
+    serde_json::to_writer(&mut output, &result)?;
+    writeln!(output)?;
+    output.flush()?;
+    restore.0.thread_set_mask()?;
+    Ok(result.port.preparation_error.is_none()
+        && result.port.cleanup.errors.is_empty()
+        && result.body.is_some_and(|body| body.stop == Stop::Cancelled))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lamp_motor::gesture::Mood;
+
+    fn args(values: &[&str]) -> Vec<OsString> {
+        values.iter().map(OsString::from).collect()
+    }
+
+    const FULL: [&str; 8] = [
+        "--device",
+        "/dev/example",
+        "--unit-id",
+        "lamp-test",
+        "--lock-directory",
+        "/home/test/private",
+        "--mood-socket",
+        "/run/lampos-body/mood.sock",
+    ];
+
+    #[test]
+    fn every_path_is_explicit_and_nothing_else_is_accepted() {
+        let value = parse(args(&FULL)).unwrap().unwrap();
+        assert_eq!(value.unit_id.as_str(), "lamp-test");
+        assert_eq!(
+            value.mood_socket,
+            PathBuf::from("/run/lampos-body/mood.sock")
+        );
+        assert!(parse(args(&["--help"])).unwrap().is_none());
+        for missing in 0..4 {
+            let mut some = FULL.to_vec();
+            some.drain(missing * 2..missing * 2 + 2);
+            assert!(parse(args(&some)).is_err());
+        }
+        assert!(parse(args(&[&FULL[..], &["--speed", "200"]].concat())).is_err());
+        assert!(
+            parse(args(
+                &[&FULL[..6], &["--mood-socket", "mood.sock"]].concat()
+            ))
+            .is_err()
+        );
+        assert!(
+            parse(args(
+                &[&FULL[..6], &["--mood-socket", "/run/../etc/x"]].concat()
+            ))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn a_mood_is_one_exact_json_object_and_anything_else_is_ignored() {
+        assert_eq!(
+            mood_of(br#"{"mood":"listening","level":120}"#),
+            Some((Mood::Listening, 120))
+        );
+        assert_eq!(
+            mood_of(br#"{"mood":"resting","level":0}"#),
+            Some((Mood::Resting, 0))
+        );
+        for ignored in [
+            &br#"{"mood":"dancing","level":1}"#[..],
+            br#"{"mood":"speaking","level":256}"#,
+            br#"{"mood":"speaking"}"#,
+            br#"{"mood":"speaking","level":1,"goal":2100}"#,
+            b"listening",
+            b"",
+        ] {
+            assert_eq!(mood_of(ignored), None);
+        }
+    }
+}

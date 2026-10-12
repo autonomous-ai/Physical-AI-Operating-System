@@ -16,6 +16,8 @@ use std::fmt;
 extern crate self as lamp_motor;
 
 #[cfg(any(target_os = "linux", test))]
+pub mod body;
+#[cfg(any(target_os = "linux", test))]
 pub mod inspection;
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -23,6 +25,7 @@ pub mod linux;
 pub mod calibration;
 pub mod command;
 pub mod control;
+pub mod gesture;
 pub mod protocol;
 pub mod readback;
 pub mod runtime;

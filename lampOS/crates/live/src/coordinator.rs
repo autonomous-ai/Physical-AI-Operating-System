@@ -2045,6 +2045,12 @@ fn conversation(
     let mut ring_trace = RingTrace::default();
     // How loud the person's last captured block was, for the ring's face.
     let mut heard_level = 0u8;
+    // A service that runs all day may also tell a body what it is doing.
+    let mut body_link = if lifetime.continuous() {
+        crate::body_link::BodyLink::from_environment()
+    } else {
+        None
+    };
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2897,12 +2903,20 @@ fn conversation(
             )
             .into());
         }
+        // The lamp's own voice while it speaks, the person's otherwise.
+        let voice_level = match reply.as_ref() {
+            Some(current) if current.playback.is_some() => current.voice_level,
+            _ => heard_level,
+        };
         if let Some(choreography) = choreography.as_mut() {
-            // The lamp's own voice while it speaks, the person's otherwise.
-            choreography.set_level(match reply.as_ref() {
-                Some(current) if current.playback.is_some() => current.voice_level,
-                _ => heard_level,
-            });
+            choreography.set_level(voice_level);
+        }
+        if let Some(body) = body_link.as_mut() {
+            body.tell(
+                crate::ring_wire::RingPhase::from_snapshot(snapshot),
+                voice_level,
+                clock,
+            );
         }
         service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {

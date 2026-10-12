@@ -154,6 +154,45 @@ fn the_sample_pilot_config_forwards_the_installed_pilot_settings() {
     assert_eq!(report["attempts"][0]["status"], "would run");
 }
 
+/// The opt-in endpoint trial: the same pilot settings plus `--endpoint
+/// smart-turn`, so its turns compare with the existing cached-speech cohorts.
+#[test]
+fn the_endpoint_trial_config_adds_only_the_endpoint_flag() {
+    let dir = common::Private::new("cfg");
+    let trial: std::path::PathBuf =
+        format!("{FIXTURES}/voice-eval-serve-endpoint-trial.example.json").into();
+    let pilot: Value = serde_json::from_str(&std::fs::read_to_string(sample()).unwrap()).unwrap();
+    let mut differs: Value =
+        serde_json::from_str(&std::fs::read_to_string(&trial).unwrap()).unwrap();
+    assert_eq!(differs["endpoint"], "smart-turn");
+    differs.as_object_mut().unwrap().remove("endpoint");
+    assert_eq!(differs, pilot, "the trial changes nothing else");
+    let output = dry_run(&dir, &trial);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        report["backend"]["runtime_flags"],
+        serde_json::json!([
+            "--turn-taking",
+            "duplex",
+            "--reference-clock",
+            "capture",
+            "--reference-recovery",
+            "off",
+            "--playout-start-ms",
+            "200",
+            "--provider-continuation",
+            "kept-start",
+            "--endpoint",
+            "smart-turn"
+        ])
+    );
+}
+
 #[test]
 fn a_config_policy_lamp_live_would_refuse_is_refused_on_the_mac() {
     let dir = common::Private::new("cfg");

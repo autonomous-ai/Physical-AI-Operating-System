@@ -1,0 +1,30 @@
+[package]
+name = "lamp-endpoint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Model inference lives only here and in the separate `lamp-endpoint-worker`
+# process. The interaction core links `lamp-endpoint-ipc`, never this crate.
+[[bin]]
+name = "lamp-endpoint-worker"
+path = "src/main.rs"
+
+[dependencies]
+lamp-endpoint-ipc = { path = "../endpoint-ipc" }
+sha2.workspace = true
+# Pure Rust ONNX inference. Default features pull an unused transformer layer.
+tract-onnx = { version = "=0.23.8", default-features = false }
+# Already in tract-core's dependency tree; used for Whisper's 400-point STFT.
+rustfft = "=6.4.1"
+
+# Parent death signal and resource bounds on Linux; process CPU time for the
+# installation self-check.
+rustix = { version = "=1.1.5", features = ["process", "time"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

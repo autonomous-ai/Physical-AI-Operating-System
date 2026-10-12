@@ -1,0 +1,219 @@
+{
+  "accepted_acoustic_metrics": false,
+  "analysis": {
+    "coffee_overlap_vad_at_least_0_8_blocks": {
+      "baseline": [
+        136,
+        337
+      ],
+      "treatment": [
+        0,
+        332
+      ]
+    },
+    "filter_peak_is_calibrated_acoustic_delay": false,
+    "independently_rerun_for_this_composition": false,
+    "lamp_alone_copy1_copy3_reduction_db": {
+      "baseline": [
+        5.2,
+        1.6
+      ],
+      "treatment": [
+        27.9,
+        22.6
+      ]
+    },
+    "lamp_alone_vad_at_least_0_8_blocks": {
+      "baseline": [
+        [
+          114,
+          430
+        ],
+        [
+          193,
+          360
+        ]
+      ],
+      "treatment": [
+        [
+          0,
+          430
+        ],
+        [
+          10,
+          360
+        ]
+      ]
+    },
+    "native_read_timing": {
+      "baseline": {
+        "accepted_minus_analysed_frames_5_50_95": [
+          1090,
+          1126,
+          1191
+        ],
+        "aec_internal_alignment_ms_values": [
+          0,
+          72
+        ],
+        "audio_offsets_contiguous": true,
+        "between_reads_us_min_5_50_95_max": [
+          8005,
+          8245,
+          10305,
+          10368,
+          12034
+        ],
+        "delay_hint_ms_values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "first_sequence": 1,
+        "processed_after_own_read_us_min_5_50_95_max": [
+          323,
+          614,
+          1023,
+          3286,
+          6189
+        ],
+        "read_times_increasing": true,
+        "reference_capture_blocks_processed_minus_frame_sequence_values": [
+          0
+        ],
+        "rows": 7000,
+        "sequences_contiguous": true
+      },
+      "treatment": {
+        "accepted_minus_analysed_frames_5_50_95": [
+          1067,
+          1109,
+          1189
+        ],
+        "aec_internal_alignment_ms_values": [
+          0,
+          8
+        ],
+        "audio_offsets_contiguous": true,
+        "between_reads_us_min_5_50_95_max": [
+          8135,
+          8245,
+          10305,
+          10365,
+          12001
+        ],
+        "delay_hint_ms_values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "first_sequence": 1,
+        "processed_after_own_read_us_min_5_50_95_max": [
+          39073,
+          39969,
+          40511,
+          43004,
+          47018
+        ],
+        "read_times_increasing": true,
+        "reference_capture_blocks_processed_minus_frame_sequence_values": [
+          4
+        ],
+        "rows": 7001,
+        "sequences_contiguous": true
+      }
+    },
+    "original_inputs_sha256": "2a57a843f8c4ae549e2f671fb9dc4ee3b6b7858e52adb8bdff2f4c9f8ef76b87",
+    "original_path": "/private/tmp/lamp-a1-mic1-timing-result-20261012T0704Z-rrcXJ4",
+    "original_readme_sha256": "687f53cfa39bc8d77baab35fd8ec231188b088fdeeaf7eb10f65c7b2a64ce73f",
+    "private_manifest_sha256": "220e725cbf74d6a9ec3c5c0da424a99a4dc2f3a06de86d5fd782dadf1635b64f",
+    "private_preservation": "/private/tmp/lamp-mic1-hold-integration-M3bwNoQf/private-provenance",
+    "relative_reference_cursor_filter_peak_ms": {
+      "baseline": -16.8,
+      "treatment": 22.4
+    },
+    "reported_by": "Agent 1",
+    "whole_reply_level_reduction_db": {
+      "baseline": 2.8,
+      "treatment": 24.7
+    }
+  },
+  "canonical_base": "7e28dc7ace66eb26cb3e3332f3dcadf02f1f5b9a",
+  "default_microphone_changed": false,
+  "human_listened": false,
+  "limits": [
+    "One fixed-source recording per condition; different run, clip timing, room and AEC startup may contribute.",
+    "No human overlapping-speech positive cohort, interruption qualification or Gemini conversation result.",
+    "The quieter replayed coffee source remained below the detector threshold during treatment overlap.",
+    "Read/processing times are software observations, not ADC or acoustic onset timestamps.",
+    "Linux worker regressions use scripted noise, a fixed synthetic echo delay and preliminary warm-ups; no cold-start or physical claim.",
+    "Original timestamps and the existing 100 ms input lease remain; nominal four-block hold consumes part of that budget.",
+    "No tests or builds executed for this composition; root owns the remaining gates."
+  ],
+  "native_treatment": {
+    "accepted_fixture_frames": 337680,
+    "diagnostics_valid": true,
+    "fixture_pcm_sha256": "3d98cfa176290e5e120f6c5350c04a127bdffaace3711e64b7aaa23d0a630ebe",
+    "full_fixture_verified": true,
+    "result_path": "/private/tmp/lamp-mic1-timing-executed-69rmqb_6/result.json",
+    "result_sha256": "2eedfc7eedd8dd7eda897e9315b4ff2b465cfd0a51d2f7b1bb2416aa920d59e2",
+    "rollback_verified": true,
+    "runtime_exit": 0,
+    "settings": {
+      "microphone": "mic1",
+      "noise_suppression": "off",
+      "provider": "local cached fixture",
+      "reference_clock": "capture",
+      "reference_recovery": "off",
+      "turn_taking": "v1-baseline"
+    },
+    "status": "diagnostic_collected_unscored"
+  },
+  "new_test_assertions_arm_execution": "pending at composition; original f183 ARM gate does not cover these assertions",
+  "runtime_artifact": {
+    "arm_receipt_sha256": "be2a16df7e1d3d8b75dadd3fc83c67b676218e37214e89c3eea8a326a3742130",
+    "bytes": 9503712,
+    "qualification": "prior f183 emulated ARM fmt, strict live Clippy, release and 21 focused tests; not this composed tree",
+    "sha256": "33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800",
+    "source_manifest_sha256": "046bb06945050622b4922df3e343491fa9378bc2ff27f47243c23f7b1943467b"
+  },
+  "runtime_changes_after_f183": false,
+  "runtime_source": "f18362fa947a8f90e4139a3536f04de8449ce2e6",
+  "schema": 1,
+  "scope": "MIC1 capture-hold integration provenance; reported fixed-source analysis, not a conversation or acoustic acceptance score",
+  "source_paths": [
+    {
+      "path": "crates/live/examples/duplex_lab.rs",
+      "proposed_sha256": "fd9f12c7d8fe7e3f90e05a3d37e8f4bdc9410d0c5b606971b7a94ca1d0be7f90",
+      "runtime_sha256": "fd9f12c7d8fe7e3f90e05a3d37e8f4bdc9410d0c5b606971b7a94ca1d0be7f90",
+      "test_only_difference": false
+    },
+    {
+      "path": "crates/live/src/audio_workers.rs",
+      "proposed_sha256": "4be3e65c6121cffc31a2ebdb6830645a034102ee9f4f04d1df25aef82665be15",
+      "runtime_sha256": "4be3e65c6121cffc31a2ebdb6830645a034102ee9f4f04d1df25aef82665be15",
+      "test_only_difference": false
+    },
+    {
+      "path": "crates/live/src/reference.rs",
+      "proposed_sha256": "3cbc5083f4d8b64f1c07f03109af7bd6129b6988a0f44fa0b77658e9336ece7c",
+      "runtime_sha256": "3cbc5083f4d8b64f1c07f03109af7bd6129b6988a0f44fa0b77658e9336ece7c",
+      "test_only_difference": false
+    },
+    {
+      "path": "crates/live/src/reference/hold.rs",
+      "proposed_sha256": "72e40e317a4da3c6f21563e9c53fce22d59cb297bbec33cb417ec20e7466ced6",
+      "runtime_sha256": "72e40e317a4da3c6f21563e9c53fce22d59cb297bbec33cb417ec20e7466ced6",
+      "test_only_difference": false
+    },
+    {
+      "path": "crates/live/tests/capture_hold_worker.rs",
+      "proposed_sha256": "ad46847b29f6c6d5a3655cdf81e6ecbc254bb3b72b98ecefed5ce70285074c66",
+      "runtime_sha256": "3ae28f28185b2f96d81ba9d1a75df2037cbfd9d9a6b5c45253b74c69967863f4",
+      "test_only_difference": true
+    }
+  ],
+  "test_source": "16e864692aafd2b4efa7076a71c7e46dffd023fd"
+}

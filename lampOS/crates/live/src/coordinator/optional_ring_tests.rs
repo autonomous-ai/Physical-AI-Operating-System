@@ -32,6 +32,7 @@ fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Pe
             noise_suppression: NoiseSuppression::On,
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
+            endpoint: None,
         },
         Peers {
             speaker: speaker_peer,

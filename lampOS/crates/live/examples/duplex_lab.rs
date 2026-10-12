@@ -20,7 +20,11 @@
 //!
 //! The first form replays the recording as it happened and writes the
 //! features of every block. `--near` adds a second 16 kHz signal to the
-//! microphone before cancellation, saturating.
+//! microphone before cancellation, saturating. `--capture-hold` gives the
+//! canceller each microphone block that many blocks late, against the same
+//! render schedule: block `n` is cancelled with the render the recording had
+//! analysed by block `n + BLOCKS`. The output stays indexed by microphone
+//! block and is that many blocks shorter.
 //!
 //! The second form closes the loop. The decision runs on every block, and
 //! when it yields the lab does what a paused lamp would do: the render the
@@ -64,7 +68,7 @@ fn pcm(path: &Path) -> Result<Vec<i16>> {
 
 fn usage() -> io::Error {
     io::Error::other(
-        "usage: duplex_lab LAB_DIR OUT_DIR [--noise-suppression] [--near NEAR] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
+        "usage: duplex_lab LAB_DIR OUT_DIR [--noise-suppression] [--near NEAR] [--capture-hold BLOCKS] | --duplex --room BLOCK [--segment SPEECH AT_BLOCK]",
     )
 }
 
@@ -214,7 +218,13 @@ impl Features {
 }
 
 /// The recording as it happened.
-fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Result<()> {
+fn replay(
+    lab: &Lab,
+    out: &Path,
+    near: Option<Vec<i16>>,
+    suppress: bool,
+    hold: usize,
+) -> Result<()> {
     if near
         .as_ref()
         .is_some_and(|near| near.len() < lab.schedule.len() * CAPTURE_SAMPLES)
@@ -232,9 +242,14 @@ fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Resu
             echo.render(&block)?;
             analysed += RENDER_SAMPLES;
         }
-        let mut block = lab.microphone(index);
+        // Held back, the microphone block the canceller is given now is
+        // an earlier one. Nothing is cancelled until the first is due.
+        let Some(held) = index.checked_sub(hold) else {
+            continue;
+        };
+        let mut block = lab.microphone(held);
         if let Some(near) = &near {
-            let at = index * CAPTURE_SAMPLES;
+            let at = held * CAPTURE_SAMPLES;
             add(&mut block, &near[at..at + CAPTURE_SAMPLES]);
         }
         let clean = echo.capture(&block, hint)?;
@@ -243,7 +258,7 @@ fn replay(lab: &Lab, out: &Path, near: Option<Vec<i16>>, suppress: bool) -> Resu
             .evidence()
             .ok_or_else(|| io::Error::other("no evidence"))?;
         let heard = Hearing::EVALUATED.heard(probability, &evidence);
-        features.block(index, probability, heard, &echo, &clean)?;
+        features.block(held, probability, heard, &echo, &clean)?;
     }
     features.finish()?;
     println!(
@@ -404,6 +419,7 @@ fn main() -> Result<()> {
     let out = args.next().ok_or_else(usage)?;
     let (mut near, mut closed, mut room, mut segment) = (None, false, None, None);
     let mut suppress = false;
+    let mut hold = None;
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--near" if near.is_none() => {
@@ -411,6 +427,9 @@ fn main() -> Result<()> {
             }
             "--duplex" if !closed => closed = true,
             "--noise-suppression" if !suppress => suppress = true,
+            "--capture-hold" if hold.is_none() => {
+                hold = Some(args.next().ok_or_else(usage)?.parse::<usize>()?)
+            }
             "--room" if room.is_none() => room = Some(args.next().ok_or_else(usage)?.parse()?),
             "--segment" if segment.is_none() => {
                 let speech = pcm(Path::new(&args.next().ok_or_else(usage)?))?;
@@ -423,8 +442,10 @@ fn main() -> Result<()> {
     let out = Path::new(&out);
     fs::create_dir_all(out)?;
     match (closed, room) {
-        (false, None) if segment.is_none() => replay(&lab, out, near, suppress),
-        (true, Some(room)) if near.is_none() => duplex(&lab, out, room, segment, suppress),
+        (false, None) if segment.is_none() => replay(&lab, out, near, suppress, hold.unwrap_or(0)),
+        (true, Some(room)) if near.is_none() && hold.is_none() => {
+            duplex(&lab, out, room, segment, suppress)
+        }
         _ => Err(usage().into()),
     }
 }

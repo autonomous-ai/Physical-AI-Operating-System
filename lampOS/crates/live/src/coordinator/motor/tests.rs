@@ -682,6 +682,7 @@ fn motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch() {
     let (provider, mut provider_peer) = Worker::sleeping_fixture(&dir.path, "provider");
     let (privacy, mut privacy_peer) = Worker::sleeping_fixture(&dir.path, "privacy");
     let mut rig = Rig {
+        end_silence_blocks: None,
         speaker,
         capture,
         provider,
@@ -1044,6 +1045,7 @@ fn failed_reap_after_stopped_is_latched_and_reported_once() {
     let (provider, _) = Worker::sleeping_fixture(&dir.path, "provider");
     let (privacy, _) = Worker::sleeping_fixture(&dir.path, "privacy");
     let mut rig = Rig {
+        end_silence_blocks: None,
         speaker,
         capture,
         provider,

@@ -1,6 +1,6 @@
 //! Explicit private configuration. Neither the HAL nor os-server configuration
 //! is read by this runtime. Provisioning may migrate values once outside source.
-use lamp_gemini::{Credential, Resumption, SessionConfig, ThinkingLevel};
+use lamp_gemini::{BarrierPolicy, Credential, Resumption, SessionConfig, ThinkingLevel, Timeouts};
 use serde::Deserialize;
 use std::{
     fs::OpenOptions,
@@ -24,6 +24,14 @@ pub struct ProviderConfig {
     authentication: Authentication,
     #[serde(default)]
     resumption: ReconnectContext,
+    #[serde(default)]
+    silent_response: SilentResponse,
+    /// Longest wait for the first output of a response, in milliseconds.
+    #[serde(default)]
+    response_timeout_ms: Option<u32>,
+    /// A private text file that replaces the built-in instruction.
+    #[serde(default)]
+    instruction_file: Option<String>,
 }
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -47,6 +55,27 @@ enum ReconnectContext {
     /// went unanswered, each on a session reported as resumed, while every
     /// fresh session answered.
     Off,
+}
+/// What happens when a response that was asked to stop sends neither more
+/// output nor its completion.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+enum SilentResponse {
+    /// The connection fails: which request owns later output is not guessed.
+    #[default]
+    Fail,
+    /// The silent response is taken as over and the next request proceeds.
+    /// On lamp-4ace a person who went on speaking after a request the service
+    /// never answered lost that question and, with it, the connection.
+    AssumeOver,
+}
+impl From<SilentResponse> for BarrierPolicy {
+    fn from(choice: SilentResponse) -> Self {
+        match choice {
+            SilentResponse::Fail => Self::Require,
+            SilentResponse::AssumeOver => Self::AssumeAfterQuiet,
+        }
+    }
 }
 impl From<ReconnectContext> for Resumption {
     fn from(context: ReconnectContext) -> Self {
@@ -77,7 +106,30 @@ impl ProviderConfig {
                 "credential path must be absolute",
             ));
         }
+        if config
+            .instruction_file
+            .as_deref()
+            .is_some_and(|path| !Path::new(path).is_absolute())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "instruction path must be absolute",
+            ));
+        }
+        if config
+            .response_timeout_ms
+            .is_some_and(|ms| !(2_000..=60_000).contains(&ms))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "response timeout must be 2 to 60 seconds",
+            ));
+        }
         Ok(config)
+    }
+    /// What the provider worker does about a response that goes silent.
+    pub fn barrier_policy(&self) -> BarrierPolicy {
+        self.silent_response.into()
     }
     pub fn into_session(self) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
         self.into_session_with_camera(false)
@@ -95,15 +147,39 @@ impl ProviderConfig {
             Authentication::Bearer => Credential::bearer(value)?,
             Authentication::Ephemeral => Credential::ephemeral(value)?,
         };
+        let written = match &self.instruction_file {
+            Some(path) => {
+                let bytes = read_private(Path::new(path), 16_384)?;
+                let text = String::from_utf8(bytes).map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidData, "instruction must be UTF-8")
+                })?;
+                if text.trim().is_empty() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "instruction file is empty",
+                    )
+                    .into());
+                }
+                Some(text)
+            }
+            None => None,
+        };
+        let instruction = match (&written, camera) {
+            (Some(text), _) => text.trim(),
+            (None, true) => CAMERA_CHAT_INSTRUCTION,
+            (None, false) => CHAT_INSTRUCTION,
+        };
         let mut session = SessionConfig::new(&self.endpoint, credential)?
             .model(&self.model)?
             .voice(&self.voice)?
-            .instruction(if camera {
-                CAMERA_CHAT_INSTRUCTION
-            } else {
-                CHAT_INSTRUCTION
-            })?
+            .instruction(instruction)?
             .resumption(self.resumption.into());
+        if let Some(ms) = self.response_timeout_ms {
+            session = session.timeouts(Timeouts {
+                response: std::time::Duration::from_millis(u64::from(ms)),
+                ..Timeouts::default()
+            })?;
+        }
         if let Some(level) = self.thinking_level {
             session = session.thinking_level(level)?;
         }
@@ -176,6 +252,33 @@ mod tests {
         assert!(parsed(r#","resumption":"request""#).is_err());
         assert!(parsed(r#","resumption":true"#).is_err());
         assert!(parsed(r#","resume":"off""#).is_err());
+    }
+
+    #[test]
+    fn a_silent_response_fails_the_connection_unless_the_configuration_says_otherwise() {
+        assert_eq!(parsed("").unwrap().barrier_policy(), BarrierPolicy::Require);
+        assert_eq!(
+            parsed(r#","silent_response":"fail""#)
+                .unwrap()
+                .barrier_policy(),
+            BarrierPolicy::Require
+        );
+        assert_eq!(
+            parsed(r#","silent_response":"assume_over""#)
+                .unwrap()
+                .barrier_policy(),
+            BarrierPolicy::AssumeAfterQuiet
+        );
+        assert!(parsed(r#","silent_response":"ignore""#).is_err());
+    }
+
+    #[test]
+    fn the_optional_timeout_and_instruction_file_are_read_as_written() {
+        let config = parsed(r#","response_timeout_ms":8000,"instruction_file":"/etc/x""#).unwrap();
+        assert_eq!(config.response_timeout_ms, Some(8_000));
+        assert_eq!(config.instruction_file.as_deref(), Some("/etc/x"));
+        assert!(parsed(r#","response_timeout_ms":"8000""#).is_err());
+        assert!(parsed(r#","instruction_file":7"#).is_err());
     }
 
     #[test]

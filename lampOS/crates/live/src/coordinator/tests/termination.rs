@@ -251,6 +251,7 @@ fn isolated_signal_child() {
         peer(privacy_peer, None),
     ];
     let mut rig = Rig {
+        end_silence_blocks: None,
         camera: None,
         motor: None,
         provider,
@@ -458,6 +459,7 @@ fn service_signal_child(
         })
     });
     let mut rig = Rig {
+        end_silence_blocks: None,
         camera: None,
         motor: None,
         provider,

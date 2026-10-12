@@ -427,6 +427,7 @@ fn run_policy(
         }),
     ];
     let mut rig = Rig {
+        end_silence_blocks: None,
         provider,
         capture,
         speaker,
@@ -790,6 +791,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         })
     });
     let mut rig = Rig {
+        end_silence_blocks: None,
         speaker,
         capture,
         provider,

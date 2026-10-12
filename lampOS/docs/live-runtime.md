@@ -294,7 +294,19 @@ conversation continues; `off` always opens a new conversation. Use `off` on a
 path where a resumed session accepts audio and never answers: on lamp-4ace
 through its relay, after the first failed exchange seven requests in a row
 went unanswered, each on a session reported as resumed, while every fresh
-session answered. See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
+session answered. Three more optional fields: `silent_response` (`fail`, the
+default, or `assume_over`) says what happens when a response that was asked to
+stop sends neither more output nor its completion: fail the connection, or take
+the response as over and let the next request proceed; `response_timeout_ms`
+(2,000 to 60,000) replaces the 30 s wait for the first output of a response;
+`instruction_file` names a private text file of at most 16 KiB that replaces
+the built-in instruction.
+
+`--end-silence-ms 300..2000` (a multiple of 10) sets how long the detector
+waits in quiet before it decides that a person has finished. Without it
+`v1-baseline` and `duplex` wait 1,200 ms and `vad-only` 600 ms. In the first
+recording of a person speaking to the lamp, the longest pause inside thirteen
+of fourteen utterances was 620 ms or less and one was 920 ms. See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
 the complete WebSocket route. The provider-check command opens no microphone and
 sends no speech. It establishes only that setup was accepted, not that a complete
 answer or account quota will succeed.

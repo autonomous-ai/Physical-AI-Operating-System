@@ -285,6 +285,7 @@ struct Rig {
     diagnostic_directory: Option<PathBuf>,
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
+    end_silence_blocks: Option<u16>,
     playout_start: PlayoutStart,
     /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
     endpoint: Option<EndpointRig>,
@@ -1758,6 +1759,7 @@ fn spawn_rig(
         diagnostic_directory: diagnostic_directory.map(Path::to_path_buf),
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
+        end_silence_blocks: options.end_silence_blocks,
         playout_start: options.playout_start,
         endpoint,
     })
@@ -2039,13 +2041,19 @@ fn conversation(
         None
     };
     let mut ring_trace = RingTrace::default();
+    let policy_detector = match rig.turn_taking {
+        // Duplex gates the scores this detector sees; its rule is unchanged.
+        TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
+        TurnTaking::VadOnly => TurnDetector::default(),
+    };
     let (mut detector, endpoint_policy) = EndpointRig::attach(
         rig.endpoint.as_mut(),
         rig.turn_taking,
-        match rig.turn_taking {
-            // Duplex gates the scores this detector sees; its rule is unchanged.
-            TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
-            TurnTaking::VadOnly => TurnDetector::default(),
+        match rig.end_silence_blocks {
+            Some(blocks) => policy_detector
+                .with_end_silence(blocks)
+                .map_err(io::Error::other)?,
+            None => policy_detector,
         },
     )?;
     record(trace, endpoint_policy)?;
@@ -3914,6 +3922,7 @@ mod tests {
         let (privacy, _privacy_peer) = Worker::sleeping_fixture(&directory.path, "privacy");
         let (ring, _ring_peer) = Worker::sleeping_fixture(&directory.path, "ring");
         let mut rig = Rig {
+            end_silence_blocks: None,
             speaker,
             capture,
             provider,

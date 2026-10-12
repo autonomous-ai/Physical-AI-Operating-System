@@ -1151,6 +1151,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         OptionalCamera::new(worker, source)
     });
     let mut rig = Rig {
+        end_silence_blocks: None,
         speaker: spawn("speaker"),
         capture: spawn("capture"),
         provider: spawn("provider"),

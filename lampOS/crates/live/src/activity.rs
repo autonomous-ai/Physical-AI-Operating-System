@@ -16,6 +16,8 @@ pub const END_SILENCE_BLOCKS: u16 = 60;
 /// separate Silero endpoint classifier or optional semantic confirmation.
 pub const V1_END_SILENCE_BLOCKS: u16 = 120;
 pub const MAX_UTTERANCE_BLOCKS: u32 = 12_000;
+pub const MIN_END_SILENCE_BLOCKS: u16 = 30;
+pub const MAX_END_SILENCE_BLOCKS: u16 = 200;
 /// Scores below this are a low-activity block for every endpoint policy.
 const SILENCE_PROBABILITY: f32 = 0.35;
 
@@ -102,6 +104,18 @@ impl TurnDetector {
             end_silence_blocks: V1_END_SILENCE_BLOCKS,
             ..Self::default()
         }
+    }
+
+    /// The same detector with another silence window, in 10 ms blocks. The
+    /// 1.2 s of the V1 profile is 0.5 s more than the longest pause inside
+    /// thirteen of fourteen utterances of the first person recorded on the
+    /// lamp; the caller chooses, and the choice is recorded with the policy.
+    pub fn with_end_silence(mut self, blocks: u16) -> Result<Self, &'static str> {
+        if !(MIN_END_SILENCE_BLOCKS..=MAX_END_SILENCE_BLOCKS).contains(&blocks) {
+            return Err("end-of-speech wait must be 300 to 2000 ms");
+        }
+        self.end_silence_blocks = blocks;
+        Ok(self)
     }
 
     /// Confirm earlier endpoints with a classifier. Without a usable verdict

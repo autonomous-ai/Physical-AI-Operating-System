@@ -266,6 +266,9 @@ pub struct DirectedOptions {
     pub noise_suppression: NoiseSuppression,
     /// Explicit qualification opt-in. None leaves the ring device unopened.
     pub ring_channel_ceiling: Option<u16>,
+    /// Explicit end-of-speech wait in 10 ms blocks. None keeps each
+    /// turn-taking policy's own window.
+    pub end_silence_blocks: Option<u16>,
 }
 impl DirectedOptions {
     /// Used directly by the real capture-worker spawn path. The default keeps
@@ -341,6 +344,19 @@ impl DirectedOptions {
                         .map_err(|_| invalid_options())?;
                     lamp_ring::ChannelCeiling::new(value).map_err(io::Error::other)?;
                     options.ring_channel_ceiling = Some(value);
+                }
+                "--end-silence-ms" if options.end_silence_blocks.is_none() => {
+                    let value = required_value(&mut arguments)?
+                        .parse::<u16>()
+                        .map_err(|_| invalid_options())?;
+                    if value % 10 != 0
+                        || !(crate::activity::MIN_END_SILENCE_BLOCKS
+                            ..=crate::activity::MAX_END_SILENCE_BLOCKS)
+                            .contains(&(value / 10))
+                    {
+                        return Err(invalid_options());
+                    }
+                    options.end_silence_blocks = Some(value / 10);
                 }
                 _ => return Err(invalid_options()),
             }
@@ -1235,6 +1251,7 @@ mod tests {
                 assert_eq!(
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
+                        end_silence_blocks: None,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
@@ -1443,5 +1460,42 @@ mod notice_tests {
         let plain = SessionOptions::parse(&[]).unwrap();
         assert!(plain.motor.is_none());
         assert!(plain.validate_serve().is_ok());
+    }
+}
+
+#[cfg(test)]
+mod end_silence_tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> io::Result<DirectedOptions> {
+        DirectedOptions::parse(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn the_end_of_speech_wait_is_explicit_bounded_and_given_once() {
+        assert_eq!(parse(&[]).unwrap().end_silence_blocks, None);
+        assert_eq!(
+            parse(&["--end-silence-ms", "700"])
+                .unwrap()
+                .end_silence_blocks,
+            Some(70)
+        );
+        assert_eq!(
+            parse(&["--end-silence-ms", "300", "--turn-taking", "duplex"])
+                .unwrap()
+                .end_silence_blocks,
+            Some(30)
+        );
+        let refused: [&[&str]; 6] = [
+            &["--end-silence-ms"],
+            &["--end-silence-ms", "290"],
+            &["--end-silence-ms", "2010"],
+            &["--end-silence-ms", "705"],
+            &["--end-silence-ms", "soon"],
+            &["--end-silence-ms", "700", "--end-silence-ms", "700"],
+        ];
+        for arguments in refused {
+            assert!(parse(arguments).is_err(), "{arguments:?}");
+        }
     }
 }

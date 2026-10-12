@@ -137,18 +137,21 @@ mute. The four frames held at that moment are never handed on.
 noise the canceller's suppression lowers the output as far with no hold.
 What differs is what the canceller accounts for: 99 percent of the
 microphone block with the hold, no alignment at all without. Commit
-`16e864692` makes the test assert that and not the level; it is
-type-checked on this host and **not yet run on ARM**. What the hold does to
-cancellation rests on the replay of the recorded bundle above.
+`16e864692` makes the test assert that and not the level. It passed on
+ARM in `agent1-arm64-assert46` (3 passed; nothing was compiled in that
+job, the binaries were fresh from one I had stopped two minutes earlier).
+What the hold does to cancellation rests on the replay of the recorded
+bundle above and on the lamp, below.
 
 The first ARM job (`agent1-arm64-mic1hold43`, `164a92c61`) failed: its
 first session, the control, ended with `QueueTiming` after one frame. The
 worker ends a session when the microphone has more than 40 ms unread or a
-render packet is more than 40 ms old. My reading is that the first use of
-the canceller in a process under emulation took longer than that; the test
-did not print the fault's times, so this is not established. Since
-`f18362fa9` one session is run first and thrown away, and a fault's times
-are printed. In the second job the first session ran through.
+render packet is more than 40 ms old. Since `f18362fa9` one session is run
+first and thrown away, and a fault's times are printed. In the second job
+the first session ran through. In the third it did not, and its times say
+why: the fault is 72 ms after the last render packet was accepted, with
+one capture block processed and nothing unread. The worker spent about
+70 ms on its first capture block under emulation.
 
 ## On the lamp
 
@@ -167,6 +170,21 @@ the binary built from `f18362fa9` (`lamp-mic1-timing-executed-69rmqb_6`).
 | The clip over the lamp, blocks scored 0.8 or over | 136 of 337 | 0 of 332 | 1 of 337 |
 
 One recording. It is not a conversation and qualifies no interruption.
+
+Main then ran one live Gemini duplex session with the same binary
+(`lamp-mic1-gemini-timing-executed-_r4egoic`), against the earlier live
+one (`native-live/README.md`):
+
+| | Earlier | With the hold |
+|---|---|---|
+| Lamp's own voice removed | 1.7 dB | 22.7 dB |
+| Lamp-sounding blocks scored 0.8 or over | 404 of 702 | 8 of 614, all 0.6 s into the reply |
+| Yields; candidates rejected; gaps in the reply | 2; 2; 2 | 0; 0; 0 |
+| The clip over the reply | no admission | no candidate, yield or transcript |
+
+The lamp no longer yields to itself. The clip is still not heard. A VM
+job of mine overlapped about the first half minute of that run's room
+recording; the figures are from the lamp's own bundle.
 
 ## Limits
 
@@ -190,6 +208,7 @@ One recording. It is not a conversation and qualifies no interruption.
 | `mic1-lab-hold{0,3,4}-pair.json` | the comparison run on the replay's output |
 | `inputs.sha256` | digests of the bundle files, clips and lab binary used |
 | `native/` | the run on the lamp with the hold against the baseline: tables, per-row timing, digests |
+| `native-live/` | the live Gemini run with the hold against the earlier live run |
 | `scripts.sha256` | digests of the analysis scripts that produced them. The scripts are Python and shell and are kept outside the repository, which holds Rust only under `lampOS/`: `/private/tmp/lamp-a1-analysis-scripts-20261012T0714Z-myLgKO` on the office host |
 
 The bundles are local recordings and are not in the repository.

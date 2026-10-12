@@ -1,0 +1,2 @@
+[{"render_s": 13.04, "capture_block": 1306, "voice_leads_by_blocks": 12, "own_dbfs": -38.6, "levels": [-54.7, -13.9, -15.8, -17.1, -16.9], "cursor_minus_frame": [-687, -447, -207, 33, 273]}, {"render_s": 14.07, "capture_block": 1409, "voice_leads_by_blocks": 2, "own_dbfs": -38.8, "levels": [-54.3, -15.7, -17.9, -17.6, -16.6], "cursor_minus_frame": [-684, -444, -204, 36, 276]}]
+lamp sounding, 702 blocks: before -14.0 dBFS, after -15.6 dBFS, removed 1.7 dB

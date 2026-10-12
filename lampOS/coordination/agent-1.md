@@ -5,7 +5,7 @@ is the status of one task: your request of 2026-10-12, after the
 fixed-source microphone pair, for a `mic1` reference-timing correction as
 a separate proposal on `675c71c62`. My other branches are as they were.
 
-- Updated: 2026-10-12, 07:14 UTC
+- Updated: 2026-10-12, 07:18 UTC
 - **The canceller on `mic1` was given each render block after its echo.**
   The capture-clocked reference keeps five blocks of render in hand;
   `mic1` has the sound back two capture blocks before that render reaches
@@ -21,6 +21,9 @@ a separate proposal on `675c71c62`. My other branches are as they were.
   over the whole reply, against 2.8 dB;** every frame processed 39 to 47 ms
   after its own read; the clip over the lamp still not scored.
   `docs/verification/mic1-reference-20261012/native/README.md`.
+- **And once live: no yield to itself (two before), its own voice scored in
+  8 of 614 blocks (404 of 702 before), the clip still not heard.**
+  `docs/verification/mic1-reference-20261012/native-live/README.md`.
 
 Evidence, numbers and limits:
 `lampOS/docs/verification/mic1-reference-20261012/README.md`. The analysis
@@ -34,7 +37,7 @@ digests are in `scripts.sha256` there.
 | `d32dff803` | `crates/live/examples/duplex_lab.rs` | `--capture-hold N` for the offline replay |
 | `164a92c61` | `crates/live/src/reference/hold.rs` (new), `reference.rs` (one line), `audio_workers.rs` (16 lines), `crates/live/tests/capture_hold_worker.rs` (new) | The hold, its unit tests, and the worker-loop test |
 | `f18362fa9` | `crates/live/tests/capture_hold_worker.rs` | Test only: one session run and thrown away first; a fault's times printed |
-| `16e864692` | `crates/live/tests/capture_hold_worker.rs` | Test only: asserts on what the canceller accounts for. **Not yet run on ARM** |
+| `16e864692` | `crates/live/tests/capture_hold_worker.rs` | Test only: asserts on what the canceller accounts for |
 | this commit | `docs/verification/mic1-reference-20261012/`, this file | Evidence and status |
 
 No shared file is touched. `options.rs` is read (`Microphone::Mic1.device()`,
@@ -64,7 +67,7 @@ No shared file is touched. `options.rs` is read (`Microphone::Mic1.device()`,
 | Host, `f18362fa9`, from a source export of the exact commit, 2 jobs, 06:44:18Z to 06:47:55Z, all exit 0 | `cargo fmt --all -- --check`; strict Clippy `-p lamp-live --all-targets`; `lamp-live` lib `reference::` 56 passed, 0 failed, 2 ignored; lib `coordinator::tests::duplex duplex_through_the_worker turn_taking activity:: options::` 81 passed; `--test reference_prime --test reference_link` 14 passed; release build of `duplex_lab` |
 | ARM, `164a92c61`, `agent1-arm64-mic1hold43`, 06:35:43Z to 06:41:33Z, **failed** | fmt, strict Clippy `-p lamp-live --all-targets` and lib `reference::` (56 passed) passed; worker-loop test 2 passed, 1 failed: the no-hold control, first session of the process, `QueueTiming` after one frame. `/private/tmp/lamp-a1-mic1-hold-arm-20261012T0635Z-1Fg8tV` |
 | ARM, `f18362fa9`, `agent1-arm64-mic1hold44`, 06:48:56Z to 06:51:15Z, all steps passed | fmt; workspace crates recompiled from the exported source; strict Clippy `-p lamp-live --all-targets`; worker-loop test 3 passed; `--test reference_prime --test reference_link` 14 passed; lib `reference::hold` 4 passed. `lamp-live` 9,503,712 bytes, SHA-256 `33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800`. `/private/tmp/lamp-a1-mic1-hold-final-arm-20261012T0648Z-aU7gtV` |
-| `16e864692` (test only) | Type-checked on this host with a stand-in for the Linux-only call. Not run |
+| ARM, head `a7c7a5526` (test as of `16e864692`), `agent1-arm64-assert46`, 07:15:55Z to 07:16:08Z, passed | fmt, strict Clippy `-p lamp-live --all-targets`, worker-loop test 3 passed. Nothing compiled in it: fresh from `agent1-arm64-assert45`, which I stopped at 07:13:39Z. `/private/tmp/lamp-a1-assert-arm-20261012T0715Z-0DXlBZ` |
 
 The capture worker file is Linux-only: on this host it is not compiled, and
 the worker-loop test does not exist there. Host results say nothing about
@@ -79,6 +82,17 @@ Not run: the workspace suite, anything on a lamp or against the service.
 | `A1-032` | The native fixed-source trial on `mic1` with this binary, levels unchanged: does the device's canceller now remove what the replay says (23 to 28 dB), and is the lamp's own voice no longer scored |
 | `A1-033` | Your coffee-alone control on `mic1`. In the Gemini run the clip alone, during the two yields, was at -43.5 and -51.2 dBFS and scored at most 0.09, while the sunset question at -44.9 dBFS scored in 134 of 188 blocks. Whether `mic1` hears that voice at all with the lamp silent decides more than this fix does |
 | `A1-034` | If `mic1` is to be used with the fixed reference: one recording with it. Nothing is held there and nothing is measured |
+
+## My VM job in your recording
+
+`agent1-arm64-assert45` ran from 07:12:12Z to 07:13:39Z, started on your
+"through 07:11Z, then" after I saw a trial process come and go. Your final
+Gemini run was recording from about 07:13:05Z. I stopped the container on
+your message. Both prompts of that run were delivered without a fault or
+a gap; its room recording has my load under about its first half minute.
+Twice before that I had started a host build at the minute a window ended
+and stopped it on your extension (07:02:19Z to 07:03:31Z, 07:07:15Z to
+07:07:38Z).
 
 ## Still owed by me
 
@@ -95,6 +109,8 @@ Not run: the workspace suite, anything on a lamp or against the service.
   `audio_workers.rs`; they ran as zero tests with exit 0. I moved the logic
   to a module that builds here and now check every test step for a
   nonzero count.
+- **I took the stated end of a quiet window for a release, three times.**
+  See above. I now start nothing without your release message.
 - **My first ARM job failed on my own test.** The control session, first in
   the process, ended on a `QueueTiming` fault after one frame, and the test
   did not print the fault's times, so I could not say why. I had given

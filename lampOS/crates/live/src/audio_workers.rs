@@ -9,6 +9,7 @@ use crate::{
     playback::SpeechPlayback,
     reference::{
         PRIME_FRAMES, PrimeBarrier, RecoveryPolicy, ReferenceAssembly, accepted_write_survived,
+        hold::{self, CaptureHold},
     },
     transport::{ReferenceChannels, WorkerChannels},
     wire::{
@@ -250,6 +251,7 @@ pub fn capture_on<D: CaptureDevice>(
         noise_suppression,
         reference_clock,
         reference_recovery,
+        hold::blocks_for(device, reference_clock),
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
     let close = microphone.control_lost();
@@ -282,7 +284,13 @@ fn capture_loop<D: CaptureDevice>(
     noise_suppression: NoiseSuppression,
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
+    hold_blocks: usize,
 ) -> Result<EndReason> {
+    // A frame waits this many capture blocks before it is cancelled, so that
+    // the canceller has its render first. Whatever still waits when this
+    // loop returns is dropped with it.
+    let mut hold = CaptureHold::new(hold_blocks)
+        .ok_or_else(|| io::Error::other("capture hold beyond its bound"))?;
     let mut link: Option<ReferenceChannels> = None;
     let mut prepare_requested = false;
     let mut capture_prepared = false;
@@ -512,6 +520,14 @@ fn capture_loop<D: CaptureDevice>(
                 microphone.epoch(),
                 privacy,
             )?;
+            // The reference has moved on by this block; the block cancelled
+            // against it is the one that has waited its turn. Until the
+            // first has, there is nothing to hand on: the reference was
+            // reported just above, so the rest of this pass has nothing to do.
+            let Some(frame) = hold.push(frame) else {
+                finish_tick(tick);
+                continue;
+            };
             // The canceller has this block's reference, or the block goes on
             // as the microphone recorded it. Nothing is put in its place.
             let (clean, delay) = match step {

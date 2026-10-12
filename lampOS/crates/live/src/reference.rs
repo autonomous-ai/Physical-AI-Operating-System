@@ -16,6 +16,7 @@
 //!
 //! The capture-clocked reference can also be given bounded recovery,
 //! [`ReferenceAssembly::recovering`]: see [`recovery`].
+pub mod hold;
 mod prime;
 pub use prime::PrimeBarrier;
 mod recovery;

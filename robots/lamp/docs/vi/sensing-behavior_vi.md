@@ -228,7 +228,8 @@ Khi tắt, `motion.activity`, cảm xúc khuôn mặt, nhắc tư thế và `fir
 không được tạo ra. Nhận thức trên thiết bị (dò mặt và Face ID, presence, gaze, ánh
 sáng, mức âm thanh) không bị ảnh hưởng. Bật một cờ là lựa chọn privacy có chủ ý: nó
 gửi frame lên kể cả khi không ai trong phòng gọi đèn. Tắt một luồng thì processor của nó
-bị gỡ ngay; upload đang dở chạy xong rồi kết nối mới đóng.
+bị gỡ trước khi request trả về: lượt kiểm tra còn trong hàng đợi bị bỏ, upload đang chạy
+dở thì xong rồi kết nối mới đóng.
 
 ## Chuyển động (Motion)
 

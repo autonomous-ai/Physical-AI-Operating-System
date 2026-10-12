@@ -230,8 +230,9 @@ With them off, `motion.activity`, facial emotion, posture nudges and
 `fire_hazard.detected` are not produced. On-device perception (face detection and
 Face ID, presence, gaze, light, sound level) is unaffected. Enabling one is a
 deliberate privacy choice: it uploads frames even when nobody in the room asked
-the lamp for anything. Turning one off unregisters its processor at once; an upload
-already in flight finishes, then its connection closes.
+the lamp for anything. Turning one off unregisters its processor before the request
+returns: a check still queued is dropped, an upload already in progress finishes, then
+its connection closes.
 
 ## Motion
 

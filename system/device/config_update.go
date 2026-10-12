@@ -133,9 +133,6 @@ type updateChanges struct {
 	channel  bool // messaging channel/tokens changed → re-push into gateway
 	wake     bool // owner wake phrases changed → pushed into the running hal
 
-	// cloudPerception: camera cloud opt-ins changed → pushed into the running hal.
-	cloudPerception bool
-
 	newModel    string
 	newSSID     string
 	newPassword string
@@ -260,12 +257,6 @@ func applyUpdate(c *config.Config, data domain.UpdateConfigRequest, adminHash st
 	if data.Environment != nil {
 		settings := data.Environment.Clone()
 		c.Environment = &settings
-	}
-
-	if data.CloudPerception != nil {
-		settings := *data.CloudPerception
-		ch.cloudPerception = settings != c.CloudPerceptionSettings()
-		c.CloudPerception = &settings
 	}
 
 	if adminHash != "" {
@@ -574,6 +565,13 @@ func (s *Service) UpdateConfig(data domain.UpdateConfigRequest) error {
 		}
 	}
 
+	// Camera cloud opt-ins have their own serialized save-and-confirm path, shared with MQTT.
+	if data.CloudPerception != nil {
+		if _, err := s.UpdateCloudPerception(*data.CloudPerception, false); err != nil {
+			return err
+		}
+	}
+
 	// Serialize with MQTT wake and input-mode updates through persistence and HAL apply.
 	s.wakeApply.mu.Lock()
 	if !keepsWakeCue(s.config, data) {
@@ -651,13 +649,8 @@ func (s *Service) fireConfigSideEffects(ch updateChanges, halHandled bool) {
 		// The wake path already attempted this saved HAL configuration.
 	case ch.halBoot || ch.lang || ch.realtime:
 		s.restartHAL("voice config change")
-	default:
-		if ch.tts {
-			s.applyTTSConfig(s.config)
-		}
-		if ch.cloudPerception {
-			s.applyCloudPerception()
-		}
+	case ch.tts:
+		s.applyTTSConfig(s.config)
 	}
 	// Schedule only after synchronous side effects finish, so their latency
 	// cannot consume the response grace period before the HTTP handler returns.

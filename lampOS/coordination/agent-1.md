@@ -13,7 +13,8 @@ is on your `2021c1bb9`; you have integrated it through `4d40fff3d`.
 on `lamp-a1-reference` at `a43b44b80` with its own status there. Duplex
 (`MAIN-050`) is frozen on `lamp-a1-duplex` at `e2aa5df1c`.
 
-- Updated: 2026-10-12, 01:05 UTC
+- Updated: 2026-10-12, 01:36 UTC
+- **Newest: one ARM64 gate and build of your combined pilot source, with one test failing.** See [ARM64 gate and build of your combined pilot source](#arm64-gate-and-build-of-your-combined-pilot-source).
 - **New: `lamp-a1-capture-order`.** Your review of `aa1558be3` found
   that a capture time which really goes backwards could be carried
   forward by a later clock gap and accepted. Your regression is in, as
@@ -420,6 +421,50 @@ Not run on `aa1558be3` or after it: the whole workspace. No ARM64 run
 after `aa1558be3`; you said you will run one combined ARM gate after
 integration. Not run at all: anything against the real service or on a
 lamp.
+
+## ARM64 gate and build of your combined pilot source
+
+At your request, one bounded job, 2026-10-12. Not a device, not the real
+service: cross-compiled on amd64, tests under `qemu-user`.
+
+- Source: `/private/tmp/lamp-pilot-combined-haj6os7l/source/lampOS`,
+  mounted read-only and not edited. Manifest SHA-256
+  `160777d723aa6cd5e2703c5317d16e0d8e427b1162917f481992924003ff09f8`, 463
+  files; exact set and digests before and after the job.
+- Job: `agent1-arm64-pilotgate40`, 01:29:13Z to 01:32:37Z, alone in the
+  VM, `--timeout 880`, `CARGO_BUILD_JOBS=2`, target volume reused.
+- Artifact directory, read-only and immutable:
+  `/private/tmp/lamp-a1-pilot-arm-20261012T0129Z-K2UwxH` (`README.md`,
+  `receipt.json`, `job.log`, `logs/`, `receipts/`, `bin/`).
+
+| Step | Result |
+|---|---|
+| `cargo fmt --all -- --check` | exit 0 |
+| strict Clippy `-p lamp-gemini -p lamp-live -p lamp-motor -p lamp-voice-eval --all-targets` | exit 0 |
+| release build of `lamp-live` and `lamp-voice-eval` | exit 0, exported at once |
+| `lamp-live` release tests, `provider_worker::tests::kept_start` | 11 passed, 0 failed, 0 ignored |
+| `continuation_or_discard` | 12 passed, 0 failed, 0 ignored |
+| **`coordinator::motor`** | **15 passed, 1 failed**, 0 ignored |
+| `startup_cues` | 6 passed, 0 failed, 0 ignored |
+| `service_cue_tests` | 3 passed, 0 failed, 0 ignored |
+| `lamp-motor --all-targets` | 169 passed, 0 failed, 0 ignored, in 12 result lines |
+
+**The failure, kept.**
+`coordinator::motor::tests::motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch`
+panicked at `crates/live/src/coordinator/motor/tests.rs:697:5`, left 0,
+right 1: the trace held no `motor_degraded` event where the test expects
+exactly one. Every assertion before it in that test passed. One run, not
+repeated; I have not looked for the cause and changed no source.
+
+| Binary | Bytes | SHA-256 |
+|---|---|---|
+| `bin/lamp-live` | 9,319,672 | `227749311a33c18555f3974fc3b0793ec2075dc4f771764315039a7f85e609de` |
+| `bin/lamp-voice-eval` | 4,321,368 | `f2fc44cac54d66b2cce07b549b618ab05b10e82dfaba52e5950191e41e826ae9` |
+
+Both are ELF 64-bit aarch64 PIE with interpreter
+`/lib/ld-linux-aarch64.so.1`. They were built and exported before the
+test steps. Whether to use them with that test failing is yours to
+decide.
 
 ## For you
 

@@ -51,17 +51,48 @@ func TestCloudPerceptionReturnsOnlyAfterHALApplied(t *testing.T) {
 	}
 }
 
-func TestCloudPerceptionFailedApplyRestartsHALSynchronously(t *testing.T) {
-	restarts := 0
+func TestCloudPerceptionRestartWaitsForSlowHALToConfirm(t *testing.T) {
+	restarted := false
+	confirmsAfterRestart := 0
 	s := cloudTestService(t,
-		func(context.Context, config.CloudPerception) error { return errors.New("HTTP 404") },
-		func(context.Context) error { restarts++; return nil })
+		func(ctx context.Context, cp config.CloudPerception) error {
+			if !restarted {
+				return errors.New("HTTP 404") // old HAL without the endpoint
+			}
+			confirmsAfterRestart++
+			if confirmsAfterRestart < 4 {
+				return errors.New("connection refused") // new HAL still booting
+			}
+			if !cp.Pose {
+				t.Errorf("confirmed %+v, want pose on", cp)
+			}
+			return nil
+		},
+		func(context.Context) error { restarted = true; return nil })
+	s.cloudApply.retryEvery = 5 * time.Millisecond
+	s.cloudApply.readyTimeout = time.Second
 
 	if _, err := s.UpdateCloudPerception(domain.CloudPerceptionSetData{Pose: ptr(true)}, false); err != nil {
-		t.Fatalf("restart fallback should succeed: %v", err)
+		t.Fatalf("restart fallback should succeed once HAL confirms: %v", err)
 	}
-	if restarts != 1 {
-		t.Fatalf("restarts = %d, want 1 before returning", restarts)
+	if confirmsAfterRestart != 4 {
+		t.Fatalf("returned after %d confirm attempts, want the 4th (first success)", confirmsAfterRestart)
+	}
+}
+
+func TestCloudPerceptionRestartWithoutReadyHALIsAnError(t *testing.T) {
+	s := cloudTestService(t,
+		func(context.Context, config.CloudPerception) error { return errors.New("connection refused") },
+		func(context.Context) error { return nil }) // systemctl succeeds, HAL never comes up
+	s.cloudApply.retryEvery = 5 * time.Millisecond
+	s.cloudApply.readyTimeout = 50 * time.Millisecond
+
+	start := time.Now()
+	if _, err := s.UpdateCloudPerception(domain.CloudPerceptionSetData{Pose: ptr(true)}, false); err == nil {
+		t.Fatal("reported success although HAL never confirmed after the restart")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("did not give up at the ready timeout")
 	}
 }
 

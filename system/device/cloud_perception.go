@@ -13,7 +13,12 @@ import (
 	"go.autonomous.ai/os/system/server/config"
 )
 
-const cloudPerceptionApplyTimeout = 30 * time.Second
+const (
+	cloudPerceptionApplyTimeout = 30 * time.Second
+	// After a fallback restart, HAL needs time to boot before it can confirm.
+	cloudPerceptionReadyTimeout = 90 * time.Second
+	cloudPerceptionRetryEvery   = time.Second
+)
 
 var (
 	// ErrCloudPerceptionEmpty rejects a request that names no perception.
@@ -27,6 +32,9 @@ var (
 type cloudPerceptionApply struct {
 	mu      sync.Mutex
 	pending bool
+	// Test overrides; zero means the defaults above.
+	readyTimeout time.Duration
+	retryEvery   time.Duration
 }
 
 // UpdateCloudPerception merges patch into the latest saved opt-ins and returns only
@@ -112,5 +120,31 @@ func (s *Service) applyCloudPerceptionAndWait(cp config.CloudPerception) error {
 	if rerr := s.restartHALAndWait(restartCtx, "cloud perception change"); rerr != nil {
 		return fmt.Errorf("apply cloud perception: %w; HAL restart: %w", err, rerr)
 	}
-	return nil
+	// `systemctl restart` returning only means the process was started. Success is
+	// reported only once the new HAL answers the apply call with the wanted state.
+	return s.confirmCloudPerceptionAfterRestart(apply, cp)
+}
+
+func (s *Service) confirmCloudPerceptionAfterRestart(apply func(context.Context, config.CloudPerception) error, cp config.CloudPerception) error {
+	readyTimeout, retryEvery := s.cloudApply.readyTimeout, s.cloudApply.retryEvery
+	if readyTimeout == 0 {
+		readyTimeout = cloudPerceptionReadyTimeout
+	}
+	if retryEvery == 0 {
+		retryEvery = cloudPerceptionRetryEvery
+	}
+	deadline := time.Now().Add(readyTimeout)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), cloudPerceptionApplyTimeout)
+		err := apply(ctx, cp)
+		cancel()
+		if err == nil {
+			slog.Info("hal cloud perception confirmed after restart", "component", "device")
+			return nil
+		}
+		if !time.Now().Add(retryEvery).Before(deadline) {
+			return fmt.Errorf("HAL restarted but did not confirm cloud perception within %s: %w", readyTimeout, err)
+		}
+		time.Sleep(retryEvery)
+	}
 }

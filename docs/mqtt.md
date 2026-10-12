@@ -615,7 +615,7 @@ on stays a local choice in the device's web **Settings > Privacy**
 Valid requests ack `starting`, then go through the same serialized path as
 `PUT /api/device/config`: the named keys are merged into the latest saved value under
 the shared lock (so two concurrent opt-outs cannot undo each other), HAL applies it
-live (or is restarted if that fails), and only then the device acks `success` or
+live (or, if that fails, is restarted and must answer the apply call again), and only then the device acks `success` or
 `failure` with the resulting four values in `data`. An empty payload,
 invalid JSON or any `true` value acks `failure` before mutation. `info` reports the
 saved state in `cloud_perception`.

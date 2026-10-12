@@ -597,8 +597,8 @@ Key không gửi giữ nguyên giá trị đã lưu.
 
 Request hợp lệ ack `starting`, rồi đi qua cùng đường tuần tự với
 `PUT /api/device/config`: các key được gửi gộp vào giá trị đã lưu mới nhất dưới khoá
-dùng chung (nên hai lệnh tắt đồng thời không ghi đè nhau), HAL áp dụng live (hoặc bị
-restart nếu apply lỗi), rồi device mới ack `success` hoặc `failure` kèm bốn giá trị kết
+dùng chung (nên hai lệnh tắt đồng thời không ghi đè nhau), HAL áp dụng live (hoặc, nếu apply lỗi,
+bị restart và phải trả lời lại lệnh apply), rồi device mới ack `success` hoặc `failure` kèm bốn giá trị kết
 quả trong `data`. Payload rỗng, JSON không hợp lệ hoặc có giá trị
 `true` đều ack `failure` trước khi thay đổi. `info` báo trạng thái đã lưu trong
 `cloud_perception`.

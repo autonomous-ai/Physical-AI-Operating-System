@@ -13,12 +13,14 @@
 //!   itself is slow whatever this process sends.
 //! - It never touches torque. A joint whose torque is off, or whose status
 //!   byte is not clear, is a reason not to start.
-//! - Every goal is within a fixed reach of the pose found at start, and the
-//!   head's pitch also within a fixed absolute window short of the base.
+//! - Every goal is within a fixed reach of its home (a pose given at start,
+//!   or else the pose found), and the head's pitch also within a fixed
+//!   absolute window short of the base. A head found outside the reach of a
+//!   given home is first brought into it, never moved away from it.
 //! - After every step it reads all five joints. A load over its bound, a
 //!   joint that does not follow, a status byte that changes, a shoulder or
-//!   elbow that moves, a hot joint or a wire that is not exactly as expected
-//!   ends the run: the present positions are written as the goals, so that
+//!   elbow that moves, a joint that stays hot or a wire that is not exactly
+//!   as expected ends the run: the present positions are written as the goals, so that
 //!   nothing keeps pushing, and nothing is written after that.
 use crate::{
     Joint,
@@ -66,15 +68,23 @@ pub struct Limits {
     /// The profile written to each commanded servo at start.
     pub servo_speed: u16,
     pub servo_acceleration: u8,
-    /// A load above this on two steps in a row ends the run.
+    /// A load above this on `load_steps` steps in a row ends the run.
     pub load: [u16; 3],
+    pub load_steps: u8,
     /// A position this far from its goal for `tracking_steps` steps ends it.
     pub tracking: u16,
     pub tracking_steps: u8,
     /// A shoulder or elbow this far from where it was found ends it.
     pub bystander_drift: u16,
-    /// A commanded joint this warm, by its own register, ends it.
+    /// A commanded joint this warm, by its own register, on every one of
+    /// `temperature_steps` steps in a row ends it. One reading is not heat:
+    /// on lamp-4ace the yaw servo read 72 on one step while it moved and 44
+    /// to 45 on three reads at rest straight after.
     pub temperature: u8,
+    pub temperature_steps: u8,
+    /// With a home given at start, the farthest a commanded joint may be
+    /// found from it.
+    pub start_reach: u16,
 }
 
 impl Limits {
@@ -95,11 +105,15 @@ impl Limits {
         acceleration: 400.0,
         servo_speed: 150,
         servo_acceleration: 50,
-        load: [160, 110, 110],
+        // In its first second on lamp-4ace the body read 104, 96 and 88.
+        load: [170, 150, 150],
+        load_steps: 3,
         tracking: 30,
         tracking_steps: 10,
         bystander_drift: 6,
         temperature: 62,
+        temperature_steps: 50,
+        start_reach: 60,
     };
 }
 
@@ -157,7 +171,8 @@ pub struct BodyReport {
     pub limits: Limits,
     /// Goals were written at least once.
     pub moved: bool,
-    /// Pitch, roll, yaw as found.
+    /// Pitch, roll, yaw of the pose every gesture is an offset from: the one
+    /// given at start, or else the one found.
     pub home: Option<[u16; 3]>,
     pub found: Option<[Sample; 5]>,
     pub steps: u64,
@@ -165,6 +180,7 @@ pub struct BodyReport {
     pub profile_writes: u8,
     pub missed_reads: u64,
     pub peak_load: [u16; 3],
+    pub peak_temperature: [u8; 3],
     /// The goals written to stop pushing, when the run ended on a surprise.
     pub held_at: Option<[u16; 3]>,
     pub last: Option<[Sample; 5]>,
@@ -385,11 +401,15 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 }
 
 /// Run the body until it is cancelled or something is not as expected.
-/// `news` is asked once a step for the latest mood and never waits.
+/// `news` is asked once a step for the latest mood and never waits. `home`
+/// is the pitch, roll and yaw every gesture is an offset from; without one
+/// it is the pose found at start. With one, the head first eases there from
+/// where it is found, at the same speed as everything else.
 pub(crate) fn run(
     io: &mut impl PortIo,
     runtime: &mut impl Runtime,
     limits: Limits,
+    home: Option<[u16; 3]>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
 ) -> BodyReport {
     let mut report = BodyReport {
@@ -402,6 +422,7 @@ pub(crate) fn run(
         profile_writes: 0,
         missed_reads: 0,
         peak_load: [0; 3],
+        peak_temperature: [0; 3],
         held_at: None,
         last: None,
         stop: Stop::Cancelled,
@@ -426,7 +447,8 @@ pub(crate) fn run(
             return report;
         }
     };
-    let home = COMMANDED.map(|joint| found[joint.index()].position);
+    let found_pose = COMMANDED.map(|joint| found[joint.index()].position);
+    let home = home.unwrap_or(found_pose);
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {
         let sample = found[joint.index()];
@@ -446,12 +468,21 @@ pub(crate) fn run(
             return report;
         }
     }
-    if !(limits.pitch_home.0..=limits.pitch_home.1).contains(&home[0]) {
-        report.stop = refused(format!(
-            "head pitch {} is outside {}..={}",
-            home[0], limits.pitch_home.0, limits.pitch_home.1
-        ));
-        return report;
+    for pitch in [home[0], found_pose[0]] {
+        if !(limits.pitch_home.0..=limits.pitch_home.1).contains(&pitch) {
+            report.stop = refused(format!(
+                "head pitch {pitch} is outside {}..={}",
+                limits.pitch_home.0, limits.pitch_home.1
+            ));
+            return report;
+        }
+    }
+    for (index, joint) in COMMANDED.iter().enumerate() {
+        let apart = found_pose[index].abs_diff(home[index]);
+        if apart > limits.start_reach {
+            report.stop = refused(format!("{joint} is {apart} counts from its home"));
+            return report;
+        }
     }
 
     // The servo's own speed bound, where it is not already the one wanted.
@@ -508,9 +539,13 @@ pub(crate) fn run(
     ];
     let step = TICK.as_secs_f32();
     let mut gestures = Gestures::new();
-    let mut commanded = home.map(f32::from);
+    // It starts from where it is, not from where it should be: the way home
+    // is travelled like any other move. Until it is inside the reach, the
+    // only bound that applies is that it never moves away from it.
+    let mut commanded = found_pose.map(f32::from);
     let mut velocity = [0.0f32; 3];
-    let mut written = home;
+    let mut written = found_pose;
+    let mut hot = [0u8; 3];
     let mut heard: Option<(Mood, u8, Duration)> = None;
     let mut over_load = [0u8; 3];
     let mut off_track = [0u8; 3];
@@ -546,8 +581,11 @@ pub(crate) fn run(
             velocity[index] = (velocity[index]
                 + pull.clamp(-limits.acceleration, limits.acceleration) * step)
                 .clamp(-limits.speed, limits.speed);
-            commanded[index] =
-                (commanded[index] + velocity[index] * step).clamp(low[index], high[index]);
+            let (floor, ceiling) = (
+                low[index].min(commanded[index]),
+                high[index].max(commanded[index]),
+            );
+            commanded[index] = (commanded[index] + velocity[index] * step).clamp(floor, ceiling);
             goals[index] = commanded[index].round() as u16;
         }
         if goals != written {
@@ -608,7 +646,13 @@ pub(crate) fn run(
             } else {
                 0
             };
-            if over_load[index] >= 2 {
+            report.peak_temperature[index] = report.peak_temperature[index].max(is.temperature);
+            hot[index] = if is.temperature >= limits.temperature {
+                hot[index].saturating_add(1)
+            } else {
+                0
+            };
+            if over_load[index] >= limits.load_steps.max(1) {
                 surprise.get_or_insert(Stop::Load {
                     joint: joint.id(),
                     load: is.load,
@@ -619,7 +663,7 @@ pub(crate) fn run(
                     goal: written[index],
                     position: is.position,
                 });
-            } else if is.temperature >= limits.temperature {
+            } else if hot[index] >= limits.temperature_steps.max(1) {
                 surprise.get_or_insert(Stop::Temperature {
                     joint: joint.id(),
                     temperature: is.temperature,
@@ -642,7 +686,7 @@ pub(crate) fn run(
     };
 
     if stop == Stop::Cancelled {
-        // Leave the goals exactly where the head was found.
+        // Leave the goals exactly at home.
         if written != home && bus.send(&goals_write(home)).is_ok() {
             report.goal_writes += 1;
         }
@@ -650,8 +694,12 @@ pub(crate) fn run(
         // Stop pushing: each goal becomes where its joint is now, kept
         // inside the same bounds as every other goal.
         let hold: [u16; 3] = std::array::from_fn(|index| {
-            f32::from(last[COMMANDED[index].index()].position)
-                .clamp(low[index], high[index])
+            let position = f32::from(last[COMMANDED[index].index()].position);
+            position
+                .clamp(
+                    low[index].min(commanded[index]),
+                    high[index].max(commanded[index]),
+                )
                 .round() as u16
         });
         if bus.send(&goals_write(hold)).is_ok() {

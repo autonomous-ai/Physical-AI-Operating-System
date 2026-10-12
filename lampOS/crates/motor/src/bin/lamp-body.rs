@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\nwhere they are found, for the mood it is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -12,17 +12,31 @@ struct Arguments {
     unit_id: UnitId,
     lock_directory: PathBuf,
     mood_socket: PathBuf,
+    home: Option<[u16; 3]>,
+}
+
+/// Three encoder positions, each a whole number of counts on one turn.
+fn home_of(value: &str) -> Option<[u16; 3]> {
+    let mut parts = value.split(',').map(|part| {
+        part.parse::<u16>()
+            .ok()
+            .filter(|count| *count <= 4_095 && !part.starts_with('+'))
+    });
+    let home = [parts.next()??, parts.next()??, parts.next()??];
+    parts.next().is_none().then_some(home)
 }
 
 fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, &'static str> {
     let mut args = args.into_iter();
     let (mut device, mut unit_id, mut lock_directory, mut mood_socket) = (None, None, None, None);
+    let mut home = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
                 || unit_id.is_some()
                 || lock_directory.is_some()
                 || mood_socket.is_some()
+                || home.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -38,6 +52,14 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             Some("--mood-socket") if mood_socket.is_none() => {
                 mood_socket = Some(PathBuf::from(value));
             }
+            Some("--home") if home.is_none() => {
+                home = Some(
+                    value
+                        .to_str()
+                        .and_then(home_of)
+                        .ok_or("--home is PITCH,ROLL,YAW in encoder counts")?,
+                );
+            }
             Some("--unit-id") if unit_id.is_none() => {
                 unit_id = Some(
                     UnitId::new(value.to_str().ok_or("unit ID must be UTF-8")?)
@@ -52,6 +74,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         unit_id: unit_id.ok_or("--unit-id is required")?,
         lock_directory: lock_directory.ok_or("--lock-directory is required")?,
         mood_socket: mood_socket.ok_or("--mood-socket is required")?,
+        home,
     };
     for path in [&result.device, &result.lock_directory, &result.mood_socket] {
         if !path.is_absolute()
@@ -104,7 +127,7 @@ fn main() -> std::process::ExitCode {
 
 #[cfg(not(target_os = "linux"))]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
-    let _ = (arguments.unit_id, arguments.mood_socket);
+    let _ = (arguments.unit_id, arguments.mood_socket, arguments.home);
     Err("the body requires Linux; no device was opened".into())
 }
 
@@ -159,7 +182,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         latest
     };
-    let result = run_body(&config, Limits::FOLDED, news, || {
+    let result = run_body(&config, Limits::FOLDED, arguments.home, news, || {
         if !cancelled {
             cancelled = signal_fd
                 .read_signal()
@@ -207,6 +230,22 @@ mod tests {
             value.mood_socket,
             PathBuf::from("/run/lampos-body/mood.sock")
         );
+        assert_eq!(value.home, None);
+        let with = |home: &'static str| parse(args(&[&FULL[..], &["--home", home]].concat()));
+        assert_eq!(
+            with("1930,2043,2015").unwrap().unwrap().home,
+            Some([1_930, 2_043, 2_015])
+        );
+        for refused in [
+            "1930,2043",
+            "1930,2043,2015,1",
+            "1930,2043,4096",
+            "1930,,2015",
+            "+1930,2043,2015",
+            "a,b,c",
+        ] {
+            assert!(with(refused).is_err(), "{refused}");
+        }
         assert!(parse(args(&["--help"])).unwrap().is_none());
         for missing in 0..4 {
             let mut some = FULL.to_vec();

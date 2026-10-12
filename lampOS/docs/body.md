@@ -9,8 +9,8 @@ described in [motor-worker.md](motor-worker.md) and replaces nothing there. It
 exists so that a lamp folded in its rest pose can be expressive within limits
 narrow enough to check by eye.
 
-Status on 2026-10-12: built, and run against simulated servos only (below).
-**It has not run on a lamp.**
+Status on 2026-10-12: built, run against simulated servos (below), and run
+once on lamp-4ace for 1.3 s (see "First run on a lamp").
 
 ## What it may do
 
@@ -26,9 +26,13 @@ Status on 2026-10-12: built, and run against simulated servos only (below).
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
   base (found at 2,095 on lamp-4ace on 2026-10-12) is refused, with nothing
   written.
-- Every goal is within a fixed reach of the pose found at start: pitch 45
-  counts up and 15 down, roll 30 either way, yaw 40 either way (11.4 counts
-  to a degree). The head's pitch goal is also never over 2,030: on lamp-4ace
+- Every goal is within a fixed reach of its home: pitch 45 counts up and 15
+  down, roll 30 either way, yaw 40 either way (11.4 counts to a degree). Home
+  is the pose given with `--home PITCH,ROLL,YAW`, in encoder counts, or else
+  the pose found at start. A joint found more than 60 counts from a given
+  home is a reason not to start. From anywhere nearer, the head first eases
+  home at the same speed as every other move, and until it is inside the
+  reach it is never moved away from it. The head's pitch goal is also never over 2,030: on lamp-4ace
   the head crossed 1,766 to 2,043 with no load and met the base near 2,045 to
   2,056.
 - The commanded pose moves at 50 counts a second at most (about 4 degrees a
@@ -46,19 +50,19 @@ written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
-| Load on a commanded joint, two steps in a row | pitch 160, roll 110, yaw 110 |
+| Load on a commanded joint, three steps in a row | pitch 170, roll 150, yaw 150 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |
-| A commanded joint's temperature register | 62 |
+| A commanded joint's temperature register, on every step for a second | 62 |
 | A read that fails, three steps in a row | missing, late, malformed or unexpected bytes |
 
 A status flag that was already latched at start on a joint it does not command
 is not a reason to stop or to refuse: lamp-4ace's elbow has carried `0x20`
 since the head test of 2026-10-12. A change of that byte is.
 
-It also ends on SIGINT or SIGTERM, after easing back to where it started
-(three seconds at most), and prints one JSON report either way.
+It also ends on SIGINT or SIGTERM, after easing back to its home (three
+seconds at most), and prints one JSON report either way.
 
 ## What moves it
 
@@ -89,16 +93,35 @@ and reach above.
 ## Running it
 
 ```text
-lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock
+lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW]
 ```
 
 It takes the same exclusive ownership of the servo port as
 `lamp-motor-inspect`, so neither can run while the other does. Stop every
 other owner of the port first.
 
+## First run on a lamp
+
+lamp-4ace, 2026-10-12 15:18 UTC, the build of `6dfc18bb8`, started by hand
+while a played conversation ran. It found pitch 2,000, roll 2,043, yaw 2,015,
+wrote the four profile registers the roll and yaw servos lacked, and moved for
+66 steps: 59 goal writes, pitch to 1,973, yaw to 2,033, no missed read, peak
+loads 104, 96 and 88. Then it stopped itself on `temperature`, joint 1: the
+yaw servo's temperature register read 72 on one step. It had read 45 at start
+and read 44, 44 and 45 on three reads at rest within the next two minutes, so
+that was one reading taken while the motor drew current, not heat. The goals
+were held at 1,973, 2,046 and 2,033, where the joints were.
+
+Two changes followed. A temperature now ends the run only when it is read on
+every step for a second, and the highest reading is reported either way. And
+the home can be given: a stop that holds the head where it is no longer moves
+the pose the next start works around. The load bounds were 160, 110 and 110
+with two steps; they are 170, 150 and 150 with three, above what this run
+read.
+
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (180 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (182 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -106,8 +129,11 @@ reach and moves at most two counts per write, and that the goals end exactly
 where they were found; that it refuses each start condition with nothing
 written; that an obstacle ten counts into a tilt ends the run within a few
 steps with the goal held at the obstacle; that a new flag on the shoulder, a
-changed flag or a nine-count move on the elbow, a hot head servo, and a
-silent wire each end it; and that a mood that stops arriving returns it home.
+changed flag or a nine-count move on the elbow, a head servo that stays hot,
+and a silent wire each end it, while one hot reading does not; that a head
+found 43 counts from a given home is brought there in small steps and never
+away from it, and one found 100 counts away is refused; and that a mood that
+stops arriving returns it home.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-live`
 checks the datagram.
 

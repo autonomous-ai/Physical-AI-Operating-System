@@ -242,6 +242,7 @@ pub struct BodyResult {
 pub fn run_body(
     config: &InspectionConfig,
     limits: crate::body::Limits,
+    home: Option<[u16; 3]>,
     news: impl FnMut() -> Option<(crate::gesture::Mood, u8)>,
     mut cancelled: impl FnMut() -> io::Result<bool>,
 ) -> BodyResult {
@@ -259,7 +260,7 @@ pub fn run_body(
             let mut io = LinuxPort {
                 fd: owner.fd.as_ref().expect("prepared tty"),
             };
-            body = Some(crate::body::run(&mut io, &mut runtime, limits, news));
+            body = Some(crate::body::run(&mut io, &mut runtime, limits, home, news));
         }
         Err(error) => port.preparation_error = Some(error),
     }

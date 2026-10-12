@@ -14,6 +14,7 @@
 #![cfg(target_os = "linux")]
 use lamp_audio::{
     CAPTURE_SAMPLES, RENDER_SAMPLES,
+    duplex::Hearing,
     testing::{CaptureControl, ScriptedCapture},
 };
 use lamp_interaction::{BootId, Controller, MonoTime, Permission, TurnOwner};
@@ -505,8 +506,13 @@ fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_he
     // microphone held it, and is handed on four blocks later.
     assert!(read_after_push < 10_000, "{read_after_push}");
     assert!((35_000..60_000).contains(&waited), "{waited}");
-    // The canceller had the render before the sound: it takes it out.
-    assert!(before - after >= 10.0, "{before} {after}");
+    // The canceller had the render before the sound and accounts for it.
+    // The level alone does not show that: on this noise the canceller's
+    // suppression lowers the output as far with no hold.
+    assert!(
+        explained.is_some_and(|percent| percent > Hearing::EVALUATED.explained_percent),
+        "{explained:?}"
+    );
 }
 
 #[test]
@@ -529,7 +535,7 @@ fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
 }
 
 #[test]
-fn another_microphone_is_handed_on_at_once() {
+fn another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for() {
     warm_up();
     let name = Microphone::Mic2.device();
     assert_eq!(hold::blocks_for(name, ReferenceClock::Capture), 0);
@@ -552,4 +558,10 @@ fn another_microphone_is_handed_on_at_once() {
     );
     assert!(read_after_push < 10_000, "{read_after_push}");
     assert!(waited < 10_000, "{waited}");
+    // The same sound two blocks ahead of its render: the canceller has
+    // nothing that accounts for it.
+    assert!(
+        explained.is_none_or(|percent| percent <= Hearing::EVALUATED.explained_percent),
+        "{explained:?}"
+    );
 }

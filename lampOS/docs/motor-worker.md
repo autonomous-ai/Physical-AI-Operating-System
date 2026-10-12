@@ -9,8 +9,10 @@ torque, speed, acceleration, mode or EEPROM writes occur automatically.
 This implementation reuses the [audited motor contract](motor-runtime-contract.md)
 and the V1 position-only register-42 broadcast, exact profile readback, calibration,
 load mask and inhibition rules recorded there. It replaces neither the protocol
-nor the range/velocity rules. Cancellation clears local work and discards host
-output; it **cannot recall an accepted servo goal or prove physical stopping**.
+nor the range/velocity rules. Cancellation inhibits ordinary commands immediately,
+then runs the separately provisioned [measured stop](motor-clearance-stop.md).
+Accepted goals cannot be recalled. Fresh stationary readback is reported
+separately from inhibition, host writes and resource cleanup.
 There is no automatic torque-off, reopen, retry or recovery gesture.
 
 ## Executable and provisioning
@@ -41,6 +43,9 @@ following a final symlink or blocking on a FIFO. Freeze it before spawning.
 - Nonzero qualification-record identity, original monotonic validity interval,
   and five qualified normalized ranges, velocity/acceleration bounds, exact raw
   profiles, load/speed caps, tracking error and endpoint tolerance.
+- `qualification.clearance`: 1–16 calibrated combined-pose cells, with no default;
+  `qualification.measured_stop`: explicit deadline and source-age bounds. These
+  are covered by the qualification record. See [clearance and stop](motor-clearance-stop.md).
 - Existing `Timing` limits, expected placement-source worker boot, and a finite
   worker lifetime (at most 630 seconds).
 
@@ -69,7 +74,9 @@ tick. Exhausting the control slice defers bus work. At most one original command
 can be held; it is never restamped or used to renew authority.
 
 Only fresh control snapshots grant authority. Both physical microphone and camera
-permissions must remain allowed, including during open/inspection. Old snapshots
+permissions must remain allowed for ordinary work, including open/inspection.
+After revocation, only the provisioned measured stopping sequence may continue.
+Old snapshots
 cannot override newer state; conflicting revisions and newer expired revocations
 fault. Missing initial authority expires after 250 ms. Later idle/active authority
 expires with the actual snapshot, independently of the progress heartbeat. A
@@ -103,8 +110,10 @@ Receipts retain original worker/turn owner/local motion sequence:
   receipt. The supervisor requires spawn ≤ original stop ≤ publication ≤ receive;
   it does not rewrite the original measurement to make receipt times monotonic.
   The report preserves accepted/partial byte counts, original stop reason and
-  any output-discard failure. `Stopped` separately records serial restoration
-  and close; cleanup errors remain errors. Neither asserts physical halt.
+  whether output discard was attempted and any failure. `Stopped` separately
+  records serial restoration/close and `physical_stop` observations; failed or
+  incomplete stopping cannot produce clean completion. Neither a write nor a
+  close is a physical-halt measurement.
 
 Feedback backpressure is a fault, not a reason to keep moving without receipts.
 Local inhibition precedes receipt attempts; failed feedback cannot revive work.

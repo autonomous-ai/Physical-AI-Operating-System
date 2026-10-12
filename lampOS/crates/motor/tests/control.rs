@@ -16,6 +16,8 @@ use std::{
     io,
     rc::Rc,
 };
+#[path = "control/measured_stop.rs"]
+mod measured_stop;
 
 fn t(us: u64) -> MonoTime {
     MonoTime::from_micros(us)
@@ -61,7 +63,20 @@ fn envelope() -> JointEnvelope {
     .unwrap()
 }
 fn qualification() -> QualifiedEnvelope {
-    QualifiedEnvelope::new([7; 32], calibration(), [envelope(); 5], t(0), t(1_000_000)).unwrap()
+    protected(
+        QualifiedEnvelope::new([7; 32], calibration(), [envelope(); 5], t(0), t(1_000_000))
+            .unwrap(),
+    )
+}
+fn protected(q: QualifiedEnvelope) -> QualifiedEnvelope {
+    use lamp_motor::{
+        clearance::{ClearancePolicy, SafeCell},
+        control::StopHoldPolicy,
+    };
+    q.with_motion_protection(
+        ClearancePolicy::new(&[SafeCell::new([-100.0; 5], [100.0; 5]).unwrap()]).unwrap(),
+        StopHoldPolicy::new(100_000, 20_000).unwrap(),
+    )
 }
 
 #[derive(Clone, Default)]
@@ -379,7 +394,7 @@ impl Rig {
     }
     fn ready(&mut self) {
         self.motor
-            .qualify(
+            .qualify(protected(
                 QualifiedEnvelope::new(
                     [7; 32],
                     self.calibration.clone(),
@@ -388,7 +403,7 @@ impl Rig {
                     t(1_000_000),
                 )
                 .unwrap(),
-            )
+            ))
             .unwrap();
         self.inspect();
     }
@@ -1415,7 +1430,7 @@ fn selected_profile_rig(prepared: bool) -> Rig {
     let mut limits = [inert; 5];
     limits[4] = envelope();
     r.motor
-        .qualify(
+        .qualify(protected(
             QualifiedEnvelope::selected(
                 [7; 32],
                 r.calibration.clone(),
@@ -1426,7 +1441,7 @@ fn selected_profile_rig(prepared: bool) -> Rig {
                 Some([observed; 5]),
             )
             .unwrap(),
-        )
+        ))
         .unwrap();
     let mut profiles = [[1, 0, 0xd0, 7, 0, 0, 0, 0]; 5];
     if prepared {

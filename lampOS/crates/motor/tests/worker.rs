@@ -130,9 +130,17 @@ fn stale_cancel_and_old_snapshot_preserve_successor_but_matching_cancel_is_termi
         .send(&Control::Cancel { motion: m }, r.clock.now())
         .unwrap();
     let count = r.wire.borrow().goals.len();
-    assert!(r.step().unwrap());
+    assert!(
+        !r.step().unwrap(),
+        "command inhibition precedes measured stop"
+    );
     assert_eq!(r.wire.borrow().goals.len(), count);
     r.finish().unwrap();
+    assert_eq!(
+        r.wire.borrow().goals.len(),
+        count + 1,
+        "one fresh measured hold"
+    );
     assert_eq!(r.wire.borrow().discards, 1);
 }
 #[test]
@@ -179,6 +187,10 @@ fn partial_bus_reads_and_writes_still_use_exact_core_protocol() {
     let c = r.segment();
     r.send(&c);
     r.first_goal();
+    // Stop has its own tighter bound; the slow fragmented motion transaction
+    // is drained, then fresh reads and the measured hold use normal delivery.
+    r.wire.borrow_mut().read_max = 128;
+    r.wire.borrow_mut().write_max = 23;
     r.parent
         .control
         .send(&Control::Stop {}, r.clock.now())
@@ -440,9 +452,18 @@ fn input_end_revokes_an_inflight_motion_without_waiting_for_the_next_segment() {
     let count = r.wire.borrow().goals.len();
     r.controller.input_ended(r.clock.now(), m.owner).unwrap();
     r.authority();
-    assert!(r.step().is_err());
+    assert!(!r.step().unwrap());
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e, Event::Inhibited { .. }))
+    );
     assert!(r.finish().is_err());
-    assert_eq!(r.wire.borrow().goals.len(), count);
+    assert_eq!(
+        r.wire.borrow().goals.len(),
+        count + 1,
+        "one measured hold, no continuing trajectory"
+    );
     assert_eq!(r.wire.borrow().discards, 1);
 }
 

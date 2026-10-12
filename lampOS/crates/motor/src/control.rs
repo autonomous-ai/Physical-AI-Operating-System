@@ -9,6 +9,7 @@
 use crate::{
     JOINT_COUNT, Joint, STS3215_MODEL_NUMBER,
     calibration::{CalibrationError, UnitCalibration, UnitId},
+    clearance::{ClearanceError, ClearancePolicy},
     command::{JointSelection, POSITION_FRAME_BYTES, SelectedPositionFrame},
     protocol::{ReadOnlyRequest, ReadWindow, ReplyError, ReplyTracker, StatusParser},
     readback::{HomingModeRegisters, PositionLimitRegisters, RawTelemetry},
@@ -20,7 +21,10 @@ use lamp_interaction::{
 };
 use std::{fmt, io};
 
+mod physical_stop;
 mod profile;
+use physical_stop::Holding;
+pub use physical_stop::{HoldFailure, HoldOutcome, HoldReport, StopHoldPolicy};
 use profile::Preparing;
 pub use profile::ProfileProgress;
 
@@ -92,6 +96,8 @@ pub struct QualifiedEnvelope {
     expires_at: MonoTime,
     allowed: JointSelection,
     prepare_from: Option<[RawProfile; JOINT_COUNT]>,
+    clearance: Option<ClearancePolicy>,
+    stop_hold: Option<StopHoldPolicy>,
 }
 
 impl QualifiedEnvelope {
@@ -155,7 +161,20 @@ impl QualifiedEnvelope {
             expires_at,
             allowed,
             prepare_from,
+            clearance: None,
+            stop_hold: None,
         })
+    }
+    /// Bind explicit clearance cells and measured-stop behavior to this exact
+    /// unit/calibration/qualification. Neither input certifies physical safety.
+    pub fn with_motion_protection(
+        mut self,
+        clearance: ClearancePolicy,
+        stop_hold: StopHoldPolicy,
+    ) -> Self {
+        self.clearance = Some(clearance);
+        self.stop_hold = Some(stop_hold);
+        self
     }
     fn check_selection(&self, selection: JointSelection) -> Result<(), Error> {
         if selection.mask() & !self.allowed.mask() != 0 {
@@ -220,6 +239,7 @@ pub enum Error {
     Busy,
     Stopped,
     Calibration(CalibrationError),
+    Clearance(ClearanceError),
     Trajectory(TrajectoryError),
     Authority(lamp_interaction::Error),
     ClockRegression,
@@ -274,6 +294,7 @@ pub struct StopReport {
     pub position_request: bool,
     pub partial_request_bytes: usize,
     pub discard_error: Option<Error>,
+    pub discard_attempted: bool,
     pub stopped_at: MonoTime,
 }
 
@@ -485,6 +506,8 @@ pub struct MotorControl<P: BusPort, C: Clock> {
     profile_progress: Option<ProfileProgress>,
     sequence: u64,
     terminal: Option<StopReport>,
+    accepted_selection: Option<JointSelection>,
+    holding: Option<Holding>,
 }
 
 impl<P: BusPort, C: Clock> MotorControl<P, C> {
@@ -523,6 +546,8 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             profile_progress: None,
             sequence: 0,
             terminal: None,
+            accepted_selection: None,
+            holding: None,
         })
     }
 
@@ -535,6 +560,31 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
 
     pub fn stop_report(&self) -> Option<StopReport> {
         self.terminal
+    }
+
+    pub fn physical_stop_report(&self) -> Option<HoldReport> {
+        self.holding.as_ref().map(|hold| hold.report)
+    }
+
+    pub fn physical_stop_pending(&self) -> bool {
+        self.holding.as_ref().is_some_and(Holding::pending)
+    }
+
+    /// Only the prequalified measured-pose stop may write after inhibition.
+    /// Ordinary tick/admission stays terminal. No interaction target is accepted.
+    pub fn physical_stop_tick(&mut self) {
+        if self.terminal.is_some()
+            && let Some(hold) = &mut self.holding
+        {
+            hold.step(&mut self.port, &self.clock, self.timing);
+        }
+    }
+    /// Resource teardown may abandon the bounded attempt, but never certifies
+    /// physical rest or writes a new goal. Pending output is flushed once.
+    pub fn abandon_physical_stop(&mut self) {
+        if let Some(hold) = &mut self.holding {
+            hold.abandon(&mut self.port, &self.clock, self.timing);
+        }
     }
 
     pub fn install(&mut self, snapshot: Snapshot) -> Result<(), Error> {
@@ -758,6 +808,19 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         }
         let segment = Segment::new(start, quantized_target, duration_us, &qualification.limits)
             .map_err(Error::Trajectory)?;
+        if qualification.stop_hold.is_none() {
+            return Err(Error::Qualification);
+        }
+        qualification
+            .clearance
+            .as_ref()
+            .ok_or(Error::Qualification)?
+            .check_swept(
+                start,
+                quantized_target,
+                qualification.limits.map(|l| l.tracking_error),
+            )
+            .map_err(Error::Clearance)?;
         let finish = add(add(now, duration_us)?, self.timing.transaction_us)?;
         if finish >= permit.expires_at()
             || finish >= placement.valid_until
@@ -789,6 +852,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             last_write_at: now,
             endpoint_counts,
         });
+        self.accepted_selection = None;
         Ok(id)
     }
 
@@ -925,6 +989,15 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 Ok(_) => return Err(Error::InvalidIoCount),
                 Err(error) if transient(&error) => {}
                 Err(error) => return Err(io_error(Operation::Write, error)),
+            }
+            // Account for a complete host-accepted goal before the post-write
+            // deadline/authority checks. It may need a stop even if those fail.
+            if self
+                .transaction
+                .as_ref()
+                .is_some_and(|tx| tx.counts.is_some() && tx.written == tx.length)
+            {
+                self.accepted_selection = self.active.map(|active| active.selection);
             }
             self.profile_accepted_bytes();
             let after = self.after_io(now)?;
@@ -1071,6 +1144,9 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         let stage = tx.stage.expect("read stage");
         self.transaction = None;
         let now = self.now()?;
+        if stage == ReadStage::Telemetry && self.active.is_some() {
+            self.check_pose_clearance()?;
+        }
         if self.inspect_next.is_some() {
             self.inspect_next = stage.next();
             if self.inspect_next.is_none() {
@@ -1084,6 +1160,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             let settled = active.final_written && self.is_settled(now, active.last_position)?;
             if settled {
                 self.active = None;
+                self.accepted_selection = None;
                 return Ok(Tick::Reached {
                     motion: active.id,
                     at: now,
@@ -1151,6 +1228,25 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 )?;
             }
         }
+        Ok(())
+    }
+
+    fn check_pose_clearance(&self) -> Result<(), Error> {
+        let q = self.qualification.as_ref().ok_or(Error::Qualification)?;
+        let mut pose = [NormalizedPosition::new(0.0).expect("zero"); JOINT_COUNT];
+        for joint in Joint::ALL {
+            pose[joint.index()] = self.position(
+                joint,
+                self.samples[joint.index()]
+                    .ok_or(Error::NotInspected)?
+                    .value,
+            )?;
+        }
+        q.clearance
+            .as_ref()
+            .ok_or(Error::Qualification)?
+            .check_pose(pose, [0.0; JOINT_COUNT])
+            .map_err(Error::Clearance)?;
         Ok(())
     }
 
@@ -1274,6 +1370,26 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .ok_or(Error::Qualification)?
             .check_selection(active.selection)?;
         let positions = self.positions(counts)?;
+        let qualification = self.qualification.as_ref().ok_or(Error::Qualification)?;
+        let mut measured = positions;
+        for joint in Joint::ALL {
+            measured[joint.index()] = self.position(
+                joint,
+                self.samples[joint.index()]
+                    .ok_or(Error::NotInspected)?
+                    .value,
+            )?;
+        }
+        qualification
+            .clearance
+            .as_ref()
+            .ok_or(Error::Qualification)?
+            .check_swept(
+                measured,
+                positions,
+                qualification.limits.map(|l| l.tracking_error),
+            )
+            .map_err(Error::Clearance)?;
         let seconds = age(now, active.last_write_at)? as f64 / 1_000_000.0;
         if seconds <= 0.0 {
             return Err(Error::ClockRegression);
@@ -1362,10 +1478,24 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 .is_some_and(|tx| tx.counts.is_some()),
             partial_request_bytes: partial,
             discard_error: None,
+            discard_attempted: false,
             stopped_at: now,
         };
         // Latch first, before any cleanup that can itself fail or block.
         self.terminal = Some(report);
+        // Freeze the exact policy before retiring all ordinary authority. A
+        // partial position packet or uncertain bus is refused by Holding::begin.
+        let old_transaction = self.transaction.take();
+        let qualification = self.qualification.take();
+        self.holding = qualification.filter(|q| q.stop_hold.is_some()).map(|q| {
+            Holding::begin(
+                q,
+                self.accepted_selection.take(),
+                old_transaction,
+                reason,
+                now,
+            )
+        });
         self.active = None;
         self.preparing = None;
         self.transaction = None;
@@ -1375,6 +1505,11 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         self.samples.fill(None);
         self.qualification = None;
         self.guard.invalidate();
+        if self.physical_stop_pending() {
+            // Preserve any in-flight READ framing. The stop actor drains only
+            // that read before fresh profile/pose reads; no old goal is resumed.
+            return report;
+        }
         let before = self.clock.now();
         let result = self
             .port
@@ -1388,6 +1523,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         });
         let report = StopReport {
             discard_error,
+            discard_attempted: true,
             ..report
         };
         self.terminal = Some(report);
@@ -1399,6 +1535,7 @@ impl<P: BusPort, C: Clock> Drop for MotorControl<P, C> {
     fn drop(&mut self) {
         // Best effort only. Call shutdown explicitly to retain cleanup evidence.
         self.shutdown();
+        self.abandon_physical_stop();
     }
 }
 

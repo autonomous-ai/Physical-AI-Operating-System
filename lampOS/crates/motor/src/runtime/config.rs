@@ -2,7 +2,8 @@
 use crate::{
     Joint,
     calibration::{CalibrationRecord, RegisterBindingRecord, UnitCalibration, UnitId},
-    control::{QualifiedEnvelope, Timing},
+    clearance::{ClearancePolicy, SafeCell},
+    control::{QualifiedEnvelope, StopHoldPolicy, Timing},
     trajectory::{JointEnvelope, RawProfile},
     units::NormalizedPosition,
 };
@@ -75,8 +76,24 @@ pub struct Qualification {
     pub valid_from_us: u64,
     pub expires_at_us: u64,
     pub joints: [Envelope; 5],
+    /// Calibrated combined-pose cells, tied to this qualification record.
+    /// There is deliberately no default envelope for real hardware.
+    pub clearance: Vec<ClearanceCell>,
+    pub measured_stop: MeasuredStop,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_profiles: Option<SelectedProfiles>,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClearanceCell {
+    pub minimum: [f64; 5],
+    pub maximum: [f64; 5],
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeasuredStop {
+    pub deadline_us: u64,
+    pub sample_age_us: u64,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -194,6 +211,18 @@ impl Config {
                     .map(|v| v.try_into().expect("five profiles"))
             })
             .transpose()?;
+        if !(1..=crate::clearance::MAX_SAFE_CELLS).contains(&self.qualification.clearance.len()) {
+            return Err(invalid("one to sixteen qualified clearance cells required"));
+        }
+        let cells = self
+            .qualification
+            .clearance
+            .iter()
+            .map(|c| SafeCell::new(c.minimum, c.maximum).map_err(invalid))
+            .collect::<io::Result<Vec<_>>>()?;
+        let clearance = ClearancePolicy::new(&cells).map_err(invalid)?;
+        let stop = self.qualification.measured_stop;
+        let stop = StopHoldPolicy::new(stop.deadline_us, stop.sample_age_us).map_err(invalid)?;
         let qualification = QualifiedEnvelope::selected(
             self.qualification.record,
             calibration.clone(),
@@ -203,7 +232,8 @@ impl Config {
             selection,
             initial,
         )
-        .map_err(invalid)?;
+        .map_err(invalid)?
+        .with_motion_protection(clearance, stop);
         let b = self.timing;
         let timing = Timing::new(
             b.transaction_us,

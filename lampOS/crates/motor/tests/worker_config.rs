@@ -28,6 +28,14 @@ fn config() -> Config {
             homing_offset: 0,
         }),
         qualification: Qualification {
+            clearance: vec![ClearanceCell {
+                minimum: [-100.0; 5],
+                maximum: [100.0; 5],
+            }],
+            measured_stop: MeasuredStop {
+                deadline_us: 100_000,
+                sample_age_us: 20_000,
+            },
             selected_profiles: None,
             record: [7; 32],
             valid_from_us: 1,

@@ -313,6 +313,7 @@ impl Supervisor {
             && self.directory.peers_cleaned
             && self.stopped
             && self.inhibited
+            && self.release_discard_verified
             && self.failure.is_none()
             && self.killed_at.is_none()
     }
@@ -462,7 +463,8 @@ impl Supervisor {
                     return Err(invalid("privacy release has no matching sent denial"));
                 }
                 self.privacy_revision = report.privacy_revision;
-                self.release_discard_verified = report.discard_error.is_none();
+                self.release_discard_verified =
+                    report.discard_attempted && report.discard_error.is_none();
                 if !matches!(report.reason.as_str(), "Shutdown" | "Cancelled") {
                     self.failure
                         .get_or_insert_with(|| format!("motor inhibited: {}", report.reason));
@@ -475,11 +477,34 @@ impl Supervisor {
                 self.inhibited_received = Some(n);
                 self.stop_at.get_or_insert(n);
             }
-            Event::Stopped { cleanup, .. } => {
+            Event::Stopped {
+                cleanup,
+                physical_stop,
+                ..
+            } => {
                 if !self.inhibited || self.stopped {
                     return Err(invalid("motor close without unique inhibition"));
                 }
                 self.stopped = true;
+                if let Some(hold) = physical_stop {
+                    hold.validate(lamp_interaction::MonoTime::from_micros(at))
+                        .map_err(invalid)?;
+                    self.release_discard_verified |= hold.discard_attempted && !hold.discard_failed;
+                    if matches!(
+                        hold.outcome,
+                        crate::control::HoldOutcome::Failed | crate::control::HoldOutcome::Pending
+                    ) || hold.discard_failed
+                    {
+                        self.release_discard_verified = false;
+                        self.failure.get_or_insert_with(|| {
+                            "motor measured stop incomplete or failed".into()
+                        });
+                    }
+                }
+                if !self.release_discard_verified {
+                    self.failure
+                        .get_or_insert_with(|| "motor stop/discard evidence incomplete".into());
+                }
                 self.release_io_verified = cleanup.serial_closed == Some(true)
                     && cleanup.settings_restored == Some(true)
                     && cleanup.error.is_none();

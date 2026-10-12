@@ -452,6 +452,7 @@ fn identity_and_cleanup_receipts_fail_closed() {
         s.event(
             &Event::Stopped {
                 at_us: at,
+                physical_stop: None,
                 cleanup: wire::Cleanup::default()
             },
             at
@@ -545,6 +546,7 @@ fn serial_cleanup_failure_and_stalled_teardown_never_become_clean_exit() {
                     accepted_request_bytes: 0,
                     partial_request_bytes: 0,
                     position_request: false,
+                    discard_attempted: true,
                     discard_error: None,
                 },
             },
@@ -556,6 +558,7 @@ fn serial_cleanup_failure_and_stalled_teardown_never_become_clean_exit() {
             s.event(
                 &Event::Stopped {
                     at_us: n,
+                    physical_stop: None,
                     cleanup: wire::Cleanup {
                         serial_closed: Some(false),
                         settings_restored: Some(false),
@@ -710,6 +713,7 @@ fn inhibition_measurement_must_be_between_spawn_and_publication() {
                 accepted_request_bytes: 0,
                 partial_request_bytes: 0,
                 position_request: false,
+                discard_attempted: true,
                 discard_error: None,
             },
         };

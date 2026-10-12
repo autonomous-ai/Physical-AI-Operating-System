@@ -123,6 +123,7 @@ pub struct StopEvidence {
     pub accepted_request_bytes: usize,
     pub partial_request_bytes: usize,
     pub position_request: bool,
+    pub discard_attempted: bool,
     pub discard_error: Option<String>,
 }
 impl From<StopReport> for StopEvidence {
@@ -135,6 +136,7 @@ impl From<StopReport> for StopEvidence {
             accepted_request_bytes: r.accepted_request_bytes,
             partial_request_bytes: r.partial_request_bytes,
             position_request: r.position_request,
+            discard_attempted: r.discard_attempted,
             discard_error: r.discard_error.map(bounded),
         }
     }
@@ -207,6 +209,8 @@ pub enum Event {
     Stopped {
         at_us: u64,
         cleanup: Cleanup,
+        /// Separate from command inhibition and serial-resource cleanup.
+        physical_stop: Option<crate::control::HoldReport>,
     },
     Fault {
         at_us: u64,

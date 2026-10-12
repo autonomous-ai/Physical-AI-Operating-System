@@ -70,6 +70,7 @@ impl std::error::Error for OpenError {}
 #[derive(Debug)]
 pub struct ShutdownReport {
     pub local: control::StopReport,
+    pub physical_stop: Option<control::HoldReport>,
     pub serial: CleanupReport,
 }
 
@@ -198,7 +199,8 @@ impl<C: Clock> LinuxMotor<C> {
     pub fn cancel(&mut self, motion: MotionId) -> Result<control::StopReport, control::Error> {
         self.control.cancel(motion)
     }
-    /// Inhibit local work and discard output before separately closing the tty.
+    /// Inhibit ordinary work. Poll the separately provisioned measured stop
+    /// before shutdown; this call alone is not a physical-stop observation.
     pub fn inhibit(&mut self) -> control::StopReport {
         self.control.shutdown()
     }
@@ -209,14 +211,32 @@ impl<C: Clock> LinuxMotor<C> {
     pub fn stop_report(&self) -> Option<control::StopReport> {
         self.control.stop_report()
     }
+    pub fn physical_stop_pending(&self) -> bool {
+        self.control.physical_stop_pending()
+    }
+    pub fn physical_stop_tick(&mut self) {
+        self.control.physical_stop_tick();
+    }
+    pub fn physical_stop_report(&self) -> Option<control::HoldReport> {
+        self.control.physical_stop_report()
+    }
+    pub fn abandon_physical_stop(&mut self) {
+        self.control.abandon_physical_stop();
+    }
 
-    /// Clear logical work and discard unsent bytes first, then restore and close
-    /// the owned tty. No park, torque, retry, or new goal is part of cleanup.
+    /// Abandon any unfinished stop attempt, flush once, then restore and close.
+    /// The report retains that failure; direct cleanup never waits or moves.
     pub fn shutdown(mut self) -> ShutdownReport {
         let local = self.control.shutdown();
+        self.control.abandon_physical_stop();
+        let physical_stop = self.control.physical_stop_report();
         let port = self.control.port_mut();
         let serial = port.owner.finish(port.origin, false);
-        ShutdownReport { local, serial }
+        ShutdownReport {
+            local,
+            physical_stop,
+            serial,
+        }
     }
 }
 

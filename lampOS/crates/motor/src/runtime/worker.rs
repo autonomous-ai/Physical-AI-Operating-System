@@ -59,6 +59,14 @@ pub trait Backend {
     fn cancel(&mut self, id: MotionId) -> Result<control::StopReport, control::Error>;
     fn inhibit(&mut self, normal: bool) -> control::StopReport;
     fn stopped(&self) -> Option<control::StopReport>;
+    fn physical_stop_pending(&self) -> bool {
+        false
+    }
+    fn physical_stop_tick(&mut self) {}
+    fn physical_stop_report(&self) -> Option<control::HoldReport> {
+        None
+    }
+    fn abandon_physical_stop(&mut self) {}
     fn finish(self) -> wire::Cleanup;
 }
 impl<P: BusPort, C: Clock> Backend for MotorControl<P, C> {
@@ -114,6 +122,18 @@ impl<P: BusPort, C: Clock> Backend for MotorControl<P, C> {
     }
     fn stopped(&self) -> Option<control::StopReport> {
         self.stop_report()
+    }
+    fn physical_stop_pending(&self) -> bool {
+        self.physical_stop_pending()
+    }
+    fn physical_stop_tick(&mut self) {
+        self.physical_stop_tick();
+    }
+    fn physical_stop_report(&self) -> Option<control::HoldReport> {
+        self.physical_stop_report()
+    }
+    fn abandon_physical_stop(&mut self) {
+        self.abandon_physical_stop();
     }
     fn finish(mut self) -> wire::Cleanup {
         self.shutdown();
@@ -556,43 +576,73 @@ impl<B: Backend, C: Clock> Worker<B, C> {
         }
         Ok(false)
     }
-    /// An error is latched and locally inhibited before return. Caller must
-    /// still call finish exactly once to report and release the owned resource.
+    /// Inhibition is published immediately. The separate provisioned stop attempt
+    /// keeps polling even after loss of authority or the parent connection.
+    fn publish_inhibition(&mut self, link: &mut impl Link) {
+        if self.inhibited_sent {
+            return;
+        }
+        let Some(report) = self.backend.stopped() else {
+            return;
+        };
+        let mut evidence = wire::StopEvidence::from(report);
+        evidence.privacy_revision = self.privacy_revision;
+        if let Err(e) = self.publish(
+            link,
+            Event::Inhibited {
+                at_us: self.clock.now().as_micros(),
+                motion: self.active.map(Into::into),
+                report: evidence,
+            },
+        ) {
+            self.failed.get_or_insert_with(|| wire::bounded(e));
+        }
+        self.inhibited_sent = true;
+    }
+    fn stopping(&mut self, link: &mut impl Link) -> bool {
+        self.pending = None;
+        self.publish_inhibition(link);
+        self.backend.physical_stop_tick();
+        !self.backend.physical_stop_pending()
+    }
+    /// An error is latched and locally inhibited. A pending stop is polled to
+    /// its bound before returning; finish reports the original error afterward.
     pub fn poll(&mut self, link: &mut impl Link) -> io::Result<bool> {
         if self.backend.stopped().is_some() {
-            return Ok(true);
+            return Ok(self.stopping(link));
         }
         match self.inner(link) {
-            Ok(done) => Ok(done),
+            Ok(true) => Ok(self.stopping(link)),
+            Ok(false) => Ok(false),
             Err(e) => {
                 self.pending = None;
                 self.backend.inhibit(false);
                 self.failed.get_or_insert_with(|| wire::bounded(&e));
-                Err(e)
+                if self.stopping(link) {
+                    Err(e)
+                } else {
+                    Ok(false)
+                }
             }
         }
     }
     pub fn finish(mut self, link: &mut impl Link) -> io::Result<()> {
         self.pending = None;
         let report = self.backend.inhibit(self.normal_stop);
-        let mut evidence = wire::StopEvidence::from(report);
-        evidence.privacy_revision = self.privacy_revision;
+        self.publish_inhibition(link);
         let mut failure = self.failed.take();
         if report.discard_error.is_some() {
             failure.get_or_insert_with(|| "motor discard failed".into());
         }
-        if !self.inhibited_sent {
-            if let Err(e) = self.publish(
-                link,
-                Event::Inhibited {
-                    at_us: self.clock.now().as_micros(),
-                    motion: self.active.map(Into::into),
-                    report: evidence,
-                },
-            ) {
-                failure.get_or_insert_with(|| wire::bounded(e));
-            }
-            self.inhibited_sent = true;
+        self.backend.abandon_physical_stop();
+        let physical_stop = self.backend.physical_stop_report();
+        if physical_stop.is_some_and(|r| {
+            matches!(
+                r.outcome,
+                control::HoldOutcome::Failed | control::HoldOutcome::Pending
+            ) || r.discard_failed
+        }) {
+            failure.get_or_insert_with(|| "motor physical stop incomplete or failed".into());
         }
         let clock = self.clock;
         let cleanup = self.backend.finish();
@@ -606,6 +656,7 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             &Event::Stopped {
                 at_us: clock.now().as_micros(),
                 cleanup,
+                physical_stop,
             },
             clock.now(),
         ) {

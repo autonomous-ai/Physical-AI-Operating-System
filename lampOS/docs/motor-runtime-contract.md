@@ -9,6 +9,11 @@ owner and exposes only the guarded control API. The opt-in
 There is still no automatic gesture or device-qualified motion configuration.
 No serial device was opened for this work.
 
+The later [V1-based clearance/stop batch](motor-clearance-stop.md) requires
+combined-pose provisioning for motion and adds a bounded measured-position hold
+after inhibition. The original wire, calibration and per-joint limits below
+remain in force; inhibition and stationary readback are distinct receipts.
+
 The path is an explicitly accepted movement segment → original interaction
 permit and placement checks → bounded serialized writes → checked five-joint
 readback. Cancellation takes priority before the next tick. The local dispatch
@@ -61,8 +66,10 @@ There is no default device, calibration, envelope, or motion.
 | `inspect()` | Observes 20 ms quiet, then serially reads all five models, position limits, homing/mode, raw motion profiles, and telemetry. No probe fallback or retry. |
 | `start_segment(permit, placement, target, duration_us)` | Requires completed current inspection, current original `Motion` permit, matching original camera grant, a fresh placement frame identity/time bound to the qualification record, and five stationary valid readbacks. A second segment is rejected as busy. |
 | `tick()` | Performs bounded work and reports progress, inspection completion, host position acceptance, or checked endpoint readback. There are no sleeps, background threads, or hidden queue. |
-| `cancel(motion_id)` | Cancels only the matching active occurrence; an old occurrence cannot cancel a successor. Local state is cleared before one host-output discard attempt. |
-| `control_lost()` / `shutdown()` | Terminal local inhibition. Call `shutdown` explicitly to retain cleanup errors. Drop attempts the same cleanup once as a fallback. |
+| `cancel(motion_id)` | Cancels only the matching active occurrence; an old occurrence cannot cancel a successor. Inhibits ordinary commands before the provisioned measured-stop attempt. |
+| `control_lost()` / `shutdown()` | Terminal ordinary-motion inhibition; these calls alone do not establish physical rest. |
+| `physical_stop_tick()` / `physical_stop_report()` | Poll the bounded stop sequence after inhibition; report accepted bytes and fresh stationary readback separately. |
+| `abandon_physical_stop()` | End an unfinished attempt without new motion, flush once and retain failure. Used by early cleanup and Drop. |
 
 The opt-in worker installs priority authority/control before each tick, owns
 the serial endpoint exclusively, and supplies fresh OS monotonic time in the same

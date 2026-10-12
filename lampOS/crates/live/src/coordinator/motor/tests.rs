@@ -49,6 +49,14 @@ fn config() -> Config {
             homing_offset: 0,
         }),
         qualification: Qualification {
+            clearance: vec![ClearanceCell {
+                minimum: [-100.0; 5],
+                maximum: [100.0; 5],
+            }],
+            measured_stop: MeasuredStop {
+                deadline_us: 100_000,
+                sample_age_us: 20_000,
+            },
             selected_profiles: None,
             record: [7; 32],
             valid_from_us: monotonic_us().saturating_sub(1_000),
@@ -228,6 +236,18 @@ impl Backend for InertBackend {
     }
     fn stopped(&self) -> Option<control::StopReport> {
         self.core.stop_report()
+    }
+    fn physical_stop_pending(&self) -> bool {
+        self.core.physical_stop_pending()
+    }
+    fn physical_stop_tick(&mut self) {
+        self.core.physical_stop_tick();
+    }
+    fn physical_stop_report(&self) -> Option<control::HoldReport> {
+        self.core.physical_stop_report()
+    }
+    fn abandon_physical_stop(&mut self) {
+        self.core.abandon_physical_stop();
     }
     fn finish(mut self) -> wire::Cleanup {
         let report = self.core.shutdown();

@@ -139,10 +139,17 @@ fn privacy_during_outbound_never_requests_return_and_discards_pending_serial_wor
             .is_err()
     );
     r.authority();
-    assert!(r.step().is_err());
+    assert!(
+        !r.step().unwrap(),
+        "inhibited while measured stop is pending"
+    );
     assert!(r.finish().is_err());
     assert_eq!(q.phase(), Phase::Inhibited);
-    assert_eq!(r.wire.borrow().goals.len(), count);
+    assert_eq!(
+        r.wire.borrow().goals.len(),
+        count + 1,
+        "one measured hold, never the planned return"
+    );
     assert_eq!(r.wire.borrow().discards, 1);
     assert!(q.segment(r.clock.now(), e).is_err());
 }

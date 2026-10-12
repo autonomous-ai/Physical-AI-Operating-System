@@ -69,7 +69,16 @@ pub fn qualification() -> QualifiedEnvelope {
         0.2,
     )
     .unwrap();
-    QualifiedEnvelope::new([7; 32], calibration(), [e; 5], t(0), t(10_000_000)).unwrap()
+    use lamp_motor::{
+        clearance::{ClearancePolicy, SafeCell},
+        control::StopHoldPolicy,
+    };
+    QualifiedEnvelope::new([7; 32], calibration(), [e; 5], t(0), t(10_000_000))
+        .unwrap()
+        .with_motion_protection(
+            ClearancePolicy::new(&[SafeCell::new([-100.0; 5], [100.0; 5]).unwrap()]).unwrap(),
+            StopHoldPolicy::new(100_000, 20_000).unwrap(),
+        )
 }
 pub struct Wire {
     pub rx: VecDeque<u8>,
@@ -286,6 +295,15 @@ impl Rig {
         }
     }
     pub fn finish(&mut self) -> io::Result<()> {
+        let _ = self
+            .parent
+            .control
+            .send(&Control::Stop {}, self.clock.now());
+        for _ in 0..60 {
+            if !matches!(self.step(), Ok(false)) {
+                break;
+            }
+        }
         let r = self.worker.take().unwrap().finish(&mut self.child);
         self.drain();
         r

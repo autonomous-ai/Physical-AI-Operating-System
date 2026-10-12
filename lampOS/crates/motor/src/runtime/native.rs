@@ -74,6 +74,18 @@ impl<C: Clock> Backend for LinuxMotor<C> {
     fn stopped(&self) -> Option<control::StopReport> {
         self.stop_report()
     }
+    fn physical_stop_pending(&self) -> bool {
+        self.physical_stop_pending()
+    }
+    fn physical_stop_tick(&mut self) {
+        self.physical_stop_tick();
+    }
+    fn physical_stop_report(&self) -> Option<control::HoldReport> {
+        self.physical_stop_report()
+    }
+    fn abandon_physical_stop(&mut self) {
+        self.abandon_physical_stop();
+    }
     fn finish(self) -> wire::Cleanup {
         let r = self.shutdown();
         wire::Cleanup {

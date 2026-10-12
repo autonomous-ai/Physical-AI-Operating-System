@@ -37,6 +37,9 @@ struct Lamp {
     registers: Vec<(u8, u8, Vec<u8>)>,
     /// One servo cannot pass this position and presses on it instead.
     wall: Option<(usize, f32)>,
+    /// One servo stops this many counts short of any goal, as a real one
+    /// does against its own friction.
+    short: Option<(usize, f32)>,
     silent_from: Option<Duration>,
     event: Option<(Duration, usize, Event)>,
     /// A temperature to put back once it has been read once.
@@ -87,6 +90,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             goals: Vec::new(),
             registers: Vec::new(),
             wall: None,
+            short: None,
             silent_from: None,
             event: None,
             blip: None,
@@ -130,7 +134,17 @@ impl Lamp {
             } else {
                 f32::from(servo.speed)
             };
-            let wanted = f32::from(servo.goal);
+            let mut wanted = f32::from(servo.goal);
+            if let Some((sticky, by)) = self.short
+                && sticky == index
+            {
+                let gap = wanted - servo.position;
+                wanted = if gap.abs() <= by {
+                    servo.position
+                } else {
+                    wanted - by * gap.signum()
+                };
+            }
             let moved = (wanted - servo.position).clamp(-fastest * step, fastest * step);
             servo.position += moved;
             if let Some((walled, at)) = self.wall
@@ -691,6 +705,39 @@ fn every_step_can_be_watched_with_the_mood_it_acted_on() {
         seen.iter()
             .any(|glimpse| glimpse.positions[2].abs_diff(2_015) >= 20)
     );
+}
+
+#[test]
+fn at_rest_a_joint_that_stopped_short_is_no_longer_pushed() {
+    // The yaw servo comes to rest eight counts from wherever it is sent.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.short = Some((YAW, 8.0));
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    // From two and a half seconds into the rest that follows speaking until
+    // it is asked to stop, the yaw goal is the yaw position: nothing pushes.
+    let rested: Vec<&Glimpse> = seen
+        .iter()
+        .filter(|glimpse| glimpse.step > 9_500 / 20 && glimpse.step < 11_900 / 20)
+        .collect();
+    assert!(!rested.is_empty());
+    assert!(
+        rested
+            .iter()
+            .all(|glimpse| glimpse.goals[2] == glimpse.positions[2])
+    );
+    // And it still turned away while it thought, a real move from there.
+    assert!(seen.iter().any(|glimpse| glimpse.mood == Mood::Thinking
+        && glimpse.goals[2].abs_diff(2_015) >= 25));
 }
 
 #[test]

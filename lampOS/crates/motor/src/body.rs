@@ -44,6 +44,12 @@ const LEAVE: Duration = Duration::from_secs(3);
 /// How stiffly the commanded pose follows the wanted one, in radians a
 /// second: it arrives in well under a second without overshoot.
 const FOLLOW: f32 = 7.0;
+/// At rest for this many steps, a joint within `REST_SLACK` counts of its
+/// goal is given its own position as the goal. A servo stops a few counts
+/// short of a goal and goes on pushing at it: on lamp-4ace the yaw servo sat
+/// 8 counts short at a load of 44 for as long as it rested.
+const REST_STEPS: u16 = 50;
+const REST_SLACK: u16 = 24;
 
 /// The joints this body commands, in the order of every array of three here.
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
@@ -615,6 +621,8 @@ pub(crate) fn run(
     let mut off_track = [0u8; 3];
     let mut misses = 0u8;
     let mut leaving: Option<Duration> = None;
+    let mut resting_steps = 0u16;
+    let mut relaxed = false;
     let started = bus.runtime.now();
 
     let stop = loop {
@@ -638,6 +646,16 @@ pub(crate) fn run(
         let Pose { pitch, roll, yaw } =
             gestures.target(mood, level, now.as_micros().try_into().unwrap_or(u64::MAX));
         let mut goals = written;
+        // Rest that has lasted: nothing is asked of the joints until the
+        // mood changes, so the goals stay where the joints came to rest.
+        resting_steps = if mood == Mood::Resting && leaving.is_none() {
+            resting_steps.saturating_add(1)
+        } else {
+            0
+        };
+        if resting_steps == 0 {
+            relaxed = false;
+        }
         // Each axis of a pose is a share of its reach.
         let offsets = [
             pitch
@@ -650,6 +668,9 @@ pub(crate) fn run(
             yaw * limits.yaw,
         ];
         for (index, offset) in offsets.into_iter().enumerate() {
+            if relaxed {
+                break;
+            }
             let wanted = (f32::from(home[index]) + offset).clamp(low[index], high[index]);
             let pull =
                 FOLLOW * FOLLOW * (wanted - commanded[index]) - 2.0 * FOLLOW * velocity[index];
@@ -687,6 +708,25 @@ pub(crate) fn run(
             }
         };
         report.last = Some(samples);
+        if resting_steps >= REST_STEPS && !relaxed {
+            let positions = COMMANDED.map(|joint| samples[joint.index()].position);
+            let near = (0..3).all(|index| {
+                positions[index].abs_diff(written[index]) <= REST_SLACK
+                    && velocity[index].abs() < 3.0
+            });
+            if near {
+                relaxed = true;
+                if positions != written {
+                    if let Err(detail) = bus.send(&goals_write(positions)) {
+                        break Stop::Bus { detail };
+                    }
+                    written = positions;
+                    report.goal_writes += 1;
+                }
+                commanded = positions.map(f32::from);
+                velocity = [0.0; 3];
+            }
+        }
         watch(&Glimpse {
             step: report.steps,
             mood,

@@ -134,6 +134,32 @@ the pose the next start works around. The load bounds were 160, 110 and 110
 with two steps; they are 170, 150 and 150 with three, above what this run
 read.
 
+## Second and later runs on the lamp
+
+Same evening, with `--home 1950,2043,2015`.
+
+- With `--reach 100,15,50,120 --speed 120 --servo-speed 300
+  --servo-acceleration 60` it stopped itself 14 s after start on `load`,
+  joint 4: asked to tilt, the roll servo stayed at 2,047 (four counts from
+  where it was found) while its load rose to 156. In its first run it had also
+  stayed within three counts, at a load of 96. In this folded pose the head
+  does not roll that way. Roll is switched off there since (`--reach
+  100,15,1,120`); which way it is blocked, and by what, has not been looked
+  at.
+- With roll off, across four played exchanges (two lines it ignored, two it
+  answered) the body's own log shows: listening, pitch 1,950 to 1,911 in
+  about a second; thinking, pitch to 1,878 and yaw from 2,023 to 2,108 one
+  time and to 1,920 the next; speaking, yaw back and pitch moving between
+  1,919 and 1,947 with the voice; then home. No stop, no missed read, loads at
+  or under 84, and a commanded joint never more than 18 counts behind its goal
+  while moving. The yaw servo comes to rest 8 to 15 counts short of its goal
+  and holds there at a load of 44 to 72; roll rests 4 counts off at 28.
+- Photographs from the office iMac, about a metre away, show the head turned
+  during thinking and facing the camera during listening and speaking.
+
+Since then a joint that has rested for a second within 24 counts of its goal
+is given its own position as the goal, so that nothing pushes at rest.
+
 ## Verification without a lamp
 
 Host tests, `cargo test -p lamp-motor` (182 passed, 0 failed, on macOS):

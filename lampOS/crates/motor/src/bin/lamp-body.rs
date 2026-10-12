@@ -259,21 +259,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             .unwrap_or(folded.servo_acceleration),
     })?;
     // One line to the journal on each change of mood, and twice a second
-    // while a goal is away from where the joint is: what it did, afterwards.
-    let mut said: Option<(lamp_motor::gesture::Mood, u64)> = None;
+    // while the goals are changing: what it did, afterwards.
+    let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3])> = None;
     let watch = |glimpse: &lamp_motor::body::Glimpse| {
-        let moving = glimpse
-            .goals
-            .iter()
-            .zip(glimpse.positions)
-            .any(|(goal, position)| goal.abs_diff(position) > 3);
         let due = match said {
             None => true,
-            Some((mood, _)) if mood != glimpse.mood => true,
-            Some((_, step)) => moving && glimpse.step - step >= 25,
+            Some((mood, _, _)) if mood != glimpse.mood => true,
+            Some((_, step, goals)) => goals != glimpse.goals && glimpse.step - step >= 25,
         };
         if due {
-            said = Some((glimpse.mood, glimpse.step));
+            said = Some((glimpse.mood, glimpse.step, glimpse.goals));
             eprintln!(
                 "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?}",
                 glimpse.step, glimpse.mood, glimpse.goals, glimpse.positions, glimpse.loads

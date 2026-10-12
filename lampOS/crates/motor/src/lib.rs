@@ -21,6 +21,7 @@ pub mod inspection;
 pub mod linux;
 
 pub mod calibration;
+pub mod clearance;
 pub mod command;
 pub mod control;
 pub mod protocol;

@@ -1,0 +1,25 @@
+[package]
+name = "lamp-endpoint-eval"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Offline endpoint evaluation: the production detector and VAD from lamp-live,
+# with the model in process (virtual time) or the real worker (real time).
+# A development tool; nothing in the interaction core depends on it.
+[[bin]]
+name = "lamp-endpoint-eval"
+path = "src/main.rs"
+
+[dependencies]
+lamp-live = { path = "../live" }
+lamp-endpoint = { path = "../endpoint" }
+lamp-endpoint-ipc = { path = "../endpoint-ipc" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hound.workspace = true
+
+[lints]
+workspace = true

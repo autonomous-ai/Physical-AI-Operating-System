@@ -832,6 +832,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-endpoint-eval"
+version = "0.1.0"
+dependencies = [
+ "hound",
+ "lamp-endpoint",
+ "lamp-endpoint-ipc",
+ "lamp-live",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "lamp-endpoint-ipc"
 version = "0.1.0"
 dependencies = [

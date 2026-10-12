@@ -3,6 +3,8 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+from hal.board.config_fields import known_fields
 from typing import Dict, Optional, Union
 
 _FIELDS = {"enabled", "load", "hold_s", "retry_s", "contact", "torque_limit"}
@@ -116,8 +118,9 @@ def load_servo_overload_config(device_dir: str, board_id: str) -> Optional[Servo
             raise ValueError("expected an object containing a 'boards' map")
         configs = {}
         for board, entry in data["boards"].items():
-            if not isinstance(entry, dict) or set(entry) - _FIELDS:
+            if not isinstance(entry, dict):
                 raise ValueError(f"{board}: invalid servo overload fields")
+            entry = known_fields(entry, _FIELDS, f"{path} {board}")
             enabled = entry.get("enabled", True)
             if type(enabled) is not bool:
                 raise ValueError(f"{board}: enabled must be a boolean")
@@ -129,15 +132,13 @@ def load_servo_overload_config(device_dir: str, board_id: str) -> Optional[Servo
                 raise ValueError(f"{board}: missing {sorted(missing)}")
             contact = entry.get("contact")
             if contact is not None:
-                if (
-                    not isinstance(contact, dict)
-                    or not _CONTACT_FIELDS <= set(contact)
-                    or set(contact) - _CONTACT_FIELDS - _CONTACT_OPTIONAL
-                ):
+                if not isinstance(contact, dict) or not _CONTACT_FIELDS <= set(contact):
                     raise ValueError(
                         f"{board}: contact needs {sorted(_CONTACT_FIELDS)}"
                         f" and may add {sorted(_CONTACT_OPTIONAL)}"
                     )
+                contact = known_fields(
+                    contact, _CONTACT_FIELDS | _CONTACT_OPTIONAL, f"{path} {board} contact")
                 contact = ContactStopConfig(
                     contact["load"], contact["hold_s"], contact["pause_s"],
                     contact.get("profile_margin"), contact.get("lag_margin"),

@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass, fields
 from pathlib import Path
 
+from hal.board.config_fields import known_fields
+
 from hal.board.sen55 import SEN55Timing, validate_header_pins
 
 
@@ -47,8 +49,9 @@ def load_sen63c_config(device_dir: str, board_id: str) -> SEN63CConfig | None:
         configs = {}
         allowed = {"enabled", "bus", "sda_pin", "scl_pin", "automatic_self_calibration"} | {f.name for f in fields(SEN63CTiming)}
         for board, entry in data["boards"].items():
-            if not isinstance(entry, dict) or set(entry) - allowed:
+            if not isinstance(entry, dict):
                 raise ValueError(f"{board}: invalid SEN63C configuration fields")
+            entry = known_fields(entry, allowed, f"{path} {board}")
             enabled = entry.get("enabled", True)
             if type(enabled) is not bool:
                 raise ValueError(f"{board}: enabled must be a boolean")

@@ -5,6 +5,8 @@ import json
 import math
 from pathlib import Path
 
+from hal.board.config_fields import known_fields
+
 
 @dataclass(frozen=True)
 class PrivacyButtonConfig:
@@ -38,9 +40,9 @@ def load_privacy_button_config(device_dir: str, board_id: str,
         configs = {}
         allowed = {field.name for field in fields(PrivacyButtonConfig)} | {"enabled"}
         for board, entry in data["boards"].items():
-            if not isinstance(entry, dict) or set(entry) - allowed:
+            if not isinstance(entry, dict):
                 raise ValueError(f"{board}: invalid mic switch fields")
-            values = dict(entry)
+            values = known_fields(entry, allowed, f"{path} {board}")
             enabled = values.pop("enabled", True)
             if type(enabled) is not bool:
                 raise ValueError(f"{board}: enabled must be boolean")

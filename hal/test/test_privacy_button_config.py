@@ -50,7 +50,7 @@ def test_device_override_and_explicit_disable(tmp_path):
     {"chip": 0, "line": 97, "watchdog_s": 0},
     {"chip": 0, "line": 97, "watchdog_s": float("inf")},
     {"chip": 0, "line": 97, "watchdog_s": True},
-    {"enabled": "false"}, {"chip": 0, "line": 97, "unknown": 1},
+    {"enabled": "false"},
 ])
 def test_invalid_declarations_do_not_silently_fall_back(tmp_path, entry):
     (tmp_path / "privacy_button.json").write_text(json.dumps({"boards": {"orangepi_sun60": entry}}))

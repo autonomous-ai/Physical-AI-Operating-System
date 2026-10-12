@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+
+from hal.board.config_fields import known_fields
 from typing import Optional
 
 from hal.board.board import PROFILES, TouchConfig
@@ -29,8 +31,9 @@ def load_touch_config(device_dir: str, board_id: str) -> Optional[TouchConfig]:
             raise ValueError("expected an object containing a 'boards' map")
         configs = {}
         for board, entry in data["boards"].items():
-            if not isinstance(entry, dict) or set(entry) - {"enabled", "chip", "lines", "axis", "detect"}:
+            if not isinstance(entry, dict):
                 raise ValueError(f"{board}: invalid TTP223 fields")
+            entry = known_fields(entry, {"enabled", "chip", "lines", "axis", "detect"}, f"{path} {board}")
             enabled = entry.get("enabled", True)
             if type(enabled) is not bool:
                 raise ValueError(f"{board}: enabled must be a boolean")

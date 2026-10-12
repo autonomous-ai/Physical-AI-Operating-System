@@ -128,7 +128,7 @@ def test_enabled_defaults_and_explicit_options(tmp_path):
     {"automatic_self_calibration": 1}, {"automatic_self_calibration": "false"},
     {"poll_interval_s": None}, {"poll_interval_s": 0}, {"poll_interval_s": True},
     {"poll_interval_s": float("nan")}, {"retry_interval_s": float("inf")},
-    {"stale_after_s": 1}, {"no_data_timeout_s": 1}, {"unknown": 1},
+    {"stale_after_s": 1}, {"no_data_timeout_s": 1},
 ])
 def test_invalid_config_rejected(tmp_path, change):
     with pytest.raises(ValueError, match="Invalid SEN63C wiring"):

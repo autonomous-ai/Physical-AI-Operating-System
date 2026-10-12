@@ -1,7 +1,7 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 03:54 UTC
+- Updated: 2026-10-12 04:07 UTC
 - Branch: `lamp-v2-chat`
 - Latest native evidence: `b3186e7e…73f4` ordinary conversation completed six replies; the seventh requested answer was cancelled by an unplanned input, eighth stimulus withheld. Estimated response delay 2.624 s median (1.2 s endpoint wait plus 1.424 s to ALSA; acoustic timing unscored). Valid 180 s room recording saved. See [the current results](../docs/verification/ordinary-b318-20261012/README.md).
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
@@ -17,13 +17,15 @@ and the serve runner rejected its first startup cue before playing a question.
 Administrative restoration verified; no completed conversation is claimed.
 The 10:15 office-time attended pilot target was missed. A2 is fixing runner
 startup. Root has now run the ordinary-conversation controller against the latest
-runtime: six replies completed, one failed and one was withheld. A finite duplex
-recording with raw microphone and render diagnostics follows. Full V2 remains
+runtime: six replies completed, one failed and one was withheld. The [finite duplex diagnostic](../docs/verification/duplex-native-20261012/README.md)
+now has complete raw microphone/render and 100 s room audio: the intended coffee
+interruption was not admitted; the later input remains unattributed. Two answers
+reported playback gaps. A1 is analyzing the recorded signals. Full V2 remains
 unfinished.
 
 The owner enabled Harness Agent Messages on 12 October. Main verified
 `harness send` lists both A1 on office and A2 on M2, and queued focused messages
-to both. A1's response is visible through `harness show`. Use this built-in route
+to both. Replies and delivery state are visible through `harness send --json`. Use this built-in route
 instead of injecting text into another agent's tmux composer; Git keeps code
 checkpoints and durable evidence.
 

@@ -1,0 +1,590 @@
+{
+  "schema": 1,
+  "cohort": "loudspeaker_synthetic_diagnostic",
+  "runtime_sha256": "b3186e7e40d838898d8575ba63732037e2082cb3463ca30adb24447550e673f4",
+  "source_manifest_sha256": "049a86c27ae4595af7d52821f8b024586f1ec6bcc773c1de699431edc594b10d",
+  "helper_freeze_sha256": "0c08b4a5383e32e07fcb74e2dbb8d211c3ab25ace6a95e6c71182cde41682bb8",
+  "result": "intended_interrupt_not_admitted",
+  "native_administrative_status": "diagnostic_collected_unscored",
+  "runtime_seconds": 70,
+  "room_seconds": 100.0,
+  "room_valid": true,
+  "room_wav_sha256": "1dde9bf2ef40501b8912d11e5929797bfd7c3cbd06173d34d90c057390ce5c68",
+  "human_listened": false,
+  "acoustic_latency": null,
+  "rollback_verified": true,
+  "sources": [
+    {
+      "slot": 1,
+      "scene": "follow-up-sunset",
+      "text": "So why does it turn orange at sunset?",
+      "voice": "Samantha",
+      "wpm": 205,
+      "wav_sha256": "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+      "frames": 32576,
+      "duration_s": 2.036,
+      "status": "source_delivered_unscored",
+      "player_valid": true,
+      "first_copy_host_monotonic_ns": 2304434974985000
+    },
+    {
+      "slot": 2,
+      "scene": "topic-change",
+      "text": "Actually, Lamp, let's talk about coffee instead. Why does it smell so good?",
+      "voice": "Daniel",
+      "wpm": 210,
+      "wav_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+      "frames": 320000,
+      "duration_s": 20.0,
+      "status": "source_delivered_unscored",
+      "player_valid": true,
+      "first_copy_host_monotonic_ns": 2304439706915000
+    }
+  ],
+  "events": [
+    {
+      "admission_basis": "directed_session_duplex",
+      "at_us": 70297659070,
+      "authority_issued_at_us": 70297658817,
+      "candidate": {
+        "controller": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "serial": 1
+      },
+      "kind": "input_admitted",
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 3,
+        "turn": 1
+      },
+      "prefix_first_host_read_us": 70297365761,
+      "provider_session": 1,
+      "turn": 1
+    },
+    {
+      "acoustic_speech_end": null,
+      "at_us": 70300558957,
+      "includes_silence_wait_ms": 1200,
+      "kind": "local_endpoint",
+      "last_block_host_read_us": 70300556241,
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 3,
+        "turn": 1
+      },
+      "turn": 1
+    },
+    {
+      "at_us": 70301633063,
+      "kind": "provider_first_audio",
+      "turn": 1
+    },
+    {
+      "at_us": 70301754410,
+      "boundary": "ALSA accepted; acoustic onset unmeasured",
+      "kind": "speaker_first_write",
+      "notice": null,
+      "origin": "provider",
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 3,
+        "turn": 1
+      },
+      "playback_sequence": 1,
+      "start_gate": {
+        "added_latency_us": null,
+        "age_since_first_audio_us": 111214,
+        "boundary": "coordinator queue condition; not accepted PCM or acoustic onset",
+        "continuity": null,
+        "horizon_us": 200000,
+        "included_final_holdback_frames": 240,
+        "measured_lead_us": 0,
+        "opened_at_us": 70301744273,
+        "opened_by": "covered",
+        "opened_by_complete_flag": false,
+        "queued_frames_at_open": 2161,
+        "scope": "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+      },
+      "turn": 1
+    },
+    {
+      "at_us": 70306529522,
+      "boundary": "coordinator hearing decision; not acoustic onset or stopped output",
+      "frame_sequence": 1113,
+      "hearing_margin_db": -22.119953155517578,
+      "kind": "duplex_yield",
+      "last_block_host_read_us": 70306526377,
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 3,
+        "turn": 1
+      },
+      "reply_queued_frames": 140881
+    },
+    {
+      "at_us": 70307029353,
+      "candidate": {
+        "controller": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "serial": 2
+      },
+      "kind": "input_candidate_rejected",
+      "reason": "policy"
+    },
+    {
+      "at_us": 70312924875,
+      "failure_notice": null,
+      "generation": 3,
+      "kind": "turn_finished",
+      "outcome": "audio_written_with_playback_gaps_unscored",
+      "playback_gaps": 2,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "provider_session": 1,
+      "start_deficit_us": 328492,
+      "start_gate": {
+        "added_latency_us": null,
+        "age_since_first_audio_us": 111214,
+        "boundary": "coordinator queue condition; not accepted PCM or acoustic onset",
+        "continuity": null,
+        "horizon_us": 200000,
+        "included_final_holdback_frames": 240,
+        "measured_lead_us": 7489077,
+        "opened_at_us": 70301744273,
+        "opened_by": "covered",
+        "opened_by_complete_flag": false,
+        "queued_frames_at_open": 2161,
+        "scope": "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+      },
+      "start_horizon_needed_us": 418533,
+      "start_need_censored": false,
+      "start_need_scope": "all retained reply arrivals including later generations; excludes local handoff",
+      "turn": 1
+    },
+    {
+      "admission_basis": "directed_session_duplex",
+      "at_us": 70320968990,
+      "authority_issued_at_us": 70320968912,
+      "candidate": {
+        "controller": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "serial": 3
+      },
+      "kind": "input_admitted",
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 5,
+        "turn": 2
+      },
+      "prefix_first_host_read_us": 70320676020,
+      "provider_session": 1,
+      "turn": 2
+    },
+    {
+      "acoustic_speech_end": null,
+      "at_us": 70323169791,
+      "includes_silence_wait_ms": 1200,
+      "kind": "local_endpoint",
+      "last_block_host_read_us": 70323167663,
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 5,
+        "turn": 2
+      },
+      "turn": 2
+    },
+    {
+      "at_us": 70324375399,
+      "kind": "provider_first_audio",
+      "turn": 2
+    },
+    {
+      "at_us": 70324534018,
+      "boundary": "ALSA accepted; acoustic onset unmeasured",
+      "kind": "speaker_first_write",
+      "notice": null,
+      "origin": "provider",
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 5,
+        "turn": 2
+      },
+      "playback_sequence": 2,
+      "start_gate": {
+        "added_latency_us": null,
+        "age_since_first_audio_us": 151025,
+        "boundary": "coordinator queue condition; not accepted PCM or acoustic onset",
+        "continuity": null,
+        "horizon_us": 200000,
+        "included_final_holdback_frames": 240,
+        "measured_lead_us": 0,
+        "opened_at_us": 70324526421,
+        "opened_by": "covered",
+        "opened_by_complete_flag": false,
+        "queued_frames_at_open": 1200,
+        "scope": "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+      },
+      "turn": 2
+    },
+    {
+      "at_us": 70324809357,
+      "boundary": "coordinator hearing decision; not acoustic onset or stopped output",
+      "frame_sequence": 2941,
+      "hearing_margin_db": -30.914033889770508,
+      "kind": "duplex_yield",
+      "last_block_host_read_us": 70324806254,
+      "owner": {
+        "boot": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "generation": 5,
+        "turn": 2
+      },
+      "reply_queued_frames": 6720
+    },
+    {
+      "at_us": 70325309026,
+      "candidate": {
+        "controller": [
+          151,
+          211,
+          181,
+          62,
+          198,
+          232,
+          251,
+          230,
+          252,
+          247,
+          41,
+          143,
+          125,
+          90,
+          250,
+          72
+        ],
+        "serial": 4
+      },
+      "kind": "input_candidate_rejected",
+      "reason": "policy"
+    },
+    {
+      "at_us": 70333445713,
+      "failure_notice": null,
+      "generation": 5,
+      "kind": "turn_finished",
+      "outcome": "audio_written_with_playback_gaps_unscored",
+      "playback_gaps": 1,
+      "provider_outcome": {
+        "kind": "complete"
+      },
+      "provider_session": 1,
+      "start_deficit_us": 118515,
+      "start_gate": {
+        "added_latency_us": null,
+        "age_since_first_audio_us": 151025,
+        "boundary": "coordinator queue condition; not accepted PCM or acoustic onset",
+        "continuity": null,
+        "horizon_us": 200000,
+        "included_final_holdback_frames": 240,
+        "measured_lead_us": 6082836,
+        "opened_at_us": 70324526421,
+        "opened_by": "covered",
+        "opened_by_complete_flag": false,
+        "queued_frames_at_open": 1200,
+        "scope": "first_dispatchable_chunk_of_reply; later generations do not rebuffer"
+      },
+      "start_horizon_needed_us": 168515,
+      "start_need_censored": false,
+      "start_need_scope": "all retained reply arrivals including later generations; excludes local handoff",
+      "turn": 2
+    },
+    {
+      "at_us": 70367266589,
+      "cue_valid": true,
+      "error": null,
+      "kind": "run_end",
+      "status": "completed_unscored",
+      "termination_signal": null
+    }
+  ],
+  "capture_complete": {
+    "valid": true,
+    "boot": [
+      151,
+      211,
+      181,
+      62,
+      198,
+      232,
+      251,
+      230,
+      252,
+      247,
+      41,
+      143,
+      125,
+      90,
+      250,
+      72
+    ],
+    "stream": "capture",
+    "software_processing": {
+      "aec": "sonora_aec3",
+      "noise_suppression": false
+    },
+    "started_at_us": 70295226887,
+    "finalized_at_us": 70367250241,
+    "faults": 0,
+    "records_queued": 7175,
+    "records_written": 7175,
+    "records_rejected": 0,
+    "capture_frames": 1147200,
+    "render_frames": 0,
+    "accepted_zero_frames": 0,
+    "boundaries": 4,
+    "bytes_reserved": 11752523,
+    "pre_aec_sha256": "fe00fdc061623f02ceb213b4445e2ecc89783b5257ddc52c6230625f6a0b0214",
+    "post_aec_sha256": "5227bd12d0de430e437b1e7964a7ada9693b054da09c6d7e75eda1c022fc7432",
+    "render_accepted_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "events_sha256": "28ff94432bacc89b728f45b1af59e90d38083067606ef3570b1b212b6f423676",
+    "end": {
+      "at_us": 70367126643,
+      "reason": "privacy_closed"
+    },
+    "writer_error": null
+  },
+  "render_complete": {
+    "valid": true,
+    "boot": [
+      151,
+      211,
+      181,
+      62,
+      198,
+      232,
+      251,
+      230,
+      252,
+      247,
+      41,
+      143,
+      125,
+      90,
+      250,
+      72
+    ],
+    "stream": "render",
+    "software_processing": null,
+    "started_at_us": 70295249685,
+    "finalized_at_us": 70367175051,
+    "faults": 0,
+    "records_queued": 7179,
+    "records_written": 7179,
+    "records_rejected": 0,
+    "capture_frames": 0,
+    "render_frames": 1721520,
+    "accepted_zero_frames": 1268640,
+    "boundaries": 5,
+    "bytes_reserved": 6382218,
+    "pre_aec_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "post_aec_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "render_accepted_sha256": "24ca0dde1f0110d1d504c96195228c410ad7430c59807c4f3b1a58b0b039bc0a",
+    "events_sha256": "1652eeaeb0a2d81a2311dba497e989dfbc3b126ff777b4c145ff0c4954bba5b6",
+    "end": {
+      "at_us": 70367120725,
+      "reason": "privacy_closed"
+    },
+    "writer_error": null
+  },
+  "cache": "lampOS/.cache/physical-audio/20261012/duplex-diagnostic-fhld3dr3",
+  "limits": [
+    "Software receipts do not certify acoustic boundaries or human experience.",
+    "Later input/answer is unattributed, not an accepted coffee interruption.",
+    "Diagnostic start uses a local player fence, not proof of Lamp cue freshness at the Mac.",
+    "Sunset prompt is isolated from original sky context; exact-zero tail crop is separately hashed."
+  ]
+}

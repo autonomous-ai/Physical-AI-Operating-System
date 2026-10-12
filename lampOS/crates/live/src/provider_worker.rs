@@ -1520,6 +1520,8 @@ mod tests {
     #[derive(Default)]
     struct RecordingSink {
         calls: RefCell<Vec<Call>>,
+        /// The capture instant each accepted audio block was handed over with.
+        captured: RefCell<Vec<Instant>>,
         open: Cell<Option<u64>>,
         retired: Cell<u64>,
         reject_end: Cell<bool>,
@@ -1555,7 +1557,7 @@ mod tests {
             &self,
             request: RequestId,
             sequence: u64,
-            _captured: Instant,
+            captured: Instant,
             samples: &[i16],
         ) -> lamp_gemini::Result<()> {
             if self.disconnected.get() {
@@ -1564,6 +1566,7 @@ mod tests {
             if self.open.get() != Some(request.get()) || request.get() <= self.retired.get() {
                 return Err(lamp_gemini::Error::StaleRequest);
             }
+            self.captured.borrow_mut().push(captured);
             self.calls
                 .borrow_mut()
                 .push(Call::Audio(request.get(), sequence, samples.to_vec()));
@@ -1653,6 +1656,55 @@ mod tests {
         let mut unknown = command;
         unknown["current_session"] = serde_json::json!(8);
         assert!(serde_json::from_value::<ProviderInput>(unknown).is_err());
+    }
+
+    /// A block's capture time is carried over to the transport's clock by
+    /// reading two clocks, one after the other, for every block. A delay
+    /// between the two readings for one block must not make the next block,
+    /// captured after it, seem captured before it: the transport refuses
+    /// capture times that go backwards, and for good.
+    #[test]
+    fn a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = RecordingSink::default();
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        let block = |sequence, read_completed_at_us, handoff: &InputHandoff| ProviderInput::Audio {
+            request,
+            privacy_generation: generation(handoff),
+            sequence,
+            read_completed_at_us,
+            samples: vec![1; 160],
+        };
+        // One millisecond old when the shared clock is read for it.
+        handoff
+            .submit(block(1, NOW - 1_000, &handoff), NOW, &sink)
+            .unwrap();
+        // Captured a tenth of a millisecond later. By the shared clock fifty
+        // milliseconds have passed when it is handed over; by the other
+        // clock, next to none. That is what a delay of fifty milliseconds
+        // between the first block's two readings looks like from here.
+        handoff
+            .submit(block(2, NOW - 900, &handoff), NOW + 50_000, &sink)
+            .unwrap();
+        {
+            let captured = sink.captured.borrow();
+            assert!(
+                captured[1] >= captured[0],
+                "the later block was handed over as captured {:?} before the earlier one",
+                captured[0] - captured[1]
+            );
+        }
+        // A capture time that really is earlier is passed on as it is:
+        // refusing that stays with the transport.
+        handoff
+            .submit(block(3, NOW - 100_000, &handoff), NOW + 50_000, &sink)
+            .unwrap();
+        let captured = sink.captured.borrow();
+        assert!(captured[2] < captured[1]);
     }
 
     #[test]

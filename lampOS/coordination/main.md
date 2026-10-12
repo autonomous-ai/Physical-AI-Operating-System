@@ -1,14 +1,15 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 06:37 UTC
+- Updated: 2026-10-12 08:25 UTC
 - Branch: `lamp-v2-chat`
-- Latest native evidence: the fixed-source mic1/mic2 pair delivered identical full replies, but mic2's run stopped on extra inputs. A subsequent MIC1 Gemini run answered sunset but never admitted the coffee interruption; two provisional yields each caused 490 ms of accepted zero PCM before resuming. All three room recordings and restoration receipts verify; no human/acoustic acceptance. [Microphone pair](../docs/verification/microphone-path-pair-20261012/README.md), [MIC1 Gemini](../docs/verification/mic1-gemini-duplex-20261012/README.md). A1's recorded-signal analysis finds MIC1 echo arrives before its playback reference; its timing correction is in progress, not deployed.
-- Runner: A2 report-validity and recording-coverage fixes through `4be81ec73` are composed with Main's per-cue decision clock and microphone forwarding. Format, strict two-package all-target Clippy and all 328 observer/evaluator host tests pass; [verification](../docs/verification/report-validity-20261012/README.md). Native use remains pending.
-- Agent Messages: both A1 on office and A2 on M2 are reachable through `harness send`; queued work was delivered and A1 returned the microphone ARM build through that route. No tmux injection or owner relay.
-- Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
-- Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
-- Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
+- Current composition: clean `7e28dc7ace66eb26cb3e3332f3dcadf02f1f5b9a` plus the frozen 45-path MIC1/endpoint overlay (518 files). ARM formatting, strict four-package all-target Clippy and release builds passed. Reference checks passed 17/17; one IPC process test failed under QEMU, while that same ELF passed 12/12 on 4ace. Other focused results and ignored tests are explicit in [verification](../docs/verification/endpoint-native-20261012/README.md); no all-green workspace claim.
+- Endpoint native result: three A733 model self-checks passed, warm medians 367.7–371.8 ms and maxima 368.8–373.7 ms. These measure feature extraction plus model inference, not conversation latency. Installation/checks did not start the live runtime or change its service configuration. MIC2 and silence endpointing remain defaults; the 1,000/1,200/1,500 ms SmartTurn profile remains opt-in, with no early-endpoint path.
+- Latest MIC1 diagnostics: [four preserved synthetic runs](../docs/verification/mic1-reference-20261012/four-runs.md), all without human listening or acoustic scores. Gemini timing missed the coffee interruption and had reported host-build overlap. Lower speaker produced extra owners and aborted; its journal verifies speaker 9,9→3,3→9,9 and unchanged microphones. Valid recordings and successful rollback do not qualify these outcomes. Endpoint-to-output timings exclude the preceding 1.2 s silence wait.
+- Current boundary: the composed `7e5a…` live artifact has no endpoint-enabled physical conversation in this evidence. The four voice runs used earlier artifacts. The QEMU failure's root cause, natural interruption, acoustic latency, and owner acceptance remain unqualified; no default promotion or release is implied. Owner-requested head work is a separate operation and is not scored by this voice/model checkpoint.
+
+The dated checkpoints below retain their original source/cohort history; read
+the current links above before reusing old pending-gate or device-state claims.
 
 ## Current microphone comparison
 

@@ -1,0 +1,355 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-12",
+  "scope": "Four synthetic MIC1 diagnostic runs; receipt/trace summary from existing verified reports. No human listening or acoustic acceptance.",
+  "latency_boundary": "local_endpoint, emitted after the configured 1200 ms silence wait, -> provider_first_audio / first ALSA acceptance. These intervals EXCLUDE that preceding wait; not last phoneme -> first audible word.",
+  "latency_sample_counts": {
+    "coffee_alone": 1,
+    "fixed_timing": 1,
+    "gemini_timing": 1,
+    "speaker_low": 2
+  },
+  "aggregate_conversation_p50_p95": null,
+  "acoustic_latency": null,
+  "capture_age_boundary": "processing_completed_at_us minus original read_completed_at_us; not ADC acquisition or coordinator receipt age.",
+  "capture_age_quantiles": "Linear interpolation on sorted capture-block ages.",
+  "limits": [
+    "Distinct workloads and policies, small samples, varying generated answers, and reported host-build overlap prevent a causal before/after latency claim.",
+    "A local fixture timing is not Gemini latency.",
+    "Recording integrity and diagnostic completion do not establish conversational quality, source identity, audibility, or interruption success.",
+    "Incidental transcript text intentionally omitted; original private recordings and traces remain in the cache.",
+    "Processing age alone does not independently verify the coordinator 100 ms capture lease.",
+    "Lower-speaker run remains failed/incomplete, not a treatment win."
+  ],
+  "runs": [
+    {
+      "id": "coffee_alone",
+      "label": "Coffee alone",
+      "workload": "Gemini / duplex",
+      "collection_status": "diagnostic_collected_unscored",
+      "target_returncode": 0,
+      "runtime_success": true,
+      "source_result_sha256": "41a20e65e1b5ef4675889206b6a9f82d61609e8101c4fecddebd1ed18916473f",
+      "runtime_sha256": "14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e",
+      "cache": {
+        "path_relative_to_lampOS": ".cache/physical-audio/20261012/mic1-coffee-0h0e416g",
+        "manifest_sha256": "b3849ecd1b016b7575ff65cef266164bf837dfafdffbc5c48d7c433534a02504",
+        "result_identity_checked": true,
+        "full_media_rechecked_for_this_summary": false
+      },
+      "verified_report": {
+        "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/coffee.json",
+        "sha256": "03752b159b327e1f679a1d60006a994bb03af8ee273293c9d4f3f8206cddcc68"
+      },
+      "synthetic_cached_inputs": true,
+      "human_listened": false,
+      "acoustic_score": null,
+      "source_wav_sha256": [
+        "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc"
+      ],
+      "delivered_sources": 1,
+      "input_candidates": 3,
+      "admitted_owners": 1,
+      "completed_generated_or_fixture_replies": 1,
+      "conversation_outcome": "One coffee request recognized sufficiently for an on-topic answer; opening-word retention remains unresolved. Two later candidates were rejected after yield/resume; no committed interruption.",
+      "completed_reply_latencies": [
+        {
+          "turn": 1,
+          "endpoint_to_provider_audio_ms": 1060.32,
+          "endpoint_to_first_alsa_ms": 1242.368,
+          "queued_frames_24k": 186241,
+          "accepted_frames_24k": 186480,
+          "padding_frames": 239,
+          "accepted_pcm_sha256": "77374b02ba8a824d902ee2a258ba85ea49d93ed510e750530f88a914969a784a",
+          "final_retired_us": 81410030943,
+          "outcome": "audio_written_with_playback_gaps_unscored"
+        }
+      ],
+      "duplex_yields": 2,
+      "accepted_zero_gap_groups_ms": [
+        490,
+        490
+      ],
+      "capture_processing_age": {
+        "blocks_10ms": 7174,
+        "p50_ms": 1.022,
+        "p95_ms": 3.2543499999999996,
+        "first_source_sequence": 1,
+        "first_reference_counter": 1
+      },
+      "capture_render_acknowledged": true,
+      "diagnostic_completion_sha256": {
+        "capture": "25300f5afdf9a501ade48d418b64781a0659e9d883a656f10c93099869bfd077",
+        "render": "5c7b6a8652237f9a06ec84478551d03aef16202f1b433740abf431b4cd1df803"
+      },
+      "room": {
+        "duration_s": 100,
+        "frames": 4800000,
+        "callbacks_contiguous": 9375,
+        "observed_integrity_valid": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "dropped_frames": 0,
+        "nonfinite_samples": 0,
+        "wav_sha256": "e7c7c9c1768e662065ab99ce9f79f811ebfd55e25ef7177dca05db8711cf1ab3"
+      },
+      "rollback_verified": true,
+      "host_build_overlap": null
+    },
+    {
+      "id": "fixed_timing",
+      "label": "Fixed-source timing",
+      "workload": "Local fixture / v1-baseline",
+      "collection_status": "diagnostic_collected_unscored",
+      "target_returncode": 0,
+      "runtime_success": true,
+      "source_result_sha256": "2eedfc7eedd8dd7eda897e9315b4ff2b465cfd0a51d2f7b1bb2416aa920d59e2",
+      "runtime_sha256": "33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800",
+      "cache": {
+        "path_relative_to_lampOS": ".cache/physical-audio/20261012/mic1-timing-fixture-69rmqb_6",
+        "manifest_sha256": "fdca6da5ee0fbeca9fd66cc2b42aee781d015f59d5ca43db2af002adb9250116",
+        "result_identity_checked": true,
+        "full_media_rechecked_for_this_summary": false
+      },
+      "verified_report": {
+        "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/timing.json",
+        "sha256": "3a4777584ec747d80f090333c24a8ac5f54c6e05df96c73deee7863310ea8c3a"
+      },
+      "synthetic_cached_inputs": true,
+      "human_listened": false,
+      "acoustic_score": null,
+      "source_wav_sha256": [
+        "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+        "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc"
+      ],
+      "delivered_sources": 2,
+      "input_candidates": 1,
+      "admitted_owners": 1,
+      "completed_generated_or_fixture_replies": 1,
+      "conversation_outcome": "Exact fixed reply PCM retired completely. Only the first of two delivered sources was admitted; this establishes no second-request recognition or interruption success.",
+      "completed_reply_latencies": [
+        {
+          "turn": 1,
+          "endpoint_to_provider_audio_ms": 4.272,
+          "endpoint_to_first_alsa_ms": 21.858,
+          "queued_frames_24k": 337680,
+          "accepted_frames_24k": 337680,
+          "padding_frames": 0,
+          "accepted_pcm_sha256": "3d98cfa176290e5e120f6c5350c04a127bdffaace3711e64b7aaa23d0a630ebe",
+          "final_retired_us": 81680436867,
+          "outcome": "audio_written_unscored"
+        }
+      ],
+      "duplex_yields": 0,
+      "accepted_zero_gap_groups_ms": [],
+      "capture_processing_age": {
+        "blocks_10ms": 7001,
+        "p50_ms": 40.511,
+        "p95_ms": 43.004,
+        "first_source_sequence": 1,
+        "first_reference_counter": 5
+      },
+      "capture_render_acknowledged": true,
+      "diagnostic_completion_sha256": {
+        "capture": "c5a944f9bd3cbcfb17b5973713e16ba7983f5ee82dd0c7f184ac695d52eca83e",
+        "render": "6f710c8e232a78ba820009fbfdf300e97342d7b96908c92be87e6ef3deeaedc4"
+      },
+      "room": {
+        "duration_s": 100,
+        "frames": 4800000,
+        "callbacks_contiguous": 9375,
+        "observed_integrity_valid": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "dropped_frames": 0,
+        "nonfinite_samples": 0,
+        "wav_sha256": "74f2b518436a6c6a204ad9832af059e9cd6ca4c82fe0689e36f4409d2077804d"
+      },
+      "rollback_verified": true,
+      "host_build_overlap": null
+    },
+    {
+      "id": "gemini_timing",
+      "label": "Gemini timing",
+      "workload": "Gemini / duplex",
+      "collection_status": "diagnostic_collected_unscored",
+      "target_returncode": 0,
+      "runtime_success": true,
+      "source_result_sha256": "f83fafe37069fe5c857c02742dafa54095e1edfd7d500176ee2cb8d17d610392",
+      "runtime_sha256": "33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800",
+      "cache": {
+        "path_relative_to_lampOS": ".cache/physical-audio/20261012/mic1-gemini-timing-_r4egoic",
+        "manifest_sha256": "bb1a65790aba5da9d3ad5bba1c5da7ccbdf2eacf6aeed79a9b638d450dc0d041",
+        "result_identity_checked": true,
+        "full_media_rechecked_for_this_summary": false
+      },
+      "verified_report": {
+        "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/gemini-timing/gemini_timing.json",
+        "sha256": "d0a7c6e657371513b43078f3f3afe937bd7f8f34e223a950f14ab93c6934fc7c"
+      },
+      "synthetic_cached_inputs": true,
+      "human_listened": false,
+      "acoustic_score": null,
+      "source_wav_sha256": [
+        "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+        "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc"
+      ],
+      "delivered_sources": 2,
+      "input_candidates": 1,
+      "admitted_owners": 1,
+      "completed_generated_or_fixture_replies": 1,
+      "conversation_outcome": "One sunset reply completed. Delivered coffee source produced no second candidate, admission, input transcript, or answer; interruption was unsuccessful.",
+      "completed_reply_latencies": [
+        {
+          "turn": 1,
+          "endpoint_to_provider_audio_ms": 1310.716,
+          "endpoint_to_first_alsa_ms": 1633.635,
+          "queued_frames_24k": 181681,
+          "accepted_frames_24k": 181920,
+          "padding_frames": 239,
+          "accepted_pcm_sha256": "57d7e36e29b8806df0fd218002e52ca144b6e6f344e44ff10434d2d15b85fe6d",
+          "final_retired_us": 82518648476,
+          "outcome": "audio_written_unscored"
+        }
+      ],
+      "duplex_yields": 0,
+      "accepted_zero_gap_groups_ms": [],
+      "capture_processing_age": {
+        "blocks_10ms": 7164,
+        "p50_ms": 40.384,
+        "p95_ms": 43.0334,
+        "first_source_sequence": 1,
+        "first_reference_counter": 5
+      },
+      "capture_render_acknowledged": true,
+      "diagnostic_completion_sha256": {
+        "capture": "889dad654cb603e321bb96cbcb829015be4dabf9dff0226a1a70d0f080a6b5ae",
+        "render": "d4e6dd6b2078e78107bc1e5c3f69083d26891832d22ecbe132bf22fa89389712"
+      },
+      "room": {
+        "duration_s": 100,
+        "frames": 4800000,
+        "callbacks_contiguous": 9375,
+        "observed_integrity_valid": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "dropped_frames": 0,
+        "nonfinite_samples": 0,
+        "wav_sha256": "cc34e760cb6b82fc2ab34e7a858d14209b352c0fc943b41c9e1567131cef0416"
+      },
+      "rollback_verified": true,
+      "host_build_overlap": {
+        "reported_by": "A1, relayed by root; no build was run or inspected by this reviewer",
+        "activity": "office VM cross-build",
+        "start_utc": "2026-10-12T07:12:12Z",
+        "end_utc": "2026-10-12T07:13:39Z",
+        "overlaps_recording": true,
+        "capture_integrity_pass_does_not_remove_confounder": true,
+        "quiet_host_qualification": false
+      }
+    },
+    {
+      "id": "speaker_low",
+      "label": "Lower speaker",
+      "workload": "Gemini / duplex; speaker 3,3",
+      "collection_status": "failed_or_incomplete_diagnostic",
+      "target_returncode": 2,
+      "runtime_success": false,
+      "source_result_sha256": "ef6bb8f2a14eb868925a3c41e41ed217123c30046533a2cf6f7e876a8319b444",
+      "runtime_sha256": "33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800",
+      "cache": {
+        "path_relative_to_lampOS": ".cache/physical-audio/20261012/mic1-speaker-low-lmuglbg8",
+        "manifest_sha256": "6f9393a2eb601ae61a935c39c0ab0dbe2d72c9a8a8bdfbc1e7d711215b72c8f3",
+        "result_identity_checked": true,
+        "full_media_rechecked_for_this_summary": false
+      },
+      "verified_report": {
+        "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/speaker-low/report.json",
+        "sha256": "fc0a721b67c64c619ecf08be345b2fd13db677907d2ec80f78528f74f137f4c0"
+      },
+      "synthetic_cached_inputs": true,
+      "human_listened": false,
+      "acoustic_score": null,
+      "source_wav_sha256": [
+        "f2b285b7005f3639f3e57b67c313267819932540a08224273f7b090ff8761b77",
+        "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc"
+      ],
+      "delivered_sources": 2,
+      "input_candidates": 3,
+      "admitted_owners": 3,
+      "completed_generated_or_fixture_replies": 2,
+      "conversation_outcome": "Failed/incomplete: two delivered sources, three owners, two completed generated replies, then helper abort/SIGTERM. Coffee recognition/answer is not established; source of unplanned activity remains unclassified.",
+      "completed_reply_latencies": [
+        {
+          "turn": 1,
+          "endpoint_to_provider_audio_ms": 1857.266,
+          "endpoint_to_first_alsa_ms": 1870.167,
+          "queued_frames_24k": 124320,
+          "accepted_frames_24k": 124320,
+          "padding_frames": 0,
+          "accepted_pcm_sha256": "8465e85c378b766055b69ff4ce21a5ea1c6f8fc834163a6a512d410765f27493",
+          "final_retired_us": 83514970553,
+          "outcome": "audio_written_unscored"
+        },
+        {
+          "turn": 2,
+          "endpoint_to_provider_audio_ms": 1045.821,
+          "endpoint_to_first_alsa_ms": 1163.594,
+          "queued_frames_24k": 73201,
+          "accepted_frames_24k": 73440,
+          "padding_frames": 239,
+          "accepted_pcm_sha256": "da210488ddbdc05d4efae622dcb405c84d7e72c13d8b5b8d0ed1fdcf91a22376",
+          "final_retired_us": 83534140776,
+          "outcome": "audio_written_unscored"
+        }
+      ],
+      "duplex_yields": 0,
+      "accepted_zero_gap_groups_ms": [],
+      "capture_processing_age": {
+        "blocks_10ms": 4058,
+        "p50_ms": 40.566500000000005,
+        "p95_ms": 43.05845,
+        "first_source_sequence": 1,
+        "first_reference_counter": 5
+      },
+      "capture_render_acknowledged": true,
+      "diagnostic_completion_sha256": {
+        "capture": "f68727bf09eba645efda67e582ff5fd6fc832b08896227a2969878a5cc59c589",
+        "render": "f257a2a3db556010c4c04e927e5ef7b7dca74172d70302687f0877f4ba1b1f3d"
+      },
+      "room": {
+        "duration_s": 100,
+        "frames": 4800000,
+        "callbacks_contiguous": 9375,
+        "observed_integrity_valid": true,
+        "faults": 0,
+        "clipped_samples": 0,
+        "dropped_frames": 0,
+        "nonfinite_samples": 0,
+        "wav_sha256": "1cf0831151430184ae8a43d21b6be4f819a62e12b1d0511c4485730105e5f655"
+      },
+      "rollback_verified": true,
+      "host_build_overlap": null,
+      "unplanned_third_owner": {
+        "admitted_at_us": 83542306581,
+        "host_stop_requested_at_us": 83542311212,
+        "stop_after_admission_ms": 4.631,
+        "terminal_outcome": "runtime_failed",
+        "provider_audio_seen": false,
+        "runtime_end": "failed",
+        "signal": "SIGTERM"
+      },
+      "mixer": {
+        "only_writable_change": "device_cmedia numid=6 Speaker Playback Volume 9,9 -> 3,3 -> 9,9",
+        "journal_sha256": "92e3068809ae740f7d1c0102ef5b076dfbb9dbed48106e4b2d3fa997cc7a2d2c",
+        "original_sha256": "9595b52e65331d3c9f0c2e640ebfd639e7abfef0afc3aa984199274e5d12aff2",
+        "target_sha256": "6f190d502df042849100760636b0b3589e1c1b23d36d5e549f74809ba574033d",
+        "microphone_controls_unchanged": true,
+        "all_final_readbacks_equal_original": true,
+        "measured_acoustic_delta_db": null
+      }
+    }
+  ],
+  "endpoint_silence_wait_ms_excluded_from_output_latency": 1200,
+  "summary_documentation_revision": "2026-10-12: explicit endpoint-to-output wait exclusion; original measurements unchanged."
+}

@@ -5,6 +5,32 @@ Original export checkpoint: 2026-10-10, commit
 The owner initially requested the credit-saving handoff, then resumed the goal.
 The broader goal remains unfinished; this document is not release acceptance.
 
+## Current voice/model checkpoint — 2026-10-12
+
+The frozen composition is base `7e28dc7ace66eb26cb3e3332f3dcadf02f1f5b9a`
+plus 45 MIC1/endpoint paths, pinned as 518 source files. Its ARM build, strict
+Clippy and focused reference checks passed. Preserve the one QEMU IPC process
+failure: the same test ELF later passed 12/12 on native 4ace, which does not
+establish the original failure's root cause. The [combined verification](docs/verification/endpoint-native-20261012/README.md)
+records the exact commands, ignored tests and artifact identities.
+
+Actual A733 model self-checks passed in three processes: warm medians
+367.7–371.8 ms, maxima 368.8–373.7 ms. These are model/feature costs, not voice
+response times. Installation and checks did not start the live runtime or
+change service configuration. MIC2/silence remain defaults; SmartTurn remains
+opt-in and has no speculative early-endpoint path. No endpoint-enabled
+physical conversation or release acceptance is established for this artifact.
+
+The [four recent MIC1 runs](docs/verification/mic1-reference-20261012/four-runs.md)
+remain separate synthetic evidence on earlier artifacts. All have unassigned
+acoustic scores and no human listening. The Gemini timing run missed the coffee
+interruption and overlaps a reported host build. Lower speaker failed after
+extra owners; its journal verifies full mixer restoration and unchanged
+microphone controls. Endpoint-to-output times exclude the preceding 1.2-second
+silence wait. Read [Main's current state](coordination/main.md) before applying
+the older installation/access assumptions below. Owner-requested head work is
+separate from this checkpoint; no motion result is claimed here.
+
 ## Resumed work after export
 
 The entries below the current checkpoints preserve earlier history. Their

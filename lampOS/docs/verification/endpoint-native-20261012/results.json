@@ -1,0 +1,301 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-12",
+  "scope": "Composed source ARM/QEMU gates and standalone endpoint model/IPC checks on lamp-4ace; no endpoint-enabled physical conversation.",
+  "source": {
+    "canonical_base": "7e28dc7ace66eb26cb3e3332f3dcadf02f1f5b9a",
+    "frozen_files": 518,
+    "changed_paths_against_base": 45,
+    "source_manifest_sha256": "204c1de3053b202308f8d9767f27b16604ce2fe58411e6bfc1ac579ee07bed0d",
+    "combined_patch_sha256": "2a16a0e5cf57f4b45bca499b3b1457448d3d38ec29b9f67493fc4789eebf8287",
+    "mic1_patch_sha256": "9269af07e4c780c62a5b009352787d16cf4605c7fc0067423d4d8bb8c2efbeaf",
+    "endpoint_overlay_sha256": "37c89f2e117f95c897bcb8f2b2fa3fcad21d507de063d969b471e2dedfbac182",
+    "manual_source_resolutions": 0,
+    "this_followup_changes": "English documentation only"
+  },
+  "artifacts": [
+    {
+      "name": "lamp-live",
+      "sha256": "7e5a7e015f9f0e682f6577e290d8375849421a167dd4bf0ad0b5ef69464f7ea7",
+      "bytes": 9667784,
+      "mode": 365
+    },
+    {
+      "name": "lamp-endpoint-worker",
+      "sha256": "1c4de3b310685296c7feba862a2d10ad86814ebf5ddfb6539812f3cc24d360d6",
+      "bytes": 24145512,
+      "mode": 365
+    },
+    {
+      "name": "smart-turn-v3.2-gpu.onnx",
+      "sha256": "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be",
+      "bytes": 32411198,
+      "mode": 292
+    }
+  ],
+  "commands": {
+    "fmt": "cargo fmt --all -- --check",
+    "clippy": "cargo clippy --locked --offline --target aarch64-unknown-linux-gnu -p lamp-live -p lamp-endpoint -p lamp-endpoint-ipc -p lamp-voice-eval --all-targets -- -D warnings",
+    "build": "cargo build --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-live -p lamp-endpoint",
+    "audio_reference": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-live --test capture_hold_worker --test reference_prime --test reference_link -- --test-threads=1",
+    "endpoint_ipc": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-endpoint-ipc -- --test-threads=1",
+    "live_endpoint": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-live --lib endpoint -- --test-threads=1",
+    "endpoint_local": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-endpoint -- --test-threads=1",
+    "native_model": "lamp-endpoint-worker --check-model smart-turn-v3.2-gpu.onnx",
+    "native_process": "endpoint-process-tests"
+  },
+  "software_gates": {
+    "fmt_passed": true,
+    "strict_all_target_clippy_passed": true,
+    "release_build_passed": true,
+    "capture_hold_worker": {
+      "passed": 3,
+      "failed": 0
+    },
+    "reference_link": {
+      "passed": 6,
+      "failed": 0
+    },
+    "reference_prime": {
+      "passed": 8,
+      "failed": 0
+    },
+    "endpoint_ipc_unit": {
+      "passed": 4,
+      "failed": 0
+    },
+    "endpoint_ipc_process_qemu": {
+      "passed": 11,
+      "failed": 1,
+      "failed_test": "missing_executable_fails_at_once",
+      "failure": "worker closed its output"
+    },
+    "qemu_strace_followup": {
+      "passed": 0,
+      "failed": 1,
+      "failure": "started.elapsed() < Duration::from_millis(20)",
+      "original_failure_root_cause_established": false
+    },
+    "live_endpoint_filtered": {
+      "passed": 18,
+      "failed": 0,
+      "ignored": 1,
+      "ignored_test": "real_worker_session_records_verdict_provenance"
+    },
+    "endpoint_local": {
+      "passed": 10,
+      "failed": 0,
+      "ignored_model_tests": 6
+    },
+    "model_include_ignored_stage_completed": false,
+    "full_workspace_suite_run": false
+  },
+  "native_model": {
+    "device": "lamp-4ace / A733",
+    "architecture": "aarch64",
+    "glibc": "glibc 2.36",
+    "uid": 0,
+    "processes": 3,
+    "checks_per_process": 10,
+    "warm_checks_per_process": 9,
+    "timing_boundary": "features_us + inference_us over the built-in reference signal; excludes model load, IPC submission, endpoint silence, provider and audio output.",
+    "rows": [
+      {
+        "index": 1,
+        "exit_code": 0,
+        "model": "smart-turn-v3.2-gpu.onnx",
+        "bytes": 32411198,
+        "sha256": "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be",
+        "probability": 0.96853244,
+        "reference": 0.9685323,
+        "load_ms": 373.4,
+        "load_cpu_ms": 373.1,
+        "cold_ms": 561.0,
+        "warm_median_ms": 371.8,
+        "warm_max_ms": 373.7,
+        "cpu_per_check_ms": 390.3,
+        "vm_peak_kib": 116168,
+        "vm_hwm_kib": 102348,
+        "vm_rss_kib": 58844,
+        "address_space_limit_kib": 262144,
+        "nice": 10
+      },
+      {
+        "index": 2,
+        "exit_code": 0,
+        "model": "smart-turn-v3.2-gpu.onnx",
+        "bytes": 32411198,
+        "sha256": "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be",
+        "probability": 0.96853244,
+        "reference": 0.9685323,
+        "load_ms": 431.6,
+        "load_cpu_ms": 431.3,
+        "cold_ms": 435.6,
+        "warm_median_ms": 370.3,
+        "warm_max_ms": 372.7,
+        "cpu_per_check_ms": 376.9,
+        "vm_peak_kib": 116168,
+        "vm_hwm_kib": 102348,
+        "vm_rss_kib": 59424,
+        "address_space_limit_kib": 262144,
+        "nice": 10
+      },
+      {
+        "index": 3,
+        "exit_code": 0,
+        "model": "smart-turn-v3.2-gpu.onnx",
+        "bytes": 32411198,
+        "sha256": "ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be",
+        "probability": 0.96853244,
+        "reference": 0.9685323,
+        "load_ms": 422.1,
+        "load_cpu_ms": 421.2,
+        "cold_ms": 432.8,
+        "warm_median_ms": 367.7,
+        "warm_max_ms": 368.8,
+        "cpu_per_check_ms": 374.1,
+        "vm_peak_kib": 116168,
+        "vm_hwm_kib": 102348,
+        "vm_rss_kib": 58896,
+        "address_space_limit_kib": 262144,
+        "nice": 10
+      }
+    ],
+    "all_warm_max_below_400ms": true,
+    "services_before_after_identical": true,
+    "live_service_inactive_during_checks": true
+  },
+  "native_ipc_process": {
+    "artifact_sha256": "4e58de44a46e35c51301d14c92af98c6347948fdbf619acede53bd6d369c66d1",
+    "passed": 12,
+    "failed": 0,
+    "exit_code": 0,
+    "timeout": false,
+    "elapsed_ms": 4818.775198,
+    "missing_executable_test_ms": 2,
+    "full_window_submit_worst_ms": 3.466824,
+    "same_elf_as_failed_qemu_run": true,
+    "original_qemu_root_cause_established": false,
+    "scripted_worker_tests_not_model_inference": true,
+    "no_audio_or_motion": true
+  },
+  "installation": {
+    "verified": true,
+    "service_changed": false,
+    "live_runtime_started": false
+  },
+  "defaults": {
+    "microphone": "mic2",
+    "endpoint": "silence",
+    "smart_turn_opt_in": true,
+    "parity_quiet_windows_ms": [
+      1000,
+      1200,
+      1500
+    ],
+    "early_endpoint_included": false
+  },
+  "human_listened": false,
+  "acoustic_score": null,
+  "limits": [
+    "Native model self-check and scripted IPC tests do not qualify a live endpoint session or integrated physical conversation.",
+    "QEMU failure and distinct traced rerun failure remain recorded; native pass does not establish either original root cause.",
+    "One model-backed live session and six model-dependent endpoint tests remain ignored in the recorded software suite.",
+    "Four recent MIC1 acoustic captures used earlier artifacts with silence endpointing; they are not tests of the new combined binary.",
+    "No default promotion, human listening, acoustic latency, interruption success, or release acceptance follows."
+  ],
+  "evidence": {
+    "composition/receipt.json": {
+      "path": "/private/tmp/lamp-mic1-endpoint-composed-v4y0o344/receipt.json",
+      "sha256": "9e2961d3ea3f301ae90276a01a7eec4597f1bd61aee5266c47cb04f93cdf41a0"
+    },
+    "composition/source-manifest.json": {
+      "path": "/private/tmp/lamp-mic1-endpoint-composed-v4y0o344/source-manifest.json",
+      "sha256": "204c1de3053b202308f8d9767f27b16604ce2fe58411e6bfc1ac579ee07bed0d"
+    },
+    "composition/changed-files.json": {
+      "path": "/private/tmp/lamp-mic1-endpoint-composed-v4y0o344/changed-files.json",
+      "sha256": "6c433e13427cf808c7724b0ce08a2b9b9592921a2ee7015b0ef1689b1a5c97e3"
+    },
+    "composition/combined.patch": {
+      "path": "/private/tmp/lamp-mic1-endpoint-composed-v4y0o344/combined.patch",
+      "sha256": "2a16a0e5cf57f4b45bca499b3b1457448d3d38ec29b9f67493fc4789eebf8287"
+    },
+    "arm_gate/gate.sh": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/gate.sh",
+      "sha256": "b3f879e2e5aea36dbf7926049df741a12bcd8a832878465e96d2f9328ac204dc"
+    },
+    "arm_gate/followthrough.sh": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/followthrough.sh",
+      "sha256": "30c7a57a53ee46e12583b0a847f6827b3ddc8e05892d973b5cd8fa9a81777274"
+    },
+    "arm_gate/readme.json": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/readme.json",
+      "sha256": "8e18e07f97c62d07aac8829c0c03e5648477e7a14f37835cf10440181a933d06"
+    },
+    "arm_gate/logs/fmt.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "arm_gate/logs/clippy.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/clippy.log",
+      "sha256": "a202f8a84269a8d0e7ed11853bff5486e4ad74c791abff738d729697d1467598"
+    },
+    "arm_gate/logs/build.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/build.log",
+      "sha256": "9358a05751d6913de3fdfbd36b765114b89d55d853674c2b6df2cd0125dfd7cd"
+    },
+    "arm_gate/logs/audio_reference.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/audio_reference.log",
+      "sha256": "b13c07dbbc472c617b7a9131d70c4e3c6019ba57e7000c42d1d89b36ba334dcd"
+    },
+    "arm_gate/logs/endpoint_ipc.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/endpoint_ipc.log",
+      "sha256": "9a2290f4b8cd6b4d60fbf535af0dc65c3a56608f22f764a726c6ffe8d82bc838"
+    },
+    "arm_gate/logs/missing_executable_emulation.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/missing_executable_emulation.log",
+      "sha256": "aa5c1434da88411e7dd1ea4a2f33d314080bee0e27827d558a4ebd099821e0f2"
+    },
+    "arm_gate/logs/live_endpoint.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/live_endpoint.log",
+      "sha256": "b2f8cf33f18ab7f15349e03ea52e3fe55bdc57aa219305e0b6818742436a3f8e"
+    },
+    "arm_gate/logs/endpoint_local.log": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/logs/endpoint_local.log",
+      "sha256": "ac63f99e46c4340e1b7dbf5e0d1d8ae963ff12907d395b1919e3d58cda4c8e4f"
+    },
+    "arm_gate/bin/SHA256SUMS": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/bin/SHA256SUMS",
+      "sha256": "4f83c2961c7483882c7848e93f0834702dec34016f099c8388d7cddf12132e98"
+    },
+    "arm_gate/bin/process-SHA256SUMS": {
+      "path": "/private/tmp/lamp-endpoint-arm-gate-m7cg15uu/bin/process-SHA256SUMS",
+      "sha256": "4fbb02e074ae58aba6cedfba46aeb169e6971ab42d67c43296c19018a3c02c26"
+    },
+    "native/artifact-manifest.json": {
+      "path": "/private/tmp/lamp-endpoint-native-check-lylkne7s/artifact-manifest.json",
+      "sha256": "bcf4e7bef808b43ff62ccf9aa1ea7b640f7222661796f48a80239d2c5e849575"
+    },
+    "native/installation.json": {
+      "path": "/private/tmp/lamp-endpoint-native-check-lylkne7s/installation.json",
+      "sha256": "0227b3d26b38101a92d6027ad59f4579e1960733b159c70071046983bc71559f"
+    },
+    "native/native-check.json": {
+      "path": "/private/tmp/lamp-endpoint-native-check-lylkne7s/native-check.json",
+      "sha256": "47ba5c841c35ceccd0a071a16cf3ddcc93c6b742b21b5edea9d67d200b4cb48c"
+    },
+    "native/process-native.json": {
+      "path": "/private/tmp/lamp-endpoint-native-check-lylkne7s/process-native.json",
+      "sha256": "4e7d704dfc8df87aa96ec1853f0bda17db6fd97123408be2ebd75c94b371c5d1"
+    },
+    "four_runs/results.json": {
+      "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/combined/results.json",
+      "sha256": "e2bf54611d9219736f87b12bf0c216d954bb3e97ba44ad692df893993b076aa3"
+    },
+    "four_runs/mic1-four-run-verification.md": {
+      "path": "/private/tmp/lamp-coffee-timing-check-fcwgtt/combined/mic1-four-run-verification.md",
+      "sha256": "857a42f53917c23f416f4b6dd6ac51cfcbc1490bea9c664486aa7733c775d012"
+    }
+  }
+}

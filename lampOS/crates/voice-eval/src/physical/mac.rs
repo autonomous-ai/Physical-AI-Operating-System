@@ -671,6 +671,8 @@ struct Playback {
     report: Option<Value>,
     /// Started by a prepared grant: its start is the first source copy.
     prepared: bool,
+    /// The latest start the room recording covers for this prompt.
+    latest_start_us: Option<u64>,
 }
 
 /// The armed prepared player for the next step.
@@ -679,6 +681,8 @@ struct Armed {
     prepared: PreparedStart,
     cancel_file: PathBuf,
     armed_us: u64,
+    /// End of the prompt's speech after its start, for room coverage.
+    speech_end_us: u64,
 }
 
 /// The original deadline's margin when the grant was sent, signed. A pause
@@ -724,6 +728,108 @@ pub struct PhysicalBackend<'a> {
     trigger: Option<(TriggerObservation, u64)>,
     /// Serve: runner evidence loss already reported as an event.
     evidence_lost: bool,
+    /// Room coverage for this attempt.
+    room_cover: RoomCover,
+}
+
+/// How long the room recording covers the session. A prompt is granted only
+/// while the recorder runs and, when it declares its capture end, only if the
+/// prompt's speech and the scenario's observation window end before it.
+#[derive(Default)]
+struct RoomCover {
+    /// Declared capture end on this host's monotonic clock (ready receipt).
+    end_us: Option<u64>,
+    /// Bounded ready receipt, retained with the room evidence.
+    ready: Value,
+    observe_us: u64,
+    /// When and why coverage ended during the session.
+    lost: Option<(u64, &'static str, String)>,
+}
+
+/// Coverage-loss kinds retained with the room evidence. Only an exit before
+/// the declared end (or with none declared) can leave a granted prompt or its
+/// reply unrecorded.
+pub const RECORDER_EXITED_EARLY: &str = "recorder_exited_early";
+const DECLARED_END_REACHED: &str = "declared_end_reached";
+const PROMPT_NOT_COVERED: &str = "prompt_not_covered";
+/// How far a prompt started at `start_us`, through its speech and the
+/// observation window, would run past the recording's declared end.
+fn coverage_shortfall(
+    end_us: Option<u64>,
+    start_us: u64,
+    timing: &SceneTiming,
+    observe_us: u64,
+) -> Option<u64> {
+    let speech_end_ms = timing
+        .speech_span_ms
+        .map_or(timing.duration_ms, |(_, end)| end);
+    let needed = start_us + u64::from(speech_end_ms) * 1000 + observe_us;
+    end_us.filter(|end| needed > *end).map(|end| needed - end)
+}
+
+/// Speech end after the prompt's start; a clip without a span is all speech.
+fn speech_end_us(timing: &SceneTiming) -> u64 {
+    u64::from(
+        timing
+            .speech_span_ms
+            .map_or(timing.duration_ms, |(_, end)| end),
+    ) * 1000
+}
+
+/// The latest start whose speech and observation window the recording's
+/// declared end still covers.
+fn latest_covered_start(end_us: Option<u64>, speech_end_us: u64, observe_us: u64) -> Option<u64> {
+    end_us.map(|end| end.saturating_sub(speech_end_us + observe_us))
+}
+
+/// Why room evidence cannot certify the attempt's speech: its recorder
+/// exited before any declared end, or a prompt actually started after the
+/// latest start the recording covered. `None` while coverage holds.
+pub fn coverage_refusal(room: &Value) -> Option<&'static str> {
+    if room["coverage_lost"]["kind"] == RECORDER_EXITED_EARLY {
+        Some("ended_during_session")
+    } else if room["coverage_violations"]
+        .as_array()
+        .is_some_and(|violations| !violations.is_empty())
+    {
+        Some("prompt_outside_recording")
+    } else {
+        None
+    }
+}
+
+/// Bound on the recorder's ready receipt read by the runner.
+const MAX_READY_BYTES: u64 = 64 * 1024;
+
+/// The recorder's ready receipt, once it parses (it may still be written),
+/// within a short bound. Returns it bounded, with any declared capture end.
+fn ready_receipt(path: &Path) -> (Value, Option<u64>) {
+    let until = monotonic_us() + 1_000_000;
+    loop {
+        let parsed = fs::metadata(path)
+            .ok()
+            .filter(|m| m.len() <= MAX_READY_BYTES)
+            .and_then(|_| fs::read(path).ok())
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+            .filter(Value::is_object);
+        if let Some(receipt) = parsed {
+            let end = receipt["planned_capture_end_host_monotonic_ns"]
+                .as_u64()
+                .map(|ns| ns / 1000);
+            let keep = |key: &str| receipt.get(key).cloned().unwrap_or(Value::Null);
+            return (
+                json!({"status": keep("status"),
+                    "first_callback_host_monotonic_ns": keep("first_callback_host_monotonic_ns"),
+                    "requested_frames": keep("requested_frames"), "sample_rate": keep("sample_rate"),
+                    "planned_capture_end_host_monotonic_ns": keep("planned_capture_end_host_monotonic_ns")}),
+                end,
+            );
+        }
+        if monotonic_us() >= until {
+            return (json!({"unreadable": true}), None);
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
 }
 
 /// Run-end status of a runner-generated protocol stop.
@@ -872,6 +978,7 @@ impl<'a> PhysicalBackend<'a> {
             unused: Vec::new(),
             trigger: None,
             evidence_lost: false,
+            room_cover: RoomCover::default(),
         }
     }
 
@@ -964,15 +1071,16 @@ impl<'a> PhysicalBackend<'a> {
         }
     }
 
-    /// Serve: a player that ended without delivering, or a room recorder that
-    /// ended during the session, becomes one runner event; every later
-    /// stimulus is then withheld. Reports are kept for `finish`.
+    /// A player that ended without delivering (serve), or a room recording
+    /// that stopped covering the session, becomes one runner event; every
+    /// later stimulus is then withheld. Reports are kept for `finish`.
     fn poll_evidence(&mut self) -> Option<RuntimeEvent> {
-        if !self.serve() || self.evidence_lost {
+        if self.evidence_lost {
             return None;
         }
         let mut lost = None;
-        for playback in &mut self.playbacks {
+        let serve = self.serve();
+        for playback in self.playbacks.iter_mut().filter(|_| serve) {
             if playback.report.is_some()
                 || !playback
                     .handle
@@ -998,15 +1106,40 @@ impl<'a> PhysicalBackend<'a> {
             playback.report = Some(report);
         }
         if lost.is_none()
-            && let Some((child, _, _)) = self.room.as_mut()
-            && let Ok(Some(status)) = child.try_wait()
+            && let Some(reason) = self.room_ended()
         {
-            lost = Some((
-                "room_recorder".into(),
-                format!("the room recorder ended during the session ({status})"),
-            ));
+            lost = Some(("room_recorder".into(), reason));
         }
         let (source, reason) = lost?;
+        Some(self.lose_evidence(source, reason))
+    }
+
+    /// Whether the room recording no longer covers the session: its recorder
+    /// exited, or its declared capture end passed. Latched with its kind.
+    fn room_ended(&mut self) -> Option<String> {
+        let (child, _, _) = self.room.as_mut()?;
+        let now = monotonic_us();
+        let declared_end = self.room_cover.end_us.filter(|end| now >= *end);
+        let (kind, reason) = match child.try_wait() {
+            Ok(Some(status)) if declared_end.is_none() => (
+                RECORDER_EXITED_EARLY,
+                format!(
+                    "the room recorder ended during the session ({status}) before any declared capture end"
+                ),
+            ),
+            _ if declared_end.is_some() => (
+                DECLARED_END_REACHED,
+                "the room recording reached its declared capture end during the session".into(),
+            ),
+            _ => return None,
+        };
+        self.room_cover
+            .lost
+            .get_or_insert((now, kind, reason.clone()));
+        Some(reason)
+    }
+
+    fn lose_evidence(&mut self, source: String, reason: String) -> RuntimeEvent {
         self.evidence_lost = true;
         let mut event = RuntimeEvent::new(
             EventKind::EvidenceLost { source, reason },
@@ -1016,7 +1149,32 @@ impl<'a> PhysicalBackend<'a> {
             EventSource::Runner,
         );
         event.received_us = event.at_us;
-        Some(event)
+        event
+    }
+
+    /// Why the room recording cannot cover a prompt started now: the
+    /// recorder ended, or its declared capture end comes before the prompt's
+    /// speech and the scenario's observation window after it end.
+    fn room_uncovered(&mut self, start_us: u64, timing: &SceneTiming) -> Option<String> {
+        self.room.as_ref()?;
+        if let Some(reason) = self.room_ended() {
+            return Some(reason);
+        }
+        let shortfall_us = coverage_shortfall(
+            self.room_cover.end_us,
+            start_us,
+            timing,
+            self.room_cover.observe_us,
+        )?;
+        let reason = format!(
+            "the room recording's declared capture end is {} ms before this prompt and its {} ms observation window would end; no unrecorded prompt is played",
+            shortfall_us / 1000,
+            self.room_cover.observe_us / 1000
+        );
+        self.room_cover
+            .lost
+            .get_or_insert((start_us, PROMPT_NOT_COVERED, reason.clone()));
+        Some(reason)
     }
 
     /// Send the armed player's one original start grant. Its expiry is the
@@ -1047,10 +1205,9 @@ impl<'a> PhysicalBackend<'a> {
         let earliest_us = mapping
             .to_runner(event_at)
             .saturating_sub(mapping.uncertainty_us);
-        let (deadline_us, expires_ns) = earliest_us
+        let original_deadline_us = earliest_us
             .checked_add(delay_us)
             .and_then(|at| at.checked_add(MAX_TRIGGER_LATENESS_US))
-            .and_then(|deadline| Some((deadline, deadline.checked_mul(1000)?)))
             .ok_or_else(|| Withheld::Stale("the original deadline overflows the clock".into()))?;
         let armed = match self.armed.take() {
             Some(armed) if armed.step == step.id => armed,
@@ -1063,10 +1220,36 @@ impl<'a> PhysicalBackend<'a> {
                 return Err(Withheld::PlayerFailed(reason));
             }
         };
+        // The first copy must also start no later than the recording still
+        // covers: the earlier of the two bounds, never any added slack.
+        let latest_start_us = latest_covered_start(
+            self.room_cover.end_us,
+            armed.speech_end_us,
+            self.room_cover.observe_us,
+        );
+        let deadline_us = latest_start_us.map_or(original_deadline_us, |latest| {
+            original_deadline_us.min(latest)
+        });
+        let capped = deadline_us < original_deadline_us;
+        let Some(expires_ns) = deadline_us.checked_mul(1000) else {
+            self.armed = Some(armed);
+            return Err(Withheld::Stale(
+                "the original deadline overflows the clock".into(),
+            ));
+        };
         let now = grant_clock_us();
         if now >= deadline_us {
             let late = now - deadline_us;
             self.armed = Some(armed);
+            if capped {
+                let reason = format!(
+                    "the room recording's latest covered start passed {late} us before the grant; no unrecorded prompt is played"
+                );
+                self.room_cover
+                    .lost
+                    .get_or_insert((now, PROMPT_NOT_COVERED, reason.clone()));
+                return Err(Withheld::Stale(reason));
+            }
             return Err(Withheld::Stale(format!(
                 "the original deadline passed {late} us before the grant"
             )));
@@ -1092,7 +1275,11 @@ impl<'a> PhysicalBackend<'a> {
             "expires_monotonic_ns": expires_ns,
             "deadline": {"event_at_lamp_us": event_at, "mapped_runner_us": mapping.to_runner(event_at),
                 "clock_uncertainty_us": mapping.uncertainty_us, "earliest_event_runner_us": earliest_us,
-                "delay_us": delay_us, "lateness_bound_us": MAX_TRIGGER_LATENESS_US},
+                "delay_us": delay_us, "lateness_bound_us": MAX_TRIGGER_LATENESS_US,
+                "original_deadline_runner_us": original_deadline_us},
+            "coverage": {"declared_end_runner_us": self.room_cover.end_us,
+                "speech_end_us": armed.speech_end_us, "observe_us": self.room_cover.observe_us,
+                "latest_start_runner_us": latest_start_us, "capped": capped},
             "margin": grant_margin(deadline_us, sent_us)});
         Ok((
             Playback {
@@ -1102,6 +1289,7 @@ impl<'a> PhysicalBackend<'a> {
                 handle: Some(armed.prepared.handle),
                 report: None,
                 prepared: true,
+                latest_start_us,
             },
             receipt,
         ))
@@ -1601,6 +1789,10 @@ impl Backend for PhysicalBackend<'_> {
         self.arm_failure = None;
         self.trigger = None;
         self.evidence_lost = false;
+        self.room_cover = RoomCover {
+            observe_us: u64::from(context.scenario.observe_ms) * 1000,
+            ..RoomCover::default()
+        };
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -1630,6 +1822,9 @@ impl Backend for PhysicalBackend<'_> {
                     "room recorder did not report ready.json within 15 s".into(),
                 ));
             }
+            let (ready, end_us) = ready_receipt(&out.join("ready.json"));
+            self.room_cover.ready = ready;
+            self.room_cover.end_us = end_us;
             self.room = Some((child, out, requested));
         }
         let mut argv = self.config.lamp_command.clone();
@@ -1824,6 +2019,7 @@ impl Backend for PhysicalBackend<'_> {
                     prepared,
                     cancel_file,
                     armed_us,
+                    speech_end_us: speech_end_us(timing),
                 });
                 return Ok(());
             }
@@ -1919,6 +2115,16 @@ impl Backend for PhysicalBackend<'_> {
             ));
             return Ok(refuse(stale, 0, false));
         }
+        // A prompt starts only while the room recording covers it and the
+        // scenario's observation window. Otherwise the loss becomes a runner
+        // event and this and every later step is withheld.
+        if !self.evidence_lost
+            && let Some(reason) = self.room_uncovered(requested_us, timing)
+        {
+            let event = self.lose_evidence("room_recorder".into(), reason);
+            self.pending.push_back(event);
+            return Ok(refuse(Withheld::Revalidate, self.pending.len(), false));
+        }
         if self.serve() {
             return Ok(match self.grant(step) {
                 Ok((playback, prepared)) => {
@@ -1948,6 +2154,11 @@ impl Backend for PhysicalBackend<'_> {
             handle: Some(handle),
             report: None,
             prepared: false,
+            latest_start_us: latest_covered_start(
+                self.room_cover.end_us,
+                speech_end_us(timing),
+                self.room_cover.observe_us,
+            ),
         });
         Ok(Injection {
             withheld: None,
@@ -2099,6 +2310,9 @@ impl Backend for PhysicalBackend<'_> {
         let mut playbacks = Vec::new();
         let mut corrected = Vec::new();
         let mut failed = Vec::new();
+        // Prompts whose actual start passed the latest start the recording
+        // covered: the grant bounds this, and the actual start is rechecked.
+        let mut coverage_violations = Vec::new();
         for playback in self.playbacks.drain(..) {
             let report = match (playback.report, playback.handle) {
                 (Some(report), _) => report,
@@ -2114,17 +2328,25 @@ impl Backend for PhysicalBackend<'_> {
                         report["status"], report["error"]
                     ),
                 ));
-            } else if playback.prepared {
+            } else {
                 // A prepared stream started before readiness; its stimulus
                 // starts at the first source copy.
-                if let Some(ns) = report["counters"]["source_started_host_ns"]
-                    .as_u64()
-                    .filter(|ns| *ns > 0)
-                {
-                    corrected.push((playback.step.clone(), ns / 1000));
+                let started_ns = if playback.prepared {
+                    report["counters"]["source_started_host_ns"]
+                        .as_u64()
+                        .filter(|ns| *ns > 0)
+                } else {
+                    report["start_requested_host_monotonic_ns"].as_u64()
+                };
+                if let Some(ns) = started_ns {
+                    let started_us = ns / 1000;
+                    corrected.push((playback.step.clone(), started_us));
+                    if let Some(latest) = playback.latest_start_us.filter(|l| started_us > *l) {
+                        coverage_violations.push(json!({"step": playback.step,
+                            "actual_start_runner_us": started_us, "latest_start_runner_us": latest,
+                            "overrun_us": started_us - latest}));
+                    }
                 }
-            } else if let Some(ns) = report["start_requested_host_monotonic_ns"].as_u64() {
-                corrected.push((playback.step.clone(), ns / 1000));
             }
             playbacks.push(
                 json!({"step": playback.step, "runner_requested_us": playback.requested_us,
@@ -2153,6 +2375,13 @@ impl Backend for PhysicalBackend<'_> {
                 );
                 evidence["recorder_spawn_runner_us"] = json!(requested);
                 evidence["recorder_exit"] = json!(status.and_then(|s| s.code()));
+                evidence["recorder_ready_receipt"] = self.room_cover.ready.clone();
+                evidence["declared_capture_end_runner_us"] = json!(self.room_cover.end_us);
+                evidence["coverage_lost"] = self.room_cover.lost.as_ref().map_or(
+                    Value::Null,
+                    |(at, kind, reason)| json!({"runner_us": at, "kind": kind, "reason": reason}),
+                );
+                evidence["coverage_violations"] = json!(coverage_violations);
                 evidence
             }
             None => Value::Null,
@@ -2271,6 +2500,31 @@ impl Backend for PhysicalBackend<'_> {
 #[cfg(test)]
 mod cue_tests {
     use super::*;
+
+    #[test]
+    fn a_prompt_is_covered_only_through_its_speech_and_observation_window() {
+        let timing = crate::stimulus::StimulusCatalog::load()
+            .unwrap()
+            .estimate("fast-followup")
+            .unwrap();
+        let speech_end_us = u64::from(timing.speech_span_ms.unwrap().1) * 1000;
+        let (start, observe) = (10_000_000, 8_000_000);
+        let needed = start + speech_end_us + observe;
+        // No declared end: only the recorder's exit guards coverage.
+        assert_eq!(coverage_shortfall(None, start, &timing, observe), None);
+        assert_eq!(
+            coverage_shortfall(Some(needed), start, &timing, observe),
+            None
+        );
+        assert_eq!(
+            coverage_shortfall(Some(needed - 1), start, &timing, observe),
+            Some(1)
+        );
+        assert_eq!(
+            coverage_shortfall(Some(start), start, &timing, observe),
+            Some(speech_end_us + observe)
+        );
+    }
 
     #[test]
     fn a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow() {
@@ -2667,6 +2921,7 @@ mod audit_grant_tests {
             },
             cancel_file: root.join("cancel"),
             armed_us: 500,
+            speech_end_us: 0,
         });
         let step = Step {
             id: "one".into(),
@@ -2698,6 +2953,130 @@ mod audit_grant_tests {
         fs::remove_dir_all(root).unwrap();
         (did_not_panic, sent_original, tracked)
     }
+    /// R2 (Main review of 3c8e3d3b5), on the production grant: the scenario's
+    /// original deadline is 101,000 us, but the recording declares its end at
+    /// 140,020 us and the scenario observes 40,000 us after the prompt's
+    /// speech (none here), so the latest covered start is 100,020 us.
+    fn exercise_room(declared_end_us: u64, observe_us: u64) -> Option<u64> {
+        let root = std::env::temp_dir().join(format!(
+            "lve-grant-room-{}-{declared_end_us}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("objects")).unwrap();
+        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
+        let config = PhysicalConfig {
+            lamp_command: Vec::new(),
+            lamp_work_root: root.display().to_string(),
+            mode: LampMode::Serve {
+                provider_config: "/private/unused.json".into(),
+            },
+            noise_suppression: "off".into(),
+            diagnostics: false,
+            room_recorder: None,
+            room_independent: false,
+            allowance_seconds: 5,
+            ring_channel_ceiling: None,
+            stimulus_source: StimulusSource::LoudspeakerSynthetic,
+            runtime_flags: Default::default(),
+        };
+        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
+        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
+        child.wait().unwrap();
+        let (_tx, lines) = mpsc::channel();
+        backend.session = Some(Session {
+            child,
+            next_ping_us: 0,
+            stdin: None,
+            lines,
+            pings: Vec::new(),
+            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
+            trace: Vec::new(),
+            end: None,
+            end_synthesized: false,
+            ready_seen: true,
+            protocol_errors: Vec::new(),
+            start: None,
+            cues: Vec::new(),
+            cue_order: CueOrder::default(),
+            cue_failed: false,
+            boot_changes: Vec::new(),
+            stop_sent: false,
+            runtime_ended: false,
+            stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
+            held: std::collections::VecDeque::new(),
+            released: std::collections::VecDeque::new(),
+        });
+        backend.room_cover.end_us = Some(declared_end_us);
+        backend.room_cover.observe_us = observe_us;
+        backend.trigger = Some((
+            TriggerObservation {
+                event: TriggerEvent::ListeningReady,
+                turn: None,
+                event_at_us: Some(1_000),
+                event_domain: ClockDomain::LampMonotonic,
+                runner_us: 1_000,
+                runner_time_method: "injected same clock".into(),
+            },
+            0,
+        ));
+        let (grant, rx) = mpsc::sync_channel(1);
+        let handle = thread::spawn(|| Value::Null);
+        backend.armed = Some(Armed {
+            step: "one".into(),
+            prepared: PreparedStart {
+                ready: json!({"attempt_id": "original-attempt"}),
+                grant,
+                handle,
+            },
+            cancel_file: root.join("cancel"),
+            armed_us: 500,
+            speech_end_us: 0,
+        });
+        let step = Step {
+            id: "one".into(),
+            scene: None,
+            trigger: Trigger {
+                after: TriggerEvent::ListeningReady,
+                delay_ms: 0,
+                deadline_ms: 1000,
+                require_lamp_speaking: false,
+            },
+            expect: Expectation::Answer,
+            reference: String::new(),
+            addressed: Vec::new(),
+        };
+        // Granted at 10,000 us: well inside both bounds.
+        CLOCK.with(|times| *times.borrow_mut() = [10_000, 10_001].into());
+        let outcome = backend.grant(&step);
+        let sent = match rx.try_recv() {
+            Ok(GrantInput::Line(line)) => {
+                serde_json::from_str::<Value>(&line).unwrap()["expires_monotonic_ns"].as_u64()
+            }
+            _ => None,
+        };
+        if let Ok((mut playback, _)) = outcome {
+            playback.handle.take().unwrap().join().unwrap();
+        }
+        backend.session = None;
+        drop(backend);
+        fs::remove_dir_all(root).unwrap();
+        sent
+    }
+
+    #[test]
+    fn r2_a_grant_never_outlives_the_recordings_latest_covered_start() {
+        let expires_ns = exercise_room(140_020, 40_000).expect("granted");
+        assert!(
+            expires_ns <= 100_020_000,
+            "the grant lets the first copy start after the recording's latest covered start: expires {expires_ns} ns"
+        );
+        // A recording that covers past the original deadline leaves it alone.
+        assert_eq!(exercise_room(10_000_000, 40_000), Some(101_000_000));
+    }
+
     #[test]
     fn audit_grant_within_deadline_control() {
         let (did_not_panic, original, _) = exercise(100_999);
@@ -2721,6 +3100,18 @@ mod audit_grant_tests {
     /// production `finish()` while the outer transport (the relay, normally
     /// over SSH) is the real process `transport`, reaped first or not.
     fn exit_report_with(code: i32, transport: &[&str], reaped: bool, label: &str) -> Finished {
+        exit_report_prepared(code, transport, reaped, label, |_, _| {})
+    }
+
+    /// As `exit_report_with`, after `prepare` adds attempt state (for
+    /// example a room recorder and delivered playbacks) to the backend.
+    fn exit_report_prepared(
+        code: i32,
+        transport: &[&str],
+        reaped: bool,
+        label: &str,
+        prepare: impl FnOnce(&mut PhysicalBackend<'_>, &Path),
+    ) -> Finished {
         let root = std::env::temp_dir().join(format!(
             "lve-exit-audit-{}-{code}-{label}",
             std::process::id()
@@ -2803,6 +3194,7 @@ mod audit_grant_tests {
                 metadata: crate::physical::protocol::ServeMetadata::default(),
             })),
         });
+        prepare(&mut backend, &root);
         let catalog = StimulusCatalog::load().unwrap();
         let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
         let context = AttemptContext {
@@ -2819,6 +3211,45 @@ mod audit_grant_tests {
         fs::remove_dir_all(root).unwrap();
         finished
     }
+    /// R2 at finish, through production `finish()`: Main's witness. A prompt
+    /// requested at 10.000 s with 2 s of speech and an 8 s window was covered
+    /// by a recording ending at 20.020 s (latest start 10.020 s); its first
+    /// copy at 10.050 s, inside the scenario's 10.100 s expiry, overruns it.
+    fn finish_with_first_copy(label: &str, first_copy_ns: u64) -> Finished {
+        exit_report_prepared(0, &["/usr/bin/true"], true, label, |backend, root| {
+            let mut recorder = Command::new("/usr/bin/true").spawn().unwrap();
+            recorder.wait().unwrap();
+            backend.room = Some((recorder, root.join("room"), 0));
+            backend.room_cover.end_us = Some(20_020_000);
+            backend.playbacks.push(Playback {
+                step: "sky".into(),
+                requested_us: 10_000_000,
+                cancel_file: root.join("cancel-sky"),
+                handle: None,
+                report: Some(json!({"valid": true, "status": "delivered",
+                    "counters": {"source_started_host_ns": first_copy_ns}})),
+                prepared: true,
+                latest_start_us: latest_covered_start(Some(20_020_000), 2_000_000, 8_000_000),
+            });
+        })
+    }
+
+    #[test]
+    fn r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation() {
+        let late = finish_with_first_copy("late-copy", 10_050_000_000);
+        let room = &late.evidence["room_audio"];
+        let violations = room["coverage_violations"].as_array().unwrap();
+        assert_eq!(violations.len(), 1, "{room}");
+        assert_eq!(violations[0]["step"], "sky");
+        assert_eq!(violations[0]["latest_start_runner_us"], 10_020_000);
+        assert_eq!(violations[0]["overrun_us"], 30_000);
+        assert_eq!(coverage_refusal(room), Some("prompt_outside_recording"));
+        let inside = finish_with_first_copy("inside-copy", 10_010_000_000);
+        let room = &inside.evidence["room_audio"];
+        assert_eq!(room["coverage_violations"], json!([]), "{room}");
+        assert_eq!(coverage_refusal(room), None);
+    }
+
     #[test]
     fn audit_failed_outer_transport_cannot_certify_nominal_runtime_end() {
         // Nominal runtime end (exit 0, complete session_end), but the outer

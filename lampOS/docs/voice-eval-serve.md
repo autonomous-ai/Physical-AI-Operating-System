@@ -166,6 +166,54 @@ to be killed at that bound.
 - The transport's outcome is recorded separately: `transport_exit`,
   `transport_status` and `transport_forced_kill`.
 
+Room evidence is certified separately, and never by a process exit. The pilot
+launches the observer with `open -n -W`, whose exit status is `open`'s, not the
+observer's. The attempt keeps the observer's own terminal report
+(`room_audio.observer_terminal`). When it is not a verified `captured_unscored`
+recording, the attempt carries the following:
+- `room_recording: invalid` with the status and fault detail;
+- a withheld `evidence_missing` finding;
+- the line `Independent room recording: **invalid** (...)` on its page;
+- `room_recording` state counted by the report and by the CLI summary line.
+
+Lifecycle success and room-evidence validity stay distinct: neither implies the
+other.
+
+**Room coverage.** A prompt is played only while the room recording covers it,
+in every physical mode:
+- **Recorder exit.** If the recorder has exited (any status, including `open
+  -W`'s 0), that becomes a runner `evidence_lost` event. This and every later
+  prompt are withheld, rechecked at the final dispatch itself.
+- **Declared end.** When the recorder's ready receipt declares its capture end
+  (`planned_capture_end_host_monotonic_ns`, written by the observer), a prompt
+  is refused unless its speech plus the scenario's observation window
+  (`observe_ms`, 8 s for the serve plan) ends before that time. A 120 s capture
+  inside a 240 s scenario therefore withholds the prompts it cannot cover
+  instead of playing them unrecorded.
+
+- **Grant cap.** A granted first copy may start later than its request,
+  until the scenario's original expiry. The grant's expiry is therefore the
+  earlier of that original expiry and the latest start the declared end still
+  covers. No slack is added. Each grant receipt records both bounds under
+  `coverage`.
+- **Actual start.** At the end, every delivered prompt's actual start (the
+  first source copy, or a direct player's start request) is checked against
+  its latest covered start. An overrun is kept in `coverage_violations`.
+
+The room evidence keeps the ready receipt, the declared end, `coverage_lost`
+(`prompt_not_covered`, `declared_end_reached` or `recorder_exited_early`) and
+`coverage_violations`. Two cases can leave granted speech unrecorded:
+`recorder_exited_early`, and any coverage violation. The WAV is kept, but it
+is scored as `room_recording: invalid` (`ended_during_session` or
+`prompt_outside_recording`). Its annotations are refused for timing and for
+reviewed content alike, and it has no listening template. A recording without a declared end is covered only by exit
+detection, polled every 20 ms in serve.
+
+Lamp-4ace's first eight-step run shows this. The runtime and transport exited
+0. The room recording was `invalid_capture`: `queue_full` dropped 13,824 of
+15,840,000 requested 48 kHz frames, with one writer sequence gap. The whole WAV
+stays invalid and is never offered for listening.
+
 ### Startup clock map and preparation
 
 A cue is accepted only if its 100 ms expiry is still ahead at the runner,
@@ -278,6 +326,7 @@ unchanged; no lease was widened.
 | Physical mute and new cycle | withheld at the new boot; continuity lost; restart verified from metadata |
 | SIGTERM ignored | forced kill after the 10 s grace; attempt aborted, never clean |
 | Room recorder ends early | `evidence_lost` (room recorder); rest withheld |
+| Recorder exits 0 with `invalid_capture` | `room_recording: invalid`, terminal report quoted; acoustics unscored; no listening template (`tests/report_validity.rs`) |
 | Relay: stop / transport closed / deadline / SIGTERM ignored | each cause, signal, exit, forced kill and reap recorded separately |
 
 ## Limits
@@ -295,7 +344,8 @@ unchanged; no lease was widened.
   the next boot. Service-cycle records reach the runner only in the final
   metadata.
 - The room recorder runs for its configured length; the runner waits for it
-  at the end.
+  at the end. Prompts it cannot cover are withheld (see room coverage above);
+  a recorder that declares no end is guarded only by its exit.
 
 Main integration also samples the decision clock after parsing each cue, including
 each member of a held startup batch. A pause between decisions cannot let a later
@@ -310,3 +360,28 @@ The physical configuration can set `"microphone": "mic1"` to forward the typed
 unchanged and uses its mic2 default. No mixer is changed by the runner. Use an
 independent room recorder, retain the selected role in the report, and keep this
 cohort separate from mic2 and direct-human results. See [microphone topology](microphone-topology.md).
+
+## Scoring the native conversation (Lamp-4ace)
+
+The first native run's original evaluation is retained as failed. Its
+cancellation findings disagreed with the raw order. Turn 3's `user_interrupted`
+finish came 153 µs before turn 4's admission (same boot, generation 7 → 9),
+while the coffee candidate preceded the revoke by the 470 ms duplex yield. The
+old matcher looked for the candidate within 20 ms. As a result it reported:
+- an unexplained cancellation;
+- a truncated sunset answer and a missed coffee interruption;
+- a false interruption of the pending turn 5 by its own `local_endpoint`
+  correction.
+
+The current rules are in [the main runbook](voice-eval.md). Re-scoring the
+retained run with `evaluate RUN_DIR --plan fixtures/voice-eval-serve-v1.json`
+writes a new evaluation beside the original. With the current rules:
+- the sunset reply is yielded as planned and the coffee interruption is scored;
+- turn 5 is a planned supersession before output;
+- turn 1's 30 ms supply gap remains a playback-gap defect;
+- the endpoint boundary states the runtime's 1,200 ms silence wait.
+
+`tests/report_validity.rs` holds the exact-order reconstruction, with negative
+controls: no admission, an admission 25 ms late, another boot, a stale
+generation, an earlier turn, a correction bound to another turn and an ordinary
+request.

@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-12 06:37 UTC",
+  "base": "cef801ba94551c89a48b468e0047f215ead563ec",
+  "code_base": "675c71c623659b0226c82d890565206ef640b926",
+  "agent_checkpoints": [
+    "ebe0d72d1",
+    "d562a9a13",
+    "4be81ec733bbeafb8707fe8cf6b0bc1aea838fb3"
+  ],
+  "patch_sha256": "48c4657138752023d2732afcda373645920a0f1ad1da51852af9c51e526778b0",
+  "source_manifest_sha256": "68f919a9db80532d6eaf221a8a5ec549657ad7307d1db4bd7c199dd2ca2cbe0f",
+  "gate_receipt_sha256": "3728bbdc3835f8b4423335187162c672bab49d6e407af85cda156605ad1e7927",
+  "host": "macOS x86_64",
+  "commands": [
+    {
+      "argv": [
+        "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-j",
+        "2",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-observer",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit": 0
+    },
+    {
+      "argv": [
+        "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-j",
+        "2",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-observer",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0
+    }
+  ],
+  "tests": {
+    "passed": 328,
+    "failed": 0,
+    "ignored": 0
+  },
+  "canonical_changed_files_match_tested_source": true,
+  "runtime_changed": false,
+  "arm_tested": false,
+  "device_tested": false,
+  "acoustic_qualification": false
+}

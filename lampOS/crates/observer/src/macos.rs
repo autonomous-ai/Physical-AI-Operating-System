@@ -196,10 +196,18 @@ pub fn record(options: &RecordOptions, attempt: &Attempt) -> Result<Value> {
                             && snapshot.faults == 0
                             && !snapshot.writer_failed
                         {
+                            // The planned end lets a runner refuse prompts the
+                            // recording cannot cover; it is not a capture claim.
+                            let planned_end = target
+                                .checked_mul(1_000_000_000)
+                                .map(|ns| ns / u64::from(format.sample_rate))
+                                .and_then(|ns| snapshot.first_host_ns.checked_add(ns));
                             let receipt = json!({"status": "capturing_not_yet_validated",
                                 "attempt_id": attempt.id, "host_monotonic_ns": now,
                                 "written_frames": snapshot.written_frames,
                                 "first_callback_host_monotonic_ns": snapshot.first_host_ns,
+                                "requested_frames": target, "sample_rate": format.sample_rate,
+                                "planned_capture_end_host_monotonic_ns": planned_end,
                                 "warning": "Final metadata determines recording integrity; no acoustic boundaries inferred."});
                             match files::write_json(&attempt.directory.join("ready.json"), &receipt)
                             {

@@ -1471,6 +1471,7 @@ mod occurrence_tests {
                 1_500_000,
                 EventKind::LocalEndpoint {
                     last_block_read_us: Some(1_499_000),
+                    silence_wait_ms: None,
                 },
                 Some(1),
             ),
@@ -1584,6 +1585,7 @@ mod occurrence_tests {
                 2_000_000,
                 EventKind::LocalEndpoint {
                     last_block_read_us: None,
+                    silence_wait_ms: None,
                 },
                 Some(1),
             ),
@@ -1831,6 +1833,7 @@ mod occurrence_tests {
     fn endpoint() -> EventKind {
         EventKind::LocalEndpoint {
             last_block_read_us: None,
+            silence_wait_ms: None,
         }
     }
 

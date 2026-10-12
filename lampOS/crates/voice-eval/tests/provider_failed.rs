@@ -146,7 +146,8 @@ fn the_drain_endpoint_is_recorded_but_never_a_normal_endpoint() {
     assert!(matches!(
         events[0].kind,
         EventKind::InputDiscardedEndpoint {
-            last_block_read_us: Some(1990000)
+            last_block_read_us: Some(1990000),
+            silence_wait_ms: None,
         }
     ));
     // A failed request that ended on the drain path scores as a provider

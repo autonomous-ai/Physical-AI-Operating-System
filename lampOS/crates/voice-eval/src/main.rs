@@ -899,16 +899,33 @@ fn write_evaluation(
     Ok(directory)
 }
 
+/// One JSON line. Exit status 0 only means the run and its evaluation were
+/// written; it never certifies room audio or acoustic acceptance. Room
+/// recordings are counted from the recorder's terminal report.
 fn print_summary(scores: &[AttemptScore], directory: &Path) {
     let mut counts = std::collections::BTreeMap::new();
+    let mut rooms = std::collections::BTreeMap::new();
     for score in scores {
         *counts
             .entry(format!("{:?}", score.outcome).to_lowercase())
             .or_insert(0) += 1;
+        let room = match score.room_recording {
+            evaluate::RoomRecording::NotApplicable => continue,
+            evaluate::RoomRecording::Absent => "absent",
+            evaluate::RoomRecording::Invalid { .. } => "invalid",
+            evaluate::RoomRecording::Verified { .. } => "verified",
+        };
+        *rooms.entry(room).or_insert(0) += 1;
     }
+    let acoustic = scores
+        .iter()
+        .flat_map(|s| &s.acoustic)
+        .filter(|a| a.measurement().is_some())
+        .count();
     println!(
         "{}",
-        json!({"attempts": scores.len(), "outcomes": counts, "report": directory.join("report.md")})
+        json!({"attempts": scores.len(), "outcomes": counts, "room_recordings": rooms,
+            "acoustic_measurements": acoustic, "report": directory.join("report.md")})
     );
 }
 

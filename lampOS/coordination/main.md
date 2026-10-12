@@ -1,10 +1,10 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 06:26 UTC
+- Updated: 2026-10-12 06:37 UTC
 - Branch: `lamp-v2-chat`
 - Latest native evidence: the fixed-source mic1/mic2 pair delivered identical full replies, but mic2's run stopped on extra inputs. A subsequent MIC1 Gemini run answered sunset but never admitted the coffee interruption; two provisional yields each caused 490 ms of accepted zero PCM before resuming. All three room recordings and restoration receipts verify; no human/acoustic acceptance. [Microphone pair](../docs/verification/microphone-path-pair-20261012/README.md), [MIC1 Gemini](../docs/verification/mic1-gemini-duplex-20261012/README.md). A1's recorded-signal analysis finds MIC1 echo arrives before its playback reference; its timing correction is in progress, not deployed.
-- Runner: A2 startup correction through `32ca80f61` plus Main's per-cue decision clock is integrated at `368e770da`. Format, strict package Clippy, 39 focused tests and release build pass; [verification](../docs/verification/serve-startup-clock-20261012/README.md). Native use is still pending.
+- Runner: A2 report-validity and recording-coverage fixes through `4be81ec73` are composed with Main's per-cue decision clock and microphone forwarding. Format, strict two-package all-target Clippy and all 328 observer/evaluator host tests pass; [verification](../docs/verification/report-validity-20261012/README.md). Native use remains pending.
 - Agent Messages: both A1 on office and A2 on M2 are reachable through `harness send`; queued work was delivered and A1 returned the microphone ARM build through that route. No tmux injection or owner relay.
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
 - Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.

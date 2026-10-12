@@ -32,6 +32,15 @@ Both first run the evaluator self-test, then every selected attempt, and write
 `NEW_DIR/evaluations/<unix-ms>/report.md`, `evaluation.json` and one evidence
 page per attempt in `attempts/`. Exit code 2 means the self-test failed and the
 report is marked UNTRUSTED; a physical run refuses to start in that case.
+Exit code 0 means only that the run and its evaluation were written. It never
+certifies an attempt, room audio or acoustic acceptance. The final stdout line
+gives the attempt outcomes, `room_recordings` (`verified`, `invalid`, `absent`
+from the recorder's terminal report) and `acoustic_measurements`.
+
+`evaluate RUN_DIR` re-scores a retained run with the current evaluator into a
+new `evaluations/<unix-ms>/` directory. Earlier evaluations, including failed
+originals, are never rewritten. Pass the run's own plan; a serve run needs
+`--plan fixtures/voice-eval-serve-v1.json`.
 
 ## Evidence strata and stimulus sources
 
@@ -340,6 +349,19 @@ absurd count is invalid evidence, never a panic.
 
 **Invalid recordings.** An invalid or missing recording is retained as
 invalid evidence, and that attempt's acoustic boundaries stay unmeasured.
+Observer evidence keeps a bounded copy of the observer's terminal report
+(`observer_terminal`). It holds status, stop reason, fault bits named by the
+observer's own definitions, and requested/written/dropped frames at the
+delivered rate. It also holds writer sequence gaps, stream errors and xruns.
+An invalid recording is reported in three places:
+- a withheld `evidence_missing` finding that quotes this report;
+- an attempt-level `room_recording` state;
+- the attempt page and the stratum counts.
+
+Its acoustic boundaries are unscored as `room recording invalid (<status>)`, and
+`annotation-template` omits it so it is never offered for listening. A
+recorder's or wrapper's exit status (for example `open -W`) never validates a
+recording.
 
 **Target diagnostics.** The target's certified diagnostics beside the trace
 (`render-audio/` and `capture-audio/`) are verified against the trace:
@@ -356,10 +378,24 @@ Tests: `tests/recording_import.rs`, which uses root's real receipt examples
 with digests adapted to generated WAVs, and `tests/target_audio.rs`, which
 uses directories written by lamp-live's `Recorder`.
 
-A `user_interrupted` cancellation is caused by the admission whose speech
-candidate is within 20 ms of it. A planned `interrupt_and_answer` step yields as
-planned; anything else, including background talk, is a **false interruption**.
-A provider interruption without planned speech is also false. One turn may
+A `user_interrupted` cancellation is caused by a later turn's admission stamped
+within 20 ms of it. lamp-live revokes the old reply and then admits its
+successor in one step, so the admission follows the revoke by microseconds
+(older traces stamped it just before). The speech candidate is not the causal
+time: in duplex it precedes the revoke by the whole yield (470 ms on Lamp-4ace).
+Where the trace records owners, the cause must have the same boot and a newer
+authority generation. An orphan cancellation, one whose nearest admission is
+outside 20 ms, or one explained only by an earlier turn, another boot or an
+older generation stays a runtime failure that names the nearest admission.
+
+A planned `interrupt_and_answer` step yields as planned. A `local_endpoint`
+correction bound to the turn it follows supersedes that turn's reply as planned.
+If the reply had already started, the correction is still a planned yield, but a
+withheld `precondition_lost` finding records that supersession before output was
+not tested. The correction's own `answer` expectation never relabels it.
+Anything else, including background talk or a correction bound to another turn,
+is a **false interruption**. A provider interruption without planned speech is
+also false. One turn may
 have several playback occurrences, identified by positive `playback_sequence`.
 Retiring one occurrence does not complete the turn: only a valid whole-turn
 completion after all occurrences can earn transport completion. Cancellation
@@ -395,7 +431,10 @@ See [directed cue lifecycle](voice-eval-directed-cues.md).
 
 Latency rows are labeled `simulated` (fake profile; restates configured delays),
 `software` (lamp-live host clock), `runner` (start-request lateness) or
-`ACOUSTIC` (annotations). Release targets apply only to ACOUSTIC rows.
+`ACOUSTIC` (annotations). The endpoint boundary states the silence wait from the
+runtime's own `local_endpoint` records (`includes_silence_wait_ms`), for example
+1,200 ms on every Lamp-4ace endpoint, with counts when values differ or are not
+reported. No profile default is substituted. Release targets apply only to ACOUSTIC rows.
 Percentiles use nearest rank with the exact n. Rates show numerators and
 denominators; answers yielded to a planned interruption and answers the
 provider cannot give (fixture second turns) are listed outside the

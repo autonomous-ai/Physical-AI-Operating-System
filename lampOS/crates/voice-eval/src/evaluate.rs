@@ -4,7 +4,7 @@
 use crate::{
     annotations::{AcousticScore, Annotations},
     events::{EventKind, RuntimeEvent},
-    plan::{Capability, Cohort, Expectation, ProviderKind},
+    plan::{Capability, Cohort, Expectation, ProviderKind, TriggerEvent},
     playback::PlaybackHistory,
     record::{
         AttemptRecord, AttemptStatus, Attribution, StepRecord, StepStatus, StimulusSource, Stratum,
@@ -14,8 +14,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Admissions within this distance of a cancellation caused it (the
-/// coordinator stamps admission just before it cancels the old reply).
+/// A successor admitted within this distance of a `user_interrupted`
+/// cancellation caused it. lamp-live revokes the old reply and admits the
+/// successor in one step: since b318 the admission is stamped microseconds
+/// after the revoke, in older traces just before it.
 const CAUSE_TOLERANCE_US: u64 = 20_000;
 /// Start-request lateness beyond this changes the tested overlap phase.
 const LATE_STIMULUS_US: u64 = 250_000;
@@ -196,7 +198,7 @@ impl Metric {
     pub fn boundary(self) -> &'static str {
         match self {
             Self::EndpointToFirstWrite => {
-                "local endpoint (after the 600 ms silence wait) -> first ALSA-accepted reply write"
+                "local endpoint (after the runtime's silence wait) -> first ALSA-accepted reply write"
             }
             Self::ProviderFirstAudioToFirstWrite => {
                 "provider first-audio event -> first ALSA-accepted reply write"
@@ -244,6 +246,35 @@ pub enum Outcome {
     Invalid,
 }
 
+/// The attempt's continuous room recording, from the recorder's own terminal
+/// report as retained at attempt end. A recorder or wrapper exit status is
+/// never evidence; acoustic boundaries additionally need a listened review.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum RoomRecording {
+    /// Simulation: no room exists.
+    #[default]
+    NotApplicable,
+    /// A physical attempt without a continuous room recording.
+    Absent,
+    /// The terminal report declared, or verification found, an invalid capture.
+    Invalid {
+        status: String,
+        independent: bool,
+        detail: String,
+    },
+    /// Integrity verified when the attempt finished (rechecked at review).
+    Verified { sha256: String, independent: bool },
+}
+
+/// How many local-endpoint records reported each silence wait (`None`: the
+/// record states none). Runtime provenance, never a profile default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SilenceWait {
+    pub silence_wait_ms: Option<u64>,
+    pub endpoints: usize,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AttemptScore {
     pub attempt_id: String,
@@ -268,12 +299,17 @@ pub struct AttemptScore {
     pub ring_checked: bool,
     pub voices: usize,
     pub reproduce: String,
+    #[serde(default)]
+    pub room_recording: RoomRecording,
+    #[serde(default)]
+    pub endpoint_silence_waits: Vec<SilenceWait>,
 }
 
 #[derive(Clone, Debug, Default)]
 struct Turn {
     admitted: Option<u64>,
     generation: Option<u64>,
+    boot: Option<[u8; 16]>,
     candidate: Option<u64>,
     prefix: Option<u64>,
     endpoint: Option<u64>,
@@ -360,6 +396,14 @@ fn timeline(events: &[RuntimeEvent]) -> BTreeMap<u64, Turn> {
                     .invalidate("turn authority generation changed or is invalid");
             }
             entry.generation.get_or_insert(generation);
+        }
+        if let Some(boot) = event.owner_boot {
+            if boot == [0; 16] || entry.boot.is_some_and(|old| old != boot) {
+                entry
+                    .playback
+                    .invalidate("turn authority boot changed or is invalid");
+            }
+            entry.boot.get_or_insert(boot);
         }
         match &event.kind {
             EventKind::InputAdmitted {
@@ -640,17 +684,66 @@ fn attribute(cx: &mut Context) -> Option<String> {
     }
 }
 
-/// The admission that caused a `user_interrupted` cancellation at `at`.
+/// Whether `new` can be the authority successor of `old`: the same boot and
+/// a newer owner generation wherever the trace records them.
+fn successor_of(old: &Turn, new: &Turn) -> bool {
+    old.boot.zip(new.boot).is_none_or(|(old, new)| old == new)
+        && old
+            .generation
+            .zip(new.generation)
+            .is_none_or(|(old, new)| new > old)
+}
+
+/// The admission that caused a `user_interrupted` cancellation at `at`: a
+/// later turn's admission, not its speech candidate (in duplex the candidate
+/// precedes the revoke by the whole yield), stamped within the tolerance of
+/// the revoke by a successor authority. Anything else stays unexplained.
 fn interrupter(cx: &Context, cancelled: u64, at: u64) -> Option<u64> {
+    let old = cx.turns.get(&cancelled)?;
     cx.turns
-        .iter()
-        .filter(|(turn, t)| {
-            **turn != cancelled
-                && t.decided()
+        .range(cancelled.checked_add(1)?..)
+        .filter(|(_, t)| {
+            successor_of(old, t)
+                && t.admitted
                     .is_some_and(|a| a.abs_diff(at) <= CAUSE_TOLERANCE_US)
         })
-        .min_by_key(|(_, t)| t.decided().map(|a| a.abs_diff(at)))
+        .min_by_key(|(_, t)| t.admitted.map(|a| a.abs_diff(at)))
         .map(|(turn, _)| *turn)
+}
+
+/// Why no admission explains a cancellation, naming the nearest other one.
+fn unexplained_cancellation(cx: &Context, cancelled: u64, at: u64) -> String {
+    let nearest = cx
+        .turns
+        .iter()
+        .filter(|(turn, _)| **turn != cancelled)
+        .filter_map(|(turn, t)| t.admitted.map(|a| (*turn, a)))
+        .min_by_key(|(_, a)| a.abs_diff(at));
+    let mut detail = "user_interrupted cancellation without a matching admission".to_owned();
+    if let Some((turn, admitted)) = nearest {
+        detail.push_str(&format!(
+            " (nearest other admission: turn {turn}, {:.1} ms {} it",
+            ms(i128::from(admitted.abs_diff(at))),
+            if admitted >= at { "after" } else { "before" }
+        ));
+        if admitted.abs_diff(at) <= CAUSE_TOLERANCE_US {
+            detail.push_str(
+                "; not a successor: an earlier turn, another boot or no newer authority generation",
+            );
+        }
+        detail.push(')');
+    }
+    detail
+}
+
+/// A before-output correction bound to `turn`: the step started at that
+/// turn's local endpoint, so revoking the still-pending reply is planned.
+fn corrects_before_output(step: &StepRecord, turn: u64) -> bool {
+    step.bound_turn == Some(turn)
+        && step
+            .trigger
+            .as_ref()
+            .is_some_and(|t| t.event == TriggerEvent::LocalEndpoint && t.turn == Some(turn))
 }
 
 fn analyse_cancellations(cx: &mut Context) {
@@ -673,12 +766,13 @@ fn analyse_cancellations(cx: &mut Context) {
         match reason.as_deref() {
             Some("user_interrupted") => {
                 let Some(cause) = interrupter(cx, turn, at) else {
+                    let detail = unexplained_cancellation(cx, turn, at);
                     cx.finding(
                         FindingKind::RuntimeFailure,
                         Severity::Failure,
                         None,
                         Some(turn),
-                        "user_interrupted cancellation without a matching admission".into(),
+                        detail,
                     );
                     continue;
                 };
@@ -693,6 +787,24 @@ fn analyse_cancellations(cx: &mut Context) {
                                 .bound_turn
                                 .is_none_or(|bound| bound == turn) =>
                     {
+                        cx.planned_yields.insert(turn);
+                    }
+                    // The plan's correction of the request it follows. Its own
+                    // `answer` expectation is about the correction's reply and
+                    // never relabels this planned supersession.
+                    Some(step)
+                        if corrects_before_output(&record.steps[step], turn)
+                            && own_step.is_some_and(|own| own + 1 == step) =>
+                    {
+                        if audible {
+                            cx.finding(
+                                FindingKind::PreconditionLost,
+                                Severity::Withheld,
+                                Some(&record.steps[step].step),
+                                Some(turn),
+                                format!("turn {turn}'s reply was revoked by its correction (turn {cause}) after its output started; supersession before output was not tested"),
+                            );
+                        }
                         cx.planned_yields.insert(turn);
                     }
                     Some(step) => {
@@ -1108,6 +1220,8 @@ pub fn score(
         ring_checked: false,
         voices,
         reproduce: record.reproduce.clone(),
+        room_recording: room_recording(record),
+        endpoint_silence_waits: silence_waits(&record.events),
     };
     match &record.status {
         AttemptStatus::Withheld { reason } => {
@@ -1156,6 +1270,23 @@ pub fn score(
         undeclared: BTreeSet::new(),
         background: BTreeSet::new(),
     };
+    if let RoomRecording::Invalid {
+        status,
+        independent,
+        detail,
+    } = &score.room_recording
+    {
+        cx.finding(
+            FindingKind::EvidenceMissing,
+            Severity::Withheld,
+            None,
+            None,
+            format!(
+                "{} room recording invalid: {status}; {detail}; the WAV is not continuous evidence, so no acoustic boundary is scored and it is not offered for listening",
+                if *independent { "independent" } else { "Lamp-dependent" }
+            ),
+        );
+    }
     let trace_present = record
         .events
         .iter()
@@ -1736,11 +1867,16 @@ pub fn score(
         score.acoustic = annotations.score(record);
         review_findings(&mut cx, &mut steps, annotations);
     } else if record.stratum.is_physical() {
+        let reason = match &score.room_recording {
+            RoomRecording::Invalid { status, .. } => format!("room recording invalid ({status})"),
+            RoomRecording::Absent => "no continuous room recording was made".into(),
+            _ => "no reviewed room-audio annotation".into(),
+        };
         score.acoustic = record
             .steps
             .iter()
             .filter(|s| s.status == StepStatus::Injected && s.scene.is_some())
-            .map(|s| AcousticScore::unscored(&s.step, "no reviewed room-audio annotation"))
+            .map(|s| AcousticScore::unscored(&s.step, &reason))
             .collect();
     }
     for acoustic in &score.acoustic {
@@ -1778,6 +1914,120 @@ pub fn score(
     score.findings = cx.findings;
     score.latencies = cx.latencies;
     score
+}
+
+/// The retained room recording's state. Validity comes only from the
+/// recorder's terminal report and its verification, never from an exit code.
+pub fn room_recording(record: &AttemptRecord) -> RoomRecording {
+    if !record.stratum.is_physical() {
+        return RoomRecording::NotApplicable;
+    }
+    let Some(room) = record.evidence.get("room_audio").filter(|r| !r.is_null()) else {
+        return RoomRecording::Absent;
+    };
+    let independent = room["independent_of_lamp"] == true;
+    // A recorder that exited during the session before any declared capture
+    // end may have left a granted prompt or its reply unrecorded: the WAV is
+    // kept, but it does not certify the conversation.
+    let refusal = crate::physical::mac::coverage_refusal(room);
+    if room["valid"] == true
+        && refusal.is_none()
+        && let Some(sha256) = room["sha256"].as_str()
+    {
+        return RoomRecording::Verified {
+            sha256: sha256.to_owned(),
+            independent,
+        };
+    }
+    let terminal = &room["observer_terminal"];
+    let count = |key: &str| terminal[key].as_u64();
+    let mut parts = Vec::new();
+    match refusal {
+        Some("ended_during_session") => parts.push(format!(
+            "the recorder ended during the session before any declared capture end (observer status {})",
+            room["status"].as_str().unwrap_or("unknown")
+        )),
+        Some(_) => parts.push(format!(
+            "a prompt started after the latest start the recording covered ({}; observer status {})",
+            room["coverage_violations"],
+            room["status"].as_str().unwrap_or("unknown")
+        )),
+        None => {}
+    }
+    match terminal["faults"].as_array() {
+        Some(names) if !names.is_empty() => parts.push(format!(
+            "observer faults {}",
+            names
+                .iter()
+                .map(|n| n.as_str().unwrap_or("unknown"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+        _ => {
+            if let Some(bits) = count("fault_bits").filter(|bits| *bits != 0) {
+                parts.push(format!("observer fault bits {bits}"));
+            }
+        }
+    }
+    if let Some(requested) = count("requested_frames") {
+        let rate = count("sample_rate").map_or(String::new(), |rate| format!(" at {rate} Hz"));
+        parts.push(format!(
+            "{} of {requested} requested frames written{rate}",
+            count("written_frames").map_or("unknown".into(), |w| w.to_string())
+        ));
+    }
+    if let Some(dropped) = count("queue_dropped_frames").filter(|d| *d > 0) {
+        parts.push(format!("{dropped} frames dropped at the capture queue"));
+    }
+    if let Some(gaps) = count("source_sequence_gaps").filter(|g| *g > 0) {
+        parts.push(format!("{gaps} writer source-sequence gap(s)"));
+    }
+    if let Some(reason) = terminal["stop_reason"].as_str() {
+        parts.push(format!("stop reason {reason}"));
+    }
+    if let Some(error) = room["verification_error"].as_str() {
+        parts.push(format!(
+            "verification: {}",
+            error.chars().take(300).collect::<String>()
+        ));
+    }
+    RoomRecording::Invalid {
+        status: if let Some(refusal) = refusal {
+            refusal.into()
+        } else {
+            room["status"]
+                .as_str()
+                .unwrap_or("unknown")
+                .chars()
+                .take(100)
+                .collect()
+        },
+        independent,
+        detail: if parts.is_empty() {
+            "no terminal detail retained".into()
+        } else {
+            parts.join("; ")
+        },
+    }
+}
+
+fn silence_waits(events: &[RuntimeEvent]) -> Vec<SilenceWait> {
+    let mut counts: BTreeMap<Option<u64>, usize> = BTreeMap::new();
+    for event in events {
+        if let EventKind::LocalEndpoint {
+            silence_wait_ms, ..
+        } = event.kind
+        {
+            *counts.entry(silence_wait_ms).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(silence_wait_ms, endpoints)| SilenceWait {
+            silence_wait_ms,
+            endpoints,
+        })
+        .collect()
 }
 
 /// Reviewer judgments from a listened annotation of the matching recording.

@@ -13,11 +13,11 @@ use lamp_audio::{
 };
 
 /// The render explains the microphone: the lamp's own voice.
-const OWN: Option<(u8, u8)> = Some((97, 10));
+pub(super) const OWN: Option<(u8, u8)> = Some((97, 10));
 /// The render does not: someone is speaking over the lamp.
-const OVER: Option<(u8, u8)> = Some((40, 0));
+pub(super) const OVER: Option<(u8, u8)> = Some((40, 0));
 
-fn evidence(render_quiet_blocks: u8, shares: Option<(u8, u8)>) -> EchoEvidence {
+pub(super) fn evidence(render_quiet_blocks: u8, shares: Option<(u8, u8)>) -> EchoEvidence {
     let level = Level::from_tenths_of_db(-200);
     EchoEvidence {
         blocks: 1_000,
@@ -37,28 +37,28 @@ fn evidence(render_quiet_blocks: u8, shares: Option<(u8, u8)>) -> EchoEvidence {
 
 /// What one capture block led to.
 #[derive(Debug, Default)]
-struct Tick {
+pub(super) struct Tick {
     /// Reply samples handed to the speaker after this block was heard.
-    dispatched: Option<Vec<i16>>,
-    accepted: Option<Admitted>,
+    pub(super) dispatched: Option<Vec<i16>>,
+    pub(super) accepted: Option<Admitted>,
 }
 
 /// An input the admission accepted and the coordinator committed.
 #[derive(Debug)]
-struct Admitted {
-    basis: AcceptanceBasis,
-    trigger_sequence: u64,
+pub(super) struct Admitted {
+    pub(super) basis: AcceptanceBasis,
+    pub(super) trigger_sequence: u64,
     /// Capture blocks that became the start of the request, in order.
-    audio: Vec<u64>,
+    pub(super) audio: Vec<u64>,
 }
 
-struct Harness {
-    owner: Controller,
-    reply: Option<Reply>,
+pub(super) struct Harness {
+    pub(super) owner: Controller,
+    pub(super) reply: Option<Reply>,
     mask: PlaybackMask,
     detector: TurnDetector,
     admission: InputAdmission,
-    trace: SessionState,
+    pub(super) trace: SessionState,
     lineage: CaptureLineage,
     heard_reply: Option<TurnOwner>,
     sequence: u64,
@@ -68,14 +68,14 @@ struct Harness {
     speaker: WorkerChannels,
     pending: Option<PendingSpeaker>,
     chunk: u64,
-    snapshot: Snapshot,
-    provider_queue: VecDeque<ProviderInput>,
+    pub(super) snapshot: Snapshot,
+    pub(super) provider_queue: VecDeque<ProviderInput>,
 }
 
 impl Harness {
     /// A reply of `blocks` speaker blocks whose samples count up from zero,
     /// so that what reaches the speaker can be checked for order and loss.
-    fn new(policy: TurnTaking, blocks: usize) -> Self {
+    pub(super) fn new(policy: TurnTaking, blocks: usize) -> Self {
         let (mut owner, mut reply, _) = active_reply();
         reply.pcm = (0..blocks * 240).map(|n| (n % 30_000) as i16).collect();
         let directory = SessionDirectory::create().unwrap();
@@ -115,10 +115,10 @@ impl Harness {
             provider_queue: VecDeque::new(),
         }
     }
-    fn old(&self) -> TurnOwner {
+    pub(super) fn old(&self) -> TurnOwner {
         self.reply.as_ref().unwrap().owner
     }
-    fn events(&self, kind: &str) -> Vec<Value> {
+    pub(super) fn events(&self, kind: &str) -> Vec<Value> {
         self.trace
             .iter()
             .filter(|event| event["kind"] == kind)
@@ -138,7 +138,7 @@ impl Harness {
     /// One pass of the session loop for one capture block: hear it, let
     /// admission see it, decide a candidate, commit an accepted one, then
     /// offer the speaker its next chunk and let it accept that chunk.
-    fn block(&mut self, score: f32, echo: Option<EchoEvidence>) -> Tick {
+    pub(super) fn block(&mut self, score: f32, echo: Option<EchoEvidence>) -> Tick {
         self.sequence += 1;
         let at = self.at();
         let context = AdmissionContext {
@@ -284,7 +284,12 @@ impl Harness {
         Some(chunk.samples)
     }
     /// `count` blocks alike. Returns what each led to.
-    fn blocks(&mut self, count: usize, score: f32, echo: Option<EchoEvidence>) -> Vec<Tick> {
+    pub(super) fn blocks(
+        &mut self,
+        count: usize,
+        score: f32,
+        echo: Option<EchoEvidence>,
+    ) -> Vec<Tick> {
         (0..count).map(|_| self.block(score, echo)).collect()
     }
 }

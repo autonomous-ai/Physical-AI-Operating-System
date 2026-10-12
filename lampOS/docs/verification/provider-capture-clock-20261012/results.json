@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "integrated_host_review_passed_ARM_and_device_pending",
+  "source_base": "605ebce7e",
+  "agent_code": "da9891f7e",
+  "agent_publication": "2e435da9e",
+  "patch_sha256": "0c92fc6e46858f70334464773d3aa808b3a95fbc83b083c3b5bb54373a968850",
+  "review_sha256": "c7f0da6930859078d97bef2abe223ce200da8701a7386246d840ad0a1a81c9bb",
+  "freeze_sha256": "c4c946e284290e4aed1bcb22c0a93077f4edeb525e40a5dd4fc9cfedd671681c",
+  "focused_controls_passed": 6,
+  "format": "passed_scoped",
+  "clippy": "passed_strict_live_gemini_libraries",
+  "ARM": "not_run_on_this_composition",
+  "device": "not_run",
+  "acoustic_claim": false,
+  "earlier_kept_start_timeout": "unresolved_separate"
+}

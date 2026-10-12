@@ -1108,3 +1108,52 @@ async fn a_late_abandonment_drops_the_older_requests_kept_blocks_and_keeps_the_n
     heard_in_order(&mut server, 100..103).await;
     silent(&mut server).await;
 }
+
+/// Stale callbacks. After the kept question was committed, a late
+/// `interrupted` and its completion from the earlier response arrive before
+/// the answer: dropped as late, as on the default path, and the answer that
+/// follows is the committed request's.
+#[tokio::test]
+async fn a_late_interruption_after_the_kept_question_is_committed_is_dropped_and_answers_nothing() {
+    let (mut connection, mut server) = mock_with(keeping(Duration::from_secs(2))).await;
+    let next = kept(&mut connection, &mut server, 2).await;
+    for sequence in 0..3 {
+        speak(&connection, next, sequence, sequence as i16);
+    }
+    connection.input().try_end(next).unwrap();
+    // The earlier response completes with nothing: the question starts
+    // normally and is committed.
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request(1)
+    ));
+    let (outcome, _) = report(&mut connection).await;
+    assert_eq!(outcome, BarrierOutcome::Settled);
+    sent(&mut server, "activityStart").await;
+    heard_in_order(&mut server, 0..3).await;
+    sent(&mut server, "activityEnd").await;
+    // Only now, late: the delayed result of that start.
+    send_json(&mut server, json!({"serverContent":{"interrupted":true}})).await;
+    discarded_late(&mut connection, Discard::LateInterruption).await;
+    send_json(
+        &mut server,
+        json!({"serverContent":{"turnComplete":true,"interactionStatus":"IDLE"}}),
+    )
+    .await;
+    discarded_late(&mut connection, Discard::LateTerminal).await;
+    // The committed request is still current and is answered.
+    send_json(&mut server, audio(42)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, pcm, .. } if lineage.request == next && pcm == [42]
+    ));
+    assert_eq!(connection.state(), State::Ready);
+}
+
+async fn discarded_late(connection: &mut Connection, expected: Discard) {
+    assert!(matches!(
+        event(connection).await,
+        Event::Discarded { reason, .. } if reason == expected
+    ));
+}

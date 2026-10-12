@@ -1087,6 +1087,9 @@ struct SubmittedInput {
     request: RequestId,
     session: SessionId,
     open: bool,
+    /// The last block handed over: its capture time on the shared clock,
+    /// and the instant that was carried over as.
+    captured: Option<(u64, Instant)>,
 }
 
 impl InputHandoff {
@@ -1255,6 +1258,7 @@ impl InputHandoff {
                     request,
                     session: expected,
                     open: true,
+                    captured: None,
                 });
             }
             ProviderInput::Audio {
@@ -1264,14 +1268,42 @@ impl InputHandoff {
                 ..
             } => {
                 self.require_open(request)?;
+                // Order is decided here, on the clock the capture times were
+                // taken with, and before anything is carried over: a block
+                // captured before its predecessor in the same request is
+                // refused. The instant it would be carried over as cannot
+                // show that. A delay between the two readings below can
+                // carry an earlier time forward as easily as a later one
+                // back, and the transport sees only the instant.
+                if let Some((last_us, _)) = self.submitted.and_then(|submitted| submitted.captured)
+                    && read_completed_at_us < last_us
+                {
+                    return Err(io::Error::other("capture time went backwards").into());
+                }
                 let age = now_us
                     .checked_sub(read_completed_at_us)
                     .map(Duration::from_micros)
                     .filter(|age| *age < lamp_gemini::MAX_INPUT_AGE)
                     .ok_or_else(|| io::Error::other("invalid or stale capture time"))?;
-                let captured = Instant::now()
+                let mut captured = Instant::now()
                     .checked_sub(age)
                     .ok_or_else(|| io::Error::other("invalid capture age"))?;
+                // The age comes from one clock and is taken off another, read
+                // a moment later, for every block. Whatever passes between
+                // the two readings makes that block seem captured that much
+                // later, so the block after it can seem captured before it,
+                // and the transport refuses that for good. The shared times
+                // are in order, as checked above, so the instants are kept
+                // in order: the block is given its predecessor's instant,
+                // never an earlier one.
+                if let Some(submitted) = self.submitted.as_mut() {
+                    if let Some((_, last)) = submitted.captured
+                        && captured < last
+                    {
+                        captured = last;
+                    }
+                    submitted.captured = Some((read_completed_at_us, captured));
+                }
                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
                     return self.refused(request, error, input);
                 }
@@ -1520,6 +1552,8 @@ mod tests {
     #[derive(Default)]
     struct RecordingSink {
         calls: RefCell<Vec<Call>>,
+        /// The capture instant each accepted audio block was handed over with.
+        captured: RefCell<Vec<Instant>>,
         open: Cell<Option<u64>>,
         retired: Cell<u64>,
         reject_end: Cell<bool>,
@@ -1555,7 +1589,7 @@ mod tests {
             &self,
             request: RequestId,
             sequence: u64,
-            _captured: Instant,
+            captured: Instant,
             samples: &[i16],
         ) -> lamp_gemini::Result<()> {
             if self.disconnected.get() {
@@ -1564,6 +1598,7 @@ mod tests {
             if self.open.get() != Some(request.get()) || request.get() <= self.retired.get() {
                 return Err(lamp_gemini::Error::StaleRequest);
             }
+            self.captured.borrow_mut().push(captured);
             self.calls
                 .borrow_mut()
                 .push(Call::Audio(request.get(), sequence, samples.to_vec()));
@@ -1653,6 +1688,157 @@ mod tests {
         let mut unknown = command;
         unknown["current_session"] = serde_json::json!(8);
         assert!(serde_json::from_value::<ProviderInput>(unknown).is_err());
+    }
+
+    /// A block's capture time is carried over to the transport's clock by
+    /// reading two clocks, one after the other, for every block. A delay
+    /// between the two readings for one block must not make the next block,
+    /// captured after it, seem captured before it: the transport refuses
+    /// capture times that go backwards, and for good.
+    #[test]
+    fn a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = RecordingSink::default();
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        let block = |sequence, read_completed_at_us, handoff: &InputHandoff| ProviderInput::Audio {
+            request,
+            privacy_generation: generation(handoff),
+            sequence,
+            read_completed_at_us,
+            samples: vec![1; 160],
+        };
+        // One millisecond old when the shared clock is read for it.
+        handoff
+            .submit(block(1, NOW - 1_000, &handoff), NOW, &sink)
+            .unwrap();
+        // Captured a tenth of a millisecond later. By the shared clock fifty
+        // milliseconds have passed when it is handed over; by the other
+        // clock, next to none. That is what a delay of fifty milliseconds
+        // between the first block's two readings looks like from here.
+        handoff
+            .submit(block(2, NOW - 900, &handoff), NOW + 50_000, &sink)
+            .unwrap();
+        {
+            let captured = sink.captured.borrow();
+            assert!(
+                captured[1] >= captured[0],
+                "the later block was handed over as captured {:?} before the earlier one",
+                captured[0] - captured[1]
+            );
+        }
+        // A capture time that really is earlier has nothing to do with the
+        // two readings. It is refused on the shared clock, and nothing of
+        // it is handed over.
+        assert!(
+            handoff
+                .submit(block(3, NOW - 100_000, &handoff), NOW + 50_000, &sink)
+                .is_err()
+        );
+        assert_eq!(sink.captured.borrow().len(), 2);
+    }
+
+    /// Positive controls for the refusal below. Order is decided on the
+    /// shared clock, within one request: the same time twice is in order; a
+    /// refusal hands nothing over and remembers nothing; and a newer request
+    /// begins its own order, so an opening it kept from before the older
+    /// request's last block is accepted.
+    #[test]
+    fn capture_order_is_decided_per_request_and_a_refusal_changes_nothing() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let sink = RecordingSink::default();
+        let old = authorize(&mut owner, &mut handoff);
+        handoff.submit(start(old, &handoff), NOW, &sink).unwrap();
+        let block = |request, sequence, read_completed_at_us, handoff: &InputHandoff| {
+            ProviderInput::Audio {
+                request,
+                privacy_generation: generation(handoff),
+                sequence,
+                read_completed_at_us,
+                samples: vec![1; 160],
+            }
+        };
+        handoff
+            .submit(block(old, 1, NOW - 5_000, &handoff), NOW, &sink)
+            .unwrap();
+        // The same shared time again is not earlier.
+        handoff
+            .submit(block(old, 2, NOW - 5_000, &handoff), NOW, &sink)
+            .unwrap();
+        let kept = handoff.submitted.unwrap().captured;
+        assert_eq!(kept.map(|(at_us, _)| at_us), Some(NOW - 5_000));
+        {
+            let captured = sink.captured.borrow();
+            assert!(captured[1] >= captured[0]);
+        }
+        // One microsecond earlier, with no delay anywhere: refused by name.
+        let calls = sink.calls.borrow().len();
+        let error = handoff
+            .submit(block(old, 3, NOW - 5_001, &handoff), NOW, &sink)
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("capture time went backwards"),
+            "{error}"
+        );
+        assert_eq!(sink.calls.borrow().len(), calls);
+        assert_eq!(sink.captured.borrow().len(), 2);
+        assert_eq!(handoff.submitted.unwrap().captured, kept);
+        // A newer request: its first block was captured before the older
+        // request's last, and that is its own affair.
+        let new = authorize(&mut owner, &mut handoff);
+        handoff.synchronize(&sink).unwrap();
+        handoff.submit(start(new, &handoff), NOW, &sink).unwrap();
+        handoff
+            .submit(block(new, 1, NOW - 50_000, &handoff), NOW, &sink)
+            .unwrap();
+        assert_eq!(sink.captured.borrow().len(), 3);
+        assert_eq!(
+            handoff.submitted.unwrap().captured.map(|(at_us, _)| at_us),
+            Some(NOW - 50_000)
+        );
+    }
+
+    #[test]
+    fn audit_shared_clock_regression_cannot_be_hidden_by_a_later_clock_gap() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let request = authorize(&mut owner, &mut handoff);
+        let sink = RecordingSink::default();
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        // A valid previously accepted pair. At the following Instant read,
+        // 100 ms has elapsed since that handoff. Its shared capture timestamp
+        // was 200 ms old at that first handoff, hence this Instant is 300 ms old.
+        let prior_us = NOW - 200_000;
+        let prior = Instant::now() - Duration::from_millis(300);
+        handoff.submitted.as_mut().unwrap().captured = Some((prior_us, prior));
+        sink.captured.borrow_mut().push(prior);
+        // The second shared-clock sample is 50 ms after the first handoff;
+        // another 50 ms passes before its Instant read. The original capture
+        // time really regresses by 1 us. No sleep or timeout widening is needed
+        // to seed this legal prior state and a delayed current clock sample.
+        let result = handoff.submit(
+            ProviderInput::Audio {
+                request,
+                privacy_generation: generation(&handoff),
+                sequence: 2,
+                read_completed_at_us: prior_us - 1,
+                samples: vec![2; 160],
+            },
+            NOW + 50_000,
+            &sink,
+        );
+        let captured = sink.captured.borrow();
+        assert!(
+            result.is_err() || captured.last().is_some_and(|at| *at < prior),
+            "a genuinely regressing shared capture timestamp was accepted and mapped forward by {:?}; Gemini's Instant-only order check cannot reject it",
+            captured.last().unwrap().checked_duration_since(prior)
+        );
     }
 
     #[test]

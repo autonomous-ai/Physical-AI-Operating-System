@@ -653,6 +653,31 @@ fn a_new_topic_just_before_confirmation_drops_a_fully_received_answer() {
     assert!(fast.first_chunk().unwrap() >= fast.seen.block(568));
 }
 
+/// Main's A733 measurement of the pinned worker: about 370 ms of warm
+/// inference per verdict. A 400 ms verdict, submitted at 200 ms of pause,
+/// arrives at 600 ms: the early end follows it, inside the unchanged 500 ms
+/// result timeout, and still overlaps 600 ms of the confirmation.
+#[test]
+fn an_a733_verdict_cost_ends_input_at_its_arrival_and_still_overlaps_the_confirmation() {
+    let _one = one_session();
+    let slow = delayed(0.95, Duration::from_millis(400)).with_policy(early_policy());
+    let fast = run(5, one_question, slow, Answering::after(300));
+    fast.result.as_ref().unwrap();
+    let bases = fast.bases();
+    assert_eq!(bases.len(), 1, "{bases:?}");
+    assert_eq!(bases[0].0, "model_early");
+    assert!((590..=640).contains(&bases[0].2), "{bases:?}");
+    assert_eq!(fast.outcomes(), ["confirmed"]);
+    let confirmed = &fast.events("endpoint_provisional")[0]["event"];
+    assert_eq!(confirmed["quiet_ms"], 1_200);
+    let ended = fast.activities()[0].ended.unwrap();
+    assert!(ended >= fast.seen.block(255) && ended < fast.seen.block(275));
+    let first = fast.first_chunk().expect("the answer was never heard");
+    assert!(first >= fast.seen.block(318));
+    assert!(first - ended >= Duration::from_millis(500));
+    assert_eq!(fast.spoken(), fast.admitted_turns());
+}
+
 #[test]
 fn a_late_answer_plays_after_confirmation() {
     let _one = one_session();

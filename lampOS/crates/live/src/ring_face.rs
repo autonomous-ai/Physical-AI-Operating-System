@@ -150,10 +150,12 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32) -> [f32; 3] {
     let (tint, glow) = match mood {
         Mood::Resting => {
             // A warm, low breath, with a soft brighter patch that wanders
-            // around the ring so that two breaths never look the same.
+            // around the ring so that two breaths never look the same. Low
+            // on purpose: on this ring a few steps of 255 are already a
+            // clear glow, and V1 rested at one.
             let breath = wave(seconds, 5.2, 0.0, 0.0);
             let patch = wave(seconds, 23.0, 1.0, angle).powi(4);
-            ([1.0, 0.70, 0.40], 0.09 + 0.08 * breath + 0.05 * patch)
+            ([1.0, 0.62, 0.22], 0.05 + 0.05 * breath + 0.03 * patch)
         }
         Mood::Listening => {
             // Cool and open at once, brighter with the person's voice, with
@@ -165,14 +167,14 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32) -> [f32; 3] {
             // An amber point circling the ring with a fading tail behind it.
             let head = TAU * (seconds / 1.15).fract();
             let behind = (head - angle).rem_euclid(TAU);
-            ([1.0, 0.60, 0.16], 0.14 + 0.80 * (-behind / 0.75).exp())
+            ([1.0, 0.55, 0.10], 0.14 + 0.80 * (-behind / 0.75).exp())
         }
         Mood::Speaking => {
             // Warm, and as bright as the lamp's own voice is loud, with a
             // slow two-lobed turn so that it is never a flat disc.
             let turn = wave(seconds, 3.1, 2.0, angle);
             (
-                [1.0, 0.80, 0.48],
+                [1.0, 0.72, 0.30],
                 (0.26 + 0.74 * level.powf(0.8)) * (0.90 + 0.10 * turn),
             )
         }

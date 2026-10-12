@@ -9,17 +9,66 @@ qualification work.
 
 ## What triggers a cue
 
-| Observed state | Current prototype behavior |
+| Observed state | What the ring shows |
 |---|---|
-| Startup, no admitted turn or completed turn | Black. Worker readiness alone does not imply listening readiness. |
-| Fresh retained input admitted to the current turn | Static listening cue, RGB `(24, 32, 40)` before the configured channel ceiling. |
-| Local input ended; the turn is unfinished without active playback | Static waiting cue, RGB `(32, 24, 8)`. No spoken waiting filler. |
-| Matched speaker acceptance followed by `playback_started` | Static speaking cue, RGB `(32, 32, 24)`. Provider audio arrival alone does not start it. |
-| Playback's actual final sample retired | End the speaking phase; completion clears the owner and cue. |
+| Startup, no admitted turn or completed turn, in a bounded `directed` run | Black. Worker readiness alone does not imply listening readiness. |
+| The same in `serve`, while the microphone is permitted and input is available | The resting face: a slow, dim, warm breath (5.2 s) with a faint brighter patch that wanders around the ring. Black as soon as privacy closes, input is unavailable or the authority goes stale. |
+| Fresh retained input admitted to the current turn | The listening face: cool, at once, brighter with the person's voice. |
+| Local input ended; the turn is unfinished without active playback | The thinking face: an amber point circling the ring once every 1.15 s with a fading tail. No spoken waiting filler. |
+| Matched speaker acceptance followed by `playback_started` | The speaking face: warm, as bright as the lamp's own voice is loud. Provider audio arrival alone does not start it. |
+| Playback's actual final sample retired | End the speaking phase; completion clears the owner and cue, and in `serve` the resting face eases back in. |
 | New admitted question, privacy closure, expired authority or stop | Retire the old cue under its original identity. A successor can obtain its own cue. |
 
-These colors are low-level prototype choices, not an accepted visual design or
-measured brightness. The cue signals accepted conversation state, not proven
+### The face
+
+`crates/live/src/ring_face.rs` holds what the ring shows and nothing else: a
+mood (resting, listening, thinking, speaking), a voice level and a time go in,
+32 colours come out, and no channel exceeds the configured ceiling. It has no
+I/O, no clock and no authority. The ring worker keeps one face and renders
+every frame it is allowed to write from it, so a change of mood eases over
+about 70 ms instead of jumping, and the first frame of a cue is already
+visible. Every pattern is symmetric around the ring or travels around it, so
+none depends on which pixel is at the top of the head.
+
+The voice level is one byte in each `RingFrame`: the root mean square of the
+last 10 ms block, 0 at -48 dBFS and 255 at -14 dBFS, of the person's captured
+audio while they speak and of the lamp's own speech as it is handed to the
+speaker. It shapes a frame and grants nothing: when a frame is requested, and
+whether it may be written, are decided exactly as before. In the face the
+level rises within 20 ms and falls over about 170 ms.
+
+A level between two brightness steps is shown by rounding each pixel at its
+own fixed point, so some pixels sit one step higher. That keeps a dim breath
+smooth where a ceiling of 24 leaves the resting face two or three steps to
+work with. Nothing is dithered in time.
+
+### The resting face and its authority
+
+A resting frame belongs to no turn and claims nothing about one. The ring
+worker paints it itself, forty times a second, and only in `serve` (the
+coordinator starts the worker with `--resting CEILING`, the same ceiling as
+its cues). `GuardedRing::show_resting` writes it only when the installed
+authority is fresh, the microphone is permitted, input is available and no
+turn owns the lamp, and never over a displayed cue. `tick` blanks it when the
+authority expires, privacy closes or input stops being available. An owner
+appearing does not blank it: the last resting frame stays until the first cue
+frame is painted over it, so a turn begins with no dark frame. The coordinator
+receives no receipt for a resting frame; a blank that ends one is reported
+like any other.
+
+So the resting face means one thing: the lamp is on and able to hear. It is
+dark when the privacy switch is closed.
+
+Seen through the office iMac's camera on lamp-4ace on 2026-10-12 with a
+ceiling of 40: across eight stills of the resting face the dark centre of
+the head, which reflects the ring, varied between 45 and 59 of 255 while a
+patch of floor stayed at 167 to 170 in seven of them; during one exchange the
+centre read blue while a question was played, warm while the lamp answered,
+and fell back to the resting level afterwards. The ring itself saturates that
+camera in every state, so these stills say nothing about brightness as a
+person sees it, and the circling point was not caught in a still.
+
+The cue signals accepted conversation state, not proven
 social understanding: the directed voice harness still has false interruptions
 from playback and does not know whether ambient speech addresses Lamp.
 ALSA acceptance/retirement are software/driver boundaries, not optical or

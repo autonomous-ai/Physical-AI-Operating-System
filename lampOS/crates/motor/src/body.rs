@@ -87,7 +87,58 @@ pub struct Limits {
     pub start_reach: u16,
 }
 
+/// What may be chosen at start, each inside a cap fixed here.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Tuning {
+    /// Reach in counts: pitch up, pitch down, roll, yaw.
+    pub reach: [u16; 4],
+    /// Counts a second.
+    pub speed: u16,
+    pub servo_speed: u16,
+    pub servo_acceleration: u8,
+}
+
+impl Tuning {
+    /// The largest reach that may be chosen: about 16 degrees up, 2 down,
+    /// 9 of roll and 22 of yaw.
+    pub const REACH_CAP: [u16; 4] = [180, 25, 100, 250];
+    pub const SPEED_CAP: u16 = 300;
+    pub const SERVO_SPEED_CAP: u16 = 1_000;
+    pub const SERVO_ACCELERATION_CAP: u8 = 150;
+}
+
 impl Limits {
+    /// The folded limits with another reach and speed, each within its cap.
+    /// Whatever the reach, the head's pitch keeps its absolute window.
+    pub fn folded_with(tuning: Tuning) -> Result<Self, &'static str> {
+        let within = tuning
+            .reach
+            .iter()
+            .zip(Tuning::REACH_CAP)
+            .all(|(reach, cap)| *reach >= 1 && *reach <= cap);
+        if !within
+            || !(10..=Tuning::SPEED_CAP).contains(&tuning.speed)
+            || !(50..=Tuning::SERVO_SPEED_CAP).contains(&tuning.servo_speed)
+            || !(10..=Tuning::SERVO_ACCELERATION_CAP).contains(&tuning.servo_acceleration)
+        {
+            return Err("reach or speed outside what this body may be given");
+        }
+        Ok(Self {
+            pitch_up: f32::from(tuning.reach[0]),
+            pitch_down: f32::from(tuning.reach[1]),
+            roll: f32::from(tuning.reach[2]),
+            yaw: f32::from(tuning.reach[3]),
+            speed: f32::from(tuning.speed),
+            // Reaches its speed in a little over a tenth of a second.
+            acceleration: f32::from(tuning.speed) * 8.0,
+            servo_speed: tuning.servo_speed,
+            servo_acceleration: tuning.servo_acceleration,
+            // A joint may be found anywhere inside the reach of its home.
+            start_reach: tuning.reach.into_iter().max().unwrap_or(60).max(60),
+            ..Self::FOLDED
+        })
+    }
+
     /// For a lamp folded in its rest pose. On lamp-4ace the head crossed
     /// 1766 to 2043 with no load and met the base near 2045 to 2056, so its
     /// goal stays at or under 2030 and it dips little. Speed is what the head
@@ -574,7 +625,18 @@ pub(crate) fn run(
         let Pose { pitch, roll, yaw } =
             gestures.target(mood, level, now.as_micros().try_into().unwrap_or(u64::MAX));
         let mut goals = written;
-        for (index, offset) in [pitch, roll, yaw].into_iter().enumerate() {
+        // Each axis of a pose is a share of its reach.
+        let offsets = [
+            pitch
+                * if pitch < 0.0 {
+                    limits.pitch_up
+                } else {
+                    limits.pitch_down
+                },
+            roll * limits.roll,
+            yaw * limits.yaw,
+        ];
+        for (index, offset) in offsets.into_iter().enumerate() {
             let wanted = (f32::from(home[index]) + offset).clamp(low[index], high[index]);
             let pull =
                 FOLLOW * FOLLOW * (wanted - commanded[index]) - 2.0 * FOLLOW * velocity[index];

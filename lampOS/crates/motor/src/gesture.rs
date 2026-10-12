@@ -2,8 +2,9 @@
 //! mood, a voice level and a time. Pure arithmetic. Limits, speed and whether
 //! anything moves at all belong to the engine that asks.
 //!
-//! Poses are offsets in encoder counts (about 11.4 to a degree) from where the
-//! head was found. Positive pitch dips the head; negative lifts it.
+//! A pose is a share of the reach the engine allows around the head's home:
+//! 1 is all of it, in pitch, roll and yaw. Positive pitch dips the head;
+//! negative lifts it.
 use serde::{Deserialize, Serialize};
 
 /// What the lamp is doing, as far as its body is concerned. The same four as
@@ -22,7 +23,7 @@ pub enum Mood {
     Speaking,
 }
 
-/// A wanted offset from the found pose, in encoder counts.
+/// A wanted offset from home, each axis as a share of its reach, -1 to 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pose {
     pub pitch: f32,
@@ -74,20 +75,20 @@ impl Gestures {
         match mood {
             Mood::Resting => Pose::default(),
             Mood::Listening => Pose {
-                pitch: -18.0,
-                roll: 26.0 * side,
+                pitch: -0.4,
+                roll: 0.85 * side,
                 yaw: 0.0,
             },
             Mood::Thinking => Pose {
-                pitch: -30.0,
-                roll: -12.0 * side,
-                yaw: 36.0 * side,
+                pitch: -0.7,
+                roll: -0.4 * side,
+                yaw: 0.9 * side,
             },
             Mood::Speaking => {
                 // Louder than its recent average: the head dips a little.
                 let nod = (self.voice - self.voice_average).clamp(-0.5, 0.5);
                 Pose {
-                    pitch: -8.0 + 22.0 * nod,
+                    pitch: -0.2 + 0.5 * nod,
                     roll: 0.0,
                     yaw: 0.0,
                 }
@@ -104,11 +105,11 @@ fn follow(step_us: f32, pace_us: f32) -> f32 {
 mod tests {
     use super::*;
 
-    /// The largest offsets any mood may ask for. The engine clamps again.
+    /// No mood asks for more than the whole reach. The engine clamps again.
     const REACH: Pose = Pose {
-        pitch: 40.0,
-        roll: 30.0,
-        yaw: 40.0,
+        pitch: 1.0,
+        roll: 1.0,
+        yaw: 1.0,
     };
 
     #[test]
@@ -170,14 +171,17 @@ mod tests {
             now += 20_000;
             loud = gestures.target(Mood::Speaking, 255, now);
         }
-        assert!(loud.pitch > quiet.pitch + 4.0, "{quiet:?} {loud:?}");
+        assert!(loud.pitch > quiet.pitch + 0.1, "{quiet:?} {loud:?}");
         // Held loud, it comes back: a nod, not a new posture.
         let mut held = loud;
         for _ in 0..200 {
             now += 20_000;
             held = gestures.target(Mood::Speaking, 255, now);
         }
-        assert!((held.pitch - quiet.pitch).abs() < 1.0, "{quiet:?} {held:?}");
+        assert!(
+            (held.pitch - quiet.pitch).abs() < 0.03,
+            "{quiet:?} {held:?}"
+        );
         assert_eq!((held.roll, held.yaw), (0.0, 0.0));
     }
 }

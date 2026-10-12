@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -13,6 +13,19 @@ struct Arguments {
     lock_directory: PathBuf,
     mood_socket: PathBuf,
     home: Option<[u16; 3]>,
+    reach: Option<[u16; 4]>,
+    speed: Option<u16>,
+    servo_speed: Option<u16>,
+    servo_acceleration: Option<u8>,
+}
+
+/// Whole numbers separated by commas, exactly as many as asked for.
+fn counts_of<const N: usize>(value: &str) -> Option<[u16; N]> {
+    let parts: Vec<u16> = value
+        .split(',')
+        .map(|part| part.parse::<u16>().ok().filter(|_| !part.starts_with('+')))
+        .collect::<Option<_>>()?;
+    parts.try_into().ok()
 }
 
 /// Three encoder positions, each a whole number of counts on one turn.
@@ -30,6 +43,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut args = args.into_iter();
     let (mut device, mut unit_id, mut lock_directory, mut mood_socket) = (None, None, None, None);
     let mut home = None;
+    let (mut reach, mut speed, mut servo_speed, mut servo_acceleration) = (None, None, None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -37,6 +51,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || lock_directory.is_some()
                 || mood_socket.is_some()
                 || home.is_some()
+                || reach.is_some()
+                || speed.is_some()
+                || servo_speed.is_some()
+                || servo_acceleration.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -66,6 +84,39 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .map_err(|_| "invalid explicit unit ID")?,
                 );
             }
+            Some("--reach") if reach.is_none() => {
+                reach = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<4>)
+                        .ok_or("--reach is UP,DOWN,ROLL,YAW in encoder counts")?,
+                );
+            }
+            Some("--speed") if speed.is_none() => {
+                speed = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .ok_or("--speed is a whole number of counts a second")?[0],
+                );
+            }
+            Some("--servo-speed") if servo_speed.is_none() => {
+                servo_speed = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .ok_or("--servo-speed is a whole number")?[0],
+                );
+            }
+            Some("--servo-acceleration") if servo_acceleration.is_none() => {
+                servo_acceleration = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .and_then(|value| u8::try_from(value[0]).ok())
+                        .ok_or("--servo-acceleration is a whole number under 256")?,
+                );
+            }
             _ => return Err("unknown or duplicate option"),
         }
     }
@@ -75,6 +126,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         lock_directory: lock_directory.ok_or("--lock-directory is required")?,
         mood_socket: mood_socket.ok_or("--mood-socket is required")?,
         home,
+        reach,
+        speed,
+        servo_speed,
+        servo_acceleration,
     };
     for path in [&result.device, &result.lock_directory, &result.mood_socket] {
         if !path.is_absolute()
@@ -128,13 +183,19 @@ fn main() -> std::process::ExitCode {
 #[cfg(not(target_os = "linux"))]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let _ = (arguments.unit_id, arguments.mood_socket, arguments.home);
+    let _ = (
+        arguments.reach,
+        arguments.speed,
+        arguments.servo_speed,
+        arguments.servo_acceleration,
+    );
     Err("the body requires Linux; no device was opened".into())
 }
 
 #[cfg(target_os = "linux")]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     use lamp_motor::{
-        body::{Limits, Stop},
+        body::{Limits, Stop, Tuning},
         linux::{InspectionConfig, run_body},
     };
     use nix::sys::{
@@ -182,7 +243,22 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         latest
     };
-    let result = run_body(&config, Limits::FOLDED, arguments.home, news, || {
+    // What is not chosen stays as the folded limits have it.
+    let folded = Limits::FOLDED;
+    let limits = Limits::folded_with(Tuning {
+        reach: arguments.reach.unwrap_or([
+            folded.pitch_up as u16,
+            folded.pitch_down as u16,
+            folded.roll as u16,
+            folded.yaw as u16,
+        ]),
+        speed: arguments.speed.unwrap_or(folded.speed as u16),
+        servo_speed: arguments.servo_speed.unwrap_or(folded.servo_speed),
+        servo_acceleration: arguments
+            .servo_acceleration
+            .unwrap_or(folded.servo_acceleration),
+    })?;
+    let result = run_body(&config, limits, arguments.home, news, || {
         if !cancelled {
             cancelled = signal_fd
                 .read_signal()
@@ -236,6 +312,40 @@ mod tests {
             with("1930,2043,2015").unwrap().unwrap().home,
             Some([1_930, 2_043, 2_015])
         );
+        let tuned = parse(args(
+            &[
+                &FULL[..],
+                &[
+                    "--reach",
+                    "120,15,60,150",
+                    "--speed",
+                    "120",
+                    "--servo-speed",
+                    "400",
+                    "--servo-acceleration",
+                    "80",
+                ],
+            ]
+            .concat(),
+        ))
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            (
+                tuned.reach,
+                tuned.speed,
+                tuned.servo_speed,
+                tuned.servo_acceleration
+            ),
+            (Some([120, 15, 60, 150]), Some(120), Some(400), Some(80))
+        );
+        assert!(parse(args(&[&FULL[..], &["--reach", "120,15,60"]].concat())).is_err());
+        assert!(
+            parse(args(
+                &[&FULL[..], &["--servo-acceleration", "256"]].concat()
+            ))
+            .is_err()
+        );
         for refused in [
             "1930,2043",
             "1930,2043,2015,1",
@@ -252,7 +362,7 @@ mod tests {
             some.drain(missing * 2..missing * 2 + 2);
             assert!(parse(args(&some)).is_err());
         }
-        assert!(parse(args(&[&FULL[..], &["--speed", "200"]].concat())).is_err());
+        assert!(parse(args(&[&FULL[..], &["--torque", "1"]].concat())).is_err());
         assert!(
             parse(args(
                 &[&FULL[..6], &["--mood-socket", "mood.sock"]].concat()

@@ -96,6 +96,21 @@ and reach above.
 lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW]
 ```
 
+Reach and speed can be chosen at start, each inside a cap fixed in the code:
+
+| Option | Meaning | Without it | Cap |
+| --- | --- | --- | --- |
+| `--reach UP,DOWN,ROLL,YAW` | farthest a goal may be from home, in counts | 45,15,30,40 | 180,25,100,250 |
+| `--speed N` | fastest the commanded pose moves, counts a second | 50 | 300 |
+| `--servo-speed N` | goal speed written to the three servos | 150 | 1,000 |
+| `--servo-acceleration N` | acceleration written to them | 50 | 150 |
+
+Every gesture is a share of the reach (listening lifts 40% of the way up and
+tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
+the other way; speaking sits 20% up and nods a quarter of the way either
+side), so a wider reach makes every gesture larger. The head's pitch window,
+the load, tracking, drift, status and heat rules do not change with it.
+
 It takes the same exclusive ownership of the servo port as
 `lamp-motor-inspect`, so neither can run while the other does. Stop every
 other owner of the port first.

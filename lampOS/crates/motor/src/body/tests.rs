@@ -563,6 +563,95 @@ fn a_home_it_is_given_is_reached_slowly_from_where_it_is_found() {
 }
 
 #[test]
+fn a_wider_reach_and_speed_can_be_chosen_only_inside_their_caps() {
+    let tuning = Tuning {
+        reach: [150, 15, 80, 200],
+        speed: 200,
+        servo_speed: 600,
+        servo_acceleration: 100,
+    };
+    let limits = Limits::folded_with(tuning).unwrap();
+    assert_eq!(
+        (limits.pitch_up, limits.yaw, limits.speed),
+        (150.0, 200.0, 200.0)
+    );
+    // What is not a reach or a speed is exactly as before.
+    assert_eq!(limits.pitch_window, Limits::FOLDED.pitch_window);
+    assert_eq!(limits.load, Limits::FOLDED.load);
+    assert_eq!(limits.bystander_drift, Limits::FOLDED.bystander_drift);
+    for refused in [
+        Tuning {
+            reach: [181, 15, 80, 200],
+            ..tuning
+        },
+        Tuning {
+            reach: [150, 26, 80, 200],
+            ..tuning
+        },
+        Tuning {
+            reach: [150, 15, 101, 200],
+            ..tuning
+        },
+        Tuning {
+            reach: [150, 15, 80, 251],
+            ..tuning
+        },
+        Tuning {
+            reach: [0, 15, 80, 200],
+            ..tuning
+        },
+        Tuning {
+            speed: 301,
+            ..tuning
+        },
+        Tuning {
+            servo_speed: 1_001,
+            ..tuning
+        },
+        Tuning {
+            servo_acceleration: 151,
+            ..tuning
+        },
+    ] {
+        assert!(Limits::folded_with(refused).is_err(), "{refused:?}");
+    }
+
+    // With it the head turns much farther, still in small steps and still
+    // never past the pitch window.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].position = 1_950.0;
+    lamp.servos[PITCH].goal = 1_950;
+    for servo in [PITCH, ROLL, YAW] {
+        lamp.servos[servo].speed = 600;
+        lamp.servos[servo].acceleration = 100;
+    }
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, limits, None, news);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let farthest = |joint: Joint, home: u16| {
+        lamp.goals
+            .iter()
+            .map(|write| goal_of(write, joint).abs_diff(home))
+            .max()
+            .unwrap()
+    };
+    assert!(farthest(Joint::BaseYaw, 2_015) >= 150 && farthest(Joint::BaseYaw, 2_015) <= 200);
+    assert!(farthest(Joint::WristPitch, 1_950) >= 90);
+    let mut previous = [1_950, 2_044, 2_015];
+    for write in &lamp.goals {
+        for (index, joint) in COMMANDED.iter().enumerate() {
+            let goal = i32::from(goal_of(write, *joint));
+            assert!(
+                (goal - previous[index]).abs() <= 5,
+                "{joint} {previous:?} {write:?}"
+            );
+            previous[index] = goal;
+        }
+        assert!(goal_of(write, Joint::WristPitch) <= 2_030);
+    }
+}
+
+#[test]
 fn a_wire_that_goes_silent_stops_it_after_three_steps() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.silent_from = Some(Duration::from_millis(1_500));

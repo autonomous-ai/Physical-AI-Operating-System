@@ -16,6 +16,7 @@ qualification work.
 | Fresh retained input admitted to the current turn | The listening face: cool, at once, brighter with the person's voice. |
 | Local input ended; the turn is unfinished without active playback | The thinking face: an amber point circling the ring once every 1.15 s with a fading tail. No spoken waiting filler. |
 | Matched speaker acceptance followed by `playback_started` | The speaking face: warm, as bright as the lamp's own voice is loud. Provider audio arrival alone does not start it. |
+| A duplex yield in force (`--turn-taking duplex`: the lamp has stopped handing reply audio to the speaker for someone speaking over it) | The listening face, as bright as that person's voice is loud, on frames that are still speaking frames in phase, owner and permit (`RingFrame.attending`). It ends with the yield: the speaking face again if the reply resumes, the ordinary listening phase if the interruption is taken. |
 | Playback's actual final sample retired | End the speaking phase; completion clears the owner and cue, and in `serve` the resting face eases back in. |
 | New admitted question, privacy closure, expired authority or stop | Retire the old cue under its original identity. A successor can obtain its own cue. |
 

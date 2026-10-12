@@ -2903,17 +2903,26 @@ fn conversation(
             )
             .into());
         }
+        // A lamp that has stopped speaking for someone looks at them: the
+        // listening face and pose at once, whatever becomes of the yield.
+        let attending = playback_mask.yielded(clock);
         // The lamp's own voice while it speaks, the person's otherwise.
         let voice_level = match reply.as_ref() {
-            Some(current) if current.playback.is_some() => current.voice_level,
+            Some(current) if current.playback.is_some() && !attending => current.voice_level,
             _ => heard_level,
         };
         if let Some(choreography) = choreography.as_mut() {
             choreography.set_level(voice_level);
+            choreography.set_attending(attending);
         }
         if let Some(body) = body_link.as_mut() {
+            let phase = crate::ring_wire::RingPhase::from_snapshot(snapshot);
             body.tell(
-                crate::ring_wire::RingPhase::from_snapshot(snapshot),
+                if attending && phase == Some(crate::ring_wire::RingPhase::Speaking) {
+                    Some(crate::ring_wire::RingPhase::Listening)
+                } else {
+                    phase
+                },
                 voice_level,
                 clock,
             );

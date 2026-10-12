@@ -345,12 +345,8 @@ fn service(
                     } else {
                         let ceiling =
                             ChannelCeiling::new(frame.ceiling).map_err(io::Error::other)?;
-                        let pixels: [_; PIXEL_COUNT] = face.render(
-                            frame.phase.mood(),
-                            frame.level,
-                            monotonic_us(),
-                            ceiling.get(),
-                        );
+                        let pixels: [_; PIXEL_COUNT] =
+                            face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {
                             Ok(write) => link.publish(WorkerEvent::Ring {
                                 report: RingFeedback::Presented {

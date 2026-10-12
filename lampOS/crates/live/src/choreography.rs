@@ -30,6 +30,8 @@ pub struct RingChoreographer {
     faulted: bool,
     /// Stamped into the next frame; see [`RingFrame::level`].
     level: u8,
+    /// Stamped into the next frame; see [`RingFrame::attending`].
+    attending: bool,
 }
 
 impl RingChoreographer {
@@ -43,6 +45,7 @@ impl RingChoreographer {
             last_write: None,
             faulted: false,
             level: 0,
+            attending: false,
         })
     }
 
@@ -50,6 +53,12 @@ impl RingChoreographer {
     /// looks, never whether or when one is requested.
     pub fn set_level(&mut self, level: u8) {
         self.level = level;
+    }
+
+    /// Whether the lamp has stopped speaking to listen. Like the level, it
+    /// changes how the next frame looks and nothing else.
+    pub fn set_attending(&mut self, attending: bool) {
+        self.attending = attending;
     }
 
     pub fn is_faulted(&self) -> bool {
@@ -130,6 +139,7 @@ impl RingChoreographer {
             ceiling: u16::from(self.ceiling.get()),
             requested_at_us,
             level: self.level,
+            attending: self.attending,
         };
         self.pending = Some(frame);
         self.last_frame = Some(frame);
@@ -466,6 +476,50 @@ mod tests {
         controller.complete_turn(t(23), owner).unwrap();
         assert!(policy.prepare(&mut controller, t(23)).unwrap().is_none());
         assert_eq!(controller.snapshot(t(23)).unwrap().owner(), None);
+    }
+
+    #[test]
+    fn a_lamp_that_stopped_for_someone_shows_the_listening_face_only_while_it_would_be_speaking() {
+        use crate::ring_face::Mood;
+        let mut controller = ready();
+        let owner = controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
+        let mut policy = RingChoreographer::new(40).unwrap();
+        policy.set_attending(true);
+        let listening = policy.prepare(&mut controller, t(10)).unwrap().unwrap();
+        assert_eq!(listening.mood(), Mood::Listening);
+        acknowledge(&mut policy, &mut controller, listening, 12);
+        controller.input_ended(t(13), owner).unwrap();
+        let waiting = policy.prepare(&mut controller, t(13)).unwrap().unwrap();
+        assert!(waiting.attending);
+        assert_eq!(waiting.mood(), Mood::Thinking);
+        acknowledge(&mut policy, &mut controller, waiting, 15);
+        let speech = speaking_permit(&mut controller, owner, 16);
+        controller.playback_started(t(17), speech).unwrap();
+        let held = policy.prepare(&mut controller, t(17)).unwrap().unwrap();
+        assert_eq!(
+            (held.phase, held.mood()),
+            (RingPhase::Speaking, Mood::Listening)
+        );
+        acknowledge(&mut policy, &mut controller, held, 19);
+        // It goes on: the next frame is the speaking face again, and is
+        // asked for no sooner than any other.
+        policy.set_attending(false);
+        let renewed = 17 + RENEW_INTERVAL_US;
+        assert!(
+            policy
+                .prepare(&mut controller, t(renewed - 1))
+                .unwrap()
+                .is_none()
+        );
+        renew_input(&mut controller, renewed);
+        let resumed = policy
+            .prepare(&mut controller, t(renewed))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (resumed.phase, resumed.mood()),
+            (RingPhase::Speaking, Mood::Speaking)
+        );
     }
 
     #[test]

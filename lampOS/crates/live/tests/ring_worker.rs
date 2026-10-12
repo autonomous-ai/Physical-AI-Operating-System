@@ -193,6 +193,7 @@ fn frame(controller: &mut Controller, owner: TurnOwner, lease_us: u64) -> RingFr
         ceiling: 40,
         requested_at_us: monotonic_us(),
         level: 0,
+        attending: false,
     }
 }
 fn present(rig: &Rig, frame: RingFrame) {

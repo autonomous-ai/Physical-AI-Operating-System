@@ -57,6 +57,21 @@ pub struct RingFrame {
     /// lamp's own while speaking. It shapes the frame and grants nothing.
     #[serde(default)]
     pub level: u8,
+    /// The lamp has stopped speaking for someone who spoke over it, and has
+    /// not yet taken their turn or gone on: a speaking frame is drawn as the
+    /// listening face. It shapes the frame and grants nothing.
+    #[serde(default)]
+    pub attending: bool,
+}
+
+impl RingFrame {
+    /// The face this frame is drawn with.
+    pub const fn mood(&self) -> Mood {
+        match self.phase {
+            RingPhase::Speaking if self.attending => Mood::Listening,
+            phase => phase.mood(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

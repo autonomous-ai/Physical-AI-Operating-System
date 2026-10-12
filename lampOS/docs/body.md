@@ -76,7 +76,10 @@ when that is set, on every change of mood and otherwise every 40 ms:
 
 `level` is the voice in play on the scale of the ring's face (see
 [ring-choreography.md](ring-choreography.md)): the person's while listening,
-the lamp's own while speaking. Nothing comes back, and a body that is absent,
+the lamp's own while speaking. While the lamp has stopped speaking for someone
+who spoke over it (a duplex yield in force) the mood sent is `listening` with
+that person's level, so the head turns its attention to them at once and goes
+back to `speaking` if the reply resumes. Nothing comes back, and a body that is absent,
 slow or stopped changes nothing in the voice service. A mood older than 1.5 s
 is rest. Anything that is not exactly that object is ignored.
 

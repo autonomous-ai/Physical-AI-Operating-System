@@ -369,6 +369,16 @@ has been matched once. Someone who goes on speaking just before the lamp
 starts is a different case and is not affected: they are heard in the
 clear, before there is anything to yield.
 
+That was not enough. In an hour of ordinary replies the lamp once stopped
+itself 0.34 s into "I'm doing great!", sent its own words to the model and
+said "Sorry, I missed that. Could you please repeat it?" The render had
+explained the first two blocks of that reply, which made every later block
+fresh, and then none of the next twenty. So the mask also counts
+(`turn_taking::MATCHED_BLOCKS`): since the lamp last had nothing to say,
+or last went on after a pause, the render must have explained at least
+half of the microphone on fifteen blocks before any block can be a person
+over it. Until then such a block is `Unknown`.
+
 ### A short word, heard plainly
 
 Until 2026-10-13 a yield became an interruption only if speech went on

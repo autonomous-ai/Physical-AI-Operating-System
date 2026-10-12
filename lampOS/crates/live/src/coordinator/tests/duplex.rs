@@ -99,7 +99,11 @@ impl Harness {
             owner,
             reply: Some(reply),
             mask: if duplex {
-                PlaybackMask::duplex()
+                // The lamp's own sound has been found; see
+                // `the_lamps_own_first_word_...` for when it has not.
+                let mut mask = PlaybackMask::duplex();
+                mask.assume_matched();
+                mask
             } else {
                 PlaybackMask::new(policy)
             },
@@ -533,6 +537,30 @@ fn a_short_word_heard_plainly_stops_the_reply_though_nothing_follows_it() {
 }
 
 #[test]
+fn the_lamps_own_first_word_does_not_stop_it_or_become_a_turn() {
+    // The start of a reply as lamp-4ace heard one: two blocks the render
+    // explains, then twenty-five it does not, all scored as speech.
+    let mut h = Harness::new(TurnTaking::Duplex, 400);
+    h.mask = PlaybackMask::duplex();
+    let old = h.old();
+    let mut ticks = h.blocks(2, 0.99, Some(evidence(0, OWN)));
+    ticks.extend(h.blocks(25, 0.95, Some(evidence(0, Some((0, 0))))));
+    ticks.extend(h.blocks(40, 0.99, Some(evidence(0, OWN))));
+    assert_eq!(
+        dispatched(&ticks),
+        ticks.len(),
+        "the speaker was kept waiting"
+    );
+    assert!(ticks.iter().all(|tick| tick.accepted.is_none()));
+    assert!(h.events("duplex_yield").is_empty());
+    assert!(h.events("input_candidate").is_empty());
+    assert_eq!(h.old(), old);
+    // With its sound found, the same blocks are a person over it.
+    h.blocks(ONSET, 0.95, Some(evidence(0, Some((0, 0)))));
+    assert_eq!(h.events("duplex_yield").len(), 1);
+}
+
+#[test]
 fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     let mut h = Harness::new(TurnTaking::Duplex, 400);
     let old = h.old();
@@ -596,7 +624,7 @@ fn a_reply_that_twice_yields_to_nothing_masks_like_the_baseline_until_it_ends() 
             h.block(0.1, Some(evidence(quiet, None)));
         }
         h.blocks(40, 0.1, Some(evidence(40, None)));
-        h.blocks(10, 0.99, Some(evidence(0, OWN)));
+        h.blocks(20, 0.99, Some(evidence(0, OWN)));
     }
     assert_eq!(h.mask.duplex_summary(), Some(((2, 0, 2), true)));
     // The same evidence a third time: the reply plays on and no one is let in.
@@ -748,6 +776,9 @@ fn corrected_prefix_after_duplex_hold(
         } else {
             (0.9, Some(evidence(30, None)))
         };
+        if sequence == 31 {
+            mask.assume_matched();
+        }
         let heard = mask
             .listen(sequence, probability, echo.as_ref(), sequence >= 31, at)
             .unwrap();

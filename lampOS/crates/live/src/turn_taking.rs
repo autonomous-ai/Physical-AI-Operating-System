@@ -15,7 +15,7 @@ use crate::{
 };
 use lamp_audio::{
     duplex::{Confirmation, Heard, Hearing, Interruption, Margin, Step},
-    evidence::EchoEvidence,
+    evidence::{EchoEvidence, MATCH_PERCENT},
     ownership::{PlaybackCursor, QueuedRange},
 };
 use lamp_interaction::TurnOwner;
@@ -30,6 +30,13 @@ const MAX_HEARD: usize = 128;
 /// Yields in one reply that came to nothing before the mask stops yielding
 /// for the rest of that reply and masks as the conservative baseline does.
 pub const FRUITLESS_YIELDS: u8 = 2;
+/// Blocks of the lamp's own sound that the render must have explained, since
+/// the lamp last had nothing to say or last went on after a pause, before a
+/// block can be a person over it. The evidence takes the start of every
+/// reply to find the lamp's sound again. On lamp-4ace it explained the first
+/// two blocks of one, then none of the next twenty, and the lamp took its
+/// own "I'm doing great!" for someone cutting in.
+pub const MATCHED_BLOCKS: u16 = 15;
 /// Hearing older than this withholds nothing. Capture blocks arrive every
 /// 10 ms; a muted or stalled microphone must not hold a reply back.
 pub const HEARING_STALE_US: u64 = 100_000;
@@ -122,6 +129,8 @@ struct Duplex {
     blind: bool,
     /// Yields since the reply began that ended in a resume.
     fruitless: u8,
+    /// See [`MATCHED_BLOCKS`].
+    matched: u16,
     /// When the latest block was heard.
     listened_at_us: u64,
 }
@@ -175,6 +184,7 @@ impl PlaybackMask {
                 last_yield: None,
                 blind: true,
                 fruitless: 0,
+                matched: 0,
                 listened_at_us: 0,
             }),
             ..Self::new(TurnTaking::V1Baseline)
@@ -230,7 +240,19 @@ impl PlaybackMask {
             });
         };
         duplex.blind = false;
-        let heard = duplex.hearing.heard(probability, evidence);
+        if !speaking {
+            duplex.matched = 0;
+        } else if evidence
+            .echo
+            .is_some_and(|echo| echo.capture_explained >= MATCH_PERCENT)
+        {
+            duplex.matched = duplex.matched.saturating_add(1);
+        }
+        let heard = match duplex.hearing.heard(probability, evidence) {
+            // The lamp's own sound has not been found in this reply yet.
+            Heard::Over if speaking && duplex.matched < MATCHED_BLOCKS => Heard::Unknown,
+            heard => heard,
+        };
         duplex.margin.observe(heard, evidence);
         // A reply that keeps yielding to nothing stops yielding.
         let may_yield = speaking && duplex.fruitless < FRUITLESS_YIELDS;
@@ -293,7 +315,16 @@ impl PlaybackMask {
                     *state = Yielded::Resumed;
                 }
                 duplex.fruitless = duplex.fruitless.saturating_add(1);
+                // What plays next starts like a reply does.
+                duplex.matched = 0;
             }
+        }
+    }
+    /// For tests of what follows: the lamp's own sound has been found.
+    #[cfg(test)]
+    pub(crate) fn assume_matched(&mut self) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.matched = MATCHED_BLOCKS;
         }
     }
     /// Whether reply audio is being withheld from the speaker for a person.
@@ -1270,6 +1301,7 @@ mod tests {
     #[test]
     fn the_duplex_mask_scores_the_lamp_as_silence_and_a_person_as_speech() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         assert!(mask.is_duplex() && mask.enabled());
         let own = mask
             .listen(1, 0.99, Some(&evidence(0, OWN)), true, 10_000)
@@ -1301,6 +1333,7 @@ mod tests {
     #[test]
     fn the_detector_hears_a_person_over_a_reply_so_that_its_start_ends_on_the_yield() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut heard = Vec::new();
         for sequence in 1..=ONSET + 2 {
             let listened = mask
@@ -1325,6 +1358,7 @@ mod tests {
         // A run that stops short was never speech to the detector for six
         // blocks in a row.
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         let mut longest = 0;
         let mut run = 0;
@@ -1354,6 +1388,7 @@ mod tests {
     fn a_second_into_a_reply_the_shorter_run_stops_it_and_the_detector_starts_on_the_yield() {
         let rule = Confirmation::EVALUATED;
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         assert_eq!(
             hear(
@@ -1396,8 +1431,76 @@ mod tests {
     }
 
     #[test]
+    fn nothing_is_a_person_over_the_lamp_until_its_own_sound_has_been_found_in_this_reply() {
+        // As on lamp-4ace: the render explains the first two blocks of a
+        // reply and then none of the next twenty, through which the lamp's
+        // own first word is scored as speech.
+        let mut mask = PlaybackMask::duplex();
+        let mut sequence = 1;
+        let unexplained = evidence(0, Some((0, 0)));
+        assert_eq!(
+            hear(&mut mask, &mut sequence, 2, 0.9, &evidence(0, OWN), true),
+            []
+        );
+        for _ in 0..40 {
+            let listened = mask
+                .listen(sequence, 0.9, Some(&unexplained), true, sequence * 10_000)
+                .unwrap();
+            assert_eq!(
+                (listened.heard, listened.score, listened.step),
+                (Some(Heard::Unknown), 0.0, Step::Carry)
+            );
+            sequence += 1;
+        }
+        assert_eq!(mask.duplex_summary(), Some(((0, 0, 0), false)));
+        // Once the render has explained enough of the reply, a person is
+        // heard over it as always.
+        hear(
+            &mut mask,
+            &mut sequence,
+            u64::from(MATCHED_BLOCKS) - 3,
+            0.9,
+            &evidence(0, OWN),
+            true,
+        );
+        assert_eq!(
+            hear(&mut mask, &mut sequence, ONSET, 0.9, &unexplained, true),
+            []
+        );
+        hear(&mut mask, &mut sequence, 1, 0.9, &evidence(0, OWN), true);
+        let steps = hear(
+            &mut mask,
+            &mut sequence,
+            ONSET,
+            0.9,
+            &evidence(0, OVER),
+            true,
+        );
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].1, Step::Yield);
+        // A reply that goes on after a pause has to be found again.
+        hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
+        let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
+        assert_eq!(steps.last().unwrap().1, Step::Resume);
+        assert_eq!(
+            hear(&mut mask, &mut sequence, 30, 0.9, &unexplained, true),
+            []
+        );
+        // And so has the next reply, after there was nothing to yield.
+        let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
+        let mut sequence = 1;
+        hear(&mut mask, &mut sequence, 1, 0.1, &evidence(40, None), false);
+        assert_eq!(
+            hear(&mut mask, &mut sequence, 30, 0.9, &unexplained, true),
+            []
+        );
+    }
+
+    #[test]
     fn without_evidence_the_duplex_mask_is_the_conservative_mask() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let blind = mask.listen(1, 0.99, None, true, 10_000).unwrap();
         assert_eq!(
             (blind.heard, blind.score, blind.step),
@@ -1415,6 +1518,7 @@ mod tests {
     #[test]
     fn a_candidate_that_began_over_the_lamp_waits_and_passes_when_the_person_goes_on() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         assert_eq!(
             hear(&mut mask, &mut sequence, 10, 0.9, &evidence(0, OWN), true),
@@ -1456,6 +1560,7 @@ mod tests {
         // The render explains a tenth of the block: not the lamp.
         const PLAIN: Option<(u8, u8)> = Some((10, 0));
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         let word = u64::from(Confirmation::EVALUATED.plain_blocks);
         let steps = hear(
@@ -1478,6 +1583,7 @@ mod tests {
         assert_eq!(mask.duplex_summary(), Some(((1, 1, 0), false)));
         // One plain block fewer and it is an acknowledgment: a pause.
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,
@@ -1503,6 +1609,7 @@ mod tests {
     #[test]
     fn a_candidate_over_the_lamp_is_dropped_when_nobody_goes_on() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,
@@ -1526,8 +1633,10 @@ mod tests {
     #[test]
     fn a_reply_that_twice_yields_to_nothing_stops_yielding_until_it_closes() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         for _ in 0..FRUITLESS_YIELDS {
+            mask.assume_matched();
             let steps = hear(
                 &mut mask,
                 &mut sequence,
@@ -1543,6 +1652,7 @@ mod tests {
         }
         assert!(mask.duplex_summary().unwrap().1);
         // The same evidence again: no yield, and the detector is told nothing.
+        mask.assume_matched();
         let before = sequence;
         assert_eq!(
             hear(
@@ -1568,6 +1678,7 @@ mod tests {
         assert!(sequence > before && !mask.yielded((sequence - 1) * 10_000));
         // The next reply starts clean.
         mask.reply_closed();
+        mask.assume_matched();
         sequence += 1;
         let steps = hear(
             &mut mask,
@@ -1584,6 +1695,7 @@ mod tests {
     #[test]
     fn a_person_over_a_sound_that_is_no_reply_is_an_ordinary_candidate() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         // Nothing to yield: no reply has audio waiting.
         assert_eq!(
@@ -1599,6 +1711,7 @@ mod tests {
     #[test]
     fn a_gap_in_capture_forgets_what_was_heard_and_any_yield() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,
@@ -1620,6 +1733,7 @@ mod tests {
     #[test]
     fn a_yield_whose_hearing_has_stopped_withholds_nothing() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,
@@ -1650,6 +1764,7 @@ mod tests {
     #[test]
     fn a_reply_that_closes_during_a_yield_leaves_its_candidate_to_be_settled() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,
@@ -1681,6 +1796,7 @@ mod tests {
     #[test]
     fn another_capture_stream_forgets_what_was_heard_and_any_yield() {
         let mut mask = PlaybackMask::duplex();
+        mask.assume_matched();
         let mut sequence = 1;
         hear(
             &mut mask,

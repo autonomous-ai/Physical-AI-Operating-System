@@ -11,6 +11,20 @@ Everything below was measured on recordings, in tests or under emulation.
 
 ## Answer
 
+> **Correction, 2026-10-12. The first point below does not hold for
+> `4ace` as stated.** A device recording of speech over the lamp's own
+> reply now exists (`docs/verification/onset-retention-20261012`). The
+> microphone's hardware gain control is on, and it lowers the gain by
+> about 10 dB as soon as the lamp speaks and holds it there for tens of
+> seconds. The prompts used here were recorded with the lamp silent, at
+> the high gain, and laid over replies recorded at the low one, so every
+> synthetic overlap was at least 10 dB louder than a person would have
+> been. `Margin` read -3 dB to -5 dB on `4ace` for the same reason. In the
+> device recording it read -22.1 dB, as on `a0ae`, and the lamp did not
+> yield to a seven-word interruption until its last quarter second. The
+> trials are left as they were; what they showed is the decision's
+> behavior at those levels, not what `4ace` hears.
+
 - **The lamp can keep hearing while it speaks, on one of the two lamps
   recorded.** Where a person reaches the microphone about as loudly as the
   lamp's own voice does (`4ace`), a synthetic overlap at the person's

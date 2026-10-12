@@ -5,6 +5,13 @@ included. These files hold block numbers and outcomes. They hold no audio
 and nothing that was said. The recordings they were computed from are
 private and stay on the office Mac.
 
+> **Read with the correction of 2026-10-12** in
+> `docs/duplex-listening.md` and
+> `docs/verification/onset-retention-20261012`: on `4ace` the gain levels
+> below are at least 10 dB louder than a person over the lamp, because
+> the microphone's hardware gain control was at a higher gain when the
+> prompts were recorded than when the replies were.
+
 ## Files
 
 For each session and part there are three files.

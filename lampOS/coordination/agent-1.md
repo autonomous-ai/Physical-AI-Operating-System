@@ -7,7 +7,25 @@ serve trial, for a causal audit of onset retention. The branch is your
 the last status of the continuation and capture-order work is on
 `lamp-a1-capture-order` at `6c311b4d1`.
 
-- Updated: 2026-10-12, 03:15 UTC
+- Updated: 2026-10-12, 04:25 UTC
+- **Newest: your device recording is analysed. The interruption is lost
+  at the microphone input, before any software.** While the lamp speaks,
+  the microphone signal the software receives holds the coffee clip at
+  least 20 dB weaker than the same loudspeaker delivered five seconds
+  earlier with the lamp silent; the clip was emitted, at the same
+  strength, by the room recording. The microphone's hardware
+  `Auto Gain Control` is on: its quiet floor drops 7 to 10 dB at the
+  lamp's first sound and takes more than 30 s to return. The device's
+  own margin read -22.1 dB. Canceller, detector and hearing then did
+  what that input allowed: 86% of the clip's speech blocks scored under
+  0.5, one yield a quarter second before the clip ended, candidate
+  rejected. See "The device recording" in the audit.
+- **This withdraws a finding of mine from the duplex work:** that on
+  `4ace` a person is about as loud as the lamp's own voice at the
+  microphone. Prompts were recorded at the microphone's high gain and
+  replies at its low one. Every lab overlap on `4ace`, then and in this
+  audit, was at least 10 dB too loud. `docs/duplex-listening.md` carries
+  the correction.
 - **Answer: the opening of the coffee request was never admitted.** The
   admitted request begins 2.3 s after the stimulus's speech began. The
   provider, the kept start and continuation were handed nothing earlier.
@@ -71,7 +89,8 @@ a device result and chooses no gate.
 
 | Id | |
 |---|---|
-| `A1-028` | **The one next native diagnostic.** Repeat only `sunset` then `coffee`, same cached clips, same duplex settings, in a run that records the microphone bundle with `--diagnostics`, as the `lamp-connected-*` runs of 2026-10-11 did. The serve runner refuses raw audio diagnostics, so not that runner. Give me the bundle path; the lab's replay then shows how every block of the overlap was heard on the device, what the canceller left of the speech, and when it arrived. No further device time |
+| `A1-030` | **The next native comparison, and nothing in software before it.** The same two clips with (1) the microphone's `Auto Gain Control` mixer switch off and its capture volume fixed where the lamp's own voice stays below full scale, and (2) two complete replies before the overlap, as in the pilot, so the canceller has heard the lamp; recorded with `--diagnostics`. It shows whether the floor holds still, how far below the lamp's voice a person really is, what the converged canceller leaves of them, and whether the lamp yields sooner. A mixer setting and a longer scene, not a threshold |
+| `A1-028` | Done by you, thank you: `/private/tmp/lamp-duplex-diagnostic-executed-fhld3dr3`. It was not the pilot's scene (first playback of the session, clip 0.45 s into it), which the plan says. What it was: **The one next native diagnostic.** Repeat only `sunset` then `coffee`, same cached clips, same duplex settings, in a run that records the microphone bundle with `--diagnostics`, as the `lamp-connected-*` runs of 2026-10-11 did. The serve runner refuses raw audio diagnostics, so not that runner. Give me the bundle path; the lab's replay then shows how every block of the overlap was heard on the device, what the canceller left of the speech, and when it arrived. No further device time |
 | `A1-029` | If raw audio may not be recorded there: a bounded per-block hearing history in the trace at each yield, audio-free. Not built; it would be one coordinator proposal commit. Say if you want it |
 | `A1-013` | Still open from the duplex work and the same thing: a recording of speech over the lamp through the real acoustic path |
 
@@ -89,6 +108,13 @@ service. The lab runs are offline on the host.
 
 ## My faults here
 
+- **I took two recordings made at two microphone gains for one
+  acoustic fact.** In the duplex work I measured prompts spoken with the
+  lamp silent and replies with the lamp speaking, found them about as
+  loud, and built the lab's levels and a headline on it. The owner's side
+  had said the microphone board has its own processing, and I wrote that
+  down as a caveat instead of checking the mixer, where
+  `Auto Gain Control` is `on`. Your device recording showed it.
 - **The lab figures I first published pooled trials the lab cannot
   judge.** Whole request in 6 of 50, median 1,240 ms lost and the
   device's timing in 4 of 50 became 6 of 39, 675 ms and 2 of 39. I had

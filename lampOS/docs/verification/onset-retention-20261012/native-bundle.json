@@ -1,0 +1,121 @@
+{
+ "clips": {
+  "coffee_speech_ms": [
+   [
+    0,
+    590
+   ],
+   [
+    770,
+    1140
+   ],
+   [
+    1370,
+    3070
+   ],
+   [
+    3280,
+    4560
+   ]
+  ],
+  "sunset_speech_ms": [
+   [
+    10,
+    1870
+   ]
+  ]
+ },
+ "sunset_in_the_clear": {
+  "found_at_sample": 33061,
+  "frame_sequence": 207,
+  "matched_filter_peak": 0.622,
+  "peak_over_99th_percentile": 6.6,
+  "microphone_level_dbfs": -15.5,
+  "room_floor_dbfs": -74.8,
+  "loudspeaker_to_microphone_gain_db": 5.9,
+  "coherent_512": {
+   "share_of_microphone_db": -0.8,
+   "share_after_cancellation_db": -0.9,
+   "canceller_changes_the_speech_by_db": -0.3,
+   "segments": 115
+  },
+  "coherent_2048": {
+   "share_of_microphone_db": -0.3,
+   "share_after_cancellation_db": -0.3,
+   "canceller_changes_the_speech_by_db": -0.2,
+   "segments": 28
+  },
+  "device_score": {
+   "blocks": 188,
+   "from_0_5": 155,
+   "from_0_8": 144,
+   "string": ".............sSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.sSSSSSSSSSSSSSSSSSSSSSSSs........SSSSSSSSSSSsSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSs.sSSSSSSSSSsssss...SSSSSSSSSSSSSSSSS.......SSSSSSSSSSSSSSS"
+  }
+ },
+ "coffee_over_the_reply": {
+  "nominal_start_sample": 106860,
+  "placed_at_sample": 108772,
+  "placed_after_nominal_ms": 119.5,
+  "placement": "sunset position plus the difference of the two source-start times on the host clock",
+  "matched_filter_peak_within_30ms_of_the_placement": 0.033,
+  "at_ms_from_the_placement": 23.9,
+  "unconstrained_search": {
+   "found_ms_after_nominal": 939.2,
+   "peak": 0.038,
+   "peak_over_99th_percentile": 1.4,
+   "note": "no clear peak anywhere within a second: the clip cannot be located from the microphone signal alone"
+  },
+  "first_frame_sequence": 680,
+  "microphone_level_dbfs": -14.3,
+  "person_level_predicted_from_the_sunset_gain_dbfs": -20.1,
+  "person_against_everything_else_at_the_microphone_db": -4.5,
+  "after_cancellation_level_dbfs": -27.0,
+  "coherent_512": {
+   "share_of_microphone_db": -26.6,
+   "share_after_cancellation_db": -24.6,
+   "canceller_changes_the_speech_by_db": -10.5,
+   "segments": 284
+  },
+  "coherent_2048": {
+   "share_of_microphone_db": -21.5,
+   "share_after_cancellation_db": -18.7,
+   "canceller_changes_the_speech_by_db": -9.4,
+   "segments": 70
+  }
+ },
+ "per_block_over_the_clip": {
+  "frame_sequences": [
+   680,
+   1136
+  ],
+  "blocks": 457,
+  "speech_blocks_of_the_clip": 394,
+  "device_score": {
+   "under_0_5": 402,
+   "from_0_5": 55,
+   "from_0_8": 27,
+   "under_0_5_in_speech_blocks": 339,
+   "longest_run_from_0_5": 12,
+   "longest_run_from_0_8": 7,
+   "string": ".....................................................sss.......................sss............ss....................................................SSSSSSSs...............s................................................SSSs...............s...............s.............................................................................................................................................ssssSSSSSsss...................sSSSsSSsss..ssSSSSSSSs......."
+  },
+  "replay_hearing": {
+   "under": 391,
+   "own": 37,
+   "over": 25,
+   "unknown": 4,
+   "clear_or_still": 0,
+   "longest_over_run": 9,
+   "string": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOuuOOOOOuuuuuuuuuuuuuuuuuuuuOVVOOOOuOuuuuOOuuOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVxxVOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVOOOOOOOOOOuuuuuuuuuuuuuuuuuuuVVVVVVVVuuVVVVVVVVVxxuuuuuu",
+   "capture_explained_percent_median_where_speech_scored": 80.0
+  },
+  "replay_score_against_device_score": {
+   "correlation": 0.825,
+   "both_from_0_5": 46,
+   "device_only": 9,
+   "replay_only": 20
+  },
+  "clip_string": "###########################################################                  #####################################                       ##########################################################################################################################################################################                     ################################################################################################################################ ",
+  "legend": "device: . under 0.5, s 0.5 to 0.8, S 0.8 and over; replay: S still, C clear, u under, O own, V over, x unknown; clip: # speech"
+ }
+}

@@ -15,7 +15,7 @@ use crate::{
 };
 use lamp_gemini::{
     BarrierPolicy, BarrierWait, Connect, Context, Dialer, Discard, Error, Event, Failure,
-    FailureReason, Notice, RecoveryPolicy, RequestId, Resumption, SessionConfig, SessionId, Stage,
+    FailureReason, Notice, RecoveryPolicy, RequestId, SessionConfig, SessionId, Stage,
     StartRefusal, State, SuccessorStart, Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
@@ -37,7 +37,10 @@ const MAX_QUEUED_OUTPUT: usize = 512;
 const OUTPUT_HIGH_WATER: usize = 384;
 /// Initial setup is unchanged. A handle the service volunteers is kept in this
 /// process's memory only, so a reconnect can restore the conversation.
-const RESUMPTION: Resumption = Resumption::Retain;
+// What the tests below set. In production the private configuration decides
+// (`resumption` in the provider configuration; retained unless it says off).
+#[cfg(test)]
+const RESUMPTION: lamp_gemini::Resumption = lamp_gemini::Resumption::Retain;
 /// Until live service probes qualify cancellation ordering, an old response
 /// must settle before a successor is committed. Quiet alone cannot attribute
 /// a late answer. The assumption policy remains explicit in transport tests.
@@ -473,7 +476,6 @@ pub async fn run_with_continuation(
     let config = continuation.apply(
         ProviderConfig::load(config_path)?
             .into_session_with_camera(visual.is_some())?
-            .resumption(RESUMPTION)
             .barrier_policy(BARRIER),
     )?;
     let provider = Supervisor::new(Dialer::new(config), RecoveryPolicy::default())?;

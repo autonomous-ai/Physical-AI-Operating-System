@@ -285,9 +285,16 @@ once into these independent files; credentials stay outside source and reports.
 
 The JSON fields are `endpoint` (the complete secure WebSocket URL), `model`,
 `voice`, `credential_file`, and optional `authentication` (`api_key`, `bearer`,
-or `ephemeral`), `thinking_level`, and `language_code`. Thinking/language remain
+or `ephemeral`), `thinking_level`, `language_code`, and `resumption` (`retain`
+or `off`). Thinking/language remain
 omitted by default; explicit values are validated and sent without a silent
-fallback. See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
+fallback. `resumption` decides what a reconnect after an outage presents:
+`retain`, the default, presents the handle the service last volunteered so the
+conversation continues; `off` always opens a new conversation. Use `off` on a
+path where a resumed session accepts audio and never answers: on lamp-4ace
+through its relay, after the first failed exchange seven requests in a row
+went unanswered, each on a session reported as resumed, while every fresh
+session answered. See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
 the complete WebSocket route. The provider-check command opens no microphone and
 sends no speech. It establishes only that setup was accepted, not that a complete
 answer or account quota will succeed.

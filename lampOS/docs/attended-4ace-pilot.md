@@ -153,7 +153,8 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
 5. Provision `/etc/lampOS/pilot-4ace` as root:root 0700; put `provider.json` and
    `credential` there as separate, non-symlink, root:root 0600 regular files.
    Required JSON fields are `endpoint`, `model`, `voice`, `credential_file`;
-   optional fields are `authentication`, `thinking_level`, `language_code`.
+   optional fields are `authentication`, `thinking_level`, `language_code`,
+   `resumption` (`retain` or `off`; see [live runtime](live-runtime.md)).
    Authentication is `api_key`, `bearer` or `ephemeral`. Preserve the qualified
    model/voice/settings; do not add an unsupported language field. The credential
    path must be `/etc/lampOS/pilot-4ace/credential` in this package. Copy values

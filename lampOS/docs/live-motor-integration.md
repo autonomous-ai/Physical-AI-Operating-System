@@ -86,6 +86,11 @@ Only bounded lifecycle changes become trace events (at most 520 per instance);
 10-ms progress and per-position host write traffic are not logged repeatedly.
 The existing global finite trace limit is unchanged. No receipt asserts optical
 pose, actuator halt or clearance. Optional failure leaves one degradation record.
+The live adapter also adopts a stored supervisor exit, deadline or cleanup fault
+on the same poll even when that poll returns no receipt or error, including
+during teardown. Reporting does not wait for another authority publication;
+the first failure and single degradation record remain separate from voice
+ownership and from successful cleanup evidence.
 
 ## Privacy release correction, separate patch
 

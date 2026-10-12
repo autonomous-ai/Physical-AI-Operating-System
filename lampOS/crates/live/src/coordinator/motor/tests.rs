@@ -269,6 +269,14 @@ impl Link for TestLink {
     }
     fn publish(&mut self, e: &Event, n: MonoTime) -> io::Result<()> {
         self.channels.control.send(e, n)?;
+        if matches!(e, Event::Stopped { .. }) && self.mode == "gated_exit_failure" {
+            let until = Instant::now() + Duration::from_secs(2);
+            while !self.directory.join("go").exists() {
+                assert!(Instant::now() < until);
+                std::thread::park_timeout(Duration::from_millis(1));
+            }
+            std::process::exit(7);
+        }
         if matches!(e, Event::Inspected { .. }) && self.mode == "gate_segment" {
             let until = Instant::now() + Duration::from_secs(2);
             while !self.directory.join("go").exists() {
@@ -974,6 +982,98 @@ fn same_owner_input_end_cancels_queued_gesture_before_inert_bus_write() {
         "0"
     );
     cleanup(motor, controller, dir);
+}
+
+#[test]
+fn failed_reap_after_stopped_is_latched_and_reported_once() {
+    use super::super::{Rig, service_motor};
+    use crate::{
+        options::{NoiseSuppression, PlayoutStart, TurnTaking},
+        process::Worker,
+        session_state::SessionState,
+    };
+    let (dir, mut motor, mut controller) = fixture("gated_exit_failure");
+    wait(&mut motor, &mut controller, OptionalMotor::is_ready);
+    motor.begin_shutdown();
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let mut stopped = false;
+    while !stopped {
+        assert!(
+            Instant::now() < deadline,
+            "gated child did not report Stopped"
+        );
+        motor.poll(|event| stopped |= matches!(event, Event::Stopped { .. }));
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+    assert!(motor.failure().is_none());
+    assert!(
+        !motor.reaped(),
+        "child is held after its valid stop receipt"
+    );
+    fs::write(
+        dir.path.join("motor/go"),
+        b"explicit nonzero exit after Stopped",
+    )
+    .unwrap();
+    // Drive the real supervisor to its observed exit boundary, independently of
+    // the optional adapter. Its valid Stopped receipt was already consumed, so
+    // poll skips the closed socket on every platform. A nonzero exit discovered
+    // afterward is a real stored-status fault without a returned Err or Event.
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let child = motor.child.as_mut().unwrap();
+    while !child.reaped() {
+        assert!(Instant::now() < deadline, "gated child not reaped");
+        assert!(
+            child.poll().unwrap().is_none(),
+            "crash must have no new event"
+        );
+        std::thread::park_timeout(Duration::from_millis(1));
+    }
+    assert_eq!(child.failure(), Some("motor child failed or was killed"));
+    assert!(
+        child.poll().unwrap().is_none(),
+        "quiescent poll still returns no event"
+    );
+    assert!(
+        motor.failure().is_none(),
+        "adapter has not yet observed stored failure"
+    );
+    let (speaker, _) = Worker::sleeping_fixture(&dir.path, "speaker");
+    let (capture, _) = Worker::sleeping_fixture(&dir.path, "capture");
+    let (provider, _) = Worker::sleeping_fixture(&dir.path, "provider");
+    let (privacy, _) = Worker::sleeping_fixture(&dir.path, "privacy");
+    let mut rig = Rig {
+        speaker,
+        capture,
+        provider,
+        privacy,
+        ring: None.into(),
+        camera: None,
+        motor: Some(motor),
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::VadOnly,
+        playout_start: PlayoutStart::default(),
+    };
+    let mut trace = SessionState::default();
+    service_motor(&mut rig, &mut trace).unwrap();
+    assert_eq!(
+        rig.motor.as_ref().unwrap().failure(),
+        Some("motor child failed or was killed")
+    );
+    assert!(!rig.motor.as_ref().unwrap().is_ready());
+    assert!(rig.motor.as_ref().unwrap().finish().is_err());
+    service_motor(&mut rig, &mut trace).unwrap();
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|e| e["kind"] == "motor_degraded")
+            .count(),
+        1
+    );
+    drop(rig);
+    fs::remove_dir_all(&dir.path).unwrap();
 }
 
 mod native_head;

@@ -699,6 +699,19 @@ impl OptionalMotor {
                 }
             }
         }
+        // The supervisor may discover an exit, deadline or cleanup fault after
+        // reading its last receipt and still return Ok(None). Adopt that stored
+        // failure even during teardown; a fresh authority send is not required
+        // to inhibit this optional output or report its degradation once.
+        if self.failure.is_none()
+            && let Some(reason) = self
+                .child
+                .as_ref()
+                .and_then(Supervisor::failure)
+                .map(bounded)
+        {
+            self.disable(reason);
+        }
         if self.disabled || self.stopping {
             return;
         }

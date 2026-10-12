@@ -50,7 +50,8 @@ The owner does not relay routine agent reports.
 - Camera and microphone privacy controls remain authoritative. Never show
   listening readiness unless input can actually be retained.
 - Owner decision, 12 October 2026: the brain (decisions, initiative, tasks
-  through an agent worker, memory) is in scope and owned by Agent 2; see
+  through Harness on the paired computer, memory) is in scope and owned by
+  Agent 2. No agent runtime runs on the Lamp; see
   [the brain design](docs/brain.md). Live chat must still start, converse and
   handle interruptions with no agent or memory service reachable. Browsing and
   new long-term memory infrastructure beyond that design stay out.

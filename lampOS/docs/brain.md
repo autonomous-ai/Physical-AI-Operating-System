@@ -1,20 +1,121 @@
 # Lamp brain
 
 The brain decides whether Lamp speaks or acts, in which voice route, and what it
-may do without being asked. This is the design; nothing here is built yet.
+may do without being asked. This is a design under discussion with the owner;
+**nothing is built**. On 12 October the owner asked to settle the design before
+any code.
 
-- **Owner.** Agent 2, by the owner's decision of 12 October 2026. Main and
-  Agent 1 own the files the brain plugs into (§9).
-- **Scope change, same day.** Agents, tasks, memory and initiative are now in
+- **Owner of the work.** Agent 2 from 12 October 2026, handed over the same
+  day; see [the handoff](brain-handoff.md). Main and Agent 1 own the files the
+  brain plugs into (§9).
+- **Scope change, 12 October.** Agents, tasks, memory and initiative are now in
   scope for V2. The earlier exclusions in [architecture](architecture.md) and
   `AGENTS.md` are superseded for this work.
-- **Owner decisions:**
+- **Owner decisions, 12 October:**
   - initiative is **rare**;
   - **Gemini's own voice everywhere**, with no ElevenLabs, for cost and one
     consistent voice.
-- **Baseline.** Every design choice answers a measured V1 problem in the
-  [V1 brain baseline](v1-brain-baseline.md). References to `§n` of that
-  document are written "V1 §n".
+- **Recommended, not yet decided.**
+  - No agent runtime on the Lamp (§1.1). The owner questioned Hermes as part
+    of the redesign but has not confirmed.
+  - Everything listed in §11.
+- **Evidence.**
+  - Every design choice answers a measured V1 problem in the
+    [V1 brain baseline](v1-brain-baseline.md). References to `§n` of that
+    document are written "V1 §n".
+  - Protocol and integration facts are in [brain research](brain-research/README.md).
+
+## 0. How the brain is organized
+
+Gemini is the part that understands and talks: the cortex. "The brain" is
+the whole loop around it, from senses to actions, and almost all of that loop
+is code that can be tested and measured. In V1 the loop was two models
+(Gemini Live and Hermes) following long prompts (V1 §1).
+
+| | V1 | V2 |
+| --- | --- | --- |
+| Understands and talks | Gemini Live, or Hermes after a handoff | Gemini Live (a fast text model at the usage limit, §3.2) |
+| Decides when to listen, speak, act or nudge | mostly prompt text, in both models | code: attention, executive, budgets |
+| Memory | Hermes files plus a separate Gemini log | one store owned by lampOS (§7) |
+| Long tasks | Hermes on the Lamp | Harness on the paired computer |
+
+### 0.1 Senses
+
+The body is a 5-servo arm, a WS2812 LED ring head, a camera, a microphone, a
+speaker, a button, touch pads and a touch strip (V1 `robots/lamp/ROBOT.md` and
+its JSON files at `170a1b85e`). V1 had most of these senses; V2 has few of
+them today.
+
+| Sense | Hardware | What it tells the brain | lampOS V2 today | V1 |
+| --- | --- | --- | --- | --- |
+| Hearing | microphone and voice board, echo cancellation | someone is speaking; the words; when they stop; loud or unusual sounds; its own voice, to ignore | speech detection, end of turn, echo cancellation | + speaker ID, tone of voice (cloud), sound events |
+| Sight | camera, 1280×720 | someone is present; who; whether they look at Lamp; an object held up; activity; room brightness | frames sent to Gemini with an admitted question; no local perception | face recognition and gaze on device; activity and emotion in the cloud (opt-in) |
+| Touch | button (tap, hold); 4 head pads (TTP223); 12-pad strip (MPR121) | tap = stop, hold = sleep, pat, swipe | privacy switch only | all gestures |
+| Body feel | servo position, load and temperature | pushed or moved by hand; overload; heat; own pose | motor readback; motion inhibited | contact detection, overload stop |
+| Inner state | software | Gemini reachable or over its limit; network; privacy; worker health | provider link state, privacy | partial |
+| Time | clock | time of day; time since the last conversation; quiet hours | monotonic only | yes |
+| Air (Pro models) | CO2 and particulate sensors | stuffy room | types only (`crates/environment`) | Pro only |
+| Extended | paired computer, phone | in a meeting; a task finished; a message | none | Buddy and Harness events |
+| Memory | storage | who the person is; what they asked Lamp to keep | none | Hermes files |
+
+### 0.2 Actions
+
+| Action | Through | Examples | lampOS V2 today |
+| --- | --- | --- | --- |
+| Speak | speaker, Gemini's voice | answer, remind, stop mid-sentence, volume | speak and stop; no volume control |
+| Look | head and arm | turn toward a voice, look at the person or at a held object | inhibited until motion qualifies |
+| Body language | head and arm | small nod, tilt, lean in, settle, sleep pose | inhibited |
+| Light as a lamp | LED ring | on, off, brightness, warmth, aim at the work area | none |
+| Light as expression | the same LED ring | listening, thinking, a soft acknowledgment | fixed ring policy |
+| Attend | microphone, camera | listen, ignore, take a closer look | listening |
+| Remember | storage | remember, forget | none |
+| Act in the world | paired computer, phone | a Harness task, a reminder, music, a message | none |
+
+**Lamp's first job is to be a good lamp.** Light and head position are its
+most useful actions, and they share the LEDs and motors of its expressions.
+The brain must arbitrate between them. For example, it never shows a
+"thinking" color while the person reads under the light.
+
+### 0.3 Layers
+
+```text
+ senses ─► REFLEXES ───────────────────────────────────────────► actions
+           privacy cuts ears and eyes · a tap stops speech     (instant, code)
+           a push relaxes the arm · do not hear your own voice
+   │
+   ▼
+ PERCEPTION     raw senses → facts with confidence and age     (local, ~10–500 ms)
+   "speech started" "looking at me" "a person is present" "patted"
+   │
+   ▼
+ ATTENTION      asleep · resting · attentive · in conversation  (code)
+   decides what reaches the thinking layer (§4)
+   │
+   ▼
+ THINKING       Gemini Live: understand, decide, talk          (cloud, ~0.5–3 s)
+   proposes actions ▼
+ EXECUTIVE      rules, budgets, quiet hours, reminders, vetoes (code, §5, §6)
+   │
+   ▼
+ MOTOR PLANNING one intention → voice + head + light, in time  (code)
+   smooth, safe, interruptible
+   │
+   ▼
+ actions        speaker · light · head and arm · computer tasks
+
+ MEMORY beside the loop: the Gemini session is short-term, the store long-term (§7)
+ SLOW WORK handed off like using a computer: Harness on the paired machine
+```
+
+**Where each layer lives:**
+
+- **Reflexes** are in the lampOS core today: privacy, admission, Stop,
+  permits.
+- **Motor planning** extends the choreographer. Ownership stays in
+  `lamp-interaction`.
+- **Executive and attention** are the `lamp-brain` crate (§2).
+- **Perception** grows as separate supervised workers. The core does no
+  inference (`architecture.md`).
 
 ## 1. Principles
 
@@ -27,8 +128,9 @@ may do without being asked. This is the design; nothing here is built yet.
      checks, never instead of them.
 2. **Conversation stays on the fast path.**
    - V1 sent doubtful turns to Hermes, and those turns took 6–22 s (V1 §10).
-   - In V2, conversation is answered by the voice model itself. The slow
-     agent gets only work that needs it.
+   - In V2, conversation is answered by the voice model itself. There is no
+     on-device agent runtime (§1.1). Work that needs a computer goes to
+     Harness on the person's paired computer.
 3. **One voice.**
    - V1 discarded Gemini's audio and paid ElevenLabs to say the same text
      (V1 §8).
@@ -53,6 +155,42 @@ may do without being asked. This is the design; nothing here is built yet.
    decisions inside the existing 2 ms loop. Their budget is the host p99
    ≤100 µs that [input admission](input-admission.md) already meets.
 
+### 1.1 No on-device agent runtime
+
+V2 does not run Hermes, OpenClaw or any other agent runtime on the Lamp.
+V1's Hermes had five jobs, and each now has a better home:
+
+| Hermes job in V1 | Home in V2 | Why it is better |
+| --- | --- | --- |
+| Conversation at the Gemini limit | the economy route's fast text model (§3.2) | about 1–2 s instead of 6–22 s; the same persona as Live |
+| Device control through skills (`led-control`, `scene`, `servo-control`, `audio`, `voice`, `camera`) | typed tools the brain validates (§6) | checked in code, not marker text with no body validation (V1 §4) |
+| Reactions and nudges (`sensing`, `mood`, `wellbeing`, `habit`, `music-suggestion`, `user-emotion-detection`) | the agenda with budgets in code (§5) | rare by construction; thresholds are tested constants, not prompt text |
+| Memory (`MEMORY.md`, `USER.md`) | a small lampOS memory store (§7) | one owner; no routing or endpoints in memory (V1 #421) |
+| Real work (`harness-use`, `computer-use`, `connectors`, `claude-buddy`) | Harness on the paired computer (§6) | agents, connectors and permission prompts already live there |
+
+Keeping an on-device agent would also cost the following:
+
+- **lampOS rules.** Hermes is a Python service. lampOS forbids Python
+  services on the Lamp (`AGENTS.md`).
+- **Security.** V1 runs it as root with command approvals switched off
+  (V1 `runtimes/hermes/presync.sh:74-76`).
+- **Resources.** It is a large resident process on the A733, beside a
+  voice loop with little headroom.
+- **Behavior.** Its own persona and memory drift from Live's, and its
+  behavior is decided by prompt.
+
+**What V2 gives up for now:**
+
+- the Telegram or app text channel;
+- user-authored skills (`skill-creator`);
+- direct MCP connectors on the Lamp;
+- music playback (`music`);
+- face and speaker enrollment and guard mode as agent skills.
+
+Connectors and user skills are available through Harness. Music,
+enrollment and a text channel return as typed device features if the owner
+wants them.
+
 ## 2. Shape
 
 ```text
@@ -63,9 +201,9 @@ capture ─► core: reflexes (privacy, admission, endpoint, Stop, permits)
           route · attention · arbiter · agenda · budgets
                ▲ proposals                      ▲ results
                │                                │
-   provider worker (one per service cycle)      agent worker ⇄ Hermes   (phase 2)
-     Live:    Gemini Live, native audio, tools    tasks · memory · skills
-     Economy: STT → text mind → Gemini TTS
+   provider worker (one per service cycle)      memory store (lampOS)    (phase 2)
+     Live:    Gemini Live, native audio, tools  task link ⇄ Harness on the
+     Economy: STT → text mind → Gemini TTS        paired computer         (phase 2)
                │ audio
                ▼
         core: speaker / ring / motor writers (unchanged owners and guards)
@@ -80,12 +218,15 @@ capture ─► core: reflexes (privacy, admission, endpoint, Stop, permits)
   The economy route is a third `ProviderSource`
   (`crates/live/src/coordinator.rs:610-628`), so admission, endpointing,
   playback, ownership and AEC reference are unchanged for it.
-- **The agent worker (phase 2).**
-  - It is a supervised process that owns the connection to Hermes.
-  - Hermes results come back as agenda items or tool results. Hermes never
-    writes to an actuator, as [architecture](architecture.md) already
-    requires.
-  - Lamp converses without Hermes; only tasks and memory need it.
+- **The task link (phase 2).**
+  - It is a supervised Rust process that owns the connection to Harness on
+    the paired computer. It reuses Harness's pairing and task contract, and
+    does not invent its own (the parent repository's `docs/harness.md`
+    describes the V1 client).
+  - Results come back as agenda items or tool results. Harness never writes
+    to an actuator, as [architecture](architecture.md) already requires.
+  - Lamp converses without Harness; only computer work needs it.
+- **The memory store (phase 2).** It is a small file owned by lampOS (§7).
 
 ## 3. Voice routes
 
@@ -132,13 +273,11 @@ capture ─► core: reflexes (privacy, admission, endpoint, Stop, permits)
 
 ### 3.2 The economy text mind
 
-- **Recommendation: a fast text model** (`gemini-3.8-flash` through the
-  Autonomous relay):
+- **A fast text model** (`gemini-3.8-flash` through the Autonomous relay):
   - the same persona text and memory snapshot as Live;
   - the last few exchanges carried over as text.
-- **Alternative: Hermes, for V1 parity.** Rejected for conversation: V1
-  measured Hermes at 9–13 s for "hello" and 6–22 s for delegated turns
-  (V1 §10). Hermes still handles tasks in either route (phase 2).
+- **Not Hermes.** V1 measured Hermes at 9–13 s for "hello" and 6–22 s for
+  delegated turns (V1 §10), and V2 runs no agent on the Lamp (§1.1).
 - **Target.** End of speech to first audio ≤2.0 s p50 and ≤3.0 s p90 on the
   host, then measured on the Lamp. These are candidate targets, unmeasured.
 - **Pipeline:**
@@ -206,9 +345,35 @@ what it allows.
 | Muted | privacy closed or unavailable (`crates/live/src/privacy.rs`) | no | no output; privacy is already authoritative |
 | Engaged | a turn active, or the last exchange less than 20 s ago | no; replies only | yes |
 | Idle | none of the above | only within budget (§5) | — |
-| Quiet hours | local wall clock inside the window (default 22:00–08:00) | no, except a task result the person asked to hear | replies as usual |
+| Quiet hours | local wall clock inside the window (proposed default 22:00–07:00, V1's night-dimming window) | no, except a task result the person asked to hear | replies as usual |
 | Away (phase 2) | no presence evidence for 15 min | no; items wait or expire | — |
 | Busy (phase 2) | another conversation or a call, from admission evidence | no | replies only to clearly addressed speech |
+
+### 4.1 Attention gates what Gemini hears
+
+Without a gate, every sentence in the room is streamed to Gemini. That is
+billed as input audio, sent to the cloud, and left to Gemini to judge. The
+recommended order puts cheap, local evidence first:
+
+1. **A wake word or Lamp's name** anywhere in a sentence opens a conversation.
+   So does looking at Lamp, once camera presence exists.
+2. **Follow-ups** inside the conversation need neither.
+3. **`not_for_me`** stays as Gemini's second check inside a conversation
+   (§6). Gemini calls it instead of answering when the speech was not
+   addressed to Lamp. Code then guarantees nothing is spoken, and counts it.
+
+The options and their costs:
+
+| Approach | Reliability | Experience | Cost and privacy |
+| --- | --- | --- | --- |
+| Wake word, as on new V1 Lamps | high, decided on the device | worse: said every time | only addressed speech leaves the device |
+| Wake word plus a conversation window (V1) | high | better | good |
+| Local evidence: gaze, the name anywhere, an ongoing conversation | medium, measurable | close to "just talk" | good |
+| No gate; Gemini decides with `not_for_me` | lowest, a model judgement | best when it works | the whole room goes to the cloud |
+
+The owner has not chosen; this is open question 1 in §11. The owner's
+earlier experience was that tap-to-talk is reliable but a poor experience,
+and just-talk is the best experience but unreliable.
 
 **Inputs and gaps:**
 
@@ -234,7 +399,7 @@ which makes the next item speak as a reply rather than as initiative.
 
 | Kind | Example | Default budget | Phase |
 | --- | --- | --- | --- |
-| Asked-for result | "Your report is ready." | not counted against initiative; held in quiet hours unless the person asked for it now | 2 |
+| Asked-for result | "Your report is ready." (a Harness task) | not counted against initiative; held in quiet hours unless the person asked for it now | 2 |
 | Reminder | "It's 3 pm: call Anna." | person-set, delivered on time unless Muted; quiet hours honored unless set inside them | 2 |
 | Return greeting | "Welcome back." after ≥2 h away | at most 1 per day | 2 |
 | Degraded-mode notice | the economy sentence | once per switch, inside a turn (§3.1) | 1 |
@@ -273,9 +438,9 @@ an admitted `TurnOwner` (`crates/interaction/src/controller.rs:372-378`).
 | `not_for_me` | — | always accepted; the turn ends without reply | core: cancel the reply, record `addressee_rejected` | 1 |
 | `set_light` | `level` 0–100, or `on` true/false | range; quiet-hours brightness cap; privacy | ring/light owner, through its permit | 1 |
 | `set_volume` | `level` 0–100, or `step` ±1 | range; never fully mute speech without saying so | speaker volume (no volume control exists yet) | 1 |
-| `remember` | `fact` (≤200 characters) | rejects text that prescribes tools, endpoints or routing (V1 #421) | agent worker → Hermes memory | 2 |
-| `forget` | `fact` | — | agent worker | 2 |
-| `start_task` | `request` | Hermes available; duplicate check | agent worker → Hermes / Harness | 2 |
+| `remember` | `fact` (≤200 characters) | rejects text that prescribes tools, endpoints or routing (V1 #421) | memory store | 2 |
+| `forget` | `fact` | — | memory store | 2 |
+| `start_task` | `request` | Harness paired and connected; duplicate check | task link → Harness | 2 |
 | `set_reminder` | `when`, `what` | parses to a wall-clock time in the future | brain agenda | 2 |
 | `gesture` | name from a fixed set | motion qualified; per-gesture rate limit | motor owner | 3 |
 
@@ -309,8 +474,8 @@ an admitted `TurnOwner` (`crates/interaction/src/controller.rs:372-378`).
 
 **The persona.**
 
-- One short English persona text, owned by the brain, is used by Live, the
-  economy text mind and Hermes.
+- One short English persona text, owned by the brain, is used by both Live
+  and the economy text mind.
 - It keeps the [architecture](architecture.md) restraint rules (stillness
   valid, no fillers, no invented sight).
 - It replaces V1's "always act physically", and it contains no routing rules
@@ -318,14 +483,24 @@ an admitted `TurnOwner` (`crates/interaction/src/controller.rs:372-378`).
 
 **Memory (phase 2).**
 
-- **The store.** Hermes's `MEMORY.md` and `USER.md` are the single store.
-- **Reads.** At session start the agent worker supplies a snapshot of at
-  most 1,500 characters.
-- **Writes.** They happen only through `remember` and `forget`.
+- **The store.** One small lampOS file on the Lamp. Each fact records its
+  text, when it was saved, and the utterance that asked for it.
+  - The store is bounded, for example 200 facts.
+  - It is private to the service user, like the provider configuration.
+- **Reads.** At session start, a snapshot of at most 1,500 characters goes
+  into the Live instruction and into the economy text mind.
+- **Writes.**
+  - The person writes through `remember` and `forget`.
+  - Automatic extraction after a conversation is a later option. It would
+    run on the cheap text model outside the live loop, be measured, and be
+    off until it is.
 - **Not memory.** The brain never puts tools, endpoints or routing into
   memory. The Live conversation context stays temporary working memory.
-- **Without Hermes.** Lamp has no memory and does not claim to remember
-  ([architecture](architecture.md)).
+- **What Lamp claims.** Lamp never claims to remember what the store does not
+  hold ([architecture](architecture.md)).
+- **V1 memory.** It is not migrated automatically. V1's `USER.md` and
+  `MEMORY.md` from the backed-up Lamp can be reviewed and imported once,
+  deliberately.
 
 **Session resumption.** V1's proxy does not forward Gemini session resumption
 (V1 `hal/config.py:754-757`), and the V2 provider recovery assumes it.
@@ -347,14 +522,52 @@ device runs.
 | Cost | provider usage per active hour, by route | recorded per cycle |
 | No regression | time to first audio and interruption on the existing Live scenarios | unchanged within noise |
 
+### 8.1 Compared with V1
+
+The senses and actions are almost the same as V1's: it is the same body.
+What changes is who decides, in what order, and whether each decision is
+checked and measured.
+
+| | V1 (`main`) | V2 design | V1 evidence |
+| --- | --- | --- | --- |
+| Who decides | four layers in sequence; most judgement is prompt text | Gemini handles meaning only; attention, budgets, quiet hours and action limits are code | rules forgotten around turn 10 (#449); memory poisoning (#421) |
+| Paths to an answer | Gemini answers or hands off to Hermes | one path | 6–22 s handed-off turns; stale replies 12–28 s after a stop |
+| Voice | Gemini audio discarded, ElevenLabs re-speaks | Gemini's own voice | 4.0 s median to first sentence |
+| Interrupting Lamp | microphone discarded while speaking; only a tap stops it | listening during playback (already in V2) | `voice_service.py:1119-1138` |
+| Is it for Lamp | wake word on or off by first-boot date, then the model | one attention state from local evidence first (§4.1) | two Lamps on one build differ |
+| Actions | model-written markers fired after a capability check; eight light writers | typed proposals, one writer per actuator, newer turns cancel older gestures | no body validation or rate limit |
+| Senses | silent failures | each perception carries age and confidence | sound stops with the camera; guard never fires on motion |
+| Initiative | 45–120 s timer moves; prompt-set nudges | rare, budgeted, logged | — |
+| At the limit | silent fallback | explicit route and one honest sentence | — |
+| Safety | agent as root, approvals off | no agent on the Lamp | `presync.sh:74-76` |
+| Proof | almost nothing measured | a metric per feature | acknowledgment target: 0 eligible samples |
+
+**Not better yet.**
+
+- Today V2 does less than V1: no tools, local perception, touch gestures,
+  memory or motion.
+- V2 exits at the Gemini limit.
+- Every row above is an architectural property, not a measured result.
+
+**The bar.** Run the same scenarios on both, with V1's numbers as the target:
+
+- time to first word (V1: 4.0 s median);
+- handed-off turns (V1: 6–22 s);
+- interruption by voice (V1: none);
+- false replies to overheard speech, and missed addressed speech (V1: never
+  measured);
+- stale replies after a stop (V1: 12–28 s);
+- cost per active hour.
+
 ## 9. Ownership and seams
 
-**Mine (Agent 2):**
+**The brain workstream (Agent 2 until the handoff):**
 
 - `crates/brain`, a new crate;
 - the economy provider worker and its STT, text-mind and TTS clients (new
   crates);
-- the agent worker (phase 2);
+- the memory store and the Harness task link (phase 2; the link is
+  coordinated with the Harness team);
 - persona text and tool declarations;
 - this document;
 - the brain voice-eval scenarios.
@@ -382,6 +595,9 @@ device runs.
 
 ## 10. Phases
 
+**These phases predate the senses-and-actions discussion (§0).** Re-cut them
+once the owner answers §11, items 1, 3, 5 and 6.
+
 **Phase 1, before launch.** It closes the gap where Lamp stops at the Gemini
 limit, and adds the arbiter.
 
@@ -395,23 +611,55 @@ limit, and adds the arbiter.
 4. The `not_for_me`, `set_light` and `set_volume` tools, once the wire and
    coordinator seams land.
 
-**Phase 2, first update:** the agent worker (Hermes tasks), the agenda,
-reminders, the memory snapshot, presence from the camera, and the
-unprompted-output owner.
+**Phase 2, first update:**
+
+- the memory store and its snapshot;
+- the agenda and reminders;
+- the Harness task link;
+- presence from the camera;
+- the unprompted-output owner.
 
 **Phase 3:** gestures through the choreographer, once motion qualifies.
 
-## 11. Open questions
+## 11. Open questions for the owner
 
-1. **The limit.** What exactly does the Gemini limit cover: only Live, or
-   every model on the key? What resets it, and what does the relay send?
-   V1 recorded no code (V1 §8). The economy route only helps if its services
-   are not refused too.
-2. **The economy text mind:** a fast text model (recommended) or Hermes
-   (§3.2).
-3. **The defaults:** the wording of the economy sentence, the budget values,
-   and quiet hours.
-4. **Hermes on the A733.** Memory and CPU are unmeasured, and so is whether
-   it runs on the device or off it, for phase 2.
-5. **Speech-synthesis latency.** First-audio latency is undocumented. It is
-   measured in step 2 of phase 1.
+Decisions the owner has not made yet, with the current recommendation:
+
+1. **How Lamp knows it is addressed** (§4.1). Wake word, wake word plus a
+   conversation window, local evidence, or no gate.
+   - Recommended: the layered approach, with `not_for_me` as the second
+     check.
+2. **No on-device agent** (§1.1). Recommended. The owner questioned Hermes
+   but did not confirm dropping it.
+3. **Senses at launch** (§0.1). Is local camera perception in (presence, who,
+   looking at Lamp)? It drives attention, greetings and "light where I work".
+   Its A733 cost is unmeasured.
+4. **Touch.** Bring V1's vocabulary over (tap = stop, hold = sleep, pat)?
+5. **Motion at launch.** Look and body language depend on Main's motor
+   qualification. Launch requirement or update?
+6. **How smart the light is.** Voice commands only, or reacting to the person
+   (dim on leaving, follow the work area)?
+7. **"Alive" versus "rare."** Do silent reactions, such as glancing toward a
+   voice or a light pulse on return, count against the unprompted-speech
+   budget? Recommended: no, but they get their own limits.
+8. **Memory.** Only "remember this", or also automatic extraction from
+   conversation? Recommended: explicit first; automatic only once measured
+   (V1 was poisoned, #421).
+9. **The usage limit**, for the backend team (§3.1):
+   - Which limits exist per device and service?
+   - What does the relay send at each?
+   - When do they reset?
+   - Can a device read what is left?
+   - Do they differ by plan?
+
+   The economy route only helps if its services are not refused too.
+10. **Defaults.** Proposed:
+    - switch sentence "I'm on a slower connection for a bit.";
+    - at most 1 unprompted utterance per 30 min and 4 per day;
+    - quiet hours 22:00–07:00.
+11. **Features dropped with Hermes** (§1.1). Should a text channel, music or
+    enrollment return as typed device features, and when?
+12. **The Harness task contract.** It is checked with the Harness team before
+    phase 2.
+13. **Speech-synthesis latency.** Undocumented. Measure it before promising
+    the economy target.

@@ -66,7 +66,8 @@ The first version includes:
 | Failure | An admitted request gets a useful answer, relevant clarification, honest failure or recorded user interruption. Lost connections must not leave false listening/working cues or silently lose accepted requests. |
 
 The owner brought the brain into scope on 12 October 2026: rare initiative,
-tasks through one agent worker, and one memory owner, as designed in
+tasks through Harness on the paired computer, and one memory owner, with no
+agent runtime on the Lamp, as designed in
 [the brain](brain.md). Browser/computer automation, background research and
 new Hindsight or other long-term memory infrastructure remain deferred.
 Local camera/sensor reads and bounded light, volume or posture controls are part

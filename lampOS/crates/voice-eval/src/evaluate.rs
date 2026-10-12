@@ -1929,9 +1929,9 @@ pub fn room_recording(record: &AttemptRecord) -> RoomRecording {
     // A recorder that exited during the session before any declared capture
     // end may have left a granted prompt or its reply unrecorded: the WAV is
     // kept, but it does not certify the conversation.
-    let ended_early = room["coverage_lost"]["kind"] == crate::physical::mac::RECORDER_EXITED_EARLY;
+    let refusal = crate::physical::mac::coverage_refusal(room);
     if room["valid"] == true
-        && !ended_early
+        && refusal.is_none()
         && let Some(sha256) = room["sha256"].as_str()
     {
         return RoomRecording::Verified {
@@ -1942,11 +1942,17 @@ pub fn room_recording(record: &AttemptRecord) -> RoomRecording {
     let terminal = &room["observer_terminal"];
     let count = |key: &str| terminal[key].as_u64();
     let mut parts = Vec::new();
-    if ended_early {
-        parts.push(format!(
+    match refusal {
+        Some("ended_during_session") => parts.push(format!(
             "the recorder ended during the session before any declared capture end (observer status {})",
             room["status"].as_str().unwrap_or("unknown")
-        ));
+        )),
+        Some(_) => parts.push(format!(
+            "a prompt started after the latest start the recording covered ({}; observer status {})",
+            room["coverage_violations"],
+            room["status"].as_str().unwrap_or("unknown")
+        )),
+        None => {}
     }
     match terminal["faults"].as_array() {
         Some(names) if !names.is_empty() => parts.push(format!(
@@ -1986,8 +1992,8 @@ pub fn room_recording(record: &AttemptRecord) -> RoomRecording {
         ));
     }
     RoomRecording::Invalid {
-        status: if ended_early {
-            "ended_during_session".into()
+        status: if let Some(refusal) = refusal {
+            refusal.into()
         } else {
             room["status"]
                 .as_str()

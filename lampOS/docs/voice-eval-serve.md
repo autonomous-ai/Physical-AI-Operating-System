@@ -191,12 +191,22 @@ in every physical mode:
   inside a 240 s scenario therefore withholds the prompts it cannot cover
   instead of playing them unrecorded.
 
-The room evidence keeps the ready receipt, the declared end and
-`coverage_lost` (`prompt_not_covered`, `declared_end_reached` or
-`recorder_exited_early`). Only `recorder_exited_early` can leave a granted
-prompt or its reply unrecorded. Its WAV is kept but scored as `room_recording:
-invalid` (`ended_during_session`), with no acoustic boundary and no listening
-template. A recording without a declared end is covered only by exit
+- **Grant cap.** A granted first copy may start later than its request,
+  until the scenario's original expiry. The grant's expiry is therefore the
+  earlier of that original expiry and the latest start the declared end still
+  covers. No slack is added. Each grant receipt records both bounds under
+  `coverage`.
+- **Actual start.** At the end, every delivered prompt's actual start (the
+  first source copy, or a direct player's start request) is checked against
+  its latest covered start. An overrun is kept in `coverage_violations`.
+
+The room evidence keeps the ready receipt, the declared end, `coverage_lost`
+(`prompt_not_covered`, `declared_end_reached` or `recorder_exited_early`) and
+`coverage_violations`. Two cases can leave granted speech unrecorded:
+`recorder_exited_early`, and any coverage violation. The WAV is kept, but it
+is scored as `room_recording: invalid` (`ended_during_session` or
+`prompt_outside_recording`). Its annotations are refused for timing and for
+reviewed content alike, and it has no listening template. A recording without a declared end is covered only by exit
 detection, polled every 20 ms in serve.
 
 Lamp-4ace's first eight-step run shows this. The runtime and transport exited

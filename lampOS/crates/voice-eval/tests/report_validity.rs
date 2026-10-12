@@ -798,6 +798,109 @@ fn a_valid_wav_from_a_recorder_that_ended_mid_session_certifies_nothing() {
     );
 }
 
+/// R1 (Main review of 3c8e3d3b5): a listened annotation of a matching, valid
+/// WAV must not score timing or content when its recorder exited early.
+#[test]
+fn a_listened_annotation_cannot_certify_a_recording_whose_recorder_exited_early() {
+    use lamp_voice_eval::annotations::{AttemptAnnotation, StepAnnotation};
+    use std::collections::BTreeMap;
+    let dir = common::Private::new("rv-r1");
+    let wav = dir.join("room.wav");
+    // 30 s at 16 kHz: the annotated boundaries lie inside it.
+    lamp_acoustic::write_wave(&wav, &vec![0.0; 480_000]).unwrap();
+    let sha = lamp_acoustic::hash(&fs::read(&wav).unwrap());
+    let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha,
+        "start_requested_host_ns": 1_000_000_000_u64});
+    let annotations = |record: &AttemptRecord| {
+        let step = StepAnnotation {
+            user_speech_end_s: Some(2.0),
+            first_substantive_answer_word_s: Some(3.5),
+            answer_relevant: Some(false),
+            answer_complete: Some(false),
+            ..StepAnnotation::default()
+        };
+        let mut steps = BTreeMap::new();
+        steps.insert("sky".to_owned(), step);
+        let mut attempts = BTreeMap::new();
+        attempts.insert(
+            record.attempt_id.clone(),
+            AttemptAnnotation {
+                room_recording_sha256: Some(sha.clone()),
+                listened: true,
+                steps,
+                notes: None,
+            },
+        );
+        annotations::Annotations {
+            schema: 1,
+            run_id: record.run_id.clone(),
+            annotator: "test".into(),
+            method: "test".into(),
+            attempts,
+        }
+    };
+    // Control: the same annotation of a covering recording is scored.
+    let mut covered = record(&conversation());
+    with_room(&mut covered, &dir.path, &metadata);
+    let scored = evaluate::score(&covered, 15_000, Some(&annotations(&covered)));
+    assert!(scored.acoustic.iter().any(|a| a.measurement().is_some()));
+    assert!(
+        scored
+            .findings
+            .iter()
+            .any(|f| f.evidence == evaluate::Evidence::RoomAnnotation)
+    );
+    // The recorder exited before the session ended: nothing certifies.
+    let mut early = covered.clone();
+    early.evidence["room_audio"]["coverage_lost"] =
+        json!({"runner_us": 5_000_000, "kind": "recorder_exited_early", "reason": "test"});
+    let annotations = annotations(&early);
+    let refused = evaluate::score(&early, 15_000, Some(&annotations));
+    assert!(
+        refused.acoustic.iter().all(|a| a.measurement().is_none()),
+        "{:?}",
+        refused.acoustic
+    );
+    assert!(
+        refused
+            .latencies
+            .iter()
+            .all(|l| l.kind != evaluate::MetricKind::Acoustic)
+    );
+    assert!(
+        !refused
+            .findings
+            .iter()
+            .any(|f| f.evidence == evaluate::Evidence::RoomAnnotation),
+        "{:#?}",
+        refused.findings
+    );
+    assert!(annotations.reviewed_step(&early, "sky").is_none());
+    // R2: a prompt whose actual first copy passed the latest covered start.
+    let mut overran = covered.clone();
+    overran.evidence["room_audio"]["coverage_violations"] = json!([{"step": "sky",
+        "actual_start_runner_us": 10_050_000, "latest_start_runner_us": 10_020_000,
+        "overrun_us": 30_000}]);
+    let refused_overrun = evaluate::score(&overran, 15_000, Some(&annotations));
+    assert!(
+        refused_overrun
+            .acoustic
+            .iter()
+            .all(|a| a.measurement().is_none())
+    );
+    assert!(annotations.reviewed_step(&overran, "sky").is_none());
+    let state = serde_json::to_value(&refused_overrun.room_recording).unwrap();
+    assert_eq!(state["status"], "prompt_outside_recording", "{state}");
+    assert!(
+        refused.acoustic.iter().all(|a| a
+            .unscored_reason
+            .as_deref()
+            .is_some_and(|r| r.contains("recorder ended during the session"))),
+        "{:?}",
+        refused.acoustic
+    );
+}
+
 /// Re-scoring a retained run never touches its original evaluation, and the
 /// CLI summary separates lifecycle exit from room-evidence validity.
 #[test]

@@ -721,6 +721,22 @@ pub fn load_room_evidence(
 /// Revalidate at offline review time. A cached `valid: true` or `verified_wav`
 /// object is only a prior receipt, never permission to skip reading the file.
 pub fn verify_room_evidence(evidence: &Value) -> Result<VerifiedRoom> {
+    // A recorder that exited during the session before any declared capture
+    // end may have missed a granted prompt or its reply: neither annotation
+    // timing nor reviewed content may use its WAV, however valid the file.
+    match crate::physical::mac::coverage_refusal(evidence) {
+        Some("ended_during_session") => {
+            return Err(invalid(
+                "the room recorder ended during the session before any declared capture end; the recording does not cover the attempt",
+            ));
+        }
+        Some(_) => {
+            return Err(invalid(
+                "a prompt started after the latest start the room recording covered; the recording does not cover the attempt",
+            ));
+        }
+        None => {}
+    }
     if evidence["format"] == "recorder_receipt" {
         return verify_receipt_evidence(evidence);
     }

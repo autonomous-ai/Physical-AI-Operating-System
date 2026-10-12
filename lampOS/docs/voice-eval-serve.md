@@ -166,6 +166,24 @@ to be killed at that bound.
 - The transport's outcome is recorded separately: `transport_exit`,
   `transport_status` and `transport_forced_kill`.
 
+Room evidence is certified separately, and never by a process exit. The pilot
+launches the observer with `open -n -W`, whose exit status is `open`'s, not the
+observer's. The attempt keeps the observer's own terminal report
+(`room_audio.observer_terminal`). When it is not a verified `captured_unscored`
+recording, the attempt carries the following:
+- `room_recording: invalid` with the status and fault detail;
+- a withheld `evidence_missing` finding;
+- the line `Independent room recording: **invalid** (...)` on its page;
+- `room_recording` state counted by the report and by the CLI summary line.
+
+Lifecycle success and room-evidence validity stay distinct: neither implies the
+other.
+
+Lamp-4ace's first eight-step run shows this. The runtime and transport exited
+0. The room recording was `invalid_capture`: `queue_full` dropped 13,824 of
+15,840,000 requested 48 kHz frames, with one writer sequence gap. The whole WAV
+stays invalid and is never offered for listening.
+
 The following are relay errors, so the attempt is aborted, never scored as a
 clean conversation:
 
@@ -237,6 +255,7 @@ unchanged; no lease was widened.
 | Physical mute and new cycle | withheld at the new boot; continuity lost; restart verified from metadata |
 | SIGTERM ignored | forced kill after the 10 s grace; attempt aborted, never clean |
 | Room recorder ends early | `evidence_lost` (room recorder); rest withheld |
+| Recorder exits 0 with `invalid_capture` | `room_recording: invalid`, terminal report quoted; acoustics unscored; no listening template (`tests/report_validity.rs`) |
 | Relay: stop / transport closed / deadline / SIGTERM ignored | each cause, signal, exit, forced kill and reap recorded separately |
 
 ## Limits
@@ -255,3 +274,28 @@ unchanged; no lease was widened.
   metadata.
 - The room recorder runs for its configured length; the runner waits for it
   at the end.
+
+## Scoring the native conversation (Lamp-4ace)
+
+The first native run's original evaluation is retained as failed. Its
+cancellation findings disagreed with the raw order. Turn 3's `user_interrupted`
+finish came 153 µs before turn 4's admission (same boot, generation 7 → 9),
+while the coffee candidate preceded the revoke by the 470 ms duplex yield. The
+old matcher looked for the candidate within 20 ms. As a result it reported:
+- an unexplained cancellation;
+- a truncated sunset answer and a missed coffee interruption;
+- a false interruption of the pending turn 5 by its own `local_endpoint`
+  correction.
+
+The current rules are in [the main runbook](voice-eval.md). Re-scoring the
+retained run with `evaluate RUN_DIR --plan fixtures/voice-eval-serve-v1.json`
+writes a new evaluation beside the original. With the current rules:
+- the sunset reply is yielded as planned and the coffee interruption is scored;
+- turn 5 is a planned supersession before output;
+- turn 1's 30 ms supply gap remains a playback-gap defect;
+- the endpoint boundary states the runtime's 1,200 ms silence wait.
+
+`tests/report_validity.rs` holds the exact-order reconstruction, with negative
+controls: no admission, an admission 25 ms late, another boot, a stale
+generation, an earlier turn, a correction bound to another turn and an ordinary
+request.

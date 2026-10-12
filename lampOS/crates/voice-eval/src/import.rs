@@ -357,6 +357,7 @@ pub fn room_evidence(
         "wav_path": absolute.as_ref().ok().and_then(|path| path.to_str()),
         "recorder_success": recorder_success,
         "observer_valid": metadata["valid"],
+        "observer_terminal": observer_terminal(metadata),
         "verification_version": 1,
     });
     match result {
@@ -364,6 +365,57 @@ pub fn room_evidence(
         Err(error) => evidence["verification_error"] = json!(error.to_string()),
     }
     evidence
+}
+
+/// Most observer fault names or error texts retained from one report.
+const MAX_TERMINAL_ITEMS: usize = 16;
+
+/// The observer's own terminal capture report, bounded: status, fault bits
+/// named by the observer's own definitions, frame accounting and writer
+/// continuity. Retained for invalid and valid recordings alike; it explains
+/// validity and never grants it.
+fn observer_terminal(metadata: &Value) -> Value {
+    let capture = &metadata["capture"];
+    let writer = &metadata["writer"];
+    let bits = capture["faults"].as_u64();
+    let faults: Vec<Value> = bits.map_or_else(Vec::new, |bits| {
+        (0..64)
+            .map(|bit| 1_u64 << bit)
+            .filter(|flag| bits & flag != 0)
+            .take(MAX_TERMINAL_ITEMS)
+            .map(|flag| {
+                bounded_text(&metadata["fault_bit_definitions"][flag.to_string()])
+                    .as_str()
+                    .map_or_else(|| json!(format!("bit_{flag}")), |name| json!(name))
+            })
+            .collect()
+    });
+    let errors: Vec<Value> = metadata["errors"]
+        .as_array()
+        .map(|errors| {
+            errors
+                .iter()
+                .take(MAX_TERMINAL_ITEMS)
+                .map(bounded_text)
+                .collect()
+        })
+        .unwrap_or_default();
+    json!({
+        "status": bounded_text(&metadata["status"]),
+        "valid": metadata["valid"].as_bool(),
+        "stop_reason": bounded_text(&metadata["stop_reason"]),
+        "fault_bits": bits,
+        "faults": faults,
+        "sample_rate": metadata["delivered_format"]["sample_rate"].as_u64(),
+        "requested_frames": metadata["requested_frames"].as_u64(),
+        "written_frames": writer["written_frames"].as_u64().or(capture["written_frames"].as_u64()),
+        "queue_dropped_frames": capture["queue_dropped_frames"].as_u64(),
+        "rejected_frames": capture["rejected_frames"].as_u64(),
+        "source_sequence_gaps": writer["source_sequence_gaps"].as_u64(),
+        "stream_errors": capture["stream_errors"].as_u64(),
+        "backend_xruns": capture["backend_xruns"].as_u64(),
+        "errors": errors,
+    })
 }
 
 /// Bound on a recorder receipt file; real receipts are a few KiB.

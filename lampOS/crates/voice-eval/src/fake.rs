@@ -467,6 +467,7 @@ impl FakeRuntime {
         self.emit(
             EventKind::LocalEndpoint {
                 last_block_read_us: Some(last_block_us),
+                silence_wait_ms: Some(self.detector.endpoint_silence_ms()),
             },
             Some(reply.turn),
         );

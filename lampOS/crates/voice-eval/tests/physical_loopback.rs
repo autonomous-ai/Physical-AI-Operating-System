@@ -208,11 +208,12 @@ fn cue_triggered_acknowledgment_is_injected_during_playback_and_scored() {
         score.findings
     );
     assert_eq!(score.outcome, Outcome::Failed);
+    // This loopback configures no room recorder, so there is nothing to review.
     assert!(
         score
             .acoustic
             .iter()
-            .all(|a| a.unscored_reason.as_deref() == Some("no reviewed room-audio annotation"))
+            .all(|a| a.unscored_reason.as_deref() == Some("no continuous room recording was made"))
     );
 }
 

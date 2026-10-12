@@ -4,7 +4,7 @@ use crate::{
     canary::CanaryResult,
     evaluate::{
         AnswerOutcome, AttemptScore, CheckStatus, Evidence, FindingKind, Metric, MetricKind,
-        Outcome, Severity, StepScore,
+        Outcome, RoomRecording, Severity, SilenceWait, StepScore,
     },
     events::EventKind,
     plan::{Expectation, Targets},
@@ -38,8 +38,37 @@ impl Ratio {
 pub struct LatencySummary {
     pub metric: Metric,
     pub kind: MetricKind,
-    pub boundary: &'static str,
+    pub boundary: String,
     pub distribution: Distribution,
+}
+
+/// The endpoint boundary with the silence wait the runtime's own endpoint
+/// records report; a profile default is never substituted.
+fn endpoint_boundary(waits: &[SilenceWait]) -> String {
+    let total: usize = waits.iter().map(|w| w.endpoints).sum();
+    let wait = match waits {
+        [] => return Metric::EndpointToFirstWrite.boundary().to_owned(),
+        [
+            SilenceWait {
+                silence_wait_ms: Some(ms),
+                ..
+            },
+        ] => format!("the {ms} ms silence wait reported by all {total} endpoint records"),
+        _ => format!(
+            "the silence wait each endpoint record reports: {}",
+            waits
+                .iter()
+                .map(|w| format!(
+                    "{} x{}",
+                    w.silence_wait_ms
+                        .map_or("unreported".into(), |ms| format!("{ms} ms")),
+                    w.endpoints
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    format!("local endpoint (after {wait}) -> first ALSA-accepted reply write")
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -95,6 +124,10 @@ pub struct StratumSummary {
     /// Planned yields whose interrupting speech -> audible stop could be measured.
     pub interruption_opportunities: usize,
     pub interruption_measured: usize,
+    /// Physical attempts by room-recording state (`verified`, `invalid`, `absent`).
+    pub room_recordings: BTreeMap<String, usize>,
+    /// Silence waits reported by the scored attempts' endpoint records.
+    pub endpoint_silence_waits: Vec<SilenceWait>,
 }
 
 fn answer_has_known_failure(score: &AttemptScore, step: &StepScore) -> bool {
@@ -122,13 +155,26 @@ pub fn summarize(scores: &[&AttemptScore]) -> StratumSummary {
         ..StratumSummary::default()
     };
     let mut values: BTreeMap<(Metric, MetricKind), Vec<f64>> = BTreeMap::new();
+    let mut waits: BTreeMap<Option<u64>, usize> = BTreeMap::new();
     for score in scores {
         *s.outcomes
             .entry(format!("{:?}", score.outcome).to_lowercase())
             .or_default() += 1;
+        let room = match score.room_recording {
+            RoomRecording::NotApplicable => None,
+            RoomRecording::Absent => Some("absent"),
+            RoomRecording::Invalid { .. } => Some("invalid"),
+            RoomRecording::Verified { .. } => Some("verified"),
+        };
+        if let Some(room) = room {
+            *s.room_recordings.entry(room.into()).or_default() += 1;
+        }
         if score.outcome == Outcome::Invalid {
             s.invalid_excluded += 1;
             continue;
+        }
+        for wait in &score.endpoint_silence_waits {
+            *waits.entry(wait.silence_wait_ms).or_default() += wait.endpoints;
         }
         s.playback_minutes += score.playback_ms / 60_000.0;
         s.ring_checked += usize::from(score.ring_checked);
@@ -278,13 +324,23 @@ pub fn summarize(scores: &[&AttemptScore]) -> StratumSummary {
             }
         }
     }
+    s.endpoint_silence_waits = waits
+        .into_iter()
+        .map(|(silence_wait_ms, endpoints)| SilenceWait {
+            silence_wait_ms,
+            endpoints,
+        })
+        .collect();
     s.latencies = values
         .into_iter()
         .filter_map(|((metric, kind), values)| {
             Some(LatencySummary {
                 metric,
                 kind,
-                boundary: metric.boundary(),
+                boundary: match metric {
+                    Metric::EndpointToFirstWrite => endpoint_boundary(&s.endpoint_silence_waits),
+                    _ => metric.boundary().to_owned(),
+                },
                 distribution: distribution(&values)?,
             })
         })
@@ -550,6 +606,16 @@ pub fn markdown(report: &Report, targets: &Targets) -> String {
         for (label, value) in rows {
             let _ = writeln!(out, "| {label} | {value} |");
         }
+        if stratum.is_physical() {
+            let count = |state: &str| s.room_recordings.get(state).copied().unwrap_or(0);
+            let _ = writeln!(
+                out,
+                "| Room recordings verified / invalid / absent (terminal report, not exit status) | {} / {} / {} |",
+                count("verified"),
+                count("invalid"),
+                count("absent")
+            );
+        }
         let _ = writeln!(out, "\n### Latency distributions (nearest-rank)\n");
         if s.latencies.is_empty() {
             let _ = writeln!(out, "No latency samples.");
@@ -739,6 +805,57 @@ pub fn attempt_markdown(record: &AttemptRecord, score: &AttemptScore) -> String 
             out,
             "Fake profile `{profile}`, attempt seed `{}`.\n",
             record.seed.unwrap_or(0)
+        );
+    }
+    let who = |independent: bool| {
+        if independent {
+            "Independent"
+        } else {
+            "Lamp-dependent"
+        }
+    };
+    match &score.room_recording {
+        RoomRecording::NotApplicable => {}
+        RoomRecording::Absent => {
+            let _ = writeln!(out, "Room recording: none was made.\n");
+        }
+        RoomRecording::Invalid {
+            status,
+            independent,
+            detail,
+        } => {
+            let _ = writeln!(
+                out,
+                "{} room recording: **invalid** ({status}; {detail}). No acoustic boundary is scored and the recording is not offered for listening; a recorder exit status never validates it.\n",
+                who(*independent)
+            );
+        }
+        RoomRecording::Verified {
+            sha256,
+            independent,
+        } => {
+            let _ = writeln!(
+                out,
+                "{} room recording: verified at attempt end (sha256 `{sha256}`); acoustic boundaries still need a listened review.\n",
+                who(*independent)
+            );
+        }
+    }
+    if !score.endpoint_silence_waits.is_empty() {
+        let _ = writeln!(
+            out,
+            "Endpoint silence wait reported by the runtime's endpoint records: {}.\n",
+            score
+                .endpoint_silence_waits
+                .iter()
+                .map(|w| format!(
+                    "{} x{}",
+                    w.silence_wait_ms
+                        .map_or("unreported".into(), |ms| format!("{ms} ms")),
+                    w.endpoints
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
     let origin = record

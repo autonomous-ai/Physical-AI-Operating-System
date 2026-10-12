@@ -59,12 +59,18 @@ pub enum EventKind {
     ProviderInputStarted,
     LocalEndpoint {
         last_block_read_us: Option<u64>,
+        /// Silence wait the runtime reports inside this endpoint
+        /// (`includes_silence_wait_ms`); `None` when the record states none.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        silence_wait_ms: Option<u64>,
     },
     /// The detector end of a submitted request that was abandoned (for
     /// example drained during a provider outage). Never a normal endpoint:
     /// it does not start answer latency.
     InputDiscardedEndpoint {
         last_block_read_us: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        silence_wait_ms: Option<u64>,
     },
     ProviderFirstAudio,
     SpeakerFirstWrite,
@@ -146,6 +152,10 @@ pub struct RuntimeEvent {
     /// Original turn authority generation when the source records it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner_generation: Option<u64>,
+    /// Boot identity of the turn authority when the source records it. A
+    /// present but malformed identity is kept as all zeros, never omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_boot: Option<[u8; 16]>,
     /// Provider evidence kept verbatim from a terminal or drain record:
     /// `provider_session` and `provider_outcome` (stage, reason,
     /// local_not_submitted). Bounded; never interpreted as success.
@@ -194,6 +204,7 @@ impl RuntimeEvent {
             playback_sequence: None,
             completion_evidence_error: None,
             owner_generation: None,
+            owner_boot: None,
             provider_detail: None,
         }
     }
@@ -262,11 +273,13 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
         "provider_input_started" => EventKind::ProviderInputStarted,
         "local_endpoint" => EventKind::LocalEndpoint {
             last_block_read_us: u64_field(record, "last_block_host_read_us"),
+            silence_wait_ms: u64_field(record, "includes_silence_wait_ms"),
         },
         // A submitted request abandoned during a provider outage reaches its
         // detector end here, not through the normal owned endpoint.
         "input_discarded_endpoint" => EventKind::InputDiscardedEndpoint {
             last_block_read_us: u64_field(record, "last_block_host_read_us"),
+            silence_wait_ms: u64_field(record, "includes_silence_wait_ms"),
         },
         "provider_first_audio" => EventKind::ProviderFirstAudio,
         "speaker_first_write" => EventKind::SpeakerFirstWrite,
@@ -385,6 +398,10 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
             .and_then(|owner| owner.get("generation"))
             .or_else(|| record.get("generation"))
             .map(|v| v.as_u64().unwrap_or(0)),
+        owner_boot: record
+            .get("owner")
+            .and_then(|owner| owner.get("boot"))
+            .map(|boot| serde_json::from_value(boot.clone()).unwrap_or([0; 16])),
         provider_detail: matches!(kind, "turn_finished" | "input_discarded_endpoint")
             .then(|| provider_detail(record))
             .flatten(),
@@ -537,6 +554,7 @@ impl Cue {
             },
             "local_endpoint" => EventKind::LocalEndpoint {
                 last_block_read_us: None,
+                silence_wait_ms: None,
             },
             "speaker_first_write" => EventKind::SpeakerFirstWrite,
             "speech_retired" => EventKind::SpeechRetired,
@@ -574,6 +592,7 @@ impl Cue {
             playback_sequence: self.playback_sequence,
             completion_evidence_error: None,
             owner_generation: self.generation,
+            owner_boot: self.turn.map(|_| self.boot),
             provider_detail: None,
         })
     }
@@ -608,13 +627,20 @@ pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
         EventKind::ProviderInputStarted => {
             json!({"kind":"provider_input_started","waiting_for_barrier":false})
         }
-        EventKind::LocalEndpoint { last_block_read_us } => {
+        // The fake states its own detector's wait; no default is invented.
+        EventKind::LocalEndpoint {
+            last_block_read_us,
+            silence_wait_ms,
+        } => {
             json!({"kind":"local_endpoint","owner":owner,
-            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
+            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":silence_wait_ms,"acoustic_speech_end":null})
         }
-        EventKind::InputDiscardedEndpoint { last_block_read_us } => {
+        EventKind::InputDiscardedEndpoint {
+            last_block_read_us,
+            silence_wait_ms,
+        } => {
             json!({"kind":"input_discarded_endpoint","owner":owner,
-            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":600,"acoustic_speech_end":null})
+            "last_block_host_read_us":last_block_read_us,"includes_silence_wait_ms":silence_wait_ms,"acoustic_speech_end":null})
         }
         EventKind::ProviderFirstAudio => json!({"kind":"provider_first_audio"}),
         EventKind::SpeakerFirstWrite => json!({"kind":"speaker_first_write","owner":owner}),
@@ -902,6 +928,10 @@ mod tests {
                     | EventKind::TurnCompleted { .. }
             ) {
                 event.owner_generation = Some(4);
+                // Completion records carry a generation but no owner boot.
+                if !matches!(event.kind, EventKind::TurnCompleted { .. }) {
+                    event.owner_boot = Some(boot);
+                }
             }
             let parsed = from_trace(&to_trace(&event, Some(owner.clone()))).unwrap();
             assert_eq!(parsed, event);

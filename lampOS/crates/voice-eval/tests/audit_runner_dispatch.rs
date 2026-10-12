@@ -145,6 +145,7 @@ fn run(mode: Mode) -> (Vec<u64>, Vec<lamp_voice_eval::record::StepRecord>) {
             event(
                 EventKind::LocalEndpoint {
                     last_block_read_us: Some(1_499_000),
+                    silence_wait_ms: None,
                 },
                 Some(1),
                 1_500_000,

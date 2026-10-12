@@ -134,13 +134,15 @@ pub struct Confirmation {
 }
 
 impl Confirmation {
-    /// 60 ms to yield, 60 ms of speech in the clear to commit, 150 ms of
-    /// stillness or 600 ms in all to resume.
+    /// 60 ms to yield, 60 ms of speech in the clear to commit, 400 ms of
+    /// stillness or 1.1 s in all to resume. Someone who has been spoken over
+    /// waits a moment before going on; with 150 ms the lamp resumed in the
+    /// breath between a person's first word and their second.
     pub const EVALUATED: Self = Self {
         onset_blocks: 6,
         speech_blocks: 6,
-        silence_blocks: 15,
-        deadline_blocks: 60,
+        silence_blocks: 40,
+        deadline_blocks: 110,
     };
 }
 
@@ -437,14 +439,14 @@ mod tests {
             &[
                 (Heard::Over, 25),
                 (Heard::Under, 14),
-                (Heard::Still, 15),
+                (Heard::Still, 40),
                 (Heard::Own, 50),
             ],
         );
-        assert_eq!(steps, [(5, Step::Yield), (53, Step::Resume)]);
+        assert_eq!(steps, [(5, Step::Yield), (78, Step::Resume)]);
         assert_eq!(interruption.counts(), (1, 0, 1));
-        // The pause was 480 ms: from the yield to the resume.
-        assert_eq!(steps[1].0 - steps[0].0, 48);
+        // The pause was 730 ms: from the yield to the resume.
+        assert_eq!(steps[1].0 - steps[0].0, 73);
     }
 
     #[test]
@@ -475,7 +477,7 @@ mod tests {
             &mut interruption,
             &[(Heard::Over, 6), (Heard::Unknown, 200)],
         );
-        assert_eq!(steps, [(5, Step::Yield), (65, Step::Resume)]);
+        assert_eq!(steps, [(5, Step::Yield), (115, Step::Resume)]);
         // And speech in the clear that stops short of 60 ms does not commit.
         let mut interruption = Interruption::new(Confirmation::EVALUATED);
         let steps = run(
@@ -484,10 +486,10 @@ mod tests {
                 (Heard::Over, 6),
                 (Heard::Unknown, 30),
                 (Heard::Clear, 5),
-                (Heard::Still, 15),
+                (Heard::Still, 40),
             ],
         );
-        assert_eq!(steps, [(5, Step::Yield), (55, Step::Resume)]);
+        assert_eq!(steps, [(5, Step::Yield), (80, Step::Resume)]);
     }
 
     #[test]

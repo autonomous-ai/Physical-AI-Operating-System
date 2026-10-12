@@ -405,19 +405,19 @@ fn a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply() {
     for quiet in 1..=29 {
         ticks.push(h.block(0.1, Some(evidence(quiet, None))));
     }
-    let still = h.blocks(15, 0.1, Some(evidence(40, None)));
-    assert!(still[..14].iter().all(|tick| tick.dispatched.is_none()));
+    let still = h.blocks(40, 0.1, Some(evidence(40, None)));
+    assert!(still[..39].iter().all(|tick| tick.dispatched.is_none()));
     assert!(
-        still[14].dispatched.is_some(),
+        still[39].dispatched.is_some(),
         "the reply did not go on in the block that settled it"
     );
     let resumed = h.events("duplex_resume");
     assert_eq!(resumed.len(), 1);
-    assert_eq!(resumed[0]["frame_sequence"], 72);
+    assert_eq!(resumed[0]["frame_sequence"], 97);
     ticks.extend(still);
     ticks.extend(h.blocks(40, 0.99, Some(evidence(0, OWN))));
     // The pause, in blocks during which the speaker was offered nothing.
-    assert_eq!(ticks.len() - dispatched(&ticks), 46);
+    assert_eq!(ticks.len() - dispatched(&ticks), 71);
     // Same reply, same owner, nothing admitted, nothing cancelled.
     assert_eq!(h.old(), old);
     assert!(ticks.iter().all(|tick| tick.accepted.is_none()));
@@ -452,12 +452,12 @@ fn a_yield_that_is_never_settled_is_given_up_at_its_deadline() {
     assert_eq!(h.events("duplex_yield").len(), 1);
     // The evidence goes on saying the lamp is sounding: no silence to confirm
     // a person in, so no commitment can be made.
-    let waiting = h.blocks(59, 0.9, Some(evidence(0, OVER)));
+    let waiting = h.blocks(109, 0.9, Some(evidence(0, OVER)));
     assert_eq!(dispatched(&waiting), 0);
     assert!(h.events("duplex_resume").is_empty());
     let last = h.block(0.9, Some(evidence(0, OVER)));
     assert!(last.dispatched.is_some() && last.accepted.is_none());
-    assert_eq!(h.events("duplex_resume")[0]["frame_sequence"], 66);
+    assert_eq!(h.events("duplex_resume")[0]["frame_sequence"], 116);
     assert_eq!(h.old(), old);
     assert!(h.events("turn_finished").is_empty());
     // The held candidate ended as a policy rejection inside its own budget,
@@ -504,7 +504,7 @@ fn a_reply_that_twice_yields_to_nothing_masks_like_the_baseline_until_it_ends() 
         for quiet in 1..=29 {
             h.block(0.1, Some(evidence(quiet, None)));
         }
-        h.blocks(15, 0.1, Some(evidence(40, None)));
+        h.blocks(40, 0.1, Some(evidence(40, None)));
         h.blocks(10, 0.99, Some(evidence(0, OWN)));
     }
     assert_eq!(h.mask.duplex_summary(), Some(((2, 0, 2), true)));
@@ -679,7 +679,10 @@ fn corrected_prefix_after_duplex_hold(
                 .pending_evidence(at, AcceptanceBasis::DirectedSessionDuplex)
                 .unwrap();
             assert_eq!(candidate.trigger_sequence, 36);
-            assert_eq!(candidate.decision_deadline_us, BASE + 360_000 + 700_000);
+            assert_eq!(
+                candidate.decision_deadline_us,
+                BASE + 360_000 + Hold::DUPLEX.decision_budget_us
+            );
             let result = decide_prospective_input(
                 &mask,
                 &mut detector,
@@ -821,7 +824,7 @@ fn resume_and_commit_decisions_close_intervals_but_only_admission_replaces_owner
             h.block(if commit { 0.9 } else { 0.1 }, Some(evidence(quiet, None)));
         }
         let ticks = h.blocks(
-            if commit { 6 } else { 15 },
+            if commit { 6 } else { 40 },
             if commit { 0.9 } else { 0.1 },
             Some(evidence(40, None)),
         );
@@ -900,7 +903,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
         let (mut owner, mut current, _) = active_reply();
         let privacy = owner.snapshot(now()).unwrap().microphone_generation();
         let bound = provider_queue_bound(hold);
-        assert_eq!(bound, if hold == Hold::STANDARD { 64 } else { 114 });
+        assert_eq!(bound, if hold == Hold::STANDARD { 64 } else { 164 });
         let mut queue = VecDeque::new();
         queue.push_back(ProviderInput::Start {
             session: 1,

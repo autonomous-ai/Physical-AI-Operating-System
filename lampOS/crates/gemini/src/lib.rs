@@ -29,7 +29,10 @@ use std::{fmt, num::NonZeroU64, time::Duration};
 pub const INPUT_RATE: u32 = 16_000;
 pub const OUTPUT_RATE: u32 = 24_000;
 pub const MAX_INPUT_SAMPLES: usize = 320;
-pub const MAX_INPUT_AGE: Duration = Duration::from_secs(1);
+/// The oldest audio a request may bring. A person who speaks over the lamp
+/// is held while the lamp falls silent and listens for more: up to 1.6 s of
+/// that person's speech precedes the moment their request is accepted.
+pub const MAX_INPUT_AGE: Duration = Duration::from_millis(2_500);
 pub const INPUT_QUEUE_CAPACITY: usize = 32;
 pub const EVENT_QUEUE_CAPACITY: usize = 16;
 /// Decoded output held for a consumer slower than the network, as real-time

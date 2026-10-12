@@ -168,8 +168,14 @@ A run of blocks becomes at most three moments (`Interruption`):
 2. **Commit.** Six `Clear` blocks after the yield: the lamp is silent, the
    room has gone quiet of it, and speech-like input remains. This is a
    hearing decision, not addressee evidence or completed input admission.
-3. **Resume.** Fifteen consecutive `Still` blocks, or 600 ms without a
+3. **Resume.** Forty consecutive `Still` blocks, or 1.1 s without a
    commit. The coordinator hands the speaker the next sample of the reply.
+   (Fifteen blocks and 600 ms until 2026-10-12. On lamp-4ace a played
+   "Lamp, stop. What is two plus two?" over a reply made the lamp yield
+   0.5 s after the clip began, resume 0.5 s later, in the breath after the
+   first word, and yield again 0.3 s after that before it committed. A
+   lamp that has been spoken over now waits 400 ms of stillness before it
+   goes on.)
 
 The candidate the detector raised at the yield is held, not decided, while
 the yield is open. A hearing commit still requires current privacy,
@@ -225,11 +231,17 @@ mode only:
 
 | Bound | Standard | Duplex |
 |---|---|---|
-| Decision budget after the trigger | 200 ms | 700 ms |
-| Oldest retained block | 600 ms | 1.1 s |
-| Blocks held while deciding | 20 | 70 |
-| Queue length threshold before appending microphone PCM | 64 entries | 114 entries |
-| Total command capacity including the endpoint's one `End` slot | 65 entries | 115 entries |
+| Decision budget after the trigger | 200 ms | 1.2 s |
+| Oldest retained block | 600 ms | 1.6 s |
+| Blocks held while deciding | 20 | 120 |
+| Queue length threshold before appending microphone PCM | 64 entries | 164 entries |
+| Total command capacity including the endpoint's one `End` slot | 65 entries | 165 entries |
+
+The duplex column was 700 ms, 1.1 s, 70, 114 and 115 until the yield was
+lengthened on 2026-10-12. The transport's bound on the age of input audio,
+`lamp_gemini::MAX_INPUT_AGE`, went from 1 s to 2.5 s with it: a request
+accepted at the end of its budget brings audio up to 1.6 s old, and at 1 s
+the older bound was already under the 1.1 s this mode could retain.
 
 It is still one candidate, one identity, one deadline that nothing renews,
 and one bounded list. The queue bound grows by exactly the 50 blocks the

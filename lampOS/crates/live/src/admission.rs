@@ -27,13 +27,16 @@ impl Hold {
         retained_age_us: MAX_RETAINED_AGE_US,
         decision_blocks: MAX_DECISION_BLOCKS,
     };
-    /// Duplex holds a candidate that began over the lamp until the lamp's own
-    /// sound has gone: at most 600 ms after its trigger, with the 300 ms of
-    /// pre-roll before it. Still one candidate, one bounded block list.
+    /// Duplex holds a candidate that began over the lamp while the lamp
+    /// falls silent and listens for more: at most 1.1 s after its trigger,
+    /// with the 300 ms of pre-roll before it. Long enough for a breath after
+    /// a first word ("Lamp, ... stop"), which 600 ms was not: on lamp-4ace
+    /// the lamp went on speaking for 0.3 s between those two words. Still
+    /// one candidate, one bounded block list.
     pub const DUPLEX: Self = Self {
-        decision_budget_us: 700_000,
-        retained_age_us: 1_100_000,
-        decision_blocks: 70,
+        decision_budget_us: 1_200_000,
+        retained_age_us: 1_600_000,
+        decision_blocks: 120,
     };
     fn candidate_blocks(self) -> usize {
         PRE_ROLL_BLOCKS + self.decision_blocks

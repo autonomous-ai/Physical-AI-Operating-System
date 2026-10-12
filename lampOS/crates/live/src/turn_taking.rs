@@ -1320,8 +1320,8 @@ mod tests {
             Disposition::AwaitWriteEvidence
         );
         hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
-        let steps = hear(&mut mask, &mut sequence, 15, 0.1, &evidence(40, None), true);
-        assert_eq!(steps, [(51, Step::Resume)]);
+        let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
+        assert_eq!(steps, [(76, Step::Resume)]);
         assert_eq!(disposition(&mask, 6).unwrap(), Disposition::Suppress);
         assert_eq!(mask.duplex_summary(), Some(((1, 0, 1), false)));
     }
@@ -1334,7 +1334,7 @@ mod tests {
             let steps = hear(&mut mask, &mut sequence, 6, 0.9, &evidence(0, OVER), true);
             assert_eq!(steps.len(), 1);
             hear(&mut mask, &mut sequence, 30, 0.1, &evidence(10, None), true);
-            let steps = hear(&mut mask, &mut sequence, 15, 0.1, &evidence(40, None), true);
+            let steps = hear(&mut mask, &mut sequence, 40, 0.1, &evidence(40, None), true);
             assert_eq!(steps.last().unwrap().1, Step::Resume);
         }
         assert!(mask.duplex_summary().unwrap().1);

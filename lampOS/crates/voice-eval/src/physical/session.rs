@@ -1475,7 +1475,7 @@ mod runtime_flag_tests {
                 "invalid --turn-taking",
             ),
             (
-                vec!["--serve-config", "/p", "--playout-start-ms", "201"],
+                vec!["--serve-config", "/p", "--playout-start-ms", "501"],
                 "invalid --playout-start-ms",
             ),
             (

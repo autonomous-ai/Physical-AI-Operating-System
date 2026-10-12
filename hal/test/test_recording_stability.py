@@ -151,3 +151,25 @@ def test_another_bodys_joints_are_skipped_not_scored(caplog):
         check_stable([reachy], "reachy_clip", _policy(22), GEOMETRY)
     assert "skipped" in caplog.text
     assert "stable" not in caplog.text
+
+
+def test_an_absolute_pose_that_leans_back_is_cut_short(monkeypatch):
+    """/servo/move and nudge: a pose past the ceiling stops short; a forward one is untouched."""
+    import os
+    from hal.drivers.motors import recording_stability as rs
+    robot = os.path.join(os.path.dirname(__file__), "..", "..", "robots", "lamp")
+    monkeypatch.setattr(rs, "_body", rs.load_geometry(robot, "urdf/lamp.urdf"))
+
+    idle = {"base_yaw.pos": 0.0, "base_pitch.pos": 28.7, "elbow_pitch.pos": 27.6,
+            "wrist_roll.pos": 9.0, "wrist_pitch.pos": -60.4}
+    tipped = {"base_pitch.pos": -18.0, "elbow_pitch.pos": 58.0}  # the pose that tipped lamp-52e6
+    pose, fraction = rs.limit_lean_back(idle, tipped, 22)
+    assert 0.0 < fraction < 1.0
+    assert set(pose) == set(tipped)
+    assert rs.lean_back_mm({**idle, **pose}) <= 22.5
+
+    forward = {"base_pitch.pos": 40.0}
+    assert rs.limit_lean_back(idle, forward, 22) == (forward, 1.0)
+
+    monkeypatch.setattr(rs, "_body", None)
+    assert rs.limit_lean_back(idle, tipped, 22) == (tipped, 1.0), "no geometry = pass-through"

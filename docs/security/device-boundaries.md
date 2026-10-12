@@ -53,7 +53,7 @@ The server receives `BuddyHandler` by pointer through Wire so the pairing confir
 
 ## Servo response accuracy and Piper extraction
 
-Sleeping move/aim/nudge/resume/track requests return 409 without waking the body. Move returns separate requested/observed positions and `clamped: null`; aim/nudge report requested targets separately from readback. Driver limits and calibration are unchanged. Driver-reported positions may be cached targets on drivers such as Reachy, so they are not proof of physical arrival. See [HAL API](../os-server.md) for response compatibility.
+Sleeping move/aim/nudge/resume/track requests return 409 without waking the body. Move returns separate requested/observed positions, and `clamped` is the target actually sent when the lean-back cap (`motion.max_cog_offset_mm`) cut it short, else `null`; aim/nudge report requested targets separately from readback. Driver limits and calibration are unchanged. Driver-reported positions may be cached targets on drivers such as Reachy, so they are not proof of physical arrival. See [HAL API](../os-server.md) for response compatibility.
 
 Piper engine archives are checked before extraction and filtered while extracting into a fresh staging directory. Paths and links must stay within the `piper` release tree; special files and directory/dangling symlinks are rejected. Valid contained shared-library file links remain supported. The fixed HTTPS release URL is unchanged; checksum pinning has not been added.
 

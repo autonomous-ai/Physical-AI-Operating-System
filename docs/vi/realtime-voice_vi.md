@@ -1603,6 +1603,15 @@ có ảnh nào). Chi phí: audio câu hỏi bị tính 2 lần ở turn look; �
 Cái này thay cho đường chậm (delegate → main → tìm skill → `/camera/snapshot` →
 LLM vision, vài giây) bằng một round-trip ngay trong phiên.
 
+**Tắt camera là thắng.** Khi công tắc privacy đang bật hoặc người dùng đã tắt camera
+(Settings, "đừng nhìn tôi"), `_handle_look_call` trả lời tool call bằng
+`{"error": "the camera is turned off by the user; do not try to look"}` trước mọi bước
+aim, chụp hay dùng lại frame, và `_capture_frame` không bao giờ đánh thức cảm biến. Chỉ
+lần tạm dừng *tự động* (idle, ngủ) mới được đánh thức để chụp một frame. Frame chụp trước
+khi người dùng tắt camera cũng không được chuyển cho main agent. Luật này là
+`app_state.camera_blocked_by_user()`, cũng là phép kiểm `/camera/snapshot` dùng trước,
+trong và sau khi chụp.
+
 Điều kiện kích hoạt (cần cả ba, nếu không câu hỏi thị giác sẽ rơi về delegate):
 
 - **Capability:** có camera (`app_state.camera_capture` được set). Đây chính là

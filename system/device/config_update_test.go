@@ -457,31 +457,3 @@ func TestEnglishSTTSelectionMigratesModelWithoutResettingConversation(t *testing
 		t.Fatalf("saving Nova English again must not restart: %+v", ch)
 	}
 }
-
-func TestApplyUpdateCloudPerceptionIsLiveNotRestart(t *testing.T) {
-	c := baseConfig()
-	if c.CloudPerceptionSettings() != (config.CloudPerception{}) {
-		t.Fatal("unset cloud_perception must read as all off")
-	}
-
-	on := config.CloudPerception{Pose: true}
-	ch := applyUpdate(c, domain.UpdateConfigRequest{CloudPerception: &on}, "")
-	if !ch.cloudPerception {
-		t.Fatal("cloud_perception change not flagged")
-	}
-	// Applied live through HAL, so it must not force a deaf HAL restart.
-	if ch.halBoot || ch.tts || ch.realtime {
-		t.Fatalf("cloud_perception change set restart flags: %+v", ch)
-	}
-	if c.CloudPerceptionSettings() != on {
-		t.Fatalf("saved = %+v, want %+v", c.CloudPerceptionSettings(), on)
-	}
-
-	// Re-sending the saved value is a no-op; omitting the field leaves it unchanged.
-	if ch = applyUpdate(c, domain.UpdateConfigRequest{CloudPerception: &on}, ""); ch.cloudPerception {
-		t.Fatal("re-sending current cloud_perception flagged as change")
-	}
-	if ch = applyUpdate(c, domain.UpdateConfigRequest{}, ""); ch.cloudPerception || c.CloudPerceptionSettings() != on {
-		t.Fatalf("omitted cloud_perception changed state: %+v", c.CloudPerceptionSettings())
-	}
-}

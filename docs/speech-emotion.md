@@ -171,7 +171,7 @@ Labels (emotion2vec_plus_large, from `/api/dl/ser/labels`):
 angry, disgusted, fearful, happy, neutral, other, sad, surprised, <unk>
 ```
 
-Timeout is `SPEECH_EMOTION_API_TIMEOUT_S` (env `HAL_SPEECH_EMOTION_API_TIMEOUT_S`, default 15 s), passed to the engine by `_build_default_recognizer()`, and there is **no retry on this leg** — any transport error, non-200, non-JSON body, or missing `label` returns `None` and the sample is skipped. When `DL_ENCRYPTION_ENABLED` (default **true**) and a public key resolves, the request and response bodies are wrapped by `CryptoSession`; `DL_ENCRYPTION_REQUIRED` (default false) turns a missing key into a hard error at construction instead of a silent plaintext fallback.
+Timeout is `SPEECH_EMOTION_API_TIMEOUT_S` (env `HAL_SPEECH_EMOTION_API_TIMEOUT_S`, default 15 s), passed to the engine by `_build_default_recognizer()`, and there is **no retry on this leg** — any transport error, non-200, non-JSON body, or missing `label` returns `None` and the sample is skipped. When `DL_ENCRYPTION_ENABLED` (default **true**), the request and response bodies are wrapped by `CryptoSession`; without a public key the request is skipped rather than sent in plaintext, and the key is fetched again after 60 s.
 
 ### Sensing event → OS server
 
@@ -327,8 +327,7 @@ All knobs live in `hal/config.py` as `SPEECH_EMOTION_*`, overridable via env var
 | `DL_SER_ENDPOINT` | `DL_SER_ENDPOINT` | `/hal/api/dl/ser/recognize` | Path suffix on `DL_BACKEND_URL` |
 | `SPEECH_EMOTION_API_URL` | — | derived | `DL_BACKEND_URL` + `DL_SER_ENDPOINT` |
 | `SPEECH_EMOTION_API_KEY` | — | mirrors `DL_API_KEY` | Sent as `X-API-Key` |
-| `DL_ENCRYPTION_ENABLED` | `HAL_DL_ENCRYPTION` | `true` | Wrap request/response bodies |
-| `DL_ENCRYPTION_REQUIRED` | `HAL_DL_ENCRYPTION_REQUIRED` | `false` | Hard-fail instead of plaintext fallback |
+| `DL_ENCRYPTION_ENABLED` | `HAL_DL_ENCRYPTION` | `true` | Wrap request/response bodies; while on, a request without a public key is skipped, never sent in plaintext |
 | `SPEAKER_MIN_AUDIO_S` | `HAL_SPEAKER_MIN_AUDIO_S` | `0.8` | Also gates the SER WAV build; inert here, since `submit()`'s 3.0 s floor is higher |
 
 Label vocabulary, bucket map, prefilter thresholds, and **per-label confidence thresholds** are declared in `hal/drivers/voice/speech_emotion/constants.py` (not env-overridable — touching these requires a code change). The threshold dict:
@@ -438,7 +437,7 @@ This is why the ordering is: finalize → wake-word classification → speaker-I
 | `DL_BACKEND_URL` not configured | `recognizer.available` is False, threads never start, `submit()` is a no-op (`SERVICE IDLE` at boot) | Set `llm_base_url` in the OS server config |
 | perception-service down (connection refused) | Worker logs warning, sample dropped, no retry on this leg | Next utterance retries automatically |
 | perception-service returns non-200 / non-JSON / no `label` | Worker logs warning, sample dropped | Same as above |
-| Encryption required but no public key | `RuntimeError` at construction → caught in `_init_speech_emotion` → service is `None` | Fix `DL_PUBLIC_KEY_URL`/`DL_PUBLIC_KEY_FILE`, or unset `HAL_DL_ENCRYPTION_REQUIRED` |
+| Encryption on but no public key | `recognize()` skips the request (no plaintext); the key is fetched again after 60 s (`DLCrypto` in `hal/drivers/sensing/crypto.py`) | Fix `DL_PUBLIC_KEY_URL`/`DL_PUBLIC_KEY_FILE`; samples resume once a key resolves |
 | Silero model missing / ORT broken | Prefilter falls back to a **stricter** RMS bar (3.0 s voiced) | Restore `resources/silero_vad.onnx`; check the one-time load warning |
 | Prefilter rejects the clip | Sample dropped before the cloud call, with the driving metrics logged | Expected for TV/music/sparse audio; tune the `PREFILTER_*` constants in `constants.py` if legitimate speech is being cut |
 | Worker queue full | `submit()` logs `EVICT`, drops the **oldest** job and enqueues the new one | Indicates backend overload; jobs older than 30 s are also discarded by the worker |

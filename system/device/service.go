@@ -37,6 +37,9 @@ type Service struct {
 	// Optional command override for isolated service tests.
 	halRestartCommand func(context.Context) error
 	halInputModeApply func(context.Context, string, bool) error
+	// Optional HAL apply override for isolated cloud perception tests.
+	halCloudPerceptionApply func(context.Context, config.CloudPerception) error
+	cloudApply              cloudPerceptionApply
 }
 
 func ProvideService(config *config.Config, ns *network.Service, gw domain.AgentGateway, be *beclient.Client, sled *statusled.Service) *Service {
@@ -88,27 +91,6 @@ func (s *Service) restartHALAndWait(ctx context.Context, reason string) error {
 
 // applyTTSConfig pushes a voice change into the running HAL, falling back to a
 // restart on failure.
-// applyCloudPerception pushes the saved camera cloud opt-ins into the running HAL.
-// On failure HAL is restarted so it re-reads config.json and an opt-out still takes effect.
-func (s *Service) applyCloudPerception() {
-	cp := s.config.CloudPerceptionSettings()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := hal.SetCloudPerception(ctx, cp.Motion, cp.Emotion, cp.Pose, cp.FireHazard); err != nil {
-			slog.Warn("hal cloud perception apply failed, restarting instead",
-				"component", "device", "error", err)
-			s.restartHAL("cloud perception change")
-			return
-		}
-		slog.Info("hal cloud perception applied live", "component", "device",
-			"motion", cp.Motion, "emotion", cp.Emotion, "pose", cp.Pose, "fire_hazard", cp.FireHazard)
-		if err := config.SnapshotHALConfig(); err != nil {
-			slog.Warn("hal config snapshot failed", "component", "device", "error", err)
-		}
-	}()
-}
-
 func (s *Service) applyTTSConfig(c *config.Config) {
 	go func() {
 		// Send the resolved key: HAL treats an empty key as "keep current", which

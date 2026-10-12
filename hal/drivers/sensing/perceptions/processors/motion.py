@@ -16,7 +16,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import ClientConnection, connect
 
 import hal.config as config
-from hal.drivers.sensing.crypto import CryptoSession, WSKeyExchangeRequest, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto
 from hal.drivers.sensing.perceptions.typing import SendEventCallable
 from hal.drivers.sensing.perceptions.utils import (
     PerceptionStateObservers,
@@ -137,6 +137,7 @@ class RemoteMotionChecker:
         self._person_min_area_ratio: float = person_min_area_ratio
         self._ws_session: ClientConnection | None = None
         self._crypto: CryptoSession | None = None
+        self._dl_crypto: DLCrypto = DLCrypto("RemoteMotionChecker")
 
         self._prepare_session()
 
@@ -157,9 +158,7 @@ class RemoteMotionChecker:
                 additional_headers={"X-API-Key": self._api_key},
                 open_timeout=config.DL_WS_RECV_TIMEOUT_S,
             )
-            self._crypto = None
-            if config.DL_ENCRYPTION_ENABLED:
-                self._setup_crypto()
+            self._crypto = self._dl_crypto.ws_key_exchange(self._ws_session, config.DL_WS_RECV_TIMEOUT_S)
 
             config_msg = json.dumps(
                 {
@@ -179,31 +178,13 @@ class RemoteMotionChecker:
                 raw = self._crypto.unwrap_ws_message(raw)
         except Exception:
             logger.exception("Failed to connect to remote motion recognition backend")
+            # Never keep a connection we will not use: no plaintext fallback.
+            if self._ws_session is not None:
+                try:
+                    self._ws_session.close()
+                except Exception:
+                    pass
             self._ws_session = None
-
-    def _setup_crypto(self) -> None:
-        """Perform WS key exchange after connection."""
-        if self._ws_session is None:
-            raise RuntimeError("Cannot setup crypto without a WS connection")
-
-        public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-        if public_key is None:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
-            logger.warning("[%s] encryption enabled but no public key — plaintext fallback", self.__class__.__name__)
-            return
-
-        session = CryptoSession(public_key)
-        key_req = WSKeyExchangeRequest(encrypted_key=session.encrypted_key_b64)
-        self._ws_session.send(key_req.model_dump_json())
-        resp = json.loads(self._ws_session.recv(timeout=config.DL_WS_RECV_TIMEOUT_S))
-        if resp.get("status") == "key_exchange_ok":
-            self._crypto = session
-            logger.info("[%s] encryption session established", self.__class__.__name__)
-        else:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError(f"Key exchange failed: {resp}")
-            logger.warning("[%s] key exchange failed: %s — plaintext fallback", self.__class__.__name__, resp)
 
     def _img2b64(self, frame: cv2.typing.MatLike):
         _, buf = cv2.imencode(".jpg", frame)

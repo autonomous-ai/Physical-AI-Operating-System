@@ -21,7 +21,7 @@ import numpy as np
 import requests
 
 from hal import config
-from hal.drivers.sensing.crypto import CryptoSession, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto, EncryptionUnavailable
 
 logger = logging.getLogger("hal.voice.speaker")
 
@@ -862,13 +862,7 @@ class SpeakerRecognizer:
         self._debug_prof = threading.local()
 
         self._crypto: CryptoSession | None = None
-        if config.DL_ENCRYPTION_ENABLED:
-            public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-            if public_key is not None:
-                self._crypto = CryptoSession(public_key)
-                logger.info("Speaker recognizer: encryption enabled")
-            elif config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
+        self._dl_crypto: DLCrypto = DLCrypto("speaker_recognizer")
 
         self._users_dir.mkdir(parents=True, exist_ok=True)
         _UNKNOWN_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
@@ -986,6 +980,10 @@ class SpeakerRecognizer:
             )
         if not audios_b64:
             raise SpeakerRecognizerError("no audio to embed")
+        try:
+            self._crypto = self._dl_crypto.http_session()
+        except EncryptionUnavailable as e:
+            raise SpeakerRecognizerError(f"not sending without encryption: {e}") from e
 
         logger.info(
             "Calling embedding API with %d audios at %s (use_sliding_window=%s)",

@@ -10,41 +10,6 @@ import (
 	"go.autonomous.ai/os/system/server/config"
 )
 
-// MQTT carries no sender authentication, so it may only withdraw consent. Turning an
-// upload on stays a local choice in the device's web Settings > Privacy.
-var (
-	errCloudPerceptionEmpty      = errors.New("at least one of motion, emotion, pose, fire_hazard is required")
-	errCloudPerceptionEnableMQTT = errors.New("cloud perceptions can only be turned on from the device's local Settings > Privacy")
-)
-
-// optOutCloudPerception applies req on top of current, rejecting any request to turn one on.
-func optOutCloudPerception(current config.CloudPerception, req domain.CloudPerceptionSetData) (config.CloudPerception, error) {
-	next := current
-	changed := false
-	for _, f := range []struct {
-		in  *bool
-		out *bool
-	}{
-		{req.Motion, &next.Motion},
-		{req.Emotion, &next.Emotion},
-		{req.Pose, &next.Pose},
-		{req.FireHazard, &next.FireHazard},
-	} {
-		if f.in == nil {
-			continue
-		}
-		if *f.in {
-			return current, errCloudPerceptionEnableMQTT
-		}
-		*f.out = false
-		changed = true
-	}
-	if !changed {
-		return current, errCloudPerceptionEmpty
-	}
-	return next, nil
-}
-
 func (h *DeviceMQTTHandler) publishCloudPerceptionAck(status, errMsg string, data *config.CloudPerception) {
 	ack := domain.MQTTCloudPerceptionAck{
 		MQTTInfoResponse: domain.NewMQTTInfoResponse(h.config, "data", device.GetDeviceMac()),
@@ -58,6 +23,8 @@ func (h *DeviceMQTTHandler) publishCloudPerceptionAck(status, errMsg string, dat
 	}
 }
 
+// handleCloudPerceptionSet only turns perceptions off: MQTT carries no sender
+// authentication, so turning an upload on stays a local choice in Settings > Privacy.
 func (h *DeviceMQTTHandler) handleCloudPerceptionSet(env domain.MQTTDataCommand) error {
 	var req domain.CloudPerceptionSetData
 	if err := json.Unmarshal(env.Data, &req); err != nil {
@@ -65,20 +32,30 @@ func (h *DeviceMQTTHandler) handleCloudPerceptionSet(env domain.MQTTDataCommand)
 		h.publishCloudPerceptionAck("failure", "invalid payload", nil)
 		return err
 	}
-	next, err := optOutCloudPerception(h.config.CloudPerceptionSettings(), req)
-	if err != nil {
-		slog.Warn("cloud_perception.set: rejected", "component", "mqtt", "error", err)
-		h.publishCloudPerceptionAck("failure", err.Error(), nil)
-		return err
+	for _, v := range []*bool{req.Motion, req.Emotion, req.Pose, req.FireHazard} {
+		if v != nil && *v {
+			h.publishCloudPerceptionAck("failure", device.ErrCloudPerceptionEnable.Error(), nil)
+			return device.ErrCloudPerceptionEnable
+		}
+	}
+	if req.Motion == nil && req.Emotion == nil && req.Pose == nil && req.FireHazard == nil {
+		h.publishCloudPerceptionAck("failure", device.ErrCloudPerceptionEmpty.Error(), nil)
+		return device.ErrCloudPerceptionEmpty
 	}
 
-	slog.Info("cloud_perception.set: received", "component", "mqtt",
-		"motion", next.Motion, "emotion", next.Emotion, "pose", next.Pose, "fire_hazard", next.FireHazard)
+	slog.Info("cloud_perception.set: received", "component", "mqtt")
 	h.publishCloudPerceptionAck("starting", "", nil)
 
 	go func() {
-		if err := h.deviceService.UpdateConfig(domain.UpdateConfigRequest{CloudPerception: &next}); err != nil {
-			slog.Error("cloud_perception.set: UpdateConfig failed", "component", "mqtt", "error", err)
+		// UpdateCloudPerception merges into the latest config under its own lock and
+		// acks only after HAL applied, so concurrent opt-outs cannot undo each other.
+		next, err := h.deviceService.UpdateCloudPerception(req, true)
+		if err != nil {
+			if errors.Is(err, device.ErrCloudPerceptionEnable) || errors.Is(err, device.ErrCloudPerceptionEmpty) {
+				h.publishCloudPerceptionAck("failure", err.Error(), nil)
+				return
+			}
+			slog.Error("cloud_perception.set: apply failed", "component", "mqtt", "error", err)
 			h.publishCloudPerceptionAck("failure", err.Error(), &next)
 			return
 		}

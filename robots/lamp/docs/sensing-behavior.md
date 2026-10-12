@@ -223,15 +223,16 @@ also uploads and needs the `motion` opt-in:
 |---|---|---|
 | `motion` | full frames (action recognition WS) | every sensing tick unless presence is `AWAY` |
 | `emotion` | face crops | every tick a face is detected locally |
-| `pose` | full frames (pose/RULA WS) | every sensing tick, no presence gate before sending |
+| `pose` | full frames (pose/RULA WS) | one frame per `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) while presence is `PRESENT`; nothing while away |
 | `fire_hazard` | full frames (OWLv2) | every `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), no presence gate |
 
 With them off, `motion.activity`, facial emotion, posture nudges and
 `fire_hazard.detected` are not produced. On-device perception (face detection and
 Face ID, presence, gaze, light, sound level) is unaffected. Enabling one is a
 deliberate privacy choice: it uploads frames even when nobody in the room asked
-the lamp for anything. Turning one off unregisters its processor at once; an upload
-already in flight finishes, then its connection closes.
+the lamp for anything. Turning one off unregisters its processor before the request
+returns: a check still queued is dropped, an upload already in progress finishes, then
+its connection closes.
 
 ## Motion
 

@@ -1417,6 +1417,15 @@ def _apply_emotion_led_display(
     return led_color
 
 
+def camera_blocked_by_user() -> bool:
+    """True when the privacy switch or the user's own "camera off" forbids any capture.
+
+    An automatic pause (idle, sleep) does not block: a caller may wake the camera for
+    one frame. A manual off (Settings, "don't watch me") always does.
+    """
+    return privacy.camera_muted or (_camera_disabled and _camera_manual_override)
+
+
 @privacy.serialized
 def _auto_camera_off(reason: str) -> bool:
     """Auto-disable camera. Respects manual override + active tracking."""

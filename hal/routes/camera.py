@@ -121,7 +121,7 @@ def camera_snapshot(
     quality: int = Query(default=85, ge=1, le=100, description="JPEG quality 1-100."),
 ):
     """Capture a single JPEG frame (freezes servos); optional width/height downscale, never upscales."""
-    if privacy.camera_muted or (state._camera_disabled and state._camera_manual_override):
+    if state.camera_blocked_by_user():
         raise HTTPException(409, "Camera is disabled by the user or privacy switch")
     if not state.camera_capture or cv2 is None:
         raise HTTPException(503, "Camera not available")
@@ -154,7 +154,7 @@ def camera_snapshot(
         if was_disabled and state._camera_disabled:
             state.camera_capture.stop()
 
-    if privacy.camera_muted or (state._camera_disabled and state._camera_manual_override):
+    if state.camera_blocked_by_user():
         raise HTTPException(409, "Camera is disabled by the user or privacy switch")
 
     if width is not None or height is not None:
@@ -173,7 +173,7 @@ def camera_snapshot(
 
     _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
 
-    if privacy.camera_muted or (state._camera_disabled and state._camera_manual_override):
+    if state.camera_blocked_by_user():
         raise HTTPException(409, "Camera is disabled by the user or privacy switch")
     if not save:
         return Response(content=buf.tobytes(), media_type="image/jpeg")

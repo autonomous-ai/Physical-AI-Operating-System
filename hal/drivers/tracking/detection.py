@@ -22,7 +22,7 @@ from hal.config import (
     TRACKING_FACE_DETECTOR_ENABLED as _FACE_DETECTOR_ENABLED,
     YUNET_CONFIDENCE_THRESHOLD as _YUNET_CONF,
 )
-from hal.drivers.sensing.crypto import CryptoSession, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto, EncryptionUnavailable
 from hal.drivers.tracking import constants as C
 from hal.drivers.tracking.frame_utils import downscale, scale_bbox
 
@@ -315,13 +315,7 @@ class ObjectDetector:
         self.last_confidence: Optional[float] = None
         self._last_remote_attempt_t: float = 0.0
         self._crypto: CryptoSession | None = None
-        if config.DL_ENCRYPTION_ENABLED:
-            public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-            if public_key is not None:
-                self._crypto = CryptoSession(public_key)
-                logger.info("Tracker: encryption enabled for remote YOLOWorld")
-            elif config.DL_ENCRYPTION_REQUIRED:
-                logger.error("Tracker: encryption required but no public key available")
+        self._dl_crypto: DLCrypto = DLCrypto("tracking.yoloworld")
 
     def detect(self, frame: npt.NDArray[np.uint8], target: str,
                strict: bool = True,
@@ -444,6 +438,10 @@ class ObjectDetector:
             logger.error("YOLOWorld: DL_BACKEND_URL not configured")
             return None
 
+        try:
+            self._crypto = self._dl_crypto.http_session()
+        except EncryptionUnavailable:
+            return None
         url = DL_BACKEND_URL.rstrip("/") + "/" + _YOLO_ENDPOINT.strip("/")
         logger.info("[tracking_yolo_request] target='%s' url=%s", target, url)
         rivals = _REMOTE_RIVALS.get((target or "").lower().strip(), [])

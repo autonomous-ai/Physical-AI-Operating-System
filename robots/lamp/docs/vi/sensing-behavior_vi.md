@@ -221,14 +221,15 @@ cũng upload và cần opt-in `motion`:
 |---|---|---|
 | `motion` | nguyên frame (WS nhận dạng hành động) | mỗi tick sensing trừ khi presence là `AWAY` |
 | `emotion` | ảnh mặt đã cắt | mỗi tick có mặt được phát hiện cục bộ |
-| `pose` | nguyên frame (WS pose/RULA) | mỗi tick sensing, không kiểm tra presence trước khi gửi |
+| `pose` | nguyên frame (WS pose/RULA) | một frame mỗi `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) khi presence là `PRESENT`; vắng người thì không gửi |
 | `fire_hazard` | nguyên frame (OWLv2) | mỗi `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), không kiểm tra presence |
 
 Khi tắt, `motion.activity`, cảm xúc khuôn mặt, nhắc tư thế và `fire_hazard.detected`
 không được tạo ra. Nhận thức trên thiết bị (dò mặt và Face ID, presence, gaze, ánh
 sáng, mức âm thanh) không bị ảnh hưởng. Bật một cờ là lựa chọn privacy có chủ ý: nó
 gửi frame lên kể cả khi không ai trong phòng gọi đèn. Tắt một luồng thì processor của nó
-bị gỡ ngay; upload đang dở chạy xong rồi kết nối mới đóng.
+bị gỡ trước khi request trả về: lượt kiểm tra còn trong hàng đợi bị bỏ, upload đang chạy
+dở thì xong rồi kết nối mới đóng.
 
 ## Chuyển động (Motion)
 

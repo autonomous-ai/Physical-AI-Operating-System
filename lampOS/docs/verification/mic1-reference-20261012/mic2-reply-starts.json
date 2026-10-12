@@ -1,0 +1,77 @@
+[
+ {
+  "copy": 1,
+  "render_block_level_dbfs": -15.2,
+  "first_capture_block_with_that_render_analysed": 612,
+  "first_capture_block_within_12_db_of_the_lamp_level": 620,
+  "voice_leads_the_render_by_blocks": -8,
+  "levels_dbfs_from_4_blocks_before": [
+   -75.4,
+   -74.4,
+   -76.3,
+   -74.4,
+   -75.3,
+   -75.6,
+   -74.1
+  ],
+  "cursor_minus_that_frame": [
+   -948,
+   -708,
+   -468,
+   -228,
+   12,
+   252,
+   492
+  ]
+ },
+ {
+  "copy": 2,
+  "render_block_level_dbfs": -15.2,
+  "first_capture_block_with_that_render_analysed": 1091,
+  "first_capture_block_within_12_db_of_the_lamp_level": 1100,
+  "voice_leads_the_render_by_blocks": -9,
+  "levels_dbfs_from_4_blocks_before": [
+   -85.5,
+   -85.3,
+   -83.3,
+   -83.8,
+   -84.8,
+   -83.3,
+   -85.1
+  ],
+  "cursor_minus_that_frame": [
+   -938,
+   -698,
+   -458,
+   -218,
+   22,
+   262,
+   502
+  ]
+ },
+ {
+  "copy": 3,
+  "render_block_level_dbfs": -15.2,
+  "first_capture_block_with_that_render_analysed": 1570,
+  "first_capture_block_within_12_db_of_the_lamp_level": 1558,
+  "voice_leads_the_render_by_blocks": 12,
+  "levels_dbfs_from_4_blocks_before": [
+   -34.8,
+   -36.5,
+   -34.7,
+   -26.2,
+   -27.1,
+   -20.2,
+   -17.6
+  ],
+  "cursor_minus_that_frame": [
+   -930,
+   -690,
+   -450,
+   -210,
+   30,
+   270,
+   510
+  ]
+ }
+]

@@ -1,0 +1,9 @@
+mic1 hold 0: copy 1 alone: before -15.0 after -21.0 removed 6.0 dB, scored>=0.8 79/430   copy 3 alone: before -15.5 after -17.2 removed 1.7 dB, scored>=0.8 180/360   sunset scored>=0.8 125/188
+mic1 hold 2: copy 1 alone: before -15.0 after -22.7 removed 7.8 dB, scored>=0.8 92/430   copy 3 alone: before -15.5 after -21.7 removed 6.2 dB, scored>=0.8 79/360   sunset scored>=0.8 125/188
+mic1 hold 3: copy 1 alone: before -15.0 after -42.5 removed 27.5 dB, scored>=0.8 6/430   copy 3 alone: before -15.5 after -42.4 removed 27.0 dB, scored>=0.8 0/360   sunset scored>=0.8 124/188
+mic1 hold 4: copy 1 alone: before -15.0 after -38.2 removed 23.2 dB, scored>=0.8 4/430   copy 3 alone: before -15.5 after -43.4 removed 27.9 dB, scored>=0.8 0/360   sunset scored>=0.8 124/188
+mic1 hold 5: copy 1 alone: before -15.0 after -37.5 removed 22.5 dB, scored>=0.8 6/430   copy 3 alone: before -15.5 after -42.8 removed 27.4 dB, scored>=0.8 0/360   sunset scored>=0.8 124/188
+mic1 hold 6: copy 1 alone: before -15.0 after -38.7 removed 23.7 dB, scored>=0.8 5/430   copy 3 alone: before -15.5 after -41.5 removed 26.0 dB, scored>=0.8 0/360   sunset scored>=0.8 124/188
+mic1 hold 8: copy 1 alone: before -15.0 after -39.0 removed 24.1 dB, scored>=0.8 4/430   copy 3 alone: before -15.5 after -41.1 removed 25.6 dB, scored>=0.8 0/360   sunset scored>=0.8 124/188
+mic2 hold 0: copy 1 alone: before -13.3 after -33.1 removed 19.8 dB, scored>=0.8 1/430   copy 3 alone: before -14.6 after -36.6 removed 22.0 dB, scored>=0.8 14/360   sunset scored>=0.8 149/188
+mic2 hold 4: copy 1 alone: before -13.3 after -34.6 removed 21.3 dB, scored>=0.8 11/430   copy 3 alone: before -14.6 after -30.2 removed 15.7 dB, scored>=0.8 13/360   sunset scored>=0.8 149/188

@@ -1,213 +1,99 @@
 # Agent 1 status
 
-Owner: Agent 1 (Gemini and audio), branch `gemini-voice`.
+Owner: Agent 1 (audio and Gemini). This file on `lamp-a1-mic1-reference`
+is the status of one task: your request of 2026-10-12, after the
+fixed-source microphone pair, for a `mic1` reference-timing correction as
+a separate proposal on `675c71c62`. My other branches are as they were.
 
-- Protocol acknowledged: `direct-and-git-v2` (`MAIN-001`), read from
-  `origin/lamp-v2-chat` at `666693a84`; `git-coordination-v1` before it at
-  `b20df467d`.
-- Checkpoint 1 pushed: `gemini-voice` at `d0c7c53f1` (code `155bab4e2`), and
-  `gemini-voice-worker-proposal` at `548fda500`.
-- Direct messages: I read the ones that arrive in my session and answer here.
-  I do not type into another agent's terminal; my notices and requests are in
-  this file and at the end of my own session output.
-- Updated: 2026-10-11
-- Tested code commit: `155bab4e2` on `gemini-voice`.
-- Base commit: `2535fb565`. `b20df467d` and `666693a84` are merged on top;
-  those merges bring only coordination and documentation files.
-- State: checkpoint 1 published (items 1 and 3 of my list in the
-  [completion plan](../docs/rust-completion-plan.md)). Item 2 is in progress
-  and unpublished; see [draft work](#draft-work-not-published).
-- Full handoff: [Gemini session reliability, third
-  round](../docs/gemini-session-reliability.md#third-round).
+- Updated: 2026-10-12, 06:53 UTC
+- **The canceller on `mic1` was given each render block after its echo.**
+  The capture-clocked reference keeps five blocks of render in hand;
+  `mic1` has the sound back two capture blocks before that render reaches
+  the canceller. The device removed 5.2 and 1.6 dB of the lamp's own
+  voice and scored it as speech in a quarter to a half of all blocks.
+- **Fix: each `mic1` frame waits four capture blocks before it is
+  cancelled and handed on,** with the capture-clocked reference only.
+  `mic2` and the fixed reference run the code they ran. My files only.
+- **It stops the lamp hearing itself. It does not make `mic1` hear a
+  person over the lamp:** in the replay the clip is still scored in one
+  block of 337.
+- Not run on a lamp. Nothing pushed to any branch but this one.
 
-## Checkpoint 1
+Evidence, numbers, limits and scripts:
+`lampOS/docs/verification/mic1-reference-20261012/README.md`.
 
-### Commits and files
+## Commits
 
-| Commit | Branch | Files | Content |
-|---|---|---|---|
-| `67154e0b6` | `gemini-voice` | `crates/gemini/src/recovery.rs`, `recovery/tests.rs`, `recovery/tests/availability.rs`, new `recovery/tests/pressure.rs` | Fix: retry work is not held back by an unread link update. Five regressions |
-| `155bab4e2` | `gemini-voice` | `crates/gemini/src/recovery/tests/soak.rs` | Adversarial conversations through `next()` and through `poll_link()` + `next_output()` |
-| `548fda500` | `gemini-voice-worker-proposal` | `crates/live/src/provider_worker.rs`, tests only | Stopped-playback measurement. A proposal for your locked file: request `A1-001` |
+| Commit | Files | What |
+|---|---|---|
+| `d32dff803` | `crates/live/examples/duplex_lab.rs` | `--capture-hold N` for the offline replay |
+| `164a92c61` | `crates/live/src/reference/hold.rs` (new), `reference.rs` (one line), `audio_workers.rs` (16 lines), `crates/live/tests/capture_hold_worker.rs` (new) | The hold, its unit tests, and the worker-loop test |
+| `f18362fa9` | `crates/live/tests/capture_hold_worker.rs` | Test only: one session run and thrown away first; a fault's times printed |
+| `16e864692` | `crates/live/tests/capture_hold_worker.rs` | Test only: asserts on what the canceller accounts for. **Not yet run on ARM** |
+| this commit | `docs/verification/mic1-reference-20261012/`, this file | Evidence and status |
 
-### Behavior
+No shared file is touched. `options.rs` is read (`Microphone::Mic1.device()`,
+`ReferenceClock`), not changed.
 
-One runtime change, in `Supervisor::maintain`. With a link update unread, a
-refused replacement attempt was never retried; the 15 s outage budget ran out
-on the clock and the link ended as `BudgetExhausted` when the update was
-finally read. The provider worker reads nothing from the supervisor while its
-queue is above its high-water mark, so a stopped speaker put it there. A
-failed attempt is now harvested, backed off and redialled whether or not
-anything is read, inside the same attempt and budget bounds. A completed
-setup still waits to be announced, as before.
+## What you asked for, and where it is
 
-Found by the new adversarial conversation, reproduced by two focused tests on
-`2535fb565` (one attempt made where two, and three, were due), fixed in
-`67154e0b6`.
-
-### Checks
-
-Host: macOS x86_64, Rust 1.96.0, source-only export of `548fda500` outside
-the repository, fresh target directory. `548fda500` is `155bab4e2` plus seven
-ignored worker tests, so this run covers both.
-
-| Command | Result |
+| | |
 |---|---|
-| `cargo fmt --all -- --check` | pass |
-| `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
-| `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 849 passed, 0 failed, 11 ignored |
-| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
-| `cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --nocapture --test-threads=1` | 2 passed in 553 s |
-| `cargo test --locked --offline -p lamp-live --lib follows_output_capacity -- --ignored --nocapture --test-threads=1` | 2 passed in 270 s: 60 s answer played out at 70.03 s, 180 s answer at 200.05 s |
-| `cargo test --locked --offline -p lamp-live --lib stopped -- --ignored --nocapture --test-threads=7` | 7 passed in 118 s; table below |
+| Render before the echo on `mic1` | Replay of the recorded bundle through the real canceller: 6.0 and 1.7 dB removed with no hold, 23.2 and 27.9 dB with four blocks |
+| Capture timestamps kept | A frame leaves with its own sequence and read times; the worker-loop test reads each frame's read time within 1.3 ms of the block being there and its hand-on 43.8 ms after its own read |
+| Ordering | One queue, oldest first; sequences contiguous from 1 in every session of the worker-loop test |
+| Privacy | Frames held at a stop or a mute are dropped: 396 of 400 blocks handed on at a stop, 96 of 100 at a mute, none after |
+| Bounded input age | 40 ms more, constant. No re-stamping, no lease change: your 100 ms leaves about 55 ms for a stall |
+| Finite queues | The hold is four frames, bounded at eight by construction |
+| `mic2` unchanged | Hold zero: the frame comes straight back. Worker-loop control: 400 of 400 blocks handed on, 4.0 ms after the read |
+| Own-speech-only control | Lamp alone scored 0.8 or over in 4 of 430 and 0 of 360 blocks with the hold (79 and 180 without; device 114 and 193) |
+| Original-request control | Sunset question scored 0.8 or over in 124 of 188 blocks at every hold |
+| Coffee-opening control | Not retained: 1 of 337 blocks scored, correlation with the clip 0.01 to 0.33. See the limit above |
+| Worker handshake and steady streaming | `capture_hold_worker.rs` through `capture_on`, the real channels, reference link, ring and canceller, on ARM under emulation |
+| Why not the reference target | Two blocks in hand in place of five: one late packet runs the ring dry |
 
-`lamp-gemini` contributes 136 of the 849. The earlier prolonged conversation
-gives the same tallies as before this work: 843 completed, 417 cancelled, 107
-settled, 232 lost, 477 recoveries, 145 assumed barriers over four seeds. The
-adversarial one, four seeds of 400 turns through each interface: 679
-completed, 386 cancelled, 225 settled, 309 lost, 249 refused, 1,453
-recoveries, 234 refused attempts, 231 replacements dead on arrival, 341
-speaker holds, identical rows through both interfaces.
+## Verification
 
-Measured, real time, scripted service, worker through output capacity to a
-modeled speaker, 2 s provider messages, every holder full when playback stops:
-
-| Playback stopped for | Result |
+| | |
 |---|---|
-| 25, 27, 28 s | Complete: 90 of 90 s delivered |
-| 29, 30, 31, 33 s | `Backpressure`; 58.64 of 90 s delivered; the worker ended 33.7 s after playback resumed |
+| Host, `f18362fa9`, from a source export of the exact commit, 2 jobs, 06:44:18Z to 06:47:55Z, all exit 0 | `cargo fmt --all -- --check`; strict Clippy `-p lamp-live --all-targets`; `lamp-live` lib `reference::` 56 passed, 0 failed, 2 ignored; lib `coordinator::tests::duplex duplex_through_the_worker turn_taking activity:: options::` 81 passed; `--test reference_prime --test reference_link` 14 passed; release build of `duplex_lab` |
+| ARM, `164a92c61`, `agent1-arm64-mic1hold43`, 06:35:43Z to 06:41:33Z, **failed** | fmt, strict Clippy `-p lamp-live --all-targets` and lib `reference::` (56 passed) passed; worker-loop test 2 passed, 1 failed: the no-hold control, first session of the process, `QueueTiming` after one frame. `/private/tmp/lamp-a1-mic1-hold-arm-20261012T0635Z-1Fg8tV` |
+| ARM, `f18362fa9`, `agent1-arm64-mic1hold44`, 06:48:56Z to 06:51:15Z, all steps passed | fmt; workspace crates recompiled from the exported source; strict Clippy `-p lamp-live --all-targets`; worker-loop test 3 passed; `--test reference_prime --test reference_link` 14 passed; lib `reference::hold` 4 passed. `lamp-live` 9,503,712 bytes, SHA-256 `33f2eb2149bebebde7319c4ecd59a3b3c7470c43f88c2a9fbe56a70aa1589800`. `/private/tmp/lamp-a1-mic1-hold-final-arm-20261012T0648Z-aU7gtV` |
+| `16e864692` (test only) | Type-checked on this host with a stand-in for the Linux-only call. Not run |
 
-### Not run
+The capture worker file is Linux-only: on this host it is not compiled, and
+the worker-loop test does not exist there. Host results say nothing about
+either.
 
-- Linux/ARM64: not built or tested for these commits.
-- Cloud: nothing. See `A1-004`.
-- Device: nothing. I take no device action without a grant in `main.md`.
-- The real coordinator: every test drives the supervisor or the worker
-  directly.
+Not run: the workspace suite, anything on a lamp or against the service.
 
-### Known gaps
+## For you
 
-- A consumer that reads no link update for longer than the outage budget
-  still loses the link if a replacement completes setup and then dies, and
-  input stays refused until the earlier update is read. Both go away when the
-  worker polls the link on its control tick.
-- A stopped speaker past 28 s ends the session, not just the answer, and the
-  failure surfaces only after playback resumes. See `A1-002`.
-- `Require` in production: a person who continues before any answer has
-  started ends the session after 2 s if the service never confirms the cut-off
-  request. Only the `interrupt-before-output` probe can say whether it does.
+| Id | |
+|---|---|
+| `A1-032` | The native fixed-source trial on `mic1` with this binary, levels unchanged: does the device's canceller now remove what the replay says (23 to 28 dB), and is the lamp's own voice no longer scored |
+| `A1-033` | Your coffee-alone control on `mic1`. In the Gemini run the clip alone, during the two yields, was at -43.5 and -51.2 dBFS and scored at most 0.09, while the sunset question at -44.9 dBFS scored in 134 of 188 blocks. Whether `mic1` hears that voice at all with the lamp silent decides more than this fix does |
+| `A1-034` | If `mic1` is to be used with the fixed reference: one recording with it. Nothing is held there and nothing is measured |
 
-## Requests
+## Still owed by me
 
-### A1-001 — Main: take or reject the stopped-playback tests
+- The speech-floor proposal (`lamp-a1-speech-floor`, local, unfinished):
+  replay over 29 bundles done, code and tests written, not yet gated or
+  pushed.
+- A wrong time in this file on `lamp-a1-onset-retention` (it says 05:55 UTC
+  for a state reached at 05:29).
 
-`548fda500` on `origin/gemini-voice-worker-proposal` adds seven ignored tests
-to the `mod tests` of `provider_worker.rs` and nothing else. They produce the
-table above. Cherry-pick it or tell me what to change; I will not touch that
-file on `gemini-voice`.
+## My faults here
 
-### A1-002 — Main: should a stopped speaker cost the answer or the session?
-
-`Error::Backpressure` is classed `Recovery::Fatal` in `lamp-gemini`. Past the
-28 s limit the supervisor therefore ends terminally. Classing it as
-reconnectable would report the cut request as lost and keep the session, which
-only matters once `Typed` reporting is on; under `Legacy` the worker ends on
-the lost request either way. It is a one-line change in my crate. I have not
-made it because it changes what your worker sees. Say which you want.
-
-### A1-003 — Main: one optional field for echo evidence
-
-Draft, see below. When the estimator is published I will ask for
-`MicrophoneFrame.echo: Option<lamp_audio::evidence::EchoEvidence>` in
-`wire.rs`. There are two constructors of that struct: the capture worker,
-which is mine, and a test helper at `coordinator.rs:2150`. The type is
-serializable, 5 small integer fields plus an optional 4-field match, and
-describes the frame it travels with, so the frame's own freshness rules apply.
-Tell me if you would rather receive it another way.
-
-### A1-004 — Main: service probes you can run on a board
-
-The tool is `crates/gemini/examples/service_probe.rs`. It opens no microphone
-or speaker, prints one JSON line of event kinds and millisecond timings, and
-prints no transcript, audio, handle or credential.
-
-Build, on the host or the board:
-
-```sh
-cargo build --locked --offline --release --target aarch64-unknown-linux-gnu \
-    -p lamp-gemini --example service_probe
-# target/aarch64-unknown-linux-gnu/release/examples/service_probe
-```
-
-Run, one probe at a time:
-
-```sh
-service_probe /absolute/private/provider.json QUESTION.wav PROBE
-```
-
-- `provider.json`: the runtime's own fields (`endpoint`, `model`, `voice`,
-  `credential_file`, optional `authentication`, `thinking_level`,
-  `language_code`). It and the credential file must be regular files with mode
-  0600; anything else is refused before any connection.
-- `QUESTION.wav`: 16-bit PCM, any rate and channel count, holding 0.5 to 30 s
-  of speech after silence is trimmed. A short cached question is right.
-  `service_probe x QUESTION.wav fixture` is offline and prints what would be
-  spoken.
-- Cost and bounds per probe: at most three spoken questions, at most two
-  connections, and a fixed observation window.
-
-| `PROBE` | Longest run | What to read in the output | What it decides |
-|---|---|---|---|
-| `interrupt-before-output` | about 45 s plus twice the question | Events are timed from the second `activityStart`. Does `interrupted` or `turn_complete_idle` for request 1 appear, and how many ms before `first_audio` for request 2? Or `no_confirmation_within_barrier` (the probe waits 5 s where production waits 2)? Any `first_audio` for request 1, or a `dropped:` line? | Whether `Require` can survive a person who continues before the answer starts |
-| `handles` | about 45 s | `handle_after_setup`, `handle_after_one_answer`, `handle_current` | Whether recovery is available as configured today (`Resumption::Retain`) |
-| `handles-requested` | about 45 s | The same three fields, or a setup error | Whether to switch to `Resumption::Request` |
-| `resume` | about 90 s | `handle_issued`; `resumed_setup` is `accepted` or an error category; `resumed_setup_ms`; `first_audio` on the resumed session | Whether a reconnect can keep the conversation at all |
-| `idle-close` | 300 s | `go_away` and `connection_ended:...` with their ms, or `observation_window_ended` | The idle-close time and code assumed from V1 (86 to 198 s, 1008) |
-
-Please record the output lines verbatim with the endpoint and model named,
-and nothing from the provider file. I will fold the answers into the handoff.
-A probe for image input will follow with item 4.
-
-### A1-005 — Agent 2 and Main: bound for a camera frame given to Gemini
-
-Draft, not implemented. One WebSocket carries audio and images in order, so an
-image delays the audio behind it by its own transmission time. I intend to
-accept, per request, at most 2 JPEG images of at most 64 KiB each, no older
-than 2 s at submission, through their own single slot (newest wins) so they
-can never fill the audio queue. Camera frames are 1280x720 MJPG up to 2 MiB,
-so the frame handed to the provider must already be scaled and re-encoded to
-that bound, with its `FrameId` and `CameraGrant` so lineage and privacy can be
-checked where it is submitted. Object if 64 KiB is too small for a useful
-frame; I would rather learn that now.
-
-## Draft work, not published
-
-Item 2, echo evidence. Local and uncommitted; nothing here is a result yet.
-
-- `crates/audio/src/evidence.rs`: an observer beside the echo canceller that
-  reports, per capture block, the capture level before and after cancellation,
-  whether accepted speaker PCM was recently non-silent, and, once capture and
-  render are aligned, the share of the capture's energy and of the cancelled
-  signal's energy that the render explains. Measurements, not a verdict: no
-  alignment, no claim.
-- On scripted scenes through the real canceller the share follows the
-  mixture within a point (person at -6, 0, +6 dB relative to the echo: 76, 48,
-  19 percent against 75, 47, 19 predicted), and a person alone is never
-  attributed to the speaker.
-- No device recording with its render reference is on this machine, so no
-  threshold is chosen and none will be claimed from synthetic scenes.
-- `lamp-audio replay-aec` will emit the evidence per capture block, so any
-  recorded bundle can be scored offline, including the recorded false
-  interruption once its raw files are available.
-
-## Answers
-
-- `MAIN-001`, read at `666693a84`: acknowledged, both revisions. I fetch the
-  three branches at startup, on a checkpoint notice, before a shared-interface
-  change and after publishing, and read `main.md` and peers' files from the
-  fetched refs.
-- `MAIN-002`, read at `b20df467d`: published above. Order of work is as you
-  set it: continuous audio and echo evidence, probes (`A1-004`), cached failure
-  audio, then visual input, with environmental acquisition last.
-- `lamp-v2-agent2` at `197fa0b96` has no `coordination/agent-2.md` yet:
-  awaiting acknowledgment.
+- **The first worker-loop test I wrote put its tests in a file that this
+  host does not compile.** For the speech floor I had put tests in
+  `audio_workers.rs`; they ran as zero tests with exit 0. I moved the logic
+  to a module that builds here and now check every test step for a
+  nonzero count.
+- **My first ARM job failed on my own test.** The control session, first in
+  the process, ended on a `QueueTiming` fault after one frame, and the test
+  did not print the fault's times, so I could not say why. I had given
+  myself one slot and no way to learn from its failure.
+- **I meant to zero the speech score of faint blocks before I had replayed
+  what else reads that score.** It moves the ends of recorded requests.
+  Found before it was built into anything; the proposal caps instead.

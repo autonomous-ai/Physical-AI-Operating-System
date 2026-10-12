@@ -1,0 +1,46 @@
+levels around the onset, capture block: level dBFS, analysed_through - onset frame
+[(427, -54.1, -1430), (428, -52.4, -1189), (429, -55.6, -949), (430, -54.4, -709), (431, -21.8, -469), (432, -11.8, -229), (433, -14.4, 11), (434, -15.2, 251), (435, -14.6, 491), (436, -15.1, 731), (437, -13.6, 971), (438, -13.1, 1211)]
+{
+ "reply_first_loud_render_frame": 103440,
+ "into_the_reply_ms": 30,
+ "render_block_accepted_at_us": 77865140436,
+ "speaker_queue_at_acceptance_frames": 456,
+ "first_capture_block_the_canceller_had_it_for": {
+  "index": 433,
+  "read_completed_at_us": 77865185645
+ },
+ "first_capture_block_with_the_lamp_voice": {
+  "index": 431,
+  "read_completed_at_us": 77865164998,
+  "level_dbfs": -21.8,
+  "idle_dbfs": -55.8
+ },
+ "voice_in_the_microphone_before_the_canceller_had_its_render_blocks": 2,
+ "voice_block_read_after_render_acceptance_ms": 24.6,
+ "canceller_given_the_render_after_acceptance_ms": 45.2,
+ "accepted_minus_analysed_frames_percentiles_5_50_95": [
+  1158.0,
+  1172.0,
+  1188.0
+ ],
+ "delay_hint_ms_percentiles_5_50_95": [
+  0.0,
+  1.0,
+  2.0
+ ],
+ "aec_internal_alignment_ms_values": [
+  0,
+  72
+ ],
+ "capture_delayed_frames_percentiles_5_50_95": [
+  0.0,
+  16.0,
+  32.0
+ ],
+ "linear_filter_256ms_window": {
+  "removed_db": 13.1,
+  "peak_ms_after_the_cursor": -16.8,
+  "half_of_its_energy_by_ms": -16.7,
+  "tenth_of_its_energy_by_ms": -17.4
+ }
+}

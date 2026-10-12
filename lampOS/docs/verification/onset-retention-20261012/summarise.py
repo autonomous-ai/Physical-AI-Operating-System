@@ -41,36 +41,43 @@ for s in sessions:
             c_ = kept(3280, 4560)
             if c_: row['added_speech_in_cancelled_signal_lamp_silent'] = c_
         rows.append(row)
-c = [r for r in rows if r['committed']]
-lost = sorted(r['committed']['opening_not_retained_ms'] for r in c)
-def q(v, p): return v[min(len(v) - 1, int(p * len(v)))] if v else None
-pooled.update({
- 'committed_within_clip_plus_1s': len(c), 'not_committed': len(rows) - len(c),
- 'whole_request_retained': sum(x == 0 for x in lost),
- 'opening_not_retained_ms': {'n': len(lost), 'median': statistics.median(lost) if lost else None, 'p25': q(lost, .25), 'p75': q(lost, .75), 'max': lost[-1] if lost else None,
-                             'at_least_1000': sum(x >= 1000 for x in lost), 'at_least_2000': sum(x >= 2000 for x in lost)},
- 'first_yield_then_resume': sum(1 for r in rows if len(r['steps']) >= 2 and r['steps'][1][0] == 'resume'),
- 'never_yielded': sum(1 for r in rows if r['first_yield_ms'] is None),
- 'first_yield_between_2500_and_2650_ms': sum(1 for r in rows if r['first_yield_ms'] is not None and 2500 <= r['first_yield_ms'] <= 2650),
- 'committed_yield_between_2500_and_2650_ms': sum(1 for r in c if 2500 <= r['committed']['its_yield_delay_ms'] <= 2650),
-})
-tot = {k: sum(r['heard_before_yield'][k] for r in rows) for k in ('blocks', 'over', 'own', 'under', 'unknown', 'clear_or_still')}
-pooled['heard_before_first_yield_all_trials'] = tot
-m = [r['added_speech_in_cancelled_signal_before_yield'] for r in rows if 'added_speech_in_cancelled_signal_before_yield' in r]
-pooled['added_speech_in_cancelled_signal_before_yield'] = {'trials': len(m),
-    'level_kept_db_median': statistics.median(x['level_kept_db'] for x in m) if m else None,
-    'level_kept_db_range': [min(x['level_kept_db'] for x in m), max(x['level_kept_db'] for x in m)] if m else None,
-    'against_everything_else_db_median': statistics.median(x['against_everything_else_db'] for x in m) if m else None,
-    'against_everything_else_db_range': [min(x['against_everything_else_db'] for x in m), max(x['against_everything_else_db'] for x in m)] if m else None}
+def pool(rs):
+    c = [r for r in rs if r['committed']]
+    lost = sorted(r['committed']['opening_not_retained_ms'] for r in c)
+    fy = sorted(r['first_yield_ms'] for r in rs if r['first_yield_ms'] is not None)
+    def q(v, p): return v[min(len(v) - 1, int(p * len(v)))] if v else None
+    h = {k: sum(r['heard_before_yield'][k] for r in rs) for k in ('under', 'over', 'own', 'unknown', 'clear_or_still')}
+    sounding = h['under'] + h['over'] + h['own'] + h['unknown']
+    m = [r['added_speech_in_cancelled_signal_before_yield'] for r in rs if 'added_speech_in_cancelled_signal_before_yield' in r]
+    return {
+     'trials': len(rs), 'committed_within_clip_plus_1s': len(c), 'not_committed': len(rs) - len(c),
+     'never_yielded': sum(1 for r in rs if r['first_yield_ms'] is None),
+     'whole_request_retained': sum(x == 0 for x in lost),
+     'opening_not_retained_ms': {'n': len(lost), 'median': statistics.median(lost) if lost else None, 'p25': q(lost, .25), 'p75': q(lost, .75),
+                                 'max': lost[-1] if lost else None, 'at_least_1000': sum(x >= 1000 for x in lost), 'at_least_2000': sum(x >= 2000 for x in lost)},
+     'first_yield_ms': {'n': len(fy), 'median': statistics.median(fy) if fy else None, 'within_290': sum(x <= 290 for x in fy), 'max': fy[-1] if fy else None},
+     'first_yield_then_resume': sum(1 for r in rs if len(r['steps']) >= 2 and r['steps'][1][0] == 'resume'),
+     'commit_after_one_given_up_yield': sum(1 for r in c if r['committed']['yields_before_it'] == 1),
+     'commit_after_two_given_up_yields': sum(1 for r in c if r['committed']['yields_before_it'] >= 2),
+     'committed_yield_between_2500_and_2650_ms': [[r['session'], r['reply'], r['gain_db'], r['committed']['its_yield_delay_ms'], r['committed']['commit_delay_ms'], r['committed']['opening_not_retained_ms']] for r in c if 2500 <= r['committed']['its_yield_delay_ms'] <= 2650],
+     'heard_before_first_yield': h, 'lamp_sounding_blocks': sounding,
+     'heard_while_lamp_sounding_percent': {k: round(100 * h[k] / sounding, 1) for k in ('under', 'over', 'own', 'unknown')} if sounding else None,
+     'added_speech_in_cancelled_signal_before_yield': {'trials': len(m),
+        'level_kept_db_median': statistics.median(x['level_kept_db'] for x in m) if m else None,
+        'level_kept_db_range': [min(x['level_kept_db'] for x in m), max(x['level_kept_db'] for x in m)] if m else None,
+        'against_everything_else_db_median': statistics.median(x['against_everything_else_db'] for x in m) if m else None}}
+for r in rows:
+    r['lamp_sounded_at_every_block_before_the_first_yield'] = r['heard_before_yield']['clear_or_still'] == 0
+pooled['the_trials_that_count'] = 'Those in which the lamp sounded at every block from the clip\'s onset to the first yield. Where the recorded reply paused or ended first, the person would be admitted by the ordinary path, which this lab does not model; those trials are pooled apart and not used.'
+pooled['lamp_sounding_throughout'] = pool([r for r in rows if r['lamp_sounded_at_every_block_before_the_first_yield']])
+pooled['reply_paused_or_ended_first_not_used'] = pool([r for r in rows if not r['lamp_sounded_at_every_block_before_the_first_yield']])
+pooled['all_trials_as_first_published'] = pool(rows)
+pooled['production_differs'] = 'The lab applies the yield rule without the mask\'s rule that a reply stops yielding after two fruitless yields. A commit after two given-up yields would not happen in production: the reply would play on.'
 b_ = [r['added_speech_in_cancelled_signal_lamp_silent'] for r in rows if 'added_speech_in_cancelled_signal_lamp_silent' in r]
 pooled['added_speech_in_cancelled_signal_lamp_silent'] = {'trials': len(b_),
     'level_kept_db_median': statistics.median(x['level_kept_db'] for x in b_) if b_ else None,
     'level_kept_db_range': [min(x['level_kept_db'] for x in b_), max(x['level_kept_db'] for x in b_)] if b_ else None,
-    'against_everything_else_db_median': statistics.median(x['against_everything_else_db'] for x in b_) if b_ else None,
-    'against_everything_else_db_range': [min(x['against_everything_else_db'] for x in b_), max(x['against_everything_else_db'] for x in b_)] if b_ else None}
+    'against_everything_else_db_median': statistics.median(x['against_everything_else_db'] for x in b_) if b_ else None}
 pooled['measure'] = 'one least-squares gain of the added speech in the cancelled signal over the speech-active samples of the window, at the canceller delay of 144 samples; a linear measure of a non-linear canceller, so compare the two rows with each other, not with zero'
 json.dump({'pooled': pooled, 'trials': rows}, open(f'{out}/pooled.json', 'w'), indent=1)
-print(json.dumps(pooled, indent=1))
-for r in rows:
-    if r['committed'] and 2500 <= r['committed']['its_yield_delay_ms'] <= 2650:
-        print('like the native run:', r['session'], 'reply', r['reply'], 'gain', r['gain_db'], r['steps'], r['committed'], r['heard_before_yield'], r.get('added_speech_in_cancelled_signal_before_yield'))
+print(json.dumps({k: pooled[k] for k in ('lamp_sounding_throughout', 'reply_paused_or_ended_first_not_used', 'added_speech_in_cancelled_signal_lamp_silent')}, indent=1))

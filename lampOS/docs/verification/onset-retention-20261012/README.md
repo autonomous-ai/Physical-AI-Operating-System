@@ -16,9 +16,10 @@ by design.
 **Why the lamp yielded that late is not established for the device.** The
 run recorded no per-block hearing and no microphone audio. An offline lab
 with the same clip over recorded `4ace` replies reproduces the device's
-timing in 4 of 50 trials and points at the canceller: while the lamp is
-sounding, its output carries the added speech about 19 dB lower than when
-the lamp is silent, and the detector does not score it as speech.
+timing in 2 of the 39 trials that can be judged and points at the
+canceller: while the lamp is sounding, its output carries the added
+speech about 17 dB lower than when the lamp is silent, and the detector
+does not score it as speech.
 
 **No correction is justified by this evidence.** One native diagnostic
 would settle it; it is at the end. Two controls are added to the
@@ -82,33 +83,48 @@ clips (`native-timeline.json`, made by `native_timeline.py`).
   duplex decision, closed loop.
 - Negative control, the recorded replies with nothing added: no yield in
   `plain` and `ext`; 2 yields and no commit in `six`.
+- **39 of the 50 trials count.** In those the lamp sounded at every block
+  from the clip's onset to the first yield, as on the device. In the
+  other 11 the recorded reply paused or ended first; a person is then
+  admitted by the ordinary path, which this lab does not model, so those
+  trials say nothing and are pooled apart in the data.
 
-| | |
+| The 39 trials | |
 |---|---|
-| Committed within the clip plus one second | 41 of 50 |
-| Whole request retained (yield within the pre-roll, then commit) | **6 of 50** |
-| Opening not retained, the 41 committed | median **1,240 ms**; quartiles 110 and 1,560 ms; worst 3,260 ms; at least 1 s in 22; at least 2 s in 8 |
-| First yield, 45 trials | median 430 ms after the onset; within the 290 ms pre-roll in 14 |
-| First yield given up at a pause in the person's speech | 15 of 50; the commit, where there was one, came after one or two such yields in 11 |
-| Never yielded | 5 of 50 |
-| **Yield at 2,500 to 2,650 ms of the clip, then commit** | **4 of 50**: yield 2,530 to 2,610 ms, commit 2,950 to 3,000 ms, opening not retained 2,240 to 2,320 ms. The device: 2,607, 3,087 and 2,316 ms |
-| Blocks while the lamp sounded, before the first yield, 4,637 | nothing speech-like (detector score under 0.5) **81.8%**; a person over the lamp 9.2%; the lamp's own voice 6.4%; no alignment 2.6% |
-| The added speech in the canceller's output, lamp sounding, before the first yield, 34 trials | **−22.6 dB** against what was added (−38.2 to −8.9); 14.1 dB below everything else in that signal |
-| The same measure, same clip, lamp silent, 28 trials | −3.5 dB (−4.0 to −2.4); 5.2 dB below everything else |
+| Committed within the clip plus one second | 36 |
+| Whole request retained (yield within the pre-roll, then commit) | **6** |
+| Opening not retained, the 36 committed | median **675 ms**; quartiles 100 and 1,540 ms; worst 3,150 ms; at least 1 s in 17; at least 2 s in 3 |
+| First yield | median 400 ms after the onset; within the 290 ms pre-roll in 14; latest 2,700 ms |
+| First yield given up at a pause in the person's speech | 14. The commit came after one such yield in 5 and after two in 6 |
+| **Yield at 2,500 to 2,650 ms of the clip, then commit** | **2**: yields at 2,580 and 2,610 ms, commits at 2,970 and 3,000 ms, opening not retained 2,290 and 2,320 ms. The device: 2,607, 3,087 and 2,316 ms |
+| Blocks before the first yield, 2,989 | nothing speech-like (detector score under 0.5) **83.5%**; a person over the lamp 10.2%; the lamp's own voice 6.0%; no alignment 0.4% |
+| The added speech in the canceller's output before the first yield, 25 trials | **−20.8 dB** against what was added (−38.2 to −10.3); 12.1 dB below everything else in that signal |
+| The same measure, same clip, lamp silent, 28 trials of the 50 | −3.5 dB (−4.0 to −2.4); 5.2 dB below everything else |
 
 Read with these limits:
 
 - A software mix of a clean clip is not a voice in a room through the
   microphone board. The canceller starts cold on this host. The replies
   are not the one the lamp was speaking on 2026-10-12.
+- The lab applies the yield rule without the mask's rule that a reply
+  stops yielding after two fruitless yields. The 6 commits that followed
+  two given-up yields would not happen in production: the reply would
+  play on, and more would be lost.
 - The level measure is one least-squares gain of the added speech in the
   cancelled signal, at the canceller's delay of 144 samples. It is a
   linear measure of a non-linear canceller: compare its two rows with
   each other, not with zero.
-- The lab does not model ordinary admission after a reply has ended, so
-  what became of the 9 requests without a commit is not measured.
 - It is one stimulus. Its first two words are followed by pauses of 180
   and 230 ms, which is where the early yields were given up.
+
+**Corrected on 2026-10-12, 03:15 UTC.** The first version of this section
+pooled all 50 trials: whole request in 6 of 50, median 1,240 ms lost, the
+device's timing in 4 of 50. It counted 11 trials in which the reply had
+paused or ended before any yield, where the lab's yield is not what would
+decide. Two of the four "like the device" were such trials. My fault,
+found while validating the analysis for the coming device bundle. The
+first figures are kept in `lab-pooled.json` as
+`all_trials_as_first_published`.
 
 ## What is missing, exactly
 
@@ -129,7 +145,7 @@ Read with these limits:
 
 | Candidate | Why not now |
 |---|---|
-| Reach further back than the pre-roll at a duplex commit | In the lab the opening is not in the cancelled signal to reach back to: 19 dB lower than with the lamp silent, and below the residue. It would send the service the lamp's own residue. It also needs audio older than the transport's one second, which stays as it is |
+| Reach further back than the pre-roll at a duplex commit | In the lab the opening is not in the cancelled signal to reach back to: 17 dB lower than with the lamp silent, and below the residue. It would send the service the lamp's own residue. It also needs audio older than the transport's one second, which stays as it is |
 | Yield sooner | A change to what is heard as a person while the lamp sounds. The evidence for it is one native negative and a replay; neither chooses a gate |
 | Not give a yield up at a short pause | The same. The weakness was known and left alone on purpose in `docs/duplex-listening.md` |
 | Anything in the provider or the kept start | The opening never reached them |

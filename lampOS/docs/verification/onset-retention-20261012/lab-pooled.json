@@ -22,43 +22,222 @@
   },
   "trials": 50,
   "excluded": 0,
-  "committed_within_clip_plus_1s": 41,
-  "not_committed": 9,
-  "whole_request_retained": 6,
-  "opening_not_retained_ms": {
-   "n": 41,
-   "median": 1240,
-   "p25": 110,
-   "p75": 1560,
-   "max": 3260,
-   "at_least_1000": 22,
-   "at_least_2000": 8
-  },
-  "first_yield_then_resume": 15,
-  "never_yielded": 5,
-  "first_yield_between_2500_and_2650_ms": 4,
-  "committed_yield_between_2500_and_2650_ms": 4,
-  "heard_before_first_yield_all_trials": {
-   "blocks": 6959,
-   "over": 428,
-   "own": 295,
-   "under": 3793,
-   "unknown": 121,
-   "clear_or_still": 2322
-  },
-  "added_speech_in_cancelled_signal_before_yield": {
-   "trials": 34,
-   "level_kept_db_median": -22.55,
-   "level_kept_db_range": [
-    -38.2,
-    -8.9
+  "the_trials_that_count": "Those in which the lamp sounded at every block from the clip's onset to the first yield. Where the recorded reply paused or ended first, the person would be admitted by the ordinary path, which this lab does not model; those trials are pooled apart and not used.",
+  "lamp_sounding_throughout": {
+   "trials": 39,
+   "committed_within_clip_plus_1s": 36,
+   "not_committed": 3,
+   "never_yielded": 0,
+   "whole_request_retained": 6,
+   "opening_not_retained_ms": {
+    "n": 36,
+    "median": 675.0,
+    "p25": 100,
+    "p75": 1540,
+    "max": 3150,
+    "at_least_1000": 17,
+    "at_least_2000": 3
+   },
+   "first_yield_ms": {
+    "n": 39,
+    "median": 400,
+    "within_290": 14,
+    "max": 2700
+   },
+   "first_yield_then_resume": 14,
+   "commit_after_one_given_up_yield": 5,
+   "commit_after_two_given_up_yields": 6,
+   "committed_yield_between_2500_and_2650_ms": [
+    [
+     "six",
+     3,
+     0.0,
+     2580,
+     2970,
+     2290
+    ],
+    [
+     "six",
+     4,
+     -6.0,
+     2610,
+     3000,
+     2320
+    ]
    ],
-   "against_everything_else_db_median": -14.1,
-   "against_everything_else_db_range": [
-    -37.6,
-    -6.5
-   ]
+   "heard_before_first_yield": {
+    "under": 2495,
+    "over": 304,
+    "own": 179,
+    "unknown": 11,
+    "clear_or_still": 0
+   },
+   "lamp_sounding_blocks": 2989,
+   "heard_while_lamp_sounding_percent": {
+    "under": 83.5,
+    "over": 10.2,
+    "own": 6.0,
+    "unknown": 0.4
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "trials": 25,
+    "level_kept_db_median": -20.8,
+    "level_kept_db_range": [
+     -38.2,
+     -10.3
+    ],
+    "against_everything_else_db_median": -12.1
+   }
   },
+  "reply_paused_or_ended_first_not_used": {
+   "trials": 11,
+   "committed_within_clip_plus_1s": 5,
+   "not_committed": 6,
+   "never_yielded": 5,
+   "whole_request_retained": 0,
+   "opening_not_retained_ms": {
+    "n": 5,
+    "median": 2690,
+    "p25": 2270,
+    "p75": 3160,
+    "max": 3260,
+    "at_least_1000": 5,
+    "at_least_2000": 5
+   },
+   "first_yield_ms": {
+    "n": 6,
+    "median": 3215.0,
+    "within_290": 0,
+    "max": 4290
+   },
+   "first_yield_then_resume": 1,
+   "commit_after_one_given_up_yield": 0,
+   "commit_after_two_given_up_yields": 0,
+   "committed_yield_between_2500_and_2650_ms": [
+    [
+     "ext",
+     7,
+     0.0,
+     2560,
+     2950,
+     2270
+    ],
+    [
+     "ext",
+     7,
+     -6.0,
+     2530,
+     2950,
+     2240
+    ]
+   ],
+   "heard_before_first_yield": {
+    "under": 1298,
+    "over": 124,
+    "own": 116,
+    "unknown": 110,
+    "clear_or_still": 2322
+   },
+   "lamp_sounding_blocks": 1648,
+   "heard_while_lamp_sounding_percent": {
+    "under": 78.8,
+    "over": 7.5,
+    "own": 7.0,
+    "unknown": 6.7
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "trials": 9,
+    "level_kept_db_median": -25.6,
+    "level_kept_db_range": [
+     -37.1,
+     -8.9
+    ],
+    "against_everything_else_db_median": -16.9
+   }
+  },
+  "all_trials_as_first_published": {
+   "trials": 50,
+   "committed_within_clip_plus_1s": 41,
+   "not_committed": 9,
+   "never_yielded": 5,
+   "whole_request_retained": 6,
+   "opening_not_retained_ms": {
+    "n": 41,
+    "median": 1240,
+    "p25": 110,
+    "p75": 1560,
+    "max": 3260,
+    "at_least_1000": 22,
+    "at_least_2000": 8
+   },
+   "first_yield_ms": {
+    "n": 45,
+    "median": 430,
+    "within_290": 14,
+    "max": 4290
+   },
+   "first_yield_then_resume": 15,
+   "commit_after_one_given_up_yield": 5,
+   "commit_after_two_given_up_yields": 6,
+   "committed_yield_between_2500_and_2650_ms": [
+    [
+     "six",
+     3,
+     0.0,
+     2580,
+     2970,
+     2290
+    ],
+    [
+     "six",
+     4,
+     -6.0,
+     2610,
+     3000,
+     2320
+    ],
+    [
+     "ext",
+     7,
+     0.0,
+     2560,
+     2950,
+     2270
+    ],
+    [
+     "ext",
+     7,
+     -6.0,
+     2530,
+     2950,
+     2240
+    ]
+   ],
+   "heard_before_first_yield": {
+    "under": 3793,
+    "over": 428,
+    "own": 295,
+    "unknown": 121,
+    "clear_or_still": 2322
+   },
+   "lamp_sounding_blocks": 4637,
+   "heard_while_lamp_sounding_percent": {
+    "under": 81.8,
+    "over": 9.2,
+    "own": 6.4,
+    "unknown": 2.6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "trials": 34,
+    "level_kept_db_median": -22.55,
+    "level_kept_db_range": [
+     -38.2,
+     -8.9
+    ],
+    "against_everything_else_db_median": -14.1
+   }
+  },
+  "production_differs": "The lab applies the yield rule without the mask's rule that a reply stops yielding after two fruitless yields. A commit after two given-up yields would not happen in production: the reply would play on.",
   "added_speech_in_cancelled_signal_lamp_silent": {
    "trials": 28,
    "level_kept_db_median": -3.45,
@@ -66,11 +245,7 @@
     -4.0,
     -2.4
    ],
-   "against_everything_else_db_median": -5.15,
-   "against_everything_else_db_range": [
-    -10.9,
-    -1.3
-   ]
+   "against_everything_else_db_median": -5.15
   },
   "measure": "one least-squares gain of the added speech in the cancelled signal over the speech-active samples of the window, at the canceller delay of 144 samples; a linear measure of a non-linear canceller, so compare the two rows with each other, not with zero"
  },
@@ -120,7 +295,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.5,
     "against_everything_else_db": -4.5
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -165,7 +341,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.3,
     "against_everything_else_db": -4.2
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -204,7 +381,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.3,
     "against_everything_else_db": -4.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -249,7 +427,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.5,
     "against_everything_else_db": -4.0
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -304,7 +483,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.3,
     "against_everything_else_db": -2.0
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -357,7 +537,8 @@
     "speech_ms": 1280,
     "level_kept_db": -4.0,
     "against_everything_else_db": -3.4
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -410,7 +591,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.2,
     "against_everything_else_db": -1.3
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -460,7 +642,8 @@
     "longest_over_run": 6,
     "first_over_ms": 80,
     "speech_scored_blocks": 6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -496,7 +679,8 @@
     "longest_over_run": 6,
     "first_over_ms": 70,
     "speech_scored_blocks": 6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -541,7 +725,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.5,
     "against_everything_else_db": -7.8
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -586,7 +771,8 @@
     "speech_ms": 1280,
     "level_kept_db": -2.9,
     "against_everything_else_db": -7.8
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -611,7 +797,8 @@
     "speech_ms": 2600,
     "level_kept_db": -21.6,
     "against_everything_else_db": -18.1
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "plain",
@@ -666,7 +853,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.6,
     "against_everything_else_db": -5.1
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -711,7 +899,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.3,
     "against_everything_else_db": -9.3
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -764,7 +953,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.4,
     "against_everything_else_db": -7.4
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "plain",
@@ -814,7 +1004,8 @@
     "longest_over_run": 6,
     "first_over_ms": 70,
     "speech_scored_blocks": 6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -859,7 +1050,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.7,
     "against_everything_else_db": -4.6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -884,7 +1076,8 @@
     "speech_ms": 410,
     "level_kept_db": -23.7,
     "against_everything_else_db": -14.2
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "six",
@@ -929,7 +1122,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.7,
     "against_everything_else_db": -6.2
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -969,7 +1163,8 @@
     "speech_ms": 2170,
     "level_kept_db": -25.2,
     "against_everything_else_db": -24.0
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1014,7 +1209,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.1,
     "against_everything_else_db": -5.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1048,7 +1244,8 @@
     "longest_over_run": 6,
     "first_over_ms": 80,
     "speech_scored_blocks": 183
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "six",
@@ -1088,7 +1285,8 @@
     "speech_ms": 380,
     "level_kept_db": -19.3,
     "against_everything_else_db": -7.9
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1113,7 +1311,8 @@
     "speech_ms": 1890,
     "level_kept_db": -8.9,
     "against_everything_else_db": -16.5
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "six",
@@ -1138,7 +1337,8 @@
     "speech_ms": 410,
     "level_kept_db": -32.5,
     "against_everything_else_db": -22.5
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "six",
@@ -1172,7 +1372,8 @@
     "speech_ms": 2290,
     "level_kept_db": -21.2,
     "against_everything_else_db": -12.3
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1217,7 +1418,8 @@
     "speech_ms": 1280,
     "level_kept_db": -2.4,
     "against_everything_else_db": -6.8
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1257,7 +1459,8 @@
     "speech_ms": 2200,
     "level_kept_db": -16.3,
     "against_everything_else_db": -21.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "six",
@@ -1293,7 +1496,8 @@
     "longest_over_run": 6,
     "first_over_ms": 100,
     "speech_scored_blocks": 217
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "six",
@@ -1333,7 +1537,8 @@
     "speech_ms": 400,
     "level_kept_db": -24.9,
     "against_everything_else_db": -10.0
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1372,7 +1577,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.2,
     "against_everything_else_db": -3.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1427,7 +1633,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.4,
     "against_everything_else_db": -4.3
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1466,7 +1673,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.3,
     "against_everything_else_db": -3.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1511,7 +1719,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.6,
     "against_everything_else_db": -2.6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1550,7 +1759,8 @@
     "speech_ms": 1280,
     "level_kept_db": -2.8,
     "against_everything_else_db": -5.9
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1590,7 +1800,8 @@
     "speech_ms": 210,
     "level_kept_db": -34.6,
     "against_everything_else_db": -14.0
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "ext",
@@ -1635,7 +1846,8 @@
     "speech_ms": 1280,
     "level_kept_db": -4.0,
     "against_everything_else_db": -5.2
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1675,7 +1887,8 @@
     "speech_ms": 540,
     "level_kept_db": -25.6,
     "against_everything_else_db": -16.9
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "ext",
@@ -1714,7 +1927,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.7,
     "against_everything_else_db": -5.8
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1754,7 +1968,8 @@
     "speech_ms": 390,
     "level_kept_db": -16.2,
     "against_everything_else_db": -7.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1788,7 +2003,8 @@
     "speech_ms": 690,
     "level_kept_db": -14.1,
     "against_everything_else_db": -7.9
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1833,7 +2049,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.5,
     "against_everything_else_db": -8.1
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1878,7 +2095,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.5,
     "against_everything_else_db": -8.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1926,7 +2144,8 @@
     "speech_ms": 1430,
     "level_kept_db": -17.5,
     "against_everything_else_db": -8.6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -1981,7 +2200,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.7,
     "against_everything_else_db": -4.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -2021,7 +2241,8 @@
     "speech_ms": 210,
     "level_kept_db": -25.1,
     "against_everything_else_db": -12.1
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "ext",
@@ -2066,7 +2287,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.2,
     "against_everything_else_db": -8.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -2106,7 +2328,8 @@
     "speech_ms": 540,
     "level_kept_db": -27.7,
     "against_everything_else_db": -21.7
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   },
   {
    "session": "ext",
@@ -2145,7 +2368,8 @@
     "speech_ms": 1280,
     "level_kept_db": -3.8,
     "against_everything_else_db": -10.9
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": true
   },
   {
    "session": "ext",
@@ -2170,7 +2394,8 @@
     "speech_ms": 960,
     "level_kept_db": -37.1,
     "against_everything_else_db": -37.6
-   }
+   },
+   "lamp_sounded_at_every_block_before_the_first_yield": false
   }
  ],
  "per_session": {

@@ -309,9 +309,16 @@ impl NoticeOptions {
 /// metadata only; enabling them does not enable microphone PCM diagnostics.
 /// Explicit dedicated motor executable and qualification; no defaults.
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HeadOptions {
+    pub plan: PathBuf,
+    pub channel: PathBuf,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MotorOptions {
     pub worker: PathBuf,
     pub config: PathBuf,
+    pub head: Option<HeadOptions>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -325,10 +332,10 @@ pub struct SessionOptions {
 }
 impl SessionOptions {
     pub fn validate_serve(&self) -> io::Result<()> {
-        if self.directed.diagnostics {
+        if self.directed.diagnostics || self.motor.as_ref().is_some_and(|m| m.head.is_some()) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "serve rejects unbounded raw audio diagnostics; use a finite directed session",
+                "serve rejects raw audio diagnostics/head qualification; use a finite directed session",
             ));
         }
         Ok(())
@@ -340,6 +347,8 @@ impl SessionOptions {
         let mut camera_config = None;
         let mut motor_worker = None;
         let mut motor_config = None;
+        let mut head_plan = None;
+        let mut head_channel = None;
         let mut notice_directory = None;
         let mut notice_language = None;
         let mut arguments = arguments.iter();
@@ -351,6 +360,8 @@ impl SessionOptions {
                     | "--failure-notice-dir"
                     | "--motor-worker"
                     | "--motor-config"
+                    | "--head-qualification-plan"
+                    | "--head-qualification-channel"
             ) {
                 let slot = if argument == "--cue-socket" {
                     &mut cue_socket
@@ -358,6 +369,10 @@ impl SessionOptions {
                     &mut camera_config
                 } else if argument == "--motor-worker" {
                     &mut motor_worker
+                } else if argument == "--head-qualification-plan" {
+                    &mut head_plan
+                } else if argument == "--head-qualification-channel" {
+                    &mut head_channel
                 } else if argument == "--motor-config" {
                     &mut motor_config
                 } else {
@@ -382,6 +397,15 @@ impl SessionOptions {
             (Some(directory), Some(language)) => Some(NoticeOptions::new(directory, language)?),
             _ => return Err(invalid_options()),
         };
+        let head = match (head_plan, head_channel) {
+            (None, None) => None,
+            (Some(plan), Some(channel))
+                if motor_worker.is_some() && motor_config.is_some() && camera_config.is_some() =>
+            {
+                Some(HeadOptions { plan, channel })
+            }
+            _ => return Err(invalid_options()),
+        };
         Ok(Self {
             directed: DirectedOptions::parse(&remaining)?,
             cue_socket,
@@ -389,7 +413,11 @@ impl SessionOptions {
             failure_notices,
             motor: match (motor_worker, motor_config) {
                 (None, None) => None,
-                (Some(worker), Some(config)) => Some(MotorOptions { worker, config }),
+                (Some(worker), Some(config)) => Some(MotorOptions {
+                    worker,
+                    config,
+                    head,
+                }),
                 _ => return Err(invalid_options()),
             },
         })
@@ -1193,5 +1221,34 @@ mod notice_tests {
         .map(String::from);
         assert!(AudioWorkerOptions::parse(&args, true).is_err());
         assert!(crate::fixture_provider::FixtureOptions::parse(&args).is_err());
+    }
+    #[test]
+    fn head_qualification_options_are_paired_explicit_and_finite() {
+        let args = [
+            "--motor-worker",
+            "/tmp/motor",
+            "--motor-config",
+            "/tmp/config",
+            "--camera-config",
+            "/tmp/camera",
+            "--head-qualification-plan",
+            "/tmp/plan",
+            "--head-qualification-channel",
+            "/tmp/channel",
+        ]
+        .map(String::from);
+        let s = SessionOptions::parse(&args).unwrap();
+        assert!(s.motor.unwrap().head.is_some());
+        assert!(
+            SessionOptions::parse(&args)
+                .unwrap()
+                .validate_serve()
+                .is_err()
+        );
+        assert!(SessionOptions::parse(&args[..8]).is_err());
+        assert!(SessionOptions::parse(&args[4..]).is_err());
+        let plain = SessionOptions::parse(&[]).unwrap();
+        assert!(plain.motor.is_none());
+        assert!(plain.validate_serve().is_ok());
     }
 }

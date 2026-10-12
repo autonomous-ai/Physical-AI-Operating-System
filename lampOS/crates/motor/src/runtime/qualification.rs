@@ -119,6 +119,16 @@ impl HeadQualification {
             last_frame: 0,
         })
     }
+    /// Continue one existing worker after its two explicit setup requests.
+    /// The trusted caller must already have correlated inspection and profile
+    /// preparation completion. This allocates request IDs, never authority.
+    pub fn after_profile_preparation(mut self) -> io::Result<Self> {
+        if self.phase != Phase::New || self.request != 0 {
+            return Err(invalid("qualification request sequence already started"));
+        }
+        self.request = 2;
+        Ok(self)
+    }
     pub fn phase(&self) -> Phase {
         self.phase
     }

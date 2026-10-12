@@ -114,7 +114,10 @@ impl BusPort for Port {
                         (3, 2) => 777u16.to_le_bytes().to_vec(),
                         (9, 4) => [1000u16.to_le_bytes(), 3000u16.to_le_bytes()].concat(),
                         (31, 3) => vec![0, 0, 0],
-                        (40, 8) => vec![1, 10, 0, 0, 0, 0, 244, 1],
+                        (40, 8) => {
+                            let goal = self.positions[id as usize - 1].to_le_bytes();
+                            vec![1, 10, goal[0], goal[1], 0, 0, 244, 1]
+                        }
                         (56, 15) => {
                             let mut p = vec![0; 15];
                             p[..2].copy_from_slice(&self.positions[id as usize - 1].to_le_bytes());
@@ -127,6 +130,15 @@ impl BusPort for Port {
                     packet.push(!packet[2..].iter().fold(0u8, |a, b| a.wrapping_add(*b)));
                     self.rx.extend(packet);
                 }
+            }
+            0x03 => {
+                assert_eq!(data[2], 5);
+                match (data[5], data.len()) {
+                    (46, 9) => assert_eq!(&data[6..8], &500u16.to_le_bytes()),
+                    (41, 8) => assert_eq!(data[6], 10),
+                    other => panic!("forbidden setup write: {other:?}"),
+                }
+                self.rx.extend([255, 255, 5, 2, 0, 248]);
             }
             0x83 => {
                 self.position_writes.set(self.position_writes.get() + 1);
@@ -187,6 +199,16 @@ impl Backend for InertBackend {
         selection: JointSelection,
     ) -> Result<control::MotionId, control::Error> {
         self.core.start_selected_segment(p, o, t, d, selection)
+    }
+    fn prepare_profile(
+        &mut self,
+        permit: OutputPermit,
+        placement: control::Placement,
+        speed: u16,
+        acceleration: u8,
+    ) -> Result<control::MotionId, control::Error> {
+        self.core
+            .prepare_head_profile(permit, placement, speed, acceleration)
     }
     fn readback(&mut self) -> Result<control::Readback, control::Error> {
         self.core.readback()
@@ -353,7 +375,19 @@ fn fixture_with_controller(
     supplied: Option<Controller>,
 ) -> (crate::process::SessionDirectory, OptionalMotor, Controller) {
     let dir = crate::process::SessionDirectory::create().unwrap();
-    let c = config();
+    let mut c = config();
+    if mode == "profile" {
+        c.qualification.selected_profiles = Some(SelectedProfiles {
+            selection: JointSelection::from_mask(16).unwrap(),
+            prepare_from: Some(
+                [ObservedProfile {
+                    acceleration: 10,
+                    goal_time: 0,
+                    speed: 500,
+                }; 5],
+            ),
+        });
+    }
     let path = dir.path.join("input.json");
     fs::write(&path, serde_json::to_vec(&c).unwrap()).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
@@ -367,6 +401,7 @@ fn fixture_with_controller(
     fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
     let prepared = PreparedMotor::load(
         &MotorOptions {
+            head: None,
             worker: executable,
             config: path,
         },
@@ -382,7 +417,9 @@ fn fixture_with_controller(
         .set_camera_permission(time(), Permission::Allowed)
         .unwrap();
     let mut motor = OptionalMotor::new(parent, Some(prepared));
-    motor.start_before_capture(controller.snapshot(time()).unwrap(), false, true);
+    if mode != "startup" {
+        motor.start_before_capture(controller.snapshot(time()).unwrap(), false, true);
+    }
     (dir, motor, controller)
 }
 fn wait(
@@ -938,3 +975,5 @@ fn same_owner_input_end_cancels_queued_gesture_before_inert_bus_write() {
     );
     cleanup(motor, controller, dir);
 }
+
+mod native_head;

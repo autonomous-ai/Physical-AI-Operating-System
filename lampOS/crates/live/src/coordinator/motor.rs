@@ -12,6 +12,7 @@ use lamp_ipc::monotonic_us;
 use lamp_motor::command::JointSelection;
 use lamp_motor::runtime::{
     config::Config,
+    qualification::{HeadPlan, HeadQualification, OriginalEvidence, Phase},
     supervisor::{Supervisor, new_boot},
     wire::{Command, Control, Event, Motion, Observation},
 };
@@ -23,6 +24,8 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+
+mod head;
 
 const MAX_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 /// A per-instance resource bound, not a gesture frequency or safety policy.
@@ -51,8 +54,39 @@ pub struct Identity {
     pub executable_sha256: String,
     pub qualification_record: [u8; 32],
     pub placement_source: BootId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement_binding: Option<PlacementBinding>,
 }
 
+/// Explicit trusted provisioning. Only placement_source may change, before spawn.
+#[derive(Clone, Debug, Serialize)]
+pub struct PlacementBinding {
+    pub original_sha256: String,
+    pub original_source: BootId,
+    pub assigned_source: BootId,
+    pub record: [u8; 32],
+    pub review_sha256: String,
+}
+fn bind_placement(config: &mut Config, hash: &str, binding: &PlacementBinding) -> io::Result<()> {
+    if hash != binding.original_sha256
+        || config.placement_source != binding.original_source
+        || config.qualification.record != binding.record
+        || binding.review_sha256.len() != 64
+    {
+        return Err(invalid(
+            "head placement binding does not match original provisioned config",
+        ));
+    }
+    let before = serde_json::to_value(&config).map_err(invalid)?;
+    config.placement_source = binding.assigned_source;
+    config.validate()?;
+    let mut after = serde_json::to_value(&config).map_err(invalid)?;
+    after["placement_source"] = before["placement_source"].clone();
+    if before != after {
+        return Err(invalid("head binding changed another configuration field"));
+    }
+    Ok(())
+}
 struct FrozenFile {
     path: PathBuf,
     device: u64,
@@ -60,6 +94,27 @@ struct FrozenFile {
     remove: bool,
 }
 impl FrozenFile {
+    fn write(destination: PathBuf, bytes: &[u8]) -> io::Result<(Self, String)> {
+        if bytes.is_empty() || bytes.len() > 16_384 {
+            return Err(invalid("bound motor config size"));
+        }
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&destination)?;
+        let meta = output.metadata()?;
+        let frozen = Self {
+            path: destination,
+            device: meta.dev(),
+            inode: meta.ino(),
+            remove: true,
+        };
+        output.write_all(bytes)?;
+        output.sync_all()?;
+        Ok((frozen, format!("{:x}", Sha256::digest(bytes))))
+    }
+
     fn copy(
         source: &Path,
         destination: PathBuf,
@@ -154,6 +209,13 @@ pub struct PreparedMotor {
 }
 impl PreparedMotor {
     pub fn load(options: &MotorOptions, directory: &Path) -> io::Result<Self> {
+        Self::load_bound(options, directory, None)
+    }
+    pub(crate) fn load_bound(
+        options: &MotorOptions,
+        directory: &Path,
+        binding: Option<PlacementBinding>,
+    ) -> io::Result<Self> {
         let meta = fs::symlink_metadata(directory)?;
         if !meta.is_dir()
             || meta.uid() != rustix::process::geteuid().as_raw()
@@ -161,9 +223,15 @@ impl PreparedMotor {
         {
             return Err(invalid("motor launch directory must be private and owned"));
         }
-        let (config_file, config_sha256) =
+        let (mut config_file, mut config_sha256) =
             FrozenFile::copy(&options.config, directory.join("motor.json"), 16_384, false)?;
-        let config = Config::read(&config_file.path)?;
+        let mut config = Config::read(&config_file.path)?;
+        if let Some(binding) = &binding {
+            bind_placement(&mut config, &config_sha256, binding)?;
+            let bytes = serde_json::to_vec(&config).map_err(invalid)?;
+            (config_file, config_sha256) =
+                FrozenFile::write(directory.join("motor-bound.json"), &bytes)?;
+        }
         let at = monotonic_us();
         if !(config.qualification.valid_from_us <= at && at < config.qualification.expires_at_us) {
             return Err(invalid("motor qualification is not currently valid"));
@@ -180,6 +248,7 @@ impl PreparedMotor {
             executable_sha256,
             qualification_record: config.qualification.record,
             placement_source: config.placement_source,
+            placement_binding: binding,
         };
         Ok(Self {
             executable,
@@ -242,6 +311,12 @@ pub struct OptionalMotor {
     last_request: u64,
     offers: u64,
     notice_count: u64,
+    pub(crate) head: Option<crate::head_qualification::Driver>,
+    head_requested: bool,
+    head_profile: Option<head::ProfileSetup>,
+    head_plan: Option<HeadPlan>,
+    qualification: Option<HeadQualification>,
+    qualification_evidence: Option<OriginalEvidence>,
 }
 impl OptionalMotor {
     pub fn new(parent: BootId, prepared: Option<PreparedMotor>) -> Self {
@@ -262,7 +337,130 @@ impl OptionalMotor {
             last_request: 0,
             offers: 0,
             notice_count: 0,
+            head: None,
+            head_requested: false,
+            head_profile: None,
+            head_plan: None,
+            qualification: None,
+            qualification_evidence: None,
         }
+    }
+    pub(crate) fn attach_head(
+        &mut self,
+        driver: crate::head_qualification::Driver,
+    ) -> io::Result<()> {
+        let config = &self
+            .prepared
+            .as_ref()
+            .ok_or_else(|| invalid("head motor absent"))?
+            .config;
+        driver.plan.head.validate(&config.validate()?.calibration)?;
+        if driver.plan.head.qualification_record != config.qualification.record
+            || driver.camera_worker != config.placement_source
+        {
+            return Err(invalid("head plan binding mismatch"));
+        }
+        self.head_requested = true;
+        self.head_profile = config
+            .qualification
+            .selected_profiles
+            .as_ref()
+            .and_then(|s| s.prepare_from)
+            .map(|_| head::ProfileSetup::new());
+        self.head_plan = Some(driver.plan.head.clone());
+        self.head = Some(driver);
+        Ok(())
+    }
+    pub(crate) fn placement_age_us(&self) -> io::Result<u64> {
+        Ok(self
+            .prepared
+            .as_ref()
+            .ok_or_else(|| invalid("motor config absent"))?
+            .config
+            .timing
+            .placement_age_us)
+    }
+    pub(crate) fn qualification_phase(&self) -> Phase {
+        self.qualification.as_ref().map_or(
+            if self.disabled || self.stopping {
+                Phase::Inhibited
+            } else {
+                Phase::New
+            },
+            HeadQualification::phase,
+        )
+    }
+    pub(crate) fn qualification_action(
+        &mut self,
+        plan: &HeadPlan,
+        action: crate::head_qualification::Action,
+        snapshot: Snapshot,
+        permit: OutputPermit,
+        placement: Observation,
+    ) -> io::Result<()> {
+        let result = (|| {
+            if !self.head_requested
+                || !self.is_ready()
+                || self.pending.is_some()
+                || self.active.is_some()
+                || self.qualification_stage() != action.expected()
+            {
+                return Err(invalid("head action unavailable or out of phase"));
+            }
+            self.publish(snapshot);
+            if !self.is_ready() {
+                return Err(invalid("head authority unavailable"));
+            }
+            if matches!(
+                action,
+                crate::head_qualification::Action::InspectProfile
+                    | crate::head_qualification::Action::PrepareProfile
+            ) {
+                return self.profile_action(action, snapshot, permit, placement);
+            }
+            if self.head_profile.as_ref().is_some_and(|s| !s.complete) {
+                return Err(invalid("profile setup incomplete"));
+            }
+            if self.qualification.is_none() {
+                let prepared = self.prepared.as_ref().expect("ready config");
+                let mut q = HeadQualification::new(
+                    plan.clone(),
+                    prepared.config.validate()?.calibration,
+                    self.parent,
+                    prepared.identity.worker,
+                    prepared.config.placement_source,
+                    time(),
+                )?;
+                if self.head_profile.is_some() {
+                    q = q.after_profile_preparation()?;
+                }
+                self.qualification = Some(q);
+            }
+            let q = self.qualification.as_mut().expect("created above");
+            let child = self
+                .child
+                .as_mut()
+                .ok_or_else(|| invalid("head worker absent"))?;
+            q.authority(time(), snapshot)?;
+            let evidence = OriginalEvidence { permit, placement };
+            match action {
+                crate::head_qualification::Action::Inspect
+                | crate::head_qualification::Action::Reinspect => {
+                    q.send_inspection(child, time(), evidence)?
+                }
+                crate::head_qualification::Action::Outbound
+                | crate::head_qualification::Action::Return => {
+                    q.send_segment(child, time(), evidence)?
+                }
+                _ => return Err(invalid("setup action crossed qualification path")),
+            }
+            self.qualification_evidence = Some(evidence);
+            Ok(())
+        })();
+        if let Err(error) = &result {
+            self.disable(error);
+        }
+        result
     }
     pub fn identity(&self) -> Option<&Identity> {
         self.prepared.as_ref().map(PreparedMotor::identity)
@@ -381,10 +579,42 @@ impl OptionalMotor {
             );
             return;
         }
+        if self
+            .head_profile
+            .as_ref()
+            .is_some_and(|s| s.owner.is_some_and(|o| snapshot.owner() != Some(o)))
+        {
+            self.disable("original profile owner revoked");
+            return;
+        }
+        if let Some(q) = &mut self.qualification
+            && let Err(error) = q.authority(time(), snapshot)
+        {
+            self.disable(error);
+            return;
+        }
         let evidence = self
             .pending
             .map(|p| p.evidence)
             .or(self.active.map(|a| a.evidence));
+        if let Some(e) = self.head_profile.as_ref().and_then(|s| s.evidence)
+            && self
+                .guard
+                .check(time(), e.permit, OutputKind::Motion)
+                .is_err()
+        {
+            self.disable("original profile permit revoked/expired");
+            return;
+        }
+        if let Some(e) = self.qualification_evidence
+            && self
+                .guard
+                .check(time(), e.permit, OutputKind::Motion)
+                .is_err()
+        {
+            self.disable("original head permit revoked/expired");
+            return;
+        }
         if let Some(evidence) = evidence
             && self
                 .guard
@@ -419,6 +649,12 @@ impl OptionalMotor {
             return;
         }
         self.stopping = true;
+        if let Some(q) = &mut self.qualification
+            && q.phase() != Phase::Returned
+        {
+            q.stop();
+        }
+        self.qualification_evidence = None;
         self.pending = None;
         self.active = None;
         self.inspected_at_us = None;
@@ -432,6 +668,13 @@ impl OptionalMotor {
     /// At most eight receipt operations. Progress and per-frame host writes do
     /// not become unbounded trace traffic or grant conversational readiness.
     pub fn poll(&mut self, mut notice: impl FnMut(&Event)) {
+        if !self.disabled
+            && !self.stopping
+            && let Some(q) = &mut self.qualification
+            && let Err(error) = q.maintain(time())
+        {
+            self.disable(error);
+        }
         for _ in 0..POLL_BUDGET {
             let Some(child) = self.child.as_mut() else {
                 return;
@@ -441,7 +684,8 @@ impl OptionalMotor {
                     if let Err(error) = self.observe(&event) {
                         self.disable(error);
                     }
-                    if !matches!(event, Event::Progress { .. } | Event::HostAccepted { .. })
+                    if (!matches!(event, Event::Progress { .. } | Event::HostAccepted { .. })
+                        || (self.head_requested && matches!(event, Event::HostAccepted { .. })))
                         && self.notice_count < MAX_OFFERS * 4 + 8
                     {
                         self.notice_count += 1;
@@ -470,6 +714,22 @@ impl OptionalMotor {
     }
     fn observe(&mut self, event: &Event) -> io::Result<()> {
         if self.disabled || self.stopping {
+            return Ok(());
+        }
+        if self.qualification.is_none() && self.head_profile.as_ref().is_some_and(|s| !s.complete) {
+            return self.profile_observe(event);
+        }
+        if let Some(q) = &mut self.qualification {
+            q.observe(time(), event)?;
+            if matches!(
+                q.phase(),
+                Phase::Initial | Phase::AtOutbound | Phase::ReturnReady | Phase::Returned
+            ) {
+                self.qualification_evidence = None;
+            }
+            if q.phase() == Phase::Returned {
+                self.begin_shutdown();
+            }
             return Ok(());
         }
         match *event {
@@ -573,7 +833,8 @@ impl OptionalMotor {
         value.validate(time(), age).map_err(invalid)
     }
     fn validate_offer(&mut self, e: Evidence) -> io::Result<()> {
-        if !self.is_ready()
+        if self.head_requested
+            || !self.is_ready()
             || self.pending.is_some()
             || self.active.is_some()
             || self.offers >= MAX_OFFERS

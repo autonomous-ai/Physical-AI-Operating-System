@@ -1769,17 +1769,6 @@ fn run_inner(
         json!({"kind":"session_boot","at_us":monotonic_us(),"boot":boot}),
     )?;
     let mut owner = Controller::new(boot, now());
-    let motor = motor_options.filter(|_| *motor_rearm).and_then(|options| match PreparedMotor::load(options, &directory.path) {
-        Ok(prepared) => {
-            let _ = record(trace, json!({"kind":"motor_configured","at_us":monotonic_us(),"identity":prepared.identity(),"automatic_motion":false}));
-            Some(prepared)
-        }
-        Err(error) => {
-            let _ = record(trace, json!({"kind":"motor_unavailable","at_us":monotonic_us(),"stage":"configuration","error":motor::bounded(error),"audio_continues":true}));
-            *motor_rearm = false;
-            None
-        }
-    });
     let mut startup = StartupEvents::default();
     let camera = camera_config.and_then(|path| {
         match PreparedCamera::load(path, &directory.path) {
@@ -1798,6 +1787,53 @@ fn run_inner(
             }
         }
     });
+    let head_options = motor_options.and_then(|m| m.head.as_ref());
+    let head = head_options
+        .map(|options| {
+            let camera = camera
+                .as_ref()
+                .ok_or_else(|| io::Error::other("head qualification requires prepared camera"))?;
+            crate::head_qualification::Driver::load(
+                options,
+                &camera.digest,
+                camera.source.camera,
+                boot,
+            )
+        })
+        .transpose()?;
+    let head_camera = head
+        .as_ref()
+        .and(camera.as_ref())
+        .map(|c| {
+            crate::head_qualification::Frames::new(
+                c.source.camera,
+                c.config.clone(),
+                c.digest.clone(),
+            )
+        })
+        .transpose()?;
+    let motor = motor_options.filter(|_| *motor_rearm).and_then(|options| match PreparedMotor::load_bound(options, &directory.path, head.as_ref().map(crate::head_qualification::Driver::binding)) {
+        Ok(prepared) => {
+            let _ = record(trace, json!({"kind":"motor_configured","at_us":monotonic_us(),"identity":prepared.identity(),"automatic_motion":false}));
+            Some(prepared)
+        }
+        Err(error) => {
+            let _ = record(trace, json!({"kind":"motor_unavailable","at_us":monotonic_us(),"stage":"configuration","error":motor::bounded(error),"audio_continues":true}));
+            *motor_rearm = false;
+            None
+        }
+    });
+    if head.is_some() && motor.is_none() {
+        return Err(io::Error::other("head qualification motor provisioning failed").into());
+    }
+    let mut motor = motor.map(|prepared| OptionalMotor::new(boot, Some(prepared)));
+    if let Some(driver) = head {
+        record(
+            trace,
+            json!({"kind":"head_qualification_configured","at_us":monotonic_us(),"plan_sha256":driver.plan_sha256,"placement_binding":driver.binding(),"automatic_clearance_inference":false,"automatic_motion":false}),
+        )?;
+        motor.as_mut().expect("checked above").attach_head(driver)?;
+    }
     let mut rig = spawn_rig(
         source,
         &directory.path,
@@ -1810,7 +1846,14 @@ fn run_inner(
         lifetime,
         termination,
     )?;
-    rig.motor = motor.map(|prepared| OptionalMotor::new(boot, Some(prepared)));
+    rig.motor = motor;
+    if let Some(frames) = head_camera {
+        if let Some(camera) = &mut rig.camera {
+            camera.retain_head_frames(frames);
+        } else if let Some(motor) = &mut rig.motor {
+            motor.begin_shutdown();
+        }
+    }
     let mut reply = None;
     let result = (|| {
         termination.check()?;
@@ -1856,6 +1899,25 @@ fn run_inner(
     } else {
         result
     }
+}
+
+fn service_head(
+    rig: &mut Rig,
+    owner: &mut Controller,
+    privacy_allowed: bool,
+    trace: &mut SessionState,
+) -> Result<()> {
+    let frame = rig.camera.as_ref().and_then(OptionalCamera::head_frame);
+    if let Some(motor) = &mut rig.motor
+        && let Some(mut head) = motor.head.take()
+    {
+        let events = head.tick(owner, motor, frame, privacy_allowed);
+        motor.head = Some(head);
+        for event in events {
+            record(trace, event)?;
+        }
+    }
+    Ok(())
 }
 
 fn service_motor(rig: &mut Rig, trace: &mut SessionState) -> Result<()> {
@@ -2128,6 +2190,14 @@ fn conversation(
             );
         }
         service_motor(rig, trace)?;
+        // The original physical sample was drained immediately above. Recheck
+        // its age before the optional operator channel; no new permission.
+        service_head(
+            rig,
+            owner,
+            gate.state(now()) == PrivacyState::Allowed,
+            trace,
+        )?;
         let mut provider_control_budget = 16;
         let mut provider_control_empty = service_provider_control(
             &mut rig.provider.channels.control,

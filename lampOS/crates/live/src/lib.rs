@@ -13,6 +13,7 @@ pub mod config;
 pub mod diagnostic_control;
 pub mod diagnostics;
 pub mod fixture_provider;
+pub mod head_qualification;
 pub mod options;
 #[cfg(target_os = "linux")]
 pub mod physical_privacy;

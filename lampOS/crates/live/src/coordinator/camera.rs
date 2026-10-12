@@ -32,6 +32,7 @@ pub(super) struct PreparedCamera {
     pub path: PathBuf,
     pub digest: String,
     pub source: VisualSource,
+    pub config: CameraConfig,
 }
 impl PreparedCamera {
     pub fn load(path: &Path, directory: &Path) -> io::Result<Self> {
@@ -41,6 +42,7 @@ impl PreparedCamera {
             path: path.to_path_buf(),
             digest,
             source,
+            config,
         })
     }
 }
@@ -57,6 +59,8 @@ pub(super) struct OptionalCamera {
     pub shutdown_watch: Option<crate::camera_worker::ShutdownWatch>,
     pub shutdown_events: [Option<CameraEvent>; 2],
     termination_requested: bool,
+    head_frames: Option<crate::head_qualification::Frames>,
+    head_grant: Option<lamp_interaction::CameraGrant>,
 }
 impl OptionalCamera {
     pub fn new(worker: Worker, source: VisualSource) -> Self {
@@ -72,7 +76,20 @@ impl OptionalCamera {
             shutdown_watch: None,
             shutdown_events: [None, None],
             termination_requested: false,
+            head_frames: None,
+            head_grant: None,
         }
+    }
+    pub(super) fn retain_head_frames(&mut self, frames: crate::head_qualification::Frames) {
+        self.head_frames = Some(frames);
+    }
+    pub(super) fn head_frame(&self) -> Option<&crate::camera_worker::FrameMetadata> {
+        if self.failed || self.shutdown_watch.is_some() {
+            return None;
+        }
+        self.head_frames
+            .as_ref()
+            .and_then(|frames| frames.latest.as_ref())
     }
     pub fn begin_shutdown(&mut self, at_us: u64) {
         self.shutdown_watch.get_or_insert_with(|| {
@@ -156,6 +173,9 @@ impl OptionalCamera {
                 continue;
             }
             let at = monotonic_us();
+            if let Some(frames) = &mut self.head_frames {
+                frames.accept(event.clone(), self.head_grant, at)?;
+            }
             let stamped = match &event {
                 CameraEvent::Opening { at_us, deadline_us } => {
                     if !self.start_sent
@@ -271,6 +291,11 @@ pub(super) fn service_camera(
 ) -> Result<()> {
     let Some(camera) = rig.camera.as_mut() else {
         return Ok(());
+    };
+    camera.head_grant = if allowed {
+        owner.camera_grant(now()).ok()
+    } else {
+        None
     };
     let result = camera
         .pending_failure

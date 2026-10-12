@@ -265,6 +265,7 @@ pub struct SessionConfig {
     pub(crate) voice: String,
     pub(crate) thinking_level: Option<ThinkingLevel>,
     pub(crate) thinking_budget: Option<u32>,
+    pub(crate) context_window: Option<(u32, u32)>,
     pub(crate) language_code: Option<String>,
     pub(crate) instruction: String,
     pub(crate) timeouts: Timeouts,
@@ -288,6 +289,7 @@ impl SessionConfig {
             voice: "Kore".into(),
             thinking_level: None,
             thinking_budget: None,
+            context_window: None,
             language_code: None,
             instruction: String::new(),
             timeouts: Timeouts::default(),
@@ -338,6 +340,19 @@ impl SessionConfig {
             return Err(Error::InvalidConfiguration);
         }
         self.thinking_budget = Some(tokens);
+        Ok(self)
+    }
+    /// Bound the conversation the service keeps, and bills again on every
+    /// turn: once it holds more than `trigger` tokens the service drops the
+    /// oldest turns down to `target`. Sent as `contextWindowCompression` with
+    /// a sliding window. Without it a session's history grows until the
+    /// session ends: on lamp-4ace the prompt was 1,327 tokens on the first
+    /// turn of a session and 4,234 on the fourteenth.
+    pub fn context_window(mut self, trigger: u32, target: u32) -> Result<Self> {
+        if target == 0 || target >= trigger || trigger > MAX_CONTEXT_TOKENS {
+            return Err(Error::InvalidConfiguration);
+        }
+        self.context_window = Some((trigger, target));
         Ok(self)
     }
     /// Speech language tag, preserved exactly rather than inferred or expanded.
@@ -424,6 +439,8 @@ impl fmt::Debug for SessionConfig {
 }
 /// A bound on what is accepted here, not a limit of the service.
 pub const MAX_THINKING_BUDGET: u32 = 32_768;
+/// The same, for the conversation the service is asked to keep.
+pub const MAX_CONTEXT_TOKENS: u32 = 1_048_576;
 
 fn validate_thinking_level(model: &str, level: Option<ThinkingLevel>) -> Result<()> {
     // These exact combinations are evidenced by the pinned V1 setup. Do not

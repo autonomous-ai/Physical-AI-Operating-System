@@ -122,6 +122,28 @@ fn a_thinking_budget_is_sent_as_given_and_never_with_a_level() {
 }
 
 #[test]
+fn a_context_bound_is_sent_as_a_sliding_window_and_must_shrink_the_history() {
+    let value = setup(&configuration().context_window(6_000, 3_000).unwrap());
+    assert_eq!(
+        value["setup"]["contextWindowCompression"],
+        json!({"triggerTokens": 6_000, "slidingWindow": {"targetTokens": 3_000}})
+    );
+    assert!(
+        setup(&configuration())["setup"]
+            .get("contextWindowCompression")
+            .is_none()
+    );
+    for (trigger, target) in [(3_000, 3_000), (3_000, 6_000), (6_000, 0)] {
+        assert!(configuration().context_window(trigger, target).is_err());
+    }
+    assert!(
+        configuration()
+            .context_window(lamp_gemini::MAX_CONTEXT_TOKENS + 1, 3_000)
+            .is_err()
+    );
+}
+
+#[test]
 fn thinking_levels_parse_and_serialize_only_explicit_protocol_values() {
     for (text, level) in [
         ("MINIMAL", ThinkingLevel::Minimal),

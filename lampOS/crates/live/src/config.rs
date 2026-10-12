@@ -23,6 +23,13 @@ pub struct ProviderConfig {
     /// Not together with `thinking_level`.
     #[serde(default)]
     thinking_budget: Option<u32>,
+    /// With `context_target_tokens`: once the conversation the service keeps
+    /// passes this many tokens it drops the oldest turns down to the target.
+    /// Both or neither.
+    #[serde(default)]
+    context_trigger_tokens: Option<u32>,
+    #[serde(default)]
+    context_target_tokens: Option<u32>,
     #[serde(default)]
     language_code: Option<String>,
     credential_file: String,
@@ -140,6 +147,12 @@ impl ProviderConfig {
                 "response timeout must be 2 to 60 seconds",
             ));
         }
+        if config.context_trigger_tokens.is_some() != config.context_target_tokens.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "context trigger and target tokens are set together or not at all",
+            ));
+        }
         let response_ms = config
             .response_timeout_ms
             .map_or(Timeouts::default().response.as_millis(), u128::from);
@@ -225,6 +238,11 @@ impl ProviderConfig {
         }
         if let Some(tokens) = self.thinking_budget {
             session = session.thinking_budget(tokens)?;
+        }
+        if let (Some(trigger), Some(target)) =
+            (self.context_trigger_tokens, self.context_target_tokens)
+        {
+            session = session.context_window(trigger, target)?;
         }
         if let Some(language) = self.language_code {
             session = session.language_code(&language)?;
@@ -356,6 +374,18 @@ mod tests {
         );
         assert!(parsed(r#","thinking_budget":"none""#).is_err());
         assert!(parsed(r#","thinking_budget":-1"#).is_err());
+    }
+
+    #[test]
+    fn the_context_bound_is_two_numbers_read_together() {
+        let config =
+            parsed(r#","context_trigger_tokens":6000,"context_target_tokens":3000"#).unwrap();
+        assert_eq!(
+            (config.context_trigger_tokens, config.context_target_tokens),
+            (Some(6_000), Some(3_000))
+        );
+        assert_eq!(parsed("").unwrap().context_trigger_tokens, None);
+        assert!(parsed(r#","context_trigger_tokens":"6000""#).is_err());
     }
 
     #[test]

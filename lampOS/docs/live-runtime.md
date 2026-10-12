@@ -296,7 +296,12 @@ sitting on each setting: with the budget at zero every answer reported no
 thinking tokens and first sound was written 1.21 to 1.43 s after the
 end-of-speech decision (five of five); without it the answers reported 57,
 387, 48, 56 and 54 thinking tokens and first sound came after 1.19 to 1.51 s
-on four, with no first write recorded in time for the fifth. `resumption` decides what a reconnect after an outage presents:
+on four, with no first write recorded in time for the fifth. `context_trigger_tokens` and
+`context_target_tokens`, set together, bound the conversation the service
+keeps and bills again on every turn: past the trigger it drops the oldest
+turns down to the target (`contextWindowCompression` with a sliding window).
+Without them a session's history only grows: on lamp-4ace the prompt was
+1,327 tokens on a session's first turn and 4,234 on its fourteenth. `resumption` decides what a reconnect after an outage presents:
 `retain`, the default, presents the handle the service last volunteered so the
 conversation continues; `off` always opens a new conversation. Use `off` on a
 path where a resumed session accepts audio and never answers: on lamp-4ace

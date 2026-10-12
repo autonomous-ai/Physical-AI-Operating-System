@@ -576,6 +576,12 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
             "includeThoughts": false
         });
     }
+    if let Some((trigger, target)) = config.context_window {
+        setup["setup"]["contextWindowCompression"] = json!({
+            "triggerTokens": trigger,
+            "slidingWindow": {"targetTokens": target}
+        });
+    }
     if let Some(language) = &config.language_code {
         setup["setup"]["generationConfig"]["speechConfig"]["languageCode"] = json!(language);
     }

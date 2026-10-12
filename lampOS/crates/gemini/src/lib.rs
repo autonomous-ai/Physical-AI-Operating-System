@@ -14,9 +14,9 @@ pub mod testing;
 pub mod wire;
 
 pub use config::{
-    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_OPEN_ACTIVITY_REQUESTS,
-    MAX_RETAINED_SAMPLES, MAX_SUCCESSOR_PATIENCE, MAX_THINKING_BUDGET, Resumption,
-    ResumptionHandle, SessionConfig, SuccessorStart, ThinkingLevel, Timeouts,
+    BarrierPolicy, BarrierWait, Credential, GOOGLE_ENDPOINT, MAX_CONTEXT_TOKENS,
+    MAX_OPEN_ACTIVITY_REQUESTS, MAX_RETAINED_SAMPLES, MAX_SUCCESSOR_PATIENCE, MAX_THINKING_BUDGET,
+    Resumption, ResumptionHandle, SessionConfig, SuccessorStart, ThinkingLevel, Timeouts,
 };
 pub use recovery::{
     Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,

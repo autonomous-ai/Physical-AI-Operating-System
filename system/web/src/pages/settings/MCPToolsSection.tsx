@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { C, SectionCard, LABEL_STYLE, INPUT_STYLE } from "@/components/setup/shared";
-import { listMCPTools, addMCPTool, removeMCPTool, startFoConnect, finishFoConnect } from "@/lib/api";
-import type { MCPTool } from "@/lib/api";
+import { listMCPTools, addMCPTool, removeMCPTool, startFoConnect, finishFoConnect, getFoStatus } from "@/lib/api";
+import type { MCPTool, FoStatus } from "@/lib/api";
 
 import "./settings-lists.css";
 
@@ -19,12 +19,14 @@ export function MCPToolsSection({ active }: { active: boolean }) {
   const [foAuthURL, setFoAuthURL] = useState("");
   const [foCallback, setFoCallback] = useState("");
   const [foBusy, setFoBusy] = useState(false);
+  const [foStatus, setFoStatus] = useState<FoStatus>({ connected: false, needs_reconnect: false });
 
   useEffect(() => {
     listMCPTools()
       .then(setTools)
       .catch(() => {})
       .finally(() => setLoading(false));
+    getFoStatus().then(setFoStatus).catch(() => {});
   }, []);
 
   function addHeaderRow() { setHeaders((prev) => [...prev, { key: "", value: "" }]); }
@@ -68,6 +70,7 @@ export function MCPToolsSection({ active }: { active: boolean }) {
     try {
       await removeMCPTool(toolName);
       setTools((prev) => prev.filter((t) => t.name !== toolName));
+      if (toolName === "fo") setFoStatus({ connected: false, needs_reconnect: false });
       toast.success(`Removed "${toolName}".`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove tool.");
@@ -94,6 +97,7 @@ export function MCPToolsSection({ active }: { active: boolean }) {
     try {
       await finishFoConnect(foCallback.trim());
       setTools(await listMCPTools());
+      setFoStatus(await getFoStatus());
       setFoAuthURL("");
       setFoCallback("");
       toast.success("Fo connected.");
@@ -103,8 +107,6 @@ export function MCPToolsSection({ active }: { active: boolean }) {
       setFoBusy(false);
     }
   }
-
-  const foConnected = tools.some((t) => t.name === "fo");
 
   const headerCount = (t: MCPTool) => t.headers ? Object.keys(t.headers).length : 0;
 
@@ -174,48 +176,60 @@ export function MCPToolsSection({ active }: { active: boolean }) {
             </div>
           )}
 
-          {!foConnected && (
-            <div style={{
-              marginBottom: 16, padding: "10px 12px", background: C.surface,
-              border: `1px solid ${C.border}`, borderRadius: 8,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>Fo (Wajo)</div>
-              <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 8 }}>
-                Let the agent hand errands (email, calendar, calls, purchases) to your Fo
-                assistant. Needs a Wajo account with Fo Pro.
-              </div>
-              {!foAuthURL ? (
-                <button type="button" onClick={handleFoStart} disabled={foBusy} style={{ ...BTN, opacity: foBusy ? 0.5 : 1 }}>
-                  {foBusy ? "Opening…" : "Connect Fo"}
-                </button>
-              ) : (
-                <>
-                  <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 6 }}>
-                    1. <a href={foAuthURL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>Open the Wajo sign-in</a> and allow access.<br />
-                    2. Your browser then lands on a <b>localhost</b> page that does not load. That is expected:
-                    copy the full address from the address bar and paste it below.
-                  </div>
-                  <label htmlFor="fo-callback" style={LABEL_STYLE}>Address after sign-in</label>
-                  <input
-                    id="fo-callback"
-                    type="text"
-                    value={foCallback}
-                    onChange={(e) => setFoCallback(e.target.value)}
-                    placeholder="http://localhost:5000/oauth/fo/callback?code=…"
-                    style={INPUT_STYLE}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleFoFinish}
-                    disabled={foBusy || !foCallback.trim()}
-                    style={{ ...BTN, marginTop: 8, opacity: foBusy || !foCallback.trim() ? 0.5 : 1 }}
-                  >
-                    {foBusy ? "Connecting…" : "Finish"}
-                  </button>
-                </>
+          <div style={{
+            marginBottom: 16, padding: "10px 12px", background: C.surface,
+            border: `1px solid ${C.border}`, borderRadius: 8,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4, display: "flex", gap: 8, alignItems: "center" }}>
+              Fo (Wajo)
+              {foStatus.connected && !foStatus.needs_reconnect && (
+                <span style={{ fontSize: 12, fontWeight: 400, color: "#22c55e" }}>Connected</span>
+              )}
+              {foStatus.needs_reconnect && (
+                <span style={{ fontSize: 12, fontWeight: 400, color: C.amber }}>Sign-in expired</span>
               )}
             </div>
-          )}
+            {foStatus.needs_reconnect && (
+              <div role="alert" style={{ fontSize: 12, color: C.amber, lineHeight: 1.6, marginBottom: 8 }}>
+                Wajo no longer accepts this device&apos;s sign-in, so the agent cannot reach Fo.
+                Press Reconnect and sign in again; the agent keeps running meanwhile.
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 8 }}>
+              Let the agent hand errands (email, calendar, calls, purchases) to your Fo
+              assistant. Needs a Wajo account with Fo Pro.
+            </div>
+            {!foAuthURL ? (
+              <button type="button" onClick={handleFoStart} disabled={foBusy} style={{ ...BTN, opacity: foBusy ? 0.5 : 1 }}>
+                {foBusy ? "Opening…" : foStatus.connected ? "Reconnect" : "Connect Fo"}
+              </button>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 6 }}>
+                  1. <a href={foAuthURL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>Open the Wajo sign-in</a> and allow access.<br />
+                  2. Your browser then lands on a <b>localhost</b> page that does not load. That is expected:
+                  copy the full address from the address bar and paste it below.
+                </div>
+                <label htmlFor="fo-callback" style={LABEL_STYLE}>Address after sign-in</label>
+                <input
+                  id="fo-callback"
+                  type="text"
+                  value={foCallback}
+                  onChange={(e) => setFoCallback(e.target.value)}
+                  placeholder="http://localhost:5000/oauth/fo/callback?code=…"
+                  style={INPUT_STYLE}
+                />
+                <button
+                  type="button"
+                  onClick={handleFoFinish}
+                  disabled={foBusy || !foCallback.trim()}
+                  style={{ ...BTN, marginTop: 8, opacity: foBusy || !foCallback.trim() ? 0.5 : 1 }}
+                >
+                  {foBusy ? "Connecting…" : "Finish"}
+                </button>
+              </>
+            )}
+          </div>
 
           {tools.length === 0 && (
             <div style={{ fontSize: 12, color: C.textDim, marginBottom: 14 }}>

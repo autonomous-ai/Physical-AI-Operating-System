@@ -620,6 +620,13 @@ export async function removeMCPTool(name: string): Promise<boolean> {
   });
 }
 
+export interface FoStatus { connected: boolean; needs_reconnect: boolean }
+
+/** GET /api/device/fo/status — whether Fo is connected and whether its Wajo sign-in has died. */
+export async function getFoStatus(): Promise<FoStatus> {
+  return apiRequest<FoStatus>(`${API_BASE}/api/device/fo/status`);
+}
+
 /** POST /api/device/fo/connect — returns the Wajo sign-in URL for the Fo MCP tool. */
 export async function startFoConnect(): Promise<{ auth_url: string }> {
   return apiRequest<{ auth_url: string }>(`${API_BASE}/api/device/fo/connect`, { method: "POST" });

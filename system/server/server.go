@@ -420,6 +420,7 @@ func (s *Server) Serve(closeFn func()) error {
 	device.GET("mcp-tools", adminAuthMiddleware(s.config), s.deviceHandler.ListMCPTools)
 	device.POST("mcp-tools", adminAuthMiddleware(s.config), s.deviceHandler.AddMCPTool)
 	device.DELETE("mcp-tools/:name", adminAuthMiddleware(s.config), s.deviceHandler.RemoveMCPTool)
+	device.GET("fo/status", adminAuthMiddleware(s.config), s.deviceHandler.GetFoStatus)
 	device.POST("fo/connect", adminAuthMiddleware(s.config), s.deviceHandler.StartFoConnect)
 	device.POST("fo/connect/finish", adminAuthMiddleware(s.config), s.deviceHandler.FinishFoConnect)
 	// The agent's Fo MCP traffic; guarded by the proxy key header, not admin auth.

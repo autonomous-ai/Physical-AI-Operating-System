@@ -653,6 +653,11 @@ func (h *DeviceHandler) FinishFoConnect(c *gin.Context) {
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
 }
 
+// GetFoStatus reports whether Fo is connected and whether it needs a new sign-in.
+func (h *DeviceHandler) GetFoStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(h.service.GetFoStatus()))
+}
+
 // FoMCPProxy forwards the agent's Fo MCP calls to Wajo (device.Service.ServeFoMCP).
 func (h *DeviceHandler) FoMCPProxy(c *gin.Context) {
 	h.service.ServeFoMCP(c.Writer, c.Request)

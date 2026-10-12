@@ -198,14 +198,18 @@ OS lưu entry trong `mcp_tools` và đồng bộ vào runtime đang dùng với 
 `tool_pushary`. OpenCode nhận `mcp.tool_pushary` với `type: remote`; Hermes nhận
 `mcp_servers.tool_pushary`. Cả hai giữ URL, headers và bật entry.
 
-**Fo (Wajo)** có card riêng ở đầu mục MCP Tools khi chưa kết nối. Cần tài khoản
+**Fo (Wajo)** có card riêng trong mục MCP Tools, nằm dưới danh sách tool. Cần tài khoản
 Wajo có Fo Pro. **Connect Fo** mở trang đăng nhập Wajo ở tab mới (kèm link dự
 phòng nếu trình duyệt chặn popup). Sau khi **Allow**, trình duyệt nhảy tới
 `http://localhost:5000/oauth/fo/callback?code=…` và trang không tải được: Wajo
 chỉ nhận redirect https hoặc loopback. Dán nguyên địa chỉ đó vào ô **Address
 after sign-in** rồi bấm **Finish**. Fo hiện trong danh sách với tên `fo`, URL là
 proxy local của os-server (`/api/fo-mcp`); token Wajo nằm trong os-server (xem
-`docs/vi/os-server_vi.md`). Bấm **Remove** trên `fo` là đăng xuất.
+`docs/vi/os-server_vi.md`). Bấm **Remove** trên `fo` là đăng xuất. Card đọc
+`GET /api/device/fo/status`: đã kết nối thì hiện **Connected** và nút
+**Reconnect**; nếu Wajo từ chối refresh token thì hiện **Sign-in expired** kèm
+cảnh báo. Reconnect chạy lại đúng luồng đăng nhập và chỉ thay token, nên runtime
+không restart.
 
 Add có thể báo lỗi sau khi OS đã lưu entry, nếu config runtime thiếu hoặc không
 hợp lệ. Tải lại danh sách trước khi thử lại: tên trùng sẽ bị từ chối. Sửa setup

@@ -149,3 +149,66 @@ func TestFoConnectProxyRefreshAndRemove(t *testing.T) {
 		t.Fatalf("proxy after remove: %d", code)
 	}
 }
+
+func TestFoRefreshRejectedNeedsReconnect(t *testing.T) {
+	t.Chdir(t.TempDir())
+	fakeWajo(t)
+	gw := &mcpGateway{written: map[string]map[string]any{}}
+	cfg := &config.Config{
+		MCPTools: []config.MCPTool{{Name: foToolName, URL: "http://127.0.0.1:5000/api/fo-mcp"}},
+		FoAuth: config.FoAuth{ClientID: "client-1", AccessToken: "at-old", RefreshToken: "rt-dead",
+			ExpiresAt: time.Now().Add(time.Minute).Unix(), ProxyKey: "k"},
+	}
+	s := &Service{config: cfg, agentGateway: gw}
+
+	if st := s.GetFoStatus(); !st.Connected || st.NeedsReconnect {
+		t.Fatalf("before: %+v", st)
+	}
+	// Wajo answers invalid_grant (400): the sign-in is dead.
+	if code, _ := proxyCall(s, "k"); code != http.StatusUnauthorized {
+		t.Fatalf("dead refresh: %d", code)
+	}
+	if st := s.GetFoStatus(); !st.Connected || !st.NeedsReconnect {
+		t.Fatalf("after: %+v", st)
+	}
+	if cfg.FoAuth.RefreshToken != "" || cfg.FoAuth.ProxyKey != "k" {
+		t.Fatalf("tokens: %+v", cfg.FoAuth)
+	}
+
+	// Reconnect renews the tokens without rewriting the MCP entry (no runtime restart).
+	authURL, err := s.FoConnectStart()
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, _ := url.ParseQuery(strings.SplitN(authURL, "?", 2)[1])
+	if err := s.FoConnectFinish(foRedirectURI + "?code=code-1&state=" + q.Get("state")); err != nil {
+		t.Fatal(err)
+	}
+	if st := s.GetFoStatus(); st.NeedsReconnect || len(gw.written) != 0 {
+		t.Fatalf("reconnect: %+v writes=%d", st, len(gw.written))
+	}
+}
+
+func TestFoRefreshServerErrorKeepsSignIn(t *testing.T) {
+	t.Chdir(t.TempDir())
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream down", http.StatusBadGateway)
+	}))
+	t.Cleanup(down.Close)
+	orig := foOAuthBase
+	foOAuthBase = down.URL
+	t.Cleanup(func() { foOAuthBase = orig })
+
+	cfg := &config.Config{
+		MCPTools: []config.MCPTool{{Name: foToolName}},
+		FoAuth: config.FoAuth{ClientID: "c", AccessToken: "at", RefreshToken: "rt",
+			ExpiresAt: time.Now().Add(time.Minute).Unix(), ProxyKey: "k"},
+	}
+	s := &Service{config: cfg}
+	if _, err := s.foAccessToken(); err == nil {
+		t.Fatal("refresh against a 502 succeeded")
+	}
+	if cfg.FoAuth.RefreshToken != "rt" || s.GetFoStatus().NeedsReconnect {
+		t.Fatalf("transient error dropped the sign-in: %+v", cfg.FoAuth)
+	}
+}

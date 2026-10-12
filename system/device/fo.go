@@ -46,6 +46,22 @@ var foHTTP = &http.Client{Timeout: 20 * time.Second}
 // errFoNotConnected means there is no Wajo sign-in to use.
 var errFoNotConnected = errors.New("fo is not connected")
 
+// foHTTPError is a non-2xx answer from Wajo. A 4xx from the token endpoint
+// (invalid_grant) means the sign-in is dead; 5xx and network errors are not.
+type foHTTPError struct {
+	status int
+	msg    string
+}
+
+func (e *foHTTPError) Error() string { return e.msg }
+
+// FoStatus is what the web UI shows on the Fo card.
+type FoStatus struct {
+	Connected bool `json:"connected"`
+	// NeedsReconnect: the tool exists but Wajo rejected the refresh token.
+	NeedsReconnect bool `json:"needs_reconnect"`
+}
+
 type foTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -66,7 +82,7 @@ func foPost(endpoint string, contentType string, body io.Reader, out any) error 
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("wajo %s: HTTP %d: %s", endpoint, resp.StatusCode, strings.TrimSpace(string(raw)))
+		return &foHTTPError{resp.StatusCode, fmt.Sprintf("wajo %s: HTTP %d: %s", endpoint, resp.StatusCode, strings.TrimSpace(string(raw)))}
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
 		return fmt.Errorf("wajo %s: decode: %w", endpoint, err)
@@ -218,6 +234,19 @@ func (s *Service) foAccessToken() (string, error) {
 		"refresh_token": {auth.RefreshToken},
 		"client_id":     {auth.ClientID},
 	})
+	var httpErr *foHTTPError
+	if errors.As(err, &httpErr) && httpErr.status >= 400 && httpErr.status < 500 {
+		// The refresh token is spent or revoked: only a new sign-in helps.
+		slog.Warn("[fo] refresh rejected, sign-in needed", "component", "device", "err", err)
+		if saveErr := s.config.WithLockSave(func(c *config.Config) {
+			c.FoAuth.AccessToken = ""
+			c.FoAuth.RefreshToken = ""
+			c.FoAuth.ExpiresAt = 0
+		}); saveErr != nil {
+			slog.Error("[fo] clear dead tokens failed", "component", "device", "err", saveErr)
+		}
+		return "", errFoNotConnected
+	}
 	if err != nil {
 		return "", err
 	}
@@ -236,6 +265,16 @@ func (s *Service) foAccessToken() (string, error) {
 	return tok.AccessToken, nil
 }
 
+// GetFoStatus reports whether Fo is connected and whether its sign-in has died.
+func (s *Service) GetFoStatus() FoStatus {
+	for _, t := range s.config.MCPTools {
+		if t.Name == foToolName {
+			return FoStatus{Connected: true, NeedsReconnect: s.config.FoAuth.AccessToken == ""}
+		}
+	}
+	return FoStatus{}
+}
+
 // ServeFoMCP forwards the agent's MCP traffic to Wajo with a live token. The
 // proxy key, not admin auth, guards it: the agent's MCP client sends it as a header.
 func (s *Service) ServeFoMCP(w http.ResponseWriter, r *http.Request) {
@@ -248,7 +287,7 @@ func (s *Service) ServeFoMCP(w http.ResponseWriter, r *http.Request) {
 	tok, err := s.foAccessToken()
 	if err != nil {
 		slog.Warn("[fo] no access token", "component", "device", "err", err)
-		http.Error(w, "Fo is not connected. Reconnect it in Settings > MCP Tools.", http.StatusUnauthorized)
+		http.Error(w, "Fo's Wajo sign-in has expired or is missing. Ask the owner to press Reconnect on the Fo card in Settings > MCP Tools.", http.StatusUnauthorized)
 		return
 	}
 	upstream, _ := url.Parse(foMCPURL)

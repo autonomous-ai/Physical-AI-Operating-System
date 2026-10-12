@@ -1869,6 +1869,18 @@ not a successful model response or available subscription quota. Completing
 the real provider login and a chat turn still require account/device validation;
 isolated process tests do not establish that those live checks passed.
 
+### Turning the camera back on after a manual off
+
+When the user turned the camera off (Camera page, or "don't watch me" through the
+agent), HAL `POST /camera/enable` only turns it back on when the owner can be the
+one asking: the request carries `X-OS-Owner-Action: 1`, or someone spoke to the lamp
+within the last 60 s (a voice "camera on" relayed by the agent). Otherwise it returns
+403, so sensing events, schedules, remote chat channels and an agent acting on its
+own cannot undo the user's choice. The `/api/hardware/*` proxy always drops a
+client-supplied `X-OS-Owner-Action` and sets it only for a logged-in owner (session
+cookie or session token); a Bearer LLM key does not count. An automatic pause (idle,
+sleep) is not guarded.
+
 ### Cloud camera perception
 
 `GET /api/device/config` always returns `cloud_perception: { "motion", "emotion", "pose", "fire_hazard" }` (booleans; an unset config reads as all `false`). `PUT /api/device/config` accepts the same object; keys it names are changed and omitted keys (or an omitted object) keep their value. Each key opts into a camera perception that uploads frames or face crops to the DL backend (`llm_base_url`), so all default off. A change is applied live and synchronously: under one lock shared by HTTP and MQTT, os-server merges the request into the latest saved value, saves `config.json`, calls HAL `POST /sensing/cloud-perception` with the four booleans (30-second timeout), refreshes the HAL config hash and only then responds, so HAL receives changes in save order and a success means HAL applied it. HAL creates the enabled processors and unregisters and retires the disabled ones: a check still waiting in the worker queue is dropped, and an upload already inside a check finishes, then its connection closes. If the live call fails, os-server restarts HAL (which reads `cloud_perception` from `config.json` at boot, so an opt-out still takes effect) and then repeats the apply call every second until the new HAL answers it, for up to 90 s: `systemctl restart` returning is not treated as confirmation. If the restart fails or HAL does not confirm in time, the request returns an error and an identical retry re-applies. Only the saved setting can turn a perception on: a missing key is off and HAL does not read env flags for these, so an old default in a device `.env` never counts as consent. Motion, emotion and pose also require people perception (the `presence` capability). Over MQTT, `cloud_perception.set` can only turn perceptions off, and `info` reports the saved state ([mqtt.md](mqtt.md#cloud_perceptionset)). See [Sensing Behavior](../robots/lamp/docs/sensing-behavior.md#cloud-camera-perceptions-are-off-by-default).

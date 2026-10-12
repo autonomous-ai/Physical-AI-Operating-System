@@ -5,7 +5,7 @@ import time
 import threading
 from functools import wraps
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 import hal.app_state as state
@@ -94,9 +94,27 @@ def disable_camera():
     return {"status": "ok"}
 
 
+# Set by os-server's /api/hardware proxy only for a logged-in owner session; the proxy
+# strips any client-supplied value.
+OWNER_ACTION_HEADER = "X-OS-Owner-Action"
+# Someone spoke to the lamp this recently: a voice "camera on" relayed by the agent.
+OWNER_VOICE_WINDOW_S = 60.0
+
+
+def _owner_is_here(request: Request) -> bool:
+    """True when the owner can be the one asking: a logged-in web session, or a person
+    speaking to the lamp just now. Sensing events, schedules, remote chat channels and
+    an agent acting on its own have neither."""
+    if request.headers.get(OWNER_ACTION_HEADER) == "1":
+        return True
+    voice = state.voice_service
+    last = getattr(voice, "last_transcript_ts", 0.0) if voice is not None else 0.0
+    return bool(last) and time.time() - last < OWNER_VOICE_WINDOW_S
+
+
 @router.post("/camera/enable", response_model=StatusResponse)
 @privacy.serialized
-def enable_camera():
+def enable_camera(request: Request):
     """Restart the camera capture loop (manual). Clears manual override."""
     if privacy.camera_muted:
         raise HTTPException(409, "Privacy switch is on -- flip the switch to enable camera")
@@ -104,6 +122,16 @@ def enable_camera():
         raise HTTPException(503, "Camera not available")
     if not state._camera_disabled:
         return {"status": "already_enabled"}
+    # Only the person who turned the camera off may turn it back on: an automatic
+    # pause can be lifted by anyone, a manual "camera off" only from the room or the
+    # local web page.
+    if state._camera_manual_override and not _owner_is_here(request):
+        state.logger.warning("Camera enable refused -- turned off by the user, no owner present")
+        raise HTTPException(
+            403,
+            "The camera was turned off by the user; it can only be turned back on by "
+            "speaking to the lamp or from its local web page",
+        )
     state._camera_disabled = False
     state._camera_manual_override = False
     state.camera_capture.start()

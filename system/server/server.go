@@ -567,7 +567,7 @@ func (s *Server) Serve(closeFn func()) error {
 
 	// Replaces direct browser /hw/* access (audit web F5) so nginx /hw/ allow
 	// 127.0.0.1; deny all; can stay locked down (audit local F2).
-	api.Any("/hardware/*path", adminAuthMiddleware(s.config), s.ambientLEDGate(), gin.WrapH(hardwareProxy))
+	api.Any("/hardware/*path", adminAuthMiddleware(s.config), ownerActionHeader(s.config), s.ambientLEDGate(), gin.WrapH(hardwareProxy))
 
 	// Admin-auth gated; cookie auto-attaches in the iframe context.
 	r.GET("/openapi.json", adminAuthMiddleware(s.config), gin.WrapH(openapiProxy))

@@ -152,6 +152,8 @@ Góc dưới sidebar hiển thị trạng thái OpenClaw (online/offline) và th
 
 Mục Runtime có hai bước: chọn runtime và bấm Switch, rồi cấu hình AI cho runtime đang hoạt động. Phần cấu hình AI bị khóa khi đang chọn runtime khác hoặc đang chuyển runtime. Hai lựa chọn LLM hiển thị sẵn bằng radio. **Use OS AI Brain** dùng nút **Save Changes** ngay tại chỗ. **Use my own account** hiện **Connect account** cho runtime được hỗ trợ: chọn radio chưa lưu runtime mode và chưa ngắt provider OS hiện tại. Người dùng mở link HTTPS của provider, nhập device code nếu có hoặc dán code/callback URL trả về vào Settings. Mật khẩu nhập trên website provider, không nhập trong Settings.
 
+Đăng nhập tài khoản qua web có nhãn **Experimental** vì chưa hoàn tất kiểm chứng toàn bộ luồng trên thiết bị. UI cũng hướng dẫn có thể đăng nhập bằng Terminal; nhãn này không đổi mặc định OS AI Brain hoặc tự khởi động login.
+
 | Runtime | Đăng nhập tài khoản qua web |
 |---|---|
 | Claude Code | Tài khoản Claude |

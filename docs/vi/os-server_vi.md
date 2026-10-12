@@ -1827,6 +1827,17 @@ trả lời hay subscription còn quota. Hoàn tất login thật với provider
 chat vẫn cần kiểm chứng bằng tài khoản/device; test tiến trình cô lập không có
 nghĩa các bước kiểm chứng thực tế đó đã thành công.
 
+### Bật lại camera sau khi người dùng tự tắt
+
+Khi người dùng đã tự tắt camera (trang Camera, hoặc nói "đừng nhìn tôi" qua agent),
+HAL `POST /camera/enable` chỉ bật lại khi có thể chính chủ máy đang yêu cầu: request
+mang `X-OS-Owner-Action: 1`, hoặc có người vừa nói với đèn trong 60 giây gần nhất (lệnh
+"bật camera" bằng giọng nói được agent chuyển tiếp). Ngược lại trả 403, nên event
+sensing, lịch hẹn, kênh chat từ xa hay agent tự ý đều không đảo được lựa chọn của người
+dùng. Proxy `/api/hardware/*` luôn bỏ `X-OS-Owner-Action` do client gửi và chỉ tự gắn
+cho chủ máy đã đăng nhập (cookie hoặc session token); Bearer LLM key không được tính.
+Lần tạm dừng tự động (idle, ngủ) không bị chặn.
+
 ### Nhận thức camera qua cloud
 
 `GET /api/device/config` luôn trả `cloud_perception: { "motion", "emotion", "pose", "fire_hazard" }` (boolean; config chưa đặt được đọc là tất cả `false`). `PUT /api/device/config` nhận cùng object; key được gửi thì đổi, key bỏ qua (hoặc bỏ cả object) thì giữ nguyên. Mỗi key là opt-in cho một luồng nhận thức camera gửi frame hoặc ảnh mặt lên DL backend (`llm_base_url`), nên mặc định đều tắt. Thay đổi được áp dụng live và đồng bộ: dưới một khoá dùng chung cho HTTP và MQTT, os-server gộp request vào giá trị đã lưu mới nhất, lưu `config.json`, gọi HAL `POST /sensing/cloud-perception` với bốn boolean (timeout 30 giây), cập nhật hash config của HAL rồi mới trả lời, nên HAL nhận thay đổi đúng thứ tự lưu và success nghĩa là HAL đã áp dụng. HAL tạo processor được bật, gỡ observer và retire processor bị tắt: lượt kiểm tra còn chờ trong hàng đợi worker bị bỏ, còn upload đang chạy dở trong một lượt kiểm tra thì chạy xong rồi kết nối mới đóng. Nếu gọi live lỗi, os-server restart HAL (HAL đọc `cloud_perception` từ `config.json` lúc boot nên opt-out vẫn có hiệu lực), rồi gọi lại apply mỗi giây cho tới khi HAL mới trả lời, tối đa 90 giây: lệnh `systemctl restart` trả về không được coi là xác nhận. Nếu restart lỗi hoặc HAL không xác nhận kịp, request trả lỗi và gửi lại y hệt sẽ áp dụng lại. Chỉ setting đã lưu mới bật được một luồng: thiếu key là tắt và HAL không đọc cờ env cho các luồng này, nên default cũ còn trong `.env` của máy không bao giờ được tính là đồng ý. Motion, emotion và pose còn cần people perception (capability `presence`). Qua MQTT, `cloud_perception.set` chỉ được tắt, và `info` báo trạng thái đã lưu ([mqtt_vi.md](mqtt_vi.md#cloud_perceptionset)). Xem [Hành vi Cảm nhận](../../robots/lamp/docs/vi/sensing-behavior_vi.md#nhận-thức-camera-qua-cloud-mặc-định-tắt).

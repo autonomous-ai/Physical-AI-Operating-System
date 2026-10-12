@@ -37,6 +37,12 @@ speaker. It shapes a frame and grants nothing: when a frame is requested, and
 whether it may be written, are decided exactly as before. In the face the
 level rises within 20 ms and falls over about 170 ms.
 
+One sequence has a look of its own. When thinking ends in rest with nothing
+said in between (the service chose not to answer, or the speech was not for
+the lamp), the face closes for a moment: it goes dark over the first fifth of
+0.9 s and opens again over the rest, as eyes close on "not for me". A turn
+that was answered never does this.
+
 A level between two brightness steps is shown by rounding each pixel at its
 own fixed point, so some pixels sit one step higher. That keeps a dim breath
 smooth where a ceiling of 24 leaves the resting face two or three steps to

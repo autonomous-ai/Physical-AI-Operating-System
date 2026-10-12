@@ -56,6 +56,8 @@ const EASE_US: f32 = 70_000.0;
 /// The voice level rises at once and falls slowly, as a mouth would.
 const LEVEL_RISE_US: f32 = 20_000.0;
 const LEVEL_FALL_US: f32 = 170_000.0;
+/// How long the face takes to close and open again after a turn it let go.
+const LET_GO_US: u64 = 900_000;
 
 /// One face. It keeps what is on the ring now, so that a change of mood, or
 /// a resting frame after a spoken one, eases from one look into the other.
@@ -65,6 +67,9 @@ pub struct Face {
     shown: [[f32; 3]; PIXEL_COUNT],
     last_us: Option<u64>,
     level: f32,
+    mood: Option<Mood>,
+    /// When the lamp last let a turn go without answering it.
+    let_go_us: Option<u64>,
 }
 
 impl Default for Face {
@@ -79,6 +84,8 @@ impl Face {
             shown: [[0.0; 3]; PIXEL_COUNT],
             last_us: None,
             level: 0.0,
+            mood: None,
+            let_go_us: None,
         }
     }
 
@@ -105,6 +112,26 @@ impl Face {
             LEVEL_FALL_US
         };
         self.level += (wanted_level - self.level) * follow(step_us, pace);
+        // Thinking that ends in rest, with nothing said: it was not for the
+        // lamp, or it had no answer. The face closes for a moment, as eyes
+        // do, before it rests again.
+        if self.mood == Some(Mood::Thinking) && mood == Mood::Resting {
+            self.let_go_us = Some(now_us);
+        }
+        self.mood = Some(mood);
+        let since_let_go = self
+            .let_go_us
+            .map(|at| now_us.saturating_sub(at))
+            .filter(|since| mood == Mood::Resting && *since < LET_GO_US);
+        let open = since_let_go.map_or(1.0, |since| {
+            // Closed by a fifth of the way through, open again by the end.
+            let through = since as f32 / LET_GO_US as f32;
+            if through < 0.2 {
+                1.0 - through / 0.2
+            } else {
+                (through - 0.2) / 0.8
+            }
+        });
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
         let ease = follow(step_us, EASE_US);
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
@@ -112,7 +139,7 @@ impl Face {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
             let wanted = look(mood, self.level, seconds, angle);
             for (channel, target) in shown.iter_mut().zip(wanted) {
-                *channel += (target - *channel) * ease;
+                *channel += (target * open - *channel) * ease;
             }
             // A share of the ceiling rarely lands on a whole step. Each pixel
             // rounds at its own fixed point, so a level between two steps is
@@ -349,6 +376,37 @@ mod tests {
         // The first resting frame is still close to the spoken one.
         assert!(first as f32 > from as f32 * 0.6, "{from} {first}");
         assert!(last < first / 2, "{first} {last}");
+    }
+
+    #[test]
+    fn a_turn_let_go_without_an_answer_closes_the_face_for_a_moment() {
+        let rest = |face: &mut Face, from_us: u64| {
+            play(face, Mood::Resting, 0, from_us, 60)
+                .iter()
+                .map(brightness)
+                .collect::<Vec<u32>>()
+        };
+        // Thinking, then rest with nothing said in between.
+        let mut face = Face::new();
+        play(&mut face, Mood::Thinking, 0, 1_000, 100);
+        let let_go = rest(&mut face, 2_001_000);
+        // The same moments, but it spoke before it rested: no such closing.
+        let mut face = Face::new();
+        play(&mut face, Mood::Thinking, 0, 1_000, 50);
+        play(&mut face, Mood::Speaking, 120, 1_001_000, 50);
+        let answered = rest(&mut face, 2_001_000);
+        let darkest = *let_go[..25].iter().min().unwrap();
+        // Nearly dark within half a second, which an answered turn never is.
+        assert!(
+            darkest * 4 < *answered[..25].iter().min().unwrap(),
+            "{let_go:?} {answered:?}"
+        );
+        // And back to the ordinary resting level a second later.
+        let (after, ordinary) = (let_go[59], answered[59]);
+        assert!(
+            after.abs_diff(ordinary) * 4 <= ordinary,
+            "{after} {ordinary}"
+        );
     }
 
     #[test]

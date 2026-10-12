@@ -1,11 +1,11 @@
 # Main agent status
 
 - Protocol: `tmux-and-git-v3`
-- Updated: 2026-10-12 01:14 UTC
+- Updated: 2026-10-12 02:10 UTC
 - Branch: `lamp-v2-chat`
 - Latest native evidence: two camera-enabled replies on `2021c1bb9` / `96d5a03a…fa4fc44b`; original helper verifier failed, independent replay corrected its schema mismatch and verified shutdown without changing the original result. Camera description accuracy remains unscored; motors inactive.
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). No newer integration is deployed yet. The latest temporary candidate override was removed after verified Stop/restoration.
-- Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner `c7dc0978`, whose eight independent boundary controls pass, is being composed onto current source. Combined ARM gate and next native run follow composition.
+- Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
 
 ## Current integration boundary
@@ -14,7 +14,7 @@ The [motor supervision composition](../docs/verification/live-motor-integration-
 is committed at `605ebce7e`, with 178 passing focused host tests and strict
 package Clippy. Explicit selected-profile preparation is now integrated after focused review,
 with 160 motor and 16 live motor host tests reported by its author. Its finite
-operator caller, native qualification and gesture producer remain unfinished;
+operator caller is integrated and ARM-built; native qualification and the gesture producer remain unfinished;
 ordinary speech triggers no motion. See [the profile contract](../docs/motor-selected-profile.md).
 The [latest camera evidence](../docs/verification/camera-conversation-20261012/README.md)
 keeps the original verifier failure and separate successful revalidation.

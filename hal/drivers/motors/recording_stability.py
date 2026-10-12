@@ -140,6 +140,11 @@ def _axis_rot(axis: Tuple[float, float, float], angle: float):
 
 def cog_offset_mm(frame: Dict[str, float], geometry: BodyGeometry) -> float:
     """Horizontal distance (mm) from the base axis to the whole-body CoG."""
+    return math.hypot(*cog_xy_mm(frame, geometry))
+
+
+def cog_xy_mm(frame: Dict[str, float], geometry: BodyGeometry) -> Tuple[float, float]:
+    """Whole-body CoG (x, y) in mm, in the base frame (before base_yaw turns it)."""
     angles = {k.removesuffix(".pos"): v for k, v in frame.items()}
     rot = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     pos = [0.0, 0.0, 0.0]
@@ -153,8 +158,8 @@ def cog_offset_mm(frame: Dict[str, float], geometry: BodyGeometry) -> float:
         total += link.mass
         moment = [moment[i] + link.mass * pos[i] for i in range(3)]
     if total <= 0:
-        return 0.0
-    return math.hypot(moment[0] / total, moment[1] / total) * 1000.0
+        return 0.0, 0.0
+    return moment[0] / total * 1000.0, moment[1] / total * 1000.0
 
 
 def worst_frame(frames: Iterable[Dict[str, float]],

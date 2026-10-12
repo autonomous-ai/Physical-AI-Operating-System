@@ -299,3 +299,22 @@ def test_pitch_and_pan_do_not_touch_each_other_s_joints():
 
     pan = servo_follow.distribute_yaw(_pan_rest(), 8.0)
     assert not ({"base_pitch.pos", "elbow_pitch.pos", "wrist_pitch.pos"} & set(pan))
+
+
+def test_a_face_above_the_frame_cannot_tip_the_lamp_back(monkeypatch):
+    """Pitch corrections stop where the CoG would sit too far behind the base."""
+    import os
+    from hal.drivers.motors.recording_stability import load_geometry
+    robot = os.path.join(os.path.dirname(__file__), "..", "..", "robots", "lamp")
+    geometry = load_geometry(robot, "urdf/lamp.urdf")
+    assert geometry is not None
+    monkeypatch.setattr(servo_follow, "_geometry", geometry)
+
+    pose = {"base_pitch.pos": 28.7, "elbow_pitch.pos": 27.6, "wrist_pitch.pos": -60.4}
+    for _ in range(40):  # user standing: the PID keeps asking for up
+        pose = servo_follow.distribute_pitch(pose, -5.0)
+    assert servo_follow._lean_back_mm(pose) <= C.MAX_LEAN_BACK_MM + 0.5
+
+    down = servo_follow.distribute_pitch(pose, 5.0)
+    assert servo_follow._lean_back_mm(down) < servo_follow._lean_back_mm(pose), \
+        "tilting down (forward) must stay free"

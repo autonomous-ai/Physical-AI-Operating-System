@@ -179,6 +179,16 @@ impl<C: Clock> LinuxMotor<C> {
         self.control
             .start_selected_segment(permit, placement, target, duration_us, selection)
     }
+    pub fn prepare_head_profile(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        speed: u16,
+        acceleration: u8,
+    ) -> Result<MotionId, control::Error> {
+        self.control
+            .prepare_head_profile(permit, placement, speed, acceleration)
+    }
     pub fn readback(&mut self) -> Result<control::Readback, control::Error> {
         self.control.readback()
     }

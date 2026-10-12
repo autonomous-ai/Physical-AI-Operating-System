@@ -12,8 +12,10 @@
 
 The [motor supervision composition](../docs/verification/live-motor-integration-20261012/README.md)
 is committed at `605ebce7e`, with 178 passing focused host tests and strict
-package Clippy. Its gesture producer, explicit selected-profile preparation and
-native qualification are unfinished; ordinary speech triggers no motion.
+package Clippy. Explicit selected-profile preparation is now integrated after focused review,
+with 160 motor and 16 live motor host tests reported by its author. Its finite
+operator caller, native qualification and gesture producer remain unfinished;
+ordinary speech triggers no motion. See [the profile contract](../docs/motor-selected-profile.md).
 The [latest camera evidence](../docs/verification/camera-conversation-20261012/README.md)
 keeps the original verifier failure and separate successful revalidation.
 The prior eight-turn control below remains a distinct ordinary-conversation cohort.

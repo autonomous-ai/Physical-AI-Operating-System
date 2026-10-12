@@ -75,6 +75,27 @@ pub struct Qualification {
     pub valid_from_us: u64,
     pub expires_at_us: u64,
     pub joints: [Envelope; 5],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_profiles: Option<SelectedProfiles>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelectedProfiles {
+    pub selection: crate::command::JointSelection,
+    /// Exact original all-five profile observation; enables only ID5 preparation.
+    pub prepare_from: Option<[ObservedProfile; 5]>,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObservedProfile {
+    pub acceleration: u8,
+    pub goal_time: u16,
+    pub speed: u16,
+}
+impl ObservedProfile {
+    fn validate(self) -> io::Result<RawProfile> {
+        RawProfile::observed_binding(self.acceleration, self.goal_time, self.speed).map_err(invalid)
+    }
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -139,15 +160,22 @@ impl Config {
         )
         .map_err(invalid)?;
         let mut limits = Vec::with_capacity(5);
-        for e in self.qualification.joints {
+        let selected = self.qualification.selected_profiles.as_ref();
+        let selection = selected.map_or(crate::command::JointSelection::ALL, |s| s.selection);
+        for (i, e) in self.qualification.joints.into_iter().enumerate() {
+            let profile = if selection.contains(Joint::ALL[i]) {
+                RawProfile::new(e.raw_acceleration, e.raw_goal_time, e.raw_speed)
+            } else {
+                RawProfile::observed_binding(e.raw_acceleration, e.raw_goal_time, e.raw_speed)
+            }
+            .map_err(invalid)?;
             limits.push(
                 JointEnvelope::new(
                     NormalizedPosition::new(e.minimum).map_err(invalid)?,
                     NormalizedPosition::new(e.maximum).map_err(invalid)?,
                     e.velocity,
                     e.acceleration,
-                    RawProfile::new(e.raw_acceleration, e.raw_goal_time, e.raw_speed)
-                        .map_err(invalid)?,
+                    profile,
                     e.maximum_load_raw,
                     e.maximum_velocity_raw,
                     e.tracking_error,
@@ -156,12 +184,24 @@ impl Config {
                 .map_err(invalid)?,
             );
         }
-        let qualification = QualifiedEnvelope::new(
+        let initial = selected
+            .and_then(|s| s.prepare_from)
+            .map(|profiles| {
+                profiles
+                    .into_iter()
+                    .map(ObservedProfile::validate)
+                    .collect::<io::Result<Vec<_>>>()
+                    .map(|v| v.try_into().expect("five profiles"))
+            })
+            .transpose()?;
+        let qualification = QualifiedEnvelope::selected(
             self.qualification.record,
             calibration.clone(),
             limits.try_into().expect("five envelopes"),
             MonoTime::from_micros(self.qualification.valid_from_us),
             MonoTime::from_micros(self.qualification.expires_at_us),
+            selection,
+            initial,
         )
         .map_err(invalid)?;
         let b = self.timing;

@@ -28,6 +28,7 @@ fn config() -> Config {
             homing_offset: 0,
         }),
         qualification: Qualification {
+            selected_profiles: None,
             record: [7; 32],
             valid_from_us: 1,
             expires_at_us: 1_000_000,
@@ -55,6 +56,34 @@ fn config() -> Config {
         placement_source: BootId::new([3; 16]).unwrap(),
         maximum_runtime_us: 600_000_000,
     }
+}
+#[test]
+fn explicit_head_only_policy_binds_inactive_zero_profiles_without_qualifying_them() {
+    let mut value = serde_json::to_value(config()).unwrap();
+    for i in 0..4 {
+        value["qualification"]["joints"][i]["raw_speed"] = serde_json::json!(0);
+        value["qualification"]["joints"][i]["raw_acceleration"] = serde_json::json!(0);
+    }
+    value["qualification"]["selected_profiles"] = serde_json::json!({"selection":16,"prepare_from":[
+        {"acceleration":0,"goal_time":0,"speed":0},
+        {"acceleration":0,"goal_time":0,"speed":0},
+        {"acceleration":0,"goal_time":0,"speed":0},
+        {"acceleration":0,"goal_time":0,"speed":0},
+        {"acceleration":0,"goal_time":0,"speed":0}
+    ]});
+    let c: Config = serde_json::from_value(value.clone()).expect("explicit selected binding");
+    c.validate()
+        .expect("inactive zero binding is not an active profile");
+    value["qualification"]
+        .as_object_mut()
+        .unwrap()
+        .remove("selected_profiles");
+    assert!(
+        serde_json::from_value::<Config>(value)
+            .unwrap()
+            .validate()
+            .is_err()
+    );
 }
 #[test]
 fn provisioning_rejects_hidden_defaults_unqualified_limits_and_narrowing() {

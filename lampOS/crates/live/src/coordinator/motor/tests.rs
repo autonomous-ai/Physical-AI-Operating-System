@@ -49,6 +49,7 @@ fn config() -> Config {
             homing_offset: 0,
         }),
         qualification: Qualification {
+            selected_profiles: None,
             record: [7; 32],
             valid_from_us: monotonic_us().saturating_sub(1_000),
             expires_at_us: monotonic_us() + 10_000_000,

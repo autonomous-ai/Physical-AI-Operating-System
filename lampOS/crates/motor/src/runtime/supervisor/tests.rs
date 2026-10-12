@@ -538,6 +538,7 @@ fn serial_cleanup_failure_and_stalled_teardown_never_become_clean_exit() {
                 at_us: n,
                 motion: None,
                 report: wire::StopEvidence {
+                    profile_preparation: None,
                     privacy_revision: None,
                     reason: "Shutdown".into(),
                     stopped_at_us: n,
@@ -702,6 +703,7 @@ fn inhibition_measurement_must_be_between_spawn_and_publication() {
             at_us: n,
             motion: None,
             report: wire::StopEvidence {
+                profile_preparation: None,
                 privacy_revision: None,
                 reason: "Shutdown".into(),
                 stopped_at_us: if before_spawn { s.started - 1 } else { n + 1 },

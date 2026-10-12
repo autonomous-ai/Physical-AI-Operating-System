@@ -506,7 +506,9 @@ impl Supervisor {
                 self.failure.get_or_insert_with(|| reason.clone());
                 self.stop_at.get_or_insert(n);
             }
-            Event::Started { motion, .. }
+            Event::ProfileStarted { motion, .. }
+            | Event::ProfilePrepared { motion, .. }
+            | Event::Started { motion, .. }
             | Event::HostAccepted { motion, .. }
             | Event::ReadbackReached { motion, .. } => {
                 self.motion(*motion)?;

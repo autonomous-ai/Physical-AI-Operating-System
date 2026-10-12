@@ -43,6 +43,15 @@ pub trait Backend {
         }
         self.start(permit, placement, target, duration_us)
     }
+    fn prepare_profile(
+        &mut self,
+        _permit: OutputPermit,
+        _placement: Placement,
+        _speed: u16,
+        _acceleration: u8,
+    ) -> Result<MotionId, control::Error> {
+        Err(control::Error::ProfilePreparation)
+    }
     fn tick(&mut self) -> Result<Tick, control::Error>;
     fn readback(&mut self) -> Result<control::Readback, control::Error> {
         Err(control::Error::NotInspected)
@@ -80,6 +89,15 @@ impl<P: BusPort, C: Clock> Backend for MotorControl<P, C> {
     }
     fn readback(&mut self) -> Result<control::Readback, control::Error> {
         self.readback()
+    }
+    fn prepare_profile(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        speed: u16,
+        acceleration: u8,
+    ) -> Result<MotionId, control::Error> {
+        self.prepare_head_profile(permit, placement, speed, acceleration)
     }
     fn tick(&mut self) -> Result<Tick, control::Error> {
         self.tick()
@@ -306,6 +324,42 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             return self.reject(link, request, "worker busy; no motion queue");
         }
         match command {
+            Command::PrepareHeadProfile {
+                permit,
+                placement,
+                speed_raw,
+                acceleration_raw,
+                ..
+            } => {
+                if placement.source_boot != self.placement_source
+                    || placement.frame_sequence <= self.last_frame
+                {
+                    return self.reject(link, request, "wrong or reused placement observation");
+                }
+                match self.backend.prepare_profile(
+                    permit,
+                    placement.into(),
+                    speed_raw,
+                    acceleration_raw,
+                ) {
+                    Ok(m) => {
+                        if m.worker_boot() != self.worker_boot {
+                            return Err(invalid("backend returned wrong worker identity"));
+                        }
+                        self.active = Some(m);
+                        self.last_frame = placement.frame_sequence;
+                        self.publish(
+                            link,
+                            Event::ProfileStarted {
+                                request,
+                                motion: m.into(),
+                                at_us: n.as_micros(),
+                            },
+                        )?;
+                    }
+                    Err(e) => self.reject(link, request, e)?,
+                }
+            }
             Command::Inspect { .. } => match self.backend.inspect() {
                 Ok(()) => self.inspection = Some(request),
                 Err(e) => self.reject(link, request, e)?,
@@ -327,7 +381,9 @@ impl<B: Backend, C: Clock> Worker<B, C> {
                         selection,
                         ..
                     } => (permit, placement, target, duration_us, selection),
-                    Command::Inspect { .. } => unreachable!("matched segment"),
+                    Command::Inspect { .. } | Command::PrepareHeadProfile { .. } => {
+                        unreachable!("matched segment")
+                    }
                 };
                 if placement.source_boot != self.placement_source
                     || placement.frame_sequence <= self.last_frame
@@ -415,6 +471,26 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             if budget > 0 {
                 match self.backend.tick().map_err(invalid)? {
                     Tick::Idle | Tick::Progress => {}
+                    Tick::ProfilePrepared {
+                        motion,
+                        at,
+                        progress,
+                    } => {
+                        if self.active != Some(motion) {
+                            return Err(invalid("wrong profile preparation receipt"));
+                        }
+                        self.active = None;
+                        let readback = self.backend.readback().map_err(invalid)?;
+                        self.publish(
+                            link,
+                            Event::ProfilePrepared {
+                                motion: motion.into(),
+                                at_us: at.as_micros(),
+                                progress,
+                                readback,
+                            },
+                        )?;
+                    }
                     Tick::Inspected => {
                         let request = self
                             .inspection

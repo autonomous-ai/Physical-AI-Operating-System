@@ -92,6 +92,11 @@ struct Wire {
     missing_id: Option<u8>,
     checksum_fault: bool,
     profile_speed: u16,
+    profile_override: Option<[[u8; 8]; 5]>,
+    missing_ack: bool,
+    ack_id: u8,
+    ack_status: u8,
+    ignore_profile_write: bool,
     torque: u8,
     model: u16,
     minimum: u16,
@@ -121,6 +126,11 @@ impl Default for Wire {
             missing_id: None,
             checksum_fault: false,
             profile_speed: 500,
+            profile_override: None,
+            missing_ack: false,
+            ack_id: 5,
+            ack_status: 0,
+            ignore_profile_write: false,
             torque: 1,
             model: 777,
             minimum: 1000,
@@ -146,6 +156,29 @@ impl Wire {
         );
         self.packets.push(bytes.clone());
         match bytes[4] {
+            3 => {
+                assert_eq!(bytes[2], 5, "profile setup must be ID5-only");
+                let profiles = self
+                    .profile_override
+                    .as_mut()
+                    .expect("explicit fixture binding");
+                assert!(
+                    matches!((bytes[5], bytes.len()), (46, 9) | (41, 8)),
+                    "only speed/acceleration"
+                );
+                if !self.ignore_profile_write {
+                    match bytes[5] {
+                        46 => profiles[4][6..8].copy_from_slice(&bytes[6..8]),
+                        41 => profiles[4][1] = bytes[6],
+                        _ => unreachable!(),
+                    }
+                }
+                if !self.missing_ack {
+                    let mut ack = vec![255, 255, self.ack_id, 2, self.ack_status];
+                    ack.push(!ack[2..].iter().fold(0u8, |s, b| s.wrapping_add(*b)));
+                    self.rx.extend(ack);
+                }
+            }
             0x82 => {
                 assert_eq!(&bytes[7..bytes.len() - 1], &[1, 2, 3, 4, 5]);
                 for id in 1..=5 {
@@ -157,8 +190,12 @@ impl Wire {
                         (9, 4) => [self.minimum.to_le_bytes(), self.maximum.to_le_bytes()].concat(),
                         (31, 3) => vec![0x4d, 1, 0],
                         (40, 8) => {
-                            let speed = self.profile_speed.to_le_bytes();
-                            vec![self.torque, 10, 0, 0, 0, 0, speed[0], speed[1]]
+                            if let Some(values) = self.profile_override {
+                                values[usize::from(id - 1)].to_vec()
+                            } else {
+                                let speed = self.profile_speed.to_le_bytes();
+                                vec![self.torque, 10, 0, 0, 0, 0, speed[0], speed[1]]
+                            }
                         }
                         (41, 7) => {
                             let speed = self.profile_speed.to_le_bytes();
@@ -196,6 +233,11 @@ impl Wire {
                 self.goals.push(goals);
                 if !self.hold_position {
                     self.positions = goals;
+                    if let Some(profiles) = &mut self.profile_override {
+                        for i in 0..5 {
+                            profiles[i][2..4].copy_from_slice(&goals[i].to_le_bytes());
+                        }
+                    }
                 }
             }
             other => panic!("unexpected instruction {other}"),
@@ -1352,4 +1394,495 @@ fn exported_readback_keeps_original_time_and_never_survives_expiry_or_stop() {
     assert_eq!(r.motor.readback(), Err(Error::ReadbackExpired));
     r.motor.shutdown();
     assert_eq!(r.motor.readback(), Err(Error::Stopped));
+}
+
+fn selected_profile_rig(prepared: bool) -> Rig {
+    use lamp_motor::command::JointSelection;
+    let mut r = Rig::new();
+    let observed = RawProfile::observed_binding(0, 0, 0).unwrap();
+    let inert = JointEnvelope::new(
+        n(-80.0),
+        n(80.0),
+        1000.0,
+        50_000.0,
+        observed,
+        100,
+        1000,
+        30.0,
+        0.2,
+    )
+    .unwrap();
+    let mut limits = [inert; 5];
+    limits[4] = envelope();
+    r.motor
+        .qualify(
+            QualifiedEnvelope::selected(
+                [7; 32],
+                r.calibration.clone(),
+                limits,
+                t(0),
+                t(1_000_000),
+                JointSelection::from_mask(16).unwrap(),
+                Some([observed; 5]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let mut profiles = [[1, 0, 0xd0, 7, 0, 0, 0, 0]; 5];
+    if prepared {
+        profiles[4][1] = 10;
+        profiles[4][6..8].copy_from_slice(&500u16.to_le_bytes());
+    }
+    r.wire.borrow_mut().profile_override = Some(profiles);
+    r.inspect();
+    r
+}
+fn complete_profile(r: &mut Rig) -> lamp_motor::control::ProfileProgress {
+    for _ in 0..80 {
+        if let Tick::ProfilePrepared { progress, .. } = r.step().unwrap() {
+            return progress;
+        }
+    }
+    panic!("profile preparation not completed");
+}
+#[test]
+fn profile_setup_is_exact_speed_ack_readback_then_acceleration_and_no_position() {
+    let mut r = selected_profile_rig(false);
+    let (permit, placement) = r.authority();
+    r.motor
+        .prepare_head_profile(permit, placement, 500, 10)
+        .unwrap();
+    let p = complete_profile(&mut r);
+    let wire = r.wire.borrow();
+    let writes: Vec<_> = wire.packets.iter().filter(|p| p[4] == 3).cloned().collect();
+    assert_eq!(
+        writes,
+        vec![
+            vec![255, 255, 5, 5, 3, 46, 0xf4, 1, 0xcf],
+            vec![255, 255, 5, 4, 3, 41, 10, 0xc0]
+        ]
+    );
+    assert!(wire.goals.is_empty());
+    assert_eq!(p.speed_request_bytes, 9);
+    assert_eq!(p.acceleration_request_bytes, 8);
+    assert!(p.speed_ack_at_us.unwrap() < p.speed_readback_at_us.unwrap());
+    assert!(p.speed_readback_at_us.unwrap() < p.acceleration_ack_at_us.unwrap());
+    assert!(p.acceleration_ack_at_us.unwrap() < p.final_readback_at_us.unwrap());
+    assert_eq!(p.before[4], [1, 0, 0xd0, 7, 0, 0, 0, 0]);
+    assert_eq!(p.after.unwrap()[4], [1, 10, 0xd0, 7, 0, 0, 0xf4, 1]);
+    for i in 0..4 {
+        assert_eq!(p.before[i], p.after.unwrap()[i]);
+    }
+    drop(wire);
+    assert_eq!(r.motor.readback().unwrap().counts(), [2000; 5]);
+}
+#[test]
+fn inactive_zero_profiles_never_allow_all_or_body_position_packets() {
+    use lamp_motor::command::JointSelection;
+    let mut r = selected_profile_rig(true);
+    let (permit, placement) = r.authority();
+    assert_eq!(
+        r.motor
+            .start_segment(permit, placement, [n(1.0); 5], 50_000),
+        Err(Error::Selection)
+    );
+    assert_eq!(
+        r.motor.start_selected_segment(
+            permit,
+            placement,
+            [n(1.0); 5],
+            50_000,
+            JointSelection::from_mask(17).unwrap()
+        ),
+        Err(Error::Selection)
+    );
+    assert!(r.wire.borrow().goals.is_empty());
+    r.motor
+        .start_selected_segment(
+            permit,
+            placement,
+            [n(1.0); 5],
+            50_000,
+            JointSelection::from_mask(16).unwrap(),
+        )
+        .unwrap();
+    r.first_goal();
+    for p in r.wire.borrow().packets.iter().filter(|p| p[4] == 0x83) {
+        assert_eq!(p.len(), 11);
+        assert_eq!(p[7], 5);
+    }
+}
+#[test]
+fn zero_selected_profile_still_rejects_motion_without_preparation() {
+    let mut r = selected_profile_rig(false);
+    let (p, o) = r.authority();
+    assert_eq!(
+        r.motor.start_selected_segment(
+            p,
+            o,
+            [n(1.0); 5],
+            50_000,
+            lamp_motor::command::JointSelection::from_mask(16).unwrap()
+        ),
+        Err(Error::Profile(Joint::WristPitch))
+    );
+    assert!(r.motor.stop_report().is_some());
+    assert!(r.wire.borrow().goals.is_empty());
+}
+#[test]
+fn profile_setup_cancel_between_writes_retains_verified_partial_change_without_reset() {
+    let mut r = selected_profile_rig(false);
+    let (p, o) = r.authority();
+    let id = r.motor.prepare_head_profile(p, o, 500, 10).unwrap();
+    for _ in 0..80 {
+        r.step().unwrap();
+        if r.wire
+            .borrow()
+            .packets
+            .iter()
+            .filter(|v| v[5] == 56)
+            .count()
+            == 2
+        {
+            break;
+        }
+    }
+    // Consume and verify that response, but do not queue the acceleration write.
+    r.step().unwrap();
+    let report = r.motor.cancel(id).unwrap();
+    assert!(
+        report
+            .profile_preparation
+            .unwrap()
+            .speed_readback_at_us
+            .is_some()
+    );
+    assert!(!report.position_request);
+    assert_eq!(report.profile_preparation.unwrap().speed_request_bytes, 9);
+    assert_eq!(
+        r.wire.borrow().profile_override.unwrap()[4][6..8],
+        500u16.to_le_bytes()
+    );
+    assert_eq!(r.wire.borrow().profile_override.unwrap()[4][1], 0);
+    assert_eq!(r.motor.tick(), Err(Error::Stopped));
+    assert_eq!(
+        r.wire.borrow().packets.iter().filter(|v| v[4] == 3).count(),
+        1
+    );
+}
+#[test]
+fn profile_ack_readback_faults_never_advance_to_acceleration() {
+    for case in 0..4 {
+        let mut r = selected_profile_rig(false);
+        let (p, o) = r.authority();
+        {
+            let mut w = r.wire.borrow_mut();
+            match case {
+                0 => w.missing_ack = true,
+                1 => w.ack_id = 4,
+                2 => w.ack_status = 0x20,
+                3 => w.ignore_profile_write = true,
+                _ => unreachable!(),
+            }
+        }
+        r.motor.prepare_head_profile(p, o, 500, 10).unwrap();
+        let failure = r.failure();
+        assert!(
+            matches!(
+                failure,
+                Error::Deadline { .. } | Error::Protocol(_) | Error::Profile(_)
+            ),
+            "{failure:?}"
+        );
+        let evidence = r.motor.stop_report().unwrap().profile_preparation.unwrap();
+        assert_eq!(evidence.speed_request_bytes, 9);
+        assert_eq!(evidence.acceleration_request_bytes, 0);
+        assert!(evidence.final_readback_at_us.is_none());
+        assert_eq!(
+            r.wire.borrow().packets.iter().filter(|v| v[4] == 3).count(),
+            1
+        );
+    }
+}
+#[test]
+fn profile_partial_write_privacy_and_expiry_are_terminal_with_original_byte_evidence() {
+    for privacy in [false, true] {
+        let mut r = selected_profile_rig(false);
+        let (p, o) = r.authority();
+        r.wire.borrow_mut().write_max = 3;
+        r.motor.prepare_head_profile(p, o, 500, 10).unwrap();
+        r.step().unwrap();
+        r.step().unwrap();
+        assert_eq!(r.wire.borrow().partial.len(), 3);
+        if privacy {
+            r.controller
+                .set_camera_permission(r.clock.now(), Permission::Denied)
+                .unwrap();
+            assert!(
+                r.motor
+                    .install(r.controller.snapshot(r.clock.now()).unwrap())
+                    .is_err()
+            );
+        } else {
+            r.clock.advance(240_000);
+            assert!(r.motor.tick().is_err());
+        }
+        let stop = r.motor.stop_report().unwrap();
+        assert_eq!(stop.partial_request_bytes, 3);
+        assert!(!stop.position_request);
+        assert_eq!(stop.profile_preparation.unwrap().speed_request_bytes, 3);
+        assert_eq!(r.wire.borrow().profile_override.unwrap()[4][6..8], [0, 0]);
+        assert_eq!(r.motor.tick(), Err(Error::Stopped));
+    }
+}
+#[test]
+fn profile_preparation_rejects_wrong_values_and_nonstationary_goal_without_writes() {
+    let mut r = selected_profile_rig(false);
+    let (p, o) = r.authority();
+    for (speed, accel) in [(0, 10), (500, 0), (501, 10), (500, 11)] {
+        assert_eq!(
+            r.motor.prepare_head_profile(p, o, speed, accel),
+            Err(Error::ProfilePreparation)
+        );
+    }
+    assert!(r.wire.borrow().packets.iter().all(|v| v[4] == 0x82));
+    let mut r = selected_profile_rig(false);
+    r.wire.borrow_mut().profile_override.as_mut().unwrap()[0][2] = 0;
+    r.inspect();
+    let (p, o) = r.authority();
+    assert_eq!(
+        r.motor.prepare_head_profile(p, o, 500, 10),
+        Err(Error::NotAtRest(Joint::BaseYaw))
+    );
+    assert!(r.wire.borrow().packets.iter().all(|v| v[4] == 0x82));
+}
+
+#[test]
+fn selected_profile_worker_uses_real_channels_original_evidence_and_readback_receipt() {
+    use lamp_motor::runtime::{
+        channel::Channels,
+        wire::{Command, Control, Event, Observation},
+        worker::Worker,
+    };
+    let mut r = selected_profile_rig(false);
+    let (permit, placement) = r.authority();
+    let worker_boot = BootId::new([2; 16]).unwrap();
+    let (mut parent, mut child) = Channels::pair(boot(), worker_boot).unwrap();
+    parent
+        .control
+        .send(
+            &Control::Authority {
+                snapshot: r.controller.snapshot(r.clock.now()).unwrap(),
+            },
+            r.clock.now(),
+        )
+        .unwrap();
+    let observation = Observation {
+        source_boot: placement.source_boot,
+        frame_sequence: placement.frame_sequence,
+        acquired_at_us: placement.acquired_at.as_micros(),
+        valid_until_us: placement.valid_until.as_micros(),
+        camera: placement.camera,
+        qualification_record: placement.qualification_record,
+    };
+    parent
+        .data
+        .send(
+            &Command::PrepareHeadProfile {
+                request: 1,
+                requested_at_us: r.clock.now().as_micros(),
+                permit,
+                placement: observation,
+                speed_raw: 500,
+                acceleration_raw: 10,
+            },
+            r.clock.now(),
+        )
+        .unwrap();
+    let mut worker = Worker::new(
+        r.motor,
+        r.clock.clone(),
+        boot(),
+        worker_boot,
+        boot(),
+        1_000_000,
+    )
+    .unwrap();
+    let admitted_at = r.clock.now();
+    let mut events = Vec::new();
+    let mut first_write = None;
+    for _ in 0..80 {
+        r.clock.advance(2_000);
+        assert!(!worker.poll(&mut child).unwrap());
+        if first_write.is_none() && r.wire.borrow().packets.iter().any(|p| p[4] == 3) {
+            first_write = Some(r.clock.now().as_micros());
+        }
+        while let Some(event) = parent.control.receive::<Event>(r.clock.now()).unwrap() {
+            events.push(event);
+        }
+        if events
+            .iter()
+            .any(|e| matches!(e, Event::ProfilePrepared { .. }))
+        {
+            break;
+        }
+    }
+    assert!(first_write.unwrap() - admitted_at.as_micros() < 20_000);
+    let started = events
+        .iter()
+        .find_map(|e| {
+            if let Event::ProfileStarted { motion, .. } = e {
+                Some(*motion)
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(started.owner, permit.owner());
+    assert_eq!(started.worker, worker_boot);
+    let completed = events
+        .iter()
+        .find_map(|e| {
+            if let Event::ProfilePrepared {
+                motion,
+                progress,
+                readback,
+                ..
+            } = e
+            {
+                Some((motion, progress, readback))
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(*completed.0, started);
+    assert!(completed.1.final_readback_at_us.is_some());
+    assert_eq!(completed.2.counts(), [2000; 5]);
+    assert!(!events.iter().any(|e| matches!(
+        e,
+        Event::HostAccepted { .. } | Event::ReadbackReached { .. }
+    )));
+    parent
+        .control
+        .send(&Control::Stop {}, r.clock.now())
+        .unwrap();
+    assert!(worker.poll(&mut child).unwrap());
+    worker.finish(&mut child).unwrap();
+    let mut stopped = false;
+    while let Some(e) = parent.control.receive::<Event>(r.clock.now()).unwrap() {
+        if let Event::Inhibited { report, .. } = e {
+            assert!(
+                report
+                    .profile_preparation
+                    .unwrap()
+                    .final_readback_at_us
+                    .is_some()
+            );
+            stopped = true;
+        }
+    }
+    assert!(stopped);
+    assert!(r.wire.borrow().goals.is_empty());
+}
+#[test]
+fn selected_profile_worker_priority_privacy_and_stop_prevent_queued_register_write() {
+    use lamp_motor::runtime::{
+        channel::Channels,
+        wire::{Command, Control, Observation},
+        worker::Worker,
+    };
+    for privacy in [false, true] {
+        let mut r = selected_profile_rig(false);
+        let (permit, placement) = r.authority();
+        let worker_boot = BootId::new([2; 16]).unwrap();
+        let (mut parent, mut child) = Channels::pair(boot(), worker_boot).unwrap();
+        parent
+            .control
+            .send(
+                &Control::Authority {
+                    snapshot: r.controller.snapshot(r.clock.now()).unwrap(),
+                },
+                r.clock.now(),
+            )
+            .unwrap();
+        parent
+            .data
+            .send(
+                &Command::PrepareHeadProfile {
+                    request: 1,
+                    requested_at_us: r.clock.now().as_micros(),
+                    permit,
+                    placement: Observation {
+                        source_boot: boot(),
+                        frame_sequence: 1,
+                        acquired_at_us: placement.acquired_at.as_micros(),
+                        valid_until_us: placement.valid_until.as_micros(),
+                        camera: placement.camera,
+                        qualification_record: [7; 32],
+                    },
+                    speed_raw: 500,
+                    acceleration_raw: 10,
+                },
+                r.clock.now(),
+            )
+            .unwrap();
+        let mut worker = Worker::new(
+            r.motor,
+            r.clock.clone(),
+            boot(),
+            worker_boot,
+            boot(),
+            1_000_000,
+        )
+        .unwrap();
+        assert!(!worker.poll(&mut child).unwrap()); // Queues frame, no write yet.
+        r.clock.advance(1);
+        let control = if privacy {
+            r.controller
+                .set_camera_permission(r.clock.now(), Permission::Denied)
+                .unwrap();
+            Control::Authority {
+                snapshot: r.controller.snapshot(r.clock.now()).unwrap(),
+            }
+        } else {
+            Control::Stop {}
+        };
+        parent.control.send(&control, r.clock.now()).unwrap();
+        let result = worker.poll(&mut child);
+        assert!(if privacy {
+            result.is_err()
+        } else {
+            result.unwrap()
+        });
+        assert!(r.wire.borrow().packets.iter().all(|p| p[4] == 0x82));
+        let result = worker.finish(&mut child);
+        assert_eq!(result.is_err(), privacy);
+        assert!(r.wire.borrow().goals.is_empty());
+    }
+}
+
+#[test]
+fn profile_preparation_keeps_exact_inactive_bindings_and_single_attempt() {
+    let mut r = selected_profile_rig(false);
+    r.wire.borrow_mut().profile_override.as_mut().unwrap()[1][1] = 1;
+    r.inspect();
+    let (p, o) = r.authority();
+    assert_eq!(
+        r.motor.prepare_head_profile(p, o, 500, 10),
+        Err(Error::Profile(Joint::BasePitch))
+    );
+    assert!(r.wire.borrow().packets.iter().all(|v| v[4] == 0x82));
+    let mut r = selected_profile_rig(false);
+    let (p, o) = r.authority();
+    r.motor.prepare_head_profile(p, o, 500, 10).unwrap();
+    complete_profile(&mut r);
+    assert_eq!(
+        r.motor.prepare_head_profile(p, o, 500, 10),
+        Err(Error::ProfilePreparation)
+    );
+    assert_eq!(
+        r.wire.borrow().packets.iter().filter(|v| v[4] == 3).count(),
+        2
+    );
 }

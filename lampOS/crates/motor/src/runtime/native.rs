@@ -49,6 +49,15 @@ impl<C: Clock> Backend for LinuxMotor<C> {
     fn readback(&mut self) -> Result<control::Readback, control::Error> {
         self.readback()
     }
+    fn prepare_profile(
+        &mut self,
+        permit: OutputPermit,
+        placement: Placement,
+        speed: u16,
+        acceleration: u8,
+    ) -> Result<MotionId, control::Error> {
+        self.prepare_head_profile(permit, placement, speed, acceleration)
+    }
     fn tick(&mut self) -> Result<Tick, control::Error> {
         self.tick()
     }

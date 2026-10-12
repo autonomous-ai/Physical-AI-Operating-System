@@ -1,9 +1,10 @@
 //! Feetech STS3215 protocol, per-unit calibration, and bounded motor control.
 //!
 //! Linux provides one finite read-only inspection with explicit device/unit/lock
-//! paths. The control core emits position-only sync writes through an explicitly
+//! paths. The control core emits selected position sync writes through an explicitly
 //! owned nonblocking transport. The opt-in Linux motion adapter reuses the
-//! serial owner; the Linux inspection API remains read-only.
+//! serial owner; an explicit ID5-only profile preparation uses guarded SRAM
+//! writes with ACK/readback. The Linux inspection API remains read-only.
 //! The separate opt-in worker executable uses this same boundary. There is no
 //! torque API, automatic gesture, or automatic recovery. Packet integrity,
 //! authority and caller-supplied qualification are not physical safety evidence.

@@ -54,6 +54,14 @@ pub enum Control {
 // Exactly one fixed-size pending command; boxing would add a hot-path allocation.
 #[allow(clippy::large_enum_variant)]
 pub enum Command {
+    PrepareHeadProfile {
+        request: u64,
+        requested_at_us: u64,
+        permit: OutputPermit,
+        placement: Observation,
+        speed_raw: u16,
+        acceleration_raw: u8,
+    },
     Inspect {
         request: u64,
         requested_at_us: u64,
@@ -79,7 +87,12 @@ pub enum Command {
 impl Command {
     pub fn identity(&self) -> (u64, u64) {
         match self {
-            Self::Inspect {
+            Self::PrepareHeadProfile {
+                request,
+                requested_at_us,
+                ..
+            }
+            | Self::Inspect {
                 request,
                 requested_at_us,
             }
@@ -103,6 +116,8 @@ pub struct StopEvidence {
     /// not a clean-operation or physical-stop claim; legacy absence stays None.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_revision: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_preparation: Option<crate::control::ProfileProgress>,
     pub reason: String,
     pub stopped_at_us: u64,
     pub accepted_request_bytes: usize,
@@ -114,6 +129,7 @@ impl From<StopReport> for StopEvidence {
     fn from(r: StopReport) -> Self {
         Self {
             privacy_revision: None,
+            profile_preparation: r.profile_preparation,
             reason: bounded(r.reason),
             stopped_at_us: r.stopped_at.as_micros(),
             accepted_request_bytes: r.accepted_request_bytes,
@@ -134,6 +150,17 @@ pub struct Cleanup {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
+    ProfileStarted {
+        request: u64,
+        motion: Motion,
+        at_us: u64,
+    },
+    ProfilePrepared {
+        motion: Motion,
+        at_us: u64,
+        progress: crate::control::ProfileProgress,
+        readback: crate::control::Readback,
+    },
     Ready {
         at_us: u64,
     },
@@ -189,7 +216,9 @@ pub enum Event {
 impl Event {
     pub fn at_us(&self) -> u64 {
         match self {
-            Self::Ready { at_us }
+            Self::ProfileStarted { at_us, .. }
+            | Self::ProfilePrepared { at_us, .. }
+            | Self::Ready { at_us }
             | Self::Progress { at_us }
             | Self::Rejected { at_us, .. }
             | Self::CancelRejected { at_us, .. }

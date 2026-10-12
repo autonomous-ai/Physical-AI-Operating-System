@@ -473,6 +473,11 @@ impl OptionalMotor {
             return Ok(());
         }
         match *event {
+            Event::ProfileStarted { .. } | Event::ProfilePrepared { .. } => {
+                return Err(invalid(
+                    "setup-only profile receipt in ordinary gesture worker",
+                ));
+            }
             Event::Ready { .. } | Event::Progress { .. } => {}
             Event::Inspected {
                 request,
@@ -671,6 +676,11 @@ impl OptionalMotor {
         inspection: bool,
         command: Command,
     ) -> io::Result<()> {
+        if matches!(command, Command::PrepareHeadProfile { .. }) {
+            return Err(invalid(
+                "profile setup requires its explicit qualification controller",
+            ));
+        }
         // No retry queue. Final serial checks remain in the unchanged worker.
         self.guard
             .check(time(), evidence.permit, OutputKind::Motion)
@@ -688,7 +698,7 @@ impl OptionalMotor {
         self.offers += 1;
         self.pending = Some(Pending {
             selection: match command {
-                Command::Inspect { .. } => None,
+                Command::Inspect { .. } | Command::PrepareHeadProfile { .. } => None,
                 Command::Segment { .. } => Some(JointSelection::ALL),
                 Command::SelectedSegment { selection, .. } => Some(selection),
             },

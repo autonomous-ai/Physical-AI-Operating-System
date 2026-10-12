@@ -25,6 +25,34 @@ impl RawProfile {
         })
     }
 
+    /// Exact observed register binding, including zero. This is not a motion
+    /// qualification: only explicit unselected joints may use an unbounded value.
+    pub fn observed_binding(
+        acceleration: u8,
+        goal_time: u16,
+        speed: u16,
+    ) -> Result<Self, TrajectoryError> {
+        if speed > 0x7fff {
+            return Err(TrajectoryError::InvalidRawProfile);
+        }
+        Ok(Self {
+            acceleration,
+            goal_time,
+            speed,
+        })
+    }
+    pub fn bounded(self) -> bool {
+        self.acceleration != 0 && self.speed != 0 && self.speed <= 0x7fff
+    }
+    pub fn acceleration_raw(self) -> u8 {
+        self.acceleration
+    }
+    pub fn speed_raw(self) -> u16 {
+        self.speed
+    }
+    pub fn goal_time_raw(self) -> u16 {
+        self.goal_time
+    }
     pub fn matches(self, bytes: &[u8]) -> bool {
         bytes.len() == 7
             && bytes[0] == self.acceleration

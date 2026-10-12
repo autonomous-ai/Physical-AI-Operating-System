@@ -1,6 +1,7 @@
 //! Single-owner, finite position control over a nonblocking serial seam.
 //!
-//! This owns real request/response framing and position writes. It does not open
+//! This owns request/response framing, position writes and explicit guarded
+//! ID5 profile preparation. It does not open
 //! a tty, authenticate qualification evidence, run a thread, or release torque.
 //! A supervised worker must own the exclusive port and service priority control
 //! before every tick. Its clock must use the controller's OS monotonic domain.
@@ -11,13 +12,17 @@ use crate::{
     command::{JointSelection, POSITION_FRAME_BYTES, SelectedPositionFrame},
     protocol::{ReadOnlyRequest, ReadWindow, ReplyError, ReplyTracker, StatusParser},
     readback::{HomingModeRegisters, PositionLimitRegisters, RawTelemetry},
-    trajectory::{JointEnvelope, Segment, TrajectoryError},
+    trajectory::{JointEnvelope, RawProfile, Segment, TrajectoryError},
     units::{EncoderCounts, NormalizedPosition},
 };
 use lamp_interaction::{
     BootId, BoundaryGuard, CameraGrant, MonoTime, OutputKind, OutputPermit, Snapshot, TurnOwner,
 };
 use std::{fmt, io};
+
+mod profile;
+use profile::Preparing;
+pub use profile::ProfileProgress;
 
 const READ_BYTES: usize = 128;
 const MAX_OPERATIONS: u16 = 512;
@@ -85,6 +90,8 @@ pub struct QualifiedEnvelope {
     limits: [JointEnvelope; JOINT_COUNT],
     valid_from: MonoTime,
     expires_at: MonoTime,
+    allowed: JointSelection,
+    prepare_from: Option<[RawProfile; JOINT_COUNT]>,
 }
 
 impl QualifiedEnvelope {
@@ -95,8 +102,50 @@ impl QualifiedEnvelope {
         valid_from: MonoTime,
         expires_at: MonoTime,
     ) -> Result<Self, Error> {
+        Self::selected(
+            record,
+            calibration,
+            limits,
+            valid_from,
+            expires_at,
+            JointSelection::ALL,
+            None,
+        )
+    }
+    /// Selected-only policy. Unselected profiles are exact observed bindings,
+    /// never permission to command those joints. Preparation is separately opt-in.
+    #[allow(clippy::too_many_arguments)]
+    pub fn selected(
+        record: [u8; 32],
+        calibration: UnitCalibration,
+        limits: [JointEnvelope; JOINT_COUNT],
+        valid_from: MonoTime,
+        expires_at: MonoTime,
+        allowed: JointSelection,
+        prepare_from: Option<[RawProfile; JOINT_COUNT]>,
+    ) -> Result<Self, Error> {
         if record == [0; 32] || expires_at <= valid_from {
             return Err(Error::Qualification);
+        }
+        for j in Joint::ALL {
+            if allowed.contains(j) && !limits[j.index()].profile.bounded() {
+                return Err(Error::Profile(j));
+            }
+        }
+        if let Some(initial) = prepare_from {
+            // This bounded setup operation is ID5-only. Other profile changes
+            // cannot be represented by this qualification.
+            if allowed.mask() != 16 {
+                return Err(Error::Selection);
+            }
+            for j in Joint::ALL {
+                if !allowed.contains(j) && initial[j.index()] != limits[j.index()].profile {
+                    return Err(Error::Profile(j));
+                }
+            }
+            if initial[4].goal_time_raw() != limits[4].profile.goal_time_raw() {
+                return Err(Error::Profile(Joint::WristPitch));
+            }
         }
         Ok(Self {
             record,
@@ -104,7 +153,20 @@ impl QualifiedEnvelope {
             limits,
             valid_from,
             expires_at,
+            allowed,
+            prepare_from,
         })
+    }
+    fn check_selection(&self, selection: JointSelection) -> Result<(), Error> {
+        if selection.mask() & !self.allowed.mask() != 0 {
+            return Err(Error::Selection);
+        }
+        for j in Joint::ALL {
+            if selection.contains(j) && !self.limits[j.index()].profile.bounded() {
+                return Err(Error::Profile(j));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -151,6 +213,8 @@ pub enum Operation {
 pub enum Error {
     Configuration,
     Qualification,
+    Selection,
+    ProfilePreparation,
     Placement,
     NotInspected,
     Busy,
@@ -203,6 +267,7 @@ impl std::error::Error for Error {}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct StopReport {
     pub reason: Error,
+    pub profile_preparation: Option<ProfileProgress>,
     /// Includes a full request accepted just before an overrun/expiry was
     /// observed. Zero partial bytes alone must not imply no packet was sent.
     pub accepted_request_bytes: usize,
@@ -260,6 +325,11 @@ impl Readback {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Tick {
+    ProfilePrepared {
+        motion: MotionId,
+        at: MonoTime,
+        progress: ProfileProgress,
+    },
     Idle,
     Progress,
     Inspected,
@@ -323,6 +393,7 @@ struct Transaction {
     entered_at: MonoTime,
     operations: u16,
     counts: Option<[EncoderCounts; JOINT_COUNT]>,
+    profile: Option<profile::Register>,
 }
 impl Transaction {
     fn read(stage: ReadStage, now: MonoTime) -> Self {
@@ -340,6 +411,7 @@ impl Transaction {
             entered_at: now,
             operations: 0,
             counts: None,
+            profile: None,
         }
     }
     fn position(
@@ -360,6 +432,7 @@ impl Transaction {
             entered_at: now,
             operations: 0,
             counts: Some(counts),
+            profile: None,
         }
     }
     fn pending_mask(&self) -> u8 {
@@ -408,6 +481,8 @@ pub struct MotorControl<P: BusPort, C: Clock> {
     profiles: [Option<[u8; 8]>; JOINT_COUNT],
     samples: [Option<Sample>; JOINT_COUNT],
     active: Option<Active>,
+    preparing: Option<Preparing>,
+    profile_progress: Option<ProfileProgress>,
     sequence: u64,
     terminal: Option<StopReport>,
 }
@@ -444,6 +519,8 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             profiles: [None; JOINT_COUNT],
             samples: [None; JOINT_COUNT],
             active: None,
+            preparing: None,
+            profile_progress: None,
             sequence: 0,
             terminal: None,
         })
@@ -477,7 +554,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
 
     pub fn qualify(&mut self, evidence: QualifiedEnvelope) -> Result<(), Error> {
         let now = self.now()?;
-        if self.active.is_some() {
+        if self.active.is_some() || self.preparing.is_some() || self.profile_progress.is_some() {
             return Err(Error::Busy);
         }
         if evidence.calibration != self.calibration
@@ -536,6 +613,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         let now = self.now()?;
         if self.transaction.is_some()
             || self.active.is_some()
+            || self.preparing.is_some()
             || self.quiet.is_some()
             || self.inspect_next.is_some()
         {
@@ -601,6 +679,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         let now = self.now()?;
         if self.transaction.is_some()
             || self.active.is_some()
+            || self.preparing.is_some()
             || self.quiet.is_some()
             || self.inspect_next.is_some()
         {
@@ -611,6 +690,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .map_err(Error::Authority)?;
         self.check_placement(now, permit, placement)?;
         let qualification = self.qualification.as_ref().ok_or(Error::Qualification)?;
+        qualification.check_selection(selection)?;
         let inspected = self.inspected_at.ok_or(Error::NotInspected)?;
         if age(now, inspected)? > self.timing.readback_age_us {
             return Err(Error::ReadbackExpired);
@@ -641,6 +721,17 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 return Err(Error::NotAtRest(joint));
             }
             start[i] = self.position(joint, sample.value)?;
+            if qualification.allowed != JointSelection::ALL
+                && u16::from_le_bytes([profile[2], profile[3]])
+                    != sample
+                        .value
+                        .position()
+                        .single_turn_counts()
+                        .map_err(|_| Error::Position(joint))?
+                        .get()
+            {
+                return Err(Error::NotAtRest(joint));
+            }
             if !selection.contains(joint) {
                 target[i] = start[i];
                 endpoint_counts[i] = sample
@@ -703,7 +794,9 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
 
     pub fn cancel(&mut self, motion: MotionId) -> Result<StopReport, Error> {
         let now = self.now()?;
-        if !self.active.is_some_and(|active| active.id == motion) {
+        if !self.active.is_some_and(|active| active.id == motion)
+            && !self.preparing.is_some_and(|p| p.id == motion)
+        {
             return Err(Error::StaleMotion);
         }
         Ok(self.stop(Error::Cancelled, now))
@@ -759,6 +852,9 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         if let Some(stage) = self.inspect_next {
             self.transaction = Some(Transaction::read(stage, now));
             return Ok(Tick::Progress);
+        }
+        if self.preparing.is_some() {
+            return self.queue_profile_write(now);
         }
         if let Some(active) = self.active {
             if active.need_readback {
@@ -830,12 +926,14 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                 Err(error) if transient(&error) => {}
                 Err(error) => return Err(io_error(Operation::Write, error)),
             }
+            self.profile_accepted_bytes();
             let after = self.after_io(now)?;
             self.check_transaction(after)?;
             self.check_active(after)?;
             let tx = self.transaction.as_ref().expect("active transaction");
-            if tx.written == tx.length && tx.stage.is_none() {
-                let counts = tx.counts.expect("position packet");
+            if tx.written == tx.length
+                && let Some(counts) = tx.counts
+            {
                 // Use the actual host-acceptance time for the next discrete step.
                 let velocity = self.check_goal(after, counts)?;
                 let positions = self.positions(counts)?;
@@ -862,11 +960,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         if let Some((bytes, count, after)) = self.read(now)? {
             self.check_transaction(after)?;
             self.check_active(after)?;
-            let stage = self
-                .transaction
-                .as_ref()
-                .and_then(|tx| tx.stage)
-                .expect("read stage");
+            let stage = self.transaction.as_ref().and_then(|tx| tx.stage);
             let mut replies = [None, None, None, None, None];
             let mut error = None;
             let tx = self.transaction.as_mut().expect("active transaction");
@@ -888,6 +982,20 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             if report.discarded_bytes != 0 {
                 return Err(Error::UnexpectedTraffic);
             }
+            if stage.is_none() {
+                let tx = self.transaction.as_ref().expect("profile transaction");
+                if tx.profile.is_none() {
+                    return Err(Error::ProfilePreparation);
+                }
+                if tx.replies.as_ref().expect("ACK tracker").is_complete() {
+                    if tx.parser.buffered_bytes() != 0 {
+                        return Err(Error::UnexpectedTraffic);
+                    }
+                    return self.profile_ack(after);
+                }
+                return Ok(Tick::Progress);
+            }
+            let stage = stage.expect("checked read stage");
             for reply in replies.into_iter().flatten() {
                 let joint = reply.joint();
                 let i = joint.index();
@@ -967,6 +1075,9 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             self.inspect_next = stage.next();
             if self.inspect_next.is_none() {
                 self.inspected_at = Some(now);
+                if self.preparing.is_some() {
+                    return self.profile_readback(now);
+                }
                 return Ok(Tick::Inspected);
             }
         } else if let Some(active) = self.active {
@@ -1016,7 +1127,12 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
     }
 
     fn check_active(&mut self, now: MonoTime) -> Result<(), Error> {
+        self.check_preparing(now)?;
         if let Some(active) = self.active {
+            self.qualification
+                .as_ref()
+                .ok_or(Error::Qualification)?
+                .check_selection(active.selection)?;
             self.guard
                 .check(now, active.permit, OutputKind::Motion)
                 .map_err(Error::Authority)?;
@@ -1153,6 +1269,10 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         counts: [EncoderCounts; JOINT_COUNT],
     ) -> Result<[f64; JOINT_COUNT], Error> {
         let active = self.active.ok_or(Error::StaleMotion)?;
+        self.qualification
+            .as_ref()
+            .ok_or(Error::Qualification)?
+            .check_selection(active.selection)?;
         let positions = self.positions(counts)?;
         let seconds = age(now, active.last_write_at)? as f64 / 1_000_000.0;
         if seconds <= 0.0 {
@@ -1234,6 +1354,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .map_or(0, |tx| tx.written);
         let report = StopReport {
             reason,
+            profile_preparation: self.profile_progress,
             accepted_request_bytes: self.transaction.as_ref().map_or(0, |tx| tx.written),
             position_request: self
                 .transaction
@@ -1246,6 +1367,7 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         // Latch first, before any cleanup that can itself fail or block.
         self.terminal = Some(report);
         self.active = None;
+        self.preparing = None;
         self.transaction = None;
         self.quiet = None;
         self.inspect_next = None;

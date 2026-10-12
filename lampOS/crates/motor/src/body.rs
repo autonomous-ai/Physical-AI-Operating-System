@@ -57,6 +57,17 @@ const EASE_STEPS: u16 = 100;
 const EASES_ALLOWED: usize = 3;
 const EASE_MEMORY_STEPS: u64 = 3_000;
 const REST_SLACK: u16 = 24;
+/// A joint that has arrived is given its own position as its goal, in any
+/// mood, and is left there until the pose wanted of it is this many counts
+/// from where it is. Asked for less, a servo pushes and does not move: on
+/// lamp-4ace the head sat 3 to 8 counts from the goals of its nods while its
+/// load climbed from 48 to 178 in a second and a half, three times in a
+/// minute.
+const WAKE_COUNTS: f32 = 12.0;
+/// Arrived: this close to the wanted pose and this slow, for this many steps.
+const ARRIVED_COUNTS: f32 = 6.0;
+const ARRIVED_SPEED: f32 = 15.0;
+const ARRIVED_STEPS: u8 = 15;
 
 /// The joints this body commands, in the order of every array of three here.
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
@@ -642,6 +653,12 @@ pub(crate) fn run(
     let mut leaving: Option<Duration> = None;
     let mut resting_steps = 0u16;
     let mut relaxed = false;
+    // A joint that has arrived and is asked nothing until the wanted pose
+    // moves far enough from it; the steps each has been arriving for; and
+    // the pose last wanted of each.
+    let mut asleep = [false; 3];
+    let mut arriving = [0u8; 3];
+    let mut wanted_of = commanded;
     let started = bus.runtime.now();
 
     let stop = loop {
@@ -701,6 +718,13 @@ pub(crate) fn run(
                 continue;
             }
             let wanted = (f32::from(home[index]) + offset).clamp(low[index], high[index]);
+            wanted_of[index] = wanted;
+            if asleep[index] {
+                if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() {
+                    continue;
+                }
+                asleep[index] = false;
+            }
             let pull =
                 FOLLOW * FOLLOW * (wanted - commanded[index]) - 2.0 * FOLLOW * velocity[index];
             velocity[index] = (velocity[index]
@@ -755,6 +779,39 @@ pub(crate) fn run(
                 commanded = positions.map(f32::from);
                 velocity = [0.0; 3];
             }
+        }
+        // A joint that has arrived stops being pushed at, whatever the mood.
+        let mut rested = written;
+        for index in 0..3 {
+            let there = !asleep[index]
+                && !held[index]
+                && !relaxed
+                && leaving.is_none()
+                && (wanted_of[index] - commanded[index]).abs() < ARRIVED_COUNTS
+                && velocity[index].abs() < ARRIVED_SPEED;
+            arriving[index] = if there {
+                arriving[index].saturating_add(1)
+            } else {
+                0
+            };
+            let position = samples[COMMANDED[index].index()].position;
+            if arriving[index] >= ARRIVED_STEPS && position.abs_diff(written[index]) <= REST_SLACK {
+                asleep[index] = true;
+                arriving[index] = 0;
+                commanded[index] = f32::from(position).clamp(
+                    low[index].min(commanded[index]),
+                    high[index].max(commanded[index]),
+                );
+                velocity[index] = 0.0;
+                rested[index] = commanded[index].round() as u16;
+            }
+        }
+        if rested != written {
+            if let Err(detail) = bus.send(&goals_write(rested)) {
+                break Stop::Bus { detail };
+            }
+            written = rested;
+            report.goal_writes += 1;
         }
         watch(&Glimpse {
             step: report.steps,

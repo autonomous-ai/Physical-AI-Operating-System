@@ -873,6 +873,58 @@ fn at_rest_a_joint_that_stopped_short_is_no_longer_pushed() {
 }
 
 #[test]
+fn a_joint_that_has_arrived_is_not_pushed_at_and_a_small_change_does_not_move_it() {
+    // The roll servo stops five counts from wherever it is sent, as the
+    // head's did on lamp-4ace from the goals of its nods.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.short = Some((ROLL, 5.0));
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.eased, [0; 3]);
+    let during = |from: u64, until: u64| -> Vec<&Glimpse> {
+        seen.iter()
+            .filter(|glimpse| (from / 20..until / 20).contains(&glimpse.step))
+            .collect()
+    };
+    // Listening, once the head has tilted: every goal is where its joint
+    // is, the one that stopped short included.
+    let listening = during(2_600, 2_950);
+    assert!(!listening.is_empty());
+    for glimpse in &listening {
+        assert_eq!(glimpse.goals, glimpse.positions, "{glimpse:?}");
+    }
+    assert!(listening[0].goals[1].abs_diff(HOME[1]) >= 15, "it did tilt");
+    // Speaking: it came down from its thinking pose, and the nods on its
+    // voice, a few counts each at this reach, ask nothing of it.
+    let speaking = during(5_800, 6_950);
+    assert!(
+        speaking
+            .iter()
+            .all(|glimpse| glimpse.mood == Mood::Speaking)
+    );
+    assert!(
+        speaking
+            .iter()
+            .all(|glimpse| glimpse.goals == speaking[0].goals),
+        "a goal changed while it spoke"
+    );
+    assert!(speaking[0].goals[0] < HOME[0] && speaking[0].goals[0] > HOME[0] - 20);
+    // A real move still happens: thinking turned it and lifted it.
+    assert!(seen.iter().any(|glimpse| glimpse.mood == Mood::Thinking
+        && glimpse.goals[2].abs_diff(HOME[2]) >= 25
+        && glimpse.goals[0] + 25 <= HOME[0]));
+}
+
+#[test]
 fn a_wire_that_goes_silent_stops_it_after_three_steps() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(8));
     lamp.silent_from = Some(Duration::from_millis(1_500));

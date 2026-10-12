@@ -136,7 +136,7 @@ impl Limits {
             yaw: f32::from(tuning.reach[3]),
             speed: f32::from(tuning.speed),
             // Reaches its speed in a little over a tenth of a second.
-            acceleration: f32::from(tuning.speed) * 8.0,
+            acceleration: f32::from(tuning.speed) * 6.0,
             servo_speed: tuning.servo_speed,
             servo_acceleration: tuning.servo_acceleration,
             // A joint may be found anywhere inside the reach of its home.
@@ -163,8 +163,11 @@ impl Limits {
         servo_speed: 150,
         servo_acceleration: 50,
         // In its first second on lamp-4ace the body read 104, 96 and 88.
+        // Six steps, 120 ms: a head that reverses quickly reads over the
+        // bound for a few steps (217 on the third, once in eleven minutes
+        // of talking) and under it again; something in its way does not.
         load: [170, 150, 150],
-        load_steps: 3,
+        load_steps: 6,
         tracking: 30,
         tracking_steps: 10,
         bystander_drift: 6,

@@ -50,7 +50,7 @@ written after that, when:
 
 | What is seen | Bound |
 | --- | --- |
-| Load on a commanded joint, three steps in a row | pitch 170, roll 150, yaw 150 |
+| Load on a commanded joint, six steps in a row (120 ms) | pitch 170, roll 150, yaw 150 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
 | The shoulder or the elbow away from where it was found | 6 counts |
@@ -99,7 +99,7 @@ is rest. Anything that is not exactly that object is ignored.
 | resting | none |
 | listening | pitch 18 up, roll 26 to one side; the side alternates between exchanges |
 | thinking | pitch 30 up, yaw 36 to the side it was tilted from, roll 12 the other way |
-| speaking | pitch 8 up, and a nod of up to 11 either way when its voice is louder or quieter than its last second |
+| speaking | pitch 8 up, and a nod of up to 7 either way when its voice is louder or quieter than its last second |
 
 The commanded pose follows the wanted one with no overshoot, inside the speed
 and reach above.
@@ -121,7 +121,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
 tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
-the other way; speaking sits 20% up and nods a quarter of the way either
+the other way; speaking sits 20% up and nods 15% of the way either
 side), so a wider reach makes every gesture larger. The head's pitch window,
 the load, tracking, drift, status and heat rules do not change with it.
 
@@ -173,6 +173,17 @@ Same evening, with `--home 1950,2043,2015`.
 
 Since then a joint that has rested for a second within 24 counts of its goal
 is given its own position as the goal, so that nothing pushes at rest.
+
+It then ran for about 1 h 40 min of played exchanges without a stop, until
+it was stopped by hand, and for 11 minutes after it was started again. Then
+it stopped itself on `load`, joint 5: the head, coming down from its thinking pose as an answer
+began and nodding on the first syllable, read 217 on the third of three
+steps over 170. It was within 6 counts of where it had been and 19 from its
+goal, the other joints read 28 and 56, and nothing was in its way. Peak
+load on the yaw joint in that run was 104. From this: the nod is 15% of the
+reach where it was 25% and follows the voice a third more slowly, the
+commanded pose changes speed at six times the top speed a second where it
+was eight, and the load rule wants six steps in a row, not three.
 
 ## Verification without a lamp
 

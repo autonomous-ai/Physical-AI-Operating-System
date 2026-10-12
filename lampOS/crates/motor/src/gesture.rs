@@ -33,7 +33,7 @@ pub struct Pose {
 
 /// The voice level follows the syllables at this pace, and its own average
 /// at the slower one; a nod is the difference between the two.
-const VOICE_FAST_US: f32 = 90_000.0;
+const VOICE_FAST_US: f32 = 120_000.0;
 const VOICE_SLOW_US: f32 = 900_000.0;
 const LONGEST_STEP_US: u64 = 100_000;
 
@@ -88,7 +88,10 @@ impl Gestures {
                 // Louder than its recent average: the head dips a little.
                 let nod = (self.voice - self.voice_average).clamp(-0.5, 0.5);
                 Pose {
-                    pitch: -0.2 + 0.5 * nod,
+                    // Small: a head that swings while the lamp talks reverses
+                    // hard at every syllable, and on lamp-4ace one such
+                    // reversal read a load of 217 and ended the run.
+                    pitch: -0.2 + 0.3 * nod,
                     roll: 0.0,
                     yaw: 0.0,
                 }

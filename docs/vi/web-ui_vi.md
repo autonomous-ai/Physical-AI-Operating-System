@@ -29,6 +29,15 @@ Trong lần setup đầu, **Channels** là tuỳ chọn và mặc định là **
 Chọn Telegram, Slack hoặc Discord sẽ hiện các field credential, nhưng user có
 thể để trống hoặc cấu hình channel sau trong Settings.
 
+Lần setup đầu cũng có thể giữ kết nối Wi-Fi đang có Internet mà không yêu cầu
+nhập lại mật khẩu. Để trống SSID được chọn hoặc chọn đúng SSID hiện tại; khi gửi
+form, SSID trống được thay bằng SSID hiện tại. Kết nối mạng dây có Internet cũng
+cho phép để trống lựa chọn Wi-Fi. Chọn SSID khác yêu cầu mật khẩu hoặc mật khẩu
+đã lưu của đúng mạng được chọn. Trạng thái hoàn tất bước và thao tác gửi form
+dùng cùng điều kiện kiểm tra. Backend vẫn kiểm tra SSID thực tế và kết nối
+Internet trước khi bỏ qua kết nối lại; lần kiểm tra trước đó của UI không bảo
+đảm mạng sẽ giữ nguyên.
+
 ### Chọn tiếng Nhật
 
 Setup và Settings có **Japanese (日本語)** với mã `ja`. Setup nhận diện locale

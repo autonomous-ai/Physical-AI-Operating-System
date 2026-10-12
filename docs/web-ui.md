@@ -29,6 +29,15 @@ During initial setup, **Channels** is optional and defaults to **Not now**.
 Selecting Telegram, Slack, or Discord reveals its credential fields, but the
 operator may leave them blank or configure a channel later in Settings.
 
+Initial setup can also keep an existing online Wi-Fi connection without asking
+for its password again. Leave the selected SSID empty or select the current SSID;
+an empty selection resolves to the current SSID on submit. An online wired
+connection also allows an empty Wi-Fi selection. Selecting another SSID requires
+a password or a saved password belonging to that selected network. Step
+completion and submission use the same validation. The backend still checks the
+live SSID and Internet connectivity before skipping reconnection; the UI's
+earlier probe does not guarantee that the network will remain unchanged.
+
 ### Japanese language selection
 
 Setup and Settings offer **Japanese (日本語)** with code `ja`. Setup recognizes

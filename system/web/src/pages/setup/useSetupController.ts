@@ -15,6 +15,7 @@ import { setupBridge } from "@/lib/setupBridge";
 import type { SectionId, LlmLoadedState, ChannelLoadedState } from "@/hooks/setup/types";
 import type { ChannelType, NetworkItem, SetupChannelType } from "@/types";
 import { normaliseSetupError, type SetupMode } from "./helpers";
+import { resolveSetupNetwork } from "./setupNetwork";
 
 // Owns all Setup page state, effects and handlers; the Setup component only renders.
 export function useSetupController(mode: SetupMode) {
@@ -69,6 +70,7 @@ export function useSetupController(mode: SetupMode) {
   // Starts true to avoid flashing the admin-password fields during the probe.
   const [hasAdminPassword, setHasAdminPassword] = useState(true);
   const [hasNetworkPassword, setHasNetworkPassword] = useState(false);
+  const [savedSsid, setSavedSsid] = useState("");
   // `<device_type>-<suffix>.local`, derived like system/device/hardware.go.
   const deviceMdnsHost = useMemo(() => {
     const host = (mac || "").trim().toLowerCase();
@@ -152,6 +154,11 @@ export function useSetupController(mode: SetupMode) {
   // Wi-Fi state from the live device, not form fields (they reset on the AP->STA reload).
   const { wifiConnected, wiredUplink, currentSsid, checking: wifiChecking } = useWifiConnected();
 
+  const network = resolveSetupNetwork({
+    ssid, password, wifiConnected, currentSsid, wiredUplink, hasNetworkPassword, savedSsid,
+  });
+  const { ssid: setupSsid, error: networkError } = network;
+
   // Enrollment steps require the matching capability (mic/camera); fail-open while loading.
   const { hasCap } = useCapabilities();
   const canEnrollVoice = hasCap(Cap.Audio);
@@ -160,8 +167,8 @@ export function useSetupController(mode: SetupMode) {
   // Saved secrets count via their *Loaded presence flags.
   const sectionDone: Record<SectionId, boolean> = {
     device: true,
-    // wifiConnected/wiredUplink short-circuit this after the AP->STA reload.
-    wifi: wifiConnected || wiredUplink || (!!ssid && (!!password || hasNetworkPassword)),
+    // Use the same rule for step completion and the final submit.
+    wifi: networkError === null,
     llm: !!llmApiKey || llmLoaded.apiKey,
     language: true,
     realtime: true,
@@ -277,6 +284,7 @@ export function useSetupController(mode: SetupMode) {
     setBluebubblesCallerContext,
     setHasAdminPassword,
     setHasNetworkPassword,
+    setSavedSsid,
   });
 
   useSetupStatusPolling({
@@ -493,15 +501,8 @@ export function useSetupController(mode: SetupMode) {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    // Pre-flight check for the visible Wi-Fi fields; a wired device may submit an empty SSID on purpose.
-    if (!ssid.trim()) {
-      if (!wiredUplink) {
-        setError("Choose a Wi-Fi network before continuing.");
-        setActiveSection("wifi");
-        return;
-      }
-    } else if (!password && !hasNetworkPassword) {
-      setError("Enter the Wi-Fi password.");
+    if (networkError) {
+      setError(networkError);
       setActiveSection("wifi");
       return;
     }
@@ -531,7 +532,7 @@ export function useSetupController(mode: SetupMode) {
           break;
       }
       const body: Parameters<typeof setupDevice>[0] = {
-        ssid: ssid.trim(), password,
+        ssid: setupSsid, password,
         ...(channel === "none" ? {} : { channel }),
         ...channelCredentials,
         llm_base_url: urlParams.llmUrl || llmUrl,
@@ -561,10 +562,10 @@ export function useSetupController(mode: SetupMode) {
           fd_channel: fdChannel || urlParams.fdChannel || undefined,
         });
       }
-      setupBridge.submitted({ ssid: ssid.trim(), channel });
+      setupBridge.submitted({ ssid: setupSsid, channel });
       // Start the poller BEFORE the blocking POST: the AP dies ~2s into the switch, taking the POST with it.
       setSetupWorking(true);
-      setWiredRun(!ssid.trim());
+      setWiredRun(!setupSsid);
       setSetupPhase("connecting");
       try {
         await setupDevice(body);
@@ -578,10 +579,10 @@ export function useSetupController(mode: SetupMode) {
     setLoading(false);
   }, [
     channel, urlParams, teleToken, teleUserId, slackBotToken, slackAppToken, slackUserId,
-    discordBotToken, discordGuildId, discordUserId, ssid, password, llmUrl, llmApiKey,
+    discordBotToken, discordGuildId, discordUserId, setupSsid, networkError, password, llmUrl, llmApiKey,
     llmModel, llmDisableThinking, sttApiKey, sttBaseUrl, ttsApiKey, ttsBaseUrl, ttsVoice, deviceId,
     mqttEndpoint, mqttPort, mqttUsername, mqttPassword, faChannel, fdChannel,
-    sttLanguage, ttsProvider, hasNetworkPassword, adminPassword, wiredUplink,
+    sttLanguage, ttsProvider, adminPassword,
   ]);
 
   return {
@@ -596,9 +597,9 @@ export function useSetupController(mode: SetupMode) {
     error, stepError, loading, loadingList,
     handleSubmit, navigate,
     ssid, setSsid, password, setPassword,
-    hasAdminPassword, hasNetworkPassword,
+    hasAdminPassword, hasNetworkPassword: network.passwordConfigured,
     adminPassword, setAdminPassword,
-    uniqueNetworks, refreshNetworks, wifiConnected, wiredUplink, currentSsid, wifiChecking,
+    uniqueNetworks, refreshNetworks, wifiConnected: network.usingCurrentWifi, wiredUplink, currentSsid, wifiChecking,
     llmLoaded, llmApiKey, setLlmApiKey, llmUrl, setLlmUrl, llmModel, setLlmModel,
     channel, setChannel, channelLoaded,
     teleToken, setTeleToken, teleUserId, setTeleUserId,

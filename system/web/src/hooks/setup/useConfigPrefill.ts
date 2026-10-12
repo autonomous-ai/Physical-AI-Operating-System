@@ -35,6 +35,7 @@ export function useConfigPrefill(args: {
   setBluebubblesCallerContext: Dispatch<SetStateAction<string>>;
   setHasAdminPassword: Dispatch<SetStateAction<boolean>>;
   setHasNetworkPassword: Dispatch<SetStateAction<boolean>>;
+  setSavedSsid: Dispatch<SetStateAction<string>>;
 }) {
   const {
     urlParams, channelParam,
@@ -52,6 +53,7 @@ export function useConfigPrefill(args: {
     setBluebubblesCallerContext,
     setHasAdminPassword,
     setHasNetworkPassword,
+    setSavedSsid,
   } = args;
 
   useEffect(() => {
@@ -103,6 +105,7 @@ export function useConfigPrefill(args: {
       if (cfg.stt_language && !urlParams.sttLanguage) setSttLanguage(cfg.stt_language);
       setHasAdminPassword(!!cfg.has_admin_password);
       setHasNetworkPassword(!!cfg.has_network_password);
+      setSavedSsid(cfg.network_ssid || "");
     }).catch(() => {
       // 401: no session yet; assume no admin password so the field shows.
       setHasAdminPassword(false);

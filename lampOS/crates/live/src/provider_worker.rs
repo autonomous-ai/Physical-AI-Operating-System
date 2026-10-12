@@ -1268,6 +1268,18 @@ impl InputHandoff {
                 ..
             } => {
                 self.require_open(request)?;
+                // Order is decided here, on the clock the capture times were
+                // taken with, and before anything is carried over: a block
+                // captured before its predecessor in the same request is
+                // refused. The instant it would be carried over as cannot
+                // show that. A delay between the two readings below can
+                // carry an earlier time forward as easily as a later one
+                // back, and the transport sees only the instant.
+                if let Some((last_us, _)) = self.submitted.and_then(|submitted| submitted.captured)
+                    && read_completed_at_us < last_us
+                {
+                    return Err(io::Error::other("capture time went backwards").into());
+                }
                 let age = now_us
                     .checked_sub(read_completed_at_us)
                     .map(Duration::from_micros)
@@ -1280,14 +1292,12 @@ impl InputHandoff {
                 // a moment later, for every block. Whatever passes between
                 // the two readings makes that block seem captured that much
                 // later, so the block after it can seem captured before it,
-                // and the transport refuses that for good. Where the shared
-                // times are in order the instants are kept in order: the
-                // block is given its predecessor's instant, never an earlier
-                // one. Times that really go backwards are passed on as they
-                // are and stay the transport's to refuse.
+                // and the transport refuses that for good. The shared times
+                // are in order, as checked above, so the instants are kept
+                // in order: the block is given its predecessor's instant,
+                // never an earlier one.
                 if let Some(submitted) = self.submitted.as_mut() {
-                    if let Some((last_us, last)) = submitted.captured
-                        && read_completed_at_us >= last_us
+                    if let Some((_, last)) = submitted.captured
                         && captured < last
                     {
                         captured = last;
@@ -1720,13 +1730,76 @@ mod tests {
                 captured[0] - captured[1]
             );
         }
-        // A capture time that really is earlier is passed on as it is:
-        // refusing that stays with the transport.
+        // A capture time that really is earlier has nothing to do with the
+        // two readings. It is refused on the shared clock, and nothing of
+        // it is handed over.
+        assert!(
+            handoff
+                .submit(block(3, NOW - 100_000, &handoff), NOW + 50_000, &sink)
+                .is_err()
+        );
+        assert_eq!(sink.captured.borrow().len(), 2);
+    }
+
+    /// Positive controls for the refusal below. Order is decided on the
+    /// shared clock, within one request: the same time twice is in order; a
+    /// refusal hands nothing over and remembers nothing; and a newer request
+    /// begins its own order, so an opening it kept from before the older
+    /// request's last block is accepted.
+    #[test]
+    fn capture_order_is_decided_per_request_and_a_refusal_changes_nothing() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let sink = RecordingSink::default();
+        let old = authorize(&mut owner, &mut handoff);
+        handoff.submit(start(old, &handoff), NOW, &sink).unwrap();
+        let block = |request, sequence, read_completed_at_us, handoff: &InputHandoff| {
+            ProviderInput::Audio {
+                request,
+                privacy_generation: generation(handoff),
+                sequence,
+                read_completed_at_us,
+                samples: vec![1; 160],
+            }
+        };
         handoff
-            .submit(block(3, NOW - 100_000, &handoff), NOW + 50_000, &sink)
+            .submit(block(old, 1, NOW - 5_000, &handoff), NOW, &sink)
             .unwrap();
-        let captured = sink.captured.borrow();
-        assert!(captured[2] < captured[1]);
+        // The same shared time again is not earlier.
+        handoff
+            .submit(block(old, 2, NOW - 5_000, &handoff), NOW, &sink)
+            .unwrap();
+        let kept = handoff.submitted.unwrap().captured;
+        assert_eq!(kept.map(|(at_us, _)| at_us), Some(NOW - 5_000));
+        {
+            let captured = sink.captured.borrow();
+            assert!(captured[1] >= captured[0]);
+        }
+        // One microsecond earlier, with no delay anywhere: refused by name.
+        let calls = sink.calls.borrow().len();
+        let error = handoff
+            .submit(block(old, 3, NOW - 5_001, &handoff), NOW, &sink)
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("capture time went backwards"),
+            "{error}"
+        );
+        assert_eq!(sink.calls.borrow().len(), calls);
+        assert_eq!(sink.captured.borrow().len(), 2);
+        assert_eq!(handoff.submitted.unwrap().captured, kept);
+        // A newer request: its first block was captured before the older
+        // request's last, and that is its own affair.
+        let new = authorize(&mut owner, &mut handoff);
+        handoff.synchronize(&sink).unwrap();
+        handoff.submit(start(new, &handoff), NOW, &sink).unwrap();
+        handoff
+            .submit(block(new, 1, NOW - 50_000, &handoff), NOW, &sink)
+            .unwrap();
+        assert_eq!(sink.captured.borrow().len(), 3);
+        assert_eq!(
+            handoff.submitted.unwrap().captured.map(|(at_us, _)| at_us),
+            Some(NOW - 50_000)
+        );
     }
 
     #[test]

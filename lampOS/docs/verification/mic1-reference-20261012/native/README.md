@@ -86,5 +86,6 @@ The detector scores no block.
 - Nothing here says anything about `mic2`, whose path this change does not
   touch.
 
-`inputs.sha256`: digests of the bundle files read. `scripts/`: what
-produced the tables.
+`inputs.sha256`: digests of the bundle files read. The scripts that
+produced the tables are kept outside the repository; their digests are in
+`../scripts.sha256`.

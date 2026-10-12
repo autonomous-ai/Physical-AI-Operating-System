@@ -190,6 +190,6 @@ One recording. It is not a conversation and qualifies no interruption.
 | `mic1-lab-hold{0,3,4}-pair.json` | the comparison run on the replay's output |
 | `inputs.sha256` | digests of the bundle files, clips and lab binary used |
 | `native/` | the run on the lamp with the hold against the baseline: tables, per-row timing, digests |
-| `scripts/` | what produced them; `scripts/analyse_run.sh` names the order |
+| `scripts.sha256` | digests of the analysis scripts that produced them. The scripts are Python and shell and are kept outside the repository, which holds Rust only under `lampOS/`: `/private/tmp/lamp-a1-analysis-scripts-20261012T0714Z-myLgKO` on the office host |
 
 The bundles are local recordings and are not in the repository.

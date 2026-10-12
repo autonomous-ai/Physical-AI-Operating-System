@@ -5,7 +5,7 @@ is the status of one task: your request of 2026-10-12, after the
 fixed-source microphone pair, for a `mic1` reference-timing correction as
 a separate proposal on `675c71c62`. My other branches are as they were.
 
-- Updated: 2026-10-12, 07:05 UTC
+- Updated: 2026-10-12, 07:14 UTC
 - **The canceller on `mic1` was given each render block after its echo.**
   The capture-clocked reference keeps five blocks of render in hand;
   `mic1` has the sound back two capture blocks before that render reaches
@@ -22,8 +22,10 @@ a separate proposal on `675c71c62`. My other branches are as they were.
   after its own read; the clip over the lamp still not scored.
   `docs/verification/mic1-reference-20261012/native/README.md`.
 
-Evidence, numbers, limits and scripts:
-`lampOS/docs/verification/mic1-reference-20261012/README.md`.
+Evidence, numbers and limits:
+`lampOS/docs/verification/mic1-reference-20261012/README.md`. The analysis
+scripts are not in the repository (Rust only under `lampOS/`); their
+digests are in `scripts.sha256` there.
 
 ## Commits
 

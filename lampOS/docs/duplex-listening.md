@@ -6,8 +6,50 @@ reference, both opt-in, on `lamp-a1-duplex`. Code:
 `crates/live/src/{turn_taking,reference,audio_workers}.rs`, and one commit
 of changes proposed to Main's coordinator, admission, options and wire.
 
-Everything below was measured on recordings, in tests or under emulation.
-**Nothing here has run on a lamp.** No default changes.
+The proposal, from "Answer" on, was measured on recordings, in tests or
+under emulation before anything ran on a lamp, and is kept as written.
+Since 2026-10-12 the mode runs on lamp-4ace, and what that showed and
+changed is in the next section and in the dated subsections of "The
+decision". No default changes: the mode is still chosen by flag.
+
+## On lamp-4ace, 2026-10-12 and 13
+
+`lamp-live serve … --turn-taking duplex --microphone mic2 --reference-clock
+capture`, with played prompts from another machine's loudspeakers a metre
+away unless a line says otherwise. One evening, one room, one lamp.
+
+- **It stops for a person speaking over it in about six of ten tries and
+  then takes what they said.** Ten batches of ten played cut-ins, each
+  four seconds into a story: 4 to 8 stopped for per batch. Whenever the
+  words came through, the lamp answered them. A lone "Stop." is usually
+  not heard at all. In the one recording of a person speaking over this
+  lamp, replayed through the lab, the rule in force would have stopped it
+  0.25 s after they began.
+- **It rarely stops for its own voice now.** Over 24 ordinary replies each
+  time: 4 pauses at first, 2 once the head kept still and the lamp's own
+  first word was no longer read as a person, 1 with a longer run asked for
+  in a reply's first second. Each is a pause of about 0.7 s and nothing of
+  the reply is lost. One became an interruption, once, before the last two
+  changes: the lamp stopped itself half a second into a story.
+- **What decides a cut-in is the canceller's state, not the rule.** In a
+  recorded session with a still head the canceller took the lamp's voice
+  down by 60 to 72 dB and a played "Lamp, stop." passed through it
+  untouched. In ordinary running the detector often scores a played voice
+  near zero for as long as the lamp is loud, and nothing downstream can
+  count what is not there.
+- **What changed on the way**, each with its reason below: seven blocks to
+  yield and ten in a reply's first second ("Seven blocks", "The first
+  second of a reply"); nothing read into a block until the lamp's own
+  sound has been matched recently ("The first moments of a reply"); a
+  short word heard plainly is an interruption ("A short word, heard
+  plainly"); an utterance stays open while the lamp has stopped for it
+  (under "The decision"; it was a crash); a longer wait before going on
+  (item 3 there); and a record of every block in the trace ("What was
+  heard, block by block").
+- **What the next reply says is the model's.** See "After the
+  interruption" and [character.md](character.md).
+- **Not known:** how a person at the lamp fares. Every count above but one
+  is a loudspeaker.
 
 ## Answer
 

@@ -1,14 +1,30 @@
 # Main agent status
 
 - Protocol: `harness-messages-and-git-v4`
-- Updated: 2026-10-12 05:19 UTC
+- Updated: 2026-10-12 05:52 UTC
 - Branch: `lamp-v2-chat`
 - Latest native evidence: the next ordinary run completed two replies, then an unplanned input withheld prompt three and stopped the plan. Estimated response delay 2.475 s (two samples, acoustic timing unscored). A separate grouped mic2 gain/AGC trial interrupted the answer but lost the coffee request's opening; later extra input ended it. USB disconnect was recorded near shutdown, with distinct source and journal receipt timestamps; its cause remains unresolved; separate verified recovery restored the original settings and stationary muted legacy. [Exact failed cohorts and recovery](../docs/verification/pilot-readiness-20261012/README.md). No new pilot acceptance or full V2 readiness claim.
 - Runner: A2 startup correction through `32ca80f61` plus Main's per-cue decision clock is integrated at `368e770da`. Format, strict package Clippy, 39 focused tests and release build pass; [verification](../docs/verification/serve-startup-clock-20261012/README.md). Native use is still pending.
-- Agent Messages: latest `harness send --json` checks return `DIRECTORY_UNAVAILABLE`. Routine messages were not delivered; Main has not reverted to tmux or asked the owner to relay.
+- Agent Messages: both A1 on office and A2 on M2 are reachable through `harness send`; queued work was delivered and A1 returned the microphone ARM build through that route. No tmux injection or owner relay.
 - Integration source: motor/live supervision `605ebce7e` plus bounded continuation/discard `7a0684b2a` (exact reviewed A1 source through `4d40fff3d`). The final composed candidate was deployed for the finite trial below; it is not the continuously running default. The completed trial restored stationary muted legacy.
 - Source-clock correction: exact A1 four-file delta through `da9891f7e` is integrated after independent red/green review; six focused controls and strict library Clippy pass. A2 serve-runner is integrated at `a921fa5f1`; finite head caller and motor failure reporting are committed through `a9cae6d17`. The final focused ARM gate passed. The first native stage stopped on an old ALSA configuration pin before service changes; reviewed administrative corrections precede a fresh attempt.
 - Pilot target: approximately 2026-10-12 02:24 UTC, following the owner's new three-hour deadline. Root owns camera/body and physical qualification, Agent 1 owns interruption/abandonment reliability, and Agent 2 owns the reusable long-session runner. Current limitations remain explicit; the deadline is not evidence of acceptance.
+
+## Current microphone comparison
+
+The owner deferred manual interaction and asked development to continue.
+The temporary stationary chat run was stopped and restored; it contained one
+unplanned, unattributed input and answer, not a completed manual test. Its
+600-second room recording remains invalid (one clipped sample) and unscored;
+all originals are cached. Final legacy mic/speaker mute was verified after
+startup mute reassertion; uninterrupted privacy is not claimed.
+
+The [explicit microphone selector](../docs/verification/microphone-choice-20261012/README.md)
+has passed focused host and emulated ARM checks. Default mic2, gains, AEC and
+turn-taking are unchanged. Main is preparing a fixed-source mic1/mic2 comparison
+with independent room recording and no cloud generation. A1 continues audio
+onset/admission analysis; A2 owns evaluator corrections followed by the isolated
+endpoint pilot proposal. This is not a readiness or microphone-quality claim.
 
 ## Fresh native failures and testing priority
 

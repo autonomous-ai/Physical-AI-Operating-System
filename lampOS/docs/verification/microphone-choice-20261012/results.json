@@ -1,0 +1,205 @@
+{
+  "scope": "Explicit capture microphone selection; default mic2 unchanged",
+  "base_commit": "813ebf61f0712b896aa4de56e75919099d09bfed",
+  "source_manifest_sha256": "114063ae5789fa0d5760f81515f45beb548162dda7be87ab972dc8b456743abb",
+  "source_files": 482,
+  "host_gate": {
+    "status": "failed",
+    "stages": [
+      {
+        "name": "fmt",
+        "exit": 0,
+        "seconds": 2.186872653197497,
+        "counts": []
+      },
+      {
+        "name": "clippy",
+        "exit": 0,
+        "seconds": 23.881105238571763,
+        "counts": []
+      },
+      {
+        "name": "live_options",
+        "exit": 0,
+        "seconds": 25.688887218013406,
+        "counts": [
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      {
+        "name": "relay_options",
+        "exit": 0,
+        "seconds": 16.22749437065795,
+        "counts": [
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      }
+    ],
+    "error": "zero tests"
+  },
+  "host_corrected_selector": {
+    "source_manifest_sha256": "114063ae5789fa0d5760f81515f45beb548162dda7be87ab972dc8b456743abb",
+    "command": [
+      "/Users/autonomous/.cargo/bin/cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-j2",
+      "-p",
+      "lamp-voice-eval",
+      "--lib",
+      "runtime_flag_tests",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit": 0,
+    "seconds": 29.122727358248085,
+    "counts": [
+      {
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0
+      }
+    ],
+    "prior_gate": "gate.json remains failed because its relay selector matched zero; code was unchanged",
+    "verified": true
+  },
+  "arm_receipt_sha256": "5a25e719c657e431dce80d448ff259261d24afae46d27a35ec51b90904772d2a",
+  "arm_steps": [
+    {
+      "step": "fetch",
+      "command": "cargo fetch --locked --target aarch64-unknown-linux-gnu",
+      "started_utc": "05:43:37Z",
+      "ended_utc": "05:43:37Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/fetch.out"
+    },
+    {
+      "step": "clean_workspace_release",
+      "command": "cargo clean --locked --offline --target aarch64-unknown-linux-gnu --release -p lamp-audio -p lamp-camera -p lamp-acoustic -p lamp-live -p lamp-gemini -p lamp-interaction -p lamp-ring -p lamp-ipc -p lamp-environment -p lamp-voice-eval -p lamp-observer -p lamp-motor",
+      "started_utc": "05:43:37Z",
+      "ended_utc": "05:43:37Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/clean_workspace_release.out"
+    },
+    {
+      "step": "clean_workspace_dev",
+      "command": "cargo clean --locked --offline --target aarch64-unknown-linux-gnu -p lamp-audio -p lamp-camera -p lamp-acoustic -p lamp-live -p lamp-gemini -p lamp-interaction -p lamp-ring -p lamp-ipc -p lamp-environment -p lamp-voice-eval -p lamp-observer -p lamp-motor",
+      "started_utc": "05:43:37Z",
+      "ended_utc": "05:43:37Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/clean_workspace_dev.out"
+    },
+    {
+      "step": "fmt",
+      "command": "cargo fmt --all -- --check",
+      "started_utc": "05:43:37Z",
+      "ended_utc": "05:43:39Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/fmt.out"
+    },
+    {
+      "step": "release_build",
+      "command": "cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval --bins --target aarch64-unknown-linux-gnu",
+      "started_utc": "05:43:39Z",
+      "ended_utc": "05:44:53Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/release_build.out"
+    },
+    {
+      "step": "clippy",
+      "command": "cargo clippy --locked --offline -p lamp-live -p lamp-voice-eval --all-targets --target aarch64-unknown-linux-gnu -- -D warnings",
+      "started_utc": "05:44:53Z",
+      "ended_utc": "05:45:12Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/clippy.out"
+    },
+    {
+      "step": "live_options",
+      "command": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-live --lib -- options --test-threads=1",
+      "started_utc": "05:45:12Z",
+      "ended_utc": "05:46:00Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/live_options.out",
+      "tests": {
+        "passed": 21,
+        "failed": 0,
+        "ignored": 0,
+        "result_lines": 1
+      }
+    },
+    {
+      "step": "eval_runtime_flag_tests",
+      "command": "cargo test --locked --offline --release --target aarch64-unknown-linux-gnu -p lamp-voice-eval --lib -- runtime_flag_tests --test-threads=1",
+      "started_utc": "05:46:00Z",
+      "ended_utc": "05:46:15Z",
+      "exit": 0,
+      "verdict": "PASS",
+      "output": "logs/eval_runtime_flag_tests.out",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "result_lines": 1
+      }
+    }
+  ],
+  "arm_source": {
+    "path": "/private/tmp/lamp-microphone-choice-5tt9bzfa/source",
+    "manifest": "/private/tmp/lamp-microphone-choice-5tt9bzfa/source-manifest.json",
+    "manifest_sha256": "114063ae5789fa0d5760f81515f45beb548162dda7be87ab972dc8b456743abb",
+    "files": 482,
+    "exact_before": true,
+    "exact_after": true,
+    "after_missing": [],
+    "after_extra": [],
+    "after_changed": [],
+    "generated_directory_not_checked": "lampOS/target/",
+    "files_in_generated_directory_before": 8667,
+    "files_in_generated_directory_after": 8871,
+    "mounted": "read-only at /src"
+  },
+  "installation": {
+    "exit": 0,
+    "seconds": 0.7786153168417513,
+    "receipt": {
+      "installed_new": true,
+      "path": "/opt/lampOS/releases/14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e/lamp-live",
+      "bytes": 9502808,
+      "sha256": "14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e",
+      "verified": true,
+      "runtime_started": false,
+      "service_changed": false
+    }
+  },
+  "native_microphone_comparison": "pending",
+  "acoustic_latency_ms": null,
+  "human_listened": false,
+  "binaries": [
+    {
+      "name": "lamp-live",
+      "bytes": 9502808,
+      "sha256": "14fca820910eb725eece1b082f98fa3d63aaf1eef0301319d8d909a3f4c8941e"
+    },
+    {
+      "name": "lamp-voice-eval",
+      "bytes": 4324104,
+      "sha256": "2c1b4aeaa3da224d1e19d25ef92bfddaff57591ac108c32f1d72c1e854256be3"
+    }
+  ]
+}

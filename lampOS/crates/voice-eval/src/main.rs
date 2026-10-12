@@ -689,6 +689,8 @@ struct PhysicalFile {
     /// lamp-live runtime policy, forwarded unchanged when set (`directed` and
     /// serve only): for example the installed pilot's `v1-baseline` or `duplex`.
     #[serde(default)]
+    microphone: Option<String>,
+    #[serde(default)]
     turn_taking: Option<String>,
     #[serde(default)]
     reference_clock: Option<String>,
@@ -713,6 +715,7 @@ impl PhysicalFile {
         let mut flags = RuntimeFlags::default();
         let playout = self.playout_start_ms.map(|ms| ms.to_string());
         for (flag, value) in [
+            ("--microphone", &self.microphone),
             ("--turn-taking", &self.turn_taking),
             ("--reference-clock", &self.reference_clock),
             ("--reference-recovery", &self.reference_recovery),

@@ -56,6 +56,40 @@ pub struct SoftwareProcessing {
     noise_suppression: bool,
 }
 
+/// Explicit Lamp input role. Selecting a source changes only the capture PCM;
+/// it does not change mixer gains, processing, authority or the speaker route.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Microphone {
+    Mic1,
+    #[default]
+    Mic2,
+}
+impl Microphone {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mic1 => "mic1",
+            Self::Mic2 => "mic2",
+        }
+    }
+    pub fn device(self) -> &'static str {
+        match self {
+            Self::Mic1 => "plug:device_micro1",
+            Self::Mic2 => "plug:device_micro2",
+        }
+    }
+}
+impl FromStr for Microphone {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "mic1" => Ok(Self::Mic1),
+            "mic2" => Ok(Self::Mic2),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 /// Admission experiment only; neither mode identifies a person or addressee.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -196,6 +230,7 @@ impl FromStr for ReferenceRecovery {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
+    pub microphone: Microphone,
     pub playout_start: PlayoutStart,
     pub turn_taking: TurnTaking,
     pub reference_clock: ReferenceClock,
@@ -209,6 +244,21 @@ pub struct DirectedOptions {
     pub ring_channel_ceiling: Option<u16>,
 }
 impl DirectedOptions {
+    /// Used directly by the real capture-worker spawn path. The default keeps
+    /// its exact previous device and arguments; no extra process or I/O.
+    pub fn capture_arguments(
+        self,
+        diagnostic_directory: Option<PathBuf>,
+    ) -> io::Result<Vec<String>> {
+        AudioWorkerOptions {
+            diagnostic_directory,
+            noise_suppression: self.noise_suppression,
+            reference_clock: self.reference_clock,
+            reference_recovery: self.reference_recovery,
+        }
+        .child_arguments(self.microphone.device(), true)
+    }
+
     pub fn parse(arguments: &[String]) -> io::Result<Self> {
         let mut options = Self::default();
         let mut noise_seen = false;
@@ -217,9 +267,14 @@ impl DirectedOptions {
         let mut reference_seen = false;
         let mut recovery_seen = false;
         let mut continuation_seen = false;
+        let mut microphone_seen = false;
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
+                "--microphone" if !microphone_seen => {
+                    options.microphone = required_value(&mut arguments)?.parse()?;
+                    microphone_seen = true;
+                }
                 "--diagnostics" if !options.diagnostics => options.diagnostics = true,
                 "--playout-start-ms" if !playout_seen => {
                     options.playout_start = required_value(&mut arguments)?.parse()?;
@@ -534,6 +589,62 @@ mod tests {
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()
     }
+    #[test]
+    fn microphone_selection_reaches_the_capture_spawn_without_changing_processing() {
+        let default = DirectedOptions::default().capture_arguments(None).unwrap();
+        assert_eq!(default, ["plug:device_micro2", "--noise-suppression", "on"]);
+        for (name, device) in [
+            ("mic1", "plug:device_micro1"),
+            ("mic2", "plug:device_micro2"),
+        ] {
+            let chosen = SessionOptions::parse(&args(&[
+                "--microphone",
+                name,
+                "--turn-taking",
+                "duplex",
+                "--noise-suppression",
+                "off",
+                "--reference-clock",
+                "capture",
+                "--reference-recovery",
+                "bounded",
+            ]))
+            .unwrap();
+            chosen.validate_serve().unwrap();
+            assert_eq!(
+                chosen
+                    .directed
+                    .capture_arguments(Some(PathBuf::from("/tmp/mic diagnostic")))
+                    .unwrap(),
+                [
+                    device,
+                    "--noise-suppression",
+                    "off",
+                    "--reference-clock",
+                    "capture",
+                    "--reference-recovery",
+                    "bounded",
+                    "--diagnostics",
+                    "/tmp/mic diagnostic"
+                ]
+            );
+            assert_eq!(
+                serde_json::to_value(chosen.directed.microphone).unwrap(),
+                name
+            );
+        }
+        for flags in [
+            vec!["--microphone"],
+            vec!["--microphone", "mic3"],
+            vec!["--microphone", "MIC1"],
+            vec!["--microphone", "hw:0"],
+            vec!["--microphone", "mic1", "--microphone", "mic2"],
+            vec!["--microphone", "mic2", "--microphone", "mic2"],
+        ] {
+            assert!(SessionOptions::parse(&args(&flags)).is_err(), "{flags:?}");
+        }
+    }
+
     #[test]
     fn service_rejects_raw_recording_but_preserves_explicit_audio_camera_ring_options() {
         assert!(SessionOptions::default().validate_serve().is_ok());
@@ -1044,6 +1155,7 @@ mod tests {
                 assert_eq!(
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
+                        microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
                         reference_clock: ReferenceClock::Fixed,

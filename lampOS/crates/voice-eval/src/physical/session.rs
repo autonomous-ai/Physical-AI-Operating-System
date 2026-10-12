@@ -33,7 +33,9 @@ use crate::{
 };
 use lamp_ipc::monotonic_us;
 use lamp_live::{
-    options::{DirectedOptions, PlayoutStart, ReferenceClock, ReferenceRecovery, TurnTaking},
+    options::{
+        DirectedOptions, Microphone, PlayoutStart, ReferenceClock, ReferenceRecovery, TurnTaking,
+    },
     provider_worker::Continuation,
 };
 use serde_json::Value;
@@ -68,6 +70,7 @@ pub enum SessionMode {
 /// so the runtime keeps its own default and the child argv is unchanged.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RuntimeFlags {
+    pub microphone: Option<Microphone>,
     pub turn_taking: Option<TurnTaking>,
     pub reference_clock: Option<ReferenceClock>,
     pub reference_recovery: Option<ReferenceRecovery>,
@@ -87,6 +90,11 @@ impl RuntimeFlags {
         }
         let bad = || invalid(&format!("invalid {flag} value {value:?}"));
         match flag {
+            "--microphone" => set(
+                &mut self.microphone,
+                value.parse().map_err(|_| bad())?,
+                flag,
+            )?,
             "--turn-taking" => set(
                 &mut self.turn_taking,
                 value.parse().map_err(|_| bad())?,
@@ -128,6 +136,9 @@ impl RuntimeFlags {
     pub fn argv(&self) -> Vec<String> {
         let mut argv = Vec::new();
         let mut push = |flag: &str, value: &str| argv.extend([flag.to_owned(), value.to_owned()]);
+        if let Some(microphone) = self.microphone {
+            push("--microphone", microphone.as_str());
+        }
         if let Some(policy) = self.turn_taking {
             push(
                 "--turn-taking",
@@ -1282,6 +1293,24 @@ mod runtime_flag_tests {
         "--noise-suppression",
         "off",
     ];
+
+    #[test]
+    fn microphone_flag_is_typed_forwarded_and_rejects_duplicates() {
+        for name in ["mic1", "mic2"] {
+            let mut flags = RuntimeFlags::default();
+            assert!(flags.take("--microphone", name).unwrap());
+            flags.validate("off", Some(12), false).unwrap();
+            let argv = flags.argv();
+            assert_eq!(argv, ["--microphone", name]);
+            let parsed = DirectedOptions::parse(&argv).unwrap();
+            assert_eq!(parsed.microphone.as_str(), name);
+            assert!(flags.take("--microphone", name).is_err());
+        }
+        let mut flags = RuntimeFlags::default();
+        assert!(flags.take("--microphone", "hw:0").is_err());
+        assert!(flags.is_empty());
+        assert!(flags.argv().is_empty());
+    }
 
     #[test]
     fn omitted_runtime_flags_leave_every_child_argv_unchanged() {

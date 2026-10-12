@@ -302,3 +302,11 @@ each member of a held startup batch. A pause between decisions cannot let a late
 cue reuse an earlier freshness result. Original event, relay and runner receipt
 times remain unchanged; a deterministic two-cue regression crosses the second
 expiry and refuses readiness.
+
+## Microphone comparison option
+
+The physical configuration can set `"microphone": "mic1"` to forward the typed
+`--microphone mic1` option to lamp-live. Omission leaves the original command
+unchanged and uses its mic2 default. No mixer is changed by the runner. Use an
+independent room recorder, retain the selected role in the report, and keep this
+cohort separate from mic2 and direct-human results. See [microphone topology](microphone-topology.md).

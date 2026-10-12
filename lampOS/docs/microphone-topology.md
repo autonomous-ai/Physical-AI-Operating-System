@@ -35,6 +35,31 @@ also identifies dual microphones and voice enhancement/noise reduction.
 Those claims and the BOM do not identify the fitted board's firmware or verify
 its active processing mode. Do not apply another board's advertised functions.
 
+## Explicit microphone comparison
+
+`lamp-live directed` and `serve` accept `--microphone mic1|mic2`. The default
+is still `mic2` (`plug:device_micro2`, Jieli). An explicit `mic1` selects
+`plug:device_micro1` (C-Media capture); it does not change the speaker route,
+mixer gain, AGC, software AEC, privacy checks, reference policy or turn-taking.
+The option adds no processing stage, device probe, polling or startup delay.
+Worker startup uses the selected capture device directly and session metadata
+records both the requested microphone and named PCM. Those names depend on the
+board's installed ALSA routing; they are not proof of a USB device identity.
+
+The physical voice-eval configuration accepts `"microphone": "mic1"` or `"mic2"`
+and passes it through the relay's typed `--microphone` option. Omission preserves
+the original child arguments. Unknown and repeated values are refused before
+starting a child. Fixture runtime-option forwarding retains its existing refusal.
+
+This is an opt-in hardware diagnostic, not a new recommended default. Before a
+mic1 run, verify its device mapping and exclusive ownership: the same capture
+endpoint cannot also be the ambient observer. Use the independent iMac recorder
+for that comparison. Keep mic1 and mic2 cohorts separate, retain the full request
+prefix and response, and record actual gains and processing. The first native
+checks must cover startup, mic/speaker continuity, privacy closure and echo during
+overlap. Compare speech-end to first audible reply on retained room audio; the
+selection alone establishes neither latency nor speech-quality improvement.
+
 ## Echo cancellation is still unqualified
 
 The team reports echo cancellation and beamforming as well as environmental
@@ -63,8 +88,9 @@ output after lampOS processing. Record mixer/AGC and any verified firmware modes
 with both files. A clean-looking silent waveform can reflect suppression or a
 noise gate, not a quiet room or successful speech preservation.
 
-Keep the conversation input on Jieli for the current stationary pilots. Retain
-mic1 for environmental sensing and the temporary continuous benchmark observer.
+Keep the conversation input on Jieli by default for current stationary pilots.
+Outside an explicit mic1 comparison, retain mic1 for environmental sensing and
+the temporary continuous benchmark observer.
 The observer shares Lamp's host and C-Media card with playback; it is not an
 external microphone. Environmental levels remain uncalibrated digital levels.
 Do not treat independent Jieli and C-Media USB clocks as a synchronized array.

@@ -788,6 +788,8 @@ fn run_source(
         "ring_channel_ceiling_requested":options.ring_channel_ceiling,
         "camera_context_requested":camera_config.is_some(),
         "motor_worker_requested":motor_options.is_some(),
+        "microphone":options.microphone,
+        "capture_device_requested":options.microphone.device(),
         "software_processing_requested":options.noise_suppression.software_processing(),
         "playout_start_horizon_us":options.playout_start.as_micros(),
         "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
@@ -1574,13 +1576,8 @@ fn spawn_rig(
         || termination.check(),
     )?;
     let mut last = 0;
-    let capture_arguments = AudioWorkerOptions {
-        diagnostic_directory: diagnostic_directory.map(|p| p.join("capture-audio")),
-        noise_suppression: options.noise_suppression,
-        reference_clock: options.reference_clock,
-        reference_recovery: options.reference_recovery,
-    }
-    .child_arguments("plug:device_micro2", true)?;
+    let capture_arguments =
+        options.capture_arguments(diagnostic_directory.map(|p| p.join("capture-audio")))?;
     let speaker_arguments = AudioWorkerOptions {
         diagnostic_directory: diagnostic_directory.map(|p| p.join("render-audio")),
         ..AudioWorkerOptions::default()

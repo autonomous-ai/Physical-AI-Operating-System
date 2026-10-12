@@ -1189,6 +1189,9 @@ type ConfigPublicResponse struct {
 	FAChannel                string   `json:"fa_channel"`
 	FDChannel                string   `json:"fd_channel"`
 
+	// CloudPerception is never omitted so the web can render every toggle.
+	CloudPerception config.CloudPerception `json:"cloud_perception"`
+
 	Realtime RealtimePublic `json:"realtime"`
 
 	// Presence booleans replace raw secret values.
@@ -1269,6 +1272,9 @@ type UpdateConfigRequest struct {
 	TTSSpeed       *float64 `json:"tts_speed,omitempty" binding:"omitempty,gte=0.25,lte=4"`
 	WakeWord       *bool    `json:"wakeword,omitempty"`
 	VoiceInputMode *string  `json:"voice_input_mode,omitempty" binding:"omitempty,oneof=automatic tap_to_talk"`
+
+	// CloudPerception replaces all camera cloud opt-ins; omit to leave them unchanged.
+	CloudPerception *config.CloudPerception `json:"cloud_perception,omitempty"`
 
 	// Realtime is the same payload as MQTT realtime.set; omit to leave it unchanged.
 	Realtime *RealtimeSetData `json:"realtime,omitempty"`

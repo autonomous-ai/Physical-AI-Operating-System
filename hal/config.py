@@ -221,7 +221,20 @@ DL_SPEAKER_BACKEND_URL: str = DL_BACKEND_URL.rstrip("/") + "/" + DL_SPEAKER_ENDP
 DL_SER_ENDPOINT: str = os.environ.get("DL_SER_ENDPOINT", "/hal/api/dl/ser/recognize")
 DL_SER_BACKEND_URL: str = DL_BACKEND_URL.rstrip("/") + "/" + DL_SER_ENDPOINT.strip("/") if DL_BACKEND_URL else ""
 
-MOTION_ENABLED = os.environ.get("HAL_MOTION_ENABLED", "true").lower() == "true"
+
+def _cloud_perception_enabled(key: str) -> bool:
+    """Owner opt-in for a camera perception that uploads frames or face crops off the device.
+
+    Only the os-server ``cloud_perception`` setting (web Settings > Privacy) can turn one
+    on. A missing key is off, and env flags are deliberately not consulted: an old
+    default in a device .env is not the owner's consent.
+    """
+    saved = _os_cfg_get("cloud_perception", None)
+    return isinstance(saved, dict) and saved.get(key) is True
+
+
+MOTION_ENABLED = _cloud_perception_enabled("motion")
+# Per-face action recognition is a variant of motion and also uploads; it needs the motion opt-in.
 MOTION_PER_FACE_ENABLED = os.environ.get("HAL_MOTION_PER_FACE_ENABLED", "false").lower() == "true"
 MOTION_PER_FACE_DEDUP_WINDOW_S = float(os.environ.get("HAL_MOTION_PER_FACE_DEDUP_WINDOW_S", "300.0"))
 MOTION_PER_FACE_SESSION_TTL_S = float(os.environ.get("HAL_MOTION_PER_FACE_SESSION_TTL_S", "30.0"))
@@ -248,7 +261,7 @@ MOTION_SNAPSHOT_DIR = os.environ.get(
 )
 MOTION_SNAPSHOT_MAX_COUNT = int(os.environ.get("HAL_MOTION_SNAPSHOT_MAX_COUNT", "100"))
 
-EMOTION_ENABLED = os.environ.get("HAL_EMOTION_ENABLED", "true").lower() == "true"
+EMOTION_ENABLED = _cloud_perception_enabled("emotion")
 EMOTION_CONFIDENCE_THRESHOLD = float(
     os.environ.get("HAL_EMOTION_CONFIDENCE_THRESHOLD", "0.5")
 )
@@ -276,7 +289,7 @@ EMOTION_LOG_DIR = os.environ.get(
 # 0 = unbounded.
 EMOTION_LOG_MAX_TRIGGERS = int(os.environ.get("HAL_EMOTION_LOG_MAX_TRIGGERS", "500"))
 
-FIRE_HAZARD_ENABLED = os.environ.get("HAL_FIRE_HAZARD_ENABLED", "true").lower() == "true"
+FIRE_HAZARD_ENABLED = _cloud_perception_enabled("fire_hazard")
 # Min gap between detection API calls (0 would call OWLv2 every ~2s tick).
 FIRE_HAZARD_CHECK_INTERVAL_S = float(os.environ.get("HAL_FIRE_HAZARD_CHECK_INTERVAL_S", "5.0"))
 FIRE_HAZARD_CONFIDENCE_THRESHOLD = float(os.environ.get("HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD", "0.3"))
@@ -298,7 +311,7 @@ POSE_MOTION_ANGLE_THRESHOLD = float(
     os.environ.get("HAL_POSE_MOTION_ANGLE_THRESHOLD", "30.0")
 )
 
-POSE_ENABLED = os.environ.get("HAL_POSE_ENABLED", "true").lower() == "true"
+POSE_ENABLED = _cloud_perception_enabled("pose")
 POSE_ERGO_HIGH_RISK_THRESHOLD = int(os.environ.get("HAL_POSE_ERGO_HIGH_RISK_THRESHOLD", "5"))
 # Debug values (30 s / 600 s); production is 60 s / 3600 s.
 POSE_SAMPLE_INTERVAL_S = float(os.environ.get("HAL_POSE_SAMPLE_INTERVAL_S", "30.0"))

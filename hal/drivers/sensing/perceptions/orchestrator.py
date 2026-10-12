@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import hal.app_state as app_state
+from hal import config as hal_config
 from hal.drivers.camera.video_capture_device import VideoCaptureDeviceBase
 from hal.drivers.sensing.perceptions.models import (
     PerceptionConfig,
@@ -96,6 +97,8 @@ class PerceptionOrchestrator:
         self._stopped: threading.Event = threading.Event()
         self._main_loop_thread: threading.Thread | None = None
         self._processors: PerceptionProcessors = PerceptionProcessors()
+        self._cloud_lock: threading.Lock = threading.Lock()
+        self._cloud_ready: bool = False
         self._perception_state: PerceptionStateObservers = PerceptionStateObservers()
 
         self._logger: logging.Logger = logging.getLogger(self.__class__.__name__)
@@ -129,49 +132,9 @@ class PerceptionOrchestrator:
                     self._processors.face_recognizer.check
                 )
 
-            if self._config.enable_motion:
-                self._processors.motion_processor = MotionPerception(
-                    perception_state=self._perception_state,
-                    send_event=self._send_event,
-                    presense_service=self._presense_service,
-                )
-                self._perception_state.frame.register(
-                    self._processors.motion_processor.check
-                )
-
-            if self._config.enable_motion_per_face:
-                self._processors.motion_per_face_processor = MotionPerFacePerception(
-                    perception_state=self._perception_state,
-                    send_event=self._send_event,
-                    presense_service=self._presense_service,
-                )
-                self._perception_state.detected_faces.register(
-                    self._processors.motion_per_face_processor.check
-                )
-
-            if self._config.enable_emotion:
-                self._processors.emotion_processor = EmotionPerception(
-                    perception_state=self._perception_state,
-                    send_event=self._send_event,
-                    presense_service=self._presense_service,
-                )
-                self._perception_state.detected_faces.register(
-                    self._processors.emotion_processor.check
-                )
-
-            if self._config.enable_pose:
-                self._processors.pose_processor = PosePerception(
-                    perception_state=self._perception_state,
-                    send_event=self._send_event,
-                    presense_service=self._presense_service,
-                )
-                self._perception_state.frame.register(
-                    self._processors.pose_processor.check
-                )
-                if self._processors.motion_processor is not None:
-                    self._processors.motion_processor.set_pose_perception(
-                        self._processors.pose_processor
-                    )
+            with self._cloud_lock:
+                self._apply_cloud_perception()
+                self._cloud_ready = True
 
             if self._config.enable_light:
                 self._processors.light_processor = LightLevelPerception(
@@ -180,16 +143,6 @@ class PerceptionOrchestrator:
                 )
                 self._perception_state.frame.register(
                     self._processors.light_processor.check
-                )
-
-            if self._config.enable_fire_hazard:
-                self._processors.fire_hazard_processor = FireHazardPerception(
-                    perception_state=self._perception_state,
-                    send_event=self._send_event,
-                    presense_service=self._presense_service,
-                )
-                self._perception_state.frame.register(
-                    self._processors.fire_hazard_processor.check
                 )
 
         if (
@@ -216,6 +169,73 @@ class PerceptionOrchestrator:
                 np is not None,
                 self._sound_device_id,
             )
+
+    def set_cloud_perception(
+        self, *, motion: bool, emotion: bool, pose: bool, fire_hazard: bool
+    ) -> None:
+        """Turn the camera perceptions that upload to the DL backend on or off live.
+
+        Motion, emotion and pose stay off when people perception (the `presence`
+        capability) is disabled, matching the boot-time wiring.
+        """
+        people = self._config.enable_face
+        with self._cloud_lock:
+            self._config.enable_motion = people and motion
+            # HAL_MOTION_PER_FACE_ENABLED picks the per-face variant; it still needs the motion opt-in.
+            self._config.enable_motion_per_face = (
+                self._config.enable_motion and hal_config.MOTION_PER_FACE_ENABLED
+            )
+            self._config.enable_emotion = people and emotion
+            self._config.enable_pose = people and pose
+            self._config.enable_fire_hazard = fire_hazard
+            # Before start(), _register_processors applies the saved flags.
+            if self._cloud_ready:
+                self._apply_cloud_perception()
+
+    def _apply_cloud_perception(self) -> None:
+        """Create or retire each cloud processor to match self._config."""
+        p = self._processors
+        frame = self._perception_state.frame
+        faces = self._perception_state.detected_faces
+        p.motion_processor = self._sync_processor(
+            p.motion_processor, self._config.enable_motion, MotionPerception, frame
+        )
+        p.motion_per_face_processor = self._sync_processor(
+            p.motion_per_face_processor,
+            self._config.enable_motion_per_face,
+            MotionPerFacePerception,
+            faces,
+        )
+        p.emotion_processor = self._sync_processor(
+            p.emotion_processor, self._config.enable_emotion, EmotionPerception, faces
+        )
+        p.pose_processor = self._sync_processor(
+            p.pose_processor, self._config.enable_pose, PosePerception, frame
+        )
+        p.fire_hazard_processor = self._sync_processor(
+            p.fire_hazard_processor, self._config.enable_fire_hazard, FireHazardPerception, frame
+        )
+        if p.motion_processor is not None:
+            p.motion_processor.set_pose_perception(p.pose_processor)
+
+    def _sync_processor(self, current, enabled: bool, cls, observer):
+        if enabled and current is None:
+            processor = cls(
+                perception_state=self._perception_state,
+                send_event=self._send_event,
+                presense_service=self._presense_service,
+            )
+            observer.register(processor.check)
+            self._logger.info("[%s] %s enabled", self.__class__.__name__, cls.__name__)
+            return processor
+        if not enabled and current is not None:
+            # Unregister first so no new frame reaches it; retire() lets an in-flight
+            # upload finish, then closes its connection.
+            observer.unregister(current.check)
+            current.retire()
+            self._logger.info("[%s] %s disabled", self.__class__.__name__, cls.__name__)
+            return None
+        return current
 
     def start(self):
         if self._main_loop_thread is not None:

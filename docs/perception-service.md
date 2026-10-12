@@ -5,6 +5,10 @@ deep-learning models a device's HAL can't run locally (action recognition, facia
 and speech emotion, pose + ergonomics, object detection, speaker embedding) and
 exposes them over WebSocket and HTTP behind an optional encrypting load balancer.
 
+On the device, the camera perceptions that call this backend (motion, facial
+emotion, pose, fire hazard) are opt-in and default off; see
+[Sensing Behavior](../robots/lamp/docs/sensing-behavior.md#cloud-camera-perceptions-are-off-by-default).
+
 This page is the **platform overview** — what the backend is and where it sits.
 The **full reference lives next to the code** in
 [`integrations/perception-service/docs/`](../integrations/perception-service/docs/); schemas, model lists, endpoints and env

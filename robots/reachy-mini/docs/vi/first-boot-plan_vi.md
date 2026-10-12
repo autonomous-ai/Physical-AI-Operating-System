@@ -361,8 +361,6 @@ HAL_CAMERA_AUTO_EXPOSURE=auto
 # có thể cần LIBCAMERA_LOG_LEVELS=ERROR hoặc pipeline gstreamer. Kiểm tra 1.5.
 
 # --- Sensing ---
-HAL_MOTION_ENABLED=true
-HAL_EMOTION_ENABLED=true
 HAL_POSE_MOTION_ENABLED=false         # không bật pose tracking đến khi biết CPU budget
 HAL_MOTION_CONFIDENCE_THRESHOLD=0.4
 HAL_EMOTION_CONFIDENCE_THRESHOLD=0.5

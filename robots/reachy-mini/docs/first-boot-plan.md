@@ -378,8 +378,6 @@ HAL_CAMERA_AUTO_EXPOSURE=auto
 # may need LIBCAMERA_LOG_LEVELS=ERROR or a gstreamer pipeline. Check 1.5.
 
 # --- Sensing ---
-HAL_MOTION_ENABLED=true
-HAL_EMOTION_ENABLED=true
 HAL_POSE_MOTION_ENABLED=false         # no pose tracking until CPU budget known
 HAL_MOTION_CONFIDENCE_THRESHOLD=0.4
 HAL_EMOTION_CONFIDENCE_THRESHOLD=0.5

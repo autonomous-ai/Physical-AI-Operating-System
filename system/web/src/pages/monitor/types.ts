@@ -141,7 +141,7 @@ export interface DisplayEvent extends MonitorEvent {
   _seq: number;
 }
 
-export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:scheduled" | "settings:facebook";
+export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:privacy" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:scheduled" | "settings:facebook";
 
 export type Area = "monitor" | "setting";
 
@@ -172,6 +172,7 @@ const SHORT_TO_SETTING: Record<string, Section> = {
   plugins: "settings:plugins",
   timezone: "settings:timezone",
   led: "settings:led",
+  privacy: "settings:privacy",
   scheduled: "settings:scheduled",
   facebook: "settings:facebook",
 };
@@ -242,6 +243,7 @@ export const NAV: NavEntry[] = [
       { id: "settings:realtime", label: "Realtime",  icon: "⚡" },
       { id: "settings:voice",    label: "My Voice",  icon: "◉" },
       { id: "settings:face",     label: "Face",      icon: "☺", cap: Cap.Vision },
+      { id: "settings:privacy",  label: "Privacy",   icon: "◐", cap: Cap.Vision },
       { id: "settings:channel",  label: "Channels",  icon: "✉" },
       { id: "settings:mqtt",     label: "MQTT",      icon: "⇄" },
       { id: "settings:mcp",      label: "MCP Tools", icon: "⬡" },

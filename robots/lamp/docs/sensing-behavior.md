@@ -207,6 +207,32 @@ is read-only — so clearing them is a filesystem operation.
 
 ---
 
+## Cloud camera perceptions are off by default
+
+Four camera perceptions send image data off the device to the DL backend
+(`DL_BACKEND_URL`, which is `llm_base_url`), so they are **opt-in and default off**.
+The owner turns each one on in web **Settings > Privacy**, saved as `cloud_perception`
+in `config.json` and applied live without a HAL restart
+([os-server.md](../../../docs/os-server.md#cloud-camera-perception)). Only that saved
+setting can turn one on: a missing key is off and env flags are not read, so an old
+default left in a device `.env` never counts as consent (`hal/config.py`
+`_cloud_perception_enabled`). Per-face action recognition (`HAL_MOTION_PER_FACE_ENABLED`)
+also uploads and needs the `motion` opt-in:
+
+| `cloud_perception` key | What leaves the device | When it would send |
+|---|---|---|
+| `motion` | full frames (action recognition WS) | every sensing tick unless presence is `AWAY` |
+| `emotion` | face crops | every tick a face is detected locally |
+| `pose` | full frames (pose/RULA WS) | every sensing tick, no presence gate before sending |
+| `fire_hazard` | full frames (OWLv2) | every `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), no presence gate |
+
+With them off, `motion.activity`, facial emotion, posture nudges and
+`fire_hazard.detected` are not produced. On-device perception (face detection and
+Face ID, presence, gaze, light, sound level) is unaffected. Enabling one is a
+deliberate privacy choice: it uploads frames even when nobody in the room asked
+the lamp for anything. Turning one off unregisters its processor at once; an upload
+already in flight finishes, then its connection closes.
+
 ## Motion
 
 Only large motion is forwarded — small motion is filtered out by HAL and never reaches the agent.

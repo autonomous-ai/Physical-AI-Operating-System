@@ -53,6 +53,7 @@ func (s *Service) GetPublicConfig() domain.ConfigPublicResponse {
 		TTSVoice:                 s.config.TTSVoice,
 		TTSSpeed:                 s.config.GetTTSSpeed(),
 		WakeWord:                 s.config.WakeWordEnabled(),
+		CloudPerception:          s.config.CloudPerceptionSettings(),
 		VoiceInputMode:           s.config.GetVoiceInputMode(),
 		AgentName:                agentName,
 		WakePhrases:              i18n.BuildSupportedVoiceWakeWords(agentName, deviceType),
@@ -122,6 +123,9 @@ type updateChanges struct {
 	tts      bool // voice/provider changed → pushed into the running hal
 	realtime bool // realtime block sent → hal restart
 	channel  bool // messaging channel/tokens changed → re-push into gateway
+
+	// cloudPerception: camera cloud opt-ins changed → pushed into the running hal.
+	cloudPerception bool
 
 	newModel    string
 	newSSID     string
@@ -247,6 +251,12 @@ func applyUpdate(c *config.Config, data domain.UpdateConfigRequest, adminHash st
 	if data.Environment != nil {
 		settings := data.Environment.Clone()
 		c.Environment = &settings
+	}
+
+	if data.CloudPerception != nil {
+		settings := *data.CloudPerception
+		ch.cloudPerception = settings != c.CloudPerceptionSettings()
+		c.CloudPerception = &settings
 	}
 
 	if adminHash != "" {
@@ -587,8 +597,13 @@ func (s *Service) fireConfigSideEffects(ch updateChanges, halHandled bool) {
 		// The wake path already attempted this saved HAL configuration.
 	case ch.halBoot || ch.lang || ch.realtime:
 		s.restartHAL("voice config change")
-	case ch.tts:
-		s.applyTTSConfig(s.config)
+	default:
+		if ch.tts {
+			s.applyTTSConfig(s.config)
+		}
+		if ch.cloudPerception {
+			s.applyCloudPerception()
+		}
 	}
 	// Schedule only after synchronous side effects finish, so their latency
 	// cannot consume the response grace period before the HTTP handler returns.

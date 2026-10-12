@@ -808,6 +808,15 @@ class TTSConfigRequest(BaseModel):
     speed: Optional[float] = None
 
 
+class CloudPerceptionRequest(BaseModel):
+    """Opt-ins for camera perceptions that upload frames or face crops off the device."""
+
+    motion: bool = False
+    emotion: bool = False
+    pose: bool = False
+    fire_hazard: bool = False
+
+
 class VoiceInputModeRequest(BaseModel):
     mode: Literal["automatic", "tap_to_talk"]
     wakeword: bool

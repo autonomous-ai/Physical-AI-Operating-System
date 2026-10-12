@@ -43,9 +43,12 @@ class DataObserver[T]:
 
     def _on_update(self):
         data = self.data
+        # Snapshot: subscriptors can be (un)registered at runtime from another thread.
+        with self._lock:
+            subscriptors = list(self._subscriptors)
 
         if data is not None:
-            for s in self._subscriptors:
+            for s in subscriptors:
                 s(data)
 
     def register(self, subscriptor: Callable[[T], None]):

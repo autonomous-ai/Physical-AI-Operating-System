@@ -205,6 +205,31 @@ Unknown Faces là read-only — nên xoá chúng là thao tác trên filesystem.
 
 ---
 
+## Nhận thức camera qua cloud mặc định tắt
+
+Bốn luồng nhận thức camera gửi dữ liệu ảnh ra khỏi thiết bị tới DL backend
+(`DL_BACKEND_URL`, tức `llm_base_url`), nên chúng là **opt-in và mặc định tắt**.
+Chủ máy bật từng luồng trong web **Settings > Privacy**, lưu thành `cloud_perception`
+trong `config.json` và áp dụng live không cần restart HAL
+([os-server_vi.md](../../../../docs/vi/os-server_vi.md#nhận-thức-camera-qua-cloud)). Chỉ setting
+đã lưu đó mới bật được: thiếu key là tắt và không đọc cờ env, nên default cũ còn sót trong
+`.env` của máy không bao giờ được tính là đồng ý (`hal/config.py`
+`_cloud_perception_enabled`). Nhận dạng hành động theo từng mặt (`HAL_MOTION_PER_FACE_ENABLED`)
+cũng upload và cần opt-in `motion`:
+
+| Key `cloud_perception` | Dữ liệu rời thiết bị | Khi nào sẽ gửi |
+|---|---|---|
+| `motion` | nguyên frame (WS nhận dạng hành động) | mỗi tick sensing trừ khi presence là `AWAY` |
+| `emotion` | ảnh mặt đã cắt | mỗi tick có mặt được phát hiện cục bộ |
+| `pose` | nguyên frame (WS pose/RULA) | mỗi tick sensing, không kiểm tra presence trước khi gửi |
+| `fire_hazard` | nguyên frame (OWLv2) | mỗi `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), không kiểm tra presence |
+
+Khi tắt, `motion.activity`, cảm xúc khuôn mặt, nhắc tư thế và `fire_hazard.detected`
+không được tạo ra. Nhận thức trên thiết bị (dò mặt và Face ID, presence, gaze, ánh
+sáng, mức âm thanh) không bị ảnh hưởng. Bật một cờ là lựa chọn privacy có chủ ý: nó
+gửi frame lên kể cả khi không ai trong phòng gọi đèn. Tắt một luồng thì processor của nó
+bị gỡ ngay; upload đang dở chạy xong rồi kết nối mới đóng.
+
 ## Chuyển động (Motion)
 
 Chỉ chuyển động lớn được forward — HAL lọc và không gửi chuyển động nhỏ lên Go.

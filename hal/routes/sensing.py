@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 import hal.app_state as state
 from hal import config
 from hal.models import (
+    CloudPerceptionRequest,
     FaceEnrollRequest,
     FaceEnrollResponse,
     FaceOwnersDetailResponse,
@@ -200,6 +201,27 @@ def get_pose_bucket_image(bucket_id: str, filename: str):
     except OSError as e:
         raise HTTPException(500, f"read failed: {e}") from e
     return Response(content=data, media_type="image/jpeg")
+
+
+@router.post("/sensing/cloud-perception", response_model=StatusResponse, tags=["Sensing"])
+def set_cloud_perception(req: CloudPerceptionRequest):
+    """Apply the cloud camera perception opt-ins live, without restarting HAL.
+
+    os-server persists the same values in config.json, which HAL reads at boot.
+    """
+    config.MOTION_ENABLED = req.motion
+    config.EMOTION_ENABLED = req.emotion
+    config.POSE_ENABLED = req.pose
+    config.FIRE_HAZARD_ENABLED = req.fire_hazard
+    if state.sensing_service is not None:
+        try:
+            state.sensing_service.set_cloud_perception(
+                motion=req.motion, emotion=req.emotion, pose=req.pose, fire_hazard=req.fire_hazard
+            )
+        except Exception as error:
+            logger.exception("Cloud perception update failed")
+            raise HTTPException(503, f"Failed to apply cloud perception: {error}") from error
+    return {"status": "ok"}
 
 
 @router.get("/presence", response_model=PresenceResponse, tags=["Presence"])

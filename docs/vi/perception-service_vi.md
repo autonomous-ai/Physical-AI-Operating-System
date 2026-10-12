@@ -5,6 +5,10 @@ hình deep-learning mà HAL trên thiết bị không chạy nổi cục bộ (n
 cảm xúc khuôn mặt và giọng nói, tư thế + công thái học, phát hiện vật thể, embedding
 người nói) và expose qua WebSocket và HTTP, phía sau một load balancer mã hóa tùy chọn.
 
+Trên thiết bị, các luồng nhận thức camera gọi backend này (motion, cảm xúc khuôn
+mặt, pose, fire hazard) là opt-in và mặc định tắt; xem
+[Hành vi Cảm nhận](../../robots/lamp/docs/vi/sensing-behavior_vi.md#nhận-thức-camera-qua-cloud-mặc-định-tắt).
+
 Trang này là **tổng quan nền tảng** — backend là gì và nằm ở đâu. **Tài liệu đầy đủ
 nằm cạnh code** trong [`integrations/perception-service/docs/`](../../integrations/perception-service/docs/); schema, danh sách
 model, endpoint và biến môi trường để ở đó, không để ở đây.

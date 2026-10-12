@@ -194,6 +194,10 @@ type Config struct {
 	WakeWord       *bool  `json:"wakeword,omitempty" yaml:"wakeword"`
 	VoiceInputMode string `json:"voice_input_mode,omitempty" yaml:"voice_input_mode"`
 
+	// CloudPerception opts into camera perceptions that upload frames or face
+	// crops to the DL backend. Unset means all off; HAL reads it at boot.
+	CloudPerception *CloudPerception `json:"cloud_perception,omitempty" yaml:"cloud_perception"`
+
 	OpenclawConfigDir string `json:"openclaw_config_dir" yaml:"openclawConfigDir"`
 
 	NetworkSSID     string `json:"network_ssid" yaml:"networkSSID" validate:"required"`
@@ -698,4 +702,21 @@ func (c *Config) GetTTSSpeed() float64 {
 		return 1.2
 	}
 	return math.Max(0.25, math.Min(4.0, speed))
+}
+
+// CloudPerception holds one opt-in per camera perception that sends image data
+// off the device. Each key overrides the matching HAL_*_ENABLED env flag.
+type CloudPerception struct {
+	Motion     bool `json:"motion" yaml:"motion"`
+	Emotion    bool `json:"emotion" yaml:"emotion"`
+	Pose       bool `json:"pose" yaml:"pose"`
+	FireHazard bool `json:"fire_hazard" yaml:"fire_hazard"`
+}
+
+// CloudPerceptionSettings returns the saved opt-ins; unset means all off.
+func (c *Config) CloudPerceptionSettings() CloudPerception {
+	if c.CloudPerception == nil {
+		return CloudPerception{}
+	}
+	return *c.CloudPerception
 }

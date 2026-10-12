@@ -95,7 +95,9 @@ class SensingService:
                 # capability — ML over the camera via perception-service.
                 enable_face=enable_people_perception,
                 enable_motion=enable_people_perception and config.MOTION_ENABLED,
-                enable_motion_per_face=enable_people_perception and config.MOTION_PER_FACE_ENABLED,
+                enable_motion_per_face=(
+                    enable_people_perception and config.MOTION_ENABLED and config.MOTION_PER_FACE_ENABLED
+                ),
                 enable_emotion=enable_people_perception and config.EMOTION_ENABLED,
                 # Pose/ergonomics reads the USER's body posture — people perception too
                 # (the physical axis of `presence`, via the camera).
@@ -126,6 +128,13 @@ class SensingService:
     @property
     def presence(self) -> PresenseService:
         return self._presense_service
+
+    def set_cloud_perception(
+        self, *, motion: bool, emotion: bool, pose: bool, fire_hazard: bool
+    ) -> None:
+        self._perception_orchestrator.set_cloud_perception(
+            motion=motion, emotion=emotion, pose=pose, fire_hazard=fire_hazard
+        )
 
     def start(self):
         if self._running:

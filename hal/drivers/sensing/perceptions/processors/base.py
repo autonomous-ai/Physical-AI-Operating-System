@@ -33,12 +33,13 @@ class Perception[T](ABC):
         self._perception_state: PerceptionStateObservers = perception_state
         self._send_event: SendEventCallable = send_event
         self._busy: bool = False
+        self._retired: bool = False
         self._lock: threading.RLock = threading.RLock()
 
     def check(self, data: T) -> None:
         """Non-blocking entry point. Skips if a previous check is still queued or running."""
         with self._lock:
-            if self._busy:
+            if self._busy or self._retired:
                 return
             self._busy = True
 
@@ -56,6 +57,20 @@ class Perception[T](ABC):
         finally:
             with self._lock:
                 self._busy = False
+                retired = self._retired
+            if retired:
+                self.cleanup()
+
+    def retire(self) -> None:
+        """Stop accepting checks and release resources once no check is in flight.
+
+        Exactly one of retire() and the in-flight _run() calls cleanup().
+        """
+        with self._lock:
+            self._retired = True
+            busy = self._busy
+        if not busy:
+            self.cleanup()
 
     @abstractmethod
     def _check_impl(self, data: T) -> None:

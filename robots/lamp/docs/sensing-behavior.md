@@ -842,7 +842,7 @@ Sensing events that include a camera frame (`motion`, `presence.enter`, `presenc
 | **Tmp buffer** | `/tmp/hal-sensing-snapshots/sensing_<prefix>/` | Count-based (max 50 files) | No |
 | **Persistent** | `/var/lib/hal/snapshots/sensing_<prefix>/` | TTL (72h) + size (50 MB max) | Yes |
 
-Each event kind writes to its own subdir (`sensing_<prefix>`, e.g. `sensing_presence/`, `sensing_motion_activity/`, `sensing_emotion/`). Filenames are `<ms>.jpg`. Every snapshot is saved to tmp first, then copied to the persistent dir. The persistent path is included in the event message (`[snapshot: /var/lib/hal/snapshots/sensing_<prefix>/<ms>.jpg]`) so the agent can reference it later — even after a device reboot. Monitor serves them via `GET /api/sensing/snapshot/<category>/<name>`.
+Each event kind writes to its own subdir (`sensing_<prefix>`, e.g. `sensing_presence/`, `sensing_motion_activity/`, `sensing_emotion/`). Filenames are `<ms>.jpg`. Every snapshot is saved to tmp first, then copied to the persistent dir. The persistent path is included in the event message (`[snapshot: /var/lib/hal/snapshots/sensing_<prefix>/<ms>.jpg]`) so the agent can reference it later — even after a device reboot. Monitor serves them via `GET /api/sensing/snapshot/<category>/<name>`, which requires admin auth (the owner's web session or token); the names are timestamps, so they must not be fetchable from the LAN.
 
 Configuration constants are in `hal/config.py`:
 - `SNAPSHOT_TMP_MAX_COUNT` — max files in tmp (default 50)

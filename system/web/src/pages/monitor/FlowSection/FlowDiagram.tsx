@@ -4,6 +4,7 @@ import { X, Timer } from "lucide-react";
 import type { DisplayEvent } from "../types";
 import type { FlowStage, ActiveFlowStage } from "./types";
 import { FLOW_NODES } from "./types";
+import { withApiToken } from "@/lib/api";
 import { useTheme } from "@/lib/useTheme";
 import { cameraSnapshotURLs, extractNodeInfo, aggregateEvents } from "./helpers";
 
@@ -277,7 +278,7 @@ export function FlowDiagram({
     .filter((l) => l.startsWith("🖼"))
     .map((l) => l.match(/snapshot:\s*\/tmp\/(?:lamp|hal)-(?:sensing|emotion|motion)-snapshots\/((?:sensing|emotion|motion)_[^\s]+\.jpg)/)?.[1])
     .filter((f): f is string => !!f)
-    .map((f) => `/api/sensing/snapshot/${f}`);
+    .map((f) => withApiToken(`/api/sensing/snapshot/${f}`));
 
   const imageSentToAgent: boolean = (nodeInfo.agent_call ?? []).some((l) => l.includes("📷 image attached"));
   const agentSnapshotUrls = cameraSnapshotURLs(turnEvents);

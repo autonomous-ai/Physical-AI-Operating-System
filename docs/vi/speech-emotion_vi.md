@@ -287,7 +287,7 @@ Trong `_process_job`, mọi inference không phải neutral và vượt cổng c
 
 ### Phía phục vụ (OS server)
 
-OS server chỉ để lộ clip cho Flow Monitor UI qua `GET /api/sensing/audio/:name` (`SensingHandler.GetAudio`, `system/server/sensing/delivery/http/handler.go`). Nó phục vụ WAV theo **basename** (đường dẫn đầy đủ không bao giờ rời thiết bị) từ một trong:
+OS server chỉ để lộ clip cho Flow Monitor UI qua `GET /api/sensing/audio/:name` (`SensingHandler.GetAudio`, `system/server/sensing/delivery/http/handler.go`), route này cần admin auth (phiên web hoặc token của chủ máy). Nó phục vụ WAV theo **basename** (đường dẫn đầy đủ không bao giờ rời thiết bị) từ một trong:
 
 ```
 /var/lib/hal/speech-emotion

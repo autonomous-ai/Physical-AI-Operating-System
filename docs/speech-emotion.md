@@ -212,7 +212,7 @@ In `_process_job`, every inference that is not neutral and clears the per-label 
 
 ### Serve side (OS server)
 
-The OS server exposes the clip to the Flow Monitor UI **only** via `GET /api/sensing/audio/:name` (`SensingHandler.GetAudio`, `system/server/sensing/delivery/http/handler.go`). It serves the WAV by **basename** (the full path never leaves the device) from one of:
+The OS server exposes the clip to the Flow Monitor UI **only** via `GET /api/sensing/audio/:name` (`SensingHandler.GetAudio`, `system/server/sensing/delivery/http/handler.go`), which requires admin auth (the owner's web session or token). It serves the WAV by **basename** (the full path never leaves the device) from one of:
 
 ```
 /var/lib/hal/speech-emotion

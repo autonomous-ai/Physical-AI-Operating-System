@@ -1,3 +1,4 @@
+import { withApiToken } from "@/lib/api";
 import { lifecycleTerminal } from "./lifecycle";
 import type { DisplayEvent } from "../types";
 import type { ActiveFlowStage, Turn, NodeInfoMap } from "./types";
@@ -48,7 +49,7 @@ function agentSnapshotURL(path: string): string | null {
   const match = [...path.matchAll(AGENT_SNAPSHOT_PATH_RE)][0];
   if (!match) return null;
   const source = match[2] === "workspace" ? "workspace" : "media-hal-snapshots";
-  return `/api/sensing/agent-snapshot/${match[1]}/${source}/${match[3]}`;
+  return withApiToken(`/api/sensing/agent-snapshot/${match[1]}/${source}/${match[3]}`);
 }
 
 // Extract UI-safe, server-served snapshot URLs from the camera tool result.
@@ -58,7 +59,7 @@ export function cameraSnapshotURLs(events: DisplayEvent[]): string[] {
     const d = ev.detail as FlowEventDetail | undefined;
     const url = d?.snapshot_url ?? d?.data?.snapshot_url;
     if (typeof url === "string" && url.startsWith("/api/sensing/agent-snapshot/")) {
-      urls.add(url);
+      urls.add(withApiToken(url));
       continue;
     }
     const legacyURL = agentSnapshotURL(`${ev.summary ?? ""}\n${JSON.stringify(d ?? {})}`);
@@ -1390,15 +1391,16 @@ export function turnIO(turn: Turn): {
         const m = ev.summary.match(/^\[([^\]]+)\]\s*(.*)/);
         input = dataMsg || (m ? m[2] : "") || ev.summary;
       }
-      const audioUrl = d?.data?.audio ?? d?.audio;
-      if (typeof audioUrl === "string" && audioUrl && !audioUrls.includes(audioUrl)) {
+      const rawAudioUrl = d?.data?.audio ?? d?.audio;
+      const audioUrl = typeof rawAudioUrl === "string" && rawAudioUrl ? withApiToken(rawAudioUrl) : "";
+      if (audioUrl && !audioUrls.includes(audioUrl)) {
         audioUrls.push(audioUrl);
       }
       if (typeof dataMsg === "string") {
         const snapRe = /\[snapshot:\s*(?:\/tmp\/(?:lamp|hal)-(?:sensing|emotion|motion)-snapshots|\/var\/lib\/hal\/snapshots)\/((?:sensing|emotion|motion)_[^\]]+\.jpg)\]/g;
         let snapMatch;
         while ((snapMatch = snapRe.exec(dataMsg)) !== null) {
-          const url = `/api/sensing/snapshot/${snapMatch[1]}`;
+          const url = withApiToken(`/api/sensing/snapshot/${snapMatch[1]}`);
           if (!snapshotUrls.includes(url)) snapshotUrls.push(url);
         }
         // Pattern aligned with Go rePoseBucketMarker.
@@ -1436,7 +1438,7 @@ export function turnIO(turn: Turn): {
       const snapRe = /\[snapshot:\s*(?:\/tmp\/(?:lamp|hal)-(?:sensing|emotion|motion)-snapshots|\/var\/lib\/hal\/snapshots)\/((?:sensing|emotion|motion)_[^\]]+\.jpg)\]/g;
       let snapMatch;
       while ((snapMatch = snapRe.exec(raw)) !== null) {
-        const url = `/api/sensing/snapshot/${snapMatch[1]}`;
+        const url = withApiToken(`/api/sensing/snapshot/${snapMatch[1]}`);
         if (!snapshotUrls.includes(url)) snapshotUrls.push(url);
       }
       if (!input) {

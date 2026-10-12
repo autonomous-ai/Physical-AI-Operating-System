@@ -839,7 +839,7 @@ Các sensing event có kèm camera frame (`motion`, `presence.enter`, `presence.
 | **Tmp buffer** | `/tmp/hal-sensing-snapshots/sensing_<prefix>/` | Theo số lượng (tối đa 50 file) | Không |
 | **Persistent** | `/var/lib/hal/snapshots/sensing_<prefix>/` | TTL (72h) + dung lượng (tối đa 50 MB) | Có |
 
-Mỗi loại event ghi vào subdir riêng (`sensing_<prefix>`, ví dụ `sensing_presence/`, `sensing_motion_activity/`, `sensing_emotion/`). Tên file là `<ms>.jpg`. Snapshot được lưu vào tmp trước, rồi copy sang persistent dir. Đường dẫn persistent được ghi trong event message (`[snapshot: /var/lib/hal/snapshots/sensing_<prefix>/<ms>.jpg]`) để agent có thể xem lại — kể cả sau khi thiết bị reboot. Monitor phục vụ ảnh qua `GET /api/sensing/snapshot/<category>/<name>`.
+Mỗi loại event ghi vào subdir riêng (`sensing_<prefix>`, ví dụ `sensing_presence/`, `sensing_motion_activity/`, `sensing_emotion/`). Tên file là `<ms>.jpg`. Snapshot được lưu vào tmp trước, rồi copy sang persistent dir. Đường dẫn persistent được ghi trong event message (`[snapshot: /var/lib/hal/snapshots/sensing_<prefix>/<ms>.jpg]`) để agent có thể xem lại — kể cả sau khi thiết bị reboot. Monitor phục vụ ảnh qua `GET /api/sensing/snapshot/<category>/<name>`, route này cần admin auth (phiên web hoặc token của chủ máy); tên file là timestamp nên không được để máy khác trong LAN tải về.
 
 Các hằng số cấu hình nằm trong `hal/config.py`:
 - `SNAPSHOT_TMP_MAX_COUNT` — số file tối đa trong tmp (mặc định 50)

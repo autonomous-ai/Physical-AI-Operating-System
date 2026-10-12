@@ -447,9 +447,7 @@ func (s *Server) Serve(closeFn func()) error {
 	sensing := api.Group("sensing")
 	// Every event can become an agent turn; LAN membership and Origin are not credentials.
 	sensing.POST("event", adminOrLoopbackAuth(s.config), s.sensingHandler.PostEvent)
-	sensing.GET("snapshot/:category/:name", s.sensingHandler.GetSnapshot)
-	sensing.GET("agent-snapshot/:runtime/:source/:name", s.sensingHandler.GetAgentSnapshot)
-	sensing.GET("audio/:name", s.sensingHandler.GetAudio)
+	s.registerSensingMediaRoutes(sensing)
 	s.registerVoiceMutationRoutes(api)
 
 	voice := api.Group("voice")
@@ -645,6 +643,15 @@ func (s *Server) Serve(closeFn func()) error {
 
 // registerVoiceMutationRoutes keeps HAL filler access local or authenticated,
 // while voice enrollment file deletion always requires administrator access.
+// Camera frames and voice recordings. Their names are timestamps, so anyone on the
+// LAN could guess one; only the owner's web session or token may fetch them.
+func (s *Server) registerSensingMediaRoutes(sensing *gin.RouterGroup) {
+	auth := adminAuthMiddleware(s.config)
+	sensing.GET("snapshot/:category/:name", auth, s.sensingHandler.GetSnapshot)
+	sensing.GET("agent-snapshot/:runtime/:source/:name", auth, s.sensingHandler.GetAgentSnapshot)
+	sensing.GET("audio/:name", auth, s.sensingHandler.GetAudio)
+}
+
 func (s *Server) registerVoiceMutationRoutes(api *gin.RouterGroup) {
 	api.POST("sensing/filler", adminOrLoopbackAuth(s.config), s.sensingHandler.PlayFiller)
 	api.POST("voice/file/remove", adminAuthMiddleware(s.config), s.sensingHandler.RemoveVoiceFile)

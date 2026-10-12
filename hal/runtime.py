@@ -541,6 +541,7 @@ async def lifespan(app: FastAPI):
         voice = os_cfg.get("tts_voice", "") or TTS_VOICE
         tts_provider = os_cfg.get("tts_provider", PROVIDER_OPENAI)
         if tts_key and tts_url and TTSService and not state.tts_service:
+            state._speech_led.start()
             state.tts_service = TTSService(
                 api_key=tts_key,
                 base_url=tts_url,
@@ -891,6 +892,7 @@ async def lifespan(app: FastAPI):
     from hal.drivers.os_shutdown import announce_os_shutdown
     announce_os_shutdown()
 
+    state._speech_led.close()
     state._stop_current_effect()
     if state.display_service:
         state.display_service.stop()

@@ -4,7 +4,7 @@
 //! with fixed diagnostic categories and no retained raw payload.
 use crate::{
     Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_WIRE_BYTES,
-    Result, Resumption, ResumptionHandle, SessionConfig, VoiceActivity,
+    Result, Resumption, ResumptionHandle, SessionConfig, Usage, VoiceActivity,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{
@@ -58,6 +58,7 @@ pub struct ServerFrame {
     pub voice_activity: Option<Activity>,
     pub go_away: Option<GoAway>,
     pub resumption: Option<ResumptionUpdate>,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +68,7 @@ struct Envelope<R> {
     server_content: Option<RawContent>,
     voice_activity: Option<RawActivity>,
     go_away: Option<serde_json::Value>,
-    usage_metadata: Option<IgnoredAny>,
+    usage_metadata: Option<serde_json::Value>,
     tool_call: Option<IgnoredAny>,
     tool_call_cancellation: Option<IgnoredAny>,
     session_resumption_update: Option<R>,
@@ -106,6 +107,35 @@ impl ResumptionMetadata for RetainedResumptionUpdate {
     }
     fn update(self) -> Option<ResumptionUpdate> {
         Some(self.0)
+    }
+}
+/// Read leniently: these counts are for observation, and a form this does
+/// not read must never fail a message that is otherwise valid.
+fn usage(raw: &serde_json::Value) -> Usage {
+    let count = |value: &serde_json::Value| {
+        value
+            .as_u64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    };
+    let field = |name: &str| raw.get(name).and_then(count);
+    let audio = |name: &str| {
+        raw.get(name)?
+            .as_array()?
+            .iter()
+            .filter(|part| {
+                part.get("modality").and_then(serde_json::Value::as_str) == Some("AUDIO")
+            })
+            .filter_map(|part| part.get("tokenCount").and_then(count))
+            .reduce(u64::saturating_add)
+    };
+    Usage {
+        total: field("totalTokenCount"),
+        prompt: field("promptTokenCount"),
+        response: field("responseTokenCount"),
+        thoughts: field("thoughtsTokenCount"),
+        cached: field("cachedContentTokenCount"),
+        prompt_audio: audio("promptTokensDetails"),
+        response_audio: audio("responseTokensDetails"),
     }
 }
 struct MetadataVisitor<R>(std::marker::PhantomData<R>);
@@ -333,6 +363,7 @@ fn decode<R: ResumptionMetadata + for<'de> Deserialize<'de>>(bytes: &[u8]) -> Re
         resumption: envelope
             .session_resumption_update
             .and_then(ResumptionMetadata::update),
+        usage: envelope.usage_metadata.as_ref().map(usage),
     })
 }
 

@@ -313,6 +313,17 @@ all for such a request, and the ten-second timeout ended the process;
 `instruction_file` names a private text file of at most 16 KiB that replaces
 the built-in instruction.
 
+With both `assume_over` and `no_reply_after_ms`, a request that starts behind
+one the service never answered does not wait for it beyond that same wait
+counted from the earlier request's commit, and the quiet bound of an assumed
+response counts the silence since the interruption instead of starting again
+when the next request ends. On lamp-4ace a question asked 2.9 s after speech
+the service had ignored was answered 3.17 s after the person stopped, against
+1.25 s for a question with nothing before it. The provider worker also writes
+two observations to its standard error, counts and times only: the service's
+own token counts for each `usageMetadata` message, and each `waitingForInput`
+with the request it left unanswered, if any. Nothing is decided on either.
+
 `--end-silence-ms 300..2000` (a multiple of 10) sets how long the detector
 waits in quiet before it decides that a person has finished. Without it
 `v1-baseline` and `duplex` wait 1,200 ms and `vad-only` 600 ms. In the first

@@ -783,6 +783,23 @@ fn forward(
                 idle: true,
             });
         }
+        // Observations for the journal: what a declined request looks like
+        // on the wire, and what each exchange costs. Counts and times only.
+        Event::WaitingForInput { awaiting, .. } => eprintln!(
+            "lamp-live provider: service waiting for input; unanswered request={:?} since_commit_ms={:?}",
+            awaiting.map(|(lineage, _)| lineage.request.get()),
+            awaiting.map(|(_, since)| since.as_millis())
+        ),
+        Event::Usage { usage, .. } => eprintln!(
+            "lamp-live provider: usage total={:?} prompt={:?} prompt_audio={:?} response={:?} response_audio={:?} thoughts={:?} cached={:?}",
+            usage.total,
+            usage.prompt,
+            usage.prompt_audio,
+            usage.response,
+            usage.response_audio,
+            usage.thoughts,
+            usage.cached
+        ),
         Event::GoAway { time_left, .. } => eprintln!(
             "lamp-live provider: service announced a close; time_left_ms={:?}",
             time_left.map(|left| left.as_millis())

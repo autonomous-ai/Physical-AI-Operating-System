@@ -347,6 +347,11 @@ async fn events_of_the_earlier_answer_that_are_not_output_do_not_release_the_sta
         json!({"serverContent":{"waitingForInput":true}}),
     )
     .await;
+    // Reported as seen. No committed request is waiting for an answer.
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::WaitingForInput { awaiting: None, .. }
+    ));
     send_json(
         &mut server,
         json!({"sessionResumptionUpdate":{"resumable":false}}),

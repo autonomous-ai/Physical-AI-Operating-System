@@ -138,6 +138,19 @@ pub enum Event {
         lineage: Lineage,
         waited: Duration,
     },
+    /// The service said it is not generating because it is waiting for more
+    /// input. `awaiting` is the committed request that has produced nothing,
+    /// if there is one, and how long ago it was committed. An observation:
+    /// nothing is decided on it.
+    WaitingForInput {
+        session: SessionId,
+        awaiting: Option<(Lineage, Duration)>,
+    },
+    /// The service's own token counts, as it sent them. Counts only.
+    Usage {
+        session: SessionId,
+        usage: Usage,
+    },
     /// Google gives input transcripts no reliable per-turn ordering.
     UncorrelatedInputTranscript {
         session: SessionId,
@@ -192,6 +205,20 @@ pub enum Event {
         /// and the next request that continues it is heard after it.
         sent_samples: u64,
     },
+}
+
+/// Token counts from one `usageMetadata` message. A count the service left
+/// out, or sent in a form this codec does not read, is absent.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Usage {
+    pub total: Option<u64>,
+    pub prompt: Option<u64>,
+    pub response: Option<u64>,
+    pub thoughts: Option<u64>,
+    pub cached: Option<u64>,
+    /// The audio share of `prompt` and of `response`.
+    pub prompt_audio: Option<u64>,
+    pub response_audio: Option<u64>,
 }
 
 /// How a barrier ended. An assumption is reported as
@@ -263,6 +290,10 @@ pub enum StartRelease {
     Patience,
     /// More audio than may be kept. Written anyway, as for patience.
     Overflow,
+    /// The earlier response had produced nothing for `Timeouts::unanswered`
+    /// since its commit and was taken as not answered. Nothing was
+    /// interrupted and no barrier is left.
+    Unanswered,
 }
 
 /// Why an image was not accepted. None of these affects the connection or

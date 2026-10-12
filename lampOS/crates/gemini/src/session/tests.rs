@@ -1097,6 +1097,121 @@ fn the_wait_for_no_answer_must_end_before_the_failure_bound_for_a_response() {
     assert!(with(Some(Duration::ZERO)).validate().is_err());
 }
 
+#[tokio::test]
+async fn a_request_behind_one_the_service_never_answered_goes_ahead_once_that_one_is_unanswered() {
+    let config = configuration(Timeouts {
+        unanswered: Some(Duration::from_millis(150)),
+        barrier: Duration::from_secs(2),
+        ..Timeouts::default()
+    })
+    .barrier_policy(BarrierPolicy::AssumeAfterQuiet)
+    .barrier_wait(crate::BarrierWait::AtCommit)
+    .successor_start(crate::SuccessorStart::AfterFirstOutput {
+        patience: Duration::from_secs(2),
+    })
+    .unwrap();
+    let (mut connection, mut server) = mock_with(config).await;
+    ended_turn(&mut connection, &mut server, 1).await;
+    let committed = Instant::now();
+    let second = request(2);
+    let input = connection.input();
+    input.try_start(second).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::InputStarted { lineage, waiting_for_barrier: true } if lineage.request == second
+    ));
+    input
+        .try_audio(second, 0, Instant::now(), &[2; 160])
+        .unwrap();
+    input.try_end(second).unwrap();
+    // Neither the patience nor the quiet bound has run: the first request
+    // is past the wait for an answer, so nothing is left to stop.
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::BarrierAssumed { superseded: Some(old), successor: Some(new), .. }
+            if old.get() == 1 && new == second
+    ));
+    assert!(committed.elapsed() < Duration::from_secs(1));
+    sent(&mut server, "activityStart").await;
+    sent(&mut server, "audio").await;
+    sent(&mut server, "activityEnd").await;
+    send_json(&mut server, audio(9)).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, pcm, .. } if lineage.request == second && pcm == [9])
+    );
+    assert_eq!(connection.state(), State::Ready);
+}
+
+#[tokio::test]
+async fn under_the_assumption_policy_silence_since_the_interruption_counts_before_the_commit() {
+    let config = configuration(Timeouts {
+        barrier: Duration::from_millis(400),
+        ..Timeouts::default()
+    })
+    .barrier_policy(BarrierPolicy::AssumeAfterQuiet)
+    .barrier_wait(crate::BarrierWait::AtCommit);
+    let (mut connection, mut server) = mock_with(config).await;
+    ended_turn(&mut connection, &mut server, 1).await;
+    let second = request(2);
+    let input = connection.input();
+    input.try_start(second).unwrap();
+    input
+        .try_audio(second, 0, Instant::now(), &[2; 160])
+        .unwrap();
+    sent(&mut server, "activityStart").await;
+    sent(&mut server, "audio").await;
+    event(&mut connection).await;
+    // The person speaks on past the bound. Nothing is assumed while nothing
+    // waits on the earlier response.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    quiet(&mut connection).await;
+    let ended = Instant::now();
+    input.try_end(second).unwrap();
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::BarrierAssumed { superseded: Some(old), successor: Some(new), .. }
+            if old.get() == 1 && new == second
+    ));
+    assert!(ended.elapsed() < Duration::from_millis(200));
+    sent(&mut server, "activityEnd").await;
+}
+
+#[tokio::test]
+async fn token_counts_and_a_waiting_notice_are_reported_and_decide_nothing() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let first = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(
+        &mut server,
+        json!({"serverContent":{"waitingForInput":true}}),
+    )
+    .await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::WaitingForInput { awaiting: Some((lineage, _)), .. } if lineage.request == first
+    ));
+    send_json(&mut server, json!({"usageMetadata":{"totalTokenCount":120,"promptTokenCount":"100","responseTokenCount":20,
+        "promptTokensDetails":[{"modality":"AUDIO","tokenCount":90},{"modality":"TEXT","tokenCount":10}],
+        "responseTokensDetails":"not a list"}})).await;
+    match event(&mut connection).await {
+        Event::Usage { usage, .. } => assert_eq!(
+            usage,
+            crate::Usage {
+                total: Some(120),
+                prompt: Some(100),
+                response: Some(20),
+                prompt_audio: Some(90),
+                ..crate::Usage::default()
+            }
+        ),
+        other => panic!("expected token counts, got {other:?}"),
+    }
+    // The request is answered as if neither had been sent.
+    send_json(&mut server, audio(3)).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, .. } if lineage.request == first)
+    );
+}
+
 // ---- Follow-ups, interruptions and topic changes -----------------------
 
 #[tokio::test]

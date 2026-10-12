@@ -731,6 +731,10 @@ struct Barrier {
     last_event_at: Clock,
     /// What arrived for the earlier response and was withheld. Counts only.
     seen: BarrierReport,
+    /// When the earlier request was committed, for as long as its response
+    /// has sent nothing at all. Past `Timeouts::unanswered` from here the
+    /// assumption policy takes it as not answered: there is nothing to stop.
+    unanswered_since: Option<Clock>,
 }
 impl Barrier {
     fn new(old: Option<Lineage>) -> Self {
@@ -740,6 +744,7 @@ impl Barrier {
             since: now,
             last_event_at: now,
             seen: BarrierReport::default(),
+            unanswered_since: None,
         }
     }
     fn count(&mut self, content: &wire::ServerContent) {
@@ -1283,7 +1288,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             // settle. Explicit activityStart is the only interruption request
             // available with provider activity detection disabled.
             let produced = turn.first_output_at.is_some();
-            self.barrier = Some(Barrier::new(Some(turn.lineage)));
+            let mut barrier = Barrier::new(Some(turn.lineage));
+            if !produced {
+                barrier.unanswered_since = turn.ended_at;
+            }
+            self.barrier = Some(barrier);
             self.current = None;
             if matches!(
                 self.successor_start,
@@ -1323,6 +1332,26 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.report_barrier(BarrierOutcome::TimedOut);
             return Err(Error::BarrierTimeout);
         }
+        if self.policy == BarrierPolicy::AssumeAfterQuiet
+            && let Some(bound) = self.timeouts.unanswered
+            && barrier
+                .unanswered_since
+                .is_some_and(|since| since.elapsed() >= bound)
+        {
+            // Committed that long ago and nothing since: by the rule that
+            // closes a current request, the service chose not to answer it.
+            // Nothing is left to interrupt or to wait for.
+            let superseded = barrier.old.map(|lineage| lineage.request);
+            let successor = self.current.as_ref().map(|turn| turn.lineage.request);
+            self.barrier = None;
+            self.emit(Event::BarrierAssumed {
+                session: self.session,
+                superseded,
+                successor,
+            });
+            self.release_start(StartRelease::Unanswered).await?;
+            return self.release().await;
+        }
         if let Some(held) = self.held.as_ref().filter(|held| held.holding) {
             // The earlier response has not been asked to stop yet, so
             // there is no silence after an interruption to count. Only the
@@ -1339,14 +1368,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         // The quiet bound counts from the earlier response's last event. With
         // `AtCommit` it counts only while a request's End is being withheld,
         // and from no earlier than that: only then is anything waiting on
-        // the earlier response.
+        // the earlier response. That restart protects a person who is still
+        // speaking from a failure. An assumption fails nobody, so under it
+        // the silence already observed since the interruption counts, and a
+        // request spoken for longer than the bound is committed at once.
         let mut quiet_from = barrier.last_event_at;
         if self.wait == BarrierWait::AtCommit {
             match self.current.as_ref().and_then(|turn| turn.held_at) {
                 // Nothing is waiting to be committed: only the absolute
                 // bound above applies.
                 None => return Ok(()),
-                Some(held_at) => quiet_from = quiet_from.max(held_at),
+                Some(held_at) if self.policy == BarrierPolicy::Require => {
+                    quiet_from = quiet_from.max(held_at);
+                }
+                Some(_) => {}
             }
         }
         if quiet_from.elapsed() < self.timeouts.barrier {
@@ -1686,6 +1721,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 time_left: notice.time_left,
             });
         }
+        if let Some(usage) = frame.usage {
+            self.emit(Event::Usage {
+                session: self.session,
+                usage,
+            });
+        }
         if let Some(activity) = frame.voice_activity {
             self.emit(Event::VoiceActivity {
                 session: self.session,
@@ -1734,10 +1775,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 finished: transcript.finished,
             });
         }
-        if content.waiting_for_input
-            && let Some(barrier) = self.barrier.as_mut()
-        {
-            barrier.seen.waiting_for_input = barrier.seen.waiting_for_input.saturating_add(1);
+        if content.waiting_for_input {
+            if let Some(barrier) = self.barrier.as_mut() {
+                barrier.seen.waiting_for_input = barrier.seen.waiting_for_input.saturating_add(1);
+            }
+            let awaiting = self.current.as_ref().and_then(|turn| {
+                let ended = turn.ended_at?;
+                turn.first_output_at
+                    .is_none()
+                    .then(|| (turn.lineage, ended.elapsed()))
+            });
+            self.emit(Event::WaitingForInput {
+                session: self.session,
+                awaiting,
+            });
         }
         let transcript = content.output_transcript.take();
         let payload = !content.audio.is_empty() || !content.text.is_empty();
@@ -1769,6 +1820,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         let known = self.barrier.as_ref().and_then(|barrier| barrier.old);
         if let Some(barrier) = self.barrier.as_mut() {
             barrier.count(&content);
+            // It has sent something: no longer a response that never came.
+            barrier.unanswered_since = None;
         }
         if let Some(lineage) = known {
             // A response this client retired. Its output is dropped here; its

@@ -342,6 +342,20 @@ impl Observed {
                 row["dropped_samples"] = json!(dropped_samples);
                 row["sent_samples"] = json!(sent_samples);
             }
+            Event::WaitingForInput { session, awaiting } => {
+                row["kind"] = json!("waiting_for_input");
+                row["session"] = json!(session.get());
+                row["unanswered_request"] =
+                    json!(awaiting.map(|(lineage, _)| lineage.request.get()));
+                row["since_commit_ms"] = json!(awaiting.map(|(_, since)| since.as_millis()));
+            }
+            Event::Usage { session, usage } => {
+                row["kind"] = json!("usage");
+                row["session"] = json!(session.get());
+                row["total"] = json!(usage.total);
+                row["prompt"] = json!(usage.prompt);
+                row["response"] = json!(usage.response);
+            }
             Event::Unanswered { lineage, waited } => {
                 // The probe sets no wait for it; recorded if one ever is.
                 row["kind"] = json!("unanswered");

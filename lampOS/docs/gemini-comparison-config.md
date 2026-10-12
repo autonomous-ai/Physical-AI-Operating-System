@@ -6,7 +6,7 @@ plain `gemini-3.8-live` / `Kore` request, manual activity boundaries, transcript
 requests, instructions and absence of tools are unchanged. These setup options do
 not change audio scheduling, admission, endpointing or runtime latency directly.
 
-## Native-audio language and next latency comparison
+## Native-audio language and cohort identity
 
 Rechecked against Google's [Live capabilities guide](https://ai.google.dev/gemini-api/docs/live-api/capabilities)
 on 2026-10-11: native-audio models choose their response language automatically;
@@ -18,14 +18,24 @@ observed wrong-language replies show that this is not a deterministic guarantee.
 Do not present an `en-US` setup-only probe as a language fix.
 
 Google recommends plain `gemini-3.8-live` for most low-latency voice uses and
-Extended Thinking for additional background reasoning. Lamp's current physical
-comparison retains Extended Thinking/LOW to match the V1 pilot. A separate
-plain-model setup-only probe succeeded using the same endpoint, credential
-source and Kore voice, with the unsupported thinking-level field absent. It sent
-no microphone audio and measured no conversational latency. The next model
-comparison must retain the same runtime, endpoint policy, playback horizon,
-levels and cached inputs, and keep every failed turn. Model choice remains an
-experiment; no speedup has been established.
+Extended Thinking for additional background reasoning. Extended Thinking/LOW
+identifies the historical audited V1 pilot cohort below; it does not identify
+the current 4ace provider file.
+
+A read-only check on 2026-10-12 identified `/etc/lampOS/pilot-4ace/provider.json`
+as `model: gemini-3.8-live`, with `thinking_level` absent. Its SHA-256 was
+`0f899a012a76077f1370fd66fd88c5790ff07d3e6ccc3843153713110b147477`.
+This corrects the earlier current-device label. Do not use this file/hash as an
+Extended Thinking/LOW baseline. The configuration check establishes these two
+fields and file identity; it does not establish other options or conversational
+latency. No new model comparison is warranted by the old label.
+
+A separate historical plain-model setup-only probe succeeded using the same
+endpoint, credential source and Kore voice, with the unsupported thinking-level
+field absent. It sent no microphone audio and measured no conversational
+latency. Before any future model comparison, verify both effective setups and
+retain the same runtime, endpoint policy, playback horizon, levels and cached
+inputs, keeping every failed turn. No model-choice speedup has been established.
 
 ## Explicit setup
 
@@ -96,9 +106,9 @@ lists supported language codes for the public API.
 
 ## Pinned V1 semantics and rejected combinations
 
-The comparison basis is V1-main commit
+The historical comparison basis is V1-main commit
 `d5efe9d7b73cc529b34cd4abe97624682a82ca94`,
-`hal/realtime/voice_agent/gemini_live.py::_build_config`. The audited V1 pilot uses
+`hal/realtime/voice_agent/gemini_live.py::_build_config`. The audited V1 pilot used
 `gemini-3.8-live-extended-thinking`, `LOW` and `Kore`. The pinned code requests
 `include_thoughts=False` with a thinking level and passes its optional speech
 language through the SDK. No copy of that implementation is needed to run V2.

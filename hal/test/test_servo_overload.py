@@ -892,3 +892,26 @@ def test_a_contact_stop_uses_its_own_handler_when_given(contact_rig):
     contact_rig.svc._on_contact = lambda joint, load: contact_rig.fired.append(("contact", joint))
     _hit(contact_rig)
     assert contact_rig.fired == [("contact", "base_yaw")]
+
+
+def test_settled_idle_uses_this_units_envelope_over_off_playback(profile_rig):
+    """lamp-a0ae's elbow idles at 54-60 %: its own envelope, not 52e6's 52 % floor."""
+    svc = profile_rig.svc
+    svc._contact = OverloadGuard({"base_yaw": 650}, 0.05, 3.0, clock=profile_rig.clock)
+    svc._contact_off_playback = {"elbow_pitch": 520}
+    svc._current_recording = "idle"
+    svc._idle_settled = True
+    profile_rig.bus.loads = {**IDLE, "elbow_pitch": 580}
+
+    def ticks():
+        for _ in range(4):
+            svc._overload_tick()
+            profile_rig.clock.advance(0.05)
+
+    profile_rig.profile.learn("idle", 20, {**IDLE, "elbow_pitch": 600})
+    ticks()
+    assert not svc.contact_active, "inside this unit's learned idle"
+
+    profile_rig.profile.forget("idle")
+    ticks()
+    assert svc.contact_active, "not learned: the off_playback floor still watches"

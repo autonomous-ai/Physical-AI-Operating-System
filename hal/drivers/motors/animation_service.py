@@ -45,7 +45,8 @@ REST_RAW = {
 
 STARTUP_MOVE_DURATION = 5.0
 
-# The off_playback floors sit out a direct move (gaze, search, aim, /servo/move) and this
+# The off_playback floors sit out a direct move (gaze, search, aim, /servo/move, startup,
+# zero and park) and this
 # long after it: a fast move outruns the servo's own acceleration ramp, so every joint
 # trails its goal for a moment. On lamp-a0ae that lag (12-14 deg on wrist_roll) and the
 # spin-up load (54 % on elbow_pitch) stopped the arm 0.2 s into moves no one touched.
@@ -864,6 +865,14 @@ class AnimationService:
 
         The release/park path passes None — parking must always finish.
         """
+        self._direct_move = True
+        try:
+            return self._move_to_raw(target_raw, duration, should_abort)
+        finally:
+            self._direct_move = False
+            self._direct_move_ended = self._contact_now()
+
+    def _move_to_raw(self, target_raw, duration, should_abort):
         if not self.robot:
             raise RuntimeError("Robot not connected")
         if self.overload_active:
@@ -1270,28 +1279,31 @@ class AnimationService:
             or self._contact_now() - self._direct_move_ended < OFF_PLAYBACK_SETTLE_S
         ):
             return loads, None
+        profile = self._contact_profile
+        position = self._playback_position()
+        learning = self._learning
+        if profile is not None and position is not None:
+            samples = dict(loads)
+            lags = self._read_lags()
+            if lags:
+                samples.update(lags)
+            if learning is not None:
+                if position[0] in learning:
+                    profile.learn(position[0], position[1], samples)
+                return loads, None
+            # This unit's envelope wins over off_playback, settled idle included: the
+            # fixed floors came from lamp-52e6, and lamp-a0ae's heavier elbow idles at
+            # 54-60 % against their 52 %.
+            floors = profile.floors(*position)
+            if floors:
+                return samples, floors
         if off and (self._current_recording is None or self._idle_settled):
             samples = dict(loads)
             lags = self._read_lags()
             if lags:
                 samples.update(lags)
             return samples, off
-        profile = self._contact_profile
-        if profile is None:
-            return loads, None
-        position = self._playback_position()
-        if position is None:
-            return loads, None
-        samples = dict(loads)
-        lags = self._read_lags()
-        if lags:
-            samples.update(lags)
-        learning = self._learning
-        if learning is not None:
-            if position[0] in learning:
-                profile.learn(position[0], position[1], samples)
-            return loads, None
-        return samples, profile.floors(*position)
+        return loads, None
 
     def _read_lags(self) -> Optional[Dict[str, int]]:
         """Per-joint |goal - present| in 0.1 deg, or None when the bus read fails."""

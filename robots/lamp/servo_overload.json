@@ -18,7 +18,6 @@
         "lag_margin": 35,
         "off_playback": {
           "base_pitch": 570,
-          "elbow_pitch": 520,
           "lag:base_yaw": 100,
           "lag:base_pitch": 140,
           "lag:elbow_pitch": 120,

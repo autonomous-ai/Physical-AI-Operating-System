@@ -47,24 +47,73 @@ OPENCLAW_VERSION="${OPENCLAW_VERSION:-$OTA_VERSION}"
 NPM_SPEC="$(echo "$OPENCLAW_VERSION" | sed -E 's/(^|\.)0+([0-9])/\1\2/g')"
 info "OTA pin: ${OTA_VERSION:-<none>}   installing: $NPM_SPEC"
 
-say "2/5  Install Node.js 22"
+# Use npm's semver to honor minor versions, upper bounds and unions.
+node_satisfies_engine() {
+  node - "$1" "$(command -v npm)" <<'NODE'
+const fs = require('fs');
+const path = require('path');
+try {
+  const npmDir = path.dirname(fs.realpathSync(process.argv[3]));
+  const semver = require(require.resolve('semver', { paths: [npmDir] }));
+  const range = process.argv[2];
+  if (!semver.validRange(range)) throw new Error('Invalid Node engine range');
+  process.exit(semver.satisfies(process.version, range) ? 0 : 1);
+} catch (error) {
+  console.error('[spike-agent] Cannot check Node compatibility:', error.message);
+  process.exit(2);
+}
+NODE
+}
+
+install_node24() {
+  local setup_script
+  info "installing Node.js 24 (NodeSource)"
+  setup_script="$(mktemp)" || die "could not create NodeSource setup file"
+  # Download completely before execution; never execute a partial response.
+  if ! retry "curl -fsSL https://deb.nodesource.com/setup_24.x -o '$setup_script'" 3; then
+    rm -f "$setup_script"
+    die "NodeSource download failed"
+  fi
+  if ! bash "$setup_script"; then
+    rm -f "$setup_script"
+    die "NodeSource setup script failed"
+  fi
+  rm -f "$setup_script"
+  apt-get install -y nodejs || die "apt-get install nodejs failed"
+  hash -r
+}
+
+ensure_openclaw_node() {
+  local engine_json engine status
+  # A fresh device needs Node/npm before it can query package metadata.
+  if ! command -v node >/dev/null || ! command -v npm >/dev/null; then
+    install_node24
+  fi
+  engine_json="$(npm view "openclaw@$NPM_SPEC" engines.node --json)" \
+    || die "could not read Node requirement for openclaw@$NPM_SPEC"
+  engine="$(printf '%s' "$engine_json" | jq -er 'select(type == "string" and length > 0)')" \
+    || die "missing Node requirement for openclaw@$NPM_SPEC"
+  info "openclaw@$NPM_SPEC requires Node $engine"
+  if node_satisfies_engine "$engine"; then
+    info "node $(node --version), npm $(npm --version) already compatible"
+    return 0
+  else
+    status=$?
+    # A broken checker must not trigger a system package upgrade.
+    [ "$status" -eq 1 ] || die "could not check Node compatibility"
+  fi
+  install_node24
+  # An apt pin or leftover /usr/local/bin/node can still win on PATH.
+  node_satisfies_engine "$engine" \
+    || die "node $(node --version 2>/dev/null || echo missing) does not satisfy $engine — check apt pins and PATH"
+  info "installed compatible node $(node --version), npm $(npm --version)"
+}
+
+say "2/5  Ensure compatible Node.js (NodeSource 24.x when needed)"
 avail_kb="$(df -Pk / | awk 'NR==2 {print $4}')"
 info "free space: $(awk -v k="$avail_kb" 'BEGIN {printf "%.1f", k/1048576}') GB"
 [ "$avail_kb" -ge 1572864 ] || die "need at least 1.5 GB free on / for node + the openclaw package"
-
-# NodeSource, not apt: Debian ships node 20 and openclaw refuses to start below 22.19.
-node_major() { node --version 2>/dev/null | sed 's/^v//; s/\..*//'; }
-if [ "$(node_major)" ] && [ "$(node_major)" -ge 22 ] 2>/dev/null; then
-  info "node $(node --version), npm $(npm --version) already present"
-else
-  info "installing Node.js 22 (NodeSource)"
-  retry "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -" 3 \
-    || die "NodeSource setup script failed"
-  apt-get install -y nodejs || die "apt-get install nodejs failed"
-  info "installed node $(node --version), npm $(npm --version)"
-fi
-# An apt pin or leftover /usr/local/bin/node can still win on PATH.
-[ "$(node_major)" -ge 22 ] 2>/dev/null || die "node is $(node --version 2>/dev/null || echo missing) — openclaw needs >= 22.19"
+ensure_openclaw_node
 
 say "3/5  Install openclaw@$NPM_SPEC"
 # Skip browser downloads at install time (no browser capability on this device).
@@ -166,7 +215,7 @@ if systemctl is-active --quiet "$SERVICE"; then
   info "running"
 else
   info "WARN: not running — journalctl -u $SERVICE -n 50"
-  info "WARN: 'Node.js v22.19+ is required' there means something outranks NodeSource on PATH"
+  info "WARN: a Node version error there can mean something outranks NodeSource on the service PATH"
 fi
 # Check the port too: the unit can be active with plugin load wedged.
 if command -v ss >/dev/null && ! ss -ltn 2>/dev/null | grep -q ':18789'; then

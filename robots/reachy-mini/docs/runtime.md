@@ -132,8 +132,18 @@ component scripts in order. Each of those also runs standalone:
 | 2 | `spike-hal.sh` | `hal` → `/opt/hal`, builds the venv (`uv sync --python 3.12 --extra hardware --extra reachy`), runs uvicorn on `127.0.0.1:5001` |
 | 3 | `spike-os.sh` | `os-server` → `/usr/local/bin/os-server`, seeds `/root/config/config.json`, runs it **as root with `WorkingDirectory=/root`** |
 | 4 | `spike-web.sh` | `web` → `/usr/share/nginx/html/setup`, installs nginx, writes the spike vhost |
-| 5 | `spike-agent.sh` | Node.js 22 (NodeSource) + `openclaw` at the OTA-pinned version, seeds `/root/.openclaw`, runs `openclaw gateway run` on loopback `18789` |
+| 5 | `spike-agent.sh` | Compatible Node.js (NodeSource 24.x when needed) + `openclaw` at the OTA-pinned version, seeds `/root/.openclaw`, runs `openclaw gateway run` on loopback `18789` |
 | 6 | `spike-bootstrap.sh` | `bootstrap` → `/usr/local/bin/bootstrap-server`, seeds `/root/config/bootstrap.json`, installs the `software-update` staged at the device-package root by `upload-device.sh` (canonical `scripts/provision/software-update`) → `/usr/local/bin/software-update` (the helper the worker execs; without it every apply fails with `executable file not found in $PATH` while all units report healthy) |
+
+Before installing OpenClaw, `spike-agent.sh` reads `engines.node` from npm for
+that exact version and checks the full semver range using npm's bundled semver.
+A compatible Node is kept; a missing Node/npm is bootstrapped from NodeSource
+24.x, and an incompatible Node is upgraded through the same channel and checked
+again. For example, OpenClaw `2026.9.3` requires
+`>=24.16.0 <25 || >=26.1.0`, so Node 22, early Node 24 and Node 25 do not pass.
+Missing/invalid metadata, checker failures, or an incompatible Node after the
+upgrade stop the installer before OpenClaw installation or gateway startup;
+check apt pins and PATH if the old Node still wins after an upgrade.
 
 Why that order, specifically:
 

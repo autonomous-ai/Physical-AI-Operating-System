@@ -137,8 +137,18 @@ trong khi mọi service vẫn báo healthy.
 | 2 | `spike-hal.sh` | Tải component `hal` về `/opt/hal`, `uv sync --python 3.12 --extra hardware --extra reachy`, chạy uvicorn ở `127.0.0.1:5001` |
 | 3 | `spike-os.sh` | Tải binary `os-server` về `/usr/local/bin`, seed `/root/config/config.json` tối thiểu, chạy **dưới root với `WorkingDirectory=/root`** |
 | 4 | `spike-web.sh` | Cài nginx, tải bundle `web` về `/usr/share/nginx/html/setup`, viết vhost `reachy-spike` |
-| 5 | `spike-agent.sh` | Cài Node.js 22 (NodeSource) + `openclaw` đúng version OTA pin, seed `/root/.openclaw`, chạy gateway ở loopback `18789` |
+| 5 | `spike-agent.sh` | Node.js tương thích (cài từ NodeSource 24.x khi cần) + `openclaw` đúng version OTA pin, seed `/root/.openclaw`, chạy gateway ở loopback `18789` |
 | 6 | `spike-bootstrap.sh` | Worker OTA: seed `/root/config/bootstrap.json`, cài `software-update` được `upload-device.sh` stage sẵn ở gốc device package (bản canonical `scripts/provision/software-update`) → `/usr/local/bin/software-update` (worker exec script này để áp update; thiếu nó thì mọi lần apply đều fail `executable file not found in $PATH` trong khi mọi unit vẫn báo healthy), poll feed mỗi `5m` |
+
+Trước khi cài OpenClaw, `spike-agent.sh` đọc `engines.node` từ npm của đúng
+phiên bản cần cài và kiểm tra toàn bộ dải semver bằng thư viện semver đi kèm npm.
+Node tương thích được giữ nguyên; nếu thiếu Node/npm thì cài từ NodeSource
+24.x, còn Node không tương thích sẽ được nâng cấp qua cùng kênh rồi kiểm tra
+lại. Ví dụ OpenClaw `2026.9.3` yêu cầu `>=24.16.0 <25 || >=26.1.0`, nên
+Node 22, Node 24 đời đầu và Node 25 đều không đạt.
+Metadata thiếu/không hợp lệ, lỗi bộ kiểm tra, hoặc Node vẫn không tương thích
+sau nâng cấp sẽ dừng installer trước khi cài OpenClaw hay khởi động gateway;
+kiểm tra apt pin và PATH nếu Node cũ vẫn được ưu tiên sau nâng cấp.
 
 `config.json` mà bước 3 seed **bắt buộc phải có `openclaw_config_dir`**. Key
 thiếu trong file KHÔNG rơi về giá trị `Default()` ở

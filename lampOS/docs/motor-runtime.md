@@ -160,11 +160,22 @@ validated caller label; it does not authenticate the adapter or servos. The
 public API exposes neither a descriptor nor an arbitrary instruction writer.
 It owns the port for one finite pass and always attempts explicit cleanup.
 
-The CLI accepts only these three options, or `--help` alone:
+The CLI accepts only these options, or `--help` alone:
 
 ```text
-lamp-motor-inspect --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks
+lamp-motor-inspect --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks [--status-faults abort|report]
 ```
+
+`--status-faults report` is for a lamp on which a servo holds a latched status
+flag. A servo in that state still answers pings and reads, each reply carrying
+the flag in its status byte. With `abort`, the default, the first such reply
+ends the plan, so the joints after it are never read: on lamp-4ace on
+2026-10-12 the elbow answered its ping with `0x20` (overload) and the report
+held two pings and no register of any joint. With `report` the reply is
+accepted, its status byte is recorded as `reply_status_raw` beside what was
+read, and the plan goes on. The ten requests are the same ones and still only
+pings and reads; nothing else about a reply is relaxed. Each reply's
+`reply_status_raw` is zero in a report made with `abort`.
 
 This example is for a reviewed future hardware run, not an instruction to open
 the current cabinet Lamp. `--help`, argument parsing and all current tests open

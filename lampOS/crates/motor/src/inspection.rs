@@ -129,6 +129,9 @@ fn limited(value: String) -> String {
 pub struct JointReadback {
     pub joint_id: u8,
     pub host_read_completed_us: u64,
+    /// The status byte of this reply. Zero unless the inspection was asked
+    /// to report status faults: otherwise a nonzero byte fails the plan.
+    pub reply_status_raw: u8,
     pub data: Readback,
 }
 
@@ -175,6 +178,7 @@ pub enum Readback {
 
 fn decode(stage: Stage, reply: MatchedReply, read_at: u64) -> Result<JointReadback, Fault> {
     let joint_id = reply.joint().id();
+    let reply_status_raw = reply.status_flags().bits();
     let decode_error = |error: crate::readback::DecodeError| Fault::Decode {
         detail: limited(error.to_string()),
     };
@@ -238,6 +242,7 @@ fn decode(stage: Stage, reply: MatchedReply, read_at: u64) -> Result<JointReadba
     Ok(JointReadback {
         joint_id,
         host_read_completed_us: read_at,
+        reply_status_raw,
         data,
     })
 }
@@ -416,6 +421,7 @@ fn transact(
     runtime: &mut impl Runtime,
     clock: &mut Clock,
     stage: Stage,
+    report_faults: bool,
 ) -> TransactionReport {
     let start = runtime.now();
     let mut report = TransactionReport {
@@ -439,6 +445,7 @@ fn transact(
         clock,
         &mut report,
         start.saturating_add(TRANSACTION_DEADLINE),
+        report_faults,
     );
     // Keep the latest observed host time even when cancellation/deadline failed.
     report.ended_us = micros(clock.last);
@@ -453,9 +460,14 @@ fn transaction_body(
     clock: &mut Clock,
     report: &mut TransactionReport,
     deadline: Duration,
+    report_faults: bool,
 ) -> Result<(), Fault> {
     let request = report.stage.request();
-    let mut tracker = request.track_replies();
+    let mut tracker = if report_faults {
+        request.track_replies_reporting_faults()
+    } else {
+        request.track_replies()
+    };
     let mut parser = StatusParser::default();
     let mut bytes = [0; READ_BYTES];
     report.pending_ids = tracker.pending_joints().map(Joint::id).collect();
@@ -601,6 +613,17 @@ fn protocol_fault(error: ReplyError) -> Fault {
 }
 
 pub(crate) fn run(io: &mut impl PortIo, runtime: &mut impl Runtime) -> InspectionReport {
+    run_with(io, runtime, false)
+}
+
+/// The same fixed read-only plan. With `report_faults` a reply that carries
+/// a status fault flag is recorded with its flags and the plan goes on, so
+/// that a joint with a latched flag is read like the others.
+pub(crate) fn run_with(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    report_faults: bool,
+) -> InspectionReport {
     let mut report = InspectionReport {
         completed: false,
         freshness: "not_proven_wire_has_no_transaction_id",
@@ -620,7 +643,7 @@ pub(crate) fn run(io: &mut impl PortIo, runtime: &mut impl Runtime) -> Inspectio
         return report;
     }
     for stage in Stage::PLAN {
-        let transaction = transact(io, runtime, &mut clock, stage);
+        let transaction = transact(io, runtime, &mut clock, stage, report_faults);
         let failure = transaction.fault.clone();
         if stage == Stage::Telemetry && failure.is_none() {
             report.telemetry_target_met = Some(transaction.elapsed_us <= micros(TELEMETRY_TARGET));

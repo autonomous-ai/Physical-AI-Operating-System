@@ -210,7 +210,26 @@ fn micros(origin: Instant) -> u64 {
 #[must_use]
 pub fn inspect_once(
     config: &InspectionConfig,
+    cancelled: impl FnMut() -> io::Result<bool>,
+) -> InspectionResult {
+    inspect_once_with(config, cancelled, false)
+}
+
+/// The same read-only plan, with status fault flags reported per reply
+/// instead of ending the plan at the first one. See
+/// [`crate::protocol::ReadOnlyRequest::track_replies_reporting_faults`].
+#[must_use]
+pub fn inspect_once_reporting_faults(
+    config: &InspectionConfig,
+    cancelled: impl FnMut() -> io::Result<bool>,
+) -> InspectionResult {
+    inspect_once_with(config, cancelled, true)
+}
+
+fn inspect_once_with(
+    config: &InspectionConfig,
     mut cancelled: impl FnMut() -> io::Result<bool>,
+    report_faults: bool,
 ) -> InspectionResult {
     let origin = Instant::now();
     let mut result = empty_result(config);
@@ -226,7 +245,7 @@ pub fn inspect_once(
             let mut port = LinuxPort {
                 fd: owner.fd.as_ref().expect("prepared tty"),
             };
-            result.inspection = Some(inspection::run(&mut port, &mut runtime));
+            result.inspection = Some(inspection::run_with(&mut port, &mut runtime, report_faults));
         }
         Err(error) => result.preparation_error = Some(error),
     }

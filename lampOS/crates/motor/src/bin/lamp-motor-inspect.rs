@@ -3,13 +3,14 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-motor-inspect --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY\n\nRead-only Linux inspection: five pings and five five-servo register reads.\nNo register writes or torque/motion commands. Stop all foreign bus owners first.\nThe lock directory must already exist as 0700 under trusted non-writable ancestors.\nOpening an unqualified serial adapter may change modem lines. Hardware review is required.\n";
+const USAGE: &str = "lamp-motor-inspect --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY [--status-faults abort|report]\n\nRead-only Linux inspection: five pings and five five-servo register reads.\nNo register writes or torque/motion commands. Stop all foreign bus owners first.\nA reply with a status fault flag ends the plan (abort, the default) or is recorded with its flags while the plan goes on (report).\nThe lock directory must already exist as 0700 under trusted non-writable ancestors.\nOpening an unqualified serial adapter may change modem lines. Hardware review is required.\n";
 
 #[derive(Debug)]
 struct Arguments {
     device: PathBuf,
     unit_id: UnitId,
     lock_directory: PathBuf,
+    report_status_faults: bool,
 }
 
 fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, &'static str> {
@@ -17,11 +18,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut device = None;
     let mut unit_id = None;
     let mut lock_directory = None;
+    let mut status_faults = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
                 || unit_id.is_some()
                 || lock_directory.is_some()
+                || status_faults.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -40,6 +43,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .map_err(|_| "invalid explicit unit ID")?,
                 );
             }
+            Some("--status-faults") if status_faults.is_none() => {
+                status_faults = Some(match value.to_str() {
+                    Some("abort") => false,
+                    Some("report") => true,
+                    _ => return Err("--status-faults must be abort or report"),
+                });
+            }
             _ => return Err("unknown or duplicate option"),
         }
     }
@@ -47,6 +57,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         device: device.ok_or("--device is required")?,
         unit_id: unit_id.ok_or("--unit-id is required")?,
         lock_directory: lock_directory.ok_or("--lock-directory is required")?,
+        report_status_faults: status_faults.unwrap_or(false),
     };
     for path in [&result.device, &result.lock_directory] {
         if !path.is_absolute()
@@ -90,13 +101,13 @@ fn main() -> std::process::ExitCode {
 #[cfg(not(target_os = "linux"))]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // The host parser is testable; no device backend is compiled on this host.
-    let _ = arguments.unit_id;
+    let _ = (arguments.unit_id, arguments.report_status_faults);
     Err("read-only motor inspection requires Linux; no device was opened".into())
 }
 
 #[cfg(target_os = "linux")]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
-    use lamp_motor::linux::{InspectionConfig, inspect_once};
+    use lamp_motor::linux::{InspectionConfig, inspect_once, inspect_once_reporting_faults};
     use nix::sys::{
         signal::{SigSet, Signal},
         signalfd::{SfdFlags, SignalFd},
@@ -123,7 +134,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let restore = SignalMask(old_mask);
     let signal_fd = SignalFd::with_flags(&mask, SfdFlags::SFD_CLOEXEC | SfdFlags::SFD_NONBLOCK)?;
     let mut cancelled = false;
-    let result = inspect_once(&config, || {
+    let poll = || {
         if !cancelled {
             cancelled = signal_fd
                 .read_signal()
@@ -131,7 +142,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 .is_some();
         }
         Ok(cancelled)
-    });
+    };
+    let result = if arguments.report_status_faults {
+        inspect_once_reporting_faults(&config, poll)
+    } else {
+        inspect_once(&config, poll)
+    };
     // Print only the bounded inspection report, after the serial descriptor is closed.
     let mut output = std::io::stdout().lock();
     serde_json::to_writer(&mut output, &result)?;
@@ -193,6 +209,26 @@ mod tests {
         .unwrap();
         assert_eq!(value.unit_id.as_str(), "lamp-test");
         assert_eq!(value.device, PathBuf::from("/dev/example"));
+        assert!(!value.report_status_faults);
+        let fixed = [
+            "--device",
+            "/dev/example",
+            "--unit-id",
+            "lamp-test",
+            "--lock-directory",
+            "/home/test/private",
+            "--status-faults",
+        ];
+        let with = |choice: &'static str| parse(args(&[&fixed[..], &[choice]].concat()));
+        assert!(with("report").unwrap().unwrap().report_status_faults);
+        assert!(!with("abort").unwrap().unwrap().report_status_faults);
+        assert!(with("ignore").is_err());
+        assert!(
+            parse(args(
+                &[&fixed[..], &["report", "--status-faults", "report"]].concat()
+            ))
+            .is_err()
+        );
         assert!(parse(args(&["--help"])).unwrap().is_none());
         assert!(parse(args(&["--help", "--device", "/dev/a"])).is_err());
         assert!(

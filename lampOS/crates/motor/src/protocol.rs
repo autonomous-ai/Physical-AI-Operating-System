@@ -180,6 +180,19 @@ impl ReadOnlyRequest {
             received_mask: 0,
             kind: self.kind,
             failure: None,
+            report_faults: false,
+        }
+    }
+
+    /// As [`Self::track_replies`], but a reply whose status byte carries a
+    /// fault flag is accepted with its flags instead of failing the
+    /// transaction. Only for a read that exists to report those flags: a
+    /// servo with a latched flag still answers reads, and without this the
+    /// one joint that most needs looking at hides every other.
+    pub fn track_replies_reporting_faults(&self) -> ReplyTracker {
+        ReplyTracker {
+            report_faults: true,
+            ..self.track_replies()
         }
     }
 }
@@ -474,6 +487,12 @@ impl MatchedReply {
     pub fn parameters(&self) -> &[u8] {
         self.packet.parameters()
     }
+
+    /// The reply's own status byte. Clear unless the tracker was asked to
+    /// report faults.
+    pub const fn status_flags(&self) -> StatusFlags {
+        self.packet.flags()
+    }
 }
 
 /// One request, at most one successful reply per joint. Any error latches this
@@ -484,6 +503,7 @@ pub struct ReplyTracker {
     received_mask: u8,
     kind: ReplyKind,
     failure: Option<ReplyError>,
+    report_faults: bool,
 }
 
 impl ReplyTracker {
@@ -519,7 +539,7 @@ impl ReplyTracker {
         if self.received_mask & joint.mask() != 0 {
             return Err(ReplyError::Duplicate(joint));
         }
-        if !packet.flags.is_clear() {
+        if !packet.flags.is_clear() && !self.report_faults {
             return Err(ReplyError::ServoFault {
                 joint,
                 flags: packet.flags,

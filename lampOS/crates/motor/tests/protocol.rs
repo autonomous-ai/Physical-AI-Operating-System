@@ -353,6 +353,32 @@ fn all_nonzero_servo_flags_fail_even_if_error_reply_has_no_read_data() {
 }
 
 #[test]
+fn a_tracker_asked_to_report_faults_accepts_a_flagged_reply_with_its_flags() {
+    for flags in 1..=0x7f {
+        let mut tracker = ReadOnlyRequest::read(Joint::ElbowPitch, ReadWindow::TELEMETRY)
+            .track_replies_reporting_faults();
+        let reply = tracker.accept(Ok(packet(3, flags, &[0; 15]))).unwrap();
+        assert_eq!(reply.joint(), Joint::ElbowPitch);
+        assert_eq!(reply.status_flags().bits(), flags);
+        assert!(tracker.is_complete());
+        assert_eq!(tracker.finish(), Ok(()));
+    }
+    // Everything else about a reply is checked as before.
+    let mut tracker = ReadOnlyRequest::read(Joint::ElbowPitch, ReadWindow::TELEMETRY)
+        .track_replies_reporting_faults();
+    assert!(matches!(
+        tracker.accept(Ok(packet(3, 0x20, &[]))),
+        Err(ReplyError::ParameterCount { .. })
+    ));
+    let mut tracker = ReadOnlyRequest::read(Joint::ElbowPitch, ReadWindow::TELEMETRY)
+        .track_replies_reporting_faults();
+    assert!(matches!(
+        tracker.accept(Ok(packet(1, 0x20, &[0; 15]))),
+        Err(ReplyError::UnexpectedId(1))
+    ));
+}
+
+#[test]
 fn duplicate_and_unrequested_ids_latch_failure() {
     let mut tracker = ReadOnlyRequest::ping(Joint::BaseYaw).track_replies();
     tracker.accept(Ok(packet(1, 0, &[]))).unwrap();

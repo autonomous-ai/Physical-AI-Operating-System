@@ -39,6 +39,8 @@ struct SyntheticPort {
     truncate_reply: bool,
     duplicate_reply: bool,
     write_delay: Duration,
+    /// One servo answers every request with this status byte.
+    latched: Option<(u8, u8)>,
 }
 
 fn status(id: u8, data: &[u8]) -> Vec<u8> {
@@ -76,6 +78,7 @@ fn fixture() -> (SyntheticPort, TestRuntime) {
             truncate_reply: false,
             duplicate_reply: false,
             write_delay: Duration::ZERO,
+            latched: None,
         },
         TestRuntime {
             time,
@@ -123,6 +126,14 @@ impl SyntheticPort {
                 }
             };
             let mut response = status(id, &data);
+            if let Some((_, flags)) = self.latched.filter(|(joint, _)| *joint == id) {
+                // The status byte is covered by the checksum that ends the packet.
+                response[4] = flags;
+                let last = response.len() - 1;
+                response[last] = !response[2..last]
+                    .iter()
+                    .fold(0u8, |a, b| a.wrapping_add(*b));
+            }
             if self.corrupt {
                 *response.last_mut().unwrap() ^= 1;
             }
@@ -220,6 +231,50 @@ fn finite_plan_sends_only_ten_read_only_requests_and_decodes_30_replies() {
     assert_eq!(result.transaction_deadline_us, 200_000);
     assert_eq!(result.telemetry_target_us, 25_000);
     serde_json::to_string(&result).unwrap();
+}
+
+#[test]
+fn a_latched_status_flag_ends_the_plan_at_that_joint_unless_faults_are_reported() {
+    // The elbow answers with the overload flag set, as on lamp-4ace.
+    let (mut io, mut clock) = fixture();
+    io.latched = Some((3, 0x20));
+    let result = run(&mut io, &mut clock);
+    assert!(!result.completed);
+    assert_eq!(result.transactions.len(), 3);
+    assert!(matches!(
+        &result.fault,
+        Some(Fault::Protocol { detail }) if detail.contains("0x20")
+    ));
+    assert_eq!(io.requests.len(), 3);
+
+    let (mut io, mut clock) = fixture();
+    io.latched = Some((3, 0x20));
+    let result = run_with(&mut io, &mut clock, true);
+    assert!(result.completed, "{:?}", result.fault);
+    assert_eq!(result.transactions.len(), 10);
+    let replies: Vec<&JointReadback> = result
+        .transactions
+        .iter()
+        .flat_map(|transaction| &transaction.replies)
+        .collect();
+    assert_eq!(replies.len(), 30);
+    // Every reply of that joint carries the flag, and no other reply does.
+    assert!(
+        replies
+            .iter()
+            .all(|reply| { reply.reply_status_raw == if reply.joint_id == 3 { 0x20 } else { 0 } })
+    );
+    assert_eq!(
+        replies.iter().filter(|reply| reply.joint_id == 3).count(),
+        6
+    );
+    // Still the same ten requests, and still nothing but pings and reads.
+    assert_eq!(io.requests.len(), 10);
+    assert!(
+        io.requests
+            .iter()
+            .all(|request| [1, 0x82].contains(&request[4]))
+    );
 }
 
 #[test]

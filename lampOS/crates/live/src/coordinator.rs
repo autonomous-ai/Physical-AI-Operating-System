@@ -2916,12 +2916,18 @@ fn conversation(
             choreography.set_attending(attending);
         }
         if let Some(body) = body_link.as_mut() {
-            let phase = crate::ring_wire::RingPhase::from_snapshot(snapshot);
+            use crate::ring_wire::RingPhase;
+            let phase = RingPhase::from_snapshot(snapshot);
+            // The answer has arrived and is about to be spoken: the head
+            // comes back to the person before the first word, not during it.
+            let about_to_speak = reply
+                .as_ref()
+                .is_some_and(|current| current.had_audio && current.local_input_ended);
             body.tell(
-                if attending && phase == Some(crate::ring_wire::RingPhase::Speaking) {
-                    Some(crate::ring_wire::RingPhase::Listening)
-                } else {
-                    phase
+                match phase {
+                    Some(RingPhase::Speaking) if attending => Some(RingPhase::Listening),
+                    Some(RingPhase::Waiting) if about_to_speak => Some(RingPhase::Speaking),
+                    phase => phase,
                 },
                 voice_level,
                 clock,

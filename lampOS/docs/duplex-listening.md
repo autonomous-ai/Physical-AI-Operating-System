@@ -158,17 +158,18 @@ one block.
 The turn detector is not changed. It is given a different score: 1.0 for
 `Over`, 0.0 for `Own` and `Unknown`, and the block's own score otherwise.
 Its rule, six consecutive blocks at 0.80, then starts on a person and not
-on the lamp. While the lamp has something to yield, the first four `Over`
-blocks of a run are given as 0.0 too, so that the detector's six end on the
-block that yields and a candidate never arrives ahead of its yield.
+on the lamp. While the lamp has something to yield, the first `Over` block
+of a run is given as 0.0 too (as many blocks as the yield takes more than
+the detector's six), so that the detector's six end on the block that
+yields and a candidate never arrives ahead of its yield.
 
 A run of blocks becomes at most three moments (`Interruption`):
 
-1. **Yield.** Ten consecutive `Over` blocks while the lamp has something to
-   say. The coordinator hands nothing more to the speaker. It cancels
+1. **Yield.** Seven consecutive `Over` blocks while the lamp has something
+   to say. The coordinator hands nothing more to the speaker. It cancels
    nothing and drops nothing: the reply, its owner and its queue stay.
-   (Six blocks until 2026-10-13; see "Ten blocks, not six" below. The lab
-   tables further down were measured with six.)
+   (Six blocks until 2026-10-13; see "Seven blocks" below. The lab tables
+   further down were measured with six.)
 2. **Commit.** Six `Clear` blocks after the yield: the lamp is silent, the
    room has gone quiet of it, and speech-like input remains. This is a
    hearing decision, not addressee evidence or completed input admission.
@@ -207,41 +208,62 @@ it, and so will a television. The mode knows that a sound is speech-like
 and is not the lamp. It knows nothing else, and its acceptance basis in
 the trace, `directed_session_duplex`, says so.
 
-### Ten blocks, not six
+### Seven blocks
 
-Counted on lamp-4ace on 2026-10-12 from the `duplex_hearing` trail, with
-played prompts: 362 s in which the lamp had something to yield, fifteen
+Counted on lamp-4ace on 2026-10-12 and 13 from the `duplex_hearing` trail,
+with played prompts: 548 s in which the lamp had something to yield and 29
 cut-in clips, each rule replayed open loop over the same blocks (after a
-rule fires it is held off for 1.2 s).
+rule fires it is held off for 1.2 s). The sessions themselves ran with six
+blocks and then with ten.
 
-| Consecutive `Over` blocks | Clips it stopped for | Stops with no clip playing | Per minute of lamp speech |
+| Consecutive `Over` blocks | Clips it stopped for, of 29 | Stops with no clip playing | Per minute of lamp speech |
 |---|---|---|---|
-| 6 | 11 of 15 | 7 | 1.3 |
-| 8 | 9 of 15 | 5 | 0.9 |
-| 10 | 9 of 15 | 2 | 0.4 |
+| 5 | 20 | 13 | 1.6 |
+| 6 | 20 | 7 | 0.9 |
+| 7 | 20 | 6 | 0.8 |
+| 8 | 17 | 6 | 0.8 |
+| 9 | 17 | 3 | 0.4 |
+| 10 | 16 | 2 | 0.25 |
+| 12 | 15 | 2 | 0.25 |
 
-The stops with no clip were the lamp's own voice let through by the
-canceller at the end of a word, where the render's share of the block
-drops for six to nine blocks. Each cost a pause of about 0.7 s in the
-middle of a sentence. Counting `Over` blocks in a window instead of in a
-row was tried on the same blocks: 8 of the last 12 stopped for 10 clips
-with 5 false stops, 10 of the last 20 for 10 clips with 2. Ten in a row
-was taken over 10 of 20 for one clip fewer because the turn detector
-starts on six blocks in a row: with a run, its start can be made to end
-exactly on the yield, and with a window it cannot.
+A stop with no clip is the lamp's own voice let through by the canceller
+at the end of a word, where the render's share of the block drops for six
+to nine blocks. It costs a pause of about 0.7 s in the middle of a
+sentence. Ten blocks ran on the lamp for two batches and removes most of them,
+at the price of four cut-ins in twenty that six would have stopped for. A
+lamp that does not stop when spoken to is the worse fault, so the rule is
+seven: every clip that six stopped for, and the one yield the six-block
+rule made on the lamp's own voice in the recording of a person
+(`dual-121930-owner-voice-both-mics`, 80 s in) is gone. That recording
+holds a run of sixteen where the person speaks over the lamp; seven yields
+one block later than six.
 
-The one recording of a person speaking over this lamp
-(`dual-121930-owner-voice-both-mics`, replayed through `duplex_lab`) holds
-a run of sixteen: the yield comes four blocks later (source block 16,078
-against 16,074), and the yield the six-block rule made on the lamp's own
-voice 80 s into that session is gone.
+Two things the count showed that no run length fixes:
 
-What ten blocks does not fix: the four clips neither rule stopped for,
-and the two of fifteen it gives up. In those the detector scored the
-played voice under 0.5 for as long as the lamp was loud, so there was
-nothing to count. A lone played "Stop." or "Lamp, stop." was missed four
-times in four. Whether a person at the lamp is heard the same way is not
-known from played prompts; the one recording says not.
+- **Nine clips in 29 were not stopped for by any rule.** In those the
+  detector scored the played voice under 0.5 for as long as the lamp was
+  loud, so there was nothing to count. A lone played "Stop." or "Lamp,
+  stop." was missed in eight of ten tries. One recorded session with the
+  head still shows the other side of it: the canceller took the lamp's own
+  voice down to the microphone's floor (60 to 72 dB), a played "Lamp,
+  stop." came through it untouched and the lamp yielded about 0.1 s after
+  the first sound. The canceller's state, not the rule, decides which of
+  the two a cut-in meets. Whether a person at the lamp fares as a played
+  voice does is not known.
+- **The head moving while the lamp speaks goes with the false stops.**
+  With the body running: 8 stops with no clip in 6.8 minutes of lamp
+  speech under the six-block rule. With the body stopped, over ten
+  stories: none. One evening, one room, and the sessions differ in more
+  than the body; it is a lead, not a measurement. The head now turns back
+  to the person when the answer arrives, before the first word, so that
+  its largest move is over when the lamp starts to speak (`docs/body.md`).
+
+Counting `Over` blocks in a window instead of in a row was tried on the
+first 362 s of the same data: 8 of the last 12 and 10 of the last 20
+behaved like eight and ten in a row to within one clip. A run was kept
+because the turn detector starts on six blocks in a row: with a run its
+start can be made to end exactly on the yield, and with a window it
+cannot.
 
 ### After the interruption: what the model says
 
@@ -660,7 +682,7 @@ functions:
 | Test | Holds |
 |---|---|
 | `the_lamps_own_voice_through_a_whole_reply_...` | 300 blocks of leaked own voice at a score of 0.99: no yield, no candidate, a chunk to the speaker every block |
-| `a_person_over_the_lamp_stops_the_speaker_then_interrupts_...` | Yield on the tenth block; nothing dispatched and nothing cancelled while held; commit; one unbroken run of retained audio from before the first word; one `user_interrupted`; a new request |
+| `a_person_over_the_lamp_stops_the_speaker_then_interrupts_...` | Yield on the seventh block; nothing dispatched and nothing cancelled while held; commit; one unbroken run of retained audio from before the first word; one `user_interrupted`; a new request |
 | `a_brief_acknowledgment_costs_a_pause_and_none_of_the_reply` | A 46-block pause; same owner; every sample of the reply reaches the speaker once, in order |
 | `a_yield_that_is_never_settled_is_given_up_at_its_deadline` | Resume at 60 blocks; the candidate ends as policy, not deadline or capacity |
 | `the_standard_hold_cannot_keep_a_candidate_through_a_yield` | Why the hold is longer |

@@ -1,0 +1,2383 @@
+{
+ "pooled": {
+  "sessions": {
+   "plain": {
+    "replies": 8,
+    "negative_control_yields": 0,
+    "negative_control_commits": 0,
+    "session_prompt_p90_dbfs_median": -12.8
+   },
+   "six": {
+    "replies": 7,
+    "negative_control_yields": 2,
+    "negative_control_commits": 0,
+    "session_prompt_p90_dbfs_median": -14.1
+   },
+   "ext": {
+    "replies": 10,
+    "negative_control_yields": 0,
+    "negative_control_commits": 0,
+    "session_prompt_p90_dbfs_median": -12.6
+   }
+  },
+  "trials": 50,
+  "excluded": 0,
+  "committed_within_clip_plus_1s": 41,
+  "not_committed": 9,
+  "whole_request_retained": 6,
+  "opening_not_retained_ms": {
+   "n": 41,
+   "median": 1240,
+   "p25": 110,
+   "p75": 1560,
+   "max": 3260,
+   "at_least_1000": 22,
+   "at_least_2000": 8
+  },
+  "first_yield_then_resume": 15,
+  "never_yielded": 5,
+  "first_yield_between_2500_and_2650_ms": 4,
+  "committed_yield_between_2500_and_2650_ms": 4,
+  "heard_before_first_yield_all_trials": {
+   "blocks": 6959,
+   "over": 428,
+   "own": 295,
+   "under": 3793,
+   "unknown": 121,
+   "clear_or_still": 2322
+  },
+  "added_speech_in_cancelled_signal_before_yield": {
+   "trials": 34,
+   "level_kept_db_median": -22.55,
+   "level_kept_db_range": [
+    -38.2,
+    -8.9
+   ],
+   "against_everything_else_db_median": -14.1,
+   "against_everything_else_db_range": [
+    -37.6,
+    -6.5
+   ]
+  },
+  "added_speech_in_cancelled_signal_lamp_silent": {
+   "trials": 28,
+   "level_kept_db_median": -3.45,
+   "level_kept_db_range": [
+    -4.0,
+    -2.4
+   ],
+   "against_everything_else_db_median": -5.15,
+   "against_everything_else_db_range": [
+    -10.9,
+    -1.3
+   ]
+  },
+  "measure": "one least-squares gain of the added speech in the cancelled signal over the speech-active samples of the window, at the canceller delay of 144 samples; a linear measure of a non-linear canceller, so compare the two rows with each other, not with zero"
+ },
+ "trials": [
+  {
+   "session": "plain",
+   "reply": 0,
+   "gain_db": 0.0,
+   "first_yield_ms": 110,
+   "steps": [
+    [
+     "yield",
+     110
+    ],
+    [
+     "resume",
+     620
+    ],
+    [
+     "yield",
+     880
+    ],
+    [
+     "commit",
+     1060
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1060,
+    "its_yield_delay_ms": 880,
+    "request_starts_ms_after_onset": 590,
+    "opening_not_retained_ms": 590,
+    "yields_before_it": 1
+   },
+   "heard_before_yield": {
+    "blocks": 12,
+    "over": 6,
+    "own": 0,
+    "under": 6,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 60,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.5,
+    "against_everything_else_db": -4.5
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 1,
+   "gain_db": 0.0,
+   "first_yield_ms": 1530,
+   "steps": [
+    [
+     "yield",
+     1530
+    ],
+    [
+     "commit",
+     1980
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1980,
+    "its_yield_delay_ms": 1530,
+    "request_starts_ms_after_onset": 1240,
+    "opening_not_retained_ms": 1240,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 154,
+    "over": 9,
+    "own": 0,
+    "under": 145,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 370,
+    "speech_scored_blocks": 9
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1530,
+    "speech_ms": 1120,
+    "level_kept_db": -15.7,
+    "against_everything_else_db": -12.1
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.3,
+    "against_everything_else_db": -4.2
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 2,
+   "gain_db": 0.0,
+   "first_yield_ms": 130,
+   "steps": [
+    [
+     "yield",
+     130
+    ],
+    [
+     "commit",
+     520
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 520,
+    "its_yield_delay_ms": 130,
+    "request_starts_ms_after_onset": -160,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 14,
+    "over": 6,
+    "own": 0,
+    "under": 8,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.3,
+    "against_everything_else_db": -4.7
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 3,
+   "gain_db": 0.0,
+   "first_yield_ms": 400,
+   "steps": [
+    [
+     "yield",
+     400
+    ],
+    [
+     "commit",
+     870
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 870,
+    "its_yield_delay_ms": 400,
+    "request_starts_ms_after_onset": 110,
+    "opening_not_retained_ms": 110,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 41,
+    "over": 9,
+    "own": 2,
+    "under": 30,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 140,
+    "speech_scored_blocks": 11
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 400,
+    "speech_ms": 400,
+    "level_kept_db": -24.0,
+    "against_everything_else_db": -16.5
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.5,
+    "against_everything_else_db": -4.0
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 4,
+   "gain_db": 0.0,
+   "first_yield_ms": 140,
+   "steps": [
+    [
+     "yield",
+     140
+    ],
+    [
+     "resume",
+     670
+    ],
+    [
+     "yield",
+     900
+    ],
+    [
+     "resume",
+     1380
+    ],
+    [
+     "yield",
+     1830
+    ],
+    [
+     "commit",
+     2210
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2210,
+    "its_yield_delay_ms": 1830,
+    "request_starts_ms_after_onset": 1540,
+    "opening_not_retained_ms": 1540,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 15,
+    "over": 6,
+    "own": 0,
+    "under": 3,
+    "unknown": 6,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 12
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.3,
+    "against_everything_else_db": -2.0
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 5,
+   "gain_db": 0.0,
+   "first_yield_ms": 890,
+   "steps": [
+    [
+     "yield",
+     890
+    ],
+    [
+     "resume",
+     1360
+    ],
+    [
+     "yield",
+     1760
+    ],
+    [
+     "commit",
+     2150
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2150,
+    "its_yield_delay_ms": 1760,
+    "request_starts_ms_after_onset": 1470,
+    "opening_not_retained_ms": 1470,
+    "yields_before_it": 1
+   },
+   "heard_before_yield": {
+    "blocks": 90,
+    "over": 11,
+    "own": 0,
+    "under": 79,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 360,
+    "speech_scored_blocks": 11
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 890,
+    "speech_ms": 710,
+    "level_kept_db": -20.8,
+    "against_everything_else_db": -14.6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -4.0,
+    "against_everything_else_db": -3.4
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 6,
+   "gain_db": 0.0,
+   "first_yield_ms": 400,
+   "steps": [
+    [
+     "yield",
+     400
+    ],
+    [
+     "resume",
+     720
+    ],
+    [
+     "yield",
+     1560
+    ],
+    [
+     "commit",
+     2010
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2010,
+    "its_yield_delay_ms": 1560,
+    "request_starts_ms_after_onset": 1270,
+    "opening_not_retained_ms": 1270,
+    "yields_before_it": 1
+   },
+   "heard_before_yield": {
+    "blocks": 41,
+    "over": 6,
+    "own": 0,
+    "under": 35,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 350,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 400,
+    "speech_ms": 400,
+    "level_kept_db": -19.7,
+    "against_everything_else_db": -8.1
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.2,
+    "against_everything_else_db": -1.3
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 7,
+   "gain_db": 0.0,
+   "first_yield_ms": 130,
+   "steps": [
+    [
+     "yield",
+     130
+    ],
+    [
+     "resume",
+     650
+    ],
+    [
+     "yield",
+     880
+    ],
+    [
+     "resume",
+     1360
+    ],
+    [
+     "yield",
+     1590
+    ],
+    [
+     "commit",
+     2030
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2030,
+    "its_yield_delay_ms": 1590,
+    "request_starts_ms_after_onset": 1300,
+    "opening_not_retained_ms": 1300,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 14,
+    "over": 6,
+    "own": 0,
+    "under": 8,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 6
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 0,
+   "gain_db": -6.0,
+   "first_yield_ms": 120,
+   "steps": [
+    [
+     "yield",
+     120
+    ],
+    [
+     "resume",
+     620
+    ],
+    [
+     "yield",
+     860
+    ],
+    [
+     "resume",
+     1180
+    ]
+   ],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 13,
+    "over": 6,
+    "own": 0,
+    "under": 7,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 70,
+    "speech_scored_blocks": 6
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 1,
+   "gain_db": -6.0,
+   "first_yield_ms": 1850,
+   "steps": [
+    [
+     "yield",
+     1850
+    ],
+    [
+     "commit",
+     2350
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2350,
+    "its_yield_delay_ms": 1850,
+    "request_starts_ms_after_onset": 1560,
+    "opening_not_retained_ms": 1560,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 186,
+    "over": 8,
+    "own": 8,
+    "under": 170,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 1760,
+    "speech_scored_blocks": 16
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1850,
+    "speech_ms": 1440,
+    "level_kept_db": -17.6,
+    "against_everything_else_db": -6.5
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.5,
+    "against_everything_else_db": -7.8
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 2,
+   "gain_db": -6.0,
+   "first_yield_ms": 370,
+   "steps": [
+    [
+     "yield",
+     370
+    ],
+    [
+     "commit",
+     860
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 860,
+    "its_yield_delay_ms": 370,
+    "request_starts_ms_after_onset": 80,
+    "opening_not_retained_ms": 80,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 38,
+    "over": 9,
+    "own": 12,
+    "under": 17,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 21
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 370,
+    "speech_ms": 370,
+    "level_kept_db": -24.3,
+    "against_everything_else_db": -20.7
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -2.9,
+    "against_everything_else_db": -7.8
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 3,
+   "gain_db": -6.0,
+   "first_yield_ms": null,
+   "steps": [],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 466,
+    "over": 0,
+    "own": 20,
+    "under": 311,
+    "unknown": 0,
+    "clear_or_still": 135,
+    "longest_over_run": 0,
+    "first_over_ms": null,
+    "speech_scored_blocks": 116
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 3010,
+    "speech_ms": 2600,
+    "level_kept_db": -21.6,
+    "against_everything_else_db": -18.1
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 4,
+   "gain_db": -6.0,
+   "first_yield_ms": 140,
+   "steps": [
+    [
+     "yield",
+     140
+    ],
+    [
+     "resume",
+     620
+    ],
+    [
+     "yield",
+     850
+    ],
+    [
+     "resume",
+     1330
+    ],
+    [
+     "yield",
+     1850
+    ],
+    [
+     "commit",
+     2190
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2190,
+    "its_yield_delay_ms": 1850,
+    "request_starts_ms_after_onset": 1560,
+    "opening_not_retained_ms": 1560,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 15,
+    "over": 6,
+    "own": 0,
+    "under": 4,
+    "unknown": 5,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 11
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.6,
+    "against_everything_else_db": -5.1
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 5,
+   "gain_db": -6.0,
+   "first_yield_ms": 950,
+   "steps": [
+    [
+     "yield",
+     950
+    ],
+    [
+     "commit",
+     1470
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1470,
+    "its_yield_delay_ms": 950,
+    "request_starts_ms_after_onset": 660,
+    "opening_not_retained_ms": 660,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 96,
+    "over": 6,
+    "own": 0,
+    "under": 90,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 900,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 950,
+    "speech_ms": 770,
+    "level_kept_db": -24.9,
+    "against_everything_else_db": -22.8
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.3,
+    "against_everything_else_db": -9.3
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 6,
+   "gain_db": -6.0,
+   "first_yield_ms": 400,
+   "steps": [
+    [
+     "yield",
+     400
+    ],
+    [
+     "resume",
+     700
+    ],
+    [
+     "yield",
+     980
+    ],
+    [
+     "commit",
+     1450
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1450,
+    "its_yield_delay_ms": 980,
+    "request_starts_ms_after_onset": 690,
+    "opening_not_retained_ms": 690,
+    "yields_before_it": 1
+   },
+   "heard_before_yield": {
+    "blocks": 41,
+    "over": 6,
+    "own": 0,
+    "under": 35,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 350,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 400,
+    "speech_ms": 400,
+    "level_kept_db": -21.6,
+    "against_everything_else_db": -9.7
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.4,
+    "against_everything_else_db": -7.4
+   }
+  },
+  {
+   "session": "plain",
+   "reply": 7,
+   "gain_db": -6.0,
+   "first_yield_ms": 120,
+   "steps": [
+    [
+     "yield",
+     120
+    ],
+    [
+     "resume",
+     600
+    ],
+    [
+     "yield",
+     830
+    ],
+    [
+     "resume",
+     1310
+    ],
+    [
+     "yield",
+     1540
+    ],
+    [
+     "commit",
+     2030
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2030,
+    "its_yield_delay_ms": 1540,
+    "request_starts_ms_after_onset": 1250,
+    "opening_not_retained_ms": 1250,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 13,
+    "over": 6,
+    "own": 0,
+    "under": 7,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 70,
+    "speech_scored_blocks": 6
+   }
+  },
+  {
+   "session": "six",
+   "reply": 0,
+   "gain_db": 0.0,
+   "first_yield_ms": 510,
+   "steps": [
+    [
+     "yield",
+     510
+    ],
+    [
+     "commit",
+     900
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 900,
+    "its_yield_delay_ms": 510,
+    "request_starts_ms_after_onset": 220,
+    "opening_not_retained_ms": 220,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 52,
+    "over": 6,
+    "own": 0,
+    "under": 46,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 460,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 510,
+    "speech_ms": 510,
+    "level_kept_db": -20.7,
+    "against_everything_else_db": -9.9
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.7,
+    "against_everything_else_db": -4.6
+   }
+  },
+  {
+   "session": "six",
+   "reply": 1,
+   "gain_db": 0.0,
+   "first_yield_ms": null,
+   "steps": [],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 466,
+    "over": 0,
+    "own": 7,
+    "under": 64,
+    "unknown": 0,
+    "clear_or_still": 395,
+    "longest_over_run": 0,
+    "first_over_ms": null,
+    "speech_scored_blocks": 312
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 410,
+    "speech_ms": 410,
+    "level_kept_db": -23.7,
+    "against_everything_else_db": -14.2
+   }
+  },
+  {
+   "session": "six",
+   "reply": 2,
+   "gain_db": 0.0,
+   "first_yield_ms": 430,
+   "steps": [
+    [
+     "yield",
+     430
+    ],
+    [
+     "commit",
+     860
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 860,
+    "its_yield_delay_ms": 430,
+    "request_starts_ms_after_onset": 140,
+    "opening_not_retained_ms": 140,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 44,
+    "over": 6,
+    "own": 0,
+    "under": 38,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 380,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 430,
+    "speech_ms": 430,
+    "level_kept_db": -24.6,
+    "against_everything_else_db": -13.1
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.7,
+    "against_everything_else_db": -6.2
+   }
+  },
+  {
+   "session": "six",
+   "reply": 3,
+   "gain_db": 0.0,
+   "first_yield_ms": 2580,
+   "steps": [
+    [
+     "yield",
+     2580
+    ],
+    [
+     "commit",
+     2970
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2970,
+    "its_yield_delay_ms": 2580,
+    "request_starts_ms_after_onset": 2290,
+    "opening_not_retained_ms": 2290,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 259,
+    "over": 18,
+    "own": 6,
+    "under": 235,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 920,
+    "speech_scored_blocks": 24
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 2580,
+    "speech_ms": 2170,
+    "level_kept_db": -25.2,
+    "against_everything_else_db": -24.0
+   }
+  },
+  {
+   "session": "six",
+   "reply": 4,
+   "gain_db": 0.0,
+   "first_yield_ms": 1550,
+   "steps": [
+    [
+     "yield",
+     1550
+    ],
+    [
+     "commit",
+     2010
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2010,
+    "its_yield_delay_ms": 1550,
+    "request_starts_ms_after_onset": 1260,
+    "opening_not_retained_ms": 1260,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 156,
+    "over": 13,
+    "own": 25,
+    "under": 118,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 38
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1550,
+    "speech_ms": 1140,
+    "level_kept_db": -11.7,
+    "against_everything_else_db": -15.8
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.1,
+    "against_everything_else_db": -5.7
+   }
+  },
+  {
+   "session": "six",
+   "reply": 5,
+   "gain_db": 0.0,
+   "first_yield_ms": 3450,
+   "steps": [
+    [
+     "yield",
+     3450
+    ],
+    [
+     "commit",
+     3950
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 3950,
+    "its_yield_delay_ms": 3450,
+    "request_starts_ms_after_onset": 3160,
+    "opening_not_retained_ms": 3160,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 346,
+    "over": 18,
+    "own": 12,
+    "under": 60,
+    "unknown": 28,
+    "clear_or_still": 228,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 183
+   }
+  },
+  {
+   "session": "six",
+   "reply": 6,
+   "gain_db": 0.0,
+   "first_yield_ms": 380,
+   "steps": [
+    [
+     "yield",
+     380
+    ],
+    [
+     "commit",
+     860
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 860,
+    "its_yield_delay_ms": 380,
+    "request_starts_ms_after_onset": 90,
+    "opening_not_retained_ms": 90,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 39,
+    "over": 6,
+    "own": 0,
+    "under": 33,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 330,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 380,
+    "speech_ms": 380,
+    "level_kept_db": -19.3,
+    "against_everything_else_db": -7.9
+   }
+  },
+  {
+   "session": "six",
+   "reply": 0,
+   "gain_db": -6.0,
+   "first_yield_ms": null,
+   "steps": [],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 466,
+    "over": 13,
+    "own": 11,
+    "under": 210,
+    "unknown": 17,
+    "clear_or_still": 215,
+    "longest_over_run": 4,
+    "first_over_ms": 480,
+    "speech_scored_blocks": 195
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 2300,
+    "speech_ms": 1890,
+    "level_kept_db": -8.9,
+    "against_everything_else_db": -16.5
+   }
+  },
+  {
+   "session": "six",
+   "reply": 1,
+   "gain_db": -6.0,
+   "first_yield_ms": null,
+   "steps": [],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 466,
+    "over": 0,
+    "own": 2,
+    "under": 69,
+    "unknown": 0,
+    "clear_or_still": 395,
+    "longest_over_run": 0,
+    "first_over_ms": null,
+    "speech_scored_blocks": 303
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 410,
+    "speech_ms": 410,
+    "level_kept_db": -32.5,
+    "against_everything_else_db": -22.5
+   }
+  },
+  {
+   "session": "six",
+   "reply": 2,
+   "gain_db": -6.0,
+   "first_yield_ms": 2700,
+   "steps": [
+    [
+     "yield",
+     2700
+    ],
+    [
+     "resume",
+     3180
+    ]
+   ],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 271,
+    "over": 9,
+    "own": 10,
+    "under": 252,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 390,
+    "speech_scored_blocks": 19
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 2700,
+    "speech_ms": 2290,
+    "level_kept_db": -21.2,
+    "against_everything_else_db": -12.3
+   }
+  },
+  {
+   "session": "six",
+   "reply": 3,
+   "gain_db": -6.0,
+   "first_yield_ms": 1530,
+   "steps": [
+    [
+     "yield",
+     1530
+    ],
+    [
+     "commit",
+     1980
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1980,
+    "its_yield_delay_ms": 1530,
+    "request_starts_ms_after_onset": 1240,
+    "opening_not_retained_ms": 1240,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 154,
+    "over": 6,
+    "own": 23,
+    "under": 125,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 1480,
+    "speech_scored_blocks": 29
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1530,
+    "speech_ms": 1120,
+    "level_kept_db": -25.1,
+    "against_everything_else_db": -27.4
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -2.4,
+    "against_everything_else_db": -6.8
+   }
+  },
+  {
+   "session": "six",
+   "reply": 4,
+   "gain_db": -6.0,
+   "first_yield_ms": 2610,
+   "steps": [
+    [
+     "yield",
+     2610
+    ],
+    [
+     "commit",
+     3000
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 3000,
+    "its_yield_delay_ms": 2610,
+    "request_starts_ms_after_onset": 2320,
+    "opening_not_retained_ms": 2320,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 262,
+    "over": 18,
+    "own": 26,
+    "under": 218,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 1530,
+    "speech_scored_blocks": 44
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 2610,
+    "speech_ms": 2200,
+    "level_kept_db": -16.3,
+    "against_everything_else_db": -21.7
+   }
+  },
+  {
+   "session": "six",
+   "reply": 5,
+   "gain_db": -6.0,
+   "first_yield_ms": 4290,
+   "steps": [
+    [
+     "yield",
+     4290
+    ],
+    [
+     "resume",
+     4770
+    ],
+    [
+     "yield",
+     4990
+    ],
+    [
+     "resume",
+     5470
+    ]
+   ],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 430,
+    "over": 30,
+    "own": 41,
+    "under": 107,
+    "unknown": 24,
+    "clear_or_still": 228,
+    "longest_over_run": 6,
+    "first_over_ms": 100,
+    "speech_scored_blocks": 217
+   }
+  },
+  {
+   "session": "six",
+   "reply": 6,
+   "gain_db": -6.0,
+   "first_yield_ms": 400,
+   "steps": [
+    [
+     "yield",
+     400
+    ],
+    [
+     "commit",
+     860
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 860,
+    "its_yield_delay_ms": 400,
+    "request_starts_ms_after_onset": 110,
+    "opening_not_retained_ms": 110,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 41,
+    "over": 6,
+    "own": 0,
+    "under": 35,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 350,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 400,
+    "speech_ms": 400,
+    "level_kept_db": -24.9,
+    "against_everything_else_db": -10.0
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 0,
+   "gain_db": 0.0,
+   "first_yield_ms": 110,
+   "steps": [
+    [
+     "yield",
+     110
+    ],
+    [
+     "commit",
+     500
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 500,
+    "its_yield_delay_ms": 110,
+    "request_starts_ms_after_onset": -180,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 12,
+    "over": 6,
+    "own": 2,
+    "under": 4,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 60,
+    "speech_scored_blocks": 8
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.2,
+    "against_everything_else_db": -3.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 1,
+   "gain_db": 0.0,
+   "first_yield_ms": 130,
+   "steps": [
+    [
+     "yield",
+     130
+    ],
+    [
+     "resume",
+     650
+    ],
+    [
+     "yield",
+     850
+    ],
+    [
+     "resume",
+     1330
+    ],
+    [
+     "yield",
+     1830
+    ],
+    [
+     "commit",
+     2330
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2330,
+    "its_yield_delay_ms": 1830,
+    "request_starts_ms_after_onset": 1540,
+    "opening_not_retained_ms": 1540,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 14,
+    "over": 6,
+    "own": 8,
+    "under": 0,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 14
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.4,
+    "against_everything_else_db": -4.3
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 2,
+   "gain_db": 0.0,
+   "first_yield_ms": 130,
+   "steps": [
+    [
+     "yield",
+     130
+    ],
+    [
+     "commit",
+     520
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 520,
+    "its_yield_delay_ms": 130,
+    "request_starts_ms_after_onset": -160,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 14,
+    "over": 6,
+    "own": 0,
+    "under": 8,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 80,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.3,
+    "against_everything_else_db": -3.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 3,
+   "gain_db": 0.0,
+   "first_yield_ms": 2160,
+   "steps": [
+    [
+     "yield",
+     2160
+    ],
+    [
+     "commit",
+     2550
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2550,
+    "its_yield_delay_ms": 2160,
+    "request_starts_ms_after_onset": 1870,
+    "opening_not_retained_ms": 1870,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 217,
+    "over": 10,
+    "own": 17,
+    "under": 190,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 950,
+    "speech_scored_blocks": 27
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 2160,
+    "speech_ms": 1750,
+    "level_kept_db": -23.5,
+    "against_everything_else_db": -11.9
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.6,
+    "against_everything_else_db": -2.6
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 4,
+   "gain_db": 0.0,
+   "first_yield_ms": 140,
+   "steps": [
+    [
+     "yield",
+     140
+    ],
+    [
+     "commit",
+     520
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 520,
+    "its_yield_delay_ms": 140,
+    "request_starts_ms_after_onset": -150,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 15,
+    "over": 7,
+    "own": 0,
+    "under": 8,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 60,
+    "speech_scored_blocks": 7
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -2.8,
+    "against_everything_else_db": -5.9
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 5,
+   "gain_db": 0.0,
+   "first_yield_ms": 2980,
+   "steps": [
+    [
+     "yield",
+     2980
+    ],
+    [
+     "commit",
+     3410
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 3410,
+    "its_yield_delay_ms": 2980,
+    "request_starts_ms_after_onset": 2690,
+    "opening_not_retained_ms": 2690,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 299,
+    "over": 21,
+    "own": 0,
+    "under": 44,
+    "unknown": 11,
+    "clear_or_still": 223,
+    "longest_over_run": 12,
+    "first_over_ms": 40,
+    "speech_scored_blocks": 158
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 210,
+    "speech_ms": 210,
+    "level_kept_db": -34.6,
+    "against_everything_else_db": -14.0
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 6,
+   "gain_db": 0.0,
+   "first_yield_ms": 530,
+   "steps": [
+    [
+     "yield",
+     530
+    ],
+    [
+     "commit",
+     910
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 910,
+    "its_yield_delay_ms": 530,
+    "request_starts_ms_after_onset": 240,
+    "opening_not_retained_ms": 240,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 54,
+    "over": 6,
+    "own": 0,
+    "under": 48,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 480,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 530,
+    "speech_ms": 530,
+    "level_kept_db": -32.6,
+    "against_everything_else_db": -19.4
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -4.0,
+    "against_everything_else_db": -5.2
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 7,
+   "gain_db": 0.0,
+   "first_yield_ms": 2560,
+   "steps": [
+    [
+     "yield",
+     2560
+    ],
+    [
+     "commit",
+     2950
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2950,
+    "its_yield_delay_ms": 2560,
+    "request_starts_ms_after_onset": 2270,
+    "opening_not_retained_ms": 2270,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 257,
+    "over": 10,
+    "own": 0,
+    "under": 99,
+    "unknown": 11,
+    "clear_or_still": 137,
+    "longest_over_run": 6,
+    "first_over_ms": 120,
+    "speech_scored_blocks": 108
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 540,
+    "speech_ms": 540,
+    "level_kept_db": -25.6,
+    "against_everything_else_db": -16.9
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 8,
+   "gain_db": 0.0,
+   "first_yield_ms": 100,
+   "steps": [
+    [
+     "yield",
+     100
+    ],
+    [
+     "commit",
+     480
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 480,
+    "its_yield_delay_ms": 100,
+    "request_starts_ms_after_onset": -190,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 11,
+    "over": 6,
+    "own": 0,
+    "under": 5,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 50,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.7,
+    "against_everything_else_db": -5.8
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 9,
+   "gain_db": 0.0,
+   "first_yield_ms": 390,
+   "steps": [
+    [
+     "yield",
+     390
+    ],
+    [
+     "commit",
+     870
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 870,
+    "its_yield_delay_ms": 390,
+    "request_starts_ms_after_onset": 100,
+    "opening_not_retained_ms": 100,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 40,
+    "over": 11,
+    "own": 3,
+    "under": 26,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 14
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 390,
+    "speech_ms": 390,
+    "level_kept_db": -16.2,
+    "against_everything_else_db": -7.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 0,
+   "gain_db": -6.0,
+   "first_yield_ms": 870,
+   "steps": [
+    [
+     "yield",
+     870
+    ],
+    [
+     "resume",
+     1280
+    ]
+   ],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 88,
+    "over": 7,
+    "own": 0,
+    "under": 81,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 100,
+    "speech_scored_blocks": 7
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 870,
+    "speech_ms": 690,
+    "level_kept_db": -14.1,
+    "against_everything_else_db": -7.9
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 1,
+   "gain_db": -6.0,
+   "first_yield_ms": 380,
+   "steps": [
+    [
+     "yield",
+     380
+    ],
+    [
+     "commit",
+     850
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 850,
+    "its_yield_delay_ms": 380,
+    "request_starts_ms_after_onset": 90,
+    "opening_not_retained_ms": 90,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 39,
+    "over": 11,
+    "own": 13,
+    "under": 15,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 24
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 380,
+    "speech_ms": 380,
+    "level_kept_db": -10.3,
+    "against_everything_else_db": -7.2
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.5,
+    "against_everything_else_db": -8.1
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 2,
+   "gain_db": -6.0,
+   "first_yield_ms": 1550,
+   "steps": [
+    [
+     "yield",
+     1550
+    ],
+    [
+     "commit",
+     1960
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 1960,
+    "its_yield_delay_ms": 1550,
+    "request_starts_ms_after_onset": 1260,
+    "opening_not_retained_ms": 1260,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 156,
+    "over": 10,
+    "own": 8,
+    "under": 138,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 90,
+    "speech_scored_blocks": 18
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1550,
+    "speech_ms": 1140,
+    "level_kept_db": -20.1,
+    "against_everything_else_db": -9.6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.5,
+    "against_everything_else_db": -8.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 3,
+   "gain_db": -6.0,
+   "first_yield_ms": 1840,
+   "steps": [
+    [
+     "yield",
+     1840
+    ],
+    [
+     "resume",
+     2320
+    ],
+    [
+     "yield",
+     3440
+    ],
+    [
+     "commit",
+     3720
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 3720,
+    "its_yield_delay_ms": 3440,
+    "request_starts_ms_after_onset": 3150,
+    "opening_not_retained_ms": 3150,
+    "yields_before_it": 1
+   },
+   "heard_before_yield": {
+    "blocks": 185,
+    "over": 6,
+    "own": 15,
+    "under": 164,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 1790,
+    "speech_scored_blocks": 21
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1840,
+    "speech_ms": 1430,
+    "level_kept_db": -17.5,
+    "against_everything_else_db": -8.6
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 4,
+   "gain_db": -6.0,
+   "first_yield_ms": 120,
+   "steps": [
+    [
+     "yield",
+     120
+    ],
+    [
+     "resume",
+     650
+    ],
+    [
+     "yield",
+     880
+    ],
+    [
+     "resume",
+     1350
+    ],
+    [
+     "yield",
+     2130
+    ],
+    [
+     "commit",
+     2560
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2560,
+    "its_yield_delay_ms": 2130,
+    "request_starts_ms_after_onset": 1840,
+    "opening_not_retained_ms": 1840,
+    "yields_before_it": 2
+   },
+   "heard_before_yield": {
+    "blocks": 13,
+    "over": 6,
+    "own": 1,
+    "under": 6,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 70,
+    "speech_scored_blocks": 7
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.7,
+    "against_everything_else_db": -4.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 5,
+   "gain_db": -6.0,
+   "first_yield_ms": 3550,
+   "steps": [
+    [
+     "yield",
+     3550
+    ],
+    [
+     "commit",
+     3990
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 3990,
+    "its_yield_delay_ms": 3550,
+    "request_starts_ms_after_onset": 3260,
+    "opening_not_retained_ms": 3260,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 356,
+    "over": 12,
+    "own": 6,
+    "under": 107,
+    "unknown": 8,
+    "clear_or_still": 223,
+    "longest_over_run": 6,
+    "first_over_ms": 400,
+    "speech_scored_blocks": 143
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 210,
+    "speech_ms": 210,
+    "level_kept_db": -25.1,
+    "against_everything_else_db": -12.1
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 6,
+   "gain_db": -6.0,
+   "first_yield_ms": 570,
+   "steps": [
+    [
+     "yield",
+     570
+    ],
+    [
+     "commit",
+     950
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 950,
+    "its_yield_delay_ms": 570,
+    "request_starts_ms_after_onset": 280,
+    "opening_not_retained_ms": 280,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 58,
+    "over": 6,
+    "own": 0,
+    "under": 52,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 520,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 570,
+    "speech_ms": 570,
+    "level_kept_db": -38.2,
+    "against_everything_else_db": -25.2
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.2,
+    "against_everything_else_db": -8.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 7,
+   "gain_db": -6.0,
+   "first_yield_ms": 2530,
+   "steps": [
+    [
+     "yield",
+     2530
+    ],
+    [
+     "commit",
+     2950
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 2950,
+    "its_yield_delay_ms": 2530,
+    "request_starts_ms_after_onset": 2240,
+    "opening_not_retained_ms": 2240,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 254,
+    "over": 9,
+    "own": 0,
+    "under": 98,
+    "unknown": 10,
+    "clear_or_still": 137,
+    "longest_over_run": 6,
+    "first_over_ms": 2420,
+    "speech_scored_blocks": 104
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 540,
+    "speech_ms": 540,
+    "level_kept_db": -27.7,
+    "against_everything_else_db": -21.7
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 8,
+   "gain_db": -6.0,
+   "first_yield_ms": 110,
+   "steps": [
+    [
+     "yield",
+     110
+    ],
+    [
+     "commit",
+     520
+    ]
+   ],
+   "committed": {
+    "commit_delay_ms": 520,
+    "its_yield_delay_ms": 110,
+    "request_starts_ms_after_onset": -180,
+    "opening_not_retained_ms": 0,
+    "yields_before_it": 0
+   },
+   "heard_before_yield": {
+    "blocks": 12,
+    "over": 6,
+    "own": 0,
+    "under": 6,
+    "unknown": 0,
+    "clear_or_still": 0,
+    "longest_over_run": 6,
+    "first_over_ms": 60,
+    "speech_scored_blocks": 6
+   },
+   "added_speech_in_cancelled_signal_lamp_silent": {
+    "speech_ms": 1280,
+    "level_kept_db": -3.8,
+    "against_everything_else_db": -10.9
+   }
+  },
+  {
+   "session": "ext",
+   "reply": 9,
+   "gain_db": -6.0,
+   "first_yield_ms": null,
+   "steps": [],
+   "committed": null,
+   "heard_before_yield": {
+    "blocks": 164,
+    "over": 11,
+    "own": 17,
+    "under": 129,
+    "unknown": 1,
+    "clear_or_still": 6,
+    "longest_over_run": 11,
+    "first_over_ms": 1460,
+    "speech_scored_blocks": 30
+   },
+   "added_speech_in_cancelled_signal_before_yield": {
+    "window_ms": 1140,
+    "speech_ms": 960,
+    "level_kept_db": -37.1,
+    "against_everything_else_db": -37.6
+   }
+  }
+ ],
+ "per_session": {
+  "plain": {
+   "blocks": 9119,
+   "room_block": 7306,
+   "replies": [
+    [
+     643,
+     894
+    ],
+    [
+     1514,
+     2036
+    ],
+    [
+     2710,
+     3063
+    ],
+    [
+     3780,
+     4201
+    ],
+    [
+     5017,
+     5328
+    ],
+    [
+     6031,
+     6748
+    ],
+    [
+     7517,
+     8119
+    ],
+    [
+     8810,
+     9069
+    ]
+   ],
+   "clip_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+   "clip_blocks": 466,
+   "clip_p90_dbfs": -20.8,
+   "session_prompt_p90_dbfs_median": -12.8,
+   "start_after_reply_blocks": 120,
+   "negative_control": {
+    "what": "the recorded replies with nothing added",
+    "yields": 0,
+    "commits": 0
+   },
+   "heard_strings": {
+    "reply 0 at +0 dB": "uuuuuuVVVVVV",
+    "reply 1 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 2 at +0 dB": "uuuuuuuuVVVVVV",
+    "reply 3 at +0 dB": "uuuuuuuuuuuuuuVVVOOuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 4 at +0 dB": "uuuxxxxxxVVVVVV",
+    "reply 5 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 6 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 7 at +0 dB": "uuuuuuuuVVVVVV",
+    "reply 0 at -6 dB": "uuuuuuuVVVVVV",
+    "reply 1 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOOuuuuuuuuuuuuuuuuuuuVVuuVVVVVV",
+    "reply 2 at -6 dB": "uuuuuuuuuVVVOOOOOOOuuuuOOOOOuuuuVVVVVV",
+    "reply 3 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOuuuuuuuuuuuuuOOOOOOOOOOuOuuOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSS",
+    "reply 4 at -6 dB": "uuuuxxxxxVVVVVV",
+    "reply 5 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 6 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 7 at -6 dB": "uuuuuuuVVVVVV"
+   }
+  },
+  "six": {
+   "blocks": 10190,
+   "room_block": 7745,
+   "replies": [
+    [
+     703,
+     1053
+    ],
+    [
+     1647,
+     1808
+    ],
+    [
+     2487,
+     3276
+    ],
+    [
+     4130,
+     4924
+    ],
+    [
+     5804,
+     6787
+    ],
+    [
+     7515,
+     7645
+    ],
+    [
+     7903,
+     10140
+    ]
+   ],
+   "clip_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+   "clip_blocks": 466,
+   "clip_p90_dbfs": -20.8,
+   "session_prompt_p90_dbfs_median": -14.1,
+   "start_after_reply_blocks": 120,
+   "negative_control": {
+    "what": "the recorded replies with nothing added",
+    "yields": 2,
+    "commits": 0
+   },
+   "heard_strings": {
+    "reply 0 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 1 at +0 dB": "OOuuuuuuuOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCSCCSCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSCCCCCCCCCCCCCCCSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSS",
+    "reply 2 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 3 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVuuuuuuuuuuuuuuuOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVuuuuuuuuOOVVVVVV",
+    "reply 4 at +0 dB": "uuuuuuOOVVVOOOOOOuuuuuuOuuuuuuuuuuuuuuuuuuOOOOOuuOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOuuOOOOOVVVVVV",
+    "reply 5 at +0 dB": "OOOOuuuuVVVVVVuuuuuuuuuuuuuuuuuuuVVVVVxxCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCxxxxxxuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxVOOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 6 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 0 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVOuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVxxxxxxxxCCCCCCCSCxuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuOuOOOOOuuOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOuuuuuuuuuuuVVVuuuuuuVVxxxxxxxxCCCCCCCCCCCCCSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCSCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSCCCCCCCC",
+    "reply 1 at -6 dB": "OOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCSCCSCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSCCCCCCCCSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSCCCCCCCCCCCCCCCCCSCCCCCCCCCCCCCCSSSSSSSSSSSSSS",
+    "reply 2 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVuuOOOOuOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 3 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOOuuuuuuuuuuuuuuuuuuuOOOOOOOOOOOOOOOVVVVVV",
+    "reply 4 at -6 dB": "uuuuuuuOOOOOOOOOOOOuuOOOOuuuuuuuuuuuuuuuuuOOOuuuuOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOVVVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuVuuuuuuuuuuuuVVVVVOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOuVVVVVV",
+    "reply 5 at -6 dB": "OOOOuuuuuOVVVVuuuuuuuuuuuuuuuuuuuVVVVVxxCCCCCCCCCCCSCSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCSCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCxxxxxxuuuuuuuuuuuxxxxxxxxxxxxxxxxVOOOOOOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVOOOOOOuuuuuuOOOOOOOOOOOOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuVVVVuVVVVVuuuuuuuuuuuuuVVVVVV",
+    "reply 6 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV"
+   }
+  },
+  "ext": {
+   "blocks": 10790,
+   "room_block": 6734,
+   "replies": [
+    [
+     655,
+     1070
+    ],
+    [
+     1691,
+     2266
+    ],
+    [
+     2985,
+     3519
+    ],
+    [
+     4304,
+     4736
+    ],
+    [
+     5535,
+     5819
+    ],
+    [
+     6493,
+     6634
+    ],
+    [
+     6887,
+     7982
+    ],
+    [
+     8749,
+     8923
+    ],
+    [
+     9090,
+     9834
+    ],
+    [
+     10506,
+     10740
+    ]
+   ],
+   "clip_sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+   "clip_blocks": 466,
+   "clip_p90_dbfs": -20.8,
+   "session_prompt_p90_dbfs_median": -12.6,
+   "start_after_reply_blocks": 120,
+   "negative_control": {
+    "what": "the recorded replies with nothing added",
+    "yields": 0,
+    "commits": 0
+   },
+   "heard_strings": {
+    "reply 0 at +0 dB": "uuuuOOVVVVVV",
+    "reply 1 at +0 dB": "OOOOOOOOVVVVVV",
+    "reply 2 at +0 dB": "uuuuuuuuVVVVVV",
+    "reply 3 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOOOOOuuuuuuuuuuuuuuuuuuuuVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuOOOOOOuuuuuuuuVVVVVV",
+    "reply 4 at +0 dB": "uuuuuuVuuVVVVVV",
+    "reply 5 at +0 dB": "uuuuVVVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVVVVVVVVxxxCCSCCSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCCCCCCCuuuuuuuuuuuxxxxxxxxVVVVVV",
+    "reply 6 at +0 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 7 at +0 dB": "uuuuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuxCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCSSSSCCCCCCCCCCCCCCCCCCCCCCCCCCxuuuuuuuuuuuxxxxxxxxxVVVuuuuuuVVVVVV",
+    "reply 8 at +0 dB": "uuuuuVVVVVV",
+    "reply 9 at +0 dB": "uuuuuuOOOVVVVVuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 0 at -6 dB": "uuuuuuuuuuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 1 at -6 dB": "OOOOOOOOOVVVVVOuuuuuuuuuuuuuuuOOOVVVVVV",
+    "reply 2 at -6 dB": "uuuuuuuuuVVVuVuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOuuOuuuuuuuuuuuuVVVVVV",
+    "reply 3 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuOVVVVVV",
+    "reply 4 at -6 dB": "uuuuuuOVVVVVV",
+    "reply 5 at -6 dB": "uuuuOuuuuuOOuOuuuuuuuuuuuuuuuuuuuuuuuuuuVuuuuuuuuuuSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCSCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSCCCCCCCCCCCCCSSSCCCCCCCCCCCCCCCCCCCCCCCCCuuuuuuuuuuuxxxxxxxxVVVuuuuuuuuuuuOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVuuVVVVVV",
+    "reply 6 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVV",
+    "reply 7 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuxCCCCCCCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCCCCSSSSSSSSSSSSSSSSCCCCCCCCCCCCCCCCSSSSSSCCCCCCCCCCCCCCCCCCCCCCCCCuuuuuuuuuuuuxxxxxxxxxVVVuuuVVVVVV",
+    "reply 8 at -6 dB": "uuuuuuVVVVVV",
+    "reply 9 at -6 dB": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuOOOOOOOOOOuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuVVVVVVVVVVVxCSSSSS"
+   }
+  }
+ },
+ "legend": "heard strings: one letter per 10 ms block from the clip onset to the first yield (or to the clip end): S still, C clear, u under (nothing speech-like while the lamp sounds), O own, V over, x unknown"
+}

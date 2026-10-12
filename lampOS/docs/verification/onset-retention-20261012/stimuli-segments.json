@@ -1,0 +1,146 @@
+{
+ "sky": {
+  "text": "By the way, Lamp, why does the sky look blue?",
+  "sha256": "d446ef2e99ed75b7400cd3a0f991ab2c22fd596029f772aaab8750c507366fc0",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -18.6,
+  "segments_ms": [
+   [
+    1000,
+    1580
+   ],
+   [
+    1760,
+    2080
+   ],
+   [
+    2320,
+    3580
+   ]
+  ]
+ },
+ "why": {
+  "text": "And why does that happen?",
+  "sha256": "cffc669878548d59835a46f0e4af0b974ce016edd8e354a6e82482693b812c27",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -18.0,
+  "segments_ms": [
+   [
+    0,
+    990
+   ]
+  ]
+ },
+ "sunset": {
+  "text": "So why does it turn orange at sunset?",
+  "sha256": "67ce1fb0cc9046563135b8976575f330ba2d425a2316c06d4e4f399208b54e9e",
+  "rate": 16000,
+  "duration_s": 10.0,
+  "peak_dbfs": -17.6,
+  "segments_ms": [
+   [
+    10,
+    1870
+   ]
+  ]
+ },
+ "coffee": {
+  "text": "Actually, Lamp, let's talk about coffee instead. Why does it smell so good?",
+  "sha256": "38e12e6177b3d77c27f3e6d876de5450bab95c8bef3b48220e6e28a10d6f0ffc",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -18.7,
+  "segments_ms": [
+   [
+    0,
+    590
+   ],
+   [
+    770,
+    1140
+   ],
+   [
+    1370,
+    3070
+   ],
+   [
+    3280,
+    4560
+   ]
+  ]
+ },
+ "more": {
+  "text": "And why does that happen?",
+  "sha256": "cffc669878548d59835a46f0e4af0b974ce016edd8e354a6e82482693b812c27",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -18.0,
+  "segments_ms": [
+   [
+    0,
+    990
+   ]
+  ]
+ },
+ "correct": {
+  "text": "Lamp, what's twelve divided by, sorry, twelve times three?",
+  "sha256": "540996b77864a1967faad76f4a5d6ac29eaa4b14dcb1a2adfd63410735fca194",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -19.3,
+  "segments_ms": [
+   [
+    1000,
+    1380
+   ],
+   [
+    1630,
+    3040
+   ],
+   [
+    3230,
+    3710
+   ],
+   [
+    3910,
+    5150
+   ]
+  ]
+ },
+ "change": {
+  "text": "No, let's talk about something else.",
+  "sha256": "70708c72bb57421eeb7a5ae4a00b5076c85af7826b1b21baeec152730021c070",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -17.0,
+  "segments_ms": [
+   [
+    0,
+    340
+   ],
+   [
+    530,
+    2050
+   ]
+  ]
+ },
+ "math": {
+  "text": "Lamp, what's twelve divided by three?",
+  "sha256": "c0b40dd2553555615823d48986a118c301feb5a6ffc0bfe8bf6933d67590966f",
+  "rate": 16000,
+  "duration_s": 20.0,
+  "peak_dbfs": -19.0,
+  "segments_ms": [
+   [
+    0,
+    380
+   ],
+   [
+    630,
+    2330
+   ]
+  ]
+ }
+}

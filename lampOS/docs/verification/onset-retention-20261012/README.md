@@ -1,0 +1,183 @@
+# Where the opening of the coffee request went, 2026-10-12
+
+An audit of onset retention in the native serve run on lamp `4ace`
+(`docs/verification/final-serve-pilot-20261012`), by Agent 1. The cached
+stimulus said "Actually, Lamp, let's talk about coffee instead. Why does
+it smell so good?" and the service's transcript holds only "Why does it
+smell so good?".
+
+**The opening was never admitted.** The request that the coordinator
+admitted begins 2.3 s after the stimulus's speech began. The provider was
+handed nothing earlier, so nothing in the provider, the kept start or
+continuation lost it. The lamp yielded 2.6 s after the person began, and
+a request reaches back 290 ms before the block that makes the lamp yield,
+by design.
+
+**Why the lamp yielded that late is not established for the device.** The
+run recorded no per-block hearing and no microphone audio. An offline lab
+with the same clip over recorded `4ace` replies reproduces the device's
+timing in 4 of 50 trials and points at the canceller: while the lamp is
+sounding, its output carries the added speech about 19 dB lower than when
+the lamp is silent, and the detector does not score it as speech.
+
+**No correction is justified by this evidence.** One native diagnostic
+would settle it; it is at the end. Two controls are added to the
+coordinator's tests.
+
+Nothing here is a listening test. No audio is in this directory.
+
+## The native run, turn by turn
+
+From the native trace, the independent audit's step timing and the cached
+clips (`native-timeline.json`, made by `native_timeline.py`).
+
+| Step | Displaced an owner | Trigger after the clip's speech onset | Request reaches back before the trigger | Request starts, against the speech onset |
+|---|---|---|---|---|
+| sky | no | 233.8 ms | 288.8 ms | 55.0 ms before |
+| why | no | 231.3 ms | 288.6 ms | 57.2 ms before |
+| sunset | no | 329.9 ms | 290.5 ms | 39.3 ms after |
+| **coffee** | **yes, a reply being spoken** | **2,606.7 ms** | 290.8 ms | **2,315.9 ms after** |
+| more | no | 275.0 ms | 290.5 ms | 15.5 ms before |
+| correct | yes, a request not yet answered | 295.2 ms | 290.6 ms | 4.6 ms after |
+| change | no | 299.1 ms | 288.1 ms | 11.0 ms after |
+| math | no | 309.6 ms | 289.0 ms | 20.6 ms after |
+
+- The clip's start is its first source copy, mapped to the lamp clock.
+  No output-device latency or acoustic path is added, so the speech
+  reached the microphone later than this by an unknown amount. The local
+  endpoint, which waits 1,200 ms of silence, came 1,112 to 1,426 ms after
+  the clip's last speech: the unknown is of the order of 0.2 s at most.
+  With it, the seven other requests begin before their speech does.
+- The coffee clip's speech, by its own energy: 0 to 590 ms, 770 to
+  1,140 ms, 1,370 to 3,070 ms and 3,280 to 4,560 ms. Four stretches for
+  "Actually," "Lamp," "let's talk about coffee instead." and "Why does it
+  smell so good?"; which words fall where is my reading of the pauses,
+  not a transcription.
+- The admitted coffee request begins at 2,316 ms of the clip, inside the
+  third stretch. The last sentence, 3,280 ms on, is wholly inside it, and
+  that sentence is what the service transcribed.
+
+## Stage by stage
+
+| Stage | What the evidence shows |
+|---|---|
+| Detector and hearing | One `duplex_yield` in the run, at 2,607 ms of the clip, hearing margin −2.2 dB. Reply 3 had been speaking for 3.8 s and still had 112,321 frames queued, 4.7 s, so the lamp was sounding throughout. In the other seven turns the trigger came 231 to 330 ms after the speech onset. **Why six consecutive blocks were first heard as a person only then is not in the trace** |
+| Candidate buffer | In all eight turns the candidate's first block is 288 to 291 ms before its trigger block: the detector's pre-roll, `PRE_ROLL_BLOCKS` = 30 with the trigger as its last block (`crates/live/src/activity.rs`). Nothing older exists to admit |
+| Coordinator and admission | `input_admitted.prefix_first_host_read_us` equals the candidate's `first_read_at_us` in all eight: nothing was trimmed at admission. For coffee the commit followed the yield by 478 ms, once the lamp's sound had gone, and the admission followed the commit by 0.3 ms |
+| Provider | `provider_input_started` 3.8 ms after admission, `waiting_for_barrier: true`: reply 3 had produced output, so this was the ordinary interruption and nothing was kept back. No `provider_input_discarded` in the run. **The trace does not count the samples the provider wrote for a request**, so "it wrote all it was given" is supported only by the service's transcript of the last sentence |
+| Continuation, turn 5 to 6 | The run used `--provider-continuation kept-start`. Turn 5 had ended and had no answer yet when turn 6 displaced it. Turn 6's request starts 4.6 ms after its clip's speech onset, before the latency above, and the answer was to the corrected question ("12 times 3 is 36."). A native positive for the kept start, one attempt |
+
+## The lab: the same clip over recorded replies
+
+`coffee_lab.py`, `summarise.py`, results in `lab-pooled.json`.
+
+- The cached coffee clip (SHA-256 `38e12e61…0ffc`), clean, added in
+  software to the microphone recording before cancellation, 1.2 s after
+  the start of each of 25 recorded replies in three earlier `4ace`
+  sessions (`plain` 8, `six` 7, `ext` 10; inputs as in
+  `docs/verification/duplex-lab-20261011`), at the level that session's
+  own prompts arrived at the microphone and 6 dB below: 50 trials.
+- `crates/live/examples/duplex_lab.rs` at `a75a8ddad`, release, SHA-256
+  `1bb4dc7d…5b98`: the production canceller, detector, echo observer and
+  duplex decision, closed loop.
+- Negative control, the recorded replies with nothing added: no yield in
+  `plain` and `ext`; 2 yields and no commit in `six`.
+
+| | |
+|---|---|
+| Committed within the clip plus one second | 41 of 50 |
+| Whole request retained (yield within the pre-roll, then commit) | **6 of 50** |
+| Opening not retained, the 41 committed | median **1,240 ms**; quartiles 110 and 1,560 ms; worst 3,260 ms; at least 1 s in 22; at least 2 s in 8 |
+| First yield, 45 trials | median 430 ms after the onset; within the 290 ms pre-roll in 14 |
+| First yield given up at a pause in the person's speech | 15 of 50; the commit, where there was one, came after one or two such yields in 11 |
+| Never yielded | 5 of 50 |
+| **Yield at 2,500 to 2,650 ms of the clip, then commit** | **4 of 50**: yield 2,530 to 2,610 ms, commit 2,950 to 3,000 ms, opening not retained 2,240 to 2,320 ms. The device: 2,607, 3,087 and 2,316 ms |
+| Blocks while the lamp sounded, before the first yield, 4,637 | nothing speech-like (detector score under 0.5) **81.8%**; a person over the lamp 9.2%; the lamp's own voice 6.4%; no alignment 2.6% |
+| The added speech in the canceller's output, lamp sounding, before the first yield, 34 trials | **−22.6 dB** against what was added (−38.2 to −8.9); 14.1 dB below everything else in that signal |
+| The same measure, same clip, lamp silent, 28 trials | −3.5 dB (−4.0 to −2.4); 5.2 dB below everything else |
+
+Read with these limits:
+
+- A software mix of a clean clip is not a voice in a room through the
+  microphone board. The canceller starts cold on this host. The replies
+  are not the one the lamp was speaking on 2026-10-12.
+- The level measure is one least-squares gain of the added speech in the
+  cancelled signal, at the canceller's delay of 144 samples. It is a
+  linear measure of a non-linear canceller: compare its two rows with
+  each other, not with zero.
+- The lab does not model ordinary admission after a reply has ended, so
+  what became of the 9 requests without a commit is not measured.
+- It is one stimulus. Its first two words are followed by pauses of 180
+  and 230 ms, which is where the early yields were given up.
+
+## What is missing, exactly
+
+1. **How each block was heard on the device between 0 and 2,607 ms of
+   the clip**: nothing speech-like, the lamp's own, or a person in runs
+   shorter than six. The trace has the decision and not the blocks.
+2. **The microphone before and after cancellation for that interval.**
+   The run recorded none. The room recording is invalid and is not the
+   lamp's microphone in any case.
+3. **When the clip's sound reached the microphone.** Bounded above, not
+   measured.
+4. **Samples written to the service per request.** Not in the trace.
+5. Whether the device's canceller, converged and behind the microphone
+   board's own processing, removes a person's speech during the lamp's
+   as the cold one in the lab does.
+
+## Why no correction is proposed
+
+| Candidate | Why not now |
+|---|---|
+| Reach further back than the pre-roll at a duplex commit | In the lab the opening is not in the cancelled signal to reach back to: 19 dB lower than with the lamp silent, and below the residue. It would send the service the lamp's own residue. It also needs audio older than the transport's one second, which stays as it is |
+| Yield sooner | A change to what is heard as a person while the lamp sounds. The evidence for it is one native negative and a replay; neither chooses a gate |
+| Not give a yield up at a short pause | The same. The weakness was known and left alone on purpose in `docs/duplex-listening.md` |
+| Anything in the provider or the kept start | The opening never reached them |
+
+## Controls added
+
+`crates/live/src/coordinator/tests/duplex.rs`, through the real hearing,
+detector, retention and admission; scripted blocks and evidence, no
+audio. They describe today's behavior and change none of it.
+
+| Test | Shows |
+|---|---|
+| `a_request_begun_while_the_lamp_is_silent_starts_before_its_first_word` | Positive: the request reaches back the pre-roll from the trigger and starts before the first word, in one unbroken run |
+| `words_not_heard_as_speech_before_the_lamp_yields_are_not_in_the_request` | Negative, the native loss: two seconds spoken over the lamp and not heard as speech, then six blocks that are. The request starts the pre-roll before the block that made the lamp yield, and 1.76 s of what was said is not in it |
+
+That an admitted request then reaches the service whole and in order is
+already `provider_pair::duplex_through_the_worker`.
+
+## The one next native diagnostic
+
+Repeat only the two steps `sunset` then `coffee`, with the same cached
+clips and the same `duplex` settings, in a run that records the
+microphone bundle (`--diagnostics`: `capture-audio/pre_aec.pcm16le`,
+`post_aec.pcm16le`, `events.jsonl`, and `render-audio/render_accepted.pcm16le`),
+as the `lamp-connected-*` runs of 2026-10-11 did. `docs/voice-eval-serve.md`
+says the serve runner refuses raw audio diagnostics, so this is not that
+runner.
+
+From that bundle, with no further device time, the lab's replay gives how
+every block of the overlap was heard on the device, what the canceller
+left of the person's speech, and when the clip reached the microphone:
+items 1, 2, 3 and 5. It is also the first recording of speech over the
+lamp through the real acoustic path, which any later correction would
+have to be judged on.
+
+If raw audio may not be recorded there, the audio-free equivalent is a
+bounded per-block hearing history written to the trace at each yield. It
+is not built.
+
+## Reproduce
+
+```sh
+python3.12 -I native_timeline.py AUDIT.json METADATA_DIR .
+python3.12 -I coffee_lab.py DUPLEX_LAB LAB_ROOT SESSION CLIP.wav CLIP_SHA256 OUT 0,-6 120
+python3.12 -I summarise.py OUT plain six ext
+```
+
+`AUDIT.json` is the independent audit of the run (SHA-256
+`21d8bea8…0c38`), `METADATA_DIR` the native trace segments, `LAB_ROOT` the
+prepared lab directories of the earlier duplex work. The recordings and
+the cached clips are private and stay on the office Mac.

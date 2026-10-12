@@ -179,6 +179,26 @@ recording, the attempt carries the following:
 Lifecycle success and room-evidence validity stay distinct: neither implies the
 other.
 
+**Room coverage.** A prompt is played only while the room recording covers it,
+in every physical mode:
+- **Recorder exit.** If the recorder has exited (any status, including `open
+  -W`'s 0), that becomes a runner `evidence_lost` event. This and every later
+  prompt are withheld, rechecked at the final dispatch itself.
+- **Declared end.** When the recorder's ready receipt declares its capture end
+  (`planned_capture_end_host_monotonic_ns`, written by the observer), a prompt
+  is refused unless its speech plus the scenario's observation window
+  (`observe_ms`, 8 s for the serve plan) ends before that time. A 120 s capture
+  inside a 240 s scenario therefore withholds the prompts it cannot cover
+  instead of playing them unrecorded.
+
+The room evidence keeps the ready receipt, the declared end and
+`coverage_lost` (`prompt_not_covered`, `declared_end_reached` or
+`recorder_exited_early`). Only `recorder_exited_early` can leave a granted
+prompt or its reply unrecorded. Its WAV is kept but scored as `room_recording:
+invalid` (`ended_during_session`), with no acoustic boundary and no listening
+template. A recording without a declared end is covered only by exit
+detection, polled every 20 ms in serve.
+
 Lamp-4ace's first eight-step run shows this. The runtime and transport exited
 0. The room recording was `invalid_capture`: `queue_full` dropped 13,824 of
 15,840,000 requested 48 kHz frames, with one writer sequence gap. The whole WAV
@@ -301,7 +321,8 @@ unchanged; no lease was widened.
   the next boot. Service-cycle records reach the runner only in the final
   metadata.
 - The room recorder runs for its configured length; the runner waits for it
-  at the end.
+  at the end. Prompts it cannot cover are withheld (see room coverage above);
+  a recorder that declares no end is guarded only by its exit.
 
 ## Scoring the native conversation (Lamp-4ace)
 

@@ -841,6 +841,19 @@ pub fn attempt_markdown(record: &AttemptRecord, score: &AttemptScore) -> String 
             );
         }
     }
+    if let Some(lost) = record
+        .evidence
+        .get("room_audio")
+        .and_then(|room| room.get("coverage_lost"))
+        .filter(|lost| !lost.is_null())
+    {
+        let _ = writeln!(
+            out,
+            "Room coverage ended during the session (`{}`): {}. No later prompt was played.\n",
+            lost["kind"].as_str().unwrap_or("unknown"),
+            lost["reason"].as_str().unwrap_or("no reason retained")
+        );
+    }
     if !score.endpoint_silence_waits.is_empty() {
         let _ = writeln!(
             out,

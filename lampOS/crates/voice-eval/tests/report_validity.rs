@@ -750,6 +750,54 @@ fn a_verified_or_absent_room_recording_keeps_its_own_state() {
     );
 }
 
+#[test]
+fn a_valid_wav_from_a_recorder_that_ended_mid_session_certifies_nothing() {
+    let dir = common::Private::new("rv-cover");
+    let wav = dir.join("room.wav");
+    lamp_acoustic::write_wave(&wav, &vec![0.0; 16_000]).unwrap();
+    let sha = lamp_acoustic::hash(&fs::read(&wav).unwrap());
+    let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha,
+        "start_requested_host_ns": 1_000_000_000_u64});
+    let lost = |kind: &str| {
+        let mut record = record(&conversation());
+        with_room(&mut record, &dir.path, &metadata);
+        record.evidence["room_audio"]["coverage_lost"] =
+            json!({"runner_us": 5_000_000, "kind": kind, "reason": "test"});
+        record
+    };
+    // Exited before any declared end: a granted prompt may be unrecorded.
+    let early = lost("recorder_exited_early");
+    let score_early = score(&early);
+    let state = serde_json::to_value(&score_early.room_recording).unwrap();
+    assert_eq!(state["state"], "invalid", "{state}");
+    assert_eq!(state["status"], "ended_during_session");
+    assert!(
+        score_early
+            .acoustic
+            .iter()
+            .all(|a| a.unscored_reason.as_deref()
+                == Some("room recording invalid (ended_during_session)"))
+    );
+    assert!(
+        annotations::template("final-serve-4ace", std::slice::from_ref(&early))
+            .attempts
+            .is_empty()
+    );
+    // Refused before an uncovered prompt: every granted prompt was covered.
+    let refused = lost("prompt_not_covered");
+    let score_refused = score(&refused);
+    assert_eq!(
+        serde_json::to_value(&score_refused.room_recording).unwrap()["state"],
+        "verified"
+    );
+    let page = report::attempt_markdown(&refused, &score_refused);
+    assert!(
+        page.contains("Room coverage ended during the session (`prompt_not_covered`)"),
+        "{}",
+        &page[..page.len().min(1500)]
+    );
+}
+
 /// Re-scoring a retained run never touches its original evaluation, and the
 /// CLI summary separates lifecycle exit from room-evidence validity.
 #[test]

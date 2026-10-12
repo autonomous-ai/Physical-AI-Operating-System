@@ -262,7 +262,9 @@ impl Annotations {
 pub fn template(run_id: &str, records: &[AttemptRecord]) -> Annotations {
     let mut attempts = BTreeMap::new();
     for record in records.iter().filter(|r| r.stratum.is_physical()) {
-        let Some((sha256, true)) = room_audio(record) else {
+        let crate::evaluate::RoomRecording::Verified { sha256, .. } =
+            crate::evaluate::room_recording(record)
+        else {
             continue;
         };
         let start = record
@@ -290,7 +292,7 @@ pub fn template(run_id: &str, records: &[AttemptRecord]) -> Annotations {
         attempts.insert(
             record.attempt_id.clone(),
             AttemptAnnotation {
-                room_recording_sha256: Some(sha256.into()),
+                room_recording_sha256: Some(sha256),
                 listened: false,
                 steps,
                 notes: None,

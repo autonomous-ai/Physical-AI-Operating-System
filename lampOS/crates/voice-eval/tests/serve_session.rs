@@ -34,6 +34,8 @@ struct Control {
     fake_args: Vec<&'static str>,
     player_faults: Vec<(usize, FakePlayerFault)>,
     recorder_fail_ms: Option<u32>,
+    /// Extra fake recorder arguments (`--exit-code`, `--declare-end-after-ms`).
+    recorder_args: Vec<&'static str>,
     /// Start the relay this late, like an SSH transport still connecting.
     transport_delay_ms: Option<u32>,
     runtime_flags: lamp_voice_eval::physical::session::RuntimeFlags,
@@ -105,7 +107,7 @@ fn run(control: Control) -> AttemptRecord {
         command.extend(["--runtime-prefix-arg".to_owned(), arg]);
     }
     let room_recorder = control.recorder_fail_ms.map(|ms| {
-        vec![
+        let mut argv = vec![
             BIN.to_owned(),
             "fake-room-recorder".into(),
             "--out".into(),
@@ -114,7 +116,9 @@ fn run(control: Control) -> AttemptRecord {
             "{seconds}".into(),
             "--fail-after-ms".into(),
             ms.to_string(),
-        ]
+        ];
+        argv.extend(control.recorder_args.iter().map(|s| s.to_string()));
+        argv
     });
     let config = PhysicalConfig {
         lamp_command: command,
@@ -706,6 +710,70 @@ fn startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer() 
             .as_u64()
             .is_some_and(|rtt| rtt < 100_000),
         "{first_usable}"
+    );
+    assert_clean_stop(&record);
+}
+
+#[test]
+fn a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing() {
+    // Like a shortened capture behind `open -W`: exit 0, no declared end.
+    let record = run(Control {
+        steps: Some(3),
+        recorder_fail_ms: Some(6_000),
+        recorder_args: vec!["--exit-code", "0"],
+        ..Control::default()
+    });
+    assert_eq!(statuses(&record)[0], StepStatus::Injected);
+    assert_eq!(statuses(&record)[1], StepStatus::PreconditionLost);
+    assert!(detail(&record, "why").contains("room_recorder"));
+    let room = &record.evidence["room_audio"];
+    assert_eq!(room["recorder_exit"], 0);
+    assert_eq!(
+        room["coverage_lost"]["kind"], "recorder_exited_early",
+        "{room}"
+    );
+    let score = evaluate::score(&record, 15_000, None);
+    let state = serde_json::to_value(&score.room_recording).unwrap();
+    assert_eq!(state["state"], "invalid", "{state}");
+    assert_eq!(state["status"], "ended_during_session", "{state}");
+    assert!(score.acoustic.iter().all(|a| a.measurement().is_none()));
+    assert_clean_stop(&record);
+}
+
+#[test]
+fn a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it() {
+    // The recording declares an end that covers the first prompt and its 8 s
+    // observation window but not the second; the recorder is still running.
+    let record = run(Control {
+        steps: Some(3),
+        // From recorder start: the first prompt needs ~16 s (start ~4.2 s,
+        // speech to 3.9 s, 8 s window), the second ~24 s.
+        recorder_fail_ms: Some(23_000),
+        recorder_args: vec!["--exit-code", "0", "--declare-end-after-ms", "20000"],
+        ..Control::default()
+    });
+    assert_eq!(statuses(&record)[0], StepStatus::Injected);
+    assert_eq!(statuses(&record)[1], StepStatus::PreconditionLost);
+    assert!(
+        detail(&record, "why").contains("declared capture end"),
+        "{}",
+        detail(&record, "why")
+    );
+    // Normally refused before the grant; a slow run may reach the declared
+    // end first. Either way the recorder did not exit early.
+    let room = &record.evidence["room_audio"];
+    assert!(
+        matches!(
+            room["coverage_lost"]["kind"].as_str(),
+            Some("prompt_not_covered" | "declared_end_reached")
+        ),
+        "{room}"
+    );
+    assert!(room["declared_capture_end_runner_us"].as_u64().is_some());
+    // Only the first prompt was granted.
+    assert_eq!(
+        record.evidence["playbacks"].as_array().map(Vec::len),
+        Some(1)
     );
     assert_clean_stop(&record);
 }

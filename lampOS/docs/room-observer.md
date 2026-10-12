@@ -151,7 +151,11 @@ capture. The stream is stopped and dropped before the writer drains and closes.
   frame offsets, and final report. Callback indices expose rejected or missing
   queued packets; final counters also retain failures absent from the audio.
 - `room.wav`: interleaved IEEE float32 audio at the delivered rate and channel count.
-- `ready.json`: a provisional capture receipt, if readiness was reached.
+- `ready.json`: a provisional capture receipt, if readiness was reached. It
+  states `requested_frames`, `sample_rate` and
+  `planned_capture_end_host_monotonic_ns` (first callback host time plus the
+  requested duration on CLOCK_MONOTONIC). A runner uses that end to refuse
+  prompts the recording cannot cover; it is a plan, not a capture claim.
 - `metadata.json`: final report, WAV SHA-256, format and input identities,
   default-input identity at start and end, callback/frame counters, timestamp
   checks, clipping, queue drops, backend xruns, stream error categories, writer

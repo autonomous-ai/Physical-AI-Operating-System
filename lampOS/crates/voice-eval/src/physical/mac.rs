@@ -718,6 +718,77 @@ pub struct PhysicalBackend<'a> {
     trigger: Option<(TriggerObservation, u64)>,
     /// Serve: runner evidence loss already reported as an event.
     evidence_lost: bool,
+    /// Room coverage for this attempt.
+    room_cover: RoomCover,
+}
+
+/// How long the room recording covers the session. A prompt is granted only
+/// while the recorder runs and, when it declares its capture end, only if the
+/// prompt's speech and the scenario's observation window end before it.
+#[derive(Default)]
+struct RoomCover {
+    /// Declared capture end on this host's monotonic clock (ready receipt).
+    end_us: Option<u64>,
+    /// Bounded ready receipt, retained with the room evidence.
+    ready: Value,
+    observe_us: u64,
+    /// When and why coverage ended during the session.
+    lost: Option<(u64, &'static str, String)>,
+}
+
+/// Coverage-loss kinds retained with the room evidence. Only an exit before
+/// the declared end (or with none declared) can leave a granted prompt or its
+/// reply unrecorded.
+pub const RECORDER_EXITED_EARLY: &str = "recorder_exited_early";
+const DECLARED_END_REACHED: &str = "declared_end_reached";
+const PROMPT_NOT_COVERED: &str = "prompt_not_covered";
+/// How far a prompt started at `start_us`, through its speech and the
+/// observation window, would run past the recording's declared end.
+fn coverage_shortfall(
+    end_us: Option<u64>,
+    start_us: u64,
+    timing: &SceneTiming,
+    observe_us: u64,
+) -> Option<u64> {
+    let speech_end_ms = timing
+        .speech_span_ms
+        .map_or(timing.duration_ms, |(_, end)| end);
+    let needed = start_us + u64::from(speech_end_ms) * 1000 + observe_us;
+    end_us.filter(|end| needed > *end).map(|end| needed - end)
+}
+
+/// Bound on the recorder's ready receipt read by the runner.
+const MAX_READY_BYTES: u64 = 64 * 1024;
+
+/// The recorder's ready receipt, once it parses (it may still be written),
+/// within a short bound. Returns it bounded, with any declared capture end.
+fn ready_receipt(path: &Path) -> (Value, Option<u64>) {
+    let until = monotonic_us() + 1_000_000;
+    loop {
+        let parsed = fs::metadata(path)
+            .ok()
+            .filter(|m| m.len() <= MAX_READY_BYTES)
+            .and_then(|_| fs::read(path).ok())
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+            .filter(Value::is_object);
+        if let Some(receipt) = parsed {
+            let end = receipt["planned_capture_end_host_monotonic_ns"]
+                .as_u64()
+                .map(|ns| ns / 1000);
+            let keep = |key: &str| receipt.get(key).cloned().unwrap_or(Value::Null);
+            return (
+                json!({"status": keep("status"),
+                    "first_callback_host_monotonic_ns": keep("first_callback_host_monotonic_ns"),
+                    "requested_frames": keep("requested_frames"), "sample_rate": keep("sample_rate"),
+                    "planned_capture_end_host_monotonic_ns": keep("planned_capture_end_host_monotonic_ns")}),
+                end,
+            );
+        }
+        if monotonic_us() >= until {
+            return (json!({"unreadable": true}), None);
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
 }
 
 /// Run-end status of a runner-generated protocol stop.
@@ -762,6 +833,7 @@ impl<'a> PhysicalBackend<'a> {
             unused: Vec::new(),
             trigger: None,
             evidence_lost: false,
+            room_cover: RoomCover::default(),
         }
     }
 
@@ -815,15 +887,16 @@ impl<'a> PhysicalBackend<'a> {
         }
     }
 
-    /// Serve: a player that ended without delivering, or a room recorder that
-    /// ended during the session, becomes one runner event; every later
-    /// stimulus is then withheld. Reports are kept for `finish`.
+    /// A player that ended without delivering (serve), or a room recording
+    /// that stopped covering the session, becomes one runner event; every
+    /// later stimulus is then withheld. Reports are kept for `finish`.
     fn poll_evidence(&mut self) -> Option<RuntimeEvent> {
-        if !self.serve() || self.evidence_lost {
+        if self.evidence_lost {
             return None;
         }
         let mut lost = None;
-        for playback in &mut self.playbacks {
+        let serve = self.serve();
+        for playback in self.playbacks.iter_mut().filter(|_| serve) {
             if playback.report.is_some()
                 || !playback
                     .handle
@@ -849,15 +922,40 @@ impl<'a> PhysicalBackend<'a> {
             playback.report = Some(report);
         }
         if lost.is_none()
-            && let Some((child, _, _)) = self.room.as_mut()
-            && let Ok(Some(status)) = child.try_wait()
+            && let Some(reason) = self.room_ended()
         {
-            lost = Some((
-                "room_recorder".into(),
-                format!("the room recorder ended during the session ({status})"),
-            ));
+            lost = Some(("room_recorder".into(), reason));
         }
         let (source, reason) = lost?;
+        Some(self.lose_evidence(source, reason))
+    }
+
+    /// Whether the room recording no longer covers the session: its recorder
+    /// exited, or its declared capture end passed. Latched with its kind.
+    fn room_ended(&mut self) -> Option<String> {
+        let (child, _, _) = self.room.as_mut()?;
+        let now = monotonic_us();
+        let declared_end = self.room_cover.end_us.filter(|end| now >= *end);
+        let (kind, reason) = match child.try_wait() {
+            Ok(Some(status)) if declared_end.is_none() => (
+                RECORDER_EXITED_EARLY,
+                format!(
+                    "the room recorder ended during the session ({status}) before any declared capture end"
+                ),
+            ),
+            _ if declared_end.is_some() => (
+                DECLARED_END_REACHED,
+                "the room recording reached its declared capture end during the session".into(),
+            ),
+            _ => return None,
+        };
+        self.room_cover
+            .lost
+            .get_or_insert((now, kind, reason.clone()));
+        Some(reason)
+    }
+
+    fn lose_evidence(&mut self, source: String, reason: String) -> RuntimeEvent {
         self.evidence_lost = true;
         let mut event = RuntimeEvent::new(
             EventKind::EvidenceLost { source, reason },
@@ -867,7 +965,32 @@ impl<'a> PhysicalBackend<'a> {
             EventSource::Runner,
         );
         event.received_us = event.at_us;
-        Some(event)
+        event
+    }
+
+    /// Why the room recording cannot cover a prompt started now: the
+    /// recorder ended, or its declared capture end comes before the prompt's
+    /// speech and the scenario's observation window after it end.
+    fn room_uncovered(&mut self, start_us: u64, timing: &SceneTiming) -> Option<String> {
+        self.room.as_ref()?;
+        if let Some(reason) = self.room_ended() {
+            return Some(reason);
+        }
+        let shortfall_us = coverage_shortfall(
+            self.room_cover.end_us,
+            start_us,
+            timing,
+            self.room_cover.observe_us,
+        )?;
+        let reason = format!(
+            "the room recording's declared capture end is {} ms before this prompt and its {} ms observation window would end; no unrecorded prompt is played",
+            shortfall_us / 1000,
+            self.room_cover.observe_us / 1000
+        );
+        self.room_cover
+            .lost
+            .get_or_insert((start_us, PROMPT_NOT_COVERED, reason.clone()));
+        Some(reason)
     }
 
     /// Send the armed player's one original start grant. Its expiry is the
@@ -1484,6 +1607,10 @@ impl Backend for PhysicalBackend<'_> {
         self.arm_failure = None;
         self.trigger = None;
         self.evidence_lost = false;
+        self.room_cover = RoomCover {
+            observe_us: u64::from(context.scenario.observe_ms) * 1000,
+            ..RoomCover::default()
+        };
         let total_seconds = u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 10;
         if let Some(template) = &self.config.room_recorder {
             let out = directory.join("room");
@@ -1513,6 +1640,9 @@ impl Backend for PhysicalBackend<'_> {
                     "room recorder did not report ready.json within 15 s".into(),
                 ));
             }
+            let (ready, end_us) = ready_receipt(&out.join("ready.json"));
+            self.room_cover.ready = ready;
+            self.room_cover.end_us = end_us;
             self.room = Some((child, out, requested));
         }
         let mut argv = self.config.lamp_command.clone();
@@ -1786,6 +1916,16 @@ impl Backend for PhysicalBackend<'_> {
             ));
             return Ok(refuse(stale, 0, false));
         }
+        // A prompt starts only while the room recording covers it and the
+        // scenario's observation window. Otherwise the loss becomes a runner
+        // event and this and every later step is withheld.
+        if !self.evidence_lost
+            && let Some(reason) = self.room_uncovered(requested_us, timing)
+        {
+            let event = self.lose_evidence("room_recorder".into(), reason);
+            self.pending.push_back(event);
+            return Ok(refuse(Withheld::Revalidate, self.pending.len(), false));
+        }
         if self.serve() {
             return Ok(match self.grant(step) {
                 Ok((playback, prepared)) => {
@@ -2020,6 +2160,12 @@ impl Backend for PhysicalBackend<'_> {
                 );
                 evidence["recorder_spawn_runner_us"] = json!(requested);
                 evidence["recorder_exit"] = json!(status.and_then(|s| s.code()));
+                evidence["recorder_ready_receipt"] = self.room_cover.ready.clone();
+                evidence["declared_capture_end_runner_us"] = json!(self.room_cover.end_us);
+                evidence["coverage_lost"] = self.room_cover.lost.as_ref().map_or(
+                    Value::Null,
+                    |(at, kind, reason)| json!({"runner_us": at, "kind": kind, "reason": reason}),
+                );
                 evidence
             }
             None => Value::Null,
@@ -2126,6 +2272,31 @@ impl Backend for PhysicalBackend<'_> {
 #[cfg(test)]
 mod cue_tests {
     use super::*;
+
+    #[test]
+    fn a_prompt_is_covered_only_through_its_speech_and_observation_window() {
+        let timing = crate::stimulus::StimulusCatalog::load()
+            .unwrap()
+            .estimate("fast-followup")
+            .unwrap();
+        let speech_end_us = u64::from(timing.speech_span_ms.unwrap().1) * 1000;
+        let (start, observe) = (10_000_000, 8_000_000);
+        let needed = start + speech_end_us + observe;
+        // No declared end: only the recorder's exit guards coverage.
+        assert_eq!(coverage_shortfall(None, start, &timing, observe), None);
+        assert_eq!(
+            coverage_shortfall(Some(needed), start, &timing, observe),
+            None
+        );
+        assert_eq!(
+            coverage_shortfall(Some(needed - 1), start, &timing, observe),
+            Some(1)
+        );
+        assert_eq!(
+            coverage_shortfall(Some(start), start, &timing, observe),
+            Some(speech_end_us + observe)
+        );
+    }
 
     #[test]
     fn a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow() {

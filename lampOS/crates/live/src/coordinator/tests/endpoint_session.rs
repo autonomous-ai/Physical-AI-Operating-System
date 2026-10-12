@@ -21,8 +21,8 @@ use std::{
     thread,
 };
 
-const SPEECH: f32 = 0.95;
-const QUIET: f32 = 0.05;
+pub(super) const SPEECH: f32 = 0.95;
+pub(super) const QUIET: f32 = 0.05;
 
 /// Emulated sessions keep the production freshness bounds (50 ms for
 /// privacy) and their peers poll every millisecond. One runs at a time, so
@@ -30,28 +30,28 @@ const QUIET: f32 = 0.05;
 /// slot before it starts its endpoint worker, whose timing it asserts.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
-fn one_session() -> std::sync::MutexGuard<'static, ()> {
+pub(super) fn one_session() -> std::sync::MutexGuard<'static, ()> {
     ONE_SESSION
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Speech probability of each 10 ms capture block, by block index.
-type Script = fn(u64) -> f32;
+pub(super) type Script = fn(u64) -> f32;
 
 #[derive(Default)]
-struct Seen {
-    provider: Vec<&'static str>,
+pub(super) struct Seen {
+    pub(super) provider: Vec<&'static str>,
     /// Every request the provider peer saw, in order.
-    requests: Vec<SeenRequest>,
+    pub(super) requests: Vec<SeenRequest>,
     /// Every speech chunk dispatched to the speaker: its turn and when.
-    chunks: Vec<(u64, Instant)>,
+    pub(super) chunks: Vec<(u64, Instant)>,
     /// When the capture peer sent its first frame.
-    capture_started: Option<Instant>,
+    pub(super) capture_started: Option<Instant>,
 }
 
 #[derive(Clone, Debug)]
-struct SeenRequest {
+pub(super) struct SeenRequest {
     request: u64,
     audio_blocks: usize,
     ended_at: Option<Instant>,
@@ -59,7 +59,7 @@ struct SeenRequest {
 
 impl Seen {
     /// Capture block `index` (1-based) as an instant.
-    fn block(&self, index: u64) -> Instant {
+    pub(super) fn block(&self, index: u64) -> Instant {
         self.capture_started.expect("capture started") + Duration::from_millis(10 * (index - 1))
     }
 }
@@ -83,7 +83,7 @@ fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> bool {
     true
 }
 
-fn capture_peer(
+pub(super) fn capture_peer(
     mut channels: WorkerChannels,
     script: Script,
     seen: Arc<Mutex<Seen>>,
@@ -169,7 +169,7 @@ fn capture_peer(
 
 /// Fresh privacy observations every 10 ms; muted from capture block
 /// `mute_at` when given.
-fn privacy_peer(
+pub(super) fn privacy_peer(
     mut channels: WorkerChannels,
     seen: Arc<Mutex<Seen>>,
     mute_at: Option<u64>,
@@ -312,7 +312,11 @@ fn provider_peer(
 
 /// Records every chunk and acknowledges it as ALSA would, so the v1-baseline
 /// mask sees genuine write evidence.
-fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<AtomicBool>) {
+pub(super) fn speaker_peer(
+    mut channels: WorkerChannels,
+    seen: Arc<Mutex<Seen>>,
+    stop: Arc<AtomicBool>,
+) {
     let mut generation = 0;
     let mut frame = 1_000u64;
     while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
@@ -474,7 +478,7 @@ fn run_policy(
 
 /// A real child process that replays fixed answer bytes and then sleeps or
 /// exits, written with POSIX `printf` octal escapes.
-fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> EndpointRig {
+pub(super) fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> EndpointRig {
     let bytes: String = responses
         .iter()
         .flat_map(Response::encode)
@@ -492,7 +496,7 @@ fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> Endpo
     )
 }
 
-fn ready() -> Response {
+pub(super) fn ready() -> Response {
     Response::Ready {
         protocol: PROTOCOL,
         load_us: 1,
@@ -912,7 +916,7 @@ fn confirmed_endpoint_exit_keeps_the_restartable_mute() {
 
 // Pilot stress: the conservative `smart-turn` path through the real loop.
 
-fn delayed(probability: f32, delay: Duration) -> EndpointRig {
+pub(super) fn delayed(probability: f32, delay: Duration) -> EndpointRig {
     EndpointRig::double(Box::new(Delayed {
         probability,
         delay,

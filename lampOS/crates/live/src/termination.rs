@@ -24,6 +24,15 @@ impl Termination {
             registrations: Vec::new(),
         }
     }
+    /// A test's own request flag: storing `SIGTERM` asks for a stop, as the
+    /// handler does, without process-global handlers.
+    #[cfg(test)]
+    pub(crate) fn shared(signal: Arc<AtomicUsize>) -> Self {
+        Self {
+            signal,
+            registrations: Vec::new(),
+        }
+    }
     pub(crate) fn install() -> io::Result<Self> {
         let mut request = Self {
             signal: Arc::new(AtomicUsize::new(0)),

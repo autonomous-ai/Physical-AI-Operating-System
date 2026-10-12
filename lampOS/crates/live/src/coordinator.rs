@@ -3951,6 +3951,7 @@ fn handle_playback_gap(
 #[cfg(test)]
 mod tests {
     mod duplex;
+    mod endpoint_fast;
     mod endpoint_session;
     mod failure_notice;
     mod pilot_faults;

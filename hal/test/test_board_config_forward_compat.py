@@ -51,3 +51,31 @@ def test_a_field_from_a_newer_device_package_is_ignored(tmp_path, caplog, name, 
     with caplog.at_level(logging.WARNING):
         assert load(str(tmp_path), BOARD) == expected
     assert "field_from_the_future" in caplog.text
+
+
+ROBOTS = LAMP.parent
+SHIPPED = sorted(
+    (path, load) for name, load in LOADERS for path in ROBOTS.rglob(name)
+)
+
+
+@pytest.mark.parametrize("path,load", SHIPPED, ids=[str(p.relative_to(ROBOTS)) for p, _ in SHIPPED])
+def test_shipped_configs_have_no_unknown_fields(caplog, path, load):
+    """HAL ignores unknown fields on the device; CI must not: a typo in an optional
+    safety field (say `torque_limt`) would otherwise ship as that field turned off."""
+    boards = json.loads(path.read_text())["boards"]
+    with caplog.at_level(logging.WARNING, logger="hal.board.config_fields"):
+        for board in boards:
+            load(str(path.parent), board)
+    assert "ignoring fields" not in caplog.text, caplog.text
+
+
+def test_a_typo_in_a_shipped_config_is_caught(tmp_path, caplog):
+    """The check above has teeth: a misspelled optional field is flagged."""
+    data = json.loads((LAMP / "servo_overload.json").read_text())
+    entry = data["boards"][BOARD]
+    entry["torque_limt"] = entry.pop("torque_limit")
+    (tmp_path / "servo_overload.json").write_text(json.dumps(data))
+    with caplog.at_level(logging.WARNING, logger="hal.board.config_fields"):
+        assert load_servo_overload_config(str(tmp_path), BOARD).torque_limit is None
+    assert "torque_limt" in caplog.text

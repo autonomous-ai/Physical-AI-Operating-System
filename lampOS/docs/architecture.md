@@ -65,8 +65,10 @@ The first version includes:
 | Social restraint | Remain quiet while the person works, talks to someone else or joins a call. Face presence, recognized voice or a passing mention of Lamp is insufficient on its own. Looking at the monitor must not disqualify clearly addressed speech. |
 | Failure | An admitted request gets a useful answer, relevant clarification, honest failure or recorded user interruption. Lost connections must not leave false listening/working cues or silently lose accepted requests. |
 
-Agentic tasks, Harness/Codex sessions, browser/computer automation, background
-research and new Hindsight or other long-term memory infrastructure are deferred.
+The owner brought the brain into scope on 12 October 2026: rare initiative,
+tasks through one agent worker, and one memory owner, as designed in
+[the brain](brain.md). Browser/computer automation, background research and
+new Hindsight or other long-term memory infrastructure remain deferred.
 Local camera/sensor reads and bounded light, volume or posture controls are part
 of the interaction itself. The model must not claim to have run an excluded task.
 No autonomous room search, stock spoken waiting fillers or random idle movements.
@@ -265,8 +267,9 @@ speech and conversational gestures without requiring a model-generated stop.
 
 ## Future task and memory boundaries
 
-These are architectural placeholders only. Do not add idle services, mock
-production APIs, model dependencies or release gates for them in this phase.
+[The brain design](brain.md) now realizes these boundaries; this section
+records the constraints it keeps. Do not add idle services, mock production
+APIs, model dependencies or release gates beyond that design.
 The live interaction release must start, converse and handle interruptions
 without either subsystem installed or reachable.
 

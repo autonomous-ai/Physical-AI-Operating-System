@@ -49,9 +49,11 @@ The owner does not relay routine agent reports.
   fillers, mandatory gestures, fabricated visual facts or forced eye contact.
 - Camera and microphone privacy controls remain authoritative. Never show
   listening readiness unless input can actually be retained.
-- Keep Harness, agent sessions, browsing and new long-term memory infrastructure
-  out of this release. Preserve only the future task and shared-context boundaries
-  in the architecture; do not implement them or make live chat depend on them.
+- Owner decision, 12 October 2026: the brain (decisions, initiative, tasks
+  through an agent worker, memory) is in scope and owned by Agent 2; see
+  [the brain design](docs/brain.md). Live chat must still start, converse and
+  handle interruptions with no agent or memory service reachable. Browsing and
+  new long-term memory infrastructure beyond that design stay out.
 - Owner instruction: all code comments, documentation, and notes are English
   only. Keep documentation in this directory, normally `docs/`. This explicit
   instruction overrides any inherited translation requirements.

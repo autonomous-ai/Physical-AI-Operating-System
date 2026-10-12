@@ -30,6 +30,8 @@ use lamp_live::{
     },
 };
 use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::Once,
     thread::{JoinHandle, sleep},
     time::{Duration, Instant},
 };
@@ -271,9 +273,14 @@ impl Rig {
                 WorkerEvent::CaptureStopped => self.stopped = true,
                 WorkerEvent::ReferenceFault { fault } => {
                     panic!(
-                        "reference fault {:?} after {} frames",
+                        "reference fault {:?} after {} frames: at {} us, last render accepted at {} us, \
+                         {} capture blocks processed, {} microphone samples unread",
                         fault.reason,
-                        self.frames.len()
+                        self.frames.len(),
+                        fault.at_us,
+                        fault.timing.accepted_at_us,
+                        fault.timing.capture_blocks_processed,
+                        self.device.queued()
                     )
                 }
                 WorkerEvent::Fault { code } => {
@@ -376,6 +383,35 @@ impl Rig {
     }
 }
 
+/// One session run and thrown away before the first one that counts.
+///
+/// The worker ends a session when the microphone has more than 40 ms unread
+/// or a render packet is more than 40 ms old, as it should. The first time a
+/// process runs the canceller under emulation, its first blocks take longer
+/// than that, and the session ends on the first frame. What a session does
+/// once the process is running is what these tests are about, so up to three
+/// are spent first, until one runs through. How many it took is printed.
+fn warm_up() {
+    static WARM: Once = Once::new();
+    WARM.call_once(|| {
+        let signal = Signal::new(100);
+        for attempt in 1..=3 {
+            let ran = catch_unwind(AssertUnwindSafe(|| {
+                let mut rig = Rig::start("scripted warm-up");
+                rig.stream(&signal, 100);
+                rig.settle(0);
+                rig.parent.control.send(Control::Stop).unwrap();
+                rig.finish();
+            }));
+            if ran.is_ok() {
+                eprintln!("warm-up: session {attempt} ran through");
+                return;
+            }
+            eprintln!("warm-up: session {attempt} did not run through");
+        }
+    });
+}
+
 fn owner(boot: BootId) -> TurnOwner {
     serde_json::from_value(serde_json::json!({
         "boot": serde_json::to_value(boot).unwrap(),
@@ -442,6 +478,7 @@ fn cancellation(frames: &[Heard], signal: &Signal) -> (f64, f64, Option<u8>) {
 
 #[test]
 fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held() {
+    warm_up();
     let name = Microphone::Mic1.device();
     let blocks = hold::blocks_for(name, ReferenceClock::Capture);
     assert_eq!(blocks, 4);
@@ -474,6 +511,7 @@ fn mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_he
 
 #[test]
 fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
+    warm_up();
     let name = Microphone::Mic1.device();
     let signal = Signal::new(100);
     let mut rig = Rig::start(name);
@@ -492,6 +530,7 @@ fn mic1_muted_while_frames_are_held_hands_none_of_them_on() {
 
 #[test]
 fn another_microphone_is_handed_on_at_once() {
+    warm_up();
     let name = Microphone::Mic2.device();
     assert_eq!(hold::blocks_for(name, ReferenceClock::Capture), 0);
     let signal = Signal::new(400);

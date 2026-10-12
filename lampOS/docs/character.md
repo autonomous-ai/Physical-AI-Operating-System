@@ -31,6 +31,12 @@ two people had been talking and took Wei Lan for one of them. What worked was
 to stop asking the model to recognise its name and ask it to judge the
 sentence.
 
+A change that looked harmless was not. Adding to the list of what the lamp
+can do ("turn and lift your head a little, and glow") made it answer four
+of four questions about lunch and dinner with "I can't recommend food, I'm
+mostly a lamp", where it had been suggesting pasta. It was taken out again.
+Any edit to the file can move a behavior it does not mention.
+
 These counts are small, and each is played voices in one room. Model
 behavior also varies from run to run on the same file: run every check
 below after any change, more than once.

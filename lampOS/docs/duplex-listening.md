@@ -442,7 +442,10 @@ holds one character per capture block in four strings of the same length:
 `heard` (0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown), and in
 tenths the detector's score, the share of the capture the render explains
 and the share of the cancelled signal that must be playback; `-` marks a
-block that was not judged. With them come three levels before
+block that was not judged. Three more strings carry the level of every
+block before and after cancellation, a letter for each 3 dB down from full
+scale (`a` is 0 to -3 dBFS), and the share of the cancelled signal the
+render explains. With them come three levels before
 cancellation, in dBFS: the loudest block of that second
 (`loudest_capture_db`: with the lamp speaking alone, its own voice at its
 microphone) and the two slow averages the margin is made of, a person

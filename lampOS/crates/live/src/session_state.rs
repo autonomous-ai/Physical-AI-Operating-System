@@ -38,10 +38,20 @@ struct HearingTrail {
     speech: String,
     explained: String,
     floor: String,
+    /// Levels before and after cancellation, a letter a block, and the share
+    /// of the cancelled signal the render explains, in tenths.
+    capture: String,
+    residual: String,
+    residual_explained: String,
     /// Loudest block before cancellation since the trail began, in tenths
     /// of a decibel: with the lamp speaking alone, its own voice at its
     /// microphone.
     loudest: Option<i16>,
+}
+/// A level as one letter: `a` for 0 to -3 dBFS, `b` for -3 to -6, and so on
+/// down to `z` for -75 dBFS and under.
+fn level_letter(tenths_of_db: i16) -> char {
+    char::from(b'a' + (i32::from(-tenths_of_db.min(0)) / 30).min(25) as u8)
 }
 /// A share or a score in tenths, as one digit.
 fn tenth(value: Option<f32>) -> char {
@@ -151,11 +161,24 @@ impl SessionState {
             self.hearing.floor.push(tenth(
                 echo.map(|echo| f32::from(echo.residual_playback_floor) / 100.0),
             ));
-            if let Some(evidence) = evidence {
-                let level = evidence.capture_level.tenths_of_db();
-                self.hearing.loudest =
-                    Some(self.hearing.loudest.map_or(level, |was| was.max(level)));
+            match evidence {
+                Some(evidence) => {
+                    let level = evidence.capture_level.tenths_of_db();
+                    self.hearing.loudest =
+                        Some(self.hearing.loudest.map_or(level, |was| was.max(level)));
+                    self.hearing.capture.push(level_letter(level));
+                    self.hearing
+                        .residual
+                        .push(level_letter(evidence.residual_level.tenths_of_db()));
+                }
+                None => {
+                    self.hearing.capture.push('-');
+                    self.hearing.residual.push('-');
+                }
             }
+            self.hearing.residual_explained.push(tenth(
+                echo.map(|echo| f32::from(echo.residual_explained) / 100.0),
+            ));
         }
         if self.hearing.heard.len() >= TRAIL_BLOCKS || (!speaking && !self.hearing.heard.is_empty())
         {
@@ -164,9 +187,11 @@ impl SessionState {
                 "first_frame_sequence":trail.first_frame_sequence,
                 "heard":trail.heard,"speech":trail.speech,
                 "explained":trail.explained,"floor":trail.floor,
+                "capture_level":trail.capture,"residual_level":trail.residual,
+                "residual_explained":trail.residual_explained,
                 "loudest_capture_db":trail.loudest.map(|tenths| f32::from(tenths) / 10.0),
                 "person_db":levels_db.0,"own_db":levels_db.1,
-                "boundary":"one character per 10 ms capture block while a reply had something to yield; heard: 0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown; the rest in tenths; - where not judged; levels in dBFS before cancellation: the loudest block of this trail, and the slow averages of a person heard in the clear and of the lamp's own voice let through"}))?;
+                "boundary":"one character per 10 ms capture block while a reply had something to yield; heard: 0 still, 1 clear, 2 under, 3 own, 4 over, 5 unknown; the rest in tenths; - where not judged; capture_level and residual_level are the level before and after cancellation, a letter for every 3 dB down from full scale (a is 0 to -3 dBFS); levels in dBFS before cancellation: the loudest block of this trail, and the slow averages of a person heard in the clear and of the lamp's own voice let through"}))?;
         }
         Ok(())
     }
@@ -337,6 +362,11 @@ mod tests {
         assert_eq!(state[0]["speech"], "6".repeat(TRAIL_BLOCKS));
         assert_eq!(state[0]["explained"], "9".repeat(TRAIL_BLOCKS));
         assert_eq!(state[0]["floor"], "8".repeat(TRAIL_BLOCKS));
+        // -20 dBFS before and after cancellation in this evidence: the
+        // seventh letter. A tenth of the cancelled signal explained.
+        assert_eq!(state[0]["capture_level"], "g".repeat(TRAIL_BLOCKS));
+        assert_eq!(state[0]["residual_level"], "g".repeat(TRAIL_BLOCKS));
+        assert_eq!(state[0]["residual_explained"], "1".repeat(TRAIL_BLOCKS));
         // The levels as they stood when the second was written.
         assert_eq!(state[0]["loudest_capture_db"], -20.0);
         assert_eq!(
@@ -381,6 +411,13 @@ mod tests {
         assert_eq!(state[0]["speech"], "-9");
         assert_eq!(state[0]["explained"], "-4");
         assert_eq!(state[0]["floor"], "-0");
+        assert_eq!(state[0]["capture_level"], "-g");
+        assert_eq!(state[0]["residual_explained"], "-1");
+        assert_eq!(level_letter(0), 'a');
+        assert_eq!(level_letter(-29), 'a');
+        assert_eq!(level_letter(-30), 'b');
+        assert_eq!(level_letter(-960), 'z');
+        assert_eq!(level_letter(15), 'a');
         let mut finite = SessionState::finite();
         finite
             .heard(1, true, Some(Heard::Over), 1.0, None, (None, None), 0)

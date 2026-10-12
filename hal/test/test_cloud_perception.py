@@ -159,3 +159,46 @@ def test_retire_when_idle_cleans_up_immediately():
     assert p.cleanups == 1
     p.check("frame")
     assert p.runs == 0
+
+
+class _CountingEstimator:
+    def __init__(self, *a, **k):
+        self.uploads = 0
+
+    def update(self, frame):
+        self.uploads += 1
+        return None  # e.g. no usable body in view
+
+    def close(self):
+        pass
+
+
+def test_pose_uploads_only_when_present_and_once_per_sample_interval(monkeypatch):
+    import numpy as np
+
+    from hal.drivers.sensing.perceptions.processors import pose as pose_module
+    from hal.drivers.sensing.presence_service import PresenceState
+
+    monkeypatch.setattr(pose_module, "RemotePoseEstimator", _CountingEstimator)
+    clock = [1000.0]
+    monkeypatch.setattr(pose_module.time, "time", lambda: clock[0])
+
+    class Presence:
+        state = PresenceState.AWAY
+
+    presence = Presence()
+    p = pose_module.PosePerception(perception_state=None, send_event=None, presense_service=presence)
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    est = p._estimator
+
+    for _ in range(30):  # one minute of 2 s ticks with nobody present
+        p._check_impl(frame)
+        clock[0] += 2
+    assert est.uploads == 0, "pose uploaded a frame of an empty room"
+
+    presence.state = PresenceState.PRESENT
+    for _ in range(30):  # one minute present, even with no usable body in the frame
+        p._check_impl(frame)
+        clock[0] += 2
+    interval = pose_module.config.POSE_SAMPLE_INTERVAL_S
+    assert est.uploads <= 60 / interval + 1, f"{est.uploads} uploads in 60 s"

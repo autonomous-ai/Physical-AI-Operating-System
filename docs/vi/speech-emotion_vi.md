@@ -268,7 +268,7 @@ Bộ nhãn (emotion2vec_plus_large, từ `/api/dl/ser/labels`):
 angry, disgusted, fearful, happy, neutral, other, sad, surprised, <unk>
 ```
 
-Timeout là `SPEECH_EMOTION_API_TIMEOUT_S` (env `HAL_SPEECH_EMOTION_API_TIMEOUT_S`, mặc định 15 s), được `_build_default_recognizer()` truyền vào engine, và **không có retry ở chặng này** — mọi lỗi transport, non-200, body không phải JSON, hoặc thiếu `label` đều trả `None` và mẫu bị bỏ qua. Khi `DL_ENCRYPTION_ENABLED` (mặc định **true**) và public key phân giải được, body request và response được bọc bởi `CryptoSession`; `DL_ENCRYPTION_REQUIRED` (mặc định false) biến việc thiếu key thành lỗi cứng lúc khởi tạo thay vì âm thầm rơi về plaintext.
+Timeout là `SPEECH_EMOTION_API_TIMEOUT_S` (env `HAL_SPEECH_EMOTION_API_TIMEOUT_S`, mặc định 15 s), được `_build_default_recognizer()` truyền vào engine, và **không có retry ở chặng này** — mọi lỗi transport, non-200, body không phải JSON, hoặc thiếu `label` đều trả `None` và mẫu bị bỏ qua. Khi `DL_ENCRYPTION_ENABLED` (mặc định **true**), body request và response được bọc bởi `CryptoSession`; thiếu public key thì request bị bỏ qua chứ không gửi plaintext, và key được lấy lại sau 60 giây.
 
 ---
 
@@ -402,8 +402,7 @@ Mọi knob nằm trong `hal/config.py` dưới dạng `SPEECH_EMOTION_*`, overri
 | `DL_SER_ENDPOINT` | `DL_SER_ENDPOINT` | `/hal/api/dl/ser/recognize` | Hậu tố path trên `DL_BACKEND_URL` |
 | `SPEECH_EMOTION_API_URL` | — | dẫn xuất | `DL_BACKEND_URL` + `DL_SER_ENDPOINT` |
 | `SPEECH_EMOTION_API_KEY` | — | sao từ `DL_API_KEY` | Gửi dưới dạng `X-API-Key` |
-| `DL_ENCRYPTION_ENABLED` | `HAL_DL_ENCRYPTION` | `true` | Bọc body request/response |
-| `DL_ENCRYPTION_REQUIRED` | `HAL_DL_ENCRYPTION_REQUIRED` | `false` | Lỗi cứng thay vì rơi về plaintext |
+| `DL_ENCRYPTION_ENABLED` | `HAL_DL_ENCRYPTION` | `true` | Bọc body request/response; khi bật, request thiếu public key bị bỏ qua, không bao giờ gửi plaintext |
 | `SPEAKER_MIN_AUDIO_S` | `HAL_SPEAKER_MIN_AUDIO_S` | `0.8` | Cũng chặn việc dựng WAV cho SER; vô hiệu ở đây vì sàn 3.0 s của `submit()` cao hơn |
 
 Bộ nhãn, bản đồ bucket, ngưỡng prefilter, và **ngưỡng confidence theo từng nhãn** được khai báo trong `hal/drivers/voice/speech_emotion/constants.py` (không override được bằng env — sửa chúng cần thay code). Dict ngưỡng:
@@ -434,7 +433,7 @@ Cũng không cấu hình được qua env (chỉ qua tham số khởi tạo ho�
 | Chưa cấu hình `DL_BACKEND_URL` | `recognizer.available` là False, thread không bao giờ chạy, `submit()` là no-op (`SERVICE IDLE` lúc boot) | Đặt `llm_base_url` trong config OS server |
 | perception-service chết (connection refused) | Worker log cảnh báo, bỏ mẫu, không retry ở chặng này | Câu nói kế tiếp tự thử lại |
 | perception-service trả non-200 / không phải JSON / thiếu `label` | Worker log cảnh báo, bỏ mẫu | Như trên |
-| Bắt buộc mã hóa nhưng thiếu public key | `RuntimeError` lúc khởi tạo → bị bắt trong `_init_speech_emotion` → service là `None` | Sửa `DL_PUBLIC_KEY_URL`/`DL_PUBLIC_KEY_FILE`, hoặc bỏ `HAL_DL_ENCRYPTION_REQUIRED` |
+| Đang bật mã hoá nhưng thiếu public key | `recognize()` bỏ qua request (không gửi plaintext); key được lấy lại sau 60 giây (`DLCrypto` trong `hal/drivers/sensing/crypto.py`) | Sửa `DL_PUBLIC_KEY_URL`/`DL_PUBLIC_KEY_FILE`; mẫu chạy lại khi lấy được key |
 | Thiếu model Silero / ORT hỏng | Prefilter rơi về ngưỡng RMS **nghiêm hơn** (3.0 s voiced) | Khôi phục `resources/silero_vad.onnx`; xem cảnh báo nạp model một lần |
 | Prefilter từ chối clip | Bỏ mẫu trước lời gọi cloud, kèm log các chỉ số dẫn tới quyết định | Bình thường với TV/nhạc/audio thưa; chỉnh các hằng số `PREFILTER_*` trong `constants.py` nếu tiếng nói thật đang bị cắt |
 | Hàng đợi worker đầy | `submit()` log `EVICT`, loại job **cũ nhất** và đưa job mới vào | Dấu hiệu backend quá tải; job cũ hơn 30 s cũng bị worker bỏ |

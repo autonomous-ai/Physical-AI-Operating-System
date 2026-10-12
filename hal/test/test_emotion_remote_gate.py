@@ -41,6 +41,8 @@ def _recognizer(debug=None):
     r._threshold = 0.5
     r._timeout = 1.0
     r._crypto = None
+    # These tests read plaintext replies: model an operator who turned encryption off.
+    r._dl_crypto = types.SimpleNamespace(http_session=lambda: None)
     r._debug = debug
     r._backoff_until = 0.0
     r._label_thresholds = dict(DEFAULT_LABEL_THRESHOLDS)

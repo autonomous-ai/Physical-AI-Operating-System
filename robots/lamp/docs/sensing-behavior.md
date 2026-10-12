@@ -223,7 +223,7 @@ also uploads and needs the `motion` opt-in:
 |---|---|---|
 | `motion` | full frames (action recognition WS) | every sensing tick unless presence is `AWAY` |
 | `emotion` | face crops | every tick a face is detected locally |
-| `pose` | full frames (pose/RULA WS) | every sensing tick, no presence gate before sending |
+| `pose` | full frames (pose/RULA WS) | one frame per `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) while presence is `PRESENT`; nothing while away |
 | `fire_hazard` | full frames (OWLv2) | every `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), no presence gate |
 
 With them off, `motion.activity`, facial emotion, posture nudges and

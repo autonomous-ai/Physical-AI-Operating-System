@@ -242,8 +242,7 @@ Key knobs:
 |---------|---------|---------|
 | `DL_BACKEND_URL` | _(empty)_ | Base URL; empty disables remote perception entirely |
 | `DL_API_KEY` | _(empty)_ | Must match the backend's `DL_API_KEY` |
-| `HAL_DL_ENCRYPTION` | `false` | Enable client-side RSA/AES |
-| `HAL_DL_ENCRYPTION_REQUIRED` | `false` | Fail if encryption setup fails (no plaintext fallback) |
+| `HAL_DL_ENCRYPTION` | `true` | Client-side RSA/AES. While on, HAL never sends plaintext: without a public key a request is skipped and the key is fetched again after 60 s. Plaintext only when set to `false` |
 | `DL_PUBLIC_KEY_FILE` | _(empty)_ | Load RSA public key from PEM instead of fetching |
 | `DL_PUBLIC_KEY_ENDPOINT` | `/crypto/public-key` | Path appended to `DL_BACKEND_URL` |
 

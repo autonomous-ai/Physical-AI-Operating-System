@@ -13,8 +13,8 @@ const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upl
     key: "pose",
     label: "Posture reminders",
     purpose: "Uses the camera to notice when you sit badly for a long time and reminds you to adjust.",
-    upload: "Uploads full camera images for cloud analysis about every 2 seconds, even when nobody is in the room.",
-    short: "Posture reminders (full images, about every 2 s, even with nobody in the room)",
+    upload: "Uploads one full camera image for cloud analysis about every 30 seconds while someone is in front of the lamp.",
+    short: "Posture reminders (one full image about every 30 s while someone is in front of the lamp)",
   },
   {
     key: "fire_hazard",

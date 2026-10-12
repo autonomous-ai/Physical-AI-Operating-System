@@ -1668,6 +1668,15 @@ audio is billed twice on look turns; the image once.
 This replaces the slow path (delegate → main → skill lookup → `/camera/snapshot`
 → vision LLM, several seconds) with one in-session round-trip.
 
+**Camera off wins.** When the privacy switch is on or the user turned the camera
+off (Settings, "don't watch me"), `_handle_look_call` answers the tool call with
+`{"error": "the camera is turned off by the user; do not try to look"}` before any
+aim, capture or frame reuse, and `_capture_frame` never wakes the sensor. Only an
+*automatic* pause (idle, sleep) may still be woken for one frame. A frame captured
+before the camera was turned off is not handed off to the main agent either. The rule
+is `app_state.camera_blocked_by_user()`, the same check `/camera/snapshot` applies
+before, during and after its capture.
+
 Gating (all three required, else visual questions fall back to delegation):
 
 - **Capability:** a camera is present (`app_state.camera_capture` is set). This is

@@ -14,7 +14,7 @@ import numpy.typing as npt
 import requests
 
 import hal.config as config
-from hal.drivers.sensing.crypto import CryptoSession, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto, EncryptionUnavailable
 from hal.drivers.sensing.perceptions.typing import SendEventCallable
 from hal.drivers.sensing.perceptions.utils import PerceptionStateObservers
 from hal.drivers.sensing.presence_service import PresenseService
@@ -65,8 +65,7 @@ class RemoteFireHazardDetector:
         self._flammable_set: frozenset[str] = frozenset(self._flammable_classes)
         self._safe_set: frozenset[str] = frozenset(self._safe_classes)
 
-        if config.DL_ENCRYPTION_ENABLED:
-            self._setup_crypto()
+        self._dl_crypto: DLCrypto = DLCrypto("fire_hazard")
 
         logger.info(
             "[fire_hazard] detector initialized — %d fire, %d smoke, %d flammable, %d safe classes, endpoint=%s",
@@ -80,18 +79,6 @@ class RemoteFireHazardDetector:
             logger.warning("[fire_hazard] class file not found: %s", path)
             return []
         return [line.strip() for line in path.read_text().strip().splitlines() if line.strip()]
-
-    def _setup_crypto(self) -> None:
-        public_key = resolve_public_key(
-            config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE
-        )
-        if public_key is None:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
-            logger.warning("[fire_hazard] encryption enabled but no public key — plaintext fallback")
-            return
-        self._crypto = CryptoSession(public_key)
-        logger.info("[fire_hazard] encryption session initialized")
 
     def detect(self, frame: cv2t.MatLike) -> list[FireHazard]:
         """Detect objects in a frame and assess fire hazard risk."""
@@ -123,6 +110,10 @@ class RemoteFireHazardDetector:
     def _call_api(self, frame: cv2t.MatLike) -> list[dict[str, Any]]:
         """POST frame to the object detection endpoint."""
         if time.time() < self._backoff_until:
+            return []
+        try:
+            self._crypto = self._dl_crypto.http_session()
+        except EncryptionUnavailable:
             return []
         try:
             plain_body = json.dumps({

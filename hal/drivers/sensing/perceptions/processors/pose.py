@@ -18,7 +18,7 @@ from websockets.sync.client import ClientConnection, connect
 
 import hal.config as config
 from hal.clock import device_fromtimestamp
-from hal.drivers.sensing.crypto import CryptoSession, WSKeyExchangeRequest, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto
 from hal.drivers.sensing.perceptions.typing import SendEventCallable
 from hal.drivers.sensing.perceptions.utils import (
     PerceptionStateObservers,
@@ -133,6 +133,7 @@ class RemotePoseEstimator:
         self._api_key: str = api_key
         self._ws_session: ClientConnection | None = None
         self._crypto: CryptoSession | None = None
+        self._dl_crypto: DLCrypto = DLCrypto("RemotePoseEstimator")
         self._last_heartbeat_ts: float = 0.0
         self._heartbeat_interval: float = config.DL_HEARTBEAT_INTERVAL_S
 
@@ -150,36 +151,16 @@ class RemotePoseEstimator:
                 additional_headers={"X-API-Key": self._api_key},
                 open_timeout=config.DL_WS_RECV_TIMEOUT_S,
             )
-            self._crypto = None
-            if config.DL_ENCRYPTION_ENABLED:
-                self._setup_crypto()
+            self._crypto = self._dl_crypto.ws_key_exchange(self._ws_session, config.DL_WS_RECV_TIMEOUT_S)
         except Exception:
             logger.exception("[%s] failed to connect", self.__class__.__name__)
+            # Never keep a connection we will not use: no plaintext fallback.
+            if self._ws_session is not None:
+                try:
+                    self._ws_session.close()
+                except Exception:
+                    pass
             self._ws_session = None
-
-    def _setup_crypto(self) -> None:
-        """Perform WS key exchange after connection."""
-        if self._ws_session is None:
-            raise RuntimeError("Cannot setup crypto without a WS connection")
-
-        public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-        if public_key is None:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
-            logger.warning("[%s] encryption enabled but no public key — plaintext fallback", self.__class__.__name__)
-            return
-
-        session = CryptoSession(public_key)
-        key_req = WSKeyExchangeRequest(encrypted_key=session.encrypted_key_b64)
-        self._ws_session.send(key_req.model_dump_json())
-        resp = json.loads(self._ws_session.recv(timeout=config.DL_WS_RECV_TIMEOUT_S))
-        if resp.get("status") == "key_exchange_ok":
-            self._crypto = session
-            logger.info("[%s] encryption session established", self.__class__.__name__)
-        else:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError(f"Key exchange failed: {resp}")
-            logger.warning("[%s] key exchange failed: %s — plaintext fallback", self.__class__.__name__, resp)
 
     def _img2b64(self, frame: cv2.typing.MatLike) -> str:
         _, buf = cv2.imencode(".jpg", frame)
@@ -344,6 +325,7 @@ class PosePerception(Perception[cv2.typing.MatLike]):
             api_key=api_key,
         )
         self._last_result: PoseResult | None = None
+        self._last_upload_ts: float = 0.0
         self._risk_threshold: int = config.POSE_ERGO_HIGH_RISK_THRESHOLD
         # Tumbling window: samples accumulate until POSE_WINDOW_DURATION_S elapses since
         # the first sample, then MotionPerception evaluates and calls reset_window() to
@@ -652,20 +634,9 @@ class PosePerception(Perception[cv2.typing.MatLike]):
             logger.debug("[pose] frame is None, skipping")
             return
 
-        result: PoseResult | None = self._estimator.update(data)
-        if result is None:
-            logger.debug("[pose] no result from estimator")
-            return
-        logger.debug("[pose] result: ergo=%s", result.ergo.get("score") if result.ergo else None)
-
-        self._last_result = result
-
-        ergo: dict[str, Any] | None = result.ergo
-        if ergo is None:
-            return
-
         now: float = time.time()
 
+        # Gate BEFORE uploading: only a sample that will be kept is worth a frame.
         if (
             self._presence_service is not None
             and self._presence_service.state != PresenceState.PRESENT
@@ -677,9 +648,25 @@ class PosePerception(Perception[cv2.typing.MatLike]):
                 )
                 self.reset_window()
                 self._last_sample_ts = 0.0
+                self._last_upload_ts = 0.0
             return
 
-        if now - self._last_sample_ts < config.POSE_SAMPLE_INTERVAL_S:
+        # Rate-limit uploads, not only kept samples: a frame with no usable body
+        # (face only, nobody in view) must not be re-sent on every tick.
+        if now - max(self._last_sample_ts, self._last_upload_ts) < config.POSE_SAMPLE_INTERVAL_S:
+            return
+
+        self._last_upload_ts = now
+        result: PoseResult | None = self._estimator.update(data)
+        if result is None:
+            logger.debug("[pose] no result from estimator")
+            return
+        logger.debug("[pose] result: ergo=%s", result.ergo.get("score") if result.ergo else None)
+
+        self._last_result = result
+
+        ergo: dict[str, Any] | None = result.ergo
+        if ergo is None:
             return
 
         left: dict[str, Any] = ergo.get("left", {}) or {}

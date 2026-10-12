@@ -1713,6 +1713,21 @@ class RealtimeOrchestrator:
         from hal.drivers.tracking import look_debug
 
         look_debug.start()
+        import hal.app_state as state
+
+        # The user's "camera off" wins over the model: no aim, no capture, no reused frame.
+        if state.camera_blocked_by_user():
+            logger.info("[realtime] look: camera is off by the user; not capturing")
+            look_debug.abandon("camera_off_by_user")
+            self._agent.send(
+                [
+                    FunctionCallResultInput(
+                        call_id=output.call_id,
+                        output='{"error": "the camera is turned off by the user; do not try to look"}',
+                    )
+                ]
+            )
+            return False
         now: float = time.monotonic()
         # Cost guard (also the replay-turn path): no new image within the interval or twice per turn.
         min_interval: float = config.REALTIME_GEMINI_VISION_MIN_INTERVAL_S
@@ -1871,9 +1886,9 @@ class RealtimeOrchestrator:
             from hal.drivers.camera.video_capture_device import capture_still
         except Exception:
             return None
-        from hal import privacy
         cap = getattr(state, "camera_capture", None)
-        if cap is None or privacy.camera_muted:
+        # An automatic idle pause may be woken for one frame; a manual "camera off" may not.
+        if cap is None or state.camera_blocked_by_user():
             return None
         was_disabled: bool = bool(getattr(state, "_camera_disabled", False))
         try:
@@ -1892,7 +1907,8 @@ class RealtimeOrchestrator:
                     cap.stop()
             if frame is None:
                 return None
-            if privacy.camera_muted:
+            # Re-check: the user may have turned the camera off while it was settling.
+            if state.camera_blocked_by_user():
                 return None
             max_w: int = config.REALTIME_GEMINI_VISION_MAX_WIDTH
             h, w = frame.shape[:2]

@@ -45,7 +45,8 @@ def _take_vision_handoff(*, discard: bool = False) -> tuple[str, str]:
     ts = getattr(state, "realtime_look_frame_ts", 0.0)
     state.realtime_look_frame_path = None
     state.realtime_look_frame_ts = 0.0
-    if discard or not path:
+    # A frame taken before the user turned the camera off must not travel on.
+    if discard or not path or state.camera_blocked_by_user():
         return "", ""
     max_age = getattr(cfg, "REALTIME_GEMINI_VISION_HANDOFF_MAX_AGE_S", 20.0)
     if max_age > 0 and (time.monotonic() - ts) > max_age:

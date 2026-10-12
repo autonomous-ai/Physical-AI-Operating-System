@@ -12,7 +12,7 @@ import numpy.typing as npt
 import requests
 
 import hal.config as config
-from hal.drivers.sensing.crypto import CryptoSession, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto, EncryptionUnavailable
 from hal.drivers.voice.speech_emotion.base import (
     BaseSpeechEmotionRecognizer,
     SpeechEmotionResult,
@@ -68,13 +68,7 @@ class Emotion2VecRecognizer(BaseSpeechEmotionRecognizer):
         self._timeout: float = timeout_s
 
         self._crypto: CryptoSession | None = None
-        if config.DL_ENCRYPTION_ENABLED:
-            public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-            if public_key is not None:
-                self._crypto = CryptoSession(public_key)
-                logger.info("[speech_emotion.engine] encryption enabled")
-            elif config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
+        self._dl_crypto: DLCrypto = DLCrypto("speech_emotion.engine")
 
         self._silero = self._load_silero()
 
@@ -97,6 +91,11 @@ class Emotion2VecRecognizer(BaseSpeechEmotionRecognizer):
         if not wav_bytes:
             logger.warning("[speech_emotion.engine] recognize skipped — empty wav")
             tracer.fail("engine-empty-wav")
+            return None
+        try:
+            self._crypto = self._dl_crypto.http_session()
+        except EncryptionUnavailable:
+            tracer.fail("engine-no-encryption")
             return None
         with tracer.stage("prefilter"):
             filtered = self.prefilter(wav_bytes)

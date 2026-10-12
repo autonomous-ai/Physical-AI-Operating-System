@@ -221,7 +221,7 @@ cũng upload và cần opt-in `motion`:
 |---|---|---|
 | `motion` | nguyên frame (WS nhận dạng hành động) | mỗi tick sensing trừ khi presence là `AWAY` |
 | `emotion` | ảnh mặt đã cắt | mỗi tick có mặt được phát hiện cục bộ |
-| `pose` | nguyên frame (WS pose/RULA) | mỗi tick sensing, không kiểm tra presence trước khi gửi |
+| `pose` | nguyên frame (WS pose/RULA) | một frame mỗi `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) khi presence là `PRESENT`; vắng người thì không gửi |
 | `fire_hazard` | nguyên frame (OWLv2) | mỗi `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), không kiểm tra presence |
 
 Khi tắt, `motion.activity`, cảm xúc khuôn mặt, nhắc tư thế và `fire_hazard.detected`

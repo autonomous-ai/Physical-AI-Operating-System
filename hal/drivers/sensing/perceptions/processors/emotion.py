@@ -16,7 +16,7 @@ from typing_extensions import override
 
 import hal.config as config
 from hal.dedup_sidecar import DedupStateSidecar
-from hal.drivers.sensing.crypto import CryptoSession, resolve_public_key
+from hal.drivers.sensing.crypto import CryptoSession, DLCrypto, EncryptionUnavailable
 from hal.drivers.sensing.perceptions.models import (
     Face,
     FaceDetectionData,
@@ -258,19 +258,7 @@ class RemoteEmotionRecognizer:
         self._debug: EmotionDebugLogger | None = debug_logger
         self._backoff_until: float = 0.0
 
-        if config.DL_ENCRYPTION_ENABLED:
-            self._setup_crypto()
-
-    def _setup_crypto(self) -> None:
-        """Initialize crypto session for HTTP encryption."""
-        public_key = resolve_public_key(config.DL_PUBLIC_KEY_URL, config.DL_API_KEY, config.DL_PUBLIC_KEY_FILE)
-        if public_key is None:
-            if config.DL_ENCRYPTION_REQUIRED:
-                raise RuntimeError("Encryption required but no public key available")
-            logger.warning("[emotion] encryption enabled but no public key — plaintext fallback")
-            return
-        self._crypto = CryptoSession(public_key)
-        logger.info("[emotion] encryption session initialized")
+        self._dl_crypto: DLCrypto = DLCrypto("emotion")
 
     def _img2b64(self, frame: cv2.typing.MatLike) -> str:
         _, buf = cv2.imencode(".jpg", frame)
@@ -281,6 +269,10 @@ class RemoteEmotionRecognizer:
         if not self._url:
             return None
         if time.time() < self._backoff_until:
+            return None
+        try:
+            self._crypto = self._dl_crypto.http_session()
+        except EncryptionUnavailable:
             return None
 
         try:

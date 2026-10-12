@@ -26,6 +26,7 @@ pub mod playout;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;
+pub mod speech_floor;
 #[cfg(unix)]
 pub mod testing;
 

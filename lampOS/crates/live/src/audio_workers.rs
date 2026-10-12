@@ -22,6 +22,7 @@ use lamp_audio::{
     capture::{CaptureConfig, ErrorKind as CaptureErrorKind, MicrophoneOn},
     device::{AlsaCapture, CaptureDevice},
     pcm::{Speaker, Written},
+    speech_floor::reported_score,
 };
 use lamp_interaction::{
     BootId, Error as InteractionError, MonoTime, Permission, Snapshot, TurnOwner,
@@ -523,6 +524,8 @@ fn capture_loop<D: CaptureDevice>(
             if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
                 return Err(io::Error::other("invalid local speech probability").into());
             }
+            // A faint block is not the start of someone speaking to the lamp.
+            let probability = reported_score(probability, &clean);
             microphone.maintain()?;
             let timing = reference.timing();
             let processing_completed_at_us = monotonic_us();

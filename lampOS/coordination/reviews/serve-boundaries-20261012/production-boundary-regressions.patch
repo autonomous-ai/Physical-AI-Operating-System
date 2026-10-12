@@ -1,0 +1,229 @@
+--- a/crates/voice-eval/src/physical/mac.rs
++++ b/crates/voice-eval/src/physical/mac.rs
+@@ -826,7 +826,7 @@
+                 return Err(Withheld::PlayerFailed(reason));
+             }
+         };
+-        let now = monotonic_us();
++        let now = grant_clock_us();
+         if now >= deadline_us {
+             let late = now - deadline_us;
+             self.armed = Some(armed);
+@@ -850,7 +850,7 @@
+                 report["status"], report["error"]
+             )));
+         }
+-        let sent_us = monotonic_us();
++        let sent_us = grant_clock_us();
+         let receipt = json!({"ready": armed.prepared.ready,
+             "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
+             "expires_monotonic_ns": expires_ns,
+@@ -2227,3 +2227,208 @@
+         );
+     }
+ }
++
++// Audit-only clock seam: the production grant body is otherwise unchanged.
++fn grant_clock_us() -> u64 {
++    #[cfg(test)]
++    if let Some(now) = audit_grant_tests::CLOCK.with(|times| times.borrow_mut().pop_front()) {
++        return now;
++    }
++    monotonic_us()
++}
++
++#[cfg(test)]
++mod audit_grant_tests {
++    use super::*;
++    use crate::plan::{Expectation, Trigger, TriggerEvent};
++    use std::{cell::RefCell, collections::VecDeque, panic::{AssertUnwindSafe, catch_unwind}};
++    thread_local! {
++        pub(super) static CLOCK: RefCell<VecDeque<u64>> = const { RefCell::new(VecDeque::new()) };
++    }
++    struct NoAudio;
++    impl Player for NoAudio {
++        fn start(&mut self, _: &Path, _: &SceneTiming, _: &Path, _: &Path) -> Result<JoinHandle<Value>> {
++            panic!("no audio may start in this audit test")
++        }
++        fn describe(&self) -> Value { json!({"audit": true}) }
++    }
++
++    fn exercise(sent: u64) -> (bool, bool, bool) {
++        let root = PathBuf::from(format!("/private/tmp/lve-grant-audit-{}-{sent}", std::process::id()));
++        fs::create_dir(&root).unwrap();
++        fs::create_dir(root.join("objects")).unwrap();
++        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
++        let config = PhysicalConfig {
++            lamp_command: Vec::new(), lamp_work_root: root.display().to_string(),
++            mode: LampMode::Serve { provider_config: "/private/unused.json".into() },
++            noise_suppression: "off".into(), diagnostics: false, room_recorder: None,
++            room_independent: false, allowance_seconds: 5, ring_channel_ceiling: None,
++            stimulus_source: StimulusSource::LoudspeakerSynthetic,
++        };
++        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
++        // An already-reaped inert child supplies the Session's OS identity only.
++        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
++        child.wait().unwrap();
++        let (_tx, lines) = mpsc::channel();
++        backend.session = Some(Session {
++            child, next_ping_us: 0, stdin: None, lines, pings: Vec::new(),
++            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
++            trace: Vec::new(), end: None, end_synthesized: false, ready_seen: true,
++            protocol_errors: Vec::new(), start: None, cues: Vec::new(),
++            cue_order: CueOrder::default(), cue_failed: false, boot_changes: Vec::new(),
++            stop_sent: false, runtime_ended: false,
++        });
++        backend.trigger = Some((TriggerObservation {
++            event: TriggerEvent::ListeningReady, turn: None, event_at_us: Some(1_000),
++            event_domain: ClockDomain::LampMonotonic, runner_us: 1_000,
++            runner_time_method: "injected same clock".into(),
++        }, 0));
++        let (grant, rx) = mpsc::sync_channel(1);
++        let handle = thread::spawn(|| Value::Null);
++        backend.armed = Some(Armed {
++            step: "one".into(), prepared: PreparedStart {
++                ready: json!({"attempt_id": "original-attempt"}), grant, handle,
++            }, cancel_file: root.join("cancel"), armed_us: 500,
++        });
++        let step = Step {
++            id: "one".into(), scene: None,
++            trigger: Trigger { after: TriggerEvent::ListeningReady, delay_ms: 0,
++                deadline_ms: 1000, require_lamp_speaking: false },
++            expect: Expectation::Answer, reference: String::new(), addressed: Vec::new(),
++        };
++        // The first sample is valid. The second sample models descheduling
++        // after try_send. Native expiry is unchanged at 101,000 microseconds.
++        CLOCK.with(|times| *times.borrow_mut() = [100_999, sent].into());
++        let outcome = catch_unwind(AssertUnwindSafe(|| backend.grant(&step)));
++        let sent_original = matches!(rx.try_recv(), Ok(GrantInput::Line(line))
++            if serde_json::from_str::<Value>(&line).unwrap()["expires_monotonic_ns"] == 101_000_000_u64);
++        let tracked = backend.armed.is_some() || !backend.playbacks.is_empty();
++        let did_not_panic = outcome.is_ok();
++        if let Ok(Ok((mut playback, _receipt))) = outcome {
++            playback.handle.take().unwrap().join().unwrap();
++        }
++        // No remote/audio subprocess existed; the inert child is already reaped.
++        backend.session = None;
++        drop(backend);
++        fs::remove_dir_all(root).unwrap();
++        (did_not_panic, sent_original, tracked)
++    }
++    #[test]
++    fn audit_grant_within_deadline_control() {
++        let (did_not_panic, original, _) = exercise(100_999);
++        assert!(did_not_panic && original);
++    }
++    #[test]
++    fn audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking() {
++        let (did_not_panic, original, tracked) = exercise(101_001);
++        assert!(original, "the original, unextended grant must be preserved");
++        assert!(did_not_panic, "grant panicked after sending original expiry; player tracked={tracked}");
++    }
++
++    fn exit_report(code: i32) -> Finished {
++        let root = PathBuf::from(format!("/private/tmp/lve-exit-audit-{}-{code}", std::process::id()));
++        fs::create_dir(&root).unwrap();
++        fs::create_dir(root.join("objects")).unwrap();
++        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
++        let config = PhysicalConfig {
++            lamp_command: Vec::new(), lamp_work_root: root.display().to_string(),
++            mode: LampMode::Serve { provider_config: "/private/unused.json".into() },
++            noise_suppression: "off".into(), diagnostics: false, room_recorder: None,
++            room_independent: false, allowance_seconds: 5, ring_channel_ceiling: None,
++            stimulus_source: StimulusSource::LoudspeakerSynthetic,
++        };
++        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
++        // An already-reaped inert child supplies the Session's OS identity only.
++        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
++        child.wait().unwrap();
++        let (tx, lines) = mpsc::channel();
++        backend.session = Some(Session {
++            child, next_ping_us: 0, stdin: None, lines, pings: Vec::new(),
++            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
++            trace: Vec::new(), end: None, end_synthesized: false, ready_seen: true,
++            protocol_errors: Vec::new(), start: None, cues: Vec::new(),
++            cue_order: CueOrder::default(), cue_failed: false, boot_changes: Vec::new(),
++            stop_sent: false, runtime_ended: false,
++        });
++
++        drop(tx);
++        let session = backend.session.as_mut().unwrap();
++        session.start = Some(json!({"schema": 1, "mode": "serve", "cue_socket": true}));
++        session.end = Some(SessionLine::SessionEnd {
++            lamp_us: 10, exit_code: Some(code), killed: false,
++            events_sha256: None, events_lines: 0, error: None,
++            stray_processes_stopped: false,
++            serve: Some(Box::new(crate::physical::protocol::ServeEnd {
++                stop_cause: "runtime_exited".into(), stop_reason: None,
++                stop_requested_us: None, signal_sent_us: None, signal_error: None,
++                exited_us: Some(10), forced_kill: false, group_reaped: true,
++                metadata: crate::physical::protocol::ServeMetadata::default(),
++            })),
++        });
++        let catalog = StimulusCatalog::load().unwrap();
++        let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
++        let context = AttemptContext {
++            attempt_id: "exit-audit".into(), run_id: "audit".into(),
++            scenario: &plan.plan.scenarios[0], repetition: 0, order: 0, seed: 1,
++            run_directory: root.clone(),
++        };
++        let finished = backend.finish(&context).unwrap();
++        drop(backend);
++        fs::remove_dir_all(root).unwrap();
++        finished
++    }
++    #[test]
++    fn audit_successful_runtime_exit_control() {
++        assert!(exit_report(0).aborted.is_none());
++    }
++    #[test]
++    fn audit_nonzero_runtime_exit_must_invalidate_attempt() {
++        let result = exit_report(1);
++        assert_eq!(result.evidence["session_end"]["exit_code"], 1);
++        assert!(result.aborted.is_some(), "runtime exit 1 was retained but did not invalidate attempt");
++    }
++
++    #[test]
++    fn audit_serve_stdout_readiness_cannot_mint_an_original_cue() {
++        let root = PathBuf::from(format!("/private/tmp/lve-stdout-audit-{}", std::process::id()));
++        fs::create_dir(&root).unwrap();
++        fs::create_dir(root.join("objects")).unwrap();
++        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
++        let config = PhysicalConfig {
++            lamp_command: Vec::new(), lamp_work_root: root.display().to_string(),
++            mode: LampMode::Serve { provider_config: "/private/unused.json".into() },
++            noise_suppression: "off".into(), diagnostics: false, room_recorder: None,
++            room_independent: false, allowance_seconds: 5, ring_channel_ceiling: None,
++            stimulus_source: StimulusSource::LoudspeakerSynthetic,
++        };
++        let mut backend = PhysicalBackend::new(config, &assets, Box::new(NoAudio));
++        // An already-reaped inert child supplies the Session's OS identity only.
++        let mut child = Command::new("/usr/bin/true").spawn().unwrap();
++        child.wait().unwrap();
++        let (tx, lines) = mpsc::channel();
++        backend.session = Some(Session {
++            child, next_ping_us: 0, stdin: None, lines, pings: Vec::new(),
++            best: Some(ClockMapping::identity(ClockDomain::LampMonotonic)),
++            trace: Vec::new(), end: None, end_synthesized: false, ready_seen: true,
++            protocol_errors: Vec::new(), start: None, cues: Vec::new(),
++            cue_order: CueOrder::default(), cue_failed: false, boot_changes: Vec::new(),
++            stop_sent: false, runtime_ended: false,
++        });
++
++        drop(tx);
++        let session = backend.session.as_mut().unwrap();
++        session.start = Some(json!({"schema":1,"mode":"serve","cue_socket":true}));
++        session.ready_seen = false;
++        let received = monotonic_us();
++        let observed = backend.handle(SessionLine::Stdout {
++            lamp_received_us: received,
++            // The line has no source observation, owner, boot or expiry.
++            line: r#"{"status":"listening_ready","seconds":60}"#.into(),
++        });
++        backend.session = None;
++        drop(backend);
++        fs::remove_dir_all(root).unwrap();
++        assert!(observed.is_none(),
++            "stdout receipt became scheduling authority with a newly minted time: {observed:?}");
++    }
++}

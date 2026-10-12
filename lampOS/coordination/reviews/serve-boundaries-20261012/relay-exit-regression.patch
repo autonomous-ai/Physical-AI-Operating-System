@@ -1,0 +1,33 @@
+--- a/crates/voice-eval/tests/serve_relay.rs
++++ b/crates/voice-eval/tests/serve_relay.rs
+@@ -211,3 +211,30 @@
+     // The killed runtime never acknowledged its metadata.
+     assert!(error.contains("service_metadata_finished"), "{error}");
+ }
++
++#[test]
++fn audit_a_runtime_error_after_metadata_ack_must_not_be_clean() {
++    let dir = common::Private::new("exit-audit");
++    let mut opts = options(&dir, 60, &[]);
++    opts.runtime = "/bin/sh".into();
++    let meta = opts.runtime_output().join("metadata");
++    let header = serde_json::json!({"kind":"service_segment","generation":0,
++        "first_writer_event":0,"evidence":"rolling_best_effort_not_benchmark"});
++    let ack = serde_json::json!({"kind":"service_metadata_finished","health":{
++        "acknowledged":true,"degraded":false,"writer_failed":false,
++        "dropped_events":0,"oversized_events":0,"unconfirmed_events":0}});
++    // A bounded inert child writes a healthy metadata acknowledgement then
++    // exits 7. No Lamp, network, recorder, player or private config is opened.
++    let script = format!(
++        "mkdir -p '{m}'; printf '%s\n' '{header}' > '{m}/events-0.jsonl'; \
++         : > '{m}/events-1.jsonl'; : > '{m}/events-2.jsonl'; : > '{m}/events-3.jsonl'; \
++         printf '%s\n' '{{\"writer_finished\":true}}' > '{m}/health.json'; \
++         printf '%s\n' '{ack}'; exit 7", m=meta.display());
++    opts.runtime_prefix = vec!["-c".into(), script];
++    let (code, lines) = relay(&opts, Runner::Silent);
++    let (ending, serve) = end(&lines);
++    assert!(matches!(ending, SessionLine::SessionEnd { exit_code: Some(7), .. }));
++    assert!(serve.group_reaped && !serve.forced_kill);
++    assert!(code != 0 || !error(ending).is_empty(),
++        "real child exit 7 received a clean relay result: {ending:?}");
++}

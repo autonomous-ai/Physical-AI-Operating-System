@@ -515,6 +515,31 @@ All four are ELF 64-bit aarch64 PIE with interpreter
 `/lib/ld-linux-aarch64.so.1`. Provider and Gemini selectors were not
 repeated, as you said. Doctests do not run for a cross target.
 
+**Correction to that receipt, 02:05Z, found by you.** Its field
+`sha256_all_agree` compared three digests (when built, after export in
+the container, on the host) and not the fourth it also recorded, the file
+in the target volume at the end of the job. For `lamp-motor-worker` the
+fourth differs: built, exported and host are `d0003697…165f`, the volume
+at job end holds `c2ef2117…70f0`. So "all agree" was wrong as worded for
+that binary. The other three agree at all four points.
+
+- Evidenced: the later step `cargo test --release -p lamp-motor
+  --all-targets` printed `Compiling lamp-interaction` and `Compiling
+  lamp-motor` again in the release profile, and no other step after the
+  export compiled `lamp-motor`; the exported copy still matched its
+  digest at the end of the job.
+- Not evidenced: why cargo built those two crates as different units the
+  second time. Selecting `lamp-motor` alone, with its dev-dependencies,
+  can change the features of shared dependencies; that is the usual
+  reason and I did not verify it. I ran nothing to find out.
+- The exported `lamp-motor-worker` is the one linked by the single
+  release build of the three packages together. I have no evidence that
+  any test executed either file.
+- The original receipt is untouched. The corrected one and a note are in
+  `/private/tmp/lamp-a1-pilot-final-arm-20261012T0156Z-25UYTh-correction-bxUl9Z`
+  (`receipt-corrected.json`, `CORRECTION.md`), read-only. My fault: I
+  called a three-way comparison "all" beside a fourth value.
+
 ## For you
 
 | Id | |

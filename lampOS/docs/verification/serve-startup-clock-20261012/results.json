@@ -1,0 +1,122 @@
+{
+  "source": "A2 32ca80f61 six-file subset on canonical64d7eb2df plus root per-decision clock patch",
+  "root_patch_sha256": "ea1e8f1be08074a5c9cbe1e24d666215b1f2436bfb898f40a20b3fbea6dbd0d8",
+  "exact_integrated_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "sha256": "0e3658ff7746d2afe495ed79b3d87ef46a6b2101562e1d396cec85d9d9810937"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "sha256": "f699ac634f9b930fa961146756515ec0411235188820f1e75c62b24f6127c656"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "b9151488a3dc7afb7d8396d440ca618ca02d23a019692d9f3e0ac5902ffedd97"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "sha256": "a804224a4d6e29316fbd8443ae063525b7039d13e5438b4a47458a3459237ada"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "a572d228ee40b0253821231e1b9004a998c84055f2869eb89ba31f213e817b37"
+    },
+    {
+      "path": "lampOS/docs/voice-eval-serve.md",
+      "sha256": "4ceec02fc466c9bd26335567ff1c178e37b77b38b6ea79b27c3921d278c838fa"
+    }
+  ],
+  "first_gate": {
+    "status": "failed",
+    "stages": [
+      {
+        "name": "fmt",
+        "exit": 0,
+        "seconds": 1.8001570543274283,
+        "counts": []
+      },
+      {
+        "name": "clippy",
+        "exit": 0,
+        "seconds": 14.210245796944946,
+        "counts": []
+      },
+      {
+        "name": "mac_boundaries",
+        "exit": 0,
+        "seconds": 24.731436809059232,
+        "counts": [
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      {
+        "name": "startup_loopback",
+        "exit": 0,
+        "seconds": 33.39312648307532,
+        "counts": [
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      }
+    ],
+    "error": "Command '['/Users/autonomous/.cargo/bin/cargo', 'test', '--locked', '--offline', '-j2', '-p', 'lamp-voice-eval', '--test', 'serve_session', 'normal_eight_turn_conversation_in_one_serve_session', '--', '--exact', '--test-threads=1']' timed out after 45 seconds",
+    "seconds": 119.15288997720927
+  },
+  "continuation_gate": {
+    "status": "passed",
+    "stages": [
+      {
+        "name": "normal_session_r2",
+        "exit": 0,
+        "seconds": 69.25192345213145,
+        "counts": [
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      {
+        "name": "final_dispatch_r2",
+        "exit": 0,
+        "seconds": 36.51692103780806,
+        "counts": [
+          {
+            "passed": 13,
+            "failed": 0,
+            "ignored": 0
+          }
+        ]
+      },
+      {
+        "name": "release_r2",
+        "exit": 0,
+        "seconds": 81.9128667707555,
+        "counts": []
+      }
+    ],
+    "artifact": {
+      "path": "/private/tmp/lamp-startup-final-dcgm7wee/artifacts/lamp-voice-eval-macos",
+      "sha256": "8112e648cae656c751d92916a151804cfff581a47fe41287d5d6c9b032fc0e6a",
+      "bytes": 4601168
+    },
+    "seconds": 187.7001958298497
+  },
+  "passed_focused_tests": 39,
+  "physical_execution_of_this_runner": false,
+  "source_export": "/private/tmp/lamp-startup-final-dcgm7wee/source",
+  "limitations": [
+    "Earlier sandbox loopback start was refused by OS process permissions; same check passed outside sandbox.",
+    "First ordinary-simulation wrapper bound was45s; scenario takes69.252s. Timed-out attempt retained, exact orphan fake runtime stopped; rerun with180s external test bound passed. No runtime or cue lease widened.",
+    "This is host simulation and protocol verification, not microphone/speaker evidence."
+  ]
+}

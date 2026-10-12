@@ -250,7 +250,15 @@ fn a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure() {
 #[test]
 fn a_known_run_end_cue_withholds_dispatch() {
     let rig = Rig::new("disp-runend");
-    let mut backend = rig.backend(&[start_line(), run_end_cue()], "0", "", Then::StayOpen);
+    // The live pong lets the runner decide the cue; without any live clock
+    // map it would be refused, never published.
+    let pong = json!({"type":"pong","seq":2,"lamp_us":1_000});
+    let mut backend = rig.backend(
+        &[start_line(), pong, run_end_cue()],
+        "0",
+        "",
+        Then::StayOpen,
+    );
     rig.begin(&mut backend);
     until_run_end(&mut backend);
     let now = backend.now_us();
@@ -353,8 +361,10 @@ fn the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailab
     let rig = Rig::new("disp-provider");
     let now = [
         start_line(),
-        // Answers the backend's first ping, so owned cues have a clock map.
-        json!({"type":"pong","seq":1,"lamp_us":50_000_000}),
+        // Answers the ping the backend writes once session_start is taken
+        // (ping 1 precedes it and never defines the map), so owned cues have
+        // a clock map.
+        json!({"type":"pong","seq":2,"lamp_us":50_000_000}),
         cue(1, "listening_ready", None, json!({})),
         cue(2, "input_admitted", Some((1, 1)), json!({})),
         cue(

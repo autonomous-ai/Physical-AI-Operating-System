@@ -166,6 +166,47 @@ to be killed at that bound.
 - The transport's outcome is recorded separately: `transport_exit`,
   `transport_status` and `transport_forced_kill`.
 
+### Startup clock map and preparation
+
+A cue is accepted only if its 100 ms expiry is still ahead at the runner,
+including the clock map's uncertainty. That bound and the stale-cue refusal
+are unchanged. Two startup rules keep the decision on live evidence:
+
+- **Only live pings define the map.** The runner writes ping 1 when it starts
+  the transport, so it waits while SSH connects. Its round trip is connection
+  setup, not the live path. Only pings written after the relay's
+  `session_start` is taken may define the map, and one is sent at once then.
+- **Cues are taken while a player prepares.** A prepared player's ready
+  receipt is awaited within its unchanged 10 s bound in 2 ms polls. Between
+  polls the runner takes every relayed line and keeps pinging, so a cue is
+  judged when it arrives. Its events are kept in order for the runner.
+- **No cue is published before a live map.** The relay's receipt is not
+  proof at the runner. A cue taken before the first live map waits, as does
+  any cue behind one already waiting. It keeps its original event, send,
+  relay and runner receipt times and its order (at most 64 wait).
+  - **Release.** The first live sample decides waiting cues in order. Each is
+    published only if the map's upper bound at that decision is before the
+    original expiry; equality refuses.
+  - **Hold limit.** A cue still waiting 100 ms of runner time after its receipt
+    is refused. The relay showed it arrived no earlier than its event, so it
+    has certainly expired. This is a proof, not a new deadline.
+  - **Retention.** Cues still waiting at the end are kept as refused receipts.
+    Nothing is restamped or extended.
+
+Each cue receipt keeps the mapping its decision used under `freshness`:
+offset, uncertainty, decision time, time held, upper Lamp-time bound, expiry
+and margin. Every ping is kept in `clock_samples` with its round trip and
+whether it was usable.
+
+Lamp-4ace attempt wdqcviuk showed the failure. Its first player took ~293 ms to
+prepare. The first `input_availability` cue was refused as stale including
+clock uncertainty, and the runner stopped the runtime before readiness. Under
+the final mapping that cue was only ~21.5 ms old, so the refusal is proven but
+real staleness is not; the mapping used at the decision was not retained.
+`tests/serve_session.rs` reproduces this through the real relay with a 400 ms
+transport start and a 2.3 s preparation. The old order fails with that exact
+refusal; the current order plays both prompts.
+
 The following are relay errors, so the attempt is aborted, never scored as a
 clean conversation:
 
@@ -255,3 +296,9 @@ unchanged; no lease was widened.
   metadata.
 - The room recorder runs for its configured length; the runner waits for it
   at the end.
+
+Main integration also samples the decision clock after parsing each cue, including
+each member of a held startup batch. A pause between decisions cannot let a later
+cue reuse an earlier freshness result. Original event, relay and runner receipt
+times remain unchanged; a deterministic two-cue regression crosses the second
+expiry and refuses readiness.

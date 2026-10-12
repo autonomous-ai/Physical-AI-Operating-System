@@ -284,6 +284,28 @@ pub fn room_recorder(arguments: &[String]) -> Result<i32> {
     Ok(1)
 }
 
+/// Start `ARGV` after `--delay-ms`, as an SSH transport does while it
+/// connects: runner input written meanwhile waits in the pipe. Test support;
+/// no network.
+pub fn slow_transport(arguments: &[String]) -> Result<i32> {
+    use std::os::unix::process::CommandExt;
+    let split = arguments
+        .iter()
+        .position(|a| a == "--")
+        .filter(|split| *split + 1 < arguments.len())
+        .ok_or_else(|| invalid("fake-slow-transport --delay-ms MS -- ARGV..."))?;
+    let delay_ms: u64 = match &arguments[..split] {
+        [flag, ms] if flag == "--delay-ms" => ms.parse()?,
+        _ => return Err(invalid("fake-slow-transport --delay-ms MS -- ARGV...")),
+    };
+    thread::sleep(Duration::from_millis(delay_ms));
+    let argv = &arguments[split + 1..];
+    Err(std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .exec()
+        .into())
+}
+
 /// One deliberately dropped or late production cue; no audio or external I/O.
 /// The 150 ms delay leaves the original event/send/100 ms expiry untouched.
 pub(crate) struct FaultRelay {

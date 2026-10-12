@@ -1,0 +1,36 @@
+{
+ "still_present_and_identical": [
+  "forensics-5koru8e0",
+  "forensics-g2kp1mcp",
+  "forensics-j5_xqe32",
+  "forensics-l3yc4zsy",
+  "forensics-rubc3c4q",
+  "fixture-echo",
+  "fixed-reply-ns-off",
+  "fixed-reply-ns-on",
+  "real-exchange-03",
+  "varied-six",
+  "connected-plain",
+  "connected-extended",
+  "composed-continuity",
+  "composed-plain200",
+  "device-1-gain-control-on",
+  "device-R4-gain-control-off"
+ ],
+ "gone_from_the_host": [
+  "first-pilot",
+  "nscheck-01",
+  "nscheck-02",
+  "coordinated-01",
+  "playout-01",
+  "playout-02",
+  "v1-baseline",
+  "v1-gemini",
+  "v1-ten-0637",
+  "v1-ten-0706",
+  "v1-ten-0736",
+  "v1-ten-0752",
+  "v1-ten-0804"
+ ],
+ "different": []
+}

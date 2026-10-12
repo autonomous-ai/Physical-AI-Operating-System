@@ -1,0 +1,2953 @@
+{
+ "summary": {
+  "sessions": 29,
+  "blocks": 184289,
+  "apart": 0,
+  "across": 0,
+  "largest": 0.0038253068923950195,
+  "held_lamp": 188,
+  "held_host": 188,
+  "lamp_starts": 208,
+  "lamp_starts_as_python": 29,
+  "host_starts_as_lamp": 29,
+  "faults": 0
+ },
+ "what_the_reported_score_changes": [
+  {
+   "session": "v1-ten-0736",
+   "score": "lamp score",
+   "starts_only_as_the_model_gave_it": [
+    76.65
+   ],
+   "starts_only_as_reported": [
+    76.69
+   ],
+   "ends_only_as_the_model_gave_it": [],
+   "ends_only_as_reported": []
+  },
+  {
+   "session": "v1-ten-0736",
+   "score": "host score",
+   "starts_only_as_the_model_gave_it": [
+    76.65
+   ],
+   "starts_only_as_reported": [
+    76.69
+   ],
+   "ends_only_as_the_model_gave_it": [],
+   "ends_only_as_reported": []
+  },
+  {
+   "session": "v1-ten-0804",
+   "score": "lamp score",
+   "starts_only_as_the_model_gave_it": [
+    27.59
+   ],
+   "starts_only_as_reported": [],
+   "ends_only_as_the_model_gave_it": [
+    29.3
+   ],
+   "ends_only_as_reported": []
+  },
+  {
+   "session": "v1-ten-0804",
+   "score": "host score",
+   "starts_only_as_the_model_gave_it": [
+    27.59
+   ],
+   "starts_only_as_reported": [],
+   "ends_only_as_the_model_gave_it": [
+    29.3
+   ],
+   "ends_only_as_reported": []
+  },
+  {
+   "session": "device-1-gain-control-on",
+   "score": "lamp score",
+   "starts_only_as_the_model_gave_it": [
+    25.51
+   ],
+   "starts_only_as_reported": [],
+   "ends_only_as_the_model_gave_it": [
+    27.16
+   ],
+   "ends_only_as_reported": []
+  },
+  {
+   "session": "device-1-gain-control-on",
+   "score": "host score",
+   "starts_only_as_the_model_gave_it": [
+    25.51
+   ],
+   "starts_only_as_reported": [],
+   "ends_only_as_the_model_gave_it": [
+    27.16
+   ],
+   "ends_only_as_reported": []
+  }
+ ],
+ "sessions": [
+  {
+   "blocks": 4501,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.68
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.43
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.68
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.43
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.68
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.43
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.68
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.43
+    ]
+   },
+   "runtime": "/private/tmp/lampOS-echo-forensics-w4dbggb6/native-delay-matrix/input/5koru8e0/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 8.64267349243164e-06
+   },
+   "session": "forensics-5koru8e0"
+  },
+  {
+   "blocks": 4500,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.64,
+     8.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.38,
+     7.72
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.64,
+     8.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.38,
+     7.72
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.64,
+     8.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.38,
+     7.72
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.64,
+     8.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.38,
+     7.72
+    ]
+   },
+   "runtime": "/private/tmp/lampOS-echo-forensics-w4dbggb6/native-delay-matrix/input/g2kp1mcp/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 2.4497509002685547e-05
+   },
+   "session": "forensics-g2kp1mcp"
+  },
+  {
+   "blocks": 4501,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.81,
+     8.51,
+     11.65
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.71,
+     10.9
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.81,
+     8.51,
+     11.65
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.71,
+     10.9
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.81,
+     8.51,
+     11.65
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.71,
+     10.9
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.81,
+     8.51,
+     11.65
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.71,
+     10.9
+    ]
+   },
+   "runtime": "/private/tmp/lampOS-echo-forensics-w4dbggb6/native-delay-matrix/input/j5_xqe32/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.0579824447631836e-05
+   },
+   "session": "forensics-j5_xqe32"
+  },
+  {
+   "blocks": 4501,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 2,
+    "lamp_score": 2
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.47
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.47
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.47
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.47
+    ]
+   },
+   "runtime": "/private/tmp/lampOS-echo-forensics-w4dbggb6/native-delay-matrix/input/l3yc4zsy/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 0.0007557868957519531
+   },
+   "session": "forensics-l3yc4zsy"
+  },
+  {
+   "blocks": 4501,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 3,
+    "lamp_score": 3
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.63,
+     8.39,
+     12.06,
+     15.35,
+     18.6
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.57,
+     11.24,
+     14.53,
+     17.78
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.63,
+     8.39,
+     12.06,
+     15.35,
+     18.6
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.57,
+     11.24,
+     14.53,
+     17.78
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.63,
+     8.39,
+     12.06,
+     15.35,
+     18.6
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.57,
+     11.24,
+     14.53,
+     17.78
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.63,
+     8.39,
+     12.06,
+     15.35,
+     18.6
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.36,
+     7.57,
+     11.24,
+     14.53,
+     17.78
+    ]
+   },
+   "runtime": "/private/tmp/lampOS-echo-forensics-w4dbggb6/native-delay-matrix/input/rubc3c4q/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 8.404254913330078e-06
+   },
+   "session": "forensics-rubc3c4q"
+  },
+  {
+   "blocks": 3001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.84,
+     7.33
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.39,
+     6.65
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.84,
+     7.33
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.39,
+     6.65
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.84,
+     7.33
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.39,
+     6.65
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.84,
+     7.33
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.39,
+     6.65
+    ]
+   },
+   "runtime": "/private/tmp/lamp-fixture-echo-h4jds57i/device/fixture-echo-cd80d0fee60d4525970772d1c992c96a/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 7.539987564086914e-06
+   },
+   "session": "fixture-echo"
+  },
+  {
+   "blocks": 3001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.41
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.41
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.41
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.41
+    ]
+   },
+   "runtime": "/private/tmp/lamp-fixed-reply-ns-pair-00g68o9f/ns-off/device/fixture-echo-b4f4dbffa7c14ad6aa55ab3b291919f0/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 6.139278411865234e-06
+   },
+   "session": "fixed-reply-ns-off"
+  },
+  {
+   "blocks": 3001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.69
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.42
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.69
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.42
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.69
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.42
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.69
+    ],
+    "faults": 0,
+    "starts_s": [
+     3.42
+    ]
+   },
+   "runtime": "/private/tmp/lamp-fixed-reply-ns-pair-00g68o9f/ns-on/device/fixture-echo-b0393762dc2b4c88bf715bca5f2de979/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 8.314847946166992e-06
+   },
+   "session": "fixed-reply-ns-on"
+  },
+  {
+   "blocks": 4001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     2.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.36
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     2.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.36
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     2.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.36
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     2.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.36
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-first-pilot-20261011T014304Z/target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.615285873413086e-05
+   },
+   "session": "first-pilot"
+  },
+  {
+   "blocks": 4001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     2.56
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.31
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     2.56
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.31
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     2.56
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.31
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     2.56
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.31
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-nscheck-evidence-20261011T024032Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 3.933906555175781e-06
+   },
+   "session": "nscheck-01"
+  },
+  {
+   "blocks": 4001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 1,
+    "lamp_score": 1
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     2.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.33
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     2.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.33
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     2.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.33
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     2.53
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.33
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-nscheck-evidence-20261011T024032Z/trial-02-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 5.7220458984375e-06
+   },
+   "session": "nscheck-02"
+  },
+  {
+   "blocks": 4182,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.39
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.13
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.39
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.13
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.39
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.13
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.39
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.13
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-coordinated-evidence-20261011T030937Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.239776611328125e-05
+   },
+   "session": "coordinated-01"
+  },
+  {
+   "blocks": 4179,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.4,
+     7.82
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.08,
+     7.0
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.4,
+     7.82
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.08,
+     7.0
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.4,
+     7.82
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.08,
+     7.0
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.4,
+     7.82
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.08,
+     7.0
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-playout-evidence-20261011T033405Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.8894672393798828e-05
+   },
+   "session": "playout-01"
+  },
+  {
+   "blocks": 4180,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 2,
+    "lamp_score": 2
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.24,
+     7.42,
+     9.78,
+     12.71
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.1,
+     6.56,
+     9.04,
+     11.92
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.24,
+     7.42,
+     9.78,
+     12.71
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.1,
+     6.56,
+     9.04,
+     11.92
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.24,
+     7.42,
+     9.78,
+     12.71
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.1,
+     6.56,
+     9.04,
+     11.92
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.24,
+     7.42,
+     9.78,
+     12.71
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.1,
+     6.56,
+     9.04,
+     11.92
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-playout-evidence-20261011T033405Z/trial-02-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 2.1457672119140625e-05
+   },
+   "session": "playout-02"
+  },
+  {
+   "blocks": 4001,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 1,
+    "lamp_score": 1
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     2.42,
+     6.8,
+     10.15
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.3,
+     5.91,
+     7.83
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     2.42,
+     6.8,
+     10.15
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.3,
+     5.91,
+     7.83
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     2.42,
+     6.8,
+     10.15
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.3,
+     5.91,
+     7.83
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     2.42,
+     6.8,
+     10.15
+    ],
+    "faults": 0,
+    "starts_s": [
+     0.3,
+     5.91,
+     7.83
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-baseline-evidence-20261011T060157Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.049041748046875e-05
+   },
+   "session": "v1-baseline"
+  },
+  {
+   "blocks": 4173,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 0,
+    "lamp_score": 0
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.29,
+     12.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.04,
+     10.67
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.29,
+     12.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.04,
+     10.67
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.29,
+     12.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.04,
+     10.67
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.29,
+     12.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.04,
+     10.67
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-gemini-evidence-20261011T062138Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.2665987014770508e-05
+   },
+   "session": "v1-gemini"
+  },
+  {
+   "blocks": 3876,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 3,
+    "lamp_score": 3
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.32,
+     7.62,
+     12.83,
+     21.65,
+     25.54,
+     31.04,
+     33.72,
+     37.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.05,
+     6.34,
+     10.49,
+     19.43,
+     23.29,
+     28.71,
+     32.75,
+     36.73,
+     37.74
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.32,
+     7.62,
+     12.83,
+     21.65,
+     25.54,
+     31.04,
+     33.72,
+     37.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.05,
+     6.34,
+     10.49,
+     19.43,
+     23.29,
+     28.71,
+     32.75,
+     36.73,
+     37.74
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.32,
+     7.62,
+     12.83,
+     21.65,
+     25.54,
+     31.04,
+     33.72,
+     37.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.05,
+     6.34,
+     10.49,
+     19.43,
+     23.29,
+     28.71,
+     32.75,
+     36.73,
+     37.74
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.32,
+     7.62,
+     12.83,
+     21.65,
+     25.54,
+     31.04,
+     33.72,
+     37.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.05,
+     6.34,
+     10.49,
+     19.43,
+     23.29,
+     28.71,
+     32.75,
+     36.73,
+     37.74
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-ten-evidence-20261011T063758Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.0967254638671875e-05
+   },
+   "session": "v1-ten-0637"
+  },
+  {
+   "blocks": 15173,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 16,
+    "lamp_score": 16
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.31,
+     8.19,
+     12.38,
+     15.28,
+     19.97,
+     25.25,
+     28.59,
+     32.9,
+     34.2,
+     38.08,
+     43.48,
+     51.18,
+     52.57,
+     55.9,
+     60.79,
+     71.52,
+     76.67,
+     79.99,
+     84.0,
+     88.61,
+     94.75
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.09,
+     6.33,
+     10.47,
+     12.96,
+     17.58,
+     22.94,
+     27.48,
+     31.96,
+     32.96,
+     36.3,
+     41.17,
+     50.36,
+     51.28,
+     55.21,
+     58.66,
+     69.27,
+     75.75,
+     77.67,
+     82.27,
+     86.36,
+     93.24
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.31,
+     8.19,
+     12.38,
+     15.28,
+     19.97,
+     25.25,
+     28.59,
+     32.9,
+     34.2,
+     38.08,
+     43.48,
+     51.18,
+     52.57,
+     55.9,
+     60.79,
+     71.52,
+     76.67,
+     79.99,
+     84.0,
+     88.61,
+     94.75
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.09,
+     6.33,
+     10.47,
+     12.96,
+     17.58,
+     22.94,
+     27.48,
+     31.96,
+     32.96,
+     36.3,
+     41.17,
+     50.36,
+     51.28,
+     55.21,
+     58.66,
+     69.27,
+     75.75,
+     77.67,
+     82.27,
+     86.36,
+     93.24
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.31,
+     8.19,
+     12.38,
+     15.28,
+     19.97,
+     25.25,
+     28.59,
+     32.9,
+     34.2,
+     38.08,
+     43.48,
+     51.18,
+     52.57,
+     55.9,
+     60.79,
+     71.52,
+     76.67,
+     79.99,
+     84.0,
+     88.61,
+     94.75
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.09,
+     6.33,
+     10.47,
+     12.96,
+     17.58,
+     22.94,
+     27.48,
+     31.96,
+     32.96,
+     36.3,
+     41.17,
+     50.36,
+     51.28,
+     55.21,
+     58.66,
+     69.27,
+     75.75,
+     77.67,
+     82.27,
+     86.36,
+     93.24
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.31,
+     8.19,
+     12.38,
+     15.28,
+     19.97,
+     25.25,
+     28.59,
+     32.9,
+     34.2,
+     38.08,
+     43.48,
+     51.18,
+     52.57,
+     55.9,
+     60.79,
+     71.52,
+     76.67,
+     79.99,
+     84.0,
+     88.61,
+     94.75
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.09,
+     6.33,
+     10.47,
+     12.96,
+     17.58,
+     22.94,
+     27.48,
+     31.96,
+     32.96,
+     36.3,
+     41.17,
+     50.36,
+     51.28,
+     55.21,
+     58.66,
+     69.27,
+     75.75,
+     77.67,
+     82.27,
+     86.36,
+     93.24
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-ten-evidence-20261011T070623Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 0.00024360418319702148
+   },
+   "session": "v1-ten-0706"
+  },
+  {
+   "blocks": 8517,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 9,
+    "lamp_score": 9
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.41,
+     8.56,
+     11.55,
+     14.81,
+     18.59,
+     21.96,
+     23.29,
+     31.68,
+     37.84,
+     41.0,
+     51.26,
+     60.68,
+     63.95,
+     70.11,
+     77.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.15,
+     7.44,
+     10.69,
+     12.49,
+     16.75,
+     21.02,
+     21.99,
+     29.36,
+     36.83,
+     38.68,
+     48.95,
+     58.57,
+     63.2,
+     67.86,
+     76.65
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.41,
+     8.56,
+     11.55,
+     14.81,
+     18.59,
+     21.96,
+     23.29,
+     31.68,
+     37.84,
+     41.0,
+     51.26,
+     60.68,
+     63.95,
+     70.11,
+     77.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.15,
+     7.44,
+     10.69,
+     12.49,
+     16.75,
+     21.02,
+     21.99,
+     29.36,
+     36.83,
+     38.68,
+     48.95,
+     58.57,
+     63.2,
+     67.86,
+     76.69
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.41,
+     8.56,
+     11.55,
+     14.81,
+     18.59,
+     21.96,
+     23.29,
+     31.68,
+     37.84,
+     41.0,
+     51.26,
+     60.68,
+     63.95,
+     70.11,
+     77.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.15,
+     7.44,
+     10.69,
+     12.49,
+     16.75,
+     21.02,
+     21.99,
+     29.36,
+     36.83,
+     38.68,
+     48.95,
+     58.57,
+     63.2,
+     67.86,
+     76.65
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.41,
+     8.56,
+     11.55,
+     14.81,
+     18.59,
+     21.96,
+     23.29,
+     31.68,
+     37.84,
+     41.0,
+     51.26,
+     60.68,
+     63.95,
+     70.11,
+     77.72
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.15,
+     7.44,
+     10.69,
+     12.49,
+     16.75,
+     21.02,
+     21.99,
+     29.36,
+     36.83,
+     38.68,
+     48.95,
+     58.57,
+     63.2,
+     67.86,
+     76.69
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-ten-evidence-20261011T073625Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 0.002339184284210205
+   },
+   "session": "v1-ten-0736"
+  },
+  {
+   "blocks": 15164,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 6,
+    "lamp_score": 6
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     2.75,
+     4.25,
+     8.37,
+     13.17,
+     17.57,
+     22.19,
+     26.56,
+     32.39,
+     50.15,
+     53.86,
+     58.14,
+     67.99,
+     71.66,
+     76.26,
+     77.65,
+     81.84,
+     84.09,
+     86.0,
+     87.39,
+     95.98
+    ],
+    "faults": 0,
+    "starts_s": [
+     1.95,
+     2.86,
+     7.34,
+     10.85,
+     16.89,
+     19.92,
+     25.09,
+     30.2,
+     47.95,
+     52.5,
+     55.84,
+     65.77,
+     70.46,
+     75.33,
+     76.32,
+     80.09,
+     83.3,
+     85.06,
+     86.06,
+     93.65
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     2.75,
+     4.25,
+     8.37,
+     13.17,
+     17.57,
+     22.19,
+     26.56,
+     32.39,
+     50.15,
+     53.86,
+     58.14,
+     67.99,
+     71.66,
+     76.26,
+     77.65,
+     81.84,
+     84.09,
+     86.0,
+     87.39,
+     95.98
+    ],
+    "faults": 0,
+    "starts_s": [
+     1.95,
+     2.86,
+     7.34,
+     10.85,
+     16.89,
+     19.92,
+     25.09,
+     30.2,
+     47.95,
+     52.5,
+     55.84,
+     65.77,
+     70.46,
+     75.33,
+     76.32,
+     80.09,
+     83.3,
+     85.06,
+     86.06,
+     93.65
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     2.75,
+     4.25,
+     8.37,
+     13.17,
+     17.57,
+     22.19,
+     26.56,
+     32.39,
+     50.15,
+     53.86,
+     58.14,
+     67.99,
+     71.66,
+     76.26,
+     77.65,
+     81.84,
+     84.09,
+     86.0,
+     87.39,
+     95.98
+    ],
+    "faults": 0,
+    "starts_s": [
+     1.95,
+     2.86,
+     7.34,
+     10.85,
+     16.89,
+     19.92,
+     25.09,
+     30.2,
+     47.95,
+     52.5,
+     55.84,
+     65.77,
+     70.46,
+     75.33,
+     76.32,
+     80.09,
+     83.3,
+     85.06,
+     86.06,
+     93.65
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     2.75,
+     4.25,
+     8.37,
+     13.17,
+     17.57,
+     22.19,
+     26.56,
+     32.39,
+     50.15,
+     53.86,
+     58.14,
+     67.99,
+     71.66,
+     76.26,
+     77.65,
+     81.84,
+     84.09,
+     86.0,
+     87.39,
+     95.98
+    ],
+    "faults": 0,
+    "starts_s": [
+     1.95,
+     2.86,
+     7.34,
+     10.85,
+     16.89,
+     19.92,
+     25.09,
+     30.2,
+     47.95,
+     52.5,
+     55.84,
+     65.77,
+     70.46,
+     75.33,
+     76.32,
+     80.09,
+     83.3,
+     85.06,
+     86.06,
+     93.65
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-ten-evidence-20261011T075239Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 0.0038253068923950195
+   },
+   "session": "v1-ten-0752"
+  },
+  {
+   "blocks": 9327,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 25,
+    "lamp_score": 25
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.24,
+     9.07,
+     12.09,
+     15.75,
+     20.1,
+     22.87,
+     29.3,
+     32.85,
+     37.62,
+     41.03,
+     44.57,
+     47.53,
+     49.12,
+     51.83,
+     56.34,
+     57.45,
+     60.63,
+     64.42,
+     67.12,
+     68.91,
+     70.5,
+     72.03
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.03,
+     7.62,
+     9.77,
+     14.82,
+     16.69,
+     20.65,
+     27.59,
+     30.6,
+     35.29,
+     38.71,
+     43.61,
+     46.52,
+     48.24,
+     49.7,
+     55.47,
+     56.54,
+     58.3,
+     62.94,
+     65.01,
+     67.51,
+     69.69,
+     70.6
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.24,
+     9.07,
+     12.09,
+     15.75,
+     20.1,
+     22.87,
+     32.85,
+     37.62,
+     41.03,
+     44.57,
+     47.53,
+     49.12,
+     51.83,
+     56.34,
+     57.45,
+     60.63,
+     64.42,
+     67.12,
+     68.91,
+     70.5,
+     72.03
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.03,
+     7.62,
+     9.77,
+     14.82,
+     16.69,
+     20.65,
+     30.6,
+     35.29,
+     38.71,
+     43.61,
+     46.52,
+     48.24,
+     49.7,
+     55.47,
+     56.54,
+     58.3,
+     62.94,
+     65.01,
+     67.51,
+     69.69,
+     70.6
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.24,
+     9.07,
+     12.09,
+     15.75,
+     20.1,
+     22.87,
+     29.3,
+     32.85,
+     37.62,
+     41.03,
+     44.57,
+     47.53,
+     49.12,
+     51.83,
+     56.34,
+     57.45,
+     60.63,
+     64.42,
+     67.12,
+     68.91,
+     70.5,
+     72.03
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.03,
+     7.62,
+     9.77,
+     14.82,
+     16.69,
+     20.65,
+     27.59,
+     30.6,
+     35.29,
+     38.71,
+     43.61,
+     46.52,
+     48.24,
+     49.7,
+     55.47,
+     56.54,
+     58.3,
+     62.94,
+     65.01,
+     67.51,
+     69.69,
+     70.6
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.24,
+     9.07,
+     12.09,
+     15.75,
+     20.1,
+     22.87,
+     32.85,
+     37.62,
+     41.03,
+     44.57,
+     47.53,
+     49.12,
+     51.83,
+     56.34,
+     57.45,
+     60.63,
+     64.42,
+     67.12,
+     68.91,
+     70.5,
+     72.03
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.03,
+     7.62,
+     9.77,
+     14.82,
+     16.69,
+     20.65,
+     30.6,
+     35.29,
+     38.71,
+     43.61,
+     46.52,
+     48.24,
+     49.7,
+     55.47,
+     56.54,
+     58.3,
+     62.94,
+     65.01,
+     67.51,
+     69.69,
+     70.6
+    ]
+   },
+   "runtime": "/private/tmp/lamp-rust-v1-ten-evidence-20261011T080421Z/trial-01-ns-off-target/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 0.00023618340492248535
+   },
+   "session": "v1-ten-0804"
+  },
+  {
+   "blocks": 5168,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 2,
+    "lamp_score": 2
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.68,
+     49.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     46.88
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.68,
+     49.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     46.88
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.68,
+     49.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     46.88
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.68,
+     49.66
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     46.88
+    ]
+   },
+   "runtime": "/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-4ace-real-exchange-b8hpwyqg/lamp-evidence/onsite-trial-03",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.1682510375976562e-05
+   },
+   "session": "real-exchange-03"
+  },
+  {
+   "blocks": 10190,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 13,
+    "lamp_score": 13
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.74,
+     14.34,
+     22.4,
+     39.05,
+     42.89,
+     49.9,
+     53.63,
+     60.83,
+     66.25,
+     68.55,
+     72.97,
+     77.11,
+     84.59,
+     89.73,
+     93.73,
+     95.0,
+     101.44
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.26,
+     11.61,
+     19.19,
+     33.98,
+     41.56,
+     49.02,
+     50.41,
+     58.63,
+     63.72,
+     66.74,
+     69.0,
+     76.0,
+     83.39,
+     88.0,
+     92.49,
+     93.82,
+     99.4
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.74,
+     14.34,
+     22.4,
+     39.05,
+     42.89,
+     49.9,
+     53.63,
+     60.83,
+     66.25,
+     68.55,
+     72.97,
+     77.11,
+     84.59,
+     89.73,
+     93.73,
+     95.0,
+     101.44
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.26,
+     11.61,
+     19.19,
+     33.98,
+     41.56,
+     49.02,
+     50.41,
+     58.63,
+     63.72,
+     66.74,
+     69.0,
+     76.0,
+     83.39,
+     88.0,
+     92.49,
+     93.82,
+     99.4
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.74,
+     14.34,
+     22.4,
+     39.05,
+     42.89,
+     49.9,
+     53.63,
+     60.83,
+     66.25,
+     68.55,
+     72.97,
+     77.11,
+     84.59,
+     89.73,
+     93.73,
+     95.0,
+     101.44
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.26,
+     11.61,
+     19.19,
+     33.98,
+     41.56,
+     49.02,
+     50.41,
+     58.63,
+     63.72,
+     66.74,
+     69.0,
+     76.0,
+     83.39,
+     88.0,
+     92.49,
+     93.82,
+     99.4
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.74,
+     14.34,
+     22.4,
+     39.05,
+     42.89,
+     49.9,
+     53.63,
+     60.83,
+     66.25,
+     68.55,
+     72.97,
+     77.11,
+     84.59,
+     89.73,
+     93.73,
+     95.0,
+     101.44
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.26,
+     11.61,
+     19.19,
+     33.98,
+     41.56,
+     49.02,
+     50.41,
+     58.63,
+     63.72,
+     66.74,
+     69.0,
+     76.0,
+     83.39,
+     88.0,
+     92.49,
+     93.82,
+     99.4
+    ]
+   },
+   "runtime": "/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-4ace-varied-12io918n/lamp-evidence/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 2.8073787689208984e-05
+   },
+   "session": "varied-six"
+  },
+  {
+   "blocks": 9119,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 20,
+    "lamp_score": 20
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.59,
+     8.41,
+     13.21,
+     24.97,
+     29.87,
+     35.85,
+     38.88,
+     48.29,
+     52.64,
+     58.3,
+     64.3,
+     65.5,
+     73.14,
+     77.18,
+     80.25,
+     86.21
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.13,
+     9.97,
+     21.26,
+     27.78,
+     31.8,
+     38.13,
+     43.36,
+     51.59,
+     54.72,
+     63.01,
+     64.53,
+     69.01,
+     76.29,
+     78.94,
+     83.52
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.59,
+     8.41,
+     13.21,
+     24.97,
+     29.87,
+     35.85,
+     38.88,
+     48.29,
+     52.64,
+     58.3,
+     64.3,
+     65.5,
+     73.14,
+     77.18,
+     80.25,
+     86.21
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.13,
+     9.97,
+     21.26,
+     27.78,
+     31.8,
+     38.13,
+     43.36,
+     51.59,
+     54.72,
+     63.01,
+     64.53,
+     69.01,
+     76.29,
+     78.94,
+     83.52
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.59,
+     8.41,
+     13.21,
+     24.97,
+     29.87,
+     35.85,
+     38.88,
+     48.29,
+     52.64,
+     58.3,
+     64.3,
+     65.5,
+     73.14,
+     77.18,
+     80.25,
+     86.21
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.13,
+     9.97,
+     21.26,
+     27.78,
+     31.8,
+     38.13,
+     43.36,
+     51.59,
+     54.72,
+     63.01,
+     64.53,
+     69.01,
+     76.29,
+     78.94,
+     83.52
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.59,
+     8.41,
+     13.21,
+     24.97,
+     29.87,
+     35.85,
+     38.88,
+     48.29,
+     52.64,
+     58.3,
+     64.3,
+     65.5,
+     73.14,
+     77.18,
+     80.25,
+     86.21
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.13,
+     9.97,
+     21.26,
+     27.78,
+     31.8,
+     38.13,
+     43.36,
+     51.59,
+     54.72,
+     63.01,
+     64.53,
+     69.01,
+     76.29,
+     78.94,
+     83.52
+    ]
+   },
+   "runtime": "/private/tmp/lamp-connected-plain-20261011-01/lamp-evidence/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 2.2351741790771484e-05
+   },
+   "session": "connected-plain"
+  },
+  {
+   "blocks": 10790,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 9,
+    "lamp_score": 9
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.77,
+     15.01,
+     19.16,
+     27.6,
+     30.99,
+     34.41,
+     40.42,
+     44.23,
+     45.72,
+     53.36,
+     62.92,
+     85.17,
+     100.23,
+     103.15,
+     106.1
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.3,
+     11.77,
+     17.16,
+     23.82,
+     30.11,
+     33.04,
+     36.38,
+     43.32,
+     44.86,
+     48.38,
+     59.34,
+     80.99,
+     99.54,
+     100.45,
+     105.31,
+     107.26
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.77,
+     15.01,
+     19.16,
+     27.6,
+     30.99,
+     34.41,
+     40.42,
+     44.23,
+     45.72,
+     53.36,
+     62.92,
+     85.17,
+     100.23,
+     103.15,
+     106.1
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.3,
+     11.77,
+     17.16,
+     23.82,
+     30.11,
+     33.04,
+     36.38,
+     43.32,
+     44.86,
+     48.38,
+     59.34,
+     80.99,
+     99.54,
+     100.45,
+     105.31,
+     107.26
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.77,
+     15.01,
+     19.16,
+     27.6,
+     30.99,
+     34.41,
+     40.42,
+     44.23,
+     45.72,
+     53.36,
+     62.92,
+     85.17,
+     100.23,
+     103.15,
+     106.1
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.3,
+     11.77,
+     17.16,
+     23.82,
+     30.11,
+     33.04,
+     36.38,
+     43.32,
+     44.86,
+     48.38,
+     59.34,
+     80.99,
+     99.54,
+     100.45,
+     105.31,
+     107.26
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.77,
+     15.01,
+     19.16,
+     27.6,
+     30.99,
+     34.41,
+     40.42,
+     44.23,
+     45.72,
+     53.36,
+     62.92,
+     85.17,
+     100.23,
+     103.15,
+     106.1
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.3,
+     11.77,
+     17.16,
+     23.82,
+     30.11,
+     33.04,
+     36.38,
+     43.32,
+     44.86,
+     48.38,
+     59.34,
+     80.99,
+     99.54,
+     100.45,
+     105.31,
+     107.26
+    ]
+   },
+   "runtime": "/private/tmp/lamp-connected-extended-20261011-01/lamp-evidence/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.8835067749023438e-05
+   },
+   "session": "connected-extended"
+  },
+  {
+   "blocks": 10185,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 5,
+    "lamp_score": 5
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.6,
+     8.48,
+     15.91,
+     20.53,
+     28.6,
+     37.89,
+     42.81,
+     56.14,
+     71.24,
+     75.06,
+     84.84,
+     96.77
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.5,
+     12.65,
+     19.03,
+     24.89,
+     36.68,
+     38.42,
+     51.21,
+     67.24,
+     73.99,
+     80.67,
+     94.08
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.6,
+     8.48,
+     15.91,
+     20.53,
+     28.6,
+     37.89,
+     42.81,
+     56.14,
+     71.24,
+     75.06,
+     84.84,
+     96.77
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.5,
+     12.65,
+     19.03,
+     24.89,
+     36.68,
+     38.42,
+     51.21,
+     67.24,
+     73.99,
+     80.67,
+     94.08
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.6,
+     8.48,
+     15.91,
+     20.53,
+     28.6,
+     37.89,
+     42.81,
+     56.14,
+     71.24,
+     75.06,
+     84.84,
+     96.77
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.5,
+     12.65,
+     19.03,
+     24.89,
+     36.68,
+     38.42,
+     51.21,
+     67.24,
+     73.99,
+     80.67,
+     94.08
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.6,
+     8.48,
+     15.91,
+     20.53,
+     28.6,
+     37.89,
+     42.81,
+     56.14,
+     71.24,
+     75.06,
+     84.84,
+     96.77
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.31,
+     7.5,
+     12.65,
+     19.03,
+     24.89,
+     36.68,
+     38.42,
+     51.21,
+     67.24,
+     73.99,
+     80.67,
+     94.08
+    ]
+   },
+   "runtime": "/private/tmp/lamp-connected-composed-continuity-20261011-01/lamp-evidence/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.58846378326416e-05
+   },
+   "session": "composed-continuity"
+  },
+  {
+   "blocks": 9450,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 14,
+    "lamp_score": 14
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     5.01,
+     16.13,
+     27.81,
+     38.76,
+     42.37,
+     51.31,
+     55.42,
+     62.24,
+     76.02,
+     79.94,
+     82.74,
+     89.05,
+     92.52,
+     94.09
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.53,
+     12.87,
+     24.07,
+     34.71,
+     41.28,
+     46.38,
+     54.39,
+     58.26,
+     71.85,
+     78.55,
+     82.08,
+     86.36,
+     91.79,
+     93.29
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     5.01,
+     16.13,
+     27.81,
+     38.76,
+     42.37,
+     51.31,
+     55.42,
+     62.24,
+     76.02,
+     79.94,
+     82.74,
+     89.05,
+     92.52,
+     94.09
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.53,
+     12.87,
+     24.07,
+     34.71,
+     41.28,
+     46.38,
+     54.39,
+     58.26,
+     71.85,
+     78.55,
+     82.08,
+     86.36,
+     91.79,
+     93.29
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     5.01,
+     16.13,
+     27.81,
+     38.76,
+     42.37,
+     51.31,
+     55.42,
+     62.24,
+     76.02,
+     79.94,
+     82.74,
+     89.05,
+     92.52,
+     94.09
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.53,
+     12.87,
+     24.07,
+     34.71,
+     41.28,
+     46.38,
+     54.39,
+     58.26,
+     71.85,
+     78.55,
+     82.08,
+     86.36,
+     91.79,
+     93.29
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     5.01,
+     16.13,
+     27.81,
+     38.76,
+     42.37,
+     51.31,
+     55.42,
+     62.24,
+     76.02,
+     79.94,
+     82.74,
+     89.05,
+     92.52,
+     94.09
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.53,
+     12.87,
+     24.07,
+     34.71,
+     41.28,
+     46.38,
+     54.39,
+     58.26,
+     71.85,
+     78.55,
+     82.08,
+     86.36,
+     91.79,
+     93.29
+    ]
+   },
+   "runtime": "/private/tmp/lamp-connected-composed-plain200-20261011-01/lamp-evidence/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 2.3066997528076172e-05
+   },
+   "session": "composed-plain200"
+  },
+  {
+   "blocks": 7170,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 49,
+    "lamp_score": 49
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     4.55,
+     9.97,
+     11.89,
+     27.16,
+     36.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     8.27,
+     11.21,
+     25.51,
+     35.4
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     4.55,
+     9.97,
+     11.89,
+     36.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     8.27,
+     11.21,
+     35.4
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     4.55,
+     9.97,
+     11.89,
+     27.16,
+     36.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     8.27,
+     11.21,
+     25.51,
+     35.4
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     4.55,
+     9.97,
+     11.89,
+     36.73
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.2,
+     8.27,
+     11.21,
+     35.4
+    ]
+   },
+   "runtime": "/private/tmp/lamp-duplex-diagnostic-executed-fhld3dr3/native/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 1.6421079635620117e-05
+   },
+   "session": "device-1-gain-control-on"
+  },
+  {
+   "blocks": 5935,
+   "blocks_held_to_the_faint_score": {
+    "host_score": 8,
+    "lamp_score": 8
+   },
+   "detector_on_the_host_score": {
+    "ends_s": [
+     10.15,
+     11.06,
+     12.56,
+     17.3,
+     24.9,
+     29.71,
+     33.27
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.27,
+     10.25,
+     11.39,
+     12.57,
+     23.23,
+     27.46,
+     31.68,
+     59.29
+    ]
+   },
+   "detector_on_the_host_score_as_reported": {
+    "ends_s": [
+     10.15,
+     11.06,
+     12.56,
+     17.3,
+     24.9,
+     29.71,
+     33.27
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.27,
+     10.25,
+     11.39,
+     12.57,
+     23.23,
+     27.46,
+     31.68,
+     59.29
+    ]
+   },
+   "detector_on_the_lamp_score": {
+    "ends_s": [
+     10.15,
+     11.06,
+     12.56,
+     17.3,
+     24.9,
+     29.71,
+     33.27
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.27,
+     10.25,
+     11.39,
+     12.57,
+     23.23,
+     27.46,
+     31.68,
+     59.29
+    ]
+   },
+   "detector_on_the_lamp_score_as_reported": {
+    "ends_s": [
+     10.15,
+     11.06,
+     12.56,
+     17.3,
+     24.9,
+     29.71,
+     33.27
+    ],
+    "faults": 0,
+    "starts_s": [
+     2.27,
+     10.25,
+     11.39,
+     12.57,
+     23.23,
+     27.46,
+     31.68,
+     59.29
+    ]
+   },
+   "runtime": "/private/tmp/lamp-duplex-mic-r4-executed-jw756u6z/native/runtime",
+   "this_host_model_against_the_lamp_score": {
+    "blocks_more_than_0.01_apart": 0,
+    "blocks_on_different_sides_of_the_start_score": 0,
+    "largest_difference": 3.272294998168945e-05
+   },
+   "session": "device-R4-gain-control-off"
+  }
+ ]
+}

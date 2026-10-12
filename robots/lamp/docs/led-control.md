@@ -75,6 +75,28 @@ still paint after clear returns; effect ownership and cancellation remain the
 caller's responsibility. The diagnostic reads software memory, not physical
 LED feedback, so a black buffer does not prove the hardware is dark.
 
+### Speech presentation does not block first audio
+
+The TTS start callback publishes speech priority immediately and submits the
+latest LED state to one presentation worker with one pending slot. Effect stop,
+join and restore run outside the audio writer. Superseded transitions are checked
+again after a slow effect stop; sleep and explicit LED overrides revoke pending
+speech presentation. A resting restore does not revoke an active speech wave.
+
+Speech-wave frames carry an ownership check and a 100 ms maximum frame age.
+RGB checks both under its event-slot lock before admission and under its driver
+lock before writing, so a revoked frame cannot evict a newer user command or
+repaint later. An already-started hardware write cannot be retracted. This is a
+bounded Python presentation worker, not V2 process isolation or a complete
+choreographer for all V1 effects.
+
+Reply-end emotion/body cleanup remains synchronous to preserve its existing
+semantics; only the explicit LED stop/restore is deferred. A slow end cannot
+publish an obsolete restore after a newer speech start. Thus the target is a
+TTS-start handoff below 5 ms under test load, not a bound on the full end callback
+or on physical LED/audio latency. HAL closes the worker before effect teardown;
+its 2.5 s join is best effort and logs a warning on timeout.
+
 ### Transient emotion status
 
 Transient expressions (such as `laugh` and `shock`) return `/emotion/status`'s
@@ -249,7 +271,7 @@ after an animation ends — it interpolates to idle. Restoring that pose belongs
 
 ### Hold ownership (#544)
 
-The servo hold has owners: `scene`, `tracking` and `explicit` (`POST /servo/hold`), kept in
+The servo hold has owners: `scene`, `tracking`, `explicit` (`POST /servo/hold`) and `look`, kept in
 `hal/drivers/motors/hold.py`. `_hold_mode` is true while at least one owner remains, and each
 path releases only its own claim. Ending a scene never drops a tracking or explicit hold, and a
 tracking session that ends during a reading scene leaves the scene's hold in place and does not
@@ -259,6 +281,8 @@ The release logs say whether the arm is free: `Scene off: servo released` when n
 `Scene off: scene hold released, servo still held by explicit` when one is. Likewise gaze logs
 `framing released (servo held by scene, idle waits)` instead of `(idle has the arm)` at the end of
 a conversation under a hold.
+
+`look` is internal to os-server's `POST /api/vision/look`: it claims `POST /servo/hold/claim {"owner":"look"}` before the "taking a look" cue and releases it with `POST /servo/hold/release {"owner":"look"}` once the photo is taken, so an idle or still-emotion timer cannot swing the head mid-shot. Releasing `look` never drops another owner: after "turn right and hold it there" the explicit hold keeps the arm. If os-server never releases (it died mid-look), HAL drops the `look` hold after 30 s (`LOOK_HOLD_MAX_S`). On release, a still emotion's idle resume that was parked while the body was held runs now, unless another owner still holds the arm or the device is sleeping. When no parked resume ran, the release also hands the arm back to idle (`body.release_to_idle("look hold released")`) if another path (`/servo/search` hand-back, tracker end) skipped its own idle restart while `look` held, unless the body is listening-halted, a recording is playing or another owner holds. Only `look` is accepted on these two routes (422 otherwise); agents keep using `POST /servo/hold`.
 
 **Safety net.** A `scene` hold with no active scene is stale. It is released, with
 `[hold] scene hold released -- no scene is active (stale)`, the next time something reads the
@@ -505,3 +529,7 @@ realtime thinking cue without waiting for TTS. Muted or silent replies therefore
 do not leave the cue active. Cleanup preserves newer emotions and restores the
 saved LED state (including off/dim); active speech/music retains its overlay
 until normal playback teardown. Agent-owned turns retain their thinking cue.
+
+### Restore timer ownership
+
+Each scheduled LED restore carries a generation. Replacing or cancelling it invalidates callbacks already dispatched by the timer; they cannot repaint or clear the newer timer. Immediate restores invalidate queued restores too. A restore already rendering finishes before a replacement takes ownership, serialized by a reentrant lifecycle lock. This adds no delay window or network call, but cancellation can wait for existing rendering/effect shutdown; it does not remove the existing two-second effect join ceiling.

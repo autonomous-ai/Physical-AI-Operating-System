@@ -152,7 +152,7 @@ Deploy the updated HAL before uploading JSON with these new fields.
 
 The table above covers the primary GPIO button and TTP223. The dedicated reset button on pin 37 only factory-resets when released after a hold of at least 5 s. Shorter holds and single/triple taps do nothing; it never invokes sleep or shutdown. LED stays unchanged below 5 s and uses the shared solid-red factory-reset preset from 5 s onward.
 
-With Harness OFF, MPR121 also supports release-to-commit holds and the same hold-tier LED feedback, as detailed in its detection section. The sleep and destructive hold tiers **commit on release, not on a timer firing while held**. MPR121 stops at shutdown: it has no factory-reset tier, so a 10 s+ touch hold still shuts down (`hold_release_action(..., factory_reset=False)`). Only the GPIO buttons factory-reset.
+With Harness OFF, Lamp maps an MPR121 hold of at least 2 seconds followed by release to switching voice input mode. This binding is configurable; sleep/shutdown holds remain disabled. GPIO destructive holds retain their separate behavior.
 
 ## Interrupting Lamp while it speaks (barge-in)
 
@@ -173,6 +173,8 @@ The normal attention/wake behavior above applies to `voice_input_mode: "automati
 GPIO and MPR121 short taps use `physical_short_tap`: first tap starts recording with parallel STT and realtime upload; the next tap stops local capture and publishes the realtime endpoint before the finish tone, without waiting for STT finalization or speaker identity. Realtime answers or delegates to the main agent, with an available STT transcript as `voice_command` fallback when realtime is disabled/unavailable. Gemini/OpenAI stream with manual commit; Pipecat streams but retains internal STT finalization; GPT Live lacks manual commit and buffers until finish. Each separate short release counts, including two taps inside the usual multi-click window; there is no deferred spoken Listening cue. A short 40 ms ready tone and listening visual appear after the first microphone frame, without waiting for STT to connect. Speech is buffered during connection within the recording limit (default 30 seconds). The finish tone acknowledges local input stopping before STT finalization; it is not a delivery receipt. Finishing while STT is connecting preserves already captured speech for submission once the connection succeeds. Silence does not send. Timeout (default 30 seconds), recorder failure, privacy/stop, or a Harness routing change discards capture; cancellation before a valid finish prevents commit and resets provider audio already uploaded. Slow or failed STT does not cancel realtime. A tap before local microphone readiness cancels without sending.
 
 After the local stop cue, the recorder is released independently of STT finalization. A new tap can start the next recording while the previous turn is still finalizing. Up to two outstanding turns are reserved; if both are occupied, a new recording is rejected before its ready tone. Runtime speech waits until recording closes, so it cannot speak over the next utterance. Per-turn realtime workers serialize model work in capture order independently of the STT dispatch FIFO, where transcripts, identity, OS handled sync or fallback can finish later. Both paths share the two-turn reservation bound and leave capture independent.
+
+Starting a new recording supersedes the previous pending voice reply, including when TTS has not begun: local STT/realtime work is cancelled, deferred TTS is cleared, and OS suppresses older speech without aborting the agent task. Remote suppression runs asynchronously with a capture-time cutoff, so a delayed cancellation cannot silence the new turn. Cancelled provider work retains its slot until cleanup; the two-slot limit still applies.
 
 A tap during TTS only interrupts; during a realtime reply it also cancels the response stream to prevent later audio segments from playing. The next tap starts recording. A sleeping lamp first wakes without recording. Both interruption and wake play the existing short acknowledgment ping (~120 ms), after stopping TTS or restoring sleep-owned speaker state respectively. This is distinct from the capture-ready tone and does not mean the mic is recording; explicit speaker mute is still respected. A software-muted mic can be unmuted for capture; hardware privacy blocks it. GPIO holds/factory reset, MPR121 swipes/holds and TTP223 pet gestures retain their existing roles. Startup and privacy-switch actions still use the original wake action and never simulate a recording tap. Harness ON retains its separate gesture policy below.
 
@@ -215,8 +217,8 @@ When several faces are in frame, the one whose head counts is the one **nearest 
 | `HAL_GAZE_WAKE_FOCUS_S` | 10 | Follow-up window a *gaze* wake requests. Capped by `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, so the lamp packaged `.env` limits it to 5 s as well. |
 | `HAL_GAZE_COOLDOWN_S` | 5 | Minimum gap between gaze-opened gates, so one conversation cannot open one per sentence. |
 | `HAL_GAZE_REPOINT` | `true` | Turn toward the remembered bearing when nobody has been visible. |
-| `HAL_GAZE_REPOINT_AFTER_S` | 12 | How long nobody must be visible first. A voice-triggered empty-evidence recovery bypasses this delay, but not the movement cooldown. |
-| `HAL_GAZE_REPOINT_COOLDOWN_S` | 60 | At most one turn per this interval, including a voice-triggered recovery. |
+| `HAL_GAZE_REPOINT_AFTER_S` | 12 | How long nobody must be visible first. A voice-triggered empty-evidence recovery bypasses this delay. |
+| `HAL_GAZE_REPOINT_COOLDOWN_S` | 60 | At most one automatic turn per this interval. A voice-triggered recovery bypasses it (a second sentence gets a second look) unless the last repoint found nobody: chatter toward an empty bearing gets one turn, then waits this out. |
 | `HAL_GAZE_REPOINT_MIN_CONFIDENCE` | 0.2 | Bearing confidence below which turning is not worth it. Matched to look-aim's own threshold: at 0.5 the watcher refused bearings the aim and the search were happily using — a bearing good enough to point a live conversational turn at is good enough to turn the head toward between them. |
 | `HAL_GAZE_REPOINT_SKIP_IF_FACE_S` | 3 | Decline a speech-triggered reacquire when a face was seen this recently. After the climb has found the user's face *above* the bearing, obeying the bearing means turning back down to look at nobody. |
 | `HAL_GAZE_WELL_FRAMED_EDGE` | 0.6 | How far off frame centre a face may sit and still count as "somebody is here, no need to turn". A face at the very edge is about to leave frame; treating it as well framed let the absence timer reset forever while the user drifted out of view — measured at edge 0.71–0.75 with the lamp still refusing to repoint. |
@@ -460,14 +462,30 @@ functions **while Harness mode is OFF**. Harness ON uses the separate policy bel
 | First short release in a click burst | `single_click_action(source="MPR121", announce=False)` stops tracking/audio after contact resolution, unmutes as permitted and plays the ack chime. |
 | 1, 2 or 4+ short taps, then 0.4 s quiet | Resolve the listening-cue event without speech; repeated taps do not repeat the initial single-click action. |
 | Exactly 3 short taps, then 0.4 s quiet | Reboot is disabled in the MPR121 wrapper; no additional action or listening cue. The first-tap single-click action still runs. |
-| Hold 2–<5 s, then release | Disabled; no sleep action. |
-| Hold ≥5 s, then release | Disabled; no shutdown or factory reset. |
+| Hold ≥2 s, then release | Lamp default: toggle `automatic` ↔ `tap_to_talk`. No shutdown or factory reset, even when held longer. |
 | Swipe right to left, then release (user facing the lamp) | `swipe_action` sleeps; no click or destructive action for this moving contact. |
 | Swipe left to right, then release (user facing the lamp) | Enable Harness voice through the Go API; no click or destructive action for this moving contact. |
 
 A short contact lasts less than 2 s. The click window does not resolve while
 any selected electrode remains touched. Releasing a hold clears the pending
 click burst. Destructive actions never commit while held.
+
+### Configurable voice-mode gesture
+
+Lamp `mpr121.json` binds the feature independently of the recognizer:
+
+```json
+"gesture_actions": {"hold": "toggle_voice_input_mode"},
+"hold_action_s": 2
+```
+
+Allowed bindings are `hold`, `swipe_left`, and `swipe_right`; the supported action is `toggle_voice_input_mode`. Swipe names follow the user facing the lamp. A bound swipe replaces that direction’s default action while Harness OFF. Omitted/empty `gesture_actions` leaves legacy actions in place and holds inactive. `hold_action_s` accepts 0.5–10 seconds. Gesture configuration loads at HAL startup; switching the voice mode itself is hot-applied.
+
+The default hold needs the configured `tap_min_electrodes` qualification, arms a cyan LED cue at the threshold, and commits once on release. It does not also fire a tap. Short taps retain their existing timing; no double-tap detection delay is added. Sleep, privacy, enrollment and unknown Harness state block this feature. Harness ON retains its own 2-second hold-to-exit policy. TTP223 remains pet input.
+
+A dedicated worker permits at most one mode change in flight; repeated mode gestures while pending are ignored. Slow HTTP does not block the touch action worker. The local dispatch target is under 20 ms, excluding recognition/release grace and mode application. A macOS synthetic check with the HTTP action blocked measured `ModeToggleWorker.submit()` at 0.091 ms on first use and 0.059 ms p95 over 29 repeats; rejecting another pending toggle took at most 0.002 ms. These are worker-admission measurements, not device touch-to-audio latency.
+
+The isolated action calls OS `POST /api/device/voice-input-mode/toggle` once, with no automatic retry. OS serializes read/toggle/save/apply with HTTP/MQTT updates and returns standard `status: 1` with `data.mode` only after HAL applies it. Local callers use loopback; remote callers require admin authentication. HAL announces the resulting mode only on success. On timeout/failure, check the configured mode before issuing another toggle; retrying a toggle may reverse an already-applied change. Explicit mode sets are safe to retry. Changing modes reseeds the MPR recognizer and ignores an already-held contact until release.
 
 ### MPR121 directional swipe
 

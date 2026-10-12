@@ -71,6 +71,17 @@ class LeLampFollower(Robot):
         # AnimationService.move_to_raw stamps it too (bypasses send_action).
         self.last_write_monotonic: float = 0.0
 
+        # Set by AnimationService while its overload cut-off holds the servos limp
+        # (a Goal_Position write re-engages torque on these servos) or its contact
+        # stop holds the arm still after a hit, so send_action drops goals instead of
+        # writing them.
+        self.goal_writes_blocked: bool = False
+
+        # SAFETY.md motion.joint_limits, {motor: (min_deg, max_deg)}: every goal this
+        # sends is clamped into it, whoever asked. Set by AnimationService; empty = none.
+        self.joint_limits: dict[str, tuple[float, float]] = {}
+        self._last_limit_log = 0.0
+
     @property
     def _motors_ft(self) -> dict[str, type]:
         return {f"{motor}.pos": float for motor in self.bus.motors}
@@ -217,6 +228,9 @@ class LeLampFollower(Robot):
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
+        if self.goal_writes_blocked:
+            return {}
+
         goal_pos = {key.removesuffix(".pos"): val for key, val in action.items() if key.endswith(".pos")}
 
         # Temporary: name whoever writes a joint, so a correction that is applied
@@ -236,6 +250,16 @@ class LeLampFollower(Robot):
                 te = pr = mv = "err:%s" % e
             logger.info("[trace] %s goal=%.2f torque=%s present_raw=%s moving=%s  %s",
                         _TRACE_JOINT, goal_pos[_TRACE_JOINT], te, pr, mv, where)
+
+        clamped = {}
+        for motor, (lo, hi) in self.joint_limits.items():
+            if motor in goal_pos and not lo <= goal_pos[motor] <= hi:
+                clamped[motor] = goal_pos[motor]
+                goal_pos[motor] = min(hi, max(lo, goal_pos[motor]))
+        if clamped and time.monotonic() - self._last_limit_log >= 1.0:
+            self._last_limit_log = time.monotonic()
+            logger.warning("[joint-limits] clamped %s into SAFETY.md motion.joint_limits",
+                           ", ".join(f"{m} {v:.1f}->{goal_pos[m]:.1f}" for m, v in clamped.items()))
 
         # Cap goal position when too far away from present position.
         # /!\ Slower fps expected due to reading from the follower.

@@ -8,7 +8,6 @@ import threading
 import time
 from collections import deque
 from contextlib import contextmanager
-from difflib import SequenceMatcher
 from typing import Optional
 
 import requests
@@ -95,8 +94,6 @@ from hal.drivers.voice.backchannel import Backchannel
 from hal.drivers.voice.stt import STTProvider
 
 logger = logging.getLogger("hal.voice")
-
-_TRANSCRIPT_MIN_SIMILARITY = 0.5
 
 
 def _is_normal_ws_close(error: Exception) -> bool:
@@ -472,9 +469,15 @@ class VoiceService:
             return 0.0
         return self._mic_level
 
+    def set_input_mode(self, mode, wakeword):
+        from hal.drivers.voice._internal.input_mode import apply_to_service
+
+        apply_to_service(self, mode, wakeword)
+
     def start(self):
         with self._lifecycle_lock:
             self._lifecycle_revision += 1
+            self._input_mode_resume_pending = False
             self._start_locked()
 
     def _start_locked(self):
@@ -506,6 +509,8 @@ class VoiceService:
         self._running = True
         if voice_cfg.TURN_END_ENABLED and not voice_cfg.LIVE_MODE:
             self._turn_detector = SmartTurnDetector()
+        if hal_config.REALTIME_ENABLED:
+            self._realtime.start()
         self._thread = threading.Thread(target=self._loop, daemon=True, name="voice")
         self._thread.start()
         logger.info("VoiceService started (local VAD + %s)", self._stt.name)
@@ -515,7 +520,11 @@ class VoiceService:
             if worker is not None:
                 worker.join()
         with self._lifecycle_lock:
-            if revision == self._lifecycle_revision:
+            from hal import app_state
+
+            if (revision == self._lifecycle_revision
+                    and not app_state.privacy.mic_locked() and not app_state._mic_muted
+                    and not app_state._sleeping and not app_state._enrolling):
                 self._start_locked()
 
     @property
@@ -566,6 +575,7 @@ class VoiceService:
         self.cancel_automatic_reply()
         self._lifecycle_lock.acquire()
         self._lifecycle_revision += 1
+        self._input_mode_resume_pending = False
         self._running = False
         if background:
             try:
@@ -583,7 +593,7 @@ class VoiceService:
         finally:
             self._lifecycle_lock.release()
 
-    def _stop_locked(self):
+    def _stop_locked(self, *, summarize=True):
         with self._mic_lock:
             if self._active_mic is not None:
                 try:
@@ -598,8 +608,14 @@ class VoiceService:
             # summarize_realtime_memory() which fire LLM requests.
             rt_thread = self._realtime_stop_thread
             if rt_thread is None or not rt_thread.is_alive():
+                def stop_realtime():
+                    if summarize:
+                        self._realtime.stop()
+                    else:
+                        self._realtime.stop(summarize=False)
+
                 rt_thread = threading.Thread(
-                    target=self._realtime.stop,
+                    target=stop_realtime,
                     daemon=True,
                     name="voice-realtime-teardown",
                 )
@@ -858,10 +874,6 @@ class VoiceService:
         """Main loop: local VAD → STT on speech → disconnect on silence."""
         # Before arecord starts, so the mic child inherits the fast cores too.
         cpu_affinity.pin_current_thread(cpu_affinity.FAST)
-        if hal_config.REALTIME_ENABLED:
-            threading.Thread(
-                target=self._realtime.start, daemon=True, name="realtime-start"
-            ).start()
 
         if (getattr(hal_config, "VOICE_INPUT_MODE", "automatic") != "tap_to_talk"
                 or not device_manual_mode(read_voice_mode())):
@@ -889,6 +901,10 @@ class VoiceService:
             # Prepare echo-reference filters while idle, without opening the mic.
             # Otherwise the first explicit tap pays SciPy's cold import cost.
             aec.configure(device_rate)
+
+        ready = getattr(self, "_input_mode_ready", None)
+        if ready is not None:
+            ready.set()
 
         while self._running:
             mode = read_voice_mode()
@@ -1140,8 +1156,13 @@ class VoiceService:
                     speech_pre_buffer = [data]
                 else:
                     speech_pre_buffer.append(data)
-                held_s = (sum(len(frame) for frame in speech_pre_buffer) / device_rate
-                          if aec_live_entry else time.time() - speech_start)
+                # Measure speech on the audio clock, not thread scheduling time.
+                # Normal entry starts at the first qualifying frame, preserving
+                # the existing frame count when capture reads arrive in real time.
+                held_samples = sum(len(frame) for frame in speech_pre_buffer)
+                if not aec_live_entry:
+                    held_samples -= len(speech_pre_buffer[0])
+                held_s = held_samples / device_rate
                 if held_s >= (0.16 if aec_live_entry else voice_cfg.SPEECH_HOLDOFF_S):
                     if not aec_live_entry and self._silero_vad is not None:
                         combined = self._np.concatenate(speech_pre_buffer)
@@ -2445,19 +2466,10 @@ class VoiceService:
             logger.info("STT final segment: '%s'", text)
             if hal_config.WAKEWORD_ENABLED:
                 confirm_wake_word_gate(wake_final_candidate(text))
-            prev = last_partial[0]
-            if (
-                prev
-                and len(text) < len(prev)
-                and SequenceMatcher(None, prev.lower(), text.lower()).ratio()
-                < _TRANSCRIPT_MIN_SIMILARITY
-            ):
-                segments = [prev, text]
-            else:
-                segments = [text]
-            for seg in segments:
-                if seg:
-                    final_segments.append(seg)
+            # A final replaces the current provisional hypothesis, including
+            # shorter numeric normalization and corrections of earlier words.
+            if text:
+                final_segments.append(text)
             last_partial[0] = ""
             final_sent[0] = True
             final_ts[0] = time.time()
@@ -2467,6 +2479,8 @@ class VoiceService:
         realtime_deferred = False
         realtime_turn_started = False
         realtime_start_failed = False
+        # start_realtime_turn() retries on every audio chunk; log the fallback once.
+        realtime_unavailable_logged = False
         audio_turn = None
         prepare_started = False
         prepare_endpoint_waited = False
@@ -2508,7 +2522,7 @@ class VoiceService:
             nonlocal realtime_deferred, realtime_turn_started, realtime_start_failed
             nonlocal sent_turn_speaker, turn_context_sent
             nonlocal wakeword_followup_active
-            nonlocal audio_turn
+            nonlocal audio_turn, realtime_unavailable_logged
             if not realtime_allowed or realtime_turn_started or realtime_start_failed:
                 return False
 
@@ -2525,9 +2539,11 @@ class VoiceService:
                 if not prepare_capture_session():
                     return False
                 if self._realtime.rebuilding or not self._realtime.available:
-                    logger.info(
-                        "[realtime] Wake-word turn falls back — session unavailable after final confirmation"
-                    )
+                    if not realtime_unavailable_logged:
+                        realtime_unavailable_logged = True
+                        logger.info(
+                            "[realtime] Wake-word turn falls back — session unavailable after final confirmation"
+                        )
                     return False
                 try:
                     audio_turn = self._realtime.bind_audio_turn()
@@ -3363,9 +3379,12 @@ class VoiceService:
                     ser_audio_buffer,
                     rt,
                     interaction_id=interaction_id,
-                    event_type_override=input_policy.event_type_override(
-                        followup=wakeword_followup_active and not wake_word_confirmed.is_set(),
-                    ),
+                    # Keep the admitted wake even if STT rewrote the name in its final.
+                    # Reclassifying only the final text would label this turn ambient.
+                    event_type_override=("voice_command" if wake_word_confirmed.is_set()
+                                         else input_policy.event_type_override(
+                                             followup=wakeword_followup_active,
+                                         )),
                     identity=turn_identity,
                     harness_voice=harness_voice,
                     suppress_auto_fillers=suppress_auto_fillers,

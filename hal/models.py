@@ -11,6 +11,15 @@ class ServoRequest(BaseModel):
     model_config = {"json_schema_extra": {"examples": [{"recording": "curious"}]}}
 
 
+class ServoContactLearnRequest(BaseModel):
+    """Learn run for the contact stop's per-frame load envelope (arm must move free)."""
+
+    recordings: Optional[list[str]] = Field(
+        None, description="Recordings to learn; default every recording except music_*."
+    )
+    runs: int = Field(2, ge=1, le=5, description="Free plays per recording; the envelope keeps the max.")
+
+
 class ServoStateResponse(BaseModel):
     available_recordings: list[str]
     current: Optional[str]
@@ -332,6 +341,7 @@ class SpeakRequest(BaseModel):
     speed: Optional[float] = Field(None, ge=0.25, le=4.0, description="Speed override for this uncached utterance only")
     voice: str = Field("", description="Override TTS voice for this request (e.g. 'Rachel', 'Brian')")
     interruptible: bool = Field(False, description="If True, can be interrupted by next speech")
+    passive_sensing: bool = Field(False, description="Passive sensing output must yield to an active user capture")
     harness_result: bool = Field(False, description="Play a short source cue before a Harness reply")
     provider: Optional[str] = Field(None, description="Override TTS provider: 'openai', 'elevenlabs', 'gemini' or 'piper'")
     tts_api_key: Optional[str] = Field(None, description="API key for provider override")
@@ -454,6 +464,12 @@ class ServoDemoResponse(BaseModel):
     started: bool
     waypoints: int = Field(0, description="Legs the demo will walk.")
     reason: str = ""
+
+
+class ServoHoldOwnerRequest(BaseModel):
+    owner: Literal["look"] = Field(
+        ..., description="Internal hold owner. Only os-server's look sequence uses it; agents call /servo/hold."
+    )
 
 
 class ServoAimRequest(BaseModel):
@@ -613,6 +629,9 @@ class HealthResponse(BaseModel):
     display: bool
     # null when no `thermal` bound is declared; else {over, temp_c, max_temp_c}.
     thermal: Optional[dict] = None
+    # null when the motion driver has no overload cut-off; else {active, retry_in_s,
+    # threshold, hold_s, retry_s, trips, cut_complete, pending_off, last_trip, load, peak}.
+    servo_overload: Optional[dict] = None
 
 
 class ServoMoveRequest(BaseModel):
@@ -663,7 +682,7 @@ class ServoMoveRequest(BaseModel):
 class ServoMoveResponse(BaseModel):
     status: str
     requested: dict[str, float]
-    clamped: Optional[dict[str, float]] = Field(default=None, description="Legacy field; null because drivers do not expose a confirmed clamped target.")
+    clamped: Optional[dict[str, float]] = Field(default=None, description="The target actually sent when SAFETY.md motion.max_cog_offset_mm cut the move short (it would have leaned the lamp back too far); null when the requested pose was sent as is.")
     actual: dict[str, float] = Field(default_factory=dict, description="Driver-reported positions after the command; some drivers fall back to cached targets. Not a guarantee the target was reached.")
     duration: float
     errors: Optional[dict[str, str]] = None
@@ -681,6 +700,13 @@ class ServoTrackRequest(BaseModel):
             "of candidate labels (e.g. ['cup', 'mug', 'coffee cup']) when the caller "
             "is unsure of the exact word — YOLOWorld evaluates all candidates and "
             "the highest-confidence detection is used."
+        ),
+    )
+    max_duration_s: Optional[float] = Field(
+        None, gt=0,
+        description=(
+            "Stop after this many seconds. Capped at HAL_TRACKING_MAX_DURATION_S; "
+            "omitted means that cap. A greeting look uses a short value, not a stare."
         ),
     )
 
@@ -780,6 +806,11 @@ class TTSConfigRequest(BaseModel):
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     speed: Optional[float] = None
+
+
+class VoiceInputModeRequest(BaseModel):
+    mode: Literal["automatic", "tap_to_talk"]
+    wakeword: bool
 
 
 class VoiceConfigRequest(BaseModel):

@@ -15,6 +15,7 @@ import numpy.typing as npt
 
 from hal import app_state
 from hal.drivers.motors import hold
+from hal.drivers.motors.freeze_lease import freeze_lease
 from hal.drivers.tracking import constants as C
 from hal.safety.policy import cap_speed_dps
 from hal.drivers.tracking.detection import ObjectDetector
@@ -56,6 +57,9 @@ class TrackingState:
 
 class TrackerService:
     """Manages a single object-tracking session with gimbal-style servo follow."""
+
+    # The session cap start() sets; the class default covers a service never started.
+    _max_duration_s: float = C.MAX_TRACK_DURATION_S
 
     def __init__(self):
         self._state = TrackingState()
@@ -101,8 +105,11 @@ class TrackerService:
         target_label="",
         camera_capture=None,
         animation_service=None,
+        max_duration_s: Optional[float] = None,
     ) -> bool:
-        """Start tracking an object."""
+        """Start tracking an object. `max_duration_s` shortens, never extends, the cap."""
+        self._max_duration_s = (min(float(max_duration_s), C.MAX_TRACK_DURATION_S)
+                                if max_duration_s else C.MAX_TRACK_DURATION_S)
         if camera_capture is None or animation_service is None:
             self.last_error = "camera or animation service not available"
             logger.error("tracker start: %s", self.last_error)
@@ -135,77 +142,81 @@ class TrackerService:
     ) -> bool:
         """Body of start() — runs while _start_lock is held."""
 
+        with freeze_lease(animation_service):
+            started = self._start_frozen(
+                bbox, target_label, camera_capture, animation_service, candidates,
+            )
+        if not started:
+            return False
+        animation_service.dispatch("play", "tracking")
+        return True
+
+    def _start_frozen(
+        self, bbox, target_label, camera_capture, animation_service, candidates,
+    ) -> bool:
+        """Initialize tracking while this caller owns a camera freeze lease."""
         # Freeze servos so YOLO + tracker init see a sharp, stable frame.
         settle_s = 0.30
         t_req = time.perf_counter()
-        animation_service.freeze()
+        camera_capture.acquire_consumer()
         try:
-            camera_capture.acquire_consumer()
-            try:
-                last_write = animation_service.last_servo_write
-                quiet_from = (last_write + settle_s) if last_write else 0.0
-                deadline = time.monotonic() + 1.5
-                frame = None
-                while time.monotonic() < deadline:
-                    ts = camera_capture.last_frame_ts
-                    if ts and ts >= quiet_from:
-                        frame = camera_capture.last_frame
-                        if frame is not None:
-                            break
-                    time.sleep(0.03)
-                if frame is None:
+            last_write = animation_service.last_servo_write
+            quiet_from = (last_write + settle_s) if last_write else 0.0
+            deadline = time.monotonic() + 1.5
+            frame = None
+            while time.monotonic() < deadline:
+                ts = camera_capture.last_frame_ts
+                if ts and ts >= quiet_from:
                     frame = camera_capture.last_frame
-            finally:
-                camera_capture.release_consumer()
-            t_after_settle = time.perf_counter()
-
-            if frame is None:
-                self.last_error = "no frame available from camera"
-                logger.error("tracker start: %s", self.last_error)
-                animation_service.unfreeze()
-                return False
-            frame = frame.copy()
-
-            t_yolo_ms = 0.0
-            if bbox is None:
-                if not target_label:
-                    self.last_error = "need either bbox or target label"
-                    logger.error("tracker start: %s", self.last_error)
-                    animation_service.unfreeze()
-                    return False
-                t_yolo0 = time.perf_counter()
-                probe = list(candidates or [target_label])
-                bbox = None
-                best_conf = -1.0
-                for allow_remote in (False, True):
-                    for label in probe:
-                        found = self.detect_object(frame, label,
-                                                   allow_remote_fallback=allow_remote)
-                        if found is None:
-                            continue
-                        conf = self._detector.last_confidence or 0.0
-                        if conf > best_conf:
-                            bbox, best_conf, target_label = found, conf, label
-                    if bbox is not None:
+                    if frame is not None:
                         break
-                if bbox is not None and len(candidates or []) > 1:
-                    logger.info("[track-start] chose '%s' conf=%.3f from candidates %s",
-                                target_label, best_conf, candidates)
-                t_yolo_ms = (time.perf_counter() - t_yolo0) * 1000
-                if bbox is None:
-                    self.last_error = f"'{target_label}' not found in frame"
-                    logger.info("[track-start] settle=%.0fms yolo=%.0fms result=missed target='%s'",
-                                (t_after_settle - t_req) * 1000, t_yolo_ms, target_label)
-                    animation_service.unfreeze()
-                    return False
-        except Exception:
-            animation_service.unfreeze()
-            raise
+                time.sleep(0.03)
+            if frame is None:
+                frame = camera_capture.last_frame
+        finally:
+            camera_capture.release_consumer()
+        t_after_settle = time.perf_counter()
+
+        if frame is None:
+            self.last_error = "no frame available from camera"
+            logger.error("tracker start: %s", self.last_error)
+            return False
+        frame = frame.copy()
+
+        t_yolo_ms = 0.0
+        if bbox is None:
+            if not target_label:
+                self.last_error = "need either bbox or target label"
+                logger.error("tracker start: %s", self.last_error)
+                return False
+            t_yolo0 = time.perf_counter()
+            probe = list(candidates or [target_label])
+            bbox = None
+            best_conf = -1.0
+            for allow_remote in (False, True):
+                for label in probe:
+                    found = self.detect_object(frame, label,
+                                               allow_remote_fallback=allow_remote)
+                    if found is None:
+                        continue
+                    conf = self._detector.last_confidence or 0.0
+                    if conf > best_conf:
+                        bbox, best_conf, target_label = found, conf, label
+                if bbox is not None:
+                    break
+            if bbox is not None and len(candidates or []) > 1:
+                logger.info("[track-start] chose '%s' conf=%.3f from candidates %s",
+                            target_label, best_conf, candidates)
+            t_yolo_ms = (time.perf_counter() - t_yolo0) * 1000
+            if bbox is None:
+                self.last_error = f"'{target_label}' not found in frame"
+                logger.info("[track-start] settle=%.0fms yolo=%.0fms result=missed target='%s'",
+                            (t_after_settle - t_req) * 1000, t_yolo_ms, target_label)
+                return False
 
         tracker = create_tracker()
         if tracker is None:
             logger.error("No OpenCV tracker available")
-            animation_service.unfreeze()
             return False
 
         t_init0 = time.perf_counter()
@@ -213,11 +224,9 @@ class TrackerService:
             ok = vit_init(tracker, frame, bbox)
         except Exception as e:
             logger.error("tracker init exception for bbox %s: %s", bbox, e)
-            animation_service.unfreeze()
             return False
         if ok is False:
             logger.error("tracker init failed for bbox %s", bbox)
-            animation_service.unfreeze()
             return False
         t_init_ms = (time.perf_counter() - t_init0) * 1000
         t_total_ms = (time.perf_counter() - t_req) * 1000
@@ -241,9 +250,7 @@ class TrackerService:
             )
             self._state.thread.start()
 
-        animation_service.unfreeze()
-        animation_service.dispatch("play", "tracking")
-        logger.info("Tracking started: '%s' bbox=%s — playing tracking animation", target_label, bbox)
+        logger.info("Tracking initialized: '%s' bbox=%s", target_label, bbox)
         return True
 
     def stop(self):
@@ -426,8 +433,8 @@ class TrackerService:
 
                 # This is a wall-clock session limit. Check before reading the
                 # frame so a stalled camera cannot keep tracking alive forever.
-                if time.perf_counter() - track_start_t > C.MAX_TRACK_DURATION_S:
-                    logger.warning("Tracking timeout after %ds, stopping", C.MAX_TRACK_DURATION_S)
+                if time.perf_counter() - track_start_t > self._max_duration_s:
+                    logger.warning("Tracking timeout after %.0fs, stopping", self._max_duration_s)
                     break
 
                 frame = camera_capture.last_frame

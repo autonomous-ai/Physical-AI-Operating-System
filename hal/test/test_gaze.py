@@ -807,7 +807,7 @@ class _PitchSvc(_Svc):
         "wrist_pitch.pos": "wrist",
     }
 
-    def __init__(self, wrist=-70.0, base=10.0, elbow=5.0):
+    def __init__(self, wrist=-70.0, base=25.0, elbow=5.0):
         super().__init__()
         self.wrist = wrist
         self.base = base
@@ -861,14 +861,14 @@ def test_a_face_above_centre_tilts_the_camera_up(neck):
     gaze._maybe_pitch(gaze.time.monotonic())
     assert neck.moves, "a clipped-high face should raise the camera"
     assert neck.moves[0]["elbow_pitch.pos"] > 5.0
-    assert neck.moves[0]["base_pitch.pos"] < 10.0
+    assert neck.moves[0]["base_pitch.pos"] < 25.0
 
 
 def test_a_face_below_centre_tilts_the_camera_down(neck):
     _fill_dy(0.4)
     gaze._maybe_pitch(gaze.time.monotonic())
     assert neck.moves[0]["elbow_pitch.pos"] < 5.0
-    assert neck.moves[0]["base_pitch.pos"] > 10.0
+    assert neck.moves[0]["base_pitch.pos"] > 25.0
 
 
 def test_the_lift_does_not_lean_on_the_joint_that_cannot_lift(neck):
@@ -877,7 +877,7 @@ def test_the_lift_does_not_lean_on_the_joint_that_cannot_lift(neck):
     gaze._maybe_pitch(gaze.time.monotonic())
     moved = neck.moves[0]
     wrist_delta = abs(moved["wrist_pitch.pos"] - (-70.0))
-    lifting = abs(moved["elbow_pitch.pos"] - 5.0) + abs(moved["base_pitch.pos"] - 10.0)
+    lifting = abs(moved["elbow_pitch.pos"] - 5.0) + abs(moved["base_pitch.pos"] - 25.0)
     assert lifting > wrist_delta, (
         "the wrist cannot deliver an upward correction on this arm; the lift has "
         "to come from base_pitch and elbow_pitch"
@@ -924,7 +924,7 @@ def test_one_correction_is_bounded(neck):
     _fill_dy(-1.0)
     gaze._maybe_pitch(gaze.time.monotonic())
     moved = neck.moves[0]
-    before = {"base_pitch.pos": 10.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
+    before = {"base_pitch.pos": 25.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
     # elbow is mounted reversed, so its joint delta counts against the camera.
     tilt = (
         (moved["base_pitch.pos"] - before["base_pitch.pos"])
@@ -1105,7 +1105,7 @@ def test_each_climb_step_is_a_fixed_size(neck, monkeypatch, height_store):
     gaze._maybe_pitch(gaze.time.monotonic())
 
     moved = neck.moves[0]
-    before = {"base_pitch.pos": 10.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
+    before = {"base_pitch.pos": 25.0, "elbow_pitch.pos": 5.0, "wrist_pitch.pos": -70.0}
     tilt = ((moved["base_pitch.pos"] - before["base_pitch.pos"])
             + (moved["wrist_pitch.pos"] - before["wrist_pitch.pos"])
             - (moved["elbow_pitch.pos"] - before["elbow_pitch.pos"]))
@@ -1686,7 +1686,7 @@ def test_the_lift_still_happens_when_the_elbow_is_dead(neck, height_store):
 
     _fill_dy(-0.5)
     gaze._maybe_pitch(now)
-    assert neck.base < 10.0, "base_pitch must carry the lift the elbow refused"
+    assert neck.base < 25.0, "base_pitch must carry the lift the elbow refused"
 
     gaze._last_pitch_t = now - 10_000.0
     base_before = neck.base
@@ -1727,6 +1727,7 @@ def sweeper(monkeypatch):
 def test_the_gaze_sweep_looks_for_the_user(sweeper):
     gaze._maybe_sweep(gaze.time.monotonic(), confirmed_miss=True)
     assert sweeper and sweeper[0].get("for_user") is True
+    assert sweeper[0].get("glance") is True, "an unasked look-around must be a glance"
 
 
 def test_a_repoint_that_finds_nobody_looks_around(sweeper):
@@ -1918,6 +1919,30 @@ def test_speaking_twice_gets_two_looks(body, monkeypatch):
         "the second reacquire was refused by a cooldown meant for the automatic path"
     )
     assert len(body.moves) > moves_after_first or True
+
+
+def test_speech_after_a_missed_repoint_waits_out_the_cooldown(body):
+    """Chatter from an empty bearing gets one turn, not one per sentence."""
+    now = gaze.time.monotonic()
+    _absent_for(config.GAZE_REPOINT_AFTER_S + 1)
+    assert gaze._maybe_repoint(now, force=True)
+    gaze._last_repoint_missed = True  # what _score_repoint(False, ...) leaves behind
+
+    assert not gaze._maybe_repoint(now + 5.0, force=True), (
+        "voice turned the lamp again toward a bearing that just came up empty"
+    )
+    assert gaze._maybe_repoint(now + config.GAZE_REPOINT_COOLDOWN_S + 1.0, force=True)
+
+
+def test_scoring_a_repoint_records_whether_it_missed(monkeypatch):
+    from hal.drivers.tracking import user_bearing
+
+    monkeypatch.setattr(user_bearing, "record_prediction", lambda hit: False)
+    monkeypatch.setattr(gaze, "_maybe_sweep", lambda *a, **kw: None)
+    gaze._score_repoint(False, "nobody", gaze.time.monotonic())
+    assert gaze._last_repoint_missed is True
+    gaze._score_repoint(True, "found them", gaze.time.monotonic())
+    assert gaze._last_repoint_missed is False
 
 
 def test_the_automatic_repoint_still_waits_out_its_cooldown(body):

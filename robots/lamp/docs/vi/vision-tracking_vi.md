@@ -14,6 +14,22 @@ Toàn bộ code tracking nằm trong package `hal/drivers/tracking/`:
 | `filters.py` | `AlphaBetaFilter2D`, `PID`, `smooth_damp`, `soft_deadband` |
 | `frame_utils.py` | `downscale`, `scale_bbox` (map tọa độ) |
 
+### Quyền giữ freeze khi nhiều tác vụ camera chồng nhau
+
+Snapshot (`capture_still`), chụp sensing và khởi tạo tracker dùng chung lease
+freeze theo từng motion service (`hal/drivers/motors/freeze_lease.py`). Tác vụ đầu
+tiên freeze chuyển động; chỉ tác vụ cuối cùng kết thúc mới unfreeze. Exception
+và return sớm đều trả lease của chính tác vụ đó, kể cả lỗi đăng ký hoặc giải
+phóng camera consumer. Freeze thất bại không cấp lease; snapshot vẫn giữ cách
+chụp best-effort hiện có khi không freeze được.
+
+Chỉ thao tác nhận/trả quyền giữ bị khóa. Lấy frame, chờ ổn định và nhận diện vật
+thể vẫn chạy chồng nhau; không thêm timer, sleep hay network call. Các giá trị
+settle/timeout hiện có không đổi. Caller camera mới phải dùng lease chung thay vì
+gọi thẳng `freeze()` / `unfreeze()` của driver. Cơ chế này phối hợp freeze hiện
+có; không thay đổi chính sách chuyển động của driver và chưa phải bộ điều phối
+chuyển động toàn cục.
+
 ## Định tuyến intent giọng nói
 
 Yêu cầu voice không khớp rule local có thể qua nhánh Jev của OS để chọn
@@ -93,7 +109,7 @@ Tracking điều khiển 4 joint:
 - **elbow_pitch** (ID 3) — tilt lên/xuống, 60 % của pitch
 - **wrist_pitch** (ID 5) — tilt lên/xuống, 20 % của pitch
 
-Pitch do elbow dẫn dắt (`PITCH_WEIGHT_BASE/ELBOW/WRIST = 0.20 / 0.60 / 0.20`). Đây là ưu tiên, không phải tỉ lệ cứng: `servo_follow.distribute_pitch` phân bổ theo weight trước, phần joint bão hòa không nhận được (theo `PITCH_TRAVEL_MIN/MAX` đo thực tế) được chuyển cho joint còn dư hành trình. Elbow không còn nhận 90 % vì khi elbow chập chờn không phản hồi, nó nuốt gần hết mọi lần hiệu chỉnh. Chiều dương của motor elbow bị đảo ở phần cứng, nên đóng góp của nó mang `ELBOW_PITCH_SIGN = -1.0`.
+Pitch do elbow dẫn dắt (`PITCH_WEIGHT_BASE/ELBOW/WRIST = 0.20 / 0.60 / 0.20`). Đây là ưu tiên, không phải tỉ lệ cứng: `servo_follow.distribute_pitch` phân bổ theo weight trước, phần joint bão hòa không nhận được (theo `PITCH_TRAVEL_MIN/MAX` đo thực tế) được chuyển cho joint còn dư hành trình. Elbow không còn nhận 90 % vì khi elbow chập chờn không phản hồi, nó nuốt gần hết mọi lần hiệu chỉnh. Chiều dương của motor elbow bị đảo ở phần cứng, nên đóng góp của nó mang `ELBOW_PITCH_SIGN = -1.0`. Mọi hiệu chỉnh pitch (tracking, gaze, aim) còn bị chặn để đèn không bao giờ ngả ra sau: `distribute_pitch` tính tư thế đích bằng hình học `urdf_ref` và thu nhỏ bước cho tới khi trọng tâm toàn thân nằm sau trục đế không quá `MAX_LEAN_BACK_MM = 16` mm (idle/listening tới 15.1 mm). Tư thế đã vượt mức chỉ được tiến ra trước, mỗi lần cắt ghi log `[lean-back]`. Trước đây mặt nằm trên khung hình (user đứng lên) kéo cánh tay lùi 30–48 mm làm đèn bật ngửa; giờ camera ngẩng tới mức chặn rồi dừng. `base_pitch` cũng không xuống dưới 10° (không recording thiết kế nào dưới 9.3°), chặn này vẫn giữ cả khi thân không có hình học.
 
 Pan của gaze (không phải object tracking) chia yaw cho `base_yaw` và `wrist_roll` qua `servo_follow.distribute_yaw` với `YAW_WEIGHT_BASE/ROLL = 0.75 / 0.25` — xem phần pan của gaze bên dưới.
 
@@ -182,7 +198,9 @@ pitch_correction = clamp(PID(soft_deadband(dy)) + VFF·vy·deg_per_px·dt,  ±5�
 
 Mọi knob nằm trong `hal/drivers/tracking/constants.py`. (Đường proportional chết `GIMBAL_*` / `EMA_ALPHA` đã bị xoá khi tách package.)
 
-Đặt `HAL_TRACKING_MAX_DURATION_S` trong `/opt/hal/.env` của Lamp để chọn giới hạn thời gian thực cho một session; mặc định Lamp đã cài là `10`. Khởi động lại service `hal` sau khi đổi.
+Đặt `HAL_TRACKING_MAX_DURATION_S` trong `/opt/hal/.env` của Lamp để chọn giới hạn thời gian thực cho một session; mặc định Lamp đã cài là `10`. Khởi động lại service `hal` sau khi đổi. Một lần gọi `/servo/track` có thể truyền `max_duration_s` để
+dừng sớm hơn (không bao giờ quá giới hạn này): cái nhìn khi chào trong sensing skill dùng `3`, vì đèn
+chào xong mà bám chặt một khuôn mặt 10 giây thì giống camera theo dõi, không giống một cái nhìn nhận ra.
 
 ### Giới hạn vị trí servo
 
@@ -520,7 +538,9 @@ trường hợp đèn tự quyết định. Pha quét được vào khi:
   pha quét thậm chí không hiện ra trong Monitor. Agent chờ body rồi trả lời dựa trên đó, đúng theo
   cách `/api/vision/look` vẫn đang làm.
 - họ đồng ý với đề nghị sau một lần nhìn thất bại — *"Tôi không thấy nó. Bạn có muốn tôi quay quanh tìm thử không?"*
-- **look-aim sắp bỏ cuộc** — trước khi `look_lost` tuyên bố *"Tôi không tìm thấy bạn"*, câu mà đến giờ
+- **look-aim sắp bỏ cuộc** — nhưng chỉ là một cái **liếc** (`glance=True`, 2 lần nhìn tại bearing,
+  không có `look_still_searching`), không phải pha quét đầy đủ: được nhờ nhìn mà không thấy ai thì
+  một sinh vật liếc quanh, không quét cả phòng. Trước khi `look_lost` tuyên bố *"Tôi không tìm thấy bạn"*, câu mà đến giờ
   nó vẫn nói sau khi mới chỉ quay về một bearing đã ghi nhớ. Bearing là phỏng đoán về nơi người ta
   *từng* ở, không phải một lần tìm, nên câu đó phải được xứng đáng. Hạn chót của pha ngắm **ngừng đếm**
   trong suốt thời gian quét (`t_end += time.monotonic() - swept_at` trong `aim_for_look`): hạn chót tồn
@@ -528,7 +548,7 @@ trường hợp đèn tự quyết định. Pha quét được vào khi:
   chuyện đó rồi, và tính pha quét vào một ngân sách nó không thể vừa nghĩa là không bao giờ được quét.
 - **watcher gaze ở một mình quá lâu** — `HAL_GAZE_SWEEP_AFTER_S` (30 s) không thấy ai, hoặc một lần
   repoint đã quay về bearing mà không thấy ai ở đó. Đường này không ai yêu cầu, nên nó là đường duy
-  nhất có cooldown — xem *Tự quay quanh tìm*.
+  nhất có cooldown và chỉ là một cái **liếc**, không phải pha quét này — xem *Tự quay quanh tìm*.
 
 `POST /servo/search` — quét tìm một đối tượng. Body (tất cả đều tuỳ chọn): `{"target": "cup", "exhaustive": true}`.
 
@@ -601,7 +621,7 @@ quanh của gaze watcher) đi theo `USER_LOOK_CIRCLE`: vẫn sáu lần nhìn đ
 tâm, trái, vòng qua **đỉnh**, ra phải. Khuôn mặt nằm ngang hoặc cao hơn góc nhìn lúc ngồi mà pha quét
 bắt đầu từ đó; các lần nhìn đáy chỉ vào bàn và bàn phím. Đo trên green-lamp 30/09/2026: một user đang
 đứng, đầu cao hơn mọi lần nhìn, đã bị bỏ sót qua cả 18 lần nhìn. Tìm đồ vật (`POST /servo/search`,
-"tìm đồ của tôi") và pha quét dự phòng của look-aim vẫn giữ vòng nhìn xuống, nơi có đồ trên bàn. Các
+"tìm đồ của tôi") vẫn giữ vòng nhìn xuống, nơi có đồ trên bàn. Các
 lần nhìn lên dùng chung giới hạn `WRIST_PITCH_MIN` mô tả bên dưới.
 
 **Chỉ `wrist_roll` và `wrist_pitch` di chuyển trong một lần nhìn.** Đế chỉ xoay một lần cho mỗi bearing
@@ -632,8 +652,9 @@ tâm trông như bồn chồn khi đầu đèn cũng đang ngó quanh ở từng
 góc đầu đang nghiêng, nên camera vẫn hướng vào đối tượng mà đầu thì ngay ngắn.
 
 **Khi gaze watcher tự quét, nó tìm user chứ không tìm bất kỳ ai (#545).** `gaze._maybe_sweep`
-gọi `search_for_subject(for_user=True)`. Mọi nơi gọi khác giữ nguyên hành vi hiện tại:
-`POST /servo/search` (đồ vật, `exhaustive`) và pha quét dự phòng riêng của look-aim. Ở mỗi lần nhìn,
+gọi `search_for_subject(for_user=True, glance=True)`. Mọi nơi gọi khác giữ nguyên hành vi hiện tại:
+`POST /servo/search` (đồ vật, `exhaustive`); pha dự phòng của look-aim cũng chỉ là cái liếc, nhưng
+không có user check. Ở mỗi lần nhìn,
 nó quan sát các khuôn mặt trong khung khoảng 1.5 s (`user_check.observe_faces`, 6 frame; bỏ qua bước
 chờ này khi frame đầu không có mặt nào) và chỉ dừng ở một cái mặt qua được
 `user_check.adopts_bearing`: cao ít nhất `HAL_GAZE_BEARING_MIN_FACE_HEIGHT_FRAC` (15%) khung hình,
@@ -713,16 +734,17 @@ os-server sở hữu các câu, phần phân giải ngôn ngữ và cache WAV (`
 |---|---|---|
 | `look_searching` | bước đầu tiên về phía bearing đã ghi nhớ | **bật** (`HAL_LOOK_AIM_SPEAK`) |
 | `look_found` | có người xuất hiện **sau khi** đã thông báo đang tìm | bật (cùng cờ) |
-| `look_still_searching` | điểm giữa của pha quét — điểm dừng 2/3, đầu ở giữa (`_say_at_the_midpoint`) | bật (`HAL_LOOK_AIM_SPEAK`) |
+| `look_still_searching` | điểm giữa của pha quét đầy đủ (`/servo/search`) — điểm dừng 2/3, đầu ở giữa (`_say_at_the_midpoint`). Không bao giờ phát trong cái liếc của look-aim | bật (`HAL_LOOK_AIM_SPEAK`) |
 | `look_capturing` | pha ngắm thực sự đã di chuyển trước khi bấm máy | bật (`HAL_LOOK_AIM_SPEAK_CAPTURE`) |
 
 Phần chặn quan trọng hơn bản thân các câu nói. **Không nói gì khi đối tượng đã nằm giữa sẵn** — lần chụp
 đó xong trong vài trăm mili giây, nên mọi câu ở đây đều có điều kiện là pha ngắm thực sự đã phải di
 chuyển. *"Bạn đây rồi"* chỉ phát ra như phần kết của một lần tìm đã được thông báo, không bao giờ đứng
 một mình. Trạng thái đang tìm chỉ thông báo **một lần** mỗi pha quét chứ không phải mỗi bước, cộng
-thêm đúng một câu `look_still_searching` ở điểm giữa — pha quét dài ~20 s, và không có câu đó thì câu
-mở đầu và câu kết luận nằm hai bên một khoảng lặng hai mươi giây, nghe như một cái đèn đã đứng máy chứ
-không phải một cái đèn đang tìm. Còn câu lúc chụp chỉ phát khi pha ngắm thực sự đã di chuyển
+thêm đúng một câu `look_still_searching` ở điểm giữa của pha quét đầy đủ — pha đó dài ~20 s, và không
+có câu đó thì câu mở đầu và câu kết luận nằm hai bên một khoảng lặng hai mươi giây, nghe như một cái đèn
+đã đứng máy chứ không phải một cái đèn đang tìm. Cái liếc của look-aim chỉ ~4 s và không nói gì ở giữa:
+kể lể một cái liếc ngắn là kiểu máy báo trạng thái. Còn câu lúc chụp chỉ phát khi pha ngắm thực sự đã di chuyển
 (`res.aimed and res.iterations > 0`): pha ngắm không động gì thì không nói gì, và — phần đã sai cho tới
 nhánh này — pha ngắm đã tìm rồi **thất bại** cũng không nói gì, trước đây nó nối ngay
 *"Tôi không tìm thấy bạn"* với *"Để tôi nhìn thử"*.
@@ -995,8 +1017,13 @@ ra mỗi phút một lần thay vì mỗi vòng một lần.
 
 ### Tự quay quanh tìm
 
-Nếu một lần repoint bị chấm trượt (không có ai, hoặc chỉ có thân người quá nhỏ để đang ngồi ở bàn), `_verify_repoint` gọi chính pha quét `/servo/search` mô tả ở trên với
-`confirmed_miss=True`. Vì repoint ở trên do speech kích hoạt, pha quét cũng vậy: đèn đi tìm vì có người
+Nếu một lần repoint bị chấm trượt (không có ai, hoặc chỉ có thân người quá nhỏ để đang ngồi ở bàn), `_verify_repoint` gọi `_maybe_sweep` với
+`confirmed_miss=True`, và nó chỉ **liếc** chứ không quét: `glance=True` giữ đế ở bearing gốc và chỉ đi
+qua `GLANCE_LOOKS` — đầu liếc trái 45°, rồi phải 45° — tức 2 lần nhìn, khoảng 4 s, không nói câu
+`look_still_searching`. Xong thì về lại tư thế ban đầu và thôi. Nguyên tắc là *một sinh vật có làm vậy
+không?*: quay về phía tiếng gọi mà không thấy ai thì liếc quanh một chút; không ai đi quét phòng
+3 hướng × 6 lần nhìn như camera an ninh — đó chính là cảm giác khi pha quét đủ 18 lần nhìn tự chạy
+mà không ai yêu cầu. Pha quét đầy đủ chỉ còn cho lúc có người yêu cầu tìm (`/servo/search`). Vì repoint ở trên do speech kích hoạt, pha quét cũng vậy: đèn đi tìm vì có người
 đã nói mà nó không tìm ra họ, chứ không bao giờ vì một căn phòng trông có vẻ trống. Cò kích hoạt theo
 vắng mặt (`HAL_GAZE_SWEEP_AFTER_S`) vẫn còn trong `_maybe_sweep` nhưng không còn gì với tới nó — vòng
 lặp watcher không còn gọi pha quét nữa. Các cooldown vẫn áp dụng, và có tới hai vì hai tình huống không
@@ -1018,8 +1045,8 @@ nhìn thấy hai lần. Mặt chỉ được tính là bằng chứng cho repoin
 
 | Tham số | Mặc định | Ý nghĩa |
 |---|---|---|
-| `HAL_GAZE_SWEEP` | `true` | Bật/tắt tự quay quanh tìm. |
-| `HAL_GAZE_SWEEP_AFTER_S` | 30 | Không thấy ai trong bao lâu. Dài hơn `HAL_GAZE_REPOINT_AFTER_S` (12 s) để nước đi rẻ luôn được thử trước và pha quét ~20 s vẫn là bước leo thang chứ không phải phản xạ. |
+| `HAL_GAZE_SWEEP` | `true` | Bật/tắt tự liếc quanh tìm. |
+| `HAL_GAZE_SWEEP_AFTER_S` | 30 | Không thấy ai trong bao lâu. Dài hơn `HAL_GAZE_REPOINT_AFTER_S` (12 s) để nước đi rẻ luôn được thử trước và cái liếc ~4 s vẫn là bước leo thang chứ không phải phản xạ. |
 | `HAL_GAZE_SWEEP_COOLDOWN_S` | 900 | Giữa hai pha quét khi đã có bearing. |
 | `HAL_GAZE_SWEEP_COOLDOWN_LOST_S` | 120 | Giữa hai pha quét khi chưa có bearing nào. |
 | `HAL_GAZE_BEARING_MIN_FACING_RATIO` | 0.4 | Tỉ lệ mẫu nhìn về đèn cần có để nhận một bearing mới. Thấp hơn mức 0.6 của cổng wake: một user ngồi yên đo được 50%. Không phải 0.3: cửa sổ chỉ có 2–3 mẫu, nên 0.3 nghĩa là chỉ cần liếc một cái. |

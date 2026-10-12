@@ -8,6 +8,7 @@ import time
 from typing import Optional
 
 from hal import config, privacy
+from hal.drivers.rgb.presentation import LatestPresentation, SpeechRGB
 from hal.presets import (
     AMBIENT_RESTING_LED,
     ambient_resting_is_dark,
@@ -134,6 +135,15 @@ def voice_user() -> tuple[str, str, float]:
         return _voice_user, _voice_user_display or _voice_user, age
 
 
+def cancel_still_idle_timer() -> None:
+    """Drop a pending still-emotion idle resume: a newer emotion or an aim owns the body."""
+    global _still_idle_timer, _still_idle_deferred
+    if _still_idle_timer is not None:
+        _still_idle_timer.cancel()
+        _still_idle_timer = None
+    _still_idle_deferred = None
+
+
 def face_user() -> tuple[str, float]:
     """Return (label, age_s) for the face-derived user; ("", 0.0) for nobody.
 
@@ -179,6 +189,12 @@ _active_scene: Optional[str] = None
 
 _user_led_state: Optional[dict] = None
 _restore_timer: Optional[threading.Timer] = None
+_restore_lock = threading.RLock()
+_restore_generation = 0
+_speech_led_epoch = 0
+_speech_led_context = threading.local()
+_speech_led_callback_lock = threading.Lock()
+_speech_led_sequence = 0
 _sleeping: bool = False
 _current_emotion: Optional[str] = None
 _emotion_state_lock = threading.Lock()
@@ -233,6 +249,8 @@ _SLEEPY_DRAIN_POLL_S = 0.1
 _scene_drain_cancel: Optional[threading.Event] = None
 # Resume idle after a still emotion halted the loop.
 _still_idle_timer: Optional[threading.Timer] = None
+# Still emotion whose idle resume found the body held; replayed when the look hold releases.
+_still_idle_deferred: Optional[str] = None
 # Last-resort net: idle after `thinking` is held too long.
 _thinking_reset_timer: Optional[threading.Timer] = None
 # LED-only cue bridging VAD confirmation and the first STT partial (1.5-2.5s).
@@ -317,11 +335,18 @@ def _stop_current_effect():
 
 
 def _cancel_pending_restore():
-    """Cancel any pending emotion restore timer."""
-    global _restore_timer
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    """Invalidate queued restores and order replacement after any running restore."""
+    global _restore_timer, _restore_generation, _speech_led_epoch
+    # Publish override intent before waiting for an in-flight presentation.
+    # The presentation worker's own restore operations do not invalidate itself.
+    if not getattr(_speech_led_context, "presenting", False):
+        with _speech_led_callback_lock:
+            _speech_led_epoch += 1
+    with _restore_lock:
+        _restore_generation += 1
+        if _restore_timer is not None:
+            _restore_timer.cancel()
+            _restore_timer = None
 
 
 # Boot-scoped sidecars (restored on service restart, cleared on reboot).
@@ -812,9 +837,7 @@ def _start_preset_effect(preset: dict, thread_name: str):
     global _restore_timer, _effect_thread, _effect_name, _effect_base_color
     if not rgb_service:
         return
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
     _stop_current_effect()
     color = tuple(preset["color"])
     if preset["effect"] == LST_SOLID:
@@ -955,10 +978,20 @@ def _flash_backend_error():
     ).start()
 
 
-def _restore_user_led():
-    """Restore LED to user state after emotion animation completes."""
-    global _restore_timer
-    _restore_timer = None
+def _restore_user_led(generation=None):
+    """Reject obsolete timers; serialize an admitted restore with replacement."""
+    with _restore_lock:
+        if generation is not None and generation != _restore_generation:
+            return
+        if _tts_speaking and not _sleeping:
+            # A resting restore is not an override of current speech authority.
+            return
+        _cancel_pending_restore()
+        _restore_user_led_display()
+
+
+def _restore_user_led_display():
+    """Restore LED state while the caller owns the restore lifecycle lock."""
 
     # Sleep is terminal: late restores must not repaint the strip.
     if _sleeping:
@@ -1111,20 +1144,21 @@ def clear_listening_pending_cue(cue_id: Optional[int] = None, restore: bool = Tr
 
 
 def _schedule_led_restore(delay_s: float):
-    """Schedule _restore_user_led to run after delay_s seconds."""
+    """Schedule a restore tied to this generation, even after Timer.cancel races."""
     global _restore_timer
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-    t = threading.Timer(delay_s, _restore_user_led)
-    t.daemon = True
-    t.start()
-    _restore_timer = t
+    with _restore_lock:
+        _cancel_pending_restore()
+        generation = _restore_generation
+        timer = threading.Timer(delay_s, lambda: _restore_user_led(generation))
+        timer.daemon = True
+        _restore_timer = timer
+        timer.start()
 
 
-def _on_tts_speak_start():
+def _start_tts_led(current):
     """Called by TTSService when TTS playback begins."""
     global _tts_speaking, _effect_thread, _effect_name, _effect_base_color
-    global _restore_timer
+    global _restore_timer, _effect_stop
     if not rgb_service:
         return
     if _sleeping:
@@ -1138,20 +1172,21 @@ def _on_tts_speak_start():
         color = tuple(EMOTION_PRESETS[EMO_LISTENING]["color"])
     logger.info("TTS speaking LED start: color=%s", color)
 
-    _tts_speaking = True
-
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
 
     _stop_current_effect()
+    if not current() or _sleeping or not _tts_speaking:
+        return
 
-    _effect_stop.clear()
+    # Never clear an event still held by an effect whose stop timed out.
+    _effect_stop = threading.Event()
     _effect_name = FX_SPEAKING_WAVE
     _effect_base_color = color
     _effect_thread = threading.Thread(
         target=_run_effect,
-        args=(FX_SPEAKING_WAVE, color, 2.5, None, _effect_stop, rgb_service),
+        args=(FX_SPEAKING_WAVE, color, 2.5, None, _effect_stop,
+              SpeechRGB(rgb_service, lambda: current() and not _sleeping and _tts_speaking,
+                        _effect_stop)),
         daemon=True,
         name="led-effect-speaking_wave",
     )
@@ -1178,20 +1213,57 @@ def _clear_thinking_after_reply():
         logger.warning("Thinking clear after reply failed: %s", e)
 
 
+def _present_tts_led(request, latest):
+    """Serialize deferred speech presentation with restores, never with audio."""
+    speaking, epoch = request
+
+    def current():
+        return latest() and epoch == _speech_led_epoch
+
+    _speech_led_context.presenting = True
+    try:
+        with _restore_lock:
+            if not current():
+                return
+            if speaking:
+                _start_tts_led(current)
+            else:
+                _stop_current_effect()
+                if current():
+                    _restore_user_led()
+    finally:
+        _speech_led_context.presenting = False
+
+
+_speech_led = LatestPresentation(_present_tts_led, name="led-speech-presentation")
+
+
+def _on_tts_speak_start():
+    """Publish speech priority immediately; LED work must not delay PCM writes."""
+    global _tts_speaking, _speech_led_sequence
+    with _speech_led_callback_lock:
+        if not rgb_service or _sleeping:
+            return
+        _speech_led_sequence += 1
+        _tts_speaking = True
+        _speech_led.submit((True, _speech_led_epoch))
+
+
 def _on_tts_speak_end():
-    """Called by TTSService when TTS playback finishes or is interrupted."""
-    global _tts_speaking
-    if not _tts_speaking:
-        return
-
-    _tts_speaking = False
-    logger.info("TTS speaking LED end: stopping effect and restoring")
-
+    """Preserve reply cleanup; defer only LED stop/restore, not body behavior."""
+    global _tts_speaking, _speech_led_sequence
+    with _speech_led_callback_lock:
+        if not _tts_speaking:
+            return
+        _speech_led_sequence += 1
+        sequence = _speech_led_sequence
+        _tts_speaking = False
+    # This semantic completion must not disappear when visual states coalesce.
+    # It retains the existing synchronous emotion/body behavior and may block.
     _clear_thinking_after_reply()
-
-    _stop_current_effect()
-
-    _restore_user_led()
+    with _speech_led_callback_lock:
+        if sequence == _speech_led_sequence:
+            _speech_led.submit((False, _speech_led_epoch))
 
 
 def _on_music_play_start():
@@ -1223,9 +1295,7 @@ def _on_music_play_start():
 
     _music_playing = True
 
-    if _restore_timer is not None and _restore_timer.is_alive():
-        _restore_timer.cancel()
-        _restore_timer = None
+    _cancel_pending_restore()
 
     _stop_current_effect()
 
@@ -1295,6 +1365,7 @@ def _apply_emotion_led_display(
                 logger.warning("Emotion display failed: %s", e)
         return None
     if rgb_service and preset.get("color"):
+        _cancel_pending_restore()
         scaled = [int(c * intensity) for c in preset["color"]]
         try:
             if preset.get("effect"):

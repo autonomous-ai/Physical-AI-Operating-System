@@ -145,7 +145,15 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
     headers.set("Authorization", `Bearer ${apiToken}`);
   }
   const res = await fetch(url, { credentials: "include", ...options, headers });
-  const json = (await res.json()) as JSONResponse<T>;
+  let json: JSONResponse<T>;
+  try {
+    json = await res.json() as JSONResponse<T>;
+  } catch (cause) {
+    if (options?.signal?.aborted) throw cause;
+    const err = new Error(res.ok ? "The server returned an invalid response. Try again." : `Request failed (HTTP ${res.status}).`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   if (json.status !== 1) {
     const msg =
       typeof json.message === "string" ? json.message : res.ok ? "Request failed" : res.statusText;
@@ -360,6 +368,50 @@ export interface AgentRuntimeStatus {
   /** Stored remote-gateway config. */
   remote_url?: string;
   remote_token?: string;
+}
+
+export interface RuntimeLoginSession {
+  id: string;
+  runtime: string;
+  provider: string;
+  status: "starting" | "waiting" | "applying" | "success" | "error" | "cancelled";
+  login_url?: string;
+  user_code?: string;
+  input_required?: boolean;
+  error?: string;
+}
+
+export interface RuntimeLoginState {
+  runtime: string;
+  providers: { id: string; label: string }[];
+  session?: RuntimeLoginSession;
+}
+
+export async function getRuntimeLogin(signal?: AbortSignal): Promise<RuntimeLoginState> {
+  try {
+    return await apiRequest(`${API_BASE}/api/device/runtime-login`, { signal, cache: "no-store" });
+  } catch (err) {
+    if ((err as Error & { status?: number }).status === 404) {
+      throw new Error("Web sign-in is unavailable on this OS Server. Update OS Server and try again. You can also sign in using Terminal.");
+    }
+    throw err;
+  }
+}
+
+export function startRuntimeLogin(runtime: string, provider: string, signal?: AbortSignal): Promise<RuntimeLoginSession> {
+  return apiRequest(`${API_BASE}/api/device/runtime-login`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ runtime, provider }), signal,
+  });
+}
+
+export function submitRuntimeLoginCode(id: string, code: string, signal?: AbortSignal): Promise<RuntimeLoginSession> {
+  return apiRequest(`${API_BASE}/api/device/runtime-login/code`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, code }), signal,
+  });
+}
+
+export function cancelRuntimeLogin(id: string, signal?: AbortSignal): Promise<RuntimeLoginSession> {
+  return apiRequest(`${API_BASE}/api/device/runtime-login/${encodeURIComponent(id)}`, { method: "DELETE", signal });
 }
 
 export async function getAgentRuntime(): Promise<AgentRuntimeStatus> {

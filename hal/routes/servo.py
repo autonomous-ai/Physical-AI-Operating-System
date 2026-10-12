@@ -5,6 +5,7 @@ import io
 import math
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Optional
@@ -13,9 +14,12 @@ from fastapi import APIRouter, HTTPException, File, Form, UploadFile
 
 import hal.app_state as state
 from hal.drivers.motors import hold
+from hal.drivers.motors.recording_stability import limit_lean_back
 from hal.safety.policy import min_move_duration
 from hal.models import (
     ServoAimRequest,
+    ServoContactLearnRequest,
+    ServoHoldOwnerRequest,
     ServoDemoResponse,
     ServoSearchRequest,
     ServoSearchResponse,
@@ -223,6 +227,65 @@ def hold_servos():
     return {"status": "ok"}
 
 
+# A look hold os-server never releases (it died mid-look) must not freeze the arm.
+LOOK_HOLD_MAX_S = 30.0
+_look_hold_timer: Optional[threading.Timer] = None
+
+
+def _release_look(svc) -> bool:
+    """Drop the look owner's hold and hand the arm back to idle. True if held.
+
+    Replays a still emotion's parked resume; otherwise covers a search/tracking hand-back
+    that skipped idle while look held. A listening-halted body stays still.
+    """
+    if not hold.release(svc, hold.LOOK):
+        return False
+    if not _sleep_servo_locked():
+        from hal.routes.emotion import resume_deferred_still_idle
+
+        if not resume_deferred_still_idle(svc):
+            halt = getattr(svc, "_halt", None)
+            if halt is None or not halt.is_set():
+                from hal.drivers.tracking import body
+
+                body.release_to_idle("look hold released")
+    return True
+
+
+def _expire_look_hold(svc) -> None:
+    if _release_look(svc):
+        state.logger.warning("servo hold: look hold expired after %.0fs without a release", LOOK_HOLD_MAX_S)
+
+
+@router.post("/servo/hold/claim", response_model=StatusResponse)
+def claim_hold(req: ServoHoldOwnerRequest):
+    """Hold the current pose for an internal owner (os-server's look). Agents use /servo/hold."""
+    global _look_hold_timer
+    svc = _svc()
+    hold.claim(svc, req.owner)
+    if _look_hold_timer is not None:
+        _look_hold_timer.cancel()
+    _look_hold_timer = threading.Timer(LOOK_HOLD_MAX_S, _expire_look_hold, args=(svc,))
+    _look_hold_timer.daemon = True
+    _look_hold_timer.start()
+    state.logger.info("servo hold claimed by %s", req.owner)
+    return {"status": "ok"}
+
+
+@router.post("/servo/hold/release", response_model=StatusResponse)
+def release_hold(req: ServoHoldOwnerRequest):
+    """Drop one internal owner's hold. Other owners (a user's explicit hold) keep the arm."""
+    global _look_hold_timer
+    if _look_hold_timer is not None:
+        _look_hold_timer.cancel()
+        _look_hold_timer = None
+    svc = _svc()
+    released = _release_look(svc)
+    state.logger.info("servo hold release by %s: released=%s, still held by %s",
+                      req.owner, released, hold.holder(svc))
+    return {"status": "ok"}
+
+
 @router.post("/servo/move", response_model=ServoMoveResponse)
 def move_servo(req: ServoMoveRequest):
     """Send joint positions to servo motors with smooth interpolation."""
@@ -252,27 +315,36 @@ def move_servo(req: ServoMoveRequest):
             known_pose = False
         if not known_pose:
             raise HTTPException(503, "Cannot enforce motion speed limit without a valid current pose")
-    eff_duration = min_move_duration(policy, req.positions, current, req.duration)
+    # Safety gate (SAFETY.md motion.max_cog_offset_mm): an absolute pose that would lean the
+    # lamp back further than recordings may is cut short, the same cap the tracker obeys.
+    target, clamped = req.positions, None
+    if policy and policy.motion and policy.motion.max_cog_offset_mm is not None:
+        target, fraction = limit_lean_back(current, req.positions, policy.motion.max_cog_offset_mm)
+        if fraction < 1.0:
+            clamped = target
+            state.logger.warning("move: cut to %.0f%% — would lean the lamp back past %s mm",
+                                 fraction * 100, policy.motion.max_cog_offset_mm)
+    eff_duration = min_move_duration(policy, target, current, req.duration)
 
     errors = {}
     actual = {}
 
     try:
-        svc.move_and_hold(req.positions, duration=eff_duration)
+        svc.move_and_hold(target, duration=eff_duration)
     except Exception as e:
         errors["move"] = str(e)
 
     try:
         obs = svc.get_positions()
-        for joint, target in req.positions.items():
+        for joint, goal in target.items():
             measured = float(obs[joint])
             if not math.isfinite(measured):
                 raise ValueError(f"Non-finite position for {joint}")
             actual[joint] = measured
-            error = abs(measured - target)
+            error = abs(measured - goal)
             if error > 5.0:
                 errors[joint] = (
-                    f"position error {error:.1f} (target={target:.1f}, actual={measured:.1f})"
+                    f"position error {error:.1f} (target={goal:.1f}, actual={measured:.1f})"
                 )
     except Exception as e:
         errors["read_position"] = str(e)
@@ -280,7 +352,7 @@ def move_servo(req: ServoMoveRequest):
     return {
         "status": "error" if "move" in errors else "ok",
         "requested": req.positions,
-        "clamped": None,
+        "clamped": clamped,
         "actual": actual,
         "duration": eff_duration,
         "errors": errors if errors else None,
@@ -335,6 +407,26 @@ def stop_servos():
     return {"status": "ok"}
 
 
+@router.post("/servo/contact/learn", response_model=StatusResponse)
+def learn_contact_profile(req: ServoContactLearnRequest):
+    """Start the contact stop's learn run in the background; progress is on /health.
+
+    Clear the space around the arm first: whatever it touches is learned as normal.
+    """
+    svc = _svc_connected()
+    learn = getattr(svc, "learn_contact_profile", None)
+    if learn is None:
+        raise HTTPException(409, "This motion driver has no contact profile")
+    recordings = req.recordings or [
+        r for r in svc.get_available_recordings() if not r.startswith("music_")
+    ]
+    try:
+        learn(recordings, req.runs)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    return {"status": "ok"}
+
+
 @router.get("/servo/position", response_model=ServoPositionResponse)
 def get_servo_position():
     """Read current servo joint positions."""
@@ -385,6 +477,8 @@ def aim_servo(req: ServoAimRequest):
     """Aim the device head to a named direction."""
     if _sleep_servo_locked():
         raise HTTPException(409, "Device is sleeping; motion was not started")
+    # An aim owns the body: a still emotion's pending idle resume must not swing it back.
+    state.cancel_still_idle_timer()
     svc = _svc_connected()
     try:
         current = svc.get_positions()
@@ -506,6 +600,7 @@ def start_tracking(req: ServoTrackRequest):
         target_label=req.target,
         camera_capture=state.camera_capture,
         animation_service=state.animation_service,
+        max_duration_s=req.max_duration_s,
     )
     if not ok:
         raise HTTPException(400, state.tracker_service.last_error or "Failed to initialize tracker")

@@ -3,11 +3,12 @@ import os
 import threading
 import time
 from typing import Any, List, Union
-from ..base import ServiceBase
+from ..base import Priority, ServiceBase, ServiceEvent
 from hal import config
 from hal.presets import RGB_CMD_PAINT, RGB_CMD_SOLID
 from hal.safety.policy import clamp_color
 from hal.board.board import board_profile
+from .presentation import GuardedFrame
 
 logger = logging.getLogger("hal.rgb")
 
@@ -196,7 +197,27 @@ class RGBService(ServiceBase):
             r, g, b = self._driver.getPixelColor(index)
             return (r << 16) | (g << 8) | b
 
+    def dispatch(self, event_type: str, payload: Any, priority=Priority.NORMAL):
+        if not isinstance(payload, GuardedFrame):
+            return super().dispatch(event_type, payload, priority)
+        # Validate inside the same mailbox lock as ordinary commands. A revoked
+        # speech frame must not evict a newer explicit solid/off request.
+        with self._event_lock:
+            if not self._running.is_set() or not payload.valid():
+                return
+            event = ServiceEvent(event_type, payload, priority)
+            if self._current_event is None or priority <= self._current_event.priority:
+                self._current_event = event
+                self._event_available.set()
+
     def handle_event(self, event_type: str, payload: Any):
+        if isinstance(payload, GuardedFrame):
+            # Check after acquiring the device lock: queue admission alone is
+            # insufficient when a prior SPI write was slow or speech was stopped.
+            with self._driver_lock:
+                if payload.valid():
+                    self.handle_event(event_type, payload.value)
+            return
         if event_type == RGB_CMD_SOLID:
             self._handle_solid(payload)
         elif event_type == RGB_CMD_PAINT:

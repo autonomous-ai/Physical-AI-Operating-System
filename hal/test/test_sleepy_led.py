@@ -32,7 +32,7 @@ class _PendingRestore:
 
 class TestSleepyLED(unittest.TestCase):
     _STATE_FIELDS = (
-        "rgb_service", "animation_service", "voice_service", "tts_service", "music_service",
+        "_speech_led", "rgb_service", "animation_service", "voice_service", "tts_service", "music_service",
         "_sleeping", "_current_emotion", "_mic_muted", "_speaker_muted",
         "_sleepy_auto_muted_mic", "_sleepy_auto_muted_speaker", "_mic_muted_led",
         "_restore_timer", "_effect_thread", "_effect_stop", "_effect_name",
@@ -41,6 +41,8 @@ class TestSleepyLED(unittest.TestCase):
 
     def setUp(self):
         self.saved = {name: getattr(state, name) for name in self._STATE_FIELDS}
+        state._speech_led = mock.Mock(submit=lambda request:
+                                     state._present_tts_led(request, lambda: True))
         state.rgb_service = _FakeRGB()
         state.animation_service = None
         state.voice_service = None

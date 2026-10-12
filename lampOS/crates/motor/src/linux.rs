@@ -241,7 +241,7 @@ pub fn inspect_once(
 
 fn empty_result(config: &InspectionConfig) -> InspectionResult {
     InspectionResult {
-        schema_version: 1,
+        schema_version: 2,
         unit_id: config.unit_id.as_str().to_owned(),
         unit_identity_verified: false,
         requested_device: config.device.clone(),

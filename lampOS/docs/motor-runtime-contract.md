@@ -88,8 +88,10 @@ runtime writer. It changes no torque, speed, acceleration, goal time, homing,
 mode, limit, EEPROM or other register.
 
 Inspection uses five separate all-five sync reads: `(3,2)`, `(9,4)`, `(31,3)`,
-`(40,8)`, `(56,15)`. Model 777, position mode 0, calibration span and homing must
-match. In the profile read, torque-enable is byte 0, acceleration byte 1, goal time
+`(40,8)`, `(56,15)`. Model 777, position mode 0 and the explicitly bound
+EEPROM limits/homing must match. Shared software normalization ranges/sign remain
+separate; no offset is applied twice. Every endpoint, generated command and
+readback must fit both the software qualification and independent EEPROM bounds. In the profile read, torque-enable is byte 0, acceleration byte 1, goal time
 bytes 4–5, and speed bytes 6–7; the unrelated current goal position is ignored.
 Admission requires torque-enable exactly 1; zero or any unknown value latches a
 fault. It never enables torque. These settings are read once per explicit

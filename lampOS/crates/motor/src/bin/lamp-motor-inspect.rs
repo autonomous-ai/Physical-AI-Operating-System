@@ -3,7 +3,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-motor-inspect --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY\n\nRead-only Linux inspection: five pings and four five-servo register reads.\nNo register writes or torque/motion commands. Stop all foreign bus owners first.\nThe lock directory must already exist as 0700 under trusted non-writable ancestors.\nOpening an unqualified serial adapter may change modem lines. Hardware review is required.\n";
+const USAGE: &str = "lamp-motor-inspect --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY\n\nRead-only Linux inspection: five pings and five five-servo register reads.\nNo register writes or torque/motion commands. Stop all foreign bus owners first.\nThe lock directory must already exist as 0700 under trusted non-writable ancestors.\nOpening an unqualified serial adapter may change modem lines. Hardware review is required.\n";
 
 #[derive(Debug)]
 struct Arguments {

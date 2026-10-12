@@ -44,6 +44,17 @@ impl MatchedReply {
         })
     }
 
+    /// Registers 40..=47. All numeric fields remain unscaled register values.
+    pub fn torque_and_profile(&self) -> Result<RawMotionProfile, DecodeError> {
+        let data = self.read_bytes(ReadWindow::TORQUE_AND_PROFILE)?;
+        let mut bytes = [0; 8];
+        bytes.copy_from_slice(data);
+        Ok(RawMotionProfile {
+            joint: self.joint(),
+            bytes,
+        })
+    }
+
     /// Registers 56..=70, including otherwise uninterpreted gap bytes.
     pub fn telemetry(&self) -> Result<RawTelemetry, DecodeError> {
         let data = self.read_bytes(ReadWindow::TELEMETRY)?;
@@ -53,6 +64,35 @@ impl MatchedReply {
             joint: self.joint(),
             bytes,
         })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RawMotionProfile {
+    joint: Joint,
+    bytes: [u8; 8],
+}
+impl RawMotionProfile {
+    pub const fn joint(self) -> Joint {
+        self.joint
+    }
+    pub const fn bytes(&self) -> &[u8; 8] {
+        &self.bytes
+    }
+    pub const fn torque_enable_raw(self) -> u8 {
+        self.bytes[0]
+    }
+    pub const fn acceleration_raw(self) -> u8 {
+        self.bytes[1]
+    }
+    pub fn goal_position_raw(self) -> u16 {
+        u16::from_le_bytes([self.bytes[2], self.bytes[3]])
+    }
+    pub fn goal_time_raw(self) -> u16 {
+        u16::from_le_bytes([self.bytes[4], self.bytes[5]])
+    }
+    pub fn goal_speed_raw(self) -> u16 {
+        u16::from_le_bytes([self.bytes[6], self.bytes[7]])
     }
 }
 

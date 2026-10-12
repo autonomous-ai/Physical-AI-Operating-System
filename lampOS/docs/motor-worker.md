@@ -34,7 +34,10 @@ following a final symlink or blocking on a FIFO. Freeze it before spawning.
 
 - Absolute device and trusted private lock directory; observed filesystem device,
   inode, character-device number and major/minor identity.
-- Explicit unit label and exactly five calibration records keyed by joint ID.
+- Explicit unit label, five software normalization records and five separately
+  observed EEPROM `register_binding` records keyed by joint ID. File homing
+  values are preserved as provenance; runtime never writes them. Missing
+  binding evidence has no fallback. See [register binding](motor-register-binding.md).
 - Nonzero qualification-record identity, original monotonic validity interval,
   and five qualified normalized ranges, velocity/acceleration bounds, exact raw
   profiles, load/speed caps, tracking error and endpoint tolerance.

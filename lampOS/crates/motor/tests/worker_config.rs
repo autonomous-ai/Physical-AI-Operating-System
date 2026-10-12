@@ -21,6 +21,12 @@ fn config() -> Config {
             range_min: 1000,
             range_max: 3000,
         }),
+        register_binding: std::array::from_fn(|i| RegisterBinding {
+            joint: i as u8 + 1,
+            minimum: 1000,
+            maximum: 3000,
+            homing_offset: 0,
+        }),
         qualification: Qualification {
             record: [7; 32],
             valid_from_us: 1,
@@ -148,4 +154,144 @@ fn oversized_serialization_does_not_consume_the_next_channel_sequence() {
             .unwrap(),
         Some(Control::Stop {})
     ));
+}
+
+fn matched_registers(
+    joint: lamp_motor::Joint,
+    window: lamp_motor::protocol::ReadWindow,
+    bytes: &[u8],
+) -> lamp_motor::protocol::MatchedReply {
+    use lamp_motor::protocol::{ReadOnlyRequest, StatusParser};
+    let mut frame = vec![255, 255, joint.id(), bytes.len() as u8 + 2, 0];
+    frame.extend(bytes);
+    frame.push(!frame[2..].iter().fold(0u8, |a, b| a.wrapping_add(*b)));
+    let mut tracker = ReadOnlyRequest::read(joint, window).track_replies();
+    let mut result = None;
+    StatusParser::default().feed(&frame, |event| {
+        result = Some(tracker.accept(event).unwrap())
+    });
+    tracker.finish().unwrap();
+    result.unwrap()
+}
+
+#[test]
+fn observed_4ace_shared_normalization_and_eeprom_are_distinct_explicit_inputs() {
+    use lamp_motor::{Joint, protocol::ReadWindow, units::EncoderCounts};
+    // Recorded read-only on 4ace, 2026-10-11 23:44 UTC; no profile, travel,
+    // velocity, acceleration, placement or mechanical safety claim follows.
+    let shared = [(847, 3275), (0, 4095), (0, 4095), (621, 3254), (1464, 3071)];
+    let observed = [
+        (832, 3268, -1754),
+        (0, 4095, 1434),
+        (0, 4095, 1339),
+        (823, 3057, -1823),
+        (1657, 3098, -1880),
+    ];
+    let positions = [2015, 2048, 2047, 2039, 1765];
+    let mut data = serde_json::to_value(config()).unwrap();
+    data["calibration"] =
+        serde_json::json!(shared.iter().enumerate().map(|(i,(min,max))| serde_json::json!({
+        "joint":i+1,"id":i+1,"drive_mode":0,"homing_offset":0,"range_min":min,"range_max":max
+    })).collect::<Vec<_>>());
+    data["register_binding"] = serde_json::json!(
+        observed
+            .iter()
+            .enumerate()
+            .map(|(i, (min, max, homing))| serde_json::json!({
+                "joint":i+1,"minimum":min,"maximum":max,"homing_offset":homing
+            }))
+            .collect::<Vec<_>>()
+    );
+    let config: Config = serde_json::from_value(data.clone())
+        .expect("shared normalization requires explicit separate EEPROM binding");
+    let validated = config.validate().unwrap();
+    let bound = validated.calibration.bind(&validated.unit).unwrap();
+    for joint in Joint::ALL {
+        let i = joint.index();
+        let (min, max, offset) = observed[i];
+        let limits = matched_registers(
+            joint,
+            ReadWindow::POSITION_LIMITS,
+            &[(min as u16).to_le_bytes(), (max as u16).to_le_bytes()].concat(),
+        )
+        .position_limits()
+        .unwrap();
+        let word = if offset < 0 {
+            (-offset as u16) | 0x800
+        } else {
+            offset as u16
+        };
+        let homing = matched_registers(
+            joint,
+            ReadWindow::HOMING_AND_MODE,
+            &[word as u8, (word >> 8) as u8, 0],
+        )
+        .homing_and_mode()
+        .unwrap();
+        let calibration = bound.joint(joint);
+        calibration
+            .compare_registers(limits, homing)
+            .expect("actual EEPROM must not be compared to the shared JSON span or JSON0 homing");
+        let expected =
+            (f64::from(positions[i] - shared[i].0) / f64::from(shared[i].1 - shared[i].0)) * 200.0
+                - 100.0;
+        assert!(
+            (calibration
+                .normalize(EncoderCounts::new(positions[i]).unwrap())
+                .unwrap()
+                .get()
+                - expected)
+                .abs()
+                < 1e-10
+        );
+        assert_eq!(
+            calibration.homing_offset().get(),
+            0,
+            "source JSON retained, not rewritten"
+        );
+        let changed = matched_registers(
+            joint,
+            ReadWindow::HOMING_AND_MODE,
+            &[(word ^ 1) as u8, ((word ^ 1) >> 8) as u8, 0],
+        )
+        .homing_and_mode()
+        .unwrap();
+        assert!(
+            calibration.compare_registers(limits, changed).is_err(),
+            "hardware changes remain rejected"
+        );
+    }
+    data.as_object_mut().unwrap().remove("register_binding");
+    assert!(
+        serde_json::from_value::<Config>(data).is_err(),
+        "no auto-probe or calibration fallback"
+    );
+}
+
+#[test]
+fn separate_register_binding_rejects_missing_duplicate_and_invalid_hardware() {
+    let original = config();
+    for (field, value) in [
+        ("minimum", serde_json::json!(-1)),
+        ("maximum", serde_json::json!(4096)),
+        ("homing_offset", serde_json::json!(3000)),
+    ] {
+        let mut data = serde_json::to_value(&original).unwrap();
+        data["register_binding"][0][field] = value;
+        assert!(
+            serde_json::from_value::<Config>(data)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+    }
+    let mut duplicate = original.clone();
+    duplicate.register_binding[1].joint = 1;
+    assert!(duplicate.validate().is_err());
+    let mut swapped = original;
+    swapped.register_binding.swap(0, 4);
+    assert!(
+        swapped.validate().is_ok(),
+        "explicit typed keys, not array order, bind the observations"
+    );
 }

@@ -110,8 +110,9 @@ records keyed by typed joint. It rejects repeated joints, ID/key mismatch,
 the independently supplied expected unit ID to match. This checks caller-supplied
 identity consistency; it does not authenticate a device. There is no default
 calibration, repository file search, or fallback to another unit's values.
-Provisioning/file parsing is outside this crate and must preserve the
-validation boundary without narrowing or truncating untrusted numeric fields.
+The runtime configuration preserves this validation boundary without narrowing
+or truncating untrusted numeric fields. It now requires a separate complete
+`register_binding` array; missing EEPROM evidence fails closed.
 
 Normalization matches the pinned legacy `RANGE_M100_100` arithmetic for valid
 inputs:
@@ -138,7 +139,12 @@ values are rejected rather than silently clamped. This preserves faults for the
 future controller to handle.
 
 `JointCalibration::compare_registers` compares supplied limit and homing/mode
-readbacks with calibration, requiring the same joint and position mode 0. It
+readbacks with the explicit EEPROM binding, requiring the same joint and position
+mode 0. `UnitCalibration::with_register_bindings` retains shared software ranges
+and sign separately from observed per-unit hardware limits/homing. The original
+`new` constructor declares that its same supplied values describe both; it does
+not probe or fall back after a mismatch. Runtime configuration always uses the
+explicit separate constructor. It
 checks numeric consistency only. Model/firmware identity, readback freshness,
 physical zero/sign, safe spans, velocity/acceleration scales, collision clearance,
 and stability still need independent qualification. An inherited calibration
@@ -169,8 +175,8 @@ and SIGTERM are consumed by a nonblocking signalfd in the single-threaded CLI;
 cancellation is checked between operations. The library does not install signal
 handlers or spawn processes.
 
-The fixed plan is five individual pings (IDs 1 through 5), then four all-five
-sync reads: model, position limits, homing/mode and telemetry. That is nine
+The fixed plan is five individual pings (IDs 1 through 5), then five all-five
+sync reads: model, position limits, homing/mode, torque/profile and telemetry. That is ten
 requests and 25 status replies on success. Every reported model must be 777
 before STS3215-specific decoding continues. Readback contains raw register units;
 there is no new physical-unit claim or automatic calibration update.
@@ -183,7 +189,7 @@ there is no new physical-unit claim or automatic calibration update.
 | Poll / cancellation | Each requested poll wait is at most 2 ms; check cancellation and time before/after I/O. The callback must itself be nonblocking. |
 | Telemetry target | All-five telemetry transaction at most 25 ms from transaction entry through final checked reply. This is an unverified target, not measured performance. |
 | Retry | None. First fault terminates the complete inspection; no reuse of a timed-out parser, pending reply or partial request. |
-| Storage | At most nine transaction reports and five replies each; bounded fixed parser and I/O arrays; error detail capped at 192 characters. |
+| Storage | At most ten transaction reports and five replies each; bounded fixed parser and I/O arrays; error detail capped at 192 characters. |
 
 Before every partial request write, already readable bytes abort the transaction
 as prior traffic. Checksum/status/length/ID faults, duplicates, noise, unexpected
@@ -201,7 +207,7 @@ each decoded reply's read completion, transaction end and cleanup end. Driver
 write acceptance is not wire delivery, read completion is not a device sample
 timestamp, and the five replies are not a simultaneous sample. Partial readbacks
 from a failed transaction remain diagnostic observations. `completed` requires
-all nine transactions and cleanup to succeed; freshness, authenticated unit
+all ten transactions and cleanup to succeed; freshness, authenticated unit
 identity and hardware qualification remain explicitly false/unproven.
 
 `O_NONBLOCK` and small buffers bound the application work; they cannot preempt
@@ -362,3 +368,9 @@ core and Linux owner. It is not activated by `lamp-live`, and the read-only
 inspector remains read-only. See [motor worker](motor-worker.md) for provisioning,
 priority cancellation, finite lifetimes, receipts, supervision and verification
 limits. No physical motion or serial I/O was used to implement this layer.
+
+The extended inspector report uses schema version 2. The new `(40,8)` read
+retains all eight bytes and reports torque enable, acceleration, goal position,
+goal time and goal speed as raw register values. It performs no register write
+and makes no physical-unit or qualified-motion claim. See
+[motor register binding](motor-register-binding.md) for the observed V1 split.

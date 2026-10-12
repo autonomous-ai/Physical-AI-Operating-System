@@ -30,11 +30,12 @@ pub enum Stage {
     Model,
     Limits,
     HomingMode,
+    TorqueAndProfile,
     Telemetry,
 }
 
 impl Stage {
-    const PLAN: [Self; 9] = [
+    const PLAN: [Self; 10] = [
         Self::Ping1,
         Self::Ping2,
         Self::Ping3,
@@ -43,6 +44,7 @@ impl Stage {
         Self::Model,
         Self::Limits,
         Self::HomingMode,
+        Self::TorqueAndProfile,
         Self::Telemetry,
     ];
 
@@ -56,6 +58,7 @@ impl Stage {
             Self::Model => ReadWindow::MODEL_NUMBER,
             Self::Limits => ReadWindow::POSITION_LIMITS,
             Self::HomingMode => ReadWindow::HOMING_AND_MODE,
+            Self::TorqueAndProfile => ReadWindow::TORQUE_AND_PROFILE,
             Self::Telemetry => ReadWindow::TELEMETRY,
         };
         ReadOnlyRequest::sync_read(&Joint::ALL, window)
@@ -145,6 +148,14 @@ pub enum Readback {
         homing_counts: i16,
         operating_mode_raw: u8,
     },
+    TorqueAndProfile {
+        register_bytes: [u8; 8],
+        torque_enable_raw: u8,
+        acceleration_raw: u8,
+        goal_position_raw: u16,
+        goal_time_raw: u16,
+        goal_speed_raw: u16,
+    },
     Telemetry {
         register_bytes: [u8; 15],
         position_raw: u16,
@@ -192,6 +203,17 @@ fn decode(stage: Stage, reply: MatchedReply, read_at: u64) -> Result<JointReadba
                 homing_word: value.homing_word(),
                 homing_counts: value.homing_offset().get(),
                 operating_mode_raw: value.operating_mode_raw(),
+            }
+        }
+        Stage::TorqueAndProfile => {
+            let value = reply.torque_and_profile().map_err(decode_error)?;
+            Readback::TorqueAndProfile {
+                register_bytes: *value.bytes(),
+                torque_enable_raw: value.torque_enable_raw(),
+                acceleration_raw: value.acceleration_raw(),
+                goal_position_raw: value.goal_position_raw(),
+                goal_time_raw: value.goal_time_raw(),
+                goal_speed_raw: value.goal_speed_raw(),
             }
         }
         Stage::Telemetry => {

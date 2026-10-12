@@ -1202,3 +1202,55 @@ fn input_end_or_new_owner_revokes_partial_motion_before_the_next_byte() {
         assert_eq!(rig.wire.borrow().discards, 1);
     }
 }
+
+#[test]
+fn shared_normalization_never_widens_separate_eeprom_command_bounds() {
+    use lamp_motor::calibration::RegisterBindingRecord;
+    let mut rig = Rig::new();
+    rig.calibration = UnitCalibration::with_register_bindings(
+        unit(),
+        Joint::ALL.map(|joint| CalibrationRecord {
+            joint,
+            id: joint.id() as u16,
+            drive_mode: 0,
+            homing_offset: 0,
+            range_min: 1000,
+            range_max: 3000,
+        }),
+        Joint::ALL.map(|joint| RegisterBindingRecord {
+            joint,
+            minimum: 1800,
+            maximum: 2200,
+            homing_offset: 333,
+        }),
+    )
+    .unwrap();
+    rig.wire.borrow_mut().minimum = 1800;
+    rig.wire.borrow_mut().maximum = 2200;
+    rig.motor = MotorControl::new(
+        Port {
+            wire: rig.wire.clone(),
+            clock: rig.clock.clone(),
+        },
+        rig.clock.clone(),
+        boot(),
+        BootId::new([2; 16]).unwrap(),
+        &unit(),
+        rig.calibration.clone(),
+        Timing::new(40_000, 5_000, 200_000, 500_000, 10_000).unwrap(),
+    )
+    .unwrap();
+    rig.ready();
+    let (permit, placement) = rig.authority();
+    // +30 shared units maps to2300, beyond the separately bound hardware2200.
+    assert_eq!(
+        rig.motor
+            .start_segment(permit, placement, [n(30.0); 5], 80_000),
+        Err(Error::Position(Joint::BaseYaw))
+    );
+    assert!(rig.wire.borrow().goals.is_empty());
+    assert!(
+        rig.motor.stop_report().is_some(),
+        "discovered register/range fault remains terminal"
+    );
+}

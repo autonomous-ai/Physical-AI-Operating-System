@@ -245,7 +245,7 @@ impl ReadStage {
             Self::Model => ReadWindow::MODEL_NUMBER,
             Self::Limits => ReadWindow::POSITION_LIMITS,
             Self::Homing => ReadWindow::HOMING_AND_MODE,
-            Self::Profile => ReadWindow::new(40, 8).expect("fixed torque/profile window"),
+            Self::Profile => ReadWindow::TORQUE_AND_PROFILE,
             Self::Telemetry => ReadWindow::TELEMETRY,
         }
     }
@@ -516,6 +516,13 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
         for joint in Joint::ALL {
             let i = joint.index();
             let limits = qualification.limits[i];
+            if !bound
+                .joint(joint)
+                .register_binding()
+                .contains(endpoint_counts[i])
+            {
+                return Err(Error::Position(joint));
+            }
             let profile = self.profiles[i].ok_or(Error::NotInspected)?;
             // A position command must not silently re-engage a disabled servo.
             // Never repair torque, speed or acceleration as part of admission.
@@ -787,9 +794,10 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
                         self.homing[i] = Some(homing);
                     }
                     ReadStage::Profile => {
-                        let mut value = [0; 8];
-                        value.copy_from_slice(reply.parameters());
-                        self.profiles[i] = Some(value);
+                        let value = reply
+                            .torque_and_profile()
+                            .map_err(|_| Error::Readback(joint))?;
+                        self.profiles[i] = Some(*value.bytes());
                     }
                     ReadStage::Telemetry => {
                         let value = reply.telemetry().map_err(|_| Error::Readback(joint))?;
@@ -937,12 +945,16 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .position()
             .single_turn_counts()
             .map_err(|_| Error::Position(joint))?;
-        self.calibration
+        let calibration = self
+            .calibration
             .bind(self.calibration.unit_id())
             .map_err(Error::Calibration)?
-            .joint(joint)
-            .normalize(counts)
-            .map_err(Error::Calibration)
+            .joint(joint);
+        let normalized = calibration.normalize(counts).map_err(Error::Calibration)?;
+        if !calibration.register_binding().contains(counts) {
+            return Err(Error::Position(joint));
+        }
+        Ok(normalized)
     }
 
     fn positions(
@@ -955,6 +967,13 @@ impl<P: BusPort, C: Clock> MotorControl<P, C> {
             .bind(self.calibration.unit_id())
             .map_err(Error::Calibration)?;
         for joint in Joint::ALL {
+            if !bound
+                .joint(joint)
+                .register_binding()
+                .contains(counts[joint.index()])
+            {
+                return Err(Error::Position(joint));
+            }
             result[joint.index()] = bound
                 .joint(joint)
                 .normalize(counts[joint.index()])

@@ -117,6 +117,7 @@ impl SyntheticPort {
                     }
                     9 => vec![0, 0, 0xff, 0x0f],
                     31 => vec![1, 8, 0],
+                    40 => vec![1, 20, 0x34, 0x12, 0x78, 0x56, 0xbc, 0x1a],
                     56 => vec![0; 15],
                     _ => panic!("arbitrary register read"),
                 }
@@ -194,20 +195,20 @@ impl PortIo for SyntheticPort {
 }
 
 #[test]
-fn finite_plan_sends_only_nine_read_only_requests_and_decodes_25_replies() {
+fn finite_plan_sends_only_ten_read_only_requests_and_decodes_30_replies() {
     let (mut io, mut clock) = fixture();
     let result = run(&mut io, &mut clock);
     assert!(result.completed, "{:?}", result.fault);
-    assert_eq!(result.transactions.len(), 9);
+    assert_eq!(result.transactions.len(), 10);
     assert_eq!(
         result
             .transactions
             .iter()
             .map(|t| t.replies.len())
             .sum::<usize>(),
-        25
+        30
     );
-    assert_eq!(io.requests.len(), 9);
+    assert_eq!(io.requests.len(), 10);
     assert!(
         io.requests
             .iter()
@@ -444,4 +445,38 @@ fn clock_regression_and_failed_cancellation_source_cannot_admit_another_operatio
     let result = run(&mut io, &mut BrokenCancellation);
     assert!(matches!(result.fault, Some(Fault::CancellationIo { .. })));
     assert_eq!(io.read_calls, 0);
+}
+
+#[test]
+fn read_only_profile_window_reports_all_raw_bytes_without_scale_or_write() {
+    let (mut io, mut clock) = fixture();
+    let report = run(&mut io, &mut clock);
+    assert!(report.completed);
+    let stage = report
+        .transactions
+        .iter()
+        .find(|t| t.stage == Stage::TorqueAndProfile)
+        .unwrap();
+    assert_eq!(stage.replies.len(), 5);
+    for reply in &stage.replies {
+        assert!(matches!(
+            reply.data,
+            Readback::TorqueAndProfile {
+                register_bytes: [1, 20, 0x34, 0x12, 0x78, 0x56, 0xbc, 0x1a],
+                torque_enable_raw: 1,
+                acceleration_raw: 20,
+                goal_position_raw: 0x1234,
+                goal_time_raw: 0x5678,
+                goal_speed_raw: 0x1abc,
+            }
+        ));
+    }
+    assert!(io.requests.iter().all(|p| p[4] == 1 || p[4] == 0x82));
+    assert_eq!(
+        io.requests
+            .iter()
+            .filter(|p| p[4] == 0x82 && p[5..7] == [40, 8])
+            .count(),
+        1
+    );
 }

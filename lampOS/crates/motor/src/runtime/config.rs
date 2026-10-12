@@ -1,7 +1,7 @@
 //! Explicit, bounded provisioning. This is trusted evidence, not a safety proof.
 use crate::{
     Joint,
-    calibration::{CalibrationRecord, UnitCalibration, UnitId},
+    calibration::{CalibrationRecord, RegisterBindingRecord, UnitCalibration, UnitId},
     control::{QualifiedEnvelope, Timing},
     trajectory::{JointEnvelope, RawProfile},
     units::NormalizedPosition,
@@ -22,7 +22,10 @@ pub struct Config {
     pub lock_directory: PathBuf,
     pub expected_device: Identity,
     pub unit: String,
+    /// Software normalization/sign from the explicitly selected V1 source.
     pub calibration: [Calibration; 5],
+    /// Separately observed per-unit EEPROM. Missing evidence has no fallback.
+    pub register_binding: [RegisterBinding; 5],
     pub qualification: Qualification,
     pub timing: Bounds,
     pub placement_source: BootId,
@@ -47,6 +50,14 @@ pub struct Calibration {
     pub homing_offset: i32,
     pub range_min: i32,
     pub range_max: i32,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterBinding {
+    pub joint: u8,
+    pub minimum: i32,
+    pub maximum: i32,
+    pub homing_offset: i32,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -109,9 +120,24 @@ impl Config {
                 range_max: c.range_max,
             });
         }
-        let calibration =
-            UnitCalibration::new(unit.clone(), records.try_into().expect("five records"))
-                .map_err(invalid)?;
+        let registers = self
+            .register_binding
+            .map(|r| {
+                Ok(RegisterBindingRecord {
+                    joint: Joint::try_from(r.joint).map_err(invalid)?,
+                    minimum: r.minimum,
+                    maximum: r.maximum,
+                    homing_offset: r.homing_offset,
+                })
+            })
+            .into_iter()
+            .collect::<io::Result<Vec<_>>>()?;
+        let calibration = UnitCalibration::with_register_bindings(
+            unit.clone(),
+            records.try_into().expect("five records"),
+            registers.try_into().expect("five register bindings"),
+        )
+        .map_err(invalid)?;
         let mut limits = Vec::with_capacity(5);
         for e in self.qualification.joints {
             limits.push(

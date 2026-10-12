@@ -77,6 +77,58 @@ pub struct CalibrationRecord {
     pub range_max: i32,
 }
 
+/// Exact independently observed EEPROM binding. Software normalization can use
+/// V1's shared ranges while each assembled unit retains its own EEPROM values.
+/// This is comparison evidence only; no constructor writes any register.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RegisterBindingRecord {
+    pub joint: Joint,
+    pub minimum: i32,
+    pub maximum: i32,
+    pub homing_offset: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RegisterBinding {
+    minimum: EncoderCounts,
+    maximum: EncoderCounts,
+    homing_offset: HomingOffset,
+}
+impl RegisterBinding {
+    fn validate(record: RegisterBindingRecord) -> Result<Self, CalibrationError> {
+        let units = |error| CalibrationError::Units {
+            joint: record.joint,
+            error,
+        };
+        let minimum = EncoderCounts::new(record.minimum).map_err(units)?;
+        let maximum = EncoderCounts::new(record.maximum).map_err(units)?;
+        if minimum >= maximum {
+            return Err(CalibrationError::InvalidSpan {
+                joint: record.joint,
+                min: minimum.get(),
+                max: maximum.get(),
+            });
+        }
+        Ok(Self {
+            minimum,
+            maximum,
+            homing_offset: HomingOffset::new(record.homing_offset).map_err(units)?,
+        })
+    }
+    pub const fn minimum(self) -> EncoderCounts {
+        self.minimum
+    }
+    pub const fn maximum(self) -> EncoderCounts {
+        self.maximum
+    }
+    pub const fn homing_offset(self) -> HomingOffset {
+        self.homing_offset
+    }
+    pub fn contains(self, position: EncoderCounts) -> bool {
+        self.minimum <= position && position <= self.maximum
+    }
+}
+
 /// Software normalization sign, not an independently readable servo register.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DriveMode {
@@ -91,6 +143,7 @@ pub struct JointCalibration {
     homing_offset: HomingOffset,
     min: EncoderCounts,
     max: EncoderCounts,
+    registers: RegisterBinding,
 }
 
 impl JointCalibration {
@@ -129,6 +182,14 @@ impl JointCalibration {
             homing_offset,
             min,
             max,
+            // The legacy constructor explicitly binds the same values. The
+            // shared-normalization constructor below always requires a separate
+            // complete register binding; it never retries with guessed values.
+            registers: RegisterBinding {
+                minimum: min,
+                maximum: max,
+                homing_offset,
+            },
         })
     }
 
@@ -146,6 +207,9 @@ impl JointCalibration {
     }
     pub const fn range_max(self) -> EncoderCounts {
         self.max
+    }
+    pub const fn register_binding(self) -> RegisterBinding {
+        self.registers
     }
 
     /// Convert an already homing-adjusted position. Unlike legacy clipping,
@@ -212,17 +276,19 @@ impl JointCalibration {
                 observed: homing.operating_mode_raw(),
             });
         }
-        if limits.min().raw() != self.min.get() || limits.max().raw() != self.max.get() {
+        if limits.min().raw() != self.registers.minimum.get()
+            || limits.max().raw() != self.registers.maximum.get()
+        {
             return Err(CalibrationError::ReadbackSpan {
                 joint: self.joint,
-                expected: [self.min.get(), self.max.get()],
+                expected: [self.registers.minimum.get(), self.registers.maximum.get()],
                 observed: [limits.min().raw(), limits.max().raw()],
             });
         }
-        if homing.homing_offset() != self.homing_offset {
+        if homing.homing_offset() != self.registers.homing_offset {
             return Err(CalibrationError::ReadbackHoming {
                 joint: self.joint,
-                expected: self.homing_offset.get(),
+                expected: self.registers.homing_offset.get(),
                 observed: homing.homing_offset().get(),
             });
         }
@@ -253,6 +319,27 @@ impl UnitCalibration {
         let joints =
             joints.map(|value| value.expect("all five typed calibration records are present"));
         Ok(Self { unit, joints })
+    }
+
+    /// Bind shared software normalization/sign to this unit's explicit EEPROM
+    /// observation. File homing is retained as provenance, never applied to the
+    /// transform or substituted for the independently observed EEPROM offset.
+    pub fn with_register_bindings(
+        unit: UnitId,
+        normalization: [CalibrationRecord; JOINT_COUNT],
+        registers: [RegisterBindingRecord; JOINT_COUNT],
+    ) -> Result<Self, CalibrationError> {
+        let mut calibration = Self::new(unit, normalization)?;
+        let mut seen = [false; JOINT_COUNT];
+        for record in registers {
+            let i = record.joint.index();
+            if seen[i] {
+                return Err(CalibrationError::DuplicateJoint(record.joint));
+            }
+            seen[i] = true;
+            calibration.joints[i].registers = RegisterBinding::validate(record)?;
+        }
+        Ok(calibration)
     }
 
     pub fn unit_id(&self) -> &UnitId {

@@ -34,6 +34,10 @@ impl ReadWindow {
         address: 31,
         byte_count: 3,
     };
+    pub const TORQUE_AND_PROFILE: Self = Self {
+        address: 40,
+        byte_count: 8,
+    };
     pub const TELEMETRY: Self = Self {
         address: 56,
         byte_count: 15,

@@ -38,8 +38,11 @@ one writer per shared hardware bus. A Rust crate alone is not crash isolation.
 
 ## Named V2 architecture map
 
-The [ASCII architecture](architecture.md#runtime-responsibilities) now puts these
-proposed owners directly beside each core responsibility and worker boundary.
+The [ASCII walkthrough](architecture.md#runtime-responsibilities) separates input
+workers, the one core process and output workers, with proposed owners directly
+inside the boxes. The provider connection and two permitted direct data paths
+are shown separately; additional workers and deployment/setup/QA responsibilities
+have their own assignment list.
 Darren owns proposed expressive behavior and ring presentation; Leo reviews ring
 driver contracts, whose V1 history is predominantly his. `ndtran11-png` owns the
 proposed audio/provider/end-of-turn workstream, and `loclt1011` owns camera and

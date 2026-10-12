@@ -76,6 +76,20 @@ def test_toggle_creates_and_retires_processors_live(orchestrator):
     assert procs.motion_processor.pose is None
 
 
+def test_emotion_listens_to_detected_faces_live(orchestrator):
+    faces = orchestrator._perception_state.detected_faces
+    procs = orchestrator._processors
+
+    orchestrator.set_cloud_perception(motion=False, emotion=True, pose=False, fire_hazard=False)
+    emotion = procs.emotion_processor
+    assert emotion is not None and emotion.check in faces._subscriptors
+    assert emotion.check not in orchestrator._perception_state.frame._subscriptors
+
+    orchestrator.set_cloud_perception(motion=False, emotion=False, pose=False, fire_hazard=False)
+    assert procs.emotion_processor is None and emotion.retired
+    assert emotion.check not in faces._subscriptors
+
+
 def test_per_face_motion_follows_motion_opt_in(orchestrator, monkeypatch):
     monkeypatch.setattr(orch_module, "MotionPerFacePerception", type("MotionPerFacePerception", (_FakeProcessor,), {}))
     monkeypatch.setattr(orch_module.hal_config, "MOTION_PER_FACE_ENABLED", True)

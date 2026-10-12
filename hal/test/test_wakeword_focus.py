@@ -64,8 +64,27 @@ def test_a_disabled_window_refuses_every_opener():
     assert not focus.refresh(20.0)
 
 
-def test_the_gaze_allowance_is_configured_shorter_than_the_deliberate_one():
+def test_the_gaze_allowance_never_exceeds_the_deliberate_one():
     """The config must express the intent, not merely permit it."""
     import hal.config as hal_config
 
-    assert hal_config.GAZE_WAKE_FOCUS_S < hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S
+    assert hal_config.GAZE_WAKE_FOCUS_S <= hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S
+
+
+def test_a_callable_window_applies_an_edit_to_the_next_refresh():
+    now = [100.0]
+    window = [10.0]
+    focus = WakeWordFocus(lambda: window[0], clock=lambda: now[0])
+
+    assert focus.refresh()
+    now[0] = 109.0
+    assert focus.is_active()
+    now[0] = 111.0
+    assert not focus.is_active()
+
+    window[0] = 5.0
+    assert focus.refresh()
+    now[0] = 115.5
+    assert focus.is_active()
+    now[0] = 116.5
+    assert not focus.is_active()

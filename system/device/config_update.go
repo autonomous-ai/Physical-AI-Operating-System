@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"go.autonomous.ai/os/system/domain"
+	"go.autonomous.ai/os/system/lib/hal"
 	"go.autonomous.ai/os/system/lib/i18n"
 	"go.autonomous.ai/os/system/lib/urlnorm"
 	"go.autonomous.ai/os/system/server/config"
@@ -56,7 +58,13 @@ func (s *Service) GetPublicConfig() domain.ConfigPublicResponse {
 		CloudPerception:          s.config.CloudPerceptionSettings(),
 		VoiceInputMode:           s.config.GetVoiceInputMode(),
 		AgentName:                agentName,
-		WakePhrases:              i18n.BuildSupportedVoiceWakeWords(agentName, deviceType),
+		WakePhrases:              effectiveWakePhrases(s.config, agentName, deviceType),
+		WakePhrasesCustom:        len(s.config.WakePhrases) > 0,
+		WakePhrasesDefault:       i18n.BuildSupportedVoiceWakeWords(agentName, deviceType),
+		WakeChime:                s.config.WakeChimeEnabled(),
+		WakeFollowupS:            s.config.WakeFollowupS,
+		WakeLight:                s.config.WakeLight,
+		WakeLightEnabled:         s.config.WakeLightEnabled(),
 		DeviceID:                 deviceID,
 		Mac:                      GetDeviceMac(),
 		NetworkSSID:              s.config.NetworkSSID,
@@ -123,6 +131,7 @@ type updateChanges struct {
 	tts      bool // voice/provider changed → pushed into the running hal
 	realtime bool // realtime block sent → hal restart
 	channel  bool // messaging channel/tokens changed → re-push into gateway
+	wake     bool // owner wake phrases changed → pushed into the running hal
 
 	// cloudPerception: camera cloud opt-ins changed → pushed into the running hal.
 	cloudPerception bool
@@ -350,6 +359,27 @@ func applyVoicePipelineFields(c *config.Config, data domain.UpdateConfigRequest,
 	if data.WakeWord != nil {
 		c.WakeWord = data.WakeWord
 	}
+	if data.WakeChime != nil {
+		on := *data.WakeChime
+		c.WakeChime = &on
+	}
+	if data.WakeFollowupS != nil {
+		seconds := *data.WakeFollowupS
+		c.WakeFollowupS = &seconds
+	}
+	if data.WakeLight != nil {
+		light := *data.WakeLight
+		light.Color = slices.Clone(light.Color)
+		c.WakeLight = &light
+	}
+	if data.WakePhrases != nil {
+		next := append([]string(nil), (*data.WakePhrases)...)
+		if len(next) == 0 {
+			next = nil
+		}
+		ch.wake = !slices.Equal(c.WakePhrases, next)
+		c.WakePhrases = next
+	}
 	if data.DeepgramAPIKey != "" {
 		c.DeepgramAPIKey = data.DeepgramAPIKey
 	}
@@ -510,6 +540,23 @@ func (s *Service) UpdateConfig(data domain.UpdateConfigRequest) error {
 	if err := domain.ValidateTTSSpeed(data.TTSSpeed); err != nil {
 		return err
 	}
+	if data.WakeFollowupS != nil {
+		if err := config.ValidateWakeFollowup(*data.WakeFollowupS); err != nil {
+			return err
+		}
+	}
+	if data.WakeLight != nil {
+		if err := data.WakeLight.Validate(); err != nil {
+			return err
+		}
+	}
+	if data.WakePhrases != nil {
+		phrases, err := config.NormalizeWakePhrases(*data.WakePhrases)
+		if err != nil {
+			return err
+		}
+		data.WakePhrases = &phrases
+	}
 	// bcrypt is CPU-intensive; compute before acquiring the config lock.
 	var adminHash string
 	if data.AdminPassword != "" {
@@ -529,6 +576,10 @@ func (s *Service) UpdateConfig(data domain.UpdateConfigRequest) error {
 
 	// Serialize with MQTT wake and input-mode updates through persistence and HAL apply.
 	s.wakeApply.mu.Lock()
+	if !keepsWakeCue(s.config, data) {
+		s.wakeApply.mu.Unlock()
+		return config.ErrNoWakeCue
+	}
 
 	// Mutate inside WithLockSave so the model watcher cannot interleave.
 	var ch updateChanges
@@ -590,6 +641,9 @@ func (s *Service) fireConfigSideEffects(ch updateChanges, halHandled bool) {
 				}
 			}()
 		}
+	}
+	if ch.wake {
+		applyWakePhrases(s.config.WakePhrases)
 	}
 	// Restart HAL only when a boot-read field changed; TTS is pushed live.
 	switch {
@@ -782,4 +836,32 @@ func autonomousDefaultModel(c *config.Config) string {
 		return ""
 	}
 	return c.AutonomousDefaults.Model
+}
+
+// effectiveWakePhrases is what HAL's wake gate accepts: the owner's list when set,
+// otherwise the built-in prefixes × autonomous / device type / agent name.
+func effectiveWakePhrases(c *config.Config, agentName, deviceType string) []string {
+	if len(c.WakePhrases) > 0 {
+		return append([]string(nil), c.WakePhrases...)
+	}
+	return i18n.BuildSupportedVoiceWakeWords(agentName, deviceType)
+}
+
+// applyWakePhrases makes an owner edit live: local intents strip the new phrases, and
+// HAL re-reads config.json wake_phrases when its wake list is pushed (no restart).
+func applyWakePhrases(phrases []string) {
+	i18n.SetOwnerWakePhrases(phrases)
+	hal.SetVoiceConfig(i18n.BuildVoiceWakeWords(i18n.DeviceName()))
+}
+
+// keepsWakeCue is false when the update would leave a wake with neither chime nor light.
+func keepsWakeCue(c *config.Config, data domain.UpdateConfigRequest) bool {
+	chime, light := c.WakeChimeEnabled(), c.WakeLightEnabled()
+	if data.WakeChime != nil {
+		chime = *data.WakeChime
+	}
+	if data.WakeLight != nil {
+		light = data.WakeLight.Enabled == nil || *data.WakeLight.Enabled
+	}
+	return chime || light
 }

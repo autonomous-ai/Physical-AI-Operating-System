@@ -91,6 +91,8 @@ def test_live_opener_uses_stt_confirmation_before_granting_focus(
     service._music_is_playing.return_value = False
     service._decorator.starts_with_wake_word.side_effect = lambda text: text.lower().startswith("hello lamp")
     service._decorator.matches_wake_word_loosely.return_value = False
+    service._decorator.matches_wake_prefix_slot.return_value = False
+    service.bare_wake_phrase.return_value = False
     service._decorator.classify_wake_word.return_value = (final, "voice_command")
     service._decorator.identify_and_decorate.return_value = (final, None, None)
     stt = Mock()

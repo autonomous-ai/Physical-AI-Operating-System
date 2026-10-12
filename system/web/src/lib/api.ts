@@ -19,6 +19,18 @@ export interface JSONResponse<T = unknown> {
 
 // Legacy Bearer fallback; browsers normally authenticate via the `os_session` cookie.
 const TOKEN_STORAGE_KEY = "device_api_token";
+
+// Listening window after a wake; keep aligned with system/server/config (WakeFollowup*S).
+export const WAKE_FOLLOWUP_DEFAULT_S = 10;
+export const WAKE_FOLLOWUP_CHOICES_S = [5, 10, 15, 20, 30];
+
+export type WakeLightEffect = "solid" | "breathing" | "spin" | "blink";
+export interface WakeLightConfig {
+  enabled?: boolean;
+  color?: [number, number, number];
+  effect?: WakeLightEffect;
+  speed?: number;
+}
 let apiToken: string =
   typeof window !== "undefined" ? sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "" : "";
 
@@ -309,6 +321,16 @@ export interface DeviceConfig {
   cloud_perception?: CloudPerception;
   agent_name: string;
   wake_phrases: string[];
+  // True when wake_phrases is the owner's edited list; wake_phrases_default is the built-in one.
+  wake_phrases_custom?: boolean;
+  wake_phrases_default?: string[];
+  // Chime on a spoken wake phrase (default true).
+  wake_chime?: boolean;
+  // Seconds the device keeps listening after a wake (WAKE_FOLLOWUP_MIN_S..MAX_S).
+  wake_followup_s?: number;
+  // Listening light on a wake; absent fields keep the board look.
+  wake_light?: WakeLightConfig | null;
+  wake_light_enabled?: boolean;
   realtime?: {
     enabled?: boolean;
     provider?: string;

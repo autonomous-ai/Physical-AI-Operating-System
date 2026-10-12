@@ -295,7 +295,7 @@ Cụm wake được chấp nhận ở **đầu hoặc cuối bất kỳ câu nà
 từ chối — tên thiết bị nằm giữa câu là người ta đang nói *về* thiết bị.
 
 Sau một lượt được phép, cửa sổ follow-up mở ra
-(`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, default code **20s**; `robots/lamp/rootfs/opt/hal/.env` của image lamp cũng đặt 20) và
+(`wake_followup_s` trong config.json nếu có đặt, 3–30 s; nếu không thì `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, default code **10s**; `robots/lamp/rootfs/opt/hal/.env` của image lamp vẫn đặt 20, và cài đặt của chủ máy được ưu tiên) và
 **reset sau mỗi lượt được phép**, nên nói liên tục thì không bao giờ phải gọi lại
 tên. Đặt `"wakeword": false` để always-listening.
 

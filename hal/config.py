@@ -180,6 +180,22 @@ def _os_cfg_get(key: str, default: str = "") -> str:
     except Exception:
         return default
 
+def wake_chime_enabled() -> bool:
+    """Owner toggle (config.json `wake_chime`, default on) for the chime on a spoken wake phrase."""
+    return _os_cfg_get("wake_chime", True) is not False
+
+
+def custom_wake_phrases() -> list[str]:
+    """Owner-edited wake phrases (config.json `wake_phrases`); [] means the built-in list.
+
+    Read fresh on every call so an edit in the web admin applies without a HAL restart.
+    """
+    raw = _os_cfg_get("wake_phrases", [])
+    if not isinstance(raw, list):
+        return []
+    return [p.strip().casefold() for p in raw if isinstance(p, str) and p.strip()]
+
+
 def resolve_device_type(default: str = "") -> str:
     """Return the device class (lamp/dog/intern): DEVICE_TYPE env, then config.json."""
     dev = os.environ.get("DEVICE_TYPE")
@@ -566,10 +582,27 @@ VOICE_INPUT_MODE: str = (
 )
 # No wake opener or follow-up window can arm manual device input.
 WAKEWORD_ENABLED: bool = VOICE_INPUT_MODE == "automatic" and _os_cfg_get("wakeword", False) is True
+# Image default for the follow-up window; the owner's config.json `wake_followup_s` wins.
 # 0 requires the wake phrase for every mic session.
 WAKEWORD_FOLLOWUP_TIMEOUT_S: float = max(
-    0.0, float(os.environ.get("HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S", "20"))
+    0.0, float(os.environ.get("HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S", "10"))
 )
+# Bounds for the owner setting; keep aligned with system/server/config (WakeFollowupMin/MaxS).
+WAKE_FOLLOWUP_MIN_S: float = 3.0
+WAKE_FOLLOWUP_MAX_S: float = 30.0
+
+
+def wake_followup_timeout_s() -> float:
+    """Seconds the device keeps listening after a wake (config.json `wake_followup_s`).
+
+    Read live so an admin edit applies to the next window without a HAL restart.
+    """
+    raw = _os_cfg_get("wake_followup_s", None)
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return min(WAKE_FOLLOWUP_MAX_S, max(WAKE_FOLLOWUP_MIN_S, float(raw)))
+    return WAKEWORD_FOLLOWUP_TIMEOUT_S
+
+
 # Package opt-in: automatic follow-ups stay visually responsive without unsolicited audio.
 VOICE_OPENING_FILLERS_ONLY: bool = os.environ.get(
     "HAL_VOICE_OPENING_FILLERS_ONLY", "false"
@@ -835,7 +868,7 @@ GAZE_BUFFER_S: float = float(os.environ.get("HAL_GAZE_BUFFER_S", "4.0"))
 GAZE_SAMPLE_FPS: float = float(os.environ.get("HAL_GAZE_SAMPLE_FPS", "6"))
 # Minimum gap between two gaze-opened gates.
 GAZE_COOLDOWN_S: float = float(os.environ.get("HAL_GAZE_COOLDOWN_S", "5"))
-# Follow-up window claimed by a gaze wake; capped by WAKEWORD_FOLLOWUP_TIMEOUT_S.
+# Follow-up window claimed by a gaze wake; capped by wake_followup_timeout_s().
 GAZE_WAKE_FOCUS_S: float = float(os.environ.get("HAL_GAZE_WAKE_FOCUS_S", "10"))
 # Boot-scoped sidecar dir (survives HAL restart, not reboot); override for test runs.
 STATE_DIR: str = os.environ.get("HAL_STATE_DIR", "/tmp")

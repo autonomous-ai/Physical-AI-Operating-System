@@ -1,8 +1,9 @@
 import "./settings-polish.css";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { getDeviceConfig, getCurrentNetwork, updateDeviceConfig, getTTSVoices, getTTSProviders, hwUrl, restoreAutonomousDefaults } from "@/lib/api";
-import type { DeviceConfig, LLMConfigMode, VoiceInputMode } from "@/lib/api";
+import { getDeviceConfig, getCurrentNetwork, updateDeviceConfig, getTTSVoices, getTTSProviders, hwUrl, restoreAutonomousDefaults, WAKE_FOLLOWUP_DEFAULT_S } from "@/lib/api";
+import type { DeviceConfig, LLMConfigMode, VoiceInputMode, WakeLightConfig } from "@/lib/api";
+import { WAKE_LOOK_DEFAULT, type WakeLook } from "@/lib/ledColor";
 import type { ChannelType } from "@/types";
 import type { FaceOwner } from "@/hooks/setup/useFaceEnroll";
 import { C, ADMIN_PASSWORD_MIN, SectionCard } from "@/components/setup/shared";
@@ -67,7 +68,24 @@ function SkeletonBlock() {
   );
 }
 
+// Order matters: the wake gate lists phrases in the order the owner arranged them.
+function samePhrases(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((p, i) => p === b[i]);
+}
+
 // Self-contained settings form body (state, load/save, sections); `activeSection` is controlled by the parent.
+function wakeLookFrom(cfg: WakeLightConfig | null | undefined): WakeLook {
+  return {
+    color: cfg?.color ?? WAKE_LOOK_DEFAULT.color,
+    effect: cfg?.effect ?? WAKE_LOOK_DEFAULT.effect,
+    speed: cfg?.speed ?? WAKE_LOOK_DEFAULT.speed,
+  };
+}
+
+function sameWakeLook(a: WakeLook, b: WakeLook): boolean {
+  return a.effect === b.effect && a.speed === b.speed && a.color.every((c, i) => c === b.color[i]);
+}
+
 export function SettingsPanel({ activeSection }: { activeSection: SettingsSectionId }): React.JSX.Element {
   const [loadingCfg, setLoadingCfg] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,6 +137,11 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
   const [wakeWord, setWakeWord] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [wakePhrases, setWakePhrases] = useState<string[]>([]);
+  const [wakePhrasesDefault, setWakePhrasesDefault] = useState<string[]>([]);
+  const [wakeChime, setWakeChime] = useState(true);
+  const [wakeFollowupS, setWakeFollowupS] = useState(WAKE_FOLLOWUP_DEFAULT_S);
+  const [wakeLightOn, setWakeLightOn] = useState(true);
+  const [wakeLook, setWakeLook] = useState<WakeLook>(WAKE_LOOK_DEFAULT);
   const [realtimeProvider, setRealtimeProvider] = useState("gemini");
   const [realtimeVoice, setRealtimeVoice] = useState("Kore");
   const [realtimeReasoning, setRealtimeReasoning] = useState("MINIMAL");
@@ -173,6 +196,11 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
     sttBaseUrl: string; sttProvider: SttProvider; sttLanguage: string;
     ttsBaseUrl: string; ttsProvider: string; ttsVoice: string; ttsSpeed: number;
     wakeWord: boolean;
+    wakePhrases: string[];
+    wakeChime: boolean;
+    wakeFollowupS: number;
+    wakeLightOn: boolean;
+    wakeLook: WakeLook;
     voiceInputMode: VoiceInputMode;
     channel: ChannelType;
     teleUserId: string; slackUserId: string;
@@ -229,6 +257,23 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
         setVoiceInputMode(cfg.voice_input_mode ?? "automatic");
         setAgentName(cfg.agent_name ?? "");
         setWakePhrases(cfg.wake_phrases ?? []);
+        setWakePhrasesDefault(cfg.wake_phrases_default ?? []);
+        setWakeChime(cfg.wake_chime ?? true);
+        setWakeFollowupS(cfg.wake_followup_s ?? WAKE_FOLLOWUP_DEFAULT_S);
+        if (cfg.wake_followup_s == null) {
+          // Unset: show the window the device actually uses (an image .env may set it, e.g. lamp 5 s).
+          fetch(hwUrl("/voice/wake-followup"))
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+            .then((r: { seconds: number }) => {
+              const seconds = Math.round(r.seconds);
+              if (!(seconds > 0)) return;
+              setWakeFollowupS(seconds);
+              setBaseline((b) => (b ? { ...b, wakeFollowupS: seconds } : b));
+            })
+            .catch(() => {});
+        }
+        setWakeLightOn(cfg.wake_light_enabled ?? true);
+        setWakeLook(wakeLookFrom(cfg.wake_light));
         if (cfg.realtime) {
           setRealtimeEnabled(cfg.realtime.enabled ?? true);
           setRealtimeProvider(cfg.realtime.provider || "gemini");
@@ -316,6 +361,11 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
           ttsVoice: cfg.tts_voice || "Rachel",
           ttsSpeed: cfg.tts_speed ?? 1.2,
           wakeWord: cfg.wakeword ?? false,
+          wakePhrases: cfg.wake_phrases ?? [],
+          wakeChime: cfg.wake_chime ?? true,
+          wakeFollowupS: cfg.wake_followup_s ?? WAKE_FOLLOWUP_DEFAULT_S,
+          wakeLightOn: cfg.wake_light_enabled ?? true,
+          wakeLook: wakeLookFrom(cfg.wake_light),
           voiceInputMode: cfg.voice_input_mode ?? "automatic",
           channel: (cfg.channel as ChannelType) || "telegram",
           teleUserId: cfg.telegram_user_id ?? "",
@@ -404,6 +454,11 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
     ttsVoice !== baseline.ttsVoice ||
     ttsSpeed !== baseline.ttsSpeed ||
     wakeWord !== baseline.wakeWord ||
+    !samePhrases(wakePhrases, baseline.wakePhrases) ||
+    wakeChime !== baseline.wakeChime ||
+    wakeFollowupS !== baseline.wakeFollowupS ||
+    wakeLightOn !== baseline.wakeLightOn ||
+    !sameWakeLook(wakeLook, baseline.wakeLook) ||
     voiceInputMode !== baseline.voiceInputMode ||
     channel !== baseline.channel ||
     teleUserId !== baseline.teleUserId ||
@@ -479,6 +534,16 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
       if (realtimeApiKey) realtime.api_key = realtimeApiKey;
       body.realtime = realtime;
       body.wakeword = wakeWord;
+      if (wakeChime !== baseline?.wakeChime) body.wake_chime = wakeChime;
+      if (wakeFollowupS !== baseline?.wakeFollowupS) body.wake_followup_s = wakeFollowupS;
+      if (wakeLightOn !== baseline?.wakeLightOn || !baseline || !sameWakeLook(wakeLook, baseline.wakeLook)) {
+        const light: WakeLightConfig = { enabled: wakeLightOn, ...wakeLook };
+        body.wake_light = light;
+      }
+      // [] restores the built-in list (which then follows agent renames).
+      if (!samePhrases(wakePhrases, baseline?.wakePhrases ?? [])) {
+        body.wake_phrases = samePhrases(wakePhrases, wakePhrasesDefault) ? [] : wakePhrases;
+      }
       // Omitted fields preserve both legacy ownership and external runtime changes.
       if (applyingLlmMode) body.llm_config_mode = llmConfigMode;
       if (llmConfigMode !== "runtime") {
@@ -540,7 +605,7 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
         ...savedLlm, llmConfigMode,
         sttBaseUrl, sttProvider, sttLanguage,
         ttsBaseUrl, ttsProvider, ttsVoice, ttsSpeed,
-        wakeWord, voiceInputMode,
+        wakeWord, wakePhrases, wakeChime, wakeFollowupS, wakeLightOn, wakeLook, voiceInputMode,
         channel,
         teleUserId, slackUserId,
         discordGuildId, discordUserId,
@@ -581,7 +646,7 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
     sttProvider, sttLanguage, sttLoaded,
     ttsApiKey, ttsBaseUrl, ttsLoaded, ttsProvider, ttsVoice, ttsSpeed, deviceId,
     mqttEndpoint, mqttUsername, mqttPassword, mqttPort, faChannel, fdChannel,
-    realtimeEnabled, wakeWord, voiceInputMode, realtimeProvider, realtimeVoice, realtimeReasoning, realtimeApiKey, realtimeBaseUrl,
+    realtimeEnabled, wakeWord, wakePhrases, wakePhrasesDefault, wakeChime, wakeFollowupS, wakeLightOn, wakeLook, voiceInputMode, realtimeProvider, realtimeVoice, realtimeReasoning, realtimeApiKey, realtimeBaseUrl,
     realtimeWebSearch,
   ]);
 
@@ -648,6 +713,16 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
               setWakeWord={setWakeWord}
               agentName={agentName}
               wakePhrases={wakePhrases}
+              setWakePhrases={setWakePhrases}
+              wakePhrasesDefault={wakePhrasesDefault}
+              wakeChime={wakeChime}
+              setWakeChime={setWakeChime}
+              wakeFollowupS={wakeFollowupS}
+              setWakeFollowupS={setWakeFollowupS}
+              wakeLightOn={wakeLightOn}
+              setWakeLightOn={setWakeLightOn}
+              wakeLook={wakeLook}
+              setWakeLook={setWakeLook}
             />
 
             <WifiSection

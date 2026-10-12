@@ -298,7 +298,7 @@ Mid-sentence is rejected — a device name inside a sentence is people talking
 *about* the device.
 
 After an authorized turn a follow-up window opens
-(`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, code default **20s**; the lamp image's `robots/lamp/rootfs/opt/hal/.env` also sets 20)
+(config.json `wake_followup_s` when set, 3–30 s; otherwise `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`, code default **10s**; the lamp image's `robots/lamp/rootfs/opt/hal/.env` still sets 20, and the owner setting wins)
 and **resets after every authorized turn**, so a continuous conversation never
 needs the name again. Set `"wakeword": false` for always-listening.
 

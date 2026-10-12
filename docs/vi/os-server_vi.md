@@ -479,7 +479,7 @@ vì coi process Go mới là đang thức; ambient kiểm tra HAL trước khi t
 chuyển động idle hoặc tự nói.
 
 Gửi greeting xong, os-server gọi HAL `POST /voice/wake-focus?source=boot_greeting`
-để mở cửa sổ follow-up của wake word (`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`), nên user
+để mở cửa sổ follow-up của wake word (`wake_followup_s`, nếu không đặt thì `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`), nên user
 trả lời greeting được mà không cần wake phrase. HAL no-op khi wake word tắt hoặc
 follow-up timeout = 0.
 

@@ -628,3 +628,14 @@ try:
     router.include_router(_piper_router)
 except Exception as _e:  # pragma: no cover - depends on partial deployments
     state.logger.warning("Piper install routes unavailable: %s", _e)
+
+
+@router.get("/voice/wake-followup")
+def get_wake_followup():
+    """Listening window after a wake in effect now: owner setting, else the image default."""
+    from hal import config as hal_config
+
+    return {
+        "seconds": hal_config.wake_followup_timeout_s(),
+        "image_default_s": hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S,
+    }

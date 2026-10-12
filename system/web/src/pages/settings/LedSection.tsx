@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { C, SectionCard, LABEL_STYLE } from "@/components/setup/shared";
 import { hwUrl } from "@/lib/api";
+import { fromHsv, swatch, toHsv, type RGB } from "@/lib/ledColor";
 
-type RGB = [number, number, number];
 type Mode = "default" | "off" | "custom";
 
 interface RestingLook { effect: string; color: RGB; speed?: number }
@@ -34,38 +34,6 @@ const STATUS_HUES: { hue: number; label: string }[] = [
 ];
 const WARN_MIN_SATURATION = 0.6;
 const WARN_HUE_WINDOW = 20;
-
-function toHsv([r, g, b]: RGB): { h: number; s: number; v: number } {
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0;
-  if (d > 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h = (h * 60 + 360) % 360;
-  }
-  return { h, s: max === 0 ? 0 : d / max, v: max };
-}
-
-function fromHsv(h: number, s: number, v: number): RGB {
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = v - c;
-  const [r, g, b] =
-    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
-      : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
-  return [Math.round(r + m), Math.round(g + m), Math.round(b + m)];
-}
-
-// Screen swatch: the strip values are far too dark to show as-is, so scale to full brightness.
-function swatch(color: RGB): string {
-  const max = Math.max(...color);
-  if (max === 0) return "transparent";
-  const k = 255 / max;
-  return `rgb(${color.map((c) => Math.round(c * k)).join(",")})`;
-}
 
 function sameColor(a: RGB | null | undefined, b: RGB | null | undefined): boolean {
   return !!a && !!b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];

@@ -489,7 +489,7 @@ Passive sensing also consults HAL rather than assuming a fresh Go process is
 awake; ambient output checks HAL before resuming idle movements or speech.
 
 Once the greeting is sent, os-server calls HAL `POST /voice/wake-focus?source=boot_greeting`
-to open the wake-word follow-up window (`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`), so the
+to open the wake-word follow-up window (`wake_followup_s`, else `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`), so the
 user can answer the greeting without a wake phrase. HAL no-ops when wake word is
 off or the follow-up timeout is 0.
 

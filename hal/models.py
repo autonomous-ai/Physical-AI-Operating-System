@@ -189,6 +189,14 @@ class LEDRestingPreviewRequest(BaseModel):
     color: list[int] = Field(..., description="[R, G, B] 0-255.")
 
 
+class LEDWakeLightPreviewRequest(BaseModel):
+    """Show a candidate wake (listening) light for a few seconds without saving it."""
+
+    color: list[int] = Field(..., description="[R, G, B] 0-255.")
+    effect: Literal["solid", "breathing", "spin", "blink"] = "breathing"
+    speed: float = Field(1.0, ge=0.25, le=3.0)
+
+
 class LEDRestingPreviewResponse(BaseModel):
     status: str
     painted: bool  # False when sleep, speech or music owns the strip right now

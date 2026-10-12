@@ -2160,6 +2160,24 @@ class TTSService:
         self._ack_chime_cache = (rate, samples)
         return samples
 
+    def try_play_ack_chime(self) -> bool:
+        """Ack chime only if the output stream is free right now; never waits behind audio."""
+        return self._play_gesture_chime(self._ack_chime_samples, blocking=False)
+
+    def play_wake_chime(self) -> bool:
+        """Wake-phrase chime; takes priority over audio already on the speaker.
+
+        The user just called the device to say something new, so whatever is
+        playing (filler, backchannel, reply) is cut at once and the chime plays.
+        """
+        def _make_room() -> None:
+            logger.info("Wake chime: cutting audio already on the speaker")
+            self.stop(preserve_main_queue=True)
+
+        return self._play_gesture_chime(
+            self._ack_chime_samples, wait_s=0.0, on_busy=_make_room, busy_wait_s=1.0,
+        )
+
     def play_ack_chime(self) -> bool:
         """Physical-gesture acknowledgment: write a short ping straight into the persistent
         output stream.
@@ -2268,8 +2286,15 @@ class TTSService:
             self._stop_event.set()
         return not self._stop_event.is_set()
 
-    def _play_gesture_chime(self, samples_for_rate) -> bool:
-        """Use existing volume, mute, AEC and untracked playback for gesture tones."""
+    def _play_gesture_chime(self, samples_for_rate, blocking: bool = True,
+                            wait_s: float | None = None, on_busy=None,
+                            busy_wait_s: float = 0.0) -> bool:
+        """Use existing volume, mute, AEC and untracked playback for gesture tones.
+
+        blocking=False skips the tone when another writer holds the output stream.
+        wait_s bounds the wait instead; on_busy then gets one chance to free the
+        stream (busy_wait_s more) before the tone is skipped.
+        """
         if not self.available or self._speaker_muted():
             return False
         if self._np is None or self._sd is None:
@@ -2283,12 +2308,24 @@ class TTSService:
                 samples = self._np.clip(
                     samples * self._backend.volume_boost, -1.0, 1.0
                 )
-            with self._stream_lock:
+            if wait_s is not None:
+                acquired = self._stream_lock.acquire(timeout=wait_s)
+                if not acquired and on_busy is not None:
+                    on_busy()
+                    acquired = self._stream_lock.acquire(timeout=busy_wait_s)
+            else:
+                acquired = self._stream_lock.acquire(blocking=blocking)
+            if not acquired:
+                logger.info("Ack chime skipped -- speaker busy")
+                return False
+            try:
                 stream = self._ensure_stream(rate)
                 # This ping acknowledges the physical gesture, not the voice turn whose
                 # synthesis may have just been cancelled. Keep normal pacing and AEC
                 # reference writes for the chime.
                 stream.write(samples, track_playback=False)
+            finally:
+                self._stream_lock.release()
             return True
         except Exception as e:
             logger.debug("Ack chime failed: %s", e)

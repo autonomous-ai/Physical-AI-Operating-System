@@ -597,6 +597,105 @@ device type (`lamp`), or the agent name from IDENTITY.md — HAL resolves the
 device type from the `DEVICE_TYPE` env first, then `config.json`, so the
 runtime list matches the one Settings advertises.
 
+**Owner-edited phrases.** When `config.json` has a non-empty `wake_phrases`
+(Settings → General), that list **replaces** the built-in one, including the
+`autonomous` and device-type aliases. `hal_config.custom_wake_phrases()` reads
+it fresh on every call, so `VoiceService._effective_wake_words()` applies it at
+start and on every `/voice/config` push. os-server pushes after a save
+(`applyWakePhrases`), so an edit applies without a HAL restart. The same
+phrases lead the local-intent strip list (`i18n.SetOwnerWakePhrases`).
+Transcript and phrases are NFC-normalized before matching, so Vietnamese typed
+in the browser matches STT output. Words from owner phrases (minus the shared
+prefixes) are added to the STT keyterm boost.
+
+**Wake chime.** When a spoken wake phrase opens the gate (`open_wake_word_gate`),
+HAL plays the same ack chime as a button tap (`button_actions.play_ack_chime`, a
+synthesized E6+E7 ping, about 120 ms), together with the listening LED. It plays
+once per session and never for tap-to-talk capture. `config.json` `wake_chime`
+(Settings → General, default on) turns it off; HAL reads it on every wake, so no
+restart is needed.
+
+The wake chime takes priority over audio already on the speaker:
+`TTSService.play_wake_chime()` (used by the wake gate and the bare-wake cue,
+`voice_service.py` `_play_wake_chime` / `_bare_wake_cue`) does not wait: if the
+speaker is busy it immediately calls `stop(preserve_main_queue=True)`, whatever
+is playing (filler, backchannel, reply, even uninterruptible speech), then waits
+up to 1 s for the stream to free. The user called the device to say something
+new, so the chime is never skipped for audio already playing.
+
+**Wake light.** `config.json` `wake_light` (Settings → General) sets the light
+shown on a wake: `{enabled, color: [r,g,b], effect: solid|breathing|spin|blink,
+speed: 0.25–3}`. Fields left unset keep the board's `listening` emotion preset,
+so a device the owner never customized keeps its existing cue. `hal/wake_light.py`
+maps the effects to LED engine effects (`EFFECTS`: `solid` = steady colour,
+`breathing` = `breathing_fine`, `spin` = `pulse`, `blink` = `blink`) and reads
+the config live. `app_state._apply_emotion_led_display` uses
+`wake_light.listening_preset()` for every `listening` emotion display, so the
+owner's look also applies to button-tap listening. When `wake_light.enabled` is
+false, voice-triggered listening cues (`fire_listening_cue` and the bare-wake
+LED) are skipped; HAL forces the light back on if both the chime and the light
+are off, so a wake always gives feedback. os-server enforces the same rule:
+`keepsWakeCue` (`system/device/config_update.go`) rejects an update that would
+leave both `wake_chime` and `wake_light` off with `config.ErrNoWakeCue`.
+
+`POST /led/wake-light/preview` (HAL) with body `{color, effect, speed}` plays the
+candidate look for 3 s and then restores the previous light; nothing is saved.
+It returns `{status, painted}`; `painted` is false (nothing drawn) when sleep,
+speech, music or the mic-muted light owns the strip. An invalid or black
+`color` returns 400.
+
+**Follow-up window length.** `config.json` `wake_followup_s` (integer seconds,
+3–30, default 10; Settings → General "Keep listening for") sets how long the
+device keeps listening without a wake phrase after a wake or a reply. HAL reads
+it live through `hal/config.py` `wake_followup_timeout_s()` (clamped to 3–30);
+when it is unset, HAL falls back to `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` (code
+default 10; the lamp image `robots/lamp/rootfs/opt/hal/.env` sets 20).
+`WakeWordFocus` (`hal/drivers/voice/_internal/wakeword_focus.py`) takes the
+timeout as a callable, so an edit applies to the next window without a HAL
+restart. os-server validates the value with `config.ValidateWakeFollowup`
+(`WakeFollowupMinS`/`WakeFollowupMaxS` in `system/server/config/wake_phrases.go`).
+
+**A bare wake phrase is acknowledged, not dispatched.** When the gate is on and
+the whole turn is only wake phrases ("Hey Sam.", one typo in the name allowed,
+`SpeakerDecorator.is_bare_wake_phrase`), HAL does not send it to the main agent
+or the realtime model. It discards an already open realtime activity, then
+answers with the ack chime (skipped if the gate already played it, or if
+`wake_chime` is off) and no spoken cue, opens the follow-up focus window
+(`grant_wakeword_focus`), and shows the `listening` LED until the next
+utterance or the end of the window (`wake_followup_s`, default 10 s, else
+`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`). The LED is skipped when the wake light is
+off. A wake phrase said together with a request ("hey sam, what time is it")
+runs as before with the chime and the listening LED.
+
+**Name rewritten in the final.** English STT often hears a short name right in
+a partial and rewrites it in the final ("Hello, Sam." → "Hello, sir."). Once an
+exact partial has opened the gate, `matches_wake_prefix_slot()` confirms a final
+that keeps the whole prefix with any single word in the name slot, and the
+bare-wake check accepts the same. Without this the turn was dropped after the
+chime had played, and the owner had to call twice.
+
+**STT closed before transcribing.** The STT server sometimes closes a just-opened
+session (normal close 1000) a fraction of a second after speech starts. If that
+happens before any partial or final, HAL reconnects once and replays every frame
+captured so far, instead of ending the turn with `stt_error` and losing the
+first call.
+
+The main cause of those early closes was the STT keepalive itself. With
+`HAL_STT_KEEPALIVE=true`, HAL pinged the pre-connected session every
+`HAL_STT_KEEPALIVE_PING_S` (3 s) with `{"type":"KeepAlive"}`. Flux models
+(`flux-*`, Listen v2) do not accept it: the server answers
+`UNPARSABLE_CLIENT_MESSAGE … unknown variant KeepAlive` and closes the stream,
+so almost every pre-connected session died within seconds and the first wake
+phrase was lost. `AutonomousSTTSession.send_keepalive()` is now a no-op for Flux
+(sending silence instead would bill idle time). An idle close is still caught as
+a stale session, and the turn reconnects with its pre-roll replayed. The recv
+loop now logs server `Error` messages and unexpected closes, which used to be
+dropped silently.
+
+The button tap's chime never waits behind other audio: `TTSService.try_play_ack_chime()`
+takes the output stream only if it is free and otherwise skips, so the sound
+never trails the LED.
+
 A mic session is a continuous stretch of speech, not a single sentence, so the
 match is **per sentence**: `starts_with_wake_word()`
 (`hal/drivers/voice/_internal/speaker_decorate.py`) splits the transcript on
@@ -626,13 +725,15 @@ lance" never arms the gate. Flux takes them as repeated `keyterm` parameters
 with no weights; nova-3 uses `keyterm` too; older nova models use `keywords`
 with the `:3` intensifier.
 
-Every STT-final-confirmed wake-word turn reaches dispatch. It opens a configured
-follow-up focus window (5 seconds in the lamp profile; HAL default 20 seconds), so the next spoken turn can omit the wake phrase and
+Every STT-final-confirmed wake-word turn reaches dispatch. It opens the
+follow-up focus window (owner setting `wake_followup_s`; else
+`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`: 5 s in the lamp and intern-v2 profiles, code default 10 s), so the next spoken turn can omit the wake phrase and
 is sent as `voice_followup`. For an authorized turn, the idle countdown starts
 when processing and its owned TTS queue have both finished, not at dispatch or
 the first filler. Vision/grounding, main-agent work, synthesis and queued answer
 chunks therefore do not consume the user's reply window. The configured
-`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` remains unchanged.
+window length (`wake_followup_s` or `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`) remains
+unchanged.
 
 This applies to turn mode and LIVE mode, including native realtime playback.
 Wake disabled still accepts speech normally; timeout 0 disables follow-up focus.
@@ -3492,7 +3593,7 @@ is a top-level `config.json` flag:
 | `HAL_HARNESS_ANNOUNCE_CONTENT_MAX_CHARS` | `4000` | Harness text handed to the renderer is cut to this length. |
 | `HAL_HARNESS_ANNOUNCE_SUMMARIZER_TIMEOUT_S` | `12` | Fallback summarizer bound before sanitized text is spoken instead. |
 | `HAL_VOICE_OPENING_FILLERS_ONLY` | `false` | With Automatic non-Live wake gating, suppress automatic filler/backchannel on captures that start with an already-open wake window. Standard and Pro enable it; pro-xvf3800 and pro-respeaker-lite disable it. |
-| `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` | `20` | Idle seconds for the short post-command focus window. Each accepted `voice_command` or `voice_followup` refreshes it. `0` disables follow-ups and requires a wake phrase for every mic session. Ignored when `wakeword` is false. |
+| `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` | `10` (lamp and intern-v2 image `.env`: `5`) | Fallback when `config.json` `wake_followup_s` (Settings → General "Keep listening for", 3–30 s) is unset; the owner setting wins. Idle seconds for the short post-command focus window. Each accepted `voice_command` or `voice_followup` refreshes it. `0` disables follow-ups and requires a wake phrase for every mic session. Ignored when `wakeword` is false. |
 | `HAL_ENDPOINT_SILENCE_S` | `0.8` | Silence needed after STT final arrival, only while `final_ts >= last_confirmed_speech`. Continued confirmed speech after that final restores the 2.5s fallback until a new final arrives. `0` disables the short clock, leaving `HAL_SILENCE_TIMEOUT`. With the shared gate enabled this only proposes an endpoint; `HAL_TURN_END_*` decides closure. |
 | `HAL_TURN_END_ENABLED` | `true` | Shared provisional endpoint gate for non-Live hands-free capture before commit; no change to Live or manual capture. `false` restores legacy silence clocks and session ceiling. |
 | `HAL_TURN_END_FALLBACK_S` | `2.5` | Minimum silence for ordinary text when Smart Turn is unavailable/pending, and for a short greeting; the original silence candidate must also fire. |

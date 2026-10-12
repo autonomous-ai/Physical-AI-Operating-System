@@ -1,10 +1,162 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Copy, Check, Cpu, Fingerprint, Network } from "lucide-react";
+import { Eye, EyeOff, Copy, Check, Cpu, Fingerprint, Network, X } from "lucide-react";
 import { SecretUpdateField } from "@/components/SecretUpdateField";
-import type { VoiceInputMode } from "@/lib/api";
+import { WAKE_FOLLOWUP_CHOICES_S, WAKE_FOLLOWUP_DEFAULT_S, type VoiceInputMode } from "@/lib/api";
+import { WAKE_LOOK_DEFAULT, swatch, type WakeLook } from "@/lib/ledColor";
+import { WakeLightEditor } from "./WakeLightEditor";
 import { copyText } from "@/lib/clipboard";
 import { C, Field, PasswordField, SectionCard, LABEL_STYLE, INPUT_STYLE, INPUT_READONLY_STYLE, INPUT_PAD_ONE_ICON, FIELD_GAP, ADMIN_PASSWORD_MIN } from "./shared";
+
+// Mirrors config.NormalizeWakePhrases on the server.
+const MAX_WAKE_PHRASES = 30;
+const MAX_WAKE_PHRASE_CHARS = 40;
+
+function normalizePhrase(raw: string): string {
+  return raw.trim().split(/\s+/).join(" ").toLowerCase();
+}
+
+// Editable wake phrases: chips with remove, an add field, and restore-defaults.
+// The chime and the light are the two ways a wake is noticed; at least one stays on.
+function WakeCues({ chime, setChime, lightOn, setLightOn, look, setLook }: {
+  chime: boolean; setChime: (v: boolean) => void;
+  lightOn: boolean; setLightOn: (v: boolean) => void;
+  look: WakeLook; setLook: (v: WakeLook) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const row: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text };
+  return (
+    <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+      <label htmlFor="wake_chime" style={{ ...row, cursor: lightOn ? "pointer" : "not-allowed" }}>
+        <input id="wake_chime" type="checkbox" checked={chime} disabled={chime && !lightOn}
+          onChange={(e) => setChime(e.target.checked)} style={{ flexShrink: 0 }} />
+        Play a chime when a wake phrase is heard
+      </label>
+      <div style={{ ...row, flexWrap: "wrap" }}>
+        <label htmlFor="wake_light" style={{ ...row, cursor: chime ? "pointer" : "not-allowed" }}>
+          <input id="wake_light" type="checkbox" checked={lightOn} disabled={lightOn && !chime}
+            onChange={(e) => { setLightOn(e.target.checked); if (!e.target.checked) setOpen(false); }} style={{ flexShrink: 0 }} />
+          Light up when a wake phrase is heard
+        </label>
+        {lightOn && (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls="wake-light-editor"
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999,
+              background: open ? C.amberDim : C.surface, border: `1px solid ${open ? C.amber : C.border}`,
+              color: open ? C.amber : C.text, fontSize: 12, cursor: "pointer",
+            }}
+          >
+            <span style={{ width: 12, height: 12, borderRadius: "50%", background: swatch(look.color), border: `1px solid ${C.border}` }} />
+            {open ? "Done" : "Customize light"}
+          </button>
+        )}
+      </div>
+      {(!chime || !lightOn) && (
+        <div style={{ fontSize: 11.5, color: C.textMuted }}>
+          Keep the chime or the light on, so you can tell the device heard you.
+        </div>
+      )}
+      {lightOn && open && (
+        <div id="wake-light-editor">
+          <WakeLightEditor look={look} onChange={setLook} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WakeFollowupSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  // Keep a value saved outside the presets (e.g. via the API) selectable.
+  const choices = WAKE_FOLLOWUP_CHOICES_S.includes(value)
+    ? WAKE_FOLLOWUP_CHOICES_S
+    : [...WAKE_FOLLOWUP_CHOICES_S, value].sort((a, b) => a - b);
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label htmlFor="wake_followup_s" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text }}>
+        Keep listening for
+        <select
+          id="wake_followup_s"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ ...INPUT_STYLE, width: "auto", padding: "4px 8px", fontSize: 13 }}
+        >
+          {choices.map((s) => (
+            <option key={s} value={s}>{s} seconds</option>
+          ))}
+        </select>
+      </label>
+      <div style={{ marginTop: 4 }}>
+        After a wake or a reply, you can keep talking without the wake phrase for this long.
+      </div>
+    </div>
+  );
+}
+
+function WakePhraseEditor({ phrases, setPhrases, defaults }: {
+  phrases: string[];
+  setPhrases: (v: string[]) => void;
+  defaults: string[];
+}) {
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState("");
+  const isDefault = phrases.length === defaults.length && phrases.every((p, i) => p === defaults[i]);
+  const singleWord = phrases.filter((p) => !p.includes(" "));
+
+  const add = () => {
+    const phrase = normalizePhrase(draft);
+    if (!phrase) return;
+    if ([...phrase].length > MAX_WAKE_PHRASE_CHARS) return setError(`Keep it under ${MAX_WAKE_PHRASE_CHARS} characters.`);
+    if (!/\p{L}/u.test(phrase)) return setError("A wake phrase needs at least one letter.");
+    if (phrases.includes(phrase)) return setError("That phrase is already in the list.");
+    if (phrases.length >= MAX_WAKE_PHRASES) return setError(`At most ${MAX_WAKE_PHRASES} phrases.`);
+    setPhrases([...phrases, phrase]);
+    setDraft("");
+    setError("");
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {phrases.map((phrase) => (
+          <span key={phrase} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 4px 3px 7px", borderRadius: 5, background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: "monospace" }}>
+            {phrase}
+            <button type="button" aria-label={`Remove ${phrase}`} onClick={() => setPhrases(phrases.filter((p) => p !== phrase))}
+              style={{ display: "inline-flex", padding: 2, border: 0, background: "transparent", color: C.textMuted, cursor: "pointer" }}>
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        {phrases.length === 0 && (
+          <span style={{ color: C.textMuted }}>No phrases. The built-in list is used after you save.</span>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+        <input id="wake_phrase_new" value={draft} placeholder="e.g. sam"
+          onChange={(e) => { setDraft(e.target.value); setError(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          style={{ ...INPUT_STYLE, flex: "1 1 200px", padding: "7px 10px", fontSize: 13 }} />
+        <button type="button" onClick={add} disabled={!normalizePhrase(draft)}
+          style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.amber}`, background: C.amberDim, color: C.amber, fontSize: 13, cursor: "pointer", opacity: normalizePhrase(draft) ? 1 : 0.5 }}>
+          Add
+        </button>
+        <button type="button" onClick={() => { setPhrases(defaults); setError(""); }} disabled={isDefault || defaults.length === 0}
+          style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, fontSize: 13, cursor: isDefault ? "default" : "pointer", opacity: isDefault ? 0.5 : 1 }}>
+          Restore defaults
+        </button>
+      </div>
+      {error && <div role="alert" style={{ marginTop: 6, color: C.red }}>{error}</div>}
+      {singleWord.length > 0 && (
+        <div style={{ marginTop: 6, color: C.yellow }}>
+          Single words ({singleWord.join(", ")}) can wake the device by accident in normal conversation.
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Read-only MAC field masked behind ••••, with an eye toggle to reveal.
 function MaskedReadField({ label, id, value }: {
@@ -170,7 +322,9 @@ export function DeviceSection({
   rotateAdminPassword, setRotateAdminPassword,
   voiceInputMode = "automatic", setVoiceInputMode,
   wakeWord, setWakeWord,
-  agentName, wakePhrases,
+  agentName, wakePhrases, setWakePhrases, wakePhrasesDefault, wakeChime, setWakeChime,
+  wakeFollowupS, setWakeFollowupS,
+  wakeLightOn, setWakeLightOn, wakeLook, setWakeLook,
 }: {
   active: boolean;
   deviceId: string;
@@ -189,6 +343,17 @@ export function DeviceSection({
   setWakeWord?: (v: boolean) => void;
   agentName?: string;
   wakePhrases?: string[];
+  // Present only where the phrases can be edited (Settings).
+  setWakePhrases?: (v: string[]) => void;
+  wakePhrasesDefault?: string[];
+  wakeChime?: boolean;
+  setWakeChime?: (v: boolean) => void;
+  wakeFollowupS?: number;
+  setWakeFollowupS?: (v: number) => void;
+  wakeLightOn?: boolean;
+  setWakeLightOn?: (v: boolean) => void;
+  wakeLook?: WakeLook;
+  setWakeLook?: (v: WakeLook) => void;
 }) {
   const showAdminPasswordFields = setAdminPassword !== undefined;
   const showRotateField = setRotateAdminPassword !== undefined;
@@ -272,7 +437,30 @@ export function DeviceSection({
           <div style={{ marginTop: 5, marginLeft: 23, fontSize: 11.5, lineHeight: 1.45, color: C.textMuted }}>
             Require an attention trigger before handling speech. When off, your device keeps its existing always-listening behavior.
           </div>
-          {!!wakePhrases?.length && (
+          {setWakePhrases ? (
+            <div style={{ marginTop: 10, marginLeft: 23, fontSize: 11.5, lineHeight: 1.45, color: C.textMuted }}>
+              <label htmlFor="wake_phrase_new" style={{ display: "block", marginBottom: 6 }}>
+                Spoken wake phrases (other triggers: tap, gaze, or a recognized person){agentName ? ` — current agent: ${agentName}` : ""}.
+                {" "}Say a phrase on its own and wait for the chime, then speak, or say it together with your request.
+              </label>
+              <WakePhraseEditor phrases={wakePhrases ?? []} setPhrases={setWakePhrases} defaults={wakePhrasesDefault ?? []} />
+              {setWakeChime && setWakeLightOn && setWakeLook ? (
+                <WakeCues
+                  chime={wakeChime ?? true} setChime={setWakeChime}
+                  lightOn={wakeLightOn ?? true} setLightOn={setWakeLightOn}
+                  look={wakeLook ?? WAKE_LOOK_DEFAULT} setLook={setWakeLook}
+                />
+              ) : setWakeChime && (
+                <label htmlFor="wake_chime" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, cursor: "pointer", fontSize: 13, color: C.text }}>
+                  <input id="wake_chime" type="checkbox" checked={wakeChime ?? true} onChange={(e) => setWakeChime(e.target.checked)} style={{ flexShrink: 0 }} />
+                  Play a chime when a wake phrase is heard
+                </label>
+              )}
+              {setWakeFollowupS && (
+                <WakeFollowupSelect value={wakeFollowupS ?? WAKE_FOLLOWUP_DEFAULT_S} onChange={setWakeFollowupS} />
+              )}
+            </div>
+          ) : !!wakePhrases?.length && (
             <div style={{ marginTop: 10, marginLeft: 23, fontSize: 11.5, lineHeight: 1.45, color: C.textMuted }}>
               <div style={{ marginBottom: 6 }}>
                 Spoken wake phrases (other triggers: tap, gaze, or a recognized person){agentName ? ` — current agent: ${agentName}` : ""}:

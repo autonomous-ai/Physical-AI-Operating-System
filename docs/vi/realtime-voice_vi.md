@@ -587,6 +587,99 @@ device type (`lamp`), hoặc tên agent trong IDENTITY.md — HAL resolve device
 theo env `DEVICE_TYPE` trước rồi mới tới `config.json`, nên danh sách runtime
 khớp với danh sách Settings hiển thị.
 
+**Phrase do chủ máy sửa.** Khi `config.json` có `wake_phrases` không rỗng
+(Settings → General), danh sách đó **thay thế** danh sách mặc định, kể cả alias
+`autonomous` và device type. `hal_config.custom_wake_phrases()` đọc lại mỗi lần
+gọi, nên `VoiceService._effective_wake_words()` áp dụng lúc khởi động và mỗi lần
+`/voice/config` được đẩy xuống. os-server đẩy sau khi lưu (`applyWakePhrases`),
+nên sửa xong có hiệu lực mà không cần restart HAL. Cùng các phrase này đứng đầu
+danh sách strip của local intent (`i18n.SetOwnerWakePhrases`). Transcript và
+phrase được chuẩn hoá NFC trước khi so khớp, để tiếng Việt gõ trên trình duyệt
+khớp với output của STT. Các từ trong phrase của chủ máy (trừ các prefix chung)
+được thêm vào STT keyterm boost.
+
+**Tiếng chime khi được gọi.** Khi wake phrase nói ra mở gate
+(`open_wake_word_gate`), HAL phát đúng tiếng chime xác nhận như khi bấm nút
+(`button_actions.play_ack_chime`, tiếng ping E6+E7 tổng hợp, khoảng 120 ms), cùng
+lúc với LED đang nghe. Mỗi phiên chỉ phát một lần và không phát khi thu kiểu
+tap-to-talk. `wake_chime` trong `config.json` (Settings → General, mặc định bật)
+dùng để tắt; HAL đọc lại mỗi lần được gọi nên không cần restart.
+
+Tiếng chime khi được gọi được ưu tiên hơn âm thanh đang phát trên loa:
+`TTSService.play_wake_chime()` (dùng cho wake gate và cue chỉ-có-wake-phrase,
+`voice_service.py` `_play_wake_chime` / `_bare_wake_cue`) không chờ: loa đang bận
+thì gọi ngay `stop(preserve_main_queue=True)`, cắt mọi thứ đang phát (filler,
+backchannel, câu trả lời, kể cả speech không interruptible), rồi chờ stream rảnh
+tối đa 1 s. User gọi thiết bị là để nói điều mới, nên chime không bao giờ bị bỏ
+qua vì âm thanh đang phát.
+
+**Wake light.** `wake_light` trong `config.json` (Settings → General) đặt đèn hiện
+khi được gọi: `{enabled, color: [r,g,b], effect: solid|breathing|spin|blink,
+speed: 0.25–3}`. Trường không đặt giữ preset emotion `listening` của board, nên
+device mà chủ máy chưa chỉnh vẫn giữ cue cũ. `hal/wake_light.py` map effect sang
+effect của LED engine (`EFFECTS`: `solid` = màu đứng yên, `breathing` =
+`breathing_fine`, `spin` = `pulse`, `blink` = `blink`) và đọc config trực tiếp.
+`app_state._apply_emotion_led_display` dùng `wake_light.listening_preset()` cho mọi
+lần hiển thị emotion `listening`, nên kiểu đèn của chủ máy áp dụng cả khi nghe do
+bấm nút. Khi `wake_light.enabled` là false, các cue nghe do giọng nói kích hoạt
+(`fire_listening_cue` và LED của bare wake) bị bỏ qua; HAL tự bật lại đèn nếu cả
+chime lẫn đèn đều tắt, để lần gọi luôn có phản hồi. os-server áp cùng quy tắc:
+`keepsWakeCue` (`system/device/config_update.go`) từ chối update khiến cả
+`wake_chime` và `wake_light` cùng tắt bằng `config.ErrNoWakeCue`.
+
+`POST /led/wake-light/preview` (HAL) với body `{color, effect, speed}` phát thử
+kiểu đèn trong 3 s rồi khôi phục đèn trước đó; không lưu gì. Trả `{status, painted}`;
+`painted` là false (không vẽ) khi sleep, speech, nhạc hoặc đèn mic-muted đang giữ
+dải LED. `color` không hợp lệ hoặc toàn đen trả 400.
+
+**Độ dài cửa sổ follow-up.** `wake_followup_s` trong `config.json` (số giây nguyên,
+3–30, mặc định 10; Settings → General "Keep listening for") đặt thời gian device
+tiếp tục nghe mà không cần wake phrase sau một lần gọi hoặc một câu trả lời. HAL
+đọc trực tiếp qua `wake_followup_timeout_s()` trong `hal/config.py` (kẹp trong
+3–30); khi không đặt, HAL dùng `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` (mặc định code 10;
+image lamp `robots/lamp/rootfs/opt/hal/.env` đặt 20). `WakeWordFocus`
+(`hal/drivers/voice/_internal/wakeword_focus.py`) nhận timeout dưới dạng callable,
+nên sửa xong áp dụng cho cửa sổ kế tiếp mà không cần restart HAL. os-server kiểm
+tra giá trị bằng `config.ValidateWakeFollowup` (`WakeFollowupMinS`/`WakeFollowupMaxS`
+trong `system/server/config/wake_phrases.go`).
+
+**Chỉ nói wake phrase thì được xác nhận, không dispatch.** Khi gate bật và cả
+lượt chỉ là wake phrase ("Hey Sam.", cho sai một chữ ở tên,
+`SpeakerDecorator.is_bare_wake_phrase`), HAL không gửi cho main agent hay
+realtime model. Nó huỷ realtime activity đang mở, phát tiếng chime xác nhận (bỏ
+qua nếu gate đã phát, hoặc `wake_chime` đang tắt), không đọc câu nào, mở cửa sổ
+focus follow-up (`grant_wakeword_focus`), và hiện LED `listening` cho tới câu
+nói tiếp theo hoặc hết cửa sổ (`wake_followup_s`, mặc định 10 s, nếu không đặt
+thì dùng `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`). LED bị bỏ qua khi wake light tắt.
+Wake phrase nói liền với yêu cầu ("hey sam, mấy giờ rồi") chạy như cũ với tiếng
+chime và LED đang nghe.
+
+**STT đổi tên ở câu final.** STT tiếng Anh hay nghe đúng tên ngắn ở partial rồi
+đổi ở final ("Hello, Sam." → "Hello, sir."). Khi một partial khớp chính xác đã
+mở gate, `matches_wake_prefix_slot()` xác nhận final giữ nguyên cả prefix với một
+từ bất kỳ ở vị trí tên, và bước kiểm tra chỉ-có-wake-phrase cũng chấp nhận như
+vậy. Không có bước này, lượt bị bỏ sau khi đã phát chime và chủ máy phải gọi lại.
+
+**STT đóng trước khi kịp nhận dạng.** Server STT đôi khi đóng session vừa mở
+(close bình thường 1000) chỉ một lúc sau khi bắt đầu nói. Nếu xảy ra trước khi có
+partial hay final nào, HAL kết nối lại một lần và gửi lại toàn bộ frame đã thu,
+thay vì kết thúc lượt với `stt_error` và làm mất lần gọi đầu.
+
+Nguyên nhân chính của việc bị đóng sớm là chính keepalive của STT. Với
+`HAL_STT_KEEPALIVE=true`, HAL ping session dựng sẵn mỗi `HAL_STT_KEEPALIVE_PING_S`
+(3 s) bằng `{"type":"KeepAlive"}`. Model Flux (`flux-*`, Listen v2) không nhận tin
+này: server trả `UNPARSABLE_CLIENT_MESSAGE … unknown variant KeepAlive` rồi đóng
+stream, nên gần như mọi session dựng sẵn chết sau vài giây và lần gọi wake phrase
+đầu tiên bị mất. Giờ `AutonomousSTTSession.send_keepalive()` không làm gì với Flux
+(gửi im lặng thay vào sẽ bị tính phí cả lúc không nói). Session bị đóng do để lâu
+vẫn được nhận ra là stale, và lượt đó kết nối lại kèm phát lại pre-roll. Vòng recv
+giờ ghi log tin `Error` của server và các lần đóng bất thường, trước đây bị bỏ qua
+im lặng.
+
+Tiếng chime khi bấm nút không bao giờ chờ sau âm thanh khác: `TTSService.try_play_ack_chime()`
+chỉ ghi khi output stream đang rảnh, bận thì bỏ qua, nên tiếng không bao giờ trễ
+hơn LED.
+
 Một phiên mic là cả một đoạn nói liên tục chứ không phải một câu, nên việc khớp
 diễn ra **theo từng câu**: `starts_with_wake_word()`
 (`hal/drivers/voice/_internal/speaker_decorate.py`) tách transcript theo `.` `!`
@@ -614,13 +707,13 @@ Flux nhận chúng dưới dạng param `keyterm` lặp lại, không trọng s�
 dùng `keyterm`; các model nova cũ hơn dùng `keywords` kèm intensifier `:3`.
 
 Mọi lượt wake-word đã được STT final xác nhận đều đi qua dispatch. Nó mở một
-cửa sổ focus follow-up theo cấu hình (profile lamp 5 giây; HAL mặc định 20 giây),
-nên câu tiếp theo có thể bỏ wake phrase và
+cửa sổ focus follow-up (cài đặt `wake_followup_s` của chủ máy; nếu không đặt thì
+`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`: profile lamp và intern-v2 là 5 giây, mặc định code 10 giây), nên câu tiếp theo có thể bỏ wake phrase và
 được gửi với type `voice_followup`. Với turn đã được phép, thời gian chờ chỉ bắt
 đầu khi cả xử lý lẫn queue TTS của turn đã xong, không phải lúc dispatch hay filler
 đầu tiên. Vision/grounding, main agent, tổng hợp và các đoạn trả lời đang xếp hàng
-không trừ vào thời gian người dùng được nói tiếp. Giá trị cấu hình
-`HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` không đổi.
+không trừ vào thời gian người dùng được nói tiếp. Độ dài cửa sổ đã cấu hình
+(`wake_followup_s` hoặc `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S`) không đổi.
 
 Áp dụng cho turn mode và LIVE, kể cả audio native của realtime. Wake tắt vẫn nhận
 speech bình thường; timeout 0 tắt focus follow-up. Interaction chưa được wake gate
@@ -3418,7 +3511,7 @@ trong `config.json`:
 | `HAL_HARNESS_ANNOUNCE_CONTENT_MAX_CHARS` | `4000` | Văn bản Harness đưa cho bộ diễn đạt bị cắt tới độ dài này. |
 | `HAL_HARNESS_ANNOUNCE_SUMMARIZER_TIMEOUT_S` | `12` | Giới hạn thời gian của summarizer fallback trước khi đọc văn bản đã làm sạch thay thế. |
 | `HAL_VOICE_OPENING_FILLERS_ONLY` | `false` | Với Automatic, Live tắt và wake gate bật, chặn filler/backchannel tự động nếu wake window đã mở khi bắt đầu thu. Lamp Standard và Pro bật; pro-xvf3800 và pro-respeaker-lite tắt. |
-| `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` | `20` | Số giây idle của cửa sổ focus sau lệnh. Mỗi `voice_command` hoặc `voice_followup` được nhận sẽ refresh cửa sổ. `0` tắt follow-up và buộc mỗi phiên mic phải có wake phrase. Bị bỏ qua khi `wakeword` là false. |
+| `HAL_WAKEWORD_FOLLOWUP_TIMEOUT_S` | `10` (`.env` image lamp và intern-v2: `5`) | Giá trị dự phòng khi `wake_followup_s` trong `config.json` (Settings → General "Keep listening for", 3–30 s) chưa đặt; cài đặt của chủ máy được ưu tiên. Số giây idle của cửa sổ focus sau lệnh. Mỗi `voice_command` hoặc `voice_followup` được nhận sẽ refresh cửa sổ. `0` tắt follow-up và buộc mỗi phiên mic phải có wake phrase. Bị bỏ qua khi `wakeword` là false. |
 | `HAL_ENDPOINT_SILENCE_S` | `0.8` | Thời gian im lặng từ lúc STT final về, chỉ áp dụng khi `final_ts >= last_confirmed_speech`. Nếu có tiếng nói được xác nhận sau final đó, quay lại ngưỡng dự phòng 2.5s tới khi có final mới. `0` tắt đồng hồ ngắn, chỉ dùng `HAL_SILENCE_TIMEOUT`. Khi bật gate dùng chung, đây chỉ là đề xuất kết thúc; `HAL_TURN_END_*` quyết định đóng lượt. |
 | `HAL_TURN_END_ENABLED` | `true` | Gate kết thúc lượt tạm thời dùng chung cho thu hands-free khi Live tắt, trước commit; không đổi Live hoặc thu thủ công. `false` khôi phục đồng hồ im lặng và trần phiên cũ. |
 | `HAL_TURN_END_FALLBACK_S` | `2.5` | Im lặng tối thiểu cho transcript thông thường khi Smart Turn thiếu/đang chờ, và cho lời chào ngắn; ứng viên im lặng gốc cũng phải đủ điều kiện. |

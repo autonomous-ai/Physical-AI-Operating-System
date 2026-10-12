@@ -1334,13 +1334,22 @@ def _on_music_play_end():
 
 
 def _apply_emotion_led_display(
-    emotion: str, intensity: float = 1.0, force_led: bool = False
+    emotion: str, intensity: float = 1.0, force_led: bool = False,
+    preset_override: Optional[dict] = None,
 ) -> Optional[list]:
     """Apply LED effect + display for an emotion; returns the scaled LED color or None.
 
     force_led bypasses only the idle background-emotion guard, never sleep.
+    preset_override shows a candidate look instead (wake light preview).
     """
-    preset = EMOTION_PRESETS.get(emotion)
+    if preset_override is not None:
+        preset = preset_override
+    elif emotion == EMO_LISTENING:
+        # The owner's wake light (config.json `wake_light`) over the board preset.
+        from hal import wake_light
+        preset = wake_light.listening_preset()
+    else:
+        preset = EMOTION_PRESETS.get(emotion)
     if not preset:
         return None
     if _sleeping and emotion != EMO_SLEEPY:
@@ -1489,7 +1498,15 @@ def _stt_boost_terms() -> list[str]:
 
     seen: set[str] = set()
     terms: list[str] = []
-    for name in (_read_agent_name(), resolve_device_type(), "autonomous"):
+    from hal.config import custom_wake_phrases
+    from hal.drivers.voice._internal.config import WAKE_WORD_PREFIXES
+
+    # Names inside owner-edited wake phrases ("ê bé na ơi" → "bé", "na") need the same boost.
+    owner_words = [
+        w for p in custom_wake_phrases() for w in p.split()
+        if len(w) >= 2 and w not in {x for prefix in WAKE_WORD_PREFIXES for x in prefix.split()}
+    ]
+    for name in (_read_agent_name(), resolve_device_type(), "autonomous", *owner_words):
         name = (name or "").strip().lower()
         if not name or name in seen:
             continue

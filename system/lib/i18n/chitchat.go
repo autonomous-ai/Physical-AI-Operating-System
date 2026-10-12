@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"sort"
 	"strings"
 	"sync"
 )
@@ -116,6 +117,8 @@ func ChitchatCommandWords() []string {
 var (
 	chitchatWakeMu    sync.RWMutex
 	chitchatWakeWords []string
+	// ownerWakePhrases are config.json wake_phrases, longest first (stripped before the name aliases).
+	ownerWakePhrases []string
 )
 
 // BuildChitchatWakeWords derives local-intent attention tokens from name, longest first.
@@ -170,5 +173,21 @@ func SetChitchatWakeWords(words []string) {
 func ChitchatWakeWords() []string {
 	chitchatWakeMu.RLock()
 	defer chitchatWakeMu.RUnlock()
-	return chitchatWakeWords
+	if len(ownerWakePhrases) == 0 {
+		return chitchatWakeWords
+	}
+	out := make([]string, 0, len(ownerWakePhrases)+len(chitchatWakeWords))
+	out = append(out, ownerWakePhrases...)
+	return append(out, chitchatWakeWords...)
+}
+
+// SetOwnerWakePhrases replaces the owner-edited wake phrases (config.json wake_phrases)
+// stripped from the head of local-intent input; nil restores the name aliases only.
+func SetOwnerWakePhrases(phrases []string) {
+	sorted := append([]string(nil), phrases...)
+	// Longest first so "ê bé na ơi" wins over a shorter phrase it starts with.
+	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i]) > len(sorted[j]) })
+	chitchatWakeMu.Lock()
+	ownerWakePhrases = sorted
+	chitchatWakeMu.Unlock()
 }

@@ -191,8 +191,18 @@ type Config struct {
 
 	// WakeWord gates voice turns before either the realtime model or the main
 	// agent sees them.
-	WakeWord       *bool  `json:"wakeword,omitempty" yaml:"wakeword"`
-	VoiceInputMode string `json:"voice_input_mode,omitempty" yaml:"voice_input_mode"`
+	WakeWord *bool `json:"wakeword,omitempty" yaml:"wakeword"`
+	// WakePhrases are owner-edited spoken wake phrases; empty means the built-in
+	// list (prefixes × autonomous / device type / agent name). HAL reads it live.
+	WakePhrases []string `json:"wake_phrases,omitempty" yaml:"wakePhrases"`
+	// WakeChime plays the button ack chime when a spoken wake phrase is heard; nil = on.
+	WakeChime *bool `json:"wake_chime,omitempty" yaml:"wakeChime"`
+	// WakeFollowupS is how long (s) the device keeps listening after a wake
+	// without a new wake phrase; nil = WakeFollowupDefaultS. HAL reads it live.
+	WakeFollowupS *int `json:"wake_followup_s,omitempty" yaml:"wakeFollowupS"`
+	// WakeLight is the owner's listening light on a wake; nil = on with the board look.
+	WakeLight      *WakeLight `json:"wake_light,omitempty" yaml:"wakeLight"`
+	VoiceInputMode string     `json:"voice_input_mode,omitempty" yaml:"voice_input_mode"`
 
 	// CloudPerception opts into camera perceptions that upload frames or face
 	// crops to the DL backend. Unset means all off; HAL reads it at boot.
@@ -349,6 +359,24 @@ func (c *Config) BackendKey() string {
 
 // WakeWordEnabled reports whether STT must first recognize a wake phrase
 // before HAL handles the voice turn. Unset defaults to false for upgrades.
+// WakeChimeEnabled reports the wake chime toggle (default on).
+func (c *Config) WakeChimeEnabled() bool {
+	return c.WakeChime == nil || *c.WakeChime
+}
+
+// WakeLightEnabled reports whether a wake lights the strip (default on).
+func (c *Config) WakeLightEnabled() bool {
+	return c.WakeLight == nil || c.WakeLight.Enabled == nil || *c.WakeLight.Enabled
+}
+
+// WakeFollowupSeconds reports the listening window after a wake (default WakeFollowupDefaultS).
+func (c *Config) WakeFollowupSeconds() int {
+	if c.WakeFollowupS == nil {
+		return WakeFollowupDefaultS
+	}
+	return *c.WakeFollowupS
+}
+
 func (c *Config) WakeWordEnabled() bool {
 	return c.WakeWord != nil && *c.WakeWord
 }

@@ -44,3 +44,19 @@ func TestBuildSupportedVoiceWakeWordsIncludesCurrentAndPermanentAliases(t *testi
 		}
 	}
 }
+
+func TestOwnerWakePhrasesStripLongestFirst(t *testing.T) {
+	SetOwnerWakePhrases([]string{"bé na", "ê bé na ơi"})
+	t.Cleanup(func() { SetOwnerWakePhrases(nil) })
+
+	words := ChitchatWakeWords()
+	if len(words) < 2 || words[0] != "ê bé na ơi" || words[1] != "bé na" {
+		t.Fatalf("owner phrases must lead, longest first: %v", words)
+	}
+	SetOwnerWakePhrases(nil)
+	for _, w := range ChitchatWakeWords() {
+		if w == "bé na" {
+			t.Fatal("cleared owner phrases must not linger")
+		}
+	}
+}

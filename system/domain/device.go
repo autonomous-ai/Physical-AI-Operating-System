@@ -1180,14 +1180,26 @@ type ConfigPublicResponse struct {
 	VoiceInputMode           string   `json:"voice_input_mode"`
 	AgentName                string   `json:"agent_name"`
 	WakePhrases              []string `json:"wake_phrases"`
-	DeviceID                 string   `json:"device_id"`
-	Mac                      string   `json:"mac"`
-	NetworkSSID              string   `json:"network_ssid"`
-	MQTTEndpoint             string   `json:"mqtt_endpoint"`
-	MQTTUsername             string   `json:"mqtt_username"`
-	MQTTPort                 int      `json:"mqtt_port"`
-	FAChannel                string   `json:"fa_channel"`
-	FDChannel                string   `json:"fd_channel"`
+	// WakePhrasesCustom is true when WakePhrases is the owner's list, not the built-in one.
+	WakePhrasesCustom bool `json:"wake_phrases_custom"`
+	// WakePhrasesDefault is the built-in list, for a "restore defaults" action.
+	WakePhrasesDefault []string `json:"wake_phrases_default"`
+	// WakeChime is the effective wake chime toggle (default true).
+	WakeChime bool `json:"wake_chime"`
+	// WakeFollowupS is the owner's listening window after a wake, in seconds; nil when
+	// unset, so the UI asks HAL (GET /voice/wake-followup) for the image default in effect.
+	WakeFollowupS *int `json:"wake_followup_s,omitempty"`
+	// WakeLight is the saved wake light; WakeLightEnabled is its effective toggle.
+	WakeLight        *config.WakeLight `json:"wake_light,omitempty"`
+	WakeLightEnabled bool              `json:"wake_light_enabled"`
+	DeviceID         string            `json:"device_id"`
+	Mac              string            `json:"mac"`
+	NetworkSSID      string            `json:"network_ssid"`
+	MQTTEndpoint     string            `json:"mqtt_endpoint"`
+	MQTTUsername     string            `json:"mqtt_username"`
+	MQTTPort         int               `json:"mqtt_port"`
+	FAChannel        string            `json:"fa_channel"`
+	FDChannel        string            `json:"fd_channel"`
 
 	// CloudPerception is never omitted so the web can render every toggle.
 	CloudPerception config.CloudPerception `json:"cloud_perception"`
@@ -1267,11 +1279,19 @@ type UpdateConfigRequest struct {
 	FAChannel    string `json:"fa_channel"`
 	FDChannel    string `json:"fd_channel"`
 
-	TTSProvider    string   `json:"tts_provider"`
-	TTSVoice       string   `json:"tts_voice"`
-	TTSSpeed       *float64 `json:"tts_speed,omitempty" binding:"omitempty,gte=0.25,lte=4"`
-	WakeWord       *bool    `json:"wakeword,omitempty"`
-	VoiceInputMode *string  `json:"voice_input_mode,omitempty" binding:"omitempty,oneof=automatic tap_to_talk"`
+	TTSProvider string   `json:"tts_provider"`
+	TTSVoice    string   `json:"tts_voice"`
+	TTSSpeed    *float64 `json:"tts_speed,omitempty" binding:"omitempty,gte=0.25,lte=4"`
+	WakeWord    *bool    `json:"wakeword,omitempty"`
+	// WakePhrases replaces the owner wake phrases; [] restores the built-in list, nil keeps them.
+	WakePhrases *[]string `json:"wake_phrases,omitempty"`
+	// WakeChime toggles the chime on a spoken wake phrase; nil keeps it.
+	WakeChime *bool `json:"wake_chime,omitempty"`
+	// WakeFollowupS sets the listening window after a wake (3–30 s); nil keeps it.
+	WakeFollowupS *int `json:"wake_followup_s,omitempty"`
+	// WakeLight replaces the wake light look and toggle; nil keeps it.
+	WakeLight      *config.WakeLight `json:"wake_light,omitempty"`
+	VoiceInputMode *string           `json:"voice_input_mode,omitempty" binding:"omitempty,oneof=automatic tap_to_talk"`
 
 	// CloudPerception replaces all camera cloud opt-ins; omit to leave them unchanged.
 	CloudPerception *config.CloudPerception `json:"cloud_perception,omitempty"`

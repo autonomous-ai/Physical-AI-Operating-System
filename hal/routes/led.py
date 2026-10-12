@@ -14,6 +14,7 @@ from hal.models import (
     LEDOffRequest,
     LEDPaintRequest,
     LEDRestingPreviewRequest,
+    LEDWakeLightPreviewRequest,
     LEDRestingPreviewResponse,
     LEDRestingRequest,
     LEDRestingResponse,
@@ -417,6 +418,31 @@ def preview_led_resting(req: LEDRestingPreviewRequest):
         _preview_timer = timer
     timer.start()
     return {"status": "ok", "painted": True}
+
+
+# Long enough to see a slow breath or a full spin.
+WAKE_LIGHT_PREVIEW_S = 3.0
+
+
+@router.post("/led/wake-light/preview", response_model=LEDRestingPreviewResponse)
+def preview_led_wake_light(req: LEDWakeLightPreviewRequest):
+    """Play a candidate wake light for a few seconds, then restore; nothing is saved."""
+    from hal import wake_light
+    from hal.presets import EMO_LISTENING
+
+    if not state.rgb_service:
+        raise HTTPException(503, "LED not available")
+    if wake_light.valid_color(req.color) is None:
+        raise HTTPException(400, "color must be [r, g, b] 0-255 with at least one lit channel")
+    if (state._sleeping or state._tts_speaking or state._music_playing
+            or state._mic_muted_led_owns_strip()):
+        return {"status": "ok", "painted": False}
+    _cancel_resting_preview()
+    state._cancel_pending_restore()
+    preset = wake_light.look_preset(req.color, req.effect, req.speed)
+    painted = state._apply_emotion_led_display(EMO_LISTENING, force_led=True, preset_override=preset)
+    state._schedule_led_restore(WAKE_LIGHT_PREVIEW_S)
+    return {"status": "ok", "painted": painted is not None}
 
 
 @router.post("/led/effect/stop", response_model=StatusResponse)

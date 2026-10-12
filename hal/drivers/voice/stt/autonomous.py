@@ -105,6 +105,10 @@ class AutonomousSTTSession(STTSession):
 
     def __init__(self, ws_url: str, api_key: str, sample_rate: int):
         self._ws_url = ws_url
+        # Flux (Listen v2) rejects KeepAlive; the model is in the query string.
+        self._is_flux = "model=flux" in ws_url
+        # Set once we asked the server to finish; its close is then expected.
+        self._close_stream_sent = False
         self._api_key = api_key
         self._sample_rate = sample_rate
         self._ws = None
@@ -173,6 +177,21 @@ class AutonomousSTTSession(STTSession):
                             logger.debug("Autonomous STT: TurnInfo — empty transcript (event=%r)", ev)
                             continue
                         self._on_transcript_cb(transcript, ev == "EndOfTurn")
+
+                    elif msg_type not in ("Connected", "Metadata", "SpeechStarted", "UtteranceEnd"):
+                        # Errors and warnings from the proxy (quota, upstream failure)
+                        # used to be dropped silently, leaving only an empty transcript.
+                        logger.warning(
+                            "Autonomous STT: unhandled %r message: %s",
+                            msg_type, json.dumps(msg)[:300],
+                        )
+                if not self._closed.is_set() and not self._close_stream_sent:
+                    # A server-initiated clean close ends the loop without an exception.
+                    logger.warning(
+                        "Autonomous STT: server closed the stream (code=%s reason=%r)",
+                        getattr(self._ws, "close_code", None),
+                        getattr(self._ws, "close_reason", None),
+                    )
             except Exception as e:
                 if not self._closed.is_set():
                     code = getattr(e, "code", None)
@@ -213,7 +232,15 @@ class AutonomousSTTSession(STTSession):
     def send_keepalive(self):
         """Send a Deepgram KeepAlive so the server doesn't idle-close the WS while we sit
         pre-connected waiting for speech (no audio flowing).
+
+        Flux (Listen v2) has no KeepAlive message: it answers UNPARSABLE_CLIENT_MESSAGE
+        and closes the stream, which killed every pre-connected session ~3 s after it
+        opened and dropped the owner's first wake phrase (device-observed 07/10/2026).
+        For Flux this is a no-op; an idle close is caught as a stale session and the
+        turn reconnects with its pre-roll replayed.
         """
+        if self._is_flux:
+            return
         if self._ws and not self._closed.is_set():
             try:
                 self._ws.send(json.dumps({"type": "KeepAlive"}))
@@ -225,6 +252,7 @@ class AutonomousSTTSession(STTSession):
             return
         if self._ws:
             try:
+                self._close_stream_sent = True
                 self._ws.send(json.dumps({"type": "CloseStream"}))
                 logger.info("Autonomous STT: sent CloseStream — waiting for final transcript")
             except Exception:

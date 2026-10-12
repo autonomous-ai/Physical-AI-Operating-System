@@ -15,6 +15,7 @@ import requests
 from hal import config as hal_config
 from hal import cpu_affinity
 from hal import presets
+from hal import wake_light
 from hal.realtime.enums import AgentGateway
 from hal.realtime.models import AudioOutput as RTAudioOutput
 from hal.realtime.models import InterruptedOutput as RTInterruptedOutput
@@ -272,7 +273,7 @@ class VoiceService:
         # updates must never replace the permanent aliases.
         self._device_wake_words = list(voice_cfg.DEFAULT_WAKE_WORDS)
         self._wakeword_focus = WakeWordFocus(
-            hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S,
+            hal_config.wake_followup_timeout_s,
             pending_speech=getattr(tts_service, "has_followup_speech", None),
         )
 
@@ -307,7 +308,7 @@ class VoiceService:
             tts_service._on_unspoken_reply = _unspoken_reply_to_realtime
 
         self._decorator = SpeakerDecorator(
-            wake_words=merge_wake_words(self._device_wake_words, wake_words or []),
+            wake_words=self._effective_wake_words(wake_words or []),
             nudge_cooldown_s=voice_cfg.ENROLL_NUDGE_COOLDOWN_S,
             enable_people_perception=enable_people_perception,
         )
@@ -399,12 +400,11 @@ class VoiceService:
         if not hal_config.WAKEWORD_ENABLED:
             return False
         if self._wakeword_focus.refresh(timeout_s):
+            window = hal_config.wake_followup_timeout_s()
             logger.info(
                 "%s -- wake-word focus granted for %.0fs",
                 source,
-                hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S
-                if timeout_s is None
-                else min(hal_config.WAKEWORD_FOLLOWUP_TIMEOUT_S, timeout_s),
+                window if timeout_s is None else min(window, timeout_s),
             )
             return True
         return False
@@ -415,11 +415,67 @@ class VoiceService:
             return False
         return self._wakeword_focus.activity(interaction_id, run_id, phase)
 
+    def _effective_wake_words(self, agent_words: list) -> list:
+        """Owner-edited phrases (config.json `wake_phrases`) replace the built-in list.
+
+        Without them: permanent device aliases plus the agent-name phrases, as before.
+        """
+        self._agent_wake_words = list(agent_words)
+        custom = hal_config.custom_wake_phrases()
+        if custom:
+            return merge_wake_words(custom)
+        return merge_wake_words(self._device_wake_words, agent_words)
+
     def set_wake_words(self, words: list) -> None:
-        """Update wake word list at runtime (called when agent is renamed)."""
-        self._decorator.set_wake_words(
-            merge_wake_words(self._device_wake_words, words)
-        )
+        """Update wake word list at runtime (agent rename, or an owner edit in the web admin)."""
+        self._decorator.set_wake_words(self._effective_wake_words(words))
+
+    def _play_wake_chime(self) -> None:
+        """The button tap's ack chime, off the STT callback thread (owner toggle: wake_chime).
+
+        Takes priority over a backchannel, filler or reply already on the speaker
+        (TTSService.play_wake_chime interrupts it) rather than being skipped.
+        """
+        tts = self._tts
+        if tts is None or not hasattr(tts, "play_wake_chime"):
+            return
+        threading.Thread(target=tts.play_wake_chime, daemon=True, name="wake-chime").start()
+
+    def _acknowledge_bare_wake(self, chimed: bool = False) -> None:
+        """Bare wake phrase: open the follow-up window, then cue off the capture thread."""
+        self.grant_wakeword_focus("wake-phrase")
+        threading.Thread(
+            target=self._bare_wake_cue, kwargs={"chimed": chimed}, daemon=True, name="bare-wake-cue",
+        ).start()
+
+    def _bare_wake_cue(self, chimed: bool = False) -> None:
+        """The chime (no spoken cue), then hold the listening LED for the window.
+
+        The LED is cleared when the window closes with nobody speaking.
+        """
+        from hal import app_state
+
+        # The gate already chimed when it opened; the owner may also have turned it off.
+        tts = self._tts
+        if not chimed and hal_config.wake_chime_enabled() and hasattr(tts, "play_wake_chime"):
+            tts.play_wake_chime()
+        if getattr(self._tts, "input_capture_state", (False, 0))[0]:
+            return  # the user already started talking; that session shows its own cue
+        if not self._wakeword_focus.is_active() or not wake_light.enabled():
+            return
+        self._set_emotion_local(presets.EMO_LISTENING)
+
+        def _clear_if_unused() -> None:
+            if not self._wakeword_focus.is_active():
+                app_state.clear_listening_cue()
+
+        timer = threading.Timer(hal_config.wake_followup_timeout_s() + 0.5, _clear_if_unused)
+        timer.daemon = True
+        timer.start()
+
+    def bare_wake_phrase(self, transcript: str, allow_name_slot: bool = False) -> bool:
+        """True when the turn is ONLY a wake phrase ("hey sam"), nothing to act on."""
+        return self._decorator.is_bare_wake_phrase(transcript, allow_name_slot=allow_name_slot)
 
     @staticmethod
     def _set_emotion_local(emotion: str) -> None:
@@ -2376,6 +2432,10 @@ class VoiceService:
             self._realtime.prewarm()
         wake_word_detected = threading.Event()
         wake_word_confirmed = threading.Event()
+        # The wake chime plays at most once per session.
+        wake_chimed = [False]
+        # One reconnect-and-replay per session when STT closes before transcribing.
+        stt_replayed = [False]
         capture_complete = threading.Event()
         wake_partial_hypothesis = [""]
         wake_final_hypothesis = [""]
@@ -2417,6 +2477,8 @@ class VoiceService:
             if not addressed_to_us():
                 return
             listening_emotion_sent[0] = True
+            if hal_config.WAKEWORD_ENABLED and not wake_light.enabled():
+                return  # the owner chose the chime alone as the wake cue
             self._set_emotion_local(presets.EMO_LISTENING)
 
         def open_wake_word_gate(candidate: str, source: str) -> None:
@@ -2430,6 +2492,10 @@ class VoiceService:
                 logger.info(
                     "Wake-word gate opened by STT %s: '%s'", source, candidate
                 )
+                # Chime first so sound and LED start together.
+                if manual_capture is None and not wake_chimed[0] and hal_config.wake_chime_enabled():
+                    wake_chimed[0] = True
+                    self._play_wake_chime()
                 fire_listening_cue()
 
         def confirm_wake_word_gate(candidate: str) -> None:
@@ -2793,10 +2859,38 @@ class VoiceService:
                 try:
                     stt_session.send_audio(resampled)
                 except Exception as e:
-                    logger.warning("send_audio failed (connection dead?): %s", e)
-                    endpoint_method = "stt_error"
-                    endpoint_ts = time.monotonic()
-                    break
+                    # The STT server can close a just-opened session (normal 1000)
+                    # moments after speech starts, before it transcribed anything.
+                    # Ending the turn there dropped the owner's first "hey sam"
+                    # (device-observed 07/10/2026): reconnect once and replay the take.
+                    if (not stt_replayed[0] and _is_normal_ws_close(e)
+                            and not last_partial[0] and not final_segments):
+                        stt_replayed[0] = True
+                        logger.warning(
+                            "STT closed mid-turn before any transcript (normal 1000 close) "
+                            "— reconnecting and replaying %d frame(s)", len(audio_buffer) + 1,
+                        )
+                        try:
+                            stt_session.close()
+                        except Exception:
+                            pass
+                        try:
+                            stt_session = self._stt.create_session()
+                            if not stt_session.start(on_transcript):
+                                raise RuntimeError("fresh STT session failed to connect")
+                            for sent in audio_buffer:
+                                stt_session.send_audio(sent)
+                            stt_session.send_audio(resampled)
+                        except Exception as replay_error:
+                            logger.warning("STT replay failed: %s", replay_error)
+                            endpoint_method = "stt_error"
+                            endpoint_ts = time.monotonic()
+                            break
+                    else:
+                        logger.warning("send_audio failed (connection dead?): %s", e)
+                        endpoint_method = "stt_error"
+                        endpoint_ts = time.monotonic()
+                        break
                 audio_buffer.append(resampled)
 
                 # Parallel: stream to realtime model (non-blocking queue put).
@@ -3057,6 +3151,16 @@ class VoiceService:
                         "had the name right)",
                         combined,
                     )
+                elif self._decorator.matches_wake_prefix_slot(combined):
+                    # The partial heard the name exactly; the final kept the prefix
+                    # but rewrote the name ("Hello, Sam" -> "Hello, sir"). Dropping the
+                    # turn here made the owner call twice after the chime had played.
+                    wake_word_confirmed.set()
+                    logger.info(
+                        "Wake-word confirmed: STT rewrote the name in the final "
+                        "(the partial that opened the gate had it exactly): %r",
+                        combined,
+                    )
                 else:
                     logger.info(
                         "Wake-word partial rejected — no matching final STT result; dropping turn"
@@ -3250,8 +3354,30 @@ class VoiceService:
                 wake_word_confirmed.is_set() or wakeword_followup_active
                 or (hal_config.WAKEWORD_ENABLED and self._wakeword_focus.is_active()),
             )
-            if (input_policy.automatic and voice_cfg.LIVE_MODE and opener_authorized and combined
-                    and not is_noise_turn(combined, buf_duration, rt_audio_is_speech)):
+            # A turn that is ONLY a wake phrase ("hey sam") carries no request. Answer it
+            # with the chime, the follow-up window and the listening LED
+            # instead of sending a greeting to the agent or the realtime model.
+            bare_wake = (
+                input_policy.automatic
+                and hal_config.WAKEWORD_ENABLED
+                and wake_word_confirmed.is_set()
+                and not harness_listening
+                and manual_capture is None
+                and early_realtime_result is None
+                and bool(combined)
+                # The gate was opened by an exact partial, so a name STT rewrote in the
+                # final ("Hello, sir.") still counts as a bare call.
+                and self.bare_wake_phrase(combined, allow_name_slot=wake_word_detected.is_set())
+            )
+            if bare_wake:
+                logger.info("Bare wake phrase %r -- acknowledging, waiting for the request", combined)
+                if realtime_turn_started and hal_config.REALTIME_ENABLED:
+                    try:
+                        self._realtime.discard_open_activity("bare-wake")
+                    except Exception:
+                        logger.debug("[realtime] bare-wake discard failed", exc_info=True)
+            if (not bare_wake and input_policy.automatic and voice_cfg.LIVE_MODE and opener_authorized
+                    and combined and not is_noise_turn(combined, buf_duration, rt_audio_is_speech)):
                 try:
                     _, opener_type = self._decorator.classify_wake_word(combined)
                 except Exception:
@@ -3297,7 +3423,9 @@ class VoiceService:
             if reply_stop is not None and reply_stop.is_set():
                 self._wakeword_focus.finish(interaction_id, cancelled=True)
                 return False
-            if early_realtime_result is not None:
+            if bare_wake:
+                rt = RealtimeTurnResult(route=ROUTE_NOT_STARTED)
+            elif early_realtime_result is not None:
                 rt = early_realtime_result
                 if rt.handled and (combined or rt.transcript):
                     self._realtime.save_turn(
@@ -3341,6 +3469,8 @@ class VoiceService:
                 hal_config.WAKEWORD_ENABLED,
                 wakeword_authorized,
             )
+            if bare_wake:
+                dispatch_to_main = False
             downstream_dropped = should_drop_downstream_turn(rt)
             if downstream_dropped:
                 self._wakeword_focus.finish(interaction_id, cancelled=True)
@@ -3391,6 +3521,8 @@ class VoiceService:
                 )
             elif not live_opener_consumed:
                 self._decorator.submit_speech_emotion_from_session(ser_audio_buffer)
+                if bare_wake:
+                    self._acknowledge_bare_wake(chimed=wake_chimed[0])
                 # A rejected utterance deliberately has no downstream agent to replace
                 # the listening cue with thinking or TTS. Do not do this for an armed
                 # realtime turn: that path may already be expressing an emotion while
@@ -3416,7 +3548,7 @@ class VoiceService:
             # Safety net: if we fired emotion=listening but no follow-up emotion arrives
             # (LLM error, silence-only after first partial, TTS interrupt before
             # response), blue-pulse would hang.
-            if listening_emotion_sent[0]:
+            if listening_emotion_sent[0] and not bare_wake:
                 def _reset_if_still_listening():
                     try:
                         from hal import app_state

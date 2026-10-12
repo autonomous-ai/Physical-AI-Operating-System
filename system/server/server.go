@@ -244,6 +244,7 @@ func (s *Server) Serve(closeFn func()) error {
 		"realtime_supersedes_main_reply": _agentHttpDeliver.RealtimeSupersedesMainReply(),
 	})
 	i18n.SetDeviceName(deviceType)
+	i18n.SetOwnerWakePhrases(s.config.WakePhrases)
 
 	// HAL's local_only_middleware accepts Authorization: Bearer <llm_api_key>
 	// as one of its allow paths; sending it lets calls succeed even if

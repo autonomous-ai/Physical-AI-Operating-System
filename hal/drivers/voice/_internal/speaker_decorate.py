@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import unicodedata
 import threading
 import time
 from typing import Optional
@@ -20,7 +21,12 @@ logger = logging.getLogger("hal.voice")
 
 
 def _normalize(text: str) -> str:
-    """Lowercase, strip punctuation, collapse whitespace."""
+    """NFC, lowercase, strip punctuation, collapse whitespace.
+
+    NFC first: a Vietnamese phrase typed in the web admin and the same words from STT
+    can differ in composed/decomposed diacritics.
+    """
+    text = unicodedata.normalize("NFC", text)
     return " ".join(re.sub(r"[^\w\s]", "", text.casefold()).split())
 
 
@@ -273,6 +279,54 @@ class SpeakerDecorator:
                 ):
                     return True
         return False
+
+    def matches_wake_prefix_slot(self, transcript: str) -> bool:
+        """A wake phrase whose LAST word STT rewrote freely ("hello sam" -> "hello sir").
+
+        Confirmation only, after an exact partial already opened the gate in the same
+        session: English STT often revises a short name in the final. Requires the
+        whole prefix and exactly one word in the name slot at a sentence start or end.
+        """
+        phrases = self._normalized_wake_phrases()
+        for sentence in _sentences(transcript):
+            words = sentence.split()
+            for phrase in phrases:
+                expected = phrase.split()
+                if len(expected) < 2 or len(words) < len(expected):
+                    continue
+                prefix = expected[:-1]
+                head = words[: len(expected)]
+                tail = words[-len(expected):]
+                if head[:-1] == prefix or tail[:-1] == prefix:
+                    return True
+        return False
+
+    def is_bare_wake_phrase(self, transcript: str, allow_name_slot: bool = False) -> bool:
+        """True when every sentence is just a wake phrase ("Hey Sam." / "hey sam, hey sam").
+
+        One typo in the name is tolerated, as for gate confirmation. allow_name_slot also
+        accepts any single word in the name slot ("Hello, sir."), for a gate an exact
+        partial already opened. Such a turn has nothing to act on: the caller
+        acknowledges it and waits for the request.
+        """
+        phrases = self._normalized_wake_phrases()
+        sentences = _sentences(transcript)
+        if not phrases or not sentences:
+            return False
+        for sentence in sentences:
+            if sentence in phrases:
+                continue
+            words = sentence.split()
+            if not any(
+                len(words) == len(p.split())
+                and (
+                    _phrase_matches_loosely(sentence, p)
+                    or (allow_name_slot and len(words) >= 2 and words[:-1] == p.split()[:-1])
+                )
+                for p in phrases
+            ):
+                return False
+        return True
 
     def classify_wake_word(self, combined: str) -> tuple[str, str]:
         """Classify a leading wake phrase without modifying the transcript."""

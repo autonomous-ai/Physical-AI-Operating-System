@@ -11,9 +11,15 @@ logger = logging.getLogger("hal.voice")
 class WakeWordFocus:
     """Track a monotonic idle deadline shared by successive mic sessions."""
 
-    def __init__(self, timeout_s: float, clock: Callable[[], float] = time.monotonic,
+    @property
+    def _timeout_s(self) -> float:
+        return max(0.0, float(self._timeout_source()))
+
+    def __init__(self, timeout_s: float | Callable[[], float],
+                 clock: Callable[[], float] = time.monotonic,
                  pending_speech: Callable[[str], bool] | None = None):
-        self._timeout_s = max(0.0, timeout_s)
+        # A callable is read at each use so an owner edit applies to the next window.
+        self._timeout_source = timeout_s if callable(timeout_s) else (lambda: timeout_s)
         self._clock = clock
         self._until = 0.0
         self._lock = threading.Lock()
@@ -94,10 +100,11 @@ class WakeWordFocus:
             owners = (f"interaction:{iid}", f"run:{iid}", f"run:{turn['run']}")
             if any(self._pending_speech(owner) for owner in owners):
                 continue
+            window = self._timeout_s
             turn["done"] = True
-            turn["expires"] = now + self._timeout_s
+            turn["expires"] = now + window
             logger.info("[wake] Follow-up idle window started for %.0fs after processing/playback (interaction_id=%s)",
-                        self._timeout_s, iid)
+                        window, iid)
 
     def is_active(self) -> bool:
         with self._lock:
@@ -111,9 +118,10 @@ class WakeWordFocus:
 
     def refresh(self, timeout_s: float | None = None) -> bool:
         """Extend focus from now; false when follow-up focus is disabled."""
-        if self._timeout_s <= 0:
+        limit = self._timeout_s
+        if limit <= 0:
             return False
-        window = self._timeout_s if timeout_s is None else min(self._timeout_s, max(0.0, timeout_s))
+        window = limit if timeout_s is None else min(limit, max(0.0, timeout_s))
         if window <= 0:
             return False
         with self._lock:

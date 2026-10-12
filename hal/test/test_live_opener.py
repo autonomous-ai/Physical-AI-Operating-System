@@ -174,6 +174,8 @@ def test_final_wake_confirmation_controls_promotion_and_fallback(
     service._music_is_playing.return_value = False
     service._decorator.starts_with_wake_word.side_effect = lambda t: t.lower().startswith("hello lamp")
     service._decorator.matches_wake_word_loosely.return_value = False
+    service._decorator.matches_wake_prefix_slot.return_value = False
+    service.bare_wake_phrase.return_value = False
     service._decorator.classify_wake_word.return_value = (final, "voice_command")
     service._decorator.identify_and_decorate.return_value = (final, None, None)
     service._try_live_opener = MethodType(VoiceService._try_live_opener, service)

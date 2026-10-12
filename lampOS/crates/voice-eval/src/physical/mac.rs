@@ -42,7 +42,7 @@ use std::{
     process::{Child, ChildStdin, Command, Stdio},
     sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError},
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 /// Starts one stimulus. Implementations must return promptly; playback runs
@@ -56,10 +56,11 @@ pub trait Player {
         cancel_file: &Path,
     ) -> Result<JoinHandle<Value>>;
     fn describe(&self) -> Value;
-    /// Two-phase start: load and verify the WAV and open the output in
-    /// silence now, returning its ready receipt. The stimulus starts only
-    /// on one original grant through `PreparedStart::grant`. `None` when
-    /// this player has no prepared start.
+    /// Two-phase start: begin loading and verifying the WAV and opening the
+    /// output in silence, without waiting. Its ready receipt arrives on
+    /// `Preparing::ready`; the caller keeps consuming the session meanwhile.
+    /// The stimulus starts only on one original grant through
+    /// `PreparedStart::grant`. `None` when this player has no prepared start.
     fn prepare(
         &mut self,
         _wav: &Path,
@@ -67,9 +68,17 @@ pub trait Player {
         _report_directory: &Path,
         _cancel_file: &Path,
         _max_wait_ms: u32,
-    ) -> Result<Option<PreparedStart>> {
+    ) -> Result<Option<Preparing>> {
         Ok(None)
     }
+}
+
+/// A two-phase player still preparing: its ready receipt, once published,
+/// arrives on `ready`.
+pub struct Preparing {
+    pub ready: Receiver<Value>,
+    pub grant: SyncSender<GrantInput>,
+    pub handle: JoinHandle<Value>,
 }
 
 /// An armed two-phase player: its ready receipt, its grant channel and the
@@ -84,14 +93,28 @@ pub struct PreparedStart {
 /// the trigger wait, never between readiness and the start.
 const PREPARE_READY_BOUND: Duration = Duration::from_secs(10);
 
-/// Wait for a prepared player's ready receipt; a player that ends first or
-/// stays silent is stopped and its failure returned.
-fn await_ready(
-    ready: &Receiver<Value>,
-    grant: SyncSender<GrantInput>,
-    handle: JoinHandle<Value>,
-) -> Result<PreparedStart> {
-    match ready.recv_timeout(PREPARE_READY_BOUND) {
+/// How often a wait for a prepared player returns to consume the session.
+const PREPARE_POLL: Duration = Duration::from_millis(2);
+
+/// Wait for a prepared player's ready receipt within the unchanged 10 s
+/// bound, calling `idle` between short polls so the session transport keeps
+/// being consumed: a cue is judged when it arrives, not after preparation.
+/// A player that ends first or stays silent is stopped and its failure
+/// returned.
+fn await_ready(preparing: Preparing, mut idle: impl FnMut()) -> Result<PreparedStart> {
+    let Preparing {
+        ready,
+        grant,
+        handle,
+    } = preparing;
+    let deadline = Instant::now() + PREPARE_READY_BOUND;
+    let received = loop {
+        match ready.recv_timeout(PREPARE_POLL) {
+            Err(RecvTimeoutError::Timeout) if Instant::now() < deadline => idle(),
+            other => break other,
+        }
+    };
+    match received {
         Ok(ready) => Ok(PreparedStart {
             ready,
             grant,
@@ -157,7 +180,7 @@ impl Player for ObserverPlayer {
         report_directory: &Path,
         cancel_file: &Path,
         max_wait_ms: u32,
-    ) -> Result<Option<PreparedStart>> {
+    ) -> Result<Option<Preparing>> {
         lamp_observer::playback::validate_output_name(&self.output_device)?;
         let options = lamp_observer::playback::PlayOptions {
             output_device: self.output_device.clone(),
@@ -185,7 +208,11 @@ impl Player for ObserverPlayer {
                 }
             }
         });
-        await_ready(&ready, grant, handle).map(Some)
+        Ok(Some(Preparing {
+            ready,
+            grant,
+            handle,
+        }))
     }
 }
 
@@ -262,6 +289,10 @@ pub enum FakePlayerFault {
     LateFirstCopy { delay_ms: u32 },
     /// The player never becomes ready.
     PrepareFails,
+    /// The ready receipt is published this long after the fake runtime
+    /// started (its room socket appeared), as when the observer's output is
+    /// slow to open; a test can place the runtime's startup cues inside it.
+    SlowPrepare { delay_ms: u32 },
 }
 
 /// Loopback two-phase player for the fake lamp-live. It mirrors the
@@ -297,7 +328,7 @@ impl Player for FakePreparedRoomPlayer {
         _: &Path,
         cancel_file: &Path,
         max_wait_ms: u32,
-    ) -> Result<Option<PreparedStart>> {
+    ) -> Result<Option<Preparing>> {
         self.prepared += 1;
         let number = self.prepared;
         let fault = self
@@ -316,6 +347,13 @@ impl Player for FakePreparedRoomPlayer {
         let (grant, inputs) = mpsc::sync_channel::<GrantInput>(9);
         let (published, ready) = mpsc::sync_channel(1);
         let handle = thread::spawn(move || {
+            if let Some(FakePlayerFault::SlowPrepare { delay_ms }) = fault {
+                let until = monotonic_us() + 15_000_000;
+                while !room.exists() && monotonic_us() < until {
+                    thread::sleep(Duration::from_millis(2));
+                }
+                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+            }
             let ready_ns = monotonic_ns();
             let mut report = json!({"attempt_id": attempt_id, "valid": false,
                 "scope": "fake prepared start; no audio", "counters": {"source_started_host_ns": 0}});
@@ -394,7 +432,11 @@ impl Player for FakePreparedRoomPlayer {
             }
             report
         });
-        await_ready(&ready, grant, handle).map(Some)
+        Ok(Some(Preparing {
+            ready,
+            grant,
+            handle,
+        }))
     }
 }
 
@@ -606,6 +648,12 @@ struct Session {
     runtime_ended: bool,
     /// Serve: relay receipt times of stdout readiness lines (diagnostic only).
     stdout_readiness_us: Vec<u64>,
+    /// Every ping/pong sample, bounded, so each freshness decision's mapping
+    /// can be reviewed later.
+    clock_samples: Vec<Value>,
+    /// When the relay's session_start was taken. Only pings written after it
+    /// measure the live transport and may define the clock map.
+    started_runner_us: Option<u64>,
 }
 
 struct Playback {
@@ -747,6 +795,24 @@ impl<'a> PhysicalBackend<'a> {
         stdin.flush()?;
         session.stop_sent = true;
         Ok(())
+    }
+
+    /// Take every relayed line that has already arrived, keeping its events
+    /// in order for `next_event`, and keep the clock map's pings on time.
+    /// Used while a prepared player loads, so a cue is judged on arrival.
+    fn consume_transport(&mut self) {
+        let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
+            (s.next_ping_us, s.pings.len() as u64)
+        });
+        if sent < MAX_PINGS && monotonic_us() >= due {
+            // A failed write means the transport closed; session_end reports it.
+            let _ = self.send_ping(sent + 1);
+        }
+        while let Some(line) = self.wait_line(monotonic_us()) {
+            if let Some(event) = self.take(line) {
+                self.pending.push_back(event);
+            }
+        }
     }
 
     /// Serve: a player that ended without delivering, or a room recorder that
@@ -1010,11 +1076,22 @@ impl<'a> PhysicalBackend<'a> {
                             "ping/pong over the session transport, best round trip {rtt} us"
                         ),
                     };
-                    if session
-                        .best
-                        .as_ref()
-                        .is_none_or(|best| mapping.uncertainty_us < best.uncertainty_us)
-                    {
+                    // A ping written before session_start was taken waited
+                    // while the transport connected: its round trip is setup,
+                    // not the live path, and never defines the clock map.
+                    let usable = session.started_runner_us.is_some_and(|start| sent >= start);
+                    let better = usable
+                        && session
+                            .best
+                            .as_ref()
+                            .is_none_or(|best| mapping.uncertainty_us < best.uncertainty_us);
+                    if session.clock_samples.len() < MAX_PINGS as usize {
+                        session.clock_samples.push(json!({"seq": seq, "sent_runner_us": sent,
+                            "received_runner_us": received, "rtt_us": rtt, "lamp_us": lamp_us,
+                            "offset_us": mapping.offset_us, "uncertainty_us": mapping.uncertainty_us,
+                            "usable": usable, "became_best": better}));
+                    }
+                    if better {
                         session.best = Some(mapping);
                     }
                 }
@@ -1027,6 +1104,8 @@ impl<'a> PhysicalBackend<'a> {
                 if session.cue_failed {
                     return None;
                 }
+                // The mapping this freshness decision used, retained with it.
+                let mut freshness = json!({"mapping": null});
                 let result = (|| -> Result<Cue> {
                     if session.start.is_none() {
                         return Err(invalid("cue arrived without relay capability receipt"));
@@ -1042,6 +1121,12 @@ impl<'a> PhysicalBackend<'a> {
                         let upper_lamp_us = i128::from(received)
                             + i128::from(map.offset_us)
                             + i128::from(map.uncertainty_us);
+                        freshness = json!({"offset_us": map.offset_us,
+                            "uncertainty_us": map.uncertainty_us, "method": map.method,
+                            "runner_received_us": received,
+                            "upper_lamp_us": i64::try_from(upper_lamp_us).ok(),
+                            "expires_us": parsed.expires_us,
+                            "margin_us": i64::try_from(i128::from(parsed.expires_us) - upper_lamp_us).ok()});
                         if upper_lamp_us >= i128::from(parsed.expires_us) {
                             return Err(invalid(
                                 "stale cue at runner (including clock uncertainty)",
@@ -1073,7 +1158,8 @@ impl<'a> PhysicalBackend<'a> {
                         .cues
                         .push(json!({"cue": cue, "lamp_received_us": lamp_received_us,
                         "runner_received_us": received, "accepted": result.is_ok(),
-                        "error": result.as_ref().err().map(ToString::to_string)}));
+                        "error": result.as_ref().err().map(ToString::to_string),
+                        "freshness": freshness}));
                 }
                 match result {
                     Ok(cue) => cue.event()?,
@@ -1179,6 +1265,9 @@ impl<'a> PhysicalBackend<'a> {
                     )
                 } else {
                     session.start = Some(serde_json::to_value(start).ok()?);
+                    // The relay now reads runner input: measure it at once.
+                    session.started_runner_us = Some(received);
+                    session.next_ping_us = 0;
                     return None;
                 }
             }
@@ -1497,6 +1586,8 @@ impl Backend for PhysicalBackend<'_> {
             stop_sent: false,
             runtime_ended: false,
             stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
         });
         self.send_ping(1)?;
         fs::write(
@@ -1587,13 +1678,17 @@ impl Backend for PhysicalBackend<'_> {
         let max_wait_ms =
             (step.trigger.deadline_ms + step.trigger.delay_ms + 5_000).min(MAX_PREPARED_WAIT_MS);
         let armed_us = monotonic_us();
-        let failure = match self.player.prepare(
+        let prepared = match self.player.prepare(
             &asset.wav,
             timing,
             &directory.join(format!("play-{}", step.id)),
             &cancel_file,
             max_wait_ms,
         ) {
+            Ok(Some(preparing)) => await_ready(preparing, || self.consume_transport()).map(Some),
+            other => other.map(|_| None),
+        };
+        let failure = match prepared {
             Ok(Some(prepared)) if prepared.ready["source_sha256"] == asset.wav_sha256.as_str() => {
                 self.armed = Some(Armed {
                     step: step.id.clone(),
@@ -1996,6 +2091,7 @@ impl Backend for PhysicalBackend<'_> {
             "session_start": session.start,
             "session_end": session.end,
             "cue_receipts": session.cues,
+            "clock_samples": session.clock_samples,
             "transport_exit": exited.map(|s| s.code()),
             "transport_status": exited.map(|s| s.to_string()),
             "transport_forced_kill": exited.is_none(),
@@ -2399,6 +2495,8 @@ mod audit_grant_tests {
             stop_sent: false,
             runtime_ended: false,
             stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
         });
         backend.trigger = Some((
             TriggerObservation {
@@ -2529,6 +2627,8 @@ mod audit_grant_tests {
             stop_sent: false,
             runtime_ended: false,
             stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
         });
 
         drop(tx);
@@ -2671,6 +2771,8 @@ mod audit_grant_tests {
             stop_sent: false,
             runtime_ended: false,
             stdout_readiness_us: Vec::new(),
+            clock_samples: Vec::new(),
+            started_runner_us: None,
         });
 
         drop(tx);

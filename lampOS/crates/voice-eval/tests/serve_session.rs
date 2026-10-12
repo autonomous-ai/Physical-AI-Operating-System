@@ -34,6 +34,8 @@ struct Control {
     fake_args: Vec<&'static str>,
     player_faults: Vec<(usize, FakePlayerFault)>,
     recorder_fail_ms: Option<u32>,
+    /// Start the relay this late, like an SSH transport still connecting.
+    transport_delay_ms: Option<u32>,
     runtime_flags: lamp_voice_eval::physical::session::RuntimeFlags,
 }
 
@@ -68,12 +70,22 @@ fn run(control: Control) -> AttemptRecord {
     let lamp_root = dir.join("lamp");
     fs::create_dir(&lamp_root).unwrap();
     let room = dir.join("room.sock");
-    let mut command = vec![
+    let mut command = match control.transport_delay_ms {
+        Some(ms) => vec![
+            BIN.to_owned(),
+            "fake-slow-transport".into(),
+            "--delay-ms".into(),
+            ms.to_string(),
+            "--".into(),
+        ],
+        None => Vec::new(),
+    };
+    command.extend([
         BIN.to_owned(),
         "lamp-session".into(),
         "--runtime".into(),
         BIN.into(),
-    ];
+    ]);
     let mut prefix: Vec<String> = [
         "fake-lamp-live",
         "--fake-plan",
@@ -608,6 +620,93 @@ fn a_room_recording_that_ends_early_withholds_the_rest() {
         detail(&record, "why")
     );
     assert_ne!(record.evidence["room_audio"]["valid"], true);
+    assert_clean_stop(&record);
+}
+
+/// The 4ace startup refusal (wdqcviuk): the first ping was written while the
+/// transport was still connecting, the first player's preparation then held
+/// the runner, and the first cue was judged against that setup-inflated
+/// clock map. Only pings written after the relay's session start now define
+/// the map, and the session is consumed while a player prepares; the 100 ms
+/// cue bound is unchanged.
+#[test]
+fn startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer() {
+    let record = run(Control {
+        steps: Some(2),
+        transport_delay_ms: Some(400),
+        // Ready 2.3 s after the fake runtime starts: its startup cues come at
+        // ~2.0 s, inside the preparation, and the first prompt is due at
+        // readiness + 500 ms, after it.
+        player_faults: vec![(1, FakePlayerFault::SlowPrepare { delay_ms: 2_300 })],
+        ..Control::default()
+    });
+    assert_eq!(
+        record.status,
+        AttemptStatus::Completed,
+        "{}",
+        record.evidence["protocol_errors"]
+    );
+    assert_eq!(
+        statuses(&record)[0],
+        StepStatus::Injected,
+        "{}",
+        detail(&record, "sky")
+    );
+    let receipts = record.evidence["cue_receipts"].as_array().unwrap();
+    assert!(
+        receipts.iter().all(|r| r["accepted"] == true),
+        "{receipts:?}"
+    );
+    // The startup cues were taken while the first player was preparing.
+    let sky_ready_us =
+        record.evidence["playbacks"][0]["report"]["prepared_start"]["ready"]["ready_monotonic_ns"]
+            .as_u64()
+            .unwrap()
+            / 1000;
+    let startup: Vec<&Value> = receipts
+        .iter()
+        .take_while(|r| r["cue"]["kind"] != "input_candidate")
+        .collect();
+    assert!(
+        startup.iter().any(|r| r["runner_received_us"]
+            .as_u64()
+            .is_some_and(|at| at < sky_ready_us)),
+        "no startup cue arrived during preparation: {startup:?} ready {sky_ready_us}"
+    );
+    // Decision-time clock evidence: each startup cue was judged with a
+    // mapping that could prove it fresh.
+    for receipt in &startup {
+        let freshness = &receipt["freshness"];
+        assert!(
+            freshness["uncertainty_us"]
+                .as_u64()
+                .is_some_and(|u| u < 50_000),
+            "{receipt}"
+        );
+        assert!(
+            freshness["margin_us"].as_i64().is_some_and(|m| m > 0),
+            "{receipt}"
+        );
+    }
+    // Ping 1 waited while the transport connected: retained, never used.
+    let samples = record.evidence["clock_samples"].as_array().unwrap();
+    assert_eq!(samples[0]["seq"], 1);
+    assert_eq!(samples[0]["usable"], false, "{}", samples[0]);
+    assert_eq!(samples[0]["became_best"], false);
+    assert!(
+        samples[0]["rtt_us"]
+            .as_u64()
+            .is_some_and(|rtt| rtt >= 400_000),
+        "{}",
+        samples[0]
+    );
+    let first_usable = samples.iter().find(|s| s["usable"] == true).unwrap();
+    assert!(
+        first_usable["rtt_us"]
+            .as_u64()
+            .is_some_and(|rtt| rtt < 100_000),
+        "{first_usable}"
+    );
     assert_clean_stop(&record);
 }
 

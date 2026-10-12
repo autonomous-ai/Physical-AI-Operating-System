@@ -7,7 +7,9 @@ serve trial, for a causal audit of onset retention. The branch is your
 the last status of the continuation and capture-order work is on
 `lamp-a1-capture-order` at `6c311b4d1`.
 
-- Updated: 2026-10-12, 05:55 UTC
+- Updated: 2026-10-12, 05:29 UTC. Corrected at 06:55 UTC: this line said 05:55,
+  a time I did not read off the clock. Nothing else in this file changed
+  then. Later work is on `lamp-a1-mic1-reference` and its status file.
 - **Newest: your R4, gain control off, is analysed against the first
   device run.** The control was costing a person 10.6 dB of level once
   the lamp had spoken; off, 1.8 dB, and the run reached a commit, 0.9 s

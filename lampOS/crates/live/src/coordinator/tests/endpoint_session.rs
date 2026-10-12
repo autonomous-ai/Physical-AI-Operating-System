@@ -383,6 +383,24 @@ fn run_muting(
     reply: Option<ProviderReply>,
     mute_at: Option<u64>,
 ) -> Session {
+    run_policy(
+        TurnTaking::V1Baseline,
+        seconds,
+        script,
+        endpoint,
+        reply,
+        mute_at,
+    )
+}
+
+fn run_policy(
+    turn_taking: TurnTaking,
+    seconds: u64,
+    script: Script,
+    endpoint: EndpointRig,
+    reply: Option<ProviderReply>,
+    mute_at: Option<u64>,
+) -> Session {
     let dir = SessionDirectory::create().unwrap();
     let (capture, capture_peer_channels) = Worker::sleeping_fixture(&dir.path, "capture");
     let (speaker, speaker_peer_channels) = Worker::sleeping_fixture(&dir.path, "speaker");
@@ -419,7 +437,7 @@ fn run_muting(
         ring_channel_ceiling: None,
         diagnostic_directory: None,
         noise_suppression: NoiseSuppression::On,
-        turn_taking: TurnTaking::V1Baseline,
+        turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
     };
@@ -1128,4 +1146,59 @@ fn mute_then_reopen_never_overlaps_endpoint_workers() {
         }
         previous = Some(pid);
     }
+}
+
+/// Duplex gates the same baseline detector: a confident complete verdict
+/// still ends at 1.0 s and its answer plays, under the cached-speech cohorts'
+/// duplex policy.
+#[test]
+fn duplex_complete_verdict_ends_at_one_second_and_its_answer_plays() {
+    let _one = one_session();
+    let reply = ProviderReply {
+        after_end: Duration::from_millis(300),
+        packets: 3,
+    };
+    let session = run_policy(
+        TurnTaking::Duplex,
+        5,
+        one_question,
+        delayed(0.95, Duration::from_millis(60)),
+        Some(reply),
+        None,
+    );
+    session.result.as_ref().unwrap();
+    assert_eq!(
+        session.events("endpoint_policy")[0]["turn_taking"],
+        "duplex"
+    );
+    assert_eq!(bases(&session), [("model_complete".into(), None, 1_000)]);
+    let ended = session.seen.requests[0].ended_at.unwrap();
+    assert!(session.seen.chunks.first().unwrap().1 > ended);
+    assert!(!session.events("speaker_first_write").is_empty());
+}
+
+/// Under duplex, a missing model still ends every pause on the unchanged
+/// 1.2 s silence window, with the worker's failure recorded.
+#[test]
+fn duplex_missing_model_session_ends_on_the_unchanged_silence_fallback() {
+    let _one = one_session();
+    let missing = Response::Error {
+        request: 0,
+        reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
+    };
+    let session = run_policy(
+        TurnTaking::Duplex,
+        4,
+        one_question,
+        scripted_process(&[missing], "exit 2", Limits::default()),
+        None,
+        None,
+    );
+    session.result.as_ref().unwrap();
+    let endpoints = endpoint_rows(&session);
+    assert_eq!(endpoints.len(), 1, "{endpoints:?}");
+    assert_eq!(endpoints[0]["endpoint"]["basis"], "silence_fallback");
+    assert_eq!(endpoints[0]["includes_silence_wait_ms"], 1_200);
+    assert!(session.seen.provider.contains(&"start"));
+    assert_eq!(session.events("endpoint_worker_final")[0]["reaped"], true);
 }

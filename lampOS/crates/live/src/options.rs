@@ -143,7 +143,8 @@ impl FromStr for ReferenceClock {
     }
 }
 
-/// Endpoint experiment. `smart-turn` confirms V1-baseline pauses with the
+/// Endpoint experiment. `smart-turn` confirms the baseline detector's pauses
+/// (V1-baseline or duplex, which share it) with the
 /// separate `lamp-endpoint-worker` process and its pinned model, both
 /// installed beside this executable, and keeps the silence window as the
 /// fallback for every pause without a usable verdict. It is never a default.
@@ -354,8 +355,7 @@ impl DirectedOptions {
         }
         // Confirmation is defined against the baseline detector's silence
         // fallback, which V1-baseline and duplex share; `vad-only` has none.
-        if options.endpoint == Endpoint::SmartTurn && options.turn_taking == TurnTaking::VadOnly
-        {
+        if options.endpoint == Endpoint::SmartTurn && options.turn_taking == TurnTaking::VadOnly {
             return Err(invalid_options());
         }
         Ok(options)
@@ -744,7 +744,7 @@ mod tests {
     }
 
     #[test]
-    fn smart_turn_endpoint_is_explicit_and_requires_the_v1_baseline() {
+    fn smart_turn_endpoint_is_explicit_and_requires_the_baseline_detector() {
         assert_eq!(
             SessionOptions::default().directed.endpoint,
             Endpoint::Silence
@@ -761,6 +761,16 @@ mod tests {
             serde_json::to_value(options.directed.endpoint).unwrap(),
             "smart-turn"
         );
+        // Duplex gates the same baseline detector, so the trial can keep the
+        // cached-speech cohorts' duplex policy.
+        let duplex = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "duplex",
+            "--endpoint",
+            "smart-turn",
+        ]))
+        .unwrap();
+        assert_eq!(duplex.directed.endpoint, Endpoint::SmartTurn);
         for values in [
             vec!["--endpoint", "smart-turn"],
             vec!["--turn-taking", "vad-only", "--endpoint", "smart-turn"],

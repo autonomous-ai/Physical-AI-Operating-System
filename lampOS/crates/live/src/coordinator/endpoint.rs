@@ -100,8 +100,7 @@ fn policy_event(
         event["confirmation"] = json!(confirmation);
         event["worker"] = json!(command.map(|command| json!({"program":command.program,
             "args":command.args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>()})));
-        event["model"] =
-            json!({"file":SMART_TURN_MODEL_FILE,"sha256":SMART_TURN_MODEL_SHA256});
+        event["model"] = json!({"file":SMART_TURN_MODEL_FILE,"sha256":SMART_TURN_MODEL_SHA256});
     }
     event
 }

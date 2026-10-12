@@ -34,10 +34,27 @@ else, with every failure, ends on the window that was chosen. A window of
 400 ms or less leaves nothing to confirm and is refused at startup. This
 profile adds cutoffs at pauses between sentences on labelled speech (see the
 review below), so it is for a path on which a person who goes on speaking is
-continued: `--provider-continuation kept-start`. It is selected on lamp-4ace
-with a 700 ms window since 2026-10-12 as the lamp's owner asked for the
-shortest wait before an answer; what it does to real conversations there is
-not measured yet.
+continued: `--provider-continuation kept-start`.
+
+**First run on lamp-4ace (A733), 2026-10-12, and why it is off there.** One
+`serve` session with `--turn-taking duplex --end-silence-ms 700 --endpoint
+smart-turn`, four utterances played from a loudspeaker to `mic2`. The worker
+was ready 862 ms after its spawn (model load 403 ms) and held 59 MB resident.
+
+| Utterance | Inference | Verdict heard at | Probability | Turn ended |
+| --- | --- | --- | --- | --- |
+| a complete question | 405 ms | 630 ms into the pause | 0.887 | at 700 ms, `model_uncertain` |
+| a complete question | no verdict within 500 ms | none | none | at 700 ms, `silence_fallback` (`timeout`) |
+| a clause left unfinished | 427 ms | 660 ms | 0.441 | at 700 ms, `model_uncertain` |
+| a statement and a complete question | 364 ms | 570 ms | 0.154 | at 700 ms, `model_uncertain` |
+
+So on this board a classification costs about four times what the bounds
+table gives for the VM, a verdict is heard 570 to 660 ms into a pause, and no
+turn ended sooner than the 700 ms window: the quicker profile has nothing to
+give there until inference is several times faster. The probabilities are for
+loudspeaker speech through a microphone with its own processing and say
+little about a person. The option is off on lamp-4ace again; the worker and
+the model stay installed beside the release.
 
 - **Rollback.** Restart without `--endpoint smart-turn`. Nothing else changes:
   - no rebuild is needed;

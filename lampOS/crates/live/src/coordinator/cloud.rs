@@ -447,6 +447,7 @@ mod tests {
             provider_idle: false,
             input_sequence: 0,
             had_audio: false,
+            voice_level: 0,
             final_chunk: None,
             playback_gaps: 0,
             notice: Default::default(),

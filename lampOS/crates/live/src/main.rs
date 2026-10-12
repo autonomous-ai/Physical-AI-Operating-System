@@ -92,7 +92,16 @@ fn run() -> Result<()> {
             let worker = parse_boot(worker)?;
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_live::ring_worker::run_continuous(channels, parent)?;
+            lamp_live::ring_worker::run_continuous(channels, parent, None)?;
+        }
+        #[cfg(target_os = "linux")]
+        [command, role, dir, parent, worker, mode, flag, ceiling] if command == "worker" && role == "ring" && mode == "--continuous" && flag == "--resting" => {
+            let parent = parse_boot(parent)?;
+            let worker = parse_boot(worker)?;
+            let ceiling: u16 = ceiling.parse().map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "resting ceiling must be 0 to 120"))?;
+            let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
+            channels.connect(Path::new(dir), role, true)?;
+            lamp_live::ring_worker::run_continuous(channels, parent, Some(ceiling))?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

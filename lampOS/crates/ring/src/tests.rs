@@ -393,3 +393,135 @@ fn partial_frame_write_is_reported_without_sending_the_remainder() {
     );
     assert_eq!(writer.calls, 1);
 }
+
+// ---- The resting frame: light that belongs to no turn ----------------------
+
+fn rest(ring: &mut GuardedRing<Sink>) -> Option<WriteReceipt> {
+    ring.show_resting(&[Rgb::new(6, 4, 2); PIXEL_COUNT], ceiling(40))
+        .unwrap()
+}
+
+/// A ring whose authority says: microphone permitted, input ready, no owner.
+fn idle() -> (GuardedRing<Sink>, Controller) {
+    advance_to(10);
+    let mut controller = ready();
+    let mut ring = GuardedRing::with_clock(Sink::default(), boot(1), clock).unwrap();
+    ring.install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap();
+    (ring, controller)
+}
+
+#[test]
+fn a_resting_frame_needs_fresh_authority_a_permitted_microphone_and_no_owner() {
+    advance_to(10);
+    let mut ring = GuardedRing::with_clock(Sink::default(), boot(1), clock).unwrap();
+    // Nothing installed yet: only the startup black frame is ever written.
+    assert!(rest(&mut ring).is_none());
+    assert_eq!(ring.sink.frames.len(), 1);
+
+    let (mut ring, _) = idle();
+    assert!(rest(&mut ring).is_some());
+    assert!(!is_black(ring.sink.frames.last().unwrap()));
+
+    // A turn owns the lamp: no new resting frame is painted.
+    let (mut ring, _, _, _) = setup();
+    let count = ring.sink.frames.len();
+    assert!(rest(&mut ring).is_none());
+    assert_eq!(ring.sink.frames.len(), count);
+
+    // The microphone is not permitted: none either.
+    advance_to(10);
+    let mut controller = ready();
+    controller
+        .set_microphone_permission(clock(), Permission::Denied)
+        .unwrap();
+    let mut ring = GuardedRing::with_clock(Sink::default(), boot(1), clock).unwrap();
+    ring.install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap();
+    assert!(rest(&mut ring).is_none());
+    assert_eq!(ring.sink.frames.len(), 1);
+}
+
+#[test]
+fn closing_privacy_blanks_a_resting_frame_at_once() {
+    let (mut ring, mut controller) = idle();
+    rest(&mut ring).unwrap();
+    advance_to(20);
+    controller
+        .set_microphone_permission(clock(), Permission::Denied)
+        .unwrap();
+    let blank = ring
+        .install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        blank.reason,
+        BlankReason::AuthorityLost(lamp_interaction::Error::PrivacyClosed)
+    );
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    // And it stays dark: no resting frame while privacy is closed.
+    let count = ring.sink.frames.len();
+    assert!(rest(&mut ring).is_none());
+    assert!(ring.tick().unwrap().is_none());
+    assert_eq!(ring.sink.frames.len(), count);
+}
+
+#[test]
+fn a_resting_frame_does_not_outlive_its_authority() {
+    let (mut ring, _) = idle();
+    rest(&mut ring).unwrap();
+    advance_to(100_000);
+    assert!(ring.tick().unwrap().is_none());
+    advance_to(250_010);
+    let blank = ring.tick().unwrap().unwrap();
+    assert_eq!(
+        blank.reason,
+        BlankReason::AuthorityLost(lamp_interaction::Error::ExpiredState)
+    );
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    assert!(rest(&mut ring).is_none());
+}
+
+#[test]
+fn a_cue_is_painted_over_a_resting_frame_with_no_dark_frame_between() {
+    let (mut ring, mut controller) = idle();
+    rest(&mut ring).unwrap();
+    advance_to(20);
+    let owner = controller.admit(clock(), AdmittedInput::NewTurn).unwrap();
+    let light = permit(&mut controller, owner, OutputKind::Light, 100_000);
+    // The owner appears: the resting frame stays where it is.
+    assert!(
+        ring.install_authority(controller.snapshot(clock()).unwrap())
+            .unwrap()
+            .is_none()
+    );
+    let before = ring.sink.frames.len();
+    // No new resting frame under an owner, and the cue goes straight over it.
+    assert!(rest(&mut ring).is_none());
+    paint(&mut ring, light).unwrap();
+    assert_eq!(ring.sink.frames.len(), before + 1);
+    assert!(
+        ring.sink
+            .frames
+            .iter()
+            .skip(1)
+            .all(|frame| !is_black(frame))
+    );
+    // From here it is a cue like any other: its own permit ends it.
+    assert!(rest(&mut ring).is_none());
+    advance_to(100_030);
+    let blank = ring.tick().unwrap().unwrap();
+    assert!(matches!(blank.reason, BlankReason::AuthorityLost(_)));
+}
+
+#[test]
+fn a_resting_frame_is_not_a_cue_and_a_stop_still_ends_everything() {
+    let (mut ring, _) = idle();
+    rest(&mut ring).unwrap();
+    assert!(ring.shutdown().unwrap().is_some());
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    assert!(
+        ring.show_resting(&[Rgb::new(6, 4, 2); PIXEL_COUNT], ceiling(40))
+            .is_err()
+    );
+}

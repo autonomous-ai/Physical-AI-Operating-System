@@ -128,6 +128,8 @@ struct Reply {
     start: StartGate,
     need: StartNeed,
     notice: NoticeDelivery,
+    /// How loud the block last handed to the speaker is, for the ring's face.
+    voice_level: u8,
 }
 impl Reply {
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
@@ -218,6 +220,7 @@ impl Reply {
             }
         }
         samples.resize(240, 0);
+        self.voice_level = crate::ring_face::level_of(&samples);
         Some((samples, final_chunk))
     }
     fn held_final_samples(&self) -> usize {
@@ -1630,26 +1633,26 @@ fn spawn_rig(
             )
         },
     )?;
+    // A service that runs all day also shows a resting face between turns,
+    // under the same ceiling as its cues. A bounded directed run does not.
+    let resting_ceiling = options
+        .ring_channel_ceiling
+        .map(|ceiling| ceiling.to_string());
+    let ring_arguments: Vec<&str> = match (&resting_ceiling, lifetime.continuous()) {
+        (Some(ceiling), true) => vec!["--continuous", "--resting", ceiling],
+        (None, true) => vec!["--continuous"],
+        (_, false) => Vec::new(),
+    };
     let mut ring = if options.ring_channel_ceiling.is_some() {
-        OptionalRing::spawn(
-            &executable,
-            directory,
-            boot,
-            if lifetime.continuous() {
-                &["--continuous"]
-            } else {
-                &[]
-            },
-            || {
-                pulse(
-                    owner,
-                    &mut [&mut provider, &mut capture, &mut speaker],
-                    &mut last,
-                    startup,
-                    termination,
-                )
-            },
-        )?
+        OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {
+            pulse(
+                owner,
+                &mut [&mut provider, &mut capture, &mut speaker],
+                &mut last,
+                startup,
+                termination,
+            )
+        })?
     } else {
         OptionalRing::from(None)
     };
@@ -2040,6 +2043,8 @@ fn conversation(
         None
     };
     let mut ring_trace = RingTrace::default();
+    // How loud the person's last captured block was, for the ring's face.
+    let mut heard_level = 0u8;
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2581,6 +2586,7 @@ fn conversation(
                 monotonic_us(),
                 trace,
             )?;
+            heard_level = crate::ring_face::level_of(&frame.samples);
             let observation = ObservedAudio {
                 sequence: frame.frame_sequence,
                 captured_at_us: frame.read_completed_at_us,
@@ -2890,6 +2896,13 @@ fn conversation(
                 "terminal provider output settled; service stopped without retry",
             )
             .into());
+        }
+        if let Some(choreography) = choreography.as_mut() {
+            // The lamp's own voice while it speaks, the person's otherwise.
+            choreography.set_level(match reply.as_ref() {
+                Some(current) if current.playback.is_some() => current.voice_level,
+                _ => heard_level,
+            });
         }
         service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {
@@ -3263,6 +3276,7 @@ fn commit_admitted_input(
         provider_idle: false,
         input_sequence: 0,
         had_audio: false,
+        voice_level: 0,
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
@@ -4234,6 +4248,7 @@ mod tests {
                 provider_idle: false,
                 input_sequence: 1,
                 had_audio: true,
+                voice_level: 0,
                 final_chunk: None,
                 playback_gaps: 0,
                 notice: NoticeDelivery::default(),
@@ -5012,6 +5027,7 @@ mod tests {
             provider_idle: false,
             input_sequence: 1,
             had_audio: true,
+            voice_level: 0,
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
@@ -5237,6 +5253,7 @@ mod tests {
             provider_idle: false,
             input_sequence: 1,
             had_audio: true,
+            voice_level: 0,
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),

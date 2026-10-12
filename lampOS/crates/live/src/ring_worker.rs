@@ -1,5 +1,6 @@
 //! Sole, bounded ring writer. Control authority is never renewed by frame data.
 use crate::{
+    ring_face::{Face, Mood},
     ring_wire::{RingBlankReason, RingFeedback, RingFrame, RingPhase, RingRejection},
     transport::WorkerChannels,
     wire::{Control, WorkerEvent},
@@ -19,6 +20,9 @@ pub const INITIAL_AUTHORITY_US: u64 = 250_000;
 // expires independently; this ceiling does not extend any permission lease.
 pub const MAX_RUNTIME_US: u64 = (crate::coordinator::MAX_DIRECTED_SECONDS + 30) * 1_000_000;
 const TICK_US: u64 = 2_000;
+/// A resting frame is painted this often: forty a second, enough for a slow
+/// breath and little enough to leave the loop to cues and control.
+const RESTING_INTERVAL_US: u64 = 25_000;
 
 /// Nonblocking operations only; errors, including feedback backpressure, fail
 /// closed. This seam permits deterministic cross-channel ordering tests.
@@ -47,12 +51,28 @@ fn now() -> MonoTime {
 /// Startup Ready is emitted only after the sink accepted its initial black frame.
 /// The caller owns process supervision; a kernel SPI write cannot be preempted.
 pub fn run_with_sink(
-    mut link: impl RingLink,
+    link: impl RingLink,
     controller_boot: BootId,
     sink: impl FrameSink,
 ) -> io::Result<()> {
+    run_with_sink_resting(link, controller_boot, sink, None)
+}
+
+/// As [`run_with_sink`], and with `resting` set the ring also shows a
+/// resting face under that ceiling whenever no turn owns the lamp and the
+/// microphone is permitted. See [`GuardedRing::show_resting`].
+pub fn run_with_sink_resting(
+    mut link: impl RingLink,
+    controller_boot: BootId,
+    sink: impl FrameSink,
+    resting: Option<u16>,
+) -> io::Result<()> {
+    let resting = match resting.map(ChannelCeiling::new).transpose() {
+        Ok(resting) => resting,
+        Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
+    };
     match GuardedRing::new(sink, controller_boot) {
-        Ok(ring) => run_guarded(link, controller_boot, ring, false),
+        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting),
         Err(error) => report_start_failure(&mut link, io::Error::other(error)),
     }
 }
@@ -60,7 +80,7 @@ pub fn run_with_sink(
 #[cfg(target_os = "linux")]
 pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false),
+        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false, None),
         Err(error) => report_start_failure(&mut link, error),
     }
 }
@@ -68,9 +88,17 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 /// Supervisor-only lifetime selection. This removes the finite test ceiling,
 /// not the installed authority, parent transport or initial-lease watchdogs.
 #[cfg(target_os = "linux")]
-pub fn run_continuous(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
+pub fn run_continuous(
+    mut link: WorkerChannels,
+    controller_boot: BootId,
+    resting: Option<u16>,
+) -> io::Result<()> {
+    let resting = match resting.map(ChannelCeiling::new).transpose() {
+        Ok(resting) => resting,
+        Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
+    };
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, true),
+        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, true, resting),
         Err(error) => report_start_failure(&mut link, error),
     }
 }
@@ -113,10 +141,11 @@ fn run_guarded(
     controller_boot: BootId,
     mut ring: GuardedRing<impl FrameSink>,
     continuous: bool,
+    resting: Option<ChannelCeiling>,
 ) -> io::Result<()> {
     let result = (|| {
         link.publish(WorkerEvent::Ready)?;
-        service(&mut link, &mut ring, controller_boot, continuous)
+        service(&mut link, &mut ring, controller_boot, continuous, resting)
     })();
     if let Err(original) = result {
         // GuardedRing already performs its sole cleanup on a write fault. Do
@@ -240,10 +269,14 @@ fn service(
     ring: &mut GuardedRing<impl FrameSink>,
     controller_boot: BootId,
     continuous: bool,
+    resting: Option<ChannelCeiling>,
 ) -> io::Result<()> {
     let started = monotonic_us();
     let mut guard = BoundaryGuard::new(controller_boot, now());
     let mut pending = None;
+    // One face for cues and for rest, so that each eases into the other.
+    let mut face = Face::new();
+    let mut rested_at = 0u64;
     loop {
         let tick = monotonic_us();
         let mut budget = CONTROL_BUDGET;
@@ -310,9 +343,14 @@ fn service(
                     {
                         reject(link, frame, reason.into())?;
                     } else {
-                        let pixels = [frame.phase.color(); PIXEL_COUNT];
                         let ceiling =
                             ChannelCeiling::new(frame.ceiling).map_err(io::Error::other)?;
+                        let pixels: [_; PIXEL_COUNT] = face.render(
+                            frame.phase.mood(),
+                            frame.level,
+                            monotonic_us(),
+                            ceiling.get(),
+                        );
                         match ring.show(&pixels, ceiling, frame.permit) {
                             Ok(write) => link.publish(WorkerEvent::Ring {
                                 report: RingFeedback::Presented {
@@ -338,6 +376,20 @@ fn service(
                     }
                 }
             }
+        }
+        // Rest only when no cue is waiting and control still has budget: a
+        // resting frame never delays a cue or a revocation. The ring refuses
+        // it, with no write, unless nobody owns the lamp and it may listen.
+        let at = monotonic_us();
+        if let Some(ceiling) = resting
+            && pending.is_none()
+            && budget > 0
+            && at.saturating_sub(rested_at) >= RESTING_INTERVAL_US
+        {
+            rested_at = at;
+            let pixels = face.render(Mood::Resting, 0, at, ceiling.get());
+            ring.show_resting(&pixels, ceiling)
+                .map_err(io::Error::other)?;
         }
         if let Some(wait) = TICK_US.checked_sub(monotonic_us().saturating_sub(tick)) {
             std::thread::sleep(Duration::from_micros(wait));

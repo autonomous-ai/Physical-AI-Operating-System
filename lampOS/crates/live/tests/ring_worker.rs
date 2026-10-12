@@ -192,6 +192,7 @@ fn frame(controller: &mut Controller, owner: TurnOwner, lease_us: u64) -> RingFr
         phase: RingPhase::from_snapshot(snapshot).unwrap(),
         ceiling: 40,
         requested_at_us: monotonic_us(),
+        level: 0,
     }
 }
 fn present(rig: &Rig, frame: RingFrame) {

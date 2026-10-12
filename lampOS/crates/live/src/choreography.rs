@@ -28,6 +28,8 @@ pub struct RingChoreographer {
     last_now: Option<MonoTime>,
     last_write: Option<(u64, u64)>,
     faulted: bool,
+    /// Stamped into the next frame; see [`RingFrame::level`].
+    level: u8,
 }
 
 impl RingChoreographer {
@@ -40,7 +42,14 @@ impl RingChoreographer {
             last_now: None,
             last_write: None,
             faulted: false,
+            level: 0,
         })
+    }
+
+    /// How loud the voice in play is now. It changes how the next frame
+    /// looks, never whether or when one is requested.
+    pub fn set_level(&mut self, level: u8) {
+        self.level = level;
     }
 
     pub fn is_faulted(&self) -> bool {
@@ -120,6 +129,7 @@ impl RingChoreographer {
             phase,
             ceiling: u16::from(self.ceiling.get()),
             requested_at_us,
+            level: self.level,
         };
         self.pending = Some(frame);
         self.last_frame = Some(frame);

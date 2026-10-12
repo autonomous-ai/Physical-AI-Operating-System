@@ -243,6 +243,8 @@ pub struct GuardedRing<S: FrameSink> {
     sink: S,
     guard: BoundaryGuard,
     active: Option<OutputPermit>,
+    /// A resting frame is on the strip: one that belongs to no turn.
+    resting: bool,
     faulted: bool,
     stopped: bool,
     clock: fn() -> MonoTime,
@@ -263,6 +265,7 @@ impl<S: FrameSink> GuardedRing<S> {
             sink,
             guard: BoundaryGuard::new(controller_boot, clock()),
             active: None,
+            resting: false,
             faulted: false,
             stopped: false,
             clock,
@@ -305,12 +308,40 @@ impl<S: FrameSink> GuardedRing<S> {
             Err(failure) => return Err(self.write_fault(failure)),
         };
         self.active = Some(permit);
+        self.resting = false;
         // A lease may expire while the kernel write is in flight. Do not leave
         // that completed but now unauthorized cue latched on the strip.
         if let Err(reason) = self.guard.check((self.clock)(), permit, OutputKind::Light) {
             return Err(self.reject(reason));
         }
         Ok(receipt)
+    }
+
+    /// Paint a resting frame: one that belongs to no turn and claims nothing
+    /// about one. It says only that the installed authority is fresh, the
+    /// microphone is permitted and input is available, so it is refused, with
+    /// no write, unless all of that holds and no turn owns the lamp. It never
+    /// replaces a displayed cue. `tick` blanks it when that stops holding; an
+    /// owner appearing does not, so a cue can be painted over it with no dark
+    /// frame between. `None`: not painted.
+    pub fn show_resting(
+        &mut self,
+        pixels: &[Rgb; PIXEL_COUNT],
+        ceiling: ChannelCeiling,
+    ) -> Result<Option<WriteReceipt>, Error> {
+        self.ensure_live()?;
+        let started_at = (self.clock)();
+        if self.active.is_some() || self.resting_denial(started_at, true).is_some() {
+            return Ok(None);
+        }
+        let frame = encode(pixels, ceiling);
+        match self.transfer(&frame, started_at) {
+            Ok(receipt) => {
+                self.resting = true;
+                Ok(Some(receipt))
+            }
+            Err(failure) => Err(self.write_fault(failure)),
+        }
     }
 
     /// Blank the displayed cue when its own permit expires or is revoked. An
@@ -411,8 +442,34 @@ impl<S: FrameSink> GuardedRing<S> {
         })
     }
 
+    /// Why a resting frame may not be on the strip now. Painting a new one
+    /// also needs the lamp to have no owner; keeping the last one does not.
+    fn resting_denial(&self, now: MonoTime, painting: bool) -> Option<lamp_interaction::Error> {
+        use lamp_interaction::{Error as Denial, Permission};
+        if self.guard.is_faulted() {
+            return Some(Denial::Faulted);
+        }
+        let Some(state) = self.guard.state() else {
+            return Some(Denial::NoAuthority);
+        };
+        if state.issued_at() > now {
+            Some(Denial::FutureState)
+        } else if now >= state.expires_at() {
+            Some(Denial::ExpiredState)
+        } else if state.microphone_permission() != Permission::Allowed {
+            Some(Denial::PrivacyClosed)
+        } else if !state.listening_ready(now) {
+            Some(Denial::InputUnavailable)
+        } else if painting && state.owner().is_some() {
+            Some(Denial::StaleOwner)
+        } else {
+            None
+        }
+    }
+
     fn blank(&mut self, reason: BlankReason) -> Result<BlankReceipt, WriteFailure> {
         self.active = None;
+        self.resting = false;
         // Copy a fixed 1,028-byte frame; no heap allocation or arbitrary retry.
         let frame = self.black.clone();
         let write = self.transfer(&frame, (self.clock)())?;
@@ -443,6 +500,8 @@ impl<S: FrameSink> GuardedRing<S> {
             self.guard
                 .check((self.clock)(), permit, OutputKind::Light)
                 .err()
+        } else if self.resting {
+            self.resting_denial((self.clock)(), false)
         } else {
             None
         };

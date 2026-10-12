@@ -1,4 +1,5 @@
 //! Fixed conversational cues and bounded metadata. Data cannot request unowned off writes.
+use crate::ring_face::Mood;
 use lamp_interaction::{Error, OutputPermit, Snapshot, TurnOwner};
 use lamp_ring::Rgb;
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,15 @@ impl RingPhase {
             Self::Speaking => Rgb::new(32, 32, 24),
         }
     }
+
+    /// The face that goes with this phase of a turn.
+    pub const fn mood(self) -> Mood {
+        match self {
+            Self::Listening => Mood::Listening,
+            Self::Waiting => Mood::Thinking,
+            Self::Speaking => Mood::Speaking,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -42,6 +52,11 @@ pub struct RingFrame {
     pub phase: RingPhase,
     pub ceiling: u16,
     pub requested_at_us: u64,
+    /// How loud the voice in play is, on the scale of
+    /// [`crate::ring_face::level_of`]: the person's while listening, the
+    /// lamp's own while speaking. It shapes the frame and grants nothing.
+    #[serde(default)]
+    pub level: u8,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

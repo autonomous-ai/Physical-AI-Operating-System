@@ -347,7 +347,25 @@ average and 105.1 at most, 0.2 ms old on arrival, none missed).
 
 The voice publishes `voice/state`, `voice/heard` and `voice/said` when
 its unit has `LAMP_BUS=on` (`crates/voice/src/bus_out.rs`), each declared
-with its type from `lamp-msgs`. Nothing subscribes yet.
+with its type from `lamp-msgs`. The state comes when it changes and once a
+second (on the lamp: one a second, gaps of 1,000.9 ms on average, 0.2 ms
+old on arrival); the two streams carry the provider's text in pieces, the
+lamp's with the number of the request it answered, and between things
+said the voice says once a second that it is alive on them. Before it did,
+their subscribers were told "no publisher is alive" before and after
+every sentence.
+
+The eyes publish `humans/faces/tracked` the same way
+(`crates/eyes/src/bus_out.rs`): with each look while the camera is open,
+the faces in view, each with a passing id, its box as fractions of the
+picture, how sure the detector was, and, for a face large enough to
+measure, how far it is turned and whether that counts as turned to the
+lamp. A list lasts two seconds. On the lamp, at night with nobody in the
+office: an empty list 1.66 times a second. No list with a face in it has
+been published yet, and the judgement of "turned to the lamp" uses V1's
+numbers, which have not been checked on this lamp.
+
+Nothing subscribes yet.
 
 ## Not shown
 

@@ -1,8 +1,8 @@
 //! The lamp's light: asked of the ring's owner, and read back from it.
 //!
 //! The executive does not write the ring. It publishes the light it wants
-//! on the bus (`light.wanted`, the newest value kept) and reads what the
-//! ring's owner says it is showing (`light.state`). A lamp whose ring
+//! on the bus (`light/command`, the newest value kept) and reads what the
+//! ring's owner says it is showing (`light/state`). A lamp whose ring
 //! owner is not publishing has no light to ask for, and the light's
 //! functions are not offered. V1's rules: on is warm white, a colour is
 //! one of ten, brighter is a quarter more with the colour kept (a dark

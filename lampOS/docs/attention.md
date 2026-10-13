@@ -6,16 +6,19 @@ Scope: `crates/voice/src/attention.rs` and its use in the provider worker
 
 ## The rule
 
-The model decides what to say. Whether an answer is played is decided on
-the lamp, by a rule a person can state:
+The model decides what to say. For the first things a new session hears,
+whether an answer is played is decided on the lamp:
 
-| The room | The lamp plays an answer when |
+| When | The lamp plays an answer |
 |---|---|
-| Busy (three things in a row it said nothing to, inside a minute; [character.md](character.md)) | its name is in what it heard, or it said something to someone in the last 45 seconds, or it began the turn itself (a hello, a look) |
-| Quiet, or not yet known | always |
+| The request is one of a session's first two, and the room is busy (three things in a row it said nothing to, inside a minute; [character.md](character.md)) | only if it said something to someone in the last 45 seconds, or began the turn itself (a hello, a look), or the text of what it heard shows it was called |
+| Any other time: a session that has heard more, a quiet room, a room not yet known | always: the model's own judgement stands, as before |
 
-It is the owner's rule ("follows the room"). The model was already asked
-to keep it, and mostly does.
+This is the second form of the rule. The first held back every answer in
+a busy room unless the name was in the text, and failed on the lamp for
+the reason given below. This form keeps the hold to the few requests
+where the model is known to be unreliable, and reads the text only as
+evidence for playing, never for holding.
 
 ## Why it is the lamp's to apply
 
@@ -96,6 +99,31 @@ the model saying so itself through a silent function, the lamp spotting
 its own name in the sound it captured, and the eyes' report that someone
 is facing it.
 
+## The second form
+
+The rule as it now is (top of this page) differs in two ways. It applies
+only to a session's first two requests, because that is where the answers
+to other people's talk were: 9 of 35 new sessions within their first two
+requests, against 2 of 87 things heard on a session that had been running
+that afternoon. And the text is read only as evidence that the lamp was
+called: its name, or one of the words the service has written in its
+place at the start of a called request in the lamp's own records
+("Milan,", "Man,", "Lam", "Lan", "plan"). A text with none of them proves
+nothing, so outside those two requests nothing is held.
+
+What it still costs: someone who calls the lamp in a busy room within its
+first two requests after a new session, in words the text gives no sign
+of, is not answered until they say it again. A session is renewed at most
+every fifteen minutes in a busy room.
+
+One more thing was tried and is not used. The model was asked to say when
+it heard its name, through a function of the silent kind
+(`LAMP_NAME_SIGNAL`). It did hear it: on 6 of 7 called questions on a
+running session, and on none of the talk between two people. But having
+made that sign it said nothing else: 1 of those 7 questions was answered.
+A function of the ordinary kind would let it answer, about 0.7 s later.
+Neither is acceptable, and the switch is off.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
@@ -103,8 +131,10 @@ default, and off on lamp-4ace.
 
 ## Not shown
 
-Host tests: the rule and its bookkeeping (five), and the worker with the
-scripted provider in a room it is told is busy (one). The host tests give
+Host tests: the rule and its bookkeeping (five, with the service's real
+renderings of called requests as cases), and the worker with the scripted
+provider in a room it is told is busy (one). The second form has not yet
+been played on a lamp. The host tests give
 the rule text with the name in it, which the real service does not
 write: they did not catch the fault above, and the played room test
 did.

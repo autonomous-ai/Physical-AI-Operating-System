@@ -1,42 +1,46 @@
 //! Whom the lamp answers: its own rule, applied before any sound is let out.
 //!
-//! The model decides what to say. Whether an answer is played is decided
-//! here, by a rule a person can state: in a busy room the lamp speaks when
-//! its name was said or when it is already in a conversation, and
-//! otherwise stays out; in a quiet room it answers whatever is said near
-//! it. That is the owner's rule (docs/brain-build.md, "follows the room").
-//! The model was asked to keep it and does so most of the time. On
-//! lamp-4ace on 2026-10-13, over three runs of new sessions that each
-//! heard two people talking to each other, 9 of 35 spoke words to them,
-//! whether the session was told how the room was, given a function to
-//! decline with, or neither; "How was your weekend?" was answered in all
-//! three runs.
+//! The model decides what to say. Whether an answer is played is, for the
+//! first things a new session hears, decided here.
 //!
-//! What makes the rule possible is timing. The service writes down what it
-//! heard as well as what it says. In those runs the text of what was heard
-//! had arrived before the first sound of every one of 24 answers, by 0.32 s
-//! at the least and 0.44 s in the middle. So when an answer's first sound
-//! comes, the lamp can already read whether it was called, and holding the
-//! answer back costs nothing in time.
+//! **What goes wrong.** A session that has just opened has no history of
+//! leaving talk alone, and takes what it hears for the start of a
+//! conversation with it. On lamp-4ace on 2026-10-13, over three runs of
+//! new sessions that each heard two people talking to each other, 9 of 35
+//! spoke words to them within their first two requests, whether the
+//! session was told how the room was, given a function to decline with, or
+//! neither. A session that has been running does this far less: 2 of 87
+//! things heard, that afternoon.
+//!
+//! **The rule.** In a room the lamp knows to be busy, an answer to one of
+//! a session's first [`FRESH_REQUESTS`] requests is held back, unless the
+//! lamp is already in a conversation, began the turn itself, or the text
+//! of what it heard shows it was called. Everywhere else the model's own
+//! judgement stands, as before.
+//!
+//! **What the rule may not lean on.** The first form of it held back every
+//! answer in a busy room unless the lamp's name was in the service's text
+//! of what it heard. Played the same evening it stopped every answer to
+//! other people's talk (0 of 11 sessions) and also held back both of two
+//! questions that used the name: the service does not write the name. It
+//! wrote "Milan, what is the capital of Italy?" for "Hey Lamp, ...",
+//! dropped "Lamp," from the other, and in 310 lines heard that day wrote
+//! "Lamp" not once. So the text can show that the lamp was called and can
+//! never show that it was not. Here it is used the first way only, and
+//! the hold is kept to the few requests where the model is known to be
+//! unreliable. The cost that remains: someone who calls the lamp in a busy
+//! room within its first two requests after a new session, in words the
+//! text gives no sign of, is not answered until they say it again.
+//!
+//! What makes holding possible at all is timing: in those runs the text of
+//! what was heard had arrived before the first sound of every one of 24
+//! answers, by 0.32 s at the least.
 //!
 //! An answer held back is dropped in the provider worker like one the
-//! model declined itself (docs/tools.md): none of its sound reaches the
-//! coordinator, and its words are not kept as something the lamp said.
-//! The rule fails open. With no text of what was heard, with the room not
-//! known to be busy, or in a turn the lamp began itself, the answer is
-//! played.
-//!
-//! Off unless the service's environment says `on`, and it should stay off
-//! as it is. Played on lamp-4ace the same evening it stopped every answer
-//! to other people's talk (0 of 11 new sessions) and also held back both
-//! of two questions that used the lamp's name in a busy room: the
-//! service's text of what it heard does not contain the name. It wrote
-//! "Milan, what is the capital of Italy?" for "Hey Lamp, ...", dropped
-//! "Lamp," from the other, and in 310 lines heard that day wrote "Lamp"
-//! not once. [`named`] below therefore cannot do what the rule needs, and
-//! a sign of being called that does not come from that text has to take
-//! its place: the model saying so, the name spotted in the captured
-//! sound, or the eyes seeing someone face the lamp (docs/attention.md).
+//! model declined itself (docs/tools.md). Off unless the service's
+//! environment says `on`. A better sign of being called (the lamp
+//! spotting its name in its own sound, the eyes seeing someone face it)
+//! is to take the text's place (docs/attention.md).
 
 use crate::room_told::Room;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -112,13 +116,31 @@ pub fn take(flags: &[String]) -> (bool, &[String]) {
     }
 }
 
-/// Whether the lamp's name is in what was heard, as the service wrote it
-/// down. "Lamb" is how it writes "Lamp" when it mishears; no other word is
-/// taken for the name.
-pub fn named(heard: &str) -> bool {
-    heard
+/// How many of a session's first requests the rule covers. Counted in the
+/// played runs: the answers to other people's talk came on a new session's
+/// first or second request.
+pub const FRESH_REQUESTS: u32 = 2;
+
+/// Whether the text of what was heard shows the lamp was called. Its name,
+/// or one of the words the service has written in its place at the start
+/// of a called request in the lamp's own records ("Milan, what is the
+/// capital of Italy?", "Man, tell me a joke.", "Lam", "Lan", "plan").
+/// Positive evidence only: a text without them says nothing either way.
+pub fn called(heard: &str) -> bool {
+    let mut words = heard
         .split(|c: char| !c.is_alphanumeric())
-        .any(|word| word.eq_ignore_ascii_case("lamp") || word.eq_ignore_ascii_case("lamb"))
+        .filter(|word| !word.is_empty());
+    let is = |word: &str, list: &[&str]| list.iter().any(|known| word.eq_ignore_ascii_case(known));
+    let all: Vec<&str> = words.by_ref().collect();
+    if all.iter().any(|word| is(word, &["lamp", "lamb"])) {
+        return true;
+    }
+    // A misheard name stands where the name stood: first, or after a
+    // greeting.
+    let first = all
+        .iter()
+        .find(|word| !is(word, &["hey", "hi", "ok", "okay", "oh", "hello"]));
+    first.is_some_and(|word| is(word, &["lam", "lan", "milan", "man", "plan"]))
 }
 
 /// Whether an answer is played, and why, for the record.
@@ -128,21 +150,22 @@ pub enum Verdict {
     Hold(&'static str),
 }
 
-/// The rule. `heard` is the text of what was heard since the request
-/// began, empty when none has arrived.
-pub fn decide(room: Room, going_on: bool, own: bool, heard: &str) -> Verdict {
+/// The rule. `fresh`: the request is one of its session's first
+/// [`FRESH_REQUESTS`]. `heard`: the text of what was heard since the
+/// request began, empty when none has arrived.
+pub fn decide(room: Room, going_on: bool, own: bool, fresh: bool, heard: &str) -> Verdict {
     if own {
         Verdict::Play("the lamp began this turn itself")
+    } else if !fresh {
+        Verdict::Play("the session has heard enough to be trusted")
     } else if room != Room::Busy {
         Verdict::Play("the room is not known to be busy")
     } else if going_on {
         Verdict::Play("a conversation with the lamp is going on")
-    } else if heard.trim().is_empty() {
-        Verdict::Play("no text of what was heard had arrived")
-    } else if named(heard) {
-        Verdict::Play("its name was said")
+    } else if called(heard) {
+        Verdict::Play("the text shows it was called")
     } else {
-        Verdict::Hold("the room is busy and its name was not said")
+        Verdict::Hold("a new session in a busy room, and nothing shows it was called")
     }
 }
 
@@ -150,6 +173,10 @@ pub fn decide(room: Room, going_on: bool, own: bool, heard: &str) -> Verdict {
 #[derive(Default)]
 pub struct Attention {
     request: u64,
+    /// The session the request began on, and how many requests have begun
+    /// on it.
+    session: u64,
+    begun: u32,
     /// What was heard since it began, as far as the service has written it.
     heard: String,
     verdict: Option<Verdict>,
@@ -159,8 +186,13 @@ pub struct Attention {
 const MOST_HEARD_BYTES: usize = 2_048;
 
 impl Attention {
-    /// A request began.
-    pub fn began(&mut self, request: u64) {
+    /// A request began on `session`.
+    pub fn began(&mut self, request: u64, session: u64) {
+        if session != self.session {
+            self.session = session;
+            self.begun = 0;
+        }
+        self.begun = self.begun.saturating_add(1);
         self.request = request;
         self.heard.clear();
         self.verdict = None;
@@ -185,7 +217,8 @@ impl Attention {
             return None;
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
-        let verdict = decide(room, going_on, own, &self.heard);
+        let fresh = self.begun <= FRESH_REQUESTS;
+        let verdict = decide(room, going_on, own, fresh, &self.heard);
         self.verdict = Some(verdict);
         Some(verdict)
     }
@@ -210,98 +243,134 @@ mod tests {
         assert_eq!(take(&flags[1..]), (false, &flags[1..]));
     }
 
-    /// The name as the service has written it in the lamp's own records,
-    /// and words that only contain it.
+    /// What the service really wrote for called requests in the lamp's
+    /// records of 2026-10-13, and what it wrote for other people's talk.
     #[test]
-    fn the_name_is_a_word_of_its_own_however_it_is_written() {
-        for called in [
+    fn the_text_can_show_a_call_by_the_name_or_by_what_the_service_writes_in_its_place() {
+        for shows in [
             "Lamp, what is two plus two?",
             "Hey Lamp, tell me a joke.",
-            "hey lamp",
             "What time is it, Lamp?",
-            "LAMP!",
             "Hey, Lamb, how many days are there in a week?",
-            "Okay lamp. Stop.",
+            "Milan, what is the capital of Italy?",
+            "Milan, how are you feeling right now?",
+            "Man, tell me a joke.",
+            "Ok Lam, stop.",
+            "Hey Lan",
+            "plan",
         ] {
-            assert!(named(called), "{called}");
+            assert!(called(shows), "{shows}");
         }
-        for not_called in [
+        for silent in [
+            // Called, and written with nothing left of the name: the text
+            // cannot show it, which is why it is never read as "not called".
+            "What color is the sky on a clear day?",
+            "What is your favorite color?",
+            // Other people's talk.
             "How was your weekend?",
             "Do you know where the new monitors went?",
             "The lamps in the storage room are new.",
-            "We clamped it down yesterday.",
+            "We planned it with the man from Milan.",
             "Bây giờ mình có một vấn đề hơi khó.",
             "",
         ] {
-            assert!(!named(not_called), "{not_called}");
+            assert!(!called(silent), "{silent}");
         }
     }
 
-    /// Each line of the rule, and that every doubt plays the answer.
+    /// Each line of the rule. Only one case holds an answer back.
     #[test]
-    fn in_a_busy_room_an_answer_is_held_back_unless_called_and_every_doubt_plays_it() {
+    fn only_a_new_sessions_first_requests_in_a_busy_room_are_held_and_every_doubt_plays() {
         let weekend = "How was your weekend?";
         assert_eq!(
-            decide(Room::Busy, false, false, weekend),
-            Verdict::Hold("the room is busy and its name was not said")
+            decide(Room::Busy, false, false, true, weekend),
+            Verdict::Hold("a new session in a busy room, and nothing shows it was called")
         );
-        // Called, in a conversation already, or the lamp's own turn.
+        // No text at all is held too: the text can only ever speak for
+        // playing, and its absence says nothing.
         assert!(matches!(
-            decide(Room::Busy, false, false, "Lamp, how was your weekend?"),
-            Verdict::Play("its name was said")
+            decide(Room::Busy, false, false, true, ""),
+            Verdict::Hold(_)
+        ));
+        // The same request on a session that has heard enough: played.
+        assert!(matches!(
+            decide(Room::Busy, false, false, false, weekend),
+            Verdict::Play("the session has heard enough to be trusted")
         ));
         assert!(matches!(
-            decide(Room::Busy, true, false, weekend),
+            decide(
+                Room::Busy,
+                false,
+                false,
+                true,
+                "Milan, how was your weekend?"
+            ),
+            Verdict::Play("the text shows it was called")
+        ));
+        assert!(matches!(
+            decide(Room::Busy, true, false, true, weekend),
             Verdict::Play("a conversation with the lamp is going on")
         ));
         assert!(matches!(
-            decide(Room::Busy, false, true, weekend),
-            Verdict::Play(_)
+            decide(Room::Busy, false, true, true, weekend),
+            Verdict::Play("the lamp began this turn itself")
         ));
-        // The room quiet, or not yet known.
         for room in [Room::Quiet, Room::Unknown] {
             assert!(matches!(
-                decide(room, false, false, weekend),
+                decide(room, false, false, true, weekend),
                 Verdict::Play("the room is not known to be busy")
-            ));
-        }
-        // Nothing written of what was heard: no ground to hold on.
-        for nothing in ["", "  "] {
-            assert!(matches!(
-                decide(Room::Busy, false, false, nothing),
-                Verdict::Play("no text of what was heard had arrived")
             ));
         }
     }
 
+    /// A session's first two requests are the fresh ones; the count starts
+    /// again with each new session, and a request is decided once.
     #[test]
-    fn a_request_is_decided_once_from_what_was_heard_since_it_began() {
+    fn the_first_two_requests_of_each_session_are_the_ones_held() {
         let mut attention = Attention::default();
-        attention.began(7);
-        attention.heard("How was ");
-        attention.heard("your weekend?");
-        // Another request's output decides nothing.
-        assert_eq!(attention.first_output(6, Room::Busy, false), None);
-        assert!(!attention.holds(7));
-        assert_eq!(
-            attention.first_output(7, Room::Busy, false),
-            Some(Verdict::Hold("the room is busy and its name was not said"))
-        );
-        assert!(attention.holds(7) && !attention.holds(8));
-        // Decided once: the room changing mid-answer changes nothing.
-        assert_eq!(attention.first_output(7, Room::Quiet, true), None);
-        assert!(attention.holds(7));
-        // The next request starts clean: the name said in the last one
-        // does not count for this one, nor does that one's verdict.
-        attention.began(8);
-        assert!(!attention.holds(8));
-        attention.heard("Lamp, what time is it?");
+        let outcome = |attention: &mut Attention, request: u64, session: u64| {
+            attention.began(request, session);
+            attention.heard("How was your weekend?");
+            attention.first_output(request, Room::Busy, false)
+        };
         assert!(matches!(
-            attention.first_output(8, Room::Busy, false),
-            Some(Verdict::Play("its name was said"))
+            outcome(&mut attention, 1, 5),
+            Some(Verdict::Hold(_))
         ));
+        assert!(attention.holds(1) && !attention.holds(2));
+        // Decided once: the room changing mid-answer changes nothing.
+        assert_eq!(attention.first_output(1, Room::Quiet, true), None);
+        assert!(attention.holds(1));
+        assert!(matches!(
+            outcome(&mut attention, 2, 5),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(matches!(
+            outcome(&mut attention, 3, 5),
+            Some(Verdict::Play(_))
+        ));
+        assert!(matches!(
+            outcome(&mut attention, 4, 5),
+            Some(Verdict::Play(_))
+        ));
+        // A new session: its first two again.
+        assert!(matches!(
+            outcome(&mut attention, 5, 6),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(matches!(
+            outcome(&mut attention, 6, 6),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(matches!(
+            outcome(&mut attention, 7, 6),
+            Some(Verdict::Play(_))
+        ));
+        // Another request's output decides nothing.
+        attention.began(8, 7);
+        assert_eq!(attention.first_output(7, Room::Busy, false), None);
         // A turn the lamp began itself is played whatever was heard.
-        attention.began(9);
+        attention.began(9, 8);
         attention.heard("so did you send the report");
         OWN_REQUEST.store(9, Ordering::Release);
         assert!(matches!(
@@ -314,7 +383,7 @@ mod tests {
     #[test]
     fn what_is_kept_of_one_request_is_bounded_and_cut_at_a_character() {
         let mut attention = Attention::default();
-        attention.began(1);
+        attention.began(1, 1);
         attention.heard(&"é".repeat(MOST_HEARD_BYTES));
         assert_eq!(attention.heard.len(), MOST_HEARD_BYTES);
         attention.heard("Lamp");

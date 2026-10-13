@@ -857,7 +857,7 @@ async fn serve_with_visual<C: Connect>(
                 // decided when the first of an answer comes.
                 if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
                     match event {
-                        Event::InputStarted { lineage, .. } => attention.began(lineage.request.get()),
+                        Event::InputStarted { lineage, .. } => attention.began(lineage.request.get(), lineage.session.get()),
                         Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
                         Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } => {
                             let (room, going_on) = now();
@@ -4379,12 +4379,12 @@ mod tests {
     }
 
     /// The lamp's own rule, through the worker, in a room it knows to be
-    /// busy. Two people talk and the model answers one of them: the text
-    /// of what was heard came before the answer's first sound, as on the
-    /// lamp, the name is not in it, and none of the answer gets out. Then
-    /// someone says its name, and that answer is played.
+    /// busy. A new session hears two people talk and answers one of them:
+    /// none of that answer gets out. Its second request is a call, written
+    /// the way the real service writes one, and is played. From its third
+    /// request on the model is trusted as before.
     #[tokio::test]
-    async fn in_a_busy_room_an_answer_to_talk_without_its_name_is_held_back_and_a_called_one_is_played()
+    async fn a_new_sessions_first_answers_to_talk_in_a_busy_room_are_held_and_later_ones_are_the_models()
      {
         fn busy() -> (crate::room_told::Room, bool) {
             (crate::room_told::Room::Busy, false)
@@ -4426,9 +4426,11 @@ mod tests {
         rig.owner
             .complete_turn(real_time(), rig.snapshot.owner().unwrap())
             .unwrap();
+        // The session's second request, written the way the service
+        // writes a call: played.
         let next = rig.speak(&mut dial, false, true).await;
         dial.service
-            .send(heard("Lamp, how was your weekend?"))
+            .send(heard("Milan, how was your weekend?"))
             .await;
         assert!(matches!(
             rig.output().await,
@@ -4438,6 +4440,27 @@ mod tests {
         assert!(matches!(
             rig.output().await,
             ProviderOutput::Audio { request: played, .. } if played == next
+        ));
+        dial.service.send(idle_complete()).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::TurnComplete { .. }
+        ));
+        // Its third: the session has heard enough, and the same talk that
+        // was held on its first request is the model's to judge.
+        rig.owner
+            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        let third = rig.speak(&mut dial, false, true).await;
+        dial.service.send(heard("How was your weekend?")).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Transcript { request: None, .. }
+        ));
+        dial.service.send(provider_audio(6, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: played, .. } if played == third
         ));
         rig.stop().await;
     }

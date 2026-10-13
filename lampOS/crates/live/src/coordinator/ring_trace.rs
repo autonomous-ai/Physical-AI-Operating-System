@@ -4,6 +4,8 @@
 //! each cue and each second remains a normal trace event. Only intervening
 //! same-cue renewals share a summary and a raw tail-sample slot. The summary records
 //! submitted versus acknowledged counts, including a final unacknowledged frame.
+//! A continuous service keeps the same first requests and drops the renewals
+//! between them without a summary.
 use super::{Result, SessionState, record};
 use crate::ring_wire::{RingFeedback, RingFrame};
 use lamp_interaction::{BoundaryGuard, MonoTime, OutputKind};
@@ -25,6 +27,8 @@ pub(super) struct RingTrace {
 struct Pending {
     frame: RingFrame,
     aggregated: bool,
+    /// A renewal a continuous service does not write down, nor its receipt.
+    unwritten: bool,
 }
 
 struct Renewals {
@@ -49,15 +53,21 @@ impl RingTrace {
         if self.pending.is_some() {
             return Err(io::Error::other("ring trace has an outstanding request").into());
         }
-        let aggregate = !trace.continuous()
-            && self.confirmed.is_some_and(|last| same_cue(last, frame))
+        let renewal = self.confirmed.is_some_and(|last| same_cue(last, frame))
             && self.anchor.is_some_and(|anchor| {
                 frame
                     .requested_at_us
                     .checked_sub(anchor.requested_at_us)
                     .is_some_and(|elapsed| elapsed < SUMMARY_INTERVAL_US)
             });
-        if aggregate {
+        let aggregate = !trace.continuous() && renewal;
+        if trace.continuous() && renewal {
+            // A long-running service keeps the first request of each cue and
+            // of each second and nothing of the renewals between: no summary
+            // either, since its record is append-only. Every renewal written
+            // out, about thirty a second, filled fourteen of the record's
+            // sixteen megabytes on lamp-4ace and left it seven minutes long.
+        } else if aggregate {
             if let Some(batch) = self.renewals.as_mut() {
                 batch.requests = batch
                     .requests
@@ -98,6 +108,7 @@ impl RingTrace {
         self.pending = Some(Pending {
             frame,
             aggregated: aggregate,
+            unwritten: trace.continuous() && renewal,
         });
         Ok(())
     }
@@ -136,7 +147,12 @@ impl RingTrace {
         let aggregate = validation_error.is_none()
             && matched.is_some_and(|pending| pending.aggregated)
             && matches!(report, RingFeedback::Presented { .. });
-        if !aggregate {
+        // The receipt of a renewal that was not written down is not either,
+        // when it is the plain success; anything else always is.
+        let unwritten = validation_error.is_none()
+            && matched.is_some_and(|pending| pending.unwritten)
+            && matches!(report, RingFeedback::Presented { .. });
+        if !aggregate && !unwritten {
             record(
                 trace,
                 json!({

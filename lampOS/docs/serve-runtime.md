@@ -53,7 +53,13 @@ a pending obligation. Normal controller permission checks, privacy priority,
 request/session matching and the accepted-tail deadline remain unchanged.
 
 Service ring logs are append-only request/feedback events. They do not keep
-mutable indexes into old log batches. The real choreographer still retains and
+mutable indexes into old log batches. Of the light's renewals, sent every
+20 ms and each validated as before, only the first request of each cue and
+of each second is written down with its receipt; a renewal's plain success
+is not, and a rejection, a blank or a receipt that fails validation always
+is. Written out in full they were about a hundred rows a second: on
+lamp-4ace they filled fourteen of the record's sixteen megabytes and left
+it about seven minutes long, too short to look back at an afternoon of use. The real choreographer still retains and
 validates its one outstanding frame independently. Cue emission consumes each
 bounded metadata batch once while retaining its boot, capture/reference context
 and datagram sequence. Losing a local batch invalidates further scheduling cues;

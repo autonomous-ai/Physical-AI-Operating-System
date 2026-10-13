@@ -648,17 +648,29 @@ fn service_ring_renews_with_real_receipts_after_every_metadata_batch_is_removed(
     let mut f = Fixture::new();
     let (writer, _entered, release) = crate::service_trace::ServiceTrace::stalled();
     f.trace = SessionState::with_writer(writer);
+    // Every frame is sent and its receipt validated. What is written down
+    // is the first request of each second with its receipt, and nothing of
+    // the renewals between.
+    let (mut written, mut head_at) = (0, None::<u64>);
     for index in 0..100 {
-        f.exchange(1 + index * crate::choreography::RENEW_INTERVAL_US)
-            .unwrap();
-        assert_eq!(f.trace.len(), 2);
-        assert_eq!(f.trace[0]["kind"], "ring_requested");
-        assert_eq!(f.trace[1]["kind"], "ring_feedback");
+        let at = 1 + index * crate::choreography::RENEW_INTERVAL_US;
+        f.exchange(at).unwrap();
+        if head_at.is_none_or(|head| at - head >= 1_000_000) {
+            head_at = Some(at);
+            written += 1;
+            assert_eq!(f.trace.len(), 2, "at {at}");
+            assert_eq!(f.trace[0]["kind"], "ring_requested");
+            assert_eq!(f.trace[1]["kind"], "ring_feedback");
+        } else {
+            assert!(f.trace.is_empty(), "at {at}: {:?}", f.trace.len());
+        }
         assert!(f.policy.pending().is_none());
         flush_cues(&mut f.trace, &mut None);
         assert!(f.trace.is_empty());
     }
     assert_eq!((f.requests, f.receipts), (100, 100));
+    let seconds = 99 * crate::choreography::RENEW_INTERVAL_US / 1_000_000;
+    assert_eq!(written, seconds + 1);
     release.send(()).unwrap();
     assert!(f.trace.finish_logging().unwrap().acknowledged);
 }

@@ -17,6 +17,9 @@ const REPEAT_US: u64 = 40_000;
 /// Turns in a row the lamp did not answer after which its head stops
 /// lifting for what it hears: the talk around it is not for it.
 const SETTLE_AFTER: u8 = 2;
+/// Turns in a row the lamp did not answer after which the room counts as
+/// busy with other people's talk ([`Attention::busy`]).
+const BUSY_AFTER: u8 = 3;
 /// Quiet after which that is forgotten and the next voice gets its head again.
 const FORGET_US: u64 = 30_000_000;
 
@@ -58,6 +61,13 @@ impl Attention {
     /// The head stays down for listening and thinking.
     pub fn settled(&self) -> bool {
         self.unanswered >= SETTLE_AFTER
+    }
+
+    /// People are talking to each other around the lamp: the last three
+    /// things it heard went unanswered. Someone who then does speak to it
+    /// is not to lose their answer to the next voice in the room.
+    pub fn busy(&self) -> bool {
+        self.unanswered >= BUSY_AFTER
     }
 }
 
@@ -443,6 +453,32 @@ mod tests {
         attention.observe(Some((5, false)), now + 4);
         attention.observe(None, now + 5);
         assert!(attention.settled());
+    }
+
+    #[test]
+    fn a_room_is_busy_after_three_things_unanswered_until_the_lamp_answers_or_it_goes_quiet() {
+        let mut room = Attention::default();
+        let mut now = 0;
+        turn(&mut room, &mut now, 1, false);
+        turn(&mut room, &mut now, 2, false);
+        assert!(!room.busy(), "a person who paused twice is not a busy room");
+        turn(&mut room, &mut now, 3, false);
+        assert!(room.busy());
+        // The question put to the lamp in that room: busy while it waits
+        // for its own answer, and not once the answer has begun.
+        room.observe(Some((4, false)), now + 1);
+        assert!(room.busy());
+        room.observe(Some((4, true)), now + 2);
+        assert!(!room.busy());
+        turn(&mut room, &mut now, 4, true);
+        turn(&mut room, &mut now, 5, false);
+        assert!(!room.busy());
+        // Left alone for half a minute, it is no longer busy either.
+        turn(&mut room, &mut now, 6, false);
+        turn(&mut room, &mut now, 7, false);
+        assert!(room.busy());
+        room.observe(None, now + FORGET_US);
+        assert!(!room.busy());
     }
 
     #[test]

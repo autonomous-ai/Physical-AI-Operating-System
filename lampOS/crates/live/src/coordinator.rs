@@ -77,6 +77,10 @@ pub const MAX_DIRECTED_SECONDS: u64 = 600;
 const INPUT_READINESS_TIMEOUT: Duration = Duration::from_secs(25);
 const DIAGNOSTIC_SHUTDOWN_GRACE: Duration = Duration::from_millis(750);
 const INPUT_LEASE_US: u64 = 100_000;
+/// How long a just-asked lamp keeps the floor from the next voice in a busy
+/// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
+/// question ends.
+const HOLD_FLOOR_US: u64 = 1_800_000;
 #[cfg(test)]
 const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
@@ -2097,6 +2101,13 @@ fn conversation(
         None
     };
     let mut attention = crate::body_link::Attention::default();
+    // The same count kept whether or not there is a body to tell: whether
+    // the talk in the room has been for the lamp lately.
+    let mut room = crate::body_link::Attention::default();
+    // The turn whose speech last ended and when, and the turn for which the
+    // floor was last held, so that the record says so once.
+    let mut speech_ended: Option<(u64, u64)> = None;
+    let mut floor_held_for: Option<u64> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -2753,6 +2764,46 @@ fn conversation(
                     )? {
                         continue;
                     }
+                    // In a room busy with other people's talk, what the
+                    // lamp has just been asked is not dropped for the next
+                    // voice: until its answer begins, or 1.8 s have gone
+                    // without one, a new sound does not take the turn.
+                    let at_us = monotonic_us();
+                    let holding = room.busy()
+                        && reply.as_ref().is_some_and(|current| {
+                            let turn = current.owner.turn();
+                            current.local_input_ended
+                                && current.playback.is_none()
+                                && if current.had_audio {
+                                    current
+                                        .last_provider_audio_at_us
+                                        .is_some_and(|at| at_us.saturating_sub(at) < HOLD_FLOOR_US)
+                                } else {
+                                    speech_ended.is_some_and(|(ended, at)| {
+                                        ended == turn && at_us.saturating_sub(at) < HOLD_FLOOR_US
+                                    })
+                                }
+                        });
+                    if holding {
+                        let context = AdmissionContext {
+                            capture: lineage,
+                            authority: owner.snapshot(now())?,
+                        };
+                        if let Some(rejection) = admission.suppress_prospective(context, at_us)? {
+                            record_input_rejection(trace, rejection)?;
+                        }
+                        detector.clear_prospective();
+                        let turn = reply.as_ref().map(|current| current.owner.turn());
+                        if floor_held_for != turn {
+                            floor_held_for = turn;
+                            record(
+                                trace,
+                                json!({"kind":"floor_held","turn":turn,"at_us":at_us,
+                                    "boundary":"a new sound did not take the turn while an answer was awaited in a busy room"}),
+                            )?;
+                        }
+                        continue;
+                    }
                     let Some(accepted) = decide_prospective_input(
                         &playback_mask,
                         &mut detector,
@@ -2831,6 +2882,7 @@ fn conversation(
                         .ok_or_else(|| io::Error::other("speech end lost its owner"))?;
                     let input_end_us = audio.captured_at_us;
                     current.local_input_ended = true;
+                    speech_ended = Some((current.owner.turn(), monotonic_us()));
                     queue_input(
                         &mut provider_queue,
                         current,
@@ -3018,6 +3070,12 @@ fn conversation(
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
         }
+        room.observe(
+            reply
+                .as_ref()
+                .map(|current| (current.owner.turn(), current.had_audio)),
+            clock,
+        );
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
             let phase = RingPhase::from_snapshot(snapshot);

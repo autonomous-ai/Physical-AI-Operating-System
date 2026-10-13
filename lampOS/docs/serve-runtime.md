@@ -144,6 +144,33 @@ people talking brought the conversation checks down: other voices were taken
 for the person at the lamp going on, and for that person cutting in.
 What has been done about that since is in [group-talk.md](group-talk.md).
 
+## Beside other work on the lamp
+
+The capture worker ends on a microphone read that took more than 10 ms, and
+the reference path on a speaker reference about 20 ms late. Both are meant
+as faults: after either, the echo canceller's timing is not known. Both end
+the service, and whoever supervises it starts it again a few seconds later
+with a new conversation.
+
+At the default scheduling these are easy to cause. On lamp-4ace on
+2026-10-13 the service ended twice in an afternoon of played checks (once
+on each fault), each time within seconds of the test harness logging in to
+the lamp. Then, on purpose: twelve busy loops for forty seconds on its
+eight cores ended the service four times in those forty seconds. With the
+unit given round-robin real-time scheduling at a modest priority
+(`CPUSchedulingPolicy=rr`, `CPUSchedulingPriority=20`, which its workers
+inherit; see [`deploy/lamp-4ace/lamp-live.service`](../deploy/lamp-4ace/lamp-live.service)),
+the same forty seconds ended it not once, and the body and the eyes ran
+through it. The processor reached 92 to 95 degrees C in twenty seconds of
+that load either way, which is its own limit on what else this lamp can be
+asked to do.
+
+A minute of what the harness itself does, concentrated (138 rounds of a
+log-in, a 16 MiB log read, a Python start and an 8 MiB synced write to the
+SD card), ended nothing at the default scheduling, so those two faults are
+not explained by that load alone. They have not recurred since; that is a
+few hours.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

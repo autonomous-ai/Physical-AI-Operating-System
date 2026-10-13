@@ -1,0 +1,34 @@
+# lampOS body on lamp-4ace (the office lab prototype): small head motion for what the lamp is doing.
+# It owns the servo port; lamp-live.service cannot open it and only tells this unit a mood.
+# Not enabled at boot. When it stops itself on a surprise (its JSON report in the journal says
+# which) systemd starts it again after 15 s, at most three times in ten minutes; each start
+# runs its checks again and refuses a lamp that is not as expected. After the third it stays
+# stopped until someone has looked. Limits are fixed in the binary (lampOS/docs/body.md).
+[Unit]
+Description=lampOS body (lamp-body)
+ConditionHost=lamp-4ace
+After=lamp-live.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=exec
+# Never root: the servo port owner refuses a process that could bypass its exclusive lock.
+User=orangepi
+Group=orangepi
+SupplementaryGroups=dialout
+WorkingDirectory=/
+RuntimeDirectory=lampos-body
+RuntimeDirectoryMode=0755
+ExecStart=/opt/lampOS/body/d22c7fe890694663292020beb2639b09edfaa0141272188ba6ac58e6c24912a7/lamp-body --device /dev/ttyACM0 --unit-id lamp-4ace --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 727,553 --gaze-reach 480,120 --stand 1772,2043,2015,2657,2602 --folded-arm 2048,2047 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1950,2043,2015
+Restart=on-failure
+RestartSec=15s
+KillMode=mixed
+KillSignal=SIGTERM
+# A lamp that stands folds down before it leaves: up to 3 s and twice its way.
+TimeoutStopSec=25s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-body
+NoNewPrivileges=yes

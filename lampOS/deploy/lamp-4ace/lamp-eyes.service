@@ -1,0 +1,30 @@
+# lampOS eyes on lamp-4ace (the office lab prototype): finds a face in the head camera's picture
+# and tells the body where it is, so the lamp can look at the person it is talking with.
+# The camera opens only while lamp-live.service keeps permitting it, which it does exactly while
+# the microphone is permitted; it closes within 1.5 s of that stopping. With --sight-file the
+# newest frame, and only that one, is kept in /run (memory) for lamp-live to show the model with
+# what a person says; take the option out and no frame leaves the process (lampOS/docs/eyes.md).
+# Not enabled at boot.
+[Unit]
+Description=lampOS eyes (lamp-eyes)
+ConditionHost=lamp-4ace
+After=lamp-live.service
+
+[Service]
+Type=exec
+User=orangepi
+Group=orangepi
+SupplementaryGroups=video
+WorkingDirectory=/
+RuntimeDirectory=lampos-eyes
+RuntimeDirectoryMode=0755
+# Looking is never worth a late word: below the voice service.
+Nice=10
+ExecStart=/opt/lampOS/eyes/65da197ffe7fb1a27c531ed4e2a79eaf81ab17a0c591b762975d8c485893579f/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-eyes
+NoNewPrivileges=yes

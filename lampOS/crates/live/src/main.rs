@@ -63,9 +63,25 @@ fn run() -> Result<()> {
                 let asked=lamp_ipc::monotonic_us();
                 let (mut said,mut samples,mut first,mut ended)=(String::new(),0usize,None,"timeout");
                 let mut calls=Vec::new();
-                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
+                // The order of what came, with the time of each, audio once.
+                let mut order=Vec::new();
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(14);
                 loop {
-                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                    let event=tokio::time::timeout_at(deadline,connection.next_event()).await;
+                    let at_ms=(lamp_ipc::monotonic_us()-asked)/1000;
+                    let kind=match &event {
+                        Ok(Some(Event::ToolCall{..}))=>Some("call"),
+                        Ok(Some(Event::ToolCallsCancelled{..}))=>Some("calls_withdrawn"),
+                        Ok(Some(Event::Audio{..})) if first.is_none()=>Some("first_audio"),
+                        Ok(Some(Event::GenerationComplete{..}))=>Some("generation_complete"),
+                        Ok(Some(Event::TurnComplete{..}))=>Some("turn_complete"),
+                        Ok(Some(Event::Unanswered{..}))=>Some("unanswered"),
+                        Ok(Some(Event::Discarded{..}))=>Some("discarded"),
+                        Ok(Some(Event::WaitingForInput{..}))=>Some("waiting_for_input"),
+                        _=>None,
+                    };
+                    if let Some(kind)=kind { order.push(format!("{kind}@{at_ms}")); }
+                    match event {
                         Ok(Some(Event::ToolCall{call,..})) => {
                             let answer=if call.name==lamp_live::tools::NOT_FOR_ME { lamp_live::tools::declined() } else { serde_json::json!({"done":true}) };
                             let sent=input.try_tool_response(&call.id,&call.name,&answer).is_ok();
@@ -81,7 +97,7 @@ fn run() -> Result<()> {
                         Err(_) => break,
                     }
                 }
-                println!("{}",serde_json::json!({"status":"tools_tried","setup_us":setup_us,"ended":ended,"ended_after_us":lamp_ipc::monotonic_us()-asked,"calls":calls,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
+                println!("{}",serde_json::json!({"status":"tools_tried","setup_us":setup_us,"ended":ended,"ended_after_us":lamp_ipc::monotonic_us()-asked,"order":order,"calls":calls,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
                 connection.shutdown();
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;

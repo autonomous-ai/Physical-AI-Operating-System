@@ -126,6 +126,11 @@ async fn a_call_belongs_to_the_committed_request_and_its_answer_goes_back_by_ide
             args: json!({"colour":"blue"}),
         }
     );
+    // The service ends its turn as soon as it has asked, as the real one
+    // does. That is not the end of the request: nothing is reported.
+    send_json(&mut server, generated()).await;
+    send_json(&mut server, idle()).await;
+    quiet(&mut connection).await;
     // Nothing is written until the call is answered.
     silent(&mut server).await;
     connection
@@ -155,6 +160,47 @@ async fn a_call_belongs_to_the_committed_request_and_its_answer_goes_back_by_ide
         .unwrap();
     discarded(&mut connection, Discard::StaleToolResponse).await;
     silent(&mut server).await;
+}
+
+/// The answer can be on its way before the service has completed the turn
+/// it asked in: a function answered in a millisecond, a completion that
+/// took four. The completion still belongs to the asking, and what the
+/// service says next is still this request's.
+#[tokio::test]
+async fn a_completion_that_follows_the_answer_still_ends_only_the_asking() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let request = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, call("call-1", "not_for_me", json!({}))).await;
+    called(&mut connection, request).await;
+    connection
+        .input()
+        .try_tool_response("call-1", "not_for_me", &json!({"ok":true}))
+        .unwrap();
+    assert!(receive(&mut server).await.get("toolResponse").is_some());
+    send_json(&mut server, idle()).await;
+    quiet(&mut connection).await;
+    send_json(&mut server, audio(5)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, .. } if lineage.request == request
+    ));
+    send_json(&mut server, generated()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::GenerationComplete { lineage } if lineage.request == request
+    ));
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request
+    ));
+    // The request is over: the next one is a request of its own.
+    let next = ended_turn(&mut connection, &mut server, 2).await;
+    send_json(&mut server, audio(6)).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::Audio { lineage, .. } if lineage.request == next
+    ));
 }
 
 /// Several calls in one message, a call without arguments or identifier,
@@ -290,6 +336,7 @@ async fn a_call_counts_as_output_and_one_never_answered_is_a_stalled_response() 
     tokio::time::sleep(Duration::from_millis(2_500)).await;
     send_json(&mut server, call("call-1", "light_on", json!({}))).await;
     called(&mut connection, request).await;
+    send_json(&mut server, idle()).await;
     // Past the response bound, measured from the end of input: no failure.
     tokio::time::sleep(Duration::from_millis(900)).await;
     assert_eq!(connection.state(), State::Ready);

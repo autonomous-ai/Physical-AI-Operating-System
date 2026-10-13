@@ -4256,6 +4256,8 @@ mod tests {
         dial.service
             .send(function_call("c1", crate::tools::NOT_FOR_ME))
             .await;
+        // The service ends the turn it asked in at once, as the real one does.
+        dial.service.send(idle_complete()).await;
         assert_eq!(
             rig.service_message(&mut dial).await,
             json!({"toolResponse":{"functionResponses":[
@@ -4321,6 +4323,7 @@ mod tests {
         let mut dial = rig.ready().await;
         let request = rig.speak(&mut dial, false, true).await;
         dial.service.send(function_call("c7", "light_colour")).await;
+        dial.service.send(idle_complete()).await;
         assert_eq!(
             rig.service_message(&mut dial).await,
             json!({"toolResponse":{"functionResponses":[
@@ -4361,6 +4364,7 @@ mod tests {
             let mut dial = rig.ready().await;
             let request = rig.speak(&mut dial, false, true).await;
             dial.service.send(function_call("c1", name)).await;
+            dial.service.send(idle_complete()).await;
             let answer = rig.service_message(&mut dial).await;
             assert_eq!(
                 answer["toolResponse"]["functionResponses"][0]["response"],

@@ -588,6 +588,12 @@ impl Drop for Connection {
 }
 
 /// Establish TLS, send setup, and wait for setupComplete before returning Ready.
+/// Set to anything, each session says on stderr what every server message
+/// looked like: field names and a few schema enumerations, never audio,
+/// text or a handle ([`wire::shape`]). For finding out what a service
+/// really sends; a run of one shape is said once.
+pub const SHAPES_ENVIRONMENT: &str = "LAMP_GEMINI_SHAPES";
+
 /// No implicit reconnect, resumption, tools, or hidden agent task.
 pub async fn connect(config: SessionConfig, session: SessionId) -> Result<Connection> {
     config.timeouts.validate()?;
@@ -698,6 +704,8 @@ where
         session,
         timeouts: config.timeouts,
         retain: config.resumption != Resumption::Off,
+        shapes: std::env::var_os(SHAPES_ENVIRONMENT).is_some(),
+        last_shape: String::new(),
         policy: config.barrier,
         wait: config.barrier_wait,
         reports: config.barrier_reports,
@@ -805,6 +813,10 @@ struct Turn {
     audio_sequence: u64,
     /// Function calls the service made for this request and still waits on.
     tools: Vec<String>,
+    /// The service made calls and has not yet completed the turn it made
+    /// them in. That completion ends the model's asking, not the request:
+    /// what it says once the calls are answered is still this request's.
+    calls_turn_open: bool,
 }
 impl Turn {
     fn new(lineage: Lineage) -> Self {
@@ -821,6 +833,7 @@ impl Turn {
             output_samples: 0,
             audio_sequence: 0,
             tools: Vec::new(),
+            calls_turn_open: false,
         }
     }
 }
@@ -929,6 +942,9 @@ struct Actor<S> {
     session: SessionId,
     timeouts: Timeouts,
     retain: bool,
+    /// Say on stderr what each server message looked like ([`wire::shape`]).
+    shapes: bool,
+    last_shape: String,
     policy: BarrierPolicy,
     wait: BarrierWait,
     reports: bool,
@@ -1883,6 +1899,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         // A call after a completed generation reopens it, as audio does.
         turn.generation_at = None;
         turn.tools.extend(calls.iter().map(|call| call.id.clone()));
+        turn.calls_turn_open = true;
         self.stale_terminal = None;
         self.last_responder = Some(lineage);
         for call in calls {
@@ -1891,6 +1908,15 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         Ok(())
     }
     fn decode(&mut self, bytes: &[u8]) -> Result<wire::ServerFrame> {
+        if self.shapes {
+            // A run of messages of one shape, such as an answer's audio, is
+            // said once.
+            let shape = wire::shape(bytes);
+            if shape != self.last_shape {
+                eprintln!("lamp-gemini session {}: {shape}", self.session.get());
+                self.last_shape = shape;
+            }
+        }
         let decoded = if self.retain {
             wire::decode_server_retaining(bytes)
         } else {
@@ -2180,7 +2206,16 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             // Audio after a completed generation reopens it.
             turn.generation_at = None;
         }
-        if content.generation_complete {
+        // The service ends the turn in which it made calls as soon as it
+        // has made them, and answers in another once they are answered. On
+        // lamp-4ace on 2026-10-13 that completion came 4 ms after the call.
+        // It is the end of the asking, not of the request.
+        let asking = turn.calls_turn_open;
+        if asking && content.turn_complete {
+            turn.calls_turn_open = false;
+            turn.progress_at = Some(now);
+        }
+        if content.generation_complete && !asking {
             turn.generation_at = Some(now);
         }
         let answered = turn.first_output_at.is_some();
@@ -2193,6 +2228,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         }
         for text in content.text {
             self.emit(Event::ModelText { lineage, text });
+        }
+        if asking {
+            return;
         }
         if content.generation_complete {
             self.emit(Event::GenerationComplete { lineage });

@@ -235,6 +235,7 @@ connection as `UnsupportedMessage`. What the session does with one now:
 | Case | What happens |
 |---|---|
 | A call for the committed request | `Event::ToolCall` with that request's lineage. It counts as the request's first output, and the `stall` bound runs from it |
+| The service completes the turn it made the calls in | Not the end of the request, and not reported: the service ends that turn as soon as it has asked (4 ms after the call on lamp-4ace on 2026-10-13) and speaks in another once the calls are answered. The request ends at the completion after that. The same holds when the answer was sent before that first completion arrived |
 | The answer (`InputSender::try_tool_response`, by identifier and name) | Written at once; the `stall` bound runs again from the answer. Not an object: sent as `{"result": ...}`. Over 4,096 bytes of JSON: refused where it is offered, nothing sent |
 | A call with no committed request to own it (none in progress, or one whose input is still open) | Answered on the wire as `{"error":"cancelled"}` so the service is not left waiting; `Discard::UnownedToolCall`; no `ToolCall` event |
 | The service withdraws calls (`toolCallCancellation`) | `Event::ToolCallsCancelled`; an answer offered for one afterwards is dropped, `Discard::StaleToolResponse`, nothing sent |
@@ -249,12 +250,19 @@ taken only by the connection that made the call
 (`Supervisor::try_tool_response`); a call dies with its connection and is
 not carried to the next.
 
-Tested with the scripted service only (`session/tests/tools.rs`, eight
-tests). Not yet shown against the real service: that the relay passes
-function declarations, that this model calls them from speech, what it says
-after an answer, and what a call costs an ordinary answer's first audio.
-The voice service declares no function yet; its worker answers any call as
-unavailable.
+Tested with the scripted service (`session/tests/tools.rs`, nine tests).
+Against the real service, one silent written request each on lamp-4ace on
+2026-10-13: the relay accepted two declarations; "Lamp, make your light
+blue." got a call of the sample function with `{"colour":"blue"}` 0.93 s
+after the request; "Lamp, what is two plus two?" got no call and a spoken
+answer. Not yet shown: calls made from speech, what the model says after
+an answer, and what a declared function costs an ordinary answer's first
+audio.
+
+`LAMP_GEMINI_SHAPES` set to anything makes each session say on stderr what
+every server message looked like (`wire::shape`: field names and a few
+schema enumerations, never audio, text or a handle; a run of one shape is
+said once). It is how the completion after a call was found.
 
 ## A stop is a fence on the wire
 

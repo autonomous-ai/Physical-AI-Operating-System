@@ -18,6 +18,31 @@ Not on this branch:
   profiling) also stays on `lamp-a2-continuation`. The numbers below were
   produced with it.
 
+## On the lamp, 2026-10-14
+
+Tried once on lamp-4ace with `--endpoint smart-turn` beside
+`--end-silence-ms 600` (the quick profile: a verdict of "finished" ends
+the turn at 400 ms, one of "clearly unfinished" holds it to 1.5 s, and
+anything else is the 600 ms window).
+
+- **It decided nothing.** Thirteen pauses in two played tests, thirteen
+  decisions on the silence window: eleven because the verdict had not
+  come when the window closed, two because the worker was still busy
+  with the pause before. The lamp behaved as it does without it.
+- **Why: the model is too slow where it ran.** The worker's own check
+  (`lamp-turn-end --check-model`), on the lamp: 383 ms a verdict on the
+  two fast cores (Cortex-A76, cpu6 and cpu7), 1,292 ms on the six slow
+  ones (Cortex-A55). The worker is not pinned, runs at nice 10, and over
+  the two tests used about 2.5 s of processor time for each request.
+- **Even pinned to the fast cores it could not answer sooner as built:**
+  the pause is put to it after 200 ms and its verdict would come 383 ms
+  later, 17 ms before the window it is meant to beat. It could still hold
+  a clearly unfinished turn open.
+
+So it is off again. For it to make the lamp quicker, a verdict has to
+take well under 100 ms on this board: a smaller or quantised model, a
+faster runtime, or asking earlier than the pause. None of that was tried.
+
 ## Summary
 
 - **Separate inference process.** The pinned Smart Turn v3.2 model runs only in

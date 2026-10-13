@@ -14,7 +14,9 @@
 //! - **quiet**: nothing has been heard for five minutes. What is said next
 //!   is said into a quiet room, most likely to the lamp.
 //! - **busy**: three things in a row, inside a minute, that the lamp said
-//!   nothing to. People are talking to each other.
+//!   nothing to. People are talking to each other. Only something said
+//!   through to its end counts: a cough or a click that the coordinator
+//!   dropped as a sound is not talk.
 //!
 //! Busy holds until the five quiet minutes come; quiet holds until the run
 //! of three. Neither is known when the service starts. The session is told
@@ -40,8 +42,10 @@ const QUIET_AFTER_US: u64 = 300_000_000;
 const BUSY_RUN: usize = 3;
 const BUSY_WITHIN_US: u64 = 60_000_000;
 /// The room is told only when nothing has been heard or said for this
-/// long: a fact written into a request would be taken for part of it.
-const SETTLED_US: u64 = 2_000_000;
+/// long: a fact written into a request would be taken for part of it, and
+/// one offered while an answer is owed is dropped. Longer than the four
+/// seconds after which a request the model leaves alone is closed.
+const SETTLED_US: u64 = 6_000_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Room {
@@ -65,8 +69,9 @@ pub struct RoomTold {
     quiet_since_us: Option<u64>,
     /// When anything was last heard or said.
     last_sound_us: u64,
-    /// The request in hand, while the lamp has said nothing in it.
-    open: Option<u64>,
+    /// The request in hand, while the lamp has said nothing in it, and
+    /// whether what was said in it has ended.
+    open: Option<(u64, bool)>,
     /// When each of the latest things the lamp said nothing to ended.
     unanswered: VecDeque<u64>,
     room: Room,
@@ -91,18 +96,36 @@ impl RoomTold {
 
     /// A request began: something was heard.
     pub fn heard(&mut self, request: u64, now_us: u64) {
-        // The one before it, replaced by more talk before the lamp spoke.
-        if let Some(previous) = self.open.filter(|previous| *previous != request) {
+        // The one before it, said to its end and then replaced by more
+        // talk before the lamp spoke. One that never ended was a sound the
+        // coordinator dropped, and is not counted.
+        if let Some((previous, true)) = self.open.filter(|(previous, _)| *previous != request) {
             self.unanswered(previous, now_us);
         }
-        self.open = Some(request);
+        self.open = Some((request, false));
+        self.quiet_since_us = Some(now_us);
+        self.last_sound_us = now_us;
+    }
+
+    /// More of what is being said in a request has come.
+    pub fn hearing(&mut self, now_us: u64) {
+        self.last_sound_us = now_us;
+    }
+
+    /// What was said in `request` has ended.
+    pub fn ended(&mut self, request: u64, now_us: u64) {
+        if let Some((open, ended)) = self.open.as_mut()
+            && *open == request
+        {
+            *ended = true;
+        }
         self.quiet_since_us = Some(now_us);
         self.last_sound_us = now_us;
     }
 
     /// The lamp is speaking in `request`.
     pub fn spoke(&mut self, request: u64, now_us: u64) {
-        if self.open == Some(request) {
+        if self.open.is_some_and(|(open, _)| open == request) {
             self.open = None;
         }
         self.unanswered.clear();
@@ -112,7 +135,7 @@ impl RoomTold {
 
     /// `request` ended with the lamp saying nothing.
     pub fn unanswered(&mut self, request: u64, now_us: u64) {
-        if self.open == Some(request) {
+        if self.open.is_some_and(|(open, _)| open == request) {
             self.open = None;
         }
         if self.unanswered.len() == BUSY_RUN {
@@ -147,7 +170,6 @@ impl RoomTold {
     pub fn due(&mut self, session: u64, now_us: u64) -> Option<&'static str> {
         let room = self.at(now_us);
         if self.told == Some((session, room))
-            || self.open.is_some()
             || now_us.saturating_sub(self.last_sound_us) < SETTLED_US
         {
             return None;
@@ -194,6 +216,13 @@ mod tests {
 
     const S: u64 = 1_000_000;
 
+    /// Something said to its end in `request`, from `at` for two seconds.
+    fn said(room: &mut RoomTold, request: u64, at: u64) {
+        room.heard(request, at * S);
+        room.hearing((at + 1) * S);
+        room.ended(request, (at + 2) * S);
+    }
+
     #[test]
     fn five_minutes_of_nothing_is_quiet_and_three_unanswered_in_a_minute_is_busy() {
         let mut room = RoomTold::new();
@@ -205,20 +234,22 @@ mod tests {
         room.told(1);
         assert_eq!(room.due(1, 320 * S), None);
         // Someone speaks into the quiet and is answered: still quiet.
-        room.heard(1, 400 * S);
-        assert_eq!(room.due(1, 401 * S), None);
-        room.spoke(1, 402 * S);
+        said(&mut room, 1, 400);
+        room.spoke(1, 403 * S);
         assert_eq!(room.at(410 * S), Room::Quiet);
         // Colleagues start talking: three things the lamp says nothing to.
-        room.heard(2, 500 * S);
-        room.unanswered(2, 505 * S);
-        room.heard(3, 510 * S);
-        // The fourth replaces the third before any answer: that counts.
-        room.heard(4, 513 * S);
+        // The first is closed unanswered, the second is replaced by the
+        // third before any answer, the third is closed unanswered.
+        said(&mut room, 2, 500);
+        room.unanswered(2, 506 * S);
+        said(&mut room, 3, 508);
+        said(&mut room, 4, 511);
         assert_eq!(room.at(514 * S), Room::Quiet);
-        room.unanswered(4, 518 * S);
-        assert_eq!(room.at(519 * S), Room::Busy);
-        assert_eq!(room.due(1, 519 * S), Some(BUSY));
+        room.unanswered(4, 517 * S);
+        assert_eq!(room.at(518 * S), Room::Busy);
+        // Told once nothing has been heard or said for a moment.
+        assert_eq!(room.due(1, 518 * S), None);
+        assert_eq!(room.due(1, 520 * S), Some(BUSY));
         room.told(1);
         assert_eq!(room.due(1, 530 * S), None);
         // A new session is told how the room is.
@@ -226,37 +257,45 @@ mod tests {
         room.told(2);
         // Called and answered in a busy office: it is still busy. A third
         // session opening just then is told once the lamp has finished.
-        room.heard(5, 540 * S);
-        assert_eq!(room.due(3, 540 * S + S / 2), None);
-        room.spoke(5, 541 * S);
-        assert_eq!(room.due(3, 542 * S), None);
-        assert_eq!(room.due(3, 544 * S), Some(BUSY));
+        said(&mut room, 5, 540);
+        room.spoke(5, 543 * S);
+        assert_eq!(room.due(3, 545 * S), None);
+        assert_eq!(room.due(3, 550 * S), Some(BUSY));
         assert_eq!(room.at(600 * S), Room::Busy);
-        // Everyone leaves. Five minutes after the last thing heard: quiet.
-        assert_eq!(room.at(541 * S + 299 * S), Room::Busy);
-        assert_eq!(room.due(2, 541 * S + 301 * S), Some(QUIET));
+        // Everyone leaves. Five minutes after the last thing: quiet.
+        assert_eq!(room.at(543 * S + 299 * S), Room::Busy);
+        assert_eq!(room.due(2, 543 * S + 301 * S), Some(QUIET));
     }
 
     #[test]
-    fn three_unanswered_spread_over_an_afternoon_are_not_a_busy_room() {
+    fn sounds_and_talk_spread_over_an_afternoon_are_not_a_busy_room() {
         let mut room = RoomTold::new();
         assert_eq!(room.at(S), Room::Unknown);
         assert_eq!(room.at(302 * S), Room::Quiet);
+        // Three things left alone, minutes apart.
         for (request, at) in [(1, 400), (2, 500), (3, 600)] {
-            room.heard(request, at * S);
-            room.unanswered(request, (at + 4) * S);
+            said(&mut room, request, at);
+            room.unanswered(request, (at + 6) * S);
         }
         assert_eq!(room.at(610 * S), Room::Quiet);
-        // Nothing is told while a request is open.
+        // A run of coughs and clicks: each begins a request that is
+        // dropped as a sound before it ends. They are heard, not counted.
+        for request in 4..10 {
+            room.heard(request, (700 + request) * S);
+        }
+        assert_eq!(room.at(720 * S), Room::Quiet);
+        // And they do not keep the room from being told afterwards.
+        assert_eq!(room.due(1, 720 * S), Some(QUIET));
         room.told(1);
-        room.heard(4, 700 * S);
-        room.unanswered(4, 701 * S);
-        room.heard(5, 702 * S);
-        room.unanswered(5, 703 * S);
-        room.heard(6, 704 * S);
-        assert_eq!(room.due(1, 720 * S), None);
-        room.unanswered(6, 721 * S);
-        assert_eq!(room.due(1, 724 * S), Some(BUSY));
+        // Nothing is told while someone is still speaking.
+        room.heard(10, 800 * S);
+        for second in 801..812 {
+            room.hearing(second * S);
+        }
+        assert_eq!(room.due(2, 812 * S), None);
+        room.ended(10, 812 * S);
+        assert_eq!(room.due(2, 815 * S), None);
+        assert_eq!(room.due(2, 819 * S), Some(QUIET));
     }
 
     #[test]

@@ -1544,11 +1544,17 @@ impl InputHandoff {
                 if let Err(error) = input.audio(request, sequence, captured, &samples) {
                     return self.refused(request, error, input);
                 }
+                if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                    room.hearing(now_us);
+                }
             }
             ProviderInput::End { .. } => {
                 self.require_open(request)?;
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
+                }
+                if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                    room.ended(request.get(), now_us);
                 }
                 if let Some(submitted) = self.submitted.as_mut() {
                     submitted.open = false;

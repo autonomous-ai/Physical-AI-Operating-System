@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
+	"syscall"
 )
 
 // software-update is not an OTA component, so bootstrap refreshes it strictly between
@@ -20,6 +22,9 @@ import (
 
 // updaterPath is a var so tests can redirect the install.
 var updaterPath = "/usr/local/bin/software-update"
+
+// Shared with CLI installations, which are not represented in inFlight.
+var updaterLockPath = "/var/lock/software-update.lock"
 
 // updaterURLFrom derives the updater URL from the metadata URL.
 // Example: {base}/ota/metadata.json -> {base}/software-update
@@ -76,6 +81,26 @@ func (b *Bootstrap) refreshUpdater(ctx context.Context) {
 		return
 	}
 
+	// Download outside the shared lock. Recheck disk state while holding it so
+	// a concurrent CLI activation cannot race the compatibility decision or rename.
+	unlock, err := lockUpdaterRefresh()
+	if err != nil {
+		slog.Debug("updater refresh: installation lock unavailable", "error", err)
+		return
+	}
+	defer unlock()
+	if updateInFlight() {
+		return
+	}
+	current, err = os.ReadFile(updaterPath)
+	if err != nil {
+		return
+	}
+
+	if b.serviceUpdaterProtected() && !updaterSupportsServiceProtocol(published) {
+		slog.Warn("updater refresh: service OTA protocol unsupported")
+		return
+	}
 	if sha256.Sum256(published) == sha256.Sum256(current) {
 		return
 	}
@@ -154,4 +179,34 @@ func installUpdater(ctx context.Context, data []byte) error {
 		return fmt.Errorf("install: %w", err)
 	}
 	return nil
+}
+
+func updaterSupportsServiceProtocol(data []byte) bool {
+	lines := strings.Split(string(data), "\n")
+	if len(lines) < 2 || !strings.HasPrefix(lines[0], "#!") || lines[1] != "# Service OTA protocol: 1" {
+		return false
+	}
+	for _, line := range lines[2:] {
+		if strings.HasPrefix(line, "# Service OTA protocol:") {
+			return false
+		}
+	}
+	return true
+}
+
+// The stable lock file must never be removed: replacing its inode would create
+// independent locks for an already running CLI and the background refresher.
+func lockUpdaterRefresh() (func(), error) {
+	file, err := os.OpenFile(updaterLockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open updater lock: %w", err)
+	}
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("lock updater: %w", err)
+	}
+	return func() {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+		_ = file.Close()
+	}, nil
 }

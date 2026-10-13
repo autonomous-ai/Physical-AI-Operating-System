@@ -15,9 +15,24 @@ import (
 // live directory absent while the stored version would otherwise suppress OTA.
 // The updater owns locking, restoration, health checks and journal removal.
 func (b *Bootstrap) recoverPendingUpdate(ctx context.Context) error {
+	if _, err := b.serviceRegistry(); err != nil {
+		return err
+	}
+	journal := filepath.Join(b.serviceDirectory(), "transition.json")
+	if _, err := os.Lstat(journal); err == nil {
+		return runPendingRecovery(ctx)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect service transition: %w", err)
+	}
 	path := b.pendingUpdatePath
 	if path == "" {
 		path = "/root/bootstrap/rollback/pending-update.json"
+	}
+	if !b.halOwned() {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("legacy journal conflicts with service ownership")
+		}
+		return nil
 	}
 	return recoverPendingUpdateAt(ctx, path, "/opt/hal")
 }
@@ -43,6 +58,9 @@ func recoverPendingUpdateAt(ctx context.Context, journalPath, halPath string) er
 	} else if err != nil {
 		return fmt.Errorf("check pending OTA recovery: %w", err)
 	}
+	return runPendingRecovery(ctx)
+}
+func runPendingRecovery(ctx context.Context) error {
 	runCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	out, err := system.Run(runCtx, "software-update", "recover")

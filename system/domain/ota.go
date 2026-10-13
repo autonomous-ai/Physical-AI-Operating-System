@@ -3,8 +3,10 @@ package domain
 // OTAComponent describes version and download URL for a single component.
 // Auto-update triggers only below MinVersion (empty = Version); manual software-update always installs Version.
 type OTAComponent struct {
-	Version    string `json:"version"`
-	MinVersion string `json:"min_version,omitempty"`
+	Service    string   `json:"service,omitempty"`
+	Replaces   []string `json:"replaces,omitempty"`
+	Version    string   `json:"version"`
+	MinVersion string   `json:"min_version,omitempty"`
 	// MinVersionByDevice overrides MinVersion per device_type; types not listed fall back to MinVersion.
 	MinVersionByDevice map[string]string `json:"min_version_by_device,omitempty"`
 	URL                string            `json:"url"`

@@ -1282,3 +1282,98 @@ Version của HAL là file text `hal/VERSION_HAL` (cài thành `/opt/hal/VERSION
 > Tài liệu này mô tả toàn bộ hệ thống OTA và bootstrap.
 > Xem [architecture-decision.md](../../robots/lamp/docs/vi/architecture-decision.md) cho quyết định kiến trúc.
 > Xem [product-vision.md](../../robots/lamp/docs/vi/product-vision.md) cho tầm nhìn sản phẩm.
+
+## Thay service qua OTA feed hiện tại
+
+Component khai báo service dùng payload metadata đã ký hiện tại; không có release
+manifest thứ hai hay key theo kiến trúc `runtime`, `v2`, `v3`. Component mô tả
+service thực tế được phát hành:
+
+```json
+{
+  "lamp-os": {
+    "version": "0.1.0",
+    "url": "https://updates.example/lamp-os/0.1.0.zip",
+    "sha256": "<artifact SHA-256>",
+    "min_version_by_device": {"lamp": "0.1.0"},
+    "service": "lamp-os",
+    "replaces": ["hal", "os-server"]
+  }
+}
+```
+
+Key component phải trùng tên service không có hậu tố `.service`. `replaces` chỉ
+định `hal`/`os-server` hoặc component khai báo service đã đăng ký,
+không phải service hệ thống tùy ý. Bản này chưa hỗ trợ thay các component V1 khác. Cơ chế này không được thay bootstrap. Tên, quyền
+sở hữu và metadata đã ký được kiểm tra trước khi chuyển service. Các trường này
+không được chứa lệnh shell hay hook thực thi tùy ý.
+
+Publish hoặc promote một mục không tự chuyển máy V1. Lần cài đầu cần thao tác
+kích hoạt rõ ràng:
+
+```bash
+sudo software-update lamp-os --activate
+```
+
+Những lần sau dùng `software-update lamp-os` hoặc bootstrap cập nhật theo version
+như hiện tại, bao gồm `min_version_by_device`. Cập nhật thường không được âm thầm
+đổi tên service hoặc danh sách thay thế đã cài. Muốn đổi tổ chức service, phát
+hành component mới với predecessor trong `replaces` rồi kích hoạt rõ ràng. Các
+component khai báo service độc lập có thể cùng tồn tại.
+
+### Hợp đồng adapter của gói
+
+ZIP chứa `VERSION` khớp version metadata, executable `bin/service` và các
+worker/tài nguyên đi kèm. Updater tạo systemd unit; gói không cung cấp systemd
+unit tùy ý. Entrypoint hỗ trợ các đối số cố định:
+
+- `bin/service serve`: quản lý component và các process con của nó.
+- `bin/service health`: hỏi component đang chạy và trả JSON chứa `ready: true`,
+  `version` khớp và `pid` của supervisor đang chạy. Updater đối chiếu PID với
+  MainPID của systemd trong thời hạn giới hạn.
+
+Adapter health không được bật runtime thứ hai hoặc di chuyển hardware. Readiness
+chỉ chứng minh các kiểm tra khởi động mà gói khai báo, không chứng minh hội thoại
+đúng, cơ khí an toàn hay tương thích với mọi client bên ngoài. Bên đóng gói V2
+phải triển khai và kiểm chứng adapter này; OTA mới không tự làm mọi build V2
+hiện có trở thành gói cài được.
+
+### Giới hạn chuyển đổi, dữ liệu và rollback
+
+Tải và kiểm tra gói trước khi dừng service hiện tại. Updater ghi trạng thái sở
+hữu và phục hồi, dừng các chủ sở hữu cũ được khai báo và xác nhận đã dừng trước
+khi bật service thay thế. Khi lỗi hoặc phục hồi giao dịch bị gián đoạn, nó khôi
+phục cấu hình trước đó. Trạng thái sở hữu bền vững cũng ngăn OTA cũ hoặc reboot
+bật lại các service đã bị thay thế. Rollback không được bật service tổ tiên
+khi service thay thế nó vẫn đang hoạt động.
+
+Mỗi component có vùng dữ liệu ghi riêng. Kích hoạt lần đầu không tự nhập
+credentials, calibration, memory hay config của V1. Bên đóng gói phải định nghĩa
+migration đó riêng trước khi deploy. Cập nhật giữ snapshot dữ liệu riêng để
+rollback; rollback có thể mất các thay đổi ghi sau snapshot. Gói không được sửa
+dữ liệu V1 dùng chung rồi coi rollback hoàn tất chỉ vì binary cũ khởi động được.
+
+Bootstrap vẫn độc lập và nâng cấp được. Khai báo tương thích ngăn thay bootstrap
+hoặc updater bằng bản cũ không hiểu quyền sở hữu service và phục hồi. Kiểm tra
+tương thích không thay thế xác thực artifact. Refresh updater và kích hoạt qua CLI
+dùng chung khóa cài đặt; sau khi tải xong, kiểm tra tương thích lại dưới khóa đó.
+Trước rollout vẫn cần kiểm chứng
+kích hoạt trên device, reboot/mất điện và hành vi voice/hardware thực tế.
+
+### Phát hành component service
+
+Build và kiểm chứng gói riêng, sau đó phát hành bằng thông tin ký hiện có
+(`OTA_SIGNING_PRIVATE_KEY`, `OTA_SIGNING_KEY_ID`):
+
+```bash
+make upload-service COMPONENT=lamp-os V=0.1.0 PACKAGE=/path/lamp-os.zip REPLACES='hal os-server'
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0
+```
+
+Publisher bắt buộc metadata đã ký, kiểm tra gói, giữ nguyên ngưỡng promote và các
+component khác, đồng thời từ chối đổi tổ chức service dưới key cũ. URL gói chứa
+hash nội dung. Không được dùng lại version với nội dung khác khi version đó đang
+là bản hiện tại trên feed. Chạy các lần publish tuần tự như các script release
+hiện có; cập nhật metadata chưa phải giao dịch hỗ trợ nhiều người ghi đồng thời.
+Promote cập nhật các máy đã kích hoạt service, không tự kích hoạt service mới
+trên máy V1.

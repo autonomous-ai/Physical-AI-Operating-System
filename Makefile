@@ -640,3 +640,13 @@ clean:
 	rm -f $(TWITCH_DIR)/twitch-irc
 	rm -rf $(HAL_DIR)/.venv $(HAL_DIR)/__pycache__
 	rm -rf $(WEB_DIR)/dist $(WEB_DIR)/node_modules
+
+# Publish prebuilt service packages without assuming their implementation language.
+.PHONY: upload-service promote-service
+upload-service:
+	COMPONENT="$(COMPONENT)" V="$(V)" PACKAGE="$(PACKAGE)" REPLACES="$(REPLACES)" bash scripts/release/upload-service.sh
+
+promote-service:
+	@test -n "$(COMPONENT)" || (echo "COMPONENT is required" >&2; exit 1)
+	@test -n "$(OTA_SIGNING_PRIVATE_KEY)" -a -n "$(OTA_SIGNING_KEY_ID)" || (echo "Service metadata requires OTA signing credentials" >&2; exit 1)
+	FOR="$(FOR)" bash scripts/release/promote-ota.sh "$(COMPONENT)" $(V)

@@ -25,6 +25,8 @@ const AgentTarget = "agent"
 const MinTriggerInterval = 30 * time.Second
 
 // bootstrapBaseURL is the bootstrap worker's local API; a var for tests.
+var serviceRegistryPath = domain.OTAServiceRegistryPath
+
 var bootstrapBaseURL = "http://127.0.0.1:8080"
 
 // allowedTargets are the components an operator may force-update.
@@ -99,7 +101,12 @@ func ResolveTarget(cfg *config.Config, target string) string {
 // Returns the resolved target; nil error means "started", not "done".
 func TriggerUpdate(ctx context.Context, cfg *config.Config, target string) (string, error) {
 	resolved := ResolveTarget(cfg, target)
-	if !allowedTargets[resolved] {
+	registry, registryErr := domain.LoadOTAServiceRegistry(serviceRegistryPath)
+	if registryErr != nil {
+		return resolved, fmt.Errorf("read service ownership: %w", registryErr)
+	}
+	record, registered := registry.Components[resolved]
+	if !registry.Allows(resolved) || (!allowedTargets[resolved] && (!registered || record.Service != resolved)) {
 		return resolved, fmt.Errorf("%w: %s", ErrUnknownTarget, resolved)
 	}
 

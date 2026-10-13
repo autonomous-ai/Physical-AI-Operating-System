@@ -27,17 +27,20 @@ func (b *Bootstrap) versionReport(ctx context.Context) map[string]ComponentVersi
 		slog.Warn("version report: metadata fetch failed", "component", "bootstrap", "error", err)
 		return out
 	}
-	for _, key := range []string{
+	for _, key := range append([]string{
 		domain.OTAKeyOSServer, domain.OTAKeyBootstrap, domain.OTAKeyWeb, domain.OTAKeyHal, domain.OTAKeyBuddy,
 		domain.OTAKeyOpenClaw, domain.OTAKeyCodex, domain.OTAKeyClaudeCode, domain.OTAKeyOpenCode, domain.OTAKeyPicoClaw,
 		domain.OTAKeyHermes,
-	} {
+	}, b.serviceKeys()...) {
 		component, ok := meta[key]
 		if !ok || !hermesPinned(key, component) || !b.componentInstalled(key) {
 			continue
 		}
+		if err := b.validateServiceTarget(key, component); err != nil {
+			continue
+		}
 		current := b.detectVersion(ctx, key)
-		if current == "" {
+		if current == "" && component.Service == "" {
 			current = b.state.Components[key]
 		}
 		target := strings.TrimSpace(component.Version)

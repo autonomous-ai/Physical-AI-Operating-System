@@ -1,10 +1,616 @@
 #!/bin/bash
+# Service OTA protocol: 1
 set -e
 # Metadata URL from the bootstrap config; OTA_METADATA_URL env overrides. No default.
 BOOTSTRAP_JSON="/root/config/bootstrap.json"
 ROLLBACK_DIR="/root/bootstrap/rollback"
 WEB_ROOT="/usr/share/nginx/html/setup"
 HAL_DIR="/opt/hal"
+
+# The helper stays embedded so updater refresh remains a single-file operation.
+service_transaction() {
+  python3 - "$@" <<'SERVICE_OTA_PY'
+import copy
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import time
+import uuid
+import zipfile
+
+STATE = Path('/root/bootstrap/services')
+ROOT = Path('/opt/autonomous-services')
+DATA = Path('/var/lib/autonomous-services')
+UNITS = Path('/etc/systemd/system')
+REGISTRY = STATE / 'ownership.json'
+JOURNAL = STATE / 'transition.json'
+LEGACY = {'hal', 'os-server'}
+RESERVED = LEGACY | {'hermes', 'openclaw', 'codex', 'claudecode', 'picoclaw', 'opencode', 'bootstrap', 'bootstrap-server', 'device', 'web', 'nginx', 'claude-desktop-buddy',
+                     'ssh', 'sshd', 'dbus', 'systemd', 'networking', 'network-manager', 'system', 'agent', 'devices', 'signed', 'recover', 'rollback'}
+NAME = re.compile(r'[a-z][a-z0-9-]{0,47}')
+
+
+def name(value):
+    return isinstance(value, str) and NAME.fullmatch(value) is not None
+
+
+def empty():
+    return {'format': 1, 'components': {}, 'blocked': {}}
+
+
+def flush(path):
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def durable(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temp = path.with_name('.' + path.name + '.new')
+    with temp.open('w') as stream:
+        os.chmod(temp, 0o600)
+        stream.write(value)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temp, path)
+    flush(path.parent)
+
+
+def remove(path):
+    path.unlink(missing_ok=True)
+    flush(path.parent)
+
+
+def link(path, target):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temp = path.with_name('.' + path.name + '.new')
+    temp.unlink(missing_ok=True)
+    if target:
+        temp.symlink_to(target)
+        os.replace(temp, path)
+    else:
+        path.unlink(missing_ok=True)
+    flush(path.parent)
+
+
+def valid_release(path, base, key):
+    return (isinstance(path, str) and Path(path).parent == base / key / 'releases'
+            and re.fullmatch('[a-f0-9]{32}', Path(path).name))
+
+
+def validate(registry):
+    if not isinstance(registry, dict) or registry.get('format') != 1:
+        raise RuntimeError('Unsupported service ownership registry')
+    components, blocked = registry.get('components'), registry.get('blocked')
+    if not isinstance(components, dict) or not isinstance(blocked, dict):
+        raise RuntimeError('Malformed service ownership registry')
+    for key, entry in components.items():
+        if not name(key) or key in RESERVED or not isinstance(entry, dict) or entry.get('service') != key:
+            raise RuntimeError('Invalid service owner identity')
+        deps = entry.get('replaces')
+        if not isinstance(deps, list) or not all(name(dep) for dep in deps) or len(set(deps)) != len(deps):
+            raise RuntimeError('Invalid replacement list')
+        if any(dep == key or dep not in LEGACY | components.keys() for dep in deps):
+            raise RuntimeError('Replacement is not a registered or allowed owner')
+        for field, base in (('release', ROOT), ('data', DATA)):
+            if not valid_release(entry.get(field), base, key):
+                raise RuntimeError('Invalid installed service path')
+        if not isinstance(entry.get('version'), str):
+            raise RuntimeError('Missing installed service version')
+    for key, owner in blocked.items():
+        if key not in LEGACY | components.keys() or owner not in components or key == owner:
+            raise RuntimeError('Invalid blocked service owner')
+        if key not in components[owner]['replaces']:
+            raise RuntimeError('Blocker disagrees with ownership declaration')
+        seen = {key}
+        while owner in blocked:
+            if owner in seen:
+                raise RuntimeError('Cyclic service ownership')
+            seen.add(owner)
+            owner = blocked[owner]
+    for owner, entry in components.items():
+        for dep in entry['replaces']:
+            if blocked.get(dep) != owner:
+                raise RuntimeError('Missing replacement ownership')
+    return registry
+
+
+def load():
+    if not REGISTRY.exists() and not REGISTRY.is_symlink():
+        return empty()
+    if REGISTRY.is_symlink() or not REGISTRY.is_file():
+        raise RuntimeError('Registry must be a regular file')
+    return validate(json.loads(REGISTRY.read_text()))
+
+
+def status(key):
+    registry = load()
+    if key in registry['blocked'] or (key == 'device' and
+                                     {'hal', 'os-server'} & registry['blocked'].keys()):
+        return 'blocked'
+    return 'managed' if key in registry['components'] else 'legacy'
+
+
+def run(*args, timeout=45, **kwargs):
+    return subprocess.run(args, check=True, text=True, capture_output=True, timeout=timeout, **kwargs)
+
+
+def systemctl(*args):
+    return run('systemctl', *args)
+
+
+def service_state(key):
+    result = systemctl('show', key + '.service', '--property=LoadState,ActiveState,MainPID,ControlPID,ControlGroup')
+    return dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+
+
+def stop(key):
+    before = service_state(key)
+    if before.get('LoadState') == 'not-found':
+        return
+    systemctl('stop', key + '.service')
+    after = service_state(key)
+    if after.get('ActiveState') not in ('inactive', 'failed') or after.get('MainPID') != '0' or after.get('ControlPID') != '0':
+        raise RuntimeError('Service did not stop: ' + key)
+    verify_group_empty(key, before)
+
+
+def verify_group_empty(key, before):
+    group = before.get('ControlGroup', '')
+    if not group:
+        if before.get('ActiveState') == 'active':
+            raise RuntimeError('Cannot verify the active service control group: ' + key)
+        return
+    if not group.startswith('/') or '..' in Path(group).parts:
+        raise RuntimeError('Invalid systemd control group')
+    mount = None
+    for line in Path('/proc/self/mountinfo').read_text().splitlines():
+        fields = line.split()
+        separator = fields.index('-')
+        filesystem = fields[separator + 1]
+        if filesystem == 'cgroup2' or (filesystem == 'cgroup' and 'name=systemd' in fields[separator + 3].split(',')):
+            # Unusual delegated/chroot mounts are not qualified by this updater.
+            if fields[3] != '/' or '\\' in fields[4]:
+                raise RuntimeError('Unsupported delegated cgroup mount')
+            mount = Path(fields[4])
+            break
+    if mount is None:
+        raise RuntimeError('No supported systemd cgroup hierarchy')
+    tree = mount / group.lstrip('/')
+    if tree.exists() and any(item.read_text().strip() for item in tree.rglob('cgroup.procs')):
+        raise RuntimeError('Service children still own hardware: ' + key)
+
+
+def legacy_healthy(key):
+    import urllib.request
+    urls = {'hal': 'http://127.0.0.1:5001/health', 'os-server': 'http://127.0.0.1:5000/api/health/live'}
+    if key not in urls:
+        if service_state(key).get('ActiveState') != 'active':
+            raise RuntimeError('Previous service did not restart: ' + key)
+        return
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(urls[key], timeout=2) as response:
+                if response.status == 200 and service_state(key).get('ActiveState') == 'active':
+                    return
+        except OSError:
+            pass
+        time.sleep(0.5)
+    raise RuntimeError('Previous service failed health check: ' + key)
+
+
+def healthy(key, entry):
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        current = service_state(key)
+        if current.get('ActiveState') == 'active' and current.get('MainPID', '0') != '0':
+            try:
+                answer = run(str(Path(entry['release']) / 'bin/service'), 'health', timeout=2,
+                             cwd=str(DATA / key / 'current'),
+                             env={**os.environ, 'AUTONOMOUS_SERVICE_NAME': key,
+                                  'AUTONOMOUS_SERVICE_DATA': str(DATA / key / 'current')})
+                body = json.loads(answer.stdout)
+                if (body.get('ready') is True and body.get('version') == entry['version']
+                        and str(body.get('pid')) == current['MainPID']):
+                    # The service must still own this PID when the probe returns.
+                    if service_state(key).get('MainPID') == current['MainPID']:
+                        return
+            except (OSError, ValueError, subprocess.SubprocessError):
+                pass
+        time.sleep(0.5)
+    raise RuntimeError('Service readiness/version/PID check failed: ' + key)
+
+
+def unit_text(key):
+    return f'''[Unit]
+Description=Autonomous service {key}
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists={STATE}/enabled/{key}
+ConditionPathExists=!{STATE}/blocked/{key}
+
+[Service]
+Type=simple
+WorkingDirectory={DATA}/{key}/current
+ExecStart={ROOT}/{key}/current/bin/service serve
+Environment=AUTONOMOUS_SERVICE_NAME={key}
+Environment=AUTONOMOUS_SERVICE_DATA={DATA}/{key}/current
+Restart=on-failure
+RestartSec=2
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
+'''
+
+
+def block_text(key):
+    return f'[Unit]\nConditionPathExists=!{STATE}/blocked/{key}\n[Service]\nKillMode=control-group\nTimeoutStopSec=20\n'
+
+
+def prepare_units(key, replaces, known, write=False):
+    unit = UNITS / (key + '.service')
+    if key not in known:
+        if unit.exists() or unit.is_symlink() or (UNITS / (key + '.service.d')).exists() or service_state(key).get('LoadState') != 'not-found':
+            raise RuntimeError('Refusing to overwrite unmanaged system service: ' + key)
+    elif not unit.is_file() or unit.is_symlink() or unit.read_text() != unit_text(key):
+        raise RuntimeError('Registered service unit changed outside updater: ' + key)
+    # Validate every path before writing the first unit/dropin.
+    for dep in replaces:
+        path = UNITS / (dep + '.service.d') / '99-autonomous-ownership.conf'
+        if path.exists() and (path.is_symlink() or path.read_text() != block_text(dep)):
+            raise RuntimeError('Conflicting service ownership dropin: ' + dep)
+    if not write:
+        return
+    durable(unit, unit_text(key))
+    for dep in replaces:
+        durable(UNITS / (dep + '.service.d') / '99-autonomous-ownership.conf', block_text(dep))
+    systemctl('daemon-reload')
+
+
+def markers(registry, extra_blocks=()):
+    blocked = set(registry['blocked']) | set(extra_blocks)
+    enabled = set(registry['components']) - set(registry['blocked'])
+    for directory, desired in ((STATE / 'blocked', blocked), (STATE / 'enabled', enabled)):
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for key in desired:
+            durable(directory / key, '1\n')
+        for path in directory.iterdir():
+            if path.name.startswith('.') and path.name.endswith('.new') and name(path.name[1:-4]):
+                remove(path)
+                continue
+            if not name(path.name):
+                raise RuntimeError('Unexpected ownership marker')
+            if path.name not in desired:
+                remove(path)
+
+
+def snapshot(source, destination):
+    for directory, folders, files in os.walk(source, followlinks=False):
+        for name_ in folders + files:
+            path = Path(directory) / name_
+            mode = path.lstat().st_mode
+            if not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+                raise RuntimeError('Unsupported private data entry: ' + str(path))
+    shutil.copytree(source, destination, symlinks=False)
+
+
+def journal_read():
+    journal = json.loads(JOURNAL.read_text())
+    if journal.get('format') != 1 or not name(journal.get('key')) or journal.get('phase') not in ('pending', 'committed') or journal.get('action') not in ('install', 'rollback'):
+        raise RuntimeError('Invalid service transaction journal')
+    validate(journal['before'])
+    validate(journal['after'])
+    known = LEGACY | journal['before']['components'].keys() | journal['after']['components'].keys()
+    affected = journal.get('affected')
+    expected = {journal['key']}
+    for side in ('before', 'after'):
+        expected.update(journal[side]['components'].get(journal['key'], {}).get('replaces', []))
+    if (not isinstance(affected, list) or set(affected) != expected or len(affected) != len(set(affected))
+            or not all(key in known for key in affected)):
+        raise RuntimeError('Invalid journal service list')
+    for field in ('before_running', 'after_running'):
+        if not isinstance(journal.get(field), list) or not set(journal[field]) <= set(affected):
+            raise RuntimeError('Invalid journal running services')
+    return journal
+
+
+def switch(journal, direction):
+    target = journal[direction]
+    # Persist blockers before stopping. A reboot cannot start a previous owner
+    # while a candidate starts using the same hardware.
+    markers(target, journal['affected'])
+    for key in journal['affected']:
+        stop(key)
+    for key in journal['affected']:
+        entry = target['components'].get(key)
+        if entry:
+            unit = UNITS / (key + '.service')
+            if unit.is_symlink() or (unit.exists() and unit.read_text() != unit_text(key)):
+                raise RuntimeError('Conflicting service unit during recovery')
+            durable(unit, unit_text(key))
+            link(ROOT / key / 'current', entry['release'])
+            link(DATA / key / 'current', entry['data'])
+        elif key not in LEGACY:
+            link(ROOT / key / 'current', None)
+            link(DATA / key / 'current', None)
+    durable(REGISTRY, json.dumps(target))
+    markers(target)
+    systemctl('daemon-reload')
+    for key in journal[direction + '_running']:
+        if key in target['blocked']:
+            raise RuntimeError('Refusing to start a replaced owner')
+        if key in target['components']:
+            systemctl('enable', key + '.service')
+        systemctl('start', key + '.service')
+        if key in target['components']:
+            healthy(key, target['components'][key])
+        else:
+            legacy_healthy(key)
+    # Remove only updater-created units that this transaction removed. Original
+    # legacy enable/mask state and other independent services are untouched.
+    removed = (set(journal['before']['components']) | set(journal['after']['components'])) - set(target['components'])
+    for key in removed:
+        unit = UNITS / (key + '.service')
+        if unit.exists():
+            systemctl('disable', key + '.service')
+        if unit.exists() and unit.read_text() == unit_text(key):
+            remove(unit)
+        dropin = UNITS / (key + '.service.d') / '99-autonomous-ownership.conf'
+        if dropin.exists() and dropin.read_text() == block_text(key):
+            remove(dropin)
+            if not any(dropin.parent.iterdir()):
+                dropin.parent.rmdir()
+    if removed:
+        systemctl('daemon-reload')
+
+
+def finalize(journal):
+    history = STATE / 'history' / (journal['key'] + '.json')
+    if journal['action'] == 'install':
+        durable(history, json.dumps(journal))
+    elif history.exists():
+        remove(history)
+    remove(JOURNAL)
+
+
+def recover():
+    if not JOURNAL.exists():
+        return
+    journal = journal_read()
+    if journal['phase'] == 'committed':
+        finalize(journal)
+        return
+    switch(journal, 'before')
+    remove(JOURNAL)
+
+
+def commit(journal):
+    # The durable committed phase is the transaction's success point. Recovery
+    # completes history publication instead of undoing a healthy installation.
+    os.sync()
+    journal['phase'] = 'committed'
+    durable(JOURNAL, json.dumps(journal))
+    finalize(journal)
+
+
+def extract(archive, destination, version):
+    with zipfile.ZipFile(archive) as package:
+        names, total = set(), 0
+        for item in package.infolist():
+            path, mode = Path(item.filename), item.external_attr >> 16
+            if (path.is_absolute() or '..' in path.parts or '\\' in item.filename or not path.parts
+                    or str(path) in names or stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)):
+                raise RuntimeError('Unsafe service archive entry: ' + item.filename)
+            names.add(str(path))
+            total += item.file_size
+            if total > 1024 * 1024 * 1024 or len(names) > 10000:
+                raise RuntimeError('Service archive exceeds extraction limit')
+        if 'bin/service' not in names or 'VERSION' not in names:
+            raise RuntimeError('Service package requires bin/service and VERSION')
+        for item in package.infolist():
+            path = destination / item.filename
+            if item.is_dir():
+                path.mkdir(parents=True, exist_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with package.open(item) as source, path.open('xb') as target:
+                    shutil.copyfileobj(source, target)
+                path.chmod(0o755 if (item.external_attr >> 16) & 0o111 else 0o644)
+    if (destination / 'VERSION').read_text().strip() != version or not os.access(destination / 'bin/service', os.X_OK):
+        raise RuntimeError('Package version/entrypoint mismatch')
+
+
+def metadata(key, entry, before):
+    if not name(key) or key in RESERVED or entry.get('service') != key:
+        raise RuntimeError('Service must equal the non-reserved component key')
+    deps = entry.get('replaces')
+    if not isinstance(deps, list) or not all(name(dep) for dep in deps) or len(set(deps)) != len(deps):
+        raise RuntimeError('replaces must contain unique service component names')
+    if len(deps) > 16 or any(dep == key or dep not in LEGACY | before['components'].keys() for dep in deps):
+        raise RuntimeError('Replacement owner is not allowed or installed')
+    if key in before['blocked']:
+        raise RuntimeError('Component has already been replaced')
+    old = before['components'].get(key)
+    if old and (old['service'] != entry['service'] or sorted(old['replaces']) != sorted(deps)):
+        raise RuntimeError('Topology change requires a new component and explicit activation')
+    if not old and any(dep in before['blocked'] for dep in deps):
+        raise RuntimeError('Cannot replace an owner already claimed by another component')
+    if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?', entry.get('version', '')):
+        raise RuntimeError('Invalid service version')
+    return sorted(deps)
+
+
+def prune():
+    # Never prune through a pending transaction or an unreadable history file.
+    if JOURNAL.exists():
+        return
+    registries = [load()]
+    history = STATE / 'history'
+    if history.exists():
+        for path in history.glob('*.json'):
+            item = json.loads(path.read_text())
+            registries.extend((validate(item['before']), validate(item['after'])))
+    references = {entry[field] for registry in registries for entry in registry['components'].values()
+                  for field in ('release', 'data')}
+    for base in (ROOT, DATA):
+        if not base.exists():
+            continue
+        for component in base.iterdir():
+            if not name(component.name) or component.is_symlink():
+                continue
+            releases = component / 'releases'
+            if releases.is_symlink() or not releases.is_dir():
+                continue
+            for path in releases.iterdir():
+                if (re.fullmatch('[a-f0-9]{32}', path.name) and path.is_dir()
+                        and not path.is_symlink() and str(path) not in references):
+                    shutil.rmtree(path)
+
+
+def install(key, entry, archive, activate):
+    before = load()
+    replaces = metadata(key, entry, before)
+    old = before['components'].get(key)
+    if not old and not activate:
+        raise RuntimeError('Initial service activation requires --activate')
+    if JOURNAL.exists():
+        raise RuntimeError('Unrecovered service transition')
+    if old and service_state(key).get('ActiveState') != 'active':
+        raise RuntimeError('Refusing to wake an intentionally stopped service')
+    prune()
+    token = uuid.uuid4().hex
+    release = ROOT / key / 'releases' / token
+    data = DATA / key / 'releases' / token
+    release.mkdir(parents=True, mode=0o700)
+    data.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        extract(archive, release, entry['version'])
+    except BaseException:
+        shutil.rmtree(release)
+        raise
+    affected = sorted({key} | set(replaces))
+    before_running = []
+    for owner in affected:
+        state = service_state(owner)
+        if state.get('ActiveState') == 'active':
+            before_running.append(owner)
+        elif state.get('LoadState') != 'not-found' and state.get('ActiveState') not in ('inactive', 'failed'):
+            raise RuntimeError('Service is transitioning: ' + owner)
+    if any(owner in before['blocked'] for owner in before_running):
+        raise RuntimeError('Replaced service is unexpectedly active')
+    prepare_units(key, replaces, before['components'])
+    after = copy.deepcopy(before)
+    after['components'][key] = dict(service=key, replaces=replaces, version=entry['version'], release=str(release), data=str(data))
+    for owner in replaces:
+        after['blocked'][owner] = key
+    validate(after)
+    journal = dict(format=1, phase='pending', action='install', key=key, before=before, after=after, affected=affected,
+                   before_running=before_running, after_running=[key])
+    os.sync()
+    durable(JOURNAL, json.dumps(journal))
+    try:
+        prepare_units(key, replaces, before['components'], write=True)
+        markers(before, affected)
+        for owner in affected:
+            stop(owner)
+        if old:
+            snapshot(old['data'], data)
+        else:
+            data.mkdir(mode=0o700)
+        os.sync()
+        switch(journal, 'after')
+        commit(journal)
+    except BaseException:
+        committed = journal.get('phase') == 'committed' and JOURNAL.exists() and journal_read()['phase'] == 'committed'
+        recover()
+        if not committed:
+            raise
+    try:
+        prune()
+    except (OSError, ValueError, RuntimeError) as error:
+        print('[software-update] committed; cleanup deferred: ' + str(error), file=sys.stderr)
+
+
+def rollback(key):
+    before = load()
+    if key in before['blocked'] or key not in before['components']:
+        raise RuntimeError('Rollback requires an active registered component without a successor')
+    history = json.loads((STATE / 'history' / (key + '.json')).read_text())
+    validate(history['before'])
+    validate(history['after'])
+    if history['after']['components'].get(key) != before['components'][key]:
+        raise RuntimeError('Rollback history does not match the installed release')
+    after = copy.deepcopy(before)
+    old = history['before']['components'].get(key)
+    if old:
+        after['components'][key] = old
+    else:
+        del after['components'][key]
+    # Merge only this component's ownership delta; preserve independently
+    # installed or updated services since this component was activated.
+    for dep in before['components'][key]['replaces']:
+        if before['blocked'].get(dep) != key:
+            raise RuntimeError('Replacement graph changed; refusing rollback')
+        previous_owner = history['before']['blocked'].get(dep)
+        if previous_owner:
+            after['blocked'][dep] = previous_owner
+        else:
+            after['blocked'].pop(dep, None)
+    validate(after)
+    affected = sorted({key} | set(before['components'][key]['replaces']))
+    running = [owner for owner in affected if service_state(owner).get('ActiveState') == 'active']
+    journal = dict(format=1, phase='pending', action='rollback', key=key, before=before, after=after, affected=affected,
+                   before_running=running, after_running=history['before_running'])
+    config = Path('/root/config/bootstrap.json')
+    settings = json.loads(config.read_text())
+    settings.setdefault('rollback_versions', {})[key] = before['components'][key]['version']
+    durable(config, json.dumps(settings))
+    durable(JOURNAL, json.dumps(journal))
+    try:
+        switch(journal, 'after')
+        commit(journal)
+    except BaseException:
+        committed = journal.get('phase') == 'committed' and JOURNAL.exists() and journal_read()['phase'] == 'committed'
+        recover()
+        if not committed:
+            raise
+    try:
+        prune()
+    except (OSError, ValueError, RuntimeError) as error:
+        print('[software-update] committed; cleanup deferred: ' + str(error), file=sys.stderr)
+
+
+if __name__ == '__main__':
+    try:
+        action = sys.argv[1]
+        if action == 'recover':
+            recover()
+        elif action == 'status':
+            print(status(sys.argv[2]))
+        elif action == 'rollback':
+            rollback(sys.argv[2])
+        elif action == 'install':
+            key, payload, archive, flag = sys.argv[2:]
+            entry = json.loads(Path(payload).read_text())[key]
+            install(key, entry, archive, flag == '--activate')
+        else:
+            raise RuntimeError('Unknown service OTA action')
+    except Exception as error:
+        print('[software-update] service OTA: ' + str(error), file=sys.stderr)
+        sys.exit(1)
+
+SERVICE_OTA_PY
+}
 
 # Progress is best-effort telemetry; a full disk must not change update/rollback behavior.
 PROGRESS_DIR="/root/bootstrap/progress"
@@ -645,6 +1251,10 @@ on_exit() {
     wait "$DOWNLOAD_PID" 2>/dev/null || true
   fi
   rm -f "${DOWNLOAD_HEADERS:-}" 2>/dev/null || true
+  if [ -e /root/bootstrap/services/transition.json ]; then
+    [ "$code" -ne 0 ] || code=1
+    service_transaction recover || echo "[software-update] service recovery incomplete; journal retained" >&2
+  fi
   if [ -f "$ROLLBACK_DIR/pending-update.json" ]; then
     # A pending journal at exit is never a successful update.
     [ "$code" -ne 0 ] || code=1
@@ -746,8 +1356,28 @@ fi
 echo $$ >/var/lock/software-update.pid
 [ $# -lt 1 ] && { echo "Usage: software-update <component>|rollback <os-server|bootstrap|web|device|hal|codex|opencode|picoclaw>"; exit 1; }
 APP="$1"
-recover_pending_update || { echo "Pending OTA recovery failed; refusing another update" >&2; exit 1; }
+SERVICE_STATUS=legacy
+[ ! -e /root/bootstrap/services/transition.json ] || service_transaction recover || { echo "Service OTA recovery failed" >&2; exit 1; }
+if [ -e /root/bootstrap/services/ownership.json ] || [ -L /root/bootstrap/services/ownership.json ]; then
+  SERVICE_TARGET="$APP"
+  [ "$APP" != rollback ] || SERVICE_TARGET="${2:-}"
+  SERVICE_STATUS=$(service_transaction status "$SERVICE_TARGET") || exit 1
+  [ "$SERVICE_STATUS" != blocked ] || { echo "Component $SERVICE_TARGET has been replaced; refusing legacy update/rollback" >&2; exit 1; }
+  HAL_STATUS=$(service_transaction status hal) || exit 1
+  if [ "$HAL_STATUS" = blocked ]; then
+    [ ! -e "$ROLLBACK_DIR/pending-update.json" ] || { echo "Legacy journal conflicts with replacement ownership" >&2; exit 1; }
+  else
+    recover_pending_update || { echo "Pending legacy OTA recovery failed" >&2; exit 1; }
+  fi
+else
+  recover_pending_update || { echo "Pending OTA recovery failed; refusing another update" >&2; exit 1; }
+fi
 [ "$APP" != recover ] || { echo "OTA recovery complete"; exit 0; }
+if [ "$APP" = rollback ] && [ "$SERVICE_STATUS" = managed ]; then
+  [ $# -eq 2 ] || exit 1
+  service_transaction rollback "$2"
+  exit 0
+fi
 if [ "$APP" = "rollback" ]; then
   [ $# -eq 2 ] || { echo "Usage: software-update rollback <os-server|bootstrap|web|device|hal|codex|opencode|picoclaw>"; exit 1; }
   ROLLBACK_TARGET="$2"
@@ -839,6 +1469,9 @@ if [ "$APP" = "rollback" ]; then
       echo "WARN: could not record rollback version; lower min_version before the next OTA poll"
     fi
   fi
+  if [ "$ROLLBACK_TARGET" = bootstrap ] && [ -e /root/bootstrap/services/ownership.json ]; then
+    [ "$(timeout 5 "$BACKUP" --ota-service-protocol)" = 1 ] || { echo "Bootstrap rollback lacks service OTA recovery support" >&2; exit 1; }
+  fi
   install -D -m 0755 "$BACKUP" "$DEST"
   # Runtime units exist only after switching to that runtime; don't fail the rollback.
   if { [ "$ROLLBACK_TARGET" = "codex" ] || [ "$ROLLBACK_TARGET" = "opencode" ] || [ "$ROLLBACK_TARGET" = "picoclaw" ]; } && [ ! -f "/etc/systemd/system/${UNIT}.service" ]; then
@@ -850,9 +1483,10 @@ if [ "$APP" = "rollback" ]; then
   echo "$ROLLBACK_TARGET restored from $BACKUP"
   exit 0
 fi
+LEGACY_TARGET=0
 case "$APP" in
-  os-server|openclaw|codex|claudecode|opencode|hermes|picoclaw|bootstrap|web|hal|claude-desktop-buddy|device) ;;
-  *) echo "Unknown app: $APP. Use os-server, openclaw, codex, claudecode, opencode, hermes, picoclaw, bootstrap, web, hal, claude-desktop-buddy, or device."; exit 1 ;;
+  os-server|openclaw|codex|claudecode|opencode|hermes|picoclaw|bootstrap|web|hal|claude-desktop-buddy|device) LEGACY_TARGET=1 ;;
+  *) [[ "$APP" =~ ^[a-z][a-z0-9-]{0,47}$ ]] || { echo "Invalid component name" >&2; exit 1; } ;;
 esac
 
 PROGRESS_RUN_ID="$(date +%s)-$$"
@@ -897,6 +1531,7 @@ if [ -n "$OTA_SIGNING_PUBLIC_KEY" ]; then
   jq -r '(.signed // .).signature.value' "$METADATA_TMP" | base64 -d > "$SIGNATURE_TMP" || { echo "Invalid OTA metadata signature"; exit 1; }
   openssl pkeyutl -verify -pubin -keyform DER -inkey "$PUBLIC_DER" -rawin -in "$METADATA_PAYLOAD" -sigfile "$SIGNATURE_TMP" >/dev/null || { echo "OTA metadata signature verification failed"; exit 1; }
 else
+  [ ! -e /root/bootstrap/services/ownership.json ] || { echo "Service-managed devices require signed OTA metadata" >&2; exit 1; }
   echo "[software-update] WARN: OTA signing is not configured; using legacy unsigned metadata"
   cp "$METADATA_TMP" "$METADATA_PAYLOAD"
 fi
@@ -943,8 +1578,22 @@ download_verified() {
 }
 
 progress_report installing
-
-if [ "$APP" = "os-server" ]; then
+SERVICE_NAME=$(jq -r --arg a "$APP" '.[$a].service // empty' "$METADATA_PAYLOAD")
+if [ "$LEGACY_TARGET" = 0 ] && [ -z "$SERVICE_NAME" ]; then
+  echo "Metadata does not declare a service for $APP" >&2; exit 1
+fi
+if [ "$SERVICE_STATUS" = managed ] && [ -z "$SERVICE_NAME" ]; then
+  echo "Registered service lost its metadata declaration" >&2; exit 1
+fi
+if [ -n "$SERVICE_NAME" ]; then
+  [ $# -le 2 ] && { [ $# -eq 1 ] || [ "$2" = --activate ]; } || { echo "Usage: software-update <component> [--activate]" >&2; exit 1; }
+  [ -n "$OTA_SIGNING_PUBLIC_KEY" ] && [ -n "$URL" ] && [[ "$SHA256" =~ ^[a-fA-F0-9]{64}$ ]] || { echo "Service OTA requires signed metadata, URL and SHA-256" >&2; exit 1; }
+  [ "$(timeout 5 /usr/local/bin/bootstrap-server --ota-service-protocol)" = 1 ] || { echo "Upgrade bootstrap for service OTA recovery before activation" >&2; exit 1; }
+  ZIP_TMP=$(mktemp)
+  download_verified "$URL" "$ZIP_TMP" "$SHA256" || { echo "Service package verification failed" >&2; exit 1; }
+  service_transaction install "$APP" "$METADATA_PAYLOAD" "$ZIP_TMP" "${2:-}"
+  echo "$APP updated to $VERSION"
+elif [ "$APP" = "os-server" ]; then
   [ -z "$URL" ] && { echo "Metadata has no url for os-server"; exit 1; }
   ZIP_TMP=$(mktemp)
   DIR_TMP=$(mktemp -d)
@@ -964,6 +1613,10 @@ elif [ "$APP" = "bootstrap" ]; then
   BIN=$(find "$DIR_TMP" -type f -executable 2>/dev/null | head -1)
   [ -z "$BIN" ] && BIN=$(find "$DIR_TMP" -type f 2>/dev/null | head -1)
   [ -z "$BIN" ] || [ ! -f "$BIN" ] && { echo "No binary in bootstrap zip"; exit 1; }
+  if [ -e /root/bootstrap/services/ownership.json ]; then
+    chmod 0755 "$BIN"
+    [ "$(timeout 5 "$BIN" --ota-service-protocol)" = 1 ] || { echo "Bootstrap candidate lacks service OTA recovery support" >&2; exit 1; }
+  fi
   update_core_binary bootstrap /usr/local/bin/bootstrap-server "$BIN" restore_bootstrap_service check_bootstrap
   echo "bootstrap updated to $VERSION"
 elif [ "$APP" = "openclaw" ]; then

@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,9 +75,10 @@ func withTempUpdaterPath(t *testing.T, contents string) string {
 	if err := os.WriteFile(dest, []byte(contents), 0o755); err != nil {
 		t.Fatalf("seed updater: %v", err)
 	}
-	orig := updaterPath
+	orig, originalLock := updaterPath, updaterLockPath
 	updaterPath = dest
-	t.Cleanup(func() { updaterPath = orig })
+	updaterLockPath = filepath.Join(t.TempDir(), "software-update.lock")
+	t.Cleanup(func() { updaterPath, updaterLockPath = orig, originalLock })
 	return dest
 }
 
@@ -143,5 +146,62 @@ func TestUpdateInFlightBlocksRefresh(t *testing.T) {
 	defer inFlight.Delete("hal")
 	if !updateInFlight() {
 		t.Error("a running force update must report as in flight")
+	}
+}
+
+func TestRefreshUpdaterSharesCLIInstallationLock(t *testing.T) {
+	b, _ := serviceBootstrap(t)
+	original := "#!/bin/sh\necho old\n"
+	dest := withTempUpdaterPath(t, original)
+	published := "#!/bin/sh\necho new\n"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(published))
+	}))
+	defer server.Close()
+	b.cfg.MetadataURL = server.URL + "/os/ota/metadata.json"
+	b.client = server.Client()
+	unlock, err := lockUpdaterRefresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.refreshUpdater(context.Background())
+	data, readErr := os.ReadFile(dest)
+	unlock()
+	if readErr != nil || string(data) != original {
+		t.Fatalf("updater changed while CLI held lock: %q %v", data, readErr)
+	}
+	b.refreshUpdater(context.Background())
+	data, err = os.ReadFile(dest)
+	if err != nil || string(data) != published {
+		t.Fatalf("updater did not refresh after CLI released lock: %q %v", data, err)
+	}
+}
+
+func TestRefreshUpdaterRechecksActivationAfterDownload(t *testing.T) {
+	b, _ := serviceBootstrap(t)
+	original := "#!/bin/sh\n# Service OTA protocol: 1\necho current\n"
+	dest := withTempUpdaterPath(t, original)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate activation committing while the network request is pending.
+		// Acquiring the lock here also proves fetch does not hold it.
+		unlock, err := lockUpdaterRefresh()
+		if err != nil {
+			t.Errorf("network fetch held installation lock: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if err := os.WriteFile(filepath.Join(b.serviceDirectory(), "ownership.json"), []byte(`{}`), 0o600); err != nil {
+			t.Error(err)
+		}
+		unlock()
+		_, _ = w.Write([]byte("#!/bin/sh\necho incompatible\n"))
+	}))
+	defer server.Close()
+	b.cfg.MetadataURL = server.URL + "/os/ota/metadata.json"
+	b.client = server.Client()
+	b.refreshUpdater(context.Background())
+	data, err := os.ReadFile(dest)
+	if err != nil || string(data) != original {
+		t.Fatalf("activation compatibility state was stale: %q %v", data, err)
 	}
 }

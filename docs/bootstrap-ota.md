@@ -1316,3 +1316,102 @@ HAL version is the plain text file `hal/VERSION_HAL` (installed as `/opt/hal/VER
 ---
 
 *This document describes the full OTA and bootstrap system. For architecture decisions, see [architecture-decision.md](../robots/lamp/docs/architecture-decision.md). For product vision, see [product-vision.md](../robots/lamp/docs/product-vision.md).*
+
+## Service replacement through the existing OTA feed
+
+Service-defined components use the existing signed metadata payload; there is no
+second release manifest and no architecture-specific `runtime`, `v2` or `v3` key.
+A component describes the actual service being shipped:
+
+```json
+{
+  "lamp-os": {
+    "version": "0.1.0",
+    "url": "https://updates.example/lamp-os/0.1.0.zip",
+    "sha256": "<artifact SHA-256>",
+    "min_version_by_device": {"lamp": "0.1.0"},
+    "service": "lamp-os",
+    "replaces": ["hal", "os-server"]
+  }
+}
+```
+
+The component key and bare service name must match. `replaces` names existing
+`hal`/`os-server` or registered service-defined components, not arbitrary
+system services. Other legacy components are not replacement targets in this revision. Bootstrap itself cannot be replaced by this mechanism. Names,
+ownership and signed metadata are validated before a service transition. No
+command line or shell hook is accepted from these fields.
+
+Publishing or promoting an entry does not migrate a legacy device. The first
+installation requires an explicit operator action:
+
+```bash
+sudo software-update lamp-os --activate
+```
+
+Subsequent updates use `software-update lamp-os` or ordinary bootstrap version
+reconciliation, including `min_version_by_device`. The installed service and
+replacement list cannot silently change during an ordinary update. To change
+service topology, publish a new component naming the predecessor in `replaces`
+and explicitly activate it. Independent service-defined components can coexist.
+
+### Package adapter contract
+
+The ZIP contains `VERSION` matching the metadata version, executable
+`bin/service`, and its bundled workers/resources. The updater generates the
+systemd unit; packages do not supply arbitrary systemd units. The entrypoint
+supports fixed arguments:
+
+- `bin/service serve`: supervise this component and its child processes.
+- `bin/service health`: query the running component and return JSON containing
+  `ready: true`, the matching `version`, and its running supervisor `pid`. The
+  updater checks that PID against systemd's MainPID under a bounded deadline.
+
+The health adapter must not start a second runtime or move hardware. Readiness
+proves only the package's declared startup checks, not successful conversation,
+mechanical safety or compatibility with every external client. The V2 package
+team must implement and qualify this adapter; this OTA support alone does not
+make any existing V2 build installable.
+
+### Transition, data and rollback boundaries
+
+Download and validate the candidate before stopping current services. The updater
+records the previous ownership and recovery state, stops the declared old owners
+and verifies they have stopped before starting the replacement. On failure, or
+recovery of an interrupted transition, it restores the previous configuration.
+Persisted ownership also prevents legacy OTA paths or reboot from resurrecting
+superseded hardware owners. Rollback must not restart an ancestor while its
+replacement remains active.
+
+Each component has isolated writable state. Initial activation does not import
+V1 credentials, calibration, memory or configuration automatically. The package
+team must define that migration separately before deployment. Updates retain
+private state snapshots for rollback; rolling back can discard writes made since
+the snapshot. Packages must not mutate shared V1 data and then claim rollback is
+complete merely because the old binary starts.
+
+Bootstrap remains independent and updateable. A compatibility declaration prevents
+replacing it or the updater with an older implementation that does not understand
+service ownership and recovery. This compatibility check does not substitute for
+artifact authentication. Updater refresh and CLI activation share the installation
+lock; compatibility is rechecked under that lock after download. Real-device
+activation, reboot/power-loss recovery and
+voice/hardware acceptance remain required before rollout.
+
+### Publishing a service component
+
+Build and qualify the package separately, then publish using the existing signing
+credentials (`OTA_SIGNING_PRIVATE_KEY`, `OTA_SIGNING_KEY_ID`):
+
+```bash
+make upload-service COMPONENT=lamp-os V=0.1.0 PACKAGE=/path/lamp-os.zip REPLACES='hal os-server'
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0
+```
+
+The publisher requires signed metadata, validates the package, preserves existing
+promotion floors and other components, and rejects topology changes under an
+existing key. Package URLs include the content hash. A version cannot be reused
+with different content while it is the feed's current version. Serialize release
+publishing as with the existing release scripts; metadata publishing is not a
+concurrent multi-writer transaction. Promotion updates already activated devices;
+it does not activate a new service on V1 devices.

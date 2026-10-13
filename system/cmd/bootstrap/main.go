@@ -16,9 +16,14 @@ import (
 )
 
 func main() {
-	var showVersion bool
+	var showVersion, showProtocol bool
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
+	flag.BoolVar(&showProtocol, "ota-service-protocol", false, "print supported service OTA protocol and exit")
 	flag.Parse()
+	if showProtocol {
+		fmt.Println(bootstrap.ServiceOTAProtocol)
+		return
+	}
 
 	if showVersion {
 		fmt.Println(config.BootstrapVersion)

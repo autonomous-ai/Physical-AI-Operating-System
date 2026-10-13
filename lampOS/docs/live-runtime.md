@@ -327,6 +327,22 @@ all for such a request, and the ten-second timeout ended the process;
 the built-in instruction. The one lamp-4ace runs, and what it has to say for
 the lamp to behave, is in [character.md](character.md).
 
+Two more optional fields, both `false` unless set. `search` lets the model
+use the service's own web search for what it cannot know by itself (the
+setup then names one tool, `googleSearch`; nothing is called on the lamp).
+On lamp-4ace on 2026-10-13, through its relay, six played questions that
+need a look-up (the weather now, a share price, the news, the last Formula
+One race, the price of bitcoin, and Saigon's weather asked in Vietnamese)
+were all answered, first sound 2.5 to 4.2 s after the end-of-speech
+decision. Whether the answers were right was not checked. Ordinary
+questions were no slower with it on: seven played questions, twice on each
+setting, began after a median of 1.70 and 1.83 s with search and 1.77 and
+1.73 s without. The character file has to say the lamp can look things up
+and where it is, or it goes on saying it cannot. `small_pictures` asks the
+service to read each picture at its low resolution (`mediaResolution`); it
+is for the eyes' 320 by 240 frames ([eyes.md](eyes.md), "What the model
+sees"). The relay accepted both at setup.
+
 With both `assume_over` and `no_reply_after_ms`, a request that starts behind
 one the service never answered does not wait for it beyond that same wait
 counted from the earlier request's commit, and the quiet bound of an assumed

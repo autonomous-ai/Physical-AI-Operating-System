@@ -65,6 +65,17 @@ It publishes `policy/decisions` (`lamp_msgs/Decision`) under the name
 `policy`, and says once a second that it is alive there, because the topic
 is silent between decisions for longer than the bus's lease.
 
+Once a second it also says how it is itself, on `diagnostics`
+(`lamp_msgs/Diagnostic`, under the name `policy`), with how many
+decisions it has made and how many of them by the rule:
+
+| Level | Message | When |
+|---|---|---|
+| `ok` | | A model answers and the log is written |
+| `warn` | `the decision model is not answering: the rule decides until it does` | From the first failed asking to the next that is answered |
+| `warn` | `its log cannot be written: decisions go on without it` | While a decision cannot be written down |
+| `error` | `it can no longer ask the decision model: the rule decides` | The thread that asks has ended |
+
 The room matters more than any one of the model's answers: in the
 combination below a quiet room adds 1.771, where the strongest answer adds
 at most 1.132. With the room not known, no set of answers reaches the 0.8
@@ -261,6 +272,9 @@ then happened, which is what the weights and thresholds are to be fitted
 again from once someone has said which outcomes were right. And a
 measurement, on every turn the lamp takes, of whether a decision comes
 early enough to be acted on.
+
+Every time here is when the policy's loop took the message up, which is
+within 20 ms of its arriving, and within 5 ms while a question is out.
 
 Which answer belongs to which utterance is told by time alone, because
 what is heard carries no request number: the lamp's first sound after an
@@ -507,13 +521,14 @@ Mac alike (three decisions there the same night). What it shows of the
 service: that it takes this program's request and that the built-in roots
 trust its certificate.
 
-What was run: 78 tests of the crate. As 60, they passed 30 times in a
+What was run: 79 tests of the crate. As 60, they passed 30 times in a
 row, and then in the three runs with `lamp-msgs` and `lamp-bus` that
 every change here is held to. Before that, one test of the log failed once
 in fifteen runs: it cleared the log's way before the program had finished
 with the decision before, which was then written after all. The test now
-waits. The program was not changed for it. As 78, six times in a row on
-the Mac while it was loaded.
+waits. The program was not changed for it. As 78 and then 79, eleven
+times in a row on the Mac while it was loaded, after one bound of a test
+that held the loop to a time a loaded machine misses was widened.
 
 - 29 of asking, against a server on 127.0.0.1 that plays a script: eight
   of them of the kept connection (kept by length and in chunks, not kept
@@ -523,7 +538,7 @@ the Mac while it was loaded.
   of the built-in roots.
 - 10 of the decision, 8 of putting utterances together, 5 of the log, 5 of
   the outcome, 2 of the options.
-- 16 of the loop on a real bus in a directory of its own, with a stand-in
+- 17 of the loop on a real bus in a directory of its own, with a stand-in
   for the model and the test as the voice.
 - 3 of the built program, started, fed and killed.
 

@@ -2,7 +2,7 @@
 //! a stand-in for the decision model: the test plays the voice, and reads
 //! what the policy publishes, writes down and says about itself.
 use lamp_bus::{Bus, Publisher, Subscriber};
-use lamp_msgs::{Decision, Speech, Voice, VoiceState};
+use lamp_msgs::{Decision, Diagnostic, Level, Speech, Voice, VoiceState};
 use lamp_policy::{
     attention::{self, Context, Room},
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
@@ -573,6 +573,83 @@ fn the_judge_is_told_to_get_ready_each_time_someone_begins_to_speak() {
 }
 
 #[test]
+fn the_policy_says_how_it_is_once_a_second_and_that_it_decides_without_a_model() {
+    let mut rig = Rig::new("report", |state| {
+        if state["heard"] == "Is anyone there?" {
+            Err(Failed::TimedOut)
+        } else {
+            Ok(asked(SEVEN))
+        }
+    });
+    let mut reports = rig
+        .bus
+        .subscribe_typed(Diagnostic::TOPIC, "test", Diagnostic::TYPE)
+        .unwrap();
+    let mut next = || -> Diagnostic {
+        reports
+            .recv(WAIT)
+            .unwrap()
+            .expect("a report within a few seconds")
+            .parse()
+            .unwrap()
+    };
+    let well = next();
+    assert_eq!((well.level, well.name.as_str()), (Level::Ok, "policy"));
+    assert_eq!(well.message, "");
+    let facts = |report: &Diagnostic| -> Vec<(String, String)> {
+        report
+            .values
+            .iter()
+            .map(|fact| (fact.key.clone(), fact.value.clone()))
+            .collect()
+    };
+    assert_eq!(
+        facts(&well),
+        [
+            ("decided".to_string(), "0".to_string()),
+            ("by_rule".to_string(), "0".to_string()),
+            ("shadow".to_string(), "true".to_string()),
+        ]
+    );
+    // The model fails: the rule decides, and the report says so.
+    rig.hear("Is anyone there?");
+    assert_eq!(rig.decision().by, "rule");
+    let since = Instant::now();
+    let warned = loop {
+        let report = next();
+        if report.level == Level::Warn {
+            break report;
+        }
+        assert!(since.elapsed() < WAIT, "{report:?}");
+    };
+    assert_eq!(
+        warned.message,
+        "the decision model is not answering: the rule decides until it does"
+    );
+    assert_eq!(
+        facts(&warned)[..2],
+        facts(&well)[..2]
+            .iter()
+            .map(|(key, _)| (key.clone(), "1".to_string()))
+            .collect::<Vec<_>>()[..]
+    );
+    // It answers again, and the policy is well again.
+    rig.hear("What is two plus two?");
+    assert_ne!(rig.decision().by, "rule");
+    let since = Instant::now();
+    loop {
+        let report = next();
+        if report.level == Level::Ok {
+            assert_eq!(facts(&report)[0].1, "2");
+            assert_eq!(facts(&report)[1].1, "1");
+            break;
+        }
+        assert!(since.elapsed() < WAIT, "{report:?}");
+    }
+    rig.stop();
+}
+
+#[test]
 fn what_the_lamp_did_after_each_decision_is_written_beside_it() {
     let mut rig = Rig::new("outcome", |_| Ok(asked(SEVEN)));
     // Said to someone else: the lamp does nothing about it.
@@ -680,7 +757,10 @@ fn a_lamp_that_spoke_before_it_was_decided_is_written_with_a_time_less_than_noth
     // Before it, by about the 300 ms the model took less the 150 ms the
     // lamp waited, and by more on a machine that is slow to run this.
     assert!((-3_000..0).contains(&after), "{after}");
-    assert!(outcome["heard_to_sound_ms"].as_i64().unwrap() >= 140);
+    // The 150 ms the lamp waited, less what the loop was late in taking
+    // up what was heard: a time is when the loop takes a message up.
+    let from_heard = outcome["heard_to_sound_ms"].as_i64().unwrap();
+    assert!(from_heard >= 100, "{from_heard} {outcome}");
     rig.stop();
 }
 

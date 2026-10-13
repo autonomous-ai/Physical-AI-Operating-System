@@ -23,7 +23,7 @@ use crate::{
     record::Record,
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
-use lamp_msgs::{Decision, Faces, RoomState, Speech, Voice, VoiceState};
+use lamp_msgs::{Decision, Diagnostic, Faces, Level, RoomState, Speech, Voice, VoiceState};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -606,6 +606,8 @@ struct Policy<'a> {
     seen: Option<((u8, u8, u8), Instant)>,
     record: Record,
     out: Option<Publisher>,
+    /// Where the policy says how it is itself, once a second.
+    reports: Option<Publisher>,
     model: Trouble,
     log: Trouble,
     publishing: Trouble,
@@ -911,10 +913,51 @@ impl Policy<'_> {
         }
     }
 
-    /// Once a second: show the bus that the policy is alive though it has
-    /// decided nothing, which is also how it learns that the bus can be
-    /// published to again.
+    /// How the policy itself is, for the lamp's health (`diagnostics`).
+    /// It is well while a model answers and the log is written; with
+    /// either gone it still decides, and says which it is without.
+    fn report(&self) -> Diagnostic {
+        let (level, message) = if self.asker_gone {
+            (
+                Level::Error,
+                "it can no longer ask the decision model: the rule decides",
+            )
+        } else if self.model.on {
+            (
+                Level::Warn,
+                "the decision model is not answering: the rule decides until it does",
+            )
+        } else if self.log.on {
+            (
+                Level::Warn,
+                "its log cannot be written: decisions go on without it",
+            )
+        } else {
+            (Level::Ok, "")
+        };
+        Diagnostic::new(level, NAME, message)
+            .with("decided", self.totals.decided)
+            .with("by_rule", self.totals.by_rule)
+            .with("shadow", SHADOW)
+    }
+
+    /// Once a second: say how the policy is, and show the bus that it is
+    /// alive though it has decided nothing, which is also how it learns
+    /// that the bus can be published to again.
     fn second(&mut self) {
+        if self.reports.is_none() {
+            self.reports = self
+                .bus
+                .publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), NAME)
+                .ok();
+        }
+        let report = self.report();
+        if let Some(reports) = self.reports.as_mut() {
+            // A report that cannot be sent is not a trouble of its own:
+            // the decisions' publisher below meets the same bus and says.
+            let at_us = self.started.elapsed().as_micros() as u64;
+            let _ = reports.publish_json(at_us, &report);
+        }
         if self.out.is_none() {
             let made = self
                 .bus
@@ -985,6 +1028,7 @@ pub fn run<D: Decider + Send + 'static>(
         seen: None,
         record: Record::new(&options.log_dir),
         out: None,
+        reports: None,
         model: Trouble::default(),
         log: Trouble::default(),
         publishing: Trouble::default(),

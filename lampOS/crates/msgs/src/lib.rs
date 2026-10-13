@@ -556,6 +556,31 @@ impl Diagnostic {
     pub const VERSION: u32 = 1;
     pub const TOPIC: &str = "diagnostics";
 
+    /// `name` is well: nothing is the matter and there is nothing to say.
+    pub fn ok(name: &str) -> Self {
+        Self::new(Level::Ok, name, "")
+    }
+
+    /// `name` is at `level`, and `message` says why, for a person.
+    pub fn new(level: Level, name: &str, message: &str) -> Self {
+        Self {
+            level,
+            name: name.to_owned(),
+            message: message.to_owned(),
+            values: Vec::new(),
+        }
+    }
+
+    /// The same with one more fact beside it.
+    #[must_use]
+    pub fn with(mut self, key: &str, value: impl ToString) -> Self {
+        self.values.push(KeyValue {
+            key: key.to_owned(),
+            value: value.to_string(),
+        });
+        self
+    }
+
     /// A stream every part publishes to: one part's report does not
     /// replace another's. Once a second.
     pub fn declaration() -> Declaration {
@@ -1149,6 +1174,20 @@ mod tests {
                 ),
             );
         }
+        // Said the short way, it is the same report.
+        assert_eq!(
+            Diagnostic::new(Level::Warn, "body", "yaw is hot").with("yaw_celsius", 61),
+            report
+        );
+        assert_eq!(
+            Diagnostic::ok("voice"),
+            Diagnostic {
+                level: Level::Ok,
+                name: "voice".into(),
+                message: String::new(),
+                values: vec![],
+            }
+        );
         // ROS's own numbers are not this type's words.
         assert!(
             serde_json::from_str::<Diagnostic>(

@@ -98,7 +98,13 @@ pub struct Files {
     /// Whether the model is asked to say when it hears the lamp's name
     /// (`--name-signal`).
     pub name_signal: bool,
+    /// The lamp's bus, if how the room is gets published on it
+    /// (`--bus-root`).
+    pub bus_root: Option<std::path::PathBuf>,
 }
+
+/// The bus's root for this worker, if it publishes.
+static BUS_ROOT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// The provider worker's flag for a link that is never given up. A service
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
 /// that it ends when its provider cannot be reached.
@@ -614,6 +620,9 @@ pub async fn run_with_continuation(
         }
         let _ = THREAD_FILE.set(path);
     }
+    if let Some(root) = files.bus_root.clone() {
+        let _ = BUS_ROOT.set(root);
+    }
     // What it remembers from other days, if this lamp has a memory.
     if let Some(socket) = &files.tools.memory {
         crate::remember::start(socket.clone());
@@ -705,6 +714,15 @@ async fn serve_with_visual<C: Connect>(
     let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
     let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
     let mut told_session = None;
+    // How the room is, for whoever listens on the lamp's bus. A bus that
+    // cannot be used is said once and changes nothing else.
+    let mut room_out = BUS_ROOT.get().and_then(|root| {
+        crate::bus_out::RoomOut::on(root)
+            .map_err(|error| {
+                eprintln!("lamp-voice provider: the room is not published on the bus: {error}")
+            })
+            .ok()
+    });
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
@@ -736,6 +754,12 @@ async fn serve_with_visual<C: Connect>(
                     );
                     renewed_at = Instant::now();
                     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
+                if let Some(out) = room_out.as_mut()
+                    && let Ok(mut room) = crate::room_told::ROOM.lock()
+                {
+                    let now = monotonic_us();
+                    out.tell(room.at(now), now);
                 }
                 // The session is told how the room is when that changes,
                 // and a new session how it is now, unless a conversation is

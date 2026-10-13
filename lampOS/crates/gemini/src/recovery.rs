@@ -679,6 +679,17 @@ impl<C: Connect> Supervisor<C> {
         }
         Ok(())
     }
+    /// See [`InputSender::renew_when_idle`]. False when there is no ready
+    /// connection to renew.
+    pub fn renew_when_idle(&self) -> bool {
+        match self.input() {
+            Ok((input, _)) => {
+                input.renew_when_idle();
+                true
+            }
+            Err(_) => false,
+        }
+    }
     /// See [`InputSender::try_image`]. Accepted only for the request that was
     /// submitted on the connection that is live now. An image belongs to its
     /// connection: it is never carried over to a replacement or sent again.

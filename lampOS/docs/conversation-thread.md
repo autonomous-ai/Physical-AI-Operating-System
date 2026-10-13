@@ -80,6 +80,34 @@ that, and when it does not all fit, the latest exchanges that do are told
 and the older ones are left out. With the file lamp-4ace runs (about 7,100
 bytes) all eight exchanges fit at their longest.
 
+## A session renewed on purpose
+
+The provider worker also asks for a new session itself
+(`crates/live/src/provider_worker.rs`, `RENEW_AFTER_UNANSWERED`): when eight
+requests in a row have gone unanswered it asks the connection to end at its
+next idle moment (`InputSender::renew_when_idle` in `lamp-gemini`, the same
+clean boundary as an announced close: an answer in progress finishes
+first), at most once in three minutes. The thread above is what makes this
+cheap: whatever the lamp and a person said in the last ten minutes goes
+into the new session.
+
+Why: a session can stop being of use without failing. On lamp-4ace on
+2026-10-13 a session about thirteen minutes old, with people talking
+Vietnamese around the lamp, was transcribing English said to it as Spanish
+("Hey Lamp, what is two plus two?" as "¿Cuánto es dos más dos?"), and with
+the character file of that hour it answered nothing for five minutes
+([character.md](character.md)). A new session heard the same question as
+it was said. Nothing on the lamp's side can tell a session in that state
+from a room that is simply not talking to the lamp, so the rule does not
+try to: eight unanswered requests in a row get a fresh session either way.
+In the ordinary case that costs about two seconds in which what is said is
+not heard, no more than once in three minutes, and leaves a shorter
+history for the service to bill on every turn.
+
+Checked by a session test beside the one for an announced close (idle: it
+ends at once; with an answer in progress: the answer completes first). Not
+yet seen on a lamp.
+
 ## What it keeps to itself
 
 The thread lives in the provider worker's memory and nowhere else. It is not

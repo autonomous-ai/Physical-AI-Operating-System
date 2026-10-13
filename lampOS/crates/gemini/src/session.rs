@@ -60,6 +60,9 @@ struct Shared {
     images: Mutex<Images>,
     /// Wakes an image write that must be abandoned.
     image_abort: Notify,
+    /// The caller wants a new session in this one's place at the next
+    /// moment nothing is owed on it.
+    renew: AtomicBool,
 }
 
 /// How long one image write may take. Commands that arrive meanwhile are
@@ -328,6 +331,16 @@ impl InputSender {
     pub fn image_ledger(&self) -> ImageLedger {
         self.shared.images().ledger
     }
+    /// Ask for this connection to end at the next moment nothing is owed on
+    /// it, exactly as it does when the service announces a close: an answer
+    /// in progress completes first, and the connection then ends with
+    /// [`Error::ServerGoAway`] for its owner to replace. For a session that
+    /// has stopped being useful (one that has stopped answering, or grown
+    /// long) without having failed.
+    pub fn renew_when_idle(&self) {
+        self.shared.renew.store(true, Ordering::Release);
+        self.shared.wake.notify_one();
+    }
     /// Permanent local retirement is synchronous and cannot be blocked by a full
     /// audio queue. Network interruption follows asynchronously. This does not
     /// revoke permits or flush samples already handed to an external speaker.
@@ -589,6 +602,7 @@ where
         ended_through: AtomicU64::new(0),
         images: Mutex::new(Images::default()),
         image_abort: Notify::new(),
+        renew: AtomicBool::new(false),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -936,7 +950,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.close_unanswered();
             self.check_deadlines()?;
             self.send_image().await?;
-            if self.go_away
+            if (self.go_away || self.shared.renew.load(Ordering::Acquire))
                 && self.current.is_none()
                 && self.barrier.is_none()
                 && self.outbox.is_empty()

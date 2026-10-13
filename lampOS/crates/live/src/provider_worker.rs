@@ -50,6 +50,21 @@ use lamp_gemini::BarrierPolicy;
 use lamp_gemini::RecoveryPolicy;
 #[cfg(test)]
 const BARRIER: BarrierPolicy = BarrierPolicy::Require;
+/// Requests in a row the service left unanswered after which the session is
+/// renewed at its next idle moment, and the least time between two such
+/// renewals. A session can stop being of use without failing: on lamp-4ace
+/// on 2026-10-13 one about thirteen minutes old, in a room talking another
+/// language, began to hear everything said to it as Spanish, and with the
+/// character file of that hour answered nothing at all for five minutes. A
+/// new session heard the same question correctly. Most runs of eight
+/// unanswered requests are simply a room not talking to the lamp, and for
+/// those a renewal costs two seconds in which it does not hear, at most once
+/// in three minutes, and gives a shorter history to pay for.
+const RENEW_AFTER_UNANSWERED: u32 = 8;
+const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(180);
+/// Requests the service has left unanswered since it last answered one.
+static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
 /// How long `Continuation::KeptStart` keeps a next request's start back. In
 /// the one real-service run that shows it, an answer's first audio came
 /// 1.43 s after its question ended. A proposed value, not a measured need.
@@ -549,6 +564,8 @@ async fn serve_with_visual<C: Connect>(
     let mut output = VecDeque::with_capacity(MAX_QUEUED_OUTPUT);
     let mut output_sequence = 0u64;
     let mut discards = DiscardLog::default();
+    let mut renewed_at = Instant::now();
+    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
         // privacy and retirement are serviced every tick whether a connection
@@ -563,6 +580,18 @@ async fn serve_with_visual<C: Connect>(
                 // while no provider event is being taken.
                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
+                // A session that has answered nothing for a long run of
+                // requests is replaced the next time nothing is owed on it.
+                if UNANSWERED.load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
+                    && renewed_at.elapsed() >= RENEW_AT_MOST_EVERY
+                    && provider.renew_when_idle()
+                {
+                    eprintln!(
+                        "lamp-live provider: {RENEW_AFTER_UNANSWERED} requests in a row went unanswered; renewing the session when it is idle"
+                    );
+                    renewed_at = Instant::now();
+                    UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
                 // Camera revocation also bypasses PCM credit and a full control
                 // slice. A partial cloud image write may abandon that connection;
                 // ordinary lost-turn handling remains the sole terminal outcome.
@@ -743,6 +772,7 @@ fn forward(
             waiting_for_barrier,
         }),
         Event::Audio { lineage, pcm, .. } => {
+            UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
             let provider_event_at_us = monotonic_us();
             let source_frames = pcm.len();
             for (index, part) in pcm.chunks(PACKET_SAMPLES).enumerate() {
@@ -789,6 +819,7 @@ fn forward(
         // The service chose not to answer. For the coordinator the request is
         // complete and had no audio; the connection and conversation stay.
         Event::Unanswered { lineage, waited } => {
+            UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             eprintln!(
                 "lamp-live provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
                 lineage.request.get(),

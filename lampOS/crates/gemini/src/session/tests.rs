@@ -1578,6 +1578,40 @@ async fn go_away_ends_an_idle_connection_and_lets_an_unfinished_answer_complete(
 }
 
 #[tokio::test]
+async fn a_renewal_asked_for_ends_the_connection_once_nothing_is_owed_on_it() {
+    // Idle: it ends at once, as after an announced close.
+    let (mut connection, _server) = mock(Timeouts::default()).await;
+    connection.input().renew_when_idle();
+    assert!(connection.next_event().await.is_none());
+    assert_eq!(connection.state(), State::Disconnected(Error::ServerGoAway));
+
+    // With an answer in progress, the answer completes first.
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let request = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, audio(1)).await;
+    assert!(matches!(event(&mut connection).await, Event::Audio { .. }));
+    connection.input().renew_when_idle();
+    quiet(&mut connection).await;
+    assert_eq!(connection.state(), State::Ready);
+    send_json(&mut server, audio(2)).await;
+    send_json(&mut server, generated()).await;
+    send_json(&mut server, idle()).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, pcm, .. } if lineage.request == request && pcm == [2])
+    );
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::GenerationComplete { .. }
+    ));
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { idle: true, .. }
+    ));
+    assert!(connection.next_event().await.is_none());
+    assert_eq!(connection.state(), State::Disconnected(Error::ServerGoAway));
+}
+
+#[tokio::test]
 async fn quota_refusals_get_a_fixed_category_and_no_text_is_retained() {
     let (connection, mut server) = mock(Timeouts::default()).await;
     send_json(

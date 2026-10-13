@@ -3,13 +3,20 @@
 //! "What do you see in front of you?" was among the first things asked of
 //! the lamp by people standing at it (2026-10-13), and it answered that it
 //! could not see. Its eyes (`lamp-eyes --sight-file`) keep their newest
-//! frame in a private file while the camera is open. While a person is
-//! speaking this offers that frame to the model, at most once every four
-//! seconds and twice a request, through the same `Supervisor::try_image` as
-//! the camera context: inside the request's own activity, never replayed.
-//! So one thing said gets one picture as it begins, a long one a second, and
-//! talk that goes on and on around the lamp gets one every four seconds
-//! rather than two with every pause in it.
+//! frame in a private file while the camera is open. As a person begins to
+//! speak this offers that frame to the model, through the same
+//! `Supervisor::try_image` as the camera context: inside the request's own
+//! activity, never replayed. It does so at most once every thirty seconds.
+//!
+//! Not with everything said, because a picture is not free. On lamp-4ace
+//! seven ordinary questions in each of six fresh sessions began to be
+//! answered a median 1.32 s after the end of speech was decided with no
+//! picture (19 replies) and 1.78 s with one in every question (20 replies).
+//! Half a second on every answer is too much to pay for something asked
+//! about now and then. Every thirty seconds the lamp has a recent look at
+//! the room in what the model remembers, and most answers pay nothing. What
+//! this gives up: something held up to the lamp less than thirty seconds
+//! after its last look is not seen until the next one.
 //!
 //! A frame older than a second is not offered: the eyes are closed, and the
 //! model is told nothing rather than something stale. The eyes open only
@@ -29,7 +36,7 @@ pub const ENVIRONMENT: &str = "LAMP_EYES_SIGHT_FILE";
 
 const FRESH: Duration = Duration::from_secs(1);
 /// The least time between two looks, whichever requests they fall in.
-const BETWEEN_LOOKS: Duration = Duration::from_secs(4);
+const BETWEEN_LOOKS: Duration = Duration::from_secs(30);
 /// The provider takes two pictures a request.
 const LOOKS_A_REQUEST: u8 = 2;
 /// One standing permission: the eyes' own permit is what closes them.
@@ -91,7 +98,7 @@ impl Sight {
     }
 
     /// Whether to look now, with this request's input open: when the last
-    /// look, in whichever request, was four seconds ago or more, and this
+    /// look, in whichever request, was thirty seconds ago or more, and this
     /// request has not had its two.
     fn due(&mut self, request: RequestId, now: Instant) -> bool {
         if self.request != Some(request) {
@@ -186,24 +193,27 @@ mod tests {
     }
 
     #[test]
-    fn it_looks_as_someone_begins_and_then_no_more_than_every_four_seconds() {
+    fn it_looks_as_someone_begins_and_then_no_more_than_every_thirty_seconds() {
         let mut sight = Sight::new("/run/x.jpg".into()).unwrap();
         let start = Instant::now();
         let at = |ms: u64| start + Duration::from_millis(ms);
-        // One thing said: a look as it begins, a second if it is long, no third.
+        // The first thing said gets a look as it begins, and no second one
+        // however it goes on in the next half minute.
         assert!(sight.due(request(5), at(0)));
         assert!(!sight.due(request(5), at(2)));
-        assert!(!sight.due(request(5), at(3_999)));
-        assert!(sight.due(request(5), at(4_000)));
-        assert!(!sight.due(request(5), at(30_000)));
-        // Talk that goes on in pieces: each new piece is a new request, and
-        // none gets a look until four seconds after the last one.
-        assert!(sight.due(request(6), at(30_001)));
-        assert!(!sight.due(request(7), at(31_000)));
-        assert!(!sight.due(request(8), at(33_000)));
-        assert!(sight.due(request(9), at(34_001)));
-        assert!(!sight.due(request(9), at(35_000)));
-        assert_eq!(sight.looks, 1);
+        assert!(!sight.due(request(5), at(29_999)));
+        // A conversation: the questions that follow get none until thirty
+        // seconds after that look, and then the next one does.
+        assert!(!sight.due(request(6), at(9_000)));
+        assert!(!sight.due(request(7), at(18_000)));
+        assert!(!sight.due(request(8), at(27_000)));
+        assert!(sight.due(request(9), at(36_000)));
+        assert!(!sight.due(request(10), at(45_000)));
+        // Someone who speaks for a very long time gets a second, no third.
+        assert!(sight.due(request(11), at(100_000)));
+        assert!(sight.due(request(11), at(130_000)));
+        assert!(!sight.due(request(11), at(170_000)));
+        assert_eq!(sight.looks, 2);
     }
 
     #[test]

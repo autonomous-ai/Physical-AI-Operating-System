@@ -83,10 +83,8 @@ The voice service reads it (`crates/live/src/sight.rs`). When
 `LAMP_EYES_SIGHT_FILE` is set in the service's environment, the provider
 worker is started with `--eyes-sight PATH`, and while a person is speaking
 it offers the file's frame to the model through `Supervisor::try_image`
-([gemini-visual-input.md](gemini-visual-input.md)), at most once every four
-seconds and twice a request. One thing said gets one picture as it begins
-and a long one a second; talk that goes on and on beside the lamp gets one
-every four seconds, not two with every pause in it. A file last written
+([gemini-visual-input.md](gemini-visual-input.md)) as a person begins to
+speak, at most once every thirty seconds. A file last written
 more than a second ago is not offered, so closed eyes show the model nothing
 rather than something stale. The offer has the limits that call already
 has: only for the request whose input is open, 64 KiB, never sent again on a
@@ -98,10 +96,24 @@ conversation, and bills the whole conversation again with every turn. In the
 first run on lamp-4ace the worker looked twice with every request, and over
 a request with two pictures the prompt outside audio grew by 506 tokens. In
 an office where the lamp hears something every few seconds that adds up
-quickly, which is why looks are four seconds apart, and why
+quickly, which is one reason looks are spaced out, and why
 `"small_pictures": true` in the provider configuration asks the service to
 read pictures at its low resolution (`mediaResolution` in the setup). What
 that saves on this service is not measured yet.
+
+The other reason is time. A picture in a question makes its answer later.
+Measured on lamp-4ace on 2026-10-13 with `sight_cost.sh`: seven ordinary
+played questions in each of six fresh sessions, three with the eyes shut
+(no picture) and three with a picture in every question, in the order shut,
+open, open, shut, shut, open. First sound came a median 1.32 s after the
+end-of-speech decision without pictures (19 replies; the three sessions'
+medians 1.29, 1.24 and 1.61 s) and 1.78 s with them (20 replies; 1.75, 1.86
+and 1.75 s). So looks were moved from four seconds apart to thirty: the
+model keeps a recent view of the room, and most answers carry no picture.
+What that gives up is in `sight.rs`: something held up to the lamp within
+thirty seconds of its last look is not seen until the next one. Sending a
+picture when the scene has changed, which the eyes could tell, is not
+built.
 
 On lamp-4ace, 2026-10-13, first run: a picture of 13.7 to 17.7 KiB, 18 to
 157 ms old, went with each of six requests. A played "Hey Lamp, what do you

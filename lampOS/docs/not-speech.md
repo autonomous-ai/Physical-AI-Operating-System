@@ -113,10 +113,11 @@ faint floor and none of the others.
 That is a synthetic voice at a quick rate (`say` at 185 words a minute),
 and the word lasts about a fifth of a second by the detector. The same
 clip was sent on as speech in each of the ten earlier runs of that check
-in which it was played into quiet, all of them before the gate existed.
-The service wrote it as "Hello." in five of those and as "albero", "al
-loro", "Claro.", "alarm" and "Hola." in the other five: for a word this
-short the text is no better a judge than the count.
+in which it was played into quiet, all of them before the gate existed,
+and the lamp answered it in nine. The service wrote it as "Hello." in
+five of the ten and as "albero", "al loro", "Claro.", "alarm" and "Hola."
+in the other five: for a word this short the text is no better a judge
+than the count.
 
 So the count of blocks cannot tell this word from the sounds the gate is
 for: fourteen sounds had 11 to 33 blocks, and this word has 16 to 23.

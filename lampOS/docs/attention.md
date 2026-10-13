@@ -134,6 +134,42 @@ with a name like the lamp's ("Hey Lan") now passes this rule in a busy
 room on a new session, and is left to the model's own judgement as
 everything was before the rule.
 
+The cost it narrows had not been measured, and it was most of the calls.
+The earlier count of new sessions called by name (14 of 16 below) was
+made by starting the voice afresh, and a voice just started does not yet
+know that its room is busy, so the rule never applied. On 2026-10-14 the
+case itself was played (`namecall.sh`, nobody in the office): eleven
+lines of two people talking to each other, so that the room is busy and
+45 s have passed since the lamp spoke; the link to the service cut, which
+gives a new session in the same process; then one question by name, in
+one of three synthetic voices. Twelve rounds:
+
+| | Rounds of 12 |
+|---|---|
+| The lamp said nothing through the two people's talk | 12 |
+| The name was heard in the sound | 11 |
+| The answer was let out because the name was heard, the text having shown nothing in time ("What is 2 + 2?") | 9 |
+| The answer was let out by the text ("Milan, what comes after Tuesday?") | 2 |
+| The answer was held back: the name was not heard and the text began "Helen," | 1 |
+| The lamp was heard to answer | 9 |
+
+So as the rule stood the day before, ten of these twelve answers would
+have been held back from someone who had called the lamp by its name.
+With the name heard in the sound it was one, and "Helen" is now among the
+words the text may show a call by (with "Mom", "Amen" and "Weiland", each
+written for the lamp's name at least once in its records).
+
+Of the three rounds with no answer heard, the rule held one. In one the
+service sent the words of an answer ("Four. Easy one.") and no sound, the
+only time in the 800 and more answers in the lamp's records. In one it
+wrote the question as "Milan, 1 vez que eu passo tu" and the model said
+nothing. Where the lamp answered, its first sound came 0.98 to 1.24 s
+after the end of speech was decided.
+
+Not shown: a person, and a real office. The talk was two synthetic voices
+from one loudspeaker, and the name part hears a synthetic "Hey Lamp"
+better than it may hear a colleague's.
+
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:
 

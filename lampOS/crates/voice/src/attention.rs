@@ -124,7 +124,9 @@ pub const FRESH_REQUESTS: u32 = 2;
 /// Whether the text of what was heard shows the lamp was called. Its name,
 /// or one of the words the service has written in its place at the start
 /// of a called request in the lamp's own records ("Milan, what is the
-/// capital of Italy?", "Man, tell me a joke.", "Lam", "Lan", "plan").
+/// capital of Italy?", "Man, tell me a joke.", "Lam", "Lan", "plan", "Helen,
+/// what color is the sky on a clear day?", "Hey Mom", "Amen", "Weiland").
+/// Each was written for "Lamp" or "Hey Lamp" at least once on lamp-4ace.
 /// Positive evidence only: a text without them says nothing either way.
 pub fn called(heard: &str) -> bool {
     let mut words = heard
@@ -140,7 +142,14 @@ pub fn called(heard: &str) -> bool {
     let first = all
         .iter()
         .find(|word| !is(word, &["hey", "hi", "ok", "okay", "oh", "hello"]));
-    first.is_some_and(|word| is(word, &["lam", "lan", "milan", "man", "plan"]))
+    first.is_some_and(|word| {
+        is(
+            word,
+            &[
+                "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
+            ],
+        )
+    })
 }
 
 /// Whether an answer is played, and why, for the record.
@@ -306,6 +315,10 @@ mod tests {
             "Ok Lam, stop.",
             "Hey Lan",
             "plan",
+            "Helen, what color is the sky on a clear day?",
+            "Hey Mom, what time is it?",
+            "Amen.",
+            "Weiland, tell me a joke.",
         ] {
             assert!(called(shows), "{shows}");
         }
@@ -319,6 +332,7 @@ mod tests {
             "Do you know where the new monitors went?",
             "The lamps in the storage room are new.",
             "We planned it with the man from Milan.",
+            "Did you ask Helen about the report?",
             "Bây giờ mình có một vấn đề hơi khó.",
             "",
         ] {

@@ -782,6 +782,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-actions"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-audio"
 version = "0.1.0"
 dependencies = [

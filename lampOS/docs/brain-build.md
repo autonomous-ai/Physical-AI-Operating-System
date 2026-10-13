@@ -613,11 +613,12 @@ the contract in `docs/autonomous-device-integration.md` (last changed
 2026-10-06), read in full on 2026-10-13, and the computer's side in
 `cli/src/lib/autonomous-device` and `cli/src/lib/e2ee`, which carries test
 vectors of its own. It agrees with the reading of V1 above and adds what
-follows. Three documents it points to are still to be read before step 3
-begins: how a result is tied to its request
-(`autonomous-device-result-correlation.md`), input while an agent is
-working (`in-flight-agent-input.md`), and the Store
-(`autonomous-device-store.md`). V1 also has an interoperation check
+follows. Two of the three documents it points to were read the same
+evening, on how a result is tied to its requests
+(`autonomous-device-result-correlation.md`) and on input while an agent is
+working (`in-flight-agent-input.md`); the Store
+(`autonomous-device-store.md`) is not needed for a first task and is
+unread. V1 also has an interoperation check
 against the computer's code (`system/harness/testdata/direct_interop.go`)
 that the Rust client should pass in the same way.
 
@@ -651,6 +652,42 @@ What the contract adds:
 - **Sizes and rates:** a request to an agent is at most 16 KiB and is
   never cut; a result's full text at most 8,192 bytes; a frame 65,536; one
   request a second after a burst of twenty, four in flight.
+
+What the two further documents add, and it is the larger part of steps 3
+and 4:
+
+- **One result can answer several requests.** If a second request reaches
+  an agent while it is still on the first, the agent may answer both in
+  one final message, and Harness then sends one result naming both. The
+  lamp keeps a list of what it has sent (to which agent, with which key,
+  under which delivery, to be told to whom), matches every request a
+  result names against it, and applies the result only if all of them
+  match. It is said once for the result, not once for each request. A
+  third request the result does not name stays open.
+- **A result is known by where it was first made and its own id,** not by
+  the connection it arrived on. The same result arriving again after a
+  reconnection or a restart of either side is the same result and is not
+  said again. The lamp keeps what it has said on disk for that. A result
+  that was being said when the lamp stopped is uncertain, and is not said
+  again by itself.
+- **Only the result ends a task.** An agent finishing a turn, a receipt
+  changing, or a summary that names no request does none of that, and the
+  agent's latest summary is never taken for the answer to a request it
+  does not name.
+- **Unknown is a real answer.** Harness proves that work completed. Work
+  that failed or was cancelled, a second request that overlapped the
+  first without the engine saying which was which, and anything in hand
+  when the computer's side restarted come back as unknown. So beside
+  "sent" and "done" (decision 8) the lamp needs words for "I cannot tell
+  whether that went through; look in Harness", and says them only then.
+- **A follow-up to a working agent** is typed into that agent as it
+  works. Harness reports how (steered in, queued in the agent, or held
+  until the turn ends) and whether it was taken. Taken is not done.
+- **The acceptance tests are theirs:** the schema and the worked cases
+  beside that document (one request, a group, and what the lamp must do
+  on replay) are fixtures the Rust client has to pass. Their own note
+  says the whole path, to the lamp speaking, has not been proven end to
+  end by either side.
 
 ## Decision 12 in more detail: memory across days
 

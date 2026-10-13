@@ -593,8 +593,9 @@ upload-device:
 #   make promote-hal                # min_version = hal.version
 #   make promote-os-server V=1.4.0  # pin floor explicitly
 #   make promote-device DT=lamp     # devices.lamp profile
+#   make promote-hal FOR=lamp       # hal.min_version_by_device.lamp only
 promote-os-server promote-bootstrap promote-web promote-hal promote-claude-desktop-buddy promote-openclaw promote-codex promote-claudecode promote-opencode promote-hermes promote-picoclaw:
-	bash scripts/release/promote-ota.sh $(patsubst promote-%,%,$@) $(V)
+	FOR="$(FOR)" bash scripts/release/promote-ota.sh $(patsubst promote-%,%,$@) $(V)
 
 promote-device:
 	@if [ -z "$(DT)" ]; then echo "Usage: make promote-device DT=<type> [V=<min_version>]" >&2; exit 1; fi

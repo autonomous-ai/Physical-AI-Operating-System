@@ -41,10 +41,7 @@ func (b *Bootstrap) versionReport(ctx context.Context) map[string]ComponentVersi
 			current = b.state.Components[key]
 		}
 		target := strings.TrimSpace(component.Version)
-		minVersion := strings.TrimSpace(component.MinVersion)
-		if minVersion == "" {
-			minVersion = target
-		}
+		minVersion := floorVersion(component)
 		newer := compareVersions(current, target) < 0
 		out[key] = ComponentVersion{
 			Current:         current,
@@ -65,10 +62,7 @@ func (b *Bootstrap) versionReport(ctx context.Context) map[string]ComponentVersi
 				current = b.state.Components[domain.OTAKeyDevice]
 			}
 			target := strings.TrimSpace(component.Version)
-			minVersion := strings.TrimSpace(component.MinVersion)
-			if minVersion == "" {
-				minVersion = target
-			}
+			minVersion := floorVersion(component)
 			newer := compareVersions(current, target) < 0
 			out[domain.OTAKeyDevice] = ComponentVersion{
 				Current: current, Target: target, MinVersion: minVersion,
@@ -78,4 +72,15 @@ func (b *Bootstrap) versionReport(ctx context.Context) map[string]ComponentVersi
 		}
 	}
 	return out
+}
+
+// floorVersion is the auto-update floor: min_version_by_device[device_type], else min_version, else version.
+func floorVersion(c domain.OTAComponent) string {
+	if v := strings.TrimSpace(c.MinVersionByDevice[resolveDeviceType()]); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(c.MinVersion); v != "" {
+		return v
+	}
+	return strings.TrimSpace(c.Version)
 }

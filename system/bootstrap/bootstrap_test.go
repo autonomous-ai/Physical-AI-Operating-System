@@ -300,3 +300,17 @@ func TestHermesPinnedGate(t *testing.T) {
 		t.Fatal("non-hermes component blocked by the hermes gate")
 	}
 }
+
+func TestFloorVersionPerDevice(t *testing.T) {
+	c := domain.OTAComponent{Version: "0.1.285", MinVersion: "0.0.867", MinVersionByDevice: map[string]string{"lamp": "0.1.285"}}
+	for deviceType, want := range map[string]string{"lamp": "0.1.285", "intern-v2": "0.0.867", "": "0.0.867"} {
+		t.Setenv("DEVICE_TYPE", deviceType)
+		if got := floorVersion(c); got != want {
+			t.Errorf("device %q: floor %q, want %q", deviceType, got, want)
+		}
+	}
+	t.Setenv("DEVICE_TYPE", "lamp")
+	if got := floorVersion(domain.OTAComponent{Version: "1.0.0"}); got != "1.0.0" {
+		t.Errorf("no floors: got %q, want version", got)
+	}
+}

@@ -80,6 +80,13 @@ const ARRIVED_STEPS: u8 = 15;
 const WIRE_STEPS: u8 = 25;
 
 /// The joints this body commands, in the order of every array of three here.
+/// The glance a look away begins with, in counts of the base's turn: a
+/// little over three degrees, which the base is back from in a third of a
+/// second at the speed lamp-4ace runs with. It is the whole look away of a
+/// lamp with the folded reach (nine tenths of 40 counts). More than
+/// [`WAKE_COUNTS`], or it would not be made at all.
+const GLANCE: f32 = 36.0;
+
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
 /// A gesture asked for while the lamp is still rising waits this long for it
 /// to be standing, and is then forgotten.
@@ -1286,7 +1293,9 @@ pub(crate) fn run_alive(
     // When a lamp standing at rest next shifts by itself.
     let mut idle_due: Option<Duration> = None;
     let step = TICK.as_secs_f32();
-    let mut gestures = Gestures::new();
+    // A look away begins with a glance of GLANCE counts of the base's
+    // turn: within the folded reach that is all of it, as it always was.
+    let mut gestures = Gestures::new().glancing(GLANCE / limits.yaw.max(1.0));
     // It starts from where it is, not from where it should be: the way home
     // is travelled like any other move. Until it is inside the reach, the
     // only bound that applies is that it never moves away from it.

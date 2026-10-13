@@ -33,6 +33,9 @@ pub const JOINTS: [&str; 5] = ["base_yaw", "shoulder", "elbow", "head_roll", "he
 pub const EVERY_STEPS: u64 = 4;
 /// A step of the body, in seconds.
 const STEP_S: f64 = 0.02;
+/// The body's report goes with one offered step in this many: every
+/// 0.96 s, inside the second the topic promises.
+const REPORT_EVERY: u32 = 12;
 /// How long a message of where the joints are means anything. A body that
 /// has stopped must not go on being read as where the lamp is.
 pub const LASTS: Duration = Duration::from_secs(1);
@@ -255,9 +258,10 @@ struct Publishing {
     health: Publisher,
     started: Instant,
     before: Option<(u64, [u16; 5])>,
-    /// When the body's report was last sent, and each time a joint met
-    /// resistance, with how many such times there had been in all.
-    reported: Option<Instant>,
+    /// Steps offered since the body's report was last sent, and each time
+    /// a joint met resistance, with how many such times there had been in
+    /// all.
+    since_report: Option<u32>,
     resisted: Vec<Instant>,
     resisted_in_all: u32,
 }
@@ -274,7 +278,7 @@ impl Publishing {
             health,
             started: Instant::now(),
             before: None,
-            reported: None,
+            since_report: None,
             resisted: Vec::new(),
             resisted_in_all: 0,
         })
@@ -296,11 +300,10 @@ impl Publishing {
         self.resisted_in_all = in_all;
         self.resisted
             .retain(|at| now.saturating_duration_since(*at) < RESISTANCE_SAID_FOR);
-        if self
-            .reported
-            .is_none_or(|at| now.saturating_duration_since(at) >= Duration::from_secs(1))
-        {
-            self.reported = Some(now);
+        let since = self.since_report.map_or(REPORT_EVERY, |steps| steps + 1);
+        self.since_report = Some(since);
+        if since >= REPORT_EVERY {
+            self.since_report = Some(0);
             let report = health(
                 glimpse,
                 u32::try_from(self.resisted.len()).unwrap_or(u32::MAX),

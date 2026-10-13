@@ -136,11 +136,37 @@ is rest. Anything that is not exactly that object is ignored.
 | --- | --- |
 | resting | none |
 | listening | pitch 18 up, roll 26 to one side; the side alternates between exchanges |
-| thinking | pitch 30 up, yaw 36 to the side it was tilted from, roll 12 the other way |
+| thinking | pitch 30 up, yaw 36 to the side it was tilted from, roll 12 the other way. With a wider reach this is where it ends, not where it begins: see "A glance first" |
 | speaking | pitch 8 up, and a nod of up to 7 either way when its voice is louder or quieter than its last second |
 
 The commanded pose follows the wanted one with no overshoot, inside the speed
 and reach above.
+
+### A glance first
+
+The look away while the lamp thinks begins as a glance and deepens only if
+the thinking goes on. A person asked something easy flicks their eyes
+aside and is back as they begin to answer; asked something hard, they
+look away for as long as it takes.
+
+- At once: the base turns 36 counts, a little over three degrees, and
+  the lift and the tilt go the same share of their way.
+- For the first 0.8 s it stays there.
+- If the lamp is still thinking, it goes the rest of the way to the whole
+  look away over the next 4 s, eased at both ends.
+
+Within the folded reach (yaw 40) the glance is the whole look away, so a
+lamp started without `--reach` moves exactly as it did. With lamp-4ace's
+yaw reach of 250 the whole look away is 225 counts, near 20 degrees.
+
+It was changed on what the joints showed. On lamp-4ace on 2026-10-14,
+with `body/joint_states` recorded through three short played exchanges
+and nobody in the office, the lamp had thought for 1.16 to 1.39 s when
+its voice began. Its base was by then 94 to 133 counts round (8 to 12
+degrees), and it was back and still 0.68 to 1.24 s after the first sound.
+The three answers lasted 0.78 to 1.68 s: the lamp spent most of each
+turning back to the person it was answering, and one had ended before it
+was back.
 
 A joint that has arrived rests, in any mood: once the commanded pose has
 been within 6 counts of the wanted one and slower than 15 counts a second

@@ -804,24 +804,46 @@ fn a_wider_reach_and_speed_can_be_chosen_only_inside_their_caps() {
     }
 
     // With it the head turns much farther, still in small steps and still
-    // never past the pitch window.
-    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
-    lamp.servos[PITCH].position = 1_950.0;
-    lamp.servos[PITCH].goal = 1_950;
-    for servo in [PITCH, ROLL, YAW] {
-        lamp.servos[servo].speed = 600;
-        lamp.servos[servo].acceleration = 100;
-    }
-    let news = script(&clock.time);
-    let report = run(&mut lamp, &mut clock, limits, None, news, |_| {});
-    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
-    let farthest = |joint: Joint, home: u16| {
+    // never past the pitch window: a glance when the answer comes soon,
+    // and the whole look away only when the lamp goes on thinking.
+    let turned = |thinks_until_ms: u64, lasts: u64| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(lasts));
+        lamp.servos[PITCH].position = 1_950.0;
+        lamp.servos[PITCH].goal = 1_950;
+        for servo in [PITCH, ROLL, YAW] {
+            lamp.servos[servo].speed = 600;
+            lamp.servos[servo].acceleration = 100;
+        }
+        let time = clock.time.clone();
+        let news = move || {
+            let at = time.get().as_millis() as u64;
+            Some(match at {
+                0..1_000 => (Mood::Resting, 0),
+                1_000..3_000 => (Mood::Listening, 120),
+                at if at < thinks_until_ms => (Mood::Thinking, 0),
+                at if at < thinks_until_ms + 2_500 => (Mood::Speaking, 30),
+                _ => (Mood::Resting, 0),
+            })
+        };
+        let report = run(&mut lamp, &mut clock, limits, None, news, |_| {});
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        lamp
+    };
+    // An answer after 1.2 s: the base has glanced aside, 36 counts and a
+    // little more, and no farther.
+    let lamp = turned(4_200, 9);
+    let farthest = |lamp: &Lamp, joint: Joint, home: u16| {
         lamp.goals
             .iter()
             .map(|write| goal_of(write, joint).abs_diff(home))
             .max()
             .unwrap()
     };
+    let glanced = farthest(&lamp, Joint::BaseYaw, 2_015);
+    assert!((30..=50).contains(&glanced), "{glanced}");
+    // Six seconds of thinking: all the way.
+    let lamp = turned(9_000, 14);
+    let farthest = |joint: Joint, home: u16| farthest(&lamp, joint, home);
     assert!(farthest(Joint::BaseYaw, 2_015) >= 150 && farthest(Joint::BaseYaw, 2_015) <= 200);
     assert!(farthest(Joint::WristPitch, 1_950) >= 90);
     let mut previous = [1_950, 2_044, 2_015];

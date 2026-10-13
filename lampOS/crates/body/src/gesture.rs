@@ -37,7 +37,28 @@ const VOICE_FAST_US: f32 = 120_000.0;
 const VOICE_SLOW_US: f32 = 900_000.0;
 const LONGEST_STEP_US: u64 = 100_000;
 
-#[derive(Clone, Debug, Default)]
+/// The look away while the lamp thinks begins as a glance and deepens only
+/// if the thinking goes on: a glance at once ([`Gestures::glancing`]), held
+/// for [`GLANCE_US`], and then the rest of the way over [`DEEPEN_US`].
+///
+/// A person asked something easy flicks their eyes aside and is back as
+/// they begin to answer; asked something hard, they look away for as long
+/// as it takes. The lamp used to start on its whole look away at once. On
+/// lamp-4ace on 2026-10-14, with its joints read from the bus through
+/// three short answers, it had thought for 1.2 to 1.4 s when its voice
+/// began, its base was 8 to 12 degrees round by then, and it was back and
+/// still 0.7 to 1.2 s later: it spent each answer turning back to the
+/// person it was answering.
+const GLANCE_US: f32 = 800_000.0;
+const DEEPEN_US: f32 = 4_000_000.0;
+/// The whole look away, as a share of the turn the engine allows.
+pub const AWAY: f32 = 0.9;
+/// The pose the lamp listens in, which thinking starts from and a glance
+/// keeps: its lift, and its tilt.
+const LISTENING_PITCH: f32 = -0.4;
+const LISTENING_ROLL: f32 = 0.85;
+
+#[derive(Clone, Debug)]
 pub struct Gestures {
     mood: Mood,
     /// Counts the times someone began to speak to it, so that a tilt is not
@@ -46,11 +67,42 @@ pub struct Gestures {
     voice: f32,
     voice_average: f32,
     last_us: Option<u64>,
+    /// When the mood it is in began.
+    since_us: u64,
+    /// The glance a look away begins with, as a share of the turn.
+    glance: f32,
+}
+
+impl Default for Gestures {
+    /// With nothing said of a glance, the look away is whole from the
+    /// start: within a reach of a few degrees the whole of it is a glance.
+    fn default() -> Self {
+        Self {
+            mood: Mood::default(),
+            exchanges: 0,
+            voice: 0.0,
+            voice_average: 0.0,
+            last_us: None,
+            since_us: 0,
+            glance: AWAY,
+        }
+    }
 }
 
 impl Gestures {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Begin every look away with this share of the turn, and go the rest
+    /// of the way only if the thinking goes on. No more than the whole
+    /// look away, which is what a lamp that is told nothing does at once.
+    #[must_use]
+    pub fn glancing(self, share: f32) -> Self {
+        Self {
+            glance: share.clamp(0.0, AWAY),
+            ..self
+        }
     }
 
     /// The pose wanted at `now_us`. `level` is how loud the voice in play is,
@@ -66,6 +118,7 @@ impl Gestures {
                 self.exchanges = self.exchanges.wrapping_add(1);
             }
             self.mood = mood;
+            self.since_us = now_us;
         }
         let heard = f32::from(level) / 255.0;
         self.voice += (heard - self.voice) * follow(step_us, VOICE_FAST_US);
@@ -75,15 +128,25 @@ impl Gestures {
         match mood {
             Mood::Resting => Pose::default(),
             Mood::Listening => Pose {
-                pitch: -0.4,
-                roll: 0.85 * side,
+                pitch: LISTENING_PITCH,
+                roll: LISTENING_ROLL * side,
                 yaw: 0.0,
             },
-            Mood::Thinking => Pose {
-                pitch: -0.7,
-                roll: -0.4 * side,
-                yaw: 0.9 * side,
-            },
+            Mood::Thinking => {
+                // How far into the whole look away it is: the glance for
+                // the length of a glance, then all of it, eased at both
+                // ends. The lift and the tilt go with the turn.
+                let thought_us = now_us.saturating_sub(self.since_us) as f32;
+                let share = ((thought_us - GLANCE_US) / DEEPEN_US).clamp(0.0, 1.0);
+                let eased = share * share * (3.0 - 2.0 * share);
+                let glance = self.glance / AWAY;
+                let deep = glance + (1.0 - glance) * eased;
+                Pose {
+                    pitch: LISTENING_PITCH - 0.3 * deep,
+                    roll: (LISTENING_ROLL - 1.25 * deep) * side,
+                    yaw: AWAY * deep * side,
+                }
+            }
             Mood::Speaking => {
                 // Louder than its recent average: the head dips a little.
                 let nod = (self.voice - self.voice_average).clamp(-0.5, 0.5);
@@ -153,10 +216,64 @@ mod tests {
         let away = gestures.target(Mood::Thinking, 0, 21_000);
         // It looks away to the side its head was tilted from, and up.
         assert!(away.yaw * first.roll > 0.0 && away.pitch < first.pitch);
+        // Told nothing of a glance, that is the whole look away at once.
+        assert!((away.yaw.abs() - 0.9).abs() < 1e-6 && (away.pitch + 0.7).abs() < 1e-6);
+        assert!((away.roll.abs() - 0.4).abs() < 1e-6);
         gestures.target(Mood::Speaking, 0, 41_000);
         gestures.target(Mood::Resting, 0, 61_000);
         let second = gestures.target(Mood::Listening, 0, 81_000);
         assert_eq!(second.roll, -first.roll);
+    }
+
+    #[test]
+    fn the_look_away_is_a_glance_that_deepens_only_while_the_thinking_goes_on() {
+        const GLANCE: f32 = 0.15;
+        let mut gestures = Gestures::new().glancing(GLANCE);
+        let start = 5_000_000u64;
+        let listening = gestures.target(Mood::Listening, 0, start - 20_000);
+        let at = |gestures: &mut Gestures, ms: u64| {
+            gestures.target(Mood::Thinking, 0, start + ms * 1_000)
+        };
+        // At once, and for as long as an easy answer takes: a glance.
+        let glance = at(&mut gestures, 0);
+        assert!((glance.yaw.abs() - GLANCE).abs() < 1e-6, "{glance:?}");
+        // The lift and the tilt have gone a sixth of their way with it.
+        assert!(
+            (glance.pitch - (listening.pitch - 0.05)).abs() < 1e-6,
+            "{glance:?}"
+        );
+        assert!(glance.roll * listening.roll > 0.0 && glance.roll.abs() < listening.roll.abs());
+        for ms in [100, 400, 800] {
+            assert_eq!(at(&mut gestures, ms), glance, "{ms}");
+        }
+        // Then further round, a little at first and never back.
+        let mut before = glance;
+        for ms in [1_000, 1_400, 2_000, 2_800, 3_600, 4_400, 4_800] {
+            let now = at(&mut gestures, ms);
+            assert!(now.yaw.abs() > before.yaw.abs(), "{ms} {now:?}");
+            assert!(now.pitch < before.pitch, "{ms} {now:?}");
+            assert_eq!(now.yaw.signum(), glance.yaw.signum());
+            before = now;
+        }
+        // At 1.2 s, when an ordinary answer has begun, it is under a
+        // quarter of the turn: a base that turns at 120 counts a second
+        // within a reach of 250 is back from there in half a second.
+        assert!(at(&mut gestures, 1_200).yaw.abs() < 0.25);
+        // After 4.8 s it is all the way, and stays.
+        let whole = at(&mut gestures, 4_800);
+        assert!((whole.yaw.abs() - 0.9).abs() < 1e-6, "{whole:?}");
+        assert!((whole.pitch + 0.7).abs() < 1e-6, "{whole:?}");
+        assert!((whole.roll.abs() - 0.4).abs() < 1e-6 && whole.roll * glance.roll < 0.0);
+        assert_eq!(at(&mut gestures, 30_000), whole);
+        // A glance is never more than the whole look away.
+        let wide = Gestures::new().glancing(7.0).target(Mood::Thinking, 0, 1);
+        assert!((wide.yaw.abs() - 0.9).abs() < 1e-6, "{wide:?}");
+        // The next time it thinks, it begins with a glance again, to the
+        // other side.
+        gestures.target(Mood::Speaking, 0, start + 31_000_000);
+        gestures.target(Mood::Listening, 0, start + 32_000_000);
+        let again = gestures.target(Mood::Thinking, 0, start + 33_000_000);
+        assert_eq!(again.yaw, -glance.yaw);
     }
 
     #[test]

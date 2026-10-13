@@ -185,7 +185,7 @@ claim every component is deployed.
 
 ```text
 ADDITIONAL WORKERS                PROPOSED OWNER       STATUS
-Perception / gaze                loclt1011            Pending
+Perception / gaze                loclt1011            Candidate: face bearing only, eyes.md
 End-of-turn inference            ndtran11-png          Candidate
 Buttons / touch                  Kyle                 Pending
 Environment sensors              Kyle                 Later priority

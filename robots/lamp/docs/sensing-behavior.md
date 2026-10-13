@@ -198,12 +198,18 @@ devices that were working correctly. Recognition itself was never affected
 (owners match against the enrolled photos, which never touch these files); the
 cost was journald filling with tracebacks that buried real errors.
 
-**Clearing unknown faces:** to empty the Unknown Faces card in the monitor UI,
-delete `<HAL_USERS_DIR>/.stranger_stats.json` and leave the `.npy` bank alone.
-Note the stats file and the bank live in different directories, so "clear the
-strangers" is easy to do incompletely. There is no delete endpoint for face
-strangers today — unknown *voice* clusters do have one, the Unknown Faces card
-is read-only — so clearing them is a filesystem operation.
+**Clearing unknown faces:** HAL keeps three things per unknown face, in two
+directories: the embedding rows in this bank (`embeds.npy` + `labels.npy`), the
+visit stats in `<HAL_USERS_DIR>/.stranger_stats.json`, and any familiar-stranger
+snapshots under `<HAL_STRANGERS_DIR>/snapshots/`. `FacePerception.forget_strangers`
+deletes all three together, plus the in-memory presence entry. The bank rows are
+rewritten on disk too (the bank is re-read every frame, so an in-memory delete
+would come straight back); `counter.npy` is kept, so a forgotten id is never
+reused and a forgotten person who returns is minted as a new stranger. The
+monitor's Unknown faces card calls it through `DELETE /face/strangers/{id}`
+(the ✕ on a row) and `DELETE /face/strangers` (**Clear all**); see
+[Stranger Visit Tracking](#stranger-visit-tracking). Strangers also expire on
+their own after `HAL_FACE_STRANGER_RETENTION_S` (30 days) without a visit.
 
 ---
 
@@ -399,7 +405,12 @@ HAL (port 5001) tracks how many times each stranger has been seen:
 - On every `presence.enter` event containing a stranger ID (e.g. `stranger_5`), the visit count is incremented.
 - Stats include `count`, `first_seen`, and `last_seen` timestamps per stranger.
 - Persisted in HAL's data directory (survives restarts).
-- Query stats via `GET http://127.0.0.1:5001/face/stranger-stats`.
+- Query stats via `GET http://127.0.0.1:5001/face/stranger-stats` (returns a copy).
+- Forget unknown faces (loopback HAL routes; the web reaches them through os-server `/api/hardware/*`, which needs the owner's session or token):
+  - `DELETE /face/strangers` forgets every unknown face and returns `{"status":"ok","forgotten":[ids]}`.
+  - `DELETE /face/strangers/{stranger_id}` forgets one: 400 if the id is not `stranger_<n>`, 404 if it has no visit stats.
+  - Either one deletes the bank rows, the stats entry and the snapshots together (see [Clearing unknown faces](#stranger-bank-on-disk)).
+- **Retention:** `HAL_FACE_STRANGER_RETENTION_S` (default 2592000 s = 30 days, `hal/config.py`). In the same hourly sweep that prunes snapshots (run on camera ticks), `FacePerception.expire_strangers` forgets every stranger whose `last_seen` is older than that, plus bank rows with no stats record (they never show in the web card, so they could not be deleted from there). A `last_seen` that cannot be parsed is kept and logged.
 
 ### Familiar-stranger enroll prompt
 

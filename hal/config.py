@@ -101,6 +101,9 @@ YUNET_CONFIDENCE_THRESHOLD = float(
 FACE_COOLDOWN_S = float(os.environ.get("HAL_FACE_COOLDOWN_S", "10.0"))
 FACE_OWNER_FORGET_S = float(os.environ.get("HAL_FACE_OWNER_FORGET_S", "3600.0"))
 FACE_STRANGER_FORGET_S = float(os.environ.get("HAL_FACE_STRANGER_FORGET_S", "1800.0"))
+# An unknown face (its face data, visit stats and snapshots) is deleted after this long
+# without being seen again. Nobody consented to being remembered, so it must not be kept forever.
+FACE_STRANGER_RETENTION_S = float(os.environ.get("HAL_FACE_STRANGER_RETENTION_S", str(30 * 86400)))
 # Floor between stranger-only presence.enter events (embedding flicker mints new ids).
 FACE_STRANGER_ENTER_FLOOR_S = float(os.environ.get("HAL_FACE_STRANGER_ENTER_FLOOR_S", "300.0"))
 # Strangers are greeted only after facing the lamp on MIN_FACING of the last TICKS face-ID ticks (#531).

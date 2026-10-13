@@ -170,7 +170,9 @@ export function PrivacySection({ active }: { active: boolean }) {
     <SectionCard id="privacy" title="Privacy" active={active}>
       <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 14, lineHeight: 1.6 }}>
         Face detection, Face ID, presence and gaze run on this device and send no images to
-        a cloud server. When a face without a name has been seen twice, the lamp keeps one
+        a cloud server. Faces it does not know are remembered on the device as face data so it
+        can count visits; they are deleted after 30 days without a visit, and you can delete
+        them sooner under Unknown faces. When a face without a name has been seen twice, the lamp keeps one
         photo on the device for 24 hours so it can ask whether to remember that person.
         It also keeps a photo each time someone arrives (for 72 hours) and a few dozen recent
         frames used to aim where it looks; these stay on the device and are not uploaded.

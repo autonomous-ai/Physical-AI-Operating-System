@@ -8,6 +8,7 @@ import threading
 import time
 from collections import deque
 from copy import copy
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, override
 
@@ -79,6 +80,31 @@ def prune_stranger_snapshots(now: float) -> int:
     if removed:
         logger.info("[face] pruned %d stranger snapshot(s) older than %.0f s", removed, config.STRANGER_SNAPSHOT_RETENTION_S)
     return removed
+
+_STRANGER_ID_RE = re.compile(r"^stranger_\d+$")
+_STRANGER_TS_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
+
+
+def is_stranger_id(value: str) -> bool:
+    """True for a well-formed stranger id such as ``stranger_5``."""
+    return bool(_STRANGER_ID_RE.match(value))
+
+
+def _delete_stranger_snapshots(stranger_ids: set[str] | None) -> None:
+    """Delete familiar-stranger snapshots of these ids (all when None)."""
+    try:
+        files = list(_STRANGER_SNAPSHOTS_DIR.glob("*.jpg"))
+    except OSError:
+        return
+    for f in files:
+        sid = f.name.rsplit("_", 1)[0]
+        if stranger_ids is not None and sid not in stranger_ids:
+            continue
+        try:
+            f.unlink()
+        except OSError as e:
+            logger.warning("[face] failed to delete stranger snapshot %s: %s", f, e)
+
 
 _ENROLL_IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 
@@ -414,6 +440,7 @@ class FacePerception(Perception[cv2.typing.MatLike]):
         if cur_ts - self._last_snapshot_prune_ts >= _SNAPSHOT_PRUNE_EVERY_S:
             self._last_snapshot_prune_ts = cur_ts
             prune_stranger_snapshots(cur_ts)
+            self.expire_strangers(cur_ts)
 
         faces = self._face_recognizer.detect(frame)
 
@@ -750,7 +777,7 @@ class FacePerception(Perception[cv2.typing.MatLike]):
 
     def _track_stranger_visits(self, stranger_ids: set[str]) -> set[str]:
         """Increment visit count for each stranger seen in this frame."""
-        now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        now = time.strftime(_STRANGER_TS_FORMAT)
         just_familiar: set[str] = set()
         with self._state_lock:
             for sid in stranger_ids:
@@ -774,7 +801,55 @@ class FacePerception(Perception[cv2.typing.MatLike]):
     def stranger_stats(self) -> dict[str, Any]:
         """Return visit counts for all tracked stranger IDs."""
         with self._state_lock:
-            return self._stranger_visit_counts
+            return dict(self._stranger_visit_counts)
+
+    def forget_strangers(self, stranger_ids: set[str] | None = None) -> set[str]:
+        """Delete everything kept about these strangers (all when None).
+
+        Face data in the recognizer bank, visit stats, familiar-stranger snapshots and the
+        in-memory presence entry all go, so the person is new again if they come back.
+        Returns the ids that had visit stats.
+        """
+        with self._state_lock:
+            if stranger_ids is None:
+                forgotten = set(self._stranger_visit_counts)
+                self._stranger_visit_counts.clear()
+            else:
+                forgotten = {sid for sid in stranger_ids if self._stranger_visit_counts.pop(sid, None) is not None}
+            for sid in [p for p, d in self._people_data_dict.items() if d.kind == PersonKind.STRANGER]:
+                if stranger_ids is None or sid in stranger_ids:
+                    self._people_data_dict.pop(sid, None)
+                    self._ungreeted_strangers.pop(sid, None)
+            self._save_stranger_stats()
+        self._face_recognizer.forget_strangers(stranger_ids)
+        _delete_stranger_snapshots(stranger_ids)
+        logger.info("[face] forgot %s stranger(s)", "all" if stranger_ids is None else len(stranger_ids))
+        return forgotten
+
+    def expire_strangers(self, now: float) -> set[str]:
+        """Forget strangers not seen for FACE_STRANGER_RETENTION_S, and face data with no stats.
+
+        A bank row without a stats record is invisible in the web card and could never be
+        deleted there; a new stranger gets its record in the same tick it is minted, and
+        this runs before detection, so such a row is always left over from an old state.
+        """
+        cutoff = now - config.FACE_STRANGER_RETENTION_S
+        expired: set[str] = set()
+        with self._state_lock:
+            for sid, rec in self._stranger_visit_counts.items():
+                try:
+                    last = datetime.strptime(rec.get("last_seen", ""), _STRANGER_TS_FORMAT).timestamp()
+                except (ValueError, TypeError, AttributeError):
+                    logger.warning("[face] stranger %s has an unreadable last_seen, keeping it", sid)
+                    continue
+                if last < cutoff:
+                    expired.add(sid)
+            tracked = set(self._stranger_visit_counts)
+        expired |= self._face_recognizer.stranger_ids() - tracked
+        if expired:
+            logger.info("[face] forgetting %d stranger(s) not seen for %.0f days", len(expired), config.FACE_STRANGER_RETENTION_S / 86400)
+            self.forget_strangers(expired)
+        return expired
 
     def has_friend_present(self) -> bool:
         """Return True if any friend was seen within the forget interval."""

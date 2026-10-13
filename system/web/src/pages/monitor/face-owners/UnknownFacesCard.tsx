@@ -7,20 +7,42 @@ import type { FaceStrangerStat } from "./types";
 
 // Unknown Faces: visit stats per stranger_id.
 export function UnknownFacesCard({
-  faceStrangers, faceStrangersError, monCard, cardHeader,
+  faceStrangers, faceStrangersError, forgetting, onForget, monCard, cardHeader,
 }: {
   faceStrangers: FaceStrangerStat[] | null;
   faceStrangersError: boolean;
+  /** Stranger id (or "all") being deleted right now. */
+  forgetting: string | null;
+  /** Ask to delete one stranger, or "all". */
+  onForget: (target: string) => void;
   monCard: CSSProperties;
   cardHeader: CSSProperties;
 }) {
+  const deleteButton: CSSProperties = {
+    fontSize: 12, color: "var(--lm-red)", fontWeight: 600, flexShrink: 0, padding: "0 4px",
+  };
   return (
     <div className="lm-mon-card" style={monCard}>
       <div style={cardHeader}>
         <h2 className="lm-users-card-title"><ScanFace size={17} aria-hidden />Unknown faces</h2>
-        <span style={{ fontSize: 12, color: "var(--lm-text-muted)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--lm-text-muted)" }}>
           {faceStrangers ? `${faceStrangers.length} stranger${faceStrangers.length !== 1 ? "s" : ""}` : ""}
+          {faceStrangers && faceStrangers.length > 0 && (
+            <button
+              className="lm-users-delete"
+              disabled={forgetting !== null}
+              onClick={() => onForget("all")}
+              title="Delete every unknown face"
+              style={{ ...deleteButton, cursor: forgetting ? "wait" : "pointer", opacity: forgetting ? 0.5 : 0.8 }}
+            >
+              {forgetting === "all" ? "Clearing…" : "Clear all"}
+            </button>
+          )}
         </span>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--lm-text-muted)", marginBottom: 8 }}>
+        Face data of people the lamp does not know, kept on the device to count visits.
+        Deleted automatically after 30 days without a visit.
       </div>
 
       {faceStrangersError && (
@@ -82,8 +104,18 @@ export function UnknownFacesCard({
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: 12, color: "var(--lm-text-muted)" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--lm-text-muted)" }}>
                     last {s.last_seen ? fmtIsoAgo(s.last_seen) : "?"}
+                    <button
+                      className="lm-users-delete"
+                      disabled={forgetting !== null}
+                      aria-label={`Delete ${s.stranger_id}`}
+                      title={`Delete ${s.stranger_id}`}
+                      onClick={() => onForget(s.stranger_id)}
+                      style={{ ...deleteButton, cursor: forgetting ? "wait" : "pointer", opacity: forgetting === s.stranger_id ? 0.5 : 0.7 }}
+                    >
+                      {forgetting === s.stranger_id ? "…" : "✕"}
+                    </button>
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--lm-text-muted)" }}>

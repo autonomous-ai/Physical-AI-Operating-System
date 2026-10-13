@@ -308,7 +308,7 @@ Config field: `guard_mode` in `config/config.json` (bool, default `false`). The 
 | POST | `/api/mood/log` | Log user mood (called by agent via Mood skill) |
 | POST | `/api/monitor/event` | Push an event directly to the monitor bus (used by HAL for sound tracker state) |
 
-> **Note:** Stranger visit tracking (stats, persistence) is handled by **HAL** (port 5001) at `GET /face/stranger-stats`. See [sensing-behavior.md](../robots/lamp/docs/sensing-behavior.md#stranger-visit-tracking) for details.
+> **Note:** Stranger visit tracking (stats, persistence) is handled by **HAL** (port 5001) at `GET /face/stranger-stats`. `DELETE /face/strangers` (all) and `DELETE /face/strangers/{stranger_id}` (one) forget unknown faces (embeddings, visit stats and snapshots together); strangers not seen for 30 days (`HAL_FACE_STRANGER_RETENTION_S`) are forgotten automatically. See [sensing-behavior.md](../robots/lamp/docs/sensing-behavior.md#stranger-visit-tracking) for details.
 
 **Request body:**
 ```json
@@ -595,6 +595,9 @@ Requires sensing with camera (InsightFace). Enrolled person JPEGs persist under 
 | GET | `/face/owners` | `enrolled_count`, `persons[]` with photos, voice samples, Telegram identity and per-user log days (mood / wellbeing / music-suggestions / posture / audio_history). A folder is a person only if it holds a face photo, a voice sample or `metadata.json`; log-only folders are skipped. The shared `unknown/` bucket is listed (so its logs are browsable) but not counted in `enrolled_count`. |
 | POST | `/face/remove` | Body: `label` — remove one person (404 if unknown) |
 | POST | `/face/reset` | Clear all enrolled persons and photos on disk |
+| GET | `/face/stranger-stats` | Visit stats per unknown face: `count`, `first_seen`, `last_seen` |
+| DELETE | `/face/strangers` | Forget every unknown face (embeddings, visit stats, snapshots); returns `forgotten[]` |
+| DELETE | `/face/strangers/{stranger_id}` | Forget one unknown face — 400 if not `stranger_<n>`, 404 if it has no visit stats |
 
 ### User (per-user data)
 

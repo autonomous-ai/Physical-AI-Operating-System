@@ -1,0 +1,794 @@
+//! The board's reader against boards made of files, and each line at
+//! which the board's report turns to a warning or an error, from both
+//! sides.
+mod tree;
+
+use lamp_health::board::{self, Reading, Unread, Zone};
+use lamp_msgs::{Diagnostic, Level};
+use std::path::Path;
+use tree::Tree;
+
+fn value<'a>(report: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    report
+        .values
+        .iter()
+        .find(|value| value.key == key)
+        .map(|value| value.value.as_str())
+}
+
+fn what(reading: &Reading) -> Vec<&'static str> {
+    reading.unread.iter().map(|unread| unread.what).collect()
+}
+
+/// A board with nothing the matter, to change one number of.
+fn well() -> Reading {
+    Reading {
+        zones: vec![zone("skin_zone", 37_000, &[], None)],
+        cpu_load: Some(0.31),
+        memory_used: Some(0.44),
+        disk_free: Some(0.13),
+        uptime_s: Some(208_800),
+        wifi_dbm: None,
+        clock_synced: None,
+        unread: Vec::new(),
+    }
+}
+
+fn zone(name: &str, milli_c: i64, passive: &[i64], critical: Option<i64>) -> Zone {
+    Zone {
+        name: name.into(),
+        milli_c,
+        passive_milli_c: passive.to_vec(),
+        critical_milli_c: critical,
+    }
+}
+
+/// The level and the message of the board's report.
+fn said(reading: &Reading) -> (Level, String) {
+    let report = reading.report();
+    assert_eq!(report.name, "board");
+    (report.level, report.message)
+}
+
+/// A processor zone of the real board at `milli_c`.
+fn cpu_at(milli_c: i64) -> Reading {
+    Reading {
+        zones: vec![
+            zone("skin_zone", 37_000, &[], None),
+            zone(
+                "cpul_thermal_zone",
+                milli_c,
+                &[70_000, 90_000],
+                Some(110_000),
+            ),
+        ],
+        ..well()
+    }
+}
+
+#[test]
+fn the_real_boards_files_are_read_as_its_numbers() {
+    let tree = Tree::real_board("real");
+    let reading = board::read(&tree.places());
+    assert!(reading.unread.is_empty(), "{:?}", reading.unread);
+    // Eight zones in the order of their numbers, the two processor zones
+    // with their trip points.
+    assert_eq!(reading.zones.len(), 8);
+    for (zone, (kind, milli_c)) in reading.zones.iter().zip(tree::ZONES) {
+        assert_eq!((zone.name.as_str(), zone.milli_c), (kind, milli_c));
+    }
+    assert_eq!(
+        reading.zones[0],
+        zone(
+            "cpul_thermal_zone",
+            63_500,
+            &[70_000, 90_000],
+            Some(110_000)
+        )
+    );
+    assert_eq!(reading.zones[1].passive_milli_c, [70_000, 90_000]);
+    assert_eq!(reading.zones[7], zone("skin_zone", 37_000, &[], None));
+    // 2.48 over eight processors; 8,960,000 of 16,000,000 kB available.
+    assert!((reading.cpu_load.unwrap() - 0.31).abs() < 1e-6);
+    assert!((reading.memory_used.unwrap() - 0.44).abs() < 1e-6);
+    assert_eq!(reading.uptime_s, Some(208_800));
+    // The disk is the machine's own: whatever is free on it, asked twice.
+    let free = reading.disk_free.unwrap();
+    assert!((0.0..=1.0).contains(&free), "{free}");
+    assert!((free - tree::disk_free(&tree.path("disk"))).abs() < 0.01);
+    // The real board has no file for the Wi-Fi and no timesync directory.
+    assert_eq!((reading.wifi_dbm, reading.clock_synced), (None, None));
+
+    let state = reading.state().expect("all four numbers are there");
+    assert_eq!(state.check(), Ok(()));
+    assert_eq!(state.temperature_c.len(), 8);
+    assert_eq!(state.temperature_c["cpub_thermal_zone"], 64.25);
+    assert_eq!(state.temperature_c["skin_zone"], 37.0);
+    assert_eq!(
+        (state.cpu_load, state.memory_used, state.uptime_s),
+        (
+            reading.cpu_load.unwrap(),
+            reading.memory_used.unwrap(),
+            208_800
+        )
+    );
+    let json = serde_json::to_string(&state).unwrap();
+    assert!(
+        !json.contains("wifi_dbm") && !json.contains("clock_synced"),
+        "{json}"
+    );
+
+    // The report: nothing the matter that these files could show, and the
+    // numbers as text. The level is the disk's alone to spoil.
+    let report = reading.report();
+    assert_eq!(report.name, "board");
+    if free >= board::DISK_FREE_WARN {
+        assert_eq!(
+            (report.level, report.message.as_str()),
+            (Level::Ok, ""),
+            "{report:?}"
+        );
+    } else {
+        assert!(report.message.starts_with("the disk is "), "{report:?}");
+    }
+    assert_eq!(
+        report
+            .values
+            .iter()
+            .map(|value| value.key.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "cpu_load",
+            "memory_used",
+            "disk_free",
+            "uptime_s",
+            "hottest_zone",
+            "hottest_c"
+        ]
+    );
+    assert_eq!(value(&report, "cpu_load"), Some("0.31"));
+    assert_eq!(value(&report, "memory_used"), Some("0.440"));
+    assert_eq!(value(&report, "uptime_s"), Some("208800"));
+    assert_eq!(value(&report, "hottest_zone"), Some("ddr_thermal_zone"));
+    assert_eq!(value(&report, "hottest_c"), Some("64.5"));
+}
+
+#[test]
+fn the_default_places_are_the_systems_own() {
+    let places = board::Places::default();
+    assert_eq!(
+        (
+            places.proc.as_path(),
+            places.sys.as_path(),
+            places.run.as_path(),
+            places.disk.as_path()
+        ),
+        (
+            Path::new("/proc"),
+            Path::new("/sys"),
+            Path::new("/run"),
+            Path::new("/")
+        )
+    );
+}
+
+#[test]
+fn a_number_whose_file_is_missing_is_not_read_and_the_report_says_which() {
+    let tree = Tree::real_board("missing");
+    // Each file alone: the number it holds is the one not read.
+    for (file, number) in [
+        ("proc/loadavg", "cpu_load"),
+        ("proc/stat", "cpu_load"),
+        ("proc/meminfo", "memory_used"),
+        ("proc/uptime", "uptime_s"),
+    ] {
+        let kept = std::fs::read_to_string(tree.path(file)).unwrap();
+        tree.remove(file);
+        let reading = board::read(&tree.places());
+        assert_eq!(what(&reading), [number], "{file}");
+        let Unread { why, .. } = &reading.unread[0];
+        assert!(
+            why.starts_with(&format!("{}: ", tree.path(file).display())),
+            "{why}"
+        );
+        // No numbers are published without all four, and the report says
+        // which could not be read. The others are in it as before.
+        assert_eq!(reading.state(), None, "{file}");
+        let report = reading.report();
+        if reading.disk_free.unwrap() >= board::DISK_FREE_WARN {
+            assert_eq!(
+                (report.level, report.message.clone()),
+                (Level::Warn, format!("could not be read: {number}")),
+                "{file}"
+            );
+        }
+        assert_eq!(value(&report, number), None);
+        assert_eq!(report.values.len(), 5, "{file}");
+        tree.file(file, &kept);
+    }
+    assert!(board::read(&tree.places()).unread.is_empty());
+
+    // A disk that is not there.
+    let mut places = tree.places();
+    places.disk = tree.path("no-such-disk");
+    let reading = board::read(&places);
+    assert_eq!(what(&reading), ["disk_free"]);
+    assert_eq!(reading.state(), None);
+    assert_eq!(
+        said(&reading),
+        (Level::Warn, "could not be read: disk_free".into())
+    );
+
+    // Nothing at all, as on a machine that is no Linux: every number the
+    // lamp cannot do without, in the order they are read, and no zone.
+    let empty = Tree::empty("nothing");
+    let mut places = empty.places();
+    places.disk = empty.path("no-such-disk");
+    let reading = board::read(&places);
+    assert_eq!(
+        what(&reading),
+        ["cpu_load", "memory_used", "disk_free", "uptime_s"]
+    );
+    assert!(reading.zones.is_empty());
+    assert_eq!(reading.state(), None);
+    let report = reading.report();
+    assert_eq!(
+        (report.level, report.message.as_str()),
+        (
+            Level::Warn,
+            "could not be read: cpu_load, memory_used, disk_free, uptime_s"
+        )
+    );
+    assert!(report.values.is_empty());
+    // Places that are not there at all are read the same way.
+    let nowhere = board::read(&board::Places {
+        proc: "/nonexistent/proc".into(),
+        sys: "/nonexistent/sys".into(),
+        run: "/nonexistent/run".into(),
+        disk: "/nonexistent/disk".into(),
+    });
+    assert_eq!(what(&nowhere), what(&reading));
+    assert!(nowhere.zones.is_empty() && nowhere.state().is_none());
+    assert_eq!(
+        nowhere.unread[0].why,
+        "/nonexistent/proc/loadavg: No such file or directory (os error 2)"
+    );
+}
+
+#[test]
+fn garbage_in_a_file_is_a_number_not_read_and_never_a_wrong_one() {
+    let tree = Tree::real_board("garbage");
+    let kept = |file: &str| std::fs::read_to_string(tree.path(file)).unwrap();
+    for (file, number, garbage) in [
+        (
+            "proc/loadavg",
+            "cpu_load",
+            &[
+                "",
+                "\n",
+                "busy 1 2\n",
+                "-1.0 0 0\n",
+                "nan 0 0\n",
+                "inf 0 0\n",
+            ][..],
+        ),
+        // No line for a processor: the first line is all of them together.
+        (
+            "proc/stat",
+            "cpu_load",
+            &["", "cpu  1 2 3 4\nintr 5\n", "cpus 4\n", "\u{0}\u{1}\u{2}"][..],
+        ),
+        (
+            "proc/meminfo",
+            "memory_used",
+            &[
+                "",
+                "MemTotal: lots kB\nMemAvailable: 5 kB\n",
+                "MemTotal: 16000000 kB\n",
+                "MemAvailable: 5 kB\n",
+                "MemTotal: 0 kB\nMemAvailable: 0 kB\n",
+                "MemTotal 16000000 kB\nMemAvailable 5 kB\n",
+            ][..],
+        ),
+        (
+            "proc/uptime",
+            "uptime_s",
+            &["", "soon\n", "-5.0 1\n", "nan 1\n"][..],
+        ),
+    ] {
+        let good = kept(file);
+        for text in garbage {
+            tree.file(file, text);
+            let reading = board::read(&tree.places());
+            assert_eq!(what(&reading), [number], "{file} {text:?}");
+            assert_eq!(reading.state(), None);
+        }
+        tree.file(file, &good);
+    }
+    // Bytes that are no text at all.
+    std::fs::write(tree.path("proc/loadavg"), [0xff, 0xfe, 0x00, 0x80]).unwrap();
+    assert_eq!(what(&board::read(&tree.places())), ["cpu_load"]);
+    tree.file("proc/loadavg", "2.48 2.51 2.60 3/1234 56789\n");
+    // A directory where a file should be.
+    tree.remove("proc/uptime");
+    std::fs::create_dir(tree.path("proc/uptime")).unwrap();
+    assert_eq!(what(&board::read(&tree.places())), ["uptime_s"]);
+    tree.remove("proc/uptime");
+    tree.file("proc/uptime", "12.9 1\n");
+    // More available than there is, and a fraction of a second: neither
+    // is out of range once read.
+    tree.file("proc/meminfo", "MemTotal: 100 kB\nMemAvailable: 250 kB\n");
+    let reading = board::read(&tree.places());
+    assert_eq!(
+        (reading.memory_used, reading.uptime_s),
+        (Some(0.0), Some(12))
+    );
+    assert_eq!(reading.state().unwrap().check(), Ok(()));
+    // A long file is read as far as its processors, which come first.
+    let long = format!("{}{}", tree::STAT, "x".repeat(1_000_000));
+    tree.file("proc/stat", &long);
+    assert!((board::read(&tree.places()).cpu_load.unwrap() - 0.31).abs() < 1e-6);
+
+    // A zone with garbage for its temperature or no type is no zone, and
+    // the others are read as before.
+    tree.file("sys/class/thermal/thermal_zone0/temp", "warm\n");
+    tree.file("sys/class/thermal/thermal_zone2/temp", "");
+    tree.remove("sys/class/thermal/thermal_zone4/type");
+    tree.file("sys/class/thermal/thermal_zone5/type", "\n");
+    // Not a temperature: colder than can be, and hotter than a board gets.
+    tree.heat(6, -274_000);
+    tree.heat(7, 2_147_483_647);
+    let reading = board::read(&tree.places());
+    assert_eq!(
+        reading
+            .zones
+            .iter()
+            .map(|zone| zone.name.as_str())
+            .collect::<Vec<_>>(),
+        ["cpub_thermal_zone", "cpub_idle_zone"]
+    );
+    assert!(reading.unread.is_empty());
+    assert_eq!(reading.state().unwrap().temperature_c.len(), 2);
+}
+
+#[test]
+fn a_board_with_no_thermal_zones_still_has_its_other_numbers() {
+    let tree = Tree::real_board("no-zones");
+    tree.remove("sys/class/thermal");
+    let reading = board::read(&tree.places());
+    assert!(reading.zones.is_empty() && reading.unread.is_empty());
+    let state = reading.state().expect("the four numbers are there");
+    assert!(state.temperature_c.is_empty());
+    assert_eq!(state.check(), Ok(()));
+    let report = reading.report();
+    assert_eq!(
+        (value(&report, "hottest_zone"), value(&report, "hottest_c")),
+        (None, None)
+    );
+    assert_eq!(report.values.len(), 4);
+    // Nothing is said of a temperature nobody measures.
+    assert!(!report.message.contains("°C"), "{report:?}");
+    // A thermal directory with other things in it and no zone.
+    tree.file(
+        "sys/class/thermal/cooling_device0/type",
+        "thermal-cpufreq-0\n",
+    );
+    tree.file("sys/class/thermal/thermal_zone/type", "nameless\n");
+    tree.file("sys/class/thermal/thermal_zoneX/temp", "50000\n");
+    assert!(board::read(&tree.places()).zones.is_empty());
+}
+
+#[test]
+fn trip_points_are_read_by_their_kind_and_the_lowest_passive_comes_first() {
+    let tree = Tree::empty("trips");
+    // Out of order, with kinds this program does nothing with.
+    tree.zone(
+        3,
+        "soc_thermal",
+        50_000,
+        &[
+            (95_000, "passive"),
+            (60_000, "active"),
+            (115_000, "critical"),
+            (75_000, "passive"),
+            (100_000, "hot"),
+            (110_000, "critical"),
+        ],
+    );
+    // No trip points at all.
+    tree.zone(1, "skin_zone", 37_000, &[]);
+    // Trip points that cannot be read: a kind with no temperature, a
+    // temperature with garbage for its kind, a temperature that is none.
+    tree.zone(7, "odd_zone", 41_000, &[(70_000, "passive")]);
+    tree.remove("sys/class/thermal/thermal_zone7/trip_point_0_temp");
+    tree.file(
+        "sys/class/thermal/thermal_zone7/trip_point_1_temp",
+        "80000\n",
+    );
+    tree.file(
+        "sys/class/thermal/thermal_zone7/trip_point_1_type",
+        "\u{0}\n",
+    );
+    tree.file("sys/class/thermal/thermal_zone7/trip_point_2_temp", "hot\n");
+    tree.file(
+        "sys/class/thermal/thermal_zone7/trip_point_2_type",
+        "critical\n",
+    );
+    // A second zone of a type already seen is told apart by its number.
+    tree.zone(12, "soc_thermal", 51_000, &[]);
+    // Past a hole in the numbering nothing is looked for.
+    tree.zone(20, "gap_zone", 30_000, &[(70_000, "passive")]);
+    tree.file(
+        "sys/class/thermal/thermal_zone20/trip_point_2_temp",
+        "90000\n",
+    );
+    tree.file(
+        "sys/class/thermal/thermal_zone20/trip_point_2_type",
+        "passive\n",
+    );
+    let zones = board::read(&tree.places()).zones;
+    assert_eq!(
+        zones,
+        [
+            zone("skin_zone", 37_000, &[], None),
+            zone("soc_thermal", 50_000, &[75_000, 95_000], Some(110_000)),
+            zone("odd_zone", 41_000, &[], None),
+            zone("soc_thermal_12", 51_000, &[], None),
+            zone("gap_zone", 30_000, &[70_000], None),
+        ]
+    );
+}
+
+#[test]
+fn a_zone_warns_five_degrees_under_its_first_passive_point() {
+    // The real board's processor zones slow down from 70 °C.
+    assert_eq!(said(&cpu_at(64_999)), (Level::Ok, String::new()));
+    assert_eq!(
+        said(&cpu_at(65_000)),
+        (
+            Level::Warn,
+            "cpul_thermal_zone is at 65 °C: the board slows itself down from 70".into()
+        )
+    );
+    // As the board reads on a warm day, and at and past the point itself.
+    assert_eq!(
+        said(&cpu_at(66_000)),
+        (
+            Level::Warn,
+            "cpul_thermal_zone is at 66 °C: the board slows itself down from 70".into()
+        )
+    );
+    assert_eq!(said(&cpu_at(70_000)).0, Level::Warn);
+    assert_eq!(said(&cpu_at(89_999)).0, Level::Warn);
+    assert_eq!(board::WARN_BELOW_PASSIVE_C, 5);
+}
+
+#[test]
+fn a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical() {
+    assert_eq!(said(&cpu_at(89_999)).0, Level::Warn);
+    assert_eq!(
+        said(&cpu_at(90_000)),
+        (
+            Level::Error,
+            "cpul_thermal_zone is at 90 °C: past 90, the second point at which the board slows itself down"
+                .into()
+        )
+    );
+    assert_eq!(
+        said(&cpu_at(99_999)).1,
+        "cpul_thermal_zone is at 100 °C: past 90, the second point at which the board slows itself down"
+    );
+    // From ten under the point where the board turns itself off, that is
+    // what is said.
+    assert_eq!(
+        said(&cpu_at(100_000)),
+        (
+            Level::Error,
+            "cpul_thermal_zone is at 100 °C: the board turns itself off at 110".into()
+        )
+    );
+    assert_eq!(said(&cpu_at(125_000)).0, Level::Error);
+    // A zone with a critical point and no second passive one: only the
+    // critical line makes an error of it.
+    let one = |milli_c| Reading {
+        zones: vec![zone("soc_thermal", milli_c, &[85_000], Some(115_000))],
+        ..well()
+    };
+    assert_eq!(said(&one(79_999)).0, Level::Ok);
+    assert_eq!(said(&one(80_000)).0, Level::Warn);
+    assert_eq!(said(&one(104_999)).0, Level::Warn);
+    assert_eq!(
+        said(&one(105_000)),
+        (
+            Level::Error,
+            "soc_thermal is at 105 °C: the board turns itself off at 115".into()
+        )
+    );
+    // Only a critical point: no warning comes before the error.
+    let critical = |milli_c| Reading {
+        zones: vec![zone("soc_thermal", milli_c, &[], Some(95_000))],
+        ..well()
+    };
+    assert_eq!(said(&critical(84_999)).0, Level::Ok);
+    assert_eq!(said(&critical(85_000)).0, Level::Error);
+    // Only passive points: the second is the error.
+    let passive = |milli_c| Reading {
+        zones: vec![zone("soc_thermal", milli_c, &[60_000, 75_000], None)],
+        ..well()
+    };
+    assert_eq!(said(&passive(54_999)).0, Level::Ok);
+    assert_eq!(said(&passive(55_000)).0, Level::Warn);
+    assert_eq!(said(&passive(74_999)).0, Level::Warn);
+    assert_eq!(said(&passive(75_000)).0, Level::Error);
+    // One passive point and nothing else never makes an error.
+    let single = |milli_c| Reading {
+        zones: vec![zone("soc_thermal", milli_c, &[60_000], None)],
+        ..well()
+    };
+    assert_eq!(said(&single(54_999)).0, Level::Ok);
+    assert_eq!(said(&single(200_000)).0, Level::Warn);
+    assert_eq!(board::ERROR_BELOW_CRITICAL_C, 10);
+}
+
+#[test]
+fn a_zone_that_names_no_trip_point_warns_from_80_and_is_an_error_from_90() {
+    let at = |milli_c| Reading {
+        zones: vec![zone("gpu_thermal_zone", milli_c, &[], None)],
+        ..well()
+    };
+    assert_eq!(said(&at(79_999)), (Level::Ok, String::new()));
+    assert_eq!(
+        said(&at(80_000)),
+        (
+            Level::Warn,
+            "gpu_thermal_zone is at 80 °C: hot, and the zone names no limit of its own".into()
+        )
+    );
+    assert_eq!(said(&at(89_999)).0, Level::Warn);
+    assert_eq!(
+        said(&at(90_000)),
+        (
+            Level::Error,
+            "gpu_thermal_zone is at 90 °C: too hot, and the zone names no limit of its own".into()
+        )
+    );
+    assert_eq!(
+        (board::WARN_WITHOUT_TRIPS_C, board::ERROR_WITHOUT_TRIPS_C),
+        (80, 90)
+    );
+}
+
+#[test]
+fn the_disk_warns_under_a_tenth_free_and_is_an_error_under_three_hundredths() {
+    let free = |free: f32| Reading {
+        disk_free: Some(free),
+        ..well()
+    };
+    assert_eq!(said(&free(1.0)), (Level::Ok, String::new()));
+    assert_eq!(said(&free(0.10)), (Level::Ok, String::new()));
+    assert_eq!(
+        said(&free(0.0999)),
+        (
+            Level::Warn,
+            "the disk is filling up: 10% of it is free".into()
+        )
+    );
+    assert_eq!(
+        said(&free(0.07)),
+        (
+            Level::Warn,
+            "the disk is filling up: 7% of it is free".into()
+        )
+    );
+    assert_eq!(said(&free(0.03)).0, Level::Warn);
+    assert_eq!(
+        said(&free(0.0299)),
+        (
+            Level::Error,
+            "the disk is all but full: 3% of it is free".into()
+        )
+    );
+    assert_eq!(said(&free(0.0)).0, Level::Error);
+    assert_eq!(
+        (board::DISK_FREE_WARN, board::DISK_FREE_ERROR),
+        (0.10, 0.03)
+    );
+    assert_eq!(value(&free(0.0299).report(), "disk_free"), Some("0.030"));
+    assert_eq!(value(&free(0.137).report(), "disk_free"), Some("0.137"));
+}
+
+#[test]
+fn memory_warns_over_nine_tenths_used_and_load_over_one_and_a_half() {
+    let used = |used: f32| Reading {
+        memory_used: Some(used),
+        ..well()
+    };
+    assert_eq!(said(&used(0.90)), (Level::Ok, String::new()));
+    assert_eq!(
+        said(&used(0.9001)),
+        (Level::Warn, "90% of the memory is in use".into())
+    );
+    assert_eq!(
+        said(&used(1.0)),
+        (Level::Warn, "100% of the memory is in use".into())
+    );
+    let load = |load: f32| Reading {
+        cpu_load: Some(load),
+        ..well()
+    };
+    assert_eq!(said(&load(1.5)), (Level::Ok, String::new()));
+    assert_eq!(said(&load(1.5001)).0, Level::Warn);
+    assert_eq!(
+        said(&load(1.83)),
+        (
+            Level::Warn,
+            "the processors have more work than they can do: a load of 1.83 for each".into()
+        )
+    );
+    assert_eq!((board::MEMORY_USED_WARN, board::CPU_LOAD_WARN), (0.90, 1.5));
+}
+
+#[test]
+fn a_clock_that_is_known_not_to_be_set_is_a_warning() {
+    let clock = |clock_synced| Reading {
+        clock_synced,
+        ..well()
+    };
+    assert_eq!(said(&clock(None)), (Level::Ok, String::new()));
+    assert_eq!(said(&clock(Some(true))), (Level::Ok, String::new()));
+    assert_eq!(
+        said(&clock(Some(false))),
+        (Level::Warn, "the clock is not set from the network".into())
+    );
+    // As the files say it: a timesync directory, and in it a file once
+    // the clock is set.
+    let tree = Tree::real_board("clock");
+    assert_eq!(board::read(&tree.places()).clock_synced, None);
+    std::fs::create_dir_all(tree.path("run/systemd/timesync")).unwrap();
+    let reading = board::read(&tree.places());
+    assert_eq!(reading.clock_synced, Some(false));
+    assert_eq!(reading.state().unwrap().clock_synced, Some(false));
+    tree.file("run/systemd/timesync/synchronized", "");
+    let reading = board::read(&tree.places());
+    assert_eq!(reading.clock_synced, Some(true));
+    assert!(
+        serde_json::to_string(&reading.state().unwrap())
+            .unwrap()
+            .contains("\"clock_synced\":true")
+    );
+}
+
+#[test]
+fn the_wifi_signal_is_the_level_of_the_first_device_that_has_one() {
+    let tree = Tree::real_board("wifi");
+    let wireless = |devices: &str| {
+        tree.file(
+            "proc/net/wireless",
+            &format!(
+                "Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE\n \
+                 face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22\n{devices}"
+            ),
+        );
+        board::read(&tree.places())
+    };
+    // The file is not there on the real board.
+    assert_eq!(board::read(&tree.places()).wifi_dbm, None);
+    let reading =
+        wireless(" wlan0: 0000   54.  -56.  -256        0      0      0      0      0        0\n");
+    assert_eq!(reading.wifi_dbm, Some(-56));
+    assert_eq!(reading.state().unwrap().wifi_dbm, Some(-56));
+    assert!(reading.unread.is_empty());
+    // Without the full stops, and with a second device.
+    assert_eq!(
+        wireless("wlan1: 0000 70 -40 -256 0 0 0 0 0 0\nwlan0: 0000 54 -56 -256 0 0 0 0 0 0\n")
+            .wifi_dbm,
+        Some(-40)
+    );
+    // Headings and no device; a line cut short; a level that is no
+    // number; one that is not in dBm. Each is no signal, and nothing else
+    // about the board is spoiled by it.
+    for devices in [
+        "",
+        "wlan0: 0000   54.\n",
+        "wlan0: 0000   54.  strong  -256\n",
+        "wlan0: 0000   54.  200.  -256\n",
+        "wlan0: 0000   54.  -151.  -256\n",
+    ] {
+        let reading = wireless(devices);
+        assert_eq!(reading.wifi_dbm, None, "{devices:?}");
+        assert!(reading.unread.is_empty() && reading.state().is_some());
+    }
+    // A device with no level is passed over for one that has one.
+    assert_eq!(
+        wireless("wlan0: 0000 54. strong -256\nwlan1: 0000 54. -61. -256\n").wifi_dbm,
+        Some(-61)
+    );
+    // A signal is never a reason for a warning.
+    let weak = Reading {
+        wifi_dbm: Some(-95),
+        ..well()
+    };
+    assert_eq!(said(&weak), (Level::Ok, String::new()));
+}
+
+#[test]
+fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
+    // An error is said before any warning, wherever it is found.
+    let mut reading = Reading {
+        zones: vec![
+            zone("skin_zone", 37_000, &[], None),
+            zone(
+                "cpul_thermal_zone",
+                66_000,
+                &[70_000, 90_000],
+                Some(110_000),
+            ),
+            zone(
+                "cpub_thermal_zone",
+                68_000,
+                &[70_000, 90_000],
+                Some(110_000),
+            ),
+        ],
+        cpu_load: Some(2.0),
+        memory_used: Some(0.95),
+        disk_free: Some(0.01),
+        uptime_s: Some(12),
+        wifi_dbm: None,
+        clock_synced: Some(false),
+        unread: Vec::new(),
+    };
+    assert_eq!(
+        said(&reading),
+        (
+            Level::Error,
+            "the disk is all but full: 1% of it is free".into()
+        )
+    );
+    // Among warnings: the hottest zone, then the disk, the memory, the
+    // load, the clock, and what could not be read.
+    reading.disk_free = Some(0.05);
+    assert_eq!(
+        said(&reading).1,
+        "cpub_thermal_zone is at 68 °C: the board slows itself down from 70"
+    );
+    reading.zones.truncate(1);
+    assert_eq!(said(&reading).1, "the disk is filling up: 5% of it is free");
+    reading.disk_free = Some(0.5);
+    assert_eq!(said(&reading).1, "95% of the memory is in use");
+    reading.memory_used = Some(0.5);
+    assert!(
+        said(&reading)
+            .1
+            .starts_with("the processors have more work")
+    );
+    reading.cpu_load = Some(0.5);
+    assert_eq!(said(&reading).1, "the clock is not set from the network");
+    reading.clock_synced = Some(true);
+    assert_eq!(said(&reading), (Level::Ok, String::new()));
+    // What could not be read is a warning, after whatever else is one,
+    // and an error found in what was read is still said first.
+    reading.uptime_s = None;
+    reading.unread.push(Unread {
+        what: "uptime_s",
+        why: "/proc/uptime: gone".into(),
+    });
+    assert_eq!(
+        said(&reading),
+        (Level::Warn, "could not be read: uptime_s".into())
+    );
+    reading.zones[0].milli_c = 95_000;
+    assert_eq!(said(&reading).0, Level::Error);
+    // The values are the numbers that were read, and the hottest zone;
+    // of two as hot, the one read first.
+    reading.zones = vec![
+        zone("a_zone", 41_000, &[], None),
+        zone("b_zone", 52_300, &[], None),
+        zone("c_zone", 52_300, &[], None),
+    ];
+    let report = reading.report();
+    assert_eq!(value(&report, "hottest_zone"), Some("b_zone"));
+    assert_eq!(value(&report, "hottest_c"), Some("52.3"));
+    assert_eq!(value(&report, "uptime_s"), None);
+    assert_eq!(value(&report, "cpu_load"), Some("0.50"));
+}

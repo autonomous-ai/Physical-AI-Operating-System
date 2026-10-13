@@ -879,6 +879,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-health"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-msgs",
+ "rustix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-ipc"
 version = "0.1.0"
 dependencies = [

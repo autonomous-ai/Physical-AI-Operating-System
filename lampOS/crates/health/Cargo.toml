@@ -1,0 +1,26 @@
+[package]
+name = "lamp-health"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# How the lamp is: every part's newest report put together into one answer
+# (lamp/health), the board's own numbers (board/state), and one command that
+# shows both to a person. Its own process: with it gone nothing else on the
+# lamp changes (docs/health.md).
+[[bin]]
+name = "lamp-health"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+# How much of the disk is free (statvfs), which the standard library cannot
+# ask. The same version as the other crates.
+rustix = { version = "=1.1.5", features = ["fs"] }
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+
+[lints]
+workspace = true

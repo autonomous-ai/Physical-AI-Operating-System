@@ -67,7 +67,9 @@ impl Looking {
 /// A picture counts only if the head has been still this long: one taken
 /// while it moved, or just after, shows where the face was.
 const STILL_US: u64 = 400_000;
-/// Sights in a row, all with a face, before anything is corrected.
+/// Sights in a row, all with a face, before anything is corrected. Their
+/// middle value is what counts: on lamp-4ace one look in sixty put a face
+/// at the far corner of the picture, and the mean of three moved the head.
 const SIGHTS: u8 = 3;
 /// The share of what they show that one correction takes out. Under one, so
 /// that a gain set too high still settles.
@@ -87,7 +89,9 @@ pub struct Gaze {
     looking: Looking,
     /// Yaw and pitch, in counts, added to what the mood wants.
     offset: [f32; 2],
-    sum: [f32; 2],
+    /// The last sights, across and down, of which the middle one is used:
+    /// one stray face at the edge of a picture then moves nothing.
+    recent: [[f32; 2]; SIGHTS as usize],
     sights: u8,
     face_at: Option<u64>,
     last_us: Option<u64>,
@@ -98,7 +102,7 @@ impl Gaze {
         Self {
             looking,
             offset: [0.0; 2],
-            sum: [0.0; 2],
+            recent: [[0.0; 2]; SIGHTS as usize],
             sights: 0,
             face_at: None,
             last_us: None,
@@ -126,8 +130,8 @@ impl Gaze {
             Some(Seen { face: Some(sight) }) => {
                 self.face_at = Some(now_us);
                 if still && sight.x.is_finite() && sight.y.is_finite() {
-                    self.sum[0] += sight.x.clamp(-1.0, 1.0);
-                    self.sum[1] += sight.y.clamp(-1.0, 1.0);
+                    self.recent[usize::from(self.sights) % usize::from(SIGHTS)] =
+                        [sight.x.clamp(-1.0, 1.0), sight.y.clamp(-1.0, 1.0)];
                     self.sights = self.sights.saturating_add(1);
                 }
             }
@@ -146,7 +150,9 @@ impl Gaze {
                 NEAR
             };
             for (axis, offset) in self.offset.iter_mut().enumerate() {
-                let off = self.sum[axis] / f32::from(self.sights);
+                let mut seen = self.recent.map(|sight| sight[axis]);
+                seen.sort_by(f32::total_cmp);
+                let off = seen[seen.len() / 2];
                 if off.abs() > near[axis] {
                     *offset = (*offset + self.looking.turn[axis] * off * SHARE)
                         .clamp(-self.looking.reach[axis], self.looking.reach[axis]);
@@ -166,7 +172,6 @@ impl Gaze {
     }
 
     fn forget(&mut self) {
-        self.sum = [0.0; 2];
         self.sights = 0;
     }
 }
@@ -398,5 +403,46 @@ mod tests {
         assert!(Looking::new([727, 553], [250, 120]).is_ok());
         assert!(Looking::new([342, 200], [401, 150]).is_err());
         assert!(Looking::new([342, 200], [300, 201]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod stray {
+    use super::*;
+
+    #[test]
+    fn one_stray_sight_among_three_moves_nothing() {
+        let sight = |x: f32, y: f32| {
+            Some(Seen {
+                face: Some(Sight {
+                    x,
+                    y,
+                    size: 0.13,
+                    turned: 0.0,
+                }),
+            })
+        };
+        let looking = Looking::new([727, 553], [250, 120]).unwrap();
+        // As on lamp-4ace: a face near the middle, and once a "face" in the
+        // far corner of the picture.
+        let mut gaze = Gaze::new(looking);
+        let mut now = 1_000_000;
+        let mut offset = [0.0; 2];
+        for seen in [sight(-0.06, 0.0), sight(0.83, -0.65), sight(-0.05, 0.05)] {
+            now += 150_000;
+            offset = gaze.step(seen, Mood::Listening, true, 5_000_000, now);
+        }
+        assert_eq!(offset, [0.0; 2]);
+        // Two of three off to one side is a face off to one side.
+        let mut gaze = Gaze::new(looking);
+        for seen in [sight(-0.27, 0.0), sight(0.83, -0.65), sight(-0.27, 0.05)] {
+            now += 150_000;
+            offset = gaze.step(seen, Mood::Listening, true, 5_000_000, now);
+        }
+        assert!(
+            (offset[0] + 727.0 * 0.27 * SHARE).abs() < 0.01,
+            "{offset:?}"
+        );
+        assert_eq!(offset[1], 0.0);
     }
 }

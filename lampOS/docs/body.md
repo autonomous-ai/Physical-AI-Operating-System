@@ -242,7 +242,9 @@ between them:
 - A sight counts only if no joint has been asked to move for 0.4 s, the lamp
   is listening or speaking, and it is not folded or folding. A picture taken
   while the head moved shows where the face was.
-- After three such sights in a row with a face in them it takes their mean.
+- After three such sights in a row with a face in them it takes the middle
+  one, across and down separately (their mean until 2026-10-13, when one
+  stray face at the corner of a picture moved lamp-4ace's head).
   A face within 0.15 of the middle across and 0.20 down is being looked at
   already. While the lamp speaks those are 0.35 and 0.40, since its head
   should be still then for its microphone.
@@ -278,7 +280,15 @@ across: `--gaze 727,553`. The body made the two corrections asked of it
 (160 and then to its reach of 250) and held. No face was in front of the
 lamp for any of this: its eyes have looked at an empty office for several
 minutes without reporting one, and found one in a photo file on the lamp's
-own processor in 50 ms, but the lamp has not yet turned to a person.
+own processor in 50 ms.
+
+The same day, with a photo of a face filling the screen of the computer the
+lamp stands in front of: its eyes reported the face in 66 of 66 looks, an
+eighth of the picture high. With the gaze first pushed 250 counts aside
+the face was at -0.27 across; the next time the lamp listened the gaze went
+to 113 (250 less 0.27 of 727 times 0.7) and the face to -0.11, inside what
+counts as looked at. It has not yet been seen with a living person in front
+of it.
 
 ## Gestures
 
@@ -457,7 +467,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (218 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (219 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

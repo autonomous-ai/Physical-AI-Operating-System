@@ -416,6 +416,9 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         let due = match said {
             None => true,
             Some((mood, _, _, _)) if mood != glimpse.mood => true,
+            // While it stands, a line every ten seconds whatever happens:
+            // how warm the two joints that carry it are getting.
+            Some((_, step, _, _)) if glimpse.stand > 0.0 && glimpse.step - step >= 500 => true,
             Some((_, step, goals, arm)) => {
                 (goals != glimpse.goals || arm != glimpse.arm_goals) && glimpse.step - step >= 25
             }
@@ -448,7 +451,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             }
             if glimpse.stands {
                 eprintln!(
-                    "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?} stand {:.2} arm goals {:?} positions {:?} loads {:?}",
+                    "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?} stand {:.2} arm goals {:?} positions {:?} loads {:?} warmth {:?}",
                     glimpse.step,
                     glimpse.mood,
                     glimpse.goals,
@@ -457,7 +460,8 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                     glimpse.stand,
                     glimpse.arm_goals,
                     glimpse.arm_positions,
-                    glimpse.arm_loads
+                    glimpse.arm_loads,
+                    glimpse.arm_temperatures
                 );
             } else {
                 eprintln!(

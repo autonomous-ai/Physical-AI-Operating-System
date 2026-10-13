@@ -353,6 +353,7 @@ pub struct Glimpse {
     pub arm_goals: [u16; 2],
     pub arm_positions: [u16; 2],
     pub arm_loads: [u16; 2],
+    pub arm_temperatures: [u8; 2],
     /// Where the eyes have it look: yaw and pitch, in counts from the
     /// pose's own direction.
     pub look: [f32; 2],
@@ -1491,6 +1492,7 @@ pub(crate) fn run_looking(
             arm_goals: arm_written,
             arm_positions: ARM.map(|joint| samples[joint.index()].position),
             arm_loads: ARM.map(|joint| samples[joint.index()].load),
+            arm_temperatures: ARM.map(|joint| samples[joint.index()].temperature),
             look,
         });
         let mut surprise = None;

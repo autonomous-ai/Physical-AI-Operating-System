@@ -240,6 +240,11 @@ type Config struct {
 	// robots/ (e.g. "lamp", "intern-v2", "unitree-go2w").
 	DeviceType string `json:"device_type,omitempty" yaml:"deviceType"`
 
+	// SoulVariant picks a branded soul shipped next to the default one:
+	// "wajo" reads robots/<type>/SOUL.wajo.md instead of SOUL.md. Set per unit
+	// at provisioning; device-profile OTA never touches config.json.
+	SoulVariant string `json:"soul_variant,omitempty" yaml:"soulVariant"`
+
 	// MQTT (optional): empty broker URL means MQTT disabled
 	MQTTEndpoint string `json:"mqtt_endpoint" yaml:"mqttEndpoint"`
 	MQTTUsername string `json:"mqtt_username" yaml:"mqttUsername"`

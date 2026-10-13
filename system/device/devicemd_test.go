@@ -310,3 +310,31 @@ func TestWakeWordDefault_Missing(t *testing.T) {
 		t.Fatalf("WakeWordDefault = (%v, %v), want (false, false)", value, declared)
 	}
 }
+
+func TestSoulRef_Variant(t *testing.T) {
+	writeDeviceMD(t, "lamp", "---\nsoul_ref: SOUL.md\n---\n")
+	dir := filepath.Join(DevicesDir(), "lamp")
+	for name, body := range map[string]string{"SOUL.md": "default", "SOUL.wajo.md": "wajo"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(t.TempDir())
+	if err := os.Mkdir("config", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ config, want string }{
+		{`{}`, "default"},
+		{`{"soul_variant":"wajo"}`, "wajo"},
+		{`{"soul_variant":"acme"}`, "default"},    // no SOUL.acme.md shipped
+		{`{"soul_variant":"../wajo"}`, "default"}, // invalid name
+	} {
+		if err := os.WriteFile("config/config.json", []byte(tc.config), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, has, err := ResolveSoul("lamp")
+		if err != nil || !has || string(got) != tc.want {
+			t.Errorf("%s: got %q has=%v err=%v, want %q", tc.config, got, has, err, tc.want)
+		}
+	}
+}

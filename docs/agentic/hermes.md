@@ -745,7 +745,11 @@ simply absent.
   are read per session, not at gateway start.
 - The text comes from `device.ResolveSoul(deviceType)` (`system/device/soul.go`),
   the runtime-agnostic resolver for the `soul_ref` declared in
-  `robots/<type>/ROBOT.md`: **no ref → no-op and no error** (a soulless body keeps
+  `robots/<type>/ROBOT.md`. A config.json `soul_variant` (e.g. `"wajo"`) selects
+  the branded sibling of a path ref (`SOUL.md` → `SOUL.wajo.md`) when the profile
+  ships it, and falls back to the declared ref with a warning when it does not;
+  config.json is outside the device-profile OTA, so the choice survives updates.
+  **No ref → no-op and no error** (a soulless body keeps
   whatever default soul Hermes ships); an `http(s)://` ref is downloaded with a 30 s
   timeout; any other value is read as a path under `DevicesDir()/<type>/`; a
   declared-but-unresolvable ref is an error (surfaced, boot continues). The Hermes

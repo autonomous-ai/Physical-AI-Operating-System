@@ -852,6 +852,10 @@ Nội dung của chủ máy nằm ngoài các block do OS ghi — persona tự v
 phần tra cứu (Hermes ship thiếu chính chỗ này và máy của nó boot lên không có
 persona):
 
+- `soul_variant` trong config.json (vd `"wajo"`) chọn bản soul theo thương hiệu đặt
+  cạnh path ref (`SOUL.md` → `SOUL.wajo.md`) nếu profile có ship file đó; không có
+  thì ghi cảnh báo và dùng ref đã khai. config.json nằm ngoài OTA device profile
+  nên lựa chọn này không bị cập nhật ghi đè;
 - không khai `soul_ref` → `hasSoul=false`, **không phải lỗi** — thân máy "không
   hồn" giữ nguyên soul mặc định của runtime;
 - `http(s)://` → tải artifact về, timeout **30 s** (`soulDownloadTimeout`) vì

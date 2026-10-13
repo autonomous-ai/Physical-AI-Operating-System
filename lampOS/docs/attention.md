@@ -172,6 +172,67 @@ made that sign it said nothing else: 1 of those 7 questions was answered.
 A function of the ordinary kind would let it answer, about 0.7 s later.
 Neither is acceptable, and the switch is off.
 
+## Hearing its name in its own sound: first measurement
+
+Not built into the lamp. A measurement of whether it can be.
+
+A study on 2026-10-14, kept outside the repository, ran three kinds of
+detector for "Hey Lamp" and "Lamp ơi" over 14,344 generated utterances
+and found none that catches 85 calls in 100 at 2 false alarms in 100. It
+recommended a small classifier of our own on an open speech front end
+(openWakeWord's mel and embedding models), and as a fallback a ready-made
+open keyword spotter that had caught the most "Hey Lamp" on generated
+files. Both were written in Rust on the library the lamp already uses for
+its sentence-end model.
+
+The same night both were run on what the lamp's own microphone heard.
+Six finite sessions of the voice with its recording switched on
+(`lamp-voice directed ... --diagnostics`, the only way the voice writes
+sound down), 86 s each, nobody in the office, 44 lines played from a
+loudspeaker in eleven synthetic voices: twenty "Hey Lamp" calls, ten
+lines to a similar name ("Hey Lan", "Hey Liam", "Hey Lance", "Hey Mom"),
+ten of office talk, and four in Vietnamese. Each line was cut from the
+recording by the time it was played and given to each detector whole.
+Fired on, of the lines of each kind, on the sound before the echo
+canceller:
+
+| Detector | "Hey Lamp" (20) | A similar name (10) | Office talk (10) | "Lamp ơi" (2) |
+|---|---|---|---|---|
+| Our classifier, score 0.9 or more | 17 | 5 | 0 | 2 |
+| Our classifier, 0.999 or more | 14 | 2 | 0 | 1 |
+| The same with similar names in its training, 0.9 | 14 | 3 | 1 | 1 |
+| The same, 0.999 | 10 | 2 | 0 | 1 |
+| The ready-made keyword spotter | 2 | 1 | 0 | 0 |
+
+After the echo canceller the counts differ by one or two and not in one
+direction.
+
+What it shows, and it is small:
+
+- **The ready-made spotter does not survive the lamp's microphone.** On
+  generated files it caught 70 to 82 of 100 calls; here 2 of 20. Louder
+  copies of the same recordings changed nothing. It is not a fallback.
+- **Our classifier, which has heard nothing but generated speech and
+  never this room or this microphone, catches 14 to 17 of 20** and was
+  set off by none of the office talk at either threshold. What sets it
+  off is a name like its own.
+- **Training it on similar names made it worse here**, not better, at
+  both thresholds: fewer calls caught and no fewer names mistaken. That
+  version was trained on more generated speech of the same kind; it says
+  the next gain is not there.
+
+So "called by name" can be one sign, right about seven times in ten and
+quiet through ordinary talk, and cannot be a gate: three calls in ten are
+missed, and a colleague called Lan or Lâm would set it off.
+
+Not shown: a person. Every voice here was synthetic and played through a
+loudspeaker a metre from the lamp, loud enough that one recording
+clipped. 44 lines is too few to tell 14 from 17. The Vietnamese lines
+are four. Nothing ran on the lamp's processor: the detectors ran on a
+Mac over the recordings. What is needed next is real voices through the
+lamp's microphone, which the same recording procedure gives, and the
+microphone's sound on the bus so that a part of its own can listen.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by

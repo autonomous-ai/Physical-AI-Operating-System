@@ -243,6 +243,7 @@ pub fn run_body(
     config: &InspectionConfig,
     limits: crate::body::Limits,
     home: Option<[u16; 3]>,
+    standing: Option<crate::body::Standing>,
     news: impl FnMut() -> Option<(crate::gesture::Mood, u8)>,
     watch: impl FnMut(&crate::body::Glimpse),
     mut cancelled: impl FnMut() -> io::Result<bool>,
@@ -261,11 +262,12 @@ pub fn run_body(
             let mut io = LinuxPort {
                 fd: owner.fd.as_ref().expect("prepared tty"),
             };
-            body = Some(crate::body::run(
+            body = Some(crate::body::run_standing(
                 &mut io,
                 &mut runtime,
                 limits,
                 home,
+                standing,
                 news,
                 watch,
             ));

@@ -26,7 +26,7 @@ use crate::{
     Joint,
     gesture::{Gestures, Mood, Pose},
     inspection::{Interest, PortIo, Runtime},
-    protocol::{ReadOnlyRequest, ReadWindow, StatusParser},
+    protocol::{ReadOnlyRequest, ReadWindow, StatusFlags, StatusParser},
 };
 use serde::Serialize;
 use std::{io, time::Duration};
@@ -79,7 +79,113 @@ const WIRE_STEPS: u8 = 25;
 
 /// The joints this body commands, in the order of every array of three here.
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
-const BYSTANDERS: [Joint; 2] = [Joint::BasePitch, Joint::ElbowPitch];
+/// The shoulder and the elbow, in the order of every array of two here.
+/// Read on every step. Written only by a body that was given a pose to
+/// stand in.
+pub const ARM: [Joint; 2] = [Joint::BasePitch, Joint::ElbowPitch];
+
+/// Standing up. With this the lamp rises out of its folded pose when someone
+/// speaks to it and folds down again once it has been left alone. Without
+/// it the shoulder and the elbow are never written.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct Standing {
+    /// Shoulder and elbow when folded.
+    pub folded: [u16; 2],
+    /// Head pitch, head roll, base yaw, shoulder and elbow when stood up.
+    pub pose: [u16; 5],
+    /// How much of the way up it goes: 1 is all of it.
+    pub share: f32,
+    /// Seconds the whole way takes.
+    pub seconds: f32,
+    /// It folds down this long after the last mood that was not rest.
+    pub awake: Duration,
+    /// A shoulder or an elbow reading above this for `Limits::load_steps`
+    /// steps sends the lamp back down.
+    pub load: [u16; 2],
+}
+
+impl Standing {
+    /// The farthest the shoulder or the elbow may be asked to travel
+    /// between folded and stood up: about 120 degrees.
+    pub const TRAVEL_CAP: u16 = 1_400;
+    /// A shoulder or an elbow this far from its goal for half a second
+    /// sends the lamp back down. Wider than the head's: these two carry the
+    /// lamp and follow a moving goal from behind.
+    pub const TRACKING: u16 = 80;
+    pub const TRACKING_STEPS: u8 = 25;
+    /// Over its load or off its goal for this long, two seconds, with the
+    /// lamp already told to go down: the run ends.
+    pub const STUCK_STEPS: u8 = 100;
+    /// As warm as this for `Limits::temperature_steps`, likewise sent down.
+    pub const TEMPERATURE: u8 = 62;
+    /// Sent back down, it stays down this long, and after the third time
+    /// for the rest of the run.
+    pub const TIRED: Duration = Duration::from_secs(60);
+    pub const RETREATS_ALLOWED: u8 = 3;
+    /// To start, each of the two must be found within this of the way
+    /// between folded and stood up.
+    pub const FOUND_SLACK: u16 = 80;
+
+    /// `share` in percent, `seconds` for the whole way, `awake` in seconds.
+    pub fn new(
+        folded: [u16; 2],
+        pose: [u16; 5],
+        share: u8,
+        seconds: u8,
+        awake: u16,
+        load: [u16; 2],
+    ) -> Result<Self, &'static str> {
+        let far = folded
+            .iter()
+            .zip(&pose[3..])
+            .any(|(from, to)| from.abs_diff(*to) > Self::TRAVEL_CAP);
+        if far
+            || pose.iter().chain(&folded).any(|count| *count > 4_095)
+            || !(1..=100).contains(&share)
+            || !(2..=20).contains(&seconds)
+            || !(5..=3_600).contains(&awake)
+            || load.iter().any(|bound| !(50..=1_000).contains(bound))
+        {
+            return Err("a standing pose outside what this body may be given");
+        }
+        Ok(Self {
+            folded,
+            pose,
+            share: f32::from(share) / 100.0,
+            seconds: f32::from(seconds),
+            awake: Duration::from_secs(u64::from(awake)),
+            load,
+        })
+    }
+}
+
+/// Ease in and out: no speed at either end of the way.
+fn smooth(share: f32) -> f32 {
+    let share = share.clamp(0.0, 1.0);
+    share * share * (3.0 - 2.0 * share)
+}
+
+/// The share that `smooth` turns into this much of the way.
+fn unsmooth(lift: f32) -> f32 {
+    let (mut low, mut high) = (0.0f32, 1.0f32);
+    for _ in 0..24 {
+        let middle = (low + high) / 2.0;
+        if smooth(middle) < lift {
+            low = middle;
+        } else {
+            high = middle;
+        }
+    }
+    (low + high) / 2.0
+}
+
+/// How far the head is toward its standing pose with the arm this far up.
+/// It waits for the first quarter of the arm's way and is back at its folded
+/// pose before the arm comes down that far: the head leaves the base and
+/// returns beside it with the arm already carrying it clear.
+fn head_share(stand: f32) -> f32 {
+    smooth((stand - 0.25) / 0.75)
+}
 
 /// Bounds in encoder counts, about 11.4 to a degree. Fixed in code: nothing
 /// outside this process can widen them.
@@ -236,6 +342,12 @@ pub struct Glimpse {
     pub loads: [u16; 3],
     /// Times so far that each joint met resistance and was left where it was.
     pub eased: [u16; 3],
+    /// How far it has stood up, 0 folded to 1, and the shoulder and the
+    /// elbow: their goals as this body last wrote them, or else as found.
+    pub stand: f32,
+    pub arm_goals: [u16; 2],
+    pub arm_positions: [u16; 2],
+    pub arm_loads: [u16; 2],
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -298,6 +410,19 @@ pub struct BodyReport {
     /// The goals written to stop pushing, when the run ended on a surprise.
     pub held_at: Option<[u16; 3]>,
     pub last: Option<[Sample; 5]>,
+    /// The pose it was given to stand in and still had when it ran.
+    pub standing: Option<Standing>,
+    /// Why it would not stand, though it ran as a folded lamp.
+    pub standing_refused: Option<String>,
+    /// Writes of torque enable, made only to clear a latched overload on
+    /// the shoulder or the elbow before standing.
+    pub torque_writes: u8,
+    /// It left its folded pose at least once.
+    pub stood: bool,
+    pub arm_peak_load: [u16; 2],
+    pub arm_peak_temperature: [u8; 2],
+    /// Each time the arm was sent back down, and why.
+    pub retreats: Vec<String>,
     pub stop: Stop,
 }
 
@@ -328,6 +453,27 @@ fn goals_write(goals: [u16; 3]) -> [u8; 17] {
         packet[7 + index * 3..10 + index * 3].copy_from_slice(&[joint.id(), low, high]);
     }
     packet[16] = checksum(&packet[2..16]);
+    packet
+}
+
+/// Torque enable (register 40, one byte). Sent only to the shoulder or the
+/// elbow, and only to clear an overload latched before this run.
+fn torque_write(joint: Joint, value: u8) -> [u8; 8] {
+    let mut packet = [0xff, 0xff, joint.id(), 4, 0x03, 40, value, 0];
+    packet[7] = checksum(&packet[2..7]);
+    packet
+}
+/// One sync write of the goal position of all five joints: the three of
+/// the head and base, then the shoulder and the elbow.
+fn all_goals_write(goals: [u16; 3], arm: [u16; 2]) -> [u8; 23] {
+    let mut packet = [0u8; 23];
+    packet[..7].copy_from_slice(&[0xff, 0xff, 0xfe, 19, 0x83, 42, 2]);
+    let joints = COMMANDED.iter().chain(&ARM);
+    for (index, (joint, goal)) in joints.zip(goals.into_iter().chain(arm)).enumerate() {
+        let [low, high] = goal.to_le_bytes();
+        packet[7 + index * 3..10 + index * 3].copy_from_slice(&[joint.id(), low, high]);
+    }
+    packet[22] = checksum(&packet[2..22]);
     packet
 }
 
@@ -467,11 +613,61 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         Ok(profiles)
     }
 
+    /// Torque, acceleration, goal speed and goal of the shoulder and elbow.
+    fn arm_profiles(&mut self) -> Result<[(u8, u8, u16, u16); 2], String> {
+        let request = ReadOnlyRequest::sync_read(&ARM, ReadWindow::TORQUE_AND_PROFILE)
+            .map_err(|error| error.to_string())?;
+        let mut profiles = [(0, 0, 0, 0); 2];
+        self.read(&request, |reply| {
+            let profile = reply
+                .torque_and_profile()
+                .map_err(|error| error.to_string())?;
+            let index = ARM
+                .iter()
+                .position(|joint| *joint == reply.joint())
+                .ok_or("a reply from a joint that was not asked")?;
+            profiles[index] = (
+                profile.torque_enable_raw(),
+                profile.acceleration_raw(),
+                profile.goal_speed_raw(),
+                profile.goal_position_raw(),
+            );
+            Ok(())
+        })?;
+        Ok(profiles)
+    }
+
+    /// The goals of the head and base, and with them the arm's for a body
+    /// that may stand.
+    fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
+        match arm {
+            Some(arm) => self.send(&all_goals_write(goals, arm)),
+            None => self.send(&goals_write(goals)),
+        }
+    }
+
     /// One register write to one servo and its plain acknowledgement, which
     /// has the form of a ping's.
     fn write_checked(&mut self, joint: Joint, packet: &[u8]) -> Result<(), String> {
+        self.write_acknowledged(joint, packet, false)
+    }
+
+    /// The same, and with `flagged` an acknowledgement that carries a
+    /// status flag is still one: the write that is meant to clear a latched
+    /// flag is answered with it.
+    fn write_acknowledged(
+        &mut self,
+        joint: Joint,
+        packet: &[u8],
+        flagged: bool,
+    ) -> Result<(), String> {
         self.send(packet)?;
-        let mut tracker = ReadOnlyRequest::ping(joint).track_replies();
+        let ping = ReadOnlyRequest::ping(joint);
+        let mut tracker = if flagged {
+            ping.track_replies_reporting_faults()
+        } else {
+            ping.track_replies()
+        };
         let mut parser = StatusParser::default();
         let deadline = self.runtime.now() + EXCHANGE;
         let mut bytes = [0u8; 16];
@@ -519,14 +715,35 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
 /// is the pitch, roll and yaw every gesture is an offset from; without one
 /// it is the pose found at start. With one, the head first eases there from
 /// where it is found, at the same speed as everything else.
+#[cfg(test)]
 pub(crate) fn run(
     io: &mut impl PortIo,
     runtime: &mut impl Runtime,
     limits: Limits,
     home: Option<[u16; 3]>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    run_standing(io, runtime, limits, home, None, news, watch)
+}
+
+/// The same for a lamp that may also stand up: see [`Standing`]. It rises
+/// when a mood other than rest arrives, stays up while they keep arriving
+/// and for `Standing::awake` after the last, and folds down again; asked to
+/// stop, it folds down first. A shoulder or an elbow that reads over its
+/// load, does not follow or stays warm sends it back down, where it rests
+/// for a minute. It needs a home, since where a standing lamp is found is
+/// not its folded pose.
+pub(crate) fn run_standing(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
     mut watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
+    let mut standing = standing;
     let mut report = BodyReport {
         limits,
         moved: false,
@@ -541,13 +758,20 @@ pub(crate) fn run(
         peak_temperature: [0; 3],
         held_at: None,
         last: None,
+        standing: None,
+        standing_refused: None,
+        torque_writes: 0,
+        stood: false,
+        arm_peak_load: [0; 2],
+        arm_peak_temperature: [0; 2],
+        retreats: Vec::new(),
         stop: Stop::Cancelled,
     };
     let mut bus = Bus { io, runtime };
     let refused = |why: String| Stop::Refused { why };
 
     // What is there, before anything is written.
-    let found = match bus.samples() {
+    let mut found = match bus.samples() {
         Ok(found) => found,
         Err(detail) => {
             report.stop = refused(format!("first read: {detail}"));
@@ -564,6 +788,10 @@ pub(crate) fn run(
         }
     };
     let found_pose = COMMANDED.map(|joint| found[joint.index()].position);
+    if standing.is_some() && home.is_none() {
+        standing = None;
+        report.standing_refused = Some("a lamp that stands needs a home".into());
+    }
     let home = home.unwrap_or(found_pose);
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {
@@ -584,8 +812,74 @@ pub(crate) fn run(
             return report;
         }
     }
+    // The shoulder and the elbow of a lamp that may stand: as they are
+    // found, and how far up that is.
+    let mut stand = 0.0f32;
+    let mut arm_written = ARM.map(|joint| found[joint.index()].position);
+    let mut arm_profiles = [(0u8, 0u8, 0u16, 0u16); 2];
+    if let Some(up) = standing {
+        arm_profiles = match bus.arm_profiles() {
+            Ok(profiles) => profiles,
+            Err(detail) => {
+                report.stop = refused(format!("first read: {detail}"));
+                return report;
+            }
+        };
+        let way = |index: usize| (f32::from(up.folded[index]), f32::from(up.pose[3 + index]));
+        // The one that travels farther says how far up the lamp is.
+        let leader =
+            usize::from(up.folded[1].abs_diff(up.pose[4]) > up.folded[0].abs_diff(up.pose[3]));
+        let (from, to) = way(leader);
+        let lift = if (to - from).abs() < 1.0 {
+            0.0
+        } else {
+            ((f32::from(found[ARM[leader].index()].position) - from) / (to - from)).clamp(0.0, 1.0)
+        };
+        let mut why = None;
+        for (index, joint) in ARM.iter().enumerate() {
+            let sample = found[joint.index()];
+            let (from, to) = way(index);
+            let off = (f32::from(sample.position) - (from + (to - from) * lift)).abs();
+            if arm_profiles[index].0 != 1 {
+                why.get_or_insert(format!("{joint} torque is not on"));
+            } else if sample.status & !StatusFlags::OVERLOAD != 0 {
+                why.get_or_insert(format!("{joint} status is {:#04x}", sample.status));
+            } else if sample.temperature >= Standing::TEMPERATURE {
+                why.get_or_insert(format!("{joint} is at {} already", sample.temperature));
+            } else if off > f32::from(Standing::FOUND_SLACK) {
+                why.get_or_insert(format!(
+                    "{joint} is {off:.0} counts off the way between folded and stood up"
+                ));
+            }
+        }
+        match why {
+            Some(why) => {
+                standing = None;
+                report.standing_refused = Some(why);
+            }
+            None => {
+                // Under a twentieth of the way it is folded.
+                stand = if lift < 0.05 { 0.0 } else { unsmooth(lift) };
+                arm_written = [arm_profiles[0].3, arm_profiles[1].3];
+            }
+        }
+    }
+    let home_of = |standing: Option<Standing>, stand: f32| -> [f32; 3] {
+        let folded = home.map(f32::from);
+        match standing {
+            Some(up) => {
+                let share = head_share(stand);
+                std::array::from_fn(|index| {
+                    folded[index] + (f32::from(up.pose[index]) - folded[index]) * share
+                })
+            }
+            None => folded,
+        }
+    };
+    // The window beside the base is for a head that is beside the base.
+    let beside_base = head_share(stand) <= 0.0;
     for pitch in [home[0], found_pose[0]] {
-        if !(limits.pitch_home.0..=limits.pitch_home.1).contains(&pitch) {
+        if beside_base && !(limits.pitch_home.0..=limits.pitch_home.1).contains(&pitch) {
             report.stop = refused(format!(
                 "head pitch {pitch} is outside {}..={}",
                 limits.pitch_home.0, limits.pitch_home.1
@@ -593,13 +887,66 @@ pub(crate) fn run(
             return report;
         }
     }
+    let home_found = home_of(standing, stand);
     for (index, joint) in COMMANDED.iter().enumerate() {
-        let apart = found_pose[index].abs_diff(home[index]);
-        if apart > limits.start_reach {
-            report.stop = refused(format!("{joint} is {apart} counts from its home"));
+        let apart = (f32::from(found_pose[index]) - home_found[index]).abs();
+        // Found part of the way up, the head is wherever that way put it.
+        let allowed = if beside_base {
+            limits.start_reach
+        } else {
+            limits.start_reach.max(150)
+        };
+        if apart > f32::from(allowed) {
+            report.stop = refused(format!("{joint} is {apart:.0} counts from its home"));
             return report;
         }
     }
+
+    // An overload latched before this run leaves a servo holding with a
+    // fraction of its torque until torque is written again. A shoulder or
+    // an elbow in that state cannot carry the lamp up: write it, and stay
+    // folded if the flag stays.
+    if standing.is_some() {
+        for joint in ARM {
+            for values in [&[1u8][..], &[0, 1]] {
+                if found[joint.index()].status & StatusFlags::OVERLOAD == 0 {
+                    break;
+                }
+                for value in values {
+                    report.torque_writes += 1;
+                    if let Err(detail) =
+                        bus.write_acknowledged(joint, &torque_write(joint, *value), true)
+                    {
+                        report.stop = Stop::Bus {
+                            detail: format!("torque of {joint}: {detail}"),
+                        };
+                        return report;
+                    }
+                }
+                found = match bus.samples() {
+                    Ok(found) => found,
+                    Err(detail) => {
+                        report.stop = Stop::Bus {
+                            detail: format!("after torque of {joint}: {detail}"),
+                        };
+                        return report;
+                    }
+                };
+                report.found = Some(found);
+                report.last = Some(found);
+            }
+            if found[joint.index()].status != 0 && standing.is_some() {
+                standing = None;
+                stand = 0.0;
+                report.standing_refused = Some(format!(
+                    "{joint} keeps status {:#04x}",
+                    found[joint.index()].status
+                ));
+            }
+        }
+    }
+    let standing = standing;
+    report.standing = standing;
 
     // The servo's own speed bound, where it is not already the one wanted.
     for (index, joint) in COMMANDED.iter().enumerate() {
@@ -623,6 +970,55 @@ pub(crate) fn run(
             return report;
         }
     }
+    if let Some(up) = standing {
+        // Fast enough for the way at its quickest, and no more than twice that.
+        let quickest = up
+            .folded
+            .iter()
+            .zip(&up.pose[3..])
+            .map(|(from, to)| f32::from(from.abs_diff(*to)) * 1.5 / up.seconds)
+            .fold(0.0f32, f32::max);
+        let arm_speed = (quickest * 2.0).clamp(200.0, 1_000.0) as u16;
+        for (index, joint) in ARM.iter().enumerate() {
+            let (_, acceleration, speed, _) = arm_profiles[index];
+            let mut outcome = Ok(());
+            if speed != arm_speed {
+                report.profile_writes += 1;
+                outcome = bus.write_checked(*joint, &speed_write(*joint, arm_speed));
+            }
+            if outcome.is_ok() && acceleration != limits.servo_acceleration {
+                report.profile_writes += 1;
+                outcome = bus.write_checked(
+                    *joint,
+                    &acceleration_write(*joint, limits.servo_acceleration),
+                );
+            }
+            if let Err(detail) = outcome {
+                report.stop = Stop::Bus {
+                    detail: format!("profile of {joint}: {detail}"),
+                };
+                return report;
+            }
+        }
+        match bus.arm_profiles() {
+            Ok(now)
+                if now.iter().all(|profile| {
+                    (profile.0, profile.1, profile.2) == (1, limits.servo_acceleration, arm_speed)
+                }) => {}
+            Ok(now) => {
+                report.stop = Stop::Bus {
+                    detail: format!("arm profile read back as {now:?}"),
+                };
+                return report;
+            }
+            Err(detail) => {
+                report.stop = Stop::Bus {
+                    detail: format!("arm profile read back: {detail}"),
+                };
+                return report;
+            }
+        }
+    }
     match bus.profiles() {
         Ok(now)
             if now
@@ -642,17 +1038,40 @@ pub(crate) fn run(
         }
     }
 
-    // The reach around home, and the absolute window for the head's pitch.
-    let low = [
-        (f32::from(home[0]) - limits.pitch_up).max(f32::from(limits.pitch_window.0)),
-        f32::from(home[1]) - limits.roll,
-        f32::from(home[2]) - limits.yaw,
-    ];
-    let high = [
-        (f32::from(home[0]) + limits.pitch_down).min(f32::from(limits.pitch_window.1)),
-        f32::from(home[1]) + limits.roll,
-        f32::from(home[2]) + limits.yaw,
-    ];
+    // The reach around home, and the absolute window for the head's pitch
+    // while the head is beside the base. A lamp that stands carries its
+    // home with it, so these move as it rises.
+    let bounds = |home: [f32; 3], stand: f32| -> ([f32; 3], [f32; 3]) {
+        let (floor, ceiling) = if head_share(stand) > 0.0 {
+            (0.0, 4_095.0)
+        } else {
+            (
+                f32::from(limits.pitch_window.0),
+                f32::from(limits.pitch_window.1),
+            )
+        };
+        (
+            [
+                (home[0] - limits.pitch_up).max(floor),
+                home[1] - limits.roll,
+                home[2] - limits.yaw,
+            ],
+            [
+                (home[0] + limits.pitch_down).min(ceiling),
+                home[1] + limits.roll,
+                home[2] + limits.yaw,
+            ],
+        )
+    };
+    let mut home_now = home_of(standing, stand);
+    let (mut low, mut high) = bounds(home_now, stand);
+    let mut stand_velocity = 0.0f32;
+    let mut awake_until: Option<Duration> = None;
+    let mut tired_until: Option<Duration> = None;
+    let mut retreats = 0u8;
+    let mut arm_over = [0u8; 2];
+    let mut arm_off = [0u8; 2];
+    let mut arm_hot = [0u8; 2];
     let step = TICK.as_secs_f32();
     let mut gestures = Gestures::new();
     // It starts from where it is, not from where it should be: the way home
@@ -681,6 +1100,12 @@ pub(crate) fn run(
     let mut arriving = [0u8; 3];
     let mut wanted_of = commanded;
     let started = bus.runtime.now();
+    if let Some(up) = standing
+        && stand > 0.0
+    {
+        // Found standing: it stays up as if it had just been spoken to.
+        awake_until = Some(started + up.awake);
+    }
 
     let stop = loop {
         report.steps += 1;
@@ -710,6 +1135,54 @@ pub(crate) fn run(
         } else {
             0
         };
+        // The wire is failing: nothing new is asked until it answers again.
+        let blind = misses > 0 || unsent > 0;
+        // How far up it should be, and this step of the way there. The
+        // head's home goes with it, and the head with its home.
+        let mut carried = [0.0f32; 3];
+        let mut arm_goals = arm_written;
+        if let Some(up) = standing {
+            if mood != Mood::Resting {
+                awake_until = Some(now + up.awake);
+            }
+            let tired = retreats >= Standing::RETREATS_ALLOWED
+                || tired_until.is_some_and(|until| now < until);
+            let awake = awake_until.is_some_and(|until| now < until);
+            let wanted = if leaving.is_none() && awake && !tired {
+                up.share
+            } else {
+                0.0
+            };
+            if !blind {
+                let rate = 1.0 / up.seconds;
+                let pull = FOLLOW * FOLLOW * (wanted - stand) - 2.0 * FOLLOW * stand_velocity;
+                stand_velocity = (stand_velocity + pull.clamp(-rate * 2.0, rate * 2.0) * step)
+                    .clamp(-rate, rate);
+                stand = (stand + stand_velocity * step).clamp(0.0, 1.0);
+                if (wanted - stand).abs() < 0.000_5 && stand_velocity.abs() < 0.005 {
+                    stand = wanted;
+                    stand_velocity = 0.0;
+                }
+            }
+            if stand > 0.05 {
+                report.stood = true;
+            }
+            let lift = smooth(stand);
+            arm_goals = std::array::from_fn(|index| {
+                let (from, to) = (f32::from(up.folded[index]), f32::from(up.pose[3 + index]));
+                (from + (to - from) * lift).round() as u16
+            });
+            let next = home_of(standing, stand);
+            carried = std::array::from_fn(|index| next[index] - home_now[index]);
+            home_now = next;
+            (low, high) = bounds(home_now, stand);
+            if stand_velocity != 0.0 || wanted != stand {
+                // On its way up or down nothing of the head is left resting
+                // where it was: it has to come along.
+                resting_steps = 0;
+                asleep = [false; 3];
+            }
+        }
         if resting_steps == 0 {
             relaxed = false;
         }
@@ -729,8 +1202,6 @@ pub(crate) fn run(
         for left in &mut easing {
             *left = left.saturating_sub(1);
         }
-        // The wire is failing: nothing new is asked until it answers again.
-        let blind = misses > 0 || unsent > 0;
         for (index, offset) in offsets.into_iter().enumerate() {
             if blind {
                 continue;
@@ -743,7 +1214,8 @@ pub(crate) fn run(
             if relaxed {
                 continue;
             }
-            let wanted = (f32::from(home[index]) + offset).clamp(low[index], high[index]);
+            commanded[index] += carried[index];
+            let wanted = (home_now[index] + offset).clamp(low[index], high[index]);
             wanted_of[index] = wanted;
             if asleep[index] {
                 if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() {
@@ -763,11 +1235,12 @@ pub(crate) fn run(
             commanded[index] = (commanded[index] + velocity[index] * step).clamp(floor, ceiling);
             goals[index] = commanded[index].round() as u16;
         }
-        if goals != written {
-            match bus.send(&goals_write(goals)) {
+        if goals != written || arm_goals != arm_written {
+            match bus.send_goals(goals, standing.map(|_| arm_goals)) {
                 Ok(()) => {
                     unsent = 0;
                     written = goals;
+                    arm_written = arm_goals;
                     report.goal_writes += 1;
                     report.moved = true;
                 }
@@ -808,7 +1281,7 @@ pub(crate) fn run(
             });
             if near {
                 let sent = positions == written
-                    || match bus.send(&goals_write(positions)) {
+                    || match bus.send_goals(positions, standing.map(|_| arm_written)) {
                         Ok(()) => {
                             written = positions;
                             report.goal_writes += 1;
@@ -853,7 +1326,7 @@ pub(crate) fn run(
         }
         let sent = failed.is_none()
             && (rested == written
-                || match bus.send(&goals_write(rested)) {
+                || match bus.send_goals(rested, standing.map(|_| arm_written)) {
                     Ok(()) => {
                         written = rested;
                         report.goal_writes += 1;
@@ -891,6 +1364,10 @@ pub(crate) fn run(
             positions: COMMANDED.map(|joint| samples[joint.index()].position),
             loads: COMMANDED.map(|joint| samples[joint.index()].load),
             eased: report.eased,
+            stand,
+            arm_goals: arm_written,
+            arm_positions: ARM.map(|joint| samples[joint.index()].position),
+            arm_loads: ARM.map(|joint| samples[joint.index()].load),
         });
         let mut surprise = None;
         for joint in Joint::ALL {
@@ -903,14 +1380,76 @@ pub(crate) fn run(
                 });
             }
         }
-        for joint in BYSTANDERS {
+        for joint in ARM {
             let (was, is) = (found[joint.index()], samples[joint.index()]);
-            if was.position.abs_diff(is.position) > limits.bystander_drift {
+            if standing.is_none() && was.position.abs_diff(is.position) > limits.bystander_drift {
                 surprise.get_or_insert(Stop::Drift {
                     joint: joint.id(),
                     found: was.position,
                     now: is.position,
                 });
+            }
+        }
+        if let Some(up) = standing {
+            for (index, joint) in ARM.iter().enumerate() {
+                let is = samples[joint.index()];
+                report.arm_peak_load[index] = report.arm_peak_load[index].max(is.load);
+                report.arm_peak_temperature[index] =
+                    report.arm_peak_temperature[index].max(is.temperature);
+                arm_over[index] = if is.load > up.load[index] {
+                    arm_over[index].saturating_add(1)
+                } else {
+                    0
+                };
+                arm_off[index] = if arm_written[index].abs_diff(is.position) > Standing::TRACKING {
+                    arm_off[index].saturating_add(1)
+                } else {
+                    0
+                };
+                arm_hot[index] = if is.temperature >= Standing::TEMPERATURE {
+                    arm_hot[index].saturating_add(1)
+                } else {
+                    0
+                };
+                let why = if arm_over[index] >= limits.load_steps.max(1) {
+                    Some(format!("{joint} load {}", is.load))
+                } else if arm_off[index] >= Standing::TRACKING_STEPS {
+                    Some(format!(
+                        "{joint} at {} for goal {}",
+                        is.position, arm_written[index]
+                    ))
+                } else if arm_hot[index] >= limits.temperature_steps.max(1) {
+                    Some(format!("{joint} at {} degrees", is.temperature))
+                } else {
+                    None
+                };
+                let Some(why) = why else { continue };
+                // A living thing that cannot hold itself up sits down. It
+                // goes back the way it came and rests there. Only an arm
+                // still strained or astray two seconds on ends the run.
+                let tired = retreats >= Standing::RETREATS_ALLOWED
+                    || tired_until.is_some_and(|until| now < until);
+                if !tired && stand > 0.0 {
+                    retreats += 1;
+                    if report.retreats.len() < 16 {
+                        report
+                            .retreats
+                            .push(format!("step {}: {why}", report.steps));
+                    }
+                }
+                tired_until = Some(now + Standing::TIRED);
+                if arm_over[index] >= Standing::STUCK_STEPS {
+                    surprise.get_or_insert(Stop::Load {
+                        joint: joint.id(),
+                        load: is.load,
+                    });
+                } else if arm_off[index] >= Standing::STUCK_STEPS {
+                    surprise.get_or_insert(Stop::Tracking {
+                        joint: joint.id(),
+                        goal: arm_written[index],
+                        position: is.position,
+                    });
+                }
             }
         }
         for (index, joint) in COMMANDED.iter().enumerate() {
@@ -976,10 +1515,15 @@ pub(crate) fn run(
         }
         if let Some(since) = leaving {
             let settled = (0..3).all(|index| {
-                (commanded[index] - f32::from(home[index])).abs() < 0.6
-                    && velocity[index].abs() < 3.0
-            });
-            if settled || now.saturating_sub(since) >= LEAVE {
+                (commanded[index] - home_now[index]).abs() < 0.6 && velocity[index].abs() < 3.0
+            }) && stand <= 0.0
+                && stand_velocity == 0.0;
+            // A lamp that stands folds down first, and that takes its time.
+            let allowed = LEAVE
+                + standing.map_or(Duration::ZERO, |up| {
+                    Duration::from_secs_f32(up.seconds * 2.0)
+                });
+            if settled || now.saturating_sub(since) >= allowed {
                 break Stop::Cancelled;
             }
         }
@@ -987,8 +1531,12 @@ pub(crate) fn run(
     };
 
     if stop == Stop::Cancelled {
-        // Leave the goals exactly at home.
-        if written != home && bus.send(&goals_write(home)).is_ok() {
+        // Leave the goals exactly at home: of a lamp that is down. One
+        // that did not get down in time is left as it is.
+        if stand <= 0.0
+            && (written != home || standing.is_some_and(|up| arm_written != up.folded))
+            && bus.send_goals(home, standing.map(|up| up.folded)).is_ok()
+        {
             report.goal_writes += 1;
         }
     } else if let Some(last) = report.last {
@@ -1003,7 +1551,7 @@ pub(crate) fn run(
                 )
                 .round() as u16
         });
-        if bus.send(&goals_write(hold)).is_ok() {
+        if bus.send_goals(hold, standing.map(|_| arm_written)).is_ok() {
             report.goal_writes += 1;
             report.held_at = Some(hold);
         }

@@ -50,6 +50,12 @@ struct Lamp {
     /// A temperature to put back once it has been read once.
     blip: Option<(usize, u8)>,
     simulated_to: Duration,
+    /// The shoulder and the elbow follow their goals like the other three.
+    /// Off, they stay where they are whatever is written to them.
+    arm_moves: bool,
+    /// What takes a latched overload off a servo: 0 nothing, 1 a write of
+    /// torque on, 2 only torque off and then on.
+    overload_clears: u8,
 }
 
 struct Clock {
@@ -103,6 +109,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             unstrained: None,
             blip: None,
             simulated_to: Duration::ZERO,
+            arm_moves: false,
+            overload_clears: 0,
         },
         Clock { time, cancel_at },
     )
@@ -147,7 +155,7 @@ impl Lamp {
             }
         }
         for (index, servo) in self.servos.iter_mut().enumerate() {
-            if servo.torque != 1 || index == 1 || index == 2 {
+            if servo.torque != 1 || ((index == 1 || index == 2) && !self.arm_moves) {
                 continue;
             }
             // The register's unit is not known; here it is counts a second.
@@ -255,10 +263,19 @@ impl Lamp {
                 }
                 0x03 => {
                     let (address, data) = (parameters[0], parameters[1..].to_vec());
+                    let clears = self.overload_clears;
                     let servo = &mut self.servos[usize::from(id) - 1];
                     match (address, data.as_slice()) {
                         (41, [value]) => servo.acceleration = *value,
                         (46, [low, high]) => servo.speed = u16::from_le_bytes([*low, *high]),
+                        // Torque: only ever to the shoulder or the elbow.
+                        (40, [value]) if id == 2 || id == 3 => {
+                            let was = servo.torque;
+                            servo.torque = *value;
+                            if *value == 1 && (clears == 1 || (clears == 2 && was == 0)) {
+                                servo.status &= !0x20;
+                            }
+                        }
                         other => panic!("a write this body must never send: {other:?}"),
                     }
                     self.registers.push((id, address, data));
@@ -1012,4 +1029,414 @@ fn the_heads_pitch_never_passes_its_window_however_it_is_found() {
         .max()
         .unwrap();
     assert!(highest <= 2_030, "{highest}");
+}
+
+/// A pose to stand in for the simulated lamp, whose arm is found folded at
+/// 2,050 and 2,047: the whole way in four seconds unless said otherwise.
+fn standing(share: u8, awake: u16) -> Standing {
+    Standing::new(
+        [2_050, 2_047],
+        [1_900, 2_044, 2_015, 2_650, 2_600],
+        share,
+        4,
+        awake,
+        [950, 950],
+    )
+    .unwrap()
+}
+
+/// Spoken to from one second to seven, then left alone.
+fn spoken_to(time: &Rc<Cell<Duration>>) -> impl FnMut() -> Option<(Mood, u8)> + use<> {
+    let time = time.clone();
+    move || {
+        let at = time.get().as_millis() as u64;
+        Some(match at {
+            1_000..3_000 => (Mood::Listening, 120),
+            3_000..4_500 => (Mood::Thinking, 0),
+            4_500..7_000 => (Mood::Speaking, 60),
+            _ => (Mood::Resting, 0),
+        })
+    }
+}
+
+#[test]
+fn the_two_writes_of_a_lamp_that_stands_are_exactly_these_bytes() {
+    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    assert_eq!(
+        hex(&all_goals_write(HOME, [2_048, 2_047])),
+        "fffffe13832a0205d00704fc0701df0702000803ff0762"
+    );
+    assert_eq!(hex(&torque_write(Joint::ElbowPitch, 1)), "ffff0304032801cc");
+}
+
+#[test]
+fn a_standing_pose_is_taken_only_inside_its_caps() {
+    let pose = [1_900, 2_044, 2_015, 2_650, 2_600];
+    let new = |folded, pose, share, seconds, awake, load| {
+        Standing::new(folded, pose, share, seconds, awake, load)
+    };
+    let taken = new([2_050, 2_047], pose, 30, 5, 90, [950, 950]).unwrap();
+    assert_eq!((taken.share, taken.seconds), (0.3, 5.0));
+    assert_eq!(taken.awake, Duration::from_secs(90));
+    // Too far for a shoulder, off the encoder, no share, too quick, too
+    // briefly awake, a load bound that is no bound.
+    assert!(
+        new(
+            [2_050, 2_047],
+            [1_900, 2_044, 2_015, 3_500, 2_600],
+            30,
+            5,
+            90,
+            [950, 950]
+        )
+        .is_err()
+    );
+    assert!(
+        new(
+            [2_050, 2_047],
+            [4_096, 2_044, 2_015, 2_650, 2_600],
+            30,
+            5,
+            90,
+            [950, 950]
+        )
+        .is_err()
+    );
+    assert!(new([2_050, 2_047], pose, 0, 5, 90, [950, 950]).is_err());
+    assert!(new([2_050, 2_047], pose, 101, 5, 90, [950, 950]).is_err());
+    assert!(new([2_050, 2_047], pose, 30, 1, 90, [950, 950]).is_err());
+    assert!(new([2_050, 2_047], pose, 30, 5, 4, [950, 950]).is_err());
+    assert!(new([2_050, 2_047], pose, 30, 5, 90, [950, 1_001]).is_err());
+    // The way up eases in and out, and its inverse finds the same place.
+    assert_eq!((smooth(0.0), smooth(0.5), smooth(1.0)), (0.0, 0.5, 1.0));
+    for share in [0.1f32, 0.37, 0.8] {
+        assert!((unsmooth(smooth(share)) - share).abs() < 0.001);
+    }
+    assert_eq!(head_share(0.25), 0.0);
+    assert_eq!(head_share(1.0), 1.0);
+}
+
+#[test]
+fn spoken_to_it_stands_up_and_left_alone_it_folds_down_again() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(22));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let news = spoken_to(&clock.time);
+    let up = standing(100, 5);
+    let mut highest = 0.0f32;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(up),
+        news,
+        |glimpse| highest = highest.max(glimpse.stand),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.standing, Some(up));
+    assert_eq!(report.standing_refused, None);
+    assert!(report.stood && report.retreats.is_empty());
+    assert_eq!(highest, 1.0);
+
+    // The elbow's old flag: torque written once, to it alone, and it is
+    // gone. Then the slow profile on all five.
+    assert_eq!(report.torque_writes, 1);
+    let torque: Vec<_> = lamp
+        .registers
+        .iter()
+        .filter(|(_, address, _)| *address == 40)
+        .collect();
+    assert_eq!(torque, vec![&(3, 40, vec![1])]);
+    assert_eq!(lamp.servos[2].status, 0);
+    for id in [2u8, 3] {
+        assert!(
+            lamp.registers
+                .iter()
+                .any(|(to, address, _)| (*to, *address) == (id, 46))
+        );
+        assert!(
+            lamp.registers
+                .iter()
+                .any(|(to, address, _)| (*to, *address) == (id, 41))
+        );
+    }
+
+    // Every goal write names all five joints, the arm stays between folded
+    // and stood up, reaches the pose, and no goal jumps.
+    let mut previous = [2_050i32, 2_047];
+    let mut top = [0u16; 2];
+    for write in &lamp.goals {
+        let ids: Vec<u8> = write.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, vec![5, 4, 1, 2, 3]);
+        for (index, joint) in ARM.iter().enumerate() {
+            let goal = goal_of(write, *joint);
+            assert!(
+                (up.folded[index]..=up.pose[3 + index]).contains(&goal),
+                "{write:?}"
+            );
+            assert!(
+                (i32::from(goal) - previous[index]).abs() <= 6,
+                "{previous:?} {write:?}"
+            );
+            previous[index] = i32::from(goal);
+            top[index] = top[index].max(goal);
+        }
+    }
+    assert_eq!(top, [2_650, 2_600]);
+    // The head went with it: its home rose to the standing pose's, and its
+    // gestures stayed within their reach of that.
+    let lowest = lamp
+        .goals
+        .iter()
+        .map(|write| goal_of(write, Joint::WristPitch))
+        .min()
+        .unwrap();
+    assert!((1_855..=1_900).contains(&lowest), "{lowest}");
+    // And it is folded again as it was found, the head at its home.
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+    assert!((lamp.servos[1].position - 2_050.0).abs() <= 2.0);
+    assert!((lamp.servos[2].position - 2_047.0).abs() <= 2.0);
+    assert_eq!(lamp.servos[PITCH].goal, 2_000);
+    assert!((lamp.servos[PITCH].position - 2_000.0).abs() <= 2.0);
+    serde_json::to_string(&report).unwrap();
+}
+
+#[test]
+fn the_head_keeps_its_folded_pose_until_the_arm_has_lifted_it_clear() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(9));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    // A pose whose head pitch is toward the base: it must not go there early.
+    let up = Standing::new(
+        [2_050, 2_047],
+        [2_100, 2_044, 2_015, 2_650, 2_600],
+        100,
+        4,
+        60,
+        [950, 950],
+    )
+    .unwrap();
+    let news = spoken_to(&clock.time);
+    let mut seen = Vec::new();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(up),
+        news,
+        |glimpse| seen.push((glimpse.stand, glimpse.goals[0])),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let limits = Limits::FOLDED;
+    for (stand, pitch) in &seen {
+        if *stand <= 0.25 {
+            // Beside the base: inside the folded reach and window.
+            assert!(
+                f32::from(*pitch) <= 2_000.0 + limits.pitch_down,
+                "{stand} {pitch}"
+            );
+            assert!(*pitch <= limits.pitch_window.1);
+        }
+    }
+    assert!(
+        seen.iter()
+            .any(|(stand, pitch)| *stand > 0.99 && *pitch > 2_060)
+    );
+    assert_eq!(lamp.servos[PITCH].goal, 2_000);
+}
+
+#[test]
+fn an_arm_that_strains_goes_back_down_and_stays_down_for_a_while() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    // The shoulder reads over its bound for a second on the way up.
+    lamp.strains = vec![(
+        Duration::from_millis(2_500),
+        Duration::from_millis(3_500),
+        1,
+        990,
+    )];
+    let time = clock.time.clone();
+    let news = move || Some((Mood::Listening, 100));
+    let mut after = Vec::new();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |glimpse| {
+            if time.get() > Duration::from_secs(9) {
+                after.push(glimpse.stand);
+            }
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood);
+    assert_eq!(report.retreats.len(), 1, "{:?}", report.retreats);
+    assert!(
+        report.retreats[0].contains("base_pitch load 990"),
+        "{:?}",
+        report.retreats
+    );
+    assert_eq!(report.arm_peak_load[0], 990);
+    // Still spoken to, and it stays down: it is resting.
+    assert!(
+        !after.is_empty() && after.iter().all(|stand| *stand == 0.0),
+        "{after:?}"
+    );
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+}
+
+#[test]
+fn an_arm_still_strained_two_seconds_on_ends_the_run_where_it_is() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    lamp.strains = vec![(
+        Duration::from_millis(2_500),
+        Duration::from_secs(60),
+        2,
+        990,
+    )];
+    let news = || Some((Mood::Listening, 100));
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Load {
+            joint: 3,
+            load: 990
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.retreats.len(), 1);
+    // Nothing is written after it: the arm holds where it had got to.
+    let last = lamp.goals.last().unwrap();
+    assert_eq!(goal_of(last, Joint::ElbowPitch), lamp.servos[2].goal);
+}
+
+#[test]
+fn found_standing_it_is_taken_as_it_is_and_folds_down_when_asked_to_stop() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.arm_moves = true;
+    for (index, at) in [(1usize, 2_650.0f32), (2, 2_600.0), (PITCH, 1_900.0)] {
+        lamp.servos[index].position = at;
+        lamp.servos[index].goal = at as u16;
+        lamp.servos[index].status = 0;
+    }
+    let news = || Some((Mood::Resting, 0));
+    let mut first = None;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |glimpse| {
+            first.get_or_insert(glimpse.stand);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.torque_writes, 0);
+    assert!(first.unwrap() > 0.98, "{first:?}");
+    // Down again, by its own way, before it left.
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+    assert_eq!(lamp.servos[PITCH].goal, 2_000);
+    assert!((lamp.servos[1].position - 2_050.0).abs() <= 2.0);
+
+    // Found somewhere that is not on the way, it runs as a folded lamp
+    // would have to: it refuses, since its head is not at its home either.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.servos[1].position = 2_650.0;
+    lamp.servos[1].goal = 2_650;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || None,
+        |_| {},
+    );
+    assert_eq!(report.standing, None);
+    assert!(report.standing_refused.unwrap().contains("off the way"));
+    assert!(lamp.goals.iter().all(|write| write.len() == 3));
+}
+
+#[test]
+fn a_flag_that_stays_or_a_missing_home_keeps_it_folded_and_it_runs_as_before() {
+    // Torque on, then off and on: the flag is still there.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.arm_moves = true;
+    let news = script(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.torque_writes, 3);
+    assert_eq!(report.standing, None);
+    assert!(
+        report
+            .standing_refused
+            .unwrap()
+            .contains("elbow_pitch keeps status 0x20")
+    );
+    assert!(!report.stood);
+    assert!(lamp.goals.len() > 100);
+    assert!(lamp.goals.iter().all(|write| write.len() == 3));
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+    assert_eq!(lamp.servos[2].torque, 1);
+
+    // One that clears only when torque goes off and on again does stand.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 2;
+    let news = spoken_to(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.torque_writes, 3);
+    assert!(report.stood && report.standing.is_some(), "{report:?}");
+
+    // Without a home there is no telling folded from stood up.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    let news = script(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        Some(standing(100, 60)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled);
+    assert_eq!(report.standing, None);
+    assert_eq!(report.torque_writes, 0);
+    assert!(report.standing_refused.unwrap().contains("needs a home"));
 }

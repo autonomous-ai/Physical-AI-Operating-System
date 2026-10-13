@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Never touches torque, the\nshoulder or the elbow. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -17,6 +17,19 @@ struct Arguments {
     speed: Option<u16>,
     servo_speed: Option<u16>,
     servo_acceleration: Option<u8>,
+    standing: Option<StandingChoice>,
+}
+
+/// What `--stand` and its options said. The body checks it against its own
+/// caps when it is made.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct StandingChoice {
+    folded: [u16; 2],
+    pose: [u16; 5],
+    share: u8,
+    seconds: u8,
+    awake: u16,
+    load: [u16; 2],
 }
 
 /// Whole numbers separated by commas, exactly as many as asked for.
@@ -44,6 +57,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut device, mut unit_id, mut lock_directory, mut mood_socket) = (None, None, None, None);
     let mut home = None;
     let (mut reach, mut speed, mut servo_speed, mut servo_acceleration) = (None, None, None, None);
+    let (mut stand, mut folded_arm, mut arm_load) = (None, None, None);
+    let (mut stand_share, mut stand_seconds, mut awake_seconds) = (None, None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -55,6 +70,12 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || speed.is_some()
                 || servo_speed.is_some()
                 || servo_acceleration.is_some()
+                || stand.is_some()
+                || folded_arm.is_some()
+                || arm_load.is_some()
+                || stand_share.is_some()
+                || stand_seconds.is_some()
+                || awake_seconds.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -117,9 +138,79 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .ok_or("--servo-acceleration is a whole number under 256")?,
                 );
             }
+            Some("--stand") if stand.is_none() => {
+                stand = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<5>)
+                        .ok_or("--stand is PITCH,ROLL,YAW,SHOULDER,ELBOW in encoder counts")?,
+                );
+            }
+            Some("--folded-arm") if folded_arm.is_none() => {
+                folded_arm = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<2>)
+                        .ok_or("--folded-arm is SHOULDER,ELBOW in encoder counts")?,
+                );
+            }
+            Some("--arm-load") if arm_load.is_none() => {
+                arm_load = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<2>)
+                        .ok_or("--arm-load is SHOULDER,ELBOW")?,
+                );
+            }
+            Some("--stand-share") if stand_share.is_none() => {
+                stand_share = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .and_then(|value| u8::try_from(value[0]).ok())
+                        .ok_or("--stand-share is a whole percentage")?,
+                );
+            }
+            Some("--stand-seconds") if stand_seconds.is_none() => {
+                stand_seconds = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .and_then(|value| u8::try_from(value[0]).ok())
+                        .ok_or("--stand-seconds is a whole number of seconds")?,
+                );
+            }
+            Some("--awake-seconds") if awake_seconds.is_none() => {
+                awake_seconds = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .ok_or("--awake-seconds is a whole number of seconds")?[0],
+                );
+            }
             _ => return Err("unknown or duplicate option"),
         }
     }
+    // Standing is one choice made whole: a pose, the folded arm and a home.
+    let standing = match (stand, folded_arm) {
+        (Some(pose), Some(folded)) if home.is_some() => Some(StandingChoice {
+            folded,
+            pose,
+            share: stand_share.unwrap_or(100),
+            seconds: stand_seconds.unwrap_or(5),
+            awake: awake_seconds.unwrap_or(90),
+            load: arm_load.unwrap_or([950, 950]),
+        }),
+        (None, None)
+            if arm_load.is_none()
+                && stand_share.is_none()
+                && stand_seconds.is_none()
+                && awake_seconds.is_none() =>
+        {
+            None
+        }
+        _ => return Err("--stand needs --home and --folded-arm, and its options need --stand"),
+    };
     let result = Arguments {
         device: device.ok_or("--device is required")?,
         unit_id: unit_id.ok_or("--unit-id is required")?,
@@ -130,6 +221,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         speed,
         servo_speed,
         servo_acceleration,
+        standing,
     };
     for path in [&result.device, &result.lock_directory, &result.mood_socket] {
         if !path.is_absolute()
@@ -188,6 +280,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.speed,
         arguments.servo_speed,
         arguments.servo_acceleration,
+        arguments.standing,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -260,13 +353,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     })?;
     // One line to the journal on each change of mood, and twice a second
     // while the goals are changing: what it did, afterwards.
-    let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3])> = None;
+    let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3], [u16; 2])> = None;
+    let stands = arguments.standing.is_some();
     let mut eased = [0u16; 3];
     let watch = |glimpse: &lamp_motor::body::Glimpse| {
         let due = match said {
             None => true,
-            Some((mood, _, _)) if mood != glimpse.mood => true,
-            Some((_, step, goals)) => goals != glimpse.goals && glimpse.step - step >= 25,
+            Some((mood, _, _, _)) if mood != glimpse.mood => true,
+            Some((_, step, goals, arm)) => {
+                (goals != glimpse.goals || arm != glimpse.arm_goals) && glimpse.step - step >= 25
+            }
         };
         if glimpse.eased != eased {
             eased = glimpse.eased;
@@ -276,22 +372,58 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             );
         }
         if due {
-            said = Some((glimpse.mood, glimpse.step, glimpse.goals));
-            eprintln!(
-                "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?}",
-                glimpse.step, glimpse.mood, glimpse.goals, glimpse.positions, glimpse.loads
-            );
+            said = Some((glimpse.mood, glimpse.step, glimpse.goals, glimpse.arm_goals));
+            if stands {
+                eprintln!(
+                    "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?} stand {:.2} arm goals {:?} positions {:?} loads {:?}",
+                    glimpse.step,
+                    glimpse.mood,
+                    glimpse.goals,
+                    glimpse.positions,
+                    glimpse.loads,
+                    glimpse.stand,
+                    glimpse.arm_goals,
+                    glimpse.arm_positions,
+                    glimpse.arm_loads
+                );
+            } else {
+                eprintln!(
+                    "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?}",
+                    glimpse.step, glimpse.mood, glimpse.goals, glimpse.positions, glimpse.loads
+                );
+            }
         }
     };
-    let result = run_body(&config, limits, arguments.home, news, watch, || {
-        if !cancelled {
-            cancelled = signal_fd
-                .read_signal()
-                .map_err(|error| std::io::Error::from_raw_os_error(error as i32))?
-                .is_some();
-        }
-        Ok(cancelled)
-    });
+    let standing = arguments
+        .standing
+        .map(|choice| {
+            lamp_motor::body::Standing::new(
+                choice.folded,
+                choice.pose,
+                choice.share,
+                choice.seconds,
+                choice.awake,
+                choice.load,
+            )
+        })
+        .transpose()?;
+    let result = run_body(
+        &config,
+        limits,
+        arguments.home,
+        standing,
+        news,
+        watch,
+        || {
+            if !cancelled {
+                cancelled = signal_fd
+                    .read_signal()
+                    .map_err(|error| std::io::Error::from_raw_os_error(error as i32))?
+                    .is_some();
+            }
+            Ok(cancelled)
+        },
+    );
     let _ = std::fs::remove_file(&arguments.mood_socket);
     let mut output = std::io::stdout().lock();
     serde_json::to_writer(&mut output, &result)?;
@@ -400,6 +532,54 @@ mod tests {
             ))
             .is_err()
         );
+    }
+
+    #[test]
+    fn standing_is_a_pose_a_folded_arm_and_a_home_or_nothing() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        let stood = with(&[
+            "--home",
+            "1950,2043,2015",
+            "--stand",
+            "1772,2045,2015,2657,2602",
+            "--folded-arm",
+            "2048,2047",
+            "--stand-share",
+            "30",
+            "--stand-seconds",
+            "6",
+            "--awake-seconds",
+            "45",
+        ])
+        .unwrap()
+        .unwrap()
+        .standing
+        .unwrap();
+        assert_eq!(
+            stood,
+            StandingChoice {
+                folded: [2_048, 2_047],
+                pose: [1_772, 2_045, 2_015, 2_657, 2_602],
+                share: 30,
+                seconds: 6,
+                awake: 45,
+                load: [950, 950],
+            }
+        );
+        assert!(with(&[]).unwrap().unwrap().standing.is_none());
+        let home = ["--home", "1950,2043,2015"];
+        let pose = ["--stand", "1772,2045,2015,2657,2602"];
+        let arm = ["--folded-arm", "2048,2047"];
+        for refused in [
+            // No home, no folded arm, an option without a pose, a pose of four.
+            [&pose[..], &arm].concat(),
+            [&home[..], &pose].concat(),
+            [&home[..], &["--stand-share", "30"]].concat(),
+            [&home[..], &["--stand", "1772,2045,2015,2657"], &arm].concat(),
+            [&home[..], &pose, &arm, &["--stand-share", "300"]].concat(),
+        ] {
+            assert!(with(&refused).is_err(), "{refused:?}");
+        }
     }
 
     #[test]

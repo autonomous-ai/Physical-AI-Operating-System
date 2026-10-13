@@ -195,6 +195,7 @@ type OTAMetadata map[string]OTAComponent
 type OTAComponent struct {
     Version    string `json:"version"`
     MinVersion string `json:"min_version,omitempty"`
+    MinVersionByDevice map[string]string `json:"min_version_by_device,omitempty"`
     URL        string `json:"url,omitempty"`
     SHA256     string `json:"sha256,omitempty"`
 }
@@ -211,6 +212,13 @@ automatic worker rolls the fleet up to. They decouple "published" from
   `version` (so the worker simply tracks the latest — legacy behavior).
 - **Manual `software-update <key>`** (run over SSH) ignores `min_version` and
   always installs `version` — for testing a build on a few devices first.
+- **Per-device floor:** `min_version_by_device` (e.g. `{"lamp": "0.1.285"}`)
+  overrides `min_version` for the listed `device_type`; unlisted types fall back
+  to `min_version`. Used when one device type must stay on an old floor (e.g.
+  `intern-v2` holding HAL back) while others roll forward. Bootstraps older than
+  this field ignore it and keep reading `min_version`, so leave `min_version` at
+  the held-back floor and promote the new bootstrap before relying on the map.
+  Set it with `make promote-hal FOR=lamp [V=<version>]` (works for any `promote-*`).
 
 Workflow:
 
@@ -631,7 +639,7 @@ checkOnce():
 reconcile(key, target):
   1. Detect current installed version
   2. If current == "" AND the component is not installed → skip silently
-  3. floor = target.min_version (default target.version if empty)
+  3. floor = target.min_version_by_device[device_type], else target.min_version, else target.version
   4. If current >= floor → sync state, return (at/above approved floor)
   5. If current < floor →
      a. Set LED orange breathing (OTA in progress)

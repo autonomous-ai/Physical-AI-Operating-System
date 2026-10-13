@@ -193,6 +193,7 @@ type OTAMetadata map[string]OTAComponent
 type OTAComponent struct {
     Version    string `json:"version"`
     MinVersion string `json:"min_version,omitempty"`
+    MinVersionByDevice map[string]string `json:"min_version_by_device,omitempty"`
     URL        string `json:"url,omitempty"`
     SHA256     string `json:"sha256,omitempty"`
 }
@@ -208,6 +209,13 @@ type OTAComponent struct {
   `version` (worker bám latest — hành vi cũ).
 - **`software-update <key>` thủ công** (qua SSH) bỏ qua `min_version`, luôn cài
   `version` — để test bản mới trên vài thiết bị trước.
+- **Sàn theo thiết bị:** `min_version_by_device` (vd `{"lamp": "0.1.285"}`)
+  ghi đè `min_version` cho `device_type` có trong map; loại không có thì dùng
+  `min_version`. Dùng khi một loại thiết bị phải giữ sàn cũ (vd `intern-v2` giữ
+  HAL cũ) trong khi loại khác lên bản mới. Bootstrap cũ hơn trường này bỏ qua nó
+  và vẫn đọc `min_version`, nên để `min_version` ở sàn bị giữ lại và promote
+  bootstrap mới trước khi dựa vào map. Đặt bằng
+  `make promote-hal FOR=lamp [V=<version>]` (dùng được cho mọi `promote-*`).
 
 Quy trình:
 
@@ -612,7 +620,7 @@ checkOnce():
 reconcile(key, target):
   1. Phát hiện version hiện tại đã cài
   2. Nếu current == "" VÀ component không được cài → bỏ qua im lặng
-  3. floor = target.min_version (mặc định target.version nếu rỗng)
+  3. floor = target.min_version_by_device[device_type], không có thì target.min_version, không có nữa thì target.version
   4. Nếu current >= floor → đồng bộ state, return (đã ở/trên sàn duyệt)
   5. Nếu current < floor →
      a. Bật LED cam breathing (đang update)

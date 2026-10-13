@@ -456,17 +456,14 @@ func (b *Bootstrap) reconcileDevice(ctx context.Context) (bool, error) {
 }
 
 // reconcile decides whether the automatic worker updates a component.
-// It only upgrades devices strictly below the floor (MinVersion, default Version);
+// It only upgrades devices strictly below the floor (see floorVersion);
 // manual `software-update <key>` bypasses this and always installs Version.
 func (b *Bootstrap) reconcile(ctx context.Context, key string, target domain.OTAComponent) (bool, error) {
 	targetVersion := strings.TrimSpace(target.Version)
 	if targetVersion == "" {
 		return false, fmt.Errorf("metadata[%s].version is empty", key)
 	}
-	minVersion := strings.TrimSpace(target.MinVersion)
-	if minVersion == "" {
-		minVersion = targetVersion
-	}
+	minVersion := floorVersion(target)
 	blockedVersions, err := b.rollbackVersions()
 	if err != nil {
 		return false, err

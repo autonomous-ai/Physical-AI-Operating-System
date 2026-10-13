@@ -945,7 +945,10 @@ async fn serve_with_visual<C: Connect>(
                         request: successor.map(RequestId::get),
                         superseded: superseded.map(RequestId::get),
                     })),
-                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => desk.called(&provider, lineage, call),
+                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
+                        let heard = attention.heard_so_far(lineage.request.get());
+                        desk.called(&provider, lineage, call, heard)
+                    }
                     // The model said this request was not for it: none of
                     // its sound is let out, and none of its words are kept
                     // as something the lamp said.
@@ -1074,6 +1077,7 @@ impl ToolDesk {
         provider: &Supervisor<C>,
         lineage: lamp_gemini::Lineage,
         call: lamp_gemini::ToolCall,
+        heard: &str,
     ) {
         use crate::tools::Route;
         let request = lineage.request.get();
@@ -1109,6 +1113,22 @@ impl ToolDesk {
                 tell(&crate::tools::declined());
                 eprintln!(
                     "lamp-voice provider: request {request}: the model said it was not for it"
+                );
+            }
+            // A word or two that asked for nothing changes nothing of the
+            // lamp's: the call is not run, the model is told so, and what
+            // it then says is not played.
+            Route::Executive(_) if !crate::tools::could_have_asked(heard) => {
+                self.declined = Some(request);
+                tell(&crate::tools::not_asked());
+                eprintln!(
+                    "lamp-voice provider: request {request}: the model called {} and the {} heard could not have asked for it; not done",
+                    call.name,
+                    if heard.split_whitespace().count() == 1 {
+                        "word"
+                    } else {
+                        "words"
+                    }
                 );
             }
             route @ (Route::Executive(_) | Route::Memory(_))

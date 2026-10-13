@@ -85,6 +85,33 @@ and should be words the lamp can say. The answer may be at most 8,192
 bytes on the line and about 4,000 as JSON to the model; a larger one is
 treated as no answer.
 
+### A word that asked for nothing
+
+On lamp-4ace on 2026-10-14 a played "Thank you." was written by the
+service as "cambiar", and the model called `light_colour` and said "I've
+turned my light to yellow for you." Earlier that night a misheard word
+had turned the volume up. Nobody had asked for either.
+
+So a call to the executive is not run when the text of what was heard in
+that request, as far as it has come, is one to three words and none of
+them is about a light or a voice or says yes (`could_have_asked` in
+`crates/voice/src/tools.rs`: "light", "brighter", "off", "louder", "blue",
+"okay", "bật", "đèn" and some eighty more). The model is told that
+nobody asked and nothing was changed, the request is taken as not for
+the lamp, and what the model then says is not played. The log has
+`the model called light_colour and the word heard could not have asked
+for it; not done`.
+
+It judges only a word or two, and only against acting. With no text yet
+(it is often late) the call is run as before, and a sentence of four
+words or more is the model's to judge. The character file says the same
+in its own way: change the light or the voice only when someone has
+plainly asked. What this costs is a real request of one to three words in
+words that are not on the list, written down in time: it is not done and
+nothing is said, and the person has to say it another way. One host test
+covers the rule; on the lamp it has not been seen to act, because the
+mishearing cannot be made to happen on demand.
+
 ## The memory's
 
 With `LAMP_MEMORY_SOCKET` in the voice unit (the worker's

@@ -233,6 +233,131 @@ pub fn declined() -> Value {
     json!({"ok": true})
 }
 
+/// What the model is told when it tried to change something of the lamp's
+/// on the strength of a word or two that asked for nothing.
+pub fn not_asked() -> Value {
+    json!({"error": "Nobody asked for that: what you heard was not a request to change anything. Nothing was changed. Say nothing about it."})
+}
+
+/// Words one of which a request of three words or fewer has in it, if it
+/// asks the lamp to change its light or its voice, or agrees to the lamp
+/// doing so: English, and the Vietnamese people at lamp-4ace use to it.
+const ABOUT_LIGHT_OR_VOICE: &[&str] = &[
+    "light",
+    "lights",
+    "lamp",
+    "bright",
+    "brighter",
+    "brightness",
+    "dim",
+    "dimmer",
+    "dark",
+    "darker",
+    "colour",
+    "color",
+    "glow",
+    "shine",
+    "on",
+    "off",
+    "up",
+    "down",
+    "loud",
+    "louder",
+    "quiet",
+    "quieter",
+    "volume",
+    "voice",
+    "soft",
+    "softer",
+    "mute",
+    "unmute",
+    "sound",
+    "hear",
+    "speak",
+    "whisper",
+    "shh",
+    "hush",
+    "silence",
+    "silent",
+    "lower",
+    "raise",
+    "higher",
+    "more",
+    "less",
+    "again",
+    "back",
+    "turn",
+    "switch",
+    "change",
+    "yellow",
+    "red",
+    "green",
+    "blue",
+    "cyan",
+    "purple",
+    "orange",
+    "pink",
+    "white",
+    "warm",
+    "đèn",
+    "sáng",
+    "tối",
+    "màu",
+    "bật",
+    "tắt",
+    "to",
+    "nhỏ",
+    "lớn",
+    "tiếng",
+    "giọng",
+    "vàng",
+    "đỏ",
+    "xanh",
+    "tím",
+    "cam",
+    "hồng",
+    "trắng",
+    "ấm",
+    // Or says yes to the lamp's own offer of it.
+    "yes",
+    "yeah",
+    "yep",
+    "ok",
+    "okay",
+    "sure",
+    "please",
+    "do",
+    "go",
+    "ahead",
+    "ừ",
+    "vâng",
+    "dạ",
+    "được",
+    "có",
+];
+
+/// Whether what was heard, as the service wrote it, could have asked the
+/// lamp to change its light or its voice. On lamp-4ace on 2026-10-14 a
+/// played "Thank you." was written as "cambiar" and the model turned the
+/// light yellow; earlier that night a misheard word turned the volume up.
+///
+/// Only a word or two can be judged this way, and only against asking:
+/// no text yet says nothing (it is often late), a sentence of four words
+/// or more is left to the model, and three words or fewer must have one
+/// word in them that is about a light or a voice.
+pub fn could_have_asked(heard: &str) -> bool {
+    let words: Vec<String> = heard
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    words.is_empty()
+        || words.len() > 3
+        || words
+            .iter()
+            .any(|word| ABOUT_LIGHT_OR_VOICE.contains(&word.as_str()))
+}
+
 /// Ask the executive to run one call and wait at most `deadline` for its
 /// answer, connecting included. Blocking: for a thread of its own. Always
 /// returns what to tell the model; the second value says whether the
@@ -510,6 +635,42 @@ mod tests {
         };
         assert_eq!(route(&exec, NOT_FOR_ME), Route::Nobody);
         assert_eq!(route(&Settings::default(), "light_on"), Route::Nobody);
+    }
+
+    /// A word or two that is not about a light or a voice asked for
+    /// neither. Everything else is left to the model.
+    #[test]
+    fn a_word_or_two_about_nothing_cannot_have_asked_for_the_light_or_the_voice() {
+        for asked_nothing in ["cambiar", "Thank you.", "Milan", "tá", "Hey man.", "Hello?"] {
+            assert!(!could_have_asked(asked_nothing), "{asked_nothing}");
+        }
+        for may_have_asked in [
+            // No text has come: it often comes late, and says nothing.
+            "",
+            "  ",
+            // Short things people say to a lamp.
+            "Brighter.",
+            "Blue.",
+            "Lights off.",
+            "Turn it off",
+            "Louder!",
+            "Speak up.",
+            "Too loud.",
+            "Go dark",
+            "More.",
+            // Yes to what the lamp offered.
+            "Okay.",
+            "Yes please.",
+            "Bật đèn",
+            "Tắt đèn",
+            "Màu xanh",
+            "Nhỏ lại",
+            // A sentence is the model's to judge, whatever its words.
+            "Could you illuminate things somewhat?",
+            "Hey Lamp, make it cosy in here.",
+        ] {
+            assert!(could_have_asked(may_have_asked), "{may_have_asked}");
+        }
     }
 
     #[test]

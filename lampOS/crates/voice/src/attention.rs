@@ -261,6 +261,16 @@ impl Attention {
         self.heard.push_str(&text[..cut]);
     }
 
+    /// The text of what was heard since `request` began, as far as it has
+    /// come. Empty for a request this is not following.
+    pub fn heard_so_far(&self, request: u64) -> &str {
+        if request == self.request {
+            &self.heard
+        } else {
+            ""
+        }
+    }
+
     /// The first of an answer to `request` has come: decide once, and say
     /// so. `None` for a request this is not following, or already decided.
     pub fn first_output(&mut self, request: u64, room: Room, going_on: bool) -> Option<Verdict> {

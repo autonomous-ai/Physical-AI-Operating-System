@@ -182,6 +182,13 @@ the shoulder (servo 2) and the elbow (servo 3):
   offset from that home, and the head is carried along with it. The window
   that keeps the head off the base applies only while the head is beside the
   base, that is in that first quarter.
+- Stood up, the head has room it does not have beside the base: it may look
+  down as far as it may look up, and with `--stand-roll N` it may tilt N
+  counts either way, both growing with how clear of the base it is. That
+  is what gives a standing lamp the tilt it listens with (85% of that
+  reach, to alternate sides), which a folded lamp-4ace cannot make. The
+  head's pitch is never asked for less than 1,670, just above that servo's
+  own limit, whatever a mood, the eyes and a gesture add up to.
 - The goals of all five joints go out in one sync write.
 - An overload flag (`0x20`) latched on the shoulder or the elbow before the
   run leaves that servo holding with a fraction of its torque. Such a joint
@@ -344,6 +351,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch | 250,120 | 400, 200 |
+| `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
 tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
@@ -432,7 +440,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (215 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (217 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

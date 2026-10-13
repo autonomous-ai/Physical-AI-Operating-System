@@ -235,6 +235,10 @@ pub struct Limits {
     pub pitch_down: f32,
     pub roll: f32,
     pub yaw: f32,
+    /// The head's roll reach once the lamp has stood up, where it is more
+    /// than `roll`: folded, lamp-4ace's head cannot tilt at all (its roll
+    /// servo meets something after four counts); stood up it is free.
+    pub stand_roll: f32,
     /// The fastest the commanded pose moves, and how fast that may change.
     pub speed: f32,
     pub acceleration: f32,
@@ -334,6 +338,7 @@ impl Limits {
         pitch_down: 15.0,
         roll: 30.0,
         yaw: 40.0,
+        stand_roll: 0.0,
         speed: 50.0,
         acceleration: 400.0,
         servo_speed: 150,
@@ -1209,15 +1214,16 @@ pub(crate) fn run_alive(
         // it may look up; in between, in proportion to how clear it is.
         let clear = head_share(stand).powi(2);
         let down = limits.pitch_down + (limits.pitch_up - limits.pitch_down).max(0.0) * clear;
+        let roll = limits.roll + (limits.stand_roll - limits.roll).max(0.0) * clear;
         (
             [
                 (home[0] - limits.pitch_up).max(floor),
-                home[1] - limits.roll,
+                home[1] - roll,
                 home[2] - limits.yaw,
             ],
             [
                 (home[0] + down).min(ceiling),
-                home[1] + limits.roll,
+                home[1] + roll,
                 home[2] + limits.yaw,
             ],
         )
@@ -1444,7 +1450,10 @@ pub(crate) fn run_alive(
             );
         }
         // Each axis of a pose is a share of its reach, and where the eyes
-        // have it look is added to that, inside the same reach.
+        // have it look is added to that, inside the same reach. The head's
+        // tilt has the reach of a lamp that has stood up, as far as it has.
+        let roll_reach =
+            limits.roll + (limits.stand_roll - limits.roll).max(0.0) * head_share(stand).powi(2);
         let offsets = [
             pitch
                 * if pitch < 0.0 {
@@ -1453,7 +1462,7 @@ pub(crate) fn run_alive(
                     limits.pitch_down
                 }
                 + look[1],
-            roll * limits.roll,
+            roll * roll_reach,
             yaw * limits.yaw + look[0],
         ];
         // A joint that met resistance is asked nothing for now, at rest or not.

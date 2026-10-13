@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -19,6 +19,7 @@ struct Arguments {
     servo_acceleration: Option<u8>,
     standing: Option<StandingChoice>,
     gaze: Option<GazeChoice>,
+    stand_roll: Option<u16>,
 }
 
 /// What `--gaze-socket`, `--gaze` and `--gaze-reach` said.
@@ -76,6 +77,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut stand, mut folded_arm, mut arm_load) = (None, None, None);
     let (mut stand_share, mut stand_seconds, mut awake_seconds) = (None, None, None);
     let (mut gaze_socket, mut gaze_turn, mut gaze_reach) = (None, None, None);
+    let mut stand_roll = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -96,6 +98,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || gaze_socket.is_some()
                 || gaze_turn.is_some()
                 || gaze_reach.is_some()
+                || stand_roll.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -208,6 +211,16 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .ok_or("--awake-seconds is a whole number of seconds")?[0],
                 );
             }
+            Some("--stand-roll") if stand_roll.is_none() => {
+                stand_roll = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .map(|value| value[0])
+                        .filter(|counts| *counts <= 200)
+                        .ok_or("--stand-roll is a whole number of counts, 200 at most")?,
+                );
+            }
             Some("--gaze-socket") if gaze_socket.is_none() => {
                 gaze_socket = Some(PathBuf::from(value));
             }
@@ -272,7 +285,11 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         servo_acceleration,
         standing,
         gaze,
+        stand_roll,
     };
+    if result.stand_roll.is_some() && result.standing.is_none() {
+        return Err("--stand-roll needs --stand");
+    }
     let gaze_path = result.gaze.as_ref().map(|gaze| &gaze.socket);
     for path in [&result.device, &result.lock_directory, &result.mood_socket]
         .into_iter()
@@ -349,6 +366,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.servo_acceleration,
         arguments.standing,
         arguments.gaze,
+        arguments.stand_roll,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -424,6 +442,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             .servo_acceleration
             .unwrap_or(folded.servo_acceleration),
     })?;
+    // The head's tilt, for a lamp that has stood up.
+    let limits = Limits {
+        stand_roll: arguments.stand_roll.map_or(folded.stand_roll, f32::from),
+        ..limits
+    };
     // One line to the journal on each change of mood, and twice a second
     // while the goals are changing: what it did, afterwards.
     let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3], [u16; 2])> = None;

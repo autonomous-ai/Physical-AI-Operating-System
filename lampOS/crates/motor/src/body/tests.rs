@@ -1900,3 +1900,50 @@ fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
     assert_eq!(lowest, 1_880);
     assert!(highest_arm >= 2_650 + 290, "{highest_arm}");
 }
+
+#[test]
+fn stood_up_the_head_tilts_to_listen_and_folded_it_does_not() {
+    // A lamp whose head cannot tilt where it is folded: a roll reach of one
+    // count, and more once it has stood up.
+    let tilt = |stand_roll: f32| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let limits = Limits {
+            stand_roll,
+            ..Limits::folded_with(Tuning {
+                reach: [150, 15, 1, 250],
+                speed: 120,
+                servo_speed: 1_000,
+                servo_acceleration: 60,
+            })
+            .unwrap()
+        };
+        let (mut folded_tilt, mut stood_tilt) = (0u16, 0u16);
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            Some(standing(100, 60)),
+            || Some((Mood::Listening, 100)),
+            |glimpse| {
+                let tilt = glimpse.goals[1].abs_diff(HOME[1]);
+                if glimpse.stand <= 0.25 {
+                    folded_tilt = folded_tilt.max(tilt);
+                } else if glimpse.stand >= 1.0 {
+                    stood_tilt = stood_tilt.max(tilt);
+                }
+            },
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        (folded_tilt, stood_tilt)
+    };
+    // Listening tilts 85% of the reach: of one count folded, and of 110
+    // once it stands.
+    let (folded_tilt, stood_tilt) = tilt(110.0);
+    assert!(folded_tilt <= 1, "{folded_tilt}");
+    assert!((90..=94).contains(&stood_tilt), "{stood_tilt}");
+    // Without a standing reach it never tilts.
+    assert!(tilt(0.0).1 <= 1);
+}

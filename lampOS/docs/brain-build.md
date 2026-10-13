@@ -65,9 +65,11 @@ Engineering:
     listens continuously.
 14. **Agents run off the lamp, through Harness,** one paired computer
     first; a permission prompt stays on that computer.
-15. **Topics are contracts first;** a transport is added when a second
-    consumer exists. Nothing is added between the microphone and the
-    provider.
+15. **Publish and subscribe from the start for everything outside the
+    audio path,** on one small local bus that the page's author builds and
+    the runtime publishes to. Each topic has its written definition before
+    it flows. The microphone, the provider and the speaker stay joined
+    directly. Publishing never blocks or fails the publisher.
 16. **No decision model on the spoken path** until it wins on recorded
     requests against the Live model's own tool call.
 
@@ -111,6 +113,14 @@ Draft, for the page's author to correct. Small on purpose.
   has neither heard nor said anything for 45 seconds, and does not restart
   it otherwise. On 2026-10-13 a restart and a link cut made without that
   check landed on a person speaking to the lamp, twice.
+- **The bus.** Built by the page's author (decision 15); the runtime
+  publishes to it and reads from it only what it has asked for. Until it
+  exists, the items below are files.
+- **The door for Harness.** The computer dials the lamp on port 80. The
+  other builder owns that port, nginx and the mDNS advertisement, and
+  passes `/api/harness/ws` untouched to a local socket the runtime listens
+  on. The operator's page starts pairing by asking the runtime, which
+  answers with the code to show.
 - **Ready.** The runtime states each capability separately, in one small
   file the other builder may read: voice (listening, starting, or down and
   why), body (up, or stopped and why), eyes (looking or shut), tasks
@@ -154,7 +164,7 @@ By the page's own section numbers.
   loudness out, so nearness cannot be judged from it; the plain microphone
   may carry it, hears the lamp's own voice at -13 to -17 dBFS, and is
   blanked while the lamp speaks. Observers run below the voice's real-time
-  priority. Contracts first (decision 15).
+  priority. The bus and what stays off it are decision 15.
 - **07 (decision models).** Decisions 5, 6 and 16.
 - **08 (voice).** The commitment policy is decision 8, by the three
   mechanisms under "For commitments" below. Add what a session may be
@@ -306,7 +316,7 @@ written turn. The test is a count: over N task requests, how often the
 native voice claimed something before its receipt existed. None of the three
 has yet run through the coordinator on a lamp with a person listening.
 
-### 4. Topics are contracts first, and Jev starts where no utterance does
+### 4. A small bus beside the audio path, and Jev starts where no utterance does
 
 The page's topic graph (19 families, a 12-field envelope, a queue per
 subscriber) is right as vocabulary. The lamp today has several processes that
@@ -315,10 +325,34 @@ simplest means that fits each: a datagram for the body's mood, a small file
 for whether someone is there, a bounded channel for audio, a record on disk
 for outcomes. Each is a topic in the page's sense.
 
-Change: write each topic's contract (name, freshness, what is lost and how
-that is known) as the page does, and give it a transport only when a
-second real consumer exists. Nothing is added between the microphone and
-the provider, which the page also says.
+The first form of this change was to write each topic's definition and
+give it a transport only when a second consumer existed. The product
+owner asked why not publish and subscribe outright, and with two builders
+that is the better answer: a real bus is the cleanest join between the
+runtime and what the page's author builds (the operator's pages,
+diagnostics, the shared situation subscribe without a custom output being
+added to the voice code each time), and every topic can be recorded and
+played back with one tool.
+
+Change, as it now stands (decision 15):
+
+- One small local bus, built by the page's author, with no ROS or DDS
+  under it. Two kinds of topic only: the latest value (whether someone is
+  there, the body's state, how the room is, what is ready, a sensor's
+  reading) and ordered events (what was heard and said, a task's
+  receipts and results, a touch).
+- Each topic's definition is written first, as the page does: name,
+  fields, how fresh, what is lost when a subscriber is slow and how that
+  is known.
+- The microphone, the provider and the speaker stay joined directly, and
+  so do the voice's own workers. The bus is told what happened there; it
+  is never in the way of it.
+- Publishing never blocks and never fails the publisher. With the bus
+  down or a subscriber slow, the voice carries on and the message is
+  dropped and counted.
+- What the lamp passes by simpler means today (the body's mood, whether
+  someone is there) moves onto the bus when the bus exists, one topic at
+  a time, with the old means kept until the new one has run on a lamp.
 
 For Jev: a spoken request already reaches the runtime as the model's choice
 among the tools declared to it. Putting a second model behind that choice
@@ -371,12 +405,185 @@ person can try at the lamp.
 6. **A decision model for what no utterance starts, and a second engine.**
 
 **What nobody talks to** (the page's author), in an order that is theirs
-to set: the interface above; configuration and credentials written whole
-with a schema version; setup and reprovisioning; network repair; updates
+to set: the interface above; the bus (decision 15); configuration and
+credentials written whole with a schema version; setup and reprovisioning; network repair; updates
 with return to the previous release; reset; the operator's pages; V1's
 data moved across. Beside those, for each step of the experience: a review
 against the page, and failure tests written without reading the code under
 test (the page's section 14 lists them).
+
+## What a session may be told
+
+Change 2 asks for this list. A Live session knows only what is on it; each
+item is the voice owner's to word, and none is added without a count of
+what new sessions in a talking room do with the first thing they hear, and
+a speed comparison with and without it.
+
+| Item | When | State on lamp-4ace |
+|---|---|---|
+| The character | At opening | Running |
+| The time of day | At opening | Running |
+| The last exchanges, as going on (45 s) or finished | At opening | Running since 16:55 on 2026-10-13; first-turn count not yet enough |
+| That nobody is talking to the lamp at the moment | At opening, unless a conversation is going on | Running since 17:29; unmeasured |
+| How the room is: quiet or busy | When it changes, and at opening | Built, not installed |
+| One picture, with the request to answer from it | When the lamp has said it will look; the session is renewed afterwards | Built, asleep |
+| A note to say hello from | When someone sits down after a long absence | Built, recording only |
+| A task's receipt, question or result, to speak from | When it arrives, at a pause | Not built (experience step 3) |
+| The day's conversations | At opening, shortened | Not built (decision 12) |
+
+The wording describes how things are and never tells the lamp to keep
+quiet or what not to mention: the first did the one and got a spoken
+"...", sixteen times; the second got "my connection dropped" said aloud.
+
+## Experience step 1 in more detail: the lamp outlives the provider
+
+Most of this was designed before the voice was shown to anyone and is in
+the code, switched off or unfinished ([provider-availability.md](provider-availability.md),
+[coordinator-outage-contract.md](coordinator-outage-contract.md),
+[failure-notices.md](failure-notices.md)). What exists: the provider
+worker reports its link as ready or unavailable apart from the answers it
+carries; the coordinator keeps the microphone, the speaker and local
+control through an unavailable link and records what was said then as not
+delivered; a notice can be played from a recording kept on the lamp, and
+no recording is provided.
+
+What is left, in the order it will be done:
+
+1. **The link is never given up.** Today four attempts inside fifteen
+   seconds, or a fourth loss inside a minute, end it
+   (`RecoveryPolicy::default`), and the coordinator then leaves ("service
+   stopped without retry").
+   A failure that a new connection can cure is retried without end, more
+   slowly each time up to a minute. A refusal for now (quota, rate limit)
+   is asked again every two minutes; today it ends the service after that
+   wait. Only what no retry can cure (a wrong key, a wrong configuration)
+   leaves the voice down until it is restarted with a new one.
+2. **A stalled link fails one request, not the service.** Input that
+   overruns its queue while a write is stuck ends the worker today
+   ("provider unavailable while input was admitted"), as at 16:50 on
+   2026-10-13. It becomes that request's failure, like a write that times
+   out.
+3. **A worker that dies is started again** by the coordinator, a bounded
+   number of times, with the microphone, speaker, ring and body kept.
+4. **What a person at the lamp notices.** The ring has a face for "I
+   cannot hear you just now", which it has not had; spoken to while down,
+   the lamp plays the recorded notice once and not again for some minutes;
+   it does not stand up for speech it cannot answer. When the voice
+   returns nothing is said. The recording, its words and its voice are the
+   product owner's to approve.
+5. **Ready is stated** in the file the interface above describes.
+
+Gate, on the lamp: the network taken away for five minutes and given
+back; the relay's refusal for now, staged; a worker killed. In each: the
+service is not restarted by systemd, the down face is on within two
+seconds of the link being seen to fail, the first answer after the return
+comes within a counted number of seconds, nothing from before the outage
+is played late, and the conversation is still known.
+
+## Experience step 2 in more detail: the tools
+
+Read from V1 on 2026-10-13 (`system/intent/`, `hal/realtime/`); two of the
+points below were checked against the code by hand, the rest are one
+reading.
+
+V1 already gives its realtime voice model tools, as function declarations
+on the Live session (`hal/realtime/orchestrator.py`): one to hand a request
+on to the main agent with an instruction in the model's own words, one to
+say a turn was not for the lamp, one to end the conversation, one to show
+an emotion, one to look, one to search. It gives it no tool for a device
+command: those go to the main agent as that instruction, and
+`system/intent` matches the instruction's text against its catalog. So
+decision 4 removes one hop from what V1 does; it does not invent the
+route.
+
+What V2's tool list takes from V1:
+
+- **The catalog as it is:** 21 commands (`system/intent/jev/catalog.go`):
+  light on, off, colour, brighter, dimmer; volume up, down, mute, unmute;
+  stop the music, stop talking; seven scenes; follow something, stop
+  following; the time. Only two take anything: a colour from ten and a
+  thing to follow from twenty-three. No numbers: brighter, dimmer, louder
+  and quieter are steps the code owns.
+- **The model names a command and never a payload.** Each name maps to
+  code-owned hardware calls, and whether the lamp can do it is checked
+  again when it runs.
+- **Read, change, read back** for light and volume, with V1's steps and
+  limits, one adjustment at a time, and nothing changed while the lamp is
+  asleep.
+- **An honest result.** What comes back to the model is what was
+  established ("the light is already at its brightest", "I couldn't
+  confirm it"), never a success phrase for a failure, and a command that
+  was tried is finished: it is not also handed on.
+- **What V1 refuses to run locally** stays refused: a negated request,
+  quoted speech, two requests in one, another room's device, a future
+  time, a bare "brighter" with nothing before it. On V1 these go to the
+  main agent; here the model is told the same in its tools' descriptions,
+  and the count of wrong calls on V1's own regression cases
+  (`system/intent/*_test.go`) is the test.
+
+Two of V1's tools are worth more than their place in this list. The one
+that says "not for me" would let the lamp close an overheard request at
+once and on the model's word, where today it waits four seconds for no
+answer. The one that hands on with an instruction in the model's words is
+the general tool of decision 5. Both are to be tried in step 2 against the
+same counts as everything else: what they cost an ordinary answer, and
+what they do to the first thing a new session hears.
+
+## Experience step 3 in more detail: the Harness client
+
+Read from V1 on 2026-10-13 (`docs/harness.md` at the repository root,
+`system/harness/`, about 5,900 lines of Go with its tests); four of the
+points below were checked against the code by hand, the rest are one
+reading. The contract belongs to the Harness team and its wire schema is in
+their repository, which was not read. Nothing here changes it.
+
+What the Rust client has to be:
+
+- **A listener, not a dialer.** The computer finds the lamp by its
+  existing mDNS advertisement and opens one WebSocket to the lamp's
+  `/api/harness/ws` on port 80, behind nginx. So the join with the other
+  builder has one more line: they own port 80, nginx and the
+  advertisement, and pass that one path to a local socket the runtime
+  listens on.
+- **Pairing.** A six-character code from the lamp, good for sixty seconds;
+  a password-authenticated exchange (CPace) so the code never crosses the
+  socket; the result is the lamp's own signing key and the computer's
+  public key, kept in one small file. One computer per lamp. The operator's
+  page asks the runtime to start pairing and shows the code; whether the
+  lamp may also say it aloud is a product question.
+- **Every connection after that:** a signed hello checked against the
+  pinned key, then every frame encrypted, with rekeying and a replay
+  window. V1's test vectors (`system/harness/testdata`) are the Rust
+  port's first acceptance test: the same bytes in, the same bytes out.
+- **The calls needed for one task:** `agents.list`; `turn.send` with an
+  explicit agent and a key that is written to disk before the send;
+  `receipt.get` by that key; the events `turn.summary` (the result, in
+  `fullText`), `question.open` and `question.close`; `question.answer`;
+  `status`; `turn.stop`. A receipt is `queued`, `delivered`, `started`,
+  `completed` or `rejected`. The Store calls can wait.
+- **Never sent twice.** A send whose answer is lost is unknown, not
+  failed: it is asked about by its key and never sent again. A result seen
+  twice is one result. After a restart, something that was being spoken is
+  marked uncertain and is not spoken again.
+- **A permission prompt on the computer** arrives looking like a question
+  and is not one: the lamp says once that the computer needs attention and
+  never answers it.
+
+What V1 does about speaking, kept unless a count on the lamp says
+otherwise: a result or a question is spoken only when the lamp is neither
+speaking nor listening and a second and a half after the last of either;
+questions before results; one older than ten minutes is dropped; progress
+is not spoken; the text reaches the voice model as material to tell from
+in a sentence, never to read out. In V2 that last is the written turn of
+decision 8.
+
+What this changes in the estimate: the pairing and encryption are most of
+the work, and "most of a week" for step 3 was too little. Two weeks is
+nearer, with the first of them ending at a paired, encrypted connection
+that can list the computer's agents.
+
+Open: reading the Harness team's own schema, or their word that
+`docs/harness.md` and V1's client are current.
 
 ## What the page's review of the voice code predates
 

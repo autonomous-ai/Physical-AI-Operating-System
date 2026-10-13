@@ -180,6 +180,7 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         "not really",
         "i don't think",
         "i'm afraid not",
+        "i'm not",
     ]) {
         Some("headshake")
     } else if begins(&["thank you", "thanks", "aw", "aww", "oh stop"]) {
@@ -286,6 +287,7 @@ mod tests {
             ("No, not today.", Some("headshake")),
             ("Nope.", Some("headshake")),
             ("I don't think so.", Some("headshake")),
+            ("I'm not a toaster, I'm a lamp!", Some("headshake")),
             ("Hello there!", Some("greeting")),
             ("Good morning! How are you?", Some("greeting")),
             ("Haha, good one.", Some("laugh")),

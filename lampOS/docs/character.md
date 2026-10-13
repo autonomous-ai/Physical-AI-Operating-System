@@ -64,6 +64,10 @@ The ears are the other half of this and are unchanged: any short loud
 sound above the faint floor is still taken for the start of speech, shown
 on the lamp's face as listening and then thinking, and sent to the model.
 
+One more line came from the same morning, and is described with what it
+did in [group-talk.md](group-talk.md): a question put to the lamp stays its
+own through other people's talk, to be answered at the first pause.
+
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests
 were to be in English. In an office where people speak Vietnamese to each

@@ -142,6 +142,7 @@ out whether someone at the lamp can be told from someone across the room by
 level; nothing acts on it yet. Added on 2026-10-13, when an office full of
 people talking brought the conversation checks down: other voices were taken
 for the person at the lamp going on, and for that person cutting in.
+What has been done about that since is in [group-talk.md](group-talk.md).
 
 ## Stop and current limits
 

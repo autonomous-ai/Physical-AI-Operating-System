@@ -12,7 +12,8 @@
 //!   changes, and once a second so that a subscriber can tell a voice that
 //!   is resting from one that has gone.
 //! - `voice/heard`: the provider's text of what a person said, in pieces as
-//!   it comes.
+//!   it comes. Between things said the voice says once a second that it is
+//!   still there, on this topic and the next.
 //! - `voice/said`: the provider's text of what the lamp said, with the
 //!   number of the request it answered.
 //!
@@ -82,6 +83,12 @@ impl BusOut {
         }
         self.last = Some((state, now_us));
         let _ = self.state.publish_json(now_us, &VoiceState { state });
+        // The two streams are silent between things said, for longer than
+        // the bus's lease: without this their subscribers are told, each
+        // time, that the voice has gone. On lamp-4ace on 2026-10-14 they
+        // were, before and after every sentence.
+        let _ = self.heard.alive();
+        let _ = self.said.alive();
     }
 
     /// A piece of the provider's text: of the lamp's answer to `request`,
@@ -184,6 +191,31 @@ mod tests {
         );
         assert!(heard.recv(Duration::from_millis(30)).unwrap().is_none());
         assert!(said.recv(Duration::from_millis(30)).unwrap().is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_silent_stream_is_not_taken_for_a_voice_that_has_gone() {
+        let root = std::path::PathBuf::from(format!("/tmp/lvb-alive-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap().lease(Duration::from_millis(300));
+        let mut out = BusOut::on(&bus).unwrap();
+        let mut heard = bus
+            .subscribe_typed("voice/heard", "h", Speech::TYPE)
+            .unwrap();
+        // Nothing is said for four leases, and the state is told as it
+        // would be once a second on a lamp, here every 100 ms.
+        for tick in 0..12u64 {
+            out.state(None, tick * REPEAT_US);
+            std::thread::sleep(Duration::from_millis(100));
+            assert!(heard.recv(Duration::from_millis(1)).unwrap().is_none());
+            assert!(!heard.source_gone(), "tick {tick}");
+        }
+        // Without it, the lease runs out.
+        std::thread::sleep(Duration::from_millis(700));
+        let _ = heard.recv(Duration::from_millis(1)).unwrap();
+        assert!(heard.source_gone());
         std::fs::remove_dir_all(root).unwrap();
     }
 

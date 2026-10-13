@@ -92,6 +92,18 @@ answers, whatever was spoken a moment before or around the lamp, and
 English when in doubt. In the next run of the by-name check all seven
 answers were in English.
 
+Vietnamese was switched off again on the afternoon of 2026-10-13, on the
+owner's word ("vietnamese off for now. just focus on english"). The file's
+language line is back to the one it had that morning: "Always speak
+English, whatever language you hear, and never remark on which language
+someone used. Speech you cannot make out is unclear speech, not another
+language." That wording is known to let "Could you repeat that in
+English?" through when people talk another language nearby (four times in
+one run of the checks, above); it was put back as it was because no played
+check could be run in a working office that afternoon. The Vietnamese
+openings stay in the gesture chooser, where they do nothing for an English
+answer.
+
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests
 were to be in English. In an office where people speak Vietnamese to each

@@ -343,12 +343,27 @@ fn listeners(subs: &Path) -> Vec<Listener> {
     found
 }
 
-/// Create `path` and whatever is missing above it, each with exactly
-/// `mode`. A directory that is already there is left as it is.
+/// Create `path` and whatever is missing above it, each with `mode`, and
+/// with its parent's set-group-ID bit if the parent has one. A directory
+/// that is already there is left as it is.
+///
+/// The bit is how programs of different users share a bus: the root is made
+/// with it and a group they are all in, and Linux then gives everything
+/// made below it that group. Setting a new directory's mode outright took
+/// the bit off again: on lamp-4ace on 2026-10-13, the first time two users
+/// used one root, a topic made by root could not be entered by the other
+/// user, and a kept value written by root could not be read.
 fn make_directory(path: &Path, mode: u32) -> io::Result<()> {
+    const SET_GROUP_ID: u32 = 0o2000;
     let create = || match fs::DirBuilder::new().mode(mode).create(path) {
         // The umask may have taken bits away.
-        Ok(()) => fs::set_permissions(path, fs::Permissions::from_mode(mode)),
+        Ok(()) => {
+            let shared = path
+                .parent()
+                .and_then(|parent| fs::metadata(parent).ok())
+                .map_or(0, |parent| parent.permissions().mode() & SET_GROUP_ID);
+            fs::set_permissions(path, fs::Permissions::from_mode(mode | shared))
+        }
         // Another process made it first.
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists && path.is_dir() => Ok(()),
         Err(error) => Err(error),
@@ -362,5 +377,36 @@ fn make_directory(path: &Path, mode: u32) -> io::Result<()> {
             None => Err(error),
         },
         done => done,
+    }
+}
+
+#[cfg(test)]
+mod directory_tests {
+    #[test]
+    fn a_new_directory_keeps_its_parents_shared_group_bit_and_has_none_without_it() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!("lamp-bus-setgid-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let mode =
+            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o7777;
+        // Without the bit on the root: exactly the mode asked for.
+        super::make_directory(&root.join("plain/topic/subs"), 0o770).unwrap();
+        assert_eq!(mode(&root.join("plain")), 0o770);
+        assert_eq!(mode(&root.join("plain/topic/subs")), 0o770);
+        // With it: every level below carries it on.
+        let shared = root.join("shared");
+        std::fs::create_dir(&shared).unwrap();
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o2770)).unwrap();
+        super::make_directory(&shared.join("voice/state/pubs"), 0o770).unwrap();
+        for below in ["voice", "voice/state", "voice/state/pubs"] {
+            assert_eq!(mode(&shared.join(below)), 0o2770, "{below}");
+        }
+        // One that is already there is left as it is.
+        std::fs::set_permissions(shared.join("voice"), std::fs::Permissions::from_mode(0o750))
+            .unwrap();
+        super::make_directory(&shared.join("voice"), 0o770).unwrap();
+        assert_eq!(mode(&shared.join("voice")), 0o750);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

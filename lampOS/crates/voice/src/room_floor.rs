@@ -43,22 +43,35 @@ pub fn from_environment(lowest: u8, now_us: u64) -> RoomFloor {
 pub const HOLD_ENVIRONMENT: &str = "LAMP_FAINT_HOLD_MS";
 
 /// Whether a block is loud enough to be someone at the lamp, judged over a
-/// moment and not one block at a time. Speech at a desk has quiet stretches
-/// inside it (a stop, a nasal, a trailing syllable): judged block by block,
-/// each of those is thrown out as too faint and one short sentence becomes
-/// two scraps. A voice across the room has no block over the floor, so it
-/// is never let through by this.
+/// moment and not one block at a time. Speech at a desk trails off: on
+/// lamp-4ace on 2026-10-13 one "Good night, Lamp." had 50 blocks the
+/// detector scored as speech, began at about -20 dBFS and ended near -30,
+/// and 28 of the 50 were turned away for being 1 to 4 dB under a floor of
+/// -28. The 22 left were fewer than an utterance needs, and the whole of it
+/// was thrown out as a sound.
+///
+/// So a block under the floor is still heard for a while after a run of
+/// blocks over it. The run has to be [`EARN_BLOCKS`] long, as many as begin
+/// an utterance: a voice across the room, which the floor is there for, has
+/// a block over it now and then and no such run, and gets nothing by this.
 #[derive(Debug, Default)]
 pub struct Near {
     hold_us: u64,
-    last_over_us: Option<u64>,
+    /// Blocks over the floor in a row, up to [`EARN_BLOCKS`].
+    run: u8,
+    /// Until when a block under the floor is heard.
+    held_until_us: Option<u64>,
 }
+
+/// Blocks over the floor in a row that earn the hold.
+pub const EARN_BLOCKS: u8 = 6;
 
 impl Near {
     pub fn new(hold_ms: u64) -> Self {
         Self {
             hold_us: hold_ms.min(1_000) * 1_000,
-            last_over_us: None,
+            run: 0,
+            held_until_us: None,
         }
     }
 
@@ -73,16 +86,17 @@ impl Near {
     }
 
     /// Whether a block of this level, read at this time, is at or over the
-    /// floor or follows closely enough on one that was.
+    /// floor, or follows closely enough on a run of blocks that were.
     pub fn hears(&mut self, level: u8, floor: u8, at_us: u64) -> bool {
         if level >= floor {
-            self.last_over_us = Some(at_us);
+            self.run = (self.run + 1).min(EARN_BLOCKS);
+            if self.run == EARN_BLOCKS && self.hold_us > 0 {
+                self.held_until_us = Some(at_us + self.hold_us);
+            }
             return true;
         }
-        self.hold_us > 0
-            && self
-                .last_over_us
-                .is_some_and(|last| at_us.saturating_sub(last) <= self.hold_us)
+        self.run = 0;
+        self.held_until_us.is_some_and(|until| at_us <= until)
     }
 }
 
@@ -173,24 +187,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_quiet_stretch_inside_speech_is_heard_for_as_long_as_the_hold_and_no_longer() {
+    fn a_quiet_stretch_is_heard_after_a_run_over_the_floor_and_not_after_a_block_or_two() {
         let floor = 150;
+        let block = |n: u64| n * 10_000;
         // Judged alone, as it always was.
         let mut alone = Near::new(0);
-        assert!(alone.hears(200, floor, 0));
-        assert!(!alone.hears(149, floor, 10_000));
-        // Over a moment.
+        for n in 0..10 {
+            assert!(alone.hears(200, floor, block(n)));
+        }
+        assert!(!alone.hears(149, floor, block(10)));
+        // A voice across the room: a block over the floor now and then
+        // earns nothing.
+        let mut far = Near::new(400);
+        for n in 0..40 {
+            let over = n % 4 == 0;
+            assert_eq!(
+                far.hears(if over { 151 } else { 140 }, floor, block(n)),
+                over,
+                "block {n}"
+            );
+        }
+        // Someone at the desk: six over the floor, then what trails under
+        // it is heard for the hold and no longer.
         let mut near = Near::new(400);
-        // Nothing has been over the floor yet: a faint voice never is.
-        assert!(!near.hears(149, floor, 0));
-        assert!(!near.hears(100, floor, 5_000_000));
-        assert!(near.hears(150, floor, 6_000_000));
-        assert!(near.hears(60, floor, 6_010_000));
-        assert!(near.hears(60, floor, 6_400_000));
-        assert!(!near.hears(60, floor, 6_400_001));
-        // Each block over the floor begins the hold again.
-        assert!(near.hears(151, floor, 7_000_000));
-        assert!(near.hears(0, floor, 7_399_000));
+        for n in 0..5 {
+            assert!(near.hears(180, floor, block(n)));
+        }
+        assert!(!Near::new(400).hears(140, floor, 0));
+        assert!(near.hears(180, floor, block(5)));
+        for n in 6..=45 {
+            assert!(near.hears(120, floor, block(n)), "block {n}");
+        }
+        assert!(!near.hears(120, floor, block(46)));
+        // A run under six after that does not renew it.
+        for n in 47..50 {
+            assert!(near.hears(160, floor, block(n)));
+        }
+        assert!(!near.hears(120, floor, block(50)));
         // An hour is not a hold.
         assert_eq!(Near::new(3_600_000).hold_us, 1_000_000);
     }

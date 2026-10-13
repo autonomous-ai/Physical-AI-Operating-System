@@ -1,7 +1,7 @@
 import { SettingsSelect } from "@/components/SettingsSelect";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeLang, type Lang as RobotLang } from "@/lib/i18n";
-import { getPhononStatus, getPiperStatus, installPiperEngine, installPiperVoice, removePiperVoice, type PhononStatus, type PiperJobStart, type PiperStatus } from "@/lib/api";
+import { getPhononStatus, getPiperStatus, installPhononEngine, installPiperEngine, installPiperVoice, removePiperVoice, type PhononStatus, type PiperJobStart, type PiperStatus } from "@/lib/api";
 import { Loader2, Volume2, Check, AlertCircle } from "lucide-react";
 import { C, LockedField, LockedPasswordField, SectionCard } from "@/components/setup/shared";
 import { testTTSVoice } from "@/lib/api";
@@ -715,12 +715,14 @@ function PiperPanel({ voice, onPickVoice, onInstalledChange }: {
   );
 }
 
-// Phonon install state. Read-only: the engine and model are put on the robot by hand
-// (the model weights are not redistributable), so there is no download button.
+// Phonon install state: the engine installs from a button; the model is put on the
+// robot by hand (its weights are not redistributable), so it has no download button.
 function PhononPanel({ onLoaded }: { onLoaded: (voices: string[]) => void }) {
   const [st, setSt] = useState<PhononStatus | null>(null);
   // Not an error: saving a voice restarts HAL, so status is briefly unreachable.
   const [unreachable, setUnreachable] = useState(false);
+  // HAL answers rejections with 200 + {status:"error"}.
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(() => {
     return getPhononStatus()
@@ -734,11 +736,28 @@ function PhononPanel({ onLoaded }: { onLoaded: (voices: string[]) => void }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll only while an install runs or the robot is unreachable.
   useEffect(() => {
-    if (!unreachable) return;
-    const t = setInterval(load, 3000);
+    const busy = !!st?.job?.active;
+    if (!busy && !unreachable) return;
+    const t = setInterval(load, busy ? 2000 : 3000);
     return () => clearInterval(t);
-  }, [unreachable, load]);
+  }, [st, unreachable, load]);
+
+  const install = useCallback(() => {
+    setNotice("");
+    installPhononEngine()
+      .then((res) => {
+        if (res.status === "error") setNotice(res.message || "Request refused");
+        const started = res.job;
+        if (started) setSt((prev) => (prev ? { ...prev, job: started } : prev));
+        load();
+      })
+      .catch(() => {
+        setUnreachable(true);
+        setNotice("Robot was restarting — nothing changed. Try again in a moment.");
+      });
+  }, [load]);
 
   if (!st) {
     return (
@@ -748,32 +767,56 @@ function PhononPanel({ onLoaded }: { onLoaded: (voices: string[]) => void }) {
     );
   }
 
+  const job = st.job;
+  const busy = job.active;
   const ready = st.engine_installed && st.model_installed;
   return (
     <div style={{ marginBottom: 14, padding: "12px 14px", background: "var(--lm-surface-2, #1a1a1a)", borderRadius: 8 }}>
-      <div style={{ fontSize: 12, color: C.text, marginBottom: 4 }}>
+      <div style={{ fontSize: 12, color: C.text, marginBottom: 6 }}>
         Engine: {st.engine_installed ? "✓ installed" : "✗ not installed"} · Model: {st.model_installed ? "✓ installed" : "✗ not installed"}
         {ready && ` · ${st.voices.length} voice${st.voices.length === 1 ? "" : "s"}`}
       </div>
-      {!ready && (
-        <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
-          Install on the robot by hand:
-          {!st.engine_installed && (
-            <div style={{ fontFamily: "ui-monospace, monospace", marginTop: 4, wordBreak: "break-all" }}>
-              python3 -m venv {st.phonon_dir}/.venv && {st.phonon_dir}/.venv/bin/pip install ptts==0.4.0rc1
-            </div>
-          )}
-          {!st.model_installed && (
-            <div style={{ marginTop: 4 }}>
-              Copy the Phonon model folder to <code>{st.model_dir}</code> (it must contain config.json).
-            </div>
-          )}
+
+      {!st.engine_installed && !busy && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: C.textDim }}>Phonon engine (~15 MB, needs internet)</span>
+          <button type="button" onClick={install} disabled={unreachable} style={{ ...smallBtn, opacity: unreachable ? 0.5 : 1 }}>
+            Install engine
+          </button>
         </div>
       )}
+
+      {busy && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+            <span style={{ fontSize: 12, color: C.text }}>{job.target || "Installing engine"}…</span>
+            <span style={{ fontSize: 12, color: C.textDim, fontVariantNumeric: "tabular-nums" }}>{job.percent}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 2, overflow: "hidden", background: "var(--lm-border, #2a2a2a)" }}>
+            <div style={{ height: "100%", width: `${Math.max(2, job.percent)}%`, background: C.green, transition: "width 0.4s ease" }} />
+          </div>
+          <div style={{ fontSize: 12, color: C.textDim, marginTop: 5 }}>
+            Running on the robot — you can leave this page or reload, it keeps going.
+          </div>
+        </div>
+      )}
+
+      {!st.model_installed && (
+        <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
+          Copy the Phonon model folder to <code>{st.model_dir}</code> by hand (it must contain config.json).
+        </div>
+      )}
+
       {unreachable && (
         <div style={{ fontSize: 12, color: C.textDim, marginTop: 8 }}>
           Robot is restarting — reconnecting…
         </div>
+      )}
+      {notice && (
+        <div style={{ fontSize: 12, color: C.red, marginTop: 8 }}>{notice}</div>
+      )}
+      {job.error && !busy && (
+        <div style={{ fontSize: 12, color: C.red, marginTop: 8 }}>Last install failed: {job.error}</div>
       )}
     </div>
   );

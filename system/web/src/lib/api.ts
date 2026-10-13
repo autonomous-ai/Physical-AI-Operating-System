@@ -1008,11 +1008,21 @@ export interface PhononStatus {
   phonon_dir: string;
   model_dir: string;
   voices: string[];
+  job: PiperJob;
 }
 
-/** Phonon engine/model presence and the model's voices (installed by hand on the robot). */
+/** Phonon engine/model presence, the model's voices, and any engine install in flight. */
 export async function getPhononStatus(): Promise<PhononStatus> {
   return apiRequest<PhononStatus>(`${API_BASE}/api/voice/phonon/status`);
+}
+
+/** Install the Phonon engine (the model is installed by hand). Already-installed returns ok. */
+export async function installPhononEngine(): Promise<PiperJobStart> {
+  return apiRequest<PiperJobStart>(`${API_BASE}/api/voice/phonon/install`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
 }
 
 /** Install the Piper engine. Already-installed returns ok, not an error. */

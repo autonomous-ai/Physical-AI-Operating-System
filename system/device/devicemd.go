@@ -1,11 +1,15 @@
 package device
 
 import (
+	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"go.autonomous.ai/os/system/server/config"
 )
 
 var (
@@ -117,7 +121,25 @@ func Has(deviceType, capability string) bool {
 	return caps[capability]
 }
 
+var reSoulVariant = regexp.MustCompile(`^[a-z0-9-]+$`)
+
+// soulVariant reads `soul_variant` from config.json; "" when unset or unreadable.
+func soulVariant() string {
+	data, err := os.ReadFile(config.Path())
+	if err != nil {
+		return ""
+	}
+	var c struct {
+		SoulVariant string `json:"soul_variant"`
+	}
+	_ = json.Unmarshal(data, &c)
+	return strings.TrimSpace(c.SoulVariant)
+}
+
 // SoulRef returns the `soul_ref` from ROBOT.md (path or http(s) URL), or "".
+// config.json `soul_variant` selects the branded sibling of a path ref —
+// "SOUL.md" + "wajo" → "SOUL.wajo.md" — when that file ships in the profile;
+// otherwise the declared ref is kept.
 func SoulRef(deviceType string) string {
 	fm := readFrontMatter(deviceType)
 	if fm == nil {
@@ -127,7 +149,22 @@ func SoulRef(deviceType string) string {
 	if m == nil {
 		return ""
 	}
-	return strings.TrimSpace(string(m[1]))
+	ref := strings.TrimSpace(string(m[1]))
+	variant := soulVariant()
+	if variant == "" || strings.Contains(ref, "://") {
+		return ref
+	}
+	if !reSoulVariant.MatchString(variant) {
+		slog.Warn("ignoring invalid soul_variant", "component", "device", "variant", variant)
+		return ref
+	}
+	ext := filepath.Ext(ref)
+	branded := strings.TrimSuffix(ref, ext) + "." + variant + ext
+	if _, err := os.Stat(filepath.Join(DevicesDir(), deviceType, branded)); err != nil {
+		slog.Warn("soul_variant file missing, using default soul", "component", "device", "variant", variant, "path", branded)
+		return ref
+	}
+	return branded
 }
 
 // StartupVolume returns `startup_volume` (0-100) from ROBOT.md, else

@@ -1516,7 +1516,7 @@ impl<C: Connect> InputSink for Supervisor<C> {
         request: RequestId,
         text: &str,
     ) -> std::result::Result<(), StartRefusal> {
-        self.try_written_for_session(session, request, text)
+        self.try_written_for_session(session, request, text, None)
     }
     fn retire(&self, request: RequestId) {
         Supervisor::retire(self, request);

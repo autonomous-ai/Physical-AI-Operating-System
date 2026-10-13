@@ -646,6 +646,7 @@ impl<C: Connect> Supervisor<C> {
         expected: SessionId,
         request: RequestId,
         text: &str,
+        picture: Option<&[u8]>,
     ) -> std::result::Result<(), StartRefusal> {
         let (input, live) = self.input().map_err(|_| StartRefusal::NotConnected)?;
         if live != expected {
@@ -660,7 +661,7 @@ impl<C: Connect> Supervisor<C> {
             return Err(StartRefusal::Refused(Error::StaleRequest));
         }
         input
-            .try_written(request, text)
+            .try_written(request, text, picture)
             .map_err(StartRefusal::Refused)?;
         if let Ok(previous) = RequestId::new(request.get() - 1) {
             self.retire(previous);

@@ -634,12 +634,23 @@ pub fn encode_note(text: &str) -> Result<String> {
 }
 /// A whole turn in writing, outside any activity: the service is asked to
 /// answer it as soon as it has it.
-pub fn encode_written_turn(text: &str) -> Result<String> {
+pub fn encode_written_turn(text: &str, picture: Option<&[u8]>) -> Result<String> {
     if text.trim().is_empty() || text.len() > MAX_NOTE_BYTES || text.contains('\0') {
         return Err(Error::InvalidConfiguration);
     }
+    let mut parts = Vec::with_capacity(2);
+    // What the lamp sees, with the note that says it is looking: a JPEG of
+    // at most the size an image offered with speech may be.
+    if let Some(jpeg) = picture {
+        if jpeg.len() > MAX_IMAGE_BYTES || jpeg.len() < 4 {
+            return Err(Error::InvalidConfiguration);
+        }
+        parts
+            .push(json!({"inlineData": {"mimeType": "image/jpeg", "data": STANDARD.encode(jpeg)}}));
+    }
+    parts.push(json!({"text": text}));
     serde_json::to_string(&json!({"clientContent": {
-        "turns": [{"role": "user", "parts": [{"text": text}]}],
+        "turns": [{"role": "user", "parts": parts}],
         "turnComplete": true
     }}))
     .map_err(|_| Error::InvalidConfiguration)

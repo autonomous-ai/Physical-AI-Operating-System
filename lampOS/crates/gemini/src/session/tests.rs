@@ -1582,7 +1582,7 @@ async fn a_written_request_is_one_message_outside_any_activity_and_its_answer_is
     let (mut connection, mut server) = mock(Timeouts::default()).await;
     let input = connection.input();
     input
-        .try_written(request(1), "(Someone has sat down. Say hello.)")
+        .try_written(request(1), "(Someone has sat down. Say hello.)", None)
         .unwrap();
     // One message: the turn in writing, complete. No activity is opened.
     let sent = receive(&mut server).await;
@@ -1614,12 +1614,34 @@ async fn a_written_request_is_one_message_outside_any_activity_and_its_answer_is
     // The next thing heard is an ordinary request after it.
     let next = ended_turn(&mut connection, &mut server, 2).await;
     assert_eq!(next, request(2));
-    // An empty note, an old request and an oversized note are refused here.
-    assert!(input.try_written(request(3), "  ").is_err());
-    assert!(input.try_written(request(1), "again").is_err());
+    // A look, on a connection that owes nothing: the same one message, the
+    // picture before the note.
+    let (connection, mut server) = mock(Timeouts::default()).await;
+    let input = connection.input();
+    let jpeg = [0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9];
+    input
+        .try_written(request(3), "(You are looking.)", Some(&jpeg))
+        .unwrap();
+    let sent = receive(&mut server).await;
+    let parts = &sent["clientContent"]["turns"][0]["parts"];
+    assert_eq!(parts[0]["inlineData"]["mimeType"], "image/jpeg");
+    assert_eq!(parts[0]["inlineData"]["data"], "/9j/4AECA//Z");
+    assert_eq!(parts[1]["text"], "(You are looking.)");
     assert!(
         input
-            .try_written(request(3), &"x".repeat(crate::wire::MAX_NOTE_BYTES + 1))
+            .try_written(request(4), "(You are looking.)", Some(b"not a picture"))
+            .is_err()
+    );
+    // An empty note, an old request and an oversized note are refused here.
+    assert!(input.try_written(request(5), "  ", None).is_err());
+    assert!(input.try_written(request(1), "again", None).is_err());
+    assert!(
+        input
+            .try_written(
+                request(5),
+                &"x".repeat(crate::wire::MAX_NOTE_BYTES + 1),
+                None
+            )
             .is_err()
     );
 }

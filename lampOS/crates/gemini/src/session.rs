@@ -212,9 +212,20 @@ impl InputSender {
     /// and an end, and like a start it retires every earlier request. Only
     /// for a moment when nothing is owed on the connection; one sent while
     /// an earlier answer is unsettled is not written and ends unanswered.
-    pub fn try_written(&self, request: RequestId, text: &str) -> Result<()> {
+    ///
+    /// `picture` is one JPEG to go with the note, for a request that is the
+    /// lamp taking a look: it is part of this request and of no other.
+    pub fn try_written(
+        &self,
+        request: RequestId,
+        text: &str,
+        picture: Option<&[u8]>,
+    ) -> Result<()> {
         self.ensure_ready()?;
-        wire::encode_written_turn(text)?;
+        if picture.is_some_and(|jpeg| !is_jpeg(jpeg)) {
+            return Err(Error::InvalidConfiguration);
+        }
+        wire::encode_written_turn(text, picture)?;
         if request.get() <= self.shared.retired_through.load(Ordering::Acquire)
             || self
                 .shared
@@ -230,7 +241,11 @@ impl InputSender {
             .retired_through
             .fetch_max(request.get() - 1, Ordering::AcqRel);
         self.shared.wake.notify_one();
-        self.enqueue(Command::Written(request, text.into()))?;
+        self.enqueue(Command::Written(
+            request,
+            text.into(),
+            picture.map(<[u8]>::to_vec),
+        ))?;
         self.shared
             .ended_through
             .fetch_max(request.get(), Ordering::AcqRel);
@@ -708,7 +723,7 @@ enum Command {
     Start(RequestId),
     Audio(Audio),
     Note(RequestId, String),
-    Written(RequestId, String),
+    Written(RequestId, String, Option<Vec<u8>>),
     End(RequestId),
 }
 struct InputState {
@@ -1689,7 +1704,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
             }
-            Command::Written(request, text) => {
+            Command::Written(request, text, picture) => {
                 if request.get() <= self.last_request
                     || self.current.as_ref().is_some_and(|turn| turn.input.open)
                 {
@@ -1712,7 +1727,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 self.current = Some(turn);
                 if clear {
                     self.write(
-                        Message::text(wire::encode_written_turn(&text)?),
+                        Message::text(wire::encode_written_turn(&text, picture.as_deref())?),
                         self.timeouts.write,
                     )
                     .await?;

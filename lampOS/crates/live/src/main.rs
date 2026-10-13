@@ -11,6 +11,35 @@ fn main() {
 fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
+        // The same with one JPEG beside the note: the lamp taking a look.
+        [command,path,flag,picture,note] if command=="provider-check" && flag=="--look" => {
+            let config=ProviderConfig::load(Path::new(path))?.into_session()?;
+            let jpeg=std::fs::read(picture)?;
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                let input=connection.input();
+                let request=lamp_gemini::RequestId::new(1)?;
+                input.try_written(request,note,Some(&jpeg))?;
+                let asked=lamp_ipc::monotonic_us();
+                let (mut said,mut samples,mut first,mut ended)=(String::new(),0usize,None,"timeout");
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(15);
+                loop {
+                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                        Ok(Some(Event::Audio{pcm,..})) => { first.get_or_insert(lamp_ipc::monotonic_us()-asked); samples+=pcm.len(); }
+                        Ok(Some(Event::OutputTranscript{text,..})) => said.push_str(&text),
+                        Ok(Some(Event::TurnComplete{..})) => { ended="turn_complete"; break; }
+                        Ok(Some(Event::Unanswered{..})) => { ended="unanswered"; break; }
+                        Ok(Some(_)) => {}
+                        Ok(None) => { ended="connection_ended"; break; }
+                        Err(_) => break,
+                    }
+                }
+                println!("{}",serde_json::json!({"status":"look_tried","picture_bytes":jpeg.len(),"ended":ended,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
+                connection.shutdown();
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+        },
         // A whole turn with a written note in place of speech, to see what the
         // service makes of one. Nothing is captured and nothing is played.
         [command,path,flag,note] if command=="provider-check" && (flag=="--note" || flag=="--written") => {
@@ -23,7 +52,7 @@ fn run() -> Result<()> {
                 let input=connection.input();
                 let request=lamp_gemini::RequestId::new(1)?;
                 if flag=="--written" {
-                    input.try_written(request,note)?;
+                    input.try_written(request,note,None)?;
                 } else {
                     input.try_start(request)?;
                     input.try_note(request,note)?;

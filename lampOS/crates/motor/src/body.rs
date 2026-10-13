@@ -110,9 +110,11 @@ impl Standing {
     /// between folded and stood up: about 120 degrees.
     pub const TRAVEL_CAP: u16 = 1_400;
     /// A shoulder or an elbow this far from its goal for half a second
-    /// sends the lamp back down. Wider than the head's: these two carry the
-    /// lamp and follow a moving goal from behind.
-    pub const TRACKING: u16 = 80;
+    /// sends the lamp back down. Much wider than the head's: these two
+    /// carry the lamp. On lamp-4ace the shoulder held 53 counts under its
+    /// goal a third of the way up and 65 at six tenths, at loads of 224
+    /// and 272, for as long as it stood; the elbow reached its goal.
+    pub const TRACKING: u16 = 160;
     pub const TRACKING_STEPS: u8 = 25;
     /// Over its load or off its goal for this long, two seconds, with the
     /// lamp already told to go down: the run ends.
@@ -343,8 +345,10 @@ pub struct Glimpse {
     pub loads: [u16; 3],
     /// Times so far that each joint met resistance and was left where it was.
     pub eased: [u16; 3],
-    /// How far it has stood up, 0 folded to 1, and the shoulder and the
-    /// elbow: their goals as this body last wrote them, or else as found.
+    /// Whether this body may stand at all, how far it has stood up, 0
+    /// folded to 1, and the shoulder and the elbow: their goals as this
+    /// body last wrote them, or else as found.
+    pub stands: bool,
     pub stand: f32,
     pub arm_goals: [u16; 2],
     pub arm_positions: [u16; 2],
@@ -1482,6 +1486,7 @@ pub(crate) fn run_looking(
             positions: COMMANDED.map(|joint| samples[joint.index()].position),
             loads: COMMANDED.map(|joint| samples[joint.index()].load),
             eased: report.eased,
+            stands: standing.is_some(),
             stand,
             arm_goals: arm_written,
             arm_positions: ARM.map(|joint| samples[joint.index()].position),

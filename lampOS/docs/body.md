@@ -197,7 +197,7 @@ the shoulder (servo 2) and the elbow (servo 3):
   lamp as it is and stays up as if it had just been spoken to.
 
 A shoulder or an elbow that reads over its load bound (`--arm-load`, 950
-and 950 without it) for six steps, is more than 80 counts from its goal for
+and 950 without it) for six steps, is more than 160 counts from its goal for
 half a second, or reads 62 or warmer for a second sends the lamp back down
 the way it came. It rests there for a minute whatever it is told, and after
 the third time for the rest of the run; the report lists each time

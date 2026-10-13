@@ -172,24 +172,34 @@ impl Recalling {
         Self { config }
     }
 
-    /// The configuration for a session opened now, told this thread.
-    fn recalled(&self, thread: &Thread, now: Instant) -> SessionConfig {
-        match thread.recall(now) {
-            Some(text) => self
-                .config
+    /// The configuration for a session opened now, told the time and this
+    /// thread.
+    fn recalled(&self, thread: &Thread, now: Instant, time: Option<&str>) -> SessionConfig {
+        let written = self.config.instruction_text();
+        let time = time.unwrap_or_default();
+        let told = |more: &str| {
+            if more.is_empty() {
+                return Some(self.config.clone());
+            }
+            self.config
                 .clone()
-                .instruction(&format!("{}{text}", self.config.instruction_text()))
-                // Too long to add: the session opens as it always did.
-                .unwrap_or_else(|_| self.config.clone()),
-            None => self.config.clone(),
-        }
+                .instruction(&format!("{written}{more}"))
+                .ok()
+        };
+        // Too long to add: without the thread, and then as it always was.
+        thread
+            .recall(now)
+            .and_then(|thread| told(&format!("{time}{thread}")))
+            .or_else(|| told(time))
+            .unwrap_or_else(|| self.config.clone())
     }
 }
 
 impl Connect for Recalling {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
+        let time = crate::local_time::told_here();
         let config = match THREAD.lock() {
-            Ok(thread) => self.recalled(&thread, Instant::now()),
+            Ok(thread) => self.recalled(&thread, Instant::now(), time.as_deref()),
             Err(_) => self.config.clone(),
         };
         Dialer::new(config).connect(session, resume)
@@ -282,12 +292,38 @@ mod tests {
         let mut thread = Thread::new();
         let now = Instant::now();
         assert_eq!(
-            recalling.recalled(&thread, now).instruction_text(),
+            recalling.recalled(&thread, now, None).instruction_text(),
             "You are a lamp."
+        );
+        // The time alone, and before the thread when there is one.
+        assert_eq!(
+            recalling
+                .recalled(&thread, now, Some("\n\nThe time\nNoon."))
+                .instruction_text(),
+            "You are a lamp.\n\nThe time\nNoon."
         );
         thread.person("My name is Sam.", true, now);
         thread.lamp(3, "Nice to meet you, Sam.", now);
-        let told = recalling.recalled(&thread, now);
+        let both = recalling.recalled(&thread, now, Some("\n\nThe time\nNoon."));
+        assert!(
+            both.instruction_text().starts_with(
+                "You are a lamp.\n\nThe time\nNoon.\n\nEarlier in this conversation\n"
+            )
+        );
+        // A thread too long to add leaves the time; a time too long, nothing.
+        let long = "x".repeat(lamp_gemini::MAX_TEXT_BYTES - 200);
+        let full = Recalling::new(recalling.config.clone().instruction(&long).unwrap());
+        assert_eq!(
+            full.recalled(&thread, now, Some("\n\nThe time\nNoon."))
+                .instruction_text(),
+            format!("{long}\n\nThe time\nNoon.")
+        );
+        assert_eq!(
+            full.recalled(&thread, now, Some(&"y".repeat(300)))
+                .instruction_text(),
+            long
+        );
+        let told = recalling.recalled(&thread, now, None);
         assert!(
             told.instruction_text()
                 .starts_with("You are a lamp.\n\nEarlier in this conversation\n")

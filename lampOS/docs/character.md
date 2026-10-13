@@ -91,3 +91,32 @@ how long it waits for a person who has paused are the runtime's
 [conversation-latency.md](conversation-latency.md)). A character file
 cannot make the lamp stop for a voice its microphone did not pick out, and
 it cannot make the service answer sooner.
+
+## What the runtime adds to it
+
+Two things are put after the file each time a session with the provider
+opens. Neither is in the file, and neither is written anywhere.
+
+**The time.** `crates/live/src/local_time.rs` reads the system's own
+compiled zone file (`/etc/localtime`) and adds, for example:
+
+```text
+The time
+It is Tuesday 13 October 2026, around 11:26 in the morning. You have no
+clock, so this may be up to an hour old: if someone asks the time, give it
+roughly.
+```
+
+The model has no clock. On lamp-4ace on 2026-10-13, at eleven in the
+morning, it told two people who asked how it was that it was "enjoying the
+quiet evening on the desk". A session lasts up to about three quarters of
+an hour, which is why the note says how old it may be. Where the zone file
+cannot be read, or the zone has summer time that the file leaves to a rule
+past its listed changes, nothing is added. Host tests cover built zone
+files of both layouts, days and years turning with the zone, and cut or
+wrong files; the reader was also run once by hand on lamp-4ace's own file
+and on this Mac's files for New York, London, Tokyo and Sydney, and agreed
+with `date` for each. Not yet shown on the lamp: that the model uses it.
+
+**The conversation so far**, when the previous session ended in the middle
+of one: [conversation-thread.md](conversation-thread.md).

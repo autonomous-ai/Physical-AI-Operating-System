@@ -2157,6 +2157,12 @@ fn conversation(
         .faint_level
         .map(|lowest| crate::room_floor::from_environment(lowest, monotonic_us()));
     let mut floor_recorded: Option<(u8, Option<u8>)> = None;
+    let mut near = crate::room_floor::Near::from_environment();
+    // The last two seconds of blocks as the detector and the floor judged
+    // them, for the record of an utterance thrown out as not speech:
+    // twentieths of the detector's score, the level, and whether the floor
+    // turned the block away. Numbers only.
+    let mut judged_blocks: VecDeque<(u8, u8, bool)> = VecDeque::new();
     let mut turn_blocks: Vec<u8> = Vec::new();
     let mut loose_blocks: VecDeque<(u64, u8)> = VecDeque::new();
     let mut floor_turn: Option<u64> = None;
@@ -2833,7 +2839,17 @@ fn conversation(
                     floor.not_for_the_lamp(level);
                 }
             }
-            let probability = if keeping_answer || faint.is_some_and(|faint| heard_level < faint) {
+            let under_floor = faint
+                .is_some_and(|faint| !near.hears(heard_level, faint, frame.read_completed_at_us));
+            if judged_blocks.len() == 200 {
+                judged_blocks.pop_front();
+            }
+            judged_blocks.push_back((
+                (frame.probability.clamp(0.0, 1.0) * 20.0).round() as u8,
+                heard_level,
+                under_floor,
+            ));
+            let probability = if keeping_answer || under_floor {
                 0.0
             } else {
                 frame.probability
@@ -3078,7 +3094,11 @@ fn conversation(
                                 "last_block_host_read_us":audio.captured_at_us,
                                 "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                                 "acoustic_speech_end":null,
-                                "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS}}),
+                                "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
+                                    "last_blocks":{
+                                        "score_x20":judged_blocks.iter().map(|block| block.0).collect::<Vec<_>>(),
+                                        "level":judged_blocks.iter().map(|block| block.1).collect::<Vec<_>>(),
+                                        "under_floor":judged_blocks.iter().filter(|block| block.2 && block.0 >= 10).count()}}}),
                         )?;
                     }
                     speech_levels.clear();

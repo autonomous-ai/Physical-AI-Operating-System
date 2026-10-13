@@ -37,6 +37,55 @@ pub fn from_environment(lowest: u8, now_us: u64) -> RoomFloor {
     RoomFloor::new(lowest, highest, now_us)
 }
 
+/// Where the coordinator reads how long a block under the floor still
+/// counts as someone at the lamp after a block over it, in milliseconds
+/// (0 to 1,000). Unset or 0: each block is judged alone, as it always was.
+pub const HOLD_ENVIRONMENT: &str = "LAMP_FAINT_HOLD_MS";
+
+/// Whether a block is loud enough to be someone at the lamp, judged over a
+/// moment and not one block at a time. Speech at a desk has quiet stretches
+/// inside it (a stop, a nasal, a trailing syllable): judged block by block,
+/// each of those is thrown out as too faint and one short sentence becomes
+/// two scraps. A voice across the room has no block over the floor, so it
+/// is never let through by this.
+#[derive(Debug, Default)]
+pub struct Near {
+    hold_us: u64,
+    last_over_us: Option<u64>,
+}
+
+impl Near {
+    pub fn new(hold_ms: u64) -> Self {
+        Self {
+            hold_us: hold_ms.min(1_000) * 1_000,
+            last_over_us: None,
+        }
+    }
+
+    /// For what the environment says.
+    pub fn from_environment() -> Self {
+        Self::new(
+            std::env::var(HOLD_ENVIRONMENT)
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
+        )
+    }
+
+    /// Whether a block of this level, read at this time, is at or over the
+    /// floor or follows closely enough on one that was.
+    pub fn hears(&mut self, level: u8, floor: u8, at_us: u64) -> bool {
+        if level >= floor {
+            self.last_over_us = Some(at_us);
+            return true;
+        }
+        self.hold_us > 0
+            && self
+                .last_over_us
+                .is_some_and(|last| at_us.saturating_sub(last) <= self.hold_us)
+    }
+}
+
 /// How many blocks of other people's speech, as it fades, there must be to
 /// move the floor: about three seconds' worth.
 const ENOUGH_BLOCKS: f32 = 300.0;
@@ -122,6 +171,29 @@ impl RoomFloor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_quiet_stretch_inside_speech_is_heard_for_as_long_as_the_hold_and_no_longer() {
+        let floor = 150;
+        // Judged alone, as it always was.
+        let mut alone = Near::new(0);
+        assert!(alone.hears(200, floor, 0));
+        assert!(!alone.hears(149, floor, 10_000));
+        // Over a moment.
+        let mut near = Near::new(400);
+        // Nothing has been over the floor yet: a faint voice never is.
+        assert!(!near.hears(149, floor, 0));
+        assert!(!near.hears(100, floor, 5_000_000));
+        assert!(near.hears(150, floor, 6_000_000));
+        assert!(near.hears(60, floor, 6_010_000));
+        assert!(near.hears(60, floor, 6_400_000));
+        assert!(!near.hears(60, floor, 6_400_001));
+        // Each block over the floor begins the hold again.
+        assert!(near.hears(151, floor, 7_000_000));
+        assert!(near.hears(0, floor, 7_399_000));
+        // An hour is not a hold.
+        assert_eq!(Near::new(3_600_000).hold_us, 1_000_000);
+    }
 
     const S: u64 = 1_000_000;
     /// The face's scale for a level in dBFS.

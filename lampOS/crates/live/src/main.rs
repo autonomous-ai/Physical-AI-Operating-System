@@ -13,7 +13,7 @@ fn run() -> Result<()> {
     match args.as_slice() {
         // A whole turn with a written note in place of speech, to see what the
         // service makes of one. Nothing is captured and nothing is played.
-        [command,path,flag,note] if command=="provider-check" && flag=="--note" => {
+        [command,path,flag,note] if command=="provider-check" && (flag=="--note" || flag=="--written") => {
             let config=ProviderConfig::load(Path::new(path))?.into_session()?;
             tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
                 use lamp_gemini::Event;
@@ -22,9 +22,13 @@ fn run() -> Result<()> {
                 let setup_us=lamp_ipc::monotonic_us()-started;
                 let input=connection.input();
                 let request=lamp_gemini::RequestId::new(1)?;
-                input.try_start(request)?;
-                input.try_note(request,note)?;
-                input.try_end(request)?;
+                if flag=="--written" {
+                    input.try_written(request,note)?;
+                } else {
+                    input.try_start(request)?;
+                    input.try_note(request,note)?;
+                    input.try_end(request)?;
+                }
                 let asked=lamp_ipc::monotonic_us();
                 let (mut said,mut samples,mut first,mut ended)=(String::new(),0usize,None,"timeout");
                 let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
@@ -39,7 +43,7 @@ fn run() -> Result<()> {
                         Err(_) => break,
                     }
                 }
-                println!("{}",serde_json::json!({"status":"note_tried","setup_us":setup_us,"ended":ended,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
+                println!("{}",serde_json::json!({"status":"note_tried","form":flag,"setup_us":setup_us,"ended":ended,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
                 connection.shutdown();
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;

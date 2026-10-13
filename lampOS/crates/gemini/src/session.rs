@@ -207,6 +207,35 @@ impl InputSender {
             samples: samples.to_vec(),
         }))
     }
+    /// A whole request in writing: nothing is heard, the service is asked
+    /// to answer `text` at once. It takes the place of a start, the audio
+    /// and an end, and like a start it retires every earlier request. Only
+    /// for a moment when nothing is owed on the connection; one sent while
+    /// an earlier answer is unsettled is not written and ends unanswered.
+    pub fn try_written(&self, request: RequestId, text: &str) -> Result<()> {
+        self.ensure_ready()?;
+        wire::encode_written_turn(text)?;
+        if request.get() <= self.shared.retired_through.load(Ordering::Acquire)
+            || self
+                .shared
+                .submitted_through
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |old| {
+                    (request.get() > old).then_some(request.get())
+                })
+                .is_err()
+        {
+            return Err(Error::StaleRequest);
+        }
+        self.shared
+            .retired_through
+            .fetch_max(request.get() - 1, Ordering::AcqRel);
+        self.shared.wake.notify_one();
+        self.enqueue(Command::Written(request, text.into()))?;
+        self.shared
+            .ended_through
+            .fetch_max(request.get(), Ordering::AcqRel);
+        Ok(())
+    }
     /// A written note for `request`, which must be the request whose input
     /// is open: what the lamp is to respond to when nobody spoke (someone
     /// has sat down in front of it), or beside what was said. Sent inside
@@ -679,6 +708,7 @@ enum Command {
     Start(RequestId),
     Audio(Audio),
     Note(RequestId, String),
+    Written(RequestId, String),
     End(RequestId),
 }
 struct InputState {
@@ -1658,6 +1688,39 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 self.note_sent(&audio)?;
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
+            }
+            Command::Written(request, text) => {
+                if request.get() <= self.last_request
+                    || self.current.as_ref().is_some_and(|turn| turn.input.open)
+                {
+                    return Err(Error::OverlappingInput);
+                }
+                self.last_request = request.get();
+                let lineage = Lineage {
+                    session: self.session,
+                    request,
+                };
+                self.retire_active().await?;
+                // Written only onto a connection that owes nothing: with an
+                // earlier answer unsettled, or an activity left open, what
+                // came back could not be told apart. The request then stands
+                // committed and unanswered, and is closed as such.
+                let clear = self.barrier.is_none() && self.held.is_none() && !self.activity_open;
+                let mut turn = Turn::new(lineage);
+                turn.input.open = false;
+                turn.ended_at = Some(Clock::now());
+                self.current = Some(turn);
+                if clear {
+                    self.write(
+                        Message::text(wire::encode_written_turn(&text)?),
+                        self.timeouts.write,
+                    )
+                    .await?;
+                }
+                self.emit(Event::InputStarted {
+                    lineage,
+                    waiting_for_barrier: !clear,
+                });
             }
             Command::Note(request, text) => {
                 if request.get() <= self.retired_through() {

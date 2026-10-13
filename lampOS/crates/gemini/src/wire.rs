@@ -632,6 +632,18 @@ pub fn encode_note(text: &str) -> Result<String> {
     serde_json::to_string(&json!({"realtimeInput": {"text": text}}))
         .map_err(|_| Error::InvalidConfiguration)
 }
+/// A whole turn in writing, outside any activity: the service is asked to
+/// answer it as soon as it has it.
+pub fn encode_written_turn(text: &str) -> Result<String> {
+    if text.trim().is_empty() || text.len() > MAX_NOTE_BYTES || text.contains('\0') {
+        return Err(Error::InvalidConfiguration);
+    }
+    serde_json::to_string(&json!({"clientContent": {
+        "turns": [{"role": "user", "parts": [{"text": text}]}],
+        "turnComplete": true
+    }}))
+    .map_err(|_| Error::InvalidConfiguration)
+}
 /// The most a note may be.
 pub const MAX_NOTE_BYTES: usize = 1_024;
 pub const ACTIVITY_START: &str = r#"{"realtimeInput":{"activityStart":{}}}"#;

@@ -136,5 +136,9 @@ executive: "Hey Lamp, can you turn your volume down a bit?" called
 that?"; "Lamp, speak up a little, please." called `volume_up`. A request
 that calls a function is answered about a second later than one that
 does not: the model takes two turns. Not yet shown: that this model calls
-`not_for_me` for overheard speech and not for speech meant for it, and
-the memory's three functions against the real service or on a lamp.
+`not_for_me` for overheard speech and not for speech meant for it. It
+has been seen to call it for speech meant for the lamp: a new session's
+first request, "Hey Lamp, how do I take my coffee?", before that session
+had been told what the lamp was asked to remember. The memory's three
+functions were each called once by the real service on the lamp
+([memory.md](memory.md), "Played on the lamp").

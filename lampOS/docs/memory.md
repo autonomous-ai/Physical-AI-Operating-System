@@ -142,6 +142,40 @@ Without it the voice knows nothing of this process.
   reaches everything derived from a thing needs each entry to say what it
   came from, which is in the table below and is not built.
 
+### Played on the lamp
+
+On lamp-4ace on 2026-10-13, late in the evening with nobody in the office,
+a synthetic voice through a loudspeaker, once each
+(`lamp-memory.service`, its own unit and user; the voice at `7da2571cf`):
+
+| Said to the lamp | What it did | First sound after the end of speech was decided |
+|---|---|---|
+| "Hey Lamp, please remember that I take my coffee black." | Called `remember` (the memory answered in 10 ms) and said "Got it. Black coffee." | 1.59 s |
+| "Lamp, how do I take my coffee?", in the same conversation | Called `recall` and said "You take it black." | 1.95 s |
+| The same question to a new session that had never heard it said, the conversation thread removed | "Black, just the way I like it too.", from the note, with no call | 1.32 s |
+| "Lamp, what did we talk about earlier today?" | Called `recall` (six entries) and said "We chatted about a math question, and you also asked about how you take your coffee." | 2.09 s |
+| "Hey Lamp, forget what I asked you to remember." | Called `forget` (6 ms) and said "It's off my list." | 2.25 s |
+| The coffee question to a new session after that | Nothing: the service heard a statement ("I don't want to take my coffee.") and did not answer | |
+
+On the lamp the memory answered `append` in about 10 ms and `recall`,
+`kept` in under 1 ms, with a journal of a few dozen lines. A reply that
+uses a function begins roughly a second later than one that does not.
+
+The run before it, on the first build (`bfa8f57a9`), is why two things
+are as they are. A new session did not use the kept thing: the voice had
+opened its first session a moment before the writer thread had read what
+was kept, so what is kept is now read before the first session, and a
+question about the coffee to that session was declined as not for the
+lamp. And "what did we talk about earlier today?" got "I don't remember
+earlier conversations. We're just starting fresh!" with no call, which is
+why every session is now told that it has a memory.
+
+Not shown by this: whether a thing that was forgotten still comes back
+from the journal (the last row was not answered at all), anything with a
+person and not a loudspeaker, a second language, more than one thing
+kept, a journal of more than a day, or what happens to the lamp's
+ordinary answers with three more functions declared.
+
 ## What is taken from how others do memory
 
 The owner's question on 2026-10-13: is rolling our own right, or should
@@ -214,7 +248,7 @@ build under emulation in a container; `forget_last` with a kind was added
 after that run (36 tests on the host). The voice's side is host tests: the
 three functions against a scripted memory, the journal's queue and writer,
 and the provider worker with the scripted provider and a memory on a
-socket. It has not run on a lamp. A power cut was imitated by cutting
+socket. On a lamp: the played run above, once. A power cut was imitated by cutting
 a file short. Moving the socket to its path after binding it has run on macOS and in
 that emulated Linux run. Times, on that Mac through the socket with thirty days of 200 exchanges
 (`tests/timing.rs`): `append` 19 ms, `recall` by words 15 ms, by day or newest

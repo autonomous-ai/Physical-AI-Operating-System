@@ -124,6 +124,33 @@ between them. What sets it off is a line that begins with a name like
 its own: "Hey Lan", "Hey Liam", "Hey Lance", "Hey Mom", "Hey man". A
 step took 2.3 ms on the Mac.
 
+## On the lamp
+
+On lamp-4ace since 04:12 on 2026-10-14, as `lamp-name.service` under the
+lamp's ordinary user, kept to the board's two fast processors and a
+little below ordinary priority, with `LAMP_BUS_AUDIO=on` in the voice's
+unit. The three model files are in `/opt/lampOS/name/models`.
+
+- **It starts in under half a second**: the models were loaded and run
+  once on silence in 366 ms.
+- **The sound arrives whole.** `mic2/audio` came 49.96 times a second,
+  20.0 ms apart on average and 22.7 at most, 0.2 ms old on arrival, none
+  missed (over 4 s, with `lamp-bus hz`). Over five minutes the part
+  itself counted 750 steps a minute and no sound lost.
+- **A step costs it 9.2 to 9.8 ms** for each 80 ms of sound: about an
+  eighth of one fast processor, all the time the microphone is open.
+- **Live, it hears what it heard in the recordings.** The same 44 lines
+  played to the running lamp, which answered them as it does:
+
+| Score from which it counts | "Hey Lamp" (20) | A similar name (10) | Office talk (10) | "Lamp ơi" (2) | Heard with nothing being played |
+|---|---|---|---|---|---|
+| 0.9 | 17 | 5 | 0 | 1 | once, in about 5 minutes (0.988) |
+| 0.999 | 8 | 2 | 0 | 0 | never |
+
+  A hearing was said on the bus 78 to 639 ms after the name began.
+
+With it the lamp's health has six parts reporting.
+
 ## Not shown
 
 - **A person.** Every voice was synthetic and played through a
@@ -131,9 +158,9 @@ step took 2.3 ms on the Mac.
   office are untried, and are what the classifier has to be trained for.
 - **Enough lines to tell 17 from 18.** Forty-four lines, four of them
   Vietnamese.
-- **The lamp's processor.** The figures above are from recordings, on a
-  Mac. What a step costs on the lamp is said in its own report once it
-  runs there.
+- **What its one stray hearing was.** No sound is kept, so what the
+  lamp's microphone held at that moment cannot be gone back to. It was
+  between two played lines, while or just after the lamp answered.
 - **Its own tests are small**: the rule for a hearing (three), the
   options and the report (three). The models are not in the repository,
   so no test here runs them; `lamp-name check` and the measurement above

@@ -19,8 +19,8 @@ const OPTIONS: Option[] = [
     label: "Posture reminders",
     purpose: "Uses the camera to notice when you sit badly for a long time and reminds you to adjust. "
       + "A reminder sent to your Telegram includes the photos with the worst posture.",
-    upload: "Uploads one full camera image for cloud analysis about every 30 seconds while someone is in front of the lamp.",
-    short: "Posture reminders (one full image about every 30 s while someone is in front of the lamp; "
+    upload: "Uploads one full camera image for cloud analysis about every 30 seconds while someone is in front of the robot.",
+    short: "Posture reminders (one full image about every 30 s while someone is in front of the robot; "
       + "reminders sent to Telegram include photos)",
   },
   {
@@ -36,7 +36,7 @@ const OPTIONS: Option[] = [
     key: "motion",
     source: "camera",
     label: "Activity recognition",
-    purpose: "Uses the camera to recognise what you are doing (for example working or stretching) so the lamp can react.",
+    purpose: "Uses the camera to recognise what you are doing (for example working or stretching) so the robot can react.",
     upload: "Uploads full camera images for cloud analysis about every 2 seconds while someone has been seen recently.",
     short: "Activity recognition (full images, about every 2 s while someone is around)",
   },
@@ -44,7 +44,7 @@ const OPTIONS: Option[] = [
     key: "emotion",
     source: "camera",
     label: "Facial emotion",
-    purpose: "Uses the camera to read facial expressions so the lamp can respond to how people seem to feel.",
+    purpose: "Uses the camera to read facial expressions so the robot can respond to how people seem to feel.",
     upload: "Uploads a cropped photo of each detected face for cloud analysis about every 2 seconds.",
     short: "Facial emotion (a cropped photo of each face, about every 2 s)",
   },
@@ -52,8 +52,8 @@ const OPTIONS: Option[] = [
     key: "speaker_id",
     source: "voice",
     label: "Voice recognition",
-    purpose: "Recognises who is speaking so the lamp can call people by name and remember things about them. "
-      + "Enrolling a voice also needs this. When off, the lamp does not know who is talking.",
+    purpose: "Recognises who is speaking so the robot can call people by name and remember things about them. "
+      + "Enrolling a voice also needs this. When off, the robot does not know who is talking.",
     upload: "Uploads a clip of each thing someone says (up to 20 seconds) for cloud analysis, "
       + "including voices of people who are not enrolled.",
     short: "Voice recognition (a clip of each thing anyone says, up to 20 s)",
@@ -62,7 +62,7 @@ const OPTIONS: Option[] = [
     key: "speech_emotion",
     source: "voice",
     label: "Voice emotion",
-    purpose: "Reads mood from the tone of voice so the lamp can respond to how people sound.",
+    purpose: "Reads mood from the tone of voice so the robot can respond to how people sound.",
     upload: "Uploads the audio of each conversation turn for cloud analysis.",
     short: "Voice emotion (the audio of each conversation turn)",
   },
@@ -123,7 +123,7 @@ export function PrivacySection({ active }: { active: boolean }) {
     try {
       await updateDeviceConfig({ cloud_perception: draft });
       setSaved(draft);
-      toast.success("Applied on the lamp");
+      toast.success("Applied on the robot");
     } catch (e) {
       toast.error((e as Error).message || "Could not apply privacy settings");
     } finally {
@@ -138,8 +138,8 @@ export function PrivacySection({ active }: { active: boolean }) {
   const newSources = new Set(newlyEnabled.map((o) => o.source));
   const uploadWhat = newSources.size > 1 ? "camera images and voice audio" : newSources.has("voice") ? "voice audio" : "camera images";
   const whoIsIncluded = newSources.size > 1
-    ? "Anyone in view of the camera or speaking near the lamp is included."
-    : newSources.has("voice") ? "Anyone speaking near the lamp is included." : "Anyone in view of the camera is included.";
+    ? "Anyone in view of the camera or speaking near the robot is included."
+    : newSources.has("voice") ? "Anyone speaking near the robot is included." : "Anyone in view of the camera is included.";
 
   function renderOption({ key, label, purpose, upload }: Option) {
     return (
@@ -172,15 +172,15 @@ export function PrivacySection({ active }: { active: boolean }) {
         Face detection, Face ID, presence and gaze run on this device and send no images to
         a cloud server. Faces it does not know are remembered on the device as face data so it
         can count visits; they are deleted after 30 days without a visit, and you can delete
-        them sooner under Unknown faces. When a face without a name has been seen twice, the lamp keeps one
+        them sooner under Unknown faces. When a face without a name has been seen twice, the robot keeps one
         photo on the device for 24 hours so it can ask whether to remember that person.
         It also keeps a photo each time someone arrives (for 72 hours) and a few dozen recent
         frames used to aim where it looks; these stay on the device and are not uploaded.
-        The features below need a cloud server: when on, the lamp uploads camera images for
+        The features below need a cloud server: when on, the robot uploads camera images for
         analysis. They are off until you turn them on. Anyone in view of the camera is
-        included, not only you. Turning a feature off stops its new uploads once the lamp
-        confirms the change; an upload already in progress may still finish, and images
-        already sent are not recalled.
+        included, not only you. Turning a feature off stops its new uploads once the robot
+        confirms the change; an upload already in progress may still finish. The server
+        deletes each image or voice clip as soon as it has been analysed and does not keep it.
       </div>
       <div style={{ fontSize: 12.5, color: C.text, marginBottom: 14 }}>
         Images and voice clips are sent to: <strong>{recipient || "no server configured (nothing is sent)"}</strong>
@@ -195,13 +195,13 @@ export function PrivacySection({ active }: { active: boolean }) {
           <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 14, marginBottom: 14 }}>
             <div style={{ fontSize: 13.5, color: C.text, marginBottom: 6 }}>Microphone</div>
             <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.6 }}>
-              The lamp listens on the device for speech. When it hears someone talking, it streams
+              The robot listens on the device for speech. When it hears someone talking, it streams
               that audio to a speech-to-text service ({destination}, or Deepgram if you entered your
               own Deepgram key) to catch its name and understand requests. This includes speech that
-              was not meant for the lamp. During a live voice conversation, audio also goes to the
+              was not meant for the robot. During a live voice conversation, audio also goes to the
               voice AI provider. Muting the microphone stops all of it. The features below upload
               voice audio for extra analysis and are off until you turn them on; anyone speaking
-              near the lamp is included, not only you.
+              near the robot is included, not only you.
             </div>
           </div>
           {VOICE_OPTIONS.map(renderOption)}
@@ -222,7 +222,7 @@ export function PrivacySection({ active }: { active: boolean }) {
               {applying ? "Applying…" : "Apply"}
             </button>
             <span style={{ fontSize: 12, color: C.textMuted }}>
-              Apply waits until the lamp confirms the change.
+              Apply waits until the robot confirms the change.
             </span>
           </div>
         </>
@@ -233,8 +233,8 @@ export function PrivacySection({ active }: { active: boolean }) {
           Guard mode: <strong>{guard === null ? "unknown" : guard ? "on" : "off"}</strong>
         </div>
         <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, marginTop: 4 }}>
-          While guard mode is on, each person, movement or fire hint the lamp notices is sent to
-          your Telegram with a camera photo. It is off until you ask the lamp to guard the room.
+          While guard mode is on, each person, movement or fire hint the robot notices is sent to
+          your Telegram with a camera photo. It is off until you ask the robot to guard the room.
         </div>
         {guard && (
           <button
@@ -255,10 +255,11 @@ export function PrivacySection({ active }: { active: boolean }) {
       {confirming && (
         <ConfirmDialog
           title={`Upload ${uploadWhat} to the cloud?`}
-          message={`The lamp will upload ${uploadWhat} to ${destination} for cloud analysis: `
+          message={`The robot will upload ${uploadWhat} to ${destination} for cloud analysis: `
             + `${newlyEnabled.map((o) => o.short).join("; ")}. `
             + `${whoIsIncluded} You can turn this off at any time; `
-            + "the lamp then stops new uploads once it confirms, but what was already sent is not recalled."}
+            + "the robot then stops new uploads once it confirms. "
+            + "The server deletes each image or clip as soon as it has been analysed and does not keep it."}
           confirmLabel="Turn on and upload"
           onConfirm={() => { setConfirming(false); void apply(); }}
           onCancel={() => setConfirming(false)}

@@ -405,10 +405,14 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       được đọc lại từ phần cứng và idle chạy tiếp; thân máy đã được park trong lúc đó thì
       giữ nguyên. Contact stop được kiểm tra trước cut-off, và tay đang giữ mà vẫn bị ép
       thì cut-off vẫn trip như cũ. Khi đặt `contact.release_after_s` (Lamp: `1` s), tay
-      vẫn **giữ** tay đèn lâu chừng đó trong lúc tạm dừng — khớp nào còn vượt sàn contact
-      hoặc sàn tải/lag `off_playback` — thì không phải va chạm thoáng qua: driver log
+      vẫn **giữ** tay đèn lâu chừng đó trong lúc tạm dừng — khớp vừa dừng vẫn ở mức sàn
+      đã làm nó dừng trở lên (sàn đường bao đã học nếu có), hoặc khớp nào còn vượt sàn
+      contact cố định hay sàn tải/lag `off_playback` — thì không phải va chạm thoáng qua: driver log
       `[contact] … releasing torque` và chuyển sang cắt torque như cut-off (tay đèn rũ,
-      khoá `retry_s`, chime của cut-off). Chạm rồi buông trong khoảng đó thì chỉ tạm dừng. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
+      khoá `retry_s`, chime của cut-off). Chạm rồi buông trong khoảng đó thì chỉ tạm dừng.
+      Sàn đã làm dừng quan trọng với đèn đã học: trên lamp-52e6 tay chặn `base_yaw` ở
+      39.6 % (đường bao 18 %) nhưng không giữ nổi tới sàn cố định 55 %, còn `elbow_pitch`
+      không có sàn cố định. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
       `resume_in_s`, `trips`, `last_trip`, các ngưỡng). Sàn của Lamp lấy từ lamp-52e6
       (2026-10-09): qua 19 recording, đỉnh chuyển động tự do là `base_yaw` 46 %,
       `wrist_roll` 52 %, `wrist_pitch` 43 %, còn lấy tay chặn `base_yaw` đẩy nó lên

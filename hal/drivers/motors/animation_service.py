@@ -199,9 +199,11 @@ class AnimationService:
         # it the contact stop falls back to on_overload.
         self._on_contact = on_contact
         # A hand still holding the arm this long into the contact pause cuts torque
-        # (the overload cut-off's lockout). Timed by its own guard, armed per stop.
+        # (the overload cut-off's lockout). Timed by its own guard, armed per stop,
+        # against the floor that stopped the arm (see _contact_stop).
         self._contact_release_s = contact_release_s
         self._contact_hold: Optional[OverloadGuard] = None
+        self._contact_hold_floors: Dict[str, int] = {}
         # A direct move in flight, and when the last one ended (contact guard clock).
         self._direct_move = False
         self._direct_move_ended = float("-inf")
@@ -1166,7 +1168,7 @@ class AnimationService:
             lags = self._read_lags()
             if lags:
                 samples.update(lags)
-            held = self._contact_hold.observe(samples, self._contact_off_playback or None)
+            held = self._contact_hold.observe(samples, self._contact_hold_floors or None)
             if held:
                 self._contact_release(*held)
                 return
@@ -1397,6 +1399,13 @@ class AnimationService:
         if self._contact_release_s is not None:
             self._contact_hold = OverloadGuard(
                 self._contact.threshold, self._contact_release_s, 0.0, clock=self._contact._clock)
+            # The floor that stopped the arm also decides the release: a hand that
+            # stopped it under the learned envelope (18 % on base_yaw) holds it with the
+            # same force, far below the fixed floor (55 %). Joints with no fixed floor
+            # (elbow_pitch) could never release otherwise.
+            self._contact_hold_floors = dict(self._contact_off_playback)
+            if self._contact.last_floor is not None:
+                self._contact_hold_floors[joint] = self._contact.last_floor
         # Logged after the stop: nothing here may delay or skip it.
         unit = "deg behind" if joint.startswith(LAG_PREFIX) else "% load"
         logger.warning(

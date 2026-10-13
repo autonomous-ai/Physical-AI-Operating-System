@@ -27,7 +27,7 @@ func TestPendingRecoveryFailureStopsEveryUpdateEntry(t *testing.T) {
 			if err := os.WriteFile(pending, []byte(`{"component":"hal"}`), 0600); err != nil {
 				t.Fatal(err)
 			}
-			b := &Bootstrap{cfg: &config.Config{MetadataURL: "http://127.0.0.1:1/should-not-fetch"}, state: &state.State{Components: map[string]string{domain.OTAKeyHal: "9.0.0"}}, pendingUpdatePath: pending}
+			b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{MetadataURL: "http://127.0.0.1:1/should-not-fetch"}, state: &state.State{Components: map[string]string{domain.OTAKeyHal: "9.0.0"}}, pendingUpdatePath: pending}
 			if err := run(b); err == nil {
 				t.Fatal("failed recovery must stop update entry")
 			}
@@ -57,7 +57,7 @@ func TestPendingRecoveryRunsBeforeMetadataEvenWithCurrentStoredVersion(t *testin
 		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
-	b := &Bootstrap{cfg: &config.Config{MetadataURL: server.URL}, client: server.Client(), state: &state.State{Components: map[string]string{domain.OTAKeyHal: "9.0.0"}}, pendingUpdatePath: pending}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{MetadataURL: server.URL}, client: server.Client(), state: &state.State{Components: map[string]string{domain.OTAKeyHal: "9.0.0"}}, pendingUpdatePath: pending}
 	if err := b.checkOnce(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestPendingRecoveryRunsBeforeMetadataEvenWithCurrentStoredVersion(t *testin
 
 func TestNoPendingRecoveryDoesNotInvokeUpdater(t *testing.T) {
 	dir, calls := setupUpdateAudit(t)
-	b := &Bootstrap{pendingUpdatePath: filepath.Join(dir, "absent.json")}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), pendingUpdatePath: filepath.Join(dir, "absent.json")}
 	if err := b.recoverPendingUpdate(context.Background()); err != nil {
 		t.Fatal(err)
 	}

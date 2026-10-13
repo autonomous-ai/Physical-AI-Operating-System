@@ -11,7 +11,7 @@ import (
 )
 
 func TestSecurityStatusReportsLegacyWithoutKey(t *testing.T) {
-	b := &Bootstrap{cfg: &config.Config{}}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{}}
 
 	status := b.securityStatus()
 	if status.Mode != SecurityModeLegacy {
@@ -34,7 +34,7 @@ func TestSecurityStatusReportsVerifiedWithKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(publicKey)
-	b := &Bootstrap{cfg: &config.Config{SigningPublicKey: "  " + encoded + "\n"}}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{SigningPublicKey: "  " + encoded + "\n"}}
 
 	status := b.securityStatus()
 	if status.Mode != SecurityModeVerified {
@@ -52,7 +52,7 @@ func TestSecurityStatusReportsVerifiedWithKey(t *testing.T) {
 }
 
 func TestSecurityStatusRecordsLastFetchOutcome(t *testing.T) {
-	b := &Bootstrap{cfg: &config.Config{}}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{}}
 
 	b.security.record(true, nil)
 	last := b.securityStatus().LastMetadataFetch

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,9 @@ import (
 // fakeBootstrap points bootstrapBaseURL at h and resets the rate limiter.
 func fakeBootstrap(t *testing.T, h http.HandlerFunc) {
 	t.Helper()
+	oldRegistry := serviceRegistryPath
+	serviceRegistryPath = filepath.Join(t.TempDir(), "ownership.json")
+	t.Cleanup(func() { serviceRegistryPath = oldRegistry })
 	srv := httptest.NewServer(h)
 	prev := bootstrapBaseURL
 	bootstrapBaseURL = srv.URL

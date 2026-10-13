@@ -57,7 +57,7 @@ func TestReconcileReloadsRollbackRulesWithoutRestart(t *testing.T) {
 	dir, calls := setupUpdateAudit(t)
 	t.Setenv("UPDATE_TEST_FAIL", domain.OTAKeyOSServer)
 	path := filepath.Join(dir, "bootstrap.json")
-	b := &Bootstrap{cfg: &config.Config{}, state: &state.State{Components: map[string]string{}}, rollbackConfigPath: path}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{}, state: &state.State{Components: map[string]string{}}, rollbackConfigPath: path}
 	target := domain.OTAComponent{Version: "2.0.0"}
 	write := func(body string) {
 		t.Helper()
@@ -93,7 +93,7 @@ func TestReconcileRejectsUnreadableRollbackRules(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"rollback_versions":`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	b := &Bootstrap{cfg: &config.Config{}, state: &state.State{Components: map[string]string{}}, rollbackConfigPath: path}
+	b := &Bootstrap{serviceStateDir: t.TempDir(), cfg: &config.Config{}, state: &state.State{Components: map[string]string{}}, rollbackConfigPath: path}
 	if _, err := b.reconcile(context.Background(), domain.OTAKeyOSServer, domain.OTAComponent{Version: "2.0.0"}); err == nil {
 		t.Fatal("malformed rules must not allow an update")
 	}
@@ -114,7 +114,7 @@ func TestCheckOnceGatesDeviceAfterCoreUpdateFailure(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			b := &Bootstrap{
+			b := &Bootstrap{serviceStateDir: t.TempDir(),
 				cfg:                &config.Config{MetadataURL: server.URL, StateFile: filepath.Join(dir, "state.json")},
 				client:             server.Client(),
 				state:              &state.State{Components: map[string]string{failed: "1.0.0"}},

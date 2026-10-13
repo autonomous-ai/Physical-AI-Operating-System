@@ -133,7 +133,7 @@ func TestOTAErrorLEDSchedulesRestore(t *testing.T) {
 		gotRestore = restore
 	}
 
-	(&Bootstrap{}).showOTAErrorLED()
+	(&Bootstrap{serviceStateDir: t.TempDir()}).showOTAErrorLED()
 
 	if gotDelay != otaErrorLEDDisplayDuration {
 		t.Fatalf("error LED restore delay = %v, want %v", gotDelay, otaErrorLEDDisplayDuration)
@@ -150,7 +150,7 @@ func TestReconcileSkipsUninstalledComponent(t *testing.T) {
 	t.Setenv("DEVICES_DIR", devicesDir)
 	t.Setenv("DEVICE_TYPE", "reachy-mini")
 
-	b := &Bootstrap{
+	b := &Bootstrap{serviceStateDir: t.TempDir(),
 		state:              &state.State{Components: map[string]string{}},
 		rollbackConfigPath: filepath.Join(t.TempDir(), "bootstrap.json"),
 	}
@@ -170,7 +170,7 @@ func TestReconcileSkipsUninstalledComponent(t *testing.T) {
 }
 
 func TestReconcileSkipsVersionBlockedByRollback(t *testing.T) {
-	b := &Bootstrap{
+	b := &Bootstrap{serviceStateDir: t.TempDir(),
 		cfg:                &config.Config{RollbackVersions: map[string]string{domain.OTAKeyOSServer: "1.2.3"}},
 		state:              &state.State{Components: map[string]string{}},
 		rollbackConfigPath: filepath.Join(t.TempDir(), "bootstrap.json"),
@@ -191,7 +191,7 @@ func TestComponentInstalled(t *testing.T) {
 	devicesDir := t.TempDir()
 	t.Setenv("DEVICES_DIR", devicesDir)
 	t.Setenv("DEVICE_TYPE", "reachy-mini")
-	b := &Bootstrap{}
+	b := &Bootstrap{serviceStateDir: t.TempDir()}
 
 	if b.componentInstalled(domain.OTAKeyDevice) {
 		t.Error("device profile reported installed with no profile directory")
@@ -233,7 +233,7 @@ func TestComponentInstalledAgentCLIsFollowRuntime(t *testing.T) {
 	if _, err := os.Stat("/root/config/config.json"); err == nil {
 		t.Skip("host has a real /root/config/config.json; runtime gate not isolatable")
 	}
-	b := &Bootstrap{}
+	b := &Bootstrap{serviceStateDir: t.TempDir()}
 	for _, key := range []string{domain.OTAKeyCodex, domain.OTAKeyClaudeCode, domain.OTAKeyOpenCode, domain.OTAKeyPicoClaw} {
 		if b.componentInstalled(key) {
 			t.Errorf("%s reported installed with an unresolvable agent_runtime", key)

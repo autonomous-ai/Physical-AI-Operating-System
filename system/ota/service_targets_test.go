@@ -10,6 +10,11 @@ import (
 )
 
 func TestTriggerServiceUpdateRequiresRegisteredUnblockedTarget(t *testing.T) {
+	var paths []string
+	fakeBootstrap(t, func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	})
 	old := serviceRegistryPath
 	serviceRegistryPath = filepath.Join(t.TempDir(), "ownership.json")
 	t.Cleanup(func() { serviceRegistryPath = old })
@@ -17,11 +22,7 @@ func TestTriggerServiceUpdateRequiresRegisteredUnblockedTarget(t *testing.T) {
 	if err := os.WriteFile(serviceRegistryPath, []byte(payload), 0600); err != nil {
 		t.Fatal(err)
 	}
-	var paths []string
-	fakeBootstrap(t, func(w http.ResponseWriter, r *http.Request) {
-		paths = append(paths, r.URL.Path)
-		w.WriteHeader(http.StatusOK)
-	})
+
 	for _, key := range []string{"hal", "device", "unknown-service", "../bad", ""} {
 		if _, err := TriggerUpdate(context.Background(), hermesCfg(), key); !errors.Is(err, ErrUnknownTarget) {
 			t.Errorf("target %q got %v", key, err)

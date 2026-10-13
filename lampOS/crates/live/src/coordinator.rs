@@ -2080,6 +2080,7 @@ fn conversation(
     let mut ring_trace = RingTrace::default();
     // How loud the person's last captured block was, for the ring's face.
     let mut heard_level = 0u8;
+    let mut speech_levels: VecDeque<(u64, u8)> = VecDeque::new();
     // A service that runs all day may also tell a body what it is doing.
     let mut body_link = if lifetime.continuous() {
         crate::body_link::BodyLink::from_environment()
@@ -2651,6 +2652,17 @@ fn conversation(
                 trace,
             )?;
             heard_level = crate::ring_face::level_of(&frame.samples);
+            // How loud what the detector calls speech has been lately, for
+            // the record of each utterance: its last eight seconds.
+            if frame.probability.is_finite() && frame.probability >= 0.5 {
+                speech_levels.push_back((frame.read_completed_at_us, heard_level));
+            }
+            while speech_levels
+                .front()
+                .is_some_and(|(at, _)| frame.read_completed_at_us.saturating_sub(*at) > 8_000_000)
+            {
+                speech_levels.pop_front();
+            }
             let observation = ObservedAudio {
                 sequence: frame.frame_sequence,
                 captured_at_us: frame.read_completed_at_us,
@@ -2828,6 +2840,22 @@ fn conversation(
                     // Baseline records keep exactly their existing fields.
                     if detector.confirmation_policy().is_some() {
                         endpoint_record["endpoint"] = json!(detector.last_endpoint());
+                    }
+                    // How loud this utterance was at the microphone after
+                    // cancellation, on the face's scale (0 is -48 dBFS or
+                    // under, 255 is -14 or over): the middle and the upper
+                    // tenth of its speech blocks. For telling someone at
+                    // the lamp from someone across the room.
+                    if !speech_levels.is_empty() {
+                        let mut levels: Vec<u8> =
+                            speech_levels.iter().map(|(_, level)| *level).collect();
+                        levels.sort_unstable();
+                        endpoint_record["speech_level"] = json!({
+                            "blocks": levels.len(),
+                            "median": levels[levels.len() / 2],
+                            "upper_tenth": levels[levels.len() * 9 / 10],
+                        });
+                        speech_levels.clear();
                     }
                     record(trace, endpoint_record)?;
                 }

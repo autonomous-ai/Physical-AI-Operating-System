@@ -132,6 +132,17 @@ dark for as long as the refusal lasts; nothing here tells the person in front
 of it why. Checked by a unit test of which faults count as such a refusal,
 not against a provider that refuses.
 
+## How loud an utterance was
+
+Each `local_endpoint` record carries `speech_level` when the detector scored
+any block of the last eight seconds as speech: how many such blocks, and the
+middle and the upper tenth of their levels after cancellation, on the face's
+scale (0 is -48 dBFS or under, 255 is -14 dBFS or over). It is there to find
+out whether someone at the lamp can be told from someone across the room by
+level; nothing acts on it yet. Added on 2026-10-13, when an office full of
+people talking brought the conversation checks down: other voices were taken
+for the person at the lamp going on, and for that person cutting in.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

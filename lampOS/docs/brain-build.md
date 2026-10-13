@@ -1,12 +1,173 @@
-# Building the brain: who builds what, and what to change in the draft
+# Building the brain: the proposed final record
 
 Written 2026-10-13 by the owner of the voice runtime, in answer to the
-"lampOS V2 brain architecture review", draft 0.5 of the same day (called
-"the draft" below). It proposes who builds which part, four changes to the
-draft, an answer to each of the draft's seven open decisions, and a build
-order. Nothing here is approved. Everything said about the lamp is from
-lamp-4ace on 2026-10-12 and 13; where a number is one run or a silent probe
-it says so.
+"lampOS V2 brain architecture review", drafts 0.5 and 0.6 of the same day
+(called "the page" below). This is the short record both builders work
+from; the page is the long reference and is amended to agree with it.
+
+**Status: proposed, awaiting the product owner's approval.** The decisions
+are numbered. Once approved, a decision changes only on the product owner's
+word, and the change is written here first.
+
+Everything said about the lamp is from lamp-4ace on 2026-10-12 and 13;
+where a number is one run or a silent probe it says so.
+
+## Decisions
+
+Who builds what:
+
+1. **The split.** The voice owner builds everything a person at the lamp
+   experiences, through handing work to an agent and getting back to them.
+   The page's author builds what nobody talks to (setup, network repair,
+   configuration, updates, reset, the operator's pages, moving V1's data
+   across), keeps the page, reviews each step of the experience work
+   against it, and writes the failure tests independently of that code.
+2. **One thin interface between the two**, written before either builds
+   (below).
+
+How a request is decided:
+
+3. **Chat:** the Live model answers. No decision model.
+4. **A clear device command:** the Live model's tool call, checked by the
+   runtime. On the Live route a transcript is never a command.
+5. **An open choice or a task for an agent:** the runtime builds the valid
+   options and the decision model picks one or abstains. The voice does not
+   wait for it.
+6. **Nothing was said** (someone sat down, a task finished, the room went
+   quiet): a rule or the decision model decides, and if the lamp is to
+   speak the Live model speaks from a note.
+
+The product:
+
+7. **Addressing.** No wake word and no tap. In a room that is talking the
+   lamp answers only when called; in a quiet room it answers what is said
+   near it. Anything that leaves the lamp needs a spoken yes until a
+   false-accept rate has been measured and accepted.
+8. **Promises.** A neutral acknowledgement in the native voice; "sent",
+   "done" and an agent's question are spoken from the receipt.
+9. **The provider down, at launch:** an honest "voice is down" state with
+   light and controls working. The second speech route (Deepgram, a text
+   answer, speech synthesis) is later work and does not block launch.
+10. **Senses at launch:** the voice microphone; the plain microphone for
+    how near a voice is, if that proves out; the camera on the lamp only,
+    for whether a face is there and where, and one picture sent when the
+    lamp has said it will look. No recognition of who and no reading of
+    mood.
+11. **Motion at launch:** yes, what runs today, plus starting at power-up
+    and a hands-on check of what the servos do at power-up.
+12. **Memory at launch:** the lamp remembers the day's conversations, on
+    the lamp. Today it remembers ten minutes. Stored preferences and facts
+    come after.
+
+Engineering:
+
+13. **Audio leaves the lamp only after local admission.** No second cloud
+    listens continuously.
+14. **Agents run off the lamp, through Harness,** one paired computer
+    first; a permission prompt stays on that computer.
+15. **Topics are contracts first;** a transport is added when a second
+    consumer exists. Nothing is added between the microphone and the
+    provider.
+16. **No decision model on the spoken path** until it wins on recorded
+    requests against the Live model's own tool call.
+
+## How a request is decided
+
+Three things run side by side and none waits for another except where the
+table says so.
+
+| What happened | Who chooses | Decision model | Does the voice wait? |
+|---|---|---|---|
+| Chat | The Live model | No | No |
+| "Lamp, dim a little" | The Live model, by calling one of the tools it was given; the runtime checks that the tool was offered, the numbers are in range and the lamp was addressed, runs it, and returns the result | No | Only for the result of a local call, which is milliseconds; "done" is said from it |
+| "Ask my coding agent to fix the tests" | The Live model calls one general tool with the request as said; the runtime finds the agents that could take it; the decision model picks one, asks for a missing detail, or abstains | Yes | No. The voice says a neutral "on it" and stays available; the task waits for the choice |
+| Nothing was said | A rule, or the decision model | Yes | There is no turn. If the lamp is to speak, the runtime gives the Live model a note to speak from |
+
+One request has one chooser and is carried out once. The page's 0.6 text
+also matches the Live model's transcript against V1's command catalog and
+then guards against the tool call and the transcript both acting. With the
+catalog given to the model as its tools there is nothing to guard: on
+lamp-4ace that transcript rendered "Lamp" as "Jelani" and Vietnamese as
+Spanish, and many turns had none. V1's matcher, with the decision model
+behind it, stays for the second speech route and for typed requests, where
+text is all there is.
+
+Not built: the runtime rejects tool calls today. Not known: what declaring
+tools costs ordinary answers (the provider's own search tool cost nothing,
+two runs each way), and whether a model with tools acts more readily on
+speech it only overheard, which is why decision 7 asks more of an action
+than of chat.
+
+## The interface between the two builders
+
+Draft, for the page's author to correct. Small on purpose.
+
+- **Configuration and credentials.** The experience runtime reads, at
+  start only: one provider file (endpoint, model, a reference to the key,
+  language, switches), one character file, and its unit's options. The
+  other builder owns writing them, whole or not at all, with a schema
+  version. The runtime never writes them.
+- **Restarting the voice.** Whoever restarts it first checks that the lamp
+  has neither heard nor said anything for 45 seconds, and does not restart
+  it otherwise. On 2026-10-13 a restart and a link cut made without that
+  check landed on a person speaking to the lamp, twice.
+- **Ready.** The runtime states each capability separately, in one small
+  file the other builder may read: voice (listening, starting, or down and
+  why), body (up, or stopped and why), eyes (looking or shut), tasks
+  (paired, reconnecting, or unpaired). Nothing is inferred from a process
+  being alive.
+- **Updates.** Releases are directories named by the binary's hash, as
+  now. The order is: voice stopped (after the check above), body stopped
+  at rest by its own stop command, eyes stopped; binaries switched; body,
+  eyes, voice started; any failure returns to the previous hash. The
+  microphones, the speaker, the ring and the servo bus each have one
+  writer at any moment, and a servo keeps its last goal after its process
+  has gone, so the body is at rest before anything is switched.
+- **Records.** The runtime writes its own bounded records and nobody else
+  writes there. The other builder may read and export them and owns how
+  long they are kept. What they hold is in
+  [serve-runtime.md](serve-runtime.md).
+- **Forgetting.** For each store of the owner's that the runtime keeps
+  (the conversation it carries, later the day's journal and the task
+  records) it offers one command that empties it. Reset calls those.
+- **Not touched by the other builder:** `lampOS/crates/live`,
+  `crates/gemini`, `crates/eyes`, the body binary in `crates/motor`, and
+  `lampOS/deploy`. **Not touched by the runtime:** network, update state,
+  the operator's pages, V1's data.
+
+## Amendments to the page
+
+By the page's own section numbers.
+
+- **02, 03 (the loop, component roles).** Attention does not admit by
+  meaning before the provider. Local evidence narrows what is sent; the
+  Live model decides whether it was for the lamp. Add an addressing slice
+  with a recorded set of office situations and two rates to meet, and the
+  rule that the evidence asked for rises with the consequence (decision
+  7).
+- **04, 06 (services, walkthroughs).** A quick device call and a task
+  proposal reach the runtime as the Live model's tool call (decisions 4
+  and 5). Scenario 02 loses its "deterministic exact command path" on the
+  Live route and keeps it on the second route.
+- **05 (topics).** Providers subscribe to admitted speech, not to a
+  microphone (decision 13). The voice microphone's own processing evens
+  loudness out, so nearness cannot be judged from it; the plain microphone
+  may carry it, hears the lamp's own voice at -13 to -17 dBFS, and is
+  blanked while the lamp speaks. Observers run below the voice's real-time
+  priority. Contracts first (decision 15).
+- **07 (decision models).** Decisions 5, 6 and 16.
+- **08 (voice).** The commitment policy is decision 8, by the three
+  mechanisms under "For commitments" below. Add what a session may be
+  told, and when, as an interface with a first-turn test for each item.
+  The first fallback is decision 9.
+- **11 (memory).** Decision 12.
+- **13 (migration).** The state of the voice code, under "What the page's
+  review of the voice code predates" below.
+- **14 (build plan).** The two build orders below. Add to the acceptance
+  measures the baseline to hold (first sound 1.3 s after the lamp decides a
+  person has stopped, about 1.9 s after their last word) and a test of what
+  every new session does with the first thing it hears.
+- **15 (decisions).** Closed as above once approved.
 
 ## Who builds what
 
@@ -18,24 +179,22 @@ users".
 | Part | Builder | Why |
 |---|---|---|
 | Everything a person at the lamp experiences: voice, body, head and light; deciding what a request is; handing work to an agent through Harness; following the work; asking the agent's questions; delivering the result; the lamp staying up when the provider fails | The voice owner | It is one experience, and each failure heard in the office on 2026-10-13 came from a join between two mechanisms that were each right alone (below). It can only be proven on a lamp. |
-| What nobody talks to: setup, network repair, configuration, updates, reset, the operator's pages, moving V1's data across | The draft's author | Large, separable, and none of it shapes a conversation. |
-| The architecture document, and review of the experience work against it | The draft's author | Several faults of the voice owner's reached the office in one day. A reviewer who is not anchored on that code is worth having. |
+| What nobody talks to: setup, network repair, configuration, updates, reset, the operator's pages, moving V1's data across | The page's author | Large, separable, and none of it shapes a conversation. |
+| The architecture document, and review of the experience work against it | The page's author | Several faults of the voice owner's reached the office in one day. A reviewer who is not anchored on that code is worth having. |
 
 The Harness computer side, the agent engines, the provider and Jev stay
 where they are. The lamp's Harness client is built to the Harness team's
 existing contract ([../../docs/harness.md](../../docs/harness.md)); nothing
 here invents a pairing flow, a transport or a credential.
 
-Between the two builders there is then one thin interface, to be written
-before either starts: where configuration and credentials are read from,
-what "ready" means for each capability, how an update stops the old
-hardware writers before the new ones start, and where diagnostics go.
+Between the two builders there is one thin interface, drafted above and
+to be agreed before either starts.
 
-## Four changes to the draft
+## The evidence behind four of the changes
 
 ### 1. Whether speech is for the lamp is a measured problem with its own slice
 
-The draft draws attention as a component that admits input before the
+The page draws attention as a component that admits input before the
 provider and lists "how does Lamp know it is being addressed?" as a product
 decision. On the lamp nothing can admit by meaning before the provider
 except a wake word or a tap, which the product does not want. What decides
@@ -60,7 +219,7 @@ Two things follow for the architecture.
   change to the lamp itself (light, a look) when called by name in that
   utterance or inside an exchange; anything that leaves the lamp also on a
   spoken yes, until a measured false-accept rate says otherwise.
-- The local evidence is not what the draft assumes. The voice microphone's
+- The local evidence is not what the page assumes. The voice microphone's
   own processing evens loudness out: colleagues talking near the lamp (how
   near is not known) arrived at a median of -22 to -27 dBFS, and a person
   speaking to it at its desk at -19 to -24, so a level floor cannot tell
@@ -79,7 +238,7 @@ consequence.
 
 A Live session lasts 3 to 39 minutes here and its successor knows only what
 it is given at opening: the character, the time of day and a note of the
-last exchanges ([conversation-thread.md](conversation-thread.md)). The draft
+last exchanges ([conversation-thread.md](conversation-thread.md)). The page
 adds a shared situation, pending questions and task state to that. All of it
 is read by the model as a cue to act.
 
@@ -116,7 +275,7 @@ comparison with and without it.
 
 ### 3. For commitments, split the speech; do not hold the audio
 
-The draft says strict commitments need the relevant speech "held or
+The page says strict commitments need the relevant speech "held or
 generated from approved text before playback" and leaves the policy open.
 Holding native audio until its meaning is known delays every answer; the
 lamp answers 1.3 s after it decides a person has stopped (about 1.9 s after
@@ -149,17 +308,17 @@ has yet run through the coordinator on a lamp with a person listening.
 
 ### 4. Topics are contracts first, and Jev starts where no utterance does
 
-The draft's topic graph (19 families, a 12-field envelope, a queue per
+The page's topic graph (19 families, a 12-field envelope, a queue per
 subscriber) is right as vocabulary. The lamp today has several processes that
 already pass latest values and ordered events to one another by the
 simplest means that fits each: a datagram for the body's mood, a small file
 for whether someone is there, a bounded channel for audio, a record on disk
-for outcomes. Each is a topic in the draft's sense.
+for outcomes. Each is a topic in the page's sense.
 
 Change: write each topic's contract (name, freshness, what is lost and how
-that is known) as the draft does, and give it a transport only when a
+that is known) as the page does, and give it a transport only when a
 second real consumer exists. Nothing is added between the microphone and
-the provider, which the draft also says.
+the provider, which the page also says.
 
 For Jev: a spoken request already reaches the runtime as the model's choice
 among the tools declared to it. Putting a second model behind that choice
@@ -170,7 +329,7 @@ the first day: whether to speak up, which agent gets a task, when a result
 may interrupt. The lamp's rule for saying hello is the deterministic
 baseline to beat ([speaking-first.md](speaking-first.md)).
 
-## The seven open decisions
+## The page's seven open decisions, and where each stands on the lamp
 
 | Decision | Proposed answer | State on the lamp |
 |---|---|---|
@@ -179,12 +338,13 @@ baseline to beat ([speaking-first.md](speaking-first.md)).
 | Is motion at launch? | Yes, what runs now: it stands when spoken to and folds when left, turns up to 44° to a face, looks away to think, and makes six small gestures chosen from the first words of its answer. | Running. Not yet: started at power-up, behaviour at power-up checked by hand, a long hold measured (the shoulder warmed 42 to 46 °C in eight minutes). |
 | Agents off the lamp? | Yes. No general agent on the lamp. | Nothing to change. |
 | Voice commitment policy? | Change 3. | Pieces exist; unproven aloud. |
-| First decision model and engines? | No decision model on the spoken path until it wins on recorded requests; Jev first for decisions no utterance starts. Engines as the draft says: the V1 one first, a second through the same contract. | Not started. |
+| First decision model and engines? | No decision model on the spoken path until it wins on recorded requests; Jev first for decisions no utterance starts. Engines as the page says: the V1 one first, a second through the same contract. | Not started. |
 | First Harness scope? | One paired computer, the existing contract, permission prompts stay on the computer. | Not started in Rust. |
 
-## Build order for the experience
+## Build orders
 
-Each step ends with something a person can try at the lamp.
+**The experience** (the voice owner). Each step ends with something a
+person can try at the lamp.
 
 1. **The lamp outlives the provider.** No exit for a refused quota, a
    stalled link, a full input queue or a slow microphone read: the voice
@@ -203,19 +363,30 @@ Each step ends with something a person can try at the lamp.
 4. **Questions and interruptions around a task.** The agent's question
    asked at a pause and the answer tied to that question; stopping the
    lamp's speech never cancels the task.
-5. **The room, told to the voice.** Quiet or busy, someone arriving, a task
-   finishing, each as a fact with its first-turn test (change 2).
+5. **What the lamp knows, told to the voice.** The room (quiet or busy),
+   someone arriving, a task finishing, and the day's conversations
+   (decision 12), each with its first-turn test (change 2). The room is
+   built and waiting to be heard ([character.md](character.md), "The rule
+   follows the room").
 6. **A decision model for what no utterance starts, and a second engine.**
 
-## What the draft's review of the voice code predates
+**What nobody talks to** (the page's author), in an order that is theirs
+to set: the interface above; configuration and credentials written whole
+with a schema version; setup and reprovisioning; network repair; updates
+with return to the previous release; reset; the operator's pages; V1's
+data moved across. Beside those, for each step of the experience: a review
+against the page, and failure tests written without reading the code under
+test (the page's section 14 lists them).
 
-The draft read the voice branch about a day before this was written. Since
+## What the page's review of the voice code predates
+
+The page read the voice branch about a day before this was written. Since
 then, on that branch: the conversation is carried across a new session and
 across a restart of the service; web search is on; the lamp can begin a
 turn itself and take a look when it says it will; a sound too short to be
 speech never reaches the model; the voice has real-time priority (a load
 that ended it four times in forty seconds ends it not at all). Still as the
-draft says: tool calls are rejected, what a person said is tied to an
+page says: tool calls are rejected, what a person said is tied to an
 answer only by timing, and a refused quota ends the service after a
 two-minute wait.
 

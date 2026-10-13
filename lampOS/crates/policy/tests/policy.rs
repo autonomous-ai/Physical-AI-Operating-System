@@ -5,7 +5,7 @@ use lamp_bus::{Bus, Publisher, Subscriber};
 use lamp_msgs::{Decision, Speech, Voice, VoiceState};
 use lamp_policy::{
     attention::{self, Context, Room},
-    decide::{Answer, Asked, Decider, Failed, Question, Usage},
+    decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
     policy::{self, Note, Options, Totals},
 };
 use serde_json::{Value, json};
@@ -44,6 +44,7 @@ fn asked(seven: [f32; 7]) -> Asked {
             output_tokens: Some(134),
             cost: Some(4.4772e-05),
         }),
+        connection: None,
     }
 }
 
@@ -1219,6 +1220,7 @@ fn every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text() {
             by_rule: false,
             took_ms: 655,
             waited_ms: 301,
+            on: Some(Connection::Kept),
             pieces: 4,
             bytes: 27,
         },
@@ -1278,7 +1280,7 @@ fn every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text() {
     let lines: Vec<String> = notes.iter().map(Note::to_string).collect();
     assert_eq!(
         lines[0],
-        "decision 12 about=attention choice=stay_quiet probability=0.359 by=model took_ms=655 waited_ms=301 pieces=4 bytes=27"
+        "decision 12 about=attention choice=stay_quiet probability=0.359 by=model took_ms=655 waited_ms=301 on=kept pieces=4 bytes=27"
     );
     assert_eq!(
         lines[1],

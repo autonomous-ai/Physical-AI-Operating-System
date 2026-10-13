@@ -352,7 +352,9 @@ fn a_service_that_says_it_will_close_is_asked_again_on_a_new_connection() {
     let server = answering(with_length(GOOD));
     let mut jev = jev(&server.url(), "again");
     for asked in 1..=3 {
-        good(&jev.ask(STATE, &questions(), LONG).unwrap());
+        let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+        good(&answer);
+        assert_eq!(answer.connection, Some(Connection::New));
         assert!(server.request().contains("Connection: keep-alive\r\n"));
         assert!(jev.kept.is_none());
         assert_eq!(server.connections.load(Ordering::SeqCst), asked);
@@ -368,11 +370,24 @@ fn a_connection_is_kept_for_the_next_asking() {
     ] {
         let server = keeping(answer);
         let mut jev = jev(&server.url(), name);
+        let mut on = Vec::new();
         for _ in 0..4 {
-            good(&jev.ask(STATE, &questions(), LONG).unwrap());
+            let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+            good(&answer);
+            on.push(answer.connection.unwrap());
             server.request();
         }
         assert_eq!(server.connections.load(Ordering::SeqCst), 1, "{name}");
+        assert_eq!(
+            on,
+            [
+                Connection::New,
+                Connection::Kept,
+                Connection::Kept,
+                Connection::Kept
+            ],
+            "{name}"
+        );
     }
 }
 
@@ -416,7 +431,14 @@ fn a_kept_connection_the_service_has_closed_is_replaced_and_nothing_fails() {
     let server = answering(kept_with_length(GOOD));
     let mut jev = jev(&server.url(), "closed-quietly");
     for asked in 1..=3 {
-        good(&jev.ask(STATE, &questions(), LONG).unwrap());
+        let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+        good(&answer);
+        let on = if asked == 1 {
+            Connection::New
+        } else {
+            Connection::Replaced
+        };
+        assert_eq!(answer.connection, Some(on));
         assert!(jev.kept.is_some());
         assert_eq!(server.connections.load(Ordering::SeqCst), asked);
         // Time for the closing to arrive, as it would have between two
@@ -440,7 +462,10 @@ fn a_connection_is_not_kept_longer_than_it_is_taken_to_last() {
     good(&jev.ask(STATE, &questions(), LONG).unwrap());
     assert_eq!(server.connections.load(Ordering::SeqCst), 1);
     thread::sleep(Duration::from_millis(120));
-    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+    good(&answer);
+    // Not found out to have ended: let go for its age.
+    assert_eq!(answer.connection, Some(Connection::New));
     assert_eq!(server.connections.load(Ordering::SeqCst), 2);
 }
 
@@ -455,9 +480,13 @@ fn getting_ready_makes_the_connection_the_question_is_then_asked_on() {
     assert!(server.requests.try_recv().is_err());
     // Ready already: nothing more is made.
     jev.ready(LONG);
-    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+    good(&answer);
+    assert_eq!(answer.connection, Some(Connection::Ahead));
     server.request();
     assert_eq!(server.connections.load(Ordering::SeqCst), 1);
+    let answer = jev.ask(STATE, &questions(), LONG).unwrap();
+    assert_eq!(answer.connection, Some(Connection::Kept));
     // One that has not long to go is replaced ahead of the question.
     jev.keeping.ready_margin = Duration::from_secs(3_600);
     jev.ready(LONG);

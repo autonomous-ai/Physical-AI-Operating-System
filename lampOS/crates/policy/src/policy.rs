@@ -17,7 +17,7 @@
 //! begin and once when they end ([`Note`]), and the loop goes on.
 use crate::{
     attention::{self, Answers, Choice, Context, Judgement, Room},
-    decide::{Asked, Decider, Failed, Usage},
+    decide::{Asked, Connection, Decider, Failed, Usage},
     gather::{Gather, Lamp, Utterance},
     outcome::{Begun, Watch},
     record::Record,
@@ -107,6 +107,8 @@ pub enum Note {
         by_rule: bool,
         took_ms: u32,
         waited_ms: u32,
+        /// What the asking was sent on, if the model answered over one.
+        on: Option<Connection>,
         pieces: u32,
         bytes: u32,
     },
@@ -199,14 +201,22 @@ impl fmt::Display for Note {
                 by_rule,
                 took_ms,
                 waited_ms,
+                on,
                 pieces,
                 bytes,
             } => write!(
                 f,
-                "decision {number} about={} choice={} probability={probability:.3} by={} took_ms={took_ms} waited_ms={waited_ms} pieces={pieces} bytes={bytes}",
+                "decision {number} about={} choice={} probability={probability:.3} by={} took_ms={took_ms} waited_ms={waited_ms} on={} pieces={pieces} bytes={bytes}",
                 attention::ABOUT,
                 choice.as_str(),
                 if by_rule { RULE } else { "model" },
+                match on {
+                    Some(Connection::New) => "new",
+                    Some(Connection::Ahead) => "ahead",
+                    Some(Connection::Kept) => "kept",
+                    Some(Connection::Replaced) => "replaced",
+                    None => "none",
+                },
             ),
             Self::ModelFailing { kind } => write!(
                 f,
@@ -509,6 +519,11 @@ struct Line<'a> {
     /// for it since its last piece.
     took_ms: u32,
     waited_ms: u32,
+    /// What the asking was sent on: a connection made for it (`new`),
+    /// made ahead of it (`ahead`), kept from one before (`kept`), or made
+    /// in place of a kept one that had ended (`replaced`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connection: Option<Connection>,
     /// Why the model's answers were not used, as a kind and in words.
     #[serde(skip_serializing_if = "Option::is_none")]
     failed: Option<&'static str>,
@@ -711,6 +726,7 @@ impl Policy<'_> {
             context,
             seen,
         } = waiting;
+        let connection = answer.as_ref().ok().and_then(|asked| asked.connection);
         let (judgement, answers, by, failed, usage) = match answer {
             Ok(asked) => match Answers::of(&asked.answers) {
                 Ok(answers) => (
@@ -796,6 +812,7 @@ impl Policy<'_> {
             by: &by,
             took_ms,
             waited_ms,
+            connection,
             failed: failed.as_ref().map(Failed::kind),
             failed_why: failed.as_ref().map(Failed::to_string),
             usage,
@@ -824,6 +841,7 @@ impl Policy<'_> {
             by_rule: judgement.from_rule,
             took_ms,
             waited_ms,
+            on: connection,
             pieces: utterance.pieces,
             bytes: u32::try_from(utterance.text.len()).unwrap_or(u32::MAX),
         });

@@ -101,6 +101,21 @@ pub struct Usage {
     pub cost: Option<f64>,
 }
 
+/// What an asking was sent on, for a judge that is reached over one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Connection {
+    /// Made for this asking. Making it is part of how long the asking took.
+    New,
+    /// Made ahead of the question ([`Decider::ready`]), and not used before.
+    Ahead,
+    /// Kept from an asking before.
+    Kept,
+    /// A kept one had ended: that was found out and another made, all
+    /// within this asking.
+    Replaced,
+}
+
 /// Every question answered.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Asked {
@@ -112,6 +127,8 @@ pub struct Asked {
     /// From the start of the asking to the answers checked.
     pub took: Duration,
     pub usage: Option<Usage>,
+    /// What it was sent on, if the judge is reached over a connection.
+    pub connection: Option<Connection>,
 }
 
 /// Why there are no answers. None of these carries anything the service
@@ -836,9 +853,10 @@ pub struct Jev {
     /// How to check the service's certificate, for an `https` endpoint.
     secure: Option<Arc<rustls::ClientConfig>>,
     lookup: Lookup,
-    /// A connection that can be used for the next asking, and until when
-    /// it is taken to be there.
-    kept: Option<(Line, Instant)>,
+    /// A connection that can be used for the next asking, until when it
+    /// is taken to be there, and what an asking on it would be sent on:
+    /// one made ahead, or one kept.
+    kept: Option<(Line, Instant, Connection)>,
     keeping: Keeping,
 }
 
@@ -906,17 +924,24 @@ impl Jev {
     /// the connection kept from the last asking if there is one. A kept
     /// connection that turns out to have ended before a byte of an answer
     /// came is replaced once: the request has no effect to repeat.
-    fn exchange(&mut self, request: &[u8], until: Instant) -> Result<Vec<u8>, Failed> {
-        if let Some((mut line, there_until)) = self.kept.take()
+    fn exchange(
+        &mut self,
+        request: &[u8],
+        until: Instant,
+    ) -> Result<(Vec<u8>, Connection), Failed> {
+        let mut on = Connection::New;
+        if let Some((mut line, there_until, kind)) = self.kept.take()
             && Instant::now() < there_until
         {
             line.until(until);
+            on = Connection::Replaced;
             match line.talk(request) {
                 Ok((body, again)) => {
                     if again {
-                        self.kept = Some((line, Instant::now() + self.keeping.answered));
+                        let there_until = Instant::now() + self.keeping.answered;
+                        self.kept = Some((line, there_until, Connection::Kept));
                     }
-                    return Ok(body);
+                    return Ok((body, kind));
                 }
                 // It had ended, which is how a kept connection's life
                 // ordinarily ends. With no time left there is nothing to
@@ -930,9 +955,10 @@ impl Jev {
         match line.talk(request) {
             Ok((body, again)) => {
                 if again {
-                    self.kept = Some((line, Instant::now() + self.keeping.answered));
+                    let there_until = Instant::now() + self.keeping.answered;
+                    self.kept = Some((line, there_until, Connection::Kept));
                 }
-                Ok(body)
+                Ok((body, on))
             }
             Err(Lost::Unanswered(failed) | Lost::Failed(failed)) => Err(failed),
         }
@@ -1011,7 +1037,7 @@ impl Decider for Jev {
         )
         .into_bytes();
         request.extend_from_slice(body.as_bytes());
-        let answer = self.exchange(&request, started + deadline)?;
+        let (answer, connection) = self.exchange(&request, started + deadline)?;
         let answered = answers(&answer, questions)?;
         Ok(Asked {
             answers: answered.answers,
@@ -1020,6 +1046,7 @@ impl Decider for Jev {
             model: answered.model.unwrap_or_else(|| self.model.clone()),
             took: started.elapsed(),
             usage: answered.usage,
+            connection: Some(connection),
         })
     }
 
@@ -1028,7 +1055,7 @@ impl Decider for Jev {
         if self
             .kept
             .as_ref()
-            .is_some_and(|(_, there_until)| *there_until >= needed)
+            .is_some_and(|(_, there_until, _)| *there_until >= needed)
         {
             return;
         }
@@ -1036,10 +1063,13 @@ impl Decider for Jev {
         // asked for another. A failure here is not told: the asking will
         // meet it and say so.
         self.kept = None;
-        self.kept = self
-            .open(Instant::now() + within)
-            .ok()
-            .map(|line| (line, Instant::now() + self.keeping.unused));
+        self.kept = self.open(Instant::now() + within).ok().map(|line| {
+            (
+                line,
+                Instant::now() + self.keeping.unused,
+                Connection::Ahead,
+            )
+        });
     }
 
     fn name(&self) -> &str {

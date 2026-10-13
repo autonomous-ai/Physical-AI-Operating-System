@@ -225,6 +225,7 @@ the day by UTC. Its shape, with numbers made up:
 | `judgement` | The probability, the choice, and whether the rule made it |
 | `by` | Who decided: the model as its service names it, or `rule` |
 | `took_ms`, `waited_ms` | How long the asking took, and how long it was from the utterance's last piece to the asking. The pause that ends an utterance is part of the second |
+| `connection` | What the asking was sent on: `new` (made for it, and part of `took_ms`), `ahead` (made while the person was speaking), `kept` (from an asking before) or `replaced` (a kept one had ended, and another was made within this asking). Not there when the model did not answer |
 | `failed`, `failed_why` | Only when the model's answers were not used: `unreachable`, `timed_out`, `refused`, `unreadable` or `missing`, and one sentence |
 | `usage` | What the asking cost, if the service said |
 | `request` | The request's number, if known |
@@ -317,7 +318,7 @@ when it ends, and the loop goes on.
 
 For each decision it prints one line:
 
-    lamp-policy: decision 12 about=attention choice=look_up probability=0.626 by=model took_ms=655 waited_ms=302 pieces=3 bytes=26
+    lamp-policy: decision 12 about=attention choice=look_up probability=0.626 by=model took_ms=655 waited_ms=302 on=kept pieces=3 bytes=26
 
 ## Asking a decision model
 

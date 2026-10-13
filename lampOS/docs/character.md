@@ -104,6 +104,31 @@ check could be run in a working office that afternoon. The Vietnamese
 openings stay in the gesture chooser, where they do nothing for an English
 answer.
 
+**Answering only when called** (16:05 the same day). The file had said
+that something is for the lamp "when it is something a lamp on a desk could
+answer or chat about", name or no name. In a working office that is most
+of what is said. With no played test running, the lamp answered about
+thirty times in fifty minutes (thirty-one responses in the provider's own
+counts between 15:03 and 15:55), and its owner wrote: "lamp is picking up a
+lot of false signals from the room and keep talking even though no one is
+talking to lamp". The line now gives two cases only: someone calls it first
+("Lamp", "Hey Lamp", "Hey", "Hello", or a name its ears made of its own)
+and what follows is something a lamp could answer; or it is already talking
+with someone and this follows on. Anything else, "even a question you could
+answer", is not for it. The same minute the level under which sound is not
+speech went from -40 to -28 dBFS (`--faint-floor-db`): the room's talk was
+arriving at a median of -27 to -35 dBFS and people speaking to the lamp at
+its desk at -15 to -25.
+
+In the nine and a half minutes after both: 24 things heard, against about
+70 in such a stretch before; 12 sent to the model and left unanswered, 5
+ended as sounds, 7 replaced by more talk; nothing said aloud. That is the
+room as it was that afternoon, not a played check: no check could be
+played. What this costs is known and not measured: the check "addressed
+without its name" (eight lines, eight answers) should now give silence for
+most of its lines unless they follow one another as a conversation, and a
+quiet speaker at the desk may fall under the new level.
+
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests
 were to be in English. In an office where people speak Vietnamese to each

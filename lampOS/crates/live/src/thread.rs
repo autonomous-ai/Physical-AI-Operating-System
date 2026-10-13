@@ -199,7 +199,7 @@ impl Recalling {
         };
         // The thread takes the room the file and the time leave it; a time
         // too long to add leaves the session as it always was.
-        let room = lamp_gemini::MAX_TEXT_BYTES.saturating_sub(written.len() + time.len());
+        let room = lamp_gemini::MAX_INSTRUCTION_BYTES.saturating_sub(written.len() + time.len());
         thread
             .recall(now, room)
             .and_then(|thread| told(&format!("{time}{thread}")))
@@ -332,7 +332,7 @@ mod tests {
             )
         );
         // A thread with no room left leaves the time; a time too long, nothing.
-        let long = "x".repeat(lamp_gemini::MAX_TEXT_BYTES - 200);
+        let long = "x".repeat(lamp_gemini::MAX_INSTRUCTION_BYTES - 200);
         let full = Recalling::new(recalling.config.clone().instruction(&long).unwrap());
         assert_eq!(
             full.recalled(&thread, now, Some("\n\nThe time\nNoon."))

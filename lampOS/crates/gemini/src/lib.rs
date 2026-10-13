@@ -51,6 +51,9 @@ pub const MAX_IMAGES_PER_REQUEST: u8 = 2;
 /// Oldest image accepted, from capture to offer and again to sending.
 pub const MAX_IMAGE_AGE: Duration = Duration::from_secs(2);
 pub const MAX_TEXT_BYTES: usize = 8_192;
+/// The most a session's instruction may be: a character file, and what the
+/// runtime adds to it for one session.
+pub const MAX_INSTRUCTION_BYTES: usize = 16_384;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]

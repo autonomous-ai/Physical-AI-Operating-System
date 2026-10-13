@@ -1,7 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use lamp_gemini::{
-    Credential, Error, GOOGLE_ENDPOINT, MAX_HANDLE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES,
-    MAX_TEXT_BYTES, MAX_WIRE_BYTES, Resumption, SessionConfig, Timeouts, wire,
+    Credential, Error, GOOGLE_ENDPOINT, MAX_HANDLE_BYTES, MAX_INPUT_SAMPLES, MAX_INSTRUCTION_BYTES,
+    MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_WIRE_BYTES, Resumption, SessionConfig, Timeouts, wire,
 };
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -41,7 +41,7 @@ fn configuration_rejects_insecure_or_credential_bearing_endpoints_and_redacts_de
     assert!(
         SessionConfig::google(Credential::api_key("key").unwrap())
             .unwrap()
-            .instruction(&"a".repeat(MAX_TEXT_BYTES + 1))
+            .instruction(&"a".repeat(MAX_INSTRUCTION_BYTES + 1))
             .is_err()
     );
     for value in ["", " leading", "bad\r\nHeader: injected"] {

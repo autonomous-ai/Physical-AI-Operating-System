@@ -72,11 +72,13 @@ so a "..." cannot come back as something the lamp said.
 
 With nothing said in the last ten minutes the thread adds nothing, so a
 lamp left alone starts its next session as it always did. The instruction
-may be 8,192 bytes in all. The thread takes what the character file and the
-time of day ([character.md](character.md), "What the runtime adds to it")
-leave of that, and when it does not all fit, the latest exchanges that do
-are told and the older ones are left out. With the file lamp-4ace runs
-(6,431 bytes) that is about 1,300 bytes of conversation.
+may be 16,384 bytes in all (it was 8,192 until the character file grew past
+seven thousand and left the thread room for three short exchanges). The
+thread takes what the character file and the time of day
+([character.md](character.md), "What the runtime adds to it") leave of
+that, and when it does not all fit, the latest exchanges that do are told
+and the older ones are left out. With the file lamp-4ace runs (about 7,100
+bytes) all eight exchanges fit at their longest.
 
 ## What it keeps to itself
 

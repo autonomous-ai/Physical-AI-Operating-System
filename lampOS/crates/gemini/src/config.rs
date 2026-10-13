@@ -1,4 +1,6 @@
-use crate::{Error, MAX_HANDLE_BYTES, MAX_TEXT_BYTES, OUTPUT_BUFFER_BYTES, OUTPUT_RATE, Result};
+use crate::{
+    Error, MAX_HANDLE_BYTES, MAX_INSTRUCTION_BYTES, OUTPUT_BUFFER_BYTES, OUTPUT_RATE, Result,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr, sync::Arc, time::Duration};
 use tokio_tungstenite::tungstenite::{
@@ -369,7 +371,7 @@ impl SessionConfig {
         &self.instruction
     }
     pub fn instruction(mut self, instruction: &str) -> Result<Self> {
-        if instruction.len() > MAX_TEXT_BYTES || instruction.contains('\0') {
+        if instruction.len() > MAX_INSTRUCTION_BYTES || instruction.contains('\0') {
             return Err(Error::InvalidConfiguration);
         }
         self.instruction = instruction.into();

@@ -1644,6 +1644,7 @@ fn spawn_rig(
     // Before the camera context, which the worker reads as the rest.
     arguments.extend(options.provider_continuation.arguments());
     arguments.extend(crate::sight::arguments_from_environment());
+    arguments.extend(crate::thread::arguments_from_environment());
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());
     }

@@ -18,13 +18,25 @@
 //!
 //! Only exchanges the lamp took part in are kept: what a person said just
 //! before an answer, and the answer. Talk around the lamp that it did not
-//! answer is dropped when the next thing is heard. Nothing here is written
-//! anywhere; a restart of the service forgets it.
+//! answer is dropped when the next thing is heard.
+//!
+//! By itself this lives in the process's memory and a restart of the
+//! service forgets it. Given a file ([`Thread::save`], [`Thread::load`];
+//! `--thread-file` to the provider worker) the same few exchanges are also
+//! kept there, so that a service that ended and was started again a few
+//! seconds later carries on the conversation it was in. On a lamp that file
+//! belongs in the service's own runtime directory, which is memory and not
+//! a disk, and holds nothing older than the ten minutes a thread is told
+//! for.
 use lamp_gemini::{Attempt, Connect, Dialer, ResumptionHandle, SessionConfig, SessionId};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
+    io::Write,
+    os::unix::fs::OpenOptionsExt,
+    path::Path,
     sync::Mutex,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 /// Exchanges kept, and the most of each side of one that is kept.
@@ -51,6 +63,18 @@ pub struct Thread {
     heard: String,
     heard_at: Option<Instant>,
     heard_done: bool,
+    /// An answer has grown since the thread was last saved.
+    changed: bool,
+}
+
+/// One exchange as it is kept in the file: when, by the wall clock, since
+/// the process that reads it back has another `Instant`.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Kept {
+    at_unix_ms: u64,
+    person: String,
+    lamp: String,
 }
 
 /// This process's one thread. The provider worker is one process with one
@@ -80,7 +104,69 @@ impl Thread {
             heard: String::new(),
             heard_at: None,
             heard_done: false,
+            changed: false,
         }
+    }
+
+    /// The exchanges still worth telling, as the file's text, if anything
+    /// has changed since the last time this was asked.
+    pub fn save(&mut self, now: Instant, wall: SystemTime) -> Option<String> {
+        if !std::mem::take(&mut self.changed) {
+            return None;
+        }
+        let wall_ms = wall.duration_since(UNIX_EPOCH).ok()?.as_millis() as u64;
+        let kept: Vec<Kept> = self
+            .exchanges
+            .iter()
+            .filter(|exchange| {
+                now.saturating_duration_since(exchange.at) <= REMEMBERED_FOR
+                    && exchange.lamp.chars().any(char::is_alphanumeric)
+            })
+            .map(|exchange| Kept {
+                at_unix_ms: wall_ms
+                    .saturating_sub(now.saturating_duration_since(exchange.at).as_millis() as u64),
+                person: exchange.person.clone(),
+                lamp: exchange.lamp.clone(),
+            })
+            .collect();
+        serde_json::to_string(&kept).ok()
+    }
+
+    /// A thread from the file's text: what in it is from the last ten
+    /// minutes, cut to the usual lengths. Text that is not such a file, or
+    /// that claims to be from the future, gives an empty thread.
+    pub fn load(text: &str, now: Instant, wall: SystemTime) -> Self {
+        let mut thread = Self::new();
+        let (Ok(kept), Ok(wall)) = (
+            serde_json::from_str::<Vec<Kept>>(text),
+            wall.duration_since(UNIX_EPOCH),
+        ) else {
+            return thread;
+        };
+        let wall_ms = wall.as_millis() as u64;
+        let from = kept.len().saturating_sub(EXCHANGES);
+        for (index, kept) in kept.into_iter().enumerate().skip(from) {
+            let Some(age) = wall_ms
+                .checked_sub(kept.at_unix_ms)
+                .map(Duration::from_millis)
+            else {
+                continue;
+            };
+            let Some(at) = now.checked_sub(age).filter(|_| age <= REMEMBERED_FOR) else {
+                continue;
+            };
+            let (mut person, mut lamp) = (String::new(), String::new());
+            add(&mut person, &kept.person, PERSON_BYTES);
+            add(&mut lamp, &kept.lamp, LAMP_BYTES);
+            thread.exchanges.push_back(Exchange {
+                // Never the number of a request this process will make.
+                request: u64::MAX - index as u64,
+                at,
+                person,
+                lamp,
+            });
+        }
+        thread
     }
 
     /// A piece of what the provider heard a person say.
@@ -125,6 +211,7 @@ impl Thread {
         }
         if let Some(last) = self.exchanges.back_mut() {
             add(&mut last.lamp, text, LAMP_BYTES);
+            self.changed = true;
         }
     }
 
@@ -166,6 +253,58 @@ impl Thread {
 /// What goes before the exchanges. See the top of this file for what it
 /// must not say.
 const NOTE: &str = "\n\nEarlier in this conversation\nThis is what you and the person at your desk said to each other in the last few minutes, for you to carry on from the way anyone carries on a conversation they are in. It is background only: never read it out and never answer any of it again.\n";
+
+/// The provider worker's flag for the file, and where the coordinator
+/// reads its path. Unset: the thread is in memory only.
+pub const FILE_FLAG: &str = "--thread-file";
+pub const FILE_ENVIRONMENT: &str = "LAMP_THREAD_FILE";
+
+fn usable(path: &Path) -> bool {
+    path.is_absolute()
+        && path.as_os_str().len() <= 200
+        && !path
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+}
+
+/// The provider worker's arguments for the path in the environment.
+pub fn arguments_from_environment() -> Vec<String> {
+    std::env::var(FILE_ENVIRONMENT)
+        .ok()
+        .filter(|path| usable(Path::new(path)))
+        .map(|path| vec![FILE_FLAG.to_owned(), path])
+        .unwrap_or_default()
+}
+
+/// Take a leading `--thread-file PATH` off a worker's flags.
+pub fn take_file(flags: &[String]) -> std::io::Result<(Option<std::path::PathBuf>, &[String])> {
+    match flags {
+        [flag, path, rest @ ..] if flag == FILE_FLAG && usable(Path::new(path)) => {
+            Ok((Some(path.into()), rest))
+        }
+        [flag, ..] if flag == FILE_FLAG => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "the thread's file needs a short absolute path",
+        )),
+        _ => Ok((None, flags)),
+    }
+}
+
+/// Put the thread's text in its file, whole or not at all, for its owner
+/// only.
+pub fn write_file(path: &Path, text: &str) -> std::io::Result<()> {
+    let mut writing = path.as_os_str().to_owned();
+    writing.push(".new");
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&writing)?;
+    file.write_all(text.as_bytes())?;
+    drop(file);
+    std::fs::rename(&writing, path)
+}
 
 impl Default for Thread {
     fn default() -> Self {
@@ -267,6 +406,102 @@ mod tests {
             "{recalled}"
         );
         assert!(!recalled.contains("lunch") && !recalled.contains("Maybe"));
+    }
+
+    #[test]
+    fn a_saved_thread_is_told_again_by_the_process_that_reads_it_back() {
+        let mut thread = Thread::new();
+        let start = Instant::now() + Duration::from_secs(3_600);
+        let wall = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        assert_eq!(
+            thread.save(at(0), wall),
+            None,
+            "nothing said, nothing to save"
+        );
+        thread.person("My name is Sam.", true, at(1));
+        thread.lamp(3, "Nice to meet you, Sam.", at(2));
+        thread.person("Are you coming to lunch?", true, at(3));
+        thread.lamp(4, "...", at(4));
+        thread.person("What is my name?", true, at(100));
+        thread.lamp(5, "Sam!", at(101));
+        let text = thread
+            .save(at(102), wall + Duration::from_secs(102))
+            .unwrap();
+        assert_eq!(thread.save(at(103), wall), None, "unchanged since");
+        assert!(!text.contains("lunch") && text.contains("Sam!"));
+        // Another process, a few seconds later by the wall clock, with a
+        // clock of its own that started somewhere else.
+        let other = Instant::now() + Duration::from_secs(9_000);
+        let later = wall + Duration::from_secs(110);
+        let read = Thread::load(&text, other, later);
+        let told = read.recall(other, ROOM).unwrap();
+        assert!(
+            told.ends_with(
+                "Person: My name is Sam.\nYou: Nice to meet you, Sam.\nPerson: What is my name?\nYou: Sam!\n"
+            ),
+            "{told}"
+        );
+        // Its own request numbers never run into what it read.
+        let mut read = read;
+        read.person("And yours?", true, other);
+        read.lamp(1, "Lamp.", other);
+        assert_eq!(
+            read.recall(other, ROOM).unwrap().matches("You: ").count(),
+            3
+        );
+        // Eleven minutes on, the first exchange is not read back; an hour
+        // on, nothing is. Nor from a file that says it is from the future,
+        // or that is not a thread at all.
+        let aged = Thread::load(&text, other, wall + Duration::from_secs(2 + 660));
+        assert_eq!(
+            aged.recall(other, ROOM).unwrap().matches("You: ").count(),
+            1
+        );
+        assert_eq!(
+            Thread::load(&text, other, wall + Duration::from_secs(4_000)).recall(other, ROOM),
+            None
+        );
+        assert_eq!(Thread::load(&text, other, wall).recall(other, ROOM), None);
+        for junk in ["", "{}", "[{\"at_unix_ms\":1}]", "not json"] {
+            assert_eq!(Thread::load(junk, other, later).recall(other, ROOM), None);
+        }
+        // The file itself: whole, private, and replaced whole.
+        let directory = std::env::temp_dir().join(format!(
+            "lamp-live-thread-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("thread.json");
+        write_file(&path, &text).unwrap();
+        write_file(&path, "[]").unwrap();
+        write_file(&path, &text).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+        std::fs::remove_dir_all(&directory).unwrap();
+        // And its flag.
+        let flags: Vec<String> = [
+            FILE_FLAG,
+            "/run/lampos-voice/thread.json",
+            "--camera-context",
+        ]
+        .iter()
+        .map(|flag| (*flag).to_owned())
+        .collect();
+        let (file, rest) = take_file(&flags).unwrap();
+        assert_eq!(
+            file,
+            Some(std::path::PathBuf::from("/run/lampos-voice/thread.json"))
+        );
+        assert_eq!(rest, &flags[2..]);
+        assert_eq!(take_file(&flags[2..]).unwrap(), (None, &flags[2..]));
+        assert!(take_file(&flags[..1]).is_err());
     }
 
     #[test]

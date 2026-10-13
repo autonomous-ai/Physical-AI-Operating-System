@@ -148,8 +148,9 @@ fn run() -> Result<()> {
                     let (continuation, flags) = lamp_live::provider_worker::Continuation::take(flags)?;
                     let (sight, flags) = lamp_live::sight::Sight::take(flags)?;
                     let (look_file, flags) = lamp_live::sight::take_look(flags)?;
+                    let (thread_file, flags) = lamp_live::thread::take_file(flags)?;
                     let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,look_file))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

@@ -66,6 +66,17 @@ const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(180);
 static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 /// Where the eyes keep their newest frame, when the lamp may take a look.
 static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// Where the conversation's thread is kept across a restart, if anywhere.
+static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Files the provider worker is told of by its flags.
+#[derive(Default)]
+pub struct Files {
+    /// The eyes' newest frame (`--eyes-look`).
+    pub look: Option<std::path::PathBuf>,
+    /// The conversation's thread (`--thread-file`).
+    pub thread: Option<std::path::PathBuf>,
+}
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
 /// every later answer about half a second slower ([eyes.md]), so once the
@@ -505,7 +516,7 @@ pub async fn run_with_visual_context(
         visual,
         Continuation::Off,
         None,
-        None,
+        Files::default(),
     )
     .await
 }
@@ -521,10 +532,20 @@ pub async fn run_with_continuation(
     visual: Option<(VisualSource, BootId)>,
     continuation: Continuation,
     sight: Option<crate::sight::Sight>,
-    look_file: Option<std::path::PathBuf>,
+    files: Files,
 ) -> Result<()> {
-    if let Some(path) = look_file {
+    if let Some(path) = files.look {
         let _ = LOOK_FILE.set(path);
+    }
+    // The conversation a service that ended a moment ago was in.
+    if let Some(path) = files.thread {
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && let Ok(mut thread) = crate::thread::THREAD.lock()
+        {
+            *thread =
+                crate::thread::Thread::load(&text, Instant::now(), std::time::SystemTime::now());
+        }
+        let _ = THREAD_FILE.set(path);
     }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
@@ -596,6 +617,7 @@ async fn serve_with_visual<C: Connect>(
     let mut output_sequence = 0u64;
     let mut discards = DiscardLog::default();
     let mut renewed_at = Instant::now();
+    let mut thread_saved_at = Instant::now();
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -622,6 +644,20 @@ async fn serve_with_visual<C: Connect>(
                     );
                     renewed_at = Instant::now();
                     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
+                // The thread goes to its file within a second of changing.
+                if let Some(path) = THREAD_FILE.get()
+                    && thread_saved_at.elapsed() >= Duration::from_secs(1)
+                {
+                    thread_saved_at = Instant::now();
+                    let text = crate::thread::THREAD.lock().ok().and_then(|mut thread| {
+                        thread.save(Instant::now(), std::time::SystemTime::now())
+                    });
+                    if let Some(text) = text {
+                        // A file that cannot be written loses the thread at
+                        // the next restart and nothing else.
+                        let _ = crate::thread::write_file(path, &text);
+                    }
                 }
                 // And one that holds a picture, once the talk has paused.
                 let looked = LOOKED_AT_US.load(std::sync::atomic::Ordering::Relaxed);

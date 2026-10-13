@@ -110,16 +110,33 @@ yet seen on a lamp.
 
 ## What it keeps to itself
 
-The thread lives in the provider worker's memory and nowhere else. It is not
-written to disk and a restart of the service forgets it. The transcripts it
-is built from are the ones the service already records in its session trace.
+By itself the thread lives in the provider worker's memory and nowhere
+else, and a restart of the service forgets it. The transcripts it is built
+from are the ones the service already records in its session trace.
+
+A service can also be given a file for it (`LAMP_THREAD_FILE` in its
+environment, `--thread-file` to the provider worker). Then the same few
+exchanges are written there within a second of an answer growing, whole and
+readable by the service's user only, and read back when the service starts:
+what is from the last ten minutes is told to the first session, and the
+rest is ignored. On lamp-4ace the file is in the service's runtime
+directory under `/run`, which is memory and not a disk and is gone at a
+power cycle. This is for a service that ended and was started again a few
+seconds later: on 2026-10-13 that happened twice from faults and about
+twenty times from installing builds, and each time whoever was talking to
+the lamp found it had forgotten them. A file that cannot be written or read
+costs the thread at the next restart and nothing else.
 
 What a person said goes into the next session's instruction as they said it.
 That is no more than they could say to the lamp directly.
 
 ## Verification
 
-`thread::tests` (3 passed on macOS): that what was asked and answered is
+`thread::tests` (4 passed on macOS; the fourth: a thread saved by one
+process is told again by another with a clock of its own, without what is
+older than ten minutes, what claims to be from the future or what is not a
+thread, the file is whole and private, and the new process's own requests do
+not run into what it read): that what was asked and answered is
 kept, in pieces as it arrives, and the talk around it is not, nor an answer
 with no word in it; that an exchange older than ten minutes is not told,
 something said long before an answer is not taken for its question, only

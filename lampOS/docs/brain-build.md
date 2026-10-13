@@ -2,12 +2,15 @@
 
 Written 2026-10-13 by the owner of the voice runtime, in answer to the
 "lampOS V2 brain architecture review", drafts 0.5 and 0.6 of the same day
-(called "the page" below). This is the short record both builders work
+(called "the page" below). This is the short record the build works
 from; the page is the long reference and is amended to agree with it.
 
-**Status: proposed, awaiting the product owner's approval.** The decisions
-are numbered. Once approved, a decision changes only on the product owner's
-word, and the change is written here first.
+**Status.** Decision 1 is the product owner's, given on 2026-10-13 after
+two earlier proposals to split the work: one builder for all of it, "so no
+communication overhead". Decisions 3 to 16 are proposed and await their
+approval; 15 was changed at their question the same evening. Once approved,
+a decision changes only on the product owner's word, and the change is
+written here first.
 
 Everything said about the lamp is from lamp-4ace on 2026-10-12 and 13;
 where a number is one run or a silent probe it says so.
@@ -16,14 +19,19 @@ where a number is one run or a silent probe it says so.
 
 Who builds what:
 
-1. **The split.** The voice owner builds everything a person at the lamp
-   experiences, through handing work to an agent and getting back to them.
-   The page's author builds what nobody talks to (setup, network repair,
-   configuration, updates, reset, the operator's pages, moving V1's data
-   across), keeps the page, reviews each step of the experience work
-   against it, and writes the failure tests independently of that code.
-2. **One thin interface between the two**, written before either builds
-   (below).
+1. **One builder.** The voice owner builds all of it, end to end: what a
+   person at the lamp experiences, through handing work to an agent and
+   getting back to them, and then what nobody talks to (starting at
+   power-up, setup, network repair, configuration, updates, reset, the
+   operator's pages, V1's data). The page's author keeps the page.
+   Proposed and not yet answered: that they also review each step after
+   it is pushed and write the failure tests without reading the code
+   under test. That costs the build no waiting, and several faults
+   reached the office on 2026-10-13 that a second reader might have
+   caught.
+2. **The rules that were to be an interface between two builders** hold as
+   the runtime's own (below): who writes configuration, when the voice may
+   be restarted, how an update hands over the hardware.
 
 How a request is decided:
 
@@ -65,11 +73,12 @@ Engineering:
     listens continuously.
 14. **Agents run off the lamp, through Harness,** one paired computer
     first; a permission prompt stays on that computer.
-15. **Publish and subscribe from the start for everything outside the
-    audio path,** on one small local bus that the page's author builds and
-    the runtime publishes to. Each topic has its written definition before
-    it flows. The microphone, the provider and the speaker stay joined
-    directly. Publishing never blocks or fails the publisher.
+15. **Publish and subscribe for everything outside the audio path,** on
+    one small local bus, built when the first thing that only observes
+    needs it (the operator's pages, a recorder) and not before. Each topic
+    has its written definition before it flows. The microphone, the
+    provider and the speaker stay joined directly. Publishing never blocks
+    or fails the publisher.
 16. **No decision model on the spoken path** until it wins on recorded
     requests against the Live model's own tool call.
 
@@ -100,29 +109,30 @@ two runs each way), and whether a model with tools acts more readily on
 speech it only overheard, which is why decision 7 asks more of an action
 than of chat.
 
-## The interface between the two builders
+## Rules between the runtime and what surrounds it
 
-Draft, for the page's author to correct. Small on purpose.
+Written when two builders were proposed; kept as the rules the one
+builder holds between the parts. "The surround" is everything that is
+not the voice, body and eyes: setup, updates, the operator's pages.
 
 - **Configuration and credentials.** The experience runtime reads, at
   start only: one provider file (endpoint, model, a reference to the key,
   language, switches), one character file, and its unit's options. The
-  other builder owns writing them, whole or not at all, with a schema
-  version. The runtime never writes them.
+  surround writes them, whole or not at all, with a schema version. The
+  runtime never writes them.
 - **Restarting the voice.** Whoever restarts it first checks that the lamp
   has neither heard nor said anything for 45 seconds, and does not restart
   it otherwise. On 2026-10-13 a restart and a link cut made without that
   check landed on a person speaking to the lamp, twice.
-- **The bus.** Built by the page's author (decision 15); the runtime
-  publishes to it and reads from it only what it has asked for. Until it
-  exists, the items below are files.
+- **The bus** (decision 15). The runtime publishes to it and reads from
+  it only what it has asked for. Until it exists, the items below are
+  files.
 - **The door for Harness.** The computer dials the lamp on port 80. The
-  other builder owns that port, nginx and the mDNS advertisement, and
-  passes `/api/harness/ws` untouched to a local socket the runtime listens
-  on. The operator's page starts pairing by asking the runtime, which
+  surround owns that port, nginx and the mDNS advertisement, and passes
+  `/api/harness/ws` untouched to a local socket the runtime listens on. The operator's page starts pairing by asking the runtime, which
   answers with the code to show.
 - **Ready.** The runtime states each capability separately, in one small
-  file the other builder may read: voice (listening, starting, or down and
+  file the surround may read: voice (listening, starting, or down and
   why), body (up, or stopped and why), eyes (looking or shut), tasks
   (paired, reconnecting, or unpaired). Nothing is inferred from a process
   being alive.
@@ -134,16 +144,15 @@ Draft, for the page's author to correct. Small on purpose.
   writer at any moment, and a servo keeps its last goal after its process
   has gone, so the body is at rest before anything is switched.
 - **Records.** The runtime writes its own bounded records and nobody else
-  writes there. The other builder may read and export them and owns how
-  long they are kept. What they hold is in
+  writes there. The surround may read and export them and owns how long
+  they are kept. What they hold is in
   [serve-runtime.md](serve-runtime.md).
 - **Forgetting.** For each store of the owner's that the runtime keeps
   (the conversation it carries, later the day's journal and the task
   records) it offers one command that empties it. Reset calls those.
-- **Not touched by the other builder:** `lampOS/crates/live`,
-  `crates/gemini`, `crates/eyes`, the body binary in `crates/motor`, and
-  `lampOS/deploy`. **Not touched by the runtime:** network, update state,
-  the operator's pages, V1's data.
+- **Each side's own:** the surround never opens a microphone, the
+  speaker, the ring or the servo bus; the runtime never writes network
+  settings, update state or V1's data.
 
 ## Amendments to the page
 
@@ -181,24 +190,23 @@ By the page's own section numbers.
 
 ## Who builds what
 
-Proposed, after the product owner's point that whoever builds the
-conversation should control the whole experience, "starting with voice, body
-language, head language, light, and then do the tasks and then get back to
-users".
+The product owner's decision, in their words: "i'm leaning toward to have
+you build the entire thing end to end so no communication overhead between
+you and codex. you own the experience entirely", and, on why: "you have
+full context. you understand lamp. you have everything setup mic speaker
+permission etc."
 
-| Part | Builder | Why |
-|---|---|---|
-| Everything a person at the lamp experiences: voice, body, head and light; deciding what a request is; handing work to an agent through Harness; following the work; asking the agent's questions; delivering the result; the lamp staying up when the provider fails | The voice owner | It is one experience, and each failure heard in the office on 2026-10-13 came from a join between two mechanisms that were each right alone (below). It can only be proven on a lamp. |
-| What nobody talks to: setup, network repair, configuration, updates, reset, the operator's pages, moving V1's data across | The page's author | Large, separable, and none of it shapes a conversation. |
-| The architecture document, and review of the experience work against it | The page's author | Several faults of the voice owner's reached the office in one day. A reviewer who is not anchored on that code is worth having. |
+What it costs, said to them before they decided: one builder works in
+series. By estimate and not by measurement, the experience steps below are
+four to five weeks, two of them the Harness client; a first user-ready set
+of what nobody talks to is three to four weeks more. On lamp-4ace none of
+that set is running today: V1's services are gone from the unit and its
+web server is disabled.
 
 The Harness computer side, the agent engines, the provider and Jev stay
 where they are. The lamp's Harness client is built to the Harness team's
 existing contract ([../../docs/harness.md](../../docs/harness.md)); nothing
 here invents a pairing flow, a transport or a credential.
-
-Between the two builders there is one thin interface, drafted above and
-to be agreed before either starts.
 
 ## The evidence behind four of the changes
 
@@ -327,20 +335,22 @@ for outcomes. Each is a topic in the page's sense.
 
 The first form of this change was to write each topic's definition and
 give it a transport only when a second consumer existed. The product
-owner asked why not publish and subscribe outright, and with two builders
-that is the better answer: a real bus is the cleanest join between the
-runtime and what the page's author builds (the operator's pages,
-diagnostics, the shared situation subscribe without a custom output being
-added to the voice code each time), and every topic can be recorded and
-played back with one tool.
+owner asked why not publish and subscribe outright. What a real bus
+gives: things that only observe (the operator's pages, a recorder, the
+shared situation) subscribe without a custom output being added to the
+voice code each time, and every topic can be recorded and played back
+with one tool, which is how the fault of 16:37 on 2026-10-13 would have
+been found sooner. With two builders it was also the cleanest join
+between them, and was to be built first for that. With one builder that
+reason is gone and the others stay, so the bus is built when its first
+observer is.
 
 Change, as it now stands (decision 15):
 
-- One small local bus, built by the page's author, with no ROS or DDS
-  under it. Two kinds of topic only: the latest value (whether someone is
-  there, the body's state, how the room is, what is ready, a sensor's
-  reading) and ordered events (what was heard and said, a task's
-  receipts and results, a touch).
+- One small local bus, with no ROS or DDS under it. Two kinds of topic
+  only: the latest value (whether someone is there, the body's state, how
+  the room is, what is ready, a sensor's reading) and ordered events (what
+  was heard and said, a task's receipts and results, a touch).
 - Each topic's definition is written first, as the page does: name,
   fields, how fresh, what is lost when a subscriber is slow and how that
   is known.
@@ -375,10 +385,10 @@ baseline to beat ([speaking-first.md](speaking-first.md)).
 | First decision model and engines? | No decision model on the spoken path until it wins on recorded requests; Jev first for decisions no utterance starts. Engines as the page says: the V1 one first, a second through the same contract. | Not started. |
 | First Harness scope? | One paired computer, the existing contract, permission prompts stay on the computer. | Not started in Rust. |
 
-## Build orders
+## Build order
 
-**The experience** (the voice owner). Each step ends with something a
-person can try at the lamp.
+**The experience first.** Each step ends with something a person can try
+at the lamp.
 
 1. **The lamp outlives the provider.** No exit for a refused quota, a
    stalled link, a full input queue or a slow microphone read: the voice
@@ -404,13 +414,20 @@ person can try at the lamp.
    follows the room").
 6. **A decision model for what no utterance starts, and a second engine.**
 
-**What nobody talks to** (the page's author), in an order that is theirs
-to set: the interface above; the bus (decision 15); configuration and
-credentials written whole with a schema version; setup and reprovisioning; network repair; updates
-with return to the previous release; reset; the operator's pages; V1's
-data moved across. Beside those, for each step of the experience: a review
-against the page, and failure tests written without reading the code under
-test (the page's section 14 lists them).
+**Then what nobody talks to**, only as far as a person who is given a
+lamp needs it, in this order:
+
+7. **It starts by itself.** Body, eyes and voice at power-up, in the
+   order the hand-over rule gives, after a hands-on check of what the
+   servos do when power arrives.
+8. **Getting onto a network and staying on it.** First setup, and repair
+   when the network changes.
+9. **Updates that can be undone.** A release switched by the hand-over
+   rule, with return to the one before.
+10. **Reset and forgetting.** Each store the owner's words are in, emptied
+    on their say.
+11. **The operator's pages,** and the bus under them (decision 15).
+12. **V1's data,** for a lamp that had it.
 
 ## What a session may be told
 

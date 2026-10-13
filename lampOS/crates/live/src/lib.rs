@@ -32,6 +32,7 @@ pub mod ring_face;
 pub mod ring_wire;
 pub mod ring_worker;
 pub mod room_floor;
+pub mod session_fact;
 pub mod sight;
 pub mod speak_up;
 mod termination;

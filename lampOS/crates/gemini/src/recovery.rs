@@ -718,6 +718,17 @@ impl<C: Connect> Supervisor<C> {
         }
         Ok(())
     }
+    /// The connection that is ready now, if one is.
+    pub fn live_session(&self) -> Option<SessionId> {
+        self.input().ok().map(|(_, session)| session)
+    }
+    /// See [`InputSender::try_context`]. The connection it was offered to;
+    /// none while no connection is ready or the offer was refused.
+    pub fn try_context(&self, text: &str) -> Option<SessionId> {
+        let (input, session) = self.input().ok()?;
+        input.try_context(text).ok()?;
+        Some(session)
+    }
     /// See [`InputSender::renew_when_idle`]. False when there is no ready
     /// connection to renew.
     pub fn renew_when_idle(&self) -> bool {

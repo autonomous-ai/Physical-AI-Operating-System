@@ -77,6 +77,63 @@ fn run() -> Result<()> {
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
         },
+        // Something told to the service that it should not answer, then a
+        // second of near-silence sent as if heard, then a written request: does
+        // a session take sound after such a fact, and still answer afterwards?
+        // Nothing is captured or played.
+        [command,path,flag,context,then,note] if command=="provider-check" && flag=="--context" && then=="--then-sound-and-written" => {
+            let config=ProviderConfig::load(Path::new(path))?.into_session()?;
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                let input=connection.input();
+                input.try_context(context)?;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                let heard=lamp_gemini::RequestId::new(1)?;
+                input.try_start(heard)?;
+                let mut noise=0x2545_f491u32;
+                for sequence in 0..10u64 {
+                    let block:Vec<i16>=(0..1_600).map(|_| { noise=noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223); ((noise>>24) as i16)-128 }).collect();
+                    input.try_audio(heard,sequence,std::time::Instant::now(),&block)?;
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+                input.try_end(heard)?;
+                let (mut sound_ended,mut sound_said,mut sound_samples)=("timeout",String::new(),0usize);
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(8);
+                loop {
+                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                        Ok(Some(Event::Audio{pcm,..})) => sound_samples+=pcm.len(),
+                        Ok(Some(Event::OutputTranscript{text,..})) => sound_said.push_str(&text),
+                        Ok(Some(Event::TurnComplete{..})) => { sound_ended="turn_complete"; break; }
+                        Ok(Some(Event::Unanswered{..})) => { sound_ended="unanswered"; break; }
+                        Ok(Some(_)) => {}
+                        Ok(None) => { sound_ended="connection_ended"; break; }
+                        Err(_) => break,
+                    }
+                }
+                let state_after_sound=format!("{:?}",connection.state());
+                let (mut said,mut samples,mut ended)=(String::new(),0usize,"not_tried");
+                if sound_ended!="connection_ended" {
+                    ended="timeout";
+                    input.try_written(lamp_gemini::RequestId::new(2)?,note,None)?;
+                    let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
+                    loop {
+                        match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                            Ok(Some(Event::Audio{pcm,..})) => samples+=pcm.len(),
+                            Ok(Some(Event::OutputTranscript{text,..})) => said.push_str(&text),
+                            Ok(Some(Event::TurnComplete{..})) => { ended="turn_complete"; break; }
+                            Ok(Some(Event::Unanswered{..})) => { ended="unanswered"; break; }
+                            Ok(Some(_)) => {}
+                            Ok(None) => { ended="connection_ended"; break; }
+                            Err(_) => break,
+                        }
+                    }
+                }
+                println!("{}",serde_json::json!({"status":"context_then_sound_tried","sound_ended":sound_ended,"sound_said":sound_said,"sound_audio_samples":sound_samples,"state_after_sound":state_after_sound,"written_ended":ended,"written_said":said,"written_audio_samples":samples,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_played":false}));
+                connection.shutdown();
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+        },
         // Something told to the service that it should not answer, and then a
         // written request that it should: whether the first is taken in, and
         // whether anything comes back for it. Nothing is captured or played.
@@ -189,8 +246,9 @@ fn run() -> Result<()> {
                     let (sight, flags) = lamp_live::sight::Sight::take(flags)?;
                     let (look_file, flags) = lamp_live::sight::take_look(flags)?;
                     let (thread_file, flags) = lamp_live::thread::take_file(flags)?;
+                    let (session_fact, flags) = lamp_live::session_fact::take(flags);
                     let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

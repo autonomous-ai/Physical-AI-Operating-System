@@ -72,6 +72,8 @@ static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::
 static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// Where the conversation's thread is kept across a restart, if anywhere.
 static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// Whether a new session is told how things stand.
+static SESSION_FACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -80,6 +82,8 @@ pub struct Files {
     pub look: Option<std::path::PathBuf>,
     /// The conversation's thread (`--thread-file`).
     pub thread: Option<std::path::PathBuf>,
+    /// Whether a new session is told how things stand (`--session-fact`).
+    pub session_fact: bool,
 }
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
@@ -541,6 +545,7 @@ pub async fn run_with_continuation(
     if let Some(path) = files.look {
         let _ = LOOK_FILE.set(path);
     }
+    SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
         if let Ok(text) = std::fs::read_to_string(&path)
@@ -622,6 +627,9 @@ async fn serve_with_visual<C: Connect>(
     let mut discards = DiscardLog::default();
     let mut renewed_at = Instant::now();
     let mut thread_saved_at = Instant::now();
+    // The session last told how things stand, if new ones are.
+    let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
+    let mut told_session = None;
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -648,6 +656,22 @@ async fn serve_with_visual<C: Connect>(
                     );
                     renewed_at = Instant::now();
                     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
+                // A new session is told how things stand, once, unless a
+                // conversation is going on: the thread's note says that.
+                if session_fact {
+                    let live = provider.live_session();
+                    if live.is_some() && live != told_session {
+                        told_session = live;
+                        let going_on = crate::thread::THREAD
+                            .lock()
+                            .is_ok_and(|thread| thread.going_on(Instant::now()));
+                        if !going_on && provider.try_context(crate::session_fact::FACT).is_some() {
+                            eprintln!(
+                                "lamp-live provider: told the new session that nobody is talking to the lamp"
+                            );
+                        }
+                    }
                 }
                 // The thread goes to its file within a second of changing.
                 if let Some(path) = THREAD_FILE.get()

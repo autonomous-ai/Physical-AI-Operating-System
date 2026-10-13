@@ -228,6 +228,15 @@ impl Thread {
         }
     }
 
+    /// Whether the lamp said something to someone so lately that a
+    /// conversation may still be going on.
+    pub fn going_on(&self, now: Instant) -> bool {
+        self.exchanges.iter().any(|exchange| {
+            now.saturating_duration_since(exchange.at) <= GOING_ON_FOR
+                && exchange.lamp.chars().any(char::is_alphanumeric)
+        })
+    }
+
     /// What to tell a new session, if anything was said lately, in at most
     /// `room` bytes: the latest exchanges that fit, in the order they went.
     pub fn recall(&self, now: Instant, room: usize) -> Option<String> {
@@ -419,6 +428,7 @@ mod tests {
         // Nothing in it for the lamp to talk about but the conversation,
         // whether that is going on or finished.
         assert!(recalled.starts_with("\n\nA moment ago\n"), "{recalled}");
+        assert!(thread.going_on(at(61)) && !thread.going_on(at(60 + 46)));
         let later = thread.recall(at(60 + 46), ROOM).unwrap();
         assert!(
             later.starts_with("\n\nEarlier\nAbout a minute ago you and a person"),

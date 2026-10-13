@@ -1,13 +1,20 @@
 //! The thread of a conversation, kept so that a new provider session can be
 //! told how the last one went.
 //!
-//! A session with the provider ends now and then: it announces its own close
-//! after about 39 minutes, and a lost connection is replaced. With
-//! resumption off the new session knows nothing of the old one, and a person
-//! in the middle of a conversation finds the lamp has forgotten it. This
-//! keeps the last few exchanges, as the provider's own transcripts gave
-//! them, in this process's memory only, and [`Recalling`] adds them to the
-//! instruction of the next session it opens.
+//! A session with the provider does not last: it announces its own close
+//! (on lamp-4ace anywhere from 3 to 39 minutes after it opened), and a lost
+//! connection is replaced. With resumption off the new session knows nothing
+//! of the old one, and a person in the middle of a conversation finds the
+//! lamp has forgotten it. This keeps the last few exchanges, as the
+//! provider's own transcripts gave them, in this process's memory only, and
+//! [`Recalling`] adds them to the instruction of the next session it opens.
+//!
+//! The note says nothing of sessions, connections or memory, and does not
+//! tell the lamp to keep quiet. The first one did both ("your connection was
+//! just renewed ... do not mention the renewal ... if nobody speaks to you,
+//! say nothing"). The lamp opened its next two answers with "Sorry about
+//! that, my connection dropped!", and then answered sixteen times with a
+//! spoken "...", four of them to questions put to it.
 //!
 //! Only exchanges the lamp took part in are kept: what a person said just
 //! before an answer, and the answer. Talk around the lamp that it did not
@@ -125,8 +132,10 @@ impl Thread {
     pub fn recall(&self, now: Instant) -> Option<String> {
         let mut lines = String::new();
         for exchange in &self.exchanges {
+            // An answer with no word in it ("...") is the model keeping
+            // quiet aloud. Told back to it, it is what it does next.
             if now.saturating_duration_since(exchange.at) > REMEMBERED_FOR
-                || exchange.lamp.trim().is_empty()
+                || !exchange.lamp.chars().any(char::is_alphanumeric)
             {
                 continue;
             }
@@ -141,7 +150,7 @@ impl Thread {
         }
         (!lines.is_empty()).then(|| {
             format!(
-                "\n\nYour connection was just renewed and you lost your memory of the conversation you were in. This is how it went until a moment ago, so that you can carry on from it as if nothing had happened. Do not mention the renewal or this note, do not repeat or answer any of it again, and if nobody speaks to you, say nothing.\n{lines}"
+                "\n\nEarlier in this conversation\nThis is what you and the person at your desk said to each other in the last few minutes, for you to carry on from the way anyone carries on a conversation they are in. It is background only: never read it out and never answer any of it again.\n{lines}"
             )
         })
     }
@@ -214,7 +223,25 @@ mod tests {
             "Person: Hey Lamp, my favourite colour is green.\nYou: Green is a lovely colour!\nYou: Still here if you need me.\n"
         ), "{recalled}");
         assert!(!recalled.contains("Maria") && !recalled.contains("replied"));
-        assert!(recalled.contains("Do not mention the renewal"));
+        // Nothing in it for the lamp to talk about but the conversation.
+        let note = recalled.split("Person: ").next().unwrap().to_lowercase();
+        for word in [
+            "connect", "renew", "session", "memory", "forg", "lost", "sorry", "silen", "quiet",
+            "nothing",
+        ] {
+            assert!(!note.contains(word), "{word}: {note}");
+        }
+        // Keeping quiet aloud is not an answer to carry on from.
+        thread.person("Are you coming to lunch with us?", true, at(70));
+        thread.lamp(9, "...", at(71));
+        thread.person("Maybe.", true, at(72));
+        thread.lamp(10, " \u{2026} ", at(73));
+        let recalled = thread.recall(at(74)).unwrap();
+        assert!(
+            recalled.ends_with("You: Still here if you need me.\n"),
+            "{recalled}"
+        );
+        assert!(!recalled.contains("lunch") && !recalled.contains("Maybe"));
     }
 
     #[test]
@@ -263,7 +290,7 @@ mod tests {
         let told = recalling.recalled(&thread, now);
         assert!(
             told.instruction_text()
-                .starts_with("You are a lamp.\n\nYour connection was just renewed")
+                .starts_with("You are a lamp.\n\nEarlier in this conversation\n")
         );
         assert!(
             told.instruction_text()

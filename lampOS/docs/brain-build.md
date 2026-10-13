@@ -614,6 +614,48 @@ begins and has not been yet; V1 also has an interoperation check against
 that code (`system/harness/testdata/direct_interop.go`) that the Rust
 client should pass in the same way.
 
+## Decision 12 in more detail: memory across days
+
+A proposal for the product owner to answer, written the evening they chose
+memory across days. Nothing of it is built. Today the lamp carries the
+last exchanges for ten minutes and its character says it does not remember
+earlier conversations.
+
+Three things, kept apart:
+
+| What | How long | Where | How the voice gets it |
+|---|---|---|---|
+| The conversation going on | Minutes | Memory, and a file that is gone at power-off | Told to each new session, as going on or as finished (running today) |
+| The journal: each exchange the lamp took part in, with its time. What it was asked, as the provider wrote it down, and what it said. Later, each task and how it ended | Days, to a limit to be set | A private directory on the lamp's disk, text only | Looked up when wanted: the model is given a tool to ask the lamp what was said about something or on some day, and gets the lines back |
+| What it was asked to keep: "remember that I take my coffee black" | Until it is told to forget | The same directory | Told to each new session, whole, while it is small |
+
+Why a tool and not a summary told at opening: the lamp has no model of its
+own to write a summary with, a second cloud model would be one more thing
+to fail, and whatever is told at opening is paid for in every answer and
+acted on at the first turn (change 2). A look-up costs one exchange with
+the lamp's own disk, and only when someone asks. It is the same route as
+decision 4.
+
+What the product owner is asked to settle:
+
+- **One memory, or one for each person.** One, at launch, is proposed:
+  the lamp does not know who is speaking (decision 10), so anyone at the
+  lamp can ask what was said to it.
+- **What goes in.** Proposed: both the journal and what it is asked to
+  keep. The room's talk that it left alone never goes in.
+- **Where it is.** Kept on the lamp only. To be said plainly to users: a
+  line of it leaves the lamp, to the voice provider, whenever the lamp
+  uses it in an answer. Kept on the lamp does not mean never sent.
+- **Forgetting.** "Forget that" removes the last thing; "forget
+  everything" empties it; reset empties it. Each is confirmed aloud only
+  once it has been done (decision 8).
+
+Known weakness: an answer the lamp gave to something that was not for it
+goes into the journal like any other. On 2026-10-13 such answers, told
+back to the next session as its conversation, fed on themselves. Here they
+are only found when looked for, and "forget that" removes one, but a rule
+for keeping them out is not yet known.
+
 ## What the page's review of the voice code predates
 
 The page read the voice branch about a day before this was written. Since

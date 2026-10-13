@@ -778,6 +778,48 @@ mod tests {
         assert_eq!(cloud.ready_session(), Some(1));
     }
 
+    /// What a kept link reports when the lamp starts before its network
+    /// (`RecoveryPolicy::endless`): no connection on the first session, then
+    /// ready on a later one. Nothing is available until that ready.
+    #[test]
+    fn a_first_connection_that_failed_and_then_came_up_opens_submissions() {
+        let mut cloud = CloudAvailability::default();
+        cloud
+            .observe(
+                ProviderLink {
+                    revision: 1,
+                    session: 1,
+                    observed_at_us: 100,
+                    source_clock: None,
+                    state: ProviderLinkState::Unavailable {
+                        reason: Fault::Transport,
+                    },
+                },
+                150,
+            )
+            .unwrap();
+        assert!(!cloud.available());
+        cloud
+            .observe(
+                ProviderLink {
+                    revision: 2,
+                    session: 4,
+                    observed_at_us: 300,
+                    source_clock: None,
+                    state: ProviderLinkState::Ready {
+                        setup_us: 10,
+                        attempts: 4,
+                        context: LinkContext::Fresh,
+                        outage_started_at_us: Some(100),
+                        after: Some(Fault::Transport),
+                    },
+                },
+                300,
+            )
+            .unwrap();
+        assert_eq!(cloud.ready_session(), Some(4));
+    }
+
     #[test]
     fn unavailable_session_cannot_be_resurrected_by_ready() {
         let mut cloud = CloudAvailability::default();

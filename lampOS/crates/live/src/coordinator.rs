@@ -1630,6 +1630,8 @@ fn spawn_rig(
     // Model loading overlaps the remaining startup; nothing waits for it.
     let endpoint = EndpointRig::start(&options, &executable);
     let provider_boot = new_boot()?;
+    // A service that runs all day never gives its provider link up.
+    let keep_link = lifetime.continuous() && matches!(source, ProviderSource::Gemini(_));
     let mut arguments = source.arguments()?;
     // Before the camera context, which the worker reads as the rest.
     arguments.extend(options.provider_continuation.arguments());
@@ -1637,6 +1639,9 @@ fn spawn_rig(
     arguments.extend(crate::thread::arguments_from_environment());
     arguments.extend(crate::session_fact::arguments_from_environment());
     arguments.extend(crate::room_told::arguments_from_environment());
+    if keep_link {
+        arguments.push(crate::provider_worker::KEEP_LINK_FLAG.to_owned());
+    }
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());
     }

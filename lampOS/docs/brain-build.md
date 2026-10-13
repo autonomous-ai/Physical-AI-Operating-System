@@ -547,15 +547,25 @@ no recording is provided.
 
 What is left, in the order it will be done:
 
-1. **The link is never given up.** Today four attempts inside fifteen
-   seconds, or a fourth loss inside a minute, end it
-   (`RecoveryPolicy::default`), and the coordinator then leaves ("service
-   stopped without retry").
-   A failure that a new connection can cure is retried without end, more
-   slowly each time up to a minute. A refusal for now (quota, rate limit)
-   is asked again every two minutes; today it ends the service after that
-   wait. Only what no retry can cure (a wrong key, a wrong configuration)
-   leaves the voice down until it is restarted with a new one.
+1. **The link is never given up.** Built and tested on the host on
+   2026-10-13, not yet on a lamp. Until now four attempts inside fifteen
+   seconds, or a fourth loss inside a minute, ended it
+   (`RecoveryPolicy::default`), and the coordinator then left ("service
+   stopped without retry"): my own cut test did that to lamp-4ace three
+   times at 19:22. The voice service now runs its link as kept
+   (`RecoveryPolicy::endless`, [gemini-session-reliability.md](gemini-session-reliability.md)).
+   A failure that a new connection can cure is retried without end, every
+   four seconds once the first waits have doubled that far; a link that
+   keeps dropping is replaced after four seconds instead of at once; the
+   first connection is retried like any other, so a lamp that starts
+   before its network comes up by itself. A refusal for now (quota, rate
+   limit) is asked again every two minutes. Only what no retry can cure
+   (a wrong key, a wrong configuration, a message the code cannot read)
+   still ends the service. The plan said the waits would grow to a
+   minute; four seconds was built, because a lamp that stays deaf for up
+   to a minute after its network returns is the worse fault for one lamp.
+   A fleet behind one relay needs growing, jittered waits; that is not
+   built.
 2. **A stalled link fails one request, not the service.** Input that
    overruns its queue while a write is stuck ends the worker today
    ("provider unavailable while input was admitted"), as at 16:50 on

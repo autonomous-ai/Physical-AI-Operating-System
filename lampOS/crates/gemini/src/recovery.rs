@@ -49,7 +49,12 @@ impl Connect for Dialer {
     }
 }
 
-/// Limits on reconnect work. The first connection is never retried.
+/// The most attempts a policy may allow in one outage, and the most an
+/// endless link counts: it reports this number for that many or more.
+pub const MAX_COUNTED_ATTEMPTS: u32 = 16;
+
+/// Limits on reconnect work. The first connection is never retried, unless
+/// the link is `endless`.
 #[derive(Clone, Copy, Debug)]
 pub struct RecoveryPolicy {
     /// Connection attempts per outage. Zero disables recovery.
@@ -65,6 +70,21 @@ pub struct RecoveryPolicy {
     /// Refuse to reconnect when no resumption handle is available, instead of
     /// continuing with a session that has forgotten the conversation.
     pub require_context: bool,
+    /// Keep the link for as long as the supervisor lives. A loss that a new
+    /// connection can cure never ends it: attempts go on, `max_backoff`
+    /// apart, without `max_attempts` or `outage_budget`; the first
+    /// connection is retried like any other and comes up reported as
+    /// [`Context::Fresh`]; a link that keeps dropping is redialled after
+    /// `max_backoff` instead of being declared unstable. A refusal that
+    /// passes only with time (quota, rate or usage limit) is asked again
+    /// after `refusal_pause`. What a new connection cannot cure still ends
+    /// it, and so does a missing handle under `require_context`. On
+    /// lamp-4ace on 2026-10-13 three losses inside a minute, each cured in
+    /// under a second, ended a voice service three times.
+    pub endless: bool,
+    /// Wait before asking again after such a refusal. Read only when
+    /// `endless`.
+    pub refusal_pause: Duration,
 }
 impl Default for RecoveryPolicy {
     fn default() -> Self {
@@ -76,6 +96,8 @@ impl Default for RecoveryPolicy {
             max_recoveries: 3,
             window: Duration::from_secs(60),
             require_context: true,
+            endless: false,
+            refusal_pause: Duration::from_secs(120),
         }
     }
 }
@@ -89,15 +111,23 @@ impl RecoveryPolicy {
         max_recoveries: 0,
         window: Duration::ZERO,
         require_context: true,
+        endless: false,
+        refusal_pause: Duration::ZERO,
     };
     fn validate(self) -> Result<()> {
-        if self.max_attempts > 16
+        if self.max_attempts > MAX_COUNTED_ATTEMPTS
             || self.max_recoveries > 64
             || self.first_backoff > self.max_backoff
             || self.max_backoff > Duration::from_secs(60)
             || self.outage_budget > Duration::from_secs(120)
             || self.window > Duration::from_secs(3600)
             || (self.max_attempts > 0 && (self.max_recoveries == 0 || self.outage_budget.is_zero()))
+            // An endless link paces itself by its backoff alone.
+            || (self.endless
+                && (self.max_attempts == 0
+                    || self.first_backoff.is_zero()
+                    || self.refusal_pause < self.max_backoff
+                    || self.refusal_pause > Duration::from_secs(3600)))
         {
             return Err(Error::InvalidConfiguration);
         }
@@ -408,8 +438,10 @@ async fn progress(link: &mut Link, policy: &RecoveryPolicy) -> Progress {
         } => {
             let (session, number, started, outage) = (*session, *number, *started, *outage);
             let joined = match outage {
-                // The first connection is bounded by its own timeouts.
+                // The first connection is bounded by its own timeouts, and
+                // so is every attempt of an endless link.
                 None => (&mut attempt.task).await,
+                Some(_) if policy.endless => (&mut attempt.task).await,
                 Some(outage) => {
                     let deadline = outage.since + policy.outage_budget;
                     // Harvest completed attempts before examining the current
@@ -434,6 +466,7 @@ async fn progress(link: &mut Link, policy: &RecoveryPolicy) -> Progress {
             });
             let observed_at = result.as_ref().map_or(completed_at, Connection::ready_at);
             if let Some(outage) = outage
+                && !policy.endless
                 && observed_at >= outage.since + policy.outage_budget
             {
                 return Progress::BudgetExhausted { number, outage };
@@ -460,7 +493,7 @@ async fn progress(link: &mut Link, policy: &RecoveryPolicy) -> Progress {
             outage,
         } => {
             tokio::time::sleep_until(*until).await;
-            if Instant::now() >= outage.since + policy.outage_budget {
+            if !policy.endless && Instant::now() >= outage.since + policy.outage_budget {
                 return Progress::BudgetExhausted {
                     number: *number,
                     outage: *outage,
@@ -1154,8 +1187,22 @@ impl<C: Connect> Supervisor<C> {
         number: u32,
         outage: Option<Outage>,
     ) {
-        let Some(mut outage) = outage else {
-            return self.fail_at(error, FailureReason::InitialConnect, 0, observed_at);
+        let mut outage = match outage {
+            Some(outage) => outage,
+            // An endless link's first connection is an outage like any
+            // other: said once, then asked for again. There is no earlier
+            // conversation for the session that comes up to have kept.
+            None if self.policy.endless && error.recovery() != Recovery::Fatal => {
+                if !self.publish(observed_at, LinkUpdateKind::Unavailable { error }) {
+                    return;
+                }
+                Outage {
+                    since: observed_at,
+                    error,
+                    context: Context::Fresh,
+                }
+            }
+            None => return self.fail_at(error, FailureReason::InitialConnect, 0, observed_at),
         };
         // A refusal while presenting a handle may be the handle being refused.
         // Only a policy that tolerates a session without context may drop it.
@@ -1165,27 +1212,31 @@ impl<C: Connect> Supervisor<C> {
                 error,
                 Error::ServerRejected | Error::UnexpectedResponse | Error::PeerClosed { .. }
             );
-        match error.recovery() {
-            Recovery::Reconnect => {}
-            Recovery::Fatal if drop_handle => {}
+        let pause = match error.recovery() {
+            Recovery::Reconnect => self.policy.backoff(number),
+            Recovery::Fatal if drop_handle => self.policy.backoff(number),
+            // Asking again at once only adds load; asking later may be heard.
+            Recovery::Unavailable if self.policy.endless => self.policy.refusal_pause,
             Recovery::Fatal | Recovery::Unavailable => {
                 return self.fail_at(error, FailureReason::NotRecoverable, number, observed_at);
             }
-        }
+        };
         if drop_handle {
             self.resume = None;
             outage.context = Context::Fresh;
         }
-        if number >= self.policy.max_attempts {
-            return self.fail_at(error, FailureReason::AttemptsExhausted, number, observed_at);
-        }
-        let until = observed_at + self.policy.backoff(number);
-        if until >= outage.since + self.policy.outage_budget {
-            return self.fail_at(error, FailureReason::BudgetExhausted, number, observed_at);
+        let until = observed_at + pause;
+        if !self.policy.endless {
+            if number >= self.policy.max_attempts {
+                return self.fail_at(error, FailureReason::AttemptsExhausted, number, observed_at);
+            }
+            if until >= outage.since + self.policy.outage_budget {
+                return self.fail_at(error, FailureReason::BudgetExhausted, number, observed_at);
+            }
         }
         self.link = Link::Waiting {
             until,
-            number: number + 1,
+            number: number.saturating_add(1).min(MAX_COUNTED_ATTEMPTS),
             outage,
         };
     }
@@ -1287,9 +1338,11 @@ impl<C: Connect> Supervisor<C> {
     }
 
     fn recover(&mut self, error: Error, observed_at: Instant) {
-        if self.policy.max_attempts == 0 || error.recovery() != Recovery::Reconnect {
-            return self.fail_at(error, FailureReason::NotRecoverable, 0, observed_at);
-        }
+        let refused = match error.recovery() {
+            Recovery::Reconnect if self.policy.max_attempts > 0 => false,
+            Recovery::Unavailable if self.policy.endless => true,
+            _ => return self.fail_at(error, FailureReason::NotRecoverable, 0, observed_at),
+        };
         let context = match &self.resume {
             Some(point)
                 if point.is_current()
@@ -1314,20 +1367,34 @@ impl<C: Connect> Supervisor<C> {
         {
             self.recoveries.pop_front();
         }
-        if self.recoveries.len() >= self.policy.max_recoveries as usize {
-            return self.fail_at(error, FailureReason::Unstable, 0, observed_at);
+        let unstable = self.recoveries.len() >= self.policy.max_recoveries as usize;
+        if !self.policy.endless {
+            if unstable {
+                return self.fail_at(error, FailureReason::Unstable, 0, observed_at);
+            }
+            if now >= observed_at + self.policy.outage_budget {
+                return self.fail_at(error, FailureReason::BudgetExhausted, 0, now);
+            }
         }
-        if now >= observed_at + self.policy.outage_budget {
-            return self.fail_at(error, FailureReason::BudgetExhausted, 0, now);
-        }
-        self.dial(
-            1,
-            Some(Outage {
-                since: observed_at,
-                error,
-                context,
-            }),
-        );
+        let outage = Outage {
+            since: observed_at,
+            error,
+            context,
+        };
+        // An endless link that was refused, or that keeps dropping, waits
+        // before it asks again; any other loss is replaced at once.
+        let pause = if refused {
+            self.policy.refusal_pause
+        } else if unstable {
+            self.policy.max_backoff
+        } else {
+            return self.dial(1, Some(outage));
+        };
+        self.link = Link::Waiting {
+            until: now + pause,
+            number: 1,
+            outage,
+        };
     }
 }
 

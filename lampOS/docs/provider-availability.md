@@ -31,6 +31,15 @@ unread behind the deliberately bounded WebSocket PCM buffer has not yet been
 observed. These timestamps do not claim to measure when the remote network
 actually failed.
 
+A supervisor whose link is kept (`RecoveryPolicy::endless`,
+[gemini-session-reliability.md](gemini-session-reliability.md)) makes one
+report the bounded one never makes: when its first connection fails, the
+first update is `Unavailable` on session 1, and the `Ready` that follows is
+on a later session with `Context::Fresh`, an outage start and the error that
+began it. A consumer must not assume that the first update it sees is a
+ready one. `CloudAvailability` and `PendingLink` already accept this
+sequence, and each has a test of it.
+
 ## Report the request that actually failed
 
 In the opt-in typed worker path, `not_delivered` now means Start was refused

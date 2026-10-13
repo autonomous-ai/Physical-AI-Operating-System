@@ -88,6 +88,19 @@ pub struct Files {
     pub session_fact: bool,
     /// Whether the session is told how busy the room is (`--room-facts`).
     pub room_facts: bool,
+    /// Whether the link is never given up (`--keep-link`).
+    pub keep_link: bool,
+}
+/// The provider worker's flag for a link that is never given up. A service
+/// that runs all day passes it; a bounded run keeps the bounded policy, so
+/// that it ends when its provider cannot be reached.
+pub const KEEP_LINK_FLAG: &str = "--keep-link";
+/// Take a leading `--keep-link` off a worker's flags.
+pub fn take_keep_link(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == KEEP_LINK_FLAG => (true, rest),
+        _ => (false, flags),
+    }
 }
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
@@ -563,7 +576,11 @@ pub async fn run_with_continuation(
     }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
-    let recovery = provider_config.recovery_policy();
+    let recovery = if files.keep_link {
+        provider_config.serving_recovery_policy()
+    } else {
+        provider_config.recovery_policy()
+    };
     let config = continuation.apply(
         provider_config
             .into_session_with_camera(visual.is_some())?
@@ -4060,6 +4077,152 @@ mod tests {
             LinkClock::sample().unwrap(),
             PendingLink::default(),
         )
+    }
+
+    /// The next dial of a supervisor that is serviced the way the worker
+    /// services it: by its link upkeep alone. No link report may be made
+    /// while it is awaited.
+    async fn memory_dial<C: Connect>(
+        provider: &mut Supervisor<C>,
+        clock: &mut LinkClock,
+        pending: &mut PendingLink,
+        dials: &mut UnboundedReceiver<Dial>,
+    ) -> Dial {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                service_link(provider, Some(&mut *clock), pending, |link| {
+                    panic!("no link report was expected before the next dial: {link:?}")
+                })
+                .unwrap();
+                if let Ok(dial) = dials.try_recv() {
+                    break dial;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("in-memory provider dial")
+    }
+    /// The policy of a service that runs all day, with waits a test can sit
+    /// through.
+    fn kept_policy() -> RecoveryPolicy {
+        RecoveryPolicy {
+            endless: true,
+            require_context: false,
+            first_backoff: Duration::from_millis(2),
+            max_backoff: Duration::from_millis(4),
+            ..RecoveryPolicy::default()
+        }
+    }
+
+    /// A lamp that starts before its network. Every report the kept link
+    /// makes goes through the same conversion and checks as in the service:
+    /// no connection on the first session, then ready on a later one, as a
+    /// link that came back without an earlier conversation. Under the
+    /// bounded policy the first failed connection ends the worker's link.
+    #[tokio::test]
+    async fn a_kept_link_whose_first_connection_fails_reports_no_connection_then_a_fresh_ready() {
+        use crate::provider_link::{LinkContext, ProviderLinkState};
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(kept_policy());
+        drop(next_dial(&mut dials).await);
+        let down = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(down.state, ProviderLinkState::Unavailable { .. }));
+        assert_eq!((down.revision, down.session), (1, 1));
+        drop(memory_dial(&mut provider, &mut clock, &mut pending, &mut dials).await);
+        let mut third = memory_dial(&mut provider, &mut clock, &mut pending, &mut dials).await;
+        third.service.accept().await;
+        let up = memory_link(&mut provider, &mut clock, &mut pending).await;
+        let ProviderLinkState::Ready {
+            attempts,
+            context,
+            outage_started_at_us,
+            after,
+            ..
+        } = up.state
+        else {
+            panic!("expected ready, got {up:?}")
+        };
+        assert_eq!((up.revision, up.session), (2, 3));
+        assert_eq!((attempts, context), (3, LinkContext::Fresh));
+        assert!(after.is_some());
+        assert_eq!(outage_started_at_us, Some(down.observed_at_us));
+        assert!(provider.is_connected());
+
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(quick_policy());
+        drop(next_dial(&mut dials).await);
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Terminal { .. }
+        ));
+    }
+
+    /// Five losses inside the window that allows three, then an outage of
+    /// twenty failed attempts. Each time the link comes back with a report
+    /// the service accepts: the attempt count stops at sixteen, the most a
+    /// report may carry.
+    #[tokio::test]
+    async fn a_kept_link_outlives_a_dropping_connection_and_a_long_outage_with_reports_that_pass() {
+        use crate::provider_link::ProviderLinkState;
+        use lamp_gemini::testing::next_dial;
+        let (mut provider, mut dials, mut clock, mut pending) = memory_provider(kept_policy());
+        let mut dial = next_dial(&mut dials).await;
+        dial.service.accept().await;
+        let mut session = memory_link(&mut provider, &mut clock, &mut pending)
+            .await
+            .session;
+        for _ in 0..5 {
+            dial.service.send(resumable()).await;
+            dial.service.close(1011, "internal").await;
+            assert!(matches!(
+                memory_link(&mut provider, &mut clock, &mut pending)
+                    .await
+                    .state,
+                ProviderLinkState::Unavailable { .. }
+            ));
+            dial = memory_dial(&mut provider, &mut clock, &mut pending, &mut dials).await;
+            dial.service.accept().await;
+            let back = memory_link(&mut provider, &mut clock, &mut pending).await;
+            assert!(matches!(
+                back.state,
+                ProviderLinkState::Ready { attempts: 1, .. }
+            ));
+            assert!(back.session > session);
+            session = back.session;
+        }
+        dial.service.send(resumable()).await;
+        dial.service.close(1011, "internal").await;
+        assert!(matches!(
+            memory_link(&mut provider, &mut clock, &mut pending)
+                .await
+                .state,
+            ProviderLinkState::Unavailable { .. }
+        ));
+        for _ in 0..20 {
+            drop(memory_dial(&mut provider, &mut clock, &mut pending, &mut dials).await);
+        }
+        let mut last = memory_dial(&mut provider, &mut clock, &mut pending, &mut dials).await;
+        last.service.accept().await;
+        let back = memory_link(&mut provider, &mut clock, &mut pending).await;
+        assert!(matches!(
+            back.state,
+            ProviderLinkState::Ready { attempts: 16, .. }
+        ));
+        assert_eq!(back.session, session + 21);
+        assert!(provider.is_connected());
+    }
+
+    #[test]
+    fn keep_link_is_taken_from_the_front_of_a_workers_flags() {
+        let flags = [KEEP_LINK_FLAG.to_owned(), "rest".to_owned()];
+        let (kept, rest) = take_keep_link(&flags);
+        assert!(kept);
+        assert_eq!(rest, ["rest"]);
+        let (kept, rest) = take_keep_link(&flags[1..]);
+        assert!(!kept);
+        assert_eq!(rest, ["rest"]);
     }
 
     /// Audit regression: root selected A before the worker received this Start.

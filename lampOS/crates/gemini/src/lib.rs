@@ -19,8 +19,8 @@ pub use config::{
     Resumption, ResumptionHandle, SessionConfig, SuccessorStart, ThinkingLevel, Timeouts,
 };
 pub use recovery::{
-    Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind, Notice,
-    OutputNotice, RecoveryPolicy, Stage, StartRefusal, Supervisor,
+    Attempt, Connect, Context, Dialer, Failure, FailureReason, LinkUpdate, LinkUpdateKind,
+    MAX_COUNTED_ATTEMPTS, Notice, OutputNotice, RecoveryPolicy, Stage, StartRefusal, Supervisor,
 };
 use serde::{Deserialize, Serialize};
 pub use session::{Connection, InputSender, ResumptionPoint, connect};

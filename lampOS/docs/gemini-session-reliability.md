@@ -173,6 +173,49 @@ is evidence of correct ownership.
 | Connection loss to completed setup | 15 s | `BudgetExhausted` |
 | Recoveries per 60 s | 3 | `Unstable` |
 
+The last three rows are the bounded policy, `RecoveryPolicy::default`. A
+bounded run (a probe, a directed session) still ends on them. A service
+that runs all day does not: see the next section.
+
+### A link that is kept (`RecoveryPolicy::endless`)
+
+On lamp-4ace on 2026-10-13 a test cut the link every 24 seconds. Each loss
+was cured in under a second, the fourth inside a minute was `Unstable`, and
+the voice service ended, three times. A person in the room does not care how
+often a link dropped; they care whether the lamp is still there.
+
+With `endless` set, a loss that a new connection can cure never ends the
+supervisor:
+
+| Case | Bounded policy | Kept link |
+|---|---|---|
+| More failed attempts than `max_attempts` | `AttemptsExhausted` | Goes on asking, `max_backoff` (4 s) apart |
+| Outage longer than `outage_budget` | `BudgetExhausted` | Goes on; each attempt is ended by its own connect and setup timeouts (10 s each) |
+| More recoveries than `max_recoveries` in `window` | `Unstable` | Replaced after `max_backoff` instead of at once |
+| The first connection fails | `InitialConnect` | Reported once as unavailable on session 1, then asked for like any other. It comes up as `Context::Fresh` on a later session: there is no earlier conversation for it to have kept |
+| Quota, rate or usage refusal | `NotRecoverable` | Asked again after `refusal_pause` (120 s) |
+| A fault a new connection would repeat (authentication, configuration, protocol) | `NotRecoverable` | The same: it still ends |
+| No handle, with `require_context` | `NoResumableContext` | The same: it still ends. The service sets `require_context` off for its kept link, so the session comes back fresh and says so |
+| Local stop | `Shutdown` | The same |
+
+The attempt count a report carries stops at 16 (`MAX_COUNTED_ATTEMPTS`), the
+most the worker's link report accepts; a kept link reports 16 for that many
+or more. Waits are not jittered and do not grow past `max_backoff`: one lamp
+asks its relay fifteen times a minute while it is down. That is chosen for
+how soon a lamp hears again after its network returns, and is not right for
+a fleet behind one relay.
+
+The voice service asks for it with the provider worker's `--keep-link`
+flag, which the coordinator passes for `serve` and for no bounded run
+(`ProviderConfig::serving_recovery_policy`).
+
+Tested on the host only, with the scripted service: eight tests in
+`recovery/tests/endless.rs` (six of them fail when `endless` is switched
+off in their policy), two in the worker through its link conversion and
+checks, one in the coordinator's availability register. Not yet shown on a
+lamp: a real network taken away and given back, a real quota refusal, and
+what a person hears while the link is down.
+
 `deliver` must exceed the playing time of the longest message, 2 s, plus the
 longest pause in playback that should be survived. It measures a consumer that
 takes nothing at all; one that is slow but still taking events never trips it.

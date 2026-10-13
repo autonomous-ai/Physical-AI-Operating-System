@@ -189,6 +189,18 @@ impl ProviderConfig {
             ..RecoveryPolicy::default()
         }
     }
+    /// The policy of a service that runs all day: its link is never given
+    /// up (`RecoveryPolicy::endless`). A handle is still presented when
+    /// there is one, but the lack of one does not end the service either:
+    /// the session that comes up is reported as fresh, and is told how the
+    /// conversation went by the thread ([`crate::thread`]).
+    pub fn serving_recovery_policy(&self) -> RecoveryPolicy {
+        RecoveryPolicy {
+            require_context: false,
+            endless: true,
+            ..RecoveryPolicy::default()
+        }
+    }
     pub fn into_session(self) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
         self.into_session_with_camera(false)
     }
@@ -373,6 +385,16 @@ mod tests {
                 .recovery_policy()
                 .require_context
         );
+    }
+
+    #[test]
+    fn a_service_that_runs_all_day_keeps_its_link_whatever_the_reconnect_presents() {
+        for extra in ["", r#","resumption":"off""#] {
+            let policy = parsed(extra).unwrap().serving_recovery_policy();
+            assert!(policy.endless);
+            assert!(!policy.require_context);
+        }
+        assert!(!parsed("").unwrap().recovery_policy().endless);
     }
 
     #[test]

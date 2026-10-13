@@ -261,10 +261,16 @@ between them:
   bring a face from the right edge, and from the bottom edge, to the middle,
   and their signs say which way each joint moves the picture. Under the whole
   amount on purpose: a number set too high still settles.
-- The offset is added to what the mood wants and goes through the same reach,
-  window, speed and load rules as every gesture; it is also bounded by
-  `--gaze-reach` (250 and 120 counts without it). Then it waits to be still
-  again.
+- The offset is added to what the mood wants and goes through the same
+  window, speed and load rules as every gesture. It is bounded by
+  `--gaze-reach` (250 and 120 counts without it), and sideways that may be
+  wider than the reach of the poses: the head turns further to a person
+  than it does to think. On lamp-4ace on 2026-10-13 people standing at the
+  lamp were further round than the 250 counts (22 degrees) it could then
+  turn, the face staying at 0.44 to 0.75 of the half-picture off centre.
+  The old runtime's recorded moves turn the base 42 degrees either way, and
+  the gaze may now be given up to 500 counts (44 degrees). Then it waits to
+  be still again.
 - It never searches. With no face in the picture nothing is added, and when
   none has been seen for six seconds, or the lamp folds down, the offset goes
   back to nothing at 60 counts a second.
@@ -389,7 +395,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
-| `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch | 250,120 | 400, 200 |
+| `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 
@@ -480,7 +486,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (220 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (221 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

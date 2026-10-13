@@ -1484,6 +1484,53 @@ fn face_at(
 }
 
 #[test]
+fn the_eyes_take_the_head_further_round_than_any_pose_does() {
+    // A person standing 300 counts to one side, about 26 degrees: further
+    // than this body turns for any pose (150), inside what its eyes may ask.
+    let turned_for = |gaze_reach: u16| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(16));
+        let looking = Looking::new([342, 200], [gaze_reach, 120]).unwrap();
+        let limits = Limits::folded_with(Tuning {
+            reach: [100, 15, 30, 150],
+            speed: 120,
+            servo_speed: 300,
+            servo_acceleration: 60,
+        })
+        .unwrap();
+        let seen_from = Rc::new(Cell::new((f32::from(HOME[2]), f32::from(HOME[0]))));
+        let eyes = face_at(seen_from.clone(), &clock.time, (300.0, -60.0));
+        let news = || Some((Mood::Listening, 100));
+        let furthest = Cell::new(0.0f32);
+        let report = run_looking(
+            &mut lamp,
+            &mut clock,
+            limits,
+            None,
+            None,
+            Some(looking),
+            news,
+            eyes,
+            |glimpse| {
+                seen_from.set((
+                    f32::from(glimpse.positions[2]),
+                    f32::from(glimpse.positions[0]),
+                ));
+                let yaw = f32::from(glimpse.positions[2]) - f32::from(HOME[2]);
+                furthest.set(furthest.get().max(yaw));
+            },
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        furthest.get()
+    };
+    // With the eyes held to the poses' own reach it stops there, short.
+    let short = turned_for(150);
+    assert!((140.0..=152.0).contains(&short), "{short}");
+    // Given more, it comes round to the person, and not past them.
+    let round = turned_for(400);
+    assert!((250.0..=330.0).contains(&round), "{round}");
+}
+
+#[test]
 fn with_eyes_the_head_turns_to_the_face_while_it_listens_and_not_beyond_its_reach() {
     let (mut lamp, mut clock) = folded(Duration::from_secs(14));
     let looking = Looking::new([342, 200], [250, 120]).unwrap();

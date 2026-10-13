@@ -43,10 +43,13 @@ pub struct Looking {
 
 impl Looking {
     /// The most a whole half-picture may be worth, and the farthest reach:
-    /// about 80 degrees of turn, and 35 and 18 degrees of reach. lamp-4ace's
-    /// camera is a wide one: 727 counts of yaw and 553 of pitch.
+    /// about 80 degrees of turn, and 44 and 18 degrees of reach. lamp-4ace's
+    /// camera is a wide one: 727 counts of yaw and 553 of pitch. The yaw
+    /// reach was 35 degrees until people stood further round than the lamp
+    /// could turn to them; the old runtime's own recorded moves turn the
+    /// base 42 degrees either way.
     pub const TURN_CAP: i16 = 900;
-    pub const REACH_CAP: [u16; 2] = [400, 200];
+    pub const REACH_CAP: [u16; 2] = [500, 200];
 
     pub fn new(turn: [i16; 2], reach: [u16; 2]) -> Result<Self, &'static str> {
         if turn.iter().any(|counts| counts.abs() > Self::TURN_CAP)
@@ -401,7 +404,8 @@ mod tests {
         assert!(Looking::new([-342, 200], [300, 150]).is_ok());
         assert!(Looking::new([901, 200], [300, 150]).is_err());
         assert!(Looking::new([727, 553], [250, 120]).is_ok());
-        assert!(Looking::new([342, 200], [401, 150]).is_err());
+        assert!(Looking::new([342, 200], [500, 150]).is_ok());
+        assert!(Looking::new([342, 200], [501, 150]).is_err());
         assert!(Looking::new([342, 200], [300, 201]).is_err());
     }
 }

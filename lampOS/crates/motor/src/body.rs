@@ -1219,7 +1219,11 @@ pub(crate) fn run_alive(
 
     // The reach around home, and the absolute window for the head's pitch
     // while the head is beside the base. A lamp that stands carries its
-    // home with it, so these move as it rises.
+    // home with it, so these move as it rises. Sideways the eyes may take
+    // the head further than any pose does: a person is where they are.
+    let yaw_reach = limits
+        .yaw
+        .max(looking.map_or(0.0, |looking| looking.reach[0]));
     let bounds = |home: [f32; 3], stand: f32| -> ([f32; 3], [f32; 3]) {
         let (floor, ceiling) = if head_share(stand) > 0.0 {
             (f32::from(limits.pitch_floor), 4_095.0)
@@ -1239,12 +1243,12 @@ pub(crate) fn run_alive(
             [
                 (home[0] - limits.pitch_up).max(floor),
                 home[1] - roll,
-                home[2] - limits.yaw,
+                home[2] - yaw_reach,
             ],
             [
                 (home[0] + down).min(ceiling),
                 home[1] + roll,
-                home[2] + limits.yaw,
+                home[2] + yaw_reach,
             ],
         )
     };

@@ -11,6 +11,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
     let (privacy, _privacy_peer) = Worker::sleeping_fixture(&directory.path, "privacy");
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         speaker,
         capture,
         provider,
@@ -146,6 +147,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
     });
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         speaker,
         capture,
         provider,

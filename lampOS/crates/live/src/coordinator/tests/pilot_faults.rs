@@ -1152,6 +1152,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     });
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         speaker: spawn("speaker"),
         capture: spawn("capture"),
         provider: spawn("provider"),

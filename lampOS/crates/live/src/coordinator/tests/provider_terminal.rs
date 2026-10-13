@@ -71,6 +71,7 @@ fn run_with_notice_policy(
     };
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         speaker: spawn("speaker"),
         capture: spawn("capture"),
         provider: spawn("provider"),

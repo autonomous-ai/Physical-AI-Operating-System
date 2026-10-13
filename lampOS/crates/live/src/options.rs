@@ -274,6 +274,10 @@ pub struct DirectedOptions {
     /// Explicit end-of-speech wait in 10 ms blocks. None keeps each
     /// turn-taking policy's own window.
     pub end_silence_blocks: Option<u16>,
+    /// A capture block quieter than this, on the face's scale of loudness
+    /// after cancellation (`ring_face::level_of`), is not speech whatever
+    /// the detector scores it. None leaves every block to the detector.
+    pub faint_level: Option<u8>,
 }
 impl DirectedOptions {
     /// Used directly by the real capture-worker spawn path. The default keeps
@@ -362,6 +366,17 @@ impl DirectedOptions {
                         return Err(invalid_options());
                     }
                     options.end_silence_blocks = Some(value / 10);
+                }
+                "--faint-floor-db" if options.faint_level.is_none() => {
+                    // In dBFS, -47 to -20: the face's scale runs from -48
+                    // to -14, 255 steps.
+                    let value = required_value(&mut arguments)?
+                        .parse::<i16>()
+                        .map_err(|_| invalid_options())?;
+                    if !(-47..=-20).contains(&value) {
+                        return Err(invalid_options());
+                    }
+                    options.faint_level = Some(((value + 48) * 255 / 34) as u8);
                 }
                 _ => return Err(invalid_options()),
             }
@@ -1257,6 +1272,7 @@ mod tests {
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
                         end_silence_blocks: None,
+                        faint_level: None,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
@@ -1498,6 +1514,46 @@ mod end_silence_tests {
             &["--end-silence-ms", "705"],
             &["--end-silence-ms", "soon"],
             &["--end-silence-ms", "700", "--end-silence-ms", "700"],
+        ];
+        for arguments in refused {
+            assert!(parse(arguments).is_err(), "{arguments:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod faint_floor_tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> io::Result<DirectedOptions> {
+        DirectedOptions::parse(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn the_floor_for_speech_is_explicit_bounded_and_given_once() {
+        assert_eq!(parse(&[]).unwrap().faint_level, None);
+        // -40 dBFS is 60 on the face's scale, which runs from -48 to -14.
+        assert_eq!(
+            parse(&["--faint-floor-db", "-40"]).unwrap().faint_level,
+            Some(60)
+        );
+        assert_eq!(
+            parse(&["--faint-floor-db", "-20", "--turn-taking", "duplex"])
+                .unwrap()
+                .faint_level,
+            Some(210)
+        );
+        assert_eq!(
+            parse(&["--faint-floor-db", "-47"]).unwrap().faint_level,
+            Some(7)
+        );
+        let refused: [&[&str]; 6] = [
+            &["--faint-floor-db"],
+            &["--faint-floor-db", "-48"],
+            &["--faint-floor-db", "-19"],
+            &["--faint-floor-db", "40"],
+            &["--faint-floor-db", "quiet"],
+            &["--faint-floor-db", "-40", "--faint-floor-db", "-40"],
         ];
         for arguments in refused {
             assert!(parse(arguments).is_err(), "{arguments:?}");

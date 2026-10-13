@@ -252,6 +252,7 @@ fn isolated_signal_child() {
     ];
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         camera: None,
         motor: None,
         provider,
@@ -460,6 +461,7 @@ fn service_signal_child(
     });
     let mut rig = Rig {
         end_silence_blocks: None,
+        faint_level: None,
         camera: None,
         motor: None,
         provider,

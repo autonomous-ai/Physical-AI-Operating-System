@@ -338,6 +338,19 @@ two observations to its standard error, counts and times only: the service's
 own token counts for each `usageMetadata` message, and each `waitingForInput`
 with the request it left unanswered, if any. Nothing is decided on either.
 
+`--faint-floor-db -47..-20` makes any capture block quieter than that, after
+cancellation, count as no speech whatever the detector scores it; without it
+every block is left to the detector. It is there for a room with other people
+in it. On lamp-4ace on 2026-10-13, with an office talking around it, a voice
+played a metre in front of the lamp arrived at a median of -15 to -23 dBFS
+over its speech blocks, and a string of things that were also taken for
+utterances, sent to the provider and heard back as "¿Qué?", at -48 dBFS or
+under: voices across the room, or the lamp's own motors. Those were taken
+for the person at the lamp going on, or cutting in, and the conversation
+checks that pass in a quiet office failed. The lamp runs with -40. What it
+does not help with: people talking to each other right beside the lamp, who
+are as loud as the person it is talking with.
+
 `--end-silence-ms 300..2000` (a multiple of 10) sets how long the detector
 waits in quiet before it decides that a person has finished. Without it
 `v1-baseline` and `duplex` wait 1,200 ms and `vad-only` 600 ms. In the first

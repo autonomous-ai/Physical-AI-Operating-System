@@ -617,6 +617,7 @@ mod tests {
         camera.pending_failure = Some("simulated absent camera before first frame");
         let mut rig = Rig {
             end_silence_blocks: None,
+            faint_level: None,
             speaker,
             capture,
             provider,

@@ -289,6 +289,7 @@ struct Rig {
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
     end_silence_blocks: Option<u16>,
+    faint_level: Option<u8>,
     playout_start: PlayoutStart,
     /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
     endpoint: Option<EndpointRig>,
@@ -1797,6 +1798,7 @@ fn spawn_rig(
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
         end_silence_blocks: options.end_silence_blocks,
+        faint_level: options.faint_level,
         playout_start: options.playout_start,
         endpoint,
     })
@@ -2640,21 +2642,32 @@ fn conversation(
                 capture: lineage,
                 authority: owner.snapshot(now())?,
             };
+            heard_level = crate::ring_face::level_of(&frame.samples);
+            // What is too faint to be someone at the lamp is not speech,
+            // whatever the detector makes of it: on lamp-4ace a run of
+            // "utterances" at the bottom of the scale, voices across the
+            // office or its own motors, were sent to the provider, came
+            // back as "¿Qué?", and were taken for the person at the lamp
+            // going on or cutting in.
+            let probability = if rig.faint_level.is_some_and(|faint| heard_level < faint) {
+                0.0
+            } else {
+                frame.probability
+            };
             let heard = hear_capture_block(
                 &mut playback_mask,
                 reply,
                 &mut heard_reply,
                 frame.frame_sequence,
                 frame.read_completed_at_us,
-                frame.probability,
+                probability,
                 frame.echo.as_ref(),
                 monotonic_us(),
                 trace,
             )?;
-            heard_level = crate::ring_face::level_of(&frame.samples);
             // How loud what the detector calls speech has been lately, for
             // the record of each utterance: its last eight seconds.
-            if frame.probability.is_finite() && frame.probability >= 0.5 {
+            if probability.is_finite() && probability >= 0.5 {
                 speech_levels.push_back((frame.read_completed_at_us, heard_level));
             }
             while speech_levels
@@ -4086,6 +4099,7 @@ mod tests {
         let (ring, _ring_peer) = Worker::sleeping_fixture(&directory.path, "ring");
         let mut rig = Rig {
             end_silence_blocks: None,
+            faint_level: None,
             speaker,
             capture,
             provider,

@@ -77,6 +77,46 @@ fn run() -> Result<()> {
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
         },
+        // Something told to the service that it should not answer, and then a
+        // written request that it should: whether the first is taken in, and
+        // whether anything comes back for it. Nothing is captured or played.
+        [command,path,flag,context,then,note] if command=="provider-check" && flag=="--context" && then=="--written" => {
+            let config=ProviderConfig::load(Path::new(path))?.into_session()?;
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                let input=connection.input();
+                input.try_context(context)?;
+                // Three seconds for anything to come back for the context alone.
+                let (mut back_samples,mut back_said)=(0usize,String::new());
+                let quiet_until=tokio::time::Instant::now()+std::time::Duration::from_secs(3);
+                while let Ok(Some(event))=tokio::time::timeout_at(quiet_until,connection.next_event()).await {
+                    match event {
+                        Event::Audio{pcm,..} => back_samples+=pcm.len(),
+                        Event::OutputTranscript{text,..} => back_said.push_str(&text),
+                        _ => {}
+                    }
+                }
+                input.try_written(lamp_gemini::RequestId::new(1)?,note,None)?;
+                let asked=lamp_ipc::monotonic_us();
+                let (mut said,mut samples,mut first,mut ended)=(String::new(),0usize,None,"timeout");
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
+                loop {
+                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                        Ok(Some(Event::Audio{pcm,..})) => { first.get_or_insert(lamp_ipc::monotonic_us()-asked); samples+=pcm.len(); }
+                        Ok(Some(Event::OutputTranscript{text,..})) => said.push_str(&text),
+                        Ok(Some(Event::TurnComplete{..})) => { ended="turn_complete"; break; }
+                        Ok(Some(Event::Unanswered{..})) => { ended="unanswered"; break; }
+                        Ok(Some(_)) => {}
+                        Ok(None) => { ended="connection_ended"; break; }
+                        Err(_) => break,
+                    }
+                }
+                println!("{}",serde_json::json!({"status":"context_tried","after_context_audio_samples":back_samples,"after_context_said":back_said,"ended":ended,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_played":false}));
+                connection.shutdown();
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+        },
         [command,path] if command=="provider-check" => {
             let config=ProviderConfig::load(Path::new(path))?.into_session()?;
             tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {

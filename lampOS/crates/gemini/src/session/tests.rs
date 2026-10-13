@@ -1647,6 +1647,37 @@ async fn a_written_request_is_one_message_outside_any_activity_and_its_answer_is
 }
 
 #[tokio::test]
+async fn something_to_know_is_one_incomplete_turn_and_is_not_a_request() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let input = connection.input();
+    input
+        .try_context("(The office has emptied. One person is at your desk.)")
+        .unwrap();
+    let sent = receive(&mut server).await;
+    assert_eq!(
+        sent["clientContent"]["turns"][0]["parts"][0]["text"],
+        "(The office has emptied. One person is at your desk.)"
+    );
+    assert_eq!(sent["clientContent"]["turns"][0]["role"], "user");
+    assert_eq!(sent["clientContent"]["turnComplete"], false);
+    silent(&mut server).await;
+    // It is no request: the next thing heard is request 1, as if nothing
+    // had been written.
+    let next = ended_turn(&mut connection, &mut server, 1).await;
+    assert_eq!(next, request(1));
+    // While that request's answer is owed, nothing more is written.
+    input.try_context("(Someone else has come in.)").unwrap();
+    silent(&mut server).await;
+    // An empty or oversized one is refused before it is queued.
+    assert!(input.try_context(" ").is_err());
+    assert!(
+        input
+            .try_context(&"x".repeat(crate::wire::MAX_NOTE_BYTES + 1))
+            .is_err()
+    );
+}
+
+#[tokio::test]
 async fn a_renewal_asked_for_ends_the_connection_once_nothing_is_owed_on_it() {
     // Idle: it ends at once, as after an announced close.
     let (mut connection, _server) = mock(Timeouts::default()).await;

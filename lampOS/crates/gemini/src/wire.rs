@@ -655,6 +655,21 @@ pub fn encode_written_turn(text: &str, picture: Option<&[u8]>) -> Result<String>
     }}))
     .map_err(|_| Error::InvalidConfiguration)
 }
+/// Something for the service to know and not to answer: a turn in writing
+/// that is left incomplete, so that it joins what the service has been told
+/// and nothing is said back. For a fact that changes while a session goes
+/// on (the room has emptied, a task has finished) and that the next thing
+/// heard should be answered in the light of.
+pub fn encode_context(text: &str) -> Result<String> {
+    if text.trim().is_empty() || text.len() > MAX_NOTE_BYTES || text.contains('\0') {
+        return Err(Error::InvalidConfiguration);
+    }
+    serde_json::to_string(&json!({"clientContent": {
+        "turns": [{"role": "user", "parts": [{"text": text}]}],
+        "turnComplete": false
+    }}))
+    .map_err(|_| Error::InvalidConfiguration)
+}
 /// The most a note may be.
 pub const MAX_NOTE_BYTES: usize = 1_024;
 pub const ACTIVITY_START: &str = r#"{"realtimeInput":{"activityStart":{}}}"#;

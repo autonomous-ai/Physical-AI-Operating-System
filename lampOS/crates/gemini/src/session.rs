@@ -265,6 +265,16 @@ impl InputSender {
         wire::encode_note(text)?;
         self.enqueue(Command::Note(request, text.into()))
     }
+    /// Tell the service something it should know and not answer: no
+    /// request, no answer, nothing owed. Written only at a moment when no
+    /// request is open and no answer is unsettled; at any other moment it
+    /// is dropped, and whoever offered it offers it again later if it still
+    /// holds.
+    pub fn try_context(&self, text: &str) -> Result<()> {
+        self.ensure_ready()?;
+        wire::encode_context(text)?;
+        self.enqueue(Command::Context(text.into()))
+    }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
         self.enqueue(Command::End(request))?;
         self.shared
@@ -724,6 +734,7 @@ enum Command {
     Audio(Audio),
     Note(RequestId, String),
     Written(RequestId, String, Option<Vec<u8>>),
+    Context(String),
     End(RequestId),
 }
 struct InputState {
@@ -1736,6 +1747,23 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     lineage,
                     waiting_for_barrier: !clear,
                 });
+            }
+            Command::Context(text) => {
+                // Only when nothing is owed, as for a renewal: inside a
+                // request it would be taken for part of what was asked, and
+                // behind an unsettled answer for the next thing said.
+                let between = self.current.is_none()
+                    && self.barrier.is_none()
+                    && self.held.is_none()
+                    && !self.activity_open
+                    && self.outbox.is_empty();
+                if between {
+                    self.write(
+                        Message::text(wire::encode_context(&text)?),
+                        self.timeouts.write,
+                    )
+                    .await?;
+                }
             }
             Command::Note(request, text) => {
                 if request.get() <= self.retired_through() {

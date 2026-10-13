@@ -5,6 +5,13 @@ Written 2026-10-13 by the owner of the voice runtime, in answer to the
 (called "the page" below). This is the short record the build works
 from; the page is the long reference and is amended to agree with it.
 
+**First of all, and the product owner's standing word:** "always remember
+the interface (voice) must be perfect ... if we can't talk / converse with
+lamp there is no point of great capabilities ... lamp must be really a joy
+to hang around with." Whatever is built here is put on a lamp only if the
+conversation is as good with it as without it, and that is measured each
+time.
+
 **Status: settled by the product owner on 2026-10-13, at about 18:55
 local.** Every decision below has their word, given through that evening:
 one builder for all of it, with the page's author reviewing and writing
@@ -154,10 +161,13 @@ killed, and what the others do is counted.
 | Voice | `lamp-live` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
 | Body | `lamp-body` | The servo bus; standing, turning to a face, gestures | open | The lamp talks and does not move. Running today |
 | Eyes | `lamp-eyes` | The camera; whether a face is there, where, and later whose; the picture for a look | open | The lamp talks and moves without looking at anyone, says no hello, and says its eye is shut when asked to look. Running today |
+| Executive | `lamp-exec` (new) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
 | Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
 | Memory | `lamp-memory` (new) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
 | Decisions | `lamp-decide` (new) | The choices no utterance starts, and the decision model behind them | open | The rules alone decide: no hello it is unsure of, no interruption with a result |
+| Controls | `lamp-controls` (new) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
+| Schedules | `lamp-schedule` (new) | Reminders and timers | open | The lamp says it cannot set one just now; one already set is said late, when the component is back |
 | The bus | `lamp-bus` (later, decision 15) | Carrying what happened to whoever only observes | open | Observers see nothing; nothing that publishes is slowed or stopped |
 | The surround | setup, network, updates, reset, the operator's pages (last) | Getting a lamp onto a network and keeping its software current | open | The lamp goes on as it is until it next needs one of them |
 
@@ -178,7 +188,17 @@ code is held to:
 - **Each keeps its own records** and none reads another's files.
 
 Today the voice is one unit with its workers inside it, and a worker's
-death ends the service. Experience step 1 changes that.
+death ends the service. Step 2 changes that.
+
+The Executive was not in the first form of this table. The product owner
+asked whether every component of the page would be built, and going down
+the page's list showed its "executive" had no process of its own here:
+its work would have gone into the voice, which is the one thing that must
+not become what everything else depends on. The page's fourteen roles map
+onto these eleven processes; "attention" and the "voice router" are work
+inside Voice, "perception" is work inside Eyes and Voice, "behaviours" are
+work inside Body, and the "situation" begins as the facts told to the
+voice (step 5) and becomes a process of its own with the bus.
 
 ## Rules between the runtime and what surrounds it
 
@@ -268,7 +288,7 @@ full context. you understand lamp. you have everything setup mic speaker
 permission etc."
 
 What it costs, said to them before they decided: one builder works in
-series. By estimate and not by measurement, the experience steps below are
+series. By estimate and not by measurement, the steps of the experience are
 four to five weeks, two of them the Harness client; a first user-ready set
 of what nobody talks to is three to four weeks more. On lamp-4ace none of
 that set is running today: V1's services are gone from the unit and its
@@ -458,47 +478,37 @@ baseline to beat ([speaking-first.md](speaking-first.md)).
 
 ## Build order
 
-**The experience first.** Each step ends with something a person can try
-at the lamp.
+Changed on 2026-10-13, the evening it was settled. The product owner asked
+why the bus was not first ("that to me is the core of all the sensors we
+have") and showed the page's drawing of it: each sensor publishing its
+stream once, any number of subscribers, and consumers publishing what they
+derive. So the bus is first and the sensors go onto it second. Every row
+of the page is placed against these steps in
+[brain-coverage.md](brain-coverage.md). Each step ends with something a
+person can try at the lamp, or a component that can be killed on the lamp
+while the others are counted.
 
-1. **The lamp outlives the provider.** No exit for a refused quota, a
-   stalled link, a full input queue or a slow microphone read: the voice
-   goes unavailable, the light says so, the lamp keeps its controls and
-   comes back by itself. Today each of those ends the service, which
-   systemd restarts in four seconds; the stalled link did it at 16:50 on
-   2026-10-13. Try: pull the network for five minutes.
-2. **The model can ask for something.** Tool calls parsed, a typed request
-   out, a result back; first for the lamp itself (light level, a look).
-   Measure what declaring tools costs ordinary answers, as was done for
-   search (none, two runs each way). Try: "Lamp, dim a little."
-3. **One task, out and back.** The Rust Harness client to one computer, a
-   record of the task on disk, the neutral acknowledgement, "sent" from the
-   receipt, the result spoken at a pause, and what the body and light do
-   while work is running. Try: "Lamp, ask my coding agent to…".
-4. **Questions and interruptions around a task.** The agent's question
-   asked at a pause and the answer tied to that question; stopping the
-   lamp's speech never cancels the task.
-5. **What the lamp knows, told to the voice.** The room (quiet or busy),
-   someone arriving, a task finishing, and the day's conversations
-   (decision 12), each with its first-turn test (change 2). The room is
-   built and waiting to be heard ([character.md](character.md), "The rule
-   follows the room").
-6. **A decision model for what no utterance starts, and a second engine.**
+| Step | What | In a line |
+|---|---|---|
+| 0 | The bus | Publish and subscribe with no process in the middle (`lamp-bus`, [bus.md](bus.md)) |
+| 1 | The sensors on the bus | `mic1` from a driver of its own, a copy of `mic2`, the camera's newest frame, `servos`, `people` |
+| 2 | The lamp outlives the provider | No exit for a refused quota, a stalled link or a dead worker |
+| 3 | The executive and the tools | `lamp-exec`; V1's 21 commands as the Live model's tools. Try: "Lamp, dim a little." |
+| 4 | Memory, and who is there | `lamp-memory`; faces recognised, one memory for each person |
+| 5 | One task, out and back | `lamp-tasks` through Harness on the lamp. Try: "Lamp, ask my coding agent to…" |
+| 6 | Questions and interruptions around a task | The agent's question asked at a pause; stopping speech never cancels work |
+| 7 | The situation, and attention with eyes and both microphones | `lamp-situation`; whether someone faces the lamp when they speak; how near a voice is |
+| 8 | Decisions, goals and the owner's feedback | `lamp-decide` with Jev behind it; what the owner teaches, corrects and approves; a second engine |
+| 9 | Controls | `lamp-controls`: touch pad, button, privacy switch |
+| 10 | Schedules | `lamp-schedule`: reminders and timers |
+| 11 | The second speech route | Deepgram, a text answer, speech synthesis |
+| 12 | The surround | Starting at power-up, setup, network, configuration, updates, reset, the operator's pages, V1's data |
 
-**Then what nobody talks to**, only as far as a person who is given a
-lamp needs it, in this order:
-
-7. **It starts by itself.** Body, eyes and voice at power-up, in the
-   order the hand-over rule gives, after a hands-on check of what the
-   servos do when power arrives.
-8. **Getting onto a network and staying on it.** First setup, and repair
-   when the network changes.
-9. **Updates that can be undone.** A release switched by the hand-over
-   rule, with return to the one before.
-10. **Reset and forgetting.** Each store the owner's words are in, emptied
-    on their say.
-11. **The operator's pages,** and the bus under them (decision 15).
-12. **V1's data,** for a lamp that had it.
+Where each stood at 19:15 on 2026-10-13: step 0 being built, with Memory
+(part of step 4) beside it, each by a second builder to a written
+specification; step 2's first fix written and tested on the host; the room
+told to the voice (part of step 7) on the lamp and heard once. Nothing else
+is started.
 
 ## What a session may be told
 
@@ -516,14 +526,14 @@ a speed comparison with and without it.
 | How the room is: quiet or busy | When it changes, and at opening | Built, not installed |
 | One picture, with the request to answer from it | When the lamp has said it will look; the session is renewed afterwards | Built, asleep |
 | A note to say hello from | When someone sits down after a long absence | Built, recording only |
-| A task's receipt, question or result, to speak from | When it arrives, at a pause | Not built (experience step 3) |
+| A task's receipt, question or result, to speak from | When it arrives, at a pause | Not built (step 5) |
 | The day's conversations | At opening, shortened | Not built (decision 12) |
 
 The wording describes how things are and never tells the lamp to keep
 quiet or what not to mention: the first did the one and got a spoken
 "...", sixteen times; the second got "my connection dropped" said aloud.
 
-## Experience step 1 in more detail: the lamp outlives the provider
+## Step 2 in more detail: the lamp outlives the provider
 
 Most of this was designed before the voice was shown to anyone and is in
 the code, switched off or unfinished ([provider-availability.md](provider-availability.md),
@@ -568,7 +578,7 @@ seconds of the link being seen to fail, the first answer after the return
 comes within a counted number of seconds, nothing from before the outage
 is played late, and the conversation is still known.
 
-## Experience step 2 in more detail: the tools
+## Step 3 in more detail: the tools
 
 Read from V1 on 2026-10-13 (`system/intent/`, `hal/realtime/`); two of the
 points below were checked against the code by hand, the rest are one
@@ -617,7 +627,7 @@ the general tool of decision 5. Both are to be tried in step 2 against the
 same counts as everything else: what they cost an ordinary answer, and
 what they do to the first thing a new session hears.
 
-## Experience step 3 in more detail: tasks through Harness on the lamp
+## Step 5 in more detail: tasks through Harness on the lamp
 
 Decision 14 as the product owner settled it. On 2026-10-13 Harness 0.3.94
 was installed on lamp-4ace by its own installer, signed in to the product

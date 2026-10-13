@@ -11,8 +11,12 @@
 //! The provider worker sees every request and whether the lamp spoke in it.
 //! From that alone:
 //!
-//! - **quiet**: nothing has been heard for five minutes. What is said next
-//!   is said into a quiet room, most likely to the lamp.
+//! - **quiet**: nothing has been said for five minutes. What is said next
+//!   is said into a quiet room, most likely to the lamp. A bump or a click
+//!   that the coordinator dropped as a sound is not something said and does
+//!   not start the five minutes again: on lamp-4ace, the evening the rule
+//!   was first installed, two such sounds in six minutes kept the room
+//!   from ever being quiet.
 //! - **busy**: three things in a row, inside a minute, that the lamp said
 //!   nothing to. People are talking to each other. Only something said
 //!   through to its end counts: a cough or a click that the coordinator
@@ -103,7 +107,6 @@ impl RoomTold {
             self.unanswered(previous, now_us);
         }
         self.open = Some((request, false));
-        self.quiet_since_us = Some(now_us);
         self.last_sound_us = now_us;
     }
 
@@ -284,6 +287,19 @@ mod tests {
             room.heard(request, (700 + request) * S);
         }
         assert_eq!(room.at(720 * S), Room::Quiet);
+        // Nor do they keep a busy room busy: five minutes after the last
+        // thing said, with clicks all through them, it is quiet.
+        let mut busy = RoomTold::new();
+        for (request, at) in [(1, 10), (2, 14), (3, 18)] {
+            said(&mut busy, request, at);
+            busy.unanswered(request, (at + 3) * S);
+        }
+        assert_eq!(busy.at(22 * S), Room::Busy);
+        for (request, at) in (4..40).zip((30..330).step_by(9)) {
+            busy.heard(request, at * S);
+        }
+        assert_eq!(busy.at(319 * S), Room::Busy);
+        assert_eq!(busy.at(321 * S), Room::Quiet);
         // And they do not keep the room from being told afterwards.
         assert_eq!(room.due(1, 720 * S), Some(QUIET));
         room.told(1);

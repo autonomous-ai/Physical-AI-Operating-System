@@ -139,7 +139,7 @@ is said near it is most likely said to it, called or not, and that when it
 has been told the office is busy, or told nothing, the two cases stand.
 The telling is the runtime's (`crates/live/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`): quiet after five minutes in which nothing was
-heard, busy after three things in a row inside a minute that the lamp
+said (a bump or a click is not something said), busy after three things in a row inside a minute that the lamp
 said nothing to, each given to the session in a turn that asks for no
 answer ([speaking-first.md](speaking-first.md), "Telling it something
 that needs no answer"). As silent probes with a written line in place of

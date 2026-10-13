@@ -171,18 +171,35 @@ pub struct Dial {
 pub struct FakeConnector {
     config: SessionConfig,
     dials: mpsc::UnboundedSender<Dial>,
+    capacity: usize,
 }
 pub fn connector(config: SessionConfig) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+    connector_with_capacity(config, crate::MAX_WIRE_BYTES * 2)
+}
+/// The same, with this many bytes between client and service: a service
+/// that stops reading then blocks the client's writes almost at once.
+pub fn connector_with_capacity(
+    config: SessionConfig,
+    capacity: usize,
+) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
     let (dials, observed) = mpsc::unbounded_channel();
-    (FakeConnector { config, dials }, observed)
+    (
+        FakeConnector {
+            config,
+            dials,
+            capacity,
+        },
+        observed,
+    )
 }
 impl Connect for FakeConnector {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
         let resumed = resume.is_some();
         let config = self.config.clone().resume(resume);
         let dials = self.dials.clone();
+        let capacity = self.capacity;
         Box::pin(async move {
-            let (attempt, service) = pair(config, session, crate::MAX_WIRE_BYTES * 2).await;
+            let (attempt, service) = pair(config, session, capacity).await;
             let _ = dials.send(Dial {
                 session,
                 resumed,

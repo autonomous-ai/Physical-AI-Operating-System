@@ -1382,10 +1382,13 @@ impl InputHandoff {
                 // dropping a root End that is still on the IPC socket would
                 // leave the Gemini actor's old input open and reject the Start.
                 match input.end(submitted.request) {
-                    // Its connection is gone; there is no open input to close.
+                    // Its connection is gone, or has just been given up for
+                    // an input queue that overran: either way there is no
+                    // open input to close on the connection that comes next.
                     Err(error)
                         if self.tolerate_outage
                             && (error == Error::NotConnected
+                                || error == Error::Backpressure
                                 || (error == Error::StaleRequest
                                     && input
                                         .belongs_to_replaced_connection(submitted.request))) => {}
@@ -1411,6 +1414,14 @@ impl InputHandoff {
 
     /// A missing connection or proven old-session input is survivable only in
     /// typed recovery. An arbitrary stale request remains a protocol fault.
+    ///
+    /// So is an input queue that overran. The link's sender gives its own
+    /// connection up when its queue is full, which is how a write stuck on
+    /// a stalled network shows first on this side; `lamp-gemini` then
+    /// reconnects and reports the request lost. Until 2026-10-13 that
+    /// refusal was not counted an outage and ended the worker and the
+    /// service with it ("provider unavailable while input was admitted:
+    /// Gemini Live Backpressure", lamp-4ace, 16:50:55).
     fn refused(&mut self, request: RequestId, error: Error, input: &impl InputSink) -> Result<()> {
         let was_submitted = self
             .submitted
@@ -1418,7 +1429,8 @@ impl InputHandoff {
         let replaced = was_submitted
             && error == Error::StaleRequest
             && input.belongs_to_replaced_connection(request);
-        if self.tolerate_outage && (error == Error::NotConnected || replaced) {
+        let overran = was_submitted && error == Error::Backpressure;
+        if self.tolerate_outage && (error == Error::NotConnected || replaced || overran) {
             if !was_submitted && self.undelivered.is_some() {
                 return Err(io::Error::other("unreported refused Start must be drained").into());
             }
@@ -1441,6 +1453,12 @@ impl InputHandoff {
         let error = match refusal {
             StartRefusal::NotConnected => Error::NotConnected,
             StartRefusal::SessionMismatch { .. } => Error::StaleRequest,
+            // The queue overran on the Start itself: nothing of this request
+            // was accepted and its connection has been given up. As for a
+            // missing connection, the worker owes the report.
+            StartRefusal::Refused(Error::Backpressure) if self.tolerate_outage => {
+                Error::Backpressure
+            }
             StartRefusal::Refused(error) => return Err(error.into()),
         };
         if !self.tolerate_outage {
@@ -1863,6 +1881,10 @@ mod tests {
         reject_end: Cell<bool>,
         reject_start: Cell<bool>,
         disconnected: Cell<bool>,
+        /// The next thing offered overruns the link's input queue: it is
+        /// refused as backpressure and the connection is gone from then
+        /// on, as with the real sender.
+        overrun: Cell<bool>,
         /// Zero means the initial session (1); tests can install a replacement.
         session: Cell<u64>,
     }
@@ -1874,6 +1896,10 @@ mod tests {
         ) -> std::result::Result<(), StartRefusal> {
             if self.disconnected.get() {
                 return Err(StartRefusal::NotConnected);
+            }
+            if self.overrun.replace(false) {
+                self.disconnected.set(true);
+                return Err(StartRefusal::Refused(lamp_gemini::Error::Backpressure));
             }
             let live = SessionId::new(self.session.get().max(1)).unwrap();
             if live != session {
@@ -1899,6 +1925,10 @@ mod tests {
             if self.disconnected.get() {
                 return Err(lamp_gemini::Error::NotConnected);
             }
+            if self.overrun.replace(false) {
+                self.disconnected.set(true);
+                return Err(lamp_gemini::Error::Backpressure);
+            }
             if self.open.get() != Some(request.get()) || request.get() <= self.retired.get() {
                 return Err(lamp_gemini::Error::StaleRequest);
             }
@@ -1911,6 +1941,10 @@ mod tests {
         fn end(&self, request: RequestId) -> lamp_gemini::Result<()> {
             if self.disconnected.get() {
                 return Err(lamp_gemini::Error::NotConnected);
+            }
+            if self.overrun.replace(false) {
+                self.disconnected.set(true);
+                return Err(lamp_gemini::Error::Backpressure);
             }
             if self.reject_end.get() {
                 self.calls
@@ -3077,6 +3111,97 @@ mod tests {
     }
 
     #[test]
+    fn an_overrun_input_queue_is_an_outage_and_not_the_end_of_the_worker() {
+        // After an accepted Start, on its audio or on its end: the request
+        // is failed here, the supervisor owns its terminal stage, and the
+        // rest of what was said in it is discarded.
+        for overrun_on_end in [false, true] {
+            let mut owner = controller();
+            let mut handoff = InputHandoff {
+                tolerate_outage: true,
+                ..InputHandoff::default()
+            };
+            let sink = RecordingSink::default();
+            let request = authorize(&mut owner, &mut handoff);
+            handoff
+                .submit(start(request, &handoff), NOW, &sink)
+                .unwrap();
+            handoff
+                .submit(audio(request, 1, 7, &handoff), NOW, &sink)
+                .unwrap();
+            sink.overrun.set(true);
+            let refused = if overrun_on_end {
+                end(request, &handoff)
+            } else {
+                audio(request, 2, 8, &handoff)
+            };
+            handoff.submit(refused, NOW, &sink).unwrap();
+            assert_eq!(handoff.undelivered, None);
+            assert_eq!(handoff.failed_through, request);
+            assert!(handoff.submitted.is_none());
+            handoff
+                .submit(audio(request, 3, 9, &handoff), NOW, &sink)
+                .unwrap();
+            handoff.submit(end(request, &handoff), NOW, &sink).unwrap();
+            assert_eq!(
+                *sink.calls.borrow(),
+                vec![Call::Start(request), Call::Audio(request, 1, vec![7; 160])]
+            );
+            // The next thing said, on the connection that replaced it, is
+            // an ordinary request.
+            sink.disconnected.set(false);
+            sink.open.set(None);
+            let next = authorize(&mut owner, &mut handoff);
+            handoff.submit(start(next, &handoff), NOW, &sink).unwrap();
+            assert_eq!(handoff.submitted.unwrap().request.get(), next);
+        }
+        // On the Start itself: nothing of the request was accepted, and the
+        // worker owes the report that it was not delivered.
+        let mut owner = controller();
+        let mut handoff = InputHandoff {
+            tolerate_outage: true,
+            ..InputHandoff::default()
+        };
+        let sink = RecordingSink::default();
+        let request = authorize(&mut owner, &mut handoff);
+        sink.overrun.set(true);
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        assert_eq!(handoff.undelivered.take(), Some(request));
+        assert_eq!(handoff.failed_through, request);
+        assert!(sink.calls.borrow().is_empty());
+        // While the request before is being closed for its successor.
+        let mut owner = controller();
+        let mut handoff = InputHandoff {
+            tolerate_outage: true,
+            ..InputHandoff::default()
+        };
+        let sink = RecordingSink::default();
+        let old = authorize(&mut owner, &mut handoff);
+        handoff.submit(start(old, &handoff), NOW, &sink).unwrap();
+        let new = authorize(&mut owner, &mut handoff);
+        sink.overrun.set(true);
+        handoff.submit(start(new, &handoff), NOW, &sink).unwrap();
+        assert_eq!(handoff.undelivered.take(), Some(new));
+        assert!(handoff.submitted.is_none());
+        // Without typed recovery it still ends the worker, as before.
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let sink = RecordingSink::default();
+        let request = authorize(&mut owner, &mut handoff);
+        handoff
+            .submit(start(request, &handoff), NOW, &sink)
+            .unwrap();
+        sink.overrun.set(true);
+        assert!(
+            handoff
+                .submit(audio(request, 1, 7, &handoff), NOW, &sink)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn outage_before_start_reports_not_delivered_once_and_never_replays_input() {
         let mut owner = controller();
         let mut handoff = InputHandoff {
@@ -3433,6 +3558,24 @@ mod tests {
             camera: bool,
             continuation: Continuation,
         ) -> Self {
+            Self::start_capacity(
+                policy,
+                options,
+                barrier,
+                camera,
+                continuation,
+                lamp_gemini::MAX_WIRE_BYTES * 2,
+            )
+        }
+        /// With this many bytes between the worker and the scripted service.
+        fn start_capacity(
+            policy: RecoveryPolicy,
+            options: Options,
+            barrier: BarrierPolicy,
+            camera: bool,
+            continuation: Continuation,
+            capacity: usize,
+        ) -> Self {
             let (directory, parent, worker) = intake_channels();
             let boot = BootId::new([9; 16]).unwrap();
             let mut owner = Controller::new(boot, real_time());
@@ -3449,7 +3592,7 @@ mod tests {
                         .barrier_policy(barrier),
                 )
                 .unwrap();
-            let (dialer, dials) = connector(config);
+            let (dialer, dials) = lamp_gemini::testing::connector_with_capacity(config, capacity);
             let provider = Supervisor::new(dialer, policy).unwrap();
             let visual = if camera {
                 owner
@@ -5837,6 +5980,93 @@ mod tests {
             rig.output().await,
             ProviderOutput::Audio { request, .. } if request == next
         ));
+    }
+
+    /// lamp-4ace, 2026-10-13 16:50:55: the network stalled, what was being
+    /// said overran the link's input queue, and the worker ended with
+    /// "provider unavailable while input was admitted: Gemini Live
+    /// Backpressure", taking the voice service with it. Here the scripted
+    /// service stops reading, so the worker's writes really block.
+    #[tokio::test]
+    async fn a_stalled_link_fails_the_request_in_hand_and_the_worker_serves_the_next() {
+        // As the lamp runs: a new session each time, with nothing resumed.
+        let mut rig = LiveRig::start_capacity(
+            RecoveryPolicy {
+                outage_budget: Duration::from_secs(5),
+                require_context: false,
+                ..quick_policy()
+            },
+            Options {
+                reporting: Reporting::Typed,
+            },
+            BARRIER,
+            false,
+            Continuation::Off,
+            2_048,
+        );
+        let mut dial = rig.ready().await;
+        // Someone starts speaking; the service has the start and the first
+        // block, and then reads nothing more.
+        let request = rig.speak(&mut dial, false, false).await;
+        let privacy_generation = rig.snapshot.microphone_generation();
+        let mut failed = None;
+        let mut sequence = 1;
+        let deadline = Instant::now() + Duration::from_secs(4);
+        while failed.is_none() {
+            assert!(Instant::now() < deadline, "the stall was never noticed");
+            assert!(
+                !rig.worker.is_finished(),
+                "the worker ended on a stalled link"
+            );
+            for _ in 0..4 {
+                sequence += 1;
+                // Once the request has failed the worker discards the rest.
+                let _ = rig.parent.data.send(ProviderInput::Audio {
+                    request,
+                    privacy_generation,
+                    sequence,
+                    read_completed_at_us: monotonic_us(),
+                    samples: vec![3; 160],
+                });
+            }
+            rig.pump(Duration::from_millis(4)).await;
+            if rig.worker.is_finished() {
+                let ended = (&mut rig.worker).await.unwrap();
+                panic!("the worker ended on a stalled link: {ended:?}");
+            }
+            while let Some(wire) = rig.take() {
+                if let Wire::Status(ProviderStatus::TurnFailed {
+                    request: lost,
+                    stage,
+                    ..
+                }) = wire
+                {
+                    assert_eq!(lost, request);
+                    failed = Some(stage);
+                }
+            }
+        }
+        // Lost with its input open: nothing of it is called delivered.
+        assert_eq!(failed, Some(FailedStage::InputOpen));
+        // The worker is alive, a new connection is made, and the next thing
+        // said is served on it.
+        let mut redial = rig.dial().await;
+        let setup = rig.service_message(&mut redial).await;
+        assert!(setup.get("setup").is_some());
+        redial.service.send(json!({"setupComplete": {}})).await;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            assert!(Instant::now() < deadline, "no recovery reported");
+            if let Wire::Status(ProviderStatus::Recovered { .. }) = rig.wire().await {
+                break;
+            }
+        }
+        rig.owner
+            .cancel_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        let next = rig.speak(&mut redial, false, true).await;
+        assert!(next > request);
+        assert!(!rig.worker.is_finished());
     }
 
     #[tokio::test]

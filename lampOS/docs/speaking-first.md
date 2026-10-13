@@ -151,8 +151,8 @@ and nobody is talking to you at the moment.)
 The second use is the room (`crates/live/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`; [character.md](character.md), "The rule follows the
 room"). The provider worker sees every request and whether the lamp spoke
-in it, and from that alone calls the room quiet (nothing heard for five
-minutes) or busy (three things in a row, inside a minute, that the lamp
+in it, and from that alone calls the room quiet (nothing said for five
+minutes; a sound the coordinator dropped does not count) or busy (three things in a row, inside a minute, that the lamp
 said nothing to). When that changes, and when a session opens, the session
 is told one of:
 

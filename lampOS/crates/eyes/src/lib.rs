@@ -8,6 +8,7 @@
 //! [`kept`] holds the newest one in a private file for the voice service to
 //! show the model, and no other.
 pub mod faces;
+pub mod facing;
 pub mod kept;
 pub mod picture;
 pub mod sight;

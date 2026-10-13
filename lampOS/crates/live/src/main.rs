@@ -92,10 +92,10 @@ fn run() -> Result<()> {
                 let heard=lamp_gemini::RequestId::new(1)?;
                 input.try_start(heard)?;
                 let mut noise=0x2545_f491u32;
-                for sequence in 0..10u64 {
-                    let block:Vec<i16>=(0..1_600).map(|_| { noise=noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223); ((noise>>24) as i16)-128 }).collect();
+                for sequence in 0..50u64 {
+                    let block:Vec<i16>=(0..lamp_gemini::MAX_INPUT_SAMPLES).map(|_| { noise=noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223); ((noise>>24) as i16)-128 }).collect();
                     input.try_audio(heard,sequence,std::time::Instant::now(),&block)?;
-                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
                 }
                 input.try_end(heard)?;
                 let (mut sound_ended,mut sound_said,mut sound_samples)=("timeout",String::new(),0usize);

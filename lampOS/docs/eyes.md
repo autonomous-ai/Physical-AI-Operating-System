@@ -171,6 +171,34 @@ picture's or more is the one reported: somebody at the lamp, not somebody
 across the room. With several people near, that is whoever is nearest the
 camera, and it can change from look to look.
 
+## On the bus
+
+With `LAMP_BUS=on` in its unit the eyes also publish every face the
+detector finds, not only the one the body is told to look at, on
+`humans/faces/tracked` ([bus.md](bus.md), "On the lamp";
+`crates/eyes/src/bus_out.rs`). For each face:
+
+- **a passing id** (`f1`, `f2`, ...): the same from one look to the next
+  for as long as its box overlaps where it was within the last 1.5 s,
+  a new one after that, never given twice, and never a person's name;
+- **its box**, each edge as a fraction of the picture;
+- **how sure the detector was**;
+- **how far it is turned**, in radians, and **whether that counts as
+  turned to the lamp** ([`facing`](../crates/eyes/src/facing.rs): within
+  60 degrees in the middle of the picture, more toward its edges, where
+  the lens shows a straight face turned). A face narrower than 7.5% of
+  the picture, or with an eye or the nose outside it, has neither: it
+  counts for nothing either way.
+
+A list lasts two seconds, and an empty one says the camera looked and saw
+nobody. With the camera closed nothing is published and the last list
+runs out. This is the sign a person gives, without meaning to, that they
+are speaking to the lamp. Nothing uses it yet: the part that decides
+whom the lamp answers ([policy.md](policy.md)) is to. The numbers for
+"turned to the lamp" are V1's, tuned on V1's lamps at twice this
+picture's width, and the sign of the angle assumes the picture is not
+mirrored: neither has been checked with a person in front of this lamp.
+
 ## Running it
 
 ```text

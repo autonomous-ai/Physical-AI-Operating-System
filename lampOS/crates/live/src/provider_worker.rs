@@ -64,6 +64,15 @@ const RENEW_AFTER_UNANSWERED: u32 = 8;
 const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(180);
 /// Requests the service has left unanswered since it last answered one.
 static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// Where the eyes keep their newest frame, when the lamp may take a look.
+static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// When the lamp last looked (a picture went into this session), and when
+/// anything was last submitted. A picture in a session's history makes
+/// every later answer about half a second slower ([eyes.md]), so once the
+/// conversation has paused the session is renewed without it.
+static LOOKED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static SUBMITTED_AT_US: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+const RENEW_AFTER_LOOK_QUIET_US: u64 = 20_000_000;
 
 /// How long `Continuation::KeptStart` keeps a next request's start back. In
 /// the one real-service run that shows it, an answer's first audio came
@@ -171,6 +180,10 @@ pub enum ProviderInput {
         session: u64,
         privacy_generation: u64,
         text: String,
+        /// The lamp is taking a look: the eyes' newest frame goes with the
+        /// note, if they are open and this worker was told where it is.
+        #[serde(default)]
+        look: bool,
     },
 }
 impl ProviderInput {
@@ -492,12 +505,14 @@ pub async fn run_with_visual_context(
         visual,
         Continuation::Off,
         None,
+        None,
     )
     .await
 }
 
 /// The same, with an explicit choice of what happens when a person goes on
 /// before the first answer has begun.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_with_continuation(
     channels: WorkerChannels,
     boot: BootId,
@@ -506,7 +521,11 @@ pub async fn run_with_continuation(
     visual: Option<(VisualSource, BootId)>,
     continuation: Continuation,
     sight: Option<crate::sight::Sight>,
+    look_file: Option<std::path::PathBuf>,
 ) -> Result<()> {
+    if let Some(path) = look_file {
+        let _ = LOOK_FILE.set(path);
+    }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
     let recovery = provider_config.recovery_policy();
@@ -603,6 +622,20 @@ async fn serve_with_visual<C: Connect>(
                     );
                     renewed_at = Instant::now();
                     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
+                // And one that holds a picture, once the talk has paused.
+                let looked = LOOKED_AT_US.load(std::sync::atomic::Ordering::Relaxed);
+                if looked != 0
+                    && monotonic_us().saturating_sub(
+                        SUBMITTED_AT_US.load(std::sync::atomic::Ordering::Relaxed).max(looked),
+                    ) >= RENEW_AFTER_LOOK_QUIET_US
+                    && provider.renew_when_idle()
+                {
+                    eprintln!(
+                        "lamp-live provider: the lamp looked and the talk has paused; renewing the session without the picture"
+                    );
+                    LOOKED_AT_US.store(0, std::sync::atomic::Ordering::Relaxed);
+                    renewed_at = Instant::now();
                 }
                 // Camera revocation also bypasses PCM credit and a full control
                 // slice. A partial cloud image write may abandon that connection;
@@ -1338,6 +1371,9 @@ impl InputHandoff {
         {
             return Err(io::Error::other("provider input lost privacy authority").into());
         }
+        if !matches!(command, ProviderInput::Audio { .. }) {
+            SUBMITTED_AT_US.store(now_us, std::sync::atomic::Ordering::Relaxed);
+        }
         let request = RequestId::new(command.request())?;
         if request.get() <= self.retired_through.max(self.failed_through) {
             // Old PCM retains its old identity and is discarded without reaching
@@ -1419,13 +1455,38 @@ impl InputHandoff {
                     submitted.open = false;
                 }
             }
-            ProviderInput::Written { session, text, .. } => {
+            ProviderInput::Written {
+                session,
+                text,
+                look,
+                ..
+            } => {
                 if self.submitted.is_some() {
                     return Err(io::Error::other("provider input already started").into());
                 }
                 let expected = SessionId::new(session)?;
-                if let Err(refusal) = input.written(expected, request, &text) {
+                // A look with the eyes shut is said to be one: the model is
+                // not left to describe a picture it was not given.
+                let picture = look
+                    .then(|| LOOK_FILE.get())
+                    .flatten()
+                    .and_then(|path| crate::sight::fresh(path, std::time::SystemTime::now()).ok())
+                    .map(|(jpeg, _)| jpeg);
+                let text = if look && picture.is_none() {
+                    crate::speak_up::NO_LOOK_NOTE
+                } else {
+                    text.as_str()
+                };
+                if let Err(refusal) = input.written(expected, request, text, picture.as_deref()) {
                     return self.refused_start(request, refusal);
+                }
+                if let Some(jpeg) = picture.as_ref() {
+                    eprintln!(
+                        "lamp-live provider: the lamp looked: a picture of {} bytes went with request {}",
+                        jpeg.len(),
+                        request.get()
+                    );
+                    LOOKED_AT_US.store(now_us, std::sync::atomic::Ordering::Relaxed);
                 }
                 // Started and ended at once: nothing more is sent for it.
                 self.submitted = Some(SubmittedInput {
@@ -1474,6 +1535,7 @@ trait InputSink {
         _session: SessionId,
         _request: RequestId,
         _text: &str,
+        _picture: Option<&[u8]>,
     ) -> std::result::Result<(), StartRefusal> {
         Err(StartRefusal::NotConnected)
     }
@@ -1515,8 +1577,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
         session: SessionId,
         request: RequestId,
         text: &str,
+        picture: Option<&[u8]>,
     ) -> std::result::Result<(), StartRefusal> {
-        self.try_written_for_session(session, request, text, None)
+        self.try_written_for_session(session, request, text, picture)
     }
     fn retire(&self, request: RequestId) {
         Supervisor::retire(self, request);

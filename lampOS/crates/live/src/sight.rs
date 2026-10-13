@@ -33,6 +33,12 @@ use std::{
 /// The provider worker's flag, and where the coordinator reads the path.
 pub const FLAG: &str = "--eyes-sight";
 pub const ENVIRONMENT: &str = "LAMP_EYES_SIGHT_FILE";
+/// The same file used another way: no picture goes with what is said, and
+/// one goes with a request that is the lamp taking a look because it was
+/// asked to (`ProviderInput::Written` with `look`). Ordinary answers then
+/// carry no picture and pay nothing for one.
+pub const LOOK_FLAG: &str = "--eyes-look";
+pub const LOOK_ENVIRONMENT: &str = "LAMP_EYES_LOOK_FILE";
 
 const FRESH: Duration = Duration::from_secs(1);
 /// The least time between two looks, whichever requests they fall in.
@@ -61,11 +67,49 @@ fn usable(path: &Path) -> bool {
 /// The provider worker's arguments for the path in the environment: none
 /// when it is unset, so a worker started without it is started as before.
 pub fn arguments_from_environment() -> Vec<String> {
-    std::env::var(ENVIRONMENT)
+    let named = |environment: &str, flag: &str| {
+        std::env::var(environment)
+            .ok()
+            .filter(|path| usable(Path::new(path)))
+            .map(|path| vec![flag.to_owned(), path])
+            .unwrap_or_default()
+    };
+    let mut arguments = named(ENVIRONMENT, FLAG);
+    arguments.extend(named(LOOK_ENVIRONMENT, LOOK_FLAG));
+    arguments
+}
+
+/// Take a leading `--eyes-look PATH` off a worker's flags.
+pub fn take_look(flags: &[String]) -> io::Result<(Option<PathBuf>, &[String])> {
+    match flags {
+        [flag, path, rest @ ..] if flag == LOOK_FLAG && usable(Path::new(path)) => {
+            Ok((Some(path.into()), rest))
+        }
+        [flag, ..] if flag == LOOK_FLAG => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the eyes' picture needs a short absolute path",
+        )),
+        _ => Ok((None, flags)),
+    }
+}
+
+/// The eyes' newest frame and its age, if they are open: a file written in
+/// the last second, of a size the provider takes.
+pub fn fresh(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration), &'static str> {
+    let about = std::fs::metadata(path).map_err(|_| "the eyes have no picture")?;
+    let age = about
+        .modified()
         .ok()
-        .filter(|path| usable(Path::new(path)))
-        .map(|path| vec![FLAG.to_owned(), path])
-        .unwrap_or_default()
+        .and_then(|at| now.duration_since(at).ok())
+        .unwrap_or_default();
+    if age > FRESH {
+        return Err("the eyes' picture is old");
+    }
+    if about.len() > MAX_IMAGE_BYTES as u64 {
+        return Err("the eyes' picture is too large");
+    }
+    let jpeg = std::fs::read(path).map_err(|_| "the eyes have no picture")?;
+    Ok((jpeg, age))
 }
 
 impl Sight {
@@ -118,20 +162,7 @@ impl Sight {
 
     /// The newest frame and its age, if the eyes are open.
     fn picture(&self, now: SystemTime) -> Result<(Vec<u8>, Duration), &'static str> {
-        let about = std::fs::metadata(&self.path).map_err(|_| "the eyes have no picture")?;
-        let age = about
-            .modified()
-            .ok()
-            .and_then(|at| now.duration_since(at).ok())
-            .unwrap_or_default();
-        if age > FRESH {
-            return Err("the eyes' picture is old");
-        }
-        if about.len() > MAX_IMAGE_BYTES as u64 {
-            return Err("the eyes' picture is too large");
-        }
-        let jpeg = std::fs::read(&self.path).map_err(|_| "the eyes have no picture")?;
-        Ok((jpeg, age))
+        fresh(&self.path, now)
     }
 
     /// Call every tick with the request whose input is open, if any.
@@ -188,6 +219,14 @@ mod tests {
         assert!(sight.is_none());
         assert_eq!(rest, &none[..]);
         assert!(Sight::take(&flags(&[FLAG])).is_err());
+        // The look flag is its own, after it.
+        let both = flags(&[LOOK_FLAG, "/run/lampos-eyes/sight.jpg", "--camera-context"]);
+        let (look, rest) = take_look(&both).unwrap();
+        assert_eq!(look, Some(PathBuf::from("/run/lampos-eyes/sight.jpg")));
+        assert_eq!(rest, &both[2..]);
+        assert_eq!(take_look(&none).unwrap(), (None, &none[..]));
+        assert!(take_look(&flags(&[LOOK_FLAG])).is_err());
+        assert!(take_look(&flags(&[LOOK_FLAG, "sight.jpg"])).is_err());
         assert!(Sight::take(&flags(&[FLAG, "sight.jpg"])).is_err());
         assert!(Sight::take(&flags(&[FLAG, "/run/../etc/passwd"])).is_err());
     }

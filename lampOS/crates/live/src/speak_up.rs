@@ -34,6 +34,35 @@ pub const SPEAK_ENVIRONMENT: &str = "LAMP_SPEAK_FIRST";
 /// What the model is given in place of something heard.
 pub const NOTE: &str = "(Nobody has spoken. Someone has just come and sat down in front of you after being away for a while. Say hello the way a friend at the next desk would: a few warm words and no question they have to answer.)";
 
+/// What the model is given with the picture when the lamp takes a look,
+/// and without one when its eyes are shut.
+pub const LOOK_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see.)";
+pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing. Tell them so in a few light words.)";
+
+/// Whether an answer that opens like this is the lamp saying it will look:
+/// its own words are how it asks for its eyes. Only "let me look" and its
+/// two longer forms; "let me see" is something people say before any answer.
+pub fn asks_to_look(opening: &str) -> bool {
+    let plain: String = opening
+        .chars()
+        .map(|c| {
+            if c.is_alphabetic() {
+                c.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect();
+    let words: Vec<&str> = plain.split_whitespace().collect();
+    [
+        &["let", "me", "look"][..],
+        &["let", "me", "take", "a", "look"][..],
+        &["let", "me", "have", "a", "look"][..],
+    ]
+    .iter()
+    .any(|phrase| words.len() >= phrase.len() && words[..phrase.len()] == **phrase)
+}
+
 const THERE_FOR_US: u64 = 3_000_000;
 const AWAY_FOR_US: u64 = 300_000_000;
 const LOOKED_AWAY_US: u64 = 20_000_000;
@@ -247,6 +276,25 @@ mod tests {
         assert_eq!(pass(&mut arrival, &mut now, 30, true, QUIET), 0);
         assert_eq!(pass(&mut arrival, &mut now, 800, false, QUIET), 0);
         assert_eq!(pass(&mut arrival, &mut now, 10, true, QUIET), 1);
+    }
+
+    #[test]
+    fn only_saying_it_will_look_asks_for_a_look() {
+        for (opening, asks) in [
+            ("Let me look.", true),
+            ("Let me look... okay.", true),
+            ("let me take a look", true),
+            ("Let me have a look!", true),
+            ("Let me see... that's four!", false),
+            ("Let me think.", false),
+            ("Let", false),
+            ("Let me", false),
+            ("I'll let me look", false),
+            ("Look, it's simple.", false),
+            ("", false),
+        ] {
+            assert_eq!(asks_to_look(opening), asks, "{opening:?}");
+        }
     }
 
     #[test]

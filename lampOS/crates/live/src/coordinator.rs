@@ -2146,6 +2146,13 @@ fn conversation(
         None
     };
     let mut last_turn_us = monotonic_us();
+    // Taking a look when asked: the lamp's own "Let me look" is how it asks
+    // for its eyes, and the look is the turn after it. Only where the eyes
+    // keep a frame for it.
+    let looks = lifetime.continuous()
+        && std::env::var_os(crate::sight::LOOK_ENVIRONMENT).is_some_and(|path| !path.is_empty());
+    let mut answer_opening: Option<(u64, String)> = None;
+    let mut look_wanted: Option<(u64, u64)> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -2488,6 +2495,26 @@ fn conversation(
                             snapshot = owner.snapshot(now())?;
                             rig.publish(snapshot)?;
                             last_publish = monotonic_us();
+                        }
+                    }
+                    // The lamp saying it will look is the lamp asking to.
+                    if looks && let Some(turn) = request {
+                        if answer_opening.as_ref().map(|(of, _)| *of) != Some(turn) {
+                            answer_opening = Some((turn, String::new()));
+                        }
+                        if let Some((_, opening)) = answer_opening.as_mut()
+                            && opening.len() < 64
+                        {
+                            opening.push_str(&text);
+                            if look_wanted.map(|(of, _)| of) != Some(turn)
+                                && crate::speak_up::asks_to_look(opening)
+                            {
+                                look_wanted = Some((turn, monotonic_us()));
+                                record(
+                                    trace,
+                                    json!({"kind":"look_asked","turn":turn,"at_us":monotonic_us()}),
+                                )?;
+                            }
                         }
                     }
                     // The lamp's own words, as its answer begins: a nod
@@ -3239,6 +3266,38 @@ fn conversation(
         if reply.is_some() || admission.owns_stream() {
             last_turn_us = clock;
         }
+        // The look the lamp said it would take, as soon as it has finished
+        // saying so. Someone speaking first takes the turn and the look is
+        // dropped; so is one that could not begin within fifteen seconds of being asked for.
+        if let Some((turn, asked_us)) = look_wanted {
+            match reply.as_ref().map(|current| current.owner.turn()) {
+                Some(current) if current == turn => {}
+                Some(_) => look_wanted = None,
+                None if clock.saturating_sub(asked_us) > 15_000_000 => look_wanted = None,
+                None => {
+                    if provider_queue.is_empty()
+                        && !admission.owns_stream()
+                        && !submission_draining
+                        && snapshot.listening_ready(now())
+                        && let Some(provider_session) = cloud.ready_session()
+                    {
+                        look_wanted = None;
+                        snapshot = commit_written_turn(
+                            owner,
+                            reply,
+                            &mut provider_queue,
+                            crate::speak_up::LOOK_NOTE,
+                            true,
+                            provider_session,
+                            rig.playout_start,
+                            trace,
+                            |state| rig.publish(state),
+                        )?;
+                        last_publish = monotonic_us();
+                    }
+                }
+            }
+        }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
         }
@@ -3258,6 +3317,7 @@ fn conversation(
                     reply,
                     &mut provider_queue,
                     crate::speak_up::NOTE,
+                    false,
                     provider_session,
                     rig.playout_start,
                     trace,
@@ -3614,6 +3674,7 @@ fn commit_written_turn(
     reply: &mut Option<Reply>,
     provider_queue: &mut VecDeque<ProviderInput>,
     note: &str,
+    look: bool,
     provider_session: u64,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
@@ -3630,7 +3691,7 @@ fn commit_written_turn(
     record(
         trace,
         json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),
-            "admission_basis":"lamp_speaks_first","provider_session":provider_session,
+            "admission_basis":if look {"lamp_looks"} else {"lamp_speaks_first"},"provider_session":provider_session,
             "boundary":"no sound was heard: a written note stands in for speech"}),
     )?;
     provider_queue.push_back(ProviderInput::Written {
@@ -3638,6 +3699,7 @@ fn commit_written_turn(
         session: provider_session,
         privacy_generation: snapshot.microphone_generation(),
         text: note.to_owned(),
+        look,
     });
     let current = Reply {
         owner: turn,

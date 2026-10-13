@@ -1,6 +1,7 @@
 //! Sole, bounded ring writer. Control authority is never renewed by frame data.
 use crate::{
     ring_face::{Face, Mood},
+    ring_light::RingLight,
     ring_wire::{RingBlankReason, RingFeedback, RingFrame, RingPhase, RingRejection},
     transport::WorkerChannels,
     wire::{Control, WorkerEvent},
@@ -72,7 +73,7 @@ pub fn run_with_sink_resting(
         Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
     };
     match GuardedRing::new(sink, controller_boot) {
-        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting),
+        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting, None),
         Err(error) => report_start_failure(&mut link, io::Error::other(error)),
     }
 }
@@ -80,25 +81,38 @@ pub fn run_with_sink_resting(
 #[cfg(target_os = "linux")]
 pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false, None),
+        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false, None, None),
         Err(error) => report_start_failure(&mut link, error),
     }
 }
 
 /// Supervisor-only lifetime selection. This removes the finite test ceiling,
 /// not the installed authority, parent transport or initial-lease watchdogs.
+/// With `bus_root`, the lamp's own light is taken from the bus there and
+/// what the ring shows is said on it ([`crate::ring_light`]); a bus that
+/// cannot be used is said once and the ring runs without.
 #[cfg(target_os = "linux")]
 pub fn run_continuous(
     mut link: WorkerChannels,
     controller_boot: BootId,
     resting: Option<u16>,
+    bus_root: Option<&std::path::Path>,
 ) -> io::Result<()> {
+    let light = bus_root.and_then(|root| match RingLight::on(root) {
+        Ok(light) => Some(light),
+        Err(error) => {
+            eprintln!("lamp-voice ring: the lamp's light is not on the bus: {error}");
+            None
+        }
+    });
     let resting = match resting.map(ChannelCeiling::new).transpose() {
         Ok(resting) => resting,
         Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
     };
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, true, resting),
+        Ok((ring, _configuration)) => {
+            run_guarded(link, controller_boot, ring, true, resting, light)
+        }
         Err(error) => report_start_failure(&mut link, error),
     }
 }
@@ -142,10 +156,18 @@ fn run_guarded(
     mut ring: GuardedRing<impl FrameSink>,
     continuous: bool,
     resting: Option<ChannelCeiling>,
+    light: Option<(RingLight, crate::ring_face::Lit)>,
 ) -> io::Result<()> {
     let result = (|| {
         link.publish(WorkerEvent::Ready)?;
-        service(&mut link, &mut ring, controller_boot, continuous, resting)
+        service(
+            &mut link,
+            &mut ring,
+            controller_boot,
+            continuous,
+            resting,
+            light,
+        )
     })();
     if let Err(original) = result {
         // GuardedRing already performs its sole cleanup on a write fault. Do
@@ -270,12 +292,19 @@ fn service(
     controller_boot: BootId,
     continuous: bool,
     resting: Option<ChannelCeiling>,
+    light: Option<(RingLight, crate::ring_face::Lit)>,
 ) -> io::Result<()> {
     let started = monotonic_us();
     let mut guard = BoundaryGuard::new(controller_boot, now());
     let mut pending = None;
     // One face for cues and for rest, so that each eases into the other.
     let mut face = Face::new();
+    // The lamp's own light, which is that face at rest: the one last asked
+    // for on the bus, and from here on whatever is asked for.
+    let mut light = light.map(|(light, begins)| {
+        face.light(begins);
+        light
+    });
     let mut rested_at = 0u64;
     loop {
         let tick = monotonic_us();
@@ -377,6 +406,11 @@ fn service(
         // resting frame never delays a cue or a revocation. The ring refuses
         // it, with no write, unless nobody owns the lamp and it may listen.
         let at = monotonic_us();
+        if let Some(light) = light.as_mut()
+            && let Some(asked) = light.tick(at)
+        {
+            face.light(asked);
+        }
         if let Some(ceiling) = resting
             && pending.is_none()
             && budget > 0

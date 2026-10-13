@@ -66,6 +66,54 @@ like any other.
 So the resting face means one thing: the lamp is on and able to hear. It is
 dark when the privacy switch is closed.
 
+### The lamp's own light
+
+The resting face is also the lamp's light: a colour and a level that
+someone can ask for ("make your light blue", "a bit brighter") and that
+stays until it is asked for again. The faces of listening, thinking and
+speaking are the lamp's expression and do not change with it; when a turn
+is over the ring eases back into its light.
+
+| | |
+|---|---|
+| Colours | Ten, by name: yellow, red, green, blue, cyan, purple, orange, pink, white, warm. `warm` is the amber the lamp has always rested in |
+| Levels | 1 to 5: about 7, 24, 44, 68 and 90 hundredths of the ceiling, each with a slow breath of 6 to 10 more on top. The fifth reaches the ceiling at the top of a breath |
+| Before anyone asks | On, warm, level 1: exactly the resting face described above |
+| Off | Not dark. An amber ember, 3 to 5 hundredths of the ceiling, about half the lowest light |
+
+Off is an ember because of what the resting face means. A ring that went
+dark on "turn your light off" would look like a lamp that cannot hear,
+while it can. What is answered says so: "My light is off. The faint glow
+that is left shows I am still listening." The privacy switch still makes
+the ring dark, whatever light is set.
+
+The ring worker is the only writer of the ring, so it is also the one
+that takes the light (`src/ring_light.rs`). Started with
+`--bus-root DIR` (the coordinator adds it when the voice's unit has
+`LAMP_BUS=on`), it:
+
+- begins with the light last asked for, which the bus keeps as the newest
+  value of `light/command`, or with the first light if there is none;
+- looks every 50 ms for a light asked for on `light/command`
+  (`lamp_msgs/Light`) and eases the ring into it. A request that is not a
+  light there is (a colour that does not exist, a level outside 1 to 5,
+  something that is not a `Light`) is passed over;
+- says what it shows on `light/state` when that changes and once a
+  second, each good for three seconds, so that a ring that has stopped is
+  not a light that can be asked for.
+
+Whoever asks never writes the ring: the actions program publishes the
+light wanted and reads the state back ([actions.md](actions.md)). A bus
+that cannot be used is said once in the voice's log and the ring runs as
+it did, in its first light. The light is kept by the bus, which lives in
+memory: after the board restarts the lamp is back in its first light.
+
+Not shown: host tests only when this was written (the face in each colour
+and at each level, the ember, the faces of a turn unchanged by it, and
+the bus side against a bus in a temporary directory). How the colours and
+the levels look on the ring, and whether level 5 is a useful light under
+the ceiling the lamp runs with, are for a person in front of it.
+
 Seen through the office iMac's camera on lamp-4ace on 2026-10-12 with a
 ceiling of 40: across eight stills of the resting face the dark centre of
 the head, which reflects the ring, varied between 45 and 59 of 255 while a

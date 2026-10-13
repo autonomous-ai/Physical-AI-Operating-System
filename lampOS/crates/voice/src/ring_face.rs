@@ -21,6 +21,85 @@ pub enum Mood {
     Speaking,
 }
 
+/// The lamp's own light: what its face is at rest. A lasting setting,
+/// asked for by name ("make your light blue") and kept until asked again.
+/// The faces of listening, thinking and speaking are the lamp's
+/// expression and do not change with it; when they are over the ring
+/// comes back to this.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lit {
+    /// Off is not dark: see [`EMBER`].
+    pub on: bool,
+    /// The colour, each channel as a share of the brightest.
+    tint: [f32; 3],
+    /// How bright, from 1 to [`LEVELS`].
+    level: u8,
+}
+
+/// How many levels a light has.
+pub const LEVELS: u8 = 5;
+/// The glow of each level as a share of the ceiling, and how much a slow
+/// breath adds to it, so that a light that is on is never a still disc.
+/// The first is the low breath the lamp rested in before it had a light
+/// to set; the last reaches the ceiling at the top of a breath.
+const LEVEL_GLOW: [(f32, f32); LEVELS as usize] = [
+    (0.07, 0.06),
+    (0.24, 0.06),
+    (0.44, 0.07),
+    (0.68, 0.08),
+    (0.90, 0.10),
+];
+/// A light that is off still shows this much, in amber: the ring at rest
+/// is also the sign that the lamp can hear, and that sign is not the
+/// lamp's to switch off because it was asked for darkness.
+const EMBER: (f32, f32) = (0.03, 0.02);
+const AMBER: [f32; 3] = [1.0, 0.55, 0.0];
+
+impl Lit {
+    /// The ten colours by name, as [`lamp_msgs::Light::COLOURS`] has them.
+    /// `warm` is the amber the lamp has always rested in: no blue at all,
+    /// because at two or three steps a little blue lands on some pixels
+    /// and not on others, and the ring looks pink in places.
+    const TINTS: [(&'static str, [f32; 3]); 10] = [
+        ("yellow", [1.0, 0.80, 0.0]),
+        ("red", [1.0, 0.0, 0.0]),
+        ("green", [0.0, 1.0, 0.12]),
+        ("blue", [0.0, 0.22, 1.0]),
+        ("cyan", [0.0, 0.90, 1.0]),
+        ("purple", [0.62, 0.0, 1.0]),
+        ("orange", [1.0, 0.34, 0.0]),
+        ("pink", [1.0, 0.22, 0.42]),
+        ("white", [1.0, 0.88, 0.72]),
+        ("warm", AMBER),
+    ];
+
+    /// A light of this colour and level, or `None` for a colour there is
+    /// not or a level outside 1 to [`LEVELS`].
+    pub fn of(on: bool, colour: &str, level: u8) -> Option<Self> {
+        let tint = Self::TINTS
+            .iter()
+            .find_map(|(name, tint)| (*name == colour).then_some(*tint))?;
+        (1..=LEVELS)
+            .contains(&level)
+            .then_some(Self { on, tint, level })
+    }
+
+    /// The light a lamp has before anyone has asked for one: on, warm, at
+    /// its lowest. Exactly the face it rested in before lights could be set.
+    pub const fn first() -> Self {
+        Self {
+            on: true,
+            tint: AMBER,
+            level: 1,
+        }
+    }
+
+    /// The colours there are, in the order of [`Self::TINTS`].
+    pub fn colours() -> [&'static str; 10] {
+        Self::TINTS.map(|(name, _)| name)
+    }
+}
+
 /// The quietest and the loudest block that move the face, in dBFS.
 const LEVEL_FLOOR_DB: f32 = -48.0;
 const LEVEL_FULL_DB: f32 = -14.0;
@@ -70,6 +149,8 @@ pub struct Face {
     mood: Option<Mood>,
     /// When the lamp last let a turn go without answering it.
     let_go_us: Option<u64>,
+    /// The lamp's own light, which is its face at rest.
+    lit: Lit,
 }
 
 impl Default for Face {
@@ -86,7 +167,18 @@ impl Face {
             level: 0.0,
             mood: None,
             let_go_us: None,
+            lit: Lit::first(),
         }
+    }
+
+    /// Set the lamp's own light. The ring eases into it like any other
+    /// change of face.
+    pub fn light(&mut self, lit: Lit) {
+        self.lit = lit;
+    }
+
+    pub fn lit(&self) -> Lit {
+        self.lit
     }
 
     /// The frame for `now_us`. `level` is the voice in play on the scale of
@@ -137,7 +229,7 @@ impl Face {
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
         for (pixel, (shown, out)) in self.shown.iter_mut().zip(&mut frame).enumerate() {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
-            let wanted = look(mood, self.level, seconds, angle);
+            let wanted = look(mood, self.level, seconds, angle, self.lit);
             for (channel, target) in shown.iter_mut().zip(wanted) {
                 *channel += (target * open - *channel) * ease;
             }
@@ -176,18 +268,25 @@ fn wave(seconds: f32, period: f32, lobes: f32, angle: f32) -> f32 {
 }
 
 /// The wanted colour of one pixel, each channel as a share of the ceiling.
-fn look(mood: Mood, level: f32, seconds: f32, angle: f32) -> [f32; 3] {
+fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit) -> [f32; 3] {
     let (tint, glow) = match mood {
         Mood::Resting => {
-            // A warm, low breath, with a soft brighter patch that wanders
-            // around the ring so that two breaths never look the same. Low
-            // on purpose: on this ring a few steps of 255 are already a
-            // clear glow, and V1 rested at one. Amber with no blue at all:
-            // at two or three steps a little blue lands on some pixels and
-            // not on others, and the ring looks pink in places.
+            // The lamp's own light, in a slow breath, with a soft brighter
+            // patch that wanders around the ring so that two breaths never
+            // look the same. Its lowest level is low on purpose: on this
+            // ring a few steps of 255 are already a clear glow, and V1
+            // rested at one. A light that is off is an ember of the same.
             let breath = wave(seconds, 5.2, 0.0, 0.0);
             let patch = wave(seconds, 23.0, 1.0, angle).powi(4);
-            ([1.0, 0.55, 0.0], 0.07 + 0.06 * breath + 0.03 * patch)
+            if lit.on {
+                let (glow, breathes) = LEVEL_GLOW[usize::from(lit.level.clamp(1, LEVELS)) - 1];
+                // The patch is for the dim levels: a bright ring needs
+                // nothing to show that it is alive.
+                let patches = if lit.level == 1 { 0.03 } else { 0.0 };
+                (lit.tint, glow + breathes * breath + patches * patch)
+            } else {
+                (AMBER, EMBER.0 + EMBER.1 * breath)
+            }
         }
         Mood::Listening => {
             // Cool and open at once, brighter with the person's voice, with
@@ -306,6 +405,119 @@ mod tests {
                 .windows(2)
                 .all(|pair| pair[0].abs_diff(pair[1]) <= 12)
         );
+    }
+
+    /// The whole ring's red, green and blue over a few seconds of rest.
+    fn rested(face: &mut Face) -> [u32; 3] {
+        play(face, Mood::Resting, 0, 1_000, 100);
+        let mut sums = [0u32; 3];
+        for frame in play(face, Mood::Resting, 0, 2_001_000, 300) {
+            for pixel in frame {
+                sums[0] += u32::from(pixel.red);
+                sums[1] += u32::from(pixel.green);
+                sums[2] += u32::from(pixel.blue);
+            }
+        }
+        sums
+    }
+
+    #[test]
+    fn the_lamps_own_light_is_its_face_at_rest_in_the_colour_and_at_the_level_asked_for() {
+        // Before anyone asks, and asked for the first light, it rests as
+        // it always did: amber, with no blue at all.
+        let mut plain = Face::new();
+        let mut first = Face::new();
+        first.light(Lit::of(true, "warm", 1).unwrap());
+        assert_eq!(Lit::of(true, "warm", 1), Some(Lit::first()));
+        let was = rested(&mut plain);
+        assert_eq!(rested(&mut first), was);
+        assert!(was[0] > was[1] && was[1] > 0 && was[2] == 0, "{was:?}");
+        // Blue is blue, and each level is brighter than the one below.
+        let mut before = 0;
+        for level in 1..=LEVELS {
+            let mut face = Face::new();
+            face.light(Lit::of(true, "blue", level).unwrap());
+            assert_eq!(face.lit(), Lit::of(true, "blue", level).unwrap());
+            let [red, green, blue] = rested(&mut face);
+            assert!(
+                red == 0 && blue > green * 3,
+                "{level}: {red} {green} {blue}"
+            );
+            assert!(blue > before, "{level}: {blue} after {before}");
+            before = blue;
+        }
+        // The brightest reaches the ceiling and never passes it.
+        let mut bright = Face::new();
+        bright.light(Lit::of(true, "white", LEVELS).unwrap());
+        let frames = play(&mut bright, Mood::Resting, 0, 1_000, 600);
+        let peak = frames
+            .iter()
+            .flat_map(|frame| frame.iter().map(|pixel| pixel.red))
+            .max()
+            .unwrap();
+        assert!((44..=48).contains(&peak), "{peak}");
+        // Every colour there is has a look of its own.
+        let mut looks = Vec::new();
+        for colour in Lit::colours() {
+            let mut face = Face::new();
+            face.light(Lit::of(true, colour, 3).unwrap());
+            let look = rested(&mut face);
+            assert!(look.iter().sum::<u32>() > 0, "{colour}");
+            assert!(!looks.contains(&look), "{colour}");
+            looks.push(look);
+        }
+        // And they are the ten the message can name.
+        let mut named = Lit::colours();
+        let mut messaged = lamp_msgs::Light::COLOURS;
+        named.sort_unstable();
+        messaged.sort_unstable();
+        assert_eq!(named, messaged);
+        // A colour or a level there is not is no light.
+        assert_eq!(Lit::of(true, "mauve", 3), None);
+        assert_eq!(Lit::of(true, "blue", 0), None);
+        assert_eq!(Lit::of(true, "blue", LEVELS + 1), None);
+    }
+
+    #[test]
+    fn a_light_that_is_off_is_an_ember_and_the_faces_of_a_turn_do_not_change_with_it() {
+        let mut off = Face::new();
+        off.light(Lit::of(false, "blue", 5).unwrap());
+        let ember = rested(&mut off);
+        let mut lowest = Face::new();
+        let low = rested(&mut lowest);
+        // Dimmer than the lowest light, amber whatever colour it would be,
+        // and not dark: the ring at rest is also the sign the lamp hears.
+        let total = |sums: [u32; 3]| sums.iter().sum::<u32>();
+        assert!(
+            total(ember) > 0 && total(ember) * 2 < total(low),
+            "{ember:?} {low:?}"
+        );
+        assert!(ember[0] > ember[1] && ember[2] == 0, "{ember:?}");
+        // Listening, thinking and speaking are the lamp's expression: the
+        // same whatever its light.
+        for mood in [Mood::Listening, Mood::Thinking, Mood::Speaking] {
+            let mut plain = Face::new();
+            let mut blue = Face::new();
+            blue.light(Lit::of(true, "blue", 5).unwrap());
+            assert_eq!(
+                play(&mut plain, mood, 120, 1_000, 80).last(),
+                play(&mut blue, mood, 120, 1_000, 80).last(),
+                "{mood:?}"
+            );
+        }
+        // Coming back to rest, the ring eases into its light and does not
+        // jump there.
+        let mut face = Face::new();
+        face.light(Lit::of(true, "blue", 5).unwrap());
+        let spoke = play(&mut face, Mood::Speaking, 200, 1_000, 60);
+        let rest = play(&mut face, Mood::Resting, 0, 1_201_000, 3);
+        let reds = |frame: &[Rgb; PIXEL_COUNT]| frame.iter().map(|p| u32::from(p.red)).sum::<u32>();
+        assert!(
+            reds(&rest[0]) > reds(spoke.last().unwrap()) / 2,
+            "it jumped"
+        );
+        let later = play(&mut face, Mood::Resting, 0, 1_261_000, 60);
+        assert_eq!(reds(later.last().unwrap()), 0);
     }
 
     #[test]

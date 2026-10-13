@@ -34,10 +34,10 @@ impl Light for NoLight {
     fn there(&mut self) -> bool {
         false
     }
-    fn shown(&mut self) -> Option<[u8; 3]> {
+    fn shown(&mut self) -> Option<lamp_msgs::Light> {
         None
     }
-    fn ask(&mut self, _: [u8; 3]) -> bool {
+    fn ask(&mut self, _: &lamp_msgs::Light) -> bool {
         false
     }
 }
@@ -189,20 +189,20 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
         std::thread::spawn(move || {
             let bus = lamp_bus::Bus::new(&root).unwrap();
             let mut state = bus
-                .publisher(STATE, lamp_bus::Kind::Latest, "ring")
+                .publisher_declared(STATE, &lamp_msgs::Light::declaration(), "ring")
                 .unwrap();
             state.expires_after(Some(Duration::from_millis(600)));
-            let mut shown = [0u8, 0, 0];
+            // A lamp that was left off, purple, at its third level.
+            let mut shown = lamp_msgs::Light::new(false, "purple", 3).unwrap();
             let mut tick = 0u64;
             while !owner_stop.load(Ordering::Acquire) {
                 if let Ok(Some(wanted)) = bus.latest(lamp_actions::light::WANTED)
-                    && let Ok(wanted) = wanted.json()
-                    && let Ok(rgb) = serde_json::from_value::<[u8; 3]>(wanted["rgb"].clone())
+                    && let Ok(wanted) = wanted.parse::<lamp_msgs::Light>()
                 {
-                    shown = rgb;
+                    shown = wanted;
                 }
                 tick += 1;
-                state.publish_json(tick, &json!({"rgb": shown})).unwrap();
+                state.publish_json(tick, &shown).unwrap();
                 std::thread::sleep(Duration::from_millis(20));
             }
         })
@@ -210,7 +210,7 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     until("the light is offered", || names(&home).len() == 5);
     assert_eq!(
         ask(&home, b"{\"op\":\"call\",\"name\":\"light_on\"}\n"),
-        json!({"ok":true,"result":{"result":"My light is on, warm white."}})
+        json!({"ok":true,"result":{"result":"My light is on, purple."}})
     );
     assert_eq!(
         ask(
@@ -232,8 +232,17 @@ fn the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes() {
     }
     assert_eq!(
         ask(&home, b"{\"op\":\"call\",\"name\":\"light_dimmer\"}\n")["result"]["result"],
-        "My light is half as bright."
+        "My light is a step dimmer, at level 2 of 5."
     );
+    // What is on the bus is the light by name, as the ring's owner reads it.
+    let asked: lamp_msgs::Light = lamp_bus::Bus::new(&root)
+        .unwrap()
+        .latest(lamp_actions::light::WANTED)
+        .unwrap()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(asked, lamp_msgs::Light::new(true, "blue", 2).unwrap());
     // The owner goes. What it last said goes stale, and the list empties.
     owner_stop.store(true, Ordering::Release);
     owner.join().unwrap();

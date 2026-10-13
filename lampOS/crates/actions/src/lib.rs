@@ -56,30 +56,6 @@ impl Outcome {
     }
 }
 
-/// The ten colours a light may be asked for, with V1's values.
-pub const COLOURS: [(&str, [u8; 3]); 10] = [
-    ("yellow", [255, 220, 0]),
-    ("red", [255, 0, 0]),
-    ("green", [0, 200, 100]),
-    ("blue", [0, 100, 255]),
-    ("cyan", [0, 200, 150]),
-    ("purple", [100, 50, 200]),
-    ("orange", [255, 100, 0]),
-    ("pink", [255, 80, 150]),
-    ("white", [255, 255, 255]),
-    ("warm", [255, 180, 100]),
-];
-/// The light a lamp switched on shows.
-pub const ON: [u8; 3] = [255, 220, 180];
-
-/// The colour for a name, or nothing: only the ten are known.
-pub fn colour(name: &str) -> Option<[u8; 3]> {
-    COLOURS
-        .iter()
-        .find(|(known, _)| *known == name)
-        .map(|(_, rgb)| *rgb)
-}
-
 /// The functions that can be carried out now.
 pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
     let plain = |name, description| Function {
@@ -106,11 +82,11 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
         ]);
     }
     if light {
-        let names: Vec<&str> = COLOURS.iter().map(|(name, _)| *name).collect();
+        let names = lamp_msgs::Light::COLOURS;
         functions.extend([
             plain(
                 "light_on",
-                "Switch your own light on, warm white, when someone asks for light and names no colour.",
+                "Switch your own light on, when someone asks for light and names no colour.",
             ),
             plain("light_off", "Switch your own light off."),
             Function {
@@ -128,7 +104,7 @@ pub fn catalog(sound: bool, light: bool) -> Vec<Function> {
             ),
             plain(
                 "light_dimmer",
-                "Make your own light half as bright, keeping its colour, when someone says it is too bright or harsh.",
+                "Make your own light a step dimmer, keeping its colour, when someone says it is too bright or harsh.",
             ),
         ]);
     }
@@ -198,8 +174,8 @@ impl<S: sound::Mixer, L: light::Light> Executive<S, L> {
                     .filter(|object| object.len() == 1)
                     .and_then(|object| object.get("colour"))
                     .and_then(Value::as_str);
-                match asked.and_then(|name| colour(name).map(|rgb| (name, rgb))) {
-                    Some((name, rgb)) => light::colour(light, name, rgb),
+                match asked {
+                    Some(name) => light::colour(light, name),
                     None => Outcome::Failed("That is not a colour my light can show.".into()),
                 }
             }

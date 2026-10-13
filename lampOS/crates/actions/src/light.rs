@@ -2,13 +2,18 @@
 //!
 //! The executive does not write the ring. It publishes the light it wants
 //! on the bus (`light/command`, the newest value kept) and reads what the
-//! ring's owner says it is showing (`light/state`). A lamp whose ring
-//! owner is not publishing has no light to ask for, and the light's
-//! functions are not offered. V1's rules: on is warm white, a colour is
-//! one of ten, brighter is a quarter more with the colour kept (a dark
-//! lamp starts gently), dimmer is half.
+//! ring's owner says it is showing (`light/state`), both
+//! `lamp_msgs::Light`: on or off, one of ten colours by name, a level
+//! from 1 to 5. A lamp whose ring owner is not publishing has no light to
+//! ask for, and the light's functions are not offered.
+//!
+//! The rules: on and off keep the colour and the level; a colour switches
+//! the light on; brighter and dimmer are one level, and stop at the ends.
+//! A light that is off is not dark: the ring's owner keeps a faint glow,
+//! which is the sign that the lamp can hear, and the answer says so.
 
-use crate::{ON, Outcome};
+use crate::Outcome;
+use lamp_msgs::Light as Wanted;
 use std::time::{Duration, Instant};
 
 /// A light that can be asked for and read back.
@@ -16,24 +21,25 @@ pub trait Light {
     /// Whether its owner is there to carry a request out.
     fn there(&mut self) -> bool;
     /// What it shows now, as its owner reports it.
-    fn shown(&mut self) -> Option<[u8; 3]>;
+    fn shown(&mut self) -> Option<Wanted>;
     /// Ask for a light. False when the request could not even be made.
-    fn ask(&mut self, rgb: [u8; 3]) -> bool;
+    fn ask(&mut self, light: &Wanted) -> bool;
 }
 
 /// How long the owner has to show what was asked for.
 pub const CONFIRM_WAIT: Duration = Duration::from_millis(600);
 const UNCONFIRMED: &str = "I asked for it but could not confirm my light changed.";
 const UNREAD: &str = "I could not tell what my light is showing.";
+const OFF: &str = "My light is off. The faint glow that is left shows I am still listening.";
 
 /// Ask, then read back until the owner shows it or the wait is over.
-fn set<L: Light>(light: &mut L, rgb: [u8; 3], said: String) -> Outcome {
-    if !light.ask(rgb) {
+fn set<L: Light>(light: &mut L, wanted: Wanted, said: String) -> Outcome {
+    if !light.ask(&wanted) {
         return Outcome::Failed("I could not ask for my light to change.".into());
     }
     let started = Instant::now();
     loop {
-        if light.shown() == Some(rgb) {
+        if light.shown().as_ref() == Some(&wanted) {
             return Outcome::Done(said);
         }
         if started.elapsed() >= CONFIRM_WAIT {
@@ -43,65 +49,99 @@ fn set<L: Light>(light: &mut L, rgb: [u8; 3], said: String) -> Outcome {
     }
 }
 
+/// On, in the colour and at the level it had.
 pub fn on<L: Light>(light: &mut L) -> Outcome {
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some(now) if now != [0, 0, 0] => Outcome::Done("My light is already on.".into()),
-        Some(_) => set(light, ON, "My light is on, warm white.".into()),
+        Some(now) if now.on => Outcome::Done("My light is already on.".into()),
+        Some(now) => {
+            let said = format!("My light is on, {}.", now.colour);
+            set(light, Wanted { on: true, ..now }, said)
+        }
     }
 }
 
 pub fn off<L: Light>(light: &mut L) -> Outcome {
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some([0, 0, 0]) => Outcome::Done("My light is already off.".into()),
-        Some(_) => set(light, [0, 0, 0], "My light is off.".into()),
+        Some(now) if !now.on => Outcome::Done("My light is already off.".into()),
+        Some(now) => set(light, Wanted { on: false, ..now }, OFF.into()),
     }
 }
 
-pub fn colour<L: Light>(light: &mut L, name: &str, rgb: [u8; 3]) -> Outcome {
+/// One of the ten colours, on, at the level it had.
+pub fn colour<L: Light>(light: &mut L, name: &str) -> Outcome {
+    if !Wanted::is_colour(name) {
+        return Outcome::Failed("That is not a colour my light can show.".into());
+    }
     match light.shown() {
         None => Outcome::Failed(UNREAD.into()),
-        Some(now) if now == rgb => Outcome::Done(format!("My light is already {name}.")),
-        Some(_) => set(light, rgb, format!("My light is {name} now.")),
+        Some(now) if now.on && now.colour == name => {
+            Outcome::Done(format!("My light is already {name}."))
+        }
+        Some(now) => set(
+            light,
+            Wanted {
+                on: true,
+                colour: name.to_owned(),
+                level: now.level,
+            },
+            format!("My light is {name} now."),
+        ),
     }
 }
 
-/// A quarter more at its brightest channel, the others in proportion.
+/// One level up, keeping the colour. A light that is off comes on as it
+/// was: asked for more light, the first thing is to have any.
 pub fn brighter<L: Light>(light: &mut L) -> Outcome {
     let Some(now) = light.shown() else {
         return Outcome::Failed(UNREAD.into());
     };
-    let peak = u32::from(*now.iter().max().unwrap_or(&0));
-    if peak == 255 {
+    if !now.on {
+        let said = format!(
+            "My light is on, at level {} of {}.",
+            now.level,
+            Wanted::BRIGHTEST
+        );
+        return set(light, Wanted { on: true, ..now }, said);
+    }
+    if now.level >= Wanted::BRIGHTEST {
         return Outcome::Done("My light is already at its brightest.".into());
     }
-    // A dark lamp starts gently.
-    let mut next = [32, 27, 20];
-    if peak > 0 {
-        let next_peak = 255.min(peak + (peak / 4).max(1));
-        for (to, from) in next.iter_mut().zip(now) {
-            *to = (u32::from(from) * next_peak / peak) as u8;
-        }
-    }
-    set(light, next, "My light is a step brighter.".into())
+    let level = now.level + 1;
+    set(
+        light,
+        Wanted { level, ..now },
+        format!(
+            "My light is a step brighter, at level {level} of {}.",
+            Wanted::BRIGHTEST
+        ),
+    )
 }
 
-/// Half on every channel. Rounding can reach dark from a dim light.
+/// One level down, keeping the colour. The lowest level is not off:
+/// darkness is asked for by name.
 pub fn dimmer<L: Light>(light: &mut L) -> Outcome {
     let Some(now) = light.shown() else {
         return Outcome::Failed(UNREAD.into());
     };
-    if now == [0, 0, 0] {
+    if !now.on {
         return Outcome::Done("My light is already off.".into());
     }
-    let next = now.map(|channel| channel / 2);
-    let said = if next == [0, 0, 0] {
-        "My light was so dim that dimming it again switched it off."
-    } else {
-        "My light is half as bright."
-    };
-    set(light, next, said.into())
+    if now.level <= 1 {
+        return Outcome::Done(
+            "My light is already at its dimmest. I can switch it off if you like.".into(),
+        );
+    }
+    let level = now.level - 1;
+    set(
+        light,
+        Wanted { level, ..now },
+        format!(
+            "My light is a step dimmer, at level {level} of {}.",
+            Wanted::BRIGHTEST
+        ),
+    )
 }
 
 /// The light through the bus.
@@ -112,20 +152,15 @@ pub struct BusLight {
 }
 
 /// Where the executive asks, and where the ring's owner answers.
-pub const WANTED: &str = "light/command";
-pub const STATE: &str = "light/state";
+pub const WANTED: &str = Wanted::TOPICS[0];
+pub const STATE: &str = Wanted::TOPICS[1];
 /// A state older than this, by the wall clock, is nobody's: its owner has
 /// stopped saying it.
 const STATE_LASTS_MS: u64 = 3_000;
 
-#[derive(serde::Deserialize, serde::Serialize)]
-struct Rgb {
-    rgb: [u8; 3],
-}
-
 impl BusLight {
     pub fn new(bus: lamp_bus::Bus) -> std::io::Result<Self> {
-        let wanted = bus.publisher(WANTED, lamp_bus::Kind::Latest, "actions")?;
+        let wanted = bus.publisher_declared(WANTED, &Wanted::declaration(), "actions")?;
         Ok(Self {
             bus,
             wanted,
@@ -144,17 +179,21 @@ impl Light for BusLight {
     fn there(&mut self) -> bool {
         self.shown().is_some()
     }
-    fn shown(&mut self) -> Option<[u8; 3]> {
+    fn shown(&mut self) -> Option<Wanted> {
         let state = self.bus.latest(STATE).ok()??;
         let lasts = state.header.expires_ms.unwrap_or(STATE_LASTS_MS);
         if unix_ms() > state.header.at_unix_ms.saturating_add(lasts) {
             return None;
         }
-        state.parse::<Rgb>().ok().map(|state| state.rgb)
+        // A state that is not a light there is, is no light to change.
+        state
+            .parse::<Wanted>()
+            .ok()
+            .filter(|light| light.check().is_ok())
     }
-    fn ask(&mut self, rgb: [u8; 3]) -> bool {
+    fn ask(&mut self, light: &Wanted) -> bool {
         let at_us = self.started.elapsed().as_micros() as u64;
-        self.wanted.publish_json(at_us, &Rgb { rgb }).is_ok()
+        self.wanted.publish_json(at_us, light).is_ok()
     }
 }
 
@@ -162,16 +201,24 @@ impl Light for BusLight {
 pub(crate) mod tests {
     use super::*;
 
+    pub(crate) fn light(on: bool, colour: &str, level: u8) -> Wanted {
+        Wanted {
+            on,
+            colour: colour.into(),
+            level,
+        }
+    }
+
     /// A ring owner that shows what it is asked, or does not.
     pub(crate) struct Fake {
-        pub shown: Option<[u8; 3]>,
+        pub shown: Option<Wanted>,
         pub obeys: bool,
-        pub asked: Vec<[u8; 3]>,
+        pub asked: Vec<Wanted>,
     }
     impl Fake {
-        pub(crate) fn showing(rgb: [u8; 3]) -> Self {
+        pub(crate) fn showing(shown: Wanted) -> Self {
             Self {
-                shown: Some(rgb),
+                shown: Some(shown),
                 obeys: true,
                 asked: Vec::new(),
             }
@@ -181,13 +228,13 @@ pub(crate) mod tests {
         fn there(&mut self) -> bool {
             self.shown.is_some()
         }
-        fn shown(&mut self) -> Option<[u8; 3]> {
-            self.shown
+        fn shown(&mut self) -> Option<Wanted> {
+            self.shown.clone()
         }
-        fn ask(&mut self, rgb: [u8; 3]) -> bool {
-            self.asked.push(rgb);
+        fn ask(&mut self, wanted: &Wanted) -> bool {
+            self.asked.push(wanted.clone());
             if self.obeys {
-                self.shown = Some(rgb);
+                self.shown = Some(wanted.clone());
             }
             true
         }
@@ -200,59 +247,83 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn on_is_warm_white_off_is_dark_and_neither_is_asked_twice() {
-        let mut light = Fake::showing([0, 0, 0]);
-        assert_eq!(said(on(&mut light)), "My light is on, warm white.");
-        assert_eq!(light.shown, Some(ON));
-        assert_eq!(said(on(&mut light)), "My light is already on.");
-        assert_eq!(said(off(&mut light)), "My light is off.");
-        assert_eq!(said(off(&mut light)), "My light is already off.");
-        assert_eq!(light.asked, [ON, [0, 0, 0]]);
+    fn on_and_off_keep_the_colour_and_the_level_and_neither_is_asked_twice() {
+        let mut lamp = Fake::showing(light(false, "blue", 3));
+        assert_eq!(said(on(&mut lamp)), "My light is on, blue.");
+        assert_eq!(lamp.shown, Some(light(true, "blue", 3)));
+        assert_eq!(said(on(&mut lamp)), "My light is already on.");
+        assert_eq!(
+            said(off(&mut lamp)),
+            "My light is off. The faint glow that is left shows I am still listening."
+        );
+        assert_eq!(lamp.shown, Some(light(false, "blue", 3)));
+        assert_eq!(said(off(&mut lamp)), "My light is already off.");
+        assert_eq!(
+            lamp.asked,
+            [light(true, "blue", 3), light(false, "blue", 3)]
+        );
     }
 
     #[test]
-    fn a_colour_is_set_by_name_and_said_by_name() {
-        let mut light = Fake::showing(ON);
-        let blue = crate::colour("blue").unwrap();
-        assert_eq!(
-            said(colour(&mut light, "blue", blue)),
-            "My light is blue now."
-        );
-        assert_eq!(light.shown, Some([0, 100, 255]));
-        assert_eq!(
-            said(colour(&mut light, "blue", blue)),
-            "My light is already blue."
-        );
-        assert_eq!(light.asked.len(), 1);
+    fn a_colour_is_set_by_name_said_by_name_and_switches_the_light_on() {
+        let mut lamp = Fake::showing(light(true, "warm", 2));
+        assert_eq!(said(colour(&mut lamp, "blue")), "My light is blue now.");
+        assert_eq!(lamp.shown, Some(light(true, "blue", 2)));
+        assert_eq!(said(colour(&mut lamp, "blue")), "My light is already blue.");
+        assert_eq!(lamp.asked.len(), 1);
+        // Off and already that colour: asked for a colour, it comes on.
+        let mut dark = Fake::showing(light(false, "blue", 4));
+        assert_eq!(said(colour(&mut dark, "blue")), "My light is blue now.");
+        assert_eq!(dark.shown, Some(light(true, "blue", 4)));
+        // A word that is not one of the ten is refused before anything is
+        // read or asked.
+        let mut lamp = Fake::showing(light(true, "warm", 2));
+        for odd in ["beige", "", "Blue", "#0000ff"] {
+            assert_eq!(
+                colour(&mut lamp, odd),
+                Outcome::Failed("That is not a colour my light can show.".into())
+            );
+        }
+        assert!(lamp.asked.is_empty());
     }
 
-    /// V1's arithmetic, on V1's own examples: a quarter more at the peak
-    /// with the hue kept, a gentle start from dark, a stop at full; half on
-    /// every channel, down to dark.
     #[test]
-    fn brighter_and_dimmer_keep_the_colour_and_stop_at_the_ends() {
-        let mut light = Fake::showing([100, 50, 200]);
-        assert_eq!(said(brighter(&mut light)), "My light is a step brighter.");
-        assert_eq!(light.shown, Some([125, 62, 250]));
-        assert_eq!(said(brighter(&mut light)), "My light is a step brighter.");
-        assert_eq!(light.shown, Some([127, 63, 255]));
+    fn brighter_and_dimmer_are_one_level_keep_the_colour_and_stop_at_the_ends() {
+        let mut lamp = Fake::showing(light(true, "pink", 3));
         assert_eq!(
-            said(brighter(&mut light)),
+            said(brighter(&mut lamp)),
+            "My light is a step brighter, at level 4 of 5."
+        );
+        assert_eq!(
+            said(brighter(&mut lamp)),
+            "My light is a step brighter, at level 5 of 5."
+        );
+        assert_eq!(lamp.shown, Some(light(true, "pink", 5)));
+        assert_eq!(
+            said(brighter(&mut lamp)),
             "My light is already at its brightest."
         );
-        let mut dark = Fake::showing([0, 0, 0]);
-        assert_eq!(said(brighter(&mut dark)), "My light is a step brighter.");
-        assert_eq!(dark.shown, Some([32, 27, 20]));
-
-        let mut light = Fake::showing([255, 180, 100]);
-        assert_eq!(said(dimmer(&mut light)), "My light is half as bright.");
-        assert_eq!(light.shown, Some([127, 90, 50]));
-        let mut faint = Fake::showing([1, 1, 0]);
+        for level in [4, 3, 2, 1] {
+            assert_eq!(
+                said(dimmer(&mut lamp)),
+                format!("My light is a step dimmer, at level {level} of 5.")
+            );
+        }
+        // The lowest level is not off, and dimmer does not switch it off.
         assert_eq!(
-            said(dimmer(&mut faint)),
-            "My light was so dim that dimming it again switched it off."
+            said(dimmer(&mut lamp)),
+            "My light is already at its dimmest. I can switch it off if you like."
         );
-        assert_eq!(said(dimmer(&mut faint)), "My light is already off.");
+        assert_eq!(lamp.shown, Some(light(true, "pink", 1)));
+        assert_eq!(lamp.asked.len(), 6);
+        // Off: brighter brings it on as it was, and dimmer has nothing to do.
+        let mut dark = Fake::showing(light(false, "green", 2));
+        assert_eq!(said(dimmer(&mut dark)), "My light is already off.");
+        assert_eq!(
+            said(brighter(&mut dark)),
+            "My light is on, at level 2 of 5."
+        );
+        assert_eq!(dark.shown, Some(light(true, "green", 2)));
     }
 
     /// A ring owner that is not saying what it shows, and one that takes a
@@ -270,10 +341,13 @@ pub(crate) mod tests {
             asked: Vec::new(),
         };
         assert_eq!(failed(on(&mut gone)), UNREAD);
+        assert_eq!(failed(off(&mut gone)), UNREAD);
+        assert_eq!(failed(colour(&mut gone, "red")), UNREAD);
+        assert_eq!(failed(brighter(&mut gone)), UNREAD);
         assert_eq!(failed(dimmer(&mut gone)), UNREAD);
         assert!(gone.asked.is_empty());
         let mut deaf = Fake {
-            shown: Some([0, 0, 0]),
+            shown: Some(light(false, "warm", 1)),
             obeys: false,
             asked: Vec::new(),
         };
@@ -281,7 +355,7 @@ pub(crate) mod tests {
         assert_eq!(failed(on(&mut deaf)), UNCONFIRMED);
         let waited = started.elapsed();
         assert!(waited >= CONFIRM_WAIT && waited < CONFIRM_WAIT + Duration::from_millis(300));
-        assert_eq!(deaf.asked, [ON]);
+        assert_eq!(deaf.asked, [light(true, "warm", 1)]);
     }
 
     /// Through a real bus in a directory of its own: the request is kept as
@@ -296,25 +370,32 @@ pub(crate) mod tests {
         ));
         std::fs::create_dir_all(&root).unwrap();
         let bus = lamp_bus::Bus::new(&root).unwrap();
-        let mut light = BusLight::new(lamp_bus::Bus::new(&root).unwrap()).unwrap();
+        let mut lamp = BusLight::new(lamp_bus::Bus::new(&root).unwrap()).unwrap();
         // Nobody says what the ring shows: there is no light to ask for.
-        assert!(!light.there());
+        assert!(!lamp.there());
         let mut ring = bus
-            .publisher(STATE, lamp_bus::Kind::Latest, "ring")
+            .publisher_declared(STATE, &Wanted::declaration(), "ring")
             .unwrap();
-        ring.publish_json(1, &Rgb { rgb: [0, 0, 0] }).unwrap();
-        assert!(light.there());
-        assert_eq!(light.shown(), Some([0, 0, 0]));
-        assert!(light.ask(ON));
-        let wanted: Rgb = bus.latest(WANTED).unwrap().unwrap().parse().unwrap();
-        assert_eq!(wanted.rgb, ON);
+        ring.publish_json(1, &light(true, "warm", 1)).unwrap();
+        assert!(lamp.there());
+        assert_eq!(lamp.shown(), Some(light(true, "warm", 1)));
+        assert!(lamp.ask(&light(true, "blue", 1)));
+        let wanted: Wanted = bus.latest(WANTED).unwrap().unwrap().parse().unwrap();
+        assert_eq!(wanted, light(true, "blue", 1));
+        assert_eq!(
+            bus.declaration(WANTED).unwrap(),
+            Some(Wanted::declaration())
+        );
+        // A state that is not a light there is, is no light.
+        ring.publish_json(2, &light(true, "blue", 9)).unwrap();
+        assert_eq!(lamp.shown(), None);
         // The owner said so with a life of 20 ms, and then stopped.
         ring.expires_after(Some(Duration::from_millis(20)));
-        ring.publish_json(2, &Rgb { rgb: ON }).unwrap();
-        assert_eq!(light.shown(), Some(ON));
+        ring.publish_json(3, &light(true, "blue", 1)).unwrap();
+        assert_eq!(lamp.shown(), Some(light(true, "blue", 1)));
         std::thread::sleep(Duration::from_millis(60));
-        assert_eq!(light.shown(), None);
-        assert!(!light.there());
+        assert_eq!(lamp.shown(), None);
+        assert!(!lamp.there());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

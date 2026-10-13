@@ -49,9 +49,9 @@ stopping.
 | `volume_down` | One step quieter, to the floor at least | The same form, or that it is already as quiet as it goes without being muted |
 | `volume_mute` | Volume to nothing, remembering where it was | "My speaker is muted." |
 | `volume_unmute` | Back to where it was, or the middle if that is not known | "My speaker is back, at 70 out of 100." |
-| `light_on`, `light_off` | Warm white; dark | "My light is on, warm white." |
-| `light_colour` | One of ten named colours, and nothing else | "My light is blue now." |
-| `light_brighter`, `light_dimmer` | A step either way, keeping the colour | "My light is a step brighter." |
+| `light_on`, `light_off` | On, in the colour and at the level it had; off, which leaves a faint glow | "My light is on, blue." / "My light is off. The faint glow that is left shows I am still listening." |
+| `light_colour` | One of ten named colours, and nothing else. Switches the light on | "My light is blue now." |
+| `light_brighter`, `light_dimmer` | One level of five either way, keeping the colour. Brighter brings a light that is off back on; dimmer stops at the lowest and does not switch off | "My light is a step brighter, at level 4 of 5." / "My light is already at its dimmest. I can switch it off if you like." |
 
 A failure is said as one: "I could not read my speaker's volume.", "I
 could not confirm my speaker's volume changed.", "I asked for it but could
@@ -61,8 +61,12 @@ that."
 The speaker's volume is one ALSA control (on lamp-4ace, `Speaker` on the
 card `allwinnerhdmi`: a hundred points over 30 dB). This program is its
 only writer. The light is not written here: the wanted light is published
-on the bus (`light/command`) and what the ring's owner reports
-(`light/state`) is read back.
+on the bus (`light/command`, `lamp_msgs/Light`: on or off, a colour by
+name, a level from 1 to 5) and what the ring's owner reports
+(`light/state`) is read back for up to 0.6 s. The ring's owner is the
+voice's ring worker ([ring-choreography.md](ring-choreography.md), "The
+lamp's own light"), which is also where each colour's and each level's
+look is decided.
 
 ## What was taken from V1, and what was not
 
@@ -78,16 +82,21 @@ is judged before anything is carried over. For V1's intent component
 | Finding the command by matching the words of the request against lists | Not taken | The conversation model hears the request itself and names the action. In V1 only exact strings ran locally; the rest went to a hosted model with a three-second budget |
 | The model moving the body by writing `[HW:/path:{json}]` tags into its reply, extracted by a pattern | Not taken | A reply is for a person; an action is a call with a result |
 | Louder by a tenth of the range, quieter by half | Rebuilt | One "a bit quieter" took three or more "louder" to undo. Here both are one step of 20 points (about 6 dB), and quieter stops at a floor of 10; silence is mute's. The step is reasoned, not yet heard by a person |
-| The light as arithmetic on red, green and blue (halve; a quarter more; rounding that ends in black) | Still V1's here, to be rebuilt | To become a colour and one of a few levels, with the pixels left to the ring's owner. Not offered on any lamp yet |
+| The light as arithmetic on red, green and blue (halve; a quarter more; rounding that ends in black) | Rebuilt | A colour by name and one of five levels. The pixels are the ring's owner's, and "dimmer" can no longer round a light into darkness: off is asked for by name |
+| On is always warm white | Rebuilt | On is the light as it was left. A person who set it blue and switched it off expects blue back |
 | Seven scenes, following, music, "stop talking" | Not yet judged | Each when it is built |
 
 ## Not shown
 
-Host tests only: the rules against a control that holds, refuses or
-ignores what it is given (twelve), the list and the answers' form (two),
-the program through its socket with a stand-in control and a real bus in a
-directory of its own (three), and the options (one). It has not run on a
-lamp: `amixer` on the lamp's control, the step sizes as a person hears
-them, and what a volume change does to the voice's hearing of someone who
-speaks over it are all unmeasured. Nothing publishes `light/state` yet,
-so the light's actions are offered nowhere.
+Host tests: the rules against a control that holds, refuses or ignores
+what it is given (seven of the volume, five of the light), the list
+and the answers' form (two), the program through its socket with a
+stand-in control and a real bus in a directory of its own (three), and
+the options (one).
+
+On lamp-4ace the volume's functions have been called by the real
+conversation model ([tools.md](tools.md)). The step sizes as a person
+hears them, and what a volume change does to the voice's hearing of
+someone who speaks over it, are unmeasured. The light's rules were
+rewritten on 2026-10-14 (a colour by name and five levels); what was run
+of them on a lamp is in [ring-choreography.md](ring-choreography.md).

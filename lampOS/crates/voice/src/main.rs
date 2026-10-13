@@ -321,22 +321,25 @@ fn run() -> Result<()> {
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }
+        // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR]
         #[cfg(target_os = "linux")]
-        [command, role, dir, parent, worker, mode] if command == "worker" && role == "ring" && mode == "--continuous" => {
+        [command, role, dir, parent, worker, mode, flags @ ..] if command == "worker" && role == "ring" && mode == "--continuous" => {
             let parent = parse_boot(parent)?;
             let worker = parse_boot(worker)?;
+            let (ceiling, flags) = match flags {
+                [flag, ceiling, rest @ ..] if flag == "--resting" => {
+                    let ceiling: u16 = ceiling.parse().map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "resting ceiling must be 0 to 120"))?;
+                    (Some(ceiling), rest)
+                }
+                rest => (None, rest),
+            };
+            let (bus_root, flags) = lamp_voice::bus_out::take_root(flags)?;
+            if !flags.is_empty() {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "unknown ring worker option").into());
+            }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, None)?;
-        }
-        #[cfg(target_os = "linux")]
-        [command, role, dir, parent, worker, mode, flag, ceiling] if command == "worker" && role == "ring" && mode == "--continuous" && flag == "--resting" => {
-            let parent = parse_boot(parent)?;
-            let worker = parse_boot(worker)?;
-            let ceiling: u16 = ceiling.parse().map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "resting ceiling must be 0 to 120"))?;
-            let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
-            channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, Some(ceiling))?;
+            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref())?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

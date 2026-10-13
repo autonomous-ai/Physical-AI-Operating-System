@@ -32,6 +32,7 @@ pub mod provider_worker;
 pub mod reference;
 pub mod remember;
 pub mod ring_face;
+pub mod ring_light;
 pub mod ring_wire;
 pub mod ring_worker;
 pub mod room_floor;

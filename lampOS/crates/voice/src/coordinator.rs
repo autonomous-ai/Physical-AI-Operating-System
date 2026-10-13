@@ -1698,11 +1698,18 @@ fn spawn_rig(
     let resting_ceiling = options
         .ring_channel_ceiling
         .map(|ceiling| ceiling.to_string());
-    let ring_arguments: Vec<&str> = match (&resting_ceiling, lifetime.continuous()) {
+    let mut ring_arguments: Vec<&str> = match (&resting_ceiling, lifetime.continuous()) {
         (Some(ceiling), true) => vec!["--continuous", "--resting", ceiling],
         (None, true) => vec!["--continuous"],
         (_, false) => Vec::new(),
     };
+    // The lamp's own light is asked for and said on the bus, by a ring
+    // that runs all day (`ring_light`). A worker is started with no
+    // environment, so it is told where the bus is.
+    let ring_bus = crate::bus_out::worker_arguments_from_environment();
+    if lifetime.continuous() {
+        ring_arguments.extend(ring_bus.iter().map(String::as_str));
+    }
     let mut ring = if options.ring_channel_ceiling.is_some() {
         OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {
             pulse(

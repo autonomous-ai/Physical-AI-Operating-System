@@ -12,7 +12,12 @@ follows the room, and a spoken yes before work leaves the lamp); decision
 12, which they made larger than was proposed (memory across days, not one
 day); the order (the experience first, setup, updates and the rest "the
 last steps before shipping to customers"); and decision 15, changed at
-their question. The other decisions are proposed and await their word.
+their question. Also theirs, the same evening: the lamp is in Ho Chi Minh
+City, as its character says; the computer it pairs with for its first
+task is the one it sits beside, which already has Harness; and a key for
+the decision model's provider, which is kept off the lamp's repository
+and out of every record. The other decisions are proposed and await their
+word.
 Once given, a decision changes only on the product owner's word, and the
 change is written here first.
 

@@ -74,6 +74,8 @@ static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock:
 static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// Whether a new session is told how things stand.
 static SESSION_FACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether the session is told how busy the room is.
+static ROOM_FACTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -84,6 +86,8 @@ pub struct Files {
     pub thread: Option<std::path::PathBuf>,
     /// Whether a new session is told how things stand (`--session-fact`).
     pub session_fact: bool,
+    /// Whether the session is told how busy the room is (`--room-facts`).
+    pub room_facts: bool,
 }
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
@@ -546,6 +550,7 @@ pub async fn run_with_continuation(
         let _ = LOOK_FILE.set(path);
     }
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
+    ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
         if let Ok(text) = std::fs::read_to_string(&path)
@@ -629,6 +634,7 @@ async fn serve_with_visual<C: Connect>(
     let mut thread_saved_at = Instant::now();
     // The session last told how things stand, if new ones are.
     let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
+    let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
     let mut told_session = None;
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
@@ -657,8 +663,26 @@ async fn serve_with_visual<C: Connect>(
                     renewed_at = Instant::now();
                     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
                 }
+                // The session is told how the room is when that changes,
+                // and a new session how it is now, unless a conversation is
+                // going on: the thread's note says that.
+                if room_facts
+                    && let Some(live) = provider.live_session()
+                    && let Ok(mut room) = crate::room_told::ROOM.lock()
+                    && let Some(fact) = room.due(live.get(), monotonic_us())
+                {
+                    let going_on = crate::thread::THREAD
+                        .lock()
+                        .is_ok_and(|thread| thread.going_on(Instant::now()));
+                    if !going_on && provider.try_context(fact).is_some() {
+                        room.told(live.get());
+                        // The room says more than the plain fact would.
+                        told_session = Some(live);
+                        eprintln!("lamp-live provider: told the session {fact}");
+                    }
+                }
                 // A new session is told how things stand, once, unless a
-                // conversation is going on: the thread's note says that.
+                // conversation is going on.
                 if session_fact {
                     let live = provider.live_session();
                     if live.is_some() && live != told_session {
@@ -875,13 +899,21 @@ fn forward(
         Event::InputStarted {
             lineage,
             waiting_for_barrier,
-        } => push(ProviderOutput::Started {
-            request: lineage.request.get(),
-            session: lineage.session.get(),
-            waiting_for_barrier,
-        }),
+        } => {
+            if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                room.heard(lineage.request.get(), monotonic_us());
+            }
+            push(ProviderOutput::Started {
+                request: lineage.request.get(),
+                session: lineage.session.get(),
+                waiting_for_barrier,
+            })
+        }
         Event::Audio { lineage, pcm, .. } => {
             UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
+            if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                room.spoke(lineage.request.get(), monotonic_us());
+            }
             let provider_event_at_us = monotonic_us();
             let source_frames = pcm.len();
             for (index, part) in pcm.chunks(PACKET_SAMPLES).enumerate() {
@@ -929,6 +961,9 @@ fn forward(
         // complete and had no audio; the connection and conversation stay.
         Event::Unanswered { lineage, waited } => {
             UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if let Ok(mut room) = crate::room_told::ROOM.lock() {
+                room.unanswered(lineage.request.get(), monotonic_us());
+            }
             eprintln!(
                 "lamp-live provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
                 lineage.request.get(),

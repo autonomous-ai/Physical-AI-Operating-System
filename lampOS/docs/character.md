@@ -129,6 +129,24 @@ without its name" (eight lines, eight answers) should now give silence for
 most of its lines unless they follow one another as a conversation, and a
 quiet speaker at the desk may fall under the new level.
 
+**The rule follows the room** (17:40 the same day, not yet heard). That
+cost showed within the hour: at 17:32 someone at the lamp's desk spoke to
+it three times, two seconds each, and got nothing until a fourth short
+utterance got "Hey, what's up? I'm here." A person at the next desk joins
+in less the more talk there is around them, and that is now the rule: the
+file says that when the lamp has been told the room has gone quiet, what
+is said near it is most likely said to it, called or not, and that when it
+has been told the office is busy, or told nothing, the two cases stand.
+The telling is the runtime's (`crates/live/src/room_told.rs`,
+`LAMP_ROOM_FACTS=on`): quiet after five minutes in which nothing was
+heard, busy after three things in a row inside a minute that the lamp
+said nothing to, each given to the session in a turn that asks for no
+answer ([speaking-first.md](speaking-first.md), "Telling it something
+that needs no answer"). As silent probes with a written line in place of
+speech, one run each, the fact that the office had emptied made the model
+answer an uncalled question it otherwise left alone. With the switch off
+the line in the file does nothing.
+
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests
 were to be in English. In an office where people speak Vietnamese to each

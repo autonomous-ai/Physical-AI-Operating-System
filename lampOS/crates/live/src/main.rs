@@ -247,8 +247,9 @@ fn run() -> Result<()> {
                     let (look_file, flags) = lamp_live::sight::take_look(flags)?;
                     let (thread_file, flags) = lamp_live::thread::take_file(flags)?;
                     let (session_fact, flags) = lamp_live::session_fact::take(flags);
+                    let (room_facts, flags) = lamp_live::room_told::take(flags);
                     let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

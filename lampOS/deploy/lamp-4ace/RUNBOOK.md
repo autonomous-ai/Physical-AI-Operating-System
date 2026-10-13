@@ -59,7 +59,8 @@ All in `lamp-live.service` in this folder unless said otherwise; install a chang
 | Say hello to someone who sits down | `Environment=LAMP_SPEAK_FIRST=on`; without it the moment is only recorded ("a hello was due" in the journal) | recording only |
 | Take a look when asked ("Let me look") | `Environment=LAMP_EYES_LOOK_FILE=...` here, `--sight-file` in `lamp-eyes.service`, and the "You can see, when you look" line in the character (`persona.evening.txt`) | built; the character line is not in yet |
 | Keep the conversation across a restart | `Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json` | on |
-| Tell each new Gemini session that nobody is talking to the lamp | `Environment=LAMP_SESSION_FACT=on` (the journal then says "told the new session" each time) | off; unmeasured |
+| Tell each new Gemini session that nobody is talking to the lamp | `Environment=LAMP_SESSION_FACT=on` (the journal then says "told the new session" each time) | on since 17:29 on 2026-10-13; unmeasured |
+| Answer without being called when the room is quiet, only when called when it is busy | `Environment=LAMP_ROOM_FACTS=on`, with the line beginning "Now and then you are told how the room is" in `persona.txt` (the journal says "told the session" at each change) | off; not yet heard |
 | Priority over other work on the lamp | `CPUSchedulingPolicy=rr`, `CPUSchedulingPriority=20` | on |
 | English only | the "Always speak English" line in `persona.txt`; the two-language file is `persona.txt.bilingual-20261013` | on |
 

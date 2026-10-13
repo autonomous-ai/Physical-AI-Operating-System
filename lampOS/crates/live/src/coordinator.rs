@@ -1636,6 +1636,7 @@ fn spawn_rig(
     arguments.extend(crate::sight::arguments_from_environment());
     arguments.extend(crate::thread::arguments_from_environment());
     arguments.extend(crate::session_fact::arguments_from_environment());
+    arguments.extend(crate::room_told::arguments_from_environment());
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());
     }

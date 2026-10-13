@@ -148,6 +148,26 @@ seconds:
 and nobody is talking to you at the moment.)
 ```
 
+The second use is the room (`crates/live/src/room_told.rs`,
+`LAMP_ROOM_FACTS=on`; [character.md](character.md), "The rule follows the
+room"). The provider worker sees every request and whether the lamp spoke
+in it, and from that alone calls the room quiet (nothing heard for five
+minutes) or busy (three things in a row, inside a minute, that the lamp
+said nothing to). When that changes, and when a session opens, the session
+is told one of:
+
+```text
+(For you to know, not to answer: the room around you has gone quiet.)
+(For you to know, not to answer: the office around you is busy, with
+people talking to each other.)
+```
+
+only when nothing has been heard or said for two seconds and no
+conversation is going on. With both switches on, a session that has been
+told how the room is is not also told the plain fact. Host tests for the
+rule (`room_told::tests`); the worker's telling is seen in the journal
+("told the session"). Not yet heard on a lamp.
+
 It describes and does not ask for quiet, and a test holds it to that
 ([conversation-thread.md](conversation-thread.md) has what asking did).
 Told this, a session still answered a question put to it by name in a

@@ -79,7 +79,14 @@ is over the ring eases back into its light.
 | Colours | Ten, by name: yellow, red, green, blue, cyan, purple, orange, pink, white, warm. `warm` is the amber the lamp has always rested in |
 | Levels | 1 to 5: about 7, 24, 44, 68 and 90 hundredths of the ceiling, each with a slow breath of 6 to 10 more on top. The fifth reaches the ceiling at the top of a breath |
 | Before anyone asks | On, warm, level 1: exactly the resting face described above |
-| Off | Not dark. An amber ember, 3 to 5 hundredths of the ceiling, about half the lowest light |
+| Off | Not dark. An ember: one pixel in four at three steps of red and one of green, the faintest amber the ring can show, and the others dark. About a quarter of the lowest light in all |
+
+The ember is a few lit pixels and not the whole ring glowing fainter,
+because the ring cannot show that: under the ceiling of 24 that lamp-4ace
+runs with, the lowest light is already two or three steps of red and one
+or two of green, and less than one step of each can only be shown as some
+pixels red and others green. That was the first version, and on the lamp
+it was a patchwork of pink and green.
 
 Off is an ember because of what the resting face means. A ring that went
 dark on "turn your light off" would look like a lamp that cannot hear,

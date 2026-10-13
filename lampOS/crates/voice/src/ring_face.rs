@@ -49,10 +49,24 @@ const LEVEL_GLOW: [(f32, f32); LEVELS as usize] = [
     (0.68, 0.08),
     (0.90, 0.10),
 ];
-/// A light that is off still shows this much, in amber: the ring at rest
+/// A light that is off still shows an ember, in amber: the ring at rest
 /// is also the sign that the lamp can hear, and that sign is not the
 /// lamp's to switch off because it was asked for darkness.
-const EMBER: (f32, f32) = (0.03, 0.02);
+///
+/// An ember is one pixel in [`EMBER_EVERY`] at [`EMBER_STEPS`] of red and
+/// of green, the faintest amber the ring can show, and the rest dark. It
+/// is counted in steps and not as a share of the ceiling, and it cannot
+/// be the whole ring glowing more faintly: under the ceiling the lamp
+/// runs with, the lowest light is already two or three steps of red and
+/// one or two of green, and anything fainter is less than one step of
+/// each, which the ring can only show as some pixels red and others
+/// green. Seen on lamp-4ace on 2026-10-14 with the whole ring at 3 to 5
+/// hundredths: a patchwork of pink and green.
+const EMBER_STEPS: (f32, f32) = (3.0, 1.0);
+const EMBER_EVERY: usize = 4;
+/// A wanted value this far over a whole step is shown as that step on
+/// every pixel: less than the least a pixel's rounding can add.
+const WHOLE_STEP: f32 = 0.015;
 const AMBER: [f32; 3] = [1.0, 0.55, 0.0];
 
 impl Lit {
@@ -229,7 +243,7 @@ impl Face {
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
         for (pixel, (shown, out)) in self.shown.iter_mut().zip(&mut frame).enumerate() {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
-            let wanted = look(mood, self.level, seconds, angle, self.lit);
+            let wanted = look(mood, self.level, seconds, angle, self.lit, ceiling);
             for (channel, target) in shown.iter_mut().zip(wanted) {
                 *channel += (target * open - *channel) * ease;
             }
@@ -268,7 +282,7 @@ fn wave(seconds: f32, period: f32, lobes: f32, angle: f32) -> f32 {
 }
 
 /// The wanted colour of one pixel, each channel as a share of the ceiling.
-fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit) -> [f32; 3] {
+fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit, ceiling: u8) -> [f32; 3] {
     let (tint, glow) = match mood {
         Mood::Resting => {
             // The lamp's own light, in a slow breath, with a soft brighter
@@ -285,7 +299,13 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit) -> [f32; 3] 
                 let patches = if lit.level == 1 { 0.03 } else { 0.0 };
                 (lit.tint, glow + breathes * breath + patches * patch)
             } else {
-                (AMBER, EMBER.0 + EMBER.1 * breath)
+                let pixel = (angle * PIXEL_COUNT as f32 / TAU).round() as usize;
+                if !pixel.is_multiple_of(EMBER_EVERY) {
+                    return [0.0; 3];
+                }
+                let share =
+                    |steps: f32| ((steps + WHOLE_STEP) / f32::from(ceiling.max(1))).min(1.0);
+                return [share(EMBER_STEPS.0), share(EMBER_STEPS.1), 0.0];
             }
         }
         Mood::Listening => {
@@ -493,6 +513,22 @@ mod tests {
             "{ember:?} {low:?}"
         );
         assert!(ember[0] > ember[1] && ember[2] == 0, "{ember:?}");
+        // A few pixels that are each amber, not a whole ring too faint to
+        // have a colour: one in four is lit, with red and green both in
+        // it, and the others are dark. Under the ceiling the lamp runs with.
+        let mut dark = Face::new();
+        dark.light(Lit::of(false, "blue", 5).unwrap());
+        let settled = (0..200u64)
+            .map(|frame| dark.render(Mood::Resting, 0, 1_000 + frame * 25_000, 24))
+            .last()
+            .unwrap();
+        for (pixel, shown) in settled.iter().enumerate() {
+            if pixel % 4 == 0 {
+                assert_eq!(*shown, Rgb::new(3, 1, 0), "{pixel}");
+            } else {
+                assert_eq!(*shown, Rgb::BLACK, "{pixel}");
+            }
+        }
         // Listening, thinking and speaking are the lamp's expression: the
         // same whatever its light.
         for mood in [Mood::Listening, Mood::Thinking, Mood::Speaking] {

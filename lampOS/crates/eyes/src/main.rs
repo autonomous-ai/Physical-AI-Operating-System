@@ -245,6 +245,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
 
     let mut kept = arguments.sight_file.clone().map(Kept::new);
     let mut presence = arguments.presence_file.clone().map(Presence::new);
+    // The faces in view, for whoever listens on the lamp's bus.
+    let mut bus_out = lamp_eyes::bus_out::BusOut::from_environment();
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
     let mut permitted_at: Option<Instant> = None;
@@ -391,7 +393,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             let found = Picture::from_jpeg(&frame[..used]).and_then(|picture| {
                 detector
                     .find(&picture)
-                    .map(|faces| choose(&faces, picture.filled))
+                    .map(|faces| {
+                        if let Some(bus) = bus_out.as_mut() {
+                            bus.saw(&faces, picture.filled, lamp_ipc::monotonic_us());
+                        }
+                        choose(&faces, picture.filled)
+                    })
                     .map_err(|error| error.to_string())
             });
             spent += looked_at.elapsed();
@@ -409,6 +416,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 }
                 Err(_) => unreadable += 1,
             }
+        }
+        if let Some(bus) = bus_out.as_mut() {
+            bus.tick(lamp_ipc::monotonic_us());
         }
         if reported_at.elapsed() >= REPORT_EVERY {
             eprintln!(

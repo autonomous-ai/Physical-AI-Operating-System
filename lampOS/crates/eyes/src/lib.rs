@@ -6,7 +6,10 @@
 //! (`src/main.rs`) owns the camera and sends that to the body. No frame
 //! leaves the process unless it is started with `--sight-file`: then
 //! [`kept`] holds the newest one in a private file for the voice service to
-//! show the model, and no other.
+//! show the model, and no other. With `LAMP_BUS=on`, [`bus_out`] publishes
+//! the faces in view on the lamp's bus: boxes and whether each is turned to
+//! the lamp, never a picture.
+pub mod bus_out;
 pub mod faces;
 pub mod facing;
 pub mod kept;

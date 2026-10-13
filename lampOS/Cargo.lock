@@ -849,8 +849,10 @@ dependencies = [
 name = "lamp-eyes"
 version = "0.1.0"
 dependencies = [
+ "lamp-bus",
  "lamp-camera",
  "lamp-ipc",
+ "lamp-msgs",
  "lamp-turn-owner",
  "serde",
  "serde_json",

@@ -168,6 +168,24 @@ The three answers lasted 0.78 to 1.68 s: the lamp spent most of each
 turning back to the person it was answering, and one had ended before it
 was back.
 
+The same three exchanges played again the same night with the glance,
+measured the same way (the base's angle from where it was when the lamp
+stopped listening, at moments counted from `voice/state` turning to
+speaking):
+
+| How far the base was from where it listened | Before | With the glance |
+| --- | --- | --- |
+| As its voice began | 8.3 to 11.7 degrees | 1.4 to 3.2 degrees |
+| 0.6 s into the answer | 3.9 to 9.2 degrees | 0.4 to 2.2 degrees |
+| The farthest at any moment of the answer | 8.3 to 11.9 degrees | 1.4 to 3.2 degrees |
+
+Three answers each way, a played voice, joints sampled every 80 ms. What
+it does not show: how the glance looks. Nobody has watched it, and a turn
+of three degrees may be too small to read as looking away at all. The
+base also does not come all the way back: it rests where it is once it is
+within 20 counts of where it is wanted, as every joint does, so after an
+exchange it can sit up to two degrees from where it began.
+
 A joint that has arrived rests, in any mood: once the commanded pose has
 been within 6 counts of the wanted one and slower than 15 counts a second
 for 0.3 s, the joint's goal becomes its own position, and it is asked

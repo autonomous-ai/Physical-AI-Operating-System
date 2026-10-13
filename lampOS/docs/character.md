@@ -212,6 +212,19 @@ two runs; and for the last, of five requests spoken over the lamp that it
 stopped for, four were answered. The fifth was "Wait, wait, wait.", which
 reached the model as "wave wave wave", and the lamp went on with its story.
 
+On 2026-10-14, after the file was changed to say what the lamp can change
+about itself (its light, its volume) and that it says so in its own
+words: seven answers and nothing for the three; **7 of 8**, the played
+"Hello?" being thrown out as a sound before it reached the model
+([not-speech.md](not-speech.md): the runtime's doing, not the file's);
+nothing during the conversation and both questions answered, in two runs;
+and of ten requests spoken over the lamp it stopped for six, five of
+which it answered and one of which was heard as German and left alone. It
+paused for a seventh and went on with its story. The three it did nothing
+for were the three shortest: "Wait, wait, wait.", "Lamp, stop." and
+"Stop." It stopped 0.5 to 2.2 s after the person began, more than a
+second after in four of the six.
+
 ## What it does not decide
 
 How fast the lamp answers, whether it hears someone over its own voice and

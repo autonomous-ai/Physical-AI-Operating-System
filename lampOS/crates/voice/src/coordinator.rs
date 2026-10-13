@@ -1008,6 +1008,18 @@ fn refuse_legacy_owners() -> io::Result<()> {
 fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
+/// How the last two seconds of 10 ms blocks were judged, for a record:
+/// the detector's score in twentieths, the level on the face's scale, and
+/// how many the detector scored as speech and the faint floor turned away.
+/// Numbers about the sound, and nothing of the sound itself.
+fn last_blocks(judged: &VecDeque<(u8, u8, bool)>) -> Value {
+    json!({
+        "score_x20": judged.iter().map(|block| block.0).collect::<Vec<_>>(),
+        "level": judged.iter().map(|block| block.1).collect::<Vec<_>>(),
+        "under_floor": judged.iter().filter(|block| block.2 && block.0 >= 10).count(),
+    })
+}
+
 fn record(trace: &mut SessionState, event: Value) -> Result<()> {
     trace.record(event).map_err(Into::into)
 }
@@ -3126,10 +3138,7 @@ fn conversation(
                                 "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                                 "acoustic_speech_end":null,
                                 "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
-                                    "last_blocks":{
-                                        "score_x20":judged_blocks.iter().map(|block| block.0).collect::<Vec<_>>(),
-                                        "level":judged_blocks.iter().map(|block| block.1).collect::<Vec<_>>(),
-                                        "under_floor":judged_blocks.iter().filter(|block| block.2 && block.0 >= 10).count()}}}),
+                                    "last_blocks":last_blocks(&judged_blocks)}}),
                         )?;
                     }
                     speech_levels.clear();
@@ -3189,6 +3198,13 @@ fn conversation(
                             "median": levels[levels.len() / 2],
                             "upper_tenth": levels[levels.len() * 9 / 10],
                         });
+                        // A short utterance that was taken as said carries
+                        // how its blocks were judged, as one thrown out as
+                        // a sound does: what tells a short word from a
+                        // sound is to be read from the two side by side.
+                        if levels.len() < crate::not_speech::SHORT_BLOCKS {
+                            endpoint_record["last_blocks"] = last_blocks(&judged_blocks);
+                        }
                         speech_levels.clear();
                     }
                     record(trace, endpoint_record)?;

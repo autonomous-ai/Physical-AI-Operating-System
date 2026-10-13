@@ -99,6 +99,41 @@ only its loud blocks were counted; how often that happens in the real
 office is to be read from the `not_speech` records and the count of turns
 admitted on a working day.
 
+### A word thrown out as a sound: "Hello?"
+
+The gate was built for sounds, and it costs a word. On 2026-10-14, with
+nobody in the office, the check of eight lines said to the lamp without
+its name ([character.md](character.md)) gave seven answers: the first
+line, a played "Hello?", ended as `not_speech`. Played six more times,
+nine seconds apart, it was thrown out six times in six. The detector
+scored 16 blocks of it as speech in the check and 23, 18, 20, 19, 20 and
+22 in the six; 30 are needed. Three blocks of the first were under the
+faint floor and none of the others.
+
+That is a synthetic voice at a quick rate (`say` at 185 words a minute),
+and the word lasts about a fifth of a second by the detector. The same
+clip was sent on as speech in each of the ten earlier runs of that check
+in which it was played into quiet, all of them before the gate existed.
+The service wrote it as "Hello." in five of those and as "albero", "al
+loro", "Claro.", "alarm" and "Hola." in the other five: for a word this
+short the text is no better a judge than the count.
+
+So the count of blocks cannot tell this word from the sounds the gate is
+for: fourteen sounds had 11 to 33 blocks, and this word has 16 to 23.
+Lowering the number lets the sounds back in. What might tell them apart
+is how the blocks were judged, not how many there were, and until now
+only an utterance that was thrown out recorded that. An utterance taken
+as said with fewer than 80 blocks of speech (`SHORT_BLOCKS`) now carries
+the same `last_blocks` in its `local_endpoint` record, so a working day
+leaves both kinds side by side: the short things people said, which were
+answered, and the sounds, which were not. They are numbers about the
+sound, two seconds of scores and levels, and nothing of the sound itself.
+
+Not shown: a person's "Hello?". The four shortest things really said to
+the lamp on 2026-10-13 had 34 to 41 blocks, so a word said at a person's
+pace may well pass where this clip does not. Nothing here has measured
+it. The new field is not covered by a test.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

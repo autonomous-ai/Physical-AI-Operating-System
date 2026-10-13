@@ -12,6 +12,10 @@
 /// It was 25 until two sounds of 25 and 26 blocks, one after the other, got
 /// "I'm here if you need anything."
 pub const SCRAP_BLOCKS: usize = 30;
+/// An utterance taken as said with fewer blocks of speech than this has how
+/// its blocks were judged written into its record, as one thrown out has:
+/// 0.8 s of speech, which is every one-word and two-word thing said.
+pub const SHORT_BLOCKS: usize = 80;
 /// A short word soon after the lamp's own is an answer to it ("Yes.", "No.")
 /// and is never taken for a sound. It was ten seconds at first: on lamp-4ace
 /// each sound the lamp answered then excused the next one, eight seconds on.

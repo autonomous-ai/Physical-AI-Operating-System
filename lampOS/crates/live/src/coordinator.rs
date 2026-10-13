@@ -81,6 +81,12 @@ const INPUT_LEASE_US: u64 = 100_000;
 /// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
 /// question ends.
 const HOLD_FLOOR_US: u64 = 1_800_000;
+/// How long an answer to something asked in a busy room is not stopped for a
+/// voice over it. The first time the lamp kept its turn there, on lamp-4ace,
+/// it began "It's a beautiful, bright blue" under a colleague's sentence and
+/// was stopped by that same sentence 1.2 s later. Most answers are shorter
+/// than this; a story can still be stopped once it has passed.
+const KEEP_ANSWER_US: u64 = 4_000_000;
 /// Fewer blocks of speech than this in a whole utterance and it was a sound,
 /// not something said: a cough, a click, a bump. On lamp-4ace on 2026-10-13
 /// the fourteen such sounds the lamp answered ("Sorry, I missed that", "I'm
@@ -2118,6 +2124,10 @@ fn conversation(
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
     let mut floor_held_for: Option<u64> = None;
+    // The turn that was asked while the room was busy, and when the lamp
+    // began to be heard answering it.
+    let mut asked_in_busy_room: Option<u64> = None;
+    let mut busy_answer_since: Option<(u64, u64)> = None;
     // When the lamp was last speaking, and the turn that took the place of
     // another: neither a word after its own nor one that cut in is a sound.
     let mut last_spoke_us: Option<u64> = None;
@@ -2707,11 +2717,21 @@ fn conversation(
             // office or its own motors, were sent to the provider, came
             // back as "¿Qué?", and were taken for the person at the lamp
             // going on or cutting in.
-            let probability = if rig.faint_level.is_some_and(|faint| heard_level < faint) {
-                0.0
-            } else {
-                frame.probability
-            };
+            // Nor is a voice over the first seconds of an answer the lamp
+            // is giving to something asked in a busy room: it finishes what
+            // it was asked, as a person among people talking would.
+            let keeping_answer = reply.as_ref().is_some_and(|current| {
+                busy_answer_since.is_some_and(|(turn, since)| {
+                    turn == current.owner.turn()
+                        && frame.read_completed_at_us.saturating_sub(since) < KEEP_ANSWER_US
+                })
+            });
+            let probability =
+                if keeping_answer || rig.faint_level.is_some_and(|faint| heard_level < faint) {
+                    0.0
+                } else {
+                    frame.probability
+                };
             let heard = hear_capture_block(
                 &mut playback_mask,
                 reply,
@@ -2960,6 +2980,7 @@ fn conversation(
                     let input_end_us = audio.captured_at_us;
                     current.local_input_ended = true;
                     speech_ended = Some((current.owner.turn(), monotonic_us()));
+                    asked_in_busy_room = room.busy().then(|| current.owner.turn());
                     queue_input(
                         &mut provider_queue,
                         current,
@@ -3148,8 +3169,18 @@ fn conversation(
             choreography.set_attending(attending);
         }
         if let Some(current) = reply.as_ref().filter(|current| current.playback.is_some()) {
+            let turn = current.owner.turn();
+            if asked_in_busy_room == Some(turn) && busy_answer_since.map(|(of, _)| of) != Some(turn)
+            {
+                busy_answer_since = Some((turn, monotonic_us()));
+                record(
+                    trace,
+                    json!({"kind":"answer_kept","turn":turn,"at_us":monotonic_us(),"for_us":KEEP_ANSWER_US,
+                        "boundary":"asked in a busy room: a voice over the start of this answer does not stop it"}),
+                )?;
+            }
             last_spoke_us = Some(monotonic_us());
-            spoke_in_turn = Some(current.owner.turn());
+            spoke_in_turn = Some(turn);
         }
         // For the room, a turn is answered when the lamp was heard in it:
         // an answer that arrived and was never played is not one.

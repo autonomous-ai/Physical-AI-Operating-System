@@ -548,8 +548,9 @@ fn parse_duration(raw: &str) -> Result<Duration> {
 }
 
 pub fn encode_setup(config: &SessionConfig) -> Result<String> {
-    // No tools, search or provider-side admission policy. Session resumption
-    // appears only when explicitly requested or when presenting a handle.
+    // No provider-side admission policy, and no tools unless the service's
+    // own web search is asked for. Session resumption appears only when
+    // explicitly requested or when presenting a handle.
     let mut setup = json!({"setup": {
         "model": format!("models/{}", config.model),
         "generationConfig": {
@@ -587,6 +588,9 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
     }
     if config.small_pictures {
         setup["setup"]["generationConfig"]["mediaResolution"] = json!("MEDIA_RESOLUTION_LOW");
+    }
+    if config.search {
+        setup["setup"]["tools"] = json!([{"googleSearch": {}}]);
     }
     if let Some(handle) = &config.resume {
         setup["setup"]["sessionResumption"] = json!({"handle": handle.expose()});

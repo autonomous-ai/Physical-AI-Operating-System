@@ -270,6 +270,7 @@ pub struct SessionConfig {
     pub(crate) context_window: Option<(u32, u32)>,
     pub(crate) language_code: Option<String>,
     pub(crate) small_pictures: bool,
+    pub(crate) search: bool,
     pub(crate) instruction: String,
     pub(crate) timeouts: Timeouts,
     pub(crate) resumption: Resumption,
@@ -295,6 +296,7 @@ impl SessionConfig {
             context_window: None,
             language_code: None,
             small_pictures: false,
+            search: false,
             instruction: String::new(),
             timeouts: Timeouts::default(),
             resumption: Resumption::Off,
@@ -373,6 +375,13 @@ impl SessionConfig {
     /// frames anyway.
     pub fn small_pictures(mut self, small: bool) -> Self {
         self.small_pictures = small;
+        self
+    }
+    /// Let the model look things up with the service's own web search when
+    /// a question needs it (today's weather, a price, the news). The search
+    /// runs at the service; nothing is called on this side.
+    pub fn search(mut self, search: bool) -> Self {
+        self.search = search;
         self
     }
     /// The instruction as it will be sent.

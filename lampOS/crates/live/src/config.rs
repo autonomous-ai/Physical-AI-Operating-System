@@ -36,6 +36,10 @@ pub struct ProviderConfig {
     /// of the tokens a picture. For the eyes' 320 by 240 frames.
     #[serde(default)]
     small_pictures: bool,
+    /// Let the model use the service's web search for what it cannot know
+    /// by itself: the weather now, a price, today's news.
+    #[serde(default)]
+    search: bool,
     credential_file: String,
     #[serde(default)]
     authentication: Authentication,
@@ -251,7 +255,9 @@ impl ProviderConfig {
         if let Some(language) = self.language_code {
             session = session.language_code(&language)?;
         }
-        Ok(session.small_pictures(self.small_pictures))
+        Ok(session
+            .small_pictures(self.small_pictures)
+            .search(self.search))
     }
 }
 
@@ -367,6 +373,13 @@ mod tests {
                 .recovery_policy()
                 .require_context
         );
+    }
+
+    #[test]
+    fn search_is_off_unless_the_configuration_turns_it_on() {
+        assert!(!parsed("").unwrap().search);
+        assert!(parsed(r#","search":true"#).unwrap().search);
+        assert!(parsed(r#","search":"google""#).is_err());
     }
 
     #[test]

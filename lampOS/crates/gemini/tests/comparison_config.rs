@@ -346,3 +346,18 @@ fn small_pictures_ask_for_the_low_media_resolution_and_only_when_chosen() {
         plain["setup"]["generationConfig"]["responseModalities"]
     );
 }
+
+#[test]
+fn search_adds_the_services_own_tool_and_no_tools_are_named_without_it() {
+    let plain = setup(&configuration());
+    assert!(plain["setup"].get("tools").is_none());
+    let searching = setup(&configuration().search(true));
+    assert_eq!(
+        searching["setup"]["tools"],
+        serde_json::json!([{"googleSearch": {}}])
+    );
+    assert_eq!(
+        searching["setup"]["generationConfig"],
+        plain["setup"]["generationConfig"]
+    );
+}

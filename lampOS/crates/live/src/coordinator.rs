@@ -88,8 +88,9 @@ const HOLD_FLOOR_US: u64 = 1_800_000;
 /// the four shortest things really said to it that morning had 34 to 41.
 const SCRAP_BLOCKS: usize = 25;
 /// A short word soon after the lamp's own is an answer to it ("Yes.", "No.")
-/// and is never taken for a sound.
-const AFTER_OWN_WORDS_US: u64 = 10_000_000;
+/// and is never taken for a sound. It was ten seconds at first: on lamp-4ace
+/// each sound the lamp answered then excused the next one, eight seconds on.
+const AFTER_OWN_WORDS_US: u64 = 4_000_000;
 #[cfg(test)]
 const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
@@ -2120,7 +2121,11 @@ fn conversation(
     // When the lamp was last speaking, and the turn that took the place of
     // another: neither a word after its own nor one that cut in is a sound.
     let mut last_spoke_us: Option<u64> = None;
+    let mut spoke_in_turn: Option<u64> = None;
     let mut took_over_turn: Option<u64> = None;
+    // The answer whose words are arriving, and whether any of them has been
+    // a word yet.
+    let mut answer_words: Option<(u64, bool)> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -2437,6 +2442,34 @@ fn conversation(
                     text,
                     finished,
                 } => {
+                    // The model keeping quiet aloud: an answer that opens
+                    // with no word in it ("...") while none of it has been
+                    // played is not an answer. It ends here, unheard, and
+                    // counts as a turn the lamp did not answer.
+                    if let Some(turn) = request {
+                        if answer_words.map(|(of, _)| of) != Some(turn) {
+                            answer_words = Some((turn, false));
+                        }
+                        let worded = text.chars().any(char::is_alphanumeric);
+                        let had_word = answer_words.is_some_and(|(_, word)| word);
+                        answer_words = Some((turn, had_word || worded));
+                        if !had_word
+                            && !worded
+                            && !text.trim().is_empty()
+                            && reply.as_ref().is_some_and(|current| {
+                                current.owner.turn() == turn
+                                    && current.local_input_ended
+                                    && current.playback.is_none()
+                            })
+                        {
+                            cancel_reply(owner, reply, trace, "nothing_said")?;
+                            speaker_pending = None;
+                            provider_queue.clear();
+                            snapshot = owner.snapshot(now())?;
+                            rig.publish(snapshot)?;
+                            last_publish = monotonic_us();
+                        }
+                    }
                     // The lamp's own words, as its answer begins: a nod
                     // with a yes, a shake with a no, when it has a body.
                     if let (Some(turn), Some(body)) = (request, body_link.as_mut())
@@ -3114,18 +3147,19 @@ fn conversation(
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
         }
+        if let Some(current) = reply.as_ref().filter(|current| current.playback.is_some()) {
+            last_spoke_us = Some(monotonic_us());
+            spoke_in_turn = Some(current.owner.turn());
+        }
+        // For the room, a turn is answered when the lamp was heard in it:
+        // an answer that arrived and was never played is not one.
         room.observe(
-            reply
-                .as_ref()
-                .map(|current| (current.owner.turn(), current.had_audio)),
+            reply.as_ref().map(|current| {
+                let turn = current.owner.turn();
+                (turn, spoke_in_turn == Some(turn))
+            }),
             clock,
         );
-        if reply
-            .as_ref()
-            .is_some_and(|current| current.playback.is_some())
-        {
-            last_spoke_us = Some(monotonic_us());
-        }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
             let phase = RingPhase::from_snapshot(snapshot);

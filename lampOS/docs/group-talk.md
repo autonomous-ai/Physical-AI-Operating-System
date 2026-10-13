@@ -34,10 +34,32 @@ after cancellation that morning, either way).
 
 ## What is done about it
 
-**Voices that are too faint are not speech** (`--faint-floor-db -40`, see
-[serve-runtime.md](serve-runtime.md), "How loud an utterance was"). This
-removed the phantom utterances from across the office. It does nothing for
-people at the lamp.
+**Voices that are too faint are not speech** (`--faint-floor-db`, see
+[serve-runtime.md](serve-runtime.md), "How loud an utterance was"). At
+-40 dBFS this removed the phantom utterances from across the office. It
+does nothing for people at the lamp.
+
+**The level follows the room** (`crates/live/src/room_floor.rs`,
+`LAMP_FAINT_FLOOR_MAX_DB`). -40 was not enough in a working office: the
+talk at the next desks arrived at a median of -27 to -35 dBFS, every
+sentence of it lit the lamp up, and about thirty times in fifty minutes the
+lamp answered. Set to -28 by hand it heard a third as much and answered
+none of it. But a level right for that room at four in the afternoon turns
+a quiet voice away from an empty one at eight. With the environment
+variable set, the floor moves between `--faint-floor-db` and that highest
+level. It follows the speech that was not for the lamp: what the detector
+scores as speech outside any turn, and what was heard in turns that ended
+by themselves with the lamp saying nothing; never a turn the lamp
+answered, anything heard while it speaks, or a turn replaced by more talk.
+It sits three decibels above the middle of that as it fades (by half in
+about two and a half minutes), needs about three seconds of such speech to
+move at all, and is back at its lowest within about a quarter of an hour
+of a room emptying (six halvings take the most there can be under those
+three seconds). Each move of a decibel or more is in the record as
+`room_floor`, with `room_alone_dbfs`: where the room's talk alone would
+put the floor before the two limits. That number is recorded with a fixed
+floor too, so a room can be watched before the floor is let go in it.
+Host tests for the rule (`room_floor::tests`).
 
 **A question put to the lamp stays its own** (the character file,
 [character.md](character.md)): "you will often be asked something and then

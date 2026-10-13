@@ -87,16 +87,6 @@ const HOLD_FLOOR_US: u64 = 1_800_000;
 /// was stopped by that same sentence 1.2 s later. Most answers are shorter
 /// than this; a story can still be stopped once it has passed.
 const KEEP_ANSWER_US: u64 = 4_000_000;
-/// Fewer blocks of speech than this in a whole utterance and it was a sound,
-/// not something said: a cough, a click, a bump. On lamp-4ace on 2026-10-13
-/// the fourteen such sounds the lamp answered ("Sorry, I missed that", "I'm
-/// Lamp. What's your name?") had 11 to 33 blocks, twelve of them under 25;
-/// the four shortest things really said to it that morning had 34 to 41.
-const SCRAP_BLOCKS: usize = 25;
-/// A short word soon after the lamp's own is an answer to it ("Yes.", "No.")
-/// and is never taken for a sound. It was ten seconds at first: on lamp-4ace
-/// each sound the lamp answered then excused the next one, eight seconds on.
-const AFTER_OWN_WORDS_US: u64 = 4_000_000;
 #[cfg(test)]
 const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
@@ -2135,6 +2125,8 @@ fn conversation(
     let mut last_spoke_us: Option<u64> = None;
     let mut spoke_in_turn: Option<u64> = None;
     let mut took_over_turn: Option<u64> = None;
+    // The turn whose speech last ended as something said, not a sound.
+    let mut said_turn: Option<u64> = None;
     // The answer whose words are arriving, and whether any of them has been
     // a word yet.
     let mut answer_words: Option<(u64, bool)> = None;
@@ -2147,6 +2139,17 @@ fn conversation(
         None
     };
     let mut last_turn_us = monotonic_us();
+    // The level under which sound is not speech, which may follow the room;
+    // the speech blocks of the turn in hand and of the moment before it,
+    // until it is known whether they were for the lamp; and the turn they
+    // belong to.
+    let mut room_floor = rig
+        .faint_level
+        .map(|lowest| crate::room_floor::from_environment(lowest, monotonic_us()));
+    let mut floor_recorded: Option<(u8, Option<u8>)> = None;
+    let mut turn_blocks: Vec<u8> = Vec::new();
+    let mut loose_blocks: VecDeque<(u64, u8)> = VecDeque::new();
+    let mut floor_turn: Option<u64> = None;
     // Taking a look when asked: the lamp's own "Let me look" is how it asks
     // for its eyes, and the look is the turn after it. Only where the eyes
     // keep a frame for it.
@@ -2764,12 +2767,67 @@ fn conversation(
                         && frame.read_completed_at_us.saturating_sub(since) < KEEP_ANSWER_US
                 })
             });
-            let probability =
-                if keeping_answer || rig.faint_level.is_some_and(|faint| heard_level < faint) {
-                    0.0
+            let faint = room_floor
+                .as_mut()
+                .map(|floor| floor.at(frame.read_completed_at_us));
+            // Recorded when it moves a decibel, and when the level the
+            // room alone would ask for does: with a fixed floor that second
+            // number is what following the room would have done.
+            let unbounded = room_floor.as_ref().and_then(|floor| floor.unbounded());
+            if let Some(faint) = faint
+                && floor_recorded.is_none_or(|(last, last_unbounded)| {
+                    last.abs_diff(faint) >= 8
+                        || match (last_unbounded, unbounded) {
+                            (Some(before), Some(now)) => before.abs_diff(now) >= 8,
+                            (None, None) => false,
+                            _ => true,
+                        }
+                })
+            {
+                floor_recorded = Some((faint, unbounded));
+                let dbfs = |level: u8| -48.0 + f32::from(level) * 34.0 / 255.0;
+                record(
+                    trace,
+                    json!({"kind":"room_floor","at_us":frame.read_completed_at_us,
+                        "dbfs":dbfs(faint),"room_alone_dbfs":unbounded.map(dbfs)}),
+                )?;
+            }
+            // What the detector takes for speech while the lamp is silent,
+            // kept until it is known whether it was for the lamp: a turn's
+            // own blocks with the turn, the rest for a moment in case a
+            // turn is about to begin with them.
+            if room_floor.is_some()
+                && frame.probability.is_finite()
+                && frame.probability >= 0.5
+                && reply
+                    .as_ref()
+                    .is_none_or(|current| current.playback.is_none())
+            {
+                if reply
+                    .as_ref()
+                    .is_some_and(|current| !current.local_input_ended)
+                {
+                    if turn_blocks.len() < 6_000 {
+                        turn_blocks.push(heard_level);
+                    }
                 } else {
-                    frame.probability
-                };
+                    loose_blocks.push_back((frame.read_completed_at_us, heard_level));
+                }
+            }
+            while let Some((at, level)) = loose_blocks.front().copied() {
+                if frame.read_completed_at_us.saturating_sub(at) < 400_000 {
+                    break;
+                }
+                loose_blocks.pop_front();
+                if let Some(floor) = room_floor.as_mut() {
+                    floor.not_for_the_lamp(level);
+                }
+            }
+            let probability = if keeping_answer || faint.is_some_and(|faint| heard_level < faint) {
+                0.0
+            } else {
+                frame.probability
+            };
             let heard = hear_capture_block(
                 &mut playback_mask,
                 reply,
@@ -2952,7 +3010,15 @@ fn conversation(
                         last_publish = monotonic_us();
                         continue;
                     };
-                    let took_over = reply.is_some();
+                    // Taking over from the lamp's own answer is cutting in,
+                    // and taking over from something that was said is going
+                    // on with it. Taking over from a sound is neither.
+                    let took_over = reply.as_ref().is_some_and(|current| {
+                        crate::not_speech::takes_over(
+                            current.had_audio || current.playback.is_some(),
+                            said_turn == Some(current.owner.turn()),
+                        )
+                    });
                     snapshot = commit_admitted_input(
                         owner,
                         reply,
@@ -2968,6 +3034,8 @@ fn conversation(
                     if took_over {
                         took_over_turn = reply.as_ref().map(|current| current.owner.turn());
                     }
+                    // The sound just before a turn began is the turn's.
+                    turn_blocks.extend(loose_blocks.drain(..).map(|(_, level)| level));
                 }
                 AdmissionStep::Audio(audio) => {
                     if let Some(current) = reply.as_mut() {
@@ -2983,13 +3051,13 @@ fn conversation(
                     }
                 }
                 AdmissionStep::End(audio)
-                    if speech_levels.len() < SCRAP_BLOCKS
-                        && reply.as_ref().is_some_and(|current| {
-                            took_over_turn != Some(current.owner.turn())
-                                && last_spoke_us.is_none_or(|at| {
-                                    monotonic_us().saturating_sub(at) >= AFTER_OWN_WORDS_US
-                                })
-                        }) =>
+                    if reply.as_ref().is_some_and(|current| {
+                        crate::not_speech::was_a_sound(
+                            speech_levels.len(),
+                            took_over_turn == Some(current.owner.turn()),
+                            last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                        )
+                    }) =>
                 {
                     // A sound, not something said. It is not sent on as a
                     // finished question: the turn ends here, unanswered.
@@ -3000,7 +3068,7 @@ fn conversation(
                                 "last_block_host_read_us":audio.captured_at_us,
                                 "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                                 "acoustic_speech_end":null,
-                                "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":SCRAP_BLOCKS}}),
+                                "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS}}),
                         )?;
                     }
                     speech_levels.clear();
@@ -3018,6 +3086,9 @@ fn conversation(
                     let input_end_us = audio.captured_at_us;
                     current.local_input_ended = true;
                     speech_ended = Some((current.owner.turn(), monotonic_us()));
+                    if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
+                        said_turn = Some(current.owner.turn());
+                    }
                     asked_in_busy_room = room.busy().then(|| current.owner.turn());
                     queue_input(
                         &mut provider_queue,
@@ -3219,6 +3290,25 @@ fn conversation(
             }
             last_spoke_us = Some(monotonic_us());
             spoke_in_turn = Some(turn);
+        }
+        // A turn that ended by itself with the lamp saying nothing was the
+        // room's talk, and tells the floor how loud the room is. One the
+        // lamp answered does not, nor one replaced by more talk: that may
+        // be a person pausing in what they are saying to the lamp.
+        let turn_now = reply.as_ref().map(|current| current.owner.turn());
+        if floor_turn != turn_now {
+            if let (Some(ended), Some(floor)) = (floor_turn, room_floor.as_mut())
+                && spoke_in_turn != Some(ended)
+                && turn_now.is_none()
+            {
+                for level in turn_blocks.drain(..) {
+                    floor.not_for_the_lamp(level);
+                }
+            }
+            if turn_now.is_none() {
+                turn_blocks.clear();
+            }
+            floor_turn = turn_now;
         }
         // For the room, a turn is answered when the lamp was heard in it:
         // an answer that arrived and was never played is not one.

@@ -16,6 +16,7 @@ pub mod diagnostics;
 pub mod fixture_provider;
 pub mod head_qualification;
 pub mod local_time;
+pub mod not_speech;
 pub mod options;
 #[cfg(target_os = "linux")]
 pub mod physical_privacy;
@@ -30,6 +31,7 @@ pub mod reference;
 pub mod ring_face;
 pub mod ring_wire;
 pub mod ring_worker;
+pub mod room_floor;
 pub mod sight;
 pub mod speak_up;
 mod termination;

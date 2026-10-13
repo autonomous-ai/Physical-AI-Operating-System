@@ -54,6 +54,7 @@ All in `lamp-live.service` in this folder unless said otherwise; install a chang
 |---|---|---|
 | Answer only when called | the line beginning "You share an office" in `persona.txt`; the looser line is in `persona.txt.before-office-rule-20261013` | on |
 | How loud counts as speech | `--faint-floor-db N` (-47 to -20) | -28 (was -40) |
+| Let that level follow the room | `Environment=LAMP_FAINT_FLOOR_MAX_DB=N`: the level then moves between `--faint-floor-db` and N with the talk that is not for the lamp. Without it the level is fixed, and the record's `room_floor` rows still say where the room alone would put it | off (watching) |
 | Web search | `"search": true` in `/etc/lampOS/voice/provider.json` (`~/lamp-voice-data/tools/set_provider.sh search false` turns it off) | on |
 | Say hello to someone who sits down | `Environment=LAMP_SPEAK_FIRST=on`; without it the moment is only recorded ("a hello was due" in the journal) | recording only |
 | Take a look when asked ("Let me look") | `Environment=LAMP_EYES_LOOK_FILE=...` here, `--sight-file` in `lamp-eyes.service`, and the "You can see, when you look" line in the character (`persona.evening.txt`) | built; the character line is not in yet |

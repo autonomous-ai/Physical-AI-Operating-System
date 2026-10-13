@@ -36,14 +36,48 @@ exchange from the last ten minutes it first adds this to the end of the
 instruction:
 
 ```text
-Earlier in this conversation
-This is what you and the person at your desk said to each other in the last
-few minutes, for you to carry on from the way anyone carries on a
-conversation they are in. It is background only: never read it out and never
-answer any of it again.
+A moment ago
+This is what you and the person at your desk have just said to each other,
+for you to carry on from if they go on with it. It is background only: never
+read it out and never answer any of it again.
 Person: ...
 You: ...
 ```
+
+That is for a newest exchange no more than 45 seconds old
+(`GOING_ON_FOR`). An older one is told as finished:
+
+```text
+Earlier
+About 7 minutes ago you and a person at your desk said this to each other.
+That conversation is finished and they have gone back to their work. It is
+background only, for when someone comes back to it: never read it out and
+never answer any of it again.
+Person: ...
+You: ...
+```
+
+Until the afternoon of 2026-10-13 there was one wording for both, "Earlier
+in this conversation ... for you to carry on from the way anyone carries on
+a conversation they are in". The lamp's character by then answered only
+when called or when already talking with someone
+([character.md](character.md)), and the note told every new session that it
+was. In lamp-4ace's record of that afternoon in a talking office, from the
+character change at 16:05 to 16:47: 157 utterances ended and 18 were
+answered. Eight sessions were opened in that time. The first three answered
+nothing they were not asked (one began with an empty thread, two with a
+single exchange in it). After someone had come and talked to the lamp at
+16:28, each of the next five (16:28, 16:37, 16:40, 16:41, 16:43) answered
+the first or second thing it heard, which was colleagues' talk: "por" got
+"The weather here is pretty warm and humid today", "la nueva tecnología"
+got "It's moving so fast these days, isn't it?", and the next session, told
+that exchange, took "la noche" as its continuation: "It is truly amazing
+how quickly things are evolving." That last session then answered nine
+times in two minutes, five of them "It's past five in the afternoon now."
+Each such answer became the thread's newest exchange and was told to the
+next session. The thread was cleared by hand and the service restarted at
+16:47. The two wordings are in the host tests; what the new one does to a
+session's first turn on a lamp is not yet known.
 
 The note says nothing of sessions, connections or memory and does not tell
 the lamp to keep quiet, and a test holds it to that. The first wording began
@@ -87,9 +121,9 @@ The provider worker also asks for a new session itself
 requests in a row have gone unanswered it asks the connection to end at its
 next idle moment (`InputSender::renew_when_idle` in `lamp-gemini`, the same
 clean boundary as an announced close: an answer in progress finishes
-first), at most once in three minutes. The thread above is what makes this
-cheap: whatever the lamp and a person said in the last ten minutes goes
-into the new session.
+first), at most once in fifteen minutes. The thread above is what makes
+this cheap: whatever the lamp and a person said in the last ten minutes
+goes into the new session.
 
 Why: a session can stop being of use without failing. On lamp-4ace on
 2026-10-13 a session about thirteen minutes old, with people talking
@@ -101,12 +135,22 @@ it was said. Nothing on the lamp's side can tell a session in that state
 from a room that is simply not talking to the lamp, so the rule does not
 try to: eight unanswered requests in a row get a fresh session either way.
 In the ordinary case that costs about two seconds in which what is said is
-not heard, no more than once in three minutes, and leaves a shorter
-history for the service to bill on every turn.
+not heard and leaves a shorter history for the service to bill on every
+turn.
+
+It was at most once in three minutes at first. With the character that
+answers only when called, a talking office is nothing but unanswered
+requests, and lamp-4ace renewed every three minutes while the office
+talked (16:22, 16:25, 16:28, 16:37, 16:40, 16:43). A new session is where the lamp was likeliest
+to answer what was not for it (above), so each renewal was a chance to
+speak out of turn. The new sessions also heard no better: the first things
+three of them were given came back as "por", "pausa" and "la nueva
+tecnología". Fifteen minutes leaves the rule as a last resort for a session
+gone wrong, which is all the evidence supports.
 
 Checked by a session test beside the one for an announced close (idle: it
-ends at once; with an answer in progress: the answer completes first). Not
-yet seen on a lamp.
+ends at once; with an answer in progress: the answer completes first). On
+lamp-4ace it has acted about a dozen times with no fault.
 
 ## What it keeps to itself
 

@@ -363,9 +363,14 @@ over its speech blocks, and a string of things that were also taken for
 utterances, sent to the provider and heard back as "¿Qué?", at -48 dBFS or
 under: voices across the room, or the lamp's own motors. Those were taken
 for the person at the lamp going on, or cutting in, and the conversation
-checks that pass in a quiet office failed. The lamp runs with -40. What it
-does not help with: people talking to each other right beside the lamp, who
-are as loud as the person it is talking with.
+checks that pass in a quiet office failed. The lamp ran with -40 that
+morning and -28 from the afternoon, when the office's own talk (a median of
+-27 to -35) turned out to be answered too. What it does not help with:
+people talking to each other right beside the lamp, who are as loud as the
+person it is talking with. With `LAMP_FAINT_FLOOR_MAX_DB` in the
+environment the level is not fixed: it moves between the option's value and
+that one, following the talk that is not for the lamp
+([group-talk.md](group-talk.md), "The level follows the room").
 
 `--end-silence-ms 300..2000` (a multiple of 10) sets how long the detector
 waits in quiet before it decides that a person has finished. Without it

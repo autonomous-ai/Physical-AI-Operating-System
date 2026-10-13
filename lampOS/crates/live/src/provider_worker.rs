@@ -58,10 +58,14 @@ const BARRIER: BarrierPolicy = BarrierPolicy::Require;
 /// character file of that hour answered nothing at all for five minutes. A
 /// new session heard the same question correctly. Most runs of eight
 /// unanswered requests are simply a room not talking to the lamp, and for
-/// those a renewal costs two seconds in which it does not hear, at most once
-/// in three minutes, and gives a shorter history to pay for.
+/// those a renewal costs two seconds in which it does not hear and gives a
+/// shorter history to pay for. It was at most once in three minutes until
+/// that afternoon, when the lamp sat in a talking office with a character
+/// that answers only when called: it renewed every three minutes, and a new
+/// session is where the lamp is likeliest to answer what was not for it
+/// (see `thread::GOING_ON_FOR`).
 const RENEW_AFTER_UNANSWERED: u32 = 8;
-const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(180);
+const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
 /// Requests the service has left unanswered since it last answered one.
 static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 /// Where the eyes keep their newest frame, when the lamp may take a look.

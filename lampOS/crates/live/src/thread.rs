@@ -49,6 +49,19 @@ const ASKED_WITHIN: Duration = Duration::from_secs(20);
 /// An exchange older than this is not told to a new session: whoever it was
 /// with has probably gone.
 const REMEMBERED_FOR: Duration = Duration::from_secs(600);
+/// A conversation whose last exchange is this new is told as one that may
+/// go on; an older one as one that is finished. Until 2026-10-13 every one
+/// was told as "this conversation ... for you to carry on from the way
+/// anyone carries on a conversation they are in". That afternoon lamp-4ace
+/// had a character that answers only when called or when it is already
+/// talking with someone, in an office where it was neither, and five new
+/// sessions in a row, opened from one to seven minutes after its last
+/// words, each answered the first or second thing it heard: colleagues'
+/// talk ("por" got a sentence about the weather). Each of those answers was
+/// then the newest exchange of the thread the next session was told, and
+/// the last of the five answered nine times in two minutes
+/// (`docs/conversation-thread.md`).
+const GOING_ON_FOR: Duration = Duration::from_secs(45);
 
 struct Exchange {
     request: u64,
@@ -218,16 +231,17 @@ impl Thread {
     /// What to tell a new session, if anything was said lately, in at most
     /// `room` bytes: the latest exchanges that fit, in the order they went.
     pub fn recall(&self, now: Instant, room: usize) -> Option<String> {
+        // An answer with no word in it ("...") is the model keeping quiet
+        // aloud. Told back to it, it is what it does next.
+        let told = |exchange: &&Exchange| {
+            now.saturating_duration_since(exchange.at) <= REMEMBERED_FOR
+                && exchange.lamp.chars().any(char::is_alphanumeric)
+        };
+        let newest = self.exchanges.iter().rev().find(told)?;
+        let note = note(now.saturating_duration_since(newest.at));
         let mut kept: Vec<String> = Vec::new();
-        let mut bytes = NOTE.len();
-        for exchange in self.exchanges.iter().rev() {
-            // An answer with no word in it ("...") is the model keeping
-            // quiet aloud. Told back to it, it is what it does next.
-            if now.saturating_duration_since(exchange.at) > REMEMBERED_FOR
-                || !exchange.lamp.chars().any(char::is_alphanumeric)
-            {
-                continue;
-            }
+        let mut bytes = note.len();
+        for exchange in self.exchanges.iter().rev().filter(told) {
             let mut lines = String::new();
             if !exchange.person.trim().is_empty() {
                 lines.push_str("Person: ");
@@ -245,14 +259,29 @@ impl Thread {
         }
         (!kept.is_empty()).then(|| {
             kept.reverse();
-            format!("{NOTE}{}", kept.concat())
+            format!("{note}{}", kept.concat())
         })
     }
 }
 
-/// What goes before the exchanges. See the top of this file for what it
-/// must not say.
-const NOTE: &str = "\n\nEarlier in this conversation\nThis is what you and the person at your desk said to each other in the last few minutes, for you to carry on from the way anyone carries on a conversation they are in. It is background only: never read it out and never answer any of it again.\n";
+/// What goes before the exchanges, the newest of which is this old. See the
+/// top of this file for what it must not say.
+fn note(age: Duration) -> String {
+    if age <= GOING_ON_FOR {
+        return GOING_ON.to_owned();
+    }
+    let minutes = (age.as_secs() + 30) / 60;
+    let ago = if minutes <= 1 {
+        "About a minute ago".to_owned()
+    } else {
+        format!("About {minutes} minutes ago")
+    };
+    format!(
+        "\n\nEarlier\n{ago} you and a person at your desk said this to each other. That conversation is finished and they have gone back to their work. It is background only, for when someone comes back to it: never read it out and never answer any of it again.\n"
+    )
+}
+
+const GOING_ON: &str = "\n\nA moment ago\nThis is what you and the person at your desk have just said to each other, for you to carry on from if they go on with it. It is background only: never read it out and never answer any of it again.\n";
 
 /// The provider worker's flag for the file, and where the coordinator
 /// reads its path. Unset: the thread is in memory only.
@@ -387,13 +416,32 @@ mod tests {
             "Person: Hey Lamp, my favourite colour is green.\nYou: Green is a lovely colour!\nYou: Still here if you need me.\n"
         ), "{recalled}");
         assert!(!recalled.contains("Maria") && !recalled.contains("replied"));
-        // Nothing in it for the lamp to talk about but the conversation.
-        let note = recalled.split("Person: ").next().unwrap().to_lowercase();
-        for word in [
-            "connect", "renew", "session", "memory", "forg", "lost", "sorry", "silen", "quiet",
-            "nothing",
-        ] {
-            assert!(!note.contains(word), "{word}: {note}");
+        // Nothing in it for the lamp to talk about but the conversation,
+        // whether that is going on or finished.
+        assert!(recalled.starts_with("\n\nA moment ago\n"), "{recalled}");
+        let later = thread.recall(at(60 + 46), ROOM).unwrap();
+        assert!(
+            later.starts_with("\n\nEarlier\nAbout a minute ago you and a person"),
+            "{later}"
+        );
+        assert!(later.contains("That conversation is finished"));
+        assert!(later.ends_with("You: Still here if you need me.\n"));
+        assert!(
+            thread
+                .recall(at(60 + 400), ROOM)
+                .unwrap()
+                .starts_with("\n\nEarlier\nAbout 7 minutes ago you")
+        );
+        for told in [&recalled, &later] {
+            let note = told.split("Person: ").next().unwrap().to_lowercase();
+            for word in [
+                "connect", "renew", "session", "memory", "forg", "lost", "sorry", "silen", "quiet",
+                "nothing",
+            ] {
+                assert!(!note.contains(word), "{word}: {note}");
+            }
+            // Only a conversation that may go on is one to carry on.
+            assert_eq!(note.contains("carry on"), std::ptr::eq(told, &recalled));
         }
         // Keeping quiet aloud is not an answer to carry on from.
         thread.person("Are you coming to lunch with us?", true, at(70));
@@ -533,8 +581,8 @@ mod tests {
         let whole = recalled.len();
         let fewer = thread.recall(at(730), whole - 1).unwrap();
         assert_eq!(fewer.matches("You: ").count(), 7);
-        assert!(recalled.ends_with(&fewer[NOTE.len()..]));
-        assert_eq!(thread.recall(at(730), NOTE.len() + 10), None);
+        assert!(recalled.ends_with(&fewer[GOING_ON.len()..]));
+        assert_eq!(thread.recall(at(730), GOING_ON.len() + 10), None);
     }
 
     #[test]
@@ -562,9 +610,8 @@ mod tests {
         thread.lamp(3, "Nice to meet you, Sam.", now);
         let both = recalling.recalled(&thread, now, Some("\n\nThe time\nNoon."));
         assert!(
-            both.instruction_text().starts_with(
-                "You are a lamp.\n\nThe time\nNoon.\n\nEarlier in this conversation\n"
-            )
+            both.instruction_text()
+                .starts_with("You are a lamp.\n\nThe time\nNoon.\n\nA moment ago\n")
         );
         // A thread with no room left leaves the time; a time too long, nothing.
         let long = "x".repeat(lamp_gemini::MAX_INSTRUCTION_BYTES - 200);
@@ -582,7 +629,7 @@ mod tests {
         let told = recalling.recalled(&thread, now, None);
         assert!(
             told.instruction_text()
-                .starts_with("You are a lamp.\n\nEarlier in this conversation\n")
+                .starts_with("You are a lamp.\n\nA moment ago\n")
         );
         assert!(
             told.instruction_text()

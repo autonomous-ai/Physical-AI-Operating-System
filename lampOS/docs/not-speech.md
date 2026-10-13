@@ -27,8 +27,8 @@ scored as speech in the whole utterance, twelve of them under 25. The four
 shortest things really said to it in the same records ("How you doing?",
 "Okay.", "lungs", "Ouais.") had 34 to 41.
 
-So: when an utterance ends having had fewer than 25 blocks scored as speech
-(`SCRAP_BLOCKS` in `crates/live/src/coordinator.rs`), the turn ends there
+So: when an utterance ends having had fewer than 30 blocks scored as speech
+(`SCRAP_BLOCKS` in `crates/live/src/not_speech.rs`; 25 at first), the turn ends there
 with outcome `not_speech`. Its end is not sent as a finished question, what
 the provider may still answer is dropped, and the `local_endpoint` record
 carries `not_speech` with the count. Two kinds of short utterance are never
@@ -38,10 +38,16 @@ treated so:
   and "No." answer what the lamp just asked. (This was ten seconds at
   first. On the lamp each sound it answered then excused the next one,
   eight seconds later.)
-- one that took the turn from another: a quick "stop" over the lamp, or the
-  short second half of a sentence after a pause.
+- one that took the turn from the lamp's own answer (a quick "stop" over
+  it), or from something that had itself been said (the short second half
+  of a sentence after a pause). At first any turn that took over from
+  another was let through, and so was a sound that followed a sound: two
+  of 25 and 26 blocks, a second apart, got "I'm here if you need
+  anything." Taking over from a sound now excuses nothing.
 
-What it does not catch: the two sounds of 31 and 33 blocks, a sound in the
+What it does not catch: sounds of 30 blocks and more (two of the fourteen
+had 31 and 33; the real "How you doing?" had 34, so there is little room
+left between them), a sound in the
 four seconds after the lamp speaks, and anything long enough to be speech
 that is not (a quiet voice across the room at a median of -33 dBFS was 60
 blocks). The character file carries the rest: what seems to be in a

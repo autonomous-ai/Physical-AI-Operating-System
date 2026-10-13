@@ -81,16 +81,37 @@ There is never more than that one frame, and no history.
 
 The voice service reads it (`crates/live/src/sight.rs`). When
 `LAMP_EYES_SIGHT_FILE` is set in the service's environment, the provider
-worker is started with `--eyes-sight PATH`, and for each request it offers
-the file's frame to the model through `Supervisor::try_image`
-([gemini-visual-input.md](gemini-visual-input.md)): once as the person
-begins to speak and once more if they are still speaking two seconds later.
-A file last written more than a second ago is not offered, so closed eyes
-show the model nothing rather than something stale. The offer has the limits
-that call already has: only for the request whose input is open, at most two
-pictures a request, 64 KiB, never sent again on a later request or another
-connection. The worker's line in the journal says for each look whether a
-picture went and how old it was, or why none did.
+worker is started with `--eyes-sight PATH`, and while a person is speaking
+it offers the file's frame to the model through `Supervisor::try_image`
+([gemini-visual-input.md](gemini-visual-input.md)), at most once every four
+seconds and twice a request. One thing said gets one picture as it begins
+and a long one a second; talk that goes on and on beside the lamp gets one
+every four seconds, not two with every pause in it. A file last written
+more than a second ago is not offered, so closed eyes show the model nothing
+rather than something stale. The offer has the limits that call already
+has: only for the request whose input is open, 64 KiB, never sent again on a
+later request or another connection. The worker's line in the journal says
+for each look whether a picture went and how old it was, or why none did.
+
+What a picture costs. The service counts a picture as tokens of the
+conversation, and bills the whole conversation again with every turn. In the
+first run on lamp-4ace the worker looked twice with every request, and over
+a request with two pictures the prompt outside audio grew by 506 tokens. In
+an office where the lamp hears something every few seconds that adds up
+quickly, which is why looks are four seconds apart, and why
+`"small_pictures": true` in the provider configuration asks the service to
+read pictures at its low resolution (`mediaResolution` in the setup). What
+that saves on this service is not measured yet.
+
+On lamp-4ace, 2026-10-13, first run: a picture of 13.7 to 17.7 KiB, 18 to
+157 ms old, went with each of six requests. A played "Hey Lamp, what do you
+see in front of you right now?" was answered "I see a desk including an iMac
+and another display, along with a keyboard, mouse, and some personal items
+like a mug and a picture frame", which is what a frame copied by hand a
+minute earlier showed (and a man standing beside the desk, whom it did not
+mention and was not asked about). That is one question, played. Not shown:
+a person asking about themselves or something they hold up, how it does in
+poor light, and whether seeing changes what it says when nobody asked.
 
 What this changes about privacy, plainly: with the option on, a picture of
 whoever is in front of the lamp goes to the provider with what they say, as

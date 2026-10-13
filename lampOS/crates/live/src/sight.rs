@@ -3,11 +3,13 @@
 //! "What do you see in front of you?" was among the first things asked of
 //! the lamp by people standing at it (2026-10-13), and it answered that it
 //! could not see. Its eyes (`lamp-eyes --sight-file`) keep their newest
-//! frame in a private file while the camera is open. For each request this
-//! offers that frame to the model once as the person begins to speak, and
-//! once more if they are still speaking two seconds on, through the same
-//! `Supervisor::try_image` as the camera context: inside the request's own
-//! activity, never replayed, at most two a request.
+//! frame in a private file while the camera is open. While a person is
+//! speaking this offers that frame to the model, at most once every four
+//! seconds and twice a request, through the same `Supervisor::try_image` as
+//! the camera context: inside the request's own activity, never replayed.
+//! So one thing said gets one picture as it begins, a long one a second, and
+//! talk that goes on and on around the lamp gets one every four seconds
+//! rather than two with every pause in it.
 //!
 //! A frame older than a second is not offered: the eyes are closed, and the
 //! model is told nothing rather than something stale. The eyes open only
@@ -26,14 +28,17 @@ pub const FLAG: &str = "--eyes-sight";
 pub const ENVIRONMENT: &str = "LAMP_EYES_SIGHT_FILE";
 
 const FRESH: Duration = Duration::from_secs(1);
-const SECOND_LOOK: Duration = Duration::from_secs(2);
+/// The least time between two looks, whichever requests they fall in.
+const BETWEEN_LOOKS: Duration = Duration::from_secs(4);
+/// The provider takes two pictures a request.
+const LOOKS_A_REQUEST: u8 = 2;
 /// One standing permission: the eyes' own permit is what closes them.
 const GRANT: u64 = 1;
 
 pub struct Sight {
     path: PathBuf,
     request: Option<RequestId>,
-    began: Instant,
+    looked_at: Option<Instant>,
     looks: u8,
     frames: u64,
 }
@@ -67,7 +72,7 @@ impl Sight {
         Ok(Self {
             path,
             request: None,
-            began: Instant::now(),
+            looked_at: None,
             looks: 0,
             frames: 0,
         })
@@ -85,20 +90,22 @@ impl Sight {
         }
     }
 
-    /// Whether to look now for this request: at once when it is new, and a
-    /// second time when it has been open for two seconds.
+    /// Whether to look now, with this request's input open: when the last
+    /// look, in whichever request, was four seconds ago or more, and this
+    /// request has not had its two.
     fn due(&mut self, request: RequestId, now: Instant) -> bool {
         if self.request != Some(request) {
             self.request = Some(request);
-            self.began = now;
             self.looks = 0;
         }
-        let due = match self.looks {
-            0 => true,
-            1 => now.saturating_duration_since(self.began) >= SECOND_LOOK,
-            _ => false,
-        };
-        self.looks += u8::from(due);
+        let due = self.looks < LOOKS_A_REQUEST
+            && self
+                .looked_at
+                .is_none_or(|at| now.saturating_duration_since(at) >= BETWEEN_LOOKS);
+        if due {
+            self.looks += 1;
+            self.looked_at = Some(now);
+        }
         due
     }
 
@@ -179,18 +186,23 @@ mod tests {
     }
 
     #[test]
-    fn it_looks_once_as_a_request_begins_and_once_more_two_seconds_on() {
+    fn it_looks_as_someone_begins_and_then_no_more_than_every_four_seconds() {
         let mut sight = Sight::new("/run/x.jpg".into()).unwrap();
         let start = Instant::now();
         let at = |ms: u64| start + Duration::from_millis(ms);
+        // One thing said: a look as it begins, a second if it is long, no third.
         assert!(sight.due(request(5), at(0)));
         assert!(!sight.due(request(5), at(2)));
-        assert!(!sight.due(request(5), at(1_999)));
-        assert!(sight.due(request(5), at(2_000)));
-        assert!(!sight.due(request(5), at(9_000)));
-        // The next request starts again, however soon.
-        assert!(sight.due(request(6), at(9_002)));
-        assert!(!sight.due(request(6), at(9_500)));
+        assert!(!sight.due(request(5), at(3_999)));
+        assert!(sight.due(request(5), at(4_000)));
+        assert!(!sight.due(request(5), at(30_000)));
+        // Talk that goes on in pieces: each new piece is a new request, and
+        // none gets a look until four seconds after the last one.
+        assert!(sight.due(request(6), at(30_001)));
+        assert!(!sight.due(request(7), at(31_000)));
+        assert!(!sight.due(request(8), at(33_000)));
+        assert!(sight.due(request(9), at(34_001)));
+        assert!(!sight.due(request(9), at(35_000)));
         assert_eq!(sight.looks, 1);
     }
 

@@ -585,6 +585,9 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
     if let Some(language) = &config.language_code {
         setup["setup"]["generationConfig"]["speechConfig"]["languageCode"] = json!(language);
     }
+    if config.small_pictures {
+        setup["setup"]["generationConfig"]["mediaResolution"] = json!("MEDIA_RESOLUTION_LOW");
+    }
     if let Some(handle) = &config.resume {
         setup["setup"]["sessionResumption"] = json!({"handle": handle.expose()});
     } else if config.resumption == Resumption::Request {

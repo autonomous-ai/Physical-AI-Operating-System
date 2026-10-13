@@ -32,6 +32,10 @@ pub struct ProviderConfig {
     context_target_tokens: Option<u32>,
     #[serde(default)]
     language_code: Option<String>,
+    /// Have the service read pictures at its low resolution: about a quarter
+    /// of the tokens a picture. For the eyes' 320 by 240 frames.
+    #[serde(default)]
+    small_pictures: bool,
     credential_file: String,
     #[serde(default)]
     authentication: Authentication,
@@ -247,7 +251,7 @@ impl ProviderConfig {
         if let Some(language) = self.language_code {
             session = session.language_code(&language)?;
         }
-        Ok(session)
+        Ok(session.small_pictures(self.small_pictures))
     }
 }
 
@@ -363,6 +367,13 @@ mod tests {
                 .recovery_policy()
                 .require_context
         );
+    }
+
+    #[test]
+    fn small_pictures_are_asked_for_only_when_the_configuration_says_so() {
+        assert!(!parsed("").unwrap().small_pictures);
+        assert!(parsed(r#","small_pictures":true"#).unwrap().small_pictures);
+        assert!(parsed(r#","small_pictures":"low""#).is_err());
     }
 
     #[test]

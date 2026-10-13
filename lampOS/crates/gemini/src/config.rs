@@ -269,6 +269,7 @@ pub struct SessionConfig {
     pub(crate) thinking_budget: Option<u32>,
     pub(crate) context_window: Option<(u32, u32)>,
     pub(crate) language_code: Option<String>,
+    pub(crate) small_pictures: bool,
     pub(crate) instruction: String,
     pub(crate) timeouts: Timeouts,
     pub(crate) resumption: Resumption,
@@ -293,6 +294,7 @@ impl SessionConfig {
             thinking_budget: None,
             context_window: None,
             language_code: None,
+            small_pictures: false,
             instruction: String::new(),
             timeouts: Timeouts::default(),
             resumption: Resumption::Off,
@@ -365,6 +367,13 @@ impl SessionConfig {
         }
         self.language_code = Some(language_code.into());
         Ok(self)
+    }
+    /// Ask the service to read each picture at its low resolution, which
+    /// costs about a quarter of the tokens. For a camera that gives small
+    /// frames anyway.
+    pub fn small_pictures(mut self, small: bool) -> Self {
+        self.small_pictures = small;
+        self
     }
     /// The instruction as it will be sent.
     pub fn instruction_text(&self) -> &str {

@@ -327,3 +327,22 @@ fn language_tags_are_bounded_preserved_and_independent_of_thinking_and_stt_hints
     assert!(configuration().language_code(&limit).is_ok());
     assert!(configuration().language_code(&(limit + "f")).is_err());
 }
+
+#[test]
+fn small_pictures_ask_for_the_low_media_resolution_and_only_when_chosen() {
+    let plain = setup(&configuration());
+    assert!(
+        plain["setup"]["generationConfig"]
+            .get("mediaResolution")
+            .is_none()
+    );
+    let small = setup(&configuration().small_pictures(true));
+    assert_eq!(
+        small["setup"]["generationConfig"]["mediaResolution"],
+        "MEDIA_RESOLUTION_LOW"
+    );
+    assert_eq!(
+        small["setup"]["generationConfig"]["responseModalities"],
+        plain["setup"]["generationConfig"]["responseModalities"]
+    );
+}

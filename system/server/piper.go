@@ -93,3 +93,6 @@ func (s *Server) piperVoiceRemove(c *gin.Context) {
 }
 
 func (s *Server) phononStatus(c *gin.Context) { piperProxy(c, http.MethodGet, "/voice/phonon/status") }
+func (s *Server) phononInstall(c *gin.Context) {
+	piperProxy(c, http.MethodPost, "/voice/phonon/install")
+}

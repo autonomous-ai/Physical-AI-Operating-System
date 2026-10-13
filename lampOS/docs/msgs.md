@@ -48,6 +48,7 @@ its declaration.
 | `Diagnostic` | `diagnostics` | event | 1 s | ROS's `DiagnosticStatus`: ok, warn, error or stale, a name, a message, a few keys and values |
 | `Health` | `lamp/health` | latest | 5 s, means nothing after 15 s | How the whole lamp is: the worst level, one sentence, every part that has reported with its level, message and age, worst first, and the parts that are expected and never reported |
 | `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |
+| `NameHeard` | `name/heard` | event | none | The lamp's name was heard in what its microphone hears: how sure the listener was, from 0 to 1, and how many milliseconds before this was sent the name began. A sign, never proof ([name.md](name.md)) |
 | `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, and the request's number if known. Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
@@ -58,8 +59,9 @@ said" and "when it changes" promise none. No lifespan is declared: the table
 has none. A topic that promises no period and can be silent for longer than
 the bus's lease needs its publisher to call `alive()`.
 
-`policy/decisions`, `lamp/health` and `board/state` were added after that
-table was written and are not in it: this table is where they are listed.
+`policy/decisions`, `lamp/health`, `board/state` and `name/heard` were
+added after that table was written and are not in it: this table is where
+they are listed.
 `first_topics()` has them with the others. The last two are the only
 topics with a lifespan: a kept report of how things are must not outlive
 whoever wrote it.
@@ -87,8 +89,8 @@ topic can be published as that.
 
 ## Not shown
 
-The crate's own tests run on a development Mac (x86_64): 14 of the types
-and one that declares the sixteen topics on a real bus and sends six of
+The crate's own tests run on a development Mac (x86_64): 15 of the types
+and one that declares the seventeen topics on a real bus and sends six of
 the types through it. The example in the crate's documentation is
 compiled, not run. On lamp-4ace five of the types travel: the voice
 publishes `Speech`, `VoiceState` and `RoomState`

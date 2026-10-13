@@ -750,6 +750,39 @@ impl BoardState {
     }
 }
 
+/// The lamp's name was heard in what its microphone hears (`name/heard`):
+/// "Hey Lamp" or "Lamp ơi", as a sound, by a part that listens for
+/// nothing else. It is a sign that the lamp was called and never proof:
+/// a name like the lamp's sets it off, and a call can be missed.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NameHeard {
+    /// How sure the listener was, from 0 to 1: the highest it reached
+    /// while the name was being said.
+    pub score: f32,
+    /// How long before this was sent the name began to be heard, in
+    /// milliseconds.
+    pub ago_ms: u32,
+}
+
+impl NameHeard {
+    pub const TYPE: &str = "lamp_msgs/NameHeard";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "name/heard";
+
+    /// Each hearing is over when it has been sent. None is promised.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+    }
+
+    /// The score is a share.
+    pub fn check(&self) -> Result<(), Invalid> {
+        if !(0.0..=1.0).contains(&self.score) {
+            return invalid(format!("score is {}: from 0 to 1", self.score));
+        }
+        Ok(())
+    }
+}
+
 /// One thing the policy decided (`policy/decisions`): what the question
 /// was about, what was chosen, how likely the policy held it to be right,
 /// and what each judgement behind it was.
@@ -832,6 +865,7 @@ pub fn first_topics() -> Vec<(&'static str, Declaration)> {
         (Diagnostic::TOPIC, Diagnostic::declaration()),
         (Health::TOPIC, Health::declaration()),
         (BoardState::TOPIC, BoardState::declaration()),
+        (NameHeard::TOPIC, NameHeard::declaration()),
         (Decision::TOPIC, Decision::declaration()),
     ];
     topics.extend(Audio::TOPICS.map(|topic| (topic, Audio::declaration())));
@@ -1298,6 +1332,25 @@ mod tests {
     }
 
     #[test]
+    fn the_name_heard_is_a_score_and_how_long_ago_it_began() {
+        let heard = NameHeard {
+            score: 0.75,
+            ago_ms: 640,
+        };
+        let text = "{\"score\":0.75,\"ago_ms\":640}";
+        round_trip(&heard, text);
+        needs::<NameHeard>(text, "ago_ms");
+        assert_eq!(heard.check(), Ok(()));
+        let odd = NameHeard {
+            score: 1.5,
+            ..heard
+        };
+        assert!(odd.check().unwrap_err().0.contains("score"));
+        let declared = NameHeard::declaration();
+        assert_eq!((declared.kind, declared.period()), (Kind::Event, None));
+    }
+
+    #[test]
     fn a_decision_says_what_was_chosen_how_likely_by_whom_and_from_which_answers() {
         let decided = Decision {
             about: "attention".into(),
@@ -1385,7 +1438,7 @@ mod tests {
         // the slower end where the table gives two. The policy's topic,
         // the lamp's health and the board were added since and are in the
         // table of docs/msgs.md.
-        let table: [(&str, &str, Kind, Option<u64>); 16] = [
+        let table: [(&str, &str, Kind, Option<u64>); 17] = [
             (
                 "board/state",
                 "lamp_msgs/BoardState",
@@ -1426,6 +1479,7 @@ mod tests {
             ("light/state", "lamp_msgs/Light", Kind::Latest, Some(1_000)),
             ("mic1/audio", "lamp_msgs/Audio", Kind::Event, Some(20)),
             ("mic2/audio", "lamp_msgs/Audio", Kind::Event, Some(20)),
+            ("name/heard", "lamp_msgs/NameHeard", Kind::Event, None),
             ("policy/decisions", "lamp_msgs/Decision", Kind::Event, None),
             ("room/state", "lamp_msgs/RoomState", Kind::Latest, None),
             ("voice/heard", "lamp_msgs/Speech", Kind::Event, None),
@@ -1498,6 +1552,11 @@ mod tests {
                 BoardState::TYPE,
                 BoardState::VERSION,
                 BoardState::declaration(),
+            ),
+            (
+                NameHeard::TYPE,
+                NameHeard::VERSION,
+                NameHeard::declaration(),
             ),
             (Decision::TYPE, Decision::VERSION, Decision::declaration()),
         ] {

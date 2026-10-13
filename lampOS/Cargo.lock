@@ -915,6 +915,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-name"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-msgs",
+ "tract-onnx",
+]
+
+[[package]]
 name = "lamp-observer"
 version = "0.1.0"
 dependencies = [

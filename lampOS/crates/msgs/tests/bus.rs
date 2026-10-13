@@ -32,13 +32,13 @@ impl Drop for Root {
 fn every_first_topic_is_declared_on_the_bus_and_carries_its_type() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
-    // The bus takes every name and every declaration: sixteen topics,
+    // The bus takes every name and every declaration: seventeen topics,
     // each with a publisher that has not spoken yet.
     let mut publishers: Vec<Publisher> = first_topics()
         .iter()
         .map(|(topic, declaration)| bus.publisher_declared(topic, declaration, "part").unwrap())
         .collect();
-    assert_eq!(publishers.len(), 16);
+    assert_eq!(publishers.len(), 17);
     for (topic, declaration) in first_topics() {
         assert_eq!(
             bus.declaration(topic).unwrap(),

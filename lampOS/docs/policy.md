@@ -58,13 +58,17 @@ It subscribes, each with its type from [lamp-msgs](msgs.md), to:
 | `voice/heard` | What was heard, a piece at a time |
 | `voice/said` | What the lamp said: the pieces of its newest answer, put end to end |
 | `voice/state` | Whether the lamp is speaking |
+| `room/state` | How the room is: quiet, busy or not known. Not known until the voice has said, and again once the voice has gone |
+| `humans/faces/tracked` | How many faces the eyes see, how many of them are near (a box at least 15% of the picture's height), and how many of those are turned to the lamp. Written down with each decision (`seen`) when the eyes' list is no more than two seconds old, and **not used to make the decision yet**: nobody had stood in front of the lamp when this was written, so there is nothing to weigh it by |
 
 It publishes `policy/decisions` (`lamp_msgs/Decision`) under the name
 `policy`, and says once a second that it is alive there, because the topic
 is silent between decisions for longer than the bus's lease.
 
-Nothing publishes `room/state` yet, so the room is `unknown` to it. Where
-that subscription goes is marked in `crates/policy/src/policy.rs`.
+The room matters more than any one of the model's answers: in the
+combination below a quiet room adds 1.771, where the strongest answer adds
+at most 1.132. With the room not known, no set of answers reaches the 0.8
+that `answer` asks for by more than a little.
 
 ## The decision: is this said to the lamp?
 

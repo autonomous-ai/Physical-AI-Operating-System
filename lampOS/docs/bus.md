@@ -325,6 +325,7 @@ of each, and its kind and period as a declaration, are in
 | `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes |
 | `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
 | `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
+| `policy/decisions` | What the policy decided, with the probability and each judgement behind it, and whether it is only watching ([policy.md](policy.md)) | stream | The policy | With each thing heard |
 
 ## On the lamp
 

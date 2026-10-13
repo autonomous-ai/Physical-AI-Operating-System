@@ -22,7 +22,7 @@ use crate::{
     record::Record,
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
-use lamp_msgs::{Decision, Speech, Voice, VoiceState};
+use lamp_msgs::{Decision, Faces, RoomState, Speech, Voice, VoiceState};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -356,6 +356,45 @@ impl Ear {
 struct Waiting {
     utterance: Utterance,
     context: Context,
+    /// What the eyes saw as it ended, if they said anything lately.
+    seen: Option<Seen>,
+}
+
+/// What the eyes saw: how many faces, how many of them near enough to be
+/// somebody at the lamp, and how many of those turned to it. Written down
+/// with each decision and not yet used to make it: nobody has stood in
+/// front of the lamp since the eyes began to publish, so there is nothing
+/// to weigh it by. Counts only: no box, no id.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Seen {
+    pub faces: u8,
+    pub near: u8,
+    pub facing: u8,
+    /// How old the eyes' list was when the utterance ended.
+    pub age_ms: u32,
+}
+
+/// A face this tall, as a share of the picture's height, is somebody at
+/// the lamp: the line the eyes draw (`lamp-eyes`, `sight::LEAST_SIZE`).
+const NEAR_HEIGHT: f32 = 0.15;
+/// The eyes' list is good for this long (`lamp-eyes`, `bus_out::LASTS`).
+const SEEN_FOR: Duration = Duration::from_secs(2);
+
+fn counted(faces: &Faces) -> (u8, u8, u8) {
+    let near = |face: &&lamp_msgs::Face| face.ymax - face.ymin >= NEAR_HEIGHT;
+    let count = |n: usize| u8::try_from(n).unwrap_or(u8::MAX);
+    (
+        count(faces.faces.len()),
+        count(faces.faces.iter().filter(near).count()),
+        count(
+            faces
+                .faces
+                .iter()
+                .filter(near)
+                .filter(|face| face.facing == Some(true))
+                .count(),
+        ),
+    )
 }
 
 /// The thread that asks the decision model, and the way to it.
@@ -419,6 +458,9 @@ struct Line<'a> {
     usage: Option<Usage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     request: Option<u64>,
+    /// What the eyes saw as the utterance ended. Not used in the decision.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seen: Option<Seen>,
     /// How many pieces the utterance came in, and whether it was ended by
     /// its length.
     pieces: u32,
@@ -449,11 +491,11 @@ struct Policy<'a> {
     waiting: VecDeque<Waiting>,
     gather: Gather,
     lamp: Lamp,
-    /// What the room sounds like. Nothing publishes `room/state` yet, so
-    /// it is not known. When something does, this is where it is kept: a
-    /// fourth `Ear`, on `lamp_msgs::RoomState`, read in `run` beside the
-    /// voice's state.
+    /// What the room sounds like, as the voice last published it on
+    /// `room/state`: not known until it has, or once it has gone.
     room: Room,
+    /// The eyes' newest list, counted, and when it came.
+    seen: Option<((u8, u8, u8), Instant)>,
     record: Record,
     out: Option<Publisher>,
     model: Trouble,
@@ -485,7 +527,20 @@ impl Policy<'_> {
                 (self.say)(Note::Dropping);
             }
         }
-        self.waiting.push_back(Waiting { utterance, context });
+        let seen = self.seen.and_then(|((faces, near, facing), at)| {
+            let age = utterance.ended.saturating_duration_since(at);
+            (age <= SEEN_FOR).then_some(Seen {
+                faces,
+                near,
+                facing,
+                age_ms: millis(age),
+            })
+        });
+        self.waiting.push_back(Waiting {
+            utterance,
+            context,
+            seen,
+        });
     }
 
     /// Take up an answer if one has come, and ask the next question if
@@ -558,7 +613,11 @@ impl Policy<'_> {
         took: Duration,
         sent: Instant,
     ) {
-        let Waiting { utterance, context } = waiting;
+        let Waiting {
+            utterance,
+            context,
+            seen,
+        } = waiting;
         let (judgement, answers, by, failed, usage) = match answer {
             Ok(asked) => match Answers::of(&asked.answers) {
                 Ok(answers) => (
@@ -633,6 +692,7 @@ impl Policy<'_> {
             failed_why: failed.as_ref().map(Failed::to_string),
             usage,
             request: utterance.request,
+            seen,
             pieces: utterance.pieces,
             cut: utterance.cut,
         };
@@ -734,6 +794,8 @@ pub fn run<D: Decider + Send + 'static>(
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
     let mut voice = Ear::new(bus, VoiceState::TOPIC, VoiceState::TYPE)?;
+    let mut room = Ear::new(bus, RoomState::TOPIC, RoomState::TYPE)?;
+    let mut eyes = Ear::new(bus, Faces::TOPIC, Faces::TYPE)?;
     let judge_name = decider.name().to_owned();
     let mut policy = Policy {
         bus,
@@ -747,6 +809,7 @@ pub fn run<D: Decider + Send + 'static>(
         gather: Gather::new(options.pause),
         lamp: Lamp::default(),
         room: Room::Unknown,
+        seen: None,
         record: Record::new(&options.log_dir),
         out: None,
         model: Trouble::default(),
@@ -775,6 +838,24 @@ pub fn run<D: Decider + Send + 'static>(
             policy.lamp.said(&piece.text, piece.request, now);
         }
         said.source(policy.say);
+        // How the room is and who the eyes see, as each was last said. A
+        // source that has gone leaves its fact not known, never as it was.
+        for state in room.take::<RoomState>(Duration::ZERO, unreadable, policy.say) {
+            policy.room = match state.state {
+                lamp_msgs::Room::Quiet => Room::Quiet,
+                lamp_msgs::Room::Busy => Room::Busy,
+                lamp_msgs::Room::Unknown => Room::Unknown,
+            };
+        }
+        if room.source(policy.say) {
+            policy.room = Room::Unknown;
+        }
+        for faces in eyes.take::<Faces>(Duration::ZERO, unreadable, policy.say) {
+            policy.seen = Some((counted(&faces), now));
+        }
+        if eyes.source(policy.say) {
+            policy.seen = None;
+        }
         // The wait of the loop is here: for something to be heard.
         let wait = if policy.asking.is_some() {
             TICK_WHILE_ASKING

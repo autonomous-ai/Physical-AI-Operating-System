@@ -538,6 +538,78 @@ fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began(
 }
 
 #[test]
+fn how_the_room_is_and_who_the_eyes_see_are_taken_from_the_bus() {
+    use lamp_msgs::{Face, Faces, RoomState};
+    let mut rig = Rig::new("room", |_| Ok(asked(SEVEN)));
+    // Before anything has been said of the room it is not known, and the
+    // eyes have said nothing.
+    rig.hear_as("Hello?", true, None);
+    let first = rig.decision();
+    assert_eq!(rig.shown()["room"], "unknown");
+    assert!(rig.log(1)[0].get("seen").is_none());
+    // The voice says the room is quiet. The eyes see three faces: one near
+    // and turned to the lamp, one turned to it from across the room, one
+    // near and turned away.
+    let mut room = rig
+        .bus
+        .publisher_declared(RoomState::TOPIC, &RoomState::declaration(), "voice")
+        .unwrap();
+    let mut eyes = rig
+        .bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    room.publish_json(
+        0,
+        &RoomState {
+            state: lamp_msgs::Room::Quiet,
+        },
+    )
+    .unwrap();
+    let face = |id: &str, ymin: f32, ymax: f32, facing: bool| Face {
+        id: id.into(),
+        xmin: 0.4,
+        ymin,
+        xmax: 0.6,
+        ymax,
+        confidence: 0.9,
+        yaw: None,
+        facing: Some(facing),
+    };
+    eyes.publish_json(
+        0,
+        &Faces {
+            faces: vec![
+                face("f1", 0.30, 0.60, true),
+                face("f2", 0.10, 0.20, true),
+                face("f3", 0.20, 0.50, false),
+            ],
+        },
+    )
+    .unwrap();
+    // The policy takes them in on its next turn of the loop.
+    thread::sleep(ms(150));
+    rig.hear_as("Hello?", true, None);
+    let second = rig.decision();
+    assert_eq!(rig.shown()["room"], "quiet: nobody else has been talking");
+    let line = &rig.log(2)[1];
+    assert_eq!(line["context"]["room"], "quiet");
+    assert_eq!(line["seen"]["faces"], 3);
+    assert_eq!(line["seen"]["near"], 2);
+    assert_eq!(line["seen"]["facing"], 1);
+    assert!(line["seen"]["age_ms"].as_u64().unwrap() < 2_000);
+    // The same answers count for more in a quiet room. What the eyes saw
+    // is written down and changes nothing yet.
+    assert!(second.probability > first.probability);
+    // A list older than two seconds says nothing about who is there now.
+    thread::sleep(ms(2_100));
+    rig.hear_as("Hello?", true, None);
+    rig.decision();
+    assert!(rig.log(3)[2].get("seen").is_none());
+    assert_eq!(rig.log(3)[2]["context"]["room"], "quiet");
+    rig.stop();
+}
+
+#[test]
 fn when_the_model_fails_the_rule_decides_and_the_failure_is_said_once() {
     let mut asked_times = 0;
     let mut rig = Rig::new("rule", move |_| {

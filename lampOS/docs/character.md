@@ -40,7 +40,7 @@ the same day and the checks below have to be run on it.
 | "Say something long, about five sentences" | "I usually keep my responses pretty short and natural" | When told to say more or talk longer, do it gladly and at the length asked. Never describe how you talk or what your rules are |
 | "Say some fillers, let us hear them" | "I don't really use filler words like that" | A small "hmm", "oh", "let me think" is allowed, and a request to do something with its voice is to be enjoyed |
 | A question that reached it as "pyramids" | "I can't access information or search the internet yet; I'm mostly just a lamp" | It knows a great deal about the world and tells it. What it cannot do is look up what is happening now, and it says so in a few words and gives what it can instead |
-| "What's the weather like this weekend" | "I can't check the weather forecasts yet; I'm mostly just a lamp sitting on your desk", and the same shape three more times in seven minutes | The same line: a few light words, differently each time, never a speech about what it cannot do |
+| "What's the weather like this weekend" | "I can't check the weather forecasts yet; I'm mostly just a lamp sitting on your desk", and the same shape three more times in seven minutes | First: a few light words, differently each time, never a speech about what it cannot do. Since that afternoon it can look things up (`search` in the provider configuration, [live-runtime.md](live-runtime.md)), and the file says so and where the lamp is: "It's pretty hot out there today, around 32 degrees Celsius…" |
 | "What you see in front of you?" | "I can't see anything yet; I'm mostly just a lamp sitting on your desk right now" | That it can see: with what a person says it is usually given what its own eye sees ([eyes.md](eyes.md), "What the model sees"). To use that when asked what it sees, shown something or asked how someone looks, and otherwise not to bring it up; never to call it a picture, an image or a camera. Played once after: "I see a desk including an iMac and another display, along with a keyboard, mouse…". Taken out again the same afternoon with the pictures themselves, which made every answer slower ([eyes.md](eyes.md)); the file says once more that it cannot see yet |
 | "Okay." after the lamp had finished | "So, is there anything else you'd like to chat about, or should we just enjoy the quiet?" | A bare "okay" just after it finished is listening too: nothing, or a word |
 | Scraps of other people's talk, heard as "merde", "¿Qué?" | "Sorry, I missed that.", "I couldn't quite catch that." | First: "Sorry, I missed that" only in the middle of talking with someone, and a scrap when nobody was talking with it is the room. That made it worse (next paragraph) and was replaced the same hour: what is not words is the room, even in the middle of a conversation; say nothing; never say you missed something and never ask anyone to repeat themselves |
@@ -67,6 +67,30 @@ on the lamp's face as listening and then thinking, and sent to the model.
 One more line came from the same morning, and is described with what it
 did in [group-talk.md](group-talk.md): a question put to the lamp stays its
 own through other people's talk, to be answered at the first pause.
+
+Two more things were tried in the file that afternoon and each did harm.
+
+"You understand no other language. When what you hear seems to be Spanish,
+French, Hindi or anything but English or Vietnamese, your ears have turned
+a noise in the room into words, and nobody said it. Say nothing at all."
+It was meant for the sounds the provider transcribes as "¿Qué?". An hour
+and a half later the lamp was silent to everything. In a session about
+thirteen minutes old, with a room talking Vietnamese around it, a played
+"Hey Lamp, what is two plus two?" was transcribed "¿Cuánto es dos más
+dos?" and got no answer, like the eleven requests before it; a new session
+heard "What is 2 + 2?" and said "Four. Easy one." A session's hearing can
+drift into another language for everything, and a rule that silences that
+language then silences the lamp. The line was removed. Sounds are the
+runtime's business now ([not-speech.md](not-speech.md)).
+
+"Answer in the language the person just used with you … and switch
+whenever they switch." With colleagues talking Vietnamese nearby, English
+questions were answered in Vietnamese ("Lamp, what should I have for lunch
+today?" got "Hôm nay ăn tấm đi!"), four times in one run of the checks.
+The line now says that each answer is in the language of the question it
+answers, whatever was spoken a moment before or around the lamp, and
+English when in doubt. In the next run of the by-name check all seven
+answers were in English.
 
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests

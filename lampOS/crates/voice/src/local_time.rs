@@ -98,7 +98,7 @@ pub fn offset_at(file: &[u8], now: i64) -> Option<i32> {
 }
 
 /// Year, month and day of a count of days since 1970-01-01.
-fn civil(days: i64) -> (i64, usize, i64) {
+pub(crate) fn civil(days: i64) -> (i64, usize, i64) {
     let shifted = days + 719_468;
     let era = shifted.div_euclid(146_097);
     let day_of_era = shifted.rem_euclid(146_097);
@@ -159,6 +159,16 @@ pub fn told(file: &[u8], now: i64) -> Option<String> {
     Some(format!(
         "\n\nThe time\nIt is {weekday} {day} {month} {year}, around {hour}:{minute:02} {part}. You have no clock, so this may be up to an hour old: if someone asks the time, give it roughly."
     ))
+}
+
+/// How many seconds east of UTC this machine's local time is now.
+pub fn offset_here() -> Option<i32> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let file = std::fs::read("/etc/localtime").ok()?;
+    offset_at(&file, i64::try_from(now).ok()?)
 }
 
 /// The same for this machine, now.

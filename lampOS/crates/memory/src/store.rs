@@ -194,7 +194,7 @@ impl Entry {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
     Exchange,
@@ -896,15 +896,22 @@ impl Store {
     }
 
     /// Remove the entry with this person's highest id, an exchange or a
-    /// kept thing, and say which it was.
-    pub fn forget_last(&mut self, person: &Person) -> io::Result<Option<Removed>> {
+    /// kept thing, and say which it was. With `only`, the highest of that
+    /// kind: "forget what I asked you to remember" means the last kept
+    /// thing, whatever has been said since.
+    pub fn forget_last(
+        &mut self,
+        person: &Person,
+        only: Option<Kind>,
+    ) -> io::Result<Option<Removed>> {
         let dir = self.person_dir(person);
         let kept_path = dir.join(KEPT_FILE);
-        let mut last: Option<(Removed, PathBuf)> = read::<Kept>(&kept_path)?
-            .entries
-            .iter()
-            .max_by_key(|kept| kept.id)
-            .map(|kept| {
+        let kept = match only {
+            Some(Kind::Exchange) => Vec::new(),
+            _ => read::<Kept>(&kept_path)?.entries,
+        };
+        let mut last: Option<(Removed, PathBuf)> =
+            kept.iter().max_by_key(|kept| kept.id).map(|kept| {
                 let removed = Removed {
                     kind: Kind::Kept,
                     id: kept.id,
@@ -914,7 +921,11 @@ impl Store {
             });
         // An exchange is filed under the day it claims, which need not be
         // the newest day's file.
-        for day in days(&dir)? {
+        let days = match only {
+            Some(Kind::Kept) => Vec::new(),
+            _ => days(&dir)?,
+        };
+        for day in days {
             let path = dir.join(journal_name(day));
             let highest = read::<Exchange>(&path)?
                 .entries
@@ -1489,8 +1500,8 @@ mod tests {
             (3, 3, 5)
         );
         // Forgetting rewrites a file and leaves what it could not read.
-        assert_eq!(store.forget_last(&me).unwrap().unwrap().id, 6);
-        assert_eq!(store.forget_last(&me).unwrap().unwrap().id, 5);
+        assert_eq!(store.forget_last(&me, None).unwrap().unwrap().id, 6);
+        assert_eq!(store.forget_last(&me, None).unwrap().unwrap().id, 5);
         let status = &store.status(None).unwrap()[0];
         assert_eq!(
             (status.exchanges, status.kept, status.skipped_lines),
@@ -1504,12 +1515,50 @@ mod tests {
     }
 
     #[test]
+    fn forgetting_the_last_of_one_kind_leaves_the_other_kind_alone() {
+        let scratch = Scratch::new("forget-kind");
+        let now = at("2026-10-13", 600);
+        let me = everyone();
+        let mut store = scratch.open(now);
+        store.remember(&me, now, "takes coffee black").unwrap();
+        store
+            .append(&me, now + 1, "and the weather?", "Dry.", now)
+            .unwrap();
+        store
+            .append(&me, now + 2, "thanks", "Any time.", now)
+            .unwrap();
+        assert_eq!(
+            store
+                .forget_last(&me, Some(Kind::Kept))
+                .unwrap()
+                .unwrap()
+                .id,
+            1
+        );
+        assert_eq!(store.forget_last(&me, Some(Kind::Kept)).unwrap(), None);
+        assert!(store.kept(&me, 4096).unwrap().is_empty());
+        // What was said since is all still there.
+        assert_eq!(ids(&store.recall(&me, &ask(None, None)).unwrap()), [2, 3]);
+        store.remember(&me, now + 3, "sits by the window").unwrap();
+        assert_eq!(
+            store
+                .forget_last(&me, Some(Kind::Exchange))
+                .unwrap()
+                .unwrap()
+                .id,
+            3
+        );
+        assert_eq!(store.kept(&me, 4096).unwrap().len(), 1);
+        assert_eq!(ids(&store.recall(&me, &ask(None, None)).unwrap()), [2]);
+    }
+
+    #[test]
     fn forgetting_the_last_thing_takes_the_highest_id_of_either_kind() {
         let scratch = Scratch::new("forget-last");
         let now = at("2026-10-13", 600);
         let me = everyone();
         let mut store = scratch.open(now);
-        assert_eq!(store.forget_last(&me).unwrap(), None);
+        assert_eq!(store.forget_last(&me, None).unwrap(), None);
         store.append(&me, now, "first", "1", now).unwrap();
         store.remember(&me, now + 1, "second").unwrap();
         store.append(&me, now + 2, "third", "3", now).unwrap();
@@ -1526,11 +1575,11 @@ mod tests {
             })
         };
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Kept, 5, now + 4)
         );
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Exchange, 4, old)
         );
         // The older day's only line went, and its file with it.
@@ -1540,26 +1589,26 @@ mod tests {
         );
         assert_eq!(ids(&store.recall(&me, &ask(None, None)).unwrap()), [1, 3]);
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Exchange, 3, now + 2)
         );
         assert_eq!(ids(&store.recall(&me, &ask(None, None)).unwrap()), [1]);
         // An id that was forgotten is not given again by this process.
         assert_eq!(store.append(&me, now, "sixth", "6", now).unwrap(), 6);
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Exchange, 6, now)
         );
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Kept, 2, now + 1)
         );
         assert_eq!(scratch.names("everyone"), ["journal-2026-10-13.jsonl"]);
         assert_eq!(
-            store.forget_last(&me).unwrap(),
+            store.forget_last(&me, None).unwrap(),
             removed(Kind::Exchange, 1, now)
         );
-        assert_eq!(store.forget_last(&me).unwrap(), None);
+        assert_eq!(store.forget_last(&me, None).unwrap(), None);
         // Nothing left: no directory, and nobody listed.
         assert!(!scratch.0.join("everyone").exists());
         assert!(store.status(None).unwrap().is_empty());
@@ -1653,9 +1702,9 @@ mod tests {
             [1, 2]
         );
         // Forgetting is one person's too.
-        assert_eq!(store.forget_last(&binh).unwrap().unwrap().id, 1);
-        assert_eq!(store.forget_last(&binh).unwrap(), None);
-        assert_eq!(store.forget_last(&me).unwrap(), None);
+        assert_eq!(store.forget_last(&binh, None).unwrap().unwrap().id, 1);
+        assert_eq!(store.forget_last(&binh, None).unwrap(), None);
+        assert_eq!(store.forget_last(&me, None).unwrap(), None);
         assert_eq!(store.kept(&an, 4096).unwrap().len(), 1);
         let people: Vec<String> = store
             .status(None)
@@ -1878,7 +1927,7 @@ mod tests {
         store.append(&me, now, "hello", "hello", now).unwrap();
         store.remember(&me, now, "a fact").unwrap();
         store.remember(&me, now, "another, to forget").unwrap();
-        store.forget_last(&me).unwrap();
+        store.forget_last(&me, None).unwrap();
         let mode = |path: &Path| fs::metadata(path).unwrap().mode() & 0o7777;
         assert_eq!(mode(&nested.0), 0o700);
         assert_eq!(mode(&nested.0.join("everyone")), 0o700);
@@ -1932,7 +1981,7 @@ mod tests {
         store.append(&me, now, "two", "2", now).unwrap();
         store.remember(&me, now, "three").unwrap();
         store.remember(&me, now, "four").unwrap();
-        store.forget_last(&me).unwrap();
+        store.forget_last(&me, None).unwrap();
         assert_eq!(
             scratch.names("everyone"),
             ["journal-2026-10-13.jsonl", "kept.jsonl"]

@@ -106,6 +106,9 @@ pub enum Request {
     ForgetLast {
         #[serde(default)]
         person: Who,
+        /// `"kept"` or `"exchange"`: the last of that kind only.
+        #[serde(default)]
+        kind: Option<Kind>,
     },
     ForgetAll {
         #[serde(default)]
@@ -245,7 +248,7 @@ impl Request {
             | Self::Remember { person, .. }
             | Self::Kept { person, .. }
             | Self::Recall { person, .. }
-            | Self::ForgetLast { person }
+            | Self::ForgetLast { person, .. }
             | Self::ForgetAll { person } => (person, Person::EVERYONE),
             Self::Status { person } => (person, "*"),
         };
@@ -375,8 +378,8 @@ fn done(store: &mut Store, request: Request, now_unix_ms: u64) -> Result<Respons
                 entries: store.recall(&person, &ask).map_err(disk)?,
             }
         }
-        Request::ForgetLast { person } => Response::Forgot {
-            removed: store.forget_last(&one(person)?).map_err(disk)?,
+        Request::ForgetLast { person, kind } => Response::Forgot {
+            removed: store.forget_last(&one(person)?, kind).map_err(disk)?,
         },
         Request::ForgetAll { person } => {
             let person = match person {
@@ -609,7 +612,8 @@ mod tests {
         assert_eq!(
             parse(r#"{"op":"forget_last"}"#),
             Request::ForgetLast {
-                person: Who::Unsaid
+                person: Who::Unsaid,
+                kind: None,
             }
         );
         assert_eq!(
@@ -718,6 +722,31 @@ mod tests {
     }
 
     #[test]
+    fn forgetting_can_be_asked_for_the_last_of_one_kind() {
+        let (_scratch, mut store) = Scratch::new("forget-kind");
+        // The last of one kind, whatever else came after it.
+        ask(
+            &mut store,
+            json!({"op":"remember","at_unix_ms":NOON,"text":"keep"}),
+        );
+        ask(
+            &mut store,
+            json!({"op":"append","at_unix_ms":NOON,"heard":"later","said":"yes"}),
+        );
+        let forgot = ask(&mut store, json!({"op":"forget_last","kind":"kept"}));
+        assert_eq!(forgot["removed"]["kind"], "kept", "{forgot}");
+        let forgot = ask(&mut store, json!({"op":"forget_last","kind":"kept"}));
+        assert_eq!(forgot, json!({"ok":true,"removed":null}));
+        let forgot = ask(&mut store, json!({"op":"forget_last","kind":"exchange"}));
+        assert_eq!(forgot["removed"]["kind"], "exchange", "{forgot}");
+        let refused = answer(&mut store, br#"{"op":"forget_last","kind":"all"}"#, NOON).line;
+        assert!(
+            refused.starts_with(r#"{"ok":false,"error":"bad_request","message":""#),
+            "{refused}"
+        );
+    }
+
+    #[test]
     fn what_is_added_is_recalled_kept_counted_and_forgotten_in_these_shapes() {
         let (_scratch, mut store) = Scratch::new("shapes");
         let exchange = json!({"op":"append","at_unix_ms":NOON,"heard":"How do I take\n my coffee?","said":"Black."});
@@ -800,7 +829,8 @@ mod tests {
             handle(
                 &mut store,
                 Request::ForgetLast {
-                    person: Who::Unsaid
+                    person: Who::Unsaid,
+                    kind: None,
                 },
                 NOON
             ),
@@ -819,7 +849,8 @@ mod tests {
             handle(
                 &mut store,
                 Request::ForgetLast {
-                    person: Who::Unsaid
+                    person: Who::Unsaid,
+                    kind: None,
                 },
                 NOON
             ),

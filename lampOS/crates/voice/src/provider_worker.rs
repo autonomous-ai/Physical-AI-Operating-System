@@ -614,6 +614,10 @@ pub async fn run_with_continuation(
         }
         let _ = THREAD_FILE.set(path);
     }
+    // What it remembers from other days, if this lamp has a memory.
+    if let Some(socket) = &files.tools.memory {
+        crate::remember::start(socket.clone());
+    }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
     let recovery = if files.keep_link {
@@ -918,6 +922,7 @@ async fn serve_with_visual<C: Connect>(
                         // Generation completed and every block was forwarded.
                         // The closed connection is this request's idle barrier.
                         eprintln!("lamp-voice provider: request {} settled by {error} after generation completed", lineage.request.get());
+                        crate::remember::finished(lineage.request.get());
                         output.push_back(Outbound::Output(ProviderOutput::TurnComplete {request:lineage.request.get(),idle:true}));
                     },
                     Ok(Notice::TurnLost {lineage,stage,error})=>{
@@ -959,7 +964,7 @@ struct ToolDesk {
     declined: Option<u64>,
     asked: std::sync::mpsc::Sender<Asked>,
     answers: std::sync::mpsc::Receiver<Asked>,
-    /// Calls the executive has not answered yet.
+    /// Calls the executive or the memory has not answered yet.
     waiting: usize,
     /// The model is asked to say when it hears the lamp's name.
     name_signal: bool,
@@ -968,12 +973,15 @@ struct ToolDesk {
     /// The newest request an answer's sound came for, and when it began.
     sounded: Option<(u64, u64)>,
 }
-/// A call the executive was asked, with what to tell the model.
+/// A call the executive or the memory was asked, with what to tell the
+/// model.
 struct Asked {
     session: SessionId,
     request: u64,
     call: lamp_gemini::ToolCall,
     told: serde_json::Value,
+    /// Whom it went to, for the journal.
+    whom: &'static str,
     answered: bool,
     took: Duration,
 }
@@ -1048,7 +1056,14 @@ impl ToolDesk {
                     "lamp-voice provider: request {request}: the model said it was not for it"
                 );
             }
-            Route::Executive(directory) if self.waiting < lamp_gemini::MAX_TOOL_CALLS => {
+            route @ (Route::Executive(_) | Route::Memory(_))
+                if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
+            {
+                // Being asked to keep or forget something is not itself
+                // something to keep.
+                if matches!(route, Route::Memory(_)) && call.name != crate::remember::RECALL {
+                    crate::remember::keep_out(request);
+                }
                 let asked = self.asked.clone();
                 let session = lineage.session;
                 let work = call.clone();
@@ -1056,13 +1071,25 @@ impl ToolDesk {
                     .name("lamp-voice-ask".into())
                     .spawn(move || {
                         let started = Instant::now();
-                        let (told, answered) =
-                            crate::tools::ask(&directory, &work, crate::tools::ASK_DEADLINE);
+                        let deadline = crate::tools::ASK_DEADLINE;
+                        let (whom, (told, answered)) = match &route {
+                            Route::Memory(socket) => {
+                                ("the memory", crate::remember::run(socket, &work, deadline))
+                            }
+                            Route::Executive(directory) => (
+                                "the executive",
+                                crate::tools::ask(directory, &work, deadline),
+                            ),
+                            Route::Decline | Route::Nobody => {
+                                ("nobody", (crate::tools::unavailable(), false))
+                            }
+                        };
                         let _ = asked.send(Asked {
                             session,
                             request,
                             call: work,
                             told,
+                            whom,
                             answered,
                             took: started.elapsed(),
                         });
@@ -1072,7 +1099,7 @@ impl ToolDesk {
                     Err(_) => tell(&crate::tools::unavailable()),
                 }
             }
-            Route::Executive(_) | Route::Nobody => {
+            Route::Executive(_) | Route::Memory(_) | Route::Nobody => {
                 tell(&crate::tools::unavailable());
                 eprintln!(
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
@@ -1091,9 +1118,10 @@ impl ToolDesk {
                 .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
                 .is_ok();
             eprintln!(
-                "lamp-voice provider: request {} asked for {}; the executive {} in {} ms; the answer was {}",
+                "lamp-voice provider: request {} asked for {}; {} {} in {} ms; the answer was {}",
                 done.request,
                 done.call.name,
+                done.whom,
                 if done.answered {
                     "answered"
                 } else {
@@ -1208,10 +1236,15 @@ fn forward(
         Event::Interrupted { lineage } => push(ProviderOutput::Interrupted {
             request: lineage.request.get(),
         }),
-        Event::TurnComplete { lineage, idle } => push(ProviderOutput::TurnComplete {
-            request: lineage.request.get(),
-            idle,
-        }),
+        Event::TurnComplete { lineage, idle } => {
+            if idle {
+                crate::remember::finished(lineage.request.get());
+            }
+            push(ProviderOutput::TurnComplete {
+                request: lineage.request.get(),
+                idle,
+            })
+        }
         // The service chose not to answer. For the coordinator the request is
         // complete and had no audio; the connection and conversation stay.
         Event::Unanswered { lineage, waited } => {
@@ -4477,6 +4510,7 @@ mod tests {
             typed_with(crate::tools::Settings {
                 decline: true,
                 exec: None,
+                memory: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4523,6 +4557,68 @@ mod tests {
     /// goes back to the model under the call's identifier. The voice's loop
     /// is not held while it is asked.
     #[tokio::test]
+    async fn a_call_to_remember_is_asked_of_the_memory_and_what_it_established_goes_back() {
+        use std::io::{BufRead, Write};
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let socket = home.path.join("memory.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        // The journal's writer may ask what is kept on the same socket:
+        // every request is answered, and the one to remember is given back.
+        let memory = std::thread::spawn(move || {
+            loop {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut line = String::new();
+                std::io::BufReader::new(stream.try_clone().unwrap())
+                    .read_line(&mut line)
+                    .unwrap();
+                let request = serde_json::from_str::<serde_json::Value>(&line).unwrap();
+                if request["op"] == "remember" {
+                    stream.write_all(b"{\"ok\":true,\"id\":1}\n").unwrap();
+                    return request;
+                }
+                stream.write_all(b"{\"ok\":true,\"entries\":[]}\n").unwrap();
+            }
+        });
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: false,
+                exec: None,
+                memory: Some(socket),
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(json!({"toolCall":{"functionCalls":[
+                {"id":"m1","name":"remember","args":{"text":"takes coffee black"}}
+            ]}}))
+            .await;
+        dial.service.send(idle_complete()).await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"m1","name":"remember","response":{"remembered":true}}
+            ]}})
+        );
+        let asked = memory.join().unwrap();
+        assert_eq!(asked["op"], "remember");
+        assert_eq!(asked["text"], "takes coffee black");
+        assert!(
+            asked["at_unix_ms"]
+                .as_u64()
+                .is_some_and(|at| at > 1_700_000_000_000)
+        );
+        // The lamp then says so, in the same request.
+        dial.service.send(provider_audio(5, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: heard, .. } if heard == request
+        ));
+        rig.stop().await;
+    }
+
+    #[tokio::test]
     async fn a_call_for_the_executive_is_asked_over_its_socket_and_its_answer_goes_back() {
         use std::io::{BufRead, Write};
         let home = crate::process::SessionDirectory::create().unwrap();
@@ -4545,6 +4641,7 @@ mod tests {
             typed_with(crate::tools::Settings {
                 decline: false,
                 exec: Some(home.path.clone()),
+                memory: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4583,6 +4680,7 @@ mod tests {
                 crate::tools::Settings {
                     decline: false,
                     exec: Some(home.path.clone()),
+                    memory: None,
                 },
                 "light_on",
             ),

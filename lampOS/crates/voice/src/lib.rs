@@ -29,6 +29,7 @@ pub(crate) mod provider_flow;
 pub mod provider_link;
 pub mod provider_worker;
 pub mod reference;
+pub mod remember;
 pub mod ring_face;
 pub mod ring_wire;
 pub mod ring_worker;

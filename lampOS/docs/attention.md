@@ -116,6 +116,27 @@ first two requests after a new session, in words the text gives no sign
 of, is not answered until they say it again. A session is renewed at most
 every fifteen minutes in a busy room.
 
+Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
+voices and nobody in the office:
+
+| What was played | What should happen | What happened |
+|---|---|---|
+| The link cut twelve times, each new session then hearing two people talk to each other | Nothing said | 11 sessions could be judged; none answered within its first two things heard. The model kept quiet by itself in most; the rule held back two answers. Before the rule: 4 of 11, 3 of 12 and 2 of 12 |
+| Seven questions put to the lamp by name, on a running session | Each answered | 6 answered, first sound 1.10 to 1.52 s after the end of speech was decided. The seventh, "Good night, Lamp.", never reached the model: the local gate judged it not speech, as it did in 5 of the 8 earlier runs of this test ([not-speech.md](not-speech.md)). Not the rule's doing |
+| Quiet room, four questions without its name | Each answered | 4 of 4 |
+| Two people talking to each other, six sentences, on a running session | Nothing said | Nothing said |
+| Busy office, a question without its name ("What is the capital of Italy?") | Left alone | **Answered.** The session had been open a while, so the rule did not apply, and the model took a plain question as its own |
+| Busy office, two questions by name | Each answered | Both answered; nothing was held back |
+
+So the second form does what the first could not: it stops a new session
+answering other people's talk without withholding an answer from someone
+who called. It does not make a running session leave alone a clear
+question that nobody put to it: that needs a sign the lamp does not have
+yet, of whom a sentence was said to. And one of the called answers shows
+what the missing name costs beyond this rule: "Hey Lamp, what is the
+capital of Italy?" was heard as beginning "Milan", and the lamp answered
+about Milan.
+
 One more thing was tried and is not used. The model was asked to say when
 it heard its name, through a function of the silent kind
 (`LAMP_NAME_SIGNAL`). It did hear it: on 6 of 7 called questions on a
@@ -127,14 +148,16 @@ Neither is acceptable, and the switch is off.
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
-default, and off on lamp-4ace.
+default. On on lamp-4ace since 22:15 on 2026-10-13.
 
 ## Not shown
 
 Host tests: the rule and its bookkeeping (five, with the service's real
 renderings of called requests as cases), and the worker with the scripted
-provider in a room it is told is busy (one). The second form has not yet
-been played on a lamp. The host tests give
+provider in a room it is told is busy (one). The second form was played
+once each way (the table above), with synthetic voices through a
+loudspeaker and nobody in the room: not with people, and not on a day
+when the office is full. The host tests give
 the rule text with the name in it, which the real service does not
 write: they did not catch the fault above, and the played room test
 did.

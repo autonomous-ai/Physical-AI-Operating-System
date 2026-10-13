@@ -68,6 +68,8 @@ struct Exchange {
     at: Instant,
     person: String,
     lamp: String,
+    /// Handed on to the lamp's memory, or not for it to have.
+    journalled: bool,
 }
 
 pub struct Thread {
@@ -177,6 +179,8 @@ impl Thread {
                 at,
                 person,
                 lamp,
+                // The process that wrote the file handed it on.
+                journalled: true,
             });
         }
         thread
@@ -220,12 +224,51 @@ impl Thread {
                 at: now,
                 person,
                 lamp: String::new(),
+                journalled: false,
             });
         }
         if let Some(last) = self.exchanges.back_mut() {
             add(&mut last.lamp, text, LAMP_BYTES);
             self.changed = true;
         }
+    }
+
+    /// The exchanges that are over and were not given out before, for the
+    /// lamp's memory ([`crate::remember`]): every one but the newest, and
+    /// the newest too when `done` is its request. Each with its request,
+    /// how long ago it began, what the person said and what the lamp did.
+    /// An answer with no word in it is passed over: it is not something
+    /// the lamp said.
+    pub fn finished(&mut self, done: u64, now: Instant) -> Vec<(u64, Duration, String, String)> {
+        let newest = self.exchanges.back().map(|last| last.request);
+        self.exchanges
+            .iter_mut()
+            .filter(|exchange| {
+                !exchange.journalled
+                    && (Some(exchange.request) != newest || exchange.request == done)
+            })
+            .filter_map(|exchange| {
+                exchange.journalled = true;
+                exchange.lamp.chars().any(char::is_alphanumeric).then(|| {
+                    (
+                        exchange.request,
+                        now.saturating_duration_since(exchange.at),
+                        exchange.person.trim().to_owned(),
+                        exchange.lamp.trim().to_owned(),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    /// Drop everything: a person has had something forgotten, and what was
+    /// said about it is not to be told to the next session.
+    pub fn forget(&mut self) {
+        self.exchanges.clear();
+        self.heard.clear();
+        self.heard_at = None;
+        self.heard_done = false;
+        self.changed = true;
     }
 
     /// Whether the lamp said something to someone so lately that a
@@ -418,7 +461,15 @@ impl Recalling {
 
 impl Connect for Recalling {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
-        let time = crate::local_time::told_here();
+        let mut time = crate::local_time::told_here();
+        // What it was asked to remember, as the memory last gave it: held
+        // in this process, so that opening a session waits for nobody.
+        if self.tools.memory.is_some() {
+            let kept = crate::remember::told();
+            if !kept.is_empty() {
+                time = Some(time.unwrap_or_default() + &kept);
+            }
+        }
         let config = match THREAD.lock() {
             Ok(thread) => self.recalled(&thread, Instant::now(), time.as_deref()),
             Err(_) => self.config.clone(),
@@ -451,6 +502,7 @@ mod tests {
         let declining = Recalling::new(config()).tools(crate::tools::Settings {
             decline: true,
             exec: None,
+            memory: None,
         });
         let told = setup(&declining);
         let declared = &told["setup"]["tools"][0]["functionDeclarations"];
@@ -619,6 +671,49 @@ mod tests {
         assert_eq!(rest, &flags[2..]);
         assert_eq!(take_file(&flags[2..]).unwrap(), (None, &flags[2..]));
         assert!(take_file(&flags[..1]).is_err());
+    }
+
+    #[test]
+    fn a_finished_exchange_is_given_out_once_and_forgetting_drops_them_all() {
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        let mut thread = Thread::new();
+        thread.person("How do I take my coffee?", true, at(0));
+        thread.lamp(1, "Black.", at(1));
+        // Not over yet: another request is done, and this is the newest.
+        assert!(thread.finished(0, at(2)).is_empty());
+        assert_eq!(
+            thread.finished(1, at(4)),
+            [(
+                1,
+                Duration::from_secs(3),
+                "How do I take my coffee?".to_owned(),
+                "Black.".to_owned()
+            )]
+        );
+        assert!(thread.finished(1, at(5)).is_empty());
+        // An answer that never completed is given out when the next begins;
+        // one with no word in it never is.
+        thread.lamp(2, "And", at(6));
+        thread.lamp(3, "...", at(7));
+        thread.lamp(4, "Yes?", at(8));
+        let given: Vec<u64> = thread
+            .finished(9, at(9))
+            .into_iter()
+            .map(|(request, ..)| request)
+            .collect();
+        assert_eq!(given, [2]);
+        assert_eq!(thread.finished(4, at(9)).len(), 1);
+        // What a restarted service reads back was handed on by the one
+        // that wrote it.
+        let saved = thread.save(at(9), SystemTime::now()).unwrap();
+        let mut loaded = Thread::load(&saved, at(9), SystemTime::now());
+        assert!(loaded.recall(at(9), 4_000).is_some());
+        assert!(loaded.finished(4, at(9)).is_empty());
+        thread.forget();
+        assert_eq!(thread.recall(at(9), 4_000), None);
+        assert!(!thread.going_on(at(9)));
+        assert_eq!(thread.save(at(9), SystemTime::now()).as_deref(), Some("[]"));
     }
 
     #[test]

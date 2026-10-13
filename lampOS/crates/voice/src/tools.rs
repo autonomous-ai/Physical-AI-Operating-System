@@ -63,6 +63,8 @@ pub struct Settings {
     pub decline: bool,
     /// The executive's directory.
     pub exec: Option<PathBuf>,
+    /// The memory's socket ([`crate::remember`]).
+    pub memory: Option<PathBuf>,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -70,10 +72,11 @@ pub fn arguments_from_environment() -> Vec<String> {
     arguments(
         std::env::var(ENVIRONMENT).ok().as_deref(),
         std::env::var(ACTIONS_ENVIRONMENT).ok().as_deref(),
+        std::env::var(crate::remember::ENVIRONMENT).ok().as_deref(),
     )
 }
 
-fn arguments(decline: Option<&str>, exec: Option<&str>) -> Vec<String> {
+fn arguments(decline: Option<&str>, exec: Option<&str>, memory: Option<&str>) -> Vec<String> {
     let mut arguments = Vec::new();
     if decline == Some("on") {
         arguments.push(FLAG.to_owned());
@@ -82,10 +85,15 @@ fn arguments(decline: Option<&str>, exec: Option<&str>) -> Vec<String> {
         arguments.push(ACTIONS_FLAG.to_owned());
         arguments.push(directory.to_owned());
     }
+    if let Some(socket) = memory.filter(|path| Path::new(path).is_absolute()) {
+        arguments.push(crate::remember::FLAG.to_owned());
+        arguments.push(socket.to_owned());
+    }
     arguments
 }
 
-/// Take a leading `--tools` and `--actions-dir PATH` off a worker's flags.
+/// Take a leading `--tools`, `--actions-dir PATH` and `--memory-socket
+/// PATH` off a worker's flags.
 pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
     let mut settings = Settings::default();
     let mut flags = flags;
@@ -105,6 +113,18 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
             return Err(std::io::Error::other("--actions-dir must be absolute"));
         }
         settings.exec = Some(PathBuf::from(directory));
+        flags = rest;
+    }
+    if let [flag, rest @ ..] = flags
+        && flag == crate::remember::FLAG
+    {
+        let [socket, rest @ ..] = rest else {
+            return Err(std::io::Error::other("--memory-socket needs a path"));
+        };
+        if !Path::new(socket).is_absolute() {
+            return Err(std::io::Error::other("--memory-socket must be absolute"));
+        }
+        settings.memory = Some(PathBuf::from(socket));
         flags = rest;
     }
     Ok((settings, flags))
@@ -134,12 +154,15 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.decline {
         tools.push(not_for_me());
     }
+    if settings.memory.is_some() {
+        tools.extend(crate::remember::tools());
+    }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
         tools.extend(
             catalog(&directory.join(CATALOG_FILE))
                 .into_iter()
-                .filter(|tool| tool.name != NOT_FOR_ME)
+                .filter(|tool| tool.name != NOT_FOR_ME && !crate::remember::is_tool(&tool.name))
                 .take(room),
         );
     }
@@ -181,14 +204,21 @@ pub enum Route {
     Decline,
     /// Ask the executive in this directory.
     Executive(PathBuf),
+    /// Ask the memory on this socket.
+    Memory(PathBuf),
     /// Nobody here runs that.
     Nobody,
 }
 
 pub fn route(settings: &Settings, name: &str) -> Route {
+    if let (Some(socket), true) = (&settings.memory, crate::remember::is_tool(name)) {
+        return Route::Memory(socket.clone());
+    }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
-        (Some(directory), name) if name != NOT_FOR_ME => Route::Executive(directory.clone()),
+        (Some(directory), name) if name != NOT_FOR_ME && !crate::remember::is_tool(name) => {
+            Route::Executive(directory.clone())
+        }
         _ => Route::Nobody,
     }
 }
@@ -212,48 +242,58 @@ pub fn declined() -> Value {
 /// back: `{"ok":true,"result":{...}}`, whose result goes to the model as it
 /// is, or `{"ok":false,"error":"..."}`, whose words do.
 pub fn ask(directory: &Path, call: &ToolCall, deadline: Duration) -> (Value, bool) {
+    let line = json!({"op":"call","name":call.name,"args":call.args});
+    let told = exchange(&directory.join(CALL_SOCKET), &line, deadline).and_then(|answer| {
+        match answer.get("ok").and_then(Value::as_bool)? {
+            true => Some(answer.get("result").cloned().unwrap_or_else(|| json!({}))),
+            false => Some(json!({"error": answer.get("error").and_then(Value::as_str)?})),
+        }
+    });
+    match told {
+        // What the link would refuse to send is never offered to it: an
+        // answer that is not sent leaves the service waiting on the call.
+        Some(told) if sendable(&told) => (told, true),
+        _ => (unavailable(), false),
+    }
+}
+
+/// Whether the provider link will carry this to the model.
+pub fn sendable(told: &Value) -> bool {
+    told.to_string().len() + 16 <= lamp_gemini::MAX_TOOL_JSON_BYTES
+}
+
+/// One line of JSON to a local stream socket and one line back, inside
+/// `deadline`, connecting included. `None` for a socket nobody answers on,
+/// an answer that is late, cut off, too long or not JSON. Blocking: for a
+/// thread of its own.
+pub fn exchange(socket: &Path, line: &Value, deadline: Duration) -> Option<Value> {
     let started = Instant::now();
     let left = || {
         deadline
             .checked_sub(started.elapsed())
             .filter(|left| !left.is_zero())
     };
-    let asked = || -> Option<Value> {
-        // A local socket connects at once or not at all: there is no wait
-        // to bound here that the deadlines below do not bound.
-        let mut stream = UnixStream::connect(directory.join(CALL_SOCKET)).ok()?;
-        stream.set_write_timeout(Some(left()?)).ok()?;
-        let mut line =
-            serde_json::to_vec(&json!({"op":"call","name":call.name,"args":call.args})).ok()?;
-        line.push(b'\n');
-        stream.write_all(&line).ok()?;
-        let mut answer = Vec::new();
-        let mut reader = BufReader::new(stream.try_clone().ok()?.take(MAX_ANSWER_BYTES));
-        loop {
-            // The whole answer inside what is left, however it is cut up.
-            stream.set_read_timeout(Some(left()?)).ok()?;
-            let read = reader.read_until(b'\n', &mut answer).ok()?;
-            if answer.last() == Some(&b'\n') {
-                break;
-            }
-            if read == 0 {
-                return None;
-            }
+    // A local socket connects at once or not at all: there is no wait to
+    // bound here that the deadlines below do not bound.
+    let mut stream = UnixStream::connect(socket).ok()?;
+    stream.set_write_timeout(Some(left()?)).ok()?;
+    let mut out = serde_json::to_vec(line).ok()?;
+    out.push(b'\n');
+    stream.write_all(&out).ok()?;
+    let mut answer = Vec::new();
+    let mut reader = BufReader::new(stream.try_clone().ok()?.take(MAX_ANSWER_BYTES));
+    loop {
+        // The whole answer inside what is left, however it is cut up.
+        stream.set_read_timeout(Some(left()?)).ok()?;
+        let read = reader.read_until(b'\n', &mut answer).ok()?;
+        if answer.last() == Some(&b'\n') {
+            break;
         }
-        let answer: Value = serde_json::from_slice(&answer).ok()?;
-        match answer.get("ok").and_then(Value::as_bool)? {
-            true => Some(answer.get("result").cloned().unwrap_or_else(|| json!({}))),
-            false => Some(json!({"error": answer.get("error").and_then(Value::as_str)?})),
+        if read == 0 {
+            return None;
         }
-    };
-    match asked() {
-        // What the link would refuse to send is never offered to it: an
-        // answer that is not sent leaves the service waiting on the call.
-        Some(told) if told.to_string().len() + 16 <= lamp_gemini::MAX_TOOL_JSON_BYTES => {
-            (told, true)
-        }
-        _ => (unavailable(), false),
     }
+    serde_json::from_slice(&answer).ok()
 }
 
 #[cfg(test)]
@@ -301,30 +341,91 @@ mod tests {
     }
 
     #[test]
+    fn with_a_memory_its_three_functions_are_declared_and_go_to_it_and_to_nobody_without() {
+        let dir = directory("memory");
+        // An executive that offers a function of the memory's name does
+        // not get it.
+        std::fs::write(
+            dir.join(CATALOG_FILE),
+            r#"{"tools":[{"name":"remember","description":"x"},{"name":"light_on","description":"x"}]}"#,
+        )
+        .unwrap();
+        let with = Settings {
+            decline: true,
+            exec: Some(dir.clone()),
+            memory: Some("/run/lampos-memory/memory.sock".into()),
+        };
+        let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
+        assert_eq!(
+            names,
+            [NOT_FOR_ME, "remember", "recall", "forget", "light_on"]
+        );
+        for name in ["remember", "recall", "forget"] {
+            assert_eq!(
+                route(&with, name),
+                Route::Memory("/run/lampos-memory/memory.sock".into())
+            );
+        }
+        assert_eq!(route(&with, "light_on"), Route::Executive(dir.clone()));
+        let without = Settings {
+            memory: None,
+            ..with
+        };
+        let names: Vec<String> = declared(&without)
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert_eq!(names, [NOT_FOR_ME, "light_on"]);
+        // The executive is never asked to remember: it is not its work.
+        assert_eq!(route(&without, "remember"), Route::Nobody);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn only_on_and_an_absolute_path_become_flags_and_they_are_taken_from_the_front() {
-        assert!(arguments(None, None).is_empty());
-        assert!(arguments(Some("yes"), Some("relative/dir")).is_empty());
-        let both = arguments(Some("on"), Some("/run/lampos-actions"));
-        assert_eq!(both, [FLAG, ACTIONS_FLAG, "/run/lampos-actions"]);
-        let mut flags = both.clone();
+        assert!(arguments(None, None, None).is_empty());
+        assert!(arguments(Some("yes"), Some("relative/dir"), Some("memory.sock")).is_empty());
+        let all = arguments(
+            Some("on"),
+            Some("/run/lampos-actions"),
+            Some("/run/lampos-memory/memory.sock"),
+        );
+        let memory = crate::remember::FLAG;
+        assert_eq!(
+            all,
+            [
+                FLAG,
+                ACTIONS_FLAG,
+                "/run/lampos-actions",
+                memory,
+                "/run/lampos-memory/memory.sock"
+            ]
+        );
+        let mut flags = all.clone();
         flags.push("rest".into());
         let (settings, rest) = take(&flags).unwrap();
         assert_eq!(
             settings,
             Settings {
                 decline: true,
-                exec: Some("/run/lampos-actions".into())
+                exec: Some("/run/lampos-actions".into()),
+                memory: Some("/run/lampos-memory/memory.sock".into()),
             }
         );
         assert_eq!(rest, ["rest"]);
         let (settings, rest) = take(&flags[1..]).unwrap();
-        assert!(!settings.decline && settings.exec.is_some());
+        assert!(!settings.decline && settings.exec.is_some() && settings.memory.is_some());
         assert_eq!(rest, ["rest"]);
         let (settings, rest) = take(&flags[3..]).unwrap();
+        assert!(settings.exec.is_none() && settings.memory.is_some());
+        assert_eq!(rest, ["rest"]);
+        let (settings, rest) = take(&flags[5..]).unwrap();
         assert_eq!(settings, Settings::default());
         assert_eq!(rest, ["rest"]);
         assert!(take(&[ACTIONS_FLAG.to_owned()]).is_err());
         assert!(take(&[ACTIONS_FLAG.to_owned(), "relative".to_owned()]).is_err());
+        assert!(take(&[memory.to_owned()]).is_err());
+        assert!(take(&[memory.to_owned(), "relative".to_owned()]).is_err());
     }
 
     #[test]
@@ -334,6 +435,7 @@ mod tests {
         let own = Settings {
             decline: true,
             exec: None,
+            memory: None,
         };
         let told = declared(&own);
         assert_eq!(told.len(), 1);
@@ -345,6 +447,7 @@ mod tests {
         let with = Settings {
             decline: true,
             exec: Some(dir.clone()),
+            memory: None,
         };
         // No file yet: the executive has not started.
         assert_eq!(declared(&with).len(), 1);
@@ -360,6 +463,7 @@ mod tests {
         let alone = Settings {
             decline: false,
             exec: Some(dir.clone()),
+            memory: None,
         };
         assert_eq!(declared(&alone).len(), 2);
         // One function the link would refuse, a name twice, a file that is
@@ -388,18 +492,21 @@ mod tests {
         let all = Settings {
             decline: true,
             exec: Some(dir.clone()),
+            memory: None,
         };
         assert_eq!(route(&all, NOT_FOR_ME), Route::Decline);
         assert_eq!(route(&all, "light_on"), Route::Executive(dir.clone()));
         let own = Settings {
             decline: true,
             exec: None,
+            memory: None,
         };
         assert_eq!(route(&own, "light_on"), Route::Nobody);
         // Not declared, so not meant: it is never handed to the executive.
         let exec = Settings {
             decline: false,
             exec: Some(dir),
+            memory: None,
         };
         assert_eq!(route(&exec, NOT_FOR_ME), Route::Nobody);
         assert_eq!(route(&Settings::default(), "light_on"), Route::Nobody);

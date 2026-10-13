@@ -59,7 +59,7 @@ result, or `"ok":false`, an `"error"` (`bad_json`, `bad_request`, `unknown_op`,
     {"op":"remember","person":"mai","at_unix_ms":1791892800000,"text":"takes her coffee black"}
     {"op":"kept","max_bytes":2000}
     {"op":"recall","query":"coffee","day":null,"limit":8,"max_bytes":4096}
-    {"op":"forget_last"}
+    {"op":"forget_last","kind":"kept"}
     {"op":"forget_all","person":null}
     {"op":"status"}
 
@@ -74,7 +74,10 @@ result, or `"ok":false`, an `"error"` (`bad_json`, `bad_request`, `unknown_op`,
   exchanges that match. With neither: the newest exchanges.
 - `forget_last` removes the entry with the person's highest id, of either kind:
   `{"ok":true,"removed":{"kind":"kept","id":2,"at_unix_ms":1791892800000}}` or
-  `"removed":null`. Which entry, never its text.
+  `"removed":null`. Which entry, never its text. With `"kind"` (`kept` or
+  `exchange`) it is the highest of that kind, whatever came after it:
+  "forget what I asked you to remember" means the last kept thing. Any
+  other `kind` is `bad_request`.
 - `forget_all` empties one person's directory, unreadable lines included:
   `{"ok":true,"removed":14}`. With `"person":null`, everyone's; every other
   request but `status` refuses `null`.
@@ -98,6 +101,97 @@ result, or `"ok":false`, an `"error"` (`bad_json`, `bad_request`, `unknown_op`,
   two characters or more, the first 16. `kept`: 4096 bytes unless given.
 - `at_unix_ms` outside the years 1970 to 9999: `bad_time`.
 
+## How the voice uses it
+
+`crates/voice/src/remember.rs`, switched on by naming the socket in the
+voice unit (`LAMP_MEMORY_SOCKET`, the provider worker's `--memory-socket`).
+Without it the voice knows nothing of this process.
+
+- **Three functions the model may call** ([tools.md](tools.md)):
+  `remember {text}`, `recall {about?, days_ago?}` and `forget {}`. Each is
+  one request here, on a thread of its own, waited for 1.5 s at most. With
+  no answer the model is told "My memory is not answering right now, so I
+  could not do that." and the conversation goes on.
+- **The journal.** When a request is over, the exchange (what the provider
+  wrote down of the person, and of the lamp) is queued for one writer
+  thread, which sends `append`. The queue holds 32; a full queue or a
+  memory that does not answer loses that exchange and nothing else. An
+  answer with no word in it is not journalled. Talk the lamp did not
+  answer never reaches here.
+- **Asking it to keep or forget something is not itself kept.** The
+  exchange in which `remember` or `forget` was called stays out of the
+  journal: the kept list is the record of that.
+- **A note for each new session.** The writer thread asks `kept` (1,200
+  bytes of text, the newest that fit) when it starts, after each
+  `remember` and `forget`, and every five minutes, and holds the answer.
+  A session opened then is told those things, with the rule to use one
+  only when the person brings its subject up, never to list them, and
+  never to say "you told me": the lamp cannot tell who is speaking.
+  Opening a session never waits for this process.
+- **What the model is given from a recall** is how long ago in words
+  ("yesterday", "2 weeks ago"), never a date or a time of day: a person
+  does not say "on 3 October at 14:02".
+- **`forget` is not yet all of forgetting.** It removes the last kept
+  thing, clears the note and the conversation thread, and that is what the
+  lamp says ("it is off my list"). A later conversation in which the thing
+  came up is still in the journal until it is 30 days old. Forgetting that
+  reaches everything derived from a thing needs each entry to say what it
+  came from, which is in the table below and is not built.
+
+## What is taken from how others do memory
+
+The owner's question on 2026-10-13: is rolling our own right, or should
+the lamp use what the field has worked out? Three studies were made that
+evening and are kept outside the repository, each claim with its source:
+how agent products do memory (Claude Code, Codex, ChatGPT and others),
+the open-source memory systems (mem0, Letta, Zep and Graphiti and a dozen
+more) with their benchmarks and the disputes over them, and what a spoken
+companion in a shared room needs that a chat agent does not. Their
+findings are the studies', read from the sources named there and not
+re-measured here.
+
+The answer they support: **adopt none of them whole, and build on the
+journal.** No open-source system fits as it is: each is a Python service
+with a vector or graph store and a model call on every write, and in
+independent tests the well-known ones do not beat plain keyword search
+over the raw record. The products people use every day converged on
+something simpler: readable text, a small part always in the prompt under
+a hard cap, the rest searched on demand, and a pass in the background
+that tidies up. The journal here is already the layer the evidence
+supports most. **Except where the last column says so, this is a decision
+record and not what the crate does.**
+
+| What the best of them do, and the evidence | What the lamp's memory does about it | In the crate |
+|---|---|---|
+| Keep the raw record and search it; treat extracted facts as an index over it, never a replacement (the best-supported finding: replacing sessions with summaries lowered accuracy in LongMemEval) | The journal is the truth. Anything derived points back to the lines it came from and can be rebuilt | The journal, yes. Nothing derived yet |
+| A fast path for "remember this" | The kept list, written at once | Yes |
+| A small part always in the prompt, under a hard cap, as it stood when the session opened | The note for a new session: today the newest kept things in 1,200 bytes. To become a curated block: open promises, recent threads, lasting preferences | The simple form |
+| Tidy up in the background, never during a reply (Codex, ChatGPT, Letta, OpenClaw) | A pass after a conversation has ended, with a model off the voice path: dated observations, each with its source lines | No |
+| Stamp time on everything; a newer fact supersedes an older one by a link, and both are kept (overwriting and model-decided deletion were wrong often enough that mem0 gave them up) | Supersession as a link. Nothing derived is destroyed by the pass that made it | Times only |
+| Keyword search first; meaning-based search only where it is measured to help | SQLite's FTS5 with ranking in place of whole-word match. Embeddings only if they beat it on the lamp's own questions, Vietnamese included, inside the time allowed | Whole-word match |
+| Forgetting that is real: it reaches every summary and index (regulators acted against a product that kept transcripts of "deleted" recordings) | "Forget that" removes the thing and, through the source links, all that was derived from it; checked by a search before the lamp says so | The kept thing only (above) |
+| Age out what goes unused (Copilot 28 days, Codex 30) | Derived facts lapse when unused; the journal goes at 30 days; what a person asked to be kept has no age | Journal age only |
+| Scope by person, and never tell one person what another said (rated the most damaging failure for a shared room) | Until someone asks to be recognised, everything is "said in this room": used when its subject comes up, never attributed, never volunteered | In the note's wording only |
+| Treat what is heard as untrusted, and check a fact before leaning on it (the recorded errors of a deployed voice agent's memory came from mishearing) | The lamp says back what it kept, so that a mishearing is corrected at once. Names, times and promises are confirmed before they are relied on | The saying back, as an instruction to the model |
+| Reminders are not memories: their own store, and a clock outside the model | Not part of this crate: a part of its own | No |
+| A page where people see what is kept and can delete it | With the operator pages | No |
+
+Not taken: a knowledge graph (it added 1.6 points for mem0 and costs a
+model call or several for each write), a vector database as the store,
+scores of importance and forgetting curves set by hand (no evidence they
+help anyone), and any hosted memory service (every conversation in the
+office would go to one more company).
+
+**How it will be known whether this is good.** Three numbers, reported
+together: accuracy, how long a read takes on the lamp, and how much text
+leaves the lamp for a third party in a day. Accuracy on LongMemEval-S
+(public, five abilities scored apart, and its retrieval score needs no
+model) beside three baselines on the same harness: the whole
+conversation in the prompt, today's whole-word match, and ranked keyword
+search. And a set of the lamp's own: scripted conversations over several
+days played to it, with questions whose right answer is "I don't
+remember" or "that was someone else". None of this has been run.
+
 ## What it deliberately does not do
 
 No audio, no pictures. Nothing is sent anywhere from here, though a line
@@ -112,8 +206,11 @@ not scrubbed from the flash. The offset from UTC is fixed: no summer time.
 Host tests on a development Mac: store and protocol in unit tests, the real
 server on a socket in a thread, the built binary killed with SIGKILL and
 started again. On 2026-10-13 the same 34 tests passed once as a Linux ARM64
-build under emulation in a container. It has not run on a lamp, has no
-systemd unit, and the voice does not call it yet. A power cut was imitated by cutting
+build under emulation in a container; `forget_last` with a kind was added
+after that run (36 tests on the host). The voice's side is host tests: the
+three functions against a scripted memory, the journal's queue and writer,
+and the provider worker with the scripted provider and a memory on a
+socket. It has not run on a lamp. A power cut was imitated by cutting
 a file short. Moving the socket to its path after binding it has run on macOS and in
 that emulated Linux run. Times, on that Mac through the socket with thirty days of 200 exchanges
 (`tests/timing.rs`): `append` 19 ms, `recall` by words 15 ms, by day or newest

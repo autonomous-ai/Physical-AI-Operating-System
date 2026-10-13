@@ -8,7 +8,7 @@ written interface between the Voice and the Executive.
 
 A Live session can be told of functions. The model asks for one by name; it
 never supplies anything but that name and arguments that fit what was
-declared. The voice declares two kinds and runs neither itself.
+declared. The voice declares three kinds and runs none itself.
 
 ## `not_for_me`, the voice's own
 
@@ -47,7 +47,7 @@ costs an ordinary answer's first audio, has not been measured.
 
 ## The executive's
 
-The executive (`lamp-actions`, not yet built) keeps two things in its
+The executive (`lamp-actions`, [actions.md](actions.md)) keeps two things in its
 directory, which the voice is given as `LAMP_ACTIONS_DIR` (the worker's
 `--actions-dir`, an absolute path):
 
@@ -74,6 +74,25 @@ own:
 and should be words the lamp can say. The answer may be at most 8,192
 bytes on the line and about 4,000 as JSON to the model; a larger one is
 treated as no answer.
+
+## The memory's
+
+With `LAMP_MEMORY_SOCKET` in the voice unit (the worker's
+`--memory-socket`, an absolute path) a session is also told of three
+functions, declared by the voice and run by `lamp-memory`
+([memory.md](memory.md), "How the voice uses it"):
+
+| Function | When the model calls it | What it is told |
+|---|---|---|
+| `remember {text}` | Someone asks it to keep something | `{"remembered":true}`, and it says back what it kept |
+| `recall {about?, days_ago?}` | Someone asks about an earlier conversation or day | `{"found":[{"when":"yesterday","heard":"...","you_said":"..."},{"when":"last week","asked_to_remember":"..."}]}`, or an empty list and "Nothing about that in what I remember." |
+| `forget {}` | Someone asks it to forget the last thing it was asked to keep | `{"forgotten":true}`, or `false` with "There was nothing I had been asked to remember." |
+
+They take the same road as the executive's: a thread of its own, 1.5 s at
+most, at most eight waiting, the answer only to the connection that
+asked. A memory that does not answer is told to the model as "My memory
+is not answering right now, so I could not do that." An executive that
+lists a function of one of these names does not get it.
 
 ## What the voice promises, and what it does not
 
@@ -106,11 +125,16 @@ the request ended. Nothing is captured, played or changed on the lamp.
 ## Not shown
 
 Host tests: the router and the executive's client against a scripted
-executive (five tests), the worker against the scripted provider and that
-executive (three), what a session is sent at setup (one). Against the real
-service, silent written requests only (the table above, and one request to
-change the light's colour that called the sample function with the colour
-asked for and then said "Got it! Blue it is."). Not yet shown: that this
-model calls `not_for_me` for overheard speech and not for speech meant for
-it, and the cost in time of declared functions on an ordinary answer.
-There is no executive yet.
+executive (six tests), the worker against the scripted provider with that
+executive and with a memory on a socket (four), what a session is sent at
+setup (one). Against the real service, silent written requests (the table
+above, and one request to change the light's colour that called the
+sample function with the colour asked for and then said "Got it! Blue it
+is."), and on lamp-4ace on 2026-10-13 two spoken requests to the real
+executive: "Hey Lamp, can you turn your volume down a bit?" called
+`volume_down`, which answered in 84 ms, and the lamp said "Got it. How's
+that?"; "Lamp, speak up a little, please." called `volume_up`. A request
+that calls a function is answered about a second later than one that
+does not: the model takes two turns. Not yet shown: that this model calls
+`not_for_me` for overheard speech and not for speech meant for it, and
+the memory's three functions against the real service or on a lamp.

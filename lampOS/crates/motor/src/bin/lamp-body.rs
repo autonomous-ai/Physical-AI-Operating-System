@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -304,6 +304,19 @@ fn mood_of(datagram: &[u8]) -> Option<(lamp_motor::gesture::Mood, u8)> {
     Some((message.mood, message.level))
 }
 
+/// A gesture asked for by the voice service: `{"gesture":"nod"}` and nothing
+/// else in it, naming a clip this body has.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn gesture_of(datagram: &[u8]) -> Option<&'static lamp_motor::clips::Clip> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Message<'a> {
+        gesture: &'a str,
+    }
+    let message: Message = serde_json::from_slice(datagram).ok()?;
+    lamp_motor::clips::named(message.gesture)
+}
+
 fn main() -> std::process::ExitCode {
     let arguments = match parse(std::env::args_os().skip(1)) {
         Ok(None) => {
@@ -379,13 +392,18 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let restore = SignalMask(old_mask);
     let signal_fd = SignalFd::with_flags(&mask, SfdFlags::SFD_CLOEXEC | SfdFlags::SFD_NONBLOCK)?;
     let mut cancelled = false;
+    // A gesture asked for on the same socket, until the body takes it.
+    let gesture_asked = std::cell::Cell::new(None);
     let news = || {
         // Everything waiting, and only the newest of it counts.
         let mut latest = None;
         let mut datagram = [0u8; 128];
         for _ in 0..32 {
             match moods.recv(&mut datagram) {
-                Ok(length) => latest = mood_of(&datagram[..length]).or(latest),
+                Ok(length) => match gesture_of(&datagram[..length]) {
+                    Some(clip) => gesture_asked.set(Some(clip)),
+                    None => latest = mood_of(&datagram[..length]).or(latest),
+                },
                 Err(_) => break,
             }
         }
@@ -412,6 +430,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let asked_to_stand = arguments.standing.is_some();
     let mut told_whether_it_stands = false;
     let mut face_said = 0u64;
+    let mut gesture_said: Option<&'static str> = None;
     let mut eased = [0u16; 3];
     let watch = |glimpse: &lamp_motor::body::Glimpse| {
         let due = match said {
@@ -430,6 +449,13 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 "lamp-body: step {} met resistance and stopped pushing; so far {:?}; positions {:?} loads {:?}",
                 glimpse.step, glimpse.eased, glimpse.positions, glimpse.loads
             );
+        }
+        if glimpse.gesture != gesture_said {
+            gesture_said = glimpse.gesture;
+            match glimpse.gesture {
+                Some(name) => eprintln!("lamp-body: step {} gesture {name}", glimpse.step),
+                None => eprintln!("lamp-body: step {} gesture over", glimpse.step),
+            }
         }
         // What the eyes report and where that has it look, at most twice a
         // second: for setting the two numbers of --gaze on a lamp.
@@ -495,7 +521,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         None => (None, None),
     };
-    let eyes = || {
+    let mut eyes = || {
         // Everything waiting, and only the newest of it counts.
         let sights = sights.as_ref()?;
         let mut latest = None;
@@ -532,7 +558,10 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         standing,
         looking,
         news,
-        eyes,
+        || lamp_motor::body::Asked {
+            seen: eyes(),
+            gesture: gesture_asked.take(),
+        },
         watch,
         || {
             if !cancelled {
@@ -755,6 +784,30 @@ mod tests {
         ] {
             assert!(with(refused).is_err(), "{refused:?}");
         }
+    }
+
+    #[test]
+    fn a_gesture_is_asked_for_by_the_name_of_a_clip_and_nothing_else() {
+        assert_eq!(
+            gesture_of(br#"{"gesture":"nod"}"#).map(|clip| clip.name),
+            Some("nod")
+        );
+        assert_eq!(
+            gesture_of(br#"{"gesture":"headshake"}"#).map(|clip| clip.name),
+            Some("headshake")
+        );
+        for ignored in [
+            &br#"{"gesture":"dance"}"#[..],
+            br#"{"gesture":"nod","scale":3}"#,
+            br#"{"gesture":7}"#,
+            br#"{"mood":"listening","level":3}"#,
+            b"nod",
+            b"",
+        ] {
+            assert!(gesture_of(ignored).is_none());
+        }
+        // And a gesture is not a mood.
+        assert_eq!(mood_of(br#"{"gesture":"nod"}"#), None);
     }
 
     #[test]

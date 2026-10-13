@@ -1678,3 +1678,178 @@ fn stood_up_the_head_may_look_down_as_far_as_up_and_folded_it_may_not() {
     // (It comes to rest within a count of that bound.)
     assert!((1_944..=1_945).contains(&stood_low), "{stood_low}");
 }
+
+/// One step of a run as a gesture test watches it: when, the gesture being
+/// made, the head's goals and the arm's.
+type Step = (Duration, Option<&'static str>, [u16; 3], [u16; 2]);
+
+/// A lamp that stands at once and is spoken to throughout, asked for one
+/// gesture at a given moment.
+fn gesture_run(
+    clip: &'static Clip,
+    ask_at: Duration,
+    seconds: u64,
+    prepare: impl FnOnce(&mut Lamp),
+) -> (BodyReport, Lamp, Vec<Step>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    prepare(&mut lamp);
+    let limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    let time = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut asked_once = false;
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        || Some((Mood::Speaking, 60)),
+        move || {
+            let due = !asked_once && time.get() >= ask_at;
+            asked_once |= due;
+            Asked {
+                seen: None,
+                gesture: due.then_some(clip),
+            }
+        },
+        |glimpse| {
+            seen.push((
+                seen_at.get(),
+                glimpse.gesture,
+                glimpse.goals,
+                glimpse.arm_goals,
+            ));
+        },
+    );
+    (report, lamp, seen)
+}
+
+#[test]
+fn a_standing_lamp_nods_and_is_left_exactly_where_it_was() {
+    // Standing takes a little over four seconds; the nod is asked at eight.
+    let (report, lamp, seen) = gesture_run(&crate::clips::NOD, Duration::from_secs(8), 16, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.gestures, report.gestures_dropped), (1, 0));
+    assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+    let during: Vec<_> = seen.iter().filter(|step| step.1 == Some("nod")).collect();
+    let before = seen
+        .iter()
+        .rfind(|step| step.0 < Duration::from_secs(8))
+        .unwrap();
+    let after = seen
+        .iter()
+        .rfind(|step| step.0 < Duration::from_secs(13))
+        .unwrap();
+    // It lasted as long as the clip, moved the head's pitch and both joints
+    // of the arm by about what the clip says, and nothing else.
+    let lasted = during.last().unwrap().0 - during[0].0;
+    assert!(
+        (lasted.as_millis() as i64 - 3_068).abs() < 100,
+        "{lasted:?}"
+    );
+    let swing = |pick: &dyn Fn(&Step) -> u16| {
+        let values: Vec<u16> = during.iter().map(|step| pick(step)).collect();
+        values.iter().max().unwrap() - values.iter().min().unwrap()
+    };
+    assert!(
+        (100..=115).contains(&swing(&|step| step.2[0])),
+        "{}",
+        swing(&|step| step.2[0])
+    );
+    assert!(
+        (135..=150).contains(&swing(&|step| step.3[0])),
+        "{}",
+        swing(&|step| step.3[0])
+    );
+    assert!(
+        (200..=220).contains(&swing(&|step| step.3[1])),
+        "{}",
+        swing(&|step| step.3[1])
+    );
+    assert_eq!(swing(&|step| step.2[2]), 0);
+    // No goal jumps: a clip is followed, not leapt to.
+    for pair in during.windows(2) {
+        assert!(pair[1].2[0].abs_diff(pair[0].2[0]) <= 24, "{pair:?}");
+        assert!(pair[1].3[1].abs_diff(pair[0].3[1]) <= 21, "{pair:?}");
+    }
+    // And afterwards it stands as it stood.
+    assert_eq!((before.2, before.3), (after.2, after.3));
+    assert_eq!(after.1, None);
+    assert_eq!((lamp.servos[1].goal, lamp.servos[2].goal), (2_050, 2_047));
+}
+
+#[test]
+fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not() {
+    // Asked three seconds in, while it rises: it begins once it stands.
+    let (report, _, seen) = gesture_run(&crate::clips::NOD, Duration::from_secs(3), 12, |_| {});
+    assert_eq!(report.gestures, 1, "{report:?}");
+    let began = seen.iter().find(|step| step.1.is_some()).unwrap().0;
+    assert!(
+        began > Duration::from_millis(4_400) && began < Duration::from_secs(6),
+        "{began:?}"
+    );
+    // Asked at once, more than three seconds before it stands: forgotten.
+    let (report, _, seen) = gesture_run(&crate::clips::NOD, Duration::from_millis(100), 10, |_| {});
+    assert_eq!(report.gestures, 0);
+    assert!(seen.iter().all(|step| step.1.is_none()));
+    // A folded lamp that may not stand makes none either.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(4));
+    let mut asked_once = false;
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        None,
+        None,
+        None,
+        || Some((Mood::Speaking, 60)),
+        move || Asked {
+            seen: None,
+            gesture: (!std::mem::replace(&mut asked_once, true)).then_some(&crate::clips::NOD),
+        },
+        |_| {},
+    );
+    assert_eq!((report.stop, report.gestures), (Stop::Cancelled, 0));
+    assert!(lamp.goals.iter().all(|write| write.len() == 3));
+}
+
+#[test]
+fn a_joint_that_cannot_keep_up_ends_the_gesture_and_not_the_run() {
+    // The head's pitch meets something a little above where it stands.
+    let (report, lamp, seen) =
+        gesture_run(&crate::clips::NOD, Duration::from_secs(8), 16, |lamp| {
+            lamp.strains = vec![(
+                Duration::from_millis(8_600),
+                Duration::from_millis(9_200),
+                PITCH,
+                900,
+            )];
+        });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.gestures, report.gestures_dropped), (1, 1));
+    // It let go early, went back to where it stood, and stayed standing.
+    let during: Vec<_> = seen.iter().filter(|step| step.1 == Some("nod")).collect();
+    let lasted = during.last().unwrap().0 - during[0].0;
+    assert!(lasted < Duration::from_millis(1_200), "{lasted:?}");
+    let before = seen
+        .iter()
+        .rfind(|step| step.0 < Duration::from_secs(8))
+        .unwrap();
+    let after = seen
+        .iter()
+        .rfind(|step| step.0 < Duration::from_secs(13))
+        .unwrap();
+    assert_eq!((before.2, before.3), (after.2, after.3));
+    assert!(report.retreats.is_empty());
+    assert_eq!(lamp.servos[2].status, 0);
+}

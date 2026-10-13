@@ -103,6 +103,122 @@ impl BodyLink {
         // Nobody listening, a full queue, a missing path: all the same here.
         let _ = self.socket.send_to(message.as_bytes(), &self.path);
     }
+
+    /// Ask the body for one gesture by name. Whether it makes it is the
+    /// body's to decide: a lamp that is not standing makes none.
+    pub fn gesture(&mut self, name: &str) {
+        let message = format!(r#"{{"gesture":"{name}"}}"#);
+        let _ = self.socket.send_to(message.as_bytes(), &self.path);
+    }
+}
+
+/// The gesture that goes with how an answer begins, as a person's head does:
+/// a nod with "yes", a shake with "no", a greeting with "hello". Most
+/// answers begin with none of these and get none.
+pub fn cue_for(opening: &str) -> Option<&'static str> {
+    let plain: String = opening
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | '\'' | ' ' => c,
+            'A'..='Z' => c.to_ascii_lowercase(),
+            '\u{2019}' => '\'',
+            _ => ' ',
+        })
+        .collect();
+    let words: Vec<&str> = plain.split_whitespace().collect();
+    let begins = |phrases: &[&str]| {
+        phrases.iter().any(|phrase| {
+            let wanted: Vec<&str> = phrase.split(' ').collect();
+            words.len() >= wanted.len() && words[..wanted.len()] == wanted[..]
+        })
+    };
+    // Said in agreement, though they begin with "no".
+    if begins(&["no problem", "no worries", "no doubt"]) {
+        return None;
+    }
+    if begins(&[
+        "hi",
+        "hello",
+        "hey",
+        "hiya",
+        "howdy",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "morning",
+    ]) {
+        Some("greeting")
+    } else if words
+        .first()
+        .is_some_and(|word| word.starts_with("haha") || word.starts_with("hehe") || *word == "ha")
+    {
+        Some("laugh")
+    } else if begins(&[
+        "yes",
+        "yeah",
+        "yep",
+        "yup",
+        "sure",
+        "absolutely",
+        "definitely",
+        "exactly",
+        "certainly",
+        "correct",
+        "indeed",
+        "okay",
+        "ok",
+        "of course",
+        "that's right",
+        "you bet",
+        "you got it",
+    ]) {
+        Some("nod")
+    } else if begins(&[
+        "no",
+        "nope",
+        "nah",
+        "not really",
+        "i don't think",
+        "i'm afraid not",
+    ]) {
+        Some("headshake")
+    } else if begins(&["thank you", "thanks", "aw", "aww", "oh stop"]) {
+        Some("shy")
+    } else {
+        None
+    }
+}
+
+/// Decides once per answer, from its first words as they arrive.
+#[derive(Default)]
+pub struct Cue {
+    turn: Option<u64>,
+    opening: String,
+    decided: bool,
+}
+
+impl Cue {
+    /// Call with each piece of the lamp's own words for a turn. Returns the
+    /// gesture for that answer the first time enough of it is known: three
+    /// words, or its end.
+    pub fn heard(&mut self, turn: u64, text: &str, finished: bool) -> Option<&'static str> {
+        if self.turn != Some(turn) {
+            self.turn = Some(turn);
+            self.opening.clear();
+            self.decided = false;
+        }
+        if self.decided {
+            return None;
+        }
+        if self.opening.len() < 96 {
+            self.opening.push_str(text);
+        }
+        if !finished && self.opening.split_whitespace().count() < 3 && self.opening.len() < 24 {
+            return None;
+        }
+        self.decided = true;
+        cue_for(&self.opening)
+    }
 }
 
 /// The eyes' socket, when the service is to let a camera look. Unset:
@@ -158,6 +274,67 @@ impl EyesLink {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_gesture_goes_with_how_an_answer_begins_and_most_answers_get_none() {
+        for (opening, gesture) in [
+            ("Yes, it is.", Some("nod")),
+            ("Yeah! That one.", Some("nod")),
+            ("Of course I can.", Some("nod")),
+            ("Okay.", Some("nod")),
+            ("That\u{2019}s right, seven.", Some("nod")),
+            ("No, not today.", Some("headshake")),
+            ("Nope.", Some("headshake")),
+            ("I don't think so.", Some("headshake")),
+            ("Hello there!", Some("greeting")),
+            ("Good morning! How are you?", Some("greeting")),
+            ("Haha, good one.", Some("laugh")),
+            ("Thank you, that's kind.", Some("shy")),
+            ("No problem at all.", None),
+            ("Now that is a question.", None),
+            ("Nothing much.", None),
+            ("His name is Tom.", None),
+            ("Seven days in a week.", None),
+            ("Sorry, I missed that.", None),
+            ("", None),
+        ] {
+            assert_eq!(cue_for(opening), gesture, "{opening:?}");
+        }
+    }
+
+    #[test]
+    fn the_cue_is_decided_once_an_answer_from_its_first_words() {
+        let mut cue = Cue::default();
+        // Words arrive in pieces; one word is not yet enough to know.
+        assert_eq!(cue.heard(4, "Yes", false), None);
+        assert_eq!(cue.heard(4, ", it", false), None);
+        assert_eq!(cue.heard(4, " is the", false), Some("nod"));
+        assert_eq!(cue.heard(4, " seventh. No, wait.", true), None);
+        // A short answer is known at its end.
+        assert_eq!(cue.heard(5, "Nope.", true), Some("headshake"));
+        // The next answer starts afresh, and most get nothing.
+        assert_eq!(cue.heard(6, "Seven days in a week,", false), None);
+        assert_eq!(cue.heard(6, " yes.", true), None);
+        let mut cue = Cue::default();
+        assert_eq!(
+            cue.heard(1, "Hello there, friend!", false),
+            Some("greeting")
+        );
+    }
+
+    #[test]
+    fn a_gesture_is_asked_of_the_body_in_exactly_this_text() {
+        let path = std::env::temp_dir().join(format!("lamp-body-gesture-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let body = UnixDatagram::bind(&path).unwrap();
+        body.set_nonblocking(true).unwrap();
+        let mut link = BodyLink::to(path.clone()).unwrap();
+        link.gesture("nod");
+        let mut datagram = [0u8; 64];
+        let length = body.recv(&mut datagram).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(&datagram[..length], br#"{"gesture":"nod"}"#);
+    }
 
     #[test]
     fn the_eyes_are_told_yes_twice_a_second_and_no_once_at_once() {

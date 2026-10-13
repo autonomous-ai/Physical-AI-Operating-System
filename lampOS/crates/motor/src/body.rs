@@ -24,6 +24,7 @@
 //!   nothing keeps pushing, and nothing is written after that.
 use crate::{
     Joint,
+    clips::Clip,
     gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
     inspection::{Interest, PortIo, Runtime},
@@ -80,6 +81,33 @@ const WIRE_STEPS: u8 = 25;
 
 /// The joints this body commands, in the order of every array of three here.
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
+/// A gesture asked for while the lamp is still rising waits this long for it
+/// to be standing, and is then forgotten.
+const GESTURE_WAIT: Duration = Duration::from_secs(3);
+/// The most a gesture's offsets change in one step: head pitch, head roll,
+/// base yaw, shoulder, elbow. A little over the fastest a clip asks, so that
+/// a clip is followed exactly and one that is dropped goes back no faster.
+const GESTURE_STEP: [f32; 5] = [24.0, 34.0, 26.0, 21.0, 21.0];
+/// The farthest a gesture takes each of those from where the lamp has it.
+const GESTURE_REACH: [f32; 5] = [220.0, 220.0, 170.0, 360.0, 360.0];
+/// While a gesture plays, and for half a second after, a joint of the head
+/// may be this far from its goal and read this load before the gesture is
+/// dropped; the shoulder and the elbow may be this far from theirs. A quick
+/// move lags and reverses hard. That is the move, not something in its way,
+/// and what gives is the gesture, never the run.
+const GESTURE_TRACKING: u16 = 150;
+const GESTURE_LOAD: u16 = 700;
+const GESTURE_ARM_TRACKING: u16 = 260;
+const GESTURE_COOL_STEPS: u16 = 25;
+
+/// What reaches the body from outside in one step, besides the mood: what
+/// its eyes saw, and a gesture it was asked to make.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Asked {
+    pub seen: Option<Seen>,
+    pub gesture: Option<&'static Clip>,
+}
+
 /// The shoulder and the elbow, in the order of every array of two here.
 /// Read on every step. Written only by a body that was given a pose to
 /// stand in.
@@ -359,6 +387,8 @@ pub struct Glimpse {
     pub look: [f32; 2],
     /// A face the eyes reported on this step: across, down and size.
     pub face: Option<[f32; 3]>,
+    /// The gesture it is making.
+    pub gesture: Option<&'static str>,
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -434,6 +464,10 @@ pub struct BodyReport {
     pub arm_peak_temperature: [u8; 2],
     /// Each time the arm was sent back down, and why.
     pub retreats: Vec<String>,
+    /// Gestures begun, and how many of them were let go because a joint
+    /// did not keep up or strained.
+    pub gestures: u32,
+    pub gestures_dropped: u32,
     pub stop: Stop,
 }
 
@@ -782,6 +816,7 @@ pub(crate) fn run_standing(
 /// and never waits. While the lamp listens or speaks, and is not folded or
 /// folding, its head turns in small corrections to the face they report,
 /// within the same reach as every gesture.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_looking(
     io: &mut impl PortIo,
@@ -790,8 +825,37 @@ pub(crate) fn run_looking(
     home: Option<[u16; 3]>,
     standing: Option<Standing>,
     looking: Option<Looking>,
-    mut news: impl FnMut() -> Option<(Mood, u8)>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
     mut eyes: impl FnMut() -> Option<Seen>,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    let asked = move || Asked {
+        seen: eyes(),
+        gesture: None,
+    };
+    run_alive(
+        io, runtime, limits, home, standing, looking, news, asked, watch,
+    )
+}
+
+/// The same for a lamp that also makes gestures: see [`crate::clips`].
+/// `asked` is called once a step for what its eyes last saw and for a
+/// gesture it has been asked to make, and never waits. A gesture plays only
+/// on a lamp standing still at its full height; asked of one still rising
+/// it waits up to three seconds, and of any other it is forgotten. Its
+/// offsets are laid over whatever the lamp is doing and leave it where it
+/// was. If a joint strains or falls behind while one plays, the gesture is
+/// let go and the lamp carries on.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_alive(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
+    mut news: impl FnMut() -> Option<(Mood, u8)>,
+    mut asked: impl FnMut() -> Asked,
     mut watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut standing = standing;
@@ -816,6 +880,8 @@ pub(crate) fn run_looking(
         arm_peak_load: [0; 2],
         arm_peak_temperature: [0; 2],
         retreats: Vec::new(),
+        gestures: 0,
+        gestures_dropped: 0,
         stop: Stop::Cancelled,
     };
     let mut bus = Bus { io, runtime };
@@ -1056,7 +1122,9 @@ pub(crate) fn run_looking(
             .zip(&up.pose[3..])
             .map(|(from, to)| f32::from(from.abs_diff(*to)) * 1.5 / up.seconds)
             .fold(0.0f32, f32::max);
-        let arm_speed = (quickest * 2.0).clamp(200.0, 1_000.0) as u16;
+        // The way up is slow by itself and a gesture is quick: the servo's
+        // own bound is there for neither to be outrun.
+        let arm_speed = (quickest * 2.0).clamp(800.0, 1_000.0) as u16;
         for (index, joint) in ARM.iter().enumerate() {
             let (_, acceleration, speed, _) = arm_profiles[index];
             let mut outcome = Ok(());
@@ -1166,6 +1234,13 @@ pub(crate) fn run_looking(
     let mut gaze = looking.map(Gaze::new);
     let mut look = [0.0f32; 2];
     let mut still_steps = 0u32;
+    // The gesture being made and one waiting to be, each with when; the
+    // offsets it has the five joints at; and steps left of the allowance a
+    // gesture is given.
+    let mut playing: Option<(&'static Clip, Duration)> = None;
+    let mut pending: Option<(&'static Clip, Duration)> = None;
+    let mut gesture_now = [0.0f32; 5];
+    let mut gesture_cooling = 0u16;
     let step = TICK.as_secs_f32();
     let mut gestures = Gestures::new();
     // It starts from where it is, not from where it should be: the way home
@@ -1300,9 +1375,55 @@ pub(crate) fn run_looking(
         if resting_steps == 0 {
             relaxed = false;
         }
+        let asked_now = asked();
+        // A gesture is for a lamp standing still at its full height.
+        let upright = leaving.is_none()
+            && !blind
+            && standing.is_some_and(|up| up.share >= 1.0 && stand >= 1.0 && stand_velocity == 0.0);
+        if let Some(clip) = asked_now.gesture
+            && playing.is_none()
+        {
+            pending = Some((clip, now));
+        }
+        if let Some((clip, since)) = pending {
+            if upright {
+                playing = Some((clip, now));
+                pending = None;
+                report.gestures += 1;
+            } else if now.saturating_sub(since) >= GESTURE_WAIT {
+                pending = None;
+            }
+        }
+        let mut gesture_wanted = [0.0f32; 5];
+        if let Some((clip, since)) = playing {
+            let elapsed = now.saturating_sub(since).as_micros();
+            match clip.at(elapsed.try_into().unwrap_or(u64::MAX)) {
+                Some(offsets) if upright => gesture_wanted = offsets,
+                _ => playing = None,
+            }
+        }
+        for (index, now_at) in gesture_now.iter_mut().enumerate() {
+            let wanted = gesture_wanted[index].clamp(-GESTURE_REACH[index], GESTURE_REACH[index]);
+            *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
+        }
+        let gesturing = playing.is_some() || gesture_now != [0.0; 5];
+        gesture_cooling = if gesturing {
+            GESTURE_COOL_STEPS
+        } else {
+            gesture_cooling.saturating_sub(1)
+        };
+        if gesturing {
+            // Nothing of the head is left resting: it has to make the move.
+            resting_steps = 0;
+            relaxed = false;
+            asleep = [false; 3];
+            for (goal, offset) in arm_goals.iter_mut().zip(&gesture_now[3..]) {
+                *goal = (f32::from(*goal) + offset).round().clamp(0.0, 4_095.0) as u16;
+            }
+        }
         let mut face = None;
         if let Some(gaze) = gaze.as_mut() {
-            let seen = eyes();
+            let seen = asked_now.seen;
             face = seen
                 .and_then(|seen| seen.face)
                 .map(|sight| [sight.x, sight.y, sight.size]);
@@ -1363,7 +1484,10 @@ pub(crate) fn run_looking(
                 high[index].max(commanded[index]),
             );
             commanded[index] = (commanded[index] + velocity[index] * step).clamp(floor, ceiling);
-            goals[index] = commanded[index].round() as u16;
+            // A gesture is laid over the pose, outside what follows the mood.
+            goals[index] = (commanded[index] + gesture_now[index])
+                .round()
+                .clamp(0.0, 4_095.0) as u16;
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0
@@ -1441,6 +1565,7 @@ pub(crate) fn run_looking(
             let there = !asleep[index]
                 && !held[index]
                 && !relaxed
+                && gesture_cooling == 0
                 && leaving.is_none()
                 && (wanted_of[index] - commanded[index]).abs() < ARRIVED_COUNTS
                 && velocity[index].abs() < ARRIVED_SPEED;
@@ -1507,6 +1632,7 @@ pub(crate) fn run_looking(
             arm_temperatures: ARM.map(|joint| samples[joint.index()].temperature),
             look,
             face,
+            gesture: playing.map(|(clip, _)| clip.name),
         });
         let mut surprise = None;
         for joint in Joint::ALL {
@@ -1540,7 +1666,12 @@ pub(crate) fn run_looking(
                 } else {
                     0
                 };
-                arm_off[index] = if arm_written[index].abs_diff(is.position) > Standing::TRACKING {
+                let astray = if gesture_cooling > 0 {
+                    GESTURE_ARM_TRACKING
+                } else {
+                    Standing::TRACKING
+                };
+                arm_off[index] = if arm_written[index].abs_diff(is.position) > astray {
                     arm_off[index].saturating_add(1)
                 } else {
                     0
@@ -1563,6 +1694,7 @@ pub(crate) fn run_looking(
                     None
                 };
                 let Some(why) = why else { continue };
+                playing = None;
                 // A living thing that cannot hold itself up sits down. It
                 // goes back the way it came and rests there. Only an arm
                 // still strained or astray two seconds on ends the run.
@@ -1594,16 +1726,37 @@ pub(crate) fn run_looking(
         for (index, joint) in COMMANDED.iter().enumerate() {
             let is = samples[joint.index()];
             report.peak_load[index] = report.peak_load[index].max(is.load);
-            over_load[index] = if is.load > limits.load[index] {
+            let (strained, astray) = if gesture_cooling > 0 {
+                (
+                    limits.load[index].max(GESTURE_LOAD),
+                    limits.tracking.max(GESTURE_TRACKING),
+                )
+            } else {
+                (limits.load[index], limits.tracking)
+            };
+            over_load[index] = if is.load > strained {
                 over_load[index].saturating_add(1)
             } else {
                 0
             };
-            off_track[index] = if written[index].abs_diff(is.position) > limits.tracking {
+            off_track[index] = if written[index].abs_diff(is.position) > astray {
                 off_track[index].saturating_add(1)
             } else {
                 0
             };
+            if gesture_cooling > 0
+                && (over_load[index] >= limits.load_steps.max(1)
+                    || off_track[index] >= limits.tracking_steps)
+            {
+                // The gesture asked more of this joint than it gave: the
+                // gesture is let go, and the lamp goes on as it was.
+                if playing.take().is_some() {
+                    report.gestures_dropped += 1;
+                }
+                over_load[index] = 0;
+                off_track[index] = 0;
+                continue;
+            }
             report.peak_temperature[index] = report.peak_temperature[index].max(is.temperature);
             hot[index] = if is.temperature >= limits.temperature {
                 hot[index].saturating_add(1)

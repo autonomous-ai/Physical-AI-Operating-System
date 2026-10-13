@@ -23,6 +23,7 @@ pub mod inspection;
 pub mod linux;
 
 pub mod calibration;
+pub mod clips;
 pub mod command;
 pub mod control;
 pub mod gaze;

@@ -269,6 +269,60 @@ lamp for any of this: its eyes have looked at an empty office for several
 minutes without reporting one, and found one in a photo file on the lamp's
 own processor in 50 ms, but the lamp has not yet turned to a person.
 
+## Gestures
+
+Not yet run on a lamp. This is what the code does against simulated servos.
+
+A gesture is a short recorded move of the whole lamp: a nod, a shake of the
+head, a greeting, a laugh, a shy dip, a stretch (`src/clips.rs`, with the
+frames in `src/clips/data.rs`). Each is frames of offsets in encoder counts
+for head pitch, head roll, base yaw, shoulder and elbow, a fixed time apart,
+beginning and ending at nothing. They were recorded on the old runtime
+(`hal/recordings/NAME.csv`) and are generated from those files by a script
+kept outside this repository, which keeps 35 to 60% of each one's size and
+slows it until no joint is asked to go faster than 900, 1,300, 1,000, 800
+and 800 counts a second:
+
+| Clip | Lasts | Mostly |
+| --- | --- | --- |
+| `nod` | 3.1 s | the arm bows 93 and 120 counts and comes back, the head with it |
+| `headshake` | 5.1 s | head roll 135 either way, base yaw 85 |
+| `greeting` | 5.0 s | shoulder up 221, elbow 153, head lifts 123 |
+| `laugh` | 4.4 s | head back 134, shoulder back 111 |
+| `shy` | 6.0 s | head dips 108, elbow folds 198 |
+| `stretching` | 6.5 s | shoulder up 296, elbow 339 |
+
+The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
+name that is not a clip is ignored. It asks at most once an answer, from the
+first words of what the lamp itself says (`crates/live/src/body_link.rs`,
+`cue_for`): a nod with "yes", "sure", "of course", "okay"; a shake with "no",
+"nope", "I don't think"; a greeting with "hello", "hi", "good morning"; a
+laugh with "haha"; the shy dip with "thank you". Most answers begin with
+none of these and get no gesture. "No problem" and "no worries" get none.
+
+What the body does with the request:
+
+- A gesture plays only on a lamp standing still at its full height. Asked
+  of one still rising it waits up to three seconds for that; asked of a
+  folded lamp, or one that may not stand, it is forgotten.
+- Its offsets are laid over whatever the mood and the eyes have the lamp
+  doing, outside the filter that follows the mood, and leave the lamp where
+  it was. They change by at most 24, 34, 26, 21 and 21 counts a step and
+  take no joint further than 220, 220, 170, 360 and 360 counts.
+- While one plays, and for half a second after, a joint of the head may be
+  150 counts from its goal and read a load of 700, and the shoulder and
+  elbow may be 260 from theirs. A quick move lags and reverses hard. If a
+  joint goes past even that for its usual number of steps, the gesture is
+  let go, its offsets go back to nothing at the same bounded speed, and the
+  lamp carries on; the run does not end, and the report counts it
+  (`gestures`, `gestures_dropped`).
+- The eyes correct nothing while a gesture plays, since the picture is
+  moving.
+
+The gestures need the servos' own speed bound out of the way:
+`--servo-speed 1000`. The shoulder's and the elbow's are written as 800 or
+more for a lamp that stands.
+
 ## Running it
 
 ```text
@@ -378,7 +432,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (207 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (215 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -420,7 +474,18 @@ that the head of a folded lamp does turn to a face while it listens, inside
 its reach, and comes home; and that without a face, or without eyes, the
 goals written are exactly those of a body that has none.
 
-Not shown by any of this: that the head turns to a real face, since no
+Gestures (`clips::tests`, three in `body::tests`, and `body_link::tests` in
+`lamp-live`): every clip begins and ends at nothing and stays inside its
+speed and size; a standing lamp asked to nod makes the clip's move, for the
+clip's time, with no goal jumping, and stands afterwards exactly as it
+stood; a gesture asked of a rising lamp begins when it stands, and one
+asked too early or of a folded lamp is forgotten; a head joint that strains
+ends the gesture and not the run; which first words get which gesture, that
+one is asked once an answer, and the datagram's exact text.
+
+Not shown by any of this: what a gesture looks like, sounds like or does to
+the joints on a real lamp, at any of these speeds; that the head turns to a
+real face, since no
 camera was involved and the two numbers of `--gaze` are not known for any
 lamp; anything about standing on a real lamp, where
 the weight of the head, the slack in the joints and the loads these two

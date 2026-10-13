@@ -2093,6 +2093,7 @@ fn conversation(
         None
     };
     let mut attention = crate::body_link::Attention::default();
+    let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2407,10 +2408,23 @@ fn conversation(
                     request,
                     text,
                     finished,
-                } => record(
-                    trace,
-                    json!({"kind":"transcript","turn":request,"text":text,"finished":finished,"at_us":monotonic_us(),"input_correlation":if request.is_none(){"unreliable; session scoped"}else{"output lineage"}}),
-                )?,
+                } => {
+                    // The lamp's own words, as its answer begins: a nod
+                    // with a yes, a shake with a no, when it has a body.
+                    if let (Some(turn), Some(body)) = (request, body_link.as_mut())
+                        && let Some(gesture) = gesture_cue.heard(turn, &text, finished)
+                    {
+                        body.gesture(gesture);
+                        record(
+                            trace,
+                            json!({"kind":"body_gesture_asked","turn":turn,"gesture":gesture,"at_us":monotonic_us()}),
+                        )?;
+                    }
+                    record(
+                        trace,
+                        json!({"kind":"transcript","turn":request,"text":text,"finished":finished,"at_us":monotonic_us(),"input_correlation":if request.is_none(){"unreliable; session scoped"}else{"output lineage"}}),
+                    )?
+                }
                 ProviderOutput::Interrupted { request } => {
                     record(
                         trace,

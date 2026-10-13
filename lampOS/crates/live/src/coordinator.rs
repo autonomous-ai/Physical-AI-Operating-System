@@ -2086,6 +2086,12 @@ fn conversation(
     } else {
         None
     };
+    // And its eyes that they may be open, while the microphone is.
+    let mut eyes_link = if lifetime.continuous() {
+        crate::body_link::EyesLink::from_environment()
+    } else {
+        None
+    };
     let mut attention = crate::body_link::Attention::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -2980,6 +2986,12 @@ fn conversation(
                     phase => phase,
                 },
                 voice_level,
+                clock,
+            );
+        }
+        if let Some(eyes) = eyes_link.as_mut() {
+            eyes.permit(
+                snapshot.microphone_permission() == Permission::Allowed,
                 clock,
             );
         }

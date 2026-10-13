@@ -12,10 +12,13 @@ narrow enough to check by eye.
 Given a pose to stand in, it also raises the lamp on its shoulder and elbow
 when someone speaks to it and folds it down again when it has been left alone
 (see "Standing up"). Without one it is exactly the body described first.
+Given eyes, it turns the head to the face they see while the lamp listens or
+speaks (see "Looking at a face").
 
 Status on 2026-10-13: the head motion has run on lamp-4ace for a night of
-conversation (see "Second and later runs on the lamp"). Standing up is built
-and run against simulated servos; it has not yet run on a lamp.
+conversation (see "Second and later runs on the lamp"). Standing up and
+looking at a face are built and run against simulated servos; neither has yet
+run on a lamp.
 
 ## What it may do
 
@@ -211,10 +214,52 @@ shoulder at 2,658 and the elbow at 2,650, so it has stood there; nothing
 else about the pose has been checked on this unit, and the old runtime
 reached it by moving all five joints together over five seconds.
 
+## Looking at a face
+
+Not yet run on a lamp. This is what the code does against simulated servos
+and a simulated camera.
+
+With `--gaze-socket PATH` and `--gaze YAW,PITCH` the body takes where a face
+is from `lamp-eyes` ([eyes.md](eyes.md)) on that socket: one datagram a look,
+`{"face":{"x":..,"y":..,"size":..,"turned":..}}` or `{"face":null}`. Anything
+else is ignored, and only the newest waiting counts.
+
+The camera is in the head, so turning toward a face moves the picture too.
+The gaze (`src/gaze.rs`) therefore works in small corrections with stillness
+between them:
+
+- A sight counts only if no joint has been asked to move for 0.4 s, the lamp
+  is listening or speaking, and it is not folded or folding. A picture taken
+  while the head moved shows where the face was.
+- After three such sights in a row with a face in them it takes their mean.
+  A face within 0.15 of the middle across and 0.20 down is being looked at
+  already. While the lamp speaks those are 0.35 and 0.40, since its head
+  should be still then for its microphone.
+- Otherwise it adds 70% of what would bring the face to the middle to an
+  offset of base yaw and head pitch: `--gaze` says how many counts of each
+  bring a face from the right edge, and from the bottom edge, to the middle,
+  and their signs say which way each joint moves the picture. Under the whole
+  amount on purpose: a number set too high still settles.
+- The offset is added to what the mood wants and goes through the same reach,
+  window, speed and load rules as every gesture; it is also bounded by
+  `--gaze-reach` (250 and 120 counts without it). Then it waits to be still
+  again.
+- It never searches. With no face in the picture nothing is added, and when
+  none has been seen for six seconds, or the lamp folds down, the offset goes
+  back to nothing at 60 counts a second.
+
+So a person who shifts in their chair is followed in a second or two, in one
+or two moves; the look away to think, and back, happens as before, and the
+head returns to where the face was.
+
+The two numbers of `--gaze` have to be found on the lamp: nothing here knows
+how wide its camera sees or which way its joints turn the picture. The old
+runtime's own notes give its camera anything from 60 to 107 degrees across.
+
 ## Running it
 
 ```text
-lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW]
+lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW] [--gaze-socket /run/lampos-body/gaze.sock --gaze YAW,PITCH]
 ```
 
 Reach and speed can be chosen at start, each inside a cap fixed in the code:
@@ -230,6 +275,8 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--stand-seconds N` | fastest the whole way is travelled | 5 | 2 to 20 |
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
+| `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 600 either way |
+| `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch | 250,120 | 400, 200 |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
 tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
@@ -318,7 +365,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (199 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (207 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -349,7 +396,20 @@ as it is and folds down when asked to stop, and one found off the way is
 not stood; and that a flag that will not clear, or no home, leaves it a
 folded lamp that runs as before.
 
-Not shown by any of this: anything about standing on a real lamp, where
+Looking at a face (`gaze::tests`, and two in `body::tests` with a simulated
+camera in the simulated head): that it turns to a face in two to six
+corrections and then keeps still; that a `--gaze` set half again too high
+still settles, and the reach is never passed; that nothing is corrected from
+a moving picture, while it thinks or rests, or for a face a little off the
+middle while it speaks; that with nobody there it does nothing, holds for a
+few seconds when someone leaves and then lets go, and lets go when it folds;
+that the head of a folded lamp does turn to a face while it listens, inside
+its reach, and comes home; and that without a face, or without eyes, the
+goals written are exactly those of a body that has none.
+
+Not shown by any of this: that the head turns to a real face, since no
+camera was involved and the two numbers of `--gaze` are not known for any
+lamp; anything about standing on a real lamp, where
 the weight of the head, the slack in the joints and the loads these two
 servos read have not been seen by this code; that the simulated servo resembles a real one (its
 speed register is taken as counts a second, which is not established); that

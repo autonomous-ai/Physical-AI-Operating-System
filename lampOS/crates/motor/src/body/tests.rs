@@ -1440,3 +1440,144 @@ fn a_flag_that_stays_or_a_missing_home_keeps_it_folded_and_it_runs_as_before() {
     assert_eq!(report.torque_writes, 0);
     assert!(report.standing_refused.unwrap().contains("needs a home"));
 }
+
+/// The eyes: a face at this bearing (counts of yaw and pitch from the home
+/// direction), seen by a camera in the simulated head six times a second.
+fn face_at(
+    lamp_yaw_pitch: Rc<Cell<(f32, f32)>>,
+    time: &Rc<Cell<Duration>>,
+    bearing: (f32, f32),
+) -> impl FnMut() -> Option<Seen> + use<> {
+    let time = time.clone();
+    let mut last = Duration::ZERO;
+    move || {
+        let now = time.get();
+        if now.saturating_sub(last) < Duration::from_millis(150) {
+            return None;
+        }
+        last = now;
+        let (yaw, pitch) = lamp_yaw_pitch.get();
+        // The picture is worth 342 counts across and 200 down, each half.
+        let x = (bearing.0 - (yaw - f32::from(HOME[2]))) / 342.0;
+        let y = (bearing.1 - (pitch - f32::from(HOME[0]))) / 200.0;
+        Some(Seen {
+            face: (x.abs() <= 1.0 && y.abs() <= 1.0).then_some(crate::gaze::Sight {
+                x,
+                y,
+                size: 0.2,
+                turned: 0.0,
+            }),
+        })
+    }
+}
+
+#[test]
+fn with_eyes_the_head_turns_to_the_face_while_it_listens_and_not_beyond_its_reach() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(14));
+    let looking = Looking::new([342, 200], [250, 120]).unwrap();
+    // A reach wide enough to turn to someone 120 counts to one side and 60
+    // above: a third of the way to the edge of the picture.
+    let limits = Limits::folded_with(Tuning {
+        reach: [100, 15, 30, 150],
+        speed: 120,
+        servo_speed: 300,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    let seen_from = Rc::new(Cell::new((f32::from(HOME[2]), f32::from(HOME[0]))));
+    let eyes = face_at(seen_from.clone(), &clock.time, (120.0, -60.0));
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() < Duration::from_secs(10) {
+            (Mood::Listening, 100)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let mut looks = Vec::new();
+    let while_listening = Cell::new((0.0f32, 0.0f32));
+    let watched = clock.time.clone();
+    let report = run_looking(
+        &mut lamp,
+        &mut clock,
+        limits,
+        None,
+        None,
+        Some(looking),
+        news,
+        eyes,
+        |glimpse| {
+            // The camera is where the head is.
+            seen_from.set((
+                f32::from(glimpse.positions[2]),
+                f32::from(glimpse.positions[0]),
+            ));
+            if watched.get() < Duration::from_secs(9) {
+                while_listening.set(seen_from.get());
+            }
+            looks.push(glimpse.look);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    // It ended up looking toward the face, within what counts as near.
+    // (The last looks are of it letting go, once it was asked to stop.)
+    let turned = looks
+        .iter()
+        .copied()
+        .max_by(|a, b| a[0].total_cmp(&b[0]))
+        .unwrap();
+    assert!((turned[0] - 120.0).abs() < 342.0 * 0.15, "{turned:?}");
+    // Lifting to listen had already brought the face near the middle up
+    // and down, so nothing was added there. Where the camera ended up, the
+    // face is near the middle of its picture both ways.
+    let (yaw, pitch) = while_listening.get();
+    assert!(((120.0 - (yaw - 2_015.0)) / 342.0).abs() < 0.15, "{yaw}");
+    assert!(
+        ((-60.0 - (pitch - 2_000.0)) / 200.0).abs() < 0.20,
+        "{pitch}"
+    );
+    // The head did go there, and every goal stayed inside the same reach
+    // as every gesture.
+    let furthest = lamp
+        .goals
+        .iter()
+        .map(|write| goal_of(write, Joint::BaseYaw))
+        .max()
+        .unwrap();
+    assert!(furthest >= 2_015 + 60, "{furthest}");
+    for write in &lamp.goals {
+        let yaw = f32::from(goal_of(write, Joint::BaseYaw));
+        let pitch = f32::from(goal_of(write, Joint::WristPitch));
+        assert!((yaw - 2_015.0).abs() <= limits.yaw, "{write:?}");
+        assert!(pitch >= 2_000.0 - limits.pitch_up && pitch <= 2_000.0 + limits.pitch_down);
+        assert_eq!(write.len(), 3);
+    }
+    // And it came home when asked to stop.
+    assert_eq!(lamp.servos[YAW].goal, 2_015);
+    assert_eq!(lamp.servos[PITCH].goal, 2_000);
+}
+
+#[test]
+fn without_a_face_or_without_eyes_nothing_is_added_to_what_the_mood_wants() {
+    let run_with = |looking: Option<Looking>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        let news = script(&clock.time);
+        let report = run_looking(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            None,
+            None,
+            looking,
+            news,
+            || Some(Seen { face: None }),
+            |_| {},
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        lamp.goals
+    };
+    let plain = run_with(None);
+    let eyed = run_with(Some(Looking::new([342, 200], [250, 120]).unwrap()));
+    assert!(plain.len() > 100);
+    assert_eq!(plain, eyed);
+}

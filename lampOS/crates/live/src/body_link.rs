@@ -105,9 +105,84 @@ impl BodyLink {
     }
 }
 
+/// The eyes' socket, when the service is to let a camera look. Unset:
+/// nothing is sent and the eyes stay shut.
+pub const EYES_ENVIRONMENT: &str = "LAMP_EYES_PERMIT_SOCKET";
+/// Permission is repeated this often. The eyes close by themselves when it
+/// has not come for a second and a half.
+const PERMIT_REPEAT_US: u64 = 500_000;
+
+/// Tells the lamp's eyes (`lamp-eyes`, a separate process that owns the
+/// camera) whether they may be open: they may exactly while the microphone
+/// is permitted. Yes is repeated; no is said once, at once. A service that
+/// stops says nothing more, and the eyes close.
+pub struct EyesLink {
+    socket: UnixDatagram,
+    path: PathBuf,
+    last: Option<(bool, u64)>,
+}
+
+impl EyesLink {
+    pub fn from_environment() -> Option<Self> {
+        let path = std::env::var_os(EYES_ENVIRONMENT).filter(|path| !path.is_empty())?;
+        Self::to(path.into()).ok()
+    }
+
+    pub fn to(path: PathBuf) -> io::Result<Self> {
+        let socket = UnixDatagram::unbound()?;
+        socket.set_nonblocking(true)?;
+        Ok(Self {
+            socket,
+            path,
+            last: None,
+        })
+    }
+
+    pub fn permit(&mut self, allowed: bool, now_us: u64) {
+        if self.last.is_some_and(|(told, at)| {
+            told == allowed && (!allowed || now_us.saturating_sub(at) < PERMIT_REPEAT_US)
+        }) {
+            return;
+        }
+        self.last = Some((allowed, now_us));
+        let message: &[u8] = if allowed {
+            br#"{"camera":true}"#
+        } else {
+            br#"{"camera":false}"#
+        };
+        // Nobody listening, a full queue, a missing path: all the same here.
+        let _ = self.socket.send_to(message, &self.path);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_eyes_are_told_yes_twice_a_second_and_no_once_at_once() {
+        let path = std::env::temp_dir().join(format!("lamp-eyes-permit-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let eyes = UnixDatagram::bind(&path).unwrap();
+        eyes.set_nonblocking(true).unwrap();
+        let mut link = EyesLink::to(path.clone()).unwrap();
+        // Every 10 ms for a second and a quarter while permitted, then not.
+        for step in 0..125u64 {
+            link.permit(true, step * 10_000);
+        }
+        for step in 125..200u64 {
+            link.permit(false, step * 10_000);
+        }
+        link.permit(true, 2_000_000);
+        let mut told = Vec::new();
+        let mut datagram = [0u8; 64];
+        while let Ok(length) = eyes.recv(&mut datagram) {
+            told.push(String::from_utf8_lossy(&datagram[..length]).into_owned());
+        }
+        std::fs::remove_file(&path).unwrap();
+        let (yes, no) = (r#"{"camera":true}"#, r#"{"camera":false}"#);
+        assert_eq!(told, vec![yes, yes, yes, no, yes]);
+    }
 
     /// One turn: heard, thought about, perhaps answered, then over.
     fn turn(attention: &mut Attention, now: &mut u64, id: u64, answered: bool) {

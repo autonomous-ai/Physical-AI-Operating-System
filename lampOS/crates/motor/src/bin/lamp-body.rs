@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -18,6 +18,15 @@ struct Arguments {
     servo_speed: Option<u16>,
     servo_acceleration: Option<u8>,
     standing: Option<StandingChoice>,
+    gaze: Option<GazeChoice>,
+}
+
+/// What `--gaze-socket`, `--gaze` and `--gaze-reach` said.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct GazeChoice {
+    socket: PathBuf,
+    turn: [i16; 2],
+    reach: [u16; 2],
 }
 
 /// What `--stand` and its options said. The body checks it against its own
@@ -41,6 +50,13 @@ fn counts_of<const N: usize>(value: &str) -> Option<[u16; N]> {
     parts.try_into().ok()
 }
 
+/// Two whole numbers separated by a comma, each with or without a minus.
+fn signed_pair(value: &str) -> Option<[i16; 2]> {
+    let (first, second) = value.split_once(',')?;
+    let number = |part: &str| part.parse::<i16>().ok().filter(|_| !part.starts_with('+'));
+    Some([number(first)?, number(second)?])
+}
+
 /// Three encoder positions, each a whole number of counts on one turn.
 fn home_of(value: &str) -> Option<[u16; 3]> {
     let mut parts = value.split(',').map(|part| {
@@ -59,6 +75,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut reach, mut speed, mut servo_speed, mut servo_acceleration) = (None, None, None, None);
     let (mut stand, mut folded_arm, mut arm_load) = (None, None, None);
     let (mut stand_share, mut stand_seconds, mut awake_seconds) = (None, None, None);
+    let (mut gaze_socket, mut gaze_turn, mut gaze_reach) = (None, None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -76,6 +93,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || stand_share.is_some()
                 || stand_seconds.is_some()
                 || awake_seconds.is_some()
+                || gaze_socket.is_some()
+                || gaze_turn.is_some()
+                || gaze_reach.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -188,9 +208,38 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .ok_or("--awake-seconds is a whole number of seconds")?[0],
                 );
             }
+            Some("--gaze-socket") if gaze_socket.is_none() => {
+                gaze_socket = Some(PathBuf::from(value));
+            }
+            Some("--gaze") if gaze_turn.is_none() => {
+                gaze_turn = Some(
+                    value
+                        .to_str()
+                        .and_then(signed_pair)
+                        .ok_or("--gaze is YAW,PITCH in signed encoder counts")?,
+                );
+            }
+            Some("--gaze-reach") if gaze_reach.is_none() => {
+                gaze_reach = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<2>)
+                        .ok_or("--gaze-reach is YAW,PITCH in encoder counts")?,
+                );
+            }
             _ => return Err("unknown or duplicate option"),
         }
     }
+    // Eyes are a socket and what the picture is worth, or nothing.
+    let gaze = match (gaze_socket, gaze_turn) {
+        (Some(socket), Some(turn)) => Some(GazeChoice {
+            socket,
+            turn,
+            reach: gaze_reach.unwrap_or([250, 120]),
+        }),
+        (None, None) if gaze_reach.is_none() => None,
+        _ => return Err("--gaze-socket and --gaze go together, and --gaze-reach needs them"),
+    };
     // Standing is one choice made whole: a pose, the folded arm and a home.
     let standing = match (stand, folded_arm) {
         (Some(pose), Some(folded)) if home.is_some() => Some(StandingChoice {
@@ -222,8 +271,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         servo_speed,
         servo_acceleration,
         standing,
+        gaze,
     };
-    for path in [&result.device, &result.lock_directory, &result.mood_socket] {
+    let gaze_path = result.gaze.as_ref().map(|gaze| &gaze.socket);
+    for path in [&result.device, &result.lock_directory, &result.mood_socket]
+        .into_iter()
+        .chain(gaze_path)
+    {
         if !path.is_absolute()
             || path.as_os_str().len() > 100
             || path.to_str().is_none()
@@ -281,6 +335,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.servo_speed,
         arguments.servo_acceleration,
         arguments.standing,
+        arguments.gaze,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -373,6 +428,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         if due {
             said = Some((glimpse.mood, glimpse.step, glimpse.goals, glimpse.arm_goals));
+            if glimpse.look != [0.0; 2] {
+                eprintln!(
+                    "lamp-body: step {} looking {:?} from its own direction",
+                    glimpse.step, glimpse.look
+                );
+            }
             if stands {
                 eprintln!(
                     "lamp-body: step {} {:?} goals {:?} positions {:?} loads {:?} stand {:.2} arm goals {:?} positions {:?} loads {:?}",
@@ -394,6 +455,41 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             }
         }
     };
+    // The eyes' socket, for a body that looks. A file left by an earlier
+    // run is not a listener: replace it.
+    let (looking, sights) = match &arguments.gaze {
+        Some(choice) => {
+            match std::fs::remove_file(&choice.socket) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+            let sights = UnixDatagram::bind(&choice.socket)?;
+            sights.set_nonblocking(true)?;
+            (
+                Some(lamp_motor::gaze::Looking::new(choice.turn, choice.reach)?),
+                Some(sights),
+            )
+        }
+        None => (None, None),
+    };
+    let eyes = || {
+        // Everything waiting, and only the newest of it counts.
+        let sights = sights.as_ref()?;
+        let mut latest = None;
+        let mut datagram = [0u8; 160];
+        for _ in 0..32 {
+            match sights.recv(&mut datagram) {
+                Ok(length) => {
+                    latest = serde_json::from_slice::<lamp_motor::gaze::Seen>(&datagram[..length])
+                        .ok()
+                        .or(latest);
+                }
+                Err(_) => break,
+            }
+        }
+        latest
+    };
     let standing = arguments
         .standing
         .map(|choice| {
@@ -412,7 +508,9 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         limits,
         arguments.home,
         standing,
+        looking,
         news,
+        eyes,
         watch,
         || {
             if !cancelled {
@@ -425,6 +523,9 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         },
     );
     let _ = std::fs::remove_file(&arguments.mood_socket);
+    if let Some(choice) = &arguments.gaze {
+        let _ = std::fs::remove_file(&choice.socket);
+    }
     let mut output = std::io::stdout().lock();
     serde_json::to_writer(&mut output, &result)?;
     writeln!(output)?;
@@ -579,6 +680,58 @@ mod tests {
             [&home[..], &pose, &arm, &["--stand-share", "300"]].concat(),
         ] {
             assert!(with(&refused).is_err(), "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn eyes_are_a_socket_and_what_the_picture_is_worth_or_nothing() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        let socket = ["--gaze-socket", "/run/lampos-body/gaze.sock"];
+        let looked = with(&[&socket[..], &["--gaze", "-342,200"]].concat())
+            .unwrap()
+            .unwrap()
+            .gaze
+            .unwrap();
+        assert_eq!(
+            looked,
+            GazeChoice {
+                socket: PathBuf::from("/run/lampos-body/gaze.sock"),
+                turn: [-342, 200],
+                reach: [250, 120],
+            }
+        );
+        let reached = with(
+            &[
+                &socket[..],
+                &["--gaze", "342,-200", "--gaze-reach", "300,100"],
+            ]
+            .concat(),
+        )
+        .unwrap()
+        .unwrap()
+        .gaze
+        .unwrap();
+        assert_eq!((reached.turn, reached.reach), ([342, -200], [300, 100]));
+        assert!(with(&[]).unwrap().unwrap().gaze.is_none());
+        for refused in [
+            &socket[..],
+            &["--gaze", "342,200"],
+            &["--gaze-reach", "300,100"],
+            &["--gaze-socket", "gaze.sock", "--gaze", "342,200"],
+            &[
+                "--gaze-socket",
+                "/run/lampos-body/gaze.sock",
+                "--gaze",
+                "342",
+            ],
+            &[
+                "--gaze-socket",
+                "/run/lampos-body/gaze.sock",
+                "--gaze",
+                "+342,200",
+            ],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
         }
     }
 

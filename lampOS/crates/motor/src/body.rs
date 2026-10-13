@@ -24,6 +24,7 @@
 //!   nothing keeps pushing, and nothing is written after that.
 use crate::{
     Joint,
+    gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
     inspection::{Interest, PortIo, Runtime},
     protocol::{ReadOnlyRequest, ReadWindow, StatusFlags, StatusParser},
@@ -348,6 +349,9 @@ pub struct Glimpse {
     pub arm_goals: [u16; 2],
     pub arm_positions: [u16; 2],
     pub arm_loads: [u16; 2],
+    /// Where the eyes have it look: yaw and pitch, in counts from the
+    /// pose's own direction.
+    pub look: [f32; 2],
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -734,13 +738,44 @@ pub(crate) fn run(
 /// load, does not follow or stays warm sends it back down, where it rests
 /// for a minute. It needs a home, since where a standing lamp is found is
 /// not its folded pose.
+#[cfg(test)]
 pub(crate) fn run_standing(
     io: &mut impl PortIo,
     runtime: &mut impl Runtime,
     limits: Limits,
     home: Option<[u16; 3]>,
     standing: Option<Standing>,
+    news: impl FnMut() -> Option<(Mood, u8)>,
+    watch: impl FnMut(&Glimpse),
+) -> BodyReport {
+    run_looking(
+        io,
+        runtime,
+        limits,
+        home,
+        standing,
+        None,
+        news,
+        || None,
+        watch,
+    )
+}
+
+/// The same for a lamp that also has eyes: see [`Looking`] and
+/// [`crate::gaze`]. `eyes` is asked once a step for what the eyes last saw
+/// and never waits. While the lamp listens or speaks, and is not folded or
+/// folding, its head turns in small corrections to the face they report,
+/// within the same reach as every gesture.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_looking(
+    io: &mut impl PortIo,
+    runtime: &mut impl Runtime,
+    limits: Limits,
+    home: Option<[u16; 3]>,
+    standing: Option<Standing>,
+    looking: Option<Looking>,
     mut news: impl FnMut() -> Option<(Mood, u8)>,
+    mut eyes: impl FnMut() -> Option<Seen>,
     mut watch: impl FnMut(&Glimpse),
 ) -> BodyReport {
     let mut standing = standing;
@@ -1072,6 +1107,11 @@ pub(crate) fn run_standing(
     let mut arm_over = [0u8; 2];
     let mut arm_off = [0u8; 2];
     let mut arm_hot = [0u8; 2];
+    // Where the eyes have it look, yaw and pitch in counts, and for how
+    // many steps no joint has been asked to move.
+    let mut gaze = looking.map(Gaze::new);
+    let mut look = [0.0f32; 2];
+    let mut still_steps = 0u32;
     let step = TICK.as_secs_f32();
     let mut gestures = Gestures::new();
     // It starts from where it is, not from where it should be: the way home
@@ -1141,6 +1181,8 @@ pub(crate) fn run_standing(
         // head's home goes with it, and the head with its home.
         let mut carried = [0.0f32; 3];
         let mut arm_goals = arm_written;
+        // A lamp that is folded, or folding, looks at nobody.
+        let mut awake_now = leaving.is_none();
         if let Some(up) = standing {
             if mood != Mood::Resting {
                 awake_until = Some(now + up.awake);
@@ -1153,6 +1195,7 @@ pub(crate) fn run_standing(
             } else {
                 0.0
             };
+            awake_now = wanted > 0.0;
             if !blind {
                 let rate = 1.0 / up.seconds;
                 let pull = FOLLOW * FOLLOW * (wanted - stand) - 2.0 * FOLLOW * stand_velocity;
@@ -1186,16 +1229,27 @@ pub(crate) fn run_standing(
         if resting_steps == 0 {
             relaxed = false;
         }
-        // Each axis of a pose is a share of its reach.
+        if let Some(gaze) = gaze.as_mut() {
+            look = gaze.step(
+                eyes(),
+                mood,
+                awake_now,
+                u64::from(still_steps) * TICK.as_micros() as u64,
+                now.as_micros().try_into().unwrap_or(u64::MAX),
+            );
+        }
+        // Each axis of a pose is a share of its reach, and where the eyes
+        // have it look is added to that, inside the same reach.
         let offsets = [
             pitch
                 * if pitch < 0.0 {
                     limits.pitch_up
                 } else {
                     limits.pitch_down
-                },
+                }
+                + look[1],
             roll * limits.roll,
-            yaw * limits.yaw,
+            yaw * limits.yaw + look[0],
         ];
         // A joint that met resistance is asked nothing for now, at rest or not.
         let held = easing.map(|left| left > 0);
@@ -1235,6 +1289,11 @@ pub(crate) fn run_standing(
             commanded[index] = (commanded[index] + velocity[index] * step).clamp(floor, ceiling);
             goals[index] = commanded[index].round() as u16;
         }
+        still_steps = if goals != written || arm_goals != arm_written {
+            0
+        } else {
+            still_steps.saturating_add(1)
+        };
         if goals != written || arm_goals != arm_written {
             match bus.send_goals(goals, standing.map(|_| arm_goals)) {
                 Ok(()) => {
@@ -1368,6 +1427,7 @@ pub(crate) fn run_standing(
             arm_goals: arm_written,
             arm_positions: ARM.map(|joint| samples[joint.index()].position),
             arm_loads: ARM.map(|joint| samples[joint.index()].load),
+            look,
         });
         let mut surprise = None;
         for joint in Joint::ALL {

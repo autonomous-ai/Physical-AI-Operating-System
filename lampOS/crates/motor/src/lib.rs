@@ -25,6 +25,7 @@ pub mod linux;
 pub mod calibration;
 pub mod command;
 pub mod control;
+pub mod gaze;
 pub mod gesture;
 pub mod protocol;
 pub mod readback;

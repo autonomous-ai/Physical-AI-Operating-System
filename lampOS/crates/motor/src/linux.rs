@@ -239,12 +239,15 @@ pub struct BodyResult {
 /// latest mood and must not wait. See [`crate::body`] for what the body may
 /// write; nothing else is written here.
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn run_body(
     config: &InspectionConfig,
     limits: crate::body::Limits,
     home: Option<[u16; 3]>,
     standing: Option<crate::body::Standing>,
+    looking: Option<crate::gaze::Looking>,
     news: impl FnMut() -> Option<(crate::gesture::Mood, u8)>,
+    eyes: impl FnMut() -> Option<crate::gaze::Seen>,
     watch: impl FnMut(&crate::body::Glimpse),
     mut cancelled: impl FnMut() -> io::Result<bool>,
 ) -> BodyResult {
@@ -262,13 +265,15 @@ pub fn run_body(
             let mut io = LinuxPort {
                 fd: owner.fd.as_ref().expect("prepared tty"),
             };
-            body = Some(crate::body::run_standing(
+            body = Some(crate::body::run_looking(
                 &mut io,
                 &mut runtime,
                 limits,
                 home,
                 standing,
+                looking,
                 news,
+                eyes,
                 watch,
             ));
         }

@@ -211,23 +211,25 @@ What it shows, and it is small:
 
 - **The ready-made spotter does not survive the lamp's microphone.** On
   generated files it caught 70 to 82 of 100 calls; here 2 of 20. Louder
-  copies of the same recordings changed nothing. It is not a fallback.
+  copies of an earlier set of fourteen recordings changed nothing there
+  either. It is not a fallback.
 - **Our classifier, which has heard nothing but generated speech and
   never this room or this microphone, catches 14 to 17 of 20** and was
   set off by none of the office talk at either threshold. What sets it
   off is a name like its own.
-- **Training it on similar names made it worse here**, not better, at
-  both thresholds: fewer calls caught and no fewer names mistaken. That
-  version was trained on more generated speech of the same kind; it says
-  the next gain is not there.
+- **Training it on similar names did not help here.** At 0.999 it caught
+  10 calls where the first caught 14, and was set off by the same two
+  names. At 0.9 it caught 14 against 17, was set off by three names
+  against five, and by one line of office talk. That version was trained
+  on more generated speech of the same kind; it says the next gain is
+  not there.
 
 So "called by name" can be one sign, right about seven times in ten and
 quiet through ordinary talk, and cannot be a gate: three calls in ten are
 missed, and a colleague called Lan or Lâm would set it off.
 
 Not shown: a person. Every voice here was synthetic and played through a
-loudspeaker a metre from the lamp, loud enough that one recording
-clipped. 44 lines is too few to tell 14 from 17. The Vietnamese lines
+loudspeaker near the lamp, loud enough that one recording clipped. 44 lines is too few to tell 14 from 17. The Vietnamese lines
 are four. Nothing ran on the lamp's processor: the detectors ran on a
 Mac over the recordings. What is needed next is real voices through the
 lamp's microphone, which the same recording procedure gives, and the

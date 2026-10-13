@@ -550,10 +550,10 @@ fn the_boards_numbers_are_read_from_its_files_and_published() {
         assert_eq!(shape(&health), [("board", Level::Ok, "")]);
     }
 
-    // A processor zone comes within five degrees of the point where the
-    // board slows itself down: the next reading says so everywhere.
-    tree.heat(0, 66_000);
-    let warm = "cpul_thermal_zone is at 66 °C: the board slows itself down from 70";
+    // A processor zone passes the point where the board slows itself
+    // down: the next reading says so everywhere.
+    tree.heat(0, 72_000);
+    let warm = "cpul_thermal_zone is at 72 °C: the board slows itself down from 70";
     let health = rig.health_where("the board is warm", |health| {
         item(health, "board").is_some_and(|board| board.level != Level::Ok && board.message == warm)
     });
@@ -562,7 +562,7 @@ fn the_boards_numbers_are_read_from_its_files_and_published() {
         (Level::Warn, format!("board: {warm}"))
     );
     let started = Instant::now();
-    while rig.numbers().temperature_c["cpul_thermal_zone"] != 66.0 {
+    while rig.numbers().temperature_c["cpul_thermal_zone"] != 72.0 {
         assert!(started.elapsed() < WAIT, "the numbers stayed as they were");
     }
     let started = Instant::now();

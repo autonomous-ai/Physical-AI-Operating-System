@@ -127,7 +127,10 @@ fn said(item: &HealthItem) -> String {
 ///
 /// - A part heard from within `stale_after` has the level and the message
 ///   it gave. One not heard from for longer is `stale`, and its message
-///   says for how many whole seconds. A part that calls itself `stale` is
+///   says for how many whole seconds. One that had said `warn` or `error`
+///   before it went quiet keeps that level, and what it said stays in
+///   front of the seconds: a body that stopped itself and said why is not
+///   made milder by its silence. A part that calls itself `stale` is
 ///   taken at its word.
 /// - `missing` is every name in `expected` that has never reported, in the
 ///   order given, each once.
@@ -152,10 +155,18 @@ pub fn health(
         .map(|(name, kept)| {
             let age_ms = millis(now.saturating_duration_since(kept.at));
             let (level, message) = if age_ms > limit {
-                (
-                    Level::Stale,
-                    format!("not heard from for {} s", age_ms / 1_000),
-                )
+                // Quiet. It is stale at least, and a part that said
+                // something was wrong before it went quiet is no better
+                // for having gone quiet: it keeps the level it gave and
+                // what it last said, which is often why it went quiet.
+                let quiet = format!("not heard from for {} s", age_ms / 1_000);
+                if kept.level.rank() > Level::Stale.rank() && !kept.message.is_empty() {
+                    (kept.level, format!("{}; {quiet}", kept.message))
+                } else if kept.level.rank() > Level::Stale.rank() {
+                    (kept.level, quiet)
+                } else {
+                    (Level::Stale, quiet)
+                }
             } else {
                 (kept.level, kept.message.clone())
             };
@@ -202,7 +213,7 @@ pub fn health(
 /// is news once, when it goes stale, and not again with every second.
 pub fn same_but_for_ages(a: &Health, b: &Health, stale_after: Duration) -> bool {
     let limit = millis(stale_after);
-    let quiet = |item: &HealthItem| item.level == Level::Stale && item.age_ms > limit;
+    let quiet = |item: &HealthItem| item.age_ms > limit;
     a.level == b.level
         && a.missing == b.missing
         && a.items.len() == b.items.len()
@@ -376,7 +387,7 @@ mod tests {
         let at = of(&[(Level::Warn, "body", "yaw is hot", 5_000)], &[]);
         assert_eq!(shape(&at), [("body", Level::Warn, "yaw is hot")]);
         assert_eq!(at.level, Level::Warn);
-        let past = of(&[(Level::Warn, "body", "yaw is hot", 5_001)], &[]);
+        let past = of(&[(Level::Ok, "body", "", 5_001)], &[]);
         assert_eq!(
             shape(&past),
             [("body", Level::Stale, "not heard from for 5 s")]
@@ -386,9 +397,41 @@ mod tests {
             (Level::Stale, "body: not heard from for 5 s")
         );
         assert_eq!(past.items[0].age_ms, 5_001);
-        // Whatever it last said, an error too: what it said is old.
-        let error = of(&[(Level::Error, "voice", "down", 5_001)], &[]);
-        assert_eq!(error.level, Level::Stale);
+        // A part that said something was wrong and then went quiet is no
+        // better for it: it keeps its level, and what it said.
+        let warned = of(&[(Level::Warn, "body", "yaw is hot", 5_001)], &[]);
+        assert_eq!(
+            shape(&warned),
+            [("body", Level::Warn, "yaw is hot; not heard from for 5 s")]
+        );
+        assert_eq!(warned.message, "body: yaw is hot; not heard from for 5 s");
+        let error = of(
+            &[(Level::Error, "body", "stopped: elbow is too warm", 9_400)],
+            &[],
+        );
+        assert_eq!(
+            (error.level, error.message.as_str()),
+            (
+                Level::Error,
+                "body: stopped: elbow is too warm; not heard from for 9 s"
+            )
+        );
+        // With nothing said beside the level, the seconds alone.
+        let silent = of(&[(Level::Error, "voice", "", 6_000)], &[]);
+        assert_eq!(
+            shape(&silent),
+            [("voice", Level::Error, "not heard from for 6 s")]
+        );
+        // And it is still worse than a part that was well and went quiet.
+        let both = of(
+            &[
+                (Level::Ok, "eyes", "", 8_000),
+                (Level::Warn, "body", "yaw is hot", 8_000),
+            ],
+            &[],
+        );
+        assert_eq!(both.items[0].name, "body");
+        assert_eq!(both.level, Level::Warn);
         // Whole seconds, not rounded up.
         let later = of(&[(Level::Ok, "eyes", "", 7_999)], &[]);
         assert_eq!(later.items[0].message, "not heard from for 7 s");

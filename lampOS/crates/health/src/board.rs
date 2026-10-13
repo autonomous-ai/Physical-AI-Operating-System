@@ -29,8 +29,13 @@ pub const PART: &str = "board";
 
 /// A zone this close below its lowest passive trip point is a warning. At
 /// that point the board begins to slow its processors down to cool, and
-/// what the lamp says then comes late: the warning comes before it does.
-pub const WARN_BELOW_PASSIVE_C: i64 = 5;
+/// what the lamp says then comes late. It is nothing: the warning is for
+/// a board that is slowing itself down, not for one that is near it. On
+/// lamp-4ace on 2026-10-14 the processor zones read 63 to 66 °C with the
+/// lamp at rest, against a first trip point of 70: a warning five under
+/// that point would have been on and off all day, saying nothing a
+/// person could act on.
+pub const WARN_BELOW_PASSIVE_C: i64 = 0;
 /// A zone this close below its critical trip point is an error. At that
 /// point the board turns itself off.
 pub const ERROR_BELOW_CRITICAL_C: i64 = 10;

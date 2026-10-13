@@ -440,27 +440,28 @@ fn trip_points_are_read_by_their_kind_and_the_lowest_passive_comes_first() {
 }
 
 #[test]
-fn a_zone_warns_five_degrees_under_its_first_passive_point() {
-    // The real board's processor zones slow down from 70 °C.
-    assert_eq!(said(&cpu_at(64_999)), (Level::Ok, String::new()));
+fn a_zone_warns_from_its_first_passive_point_and_not_before() {
+    // The real board's processor zones slow down from 70 °C, and read 63
+    // to 66 with the lamp at rest: that is not a warning.
+    for at_rest in [63_000, 65_000, 66_000, 69_999] {
+        assert_eq!(said(&cpu_at(at_rest)), (Level::Ok, String::new()));
+    }
     assert_eq!(
-        said(&cpu_at(65_000)),
+        said(&cpu_at(70_000)),
         (
             Level::Warn,
-            "cpul_thermal_zone is at 65 °C: the board slows itself down from 70".into()
+            "cpul_thermal_zone is at 70 °C: the board slows itself down from 70".into()
         )
     );
-    // As the board reads on a warm day, and at and past the point itself.
     assert_eq!(
-        said(&cpu_at(66_000)),
+        said(&cpu_at(76_400)),
         (
             Level::Warn,
-            "cpul_thermal_zone is at 66 °C: the board slows itself down from 70".into()
+            "cpul_thermal_zone is at 76 °C: the board slows itself down from 70".into()
         )
     );
-    assert_eq!(said(&cpu_at(70_000)).0, Level::Warn);
     assert_eq!(said(&cpu_at(89_999)).0, Level::Warn);
-    assert_eq!(board::WARN_BELOW_PASSIVE_C, 5);
+    assert_eq!(board::WARN_BELOW_PASSIVE_C, 0);
 }
 
 #[test]
@@ -494,8 +495,8 @@ fn a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical(
         zones: vec![zone("soc_thermal", milli_c, &[85_000], Some(115_000))],
         ..well()
     };
-    assert_eq!(said(&one(79_999)).0, Level::Ok);
-    assert_eq!(said(&one(80_000)).0, Level::Warn);
+    assert_eq!(said(&one(84_999)).0, Level::Ok);
+    assert_eq!(said(&one(85_000)).0, Level::Warn);
     assert_eq!(said(&one(104_999)).0, Level::Warn);
     assert_eq!(
         said(&one(105_000)),
@@ -516,8 +517,8 @@ fn a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical(
         zones: vec![zone("soc_thermal", milli_c, &[60_000, 75_000], None)],
         ..well()
     };
-    assert_eq!(said(&passive(54_999)).0, Level::Ok);
-    assert_eq!(said(&passive(55_000)).0, Level::Warn);
+    assert_eq!(said(&passive(59_999)).0, Level::Ok);
+    assert_eq!(said(&passive(60_000)).0, Level::Warn);
     assert_eq!(said(&passive(74_999)).0, Level::Warn);
     assert_eq!(said(&passive(75_000)).0, Level::Error);
     // One passive point and nothing else never makes an error.
@@ -725,7 +726,7 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
             ),
             zone(
                 "cpub_thermal_zone",
-                68_000,
+                72_000,
                 &[70_000, 90_000],
                 Some(110_000),
             ),
@@ -750,9 +751,11 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
     reading.disk_free = Some(0.05);
     assert_eq!(
         said(&reading).1,
-        "cpub_thermal_zone is at 68 °C: the board slows itself down from 70"
+        "cpub_thermal_zone is at 72 °C: the board slows itself down from 70"
     );
-    reading.zones.truncate(1);
+    // Without the zone that is slowing itself down. The other is at 66,
+    // as the board is at rest, and is nothing to say.
+    reading.zones.truncate(2);
     assert_eq!(said(&reading).1, "the disk is filling up: 5% of it is free");
     reading.disk_free = Some(0.5);
     assert_eq!(said(&reading).1, "95% of the memory is in use");

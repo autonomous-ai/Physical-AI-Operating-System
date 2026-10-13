@@ -100,11 +100,16 @@ time go in, a `Health` comes out):
 
 - **A part that has reported** has the level and the message it gave, and
   `age_ms`, how long ago its newest report came.
-- **Stale.** A part not heard from for longer than the stale time (more
-  than 5000 ms, to the millisecond) is `stale`, whatever it last said, and
+- **Stale.** A part that was well and is not heard from for longer than
+  the stale time (more than 5000 ms, to the millisecond) is `stale`, and
   its message is `not heard from for N s`, in whole seconds, not rounded
   up. A part never says of itself that it has gone quiet. One that does
   report itself `stale` is taken at its word, with its own message.
+- **Quiet after a warning or an error.** A part that had said `warn` or
+  `error` and then went quiet keeps that level, and what it said stays in
+  front of the seconds: `stopped: elbow is too warm; not heard from for
+  9 s`. A body that stopped itself and said why is not made milder by its
+  silence, and what it last said is usually why it is silent.
 - **Missing.** A name given with `--expect` that has never reported is in
   `missing`, in the order given. A part that reported once is never missing
   again, however long ago: it is stale.
@@ -120,11 +125,8 @@ time go in, a `Health` comes out):
 
 Every result passes `Health::check()`; the tests ask that of each one.
 
-Three consequences of these rules that may surprise:
+Two consequences of these rules that may surprise:
 
-- A part that said `error` and then stops reporting becomes `stale` five
-  seconds later, and stale ranks below a warning. The lamp's level can so
-  go from error to stale without anything having got better.
 - A part that is stale stays in the list for as long as `serve` runs. A
   part that was taken off the lamp is forgotten when `serve` is started
   again.
@@ -181,7 +183,7 @@ tested from both sides.
 
 | What | Warn | Error | Why there |
 |---|---|---|---|
-| A zone that names trip points | Within 5 °C of its lowest passive point, or above it: `cpul_thermal_zone is at 66 °C: the board slows itself down from 70` | At or above its second passive point, or within 10 °C of its critical point: `... the board turns itself off at 110` | A passive point is where the board slows its processors down to cool, and what the lamp says then comes late: the warning comes before it does. The critical point is where the board turns itself off. A zone that has one of these points and not another is held only to the rules it has points for |
+| A zone that names trip points | At or above its lowest passive point: `cpul_thermal_zone is at 72 °C: the board slows itself down from 70` | At or above its second passive point, or within 10 °C of its critical point: `... the board turns itself off at 110` | A passive point is where the board slows its processors down to cool, and what the lamp says then comes late. The warning is for a board that is doing that, not for one that is near it. The critical point is where the board turns itself off. A zone that has one of these points and not another is held only to the rules it has points for |
 | A zone that names none | From 80 °C | From 90 °C | Two fixed lines of this program's own, not taken from the board: 90 is where the processor zones have their second passive point |
 | `disk_free` | Under 0.10 | Under 0.03 | Logs, recordings and updates all need room. At a tenth there is still time to make some; at three hundredths the next thing written may not fit |
 | `memory_used` | Over 0.90 | never | Little is left before the system has to end a program to find some |
@@ -197,11 +199,13 @@ read: `cpu_load` (two decimals), `memory_used` and `disk_free` (three),
 `uptime_s`, `hottest_zone` and `hottest_c` (one decimal).
 
 The real board's processor zones have passive points at 70 and 90 °C and a
-critical point at 110 °C, and read about 63 to 66 °C when the lamp is idle.
-That is on both sides of the 65 °C at which the warning begins. Nothing
-here holds a level for a while once it has changed, so on that board the
-board's level is to be expected to go between ok and warn as often as
-every five seconds, and the lamp's level with it.
+critical point at 110 °C, and read about 63 to 66 °C when the lamp is at
+rest. The warning first began five degrees under the passive point, at
+65 °C, which is in the middle of what that board reads all day: it would
+have gone between ok and warn every few seconds and said nothing a person
+could act on. It now begins at the point itself. Nothing here holds a
+level for a while once it has changed, so a board that sits at its
+passive point will still go between the two.
 
 ## What `show` prints
 
@@ -331,9 +335,9 @@ Not exercised:
   had about 14% free. The tests cannot choose that number: where they need
   the board to be ok they read what the machine gave and say so if it is
   under a tenth. The two disk thresholds are tested as arithmetic.
-- **What the thresholds do on a lamp.** They were given, not tuned. The
-  going between ok and warn at 65 °C described above is reasoned from the
-  board's numbers and has not been watched.
+- **What the thresholds do on a lamp.** They were given, and one was
+  moved after the board's numbers at rest were read. None has been watched
+  over a working day.
 - **The lease of three seconds for long.** One test runs the built program
   with the lamp's own times and watches for about six seconds that two
   subscribers are never told their source has gone. Another shows the

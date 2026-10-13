@@ -38,6 +38,7 @@ pub mod sight;
 pub mod speak_up;
 mod termination;
 pub mod thread;
+pub mod tools;
 pub mod transport;
 mod turn_taking;
 pub mod visual_context;

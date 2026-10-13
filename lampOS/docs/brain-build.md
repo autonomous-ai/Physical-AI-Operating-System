@@ -161,7 +161,7 @@ killed, and what the others do is counted.
 | Voice | `lamp-live` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
 | Body | `lamp-body` | The servo bus; standing, turning to a face, gestures | open | The lamp talks and does not move. Running today |
 | Eyes | `lamp-eyes` | The camera; whether a face is there, where, and later whose; the picture for a look | open | The lamp talks and moves without looking at anyone, says no hello, and says its eye is shut when asked to look. Running today |
-| Executive | `lamp-exec` (new) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
+| Executive | `lamp-exec` (new; what the voice expects of it is written in [tools.md](tools.md)) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
 | Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
 | Memory | `lamp-memory` ([memory.md](memory.md); written and tested, not on a lamp) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
@@ -509,8 +509,11 @@ written and passing their tests on the host and as a Linux ARM64 build
 under emulation, with nothing publishing yet; Memory (part of step 4) the
 same; step 2's kept link and its stall fix on lamp-4ace since 19:48, where
 26 staged cuts of the link in two five-minute runs restarted nothing; step
-3's first half, function calls in the provider link, written and tested on
-the host and not against the real service; the room told to the voice
+3's first half written and tested on the host and not against the real
+service: function calls in the provider link, and in the voice a router
+that answers every call, hands the executive's to its socket with a 1.5 s
+limit, and gives the model a `not_for_me` it can call instead of speaking
+([tools.md](tools.md)), switched off; the room told to the voice
 (part of step 7) on the lamp, where two played runs of twelve new sessions
 each showed no difference between telling a session how the room is and
 not telling it. Nothing else is started.

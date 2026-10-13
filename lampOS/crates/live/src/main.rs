@@ -42,6 +42,50 @@ fn run() -> Result<()> {
         },
         // A whole turn with a written note in place of speech, to see what the
         // service makes of one. Nothing is captured and nothing is played.
+        // A written request to a session that was told of two functions:
+        // the voice's own way of saying a thing was not for it, and one of
+        // the kind the executive will offer. Does the service take the
+        // declarations, which does the model call for which words, what
+        // does it say after the answer, and how long does each step take?
+        // Every call is answered as done. Nothing is captured or played,
+        // and nothing on the lamp is changed.
+        [command,path,flag,then,note] if command=="provider-check" && flag=="--tools" && then=="--written" => {
+            let own=lamp_live::tools::declared(&lamp_live::tools::Settings{decline:true,exec:None});
+            let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]}))};
+            let config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(own.into_iter().chain([colour]).collect())?;
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                let started=lamp_ipc::monotonic_us();
+                let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                let setup_us=lamp_ipc::monotonic_us()-started;
+                let input=connection.input();
+                input.try_written(lamp_gemini::RequestId::new(1)?,note,None)?;
+                let asked=lamp_ipc::monotonic_us();
+                let (mut said,mut samples,mut first,mut ended)=(String::new(),0usize,None,"timeout");
+                let mut calls=Vec::new();
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
+                loop {
+                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                        Ok(Some(Event::ToolCall{call,..})) => {
+                            let answer=if call.name==lamp_live::tools::NOT_FOR_ME { lamp_live::tools::declined() } else { serde_json::json!({"done":true}) };
+                            let sent=input.try_tool_response(&call.id,&call.name,&answer).is_ok();
+                            calls.push(serde_json::json!({"name":call.name,"args":call.args,"after_us":lamp_ipc::monotonic_us()-asked,"audio_samples_before":samples,"answer_sent":sent}));
+                        }
+                        Ok(Some(Event::ToolCallsCancelled{ids,..})) => calls.push(serde_json::json!({"withdrawn":ids.len()})),
+                        Ok(Some(Event::Audio{pcm,..})) => { first.get_or_insert(lamp_ipc::monotonic_us()-asked); samples+=pcm.len(); }
+                        Ok(Some(Event::OutputTranscript{text,..})) => said.push_str(&text),
+                        Ok(Some(Event::TurnComplete{..})) => { ended="turn_complete"; break; }
+                        Ok(Some(Event::Unanswered{..})) => { ended="unanswered"; break; }
+                        Ok(Some(_)) => {}
+                        Ok(None) => { ended="connection_ended"; break; }
+                        Err(_) => break,
+                    }
+                }
+                println!("{}",serde_json::json!({"status":"tools_tried","setup_us":setup_us,"ended":ended,"ended_after_us":lamp_ipc::monotonic_us()-asked,"calls":calls,"first_audio_us":first,"audio_samples":samples,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_sent":false}));
+                connection.shutdown();
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+        },
         [command,path,flag,note] if command=="provider-check" && (flag=="--note" || flag=="--written") => {
             let config=ProviderConfig::load(Path::new(path))?.into_session()?;
             tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
@@ -249,8 +293,9 @@ fn run() -> Result<()> {
                     let (session_fact, flags) = lamp_live::session_fact::take(flags);
                     let (room_facts, flags) = lamp_live::room_told::take(flags);
                     let (keep_link, flags) = lamp_live::provider_worker::take_keep_link(flags);
+                    let (tools, flags) = lamp_live::tools::take(flags)?;
                     let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link,tools}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

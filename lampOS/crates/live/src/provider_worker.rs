@@ -90,6 +90,8 @@ pub struct Files {
     pub room_facts: bool,
     /// Whether the link is never given up (`--keep-link`).
     pub keep_link: bool,
+    /// What the model may do other than speak (`--tools`, `--exec-dir`).
+    pub tools: crate::tools::Settings,
 }
 /// The provider worker's flag for a link that is never given up. A service
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
@@ -460,6 +462,18 @@ pub enum Reporting {
 
 pub(crate) struct Options {
     pub(crate) reporting: Reporting,
+    /// What the model may do other than speak.
+    pub(crate) tools: crate::tools::Settings,
+}
+#[cfg(test)]
+impl Options {
+    /// No function is declared and none is run.
+    pub(crate) fn reporting(reporting: Reporting) -> Self {
+        Self {
+            reporting,
+            tools: crate::tools::Settings::default(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -587,8 +601,14 @@ pub async fn run_with_continuation(
             .barrier_policy(barrier),
     )?;
     // Each session it opens is told how the conversation went until then.
-    let provider = Supervisor::new(crate::thread::Recalling::new(config), recovery)?;
-    let options = Options { reporting };
+    let provider = Supervisor::new(
+        crate::thread::Recalling::new(config).tools(files.tools.clone()),
+        recovery,
+    )?;
+    let options = Options {
+        reporting,
+        tools: files.tools,
+    };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
         .transpose()?;
@@ -607,9 +627,7 @@ pub(crate) async fn serve_coordinated_test<C: Connect>(
         channels,
         boot,
         provider,
-        Options {
-            reporting: Reporting::Coordinated,
-        },
+        Options::reporting(Reporting::Coordinated),
     )
     .await
 }
@@ -653,6 +671,7 @@ async fn serve_with_visual<C: Connect>(
     let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
     let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
     let mut told_session = None;
+    let mut desk = ToolDesk::new(options.tools.clone());
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -668,6 +687,8 @@ async fn serve_with_visual<C: Connect>(
                 // while no provider event is being taken.
                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
+                // What the executive made of the calls it was asked.
+                desk.answer(&provider);
                 // A session that has answered nothing for a long run of
                 // requests is replaced the next time nothing is owed on it.
                 if UNANSWERED.load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
@@ -828,18 +849,12 @@ async fn serve_with_visual<C: Connect>(
                         request: successor.map(RequestId::get),
                         superseded: superseded.map(RequestId::get),
                     })),
-                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
-                        // No tool is declared to the service yet, so none can
-                        // be meant. The service waits on every call it makes:
-                        // answer, so that the request it belongs to goes on.
-                        eprintln!("lamp-live provider: request {} asked for a function nobody declared; answered as unavailable", lineage.request.get());
-                        let _ = provider.try_tool_response(
-                            lineage.session,
-                            &call.id,
-                            &call.name,
-                            &serde_json::json!({"error": "unavailable"}),
-                        );
-                    },
+                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => desk.called(&provider, lineage, call),
+                    // The model said this request was not for it: none of
+                    // its sound is let out, and none of its words are kept
+                    // as something the lamp said.
+                    Ok(Notice::Event(Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. }))
+                        if desk.declined(lineage.request) => {},
                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Unavailable {error})=>{
                         if typed {
@@ -880,6 +895,123 @@ async fn serve_with_visual<C: Connect>(
                 }
                 if output.len()>MAX_QUEUED_OUTPUT { return Err(io::Error::other("provider IPC output backlog exceeded bound").into()); }
             }
+        }
+    }
+}
+
+/// Where the model's function calls are handed on and their answers come
+/// back ([`crate::tools`]). Every call is answered: the service generates
+/// nothing more for a request until its calls are.
+struct ToolDesk {
+    settings: crate::tools::Settings,
+    /// The newest request the model said was not for it.
+    declined: Option<u64>,
+    asked: std::sync::mpsc::Sender<Asked>,
+    answers: std::sync::mpsc::Receiver<Asked>,
+    /// Calls the executive has not answered yet.
+    waiting: usize,
+}
+/// A call the executive was asked, with what to tell the model.
+struct Asked {
+    session: SessionId,
+    request: u64,
+    call: lamp_gemini::ToolCall,
+    told: serde_json::Value,
+    answered: bool,
+    took: Duration,
+}
+impl ToolDesk {
+    fn new(settings: crate::tools::Settings) -> Self {
+        let (asked, answers) = std::sync::mpsc::channel();
+        Self {
+            settings,
+            declined: None,
+            asked,
+            answers,
+            waiting: 0,
+        }
+    }
+    fn declined(&self, request: RequestId) -> bool {
+        self.declined == Some(request.get())
+    }
+    /// One call from the model. Names only are logged, never arguments.
+    fn called<C: Connect>(
+        &mut self,
+        provider: &Supervisor<C>,
+        lineage: lamp_gemini::Lineage,
+        call: lamp_gemini::ToolCall,
+    ) {
+        use crate::tools::Route;
+        let request = lineage.request.get();
+        let tell = |told: &serde_json::Value| {
+            let _ = provider.try_tool_response(lineage.session, &call.id, &call.name, told);
+        };
+        match crate::tools::route(&self.settings, &call.name) {
+            Route::Decline => {
+                self.declined = Some(request);
+                tell(&crate::tools::declined());
+                eprintln!(
+                    "lamp-live provider: request {request}: the model said it was not for it"
+                );
+            }
+            Route::Executive(directory) if self.waiting < lamp_gemini::MAX_TOOL_CALLS => {
+                let asked = self.asked.clone();
+                let session = lineage.session;
+                let work = call.clone();
+                let spawned = std::thread::Builder::new()
+                    .name("lamp-live-ask".into())
+                    .spawn(move || {
+                        let started = Instant::now();
+                        let (told, answered) =
+                            crate::tools::ask(&directory, &work, crate::tools::ASK_DEADLINE);
+                        let _ = asked.send(Asked {
+                            session,
+                            request,
+                            call: work,
+                            told,
+                            answered,
+                            took: started.elapsed(),
+                        });
+                    });
+                match spawned {
+                    Ok(_) => self.waiting += 1,
+                    Err(_) => tell(&crate::tools::unavailable()),
+                }
+            }
+            Route::Executive(_) | Route::Nobody => {
+                tell(&crate::tools::unavailable());
+                eprintln!(
+                    "lamp-live provider: request {request} asked for {}, which nobody here runs; told so",
+                    call.name
+                );
+            }
+        }
+    }
+    /// Hand back what the executive answered since the last tick. An answer
+    /// for a connection that has gone is refused by the supervisor: the
+    /// call went with it.
+    fn answer<C: Connect>(&mut self, provider: &Supervisor<C>) {
+        while let Ok(done) = self.answers.try_recv() {
+            self.waiting = self.waiting.saturating_sub(1);
+            let taken = provider
+                .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
+                .is_ok();
+            eprintln!(
+                "lamp-live provider: request {} asked for {}; the executive {} in {} ms; the answer was {}",
+                done.request,
+                done.call.name,
+                if done.answered {
+                    "answered"
+                } else {
+                    "did not answer"
+                },
+                done.took.as_millis(),
+                if taken {
+                    "sent"
+                } else {
+                    "not sent: its connection has gone"
+                }
+            );
         }
     }
 }
@@ -3563,12 +3695,7 @@ mod tests {
     }
     impl LiveRig {
         fn start(policy: RecoveryPolicy) -> Self {
-            Self::start_with(
-                policy,
-                Options {
-                    reporting: Reporting::Legacy,
-                },
-            )
+            Self::start_with(policy, Options::reporting(Reporting::Legacy))
         }
         fn start_with(policy: RecoveryPolicy, options: Options) -> Self {
             Self::start_with_barrier(policy, options, BARRIER)
@@ -3583,9 +3710,7 @@ mod tests {
         fn start_camera() -> Self {
             Self::start_all(
                 quick_policy(),
-                Options {
-                    reporting: Reporting::Coordinated,
-                },
+                Options::reporting(Reporting::Coordinated),
                 BARRIER,
                 true,
                 Continuation::Off,
@@ -4100,6 +4225,157 @@ mod tests {
             LinkClock::sample().unwrap(),
             PendingLink::default(),
         )
+    }
+
+    fn function_call(id: &str, name: &str) -> serde_json::Value {
+        json!({"toolCall":{"functionCalls":[{"id":id,"name":name,"args":{"colour":"blue"}}]}})
+    }
+    fn typed_with(tools: crate::tools::Settings) -> Options {
+        Options {
+            reporting: Reporting::Typed,
+            tools,
+        }
+    }
+
+    /// Two people talk near the lamp and the model says so with the
+    /// function it was given. The call is answered at once, the sound the
+    /// service still sends for that request never reaches the coordinator,
+    /// its words are not kept as something the lamp said, and the request
+    /// still ends in order. The next request is heard and answered aloud.
+    #[tokio::test]
+    async fn a_request_the_model_says_was_not_for_it_lets_no_sound_out_and_the_next_is_answered() {
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: true,
+                exec: None,
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(function_call("c1", crate::tools::NOT_FOR_ME))
+            .await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c1","name":"not_for_me","response":{"ok":true}}
+            ]}})
+        );
+        // The model speaks all the same.
+        dial.service.send(provider_audio(9, 480)).await;
+        dial.service
+            .send(json!({"serverContent":{"outputTranscription":{"text":"Sounds like a plan!","finished":true}}}))
+            .await;
+        dial.service.send(idle_complete()).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::TurnComplete { request: done, idle: true } if done == request
+        ));
+        assert!(
+            rig.take().is_none(),
+            "sound or words of a declined request got out"
+        );
+
+        rig.owner
+            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        let next = rig.speak(&mut dial, false, true).await;
+        dial.service.send(provider_audio(7, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: heard, .. } if heard == next
+        ));
+        rig.stop().await;
+    }
+
+    /// The model asks for something the lamp can do. The executive, in a
+    /// process of its own, is asked over its socket and what it established
+    /// goes back to the model under the call's identifier. The voice's loop
+    /// is not held while it is asked.
+    #[tokio::test]
+    async fn a_call_for_the_executive_is_asked_over_its_socket_and_its_answer_goes_back() {
+        use std::io::{BufRead, Write};
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let listener =
+            std::os::unix::net::UnixListener::bind(home.path.join(crate::tools::CALL_SOCKET))
+                .unwrap();
+        let executive = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            std::io::BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            stream
+                .write_all(b"{\"ok\":true,\"result\":{\"light\":\"blue\"}}\n")
+                .unwrap();
+            serde_json::from_str::<serde_json::Value>(&line).unwrap()
+        });
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: false,
+                exec: Some(home.path.clone()),
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service.send(function_call("c7", "light_colour")).await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c7","name":"light_colour","response":{"light":"blue"}}
+            ]}})
+        );
+        assert_eq!(
+            executive.join().unwrap(),
+            json!({"op":"call","name":"light_colour","args":{"colour":"blue"}})
+        );
+        // The answer the model then speaks is the same request's, aloud.
+        dial.service.send(provider_audio(5, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: heard, .. } if heard == request
+        ));
+        rig.stop().await;
+    }
+
+    /// With no executive, with one that is not there, and for the voice's
+    /// own function while it is switched off, the model is told at once, in
+    /// words it can say, and the worker goes on.
+    #[tokio::test]
+    async fn a_call_nobody_can_run_is_answered_as_unavailable_and_the_worker_goes_on() {
+        let home = crate::process::SessionDirectory::create().unwrap();
+        for (tools, name) in [
+            (crate::tools::Settings::default(), "light_on"),
+            (crate::tools::Settings::default(), crate::tools::NOT_FOR_ME),
+            (
+                crate::tools::Settings {
+                    decline: false,
+                    exec: Some(home.path.clone()),
+                },
+                "light_on",
+            ),
+        ] {
+            let mut rig = LiveRig::start_with(quick_policy(), typed_with(tools));
+            let mut dial = rig.ready().await;
+            let request = rig.speak(&mut dial, false, true).await;
+            dial.service.send(function_call("c1", name)).await;
+            let answer = rig.service_message(&mut dial).await;
+            assert_eq!(
+                answer["toolResponse"]["functionResponses"][0]["response"],
+                crate::tools::unavailable(),
+                "{name}"
+            );
+            // Nothing was declined: what the model says next is played.
+            dial.service.send(provider_audio(5, 480)).await;
+            assert!(matches!(
+                rig.output().await,
+                ProviderOutput::Audio { request: heard, .. } if heard == request
+            ));
+            assert!(!rig.worker.is_finished());
+            rig.stop().await;
+        }
     }
 
     /// The next dial of a supervisor that is serviced the way the worker
@@ -4665,12 +4941,8 @@ mod tests {
     #[tokio::test]
     async fn coordinated_reconnect_and_link_status_progress_without_any_pcm_credit() {
         use crate::provider_link::{LinkContext, ProviderLinkState};
-        let mut rig = LiveRig::start_with(
-            quick_policy(),
-            Options {
-                reporting: Reporting::Coordinated,
-            },
-        );
+        let mut rig =
+            LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Coordinated));
         let mut dial = rig.coordinated_ready().await;
         dial.service.send(resumable()).await;
         let request = rig.speak(&mut dial, false, true).await;
@@ -4748,9 +5020,7 @@ mod tests {
         use crate::provider_link::ProviderLinkState;
         let mut rig = LiveRig::start_with(
             RecoveryPolicy::DISABLED,
-            Options {
-                reporting: Reporting::Coordinated,
-            },
+            Options::reporting(Reporting::Coordinated),
         );
         let mut dial = rig.coordinated_ready().await;
         let request = rig.speak(&mut dial, false, true).await;
@@ -4870,12 +5140,8 @@ mod tests {
     #[tokio::test]
     async fn coordinated_stop_does_not_wait_for_hung_reconnect_or_data_credit() {
         use crate::provider_link::ProviderLinkState;
-        let mut rig = LiveRig::start_with(
-            quick_policy(),
-            Options {
-                reporting: Reporting::Coordinated,
-            },
-        );
+        let mut rig =
+            LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Coordinated));
         let mut dial = rig.coordinated_ready().await;
         dial.service.send(resumable()).await;
         dial.service.close(1012, "outage").await;
@@ -4966,12 +5232,8 @@ mod tests {
 
     #[tokio::test]
     async fn coordinated_privacy_revocation_stops_a_pending_connection() {
-        let mut rig = LiveRig::start_with(
-            quick_policy(),
-            Options {
-                reporting: Reporting::Coordinated,
-            },
-        );
+        let mut rig =
+            LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Coordinated));
         let mut dial = rig.coordinated_ready().await;
         dial.service.send(resumable()).await;
         dial.service.close(1012, "outage").await;
@@ -6081,12 +6343,7 @@ mod tests {
 
     #[tokio::test]
     async fn typed_reporting_fails_one_turn_and_keeps_serving_after_a_lost_answer() {
-        let mut rig = LiveRig::start_with(
-            quick_policy(),
-            Options {
-                reporting: Reporting::Typed,
-            },
-        );
+        let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
         let mut dial = rig.ready().await;
         dial.service.send(resumable()).await;
         let lost = rig.speak(&mut dial, false, true).await;
@@ -6182,9 +6439,7 @@ mod tests {
                 require_context: false,
                 ..quick_policy()
             },
-            Options {
-                reporting: Reporting::Typed,
-            },
+            Options::reporting(Reporting::Typed),
             BARRIER,
             false,
             Continuation::Off,
@@ -6262,9 +6517,7 @@ mod tests {
                 outage_budget: Duration::from_secs(5),
                 ..quick_policy()
             },
-            Options {
-                reporting: Reporting::Typed,
-            },
+            Options::reporting(Reporting::Typed),
         );
         let mut dial = rig.ready().await;
         dial.service.send(resumable()).await;
@@ -6376,7 +6629,7 @@ mod tests {
         for reporting in [Reporting::Legacy, Reporting::Typed] {
             let mut rig = LiveRig::start_with_barrier(
                 quick_policy(),
-                Options { reporting },
+                Options::reporting(reporting),
                 BarrierPolicy::AssumeAfterQuiet,
             );
             let mut dial = rig.ready().await;
@@ -6429,7 +6682,7 @@ mod tests {
             fn start_kept_reporting(reporting: Reporting) -> Self {
                 Self::start_all(
                     quick_policy(),
-                    Options { reporting },
+                    Options::reporting(reporting),
                     BARRIER,
                     false,
                     Continuation::KeptStart,

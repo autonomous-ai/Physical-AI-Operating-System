@@ -353,11 +353,30 @@ impl Default for Thread {
 /// Opens each session with the thread so far added to its instruction.
 pub struct Recalling {
     config: SessionConfig,
+    tools: crate::tools::Settings,
 }
 
 impl Recalling {
     pub fn new(config: SessionConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            tools: crate::tools::Settings::default(),
+        }
+    }
+
+    /// Each session is also told what the model may do other than speak
+    /// ([`crate::tools`]), as that stands when the session opens.
+    pub fn tools(mut self, tools: crate::tools::Settings) -> Self {
+        self.tools = tools;
+        self
+    }
+
+    /// `config` with the functions declared now. The executive's come and
+    /// go with the executive; a list the link would refuse leaves the
+    /// session without any.
+    fn equipped(&self, config: SessionConfig) -> SessionConfig {
+        let tools = crate::tools::declared(&self.tools);
+        config.clone().tools(tools).unwrap_or(config)
     }
 
     /// The configuration for a session opened now, told the time and this
@@ -392,13 +411,41 @@ impl Connect for Recalling {
             Ok(thread) => self.recalled(&thread, Instant::now(), time.as_deref()),
             Err(_) => self.config.clone(),
         };
-        Dialer::new(config).connect(session, resume)
+        Dialer::new(self.equipped(config)).connect(session, resume)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What a session is sent at setup follows the switch: nothing about
+    /// functions with it off, the voice's own with it on.
+    #[test]
+    fn a_session_is_opened_with_the_functions_the_model_may_call_now() {
+        let config = || {
+            SessionConfig::new(
+                lamp_gemini::GOOGLE_ENDPOINT,
+                lamp_gemini::Credential::api_key("test-only").unwrap(),
+            )
+            .unwrap()
+        };
+        let setup = |recalling: &Recalling| -> serde_json::Value {
+            let text = lamp_gemini::wire::encode_setup(&recalling.equipped(config())).unwrap();
+            serde_json::from_str(&text).unwrap()
+        };
+        let plain = Recalling::new(config());
+        assert!(setup(&plain)["setup"].get("tools").is_none());
+        let declining = Recalling::new(config()).tools(crate::tools::Settings {
+            decline: true,
+            exec: None,
+        });
+        let told = setup(&declining);
+        let declared = &told["setup"]["tools"][0]["functionDeclarations"];
+        assert_eq!(declared.as_array().unwrap().len(), 1);
+        assert_eq!(declared[0]["name"], crate::tools::NOT_FOR_ME);
+        assert!(declared[0].get("parameters").is_none());
+    }
 
     const ROOM: usize = 8_192;
 

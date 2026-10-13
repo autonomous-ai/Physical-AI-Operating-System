@@ -3373,6 +3373,7 @@ fn conversation(
         );
         if let Some(bus) = bus_out.as_mut() {
             bus.state(crate::ring_wire::RingPhase::from_snapshot(snapshot), clock);
+            bus.report(cloud.available(), clock);
         }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;

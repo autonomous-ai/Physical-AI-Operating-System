@@ -366,7 +366,27 @@ office: an empty list 1.66 times a second. No list with a face in it has
 been published yet, and the judgement of "turned to the lamp" uses V1's
 numbers, which have not been checked on this lamp.
 
-Nothing subscribes yet.
+Since 2026-10-14 the lamp's other topics, each described with the part
+that owns it:
+
+| Topic | Published by | Read by |
+|---|---|---|
+| `room/state` | the voice's provider worker | the policy |
+| `policy/decisions` | the policy ([policy.md](policy.md)) | nothing yet |
+| `body/joint_states` | the body ([body.md](body.md), "On the bus") | nothing yet; recorded to measure how the lamp moves |
+| `light/command` | the actions program ([actions.md](actions.md)) | the voice's ring worker |
+| `light/state` | the voice's ring worker ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the actions program |
+| `diagnostics` | every part that says how it is: the voice, the eyes, the body, the policy, and the board through the health program | the health program |
+| `lamp/health`, `board/state` | the health program ([health.md](health.md)) | `lamp-health`, the command |
+
+The policy also reads `voice/heard`, `voice/said`, `voice/state` and
+`humans/faces/tracked`.
+
+The voice says how it is about once a second under the name `voice`: well
+while it can reach the speech service or has lost it for under five
+seconds (it loses it for a second or two at every start and every
+renewal of its session), and otherwise `it cannot reach the speech
+service, and keeps trying`, with for how long.
 
 ## Not shown
 

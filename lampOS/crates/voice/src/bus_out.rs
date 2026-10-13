@@ -116,11 +116,41 @@ impl RoomOut {
     }
 }
 
+/// The link to the speech service may be down this long before the voice
+/// says anything is the matter. It is down for a second or two each time
+/// the voice starts and each time the service renews its session, which
+/// is the link working as it should.
+pub const LINK_GRACE_US: u64 = 5_000_000;
+
+/// The voice's own report (`diagnostics`): well while it can reach the
+/// speech service, or has only just lost it.
+pub fn health(link_up: bool, down_for_us: u64) -> lamp_msgs::Diagnostic {
+    use lamp_msgs::{Diagnostic, Level};
+    if link_up {
+        Diagnostic::ok(SOURCE).with("link", "ready")
+    } else if down_for_us < LINK_GRACE_US {
+        Diagnostic::ok(SOURCE).with("link", "connecting")
+    } else {
+        Diagnostic::new(
+            Level::Warn,
+            SOURCE,
+            "it cannot reach the speech service, and keeps trying",
+        )
+        .with("link", "down")
+        .with("down_for_s", down_for_us / 1_000_000)
+    }
+}
+
 pub struct BusOut {
     state: Publisher,
     heard: Publisher,
     said: Publisher,
+    health: Publisher,
     last: Option<(Voice, u64)>,
+    /// When the voice last said how it is, and since when its link to the
+    /// speech service has been down.
+    reported_at_us: Option<u64>,
+    down_since_us: Option<u64>,
 }
 
 impl BusOut {
@@ -145,7 +175,14 @@ impl BusOut {
             state: bus.publisher_declared(VoiceState::TOPIC, &VoiceState::declaration(), SOURCE)?,
             heard: bus.publisher_declared(heard, &Speech::declaration(), SOURCE)?,
             said: bus.publisher_declared(said, &Speech::declaration(), SOURCE)?,
+            health: bus.publisher_declared(
+                lamp_msgs::Diagnostic::TOPIC,
+                &lamp_msgs::Diagnostic::declaration(),
+                SOURCE,
+            )?,
             last: None,
+            reported_at_us: None,
+            down_since_us: None,
         })
     }
 
@@ -172,6 +209,28 @@ impl BusOut {
         // were, before and after every sentence.
         let _ = self.heard.alive();
         let _ = self.said.alive();
+    }
+
+    /// Whether the voice can reach the speech service now. Call every
+    /// tick: how the voice is, is said a little more often than once a
+    /// second, for the lamp's health.
+    pub fn report(&mut self, link_up: bool, now_us: u64) {
+        if link_up {
+            self.down_since_us = None;
+        } else {
+            self.down_since_us.get_or_insert(now_us);
+        }
+        if self
+            .reported_at_us
+            .is_some_and(|at| now_us.saturating_sub(at) < 950_000)
+        {
+            return;
+        }
+        self.reported_at_us = Some(now_us);
+        let down_for = self
+            .down_since_us
+            .map_or(0, |since| now_us.saturating_sub(since));
+        let _ = self.health.publish_json(now_us, &health(link_up, down_for));
     }
 
     /// A piece of the provider's text: of the lamp's answer to `request`,
@@ -246,6 +305,73 @@ mod tests {
         // Whoever starts late reads how things stand.
         let latest = bus.latest(VoiceState::TOPIC).unwrap().unwrap();
         assert_eq!(latest.parse::<VoiceState>().unwrap().state, Voice::Speaking);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_voice_is_well_while_it_can_reach_the_service_or_has_only_just_lost_it() {
+        use lamp_msgs::{Diagnostic, Level};
+        let facts = |report: &Diagnostic| -> Vec<(String, String)> {
+            report
+                .values
+                .iter()
+                .map(|fact| (fact.key.clone(), fact.value.clone()))
+                .collect()
+        };
+        let up = health(true, 0);
+        assert_eq!(
+            (up.level, up.name.as_str(), up.message.as_str()),
+            (Level::Ok, "voice", "")
+        );
+        assert_eq!(facts(&up), [("link".to_string(), "ready".to_string())]);
+        // Down for a moment, as at every start and every renewal: still well.
+        let renewing = health(false, LINK_GRACE_US - 1);
+        assert_eq!(renewing.level, Level::Ok);
+        assert_eq!(
+            facts(&renewing),
+            [("link".to_string(), "connecting".to_string())]
+        );
+        // Down for longer: said, with for how long.
+        let down = health(false, 42_500_000);
+        assert_eq!(
+            (down.level, down.message.as_str()),
+            (
+                Level::Warn,
+                "it cannot reach the speech service, and keeps trying"
+            )
+        );
+        assert_eq!(
+            facts(&down),
+            [
+                ("link".to_string(), "down".to_string()),
+                ("down_for_s".to_string(), "42".to_string())
+            ]
+        );
+        // On the bus: a little more often than once a second, and the
+        // time the link has been down is counted from when it went.
+        let (bus, root) = bus("health");
+        let mut hears = bus
+            .subscribe_typed(Diagnostic::TOPIC, "test", Diagnostic::TYPE)
+            .unwrap();
+        let mut out = BusOut::on(&bus).unwrap();
+        // Nine seconds of ticks, 2 ms apart: up for one, then down.
+        for tick in 0..4_500u64 {
+            out.report(tick < 500, tick * 2_000);
+        }
+        let mut said = Vec::new();
+        while let Some(message) = hears.recv(Duration::from_millis(50)).unwrap() {
+            said.push(message.parse::<Diagnostic>().unwrap());
+        }
+        assert_eq!(said.len(), 10, "{said:?}");
+        assert_eq!(said[0].level, Level::Ok);
+        assert_eq!(facts(&said[1])[0].1, "ready");
+        assert_eq!(facts(&said[2])[0].1, "connecting");
+        assert_eq!(said[5].level, Level::Ok);
+        assert_eq!(said[7].level, Level::Warn);
+        assert_eq!(
+            facts(&said[9])[1],
+            ("down_for_s".to_string(), "7".to_string())
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

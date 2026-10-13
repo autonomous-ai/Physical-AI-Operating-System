@@ -57,6 +57,11 @@ const NOTE_BYTES: u64 = 1_200;
 /// soon after the memory did not answer.
 const REFRESH: Duration = Duration::from_secs(300);
 const RETRY: Duration = Duration::from_secs(5);
+/// How long starting waits for what is kept, so that the first session,
+/// which opens within milliseconds, is told it. On lamp-4ace on 2026-10-13
+/// the memory answered this in under a millisecond; a memory that is not
+/// there costs nothing, and one that hangs costs this once.
+const FIRST_READ: Duration = Duration::from_millis(300);
 /// What a recall asks for: enough to answer from, and small enough to go
 /// to the model in one answer ([`lamp_gemini::MAX_TOOL_JSON_BYTES`]).
 const RECALL_ENTRIES: u64 = 6;
@@ -146,8 +151,9 @@ pub fn run(socket: &Path, call: &ToolCall, deadline: Duration) -> (Value, bool) 
             let _ = jobs.try_send(Job::Refresh);
         }
         if call.name == FORGET && !answer["removed"].is_null() {
-            if let Ok(mut note) = NOTE.lock() {
-                note.clear();
+            // Until the writer has read what is left, none of it is told.
+            if let Ok(mut held) = NOTE.lock() {
+                *held = note(&[]);
             }
             // What was said about it a moment ago is not told to the next
             // session either.
@@ -283,6 +289,13 @@ pub fn start(socket: PathBuf) {
     if JOBS.set(jobs).is_err() {
         return;
     }
+    // Without this the first session after a start opened before the
+    // writer had read anything: on lamp-4ace it was not told a thing kept
+    // a minute earlier.
+    let first = kept(&socket, FIRST_READ);
+    if let Ok(mut held) = NOTE.lock() {
+        *held = note(first.as_deref().unwrap_or_default());
+    }
     let spawned = std::thread::Builder::new()
         .name("lamp-voice-memory".into())
         .spawn(move || writer(&socket, &work));
@@ -339,19 +352,26 @@ fn hand_on(done: Vec<(u64, Duration, String, String)>, wall: u64, jobs: &SyncSen
     }
 }
 
-/// The note for a session opened now: empty when nothing is kept, when
-/// there is no memory, or until the memory has first answered.
+/// The note for a session opened now: empty until a memory has been
+/// named ([`start`]).
 pub fn told() -> String {
     NOTE.lock().map(|note| note.clone()).unwrap_or_default()
 }
 
-/// The note for these kept things, oldest first.
+/// What a session is told of its memory: that it has one and when to
+/// consult it, then these kept things, oldest first. On lamp-4ace on
+/// 2026-10-13 a new session told only the kept things answered "what did
+/// we talk about earlier today?" with "I don't remember earlier
+/// conversations" and never asked.
 fn note(kept: &[String]) -> String {
-    if kept.is_empty() {
-        return String::new();
-    }
     let mut note = String::from(
-        "\n\nThings you were asked to remember\nPeople in this room asked you to keep these in mind. Use one only when the person you are talking with brings its subject up, the way a colleague would. You cannot tell who is speaking, so never say \"you told me\": just use it. Never list them or bring them up yourself.\n",
+        "\n\nYour memory\nYou remember earlier days. When someone asks about an earlier conversation, or about something they told you before that you do not see here, call recall and answer from what it gives you. If it gives nothing, say you do not remember.\n",
+    );
+    if kept.is_empty() {
+        return note;
+    }
+    note.push_str(
+        "People in this room asked you to keep these in mind. Use one only when the person you are talking with brings its subject up, the way a colleague would. You cannot tell who is speaking, so never say \"you told me\": just use it. Never list them or bring them up yourself.\n",
     );
     for text in kept {
         note.push_str("- ");
@@ -359,6 +379,20 @@ fn note(kept: &[String]) -> String {
         note.push('\n');
     }
     note
+}
+
+/// The newest kept things that fit the note, asked of the memory now.
+fn kept(socket: &Path, deadline: Duration) -> Option<Vec<String>> {
+    let line = json!({"op":"kept","max_bytes":NOTE_BYTES});
+    let answer = crate::tools::exchange(socket, &line, deadline)?;
+    Some(
+        answer
+            .get("entries")?
+            .as_array()?
+            .iter()
+            .filter_map(|entry| Some(entry.get("text")?.as_str()?.to_owned()))
+            .collect(),
+    )
 }
 
 fn writer(socket: &Path, jobs: &Receiver<Job>) {
@@ -393,17 +427,7 @@ fn writer(socket: &Path, jobs: &Receiver<Job>) {
             }
             Ok(Job::Refresh) => refresh_at = Instant::now(),
             Err(RecvTimeoutError::Timeout) => {
-                let line = json!({"op":"kept","max_bytes":NOTE_BYTES});
-                let kept =
-                    crate::tools::exchange(socket, &line, WRITER_DEADLINE).and_then(|answer| {
-                        let entries = answer.get("entries")?.as_array()?;
-                        Some(
-                            entries
-                                .iter()
-                                .filter_map(|entry| Some(entry.get("text")?.as_str()?.to_owned()))
-                                .collect::<Vec<_>>(),
-                        )
-                    });
+                let kept = kept(socket, WRITER_DEADLINE);
                 heard_from(kept.is_some());
                 refresh_at = Instant::now() + if kept.is_some() { REFRESH } else { RETRY };
                 if let (Some(kept), Ok(mut held)) = (kept, NOTE.lock()) {
@@ -699,7 +723,7 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(10));
         }
-        assert!(told().starts_with("\n\nThings you were asked to remember\n"));
+        assert!(told().starts_with("\n\nYour memory\n"));
         jobs.send(Job::Exchange {
             at_unix_ms: NOW,
             heard: "How do I take my coffee?".into(),
@@ -718,16 +742,43 @@ mod tests {
     }
 
     #[test]
-    fn the_note_lists_what_is_kept_and_is_empty_for_nothing() {
-        assert_eq!(note(&[]), "");
-        let told = note(&["takes coffee black".into(), "sits by the window".into()]);
+    fn the_note_says_there_is_a_memory_and_lists_what_is_kept() {
+        let bare = note(&[]);
         assert!(
-            told.starts_with("\n\nThings you were asked to remember\n"),
-            "{told}"
+            bare.starts_with("\n\nYour memory\n") && bare.contains("call recall"),
+            "{bare}"
         );
+        assert!(!bare.contains("asked you to keep"), "{bare}");
+        let told = note(&["takes coffee black".into(), "sits by the window".into()]);
+        assert!(told.starts_with(&bare), "{told}");
+        assert!(told.contains("never say \"you told me\""), "{told}");
         assert!(
             told.ends_with("- takes coffee black\n- sits by the window\n"),
             "{told}"
+        );
+    }
+
+    #[test]
+    fn what_is_kept_is_read_in_one_request_and_a_memory_that_is_gone_gives_none() {
+        let (socket, served) = memory(
+            "kept",
+            1,
+            |_| json!({"ok":true,"entries":[{"id":1,"at_unix_ms":1,"text":"a"},{"id":2,"at_unix_ms":2,"text":"b"}]}),
+        );
+        assert_eq!(
+            kept(&socket, Duration::from_secs(2)),
+            Some(vec!["a".to_owned(), "b".to_owned()])
+        );
+        assert_eq!(
+            served.join().unwrap(),
+            [json!({"op":"kept","max_bytes":NOTE_BYTES})]
+        );
+        std::fs::remove_file(&socket).unwrap();
+        let started = Instant::now();
+        assert_eq!(kept(&socket, FIRST_READ), None);
+        assert!(
+            started.elapsed() < FIRST_READ,
+            "a socket that is not there costs no wait"
         );
     }
 }

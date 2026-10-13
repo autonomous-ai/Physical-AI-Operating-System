@@ -121,13 +121,17 @@ Without it the voice knows nothing of this process.
 - **Asking it to keep or forget something is not itself kept.** The
   exchange in which `remember` or `forget` was called stays out of the
   journal: the kept list is the record of that.
-- **A note for each new session.** The writer thread asks `kept` (1,200
-  bytes of text, the newest that fit) when it starts, after each
-  `remember` and `forget`, and every five minutes, and holds the answer.
-  A session opened then is told those things, with the rule to use one
-  only when the person brings its subject up, never to list them, and
-  never to say "you told me": the lamp cannot tell who is speaking.
-  Opening a session never waits for this process.
+- **A note for each new session.** Every session is told that it has a
+  memory and when to consult it ("when someone asks about an earlier
+  conversation, or about something they told you before that you do not
+  see here, call recall ... If it gives nothing, say you do not
+  remember"), and then the newest kept things (1,200 bytes of text), with
+  the rule to use one only when the person brings its subject up, never to
+  list them, and never to say "you told me": the lamp cannot tell who is
+  speaking. The kept things are read once when the voice starts, waiting
+  300 ms at most, and after that by the writer thread: after each
+  `remember` and `forget`, and every five minutes. Opening a session
+  never waits for this process.
 - **What the model is given from a recall** is how long ago in words
   ("yesterday", "2 weeks ago"), never a date or a time of day: a person
   does not say "on 3 October at 14:02".

@@ -9,18 +9,23 @@ described in [motor-worker.md](motor-worker.md) and replaces nothing there. It
 exists so that a lamp folded in its rest pose can be expressive within limits
 narrow enough to check by eye.
 
-Status on 2026-10-12: built, run against simulated servos (below), and run
-once on lamp-4ace for 1.3 s (see "First run on a lamp").
+Given a pose to stand in, it also raises the lamp on its shoulder and elbow
+when someone speaks to it and folds it down again when it has been left alone
+(see "Standing up"). Without one it is exactly the body described first.
+
+Status on 2026-10-13: the head motion has run on lamp-4ace for a night of
+conversation (see "Second and later runs on the lamp"). Standing up is built
+and run against simulated servos; it has not yet run on a lamp.
 
 ## What it may do
 
 - It commands three joints: head pitch (servo 5), head roll (servo 4) and
-  base yaw (servo 1). The shoulder and the elbow are read on every step and
-  never written.
+  base yaw (servo 1). The shoulder and the elbow are read on every step and,
+  unless it was given a pose to stand in, never written.
 - It writes three registers: the goal position (42) of those three joints,
   in one sync write, and once at start their goal speed (46) and acceleration
-  (41), so that the servo itself is slow whatever this process sends. It never
-  writes torque.
+  (41), so that the servo itself is slow whatever this process sends. Unless
+  it was given a pose to stand in it never writes torque.
 - It starts only if all five joints answer, the three it commands have torque
   on, a clear status byte, a temperature and a load under their bounds, and
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
@@ -53,7 +58,7 @@ written after that, when:
 | Load on a commanded joint, six steps in a row (120 ms), for the fourth time in a minute, or again within two seconds of the joint giving way | pitch 240, roll 150, yaw 220 |
 | A commanded joint away from its goal for ten steps | 30 counts |
 | Any joint's status byte different from the one found at start | any change |
-| The shoulder or the elbow away from where it was found | 6 counts |
+| The shoulder or the elbow away from where it was found, in a body that does not stand | 6 counts |
 | A commanded joint's temperature register, on every step for a second | 62 |
 | A read, or a write, that fails on every step for half a second (25 steps) | missing, late, malformed or unexpected bytes |
 
@@ -149,10 +154,67 @@ to make every nod a large one. At the reach used without `--reach` the
 lift for listening is 18 counts and does not happen either; the tilt, the
 look away and the way back do.
 
+## Standing up
+
+Not yet run on a lamp. Everything in this section is what the code does
+against simulated servos.
+
+With `--stand PITCH,ROLL,YAW,SHOULDER,ELBOW` (which needs `--home` and
+`--folded-arm SHOULDER,ELBOW`, all in encoder counts) the body also commands
+the shoulder (servo 2) and the elbow (servo 3):
+
+- A mood other than rest raises the lamp from its folded pose to the one
+  given. It stays up while such moods keep arriving and for `--awake-seconds`
+  (90 without it) after the last, then folds down again. Asked to stop, it
+  folds down first; that may take 3 s and twice the way.
+- The way is one number from 0, folded, to 1, stood up. It moves at most the
+  whole way in `--stand-seconds` (5 without it; 2 to 20), reaching that speed
+  in half a second, and the two joints follow it eased at both ends, so
+  neither starts or stops with a jerk. `--stand-share PERCENT` ends the way
+  early: at 10 the shoulder moves about a degree and a half. It is there to
+  bring a lamp up in steps the first time.
+- The head keeps its folded pose until the arm has made a quarter of its way
+  and is back at it before the arm comes down that far. Then its home moves
+  to the standing pose's head pitch, roll and yaw, every gesture stays an
+  offset from that home, and the head is carried along with it. The window
+  that keeps the head off the base applies only while the head is beside the
+  base, that is in that first quarter.
+- The goals of all five joints go out in one sync write.
+- An overload flag (`0x20`) latched on the shoulder or the elbow before the
+  run leaves that servo holding with a fraction of its torque. Such a joint
+  cannot carry the lamp, so at start the body writes torque on (register 40)
+  to it once, and if the flag is still there, off and on. If it stays, the
+  body does not stand and runs as a folded lamp; the report says why
+  (`standing_refused`) and counts the writes (`torque_writes`). This is the
+  only write of torque there is.
+- It also does not stand, and says why, when it was given no home, when
+  either joint has torque off, another flag, or is at 62 or warmer, or when
+  the two are not found within 80 counts of one point on the way between
+  folded and stood up. Found part of the way up, on that way, it takes the
+  lamp as it is and stays up as if it had just been spoken to.
+
+A shoulder or an elbow that reads over its load bound (`--arm-load`, 950
+and 950 without it) for six steps, is more than 80 counts from its goal for
+half a second, or reads 62 or warmer for a second sends the lamp back down
+the way it came. It rests there for a minute whatever it is told, and after
+the third time for the rest of the run; the report lists each time
+(`retreats`). Only an arm still over its load or off its goal two seconds
+later ends the run, held where it is. The load bound is high on purpose:
+the old runtime's notes say these two joints read 830 to 1,000 in free
+motion on another lamp, so following and warmth are the real guards.
+
+The pose lamp-4ace is given is the old runtime's idle pose
+(`hal/recordings/idle.csv`, first frame): head pitch 1,772, shoulder 2,657,
+elbow 2,602, with this lamp's own roll and yaw. Its folded arm reads 2,048
+and 2,047. On 2026-10-09 the old runtime saved a pose of this lamp with the
+shoulder at 2,658 and the elbow at 2,650, so it has stood there; nothing
+else about the pose has been checked on this unit, and the old runtime
+reached it by moving all five joints together over five seconds.
+
 ## Running it
 
 ```text
-lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW]
+lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW]
 ```
 
 Reach and speed can be chosen at start, each inside a cap fixed in the code:
@@ -163,6 +225,11 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--speed N` | fastest the commanded pose moves, counts a second | 50 | 300 |
 | `--servo-speed N` | goal speed written to the three servos | 150 | 1,000 |
 | `--servo-acceleration N` | acceleration written to them | 50 | 150 |
+| `--stand P,R,Y,S,E` with `--folded-arm S,E` | the pose it stands in and the arm's folded one, in counts | never stands | shoulder and elbow each at most 1,400 from folded |
+| `--stand-share N` | how much of the way up it goes, percent | 100 | 1 to 100 |
+| `--stand-seconds N` | fastest the whole way is travelled | 5 | 2 to 20 |
+| `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
+| `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
 tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
@@ -251,7 +318,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (182 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (199 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -267,7 +334,24 @@ stops arriving returns it home.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-live`
 checks the datagram.
 
-Not shown by any of this: that the simulated servo resembles a real one (its
+Standing up, in the same simulation with a shoulder and an elbow that follow
+their goals: the five-joint write and the torque write byte for byte; that a
+lamp spoken to rises to the pose and, left alone, folds down to exactly
+where it was found, with every write naming servos 5, 4, 1, 2 and 3, the arm
+never outside the way between folded and stood up and no arm goal moving
+more than six counts in a write; that the elbow's old flag costs one torque
+write to the elbow alone; that a head whose standing pitch is toward the
+base stays inside its folded reach and window until the arm has made a
+quarter of its way; that a shoulder strained for a second on the way up
+sends the lamp down, where it stays though it is still spoken to; that an
+elbow strained for longer ends the run; that a lamp found standing is taken
+as it is and folds down when asked to stop, and one found off the way is
+not stood; and that a flag that will not clear, or no home, leaves it a
+folded lamp that runs as before.
+
+Not shown by any of this: anything about standing on a real lamp, where
+the weight of the head, the slack in the joints and the loads these two
+servos read have not been seen by this code; that the simulated servo resembles a real one (its
 speed register is taken as counts a second, which is not established); that
 roll and yaw are clear of the base and the arm in the folded pose, which no
 Rust code has moved; that the load bounds suit the head's own weight (the head

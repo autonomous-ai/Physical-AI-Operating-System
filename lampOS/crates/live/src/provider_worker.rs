@@ -828,6 +828,18 @@ async fn serve_with_visual<C: Connect>(
                         request: successor.map(RequestId::get),
                         superseded: superseded.map(RequestId::get),
                     })),
+                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
+                        // No tool is declared to the service yet, so none can
+                        // be meant. The service waits on every call it makes:
+                        // answer, so that the request it belongs to goes on.
+                        eprintln!("lamp-live provider: request {} asked for a function nobody declared; answered as unavailable", lineage.request.get());
+                        let _ = provider.try_tool_response(
+                            lineage.session,
+                            &call.id,
+                            &call.name,
+                            &serde_json::json!({"error": "unavailable"}),
+                        );
+                    },
                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Unavailable {error})=>{
                         if typed {
@@ -1041,6 +1053,15 @@ fn forward(
             superseded.map(RequestId::get),
             successor.map(RequestId::get)
         ),
+        // Answered where the provider is in reach, before this function.
+        Event::ToolCall { lineage, .. } => eprintln!(
+            "lamp-live provider: a function call for request {} reached the forwarder unanswered",
+            lineage.request.get()
+        ),
+        Event::ToolCallsCancelled { ids, .. } => eprintln!(
+            "lamp-live provider: the service withdrew {} function call(s)",
+            ids.len()
+        ),
         // Only a session configured to report its barriers sends these:
         // `Continuation::KeptStart` configures one. Counts and times, no
         // audio and no text.
@@ -1074,7 +1095,7 @@ fn forward(
 /// once per worker so a recurring pattern is visible without unbounded output.
 #[derive(Default)]
 struct DiscardLog {
-    seen: [bool; 4],
+    seen: [bool; 6],
 }
 impl DiscardLog {
     fn note(&mut self, reason: Discard) {
@@ -1083,6 +1104,8 @@ impl DiscardLog {
             Discard::LateTerminal => 1,
             Discard::LateOutput => 2,
             Discard::UnownedOutput => 3,
+            Discard::UnownedToolCall => 4,
+            Discard::StaleToolResponse => 5,
         };
         if !std::mem::replace(&mut self.seen[index], true) {
             eprintln!(

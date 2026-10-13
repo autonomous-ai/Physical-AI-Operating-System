@@ -1,5 +1,6 @@
 use crate::{
-    Error, MAX_HANDLE_BYTES, MAX_INSTRUCTION_BYTES, OUTPUT_BUFFER_BYTES, OUTPUT_RATE, Result,
+    Error, MAX_HANDLE_BYTES, MAX_INSTRUCTION_BYTES, MAX_TOOLS, OUTPUT_BUFFER_BYTES, OUTPUT_RATE,
+    Result, Tool,
 };
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr, sync::Arc, time::Duration};
@@ -271,6 +272,7 @@ pub struct SessionConfig {
     pub(crate) language_code: Option<String>,
     pub(crate) small_pictures: bool,
     pub(crate) search: bool,
+    pub(crate) tools: Vec<Tool>,
     pub(crate) instruction: String,
     pub(crate) timeouts: Timeouts,
     pub(crate) resumption: Resumption,
@@ -297,6 +299,7 @@ impl SessionConfig {
             language_code: None,
             small_pictures: false,
             search: false,
+            tools: Vec::new(),
             instruction: String::new(),
             timeouts: Timeouts::default(),
             resumption: Resumption::Off,
@@ -383,6 +386,25 @@ impl SessionConfig {
     pub fn search(mut self, search: bool) -> Self {
         self.search = search;
         self
+    }
+    /// Functions the model may ask this side to run ([`Tool`]). None by
+    /// default. Each is declared to the service at setup; a call arrives as
+    /// [`crate::Event::ToolCall`].
+    pub fn tools(mut self, tools: Vec<Tool>) -> Result<Self> {
+        if tools.len() > MAX_TOOLS {
+            return Err(Error::InvalidConfiguration);
+        }
+        for (index, tool) in tools.iter().enumerate() {
+            tool.validate()?;
+            if tools[..index]
+                .iter()
+                .any(|earlier| earlier.name == tool.name)
+            {
+                return Err(Error::InvalidConfiguration);
+            }
+        }
+        self.tools = tools;
+        Ok(self)
     }
     /// The instruction as it will be sent.
     pub fn instruction_text(&self) -> &str {

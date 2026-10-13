@@ -51,6 +51,16 @@ pub const MAX_IMAGES_PER_REQUEST: u8 = 2;
 /// Oldest image accepted, from capture to offer and again to sending.
 pub const MAX_IMAGE_AGE: Duration = Duration::from_secs(2);
 pub const MAX_TEXT_BYTES: usize = 8_192;
+/// Functions one session may be told of.
+pub const MAX_TOOLS: usize = 32;
+/// Calls the service may make in one message, and that one request may have
+/// unanswered at once.
+pub const MAX_TOOL_CALLS: usize = 8;
+/// The most a call's identifier may be.
+pub const MAX_TOOL_ID_BYTES: usize = 128;
+/// The most a function's declared parameters, a call's arguments or an
+/// answer to a call may be, as JSON text.
+pub const MAX_TOOL_JSON_BYTES: usize = 4_096;
 /// The most a session's instruction may be: a character file, and what the
 /// runtime adds to it for one session.
 pub const MAX_INSTRUCTION_BYTES: usize = 16_384;
@@ -105,6 +115,50 @@ pub enum VoiceActivity {
     Unspecified,
 }
 
+/// A function the model may ask this side to run. The model names it and
+/// gives arguments that fit `parameters`; what is run, and whether, is
+/// decided by whoever receives [`Event::ToolCall`], never by the model.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Tool {
+    /// A lower-case letter, then up to 47 of `a-z`, `0-9` and `_`.
+    pub name: String,
+    /// What it does and when to call it, for the model. At most 1,024 bytes.
+    pub description: String,
+    /// A JSON Schema object for the arguments. Absent: it takes none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+impl Tool {
+    pub fn validate(&self) -> Result<()> {
+        let mut name = self.name.bytes();
+        let named = name.next().is_some_and(|first| first.is_ascii_lowercase())
+            && self.name.len() <= 48
+            && name.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_');
+        let described = !self.description.trim().is_empty()
+            && self.description.len() <= 1_024
+            && !self.description.contains('\0');
+        let shaped = self.parameters.as_ref().is_none_or(|parameters| {
+            parameters.is_object() && parameters.to_string().len() <= MAX_TOOL_JSON_BYTES
+        });
+        if named && described && shaped {
+            Ok(())
+        } else {
+            Err(Error::InvalidConfiguration)
+        }
+    }
+}
+
+/// One call the service made. `id` is the service's own and is empty when it
+/// sent none; `args` is whatever JSON it sent, an empty object when it sent
+/// nothing, and is not checked against the declared parameters here.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub args: serde_json::Value,
+}
+
 #[derive(Debug)]
 pub enum Event {
     InputStarted {
@@ -127,6 +181,22 @@ pub enum Event {
     },
     GenerationComplete {
         lineage: Lineage,
+    },
+    /// The service asked for a function to be run for this request. It
+    /// generates nothing more for the request until the call is answered
+    /// with [`InputSender::try_tool_response`], so whoever takes this event
+    /// answers every call, promptly, also when it will not run it. The wait
+    /// counts against the request's `stall` bound like any other silence.
+    ToolCall {
+        lineage: Lineage,
+        call: ToolCall,
+    },
+    /// The service withdrew calls it had made: the person spoke over the
+    /// answer they were part of. An answer offered for one of them
+    /// afterwards is dropped.
+    ToolCallsCancelled {
+        session: SessionId,
+        ids: Vec<String>,
     },
     Interrupted {
         lineage: Lineage,
@@ -390,6 +460,13 @@ pub enum Discard {
     LateOutput,
     /// Output or lifecycle with no request in progress.
     UnownedOutput,
+    /// A function call with no committed request to own it. It was answered
+    /// on the wire as cancelled, so that the service is not left waiting,
+    /// and was not reported as a call.
+    UnownedToolCall,
+    /// An answer to a call that is not waiting for one: it was withdrawn,
+    /// already answered, or its request has ended.
+    StaleToolResponse,
 }
 
 /// What a caller may do about a connection that ended with this error.

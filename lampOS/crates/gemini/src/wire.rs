@@ -1,10 +1,13 @@
 //! Google Live JSON codec. Bounds apply before parsing and before PCM decoding.
 //! Field shapes follow https://ai.google.dev/api/live . Unknown optional metadata
-//! is ignored; unknown message kinds, tools, malformed audio and auth errors fail
-//! with fixed diagnostic categories and no retained raw payload.
+//! is ignored; unknown message kinds, malformed audio and auth errors fail
+//! with fixed diagnostic categories and no retained raw payload. A function
+//! call is read as the service sent it, within bounds; whether its name and
+//! arguments mean anything is for whoever runs it.
 use crate::{
-    Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_WIRE_BYTES,
-    Result, Resumption, ResumptionHandle, SessionConfig, Usage, VoiceActivity,
+    Error, MAX_IMAGE_BYTES, MAX_INPUT_SAMPLES, MAX_OUTPUT_SAMPLES, MAX_TEXT_BYTES, MAX_TOOL_CALLS,
+    MAX_TOOL_ID_BYTES, MAX_TOOL_JSON_BYTES, MAX_WIRE_BYTES, Result, Resumption, ResumptionHandle,
+    SessionConfig, ToolCall, Usage, VoiceActivity,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{
@@ -59,6 +62,30 @@ pub struct ServerFrame {
     pub go_away: Option<GoAway>,
     pub resumption: Option<ResumptionUpdate>,
     pub usage: Option<Usage>,
+    /// Function calls the service made in this message.
+    pub tool_calls: Vec<ToolCall>,
+    /// Identifiers of calls the service withdrew in this message.
+    pub tool_cancellations: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawToolCall {
+    #[serde(default)]
+    function_calls: Vec<RawFunctionCall>,
+}
+#[derive(Deserialize)]
+struct RawFunctionCall {
+    #[serde(default)]
+    id: Option<String>,
+    name: String,
+    #[serde(default)]
+    args: Option<serde_json::Value>,
+}
+#[derive(Deserialize)]
+struct RawToolCancellation {
+    #[serde(default)]
+    ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -69,8 +96,8 @@ struct Envelope<R> {
     voice_activity: Option<RawActivity>,
     go_away: Option<serde_json::Value>,
     usage_metadata: Option<serde_json::Value>,
-    tool_call: Option<IgnoredAny>,
-    tool_call_cancellation: Option<IgnoredAny>,
+    tool_call: Option<RawToolCall>,
+    tool_call_cancellation: Option<RawToolCancellation>,
     session_resumption_update: Option<R>,
     error: Option<serde_json::Value>,
 }
@@ -358,13 +385,12 @@ fn decode<R: ResumptionMetadata + for<'de> Deserialize<'de>>(bytes: &[u8]) -> Re
     if let Some(error) = &envelope.error {
         return Err(rejection(error));
     }
-    if envelope.tool_call.is_some() || envelope.tool_call_cancellation.is_some() {
-        return Err(Error::UnsupportedMessage);
-    }
     let kinds = usize::from(envelope.setup_complete.is_some())
         + usize::from(envelope.server_content.is_some())
         + usize::from(envelope.go_away.is_some())
-        + usize::from(envelope.session_resumption_update.is_some());
+        + usize::from(envelope.session_resumption_update.is_some())
+        + usize::from(envelope.tool_call.is_some())
+        + usize::from(envelope.tool_call_cancellation.is_some());
     // The service can emit an empty object between content messages. JSON was
     // already validated above; require exactly an empty object, not an unknown
     // message whose fields serde ignored. This no-op grants no readiness or turn.
@@ -426,7 +452,58 @@ fn decode<R: ResumptionMetadata + for<'de> Deserialize<'de>>(bytes: &[u8]) -> Re
             .session_resumption_update
             .and_then(ResumptionMetadata::update),
         usage: envelope.usage_metadata.as_ref().map(usage),
+        tool_calls: envelope
+            .tool_call
+            .map(decode_tool_calls)
+            .transpose()?
+            .unwrap_or_default(),
+        tool_cancellations: envelope
+            .tool_call_cancellation
+            .map(|raw| {
+                if raw.ids.len() > MAX_TOOL_CALLS
+                    || raw.ids.iter().any(|id| id.len() > MAX_TOOL_ID_BYTES)
+                {
+                    return Err(Error::MessageTooLarge);
+                }
+                Ok(raw.ids)
+            })
+            .transpose()?
+            .unwrap_or_default(),
     })
+}
+
+/// The calls of one `toolCall`. A message with none, or with more or larger
+/// ones than a session may be asked to hold, is refused; a name or
+/// arguments that mean nothing are not this codec's to judge.
+fn decode_tool_calls(raw: RawToolCall) -> Result<Vec<ToolCall>> {
+    if raw.function_calls.is_empty() {
+        return Err(Error::MalformedMessage);
+    }
+    if raw.function_calls.len() > MAX_TOOL_CALLS {
+        return Err(Error::MessageTooLarge);
+    }
+    raw.function_calls
+        .into_iter()
+        .map(|call| {
+            let id = call.id.unwrap_or_default();
+            let args = call
+                .args
+                .filter(|args| !args.is_null())
+                .unwrap_or_else(|| json!({}));
+            if id.len() > MAX_TOOL_ID_BYTES
+                || call.name.is_empty()
+                || call.name.len() > 64
+                || args.to_string().len() > MAX_TOOL_JSON_BYTES
+            {
+                return Err(Error::MessageTooLarge);
+            }
+            Ok(ToolCall {
+                id,
+                name: call.name,
+                args,
+            })
+        })
+        .collect()
 }
 
 fn decode_content(raw: RawContent) -> Result<ServerContent> {
@@ -589,8 +666,26 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
     if config.small_pictures {
         setup["setup"]["generationConfig"]["mediaResolution"] = json!("MEDIA_RESOLUTION_LOW");
     }
+    let mut tools = Vec::new();
+    if !config.tools.is_empty() {
+        let declarations: Vec<serde_json::Value> = config
+            .tools
+            .iter()
+            .map(|tool| {
+                let mut declaration = json!({"name": tool.name, "description": tool.description});
+                if let Some(parameters) = &tool.parameters {
+                    declaration["parameters"] = parameters.clone();
+                }
+                declaration
+            })
+            .collect();
+        tools.push(json!({"functionDeclarations": declarations}));
+    }
     if config.search {
-        setup["setup"]["tools"] = json!([{"googleSearch": {}}]);
+        tools.push(json!({"googleSearch": {}}));
+    }
+    if !tools.is_empty() {
+        setup["setup"]["tools"] = json!(tools);
     }
     if let Some(handle) = &config.resume {
         setup["setup"]["sessionResumption"] = json!({"handle": handle.expose()});
@@ -669,6 +764,28 @@ pub fn encode_context(text: &str) -> Result<String> {
         "turnComplete": false
     }}))
     .map_err(|_| Error::InvalidConfiguration)
+}
+/// The answer to one function call. The service takes an object; anything
+/// else is given to it as `{"result": ...}`. `id` is left out when the call
+/// came without one.
+pub fn encode_tool_response(id: &str, name: &str, response: &serde_json::Value) -> Result<String> {
+    if id.len() > MAX_TOOL_ID_BYTES || name.is_empty() || name.len() > 64 {
+        return Err(Error::InvalidConfiguration);
+    }
+    let response = if response.is_object() {
+        response.clone()
+    } else {
+        json!({"result": response})
+    };
+    if response.to_string().len() > MAX_TOOL_JSON_BYTES {
+        return Err(Error::MessageTooLarge);
+    }
+    let mut answer = json!({"name": name, "response": response});
+    if !id.is_empty() {
+        answer["id"] = json!(id);
+    }
+    serde_json::to_string(&json!({"toolResponse": {"functionResponses": [answer]}}))
+        .map_err(|_| Error::InvalidConfiguration)
 }
 /// The most a note may be.
 pub const MAX_NOTE_BYTES: usize = 1_024;

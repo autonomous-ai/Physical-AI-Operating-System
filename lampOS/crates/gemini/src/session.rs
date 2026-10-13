@@ -275,6 +275,22 @@ impl InputSender {
         wire::encode_context(text)?;
         self.enqueue(Command::Context(text.into()))
     }
+    /// Answer a function call ([`Event::ToolCall`]) by its identifier and
+    /// name. An answer that is not an object reaches the service as
+    /// `{"result": ...}`. Refused here when it is too large to send. An
+    /// answer to a call that is no longer waiting (withdrawn, answered, its
+    /// request ended) is accepted here and dropped by the session, which
+    /// reports [`Discard::StaleToolResponse`].
+    pub fn try_tool_response(
+        &self,
+        id: &str,
+        name: &str,
+        response: &serde_json::Value,
+    ) -> Result<()> {
+        self.ensure_ready()?;
+        let message = wire::encode_tool_response(id, name, response)?;
+        self.enqueue(Command::ToolResponse(id.into(), message))
+    }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
         self.enqueue(Command::End(request))?;
         self.shared
@@ -736,6 +752,8 @@ enum Command {
     Written(RequestId, String, Option<Vec<u8>>),
     Context(String),
     End(RequestId),
+    /// The answer to the call with this identifier, already encoded.
+    ToolResponse(String, String),
 }
 struct InputState {
     open: bool,
@@ -785,6 +803,8 @@ struct Turn {
     generation_at: Option<Clock>,
     output_samples: u64,
     audio_sequence: u64,
+    /// Function calls the service made for this request and still waits on.
+    tools: Vec<String>,
 }
 impl Turn {
     fn new(lineage: Lineage) -> Self {
@@ -800,6 +820,7 @@ impl Turn {
             generation_at: None,
             output_samples: 0,
             audio_sequence: 0,
+            tools: Vec::new(),
         }
     }
 }
@@ -955,6 +976,8 @@ fn cost(event: &Event) -> usize {
         Event::OutputTranscript { text, .. }
         | Event::ModelText { text, .. }
         | Event::UncorrelatedInputTranscript { text, .. } => text.len(),
+        // Bounded by the codec; counted at its bound.
+        Event::ToolCall { .. } => crate::MAX_TOOL_JSON_BYTES,
         _ => 0,
     }
 }
@@ -1807,6 +1830,63 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     self.commit().await?;
                 }
             }
+            Command::ToolResponse(id, message) => {
+                let waiting = self
+                    .current
+                    .as_mut()
+                    .and_then(|turn| {
+                        let index = turn.tools.iter().position(|pending| *pending == id)?;
+                        turn.tools.swap_remove(index);
+                        // The service generates again from here: the silence
+                        // it is allowed is counted from the answer.
+                        turn.progress_at = Some(Clock::now());
+                        Some(())
+                    })
+                    .is_some();
+                if !waiting {
+                    self.discard(Discard::StaleToolResponse);
+                    return Ok(());
+                }
+                self.write(Message::text(message), self.timeouts.write)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+    /// Function calls belong to the committed request, like any output. The
+    /// service sends nothing more for it until each is answered, so a call
+    /// nobody can own is answered here as cancelled and not reported.
+    async fn tool_calls(&mut self, calls: Vec<crate::ToolCall>) -> Result<()> {
+        // Apply any local retirement first so ownership below is current.
+        self.retire_active().await?;
+        let owner = self
+            .current
+            .as_mut()
+            .filter(|turn| turn.ended_at.is_some() && turn.tools.len() < crate::MAX_TOOL_CALLS);
+        let Some(turn) = owner else {
+            for call in &calls {
+                let message = wire::encode_tool_response(
+                    &call.id,
+                    &call.name,
+                    &serde_json::json!({"error": "cancelled"}),
+                )?;
+                self.write(Message::text(message), self.timeouts.write)
+                    .await?;
+            }
+            self.discard(Discard::UnownedToolCall);
+            return Ok(());
+        };
+        let lineage = turn.lineage;
+        let now = Clock::now();
+        turn.first_output_at.get_or_insert(now);
+        turn.progress_at = Some(now);
+        // A call after a completed generation reopens it, as audio does.
+        turn.generation_at = None;
+        turn.tools.extend(calls.iter().map(|call| call.id.clone()));
+        self.stale_terminal = None;
+        self.last_responder = Some(lineage);
+        for call in calls {
+            self.emit(Event::ToolCall { lineage, call });
         }
         Ok(())
     }
@@ -1904,6 +1984,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 kind: activity.kind,
                 audio_offset: activity.audio_offset,
             });
+        }
+        if !frame.tool_cancellations.is_empty() {
+            if let Some(turn) = self.current.as_mut() {
+                turn.tools
+                    .retain(|pending| !frame.tool_cancellations.contains(pending));
+            }
+            self.emit(Event::ToolCallsCancelled {
+                session: self.session,
+                ids: frame.tool_cancellations,
+            });
+        }
+        if !frame.tool_calls.is_empty() {
+            self.tool_calls(frame.tool_calls).await?;
         }
         if let Some(content) = frame.content {
             self.content(content).await?;

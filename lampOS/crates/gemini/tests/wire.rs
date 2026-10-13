@@ -254,12 +254,14 @@ fn malformed_resumption_metadata_and_tool_siblings_remain_rejected() {
             Error::MalformedMessage
         );
     }
+    // A function call or its withdrawal is a message of its own, like the
+    // three above: beside a resumption update it is malformed.
     for sibling in ["toolCall", "toolCallCancellation"] {
         let mut frame = json!({"sessionResumptionUpdate":{"newHandle":"PRIVATE","resumable":true}});
         frame[sibling] = json!({});
         assert_eq!(
             wire::decode_server(frame.to_string().as_bytes()).unwrap_err(),
-            Error::UnsupportedMessage
+            Error::MalformedMessage
         );
     }
     for bytes in [

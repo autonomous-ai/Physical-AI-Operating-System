@@ -1806,6 +1806,7 @@ async fn resumption_handle_is_kept_only_when_configured_and_never_printed() {
 mod continuation;
 mod open_activity;
 mod retain;
+mod tools;
 
 /// A stop as a fence on the wire. The transport here can hold a write before
 /// or after it has accepted some of it, and can record a stop at the moment

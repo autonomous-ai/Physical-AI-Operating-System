@@ -498,7 +498,9 @@ async fn quota_refusal_and_local_faults_do_not_reconnect() {
 
     // A protocol fault is not a transport outage.
     let (mut rig, mut dial) = connected(quick(), config()).await;
-    dial.service.send(json!({"toolCall":{}})).await;
+    dial.service
+        .send(json!({"serverContent":{"modelTurn":{"parts":[{"fileData":{}}]}}}))
+        .await;
     assert_eq!(
         failure(&mut rig.0).await,
         Failure {

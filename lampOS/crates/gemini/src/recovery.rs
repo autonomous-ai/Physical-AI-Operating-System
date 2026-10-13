@@ -516,7 +516,9 @@ fn observe(tracked: &Cell<Option<Tracked>>, event: &Event) {
         return;
     };
     let stage = match event {
-        Event::Audio { lineage, .. } | Event::ModelText { lineage, .. }
+        Event::Audio { lineage, .. }
+        | Event::ModelText { lineage, .. }
+        | Event::ToolCall { lineage, .. }
             if *lineage == request.lineage =>
         {
             Some(Stage::Responding)
@@ -761,6 +763,23 @@ impl<C: Connect> Supervisor<C> {
         let (input, session) = self.input().ok()?;
         input.try_context(text).ok()?;
         Some(session)
+    }
+    /// See [`InputSender::try_tool_response`]. Only the connection that
+    /// made a call can take its answer: on any other, or with none ready,
+    /// the answer is refused as [`Error::StaleRequest`] or
+    /// [`Error::NotConnected`] and the call is over with its connection.
+    pub fn try_tool_response(
+        &self,
+        session: SessionId,
+        id: &str,
+        name: &str,
+        response: &serde_json::Value,
+    ) -> Result<()> {
+        let (input, current) = self.input()?;
+        if current != session {
+            return Err(Error::StaleRequest);
+        }
+        input.try_tool_response(id, name, response)
     }
     /// See [`InputSender::renew_when_idle`]. False when there is no ready
     /// connection to renew.

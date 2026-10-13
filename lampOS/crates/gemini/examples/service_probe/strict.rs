@@ -387,6 +387,8 @@ impl Observed {
                 row["activity"] = json!(format!("{kind:?}"));
                 row["audio_offset_us"] = json!(audio_offset.map(|d| d.as_micros() as u64));
             }
+            // This probe declares no function, so none can be called.
+            Event::ToolCall { .. } | Event::ToolCallsCancelled { .. } => {}
             Event::GoAway { session, time_left } => {
                 row["kind"] = json!("go_away");
                 row["session"] = json!(session.get());

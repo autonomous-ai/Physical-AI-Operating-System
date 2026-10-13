@@ -263,7 +263,9 @@ async fn a_refusal_that_passes_with_time_is_asked_again_after_the_pause_and_not_
 #[tokio::test]
 async fn what_a_new_connection_cannot_cure_still_ends_it() {
     let (mut rig, mut dial) = connected(endless(), config()).await;
-    dial.service.send(json!({"toolCall":{}})).await;
+    dial.service
+        .send(json!({"serverContent":{"modelTurn":{"parts":[{"fileData":{}}]}}}))
+        .await;
     assert_eq!(
         failure(&mut rig.0).await,
         Failure {

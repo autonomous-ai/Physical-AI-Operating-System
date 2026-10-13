@@ -225,6 +225,37 @@ reaches the `turn` bound before the service's idle completion. Everything
 received is still delivered, and the request is then settled or reported lost
 according to whether generation had completed.
 
+## Function calls
+
+A session can be given functions the model may ask this side to run
+(`SessionConfig::tools`, at most 32, declared at setup beside the service's
+own search when that is on). Until 2026-10-13 any function call ended the
+connection as `UnsupportedMessage`. What the session does with one now:
+
+| Case | What happens |
+|---|---|
+| A call for the committed request | `Event::ToolCall` with that request's lineage. It counts as the request's first output, and the `stall` bound runs from it |
+| The answer (`InputSender::try_tool_response`, by identifier and name) | Written at once; the `stall` bound runs again from the answer. Not an object: sent as `{"result": ...}`. Over 4,096 bytes of JSON: refused where it is offered, nothing sent |
+| A call with no committed request to own it (none in progress, or one whose input is still open) | Answered on the wire as `{"error":"cancelled"}` so the service is not left waiting; `Discard::UnownedToolCall`; no `ToolCall` event |
+| The service withdraws calls (`toolCallCancellation`) | `Event::ToolCallsCancelled`; an answer offered for one afterwards is dropped, `Discard::StaleToolResponse`, nothing sent |
+| An answer for a call already answered, or whose request has ended | The same: dropped and reported, nothing sent |
+| A call that is never answered | The connection ends as `StalledResponse` at the `stall` bound (10 s), like any other silence; whoever takes `ToolCall` must answer every call, also one it will not run |
+| More than 8 calls in a message or waiting on one request, an identifier over 128 bytes, a name over 64, arguments over 4,096 bytes of JSON | `MessageTooLarge` (the first three and the last); a ninth call waiting on one request is answered as cancelled |
+| A call message with no calls, or beside content or a resumption update | `MalformedMessage` |
+
+The codec does not judge whether a name or its arguments mean anything:
+that is for whoever runs the function. Through the supervisor an answer is
+taken only by the connection that made the call
+(`Supervisor::try_tool_response`); a call dies with its connection and is
+not carried to the next.
+
+Tested with the scripted service only (`session/tests/tools.rs`, eight
+tests). Not yet shown against the real service: that the relay passes
+function declarations, that this model calls them from speech, what it says
+after an answer, and what a call costs an ordinary answer's first audio.
+The voice service declares no function yet; its worker answers any call as
+unavailable.
+
 ## A stop is a fence on the wire
 
 A stop is `Connection::shutdown` or `InputSender::shutdown`, or a failure

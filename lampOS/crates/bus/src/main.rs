@@ -29,7 +29,7 @@ usage: lamp-bus [--root PATH] COMMAND ...
   latest TOPIC
       Print the topic's current value. Status 1 if it keeps none.
   pub TOPIC latest|event JSON [--at-us N]
-      Publish one JSON message as lamp-bus-cli.
+      Publish one JSON message as lamp_bus_cli.
   record DIR TOPIC... [--seconds S] [--max-mb N]
       Append every message of the topics to DIR/<topic with / as _>.jsonl
       until killed or for S seconds. A file stops growing at N MiB (64).
@@ -213,7 +213,7 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
             };
             let value: serde_json::Value = serde_json::from_str(&words[2])
                 .map_err(|error| Failure::Usage(format!("{:?} is not JSON: {error}", words[2])))?;
-            let mut publisher = bus.publisher(&words[0], kind, "lamp-bus-cli")?;
+            let mut publisher = bus.publisher(&words[0], kind, "lamp_bus_cli")?;
             // This process has no clock it shares with anyone: 0 says so.
             let outcome = publisher.publish_json(at_us.unwrap_or(0), &value)?;
             say(&format!(

@@ -125,7 +125,7 @@ struct Rgb {
 
 impl BusLight {
     pub fn new(bus: lamp_bus::Bus) -> std::io::Result<Self> {
-        let wanted = bus.publisher(WANTED, lamp_bus::Kind::Latest, "lamp-actions")?;
+        let wanted = bus.publisher(WANTED, lamp_bus::Kind::Latest, "actions")?;
         Ok(Self {
             bus,
             wanted,

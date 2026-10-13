@@ -146,7 +146,7 @@ mod tests {
             topic: "servos".into(),
             kind: Kind::Latest,
             enc: JSON.into(),
-            source: "lamp-body".into(),
+            source: "body".into(),
             boot: "9f3a6c1e04b7d25a".into(),
             seq: 412,
             at_us: 98_123_456,
@@ -167,7 +167,7 @@ mod tests {
         let mut header = header();
         assert_eq!(
             serde_json::to_string(&header).unwrap(),
-            "{\"topic\":\"servos\",\"kind\":\"latest\",\"enc\":\"json\",\"source\":\"lamp-body\",\
+            "{\"topic\":\"servos\",\"kind\":\"latest\",\"enc\":\"json\",\"source\":\"body\",\
              \"boot\":\"9f3a6c1e04b7d25a\",\"seq\":412,\"at_us\":98123456,\
              \"at_unix_ms\":1791878400123,\"expires_ms\":500}"
         );

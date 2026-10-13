@@ -3,16 +3,21 @@
 //! A topic's name becomes a path under the root and a subscriber's name part
 //! of a socket's file name, so both are checked here, as text, before
 //! anything is asked of the filesystem.
+//!
+//! The rule for a topic is ROS's: lower-case tokens with underscores, joined
+//! by `/`, grouped by the part the data comes from and named for the data
+//! (`mic2/audio`, `body/joint_states`). One separator and one alphabet, so
+//! that a name can be guessed and never has two spellings.
 use std::io;
 
 /// The most a whole topic name may be.
 pub const MOST_TOPIC_BYTES: usize = 96;
-const MOST_SEGMENT_BYTES: usize = 32;
+const MOST_TOKEN_BYTES: usize = 32;
 const MOST_ENCODING_BYTES: usize = 64;
 
-/// The two names a topic's own directory uses. A topic `a/subs` would be the
+/// The names a topic's own directory uses. A topic `a/subs` would be the
 /// directory where topic `a` keeps its subscribers.
-const KEPT: [&str; 2] = ["subs", "latest"];
+const KEPT: [&str; 4] = ["subs", "latest", "pubs", "declaration"];
 
 fn refused(what: &str, name: &str, rule: &str) -> io::Error {
     // A name can be any length: say enough of it to find it.
@@ -28,26 +33,24 @@ fn small(byte: u8) -> bool {
     byte.is_ascii_lowercase() || byte.is_ascii_digit()
 }
 
-/// `[a-z0-9][a-z0-9_-]{0,31}`
-fn segment(text: &str) -> bool {
+/// `[a-z][a-z0-9_]{0,31}`
+fn token(text: &str) -> bool {
     let bytes = text.as_bytes();
-    (1..=MOST_SEGMENT_BYTES).contains(&bytes.len())
-        && small(bytes[0])
-        && bytes
-            .iter()
-            .all(|&byte| small(byte) || matches!(byte, b'_' | b'-'))
+    (1..=MOST_TOKEN_BYTES).contains(&bytes.len())
+        && bytes[0].is_ascii_lowercase()
+        && bytes.iter().all(|&byte| small(byte) || byte == b'_')
 }
 
-/// A topic: segments joined by `/`, which nests directories, or by `.`,
-/// which stays in the directory's name. Starting every segment with a letter
-/// or digit is what keeps `..`, an empty segment and an absolute path out.
+/// A topic: tokens joined by `/`, each a directory under the one before.
+/// Starting every token with a letter is what keeps `..`, an empty token, an
+/// absolute path and the bus's own files, which begin with a dot, out.
 pub fn topic(name: &str) -> io::Result<()> {
-    const RULE: &str = "a topic: segments of [a-z0-9][a-z0-9_-]{0,31} joined by / or ., \
-                        96 bytes at most, no directory called subs or latest";
+    const RULE: &str = "a topic: tokens of [a-z][a-z0-9_]{0,31} joined by /, 96 bytes at most, \
+                        none of them subs, latest, pubs or declaration";
     let fits = name.len() <= MOST_TOPIC_BYTES;
     let shaped = name
         .split('/')
-        .all(|directory| !KEPT.contains(&directory) && directory.split('.').all(segment));
+        .all(|part| token(part) && !KEPT.contains(&part));
     if fits && shaped {
         Ok(())
     } else {
@@ -55,17 +58,12 @@ pub fn topic(name: &str) -> io::Result<()> {
     }
 }
 
-/// `[a-z0-9_-]{1,32}`: a subscriber's name, or a publisher's.
+/// `[a-z][a-z0-9_]{0,31}`: a subscriber's name, or a publisher's.
 fn plain(what: &str, name: &str) -> io::Result<()> {
-    let bytes = name.as_bytes();
-    if (1..=MOST_SEGMENT_BYTES).contains(&bytes.len())
-        && bytes
-            .iter()
-            .all(|&byte| small(byte) || matches!(byte, b'_' | b'-'))
-    {
+    if token(name) {
         Ok(())
     } else {
-        Err(refused(what, name, "[a-z0-9_-]{1,32}"))
+        Err(refused(what, name, "[a-z][a-z0-9_]{0,31}"))
     }
 }
 
@@ -99,24 +97,51 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_topic_is_segments_joined_by_a_slash_or_a_dot() {
+    fn a_topic_is_lower_case_tokens_joined_by_a_slash() {
         for name in [
             "mic2",
             "servos",
             "gemini/transcript",
-            "room.state",
+            "room/state",
+            "body/joint_states",
+            "humans/faces/tracked",
             "a",
-            "0",
-            "a-b_c/d.e/f",
-            "subs.x",
-            "latest-value",
-            "x/subs.y",
+            "a_/b__c/d0",
+            "subs_x",
+            "latest_value",
+            "x/pubs2",
+            "declarations",
         ] {
             assert!(topic(name).is_ok(), "{name}");
         }
         let longest = [["a"; 32].concat(), ["b"; 32].concat(), ["c"; 30].concat()].join("/");
         assert_eq!(longest.len(), 96);
         assert!(topic(&longest).is_ok());
+    }
+
+    #[test]
+    fn the_dot_the_hyphen_and_a_leading_digit_or_underscore_are_no_longer_a_topic() {
+        for name in [
+            "room.state",
+            "light.wanted",
+            "a.b",
+            "lamp-body",
+            "a-b",
+            "a/b-c",
+            "0",
+            "2mic",
+            "a/0b",
+            "_a",
+            "a/_b",
+            "subs.x",
+        ] {
+            let error = topic(name).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{name:?}");
+            assert!(
+                error.to_string().contains("joined by /"),
+                "{name:?}: {error}"
+            );
+        }
     }
 
     #[test]
@@ -138,7 +163,6 @@ mod tests {
             "mic 2",
             "mic2\n",
             "-a",
-            "_a",
             "a/-b",
             "caf\u{e9}",
             "a\0b",
@@ -158,18 +182,44 @@ mod tests {
 
     #[test]
     fn a_topic_cannot_be_another_topics_own_directory_or_file() {
-        for name in ["subs", "latest", "a/subs", "a/latest", "subs/a", "a/subs/b"] {
+        for name in [
+            "subs",
+            "latest",
+            "pubs",
+            "declaration",
+            "a/subs",
+            "a/latest",
+            "a/pubs",
+            "a/declaration",
+            "subs/a",
+            "pubs/a",
+            "a/subs/b",
+            "a/declaration/b",
+        ] {
             assert!(topic(name).is_err(), "{name}");
         }
     }
 
     #[test]
     fn a_subscriber_and_a_publisher_have_one_plain_word_for_a_name() {
-        for name in ["follow", "lamp-body", "a", "_", "-", "0_o", &"n".repeat(32)] {
+        for name in ["follow", "body", "lamp_body", "a", "o_0", &"n".repeat(32)] {
             assert!(subscriber(name).is_ok(), "{name}");
             assert!(source(name).is_ok(), "{name}");
         }
-        for name in ["", "a.b", "a/b", "A", "a b", "..", &"n".repeat(33)] {
+        for name in [
+            "",
+            "a.b",
+            "a/b",
+            "A",
+            "a b",
+            "..",
+            "lamp-body",
+            "-",
+            "_",
+            "_a",
+            "0_o",
+            &"n".repeat(33),
+        ] {
             assert!(subscriber(name).is_err(), "{name:?}");
             assert!(source(name).is_err(), "{name:?}");
         }

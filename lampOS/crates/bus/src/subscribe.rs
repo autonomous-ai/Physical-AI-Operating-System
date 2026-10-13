@@ -357,7 +357,7 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         let bus = Bus::new(&root).unwrap().rescan_every(Duration::ZERO);
         let mut subscriber = bus.subscribe("servos", "follow").unwrap();
-        let mut publisher = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+        let mut publisher = bus.publisher("servos", Kind::Latest, "body").unwrap();
         for yaw in 1..=3u64 {
             assert_eq!(publisher.publish_json(yaw, &yaw).unwrap().delivered, 1);
         }
@@ -399,7 +399,7 @@ mod tests {
         let bus = Bus::new(&root).unwrap().rescan_every(Duration::ZERO);
         let wait = Duration::from_secs(5);
         let mut subscriber = bus.subscribe("servos", "follow").unwrap();
-        let mut first = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+        let mut first = bus.publisher("servos", Kind::Latest, "body").unwrap();
         for yaw in 1..=3u64 {
             first.publish_json(yaw, &yaw).unwrap();
             assert_eq!(subscriber.recv(wait).unwrap().unwrap().header.seq, yaw);
@@ -407,7 +407,7 @@ mod tests {
         let kept = root.join("servos/latest");
         let old = fs::read(&kept).unwrap();
         drop(first);
-        let mut second = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+        let mut second = bus.publisher("servos", Kind::Latest, "body").unwrap();
         second.publish_json(9, &9).unwrap();
         let message = subscriber.recv(wait).unwrap().unwrap();
         assert_eq!((message.header.seq, message.publisher_restarted), (1, true));

@@ -20,13 +20,25 @@ const WAIT: Duration = Duration::from_secs(20);
 /// ends. The name is short: a socket's whole path has to fit in 103 bytes.
 struct Root(PathBuf);
 
+/// A number in base 36, the shortest a file name can carry it.
+fn short(mut number: u32) -> String {
+    let mut digits = Vec::new();
+    loop {
+        digits.push(char::from_digit(number % 36, 36).unwrap());
+        number /= 36;
+        if number == 0 {
+            break digits.iter().rev().collect();
+        }
+    }
+}
+
 impl Root {
     fn new() -> Self {
         static MADE: AtomicU32 = AtomicU32::new(0);
         let path = std::env::temp_dir().join(format!(
-            "lc{}-{}",
-            std::process::id(),
-            MADE.fetch_add(1, Ordering::Relaxed)
+            "c{}_{}",
+            short(std::process::id()),
+            short(MADE.fetch_add(1, Ordering::Relaxed))
         ));
         let _ = fs::remove_dir_all(&path);
         Self(path)
@@ -168,7 +180,7 @@ fn pub_then_latest_prints_what_was_published_and_a_topic_that_keeps_nothing_is_s
     assert_eq!(header["topic"], "servos");
     assert_eq!(header["kind"], "latest");
     assert_eq!(header["enc"], "json");
-    assert_eq!(header["source"], "lamp-bus-cli");
+    assert_eq!(header["source"], "lamp_bus_cli");
     assert_eq!(header["seq"], 1);
     assert_eq!(header["at_us"], 42);
     assert_eq!(header["boot"].as_str().unwrap().len(), 16);
@@ -266,7 +278,7 @@ fn record_then_replay_gives_a_subscriber_the_messages_again_at_their_spacing() {
     until("the recorder's sockets", || {
         root.sockets("servos").len() == 1 && root.sockets("gemini/transcript").len() == 1
     });
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     pose.expires_after(Some(Duration::from_millis(500)));
     let mut words = bus
         .publisher("gemini/transcript", Kind::Event, "voice")
@@ -307,7 +319,7 @@ fn record_then_replay_gives_a_subscriber_the_messages_again_at_their_spacing() {
     for (n, line) in recorded.iter().enumerate() {
         assert_eq!(line.as_object().unwrap().len(), 2);
         assert_eq!(line["header"]["seq"], n as u64 + 1);
-        assert_eq!(line["header"]["source"], "lamp-body");
+        assert_eq!(line["header"]["source"], "body");
         assert_eq!(line["header"]["kind"], "latest");
         assert_eq!(line["header"]["expires_ms"], 500);
     }
@@ -493,16 +505,16 @@ fn topics_lists_each_topic_with_who_listens_and_whether_a_value_is_kept() {
         bus.subscribe("servos", "eyes").unwrap(),
         bus.subscribe("gemini/transcript", "memory").unwrap(),
     );
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     assert_eq!(pose.publish_json(1, &1).unwrap().delivered, 2);
-    let mut state = bus.publisher("room.state", Kind::Latest, "eyes").unwrap();
+    let mut state = bus.publisher("room/state", Kind::Latest, "eyes").unwrap();
     state.publish_json(1, &json!({"people": 1})).unwrap();
     let listed = run(&root, &["topics"]);
     assert!(listed.status.success());
     assert_eq!(
         text(&listed.stdout),
         "gemini/transcript subscribers=1 latest=no\n\
-         room.state subscribers=0 latest=yes\n\
+         room/state subscribers=0 latest=yes\n\
          servos subscribers=2 latest=yes\n"
     );
     drop(listeners);
@@ -513,7 +525,7 @@ fn bad_input_prints_the_usage_and_is_status_2_with_nothing_touched() {
     let root = Root::new();
     let elsewhere = root.0.join("recordings");
     let elsewhere = elsewhere.to_str().unwrap();
-    let cases: [&[&str]; 22] = [
+    let cases: [&[&str]; 24] = [
         &[],
         &["frobnicate"],
         &["topics", "extra"],
@@ -522,6 +534,8 @@ fn bad_input_prints_the_usage_and_is_status_2_with_nothing_touched() {
         &["tap", "../x"],
         &["tap", "/tmp/x"],
         &["tap", "servos", "--name", "A.b"],
+        &["tap", "room.state"],
+        &["tap", "servos", "--name", "lamp-tap"],
         &["tap", "servos", "--count", "many"],
         &["tap", "servos", "--seconds"],
         &["tap", "servos", "--seconds", "-1"],

@@ -29,15 +29,30 @@ const NEVER: Duration = Duration::from_secs(3_600);
 /// A root of one test's own, removed when the test ends however it ends.
 struct Root(PathBuf);
 
+/// A number in base 36, the shortest a file name can carry it.
+fn short(mut number: u32) -> String {
+    let mut digits = Vec::new();
+    loop {
+        digits.push(char::from_digit(number % 36, 36).unwrap());
+        number /= 36;
+        if number == 0 {
+            break digits.iter().rev().collect();
+        }
+    }
+}
+
 impl Root {
     fn new() -> Self {
         static MADE: AtomicU32 = AtomicU32::new(0);
         // Short: a socket's whole path has to fit in 103 bytes, and on
-        // macOS the temporary directory alone is 49.
+        // macOS the temporary directory alone is 49. With the process and
+        // the count in decimal the name came to ten bytes, and a subscriber
+        // called `follow` on `gemini/transcript` to 104 whenever the
+        // process's number had five digits: eight at most this way.
         let path = std::env::temp_dir().join(format!(
-            "lb{}-{}",
-            std::process::id(),
-            MADE.fetch_add(1, Ordering::Relaxed)
+            "b{}_{}",
+            short(std::process::id()),
+            short(MADE.fetch_add(1, Ordering::Relaxed))
         ));
         let _ = fs::remove_dir_all(&path);
         Self(path)
@@ -114,7 +129,7 @@ fn one_publisher_reaches_two_subscribers_with_every_message_in_order_json_and_by
     let bus = root.bus();
     let mut follow = bus.subscribe("servos", "follow").unwrap();
     let mut eyes = bus.subscribe("servos", "eyes").unwrap();
-    let mut publisher = bus.publisher("servos", Kind::Event, "lamp-body").unwrap();
+    let mut publisher = bus.publisher("servos", Kind::Event, "body").unwrap();
     publisher.expires_after(Some(Duration::from_millis(500)));
     let both = Published {
         delivered: 2,
@@ -133,7 +148,7 @@ fn one_publisher_reaches_two_subscribers_with_every_message_in_order_json_and_by
             let message = subscriber.recv(WAIT).unwrap().expect("a message");
             assert_eq!(message.header.topic, "servos");
             assert_eq!(message.header.kind, Kind::Event);
-            assert_eq!(message.header.source, "lamp-body");
+            assert_eq!(message.header.source, "body");
             assert_eq!(message.header.boot, publisher.boot());
             assert_eq!(message.header.seq, n);
             assert_eq!(message.header.at_us, n * 1_000);
@@ -190,7 +205,7 @@ fn one_publisher_reaches_two_subscribers_with_every_message_in_order_json_and_by
 fn a_late_subscriber_reads_the_current_value_of_a_latest_topic_and_nothing_of_an_event_topic() {
     let root = Root::new();
     let bus = root.bus().rescan_every(Duration::ZERO);
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     let mut words = bus
         .publisher("gemini/transcript", Kind::Event, "voice")
         .unwrap();
@@ -398,7 +413,7 @@ fn a_second_publisher_instance_under_the_same_name_shows_as_a_restart_and_not_as
     let root = Root::new();
     let bus = root.bus();
     let mut subscriber = bus.subscribe("servos", "follow").unwrap();
-    let mut first = bus.publisher("servos", Kind::Event, "lamp-body").unwrap();
+    let mut first = bus.publisher("servos", Kind::Event, "body").unwrap();
     for seq in 1..=5u64 {
         assert_eq!(first.publish_json(seq, &seq).unwrap(), ONE);
         let message = subscriber.recv(WAIT).unwrap().unwrap();
@@ -408,7 +423,7 @@ fn a_second_publisher_instance_under_the_same_name_shows_as_a_restart_and_not_as
     let was = first.boot().to_string();
     drop(first);
     // The body's process ended and was started again.
-    let mut second = bus.publisher("servos", Kind::Event, "lamp-body").unwrap();
+    let mut second = bus.publisher("servos", Kind::Event, "body").unwrap();
     assert_ne!(second.boot(), was);
     assert_eq!(second.publish_json(1, &1).unwrap(), ONE);
     let message = subscriber.recv(WAIT).unwrap().unwrap();
@@ -444,7 +459,7 @@ fn a_dropped_subscriber_removes_its_socket_and_a_dead_ones_is_removed_by_the_nex
     drop(UnixDatagram::bind(&ghost).unwrap());
     assert!(ghost.exists());
     let mut alive = bus.subscribe("servos", "alive").unwrap();
-    let mut publisher = bus.publisher("servos", Kind::Event, "lamp-body").unwrap();
+    let mut publisher = bus.publisher("servos", Kind::Event, "body").unwrap();
     let outcome = publisher.publish_json(1, &1).unwrap();
     assert_eq!(
         outcome,
@@ -502,7 +517,7 @@ fn publishing_to_nobody_succeeds_and_leaves_nothing_but_the_latest_value() {
     }
     // Events to nobody: not so much as the root is created.
     assert!(!root.0.exists());
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     assert!(!root.0.exists());
     for n in 1..=100u64 {
         let outcome = pose.publish_json(n, &json!({"yaw": n}));
@@ -545,9 +560,16 @@ fn invalid_topic_and_subscriber_names_are_refused_before_anything_is_created() {
         "a/",
         "servos/subs",
         "latest",
+        "servos/pubs",
+        "declaration",
+        // What the rule before this one took: a dot, a hyphen, a digit first.
+        "room.state",
+        "light.wanted",
+        "lamp-body/pose",
+        "2d/pose",
     ] {
         let refused = [
-            bus.publisher(topic, Kind::Latest, "lamp-body").err(),
+            bus.publisher(topic, Kind::Latest, "body").err(),
             bus.subscribe(topic, "follow").err(),
             bus.latest(topic).err(),
         ];
@@ -558,7 +580,18 @@ fn invalid_topic_and_subscriber_names_are_refused_before_anything_is_created() {
         }
     }
     let long = "n".repeat(33);
-    for name in ["", "a.b", "a/b", "../x", "A", "a b", long.as_str()] {
+    for name in [
+        "",
+        "a.b",
+        "a/b",
+        "../x",
+        "A",
+        "a b",
+        "lamp-body",
+        "_a",
+        "2a",
+        long.as_str(),
+    ] {
         let error = bus.subscribe("servos", name).err().expect("refused");
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{name:?}");
         assert!(error.to_string().starts_with("subscriber name "), "{error}");
@@ -572,6 +605,50 @@ fn invalid_topic_and_subscriber_names_are_refused_before_anything_is_created() {
     let error = Bus::new("run/lampos-bus").unwrap_err();
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     assert!(error.to_string().contains("not an absolute path"));
+}
+
+#[test]
+fn the_first_topics_are_named_by_the_rule_and_nest_as_directories() {
+    let root = Root::new();
+    let bus = root.bus();
+    let names = [
+        "mic1/audio",
+        "mic2/audio",
+        "camera/image",
+        "body/joint_states",
+        "humans/faces/tracked",
+        "voice/heard",
+        "voice/said",
+        "voice/state",
+        "voice/link",
+        "room/state",
+        "light/command",
+        "light/state",
+        "diagnostics",
+    ];
+    for name in names {
+        let mut publisher = bus.publisher(name, Kind::Latest, "body").unwrap();
+        publisher.publish_json(1, &json!({"of": name})).unwrap();
+        let kept = bus.latest(name).unwrap().expect("the value");
+        assert_eq!(kept.header.topic, name);
+        assert_eq!(kept.json().unwrap(), json!({"of": name}));
+    }
+    let mut expected: Vec<&str> = names.to_vec();
+    expected.sort_unstable();
+    let listed = bus.topics().unwrap();
+    let listed: Vec<&str> = listed.iter().map(|topic| topic.name.as_str()).collect();
+    // A token that only groups topics, `voice` or `humans/faces`, is not one.
+    assert_eq!(listed, expected);
+    assert!(root.0.join("humans/faces/tracked/latest").is_file());
+    // Through a socket three directories down.
+    let mut subscriber = bus.subscribe("humans/faces/tracked", "f").unwrap();
+    let mut eyes = bus
+        .publisher("humans/faces/tracked", Kind::Latest, "eyes")
+        .unwrap();
+    assert_eq!(eyes.publish_json(2, &json!({"faces": []})).unwrap(), ONE);
+    let message = subscriber.recv(WAIT).unwrap().expect("the faces");
+    assert_eq!(message.header.source, "eyes");
+    assert_eq!(message.json().unwrap(), json!({"faces": []}));
 }
 
 #[test]
@@ -746,7 +823,7 @@ fn a_root_that_cannot_be_used_is_an_error_said_once_and_never_a_panic() {
         assert_eq!(events.publish_json(n, &n).unwrap(), Published::default());
     }
     assert_eq!(events.totals().published, 20);
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     assert!(pose.publish_json(1, &1).is_err());
     for n in 2..=20u64 {
         assert_eq!(pose.publish_json(n, &n).unwrap(), Published::default());
@@ -790,7 +867,7 @@ fn a_socket_path_too_long_for_the_system_is_refused_in_plain_words_and_nothing_i
     assert!(!root.0.exists());
     // Nothing of a publisher is bound, so the same topic can be published
     // and its value kept and read.
-    let mut publisher = bus.publisher(&topic, Kind::Latest, "lamp-body").unwrap();
+    let mut publisher = bus.publisher(&topic, Kind::Latest, "body").unwrap();
     assert_eq!(publisher.publish_json(1, &1).unwrap(), Published::default());
     assert_eq!(bus.latest(&topic).unwrap().unwrap().header.seq, 1);
     // A topic as long as leaves room for the socket's name is taken.
@@ -813,7 +890,7 @@ fn what_is_not_a_message_of_the_topic_is_passed_over_and_counted() {
     let mut subscriber = bus.subscribe("servos", "follow").unwrap();
     let path = sockets(&root.0.join("servos/subs")).remove(0);
     let stranger = UnixDatagram::unbound().unwrap();
-    let mut publisher = bus.publisher("servos", Kind::Event, "lamp-body").unwrap();
+    let mut publisher = bus.publisher("servos", Kind::Event, "body").unwrap();
     stranger.send_to(b"hello", &path).unwrap();
     stranger.send_to(b"{}\n{}", &path).unwrap();
     stranger.send_to(b"", &path).unwrap();
@@ -856,7 +933,7 @@ fn directories_get_the_mode_asked_for_and_files_and_sockets_owner_and_group_only
     }
     let socket = sockets(&root.0.join("gemini/transcript/subs")).remove(0);
     assert_eq!(mode(&socket), 0o660);
-    let mut pose = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
     pose.publish_json(1, &1).unwrap();
     assert_eq!(mode(&root.0.join("servos")), 0o750);
     assert_eq!(mode(&root.0.join("servos/latest")), 0o660);
@@ -882,7 +959,7 @@ fn the_newest_value_reaches_a_subscriber_whose_queue_missed_it() {
     let seldom = root.bus().rescan_every(NEVER);
     let bus = root.bus().rescan_every(Duration::ZERO);
     let mut publisher = seldom
-        .publisher("room.state", Kind::Latest, "eyes")
+        .publisher("room/state", Kind::Latest, "eyes")
         .unwrap();
     assert_eq!(
         publisher.publish_json(1, &json!({"people": 0})).unwrap(),
@@ -890,7 +967,7 @@ fn the_newest_value_reaches_a_subscriber_whose_queue_missed_it() {
     );
     // Bound just after the publisher's look: the next values are sent to
     // nobody.
-    let mut subscriber = bus.subscribe("room.state", "follow").unwrap();
+    let mut subscriber = bus.subscribe("room/state", "follow").unwrap();
     assert_eq!(
         publisher.publish_json(2, &json!({"people": 1})).unwrap(),
         Published::default()
@@ -914,7 +991,7 @@ fn the_newest_value_reaches_a_subscriber_whose_queue_missed_it() {
 
     // The same when the queue was full: the last value has no later
     // message behind it to show that it was dropped.
-    let mut known = bus.publisher("servos", Kind::Latest, "lamp-body").unwrap();
+    let mut known = bus.publisher("servos", Kind::Latest, "body").unwrap();
     let mut follow = bus.subscribe("servos", "follow").unwrap();
     let mut held = 0u64;
     while known.publish_json(1, &json!({"yaw": 1})).unwrap() == ONE {
@@ -977,7 +1054,7 @@ fn topics_are_listed_with_who_listens_and_whether_a_value_is_kept() {
     let first = bus.subscribe("servos", "follow").unwrap();
     let second = bus.subscribe("servos", "eyes").unwrap();
     drop(UnixDatagram::bind(root.0.join("servos/subs/ghost.1.0.sock")).unwrap());
-    let mut state = bus.publisher("room.state", Kind::Latest, "eyes").unwrap();
+    let mut state = bus.publisher("room/state", Kind::Latest, "eyes").unwrap();
     state.publish_json(1, &1).unwrap();
     // Put there by hand: a publish to `servos` would remove the dead
     // socket that is there to be listed.
@@ -996,7 +1073,7 @@ fn topics_are_listed_with_who_listens_and_whether_a_value_is_kept() {
         bus.topics().unwrap(),
         [
             topic("gemini/transcript", 1, 0, false),
-            topic("room.state", 0, 0, true),
+            topic("room/state", 0, 0, true),
             topic("servos", 2, 1, true),
         ]
     );
@@ -1044,9 +1121,9 @@ fn a_publisher_serves_sixty_four_subscribers_and_says_once_that_there_are_more()
     let root = Root::new();
     let bus = root.bus().rescan_every(Duration::ZERO);
     let mut subscribers: Vec<_> = (0..=lamp_bus::MOST_SUBSCRIBERS)
-        .map(|_| bus.subscribe("room.state", "s").unwrap())
+        .map(|_| bus.subscribe("room/state", "s").unwrap())
         .collect();
-    let mut publisher = bus.publisher("room.state", Kind::Event, "eyes").unwrap();
+    let mut publisher = bus.publisher("room/state", Kind::Event, "eyes").unwrap();
     let all = Published {
         delivered: 64,
         dropped: 0,
@@ -1081,7 +1158,7 @@ fn a_publisher_serves_sixty_four_subscribers_and_says_once_that_there_are_more()
         assert_eq!((message.header.seq, message.gap), (3, 0));
     }
     // One too many again is said again.
-    subscribers.push(bus.subscribe("room.state", "s").unwrap());
+    subscribers.push(bus.subscribe("room/state", "s").unwrap());
     assert!(publisher.publish_json(4, &4).is_err());
     assert_eq!(publisher.publish_json(5, &5).unwrap(), all);
     assert_eq!(publisher.totals().published, 5);

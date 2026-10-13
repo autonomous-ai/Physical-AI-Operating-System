@@ -20,12 +20,16 @@ another (an absolute path, on a filesystem with hard links):
     <root>/<topic>/latest                                 the newest message, kind `latest` only
 
 Directories are made when first needed, mode 0770 unless the `Bus` is told
-another; sockets and `latest` are 0660. A topic is segments of
-`[a-z0-9][a-z0-9_-]{0,31}` joined by `/`, which nests directories, or by `.`,
-which does not (`gemini/transcript`, `room.state`): 96 bytes at most, no
-directory called `subs` or `latest`. A subscriber's or publisher's name is
-`[a-z0-9_-]{1,32}`. Anything else is refused before the filesystem is touched,
-and so is a socket path over 103 bytes, the less of what macOS and Linux hold.
+another; sockets and `latest` are 0660. A topic's name follows ROS's rule
+and only it: tokens of `[a-z][a-z0-9_]{0,31}` joined by `/`, each a directory
+under the one before, grouped by the part the data comes from and named for
+the data (`mic2/audio`, `body/joint_states`, `room/state`). It is 96 bytes at
+most, and no token is `subs`, `latest`, `pubs` or `declaration`, which a
+topic's own directory uses. A subscriber's or publisher's name is one such
+token (`body`, `lamp_bus_cli`). A `.` between tokens and a `-` inside one,
+which the first version of the crate took, are refused. So is anything else,
+before the filesystem is touched, and so is a socket path over 103 bytes, the
+less of what macOS and Linux hold.
 A subscriber binds as `<...>.new` and links that to its `.sock` name, the
 only names publishers look at: a socket's file is there a moment before the
 socket can be sent to, and on the Mac 61 of 400 bound directly were removed
@@ -35,7 +39,7 @@ as dead by a publisher that looked with every message.
 
 One datagram: a line of JSON, a line end, then the payload's bytes untouched.
 
-    {"topic":"servos","kind":"latest","enc":"json","source":"lamp-body","boot":"9f3a6c1e04b7d25a","seq":412,"at_us":98123456,"at_unix_ms":1791878400123,"expires_ms":500}
+    {"topic":"servos","kind":"latest","enc":"json","source":"body","boot":"9f3a6c1e04b7d25a","seq":412,"at_us":98123456,"at_unix_ms":1791878400123,"expires_ms":500}
     {"pitch":2048,"roll":2051,"yaw":1990}
 
 `enc` says how to read the payload: `json`, `none` (there is none), or a
@@ -83,7 +87,7 @@ arrives though its datagram was dropped.
     lamp-bus topics                                 # servos subscribers=2 latest=yes
     lamp-bus tap gemini/transcript --count 5        # header, then the payload if JSON, else <N bytes>
     lamp-bus latest servos                          # status 1 if the topic keeps none
-    lamp-bus pub room.state latest '{"people":1}'   # as lamp-bus-cli, at_us 0 unless --at-us
+    lamp-bus pub room/state latest '{"people":1}'   # as lamp_bus_cli, at_us 0 unless --at-us
     lamp-bus record /var/tmp/rec mic2 servos --seconds 60
     lamp-bus replay /var/tmp/rec/servos.jsonl --speed 2
 
@@ -126,7 +130,7 @@ so, the crate does not do it yet.**
 
 | What ROS does, and its reason | What the lamp's bus does about it | In the crate |
 |---|---|---|
-| Names are `/`-separated lower-case tokens with underscores, grouped by the part the data comes from and named for the data, never for who uses it | The same rule, and only it: `mic2/audio`, `camera/image`, `body/joint_states`. The `.` separator and `-` in a token go | No: today `.` and `-` are accepted |
+| Names are `/`-separated lower-case tokens with underscores, grouped by the part the data comes from and named for the data, never for who uses it | The same rule, and only it: `mic2/audio`, `camera/image`, `body/joint_states`. The `.` separator and `-` in a token are refused, in a publisher's or subscriber's name too | Yes |
 | One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | No |
 | The registry only introduces; data goes straight from publisher to subscriber: "no central point of failure" | The filesystem is the registry and each message goes straight to each subscriber's socket | Yes |
 | A bounded queue per subscriber, so that one slow subscriber cannot hold the publisher or the others | Each subscriber's socket is its own queue; a full one loses that subscriber's message and is counted. ROS drops the oldest, this drops the newest; to be revisited for sound | Yes, with that difference |
@@ -165,10 +169,11 @@ Named by the rule above. Rates are those the parts already run at.
 
 Host tests on a development Mac (x86_64): the library through real sockets,
 the built binary run and killed, the Python above against it. On 2026-10-13
-the same 43 tests passed once as a Linux ARM64 build under emulation in a
-container (no Python there, so not the Python part): that run is the first
-in which a 60,000-byte message was delivered and a bound socket was linked
-to a second name on Linux. Never run on a lamp, and nothing publishes on it
+the 43 tests of the first version passed once as a Linux ARM64 build under
+emulation in a container (no Python there, so not the Python part): that run
+is the first in which a 60,000-byte message was delivered and a bound socket
+was linked to a second name on Linux. The name rule came after it and has
+been run on the Mac only. Never run on a lamp, and nothing publishes on it
 yet. Socket buffers are the system's defaults, which
 the standard library cannot change. On this Mac a subscriber that does not
 read held 25 messages of 141 bytes, or 5 pieces of sound, before the next was

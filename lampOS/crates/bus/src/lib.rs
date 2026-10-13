@@ -16,7 +16,7 @@
 //! use std::time::Duration;
 //!
 //! let bus = Bus::from_environment()?;
-//! let mut servos = bus.publisher("servos", Kind::Latest, "lamp-body")?;
+//! let mut servos = bus.publisher("servos", Kind::Latest, "body")?;
 //! servos.publish_json(98_123_456, &serde_json::json!({"yaw": 1990}))?;
 //!
 //! let mut follow = bus.subscribe("servos", "follow")?;

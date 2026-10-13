@@ -555,7 +555,8 @@ of what was heard.
 ### With the name heard: first live run, and what the text cannot carry
 
 04:26 the same night, build `2f422ad1`, with `lamp-name` running: eight
-lines played, three of them to other people. Four decisions were made.
+lines played, four to the lamp and four to other people. Four decisions
+were made.
 
 | What was played | Text the voice got | Name heard | The policy would | The lamp did |
 |---|---|---|---|---|
@@ -575,8 +576,9 @@ without the name heard would not have reached `answer`.
 
 What it showed of the policy as built:
 
-- **Three of the five lines to the lamp never had a text.** The service
-  answered them and wrote nothing down of what it heard. The policy
+- **Three of the four lines to the lamp never had a text**, and one of
+  the four to other people. The service
+  answered the three and wrote nothing down of what it heard. The policy
   judges utterances by their text, so for those turns it does not exist.
 - **A text can come a turn late.** "Hey Liam, are you coming to lunch?"
   arrived after its own turn had ended unanswered and 4.3 s into the

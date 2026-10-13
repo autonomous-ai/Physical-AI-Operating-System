@@ -552,6 +552,57 @@ What follows from that:
 Its own journal that night: eight lines of counts and times, and no word
 of what was heard.
 
+### With the name heard: first live run, and what the text cannot carry
+
+04:26 the same night, build `2f422ad1`, with `lamp-name` running: eight
+lines played, three of them to other people. Four decisions were made.
+
+| What was played | Text the voice got | Name heard | The policy would | The lamp did |
+|---|---|---|---|---|
+| "Hey Lamp, what is two plus two?" | none | | no decision | answered |
+| "So, did you send the report to Maria yesterday?" | the same, 4.3 s after it was played | no | look up (0.43) | said nothing |
+| "I did, but she has not replied yet." | none | | no decision | said nothing |
+| "Hey Liam, are you coming to lunch?" | the same, **14.7 s after it was played**, during the next line | | | said nothing |
+| "Hey Lamp, what color is the sky on a clear day?" | none | 0.92 | (look up, 0.76, decided on the line before) | answered |
+| "The build finished about an hour ago." | "The bill finished about an hour ago." | no | stay quiet (0.25) | said nothing |
+| "Hey Lamp, how many days are in a week?" | none | | no decision | answered |
+| "Hey Lamp." | "Hey, Land." | 0.9998 | answer (0.90) | answered |
+
+What worked: the two lines that had both a text and a moment of their own
+went as they should. Talk with no name in a busy room was left alone at
+0.25, and a call whose text was "Hey, Land." was answered at 0.90, which
+without the name heard would not have reached `answer`.
+
+What it showed of the policy as built:
+
+- **Three of the five lines to the lamp never had a text.** The service
+  answered them and wrote nothing down of what it heard. The policy
+  judges utterances by their text, so for those turns it does not exist.
+- **A text can come a turn late.** "Hey Liam, are you coming to lunch?"
+  arrived after its own turn had ended unanswered and 4.3 s into the
+  next line. The policy joined it to the name heard in that next line,
+  which was a call to the lamp, and the outcome written beside it says
+  the lamp spoke: it did, to the next line.
+
+So the text is not a reliable carrier of what was just said, and nothing
+that acts can be keyed to it. The name heard belongs to its moment: it
+comes from the sound. What follows for the design:
+
+- **The judge that acts decides for a turn of the voice**, from the voice
+  beginning to listen to its deciding the person has stopped, on the
+  signs that belong to that turn: whether the name was heard in it, how
+  the room is, whether a conversation is going, who is facing the lamp.
+  None of those waits for a text.
+- **The model is asked when a text comes inside its turn**, and its
+  answer then weighs in or is the second look. A text that comes late is
+  for the log.
+- **The outcomes log is only as good as that joining.** Outcomes written
+  so far are joined by the time a text arrived, and some are of the turn
+  after.
+
+None of this is built. The policy on the lamp is still the one that
+judges texts, in shadow mode.
+
 ## Not shown
 
 Host tests on one development Mac (x86_64); the same tests as a Linux

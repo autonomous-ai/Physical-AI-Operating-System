@@ -186,7 +186,11 @@ the shoulder (servo 2) and the elbow (servo 3):
   down as far as it may look up, and with `--stand-roll N` it may tilt N
   counts either way, both growing with how clear of the base it is. That
   is what gives a standing lamp the tilt it listens with (85% of that
-  reach, to alternate sides), which a folded lamp-4ace cannot make. The
+  reach, to alternate sides), which a folded lamp-4ace cannot make. On
+  lamp-4ace itself it is left off: tried on 2026-10-13 with 110 counts,
+  the roll servo moved freely once the lamp stood, but its axis is the
+  round head's own, so nothing is seen from outside and only the camera's
+  picture rolls, by about nine degrees. The
   head's pitch is never asked for less than 1,670, just above that servo's
   own limit, whatever a mood, the eyes and a gesture add up to.
 - The goals of all five joints go out in one sync write.

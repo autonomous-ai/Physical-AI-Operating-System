@@ -85,31 +85,29 @@ and should be words the lamp can say. The answer may be at most 8,192
 bytes on the line and about 4,000 as JSON to the model; a larger one is
 treated as no answer.
 
-### A word that asked for nothing
+### A word that asked for nothing, and a guard that was withdrawn
 
 On lamp-4ace on 2026-10-14 a played "Thank you." was written by the
 service as "cambiar", and the model called `light_colour` and said "I've
 turned my light to yellow for you." Earlier that night a misheard word
 had turned the volume up. Nobody had asked for either.
 
-So a call to the executive is not run when the text of what was heard in
-that request, as far as it has come, is one to three words and none of
-them is about a light or a voice or says yes (`could_have_asked` in
-`crates/voice/src/tools.rs`: "light", "brighter", "off", "louder", "blue",
-"okay", "bật", "đèn" and some eighty more). The model is told that
-nobody asked and nothing was changed, the request is taken as not for
-the lamp, and what the model then says is not played. The log has
-`the model called light_colour and the word heard could not have asked
-for it; not done`.
+A guard was built for it the same morning and taken out within the hour.
+It refused a call to the executive when the text of what was heard in
+that request was one to three words and none of them was about a light
+or a voice or said yes. On its first minutes on the lamp, "Brighter."
+was played; the service wrote it as "Rainer"; the model, which had heard
+it rightly, called `light_brighter`; and the guard refused the call. The
+two requests to change the light that followed got no answer at all.
 
-It judges only a word or two, and only against acting. With no text yet
-(it is often late) the call is run as before, and a sentence of four
-words or more is the model's to judge. The character file says the same
-in its own way: change the light or the voice only when someone has
-plainly asked. What this costs is a real request of one to three words in
-words that are not on the list, written down in time: it is not done and
-nothing is said, and the person has to say it another way. One host test
-covers the rule; on the lamp it has not been seen to act, because the
+The text is the worse witness of the two. The model hears the sound; the
+text is a second reading of it, and for a word or two it is often
+another word ([attention.md](attention.md) found the same of the lamp's
+name). A rule that lets the text overrule the model's hearing undoes
+right actions as readily as wrong ones, and nothing else on the lamp
+knows what a short word was. What is left is the character file's line:
+change the light or the voice only when someone has plainly asked, in
+words you made out. Whether that line is enough is not shown: the
 mishearing cannot be made to happen on demand.
 
 ## The memory's

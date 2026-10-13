@@ -70,6 +70,7 @@ fn run_with_notice_policy(
         worker
     };
     let mut rig = Rig {
+        microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         faint_level: None,
         speaker: spawn("speaker"),

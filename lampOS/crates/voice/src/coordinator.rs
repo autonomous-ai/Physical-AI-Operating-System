@@ -301,6 +301,8 @@ struct Rig {
     end_silence_blocks: Option<u16>,
     faint_level: Option<u8>,
     playout_start: PlayoutStart,
+    /// Which microphone the capture worker reads.
+    microphone: crate::options::Microphone,
     /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
     endpoint: Option<EndpointRig>,
 }
@@ -1831,6 +1833,7 @@ fn spawn_rig(
         end_silence_blocks: options.end_silence_blocks,
         faint_level: options.faint_level,
         playout_start: options.playout_start,
+        microphone: options.microphone,
         endpoint,
     })
 }
@@ -2185,6 +2188,9 @@ fn conversation(
     // What the voice is doing, heard and said, for whoever listens on the
     // lamp's bus. Nothing here waits for a listener.
     let mut bus_out = crate::bus_out::BusOut::from_environment();
+    // And, only if someone switched it on, what the microphone hears, for
+    // a part of the lamp that listens for itself.
+    let mut mic_out = crate::bus_out::MicOut::from_environment(rig.microphone.as_str());
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2790,6 +2796,9 @@ fn conversation(
                 authority: owner.snapshot(now())?,
             };
             heard_level = crate::ring_face::level_of(&frame.samples);
+            if let Some(mic) = mic_out.as_mut() {
+                mic.block(&frame.samples, at);
+            }
             // What is too faint to be someone at the lamp is not speech,
             // whatever the detector makes of it: on lamp-4ace a run of
             // "utterances" at the bottom of the scale, voices across the
@@ -3374,6 +3383,9 @@ fn conversation(
         if let Some(bus) = bus_out.as_mut() {
             bus.state(crate::ring_wire::RingPhase::from_snapshot(snapshot), clock);
             bus.report(cloud.available(), clock);
+        }
+        if let Some(mic) = mic_out.as_mut() {
+            mic.tick(clock);
         }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
@@ -4593,6 +4605,7 @@ mod tests {
         let mut rig = Rig {
             end_silence_blocks: None,
             faint_level: None,
+            microphone: crate::options::Microphone::Mic2,
             speaker,
             capture,
             provider,

@@ -116,6 +116,94 @@ impl RoomOut {
     }
 }
 
+/// Where the coordinator reads whether what the microphone hears goes on
+/// the bus. `on` only, and only with [`ENVIRONMENT`] on as well. Its own
+/// switch, off unless someone set it: this is the one topic that carries
+/// sound, and with it any program of the lamp's group can hear the room.
+pub const AUDIO_ENVIRONMENT: &str = "LAMP_BUS_AUDIO";
+/// The samples of one message: 20 ms at 16 kHz, as the topic promises.
+const AUDIO_BLOCK_BYTES: usize = 640;
+
+/// What the microphone hears, for a part of the lamp that listens for
+/// itself (`mic1/audio` or `mic2/audio`, `lamp_msgs::Audio`): the sound as
+/// the voice hears it, after its echo canceller, 16 kHz, one channel,
+/// 20 ms to a message. Only what the voice was given: with the microphone
+/// closed there is nothing to publish, and nothing is.
+pub struct MicOut {
+    audio: Publisher,
+    held: Vec<u8>,
+    sequence: u64,
+    alive_at_us: u64,
+}
+
+impl MicOut {
+    /// The publisher for the microphone called `microphone` (`mic1`,
+    /// `mic2`), if both switches say `on` and the bus can be used. A bus
+    /// that cannot is said once and the voice goes on without.
+    pub fn from_environment(microphone: &str) -> Option<Self> {
+        let on = |name| std::env::var(name).ok().as_deref() == Some("on");
+        if !(on(ENVIRONMENT) && on(AUDIO_ENVIRONMENT)) {
+            return None;
+        }
+        match Bus::from_environment().and_then(|bus| Self::on(&bus, microphone)) {
+            Ok(out) => Some(out),
+            Err(error) => {
+                eprintln!(
+                    "lamp-voice: the microphone's sound is not published on the bus: {error}"
+                );
+                None
+            }
+        }
+    }
+
+    pub fn on(bus: &Bus, microphone: &str) -> io::Result<Self> {
+        let topic = lamp_msgs::Audio::TOPICS
+            .into_iter()
+            .find(|topic| topic.strip_suffix("/audio") == Some(microphone))
+            .ok_or_else(|| io::Error::other("no audio topic for that microphone"))?;
+        Ok(Self {
+            audio: bus.publisher_declared(topic, &lamp_msgs::Audio::declaration(), SOURCE)?,
+            held: Vec::with_capacity(AUDIO_BLOCK_BYTES * 2),
+            sequence: 0,
+            alive_at_us: 0,
+        })
+    }
+
+    /// One block the voice was given, 10 ms of it. Every second block
+    /// makes a message. Nothing waits for a listener, and a bus that
+    /// fails costs the sound of that message and nothing else.
+    pub fn block(&mut self, samples: &[i16], now_us: u64) {
+        for sample in samples {
+            self.held.extend_from_slice(&sample.to_le_bytes());
+        }
+        while self.held.len() >= AUDIO_BLOCK_BYTES {
+            let header = lamp_msgs::Audio {
+                sample_rate: 16_000,
+                channels: 1,
+                sample_format: lamp_msgs::Audio::S16LE.into(),
+                sequence: self.sequence,
+            };
+            self.sequence += 1;
+            if let Ok(payload) = header.block(&self.held[..AUDIO_BLOCK_BYTES]) {
+                let _ = self
+                    .audio
+                    .publish_bytes(now_us, lamp_msgs::Audio::ENCODING, &payload);
+            }
+            self.held.drain(..AUDIO_BLOCK_BYTES);
+            self.alive_at_us = now_us;
+        }
+    }
+
+    /// Call every tick. With the microphone closed nothing is published,
+    /// and this is what says the voice is still there.
+    pub fn tick(&mut self, now_us: u64) {
+        if now_us.saturating_sub(self.alive_at_us) >= 1_000_000 {
+            self.alive_at_us = now_us;
+            let _ = self.audio.alive();
+        }
+    }
+}
+
 /// The link to the speech service may be down this long before the voice
 /// says anything is the matter. It is down for a second or two each time
 /// the voice starts and each time the service renews its session, which
@@ -373,6 +461,60 @@ mod tests {
             ("down_for_s".to_string(), "7".to_string())
         );
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn what_the_microphone_hears_goes_out_twenty_milliseconds_to_a_message() {
+        use lamp_msgs::Audio;
+        let (bus, root) = bus("mic");
+        let mut hears = bus
+            .subscribe_typed("mic2/audio", "test", Audio::TYPE)
+            .unwrap();
+        let mut out = MicOut::on(&bus, "mic2").unwrap();
+        assert_eq!(
+            bus.declaration("mic2/audio").unwrap(),
+            Some(Audio::declaration())
+        );
+        // Five blocks of 10 ms, each a ramp of its own: two messages, and
+        // half of a third kept for the next block.
+        for block in 0..5i16 {
+            let samples: Vec<i16> = (0..160).map(|n| block * 1_000 + n - 80).collect();
+            out.block(&samples, 10_000 * u64::from(block as u16));
+        }
+        for expected in 0..2u64 {
+            let message = hears.recv(WAIT).unwrap().expect("a message");
+            assert_eq!(message.header.enc, Audio::ENCODING);
+            assert_eq!(message.header.source, "voice");
+            let (header, samples) = Audio::split(&message.payload).unwrap();
+            assert_eq!(
+                header,
+                Audio {
+                    sample_rate: 16_000,
+                    channels: 1,
+                    sample_format: "S16LE".into(),
+                    sequence: expected,
+                }
+            );
+            assert_eq!(samples.len(), 640);
+            // The samples as they were, low byte first, in order.
+            let first = i16::from_le_bytes([samples[0], samples[1]]);
+            let last = i16::from_le_bytes([samples[638], samples[639]]);
+            let block = expected as i16 * 2;
+            assert_eq!(
+                (first, last),
+                (block * 1_000 - 80, (block + 1) * 1_000 + 79)
+            );
+        }
+        assert!(hears.recv(Duration::from_millis(50)).unwrap().is_none());
+        out.block(&[7; 160], 60_000);
+        let third = hears.recv(WAIT).unwrap().expect("the third");
+        assert_eq!(Audio::split(&third.payload).unwrap().0.sequence, 2);
+        // A microphone the bus has no topic for is refused, and with the
+        // bus gone nothing fails.
+        assert!(MicOut::on(&bus, "mic3").is_err());
+        std::fs::remove_dir_all(root).unwrap();
+        out.block(&[0; 320], 80_000);
+        out.tick(2_000_000);
     }
 
     #[test]

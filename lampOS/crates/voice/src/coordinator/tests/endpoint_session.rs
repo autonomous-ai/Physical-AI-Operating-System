@@ -428,6 +428,7 @@ fn run_policy(
         }),
     ];
     let mut rig = Rig {
+        microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         faint_level: None,
         provider,
@@ -793,6 +794,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         })
     });
     let mut rig = Rig {
+        microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         faint_level: None,
         speaker,

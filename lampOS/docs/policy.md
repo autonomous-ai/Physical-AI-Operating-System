@@ -442,11 +442,56 @@ three lines the lamp left alone) and the eyes' count from
 
 A decision took 574 to 785 ms once its first had made the connection
 (1,146 ms), each on a connection of its own, after the 300 ms the program
-waits to be sure an utterance is over. So it is known about 0.9 to 1.1 s
-after the voice has the text, which is about when the lamp begins to
-answer and too late to hold an answer back without making the lamp
-slower. Before it can act: the voice saying when a heard text is whole, a
-connection that is kept, and asking on the text so far.
+waits to be sure an utterance is over. So it was known about 0.9 to 1.1 s
+after the voice had the text.
+
+### With the shorter wait and the kept connection
+
+The same night, 01:47 and 01:55, two runs of one scene of eight played
+lines (builds `c68966a0d` and `08b77a80c`), nobody in the office, the Mac
+that played them heavily loaded. Fourteen decisions; the lamp answered
+twelve of the fourteen utterances and the policy chose `answer` for those
+twelve and `look_up` for the two it left alone. One line of each run got
+no decision: the service sent no text for it and no answer, so there was
+nothing to judge.
+
+| | Before | After |
+|---|---|---|
+| The wait before asking (`waited_ms`) | 301 to 322 ms | 80 to 95 ms |
+| The asking (`took_ms`) | 574 to 785 ms, 672 in the middle, each making its own connection (six decisions, after a first of 1,146) | 505 to 562 ms nine times of fourteen, 645 once, and 1,015 to 1,152 four times; 536 in the middle |
+| From the text to the decision | about 0.9 to 1.1 s | about 0.6 to 0.65 s, and 1.1 to 1.25 s the four slow times |
+
+`took_ms` runs from the asking thread taking the question to its answers
+being checked. Of the seven decisions of the second run, the first was
+sent on a connection made while the person was speaking (`ahead`) and six
+on the one kept from the asking before (`kept`); none made a connection of
+its own. The four slow askings were slow at the service: one was `ahead`
+and two `kept` (the fourth was before the kind was written down). The
+same two speeds showed in the measurement from the Mac, where a request
+took about 0.5 s or about 1.0 s and nothing between.
+
+**It is still not early enough to hold an answer back.** The outcomes log
+gives the time from each decision to the lamp's first sound. Of the twelve
+answers, the decision came before the sound three times (by 47, 75 and
+147 ms) and after it nine times (by 40 to 616 ms). The lamp's first sound
+came 468 to 812 ms after the text of what was heard: the service writes
+down what it heard and begins its answer at nearly the same time, so there
+is about half a second between the text and the sound, and through
+OpenRouter the model alone takes that long at its quickest.
+
+What follows from that:
+
+- **A judge that decides before the lamp speaks has to be on the lamp, or
+  much nearer.** The signs the lamp has by itself are there at once: how
+  the room is, whether it is in conversation, and, once they exist,
+  whether it was called by name and whether the speaker is facing it.
+  With a called sign the measurement reached 95% without any model.
+- **The model's place is the second look**: about half a second later, to
+  stop an answer that has just begun, to choose `look_up`, and to be what
+  the quick judge is fitted from.
+- **Asked directly, the model may be quick enough.** TypeSafe's own
+  service is said to answer in 0.10 to 0.14 s. That has not been measured
+  here and needs a key this project does not have.
 
 Its own journal that night: eight lines of counts and times, and no word
 of what was heard.

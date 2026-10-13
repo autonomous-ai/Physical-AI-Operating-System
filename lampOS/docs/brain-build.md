@@ -5,12 +5,16 @@ Written 2026-10-13 by the owner of the voice runtime, in answer to the
 (called "the page" below). This is the short record the build works
 from; the page is the long reference and is amended to agree with it.
 
-**Status.** Decision 1 is the product owner's, given on 2026-10-13 after
-two earlier proposals to split the work: one builder for all of it, "so no
-communication overhead". Decisions 3 to 16 are proposed and await their
-approval; 15 was changed at their question the same evening. Once approved,
-a decision changes only on the product owner's word, and the change is
-written here first.
+**Status.** Given by the product owner on 2026-10-13: decision 1 (one
+builder for all of it, "so no communication overhead"), with the page's
+author reviewing and writing the failure tests; decision 7 (addressing
+follows the room, and a spoken yes before work leaves the lamp); decision
+12, which they made larger than was proposed (memory across days, not one
+day); the order (the experience first, setup, updates and the rest "the
+last steps before shipping to customers"); and decision 15, changed at
+their question. The other decisions are proposed and await their word.
+Once given, a decision changes only on the product owner's word, and the
+change is written here first.
 
 Everything said about the lamp is from lamp-4ace on 2026-10-12 and 13;
 where a number is one run or a silent probe it says so.
@@ -23,12 +27,11 @@ Who builds what:
    person at the lamp experiences, through handing work to an agent and
    getting back to them, and then what nobody talks to (starting at
    power-up, setup, network repair, configuration, updates, reset, the
-   operator's pages, V1's data). The page's author keeps the page.
-   Proposed and not yet answered: that they also review each step after
-   it is pushed and write the failure tests without reading the code
-   under test. That costs the build no waiting, and several faults
-   reached the office on 2026-10-13 that a second reader might have
-   caught.
+   operator's pages, V1's data). The page's author keeps the page,
+   reviews each step after it is pushed and writes the failure tests
+   without reading the code under test. That costs the build no waiting,
+   and several faults reached the office on 2026-10-13 that a second
+   reader might have caught.
 2. **The rules that were to be an interface between two builders** hold as
    the runtime's own (below): who writes configuration, when the voice may
    be restarted, how an update hands over the hardware.
@@ -63,9 +66,12 @@ The product:
     mood.
 11. **Motion at launch:** yes, what runs today, plus starting at power-up
     and a hands-on check of what the servos do at power-up.
-12. **Memory at launch:** the lamp remembers the day's conversations, on
-    the lamp. Today it remembers ten minutes. Stored preferences and facts
-    come after.
+12. **Memory at launch:** the lamp remembers across days. Today it
+    remembers ten minutes. Still to be decided with the product owner:
+    one memory for whoever speaks to it or one for each person (the second
+    needs it to know who is speaking, which decision 10 leaves out);
+    whether it also keeps what it is told to remember; that it is kept on
+    the lamp only; and how it is told to forget.
 
 Engineering:
 

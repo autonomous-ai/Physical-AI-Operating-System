@@ -211,6 +211,17 @@ What the model then says is spoken like any answer. The trace has
   at 0.999 ([name.md](name.md)); 0.98 is between, and what such a line
   gets is then the note's last sentence and the model's judgement.
 
+Played on lamp-4ace on 2026-10-14 from 06:04, nobody in the office:
+
+| What was played | What should happen | What happened |
+|---|---|---|
+| Two people talking for nine lines, then the call and a follow-up without the name (`twopeople.sh`), four rounds | Nothing said through the talk; the call and the follow-up answered | Nothing said through the talk, and the call answered, in all four. In two the model answered by itself, its first words about 2 s after the caller stopped. In two it said nothing, the second look was taken, and its first words came about 5.3 s after the caller stopped. The follow-up was answered in all four, about 1.5 s after |
+| Ten lines to someone with a name like the lamp's ("Hey Lan, did you see this?", "Hey Liam, the meeting moved.", `near.sh`), ten seconds apart | Nothing said | Nothing said to any of the ten. The name part reported four hearings (1.000, 0.903, 0.998, 1.000) and a second look was taken three times; told its name had been heard, the model still said nothing to other people's business |
+
+Not shown: a person, a real office, and a line with a name like the
+lamp's that a lamp could answer ("Hey Lan, what time is it?"), which the
+note would let through.
+
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:
 

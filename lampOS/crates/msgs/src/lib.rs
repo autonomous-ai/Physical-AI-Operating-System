@@ -181,7 +181,9 @@ pub struct JointState {
     pub position: Vec<f64>,
     /// How fast each is turning, in radians a second.
     pub velocity: Vec<f64>,
-    /// The torque on each, in newton metres.
+    /// How hard each is working: the share of its full strength its servo
+    /// reports, from 0 to 1, without a direction. ROS's field is a torque
+    /// in newton metres, which these servos do not report.
     pub effort: Vec<f64>,
     /// Where each was last asked to be, in radians. Not in ROS's type: this
     /// body knows it, and the difference from `position` is what a joint

@@ -409,6 +409,60 @@ It takes the same exclusive ownership of the servo port as
 `lamp-body-inspect`, so neither can run while the other does. Stop every
 other owner of the port first.
 
+## On the bus
+
+With `LAMP_BUS=on` in its unit the body publishes on the lamp's bus
+([bus.md](bus.md)) under the name `body` (`src/bus_out.rs`). Without it,
+or with a bus it cannot use (said once in its log), it runs exactly as
+before.
+
+| Topic | Type | When | What |
+| --- | --- | --- | --- |
+| `body/joint_states` | `lamp_msgs/JointState` | every fourth step: 12.5 a second | Where each joint is, how fast it is turning, how hard its servo is working, and where it was last asked to be |
+| `diagnostics` | `lamp_msgs/Diagnostic` | once a second, and once more when it stops | How the body is, under the name `body` |
+
+The joints are `base_yaw`, `shoulder`, `elbow`, `head_roll`, `head_pitch`,
+in the order of their servos' numbers, 1 to 5.
+
+- **Angles** are radians from the middle of each servo's turn (count
+  2,048), growing the way the counts do: 1,024 counts is a quarter turn.
+  They are not angles from the lamp's home pose, and their signs are the
+  servos', not a convention of the lamp's.
+- **`velocity`** is worked out from two positions 80 ms apart. The first
+  message has none.
+- **`effort`** is the share of its full strength each servo reports
+  (its load register over 1,000), from 0 to 1 and without a direction. It
+  is not a torque in newton metres, which is what ROS's field of that
+  name holds.
+- **`commanded`** is the goal the body last wrote; for a shoulder or an
+  elbow it never wrote, where it found them.
+- A message means nothing a second after it was sent, so a body that has
+  stopped is not read as where the lamp is.
+
+The report is `ok` with no message, or a warning:
+
+| Level | Message | When |
+| --- | --- | --- |
+| `warn` | `shoulder is warm: it reads 55, and the body stops at 62` | Any of the five joints reads 55 or more. The body ends its run, or sends the arm down, at 62 |
+| `warn` | `a joint met resistance and stopped pushing, 2 times in the last minute` | A commanded joint gave way within the last minute |
+| `warn` | `stopped, as it was asked to` | Its last word after SIGINT or SIGTERM |
+| `error` | `stopped: head_pitch was pushed against (load 260)`, and one such sentence for each other reason in "When it stops" | Its last word when it stopped itself or would not start |
+
+Its facts are the mood, how far it has stood up, the warmest joint and
+its reading, and how often a joint gave way in the last minute and since
+it started.
+
+The loop that talks to the servos never waits for the bus. It hands
+every fourth step to a thread of its own, which has room for sixteen; a
+step that finds no room is let go and counted, and the count is written
+to the log when the body ends.
+
+Not shown: this has run on a development Mac against a bus in a
+temporary directory (six tests, one of which offers 40,000 steps to a
+full thread and holds each to under a millisecond). The program that
+owns the servos is built for Linux only and was not run there with the
+bus. Which way each angle's sign runs on the lamp has not been looked at.
+
 ## First run on a lamp
 
 lamp-4ace, 2026-10-12 15:18 UTC, the build of `6dfc18bb8`, started by hand

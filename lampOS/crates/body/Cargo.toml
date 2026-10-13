@@ -9,6 +9,8 @@ publish.workspace = true
 lamp-ipc = { path = "../ipc" }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 lamp-turn-owner = { path = "../turn-owner" }
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
 serde.workspace = true
 serde_json.workspace = true
 

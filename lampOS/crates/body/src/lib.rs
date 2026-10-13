@@ -18,6 +18,8 @@ extern crate self as lamp_body;
 #[cfg(any(target_os = "linux", test))]
 pub mod body;
 #[cfg(any(target_os = "linux", test))]
+pub mod bus_out;
+#[cfg(any(target_os = "linux", test))]
 pub mod inspection;
 #[cfg(target_os = "linux")]
 pub mod linux;

@@ -401,6 +401,8 @@ pub struct Glimpse {
     pub goals: [u16; 3],
     pub positions: [u16; 3],
     pub loads: [u16; 3],
+    /// What each of the three joints' temperature register reads.
+    pub temperatures: [u8; 3],
     /// Times so far that each joint met resistance and was left where it was.
     pub eased: [u16; 3],
     /// Whether this body may stand at all, how far it has stood up, 0
@@ -1711,6 +1713,7 @@ pub(crate) fn run_alive(
             goals: written,
             positions: COMMANDED.map(|joint| samples[joint.index()].position),
             loads: COMMANDED.map(|joint| samples[joint.index()].load),
+            temperatures: COMMANDED.map(|joint| samples[joint.index()].temperature),
             eased: report.eased,
             stands: standing.is_some(),
             stand,

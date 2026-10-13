@@ -467,7 +467,13 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut face_said = 0u64;
     let mut gesture_said: Option<&'static str> = None;
     let mut eased = [0u16; 3];
+    // Where the joints are and how the body is, for the rest of the lamp,
+    // if the unit says so. Offered and never waited for.
+    let mut bus = lamp_body::bus_out::BusOut::from_environment(|why| eprintln!("lamp-body: {why}"));
     let watch = |glimpse: &lamp_body::body::Glimpse| {
+        if let Some(bus) = bus.as_mut() {
+            bus.offer(glimpse);
+        }
         let due = match said {
             None => true,
             Some((mood, _, _, _)) if mood != glimpse.mood => true,
@@ -612,6 +618,21 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let _ = std::fs::remove_file(&arguments.mood_socket);
     if let Some(choice) = &arguments.gaze {
         let _ = std::fs::remove_file(&choice.socket);
+    }
+    // The body's last word on the bus: that it has stopped, and why.
+    if let Some(bus) = bus {
+        if bus.let_go > 0 {
+            eprintln!(
+                "lamp-body: {} steps were not published: the bus thread had no room",
+                bus.let_go
+            );
+        }
+        match &result.body {
+            Some(report) => bus.stopped(&report.stop),
+            None => bus.stopped(&Stop::Refused {
+                why: "the servo port could not be made ready".into(),
+            }),
+        }
     }
     let mut output = std::io::stdout().lock();
     serde_json::to_writer(&mut output, &result)?;

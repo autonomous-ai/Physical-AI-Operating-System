@@ -38,7 +38,7 @@ its declaration.
 |---|---|---|---|---|
 | `Audio` | `mic1/audio`, `mic2/audio` | event | 20 ms | A block's header: sample rate, channels, sample format, the block's count. The samples follow it in the payload as they are (`Audio::block`), under the encoding `json+pcm` |
 | `ImageRef` | `camera/image` | latest | 500 ms | The absolute path of the newest frame's file, its width, height and encoding, and when it was captured |
-| `JointState` | `body/joint_states` | latest | 100 ms | ROS's `sensor_msgs/JointState`: `name`, `position` (rad), `velocity` (rad/s), `effort` (N m). And `commanded` (rad), which ROS's has not |
+| `JointState` | `body/joint_states` | latest | 100 ms | ROS's `sensor_msgs/JointState`: `name`, `position` (rad), `velocity` (rad/s), and `effort`, which here is the share of its full strength each servo reports (0 to 1) and not ROS's newton metres. And `commanded` (rad), which ROS's has not |
 | `Faces` | `humans/faces/tracked` | latest | none | A list of faces: a passing id, a box in fractions of the picture as in ROS4HRI, confidence, yaw if it was estimated, whether it faces the lamp if that was judged |
 | `Speech` | `voice/heard`, `voice/said` | event | none | Text, whether it is finished, and the locale and the request's number if known. After `hri_msgs/LiveSpeech` |
 | `VoiceState` | `voice/state` | latest | 1 s | Resting, listening, thinking or speaking |
@@ -94,8 +94,9 @@ compiled, not run. On lamp-4ace five of the types travel: the voice
 publishes `Speech`, `VoiceState` and `RoomState`
 (`crates/voice/src/bus_out.rs`), the eyes `Faces`
 (`crates/eyes/src/bus_out.rs`), and the policy reads all four and
-publishes `Decision` ([policy.md](policy.md)). Nothing publishes the
-others yet: `JointState`, `Diagnostic`, `Health`, `BoardState`, `Audio`,
+publishes `Decision` ([policy.md](policy.md)). The body publishes
+`JointState` and its own `Diagnostic` (`crates/body/src/bus_out.rs`).
+Nothing publishes the others yet: `Health`, `BoardState`, `Audio`,
 `ImageRef`, `VoiceLink` and `Light`. The actions program still publishes
 `{"rgb":[r,g,b]}` on `light/command` and reads the same from `light/state`,
 which is not `Light`. `VoiceLink`'s seven reasons group the voice program's

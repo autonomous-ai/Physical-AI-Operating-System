@@ -54,7 +54,8 @@ struct Lamp {
     /// Off, they stay where they are whatever is written to them.
     arm_moves: bool,
     /// What takes a latched overload off a servo: 0 nothing, 1 a write of
-    /// torque on, 2 only torque off and then on.
+    /// torque on, 2 only torque off and then on, 3 being told to stop
+    /// pushing (a goal that is where it is), a few steps later.
     overload_clears: u8,
 }
 
@@ -155,6 +156,13 @@ impl Lamp {
             }
         }
         for (index, servo) in self.servos.iter_mut().enumerate() {
+            // An overload that goes once the servo is no longer pushing.
+            if self.overload_clears == 3
+                && servo.torque == 1
+                && (f32::from(servo.goal) - servo.position).abs() < 1.0
+            {
+                servo.status &= !0x20;
+            }
             if servo.torque != 1 || ((index == 1 || index == 2) && !self.arm_moves) {
                 continue;
             }
@@ -268,6 +276,10 @@ impl Lamp {
                     match (address, data.as_slice()) {
                         (41, [value]) => servo.acceleration = *value,
                         (46, [low, high]) => servo.speed = u16::from_le_bytes([*low, *high]),
+                        // A goal by itself: only ever to the shoulder or the elbow.
+                        (42, [low, high]) if id == 2 || id == 3 => {
+                            servo.goal = u16::from_le_bytes([*low, *high]);
+                        }
                         // Torque: only ever to the shoulder or the elbow.
                         (40, [value]) if id == 2 || id == 3 => {
                             let was = servo.torque;
@@ -1580,4 +1592,38 @@ fn without_a_face_or_without_eyes_nothing_is_added_to_what_the_mood_wants() {
     let eyed = run_with(Some(Looking::new([342, 200], [250, 120]).unwrap()));
     assert!(plain.len() > 100);
     assert_eq!(plain, eyed);
+}
+
+#[test]
+fn an_elbow_pushing_under_an_old_overload_is_told_to_stop_and_then_carries_the_lamp() {
+    // As lamp-4ace's was found: three counts short of its goal, which its
+    // own friction keeps it from, flagged, and the flag goes only once it
+    // is no longer pushing.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(22));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 3;
+    lamp.short = Some((2, 3.0));
+    lamp.servos[2].position = 2_044.0;
+    lamp.servos[2].goal = 2_047;
+    let news = spoken_to(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 5)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.standing_refused, None);
+    // No torque was written: stopping the push was enough.
+    assert_eq!(report.torque_writes, 0);
+    assert!(lamp.registers.contains(&(3, 42, vec![0xfc, 0x07])));
+    assert!(report.stood, "{report:?}");
+    assert_eq!(lamp.servos[2].status, 0);
+    // Down again, its arm is left resting where it is, not pushed at.
+    let (shoulder, elbow) = (lamp.servos[1], lamp.servos[2]);
+    assert!((f32::from(shoulder.goal) - shoulder.position).abs() < 1.0);
+    assert!((f32::from(elbow.goal) - elbow.position).abs() < 1.0);
 }

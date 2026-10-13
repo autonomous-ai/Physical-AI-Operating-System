@@ -447,6 +447,15 @@ fn speed_write(joint: Joint, value: u16) -> [u8; 9] {
     packet[8] = checksum(&packet[2..8]);
     packet
 }
+/// The goal position (register 42, two bytes) of one servo. Sent only to a
+/// shoulder or an elbow found pushing under an old overload, with its own
+/// position, so that it stops.
+fn goal_write(joint: Joint, value: u16) -> [u8; 9] {
+    let [low, high] = value.to_le_bytes();
+    let mut packet = [0xff, 0xff, joint.id(), 5, 0x03, 42, low, high, 0];
+    packet[8] = checksum(&packet[2..8]);
+    packet
+}
 /// One sync write of the goal position (register 42, two bytes) of the three
 /// commanded joints. A broadcast: no servo answers it.
 fn goals_write(goals: [u16; 3]) -> [u8; 17] {
@@ -937,38 +946,65 @@ pub(crate) fn run_looking(
         }
     }
 
-    // An overload latched before this run leaves a servo holding with a
-    // fraction of its torque until torque is written again. A shoulder or
-    // an elbow in that state cannot carry the lamp up: write it, and stay
-    // folded if the flag stays.
+    // An overload latched before this run leaves a servo pushing at its
+    // goal with a fraction of its torque: on lamp-4ace the elbow read a
+    // load of exactly 200 for a day, three counts short of its goal, and
+    // writing torque alone did not end that. Such a joint cannot carry the
+    // lamp up. So first it is told to stop pushing, its goal becoming where
+    // it is; if the flag is still there after half a second torque is
+    // written on, and then off and on. If it stays, the lamp stays folded.
     if standing.is_some() {
-        for joint in ARM {
-            for values in [&[1u8][..], &[0, 1]] {
-                if found[joint.index()].status & StatusFlags::OVERLOAD == 0 {
+        for (index, joint) in ARM.into_iter().enumerate() {
+            let flagged =
+                |found: &[Sample; 5]| found[joint.index()].status & StatusFlags::OVERLOAD != 0;
+            if !flagged(&found) {
+                continue;
+            }
+            let at = found[joint.index()].position;
+            // Stop pushing; then torque on; then torque off and on. After
+            // each, a few steps for the flag to go.
+            let attempts: [(bool, &[u8], u8); 3] =
+                [(true, &[], 25), (false, &[1], 10), (false, &[0, 1], 10)];
+            for (stop_pushing, torques, waits) in attempts {
+                let mut outcome = Ok(());
+                if stop_pushing {
+                    outcome = bus.write_acknowledged(joint, &goal_write(joint, at), true);
+                    arm_written[index] = at;
+                }
+                for value in torques {
+                    if outcome.is_ok() {
+                        report.torque_writes += 1;
+                        outcome = bus.write_acknowledged(joint, &torque_write(joint, *value), true);
+                    }
+                }
+                // The flag may take a moment to go once nothing is pushed.
+                for _ in 0..waits {
+                    if outcome.is_err() {
+                        break;
+                    }
+                    let due = bus.runtime.now() + TICK;
+                    bus.sleep_until(due);
+                    match bus.samples() {
+                        Ok(now) => {
+                            found = now;
+                            report.found = Some(found);
+                            report.last = Some(found);
+                            if !flagged(&found) {
+                                break;
+                            }
+                        }
+                        Err(detail) => outcome = Err(detail),
+                    }
+                }
+                if let Err(detail) = outcome {
+                    report.stop = Stop::Bus {
+                        detail: format!("clearing the overload of {joint}: {detail}"),
+                    };
+                    return report;
+                }
+                if !flagged(&found) {
                     break;
                 }
-                for value in values {
-                    report.torque_writes += 1;
-                    if let Err(detail) =
-                        bus.write_acknowledged(joint, &torque_write(joint, *value), true)
-                    {
-                        report.stop = Stop::Bus {
-                            detail: format!("torque of {joint}: {detail}"),
-                        };
-                        return report;
-                    }
-                }
-                found = match bus.samples() {
-                    Ok(found) => found,
-                    Err(detail) => {
-                        report.stop = Stop::Bus {
-                            detail: format!("after torque of {joint}: {detail}"),
-                        };
-                        return report;
-                    }
-                };
-                report.found = Some(found);
-                report.last = Some(found);
             }
             if found[joint.index()].status != 0 && standing.is_some() {
                 standing = None;
@@ -1107,6 +1143,12 @@ pub(crate) fn run_looking(
     let mut arm_over = [0u8; 2];
     let mut arm_off = [0u8; 2];
     let mut arm_hot = [0u8; 2];
+    // A folded arm is not pushed at: once it has been down for a second its
+    // goals become where its joints are, until it next rises. A goal a few
+    // counts past where a folded joint can go is what latched the elbow's
+    // overload on lamp-4ace.
+    let mut arm_rests = stand <= 0.0;
+    let mut down_steps = 0u16;
     // Where the eyes have it look, yaw and pitch in counts, and for how
     // many steps no joint has been asked to move.
     let mut gaze = looking.map(Gaze::new);
@@ -1211,10 +1253,27 @@ pub(crate) fn run_looking(
                 report.stood = true;
             }
             let lift = smooth(stand);
-            arm_goals = std::array::from_fn(|index| {
-                let (from, to) = (f32::from(up.folded[index]), f32::from(up.pose[3 + index]));
-                (from + (to - from) * lift).round() as u16
-            });
+            down_steps = if stand <= 0.0 && stand_velocity == 0.0 {
+                down_steps.saturating_add(1)
+            } else {
+                0
+            };
+            if down_steps == 0 {
+                arm_rests = false;
+            } else if down_steps >= REST_STEPS
+                && !arm_rests
+                && !blind
+                && let Some(last) = report.last
+            {
+                arm_rests = true;
+                arm_goals = ARM.map(|joint| last[joint.index()].position);
+            }
+            if !arm_rests {
+                arm_goals = std::array::from_fn(|index| {
+                    let (from, to) = (f32::from(up.folded[index]), f32::from(up.pose[3 + index]));
+                    (from + (to - from) * lift).round() as u16
+                });
+            }
             let next = home_of(standing, stand);
             carried = std::array::from_fn(|index| next[index] - home_now[index]);
             home_now = next;
@@ -1593,9 +1652,13 @@ pub(crate) fn run_looking(
     if stop == Stop::Cancelled {
         // Leave the goals exactly at home: of a lamp that is down. One
         // that did not get down in time is left as it is.
+        // Its folded arm is left resting where it is, not pushed at.
+        let arm_at = report.last.map_or(arm_written, |last| {
+            ARM.map(|joint| last[joint.index()].position)
+        });
         if stand <= 0.0
-            && (written != home || standing.is_some_and(|up| arm_written != up.folded))
-            && bus.send_goals(home, standing.map(|up| up.folded)).is_ok()
+            && (written != home || (standing.is_some() && arm_written != arm_at))
+            && bus.send_goals(home, standing.map(|_| arm_at)).is_ok()
         {
             report.goal_writes += 1;
         }

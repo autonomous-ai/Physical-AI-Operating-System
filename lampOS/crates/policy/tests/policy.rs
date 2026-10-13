@@ -14,7 +14,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc,
     },
     thread,
@@ -52,6 +52,8 @@ fn asked(seven: [f32; 7]) -> Asked {
 struct StandIn<F> {
     script: F,
     shown: mpsc::Sender<Value>,
+    /// How often it was told to get ready.
+    readied: Arc<AtomicUsize>,
 }
 
 impl<F: FnMut(&Value) -> Result<Asked, Failed>> Decider for StandIn<F> {
@@ -68,6 +70,12 @@ impl<F: FnMut(&Value) -> Result<Asked, Failed>> Decider for StandIn<F> {
         let state: Value = serde_json::from_str(state).expect("the state is JSON");
         let _ = self.shown.send(state.clone());
         (self.script)(&state)
+    }
+
+    fn ready(&mut self, within: Duration) {
+        // No longer than an asking may take.
+        assert!(within <= ms(900), "{within:?}");
+        self.readied.fetch_add(1, Ordering::SeqCst);
     }
 
     fn name(&self) -> &str {
@@ -93,6 +101,8 @@ struct Rig {
     decisions: Subscriber,
     /// Each state the stand-in was shown.
     states: mpsc::Receiver<Value>,
+    /// How often the stand-in was told to get ready.
+    readied: Arc<AtomicUsize>,
     /// Every piece of text the test published as heard or said.
     spoken: Vec<String>,
 }
@@ -148,6 +158,7 @@ impl Rig {
             saying,
             notes: Vec::new(),
             states,
+            readied: Arc::new(AtomicUsize::new(0)),
             spoken: Vec::new(),
             root,
             log_dir,
@@ -160,7 +171,11 @@ impl Rig {
             deadline: ms(900),
             pause: PAUSE,
         };
-        let stand_in = StandIn { script, shown };
+        let stand_in = StandIn {
+            script,
+            shown,
+            readied: Arc::clone(&rig.readied),
+        };
         rig.running = Some(thread::spawn(move || {
             policy::run(&bus, stand_in, &options, &stop, &mut |note| {
                 let _ = said_so.send(note);
@@ -494,6 +509,41 @@ fn once_the_voice_is_no_longer_listening_a_decision_does_not_wait_the_pause() {
     let after = sent.elapsed();
     println!("decision {after:?} after the text of something already said");
     assert!(after < PAUSE - ms(100), "{after:?}");
+    rig.stop();
+}
+
+#[test]
+fn the_judge_is_told_to_get_ready_each_time_someone_begins_to_speak() {
+    let mut rig = Rig::new("ready", |_| Ok(asked(SEVEN)));
+    let readied = Arc::clone(&rig.readied);
+    let reaches = |count: usize| {
+        let since = Instant::now();
+        while readied.load(Ordering::SeqCst) < count {
+            assert!(since.elapsed() < WAIT, "not told {count} times");
+            thread::sleep(ms(2));
+        }
+        // And not once more than that.
+        thread::sleep(ms(80));
+        assert_eq!(readied.load(Ordering::SeqCst), count);
+    };
+    reaches(0);
+    let began = Instant::now();
+    rig.voice(Voice::Listening);
+    reaches(1);
+    println!("told to get ready within {:?}", began.elapsed() - ms(80));
+    // Still listening is not beginning again.
+    rig.voice(Voice::Listening);
+    reaches(1);
+    // What they said is asked about as ever, and the lamp answers.
+    rig.voice(Voice::Thinking);
+    rig.hear("What is two plus two?");
+    rig.decision();
+    rig.voice(Voice::Speaking);
+    rig.voice(Voice::Resting);
+    reaches(1);
+    // The next thing said.
+    rig.voice(Voice::Listening);
+    reaches(2);
     rig.stop();
 }
 

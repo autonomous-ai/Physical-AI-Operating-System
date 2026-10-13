@@ -84,6 +84,8 @@ struct Server {
     /// Each request as it was read: `None` for a connection that ended
     /// before it had sent a whole one.
     requests: mpsc::Receiver<Option<String>>,
+    /// How many connections it has taken.
+    connections: Arc<AtomicUsize>,
     done: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -99,6 +101,19 @@ impl Server {
             .recv_timeout(LONG)
             .expect("a connection")
             .expect("a whole request")
+    }
+}
+
+impl Server {
+    /// Wait until it has taken `count` connections. It takes one at a
+    /// time, so the next is counted only once the one before has ended.
+    fn has_taken(&self, count: usize) {
+        let since = Instant::now();
+        while self.connections.load(Ordering::SeqCst) < count {
+            assert!(since.elapsed() < LONG, "fewer than {count} connections");
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(self.connections.load(Ordering::SeqCst), count);
     }
 }
 
@@ -142,10 +157,13 @@ fn read_request(stream: &mut dyn Wire) -> Option<String> {
 }
 
 /// Take connections until the test ends. Each is made into a `Wire` by
-/// `wrap`, its request is read and told, and `script` is played to it.
+/// `wrap`, its request is read and told, and `script` is played to it:
+/// once, and the connection is closed, or with `keep` for every request
+/// that comes on it until the client ends it.
 fn serve_as(
     wrap: impl Fn(TcpStream) -> Box<dyn Wire> + Send + 'static,
     script: impl Fn(&mut dyn Wire) + Send + 'static,
+    keep: bool,
 ) -> Server {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -153,12 +171,15 @@ fn serve_as(
     let (told, requests) = mpsc::channel();
     let done = Arc::new(AtomicBool::new(false));
     let ended = Arc::clone(&done);
+    let connections = Arc::new(AtomicUsize::new(0));
+    let taken = Arc::clone(&connections);
     let thread = thread::spawn(move || {
         while !ended.load(Ordering::SeqCst) {
             let Ok((socket, _)) = listener.accept() else {
                 thread::sleep(Duration::from_millis(2));
                 continue;
             };
+            taken.fetch_add(1, Ordering::SeqCst);
             // A socket taken from a listener that does not wait may not
             // wait either, and a client that has gone must not hold the
             // test.
@@ -166,24 +187,68 @@ fn serve_as(
             socket.set_read_timeout(Some(LONG)).unwrap();
             socket.set_write_timeout(Some(LONG)).unwrap();
             let mut stream = wrap(socket);
-            let request = read_request(stream.as_mut());
-            let whole = request.is_some();
-            let _ = told.send(request);
-            if whole {
-                script(stream.as_mut());
+            let mut first = true;
+            loop {
+                let request = read_request(stream.as_mut());
+                let whole = request.is_some();
+                // A kept connection that the client ends after its last
+                // request is not a request that was cut short.
+                if whole || first {
+                    let _ = told.send(request);
+                }
+                if whole {
+                    script(stream.as_mut());
+                }
+                first = false;
+                if !(whole && keep) {
+                    break;
+                }
             }
         }
     });
     Server {
         port,
         requests,
+        connections,
         done,
         thread: Some(thread),
     }
 }
 
 fn serve(script: impl Fn(&mut dyn Wire) + Send + 'static) -> Server {
-    serve_as(|socket| Box::new(socket), script)
+    serve_as(|socket| Box::new(socket), script, false)
+}
+
+/// A server that keeps each connection and answers every request on it
+/// with `answer`.
+fn keeping(answer: Vec<u8>) -> Server {
+    serve_as(
+        |socket| Box::new(socket),
+        move |stream| {
+            let _ = stream.write_all(&answer);
+        },
+        true,
+    )
+}
+
+/// `body` as a 200 that says its length and nothing of closing.
+fn kept_with_length(body: &str) -> Vec<u8> {
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+    .into_bytes()
+}
+
+/// `body` as a 200 in two chunks, with `end` after the last of them.
+fn in_chunks(body: &str, end: &str) -> Vec<u8> {
+    let (one, two) = body.split_at(body.len() / 2);
+    format!(
+        "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{one}\r\n{:x}\r\n{two}\r\n0\r\n{end}",
+        one.len(),
+        two.len()
+    )
+    .into_bytes()
 }
 
 /// A server that answers every request with `answer`, bytes as they are.
@@ -261,7 +326,7 @@ fn a_good_answer_is_read_by_its_length_and_the_request_is_the_one_the_service_ta
     assert_eq!(request.matches(KEY).count(), 1);
     assert_eq!(headers["host"], format!("127.0.0.1:{}", server.port));
     assert_eq!(headers["content-type"], "application/json");
-    assert_eq!(headers["connection"], "close");
+    assert_eq!(headers["connection"], "keep-alive");
     assert_eq!(headers["accept-encoding"], "identity");
     assert_eq!(headers["content-length"], body.len().to_string());
     // The state as it was given and the questions in the order they were
@@ -283,13 +348,141 @@ fn a_good_answer_is_read_by_its_length_and_the_request_is_the_one_the_service_ta
 }
 
 #[test]
-fn one_jev_asks_again_on_a_connection_of_its_own() {
+fn a_service_that_says_it_will_close_is_asked_again_on_a_new_connection() {
     let server = answering(with_length(GOOD));
     let mut jev = jev(&server.url(), "again");
-    for _ in 0..3 {
+    for asked in 1..=3 {
         good(&jev.ask(STATE, &questions(), LONG).unwrap());
-        assert!(server.request().contains("Connection: close\r\n"));
+        assert!(server.request().contains("Connection: keep-alive\r\n"));
+        assert!(jev.kept.is_none());
+        assert_eq!(server.connections.load(Ordering::SeqCst), asked);
     }
+}
+
+#[test]
+fn a_connection_is_kept_for_the_next_asking() {
+    // By its length, and in chunks that end as they should.
+    for (name, answer) in [
+        ("kept-length", kept_with_length(GOOD)),
+        ("kept-chunks", in_chunks(GOOD, "\r\n")),
+    ] {
+        let server = keeping(answer);
+        let mut jev = jev(&server.url(), name);
+        for _ in 0..4 {
+            good(&jev.ask(STATE, &questions(), LONG).unwrap());
+            server.request();
+        }
+        assert_eq!(server.connections.load(Ordering::SeqCst), 1, "{name}");
+    }
+}
+
+#[test]
+fn a_connection_whose_answer_did_not_end_cleanly_is_not_used_again() {
+    for (name, answer) in [
+        // Lines after the last chunk.
+        ("trailer", in_chunks(GOOD, "Checksum: 1\r\n\r\n")),
+        // More than its length said.
+        ("surplus", {
+            let mut answer = kept_with_length(GOOD);
+            answer.extend_from_slice(b"\r\n");
+            answer
+        }),
+    ] {
+        let server = keeping(answer);
+        let mut jev = jev(&server.url(), name);
+        for asked in 1..=2 {
+            good(&jev.ask(STATE, &questions(), LONG).unwrap());
+            assert!(jev.kept.is_none(), "{name}");
+            assert_eq!(server.connections.load(Ordering::SeqCst), asked, "{name}");
+        }
+    }
+    // The end of the last chunk that has not come yet is not waited for:
+    // the answer is whole without it.
+    let server = serve(|stream| {
+        let _ = stream.write_all(&in_chunks(GOOD, ""));
+        let _ = stream.flush();
+        thread::sleep(Duration::from_millis(600));
+    });
+    let mut jev = jev(&server.url(), "no-end");
+    let asked = jev.ask(STATE, &questions(), LONG).unwrap();
+    good(&asked);
+    assert!(asked.took < Duration::from_millis(400), "{:?}", asked.took);
+    assert!(jev.kept.is_none());
+}
+
+#[test]
+fn a_kept_connection_the_service_has_closed_is_replaced_and_nothing_fails() {
+    // It answers as if it would keep the connection, and closes it.
+    let server = answering(kept_with_length(GOOD));
+    let mut jev = jev(&server.url(), "closed-quietly");
+    for asked in 1..=3 {
+        good(&jev.ask(STATE, &questions(), LONG).unwrap());
+        assert!(jev.kept.is_some());
+        assert_eq!(server.connections.load(Ordering::SeqCst), asked);
+        // Time for the closing to arrive, as it would have between two
+        // things said.
+        thread::sleep(Duration::from_millis(30));
+    }
+    // Each request was read whole once: the one on the dead connection
+    // reached nobody.
+    for _ in 0..3 {
+        server.request();
+    }
+    assert!(server.requests.try_recv().is_err());
+}
+
+#[test]
+fn a_connection_is_not_kept_longer_than_it_is_taken_to_last() {
+    let server = keeping(kept_with_length(GOOD));
+    let mut jev = jev(&server.url(), "outlived");
+    jev.keeping.answered = Duration::from_millis(80);
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    assert_eq!(server.connections.load(Ordering::SeqCst), 1);
+    thread::sleep(Duration::from_millis(120));
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    assert_eq!(server.connections.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn getting_ready_makes_the_connection_the_question_is_then_asked_on() {
+    let server = keeping(kept_with_length(GOOD));
+    let mut jev = jev(&server.url(), "ready");
+    jev.ready(LONG);
+    assert!(jev.kept.is_some());
+    // Made, with nothing on it.
+    server.has_taken(1);
+    assert!(server.requests.try_recv().is_err());
+    // Ready already: nothing more is made.
+    jev.ready(LONG);
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    server.request();
+    assert_eq!(server.connections.load(Ordering::SeqCst), 1);
+    // One that has not long to go is replaced ahead of the question.
+    jev.keeping.ready_margin = Duration::from_secs(3_600);
+    jev.ready(LONG);
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    assert_eq!(server.connections.load(Ordering::SeqCst), 2);
+    // An unused one is taken to last its own, shorter time.
+    jev.keeping.unused = Duration::from_millis(40);
+    jev.ready(LONG);
+    server.has_taken(3);
+    thread::sleep(Duration::from_millis(70));
+    good(&jev.ask(STATE, &questions(), LONG).unwrap());
+    assert_eq!(server.connections.load(Ordering::SeqCst), 4);
+}
+
+#[test]
+fn getting_ready_for_a_service_that_is_not_there_is_silent_and_the_asking_says_so() {
+    let free = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = free.local_addr().unwrap().port();
+    drop(free);
+    let mut jev = jev(&format!("http://127.0.0.1:{port}/"), "ready-nobody");
+    jev.ready(Duration::from_millis(300));
+    assert!(jev.kept.is_none());
+    let failed = jev.ask(STATE, &questions(), LONG).unwrap_err();
+    assert!(matches!(failed, Failed::Unreachable { .. }), "{failed:?}");
+    says_nothing_secret(&failed);
 }
 
 #[test]
@@ -904,6 +1097,10 @@ fn plain_http_is_never_sent_to_another_machine_whatever_a_name_is_looked_up_to()
 
 /// A server that speaks TLS with the test certificate.
 fn serve_securely(script: impl Fn(&mut dyn Wire) + Send + 'static) -> Server {
+    serve_securely_as(script, false)
+}
+
+fn serve_securely_as(script: impl Fn(&mut dyn Wire) + Send + 'static, keep: bool) -> Server {
     use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
     let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificates::bytes(
         certificates::SERVER_KEY,
@@ -925,6 +1122,7 @@ fn serve_securely(script: impl Fn(&mut dyn Wire) + Send + 'static) -> Server {
             Box::new(rustls::StreamOwned::new(session, socket))
         },
         script,
+        keep,
     )
 }
 
@@ -977,6 +1175,36 @@ fn over_a_secure_connection_the_same_request_gets_the_same_answer() {
             .request()
             .contains(&format!("\r\nHost: localhost:{}\r\n", server.port))
     );
+}
+
+#[test]
+fn a_secure_connection_is_kept_and_made_ahead_like_any_other() {
+    let server = serve_securely_as(
+        |stream| {
+            let _ = stream.write_all(&in_chunks(GOOD, "\r\n"));
+        },
+        true,
+    );
+    let url = format!("https://127.0.0.1:{}/api/alpha/decisions", server.port);
+    let mut jev = jev_trusting_the_test(&url, "secure-kept");
+    jev.ready(LONG);
+    assert!(jev.kept.is_some());
+    for _ in 0..3 {
+        good(&jev.ask(STATE, &questions(), LONG).unwrap());
+        server.request();
+    }
+    assert_eq!(server.connections.load(Ordering::SeqCst), 1);
+    // The service closes it without a word: the next asking makes another.
+    let server = serve_securely(|stream| {
+        let _ = stream.write_all(&kept_with_length(GOOD));
+    });
+    let url = format!("https://127.0.0.1:{}/api/alpha/decisions", server.port);
+    let mut jev = jev_trusting_the_test(&url, "secure-closed");
+    for asked in 1..=3 {
+        good(&jev.ask(STATE, &questions(), LONG).unwrap());
+        assert_eq!(server.connections.load(Ordering::SeqCst), asked);
+        thread::sleep(Duration::from_millis(30));
+    }
 }
 
 #[test]

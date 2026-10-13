@@ -191,6 +191,13 @@ pub trait Decider {
         deadline: Duration,
     ) -> Result<Asked, Failed>;
 
+    /// A question is likely soon: do now, within `within`, whatever would
+    /// otherwise be done when it is asked. Nothing is promised and nothing
+    /// is told of it; an asking that follows finds out what it finds.
+    fn ready(&mut self, within: Duration) {
+        let _ = within;
+    }
+
     /// What this judge is called, for a log.
     fn name(&self) -> &str;
 }
@@ -438,7 +445,7 @@ enum Framing {
 /// The status line and the headers, once they are whole: where the body
 /// begins and how its end is told. Anything but 200 is a refusal, and its
 /// body is not read.
-fn head(held: &[u8]) -> Result<Option<(usize, Framing)>, Failed> {
+fn head(held: &[u8]) -> Result<Option<(usize, Framing, bool)>, Failed> {
     let mut headers = [httparse::EMPTY_HEADER; MOST_HEADERS];
     let mut answer = httparse::Response::new(&mut headers);
     let start = match answer.parse(held) {
@@ -450,10 +457,14 @@ fn head(held: &[u8]) -> Result<Option<(usize, Framing)>, Failed> {
         Some(200) => {}
         status => return Err(Failed::Refused(status.unwrap_or(0))),
     }
-    let (mut length, mut chunked) = (None, false);
+    let (mut length, mut chunked, mut closing) = (None, false, false);
     for header in answer.headers.iter() {
         let value = std::str::from_utf8(header.value).unwrap_or("").trim();
-        if header.name.eq_ignore_ascii_case("transfer-encoding") {
+        if header.name.eq_ignore_ascii_case("connection") {
+            closing |= value
+                .split(',')
+                .any(|token| token.trim().eq_ignore_ascii_case("close"));
+        } else if header.name.eq_ignore_ascii_case("transfer-encoding") {
             if !value.eq_ignore_ascii_case("chunked") {
                 return Err(Failed::Unreadable(
                     "it is sent in a coding this cannot read",
@@ -475,9 +486,9 @@ fn head(held: &[u8]) -> Result<Option<(usize, Framing)>, Failed> {
         }
     }
     match (chunked, length) {
-        (true, _) => Ok(Some((start, Framing::Chunked))),
+        (true, _) => Ok(Some((start, Framing::Chunked, closing))),
         (false, Some(length)) if length > MOST_ANSWER_BYTES => Err(Failed::Unreadable(TOO_LARGE)),
-        (false, Some(length)) => Ok(Some((start, Framing::Length(length)))),
+        (false, Some(length)) => Ok(Some((start, Framing::Length(length), closing))),
         (false, None) => Err(Failed::Unreadable("it does not say how long it is")),
     }
 }
@@ -502,9 +513,10 @@ fn more<S: Read>(stream: &mut S, held: &mut Vec<u8>) -> Result<usize, Failed> {
 }
 
 /// A body sent in chunks, each with its length before it, to the chunk of
-/// length nothing. What may follow that is not waited for: the connection
-/// is not used again.
-fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<Vec<u8>, Failed> {
+/// length nothing, and whether the empty line that ends it all had come
+/// with that chunk: only then is the connection known to be at the start
+/// of whatever comes next.
+fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<(Vec<u8>, bool), Failed> {
     let mut body = Vec::new();
     loop {
         let (after, size) = loop {
@@ -519,7 +531,11 @@ fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<Vec<u8>, Failed
             }
         };
         if size == 0 {
-            return Ok(body);
+            // The body is whole, and nothing more is read for it. Lines
+            // after the last chunk (trailers), or an end that has not
+            // come yet, only mean the connection is not used again.
+            let clean = &held[after..] == b"\r\n";
+            return Ok((body, clean));
         }
         let size = usize::try_from(size)
             .ok()
@@ -538,29 +554,47 @@ fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<Vec<u8>, Failed
     }
 }
 
-/// Send the request and read the answer's body.
-fn talk<S: Read + Write>(stream: &mut S, request: &[u8]) -> Result<Vec<u8>, Failed> {
+/// How an exchange on a connection went wrong.
+enum Lost {
+    /// Before a byte of an answer came: the request could not be sent, or
+    /// the other end had closed. On a connection kept from an earlier
+    /// asking that is the ordinary end of its life, not a failure.
+    Unanswered(Failed),
+    Failed(Failed),
+}
+
+/// Send the request and read the answer's body. The second value says
+/// whether the connection is at the start of whatever comes next and the
+/// other end has not said it will close.
+fn talk<S: Read + Write>(stream: &mut S, request: &[u8]) -> Result<(Vec<u8>, bool), Lost> {
     stream
         .write_all(request)
         .and_then(|()| stream.flush())
-        .map_err(|error| failed(SENDING, &error))?;
+        .map_err(|error| Lost::Unanswered(failed(SENDING, &error)))?;
     let mut held = Vec::with_capacity(4096);
-    let (start, framing) = loop {
-        if let Some(found) = head(&held)? {
+    let (start, framing, closing) = loop {
+        if let Some(found) = head(&held).map_err(Lost::Failed)? {
             break found;
         }
         if held.len() >= MOST_HEAD_BYTES {
-            return Err(Failed::Unreadable("its headers are longer than 16 KiB"));
+            return Err(Lost::Failed(Failed::Unreadable(
+                "its headers are longer than 16 KiB",
+            )));
         }
-        if more(stream, &mut held)? == 0 {
+        let read = match more(stream, &mut held) {
+            Ok(read) => read,
+            Err(lost) if held.is_empty() => return Err(Lost::Unanswered(lost)),
+            Err(lost) => return Err(Lost::Failed(lost)),
+        };
+        if read == 0 {
             // Closed with nothing said at all is not an answer of any kind.
             return Err(if held.is_empty() {
-                Failed::Unreachable {
+                Lost::Unanswered(Failed::Unreachable {
                     during: READING,
                     kind: io::ErrorKind::UnexpectedEof,
-                }
+                })
             } else {
-                Failed::Unreadable("it ended before its headers were whole")
+                Lost::Failed(Failed::Unreadable("it ended before its headers were whole"))
             });
         }
     };
@@ -568,16 +602,72 @@ fn talk<S: Read + Write>(stream: &mut S, request: &[u8]) -> Result<Vec<u8>, Fail
     match framing {
         Framing::Length(length) => {
             while held.len() < length {
-                if more(stream, &mut held)? == 0 {
-                    return Err(Failed::Unreadable(ENDED_EARLY));
+                if more(stream, &mut held).map_err(Lost::Failed)? == 0 {
+                    return Err(Lost::Failed(Failed::Unreadable(ENDED_EARLY)));
                 }
             }
+            // More than it said it would send: not a place to begin again.
+            let exact = held.len() == length;
             held.truncate(length);
-            Ok(held)
+            Ok((held, exact && !closing))
         }
-        Framing::Chunked => chunked(stream, held),
+        Framing::Chunked => chunked(stream, held)
+            .map(|(body, clean)| (body, clean && !closing))
+            .map_err(Lost::Failed),
     }
 }
+
+/// A connection, plain or secure, that can be kept from one asking to the
+/// next.
+enum Line {
+    Plain(Timed),
+    Secure(Box<rustls::StreamOwned<rustls::ClientConnection, Timed>>),
+}
+
+impl Line {
+    fn until(&mut self, until: Instant) {
+        match self {
+            Self::Plain(wire) => wire.until = until,
+            Self::Secure(stream) => stream.sock.until = until,
+        }
+    }
+
+    fn talk(&mut self, request: &[u8]) -> Result<(Vec<u8>, bool), Lost> {
+        match self {
+            Self::Plain(wire) => talk(wire, request),
+            Self::Secure(stream) => talk(stream.as_mut(), request),
+        }
+    }
+}
+
+/// How long a connection is kept, and so how long this side takes the
+/// other to keep it. Making one is a large part of a quick decision: from
+/// lamp-4ace on 2026-10-14 the name, the connection and the handshake took
+/// 0.20 to 0.29 s of a decision that took 0.57 to 0.79 s.
+///
+/// Measured against openrouter.ai from the office on 2026-10-14, one
+/// connection for each figure: a connection that had answered a request
+/// answered another after 20, 45, 90 and 180 s left alone; one that had
+/// carried no request yet answered after 10, 12 and 14 s and was found
+/// closed after 16, 18, 20 and 45 s. Both figures here are inside what
+/// was seen to work, and a connection the other end has closed sooner is
+/// replaced when that is found out.
+#[derive(Clone, Copy)]
+struct Keeping {
+    /// After an answer.
+    answered: Duration,
+    /// After it was made, with nothing asked on it yet.
+    unused: Duration,
+    /// [`Decider::ready`] leaves a kept connection be if it has at least
+    /// this long to go: about the length of something said.
+    ready_margin: Duration,
+}
+
+const KEEPING: Keeping = Keeping {
+    answered: Duration::from_secs(150),
+    unused: Duration::from_secs(12),
+    ready_margin: Duration::from_secs(6),
+};
 
 /// `text` as a JSON string.
 fn quoted(text: &str) -> String {
@@ -732,11 +822,11 @@ fn answers(body: &[u8], questions: &[(String, Question)]) -> Result<Answered, Fa
     })
 }
 
-/// TypeSafe's Jev, asked over HTTP/1.1: one request on one connection.
+/// TypeSafe's Jev, asked over HTTP/1.1, one request at a time.
 ///
-/// The connection is made anew for each asking and closed after it. That
-/// costs a handshake each time and leaves nothing to go stale between
-/// askings that may be minutes apart.
+/// The connection of an asking is kept for the next ([`Keeping`]), and
+/// [`Decider::ready`] makes one ahead of a question. A kept connection the
+/// other end has closed is found out when it is used and replaced then.
 pub struct Jev {
     endpoint: Endpoint,
     model: String,
@@ -746,6 +836,10 @@ pub struct Jev {
     /// How to check the service's certificate, for an `https` endpoint.
     secure: Option<Arc<rustls::ClientConfig>>,
     lookup: Lookup,
+    /// A connection that can be used for the next asking, and until when
+    /// it is taken to be there.
+    kept: Option<(Line, Instant)>,
+    keeping: Keeping,
 }
 
 impl Jev {
@@ -803,11 +897,49 @@ impl Jev {
             model: model.to_owned(),
             endpoint,
             secure,
+            kept: None,
+            keeping: KEEPING,
         })
     }
 
-    /// One request and its answer's body, all of it before `until`.
+    /// One request and its answer's body, all of it before `until`, on
+    /// the connection kept from the last asking if there is one. A kept
+    /// connection that turns out to have ended before a byte of an answer
+    /// came is replaced once: the request has no effect to repeat.
     fn exchange(&mut self, request: &[u8], until: Instant) -> Result<Vec<u8>, Failed> {
+        if let Some((mut line, there_until)) = self.kept.take()
+            && Instant::now() < there_until
+        {
+            line.until(until);
+            match line.talk(request) {
+                Ok((body, again)) => {
+                    if again {
+                        self.kept = Some((line, Instant::now() + self.keeping.answered));
+                    }
+                    return Ok(body);
+                }
+                // It had ended, which is how a kept connection's life
+                // ordinarily ends. With no time left there is nothing to
+                // try again with, and what it failed of is the failure.
+                Err(Lost::Unanswered(failed)) if Instant::now() >= until => return Err(failed),
+                Err(Lost::Unanswered(_)) => {}
+                Err(Lost::Failed(failed)) => return Err(failed),
+            }
+        }
+        let mut line = self.open(until)?;
+        match line.talk(request) {
+            Ok((body, again)) => {
+                if again {
+                    self.kept = Some((line, Instant::now() + self.keeping.answered));
+                }
+                Ok(body)
+            }
+            Err(Lost::Unanswered(failed) | Lost::Failed(failed)) => Err(failed),
+        }
+    }
+
+    /// A new connection, made and if need be secured before `until`.
+    fn open(&mut self, until: Instant) -> Result<Line, Failed> {
         let mut addresses = self.lookup.addresses(until)?;
         if self.secure.is_none() {
             // Plain http is for this machine only, whatever the name
@@ -819,7 +951,7 @@ impl Jev {
         let _ = socket.set_nodelay(true);
         let mut wire = Timed { socket, until };
         let Some(config) = &self.secure else {
-            return talk(&mut wire, request);
+            return Ok(Line::Plain(wire));
         };
         // A host that cannot be named to the other end cannot be checked.
         let unnamed = Failed::Unreachable {
@@ -839,7 +971,9 @@ impl Jev {
                 .complete_io(&mut wire)
                 .map_err(|error| failed(SECURING, &error))?;
         }
-        talk(&mut rustls::Stream::new(&mut session, &mut wire), request)
+        Ok(Line::Secure(Box::new(rustls::StreamOwned::new(
+            session, wire,
+        ))))
     }
 }
 
@@ -869,7 +1003,7 @@ impl Decider for Jev {
             "POST {} HTTP/1.1\r\nHost: {}\r\nAuthorization: {}\r\n\
              Content-Type: application/json\r\nAccept: application/json\r\n\
              Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n\
-             Content-Length: {}\r\nConnection: close\r\n\r\n",
+             Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
             self.endpoint.path,
             self.endpoint.authority(),
             self.authorization,
@@ -887,6 +1021,25 @@ impl Decider for Jev {
             took: started.elapsed(),
             usage: answered.usage,
         })
+    }
+
+    fn ready(&mut self, within: Duration) {
+        let needed = Instant::now() + self.keeping.ready_margin;
+        if self
+            .kept
+            .as_ref()
+            .is_some_and(|(_, there_until)| *there_until >= needed)
+        {
+            return;
+        }
+        // The old one is let go first: the other end is told before it is
+        // asked for another. A failure here is not told: the asking will
+        // meet it and say so.
+        self.kept = None;
+        self.kept = self
+            .open(Instant::now() + within)
+            .ok()
+            .map(|line| (line, Instant::now() + self.keeping.unused));
     }
 
     fn name(&self) -> &str {

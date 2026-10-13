@@ -57,7 +57,7 @@ It subscribes, each with its type from [lamp-msgs](msgs.md), to:
 |---|---|
 | `voice/heard` | What was heard, a piece at a time |
 | `voice/said` | What the lamp said: the pieces of its newest answer, put end to end |
-| `voice/state` | Whether the lamp is speaking |
+| `voice/state` | Whether the lamp is speaking; whether the person is still being listened to, which sets how long an utterance waits before it is judged; and the moment someone begins to speak, when the model is told to get ready |
 | `room/state` | How the room is: quiet, busy or not known. Not known until the voice has said, and again once the voice has gone |
 | `humans/faces/tracked` | How many faces the eyes see, how many of them are near (a box at least 15% of the picture's height), and how many of those are turned to the lamp. Written down with each decision (`seen`) when the eyes' list is no more than two seconds old, and **not used to make the decision yet**: nobody had stood in front of the lamp when this was written, so there is nothing to weigh it by |
 
@@ -298,7 +298,8 @@ choice among named options (answered with a probability for each). The
 state is handed over as the text that is sent, because the order of its
 fields is part of what a model reads and a JSON value keeps none.
 
-Jev is asked with one request on one connection:
+Jev is asked with one request at a time, on a connection that is kept
+from one asking to the next:
 
     POST https://openrouter.ai/api/alpha/decisions
     Authorization: Bearer <key>
@@ -317,6 +318,34 @@ to be one of its options, and its probabilities have to add up to 1 within
 an answer. An answer is read by its stated length or in chunks, up to
 256 KiB.
 
+**The connection is kept.** Making one (the name, the connection, the
+secure handshake) took 0.20 to 0.29 s of a decision that took 0.57 to
+0.79 s from lamp-4ace, so it is made once and used again:
+
+- After an answer the connection is kept for 150 s. A conversation's turns
+  come closer together than that.
+- A judge can be told to get ready (`Decider::ready`). The policy does so
+  the moment the voice begins to listen to someone, and Jev then makes the
+  connection while they talk, unless it has one with at least 6 s to go.
+  One that has carried no request yet is kept for 12 s.
+- A kept connection that the other end has closed is found out when it is
+  used, before a byte of an answer has come. Another is made and the
+  request sent again, once, inside the same deadline. Nothing is counted
+  as a failure. A request is a question with no effect, so asking it twice
+  costs at most one request's price.
+- A connection is used again only when its answer ended cleanly and the
+  service did not say it would close: by its stated length exactly, or by
+  a last chunk that came with its ending line. Anything else is read as it
+  was before and the connection is let go.
+
+Those two times are inside what was measured against openrouter.ai from
+the office's network on 2026-10-14, outside this program, one connection
+for each figure: a connection that had answered a request answered another
+after 20, 45, 90 and 180 s left alone; one that had carried no request yet
+answered after 10, 12 and 14 s and was found closed after 16, 18, 20 and
+45 s. The second request on a connection, one question asked, was
+answered in 0.52 to 0.57 s six times of seven and in 1.03 s once.
+
 The deadline is over everything together: looking the name up, connecting,
 making the connection secure, sending and reading. The system's own lookup
 of a name takes no deadline, so it runs on a thread of its own and is
@@ -328,13 +357,18 @@ middle and under 0.76 s nine times in ten, and now and then took seconds.
 
 From the last piece of an utterance to the decision on the bus:
 
-    the pause (300 ms)  +  up to 20 ms to notice it  +  the asking  +  up to 5 ms to take the answer up
+    the wait  +  up to 20 ms to notice it  +  the asking  +  up to 5 ms to take the answer up
+
+The wait is what makes sure an utterance is over. While the voice is
+listening to someone, more of what they say may come, and it is the pause
+of 300 ms. Once the voice has said it is no longer listening, the text
+that arrives is of something already said, and it is 80 ms. A voice whose
+state is not known is taken as still listening.
 
 Measured on the development Mac, ten times each, with a stand-in model that
 answers at once: 314 to 324 ms after the last piece, 319 in the middle, and
 7 to 9 ms after a piece marked `finished`. With the real model the asking
-is added, and each asking makes a new secure connection first. That has not
-been measured from this program.
+is added: see "On the lamp".
 
 ## On the lamp
 

@@ -397,20 +397,39 @@ fn counted(faces: &Faces) -> (u8, u8, u8) {
     )
 }
 
+/// What the asking thread is given to do.
+enum Ask {
+    /// Someone has begun to speak: a question is likely within seconds.
+    Ready,
+    /// The state to ask the questions about.
+    About(String),
+}
+
+/// How long the model may take to get ready. It is not waited for: a
+/// question that comes meanwhile is asked as soon as this is over.
+const READY_WITHIN: Duration = Duration::from_millis(1_500);
+
 /// The thread that asks the decision model, and the way to it.
 struct Asker {
-    states: mpsc::SyncSender<String>,
+    states: mpsc::SyncSender<Ask>,
     answers: mpsc::Receiver<(Result<Asked, Failed>, Duration)>,
     thread: thread::JoinHandle<()>,
 }
 
 impl Asker {
     fn start<D: Decider + Send + 'static>(mut decider: D, deadline: Duration) -> io::Result<Self> {
-        let (states, asked) = mpsc::sync_channel::<String>(1);
+        let (states, asked) = mpsc::sync_channel::<Ask>(1);
         let (answered, answers) = mpsc::channel();
         let thread = thread::Builder::new().name("ask".into()).spawn(move || {
             let questions = attention::questions();
-            for state in asked {
+            for ask in asked {
+                let state = match ask {
+                    Ask::Ready => {
+                        decider.ready(READY_WITHIN.min(deadline));
+                        continue;
+                    }
+                    Ask::About(state) => state,
+                };
                 let started = Instant::now();
                 let answer = decider.ask(&state, &questions, deadline);
                 if answered.send((answer, started.elapsed())).is_err() {
@@ -560,10 +579,10 @@ impl Policy<'_> {
                 break;
             };
             let sent = if self.asker_gone {
-                Err(mpsc::TrySendError::Disconnected(String::new()))
+                Err(mpsc::TrySendError::Disconnected(Ask::Ready))
             } else {
                 let state = attention::state_text(&waiting.context);
-                self.asker.states.try_send(state)
+                self.asker.states.try_send(Ask::About(state))
             };
             match sent {
                 Ok(()) => self.asking = Some((waiting, now)),
@@ -820,6 +839,7 @@ pub fn run<D: Decider + Send + 'static>(
     };
     policy.second();
     let mut shown = Instant::now();
+    let mut was_listening = false;
     while !stop.load(Ordering::Relaxed) {
         // What the lamp is doing and saying first, so that a piece heard
         // in the same turn finds it as it was. What the lamp says while
@@ -830,13 +850,26 @@ pub fn run<D: Decider + Send + 'static>(
         let unreadable = &mut policy.totals.unreadable;
         for state in voice.take::<VoiceState>(Duration::ZERO, unreadable, policy.say) {
             policy.lamp.state(state.state == Voice::Speaking, now);
-            policy
-                .gather
-                .person_stopped(state.state != Voice::Listening);
+            let listening = state.state == Voice::Listening;
+            policy.gather.person_stopped(!listening);
+            // Someone has begun to speak, and what they say will be asked
+            // about when they stop: the model gets ready while they talk.
+            // With a question out or waiting the thread is busy, and it
+            // is ready already.
+            if listening
+                && !std::mem::replace(&mut was_listening, true)
+                && policy.asking.is_none()
+                && policy.waiting.is_empty()
+                && !policy.asker_gone
+            {
+                let _ = policy.asker.states.try_send(Ask::Ready);
+            }
+            was_listening = listening;
         }
         if voice.source(policy.say) {
             policy.lamp.gone();
             policy.gather.person_stopped(false);
+            was_listening = false;
         }
         for piece in said.take::<Speech>(Duration::ZERO, unreadable, policy.say) {
             policy.lamp.said(&piece.text, piece.request, now);

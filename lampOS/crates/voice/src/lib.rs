@@ -7,6 +7,7 @@ pub mod activity;
 pub mod admission;
 pub mod attention;
 pub mod body_link;
+pub mod bus_out;
 pub mod camera_config;
 pub mod camera_inspect;
 pub mod camera_worker;

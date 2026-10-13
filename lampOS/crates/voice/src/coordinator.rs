@@ -2174,6 +2174,9 @@ fn conversation(
     let mut answer_opening: Option<(u64, String)> = None;
     let mut look_wanted: Option<(u64, u64)> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
+    // What the voice is doing, heard and said, for whoever listens on the
+    // lamp's bus. Nothing here waits for a listener.
+    let mut bus_out = crate::bus_out::BusOut::from_environment();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -2489,6 +2492,9 @@ fn conversation(
                     text,
                     finished,
                 } => {
+                    if let Some(bus) = bus_out.as_mut() {
+                        bus.speech(request, &text, finished, monotonic_us());
+                    }
                     // The model keeping quiet aloud: an answer that opens
                     // with no word in it ("...") while none of it has been
                     // played is not an answer. It ends here, unheard, and
@@ -3357,6 +3363,9 @@ fn conversation(
             }),
             clock,
         );
+        if let Some(bus) = bus_out.as_mut() {
+            bus.state(crate::ring_wire::RingPhase::from_snapshot(snapshot), clock);
+        }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
             let phase = RingPhase::from_snapshot(snapshot);

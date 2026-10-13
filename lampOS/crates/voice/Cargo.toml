@@ -19,6 +19,8 @@ lamp-ring = { path = "../ring" }
 lamp-body = { path = "../body" }
 lamp-gemini = { path = "../gemini" }
 lamp-turn-end-wire = { path = "../turn-end-wire" }
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
 tokio = { version = "=1.53.1", features = ["rt", "time", "macros"] }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 sonora-agc2 = "=0.2.0"

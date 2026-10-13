@@ -1947,3 +1947,71 @@ fn stood_up_the_head_tilts_to_listen_and_folded_it_does_not() {
     // Without a standing reach it never tilts.
     assert!(tilt(0.0).1 <= 1);
 }
+
+#[test]
+fn standing_with_nothing_to_do_it_shifts_now_and_then_and_stops_when_spoken_to() {
+    // Spoken to for two seconds, then left standing for a minute.
+    let run_with = |idle: bool, spoken_again_at: Option<u64>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let limits = Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap();
+        let time = clock.time.clone();
+        let watched = clock.time.clone();
+        let mut seen: Vec<(Duration, Option<&'static str>, Mood)> = Vec::new();
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            Some(standing(100, 120).idling(idle)),
+            None,
+            move || {
+                let at = time.get().as_secs();
+                let spoken = at < 2 || spoken_again_at.is_some_and(|again| at >= again);
+                Some(if spoken {
+                    (Mood::Listening, 100)
+                } else {
+                    (Mood::Resting, 0)
+                })
+            },
+            Asked::default,
+            |glimpse| seen.push((watched.get(), glimpse.gesture, glimpse.mood)),
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        (report, seen)
+    };
+    // It stands by five seconds, rests four, shifts for ten, rests eight,
+    // shifts again.
+    let (report, seen) = run_with(true, None);
+    assert_eq!(
+        (report.idles, report.gestures, report.gestures_dropped),
+        (2, 0, 0)
+    );
+    let first = seen.iter().find(|step| step.1 == Some("idle")).unwrap().0;
+    assert!(
+        first > Duration::from_secs(8) && first < Duration::from_secs(11),
+        "{first:?}"
+    );
+    assert!(report.retreats.is_empty());
+    // Not asked to, it stands still.
+    let (report, seen) = run_with(false, None);
+    assert_eq!(report.idles, 0);
+    assert!(seen.iter().all(|step| step.1.is_none()));
+    // Spoken to in the middle of a shift, it lets the shift go at once.
+    let (report, seen) = run_with(true, Some(14));
+    assert_eq!(report.idles, 1);
+    let last = seen.iter().rfind(|step| step.1 == Some("idle")).unwrap().0;
+    assert!(last < Duration::from_millis(14_100), "{last:?}");
+    assert!(
+        seen.iter()
+            .filter(|step| step.2 == Mood::Listening && step.0 >= Duration::from_secs(14))
+            .all(|step| step.1.is_none())
+    );
+}

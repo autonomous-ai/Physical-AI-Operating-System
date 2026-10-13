@@ -4,7 +4,7 @@
 use lamp_motor::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -40,6 +40,7 @@ struct StandingChoice {
     seconds: u8,
     awake: u16,
     load: [u16; 2],
+    idle: bool,
 }
 
 /// Whole numbers separated by commas, exactly as many as asked for.
@@ -76,6 +77,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut reach, mut speed, mut servo_speed, mut servo_acceleration) = (None, None, None, None);
     let (mut stand, mut folded_arm, mut arm_load) = (None, None, None);
     let (mut stand_share, mut stand_seconds, mut awake_seconds) = (None, None, None);
+    let mut idle = None;
     let (mut gaze_socket, mut gaze_turn, mut gaze_reach) = (None, None, None);
     let mut stand_roll = None;
     while let Some(key) = args.next() {
@@ -95,6 +97,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || stand_share.is_some()
                 || stand_seconds.is_some()
                 || awake_seconds.is_some()
+                || idle.is_some()
                 || gaze_socket.is_some()
                 || gaze_turn.is_some()
                 || gaze_reach.is_some()
@@ -211,6 +214,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                         .ok_or("--awake-seconds is a whole number of seconds")?[0],
                 );
             }
+            Some("--idle") if idle.is_none() => {
+                idle = Some(match value.to_str() {
+                    Some("on") => true,
+                    Some("off") => false,
+                    _ => return Err("--idle is on or off"),
+                });
+            }
             Some("--stand-roll") if stand_roll.is_none() => {
                 stand_roll = Some(
                     value
@@ -262,12 +272,14 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             seconds: stand_seconds.unwrap_or(5),
             awake: awake_seconds.unwrap_or(90),
             load: arm_load.unwrap_or([950, 950]),
+            idle: idle.unwrap_or(false),
         }),
         (None, None)
             if arm_load.is_none()
                 && stand_share.is_none()
                 && stand_seconds.is_none()
-                && awake_seconds.is_none() =>
+                && awake_seconds.is_none()
+                && idle.is_none() =>
         {
             None
         }
@@ -572,6 +584,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 choice.awake,
                 choice.load,
             )
+            .map(|standing| standing.idling(choice.idle))
         })
         .transpose()?;
     let result = run_body(
@@ -739,6 +752,7 @@ mod tests {
                 seconds: 6,
                 awake: 45,
                 load: [950, 950],
+                idle: false,
             }
         );
         assert!(with(&[]).unwrap().unwrap().standing.is_none());

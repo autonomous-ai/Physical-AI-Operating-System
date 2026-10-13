@@ -24,7 +24,7 @@
 //!   nothing keeps pushing, and nothing is written after that.
 use crate::{
     Joint,
-    clips::Clip,
+    clips::{self, Clip},
     gaze::{Gaze, Looking, Seen},
     gesture::{Gestures, Mood, Pose},
     inspection::{Interest, PortIo, Runtime},
@@ -99,6 +99,10 @@ const GESTURE_TRACKING: u16 = 150;
 const GESTURE_LOAD: u16 = 700;
 const GESTURE_ARM_TRACKING: u16 = 260;
 const GESTURE_COOL_STEPS: u16 = 25;
+/// A lamp that may idle and has stood at rest this long shifts a little by
+/// itself, and waits this long after one shift before the next.
+const IDLE_AFTER: Duration = Duration::from_secs(4);
+const IDLE_EVERY: Duration = Duration::from_secs(8);
 
 /// What reaches the body from outside in one step, besides the mood: what
 /// its eyes saw, and a gesture it was asked to make.
@@ -131,6 +135,8 @@ pub struct Standing {
     /// A shoulder or an elbow reading above this for `Limits::load_steps`
     /// steps sends the lamp back down.
     pub load: [u16; 2],
+    /// Standing with nothing to do, it shifts a little now and then.
+    pub idle: bool,
 }
 
 impl Standing {
@@ -186,7 +192,14 @@ impl Standing {
             seconds: f32::from(seconds),
             awake: Duration::from_secs(u64::from(awake)),
             load,
+            idle: false,
         })
+    }
+
+    /// The same, shifting a little now and then while it stands at rest, or
+    /// not.
+    pub fn idling(self, idle: bool) -> Self {
+        Self { idle, ..self }
     }
 }
 
@@ -481,6 +494,8 @@ pub struct BodyReport {
     /// did not keep up or strained.
     pub gestures: u32,
     pub gestures_dropped: u32,
+    /// Times it shifted by itself while standing at rest.
+    pub idles: u32,
     pub stop: Stop,
 }
 
@@ -895,6 +910,7 @@ pub(crate) fn run_alive(
         retreats: Vec::new(),
         gestures: 0,
         gestures_dropped: 0,
+        idles: 0,
         stop: Stop::Cancelled,
     };
     let mut bus = Bus { io, runtime };
@@ -1255,6 +1271,8 @@ pub(crate) fn run_alive(
     let mut pending: Option<(&'static Clip, Duration)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
+    // When a lamp standing at rest next shifts by itself.
+    let mut idle_due: Option<Duration> = None;
     let step = TICK.as_secs_f32();
     let mut gestures = Gestures::new();
     // It starts from where it is, not from where it should be: the way home
@@ -1394,8 +1412,28 @@ pub(crate) fn run_alive(
         let upright = leaving.is_none()
             && !blind
             && standing.is_some_and(|up| up.share >= 1.0 && stand >= 1.0 && stand_velocity == 0.0);
+        // Anything alive that stands with nothing to do shifts a little
+        // now and then. It stops the moment there is something to do.
+        let idling = playing.is_some_and(|(clip, _)| clip.name == clips::IDLE.name);
+        if !(upright && mood == Mood::Resting && pending.is_none()) {
+            idle_due = None;
+            if idling {
+                playing = None;
+            }
+        } else if playing.is_none() {
+            match idle_due {
+                None => idle_due = Some(now + IDLE_AFTER),
+                Some(due) if now >= due && standing.is_some_and(|up| up.idle) => {
+                    playing = Some((&clips::IDLE, now));
+                    report.idles += 1;
+                    idle_due =
+                        Some(now + Duration::from_micros(clips::IDLE.duration_us()) + IDLE_EVERY);
+                }
+                Some(_) => {}
+            }
+        }
         if let Some(clip) = asked_now.gesture
-            && playing.is_none()
+            && (playing.is_none() || idling)
         {
             pending = Some((clip, now));
         }
@@ -1507,9 +1545,15 @@ pub(crate) fn run_alive(
             } else {
                 0.0
             };
-            goals[index] = (commanded[index] + gesture_now[index])
-                .round()
-                .clamp(least, 4_095.0) as u16;
+            // A head that does not tilt when it stands does not tilt in a
+            // gesture either: on lamp-4ace that joint turns a round head
+            // about its own axis, which nobody sees.
+            let over = if index == 1 && limits.stand_roll <= limits.roll {
+                0.0
+            } else {
+                gesture_now[index]
+            };
+            goals[index] = (commanded[index] + over).round().clamp(least, 4_095.0) as u16;
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0

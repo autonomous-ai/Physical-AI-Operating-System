@@ -302,6 +302,7 @@ and 800 counts a second:
 | `laugh` | 4.4 s | head back 134, shoulder back 111 |
 | `shy` | 6.0 s | head dips 108, elbow folds 198 |
 | `stretching` | 6.5 s | shoulder up 296, elbow 339 |
+| `idle` | 10.0 s | shoulder and elbow sway about 40 either way, the head lifts 47 |
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the
@@ -330,6 +331,17 @@ What the body does with the request:
 - The eyes correct nothing while a gesture plays, since the picture is
   moving.
 
+With `--idle on` a lamp that has stood at rest for four seconds plays `idle`
+by itself, the old runtime's idle loop at half its size, and again eight
+seconds after each one ends: anything alive that stands with nothing to do
+shifts a little now and then. It lets the shift go the moment a mood other
+than rest arrives, and a gesture that is asked for replaces it. The report
+counts them apart from gestures (`idles`).
+
+A head that does not tilt when it stands (`--stand-roll` not given) does not
+tilt in a gesture either: the roll in a clip is left out. On lamp-4ace that
+joint turns a round head about its own axis.
+
 The gestures need the servos' own speed bound out of the way:
 `--servo-speed 1000`. The shoulder's and the elbow's are written as 800 or
 more for a lamp that stands.
@@ -355,6 +367,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch | 250,120 | 400, 200 |
+| `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
@@ -444,7 +457,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (217 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (218 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

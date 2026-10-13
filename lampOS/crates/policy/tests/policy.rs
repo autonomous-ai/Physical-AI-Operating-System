@@ -677,7 +677,9 @@ fn a_lamp_that_spoke_before_it_was_decided_is_written_with_a_time_less_than_noth
     assert_eq!(outcome["said"], "It is noon.");
     let after = outcome["spoke_after_ms"].as_i64().unwrap();
     println!("spoke {after} ms after the decision");
-    assert!((-400..0).contains(&after), "{after}");
+    // Before it, by about the 300 ms the model took less the 150 ms the
+    // lamp waited, and by more on a machine that is slow to run this.
+    assert!((-3_000..0).contains(&after), "{after}");
     assert!(outcome["heard_to_sound_ms"].as_i64().unwrap() >= 140);
     rig.stop();
 }

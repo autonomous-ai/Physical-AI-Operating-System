@@ -301,7 +301,7 @@ func (h *DeviceHandler) GetVoices(c *gin.Context) {
 	}
 	// Error, not an empty list: the web would treat empty as authoritative and
 	// never refetch.
-	if provider == domain.TTSProviderPiper {
+	if provider == domain.TTSProviderPiper || provider == domain.TTSProviderPhonon {
 		if err != nil {
 			c.JSON(http.StatusServiceUnavailable,
 				serializers.ResponseError("hal unreachable: "+err.Error()))

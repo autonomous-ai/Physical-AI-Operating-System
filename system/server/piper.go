@@ -91,3 +91,5 @@ func (s *Server) piperVoice(c *gin.Context)   { piperProxy(c, http.MethodPost, "
 func (s *Server) piperVoiceRemove(c *gin.Context) {
 	piperProxy(c, http.MethodPost, "/voice/piper/voice/remove")
 }
+
+func (s *Server) phononStatus(c *gin.Context) { piperProxy(c, http.MethodGet, "/voice/phonon/status") }

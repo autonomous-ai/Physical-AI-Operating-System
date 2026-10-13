@@ -44,6 +44,23 @@ which is 0.6 s of waiting to be sure the person has stopped and 0.9 to
 end-of-speech decision in the night's checks (34 answers in five runs).
 Loudspeaker lines and the service's own records, not a first audible word.
 
+Over every answer in the lamp's records, counting for each the wait that
+was in force for it (600 ms for 900 of them), from the person stopping to
+the first sound written to the speaker:
+
+| | Answers | Half within | Nine in ten within |
+|---|---|---|---|
+| 2026-10-12 | 156 | 2.19 s | 2.90 s |
+| 2026-10-13, a working day in the office | 632 | 1.98 s | 2.93 s |
+| 2026-10-14, played into a quiet room at night | 246 | 1.83 s | 2.39 s |
+| All | 1,034 | 1.98 s | 2.81 s |
+
+The quickest of them took 1.33 s. Against the targets above (a typical
+reply 300 to 500 ms after the person finishes), the lamp is four to six
+times too slow, and no setting of its own closes that: the service's
+first sign of an answer came 1.15 s after the end of speech was decided,
+at the median of 1,064 answers.
+
 The 0.6 s is the one part of it that is the lamp's own to shorten, so
 400 ms was tried, once, on the pause test (`pauses.sh`: two plain
 questions and three thoughts with a silence of 450, 650 and 900 ms in

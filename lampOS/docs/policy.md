@@ -467,8 +467,9 @@ sent on a connection made while the person was speaking (`ahead`) and six
 on the one kept from the asking before (`kept`); none made a connection of
 its own. The four slow askings were slow at the service: one was `ahead`
 and two `kept` (the fourth was before the kind was written down). The
-same two speeds showed in the measurement from the Mac, where a request
-took about 0.5 s or about 1.0 s and nothing between.
+same two speeds showed in the measurement from the Mac: of nineteen
+requests, fourteen took 0.50 to 0.57 s, one 0.65 s and four 0.97 to
+1.03 s.
 
 **It is still not early enough to hold an answer back.** The outcomes log
 gives the time from each decision to the lamp's first sound. Of the twelve

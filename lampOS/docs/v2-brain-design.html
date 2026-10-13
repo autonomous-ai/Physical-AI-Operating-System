@@ -66,7 +66,7 @@ main{margin-left:var(--sidebar);padding:0 54px 70px;max-width:1770px}.chapter{ma
 <noscript><p class="no-js-note">The complete document is readable without JavaScript. Interactive filters and walkthrough controls require JavaScript.</p></noscript>
 
 <section class="chapter hero" id="overview" data-title="The direction">
-  <div class="topline"><span class="pill draft">For review &amp; approval</span><span class="date">DESIGN 0.5 / 13 OCT 2026</span></div>
+  <div class="topline"><span class="pill draft">For review &amp; approval</span><span class="date">DESIGN 0.6 / 13 OCT 2026</span></div>
   <p class="eyebrow">01 / An AI-native robotic OS</p>
   <h1>A companion in the room.<br><em>An executive for your agents.</em></h1>
   <p class="lead">Lamp senses what is happening, talks naturally, acts through a dependable local body, and delegates substantial work to agents on your computers.</p>
@@ -551,6 +551,31 @@ Revalidate: same candidate set? fresh facts? current grant? target available?  |
   </tbody></table></div>
   <p>Jev’s documented input is text or structured state; its outputs are bounded judgments such as Choice, Score and Noul. Audio needs transcription and images need derived observations before they enter its context. Numeric sensors remain structured. Jev does not write arbitrary task instructions or synthesize speech. <a href="https://docs.typesafe.ai/concepts/state">TypeSafe state</a> · <a href="https://docs.typesafe.ai/introduction">Decision primitives</a></p>
   <div class="grid2"><div class="card"><h3>Candidate construction is real work</h3><p>The executive supplies executable options, validates parameters, honors an explicitly named agent or computer, and includes “none / need clarification.” The model cannot select an unavailable motor behavior or route work to an unpaired host.</p><p>Preserve the user’s original objective. If novel planning is needed, delegate it rather than hide a second agent loop inside candidate generation.</p></div><div class="card"><h3>Model replacement is empirical</h3><p>Compare deterministic rules, bounded decision models and an agent-led policy on the same recorded situations. Evaluate wrong actions, abstention, context size, cost, p50/p95 delay and behavior under timeout.</p><p>Jev is the reference candidate, not a proven winner. OpenAI/Microsoft or other alternatives require a named product, verified interface and Lamp-specific evaluation before an adapter is claimed.</p></div></div>
+  <h3 id="v1-intent">What V1’s intent component already does</h3>
+  <p>V1 has a command shortcut in <code>system/intent</code>. For eligible text or transcribed voice requests, it recognizes a complete, known device command and executes its code-owned handler without asking the main agent. Examples include light on/off, volume adjustment, a named scene, follow/stop tracking and local time. For other possible device commands, a configured Jev resolver can select from the available command catalog; code validates that selection before execution.</p>
+  <pre><code>Eligible request text
+    |
+    +-- complete canonical command --> local handler --> HAL / result
+    |
+    +-- possible device command ------> optional Jev selection
+    |                                    |
+    |                               validate offered choice
+    |                                    |
+    |                               local handler --> HAL / result
+    |
+    +-- no valid match / abstention --> continue to main agent
+
+An attempted local action stays handled even if it fails.
+It must not fall through and cause a second execution.</code></pre>
+  <p>The sensing handler checks context first: bare fragments such as “brighter” may refer to a digital task, and Harness follow-ups have their own routing. A realtime-handled Gemini turn uses a separate event path. This component is therefore not a mandatory Jev hop for every Gemini reply. Sources: <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/ed01f8ff85bd3f2d2b8b23e644b0a346176c7717/system/intent/semantic.go">canonical match and semantic fallback</a>, <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/ed01f8ff85bd3f2d2b8b23e644b0a346176c7717/system/server/sensing/delivery/http/handler.go">request routing</a>, <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/ed01f8ff85bd3f2d2b8b23e644b0a346176c7717/system/server/sensing/delivery/http/intent_context.go">context deferral</a>.</p>
+  <div class="table-wrap"><table class="compare"><thead><tr><th>Bring into V2</th><th>Adaptation</th></tr></thead><tbody>
+    <tr><td>Deterministic command catalog and exact-command fast path</td><td>Port to Rust and call the shared service APIs. Explicit, unambiguous controls need no model decision.</td></tr>
+    <tr><td>Capability-filtered choices and finite parameter validation</td><td>Retain behind the pluggable DecisionProvider. The model chooses an offered command; it cannot invent a hardware payload.</td></tr>
+    <tr><td>Context and ambiguity safeguards</td><td>Port the regression cases for negation, quotes, compound requests, another room, future timing and constrained numeric changes. Deferring a phrase must preserve its original constraints.</td></tr>
+    <tr><td>Failure-aware replies and handled-on-attempt behavior</td><td>Use shared request IDs and service receipts. A Live tool proposal and a later transcript of the same request must not execute twice.</td></tr>
+    <tr><td>Bounded semantic fallback</td><td>Keep purpose-specific deadlines, cancellation, abstention and stale-result rejection. V1’s resolver allows up to three seconds; that budget must not enter the mandatory Live audio path.</td></tr>
+  </tbody></table></div>
+  <p>V1’s Jev resolver selects commands; it does not run an open-ended agent loop. V2 broadens this useful boundary into a policy that can also choose a behavior, clarification or agent task. Reuse the external decision provider through an adapter; rewrite the local routing and service integration in Rust. Sources: <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/ed01f8ff85bd3f2d2b8b23e644b0a346176c7717/system/intent/jev/resolver.go">resolver limits</a>, <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/ed01f8ff85bd3f2d2b8b23e644b0a346176c7717/system/intent/fast_path_test.go">fast-path regression cases</a>.</p>
   <details><summary>DecisionProvider contract and timeout behavior</summary><div class="detail-body"><pre><code>evaluate({
   request_id, purpose_id, spec_version, candidate_set_hash,
   context_snapshot_id, selected_facts, candidate_ids,
@@ -571,6 +596,40 @@ Rust outcome → admitted | discarded_stale | no_longer_eligible | needs_clarifi
 <figcaption id="voice-path-caption">The direct audio lane reuses the Rust voice MVP. Named topic fan-out, Deepgram routing, shared context and Jev are proposed extensions. This diagram removes a mandatory serial decision hop; it does not claim zero dispatch cost or measured latency parity.</figcaption></figure>
 <div class="grid2"><div class="card"><h3>Protect the voice path</h3><p>Keep capture, echo reference, provider I/O and playback on their current bounded paths. Each additional subscriber has an independent bounded queue; none can hold up the active audio route. Preserve audio timestamps, DSP epochs and explicit gap handling.</p></div><div class="card"><h3>Coordinate what Lamp says and does</h3><p>Only one route owns the spoken response. Gemini may acknowledge a request immediately; commitments and completion claims use accepted service state. Jev can take longer to choose an action while the conversation stays available.</p></div></div>
 <p class="caption"><strong>Fallback is a different route:</strong> mic2 → Deepgram STT → text response → Gemini TTS → the same speaker owner. Its latency must be qualified separately. If Gemini Live is active, it does not wait for this chain.</p>
+
+  <h3 id="mic-routing">Mic 1 and mic 2: sources, not provider assignments</h3>
+  <p><strong>Keep the existing Gemini audio path and add independent subscribers beside it.</strong> Either provider can subscribe to the selected microphone. Gemini does not need mic1 while Deepgram uses mic2; both can consume mic2. The audited Rust MVP supports selecting <code>mic1</code> or <code>mic2</code>, defaults to mic2, and currently captures one selected source. Simultaneous capture and named topic fan-out are proposed work, not capabilities already shipped. <a href="https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/00a95adf19aeb1595b44ee38bf69e9cb91324f4b/lampOS/crates/live/src/options.rs">Rust microphone selection at the audited revision</a>.</p>
+  <pre><code>Example routing; subscriptions are configurable
+
+mic1 --> one capture owner --> mic1 topic --> local sound / wake consumers
+          (when enabled)
+
+mic2 --> one capture owner + current AEC/DSP
+          |
+          +--> existing Rust voice coordinator &lt;--> Gemini Live
+          |                 |
+          |                 +--> current speaker owner --> speaker
+          |
+          +--> independent bounded queue --> optional Deepgram STT
+          |                                      |
+          +--> local observations                +--> transcript events
+                                                         |
+                                shared turn context &lt;----+
+                                         |
+                                 intent / Jev / services
+
+Gemini audio never waits for Deepgram, a transcript, or Jev.</code></pre>
+  <ol>
+    <li><strong>Capture once per enabled physical source.</strong> Providers subscribe to frames from that source; they do not independently open the same microphone. Preserve the Rust MVP’s capture cadence, echo reference, processing and interruption behavior. Declare each topic’s audio format and DSP stage so raw and cleaned audio are not confused.</li>
+    <li><strong>Give each subscriber a bounded queue.</strong> Capture and the active voice route never wait for an observer to catch up. Network writes, transcription, image analysis and decision calls run outside capture/playback. A slow observer is disconnected or loses old frames under an explicit policy; sequence gaps are reported so incomplete audio is not treated as a complete utterance. Preserve the active route’s own backpressure and recovery rules.</li>
+    <li><strong>Choose one authoritative route per turn.</strong> A parallel Deepgram transcript can enrich context or prepare fallback, but it does not launch a second spoken answer or independently execute the same command. Correlate provider attempts, turn/request IDs, transcripts, tool proposals and accepted services. On failover, retire the old route’s output authority and preserve receipts for work already accepted.</li>
+    <li><strong>Keep fast command handling outside the PCM path.</strong> The <a href="#v1-intent">ported intent component</a> consumes an admitted text request. Exact commands can use local services; semantic choices can wait for a bounded model call. Neither delays capture or ordinary native Live conversation.</li>
+  </ol>
+  <div class="table-wrap"><table class="compare"><thead><tr><th>Deepgram mode to qualify</th><th>Voice tradeoff</th></tr></thead><tbody>
+    <tr><td>Warm subscriber alongside Gemini</td><td>Already-connected STT can shorten fallback preparation and supply independent transcripts. It consumes additional network, CPU and provider budget; connection readiness alone does not make the full fallback chain ready.</td></tr>
+    <tr><td>Start STT when fallback is needed</td><td>Less ongoing work. Connection setup adds delay, and the utterance may need to be repeated unless a permitted, bounded audio buffer is explicitly available.</td></tr>
+  </tbody></table></div>
+  <p><strong>Latency acceptance:</strong> compare the unchanged Gemini route with the same route plus subscribers, on the same hardware, mic, DSP settings, endpointing and network conditions. Measure actual end of user speech → first useful audible response at p50/p95; also measure capture-to-provider queue age, audio gaps and interruption-to-silence. Cover first and warm turns, a stalled Deepgram consumer and CPU load. Qualify the complete Deepgram → text response → Gemini TTS fallback separately. Nonblocking fan-out removes a serial dependency; it does not prove zero scheduling cost or zero latency regression. These measurements remain build acceptance work.</p>
 
   <div class="grid2"><div class="card"><span class="pill reuse">Primary voice path</span><h3>Gemini Live</h3><pre><code>permitted microphone audio
   → Gemini Live

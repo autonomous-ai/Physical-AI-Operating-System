@@ -561,6 +561,168 @@ impl Diagnostic {
     }
 }
 
+impl Level {
+    /// How bad, for putting the worst first: ok, stale, warn, error. A
+    /// part that has gone quiet is worse than one that is well and not as
+    /// bad as one that says something is wrong.
+    pub fn rank(self) -> u8 {
+        match self {
+            Self::Ok => 0,
+            Self::Stale => 1,
+            Self::Warn => 2,
+            Self::Error => 3,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::Warn => "warn",
+            Self::Error => "error",
+            Self::Stale => "stale",
+        }
+    }
+}
+
+/// One part's place in the lamp's health.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HealthItem {
+    /// The part, as it named itself on `diagnostics`.
+    pub name: String,
+    pub level: Level,
+    /// What is the matter, for a person. Empty when nothing is.
+    pub message: String,
+    /// How long ago it last reported, in milliseconds.
+    pub age_ms: u64,
+}
+
+/// How the whole lamp is (`lamp/health`): every part's newest report put
+/// together, as ROS's diagnostic aggregator does on `/diagnostics_agg`.
+///
+/// A part says how it is on `diagnostics` and never says of itself that
+/// it is stale. Whoever writes this does: a part not heard from for five
+/// seconds is `stale`, and a part that is expected and has never reported
+/// is in `missing`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Health {
+    /// The worst level among the items; `stale` at least if a part is
+    /// missing.
+    pub level: Level,
+    /// The worst item's name and message, for a person: `body: yaw is
+    /// hot`. Empty when all is well.
+    pub message: String,
+    /// Every part that has reported, the worst first.
+    pub items: Vec<HealthItem>,
+    /// Parts that are expected and have never reported.
+    pub missing: Vec<String>,
+}
+
+impl Health {
+    pub const TYPE: &str = "lamp_msgs/Health";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "lamp/health";
+
+    /// How the lamp is now replaces how it was. When it changes and every
+    /// five seconds, and it means nothing after fifteen: a health that
+    /// nobody renews is not a healthy lamp.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_secs(5))
+            .lasting(Duration::from_secs(15))
+    }
+
+    /// The level is the worst there is, and the items are worst first.
+    pub fn check(&self) -> Result<(), Invalid> {
+        let worst = self
+            .items
+            .iter()
+            .map(|item| item.level)
+            .chain((!self.missing.is_empty()).then_some(Level::Stale))
+            .max_by_key(|level| level.rank())
+            .unwrap_or(Level::Ok);
+        if self.level != worst {
+            return invalid(format!(
+                "the level is {} and the worst of its parts is {}",
+                self.level.as_str(),
+                worst.as_str()
+            ));
+        }
+        if self
+            .items
+            .windows(2)
+            .any(|pair| pair[0].level.rank() < pair[1].level.rank())
+        {
+            return invalid("the items are not worst first".into());
+        }
+        Ok(())
+    }
+}
+
+/// The computer the lamp runs on (`board/state`): the numbers, for
+/// programs and plots. Whether a number is too high is not said here but
+/// on `diagnostics`, by whoever publishes this.
+///
+/// What could not be measured is left out, never written as nothing: a
+/// board with no Wi-Fi has no `wifi_dbm`, not one of 0.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardState {
+    /// Each temperature the board reports, by its sensor's name, in
+    /// degrees Celsius.
+    pub temperature_c: BTreeMap<String, f32>,
+    /// The load over the last minute for each processor: 1.0 is every
+    /// processor busy.
+    pub cpu_load: f32,
+    /// How much of the memory is in use, from 0 to 1.
+    pub memory_used: f32,
+    /// How much of the disk the system is on is free, from 0 to 1.
+    pub disk_free: f32,
+    /// Seconds since the board started.
+    pub uptime_s: u64,
+    /// The Wi-Fi signal, in dBm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wifi_dbm: Option<i32>,
+    /// Whether the clock is set from the network.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clock_synced: Option<bool>,
+}
+
+impl BoardState {
+    pub const TYPE: &str = "lamp_msgs/BoardState";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "board/state";
+
+    /// The board now replaces the board before. Every five seconds, and
+    /// it means nothing after fifteen.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_secs(5))
+            .lasting(Duration::from_secs(15))
+    }
+
+    /// The fractions are fractions and nothing is not a number.
+    pub fn check(&self) -> Result<(), Invalid> {
+        for (name, value) in [
+            ("memory_used", self.memory_used),
+            ("disk_free", self.disk_free),
+        ] {
+            if !(0.0..=1.0).contains(&value) {
+                return invalid(format!("{name} is {value}: from 0 to 1"));
+            }
+        }
+        if !self.cpu_load.is_finite() || self.cpu_load < 0.0 {
+            return invalid(format!("cpu_load is {}", self.cpu_load));
+        }
+        if let Some((name, value)) = self
+            .temperature_c
+            .iter()
+            .find(|(_, value)| !value.is_finite())
+        {
+            return invalid(format!("temperature {name} is {value}"));
+        }
+        Ok(())
+    }
+}
+
 /// One thing the policy decided (`policy/decisions`): what the question
 /// was about, what was chosen, how likely the policy held it to be right,
 /// and what each judgement behind it was.
@@ -641,6 +803,8 @@ pub fn first_topics() -> Vec<(&'static str, Declaration)> {
         (VoiceLink::TOPIC, VoiceLink::declaration()),
         (RoomState::TOPIC, RoomState::declaration()),
         (Diagnostic::TOPIC, Diagnostic::declaration()),
+        (Health::TOPIC, Health::declaration()),
+        (BoardState::TOPIC, BoardState::declaration()),
         (Decision::TOPIC, Decision::declaration()),
     ];
     topics.extend(Audio::TOPICS.map(|topic| (topic, Audio::declaration())));
@@ -993,6 +1157,106 @@ mod tests {
     }
 
     #[test]
+    fn the_lamps_health_is_its_parts_worst_first_and_the_worst_is_its_level() {
+        let item = |name: &str, level, message: &str, age_ms| HealthItem {
+            name: name.into(),
+            level,
+            message: message.into(),
+            age_ms,
+        };
+        let health = Health {
+            level: Level::Error,
+            message: "voice: the link to the service is down".into(),
+            items: vec![
+                item(
+                    "voice",
+                    Level::Error,
+                    "the link to the service is down",
+                    300,
+                ),
+                item("body", Level::Warn, "yaw is hot", 420),
+                item("eyes", Level::Stale, "", 7_300),
+                item("memory", Level::Ok, "", 610),
+            ],
+            missing: vec!["board".into()],
+        };
+        let text = "{\"level\":\"error\",\"message\":\"voice: the link to the service is down\",\
+                    \"items\":[{\"name\":\"voice\",\"level\":\"error\",\
+                    \"message\":\"the link to the service is down\",\"age_ms\":300},\
+                    {\"name\":\"body\",\"level\":\"warn\",\"message\":\"yaw is hot\",\"age_ms\":420},\
+                    {\"name\":\"eyes\",\"level\":\"stale\",\"message\":\"\",\"age_ms\":7300},\
+                    {\"name\":\"memory\",\"level\":\"ok\",\"message\":\"\",\"age_ms\":610}],\
+                    \"missing\":[\"board\"]}";
+        round_trip(&health, text);
+        needs::<Health>(text, "missing");
+        assert_eq!(health.check(), Ok(()));
+        // The order a reader is given: ok, then quiet, then warned, then
+        // wrong.
+        let ranks = [Level::Ok, Level::Stale, Level::Warn, Level::Error].map(Level::rank);
+        assert!(ranks.windows(2).all(|pair| pair[0] < pair[1]));
+        // A level that is not the worst, and items out of order.
+        let mut milder = health.clone();
+        milder.level = Level::Warn;
+        assert!(milder.check().unwrap_err().0.contains("worst"));
+        let mut shuffled = health.clone();
+        shuffled.items.swap(0, 3);
+        assert!(shuffled.check().unwrap_err().0.contains("worst first"));
+        // All well, and a part that never reported makes it stale.
+        let mut well = Health {
+            level: Level::Ok,
+            message: String::new(),
+            items: vec![item("voice", Level::Ok, "", 100)],
+            missing: vec![],
+        };
+        assert_eq!(well.check(), Ok(()));
+        well.missing.push("eyes".into());
+        assert!(well.check().is_err());
+        well.level = Level::Stale;
+        assert_eq!(well.check(), Ok(()));
+        let declared = Health::declaration();
+        assert_eq!(declared.period(), Some(Duration::from_secs(5)));
+        assert_eq!(declared.lifespan(), Some(Duration::from_secs(15)));
+    }
+
+    #[test]
+    fn the_board_says_numbers_and_leaves_out_what_it_cannot_measure() {
+        let board = BoardState {
+            temperature_c: [("cpu".to_string(), 52.5)].into(),
+            cpu_load: 0.25,
+            memory_used: 0.5,
+            disk_free: 0.125,
+            uptime_s: 86_400,
+            wifi_dbm: Some(-58),
+            clock_synced: Some(true),
+        };
+        let text = "{\"temperature_c\":{\"cpu\":52.5},\"cpu_load\":0.25,\"memory_used\":0.5,\
+                    \"disk_free\":0.125,\"uptime_s\":86400,\"wifi_dbm\":-58,\"clock_synced\":true}";
+        round_trip(&board, text);
+        needs::<BoardState>(text, "disk_free");
+        assert_eq!(board.check(), Ok(()));
+        // A board on a wire, whose clock nobody could ask about.
+        let wired = BoardState {
+            wifi_dbm: None,
+            clock_synced: None,
+            ..board.clone()
+        };
+        round_trip(
+            &wired,
+            "{\"temperature_c\":{\"cpu\":52.5},\"cpu_load\":0.25,\"memory_used\":0.5,\
+             \"disk_free\":0.125,\"uptime_s\":86400}",
+        );
+        let mut full = board.clone();
+        full.memory_used = 1.2;
+        assert!(full.check().unwrap_err().0.contains("memory_used"));
+        let mut odd = board.clone();
+        odd.temperature_c.insert("gpu".into(), f32::NAN);
+        assert!(odd.check().unwrap_err().0.contains("gpu"));
+        let mut loaded = board;
+        loaded.cpu_load = 3.5;
+        assert_eq!(loaded.check(), Ok(()));
+    }
+
+    #[test]
     fn a_decision_says_what_was_chosen_how_likely_by_whom_and_from_which_answers() {
         let decided = Decision {
             about: "attention".into(),
@@ -1077,9 +1341,16 @@ mod tests {
     fn every_first_topic_is_declared_as_the_table_of_first_topics_has_it() {
         // docs/bus.md, "The first topics": a stream is an event, a latched
         // topic keeps its latest, and "how often" is the period promised,
-        // the slower end where the table gives two. The policy's topic was
-        // added since and is in the table of docs/msgs.md.
-        let table: [(&str, &str, Kind, Option<u64>); 14] = [
+        // the slower end where the table gives two. The policy's topic,
+        // the lamp's health and the board were added since and are in the
+        // table of docs/msgs.md.
+        let table: [(&str, &str, Kind, Option<u64>); 16] = [
+            (
+                "board/state",
+                "lamp_msgs/BoardState",
+                Kind::Latest,
+                Some(5_000),
+            ),
             (
                 "body/joint_states",
                 "lamp_msgs/JointState",
@@ -1104,6 +1375,7 @@ mod tests {
                 Kind::Latest,
                 None,
             ),
+            ("lamp/health", "lamp_msgs/Health", Kind::Latest, Some(5_000)),
             (
                 "light/command",
                 "lamp_msgs/Light",
@@ -1139,8 +1411,12 @@ mod tests {
             assert_eq!(declaration.version, 1, "{topic}");
             assert_eq!(declaration.kind, kind, "{topic}");
             assert_eq!(declaration.period_ms, period_ms, "{topic}");
-            // No lifespan is in the table, and none is made up.
-            assert_eq!(declaration.lifespan_ms, None, "{topic}");
+            // No lifespan is in the first table, and none is made up. The
+            // two kept reports of how things are go stale by themselves.
+            let lifespan = ["board/state", "lamp/health"]
+                .contains(topic)
+                .then_some(15_000);
+            assert_eq!(declaration.lifespan_ms, lifespan, "{topic}");
             assert_eq!(declaration_of(topic).as_ref(), Some(declaration));
         }
         assert_eq!(declaration_of("servos"), None);
@@ -1175,6 +1451,12 @@ mod tests {
                 Diagnostic::TYPE,
                 Diagnostic::VERSION,
                 Diagnostic::declaration(),
+            ),
+            (Health::TYPE, Health::VERSION, Health::declaration()),
+            (
+                BoardState::TYPE,
+                BoardState::VERSION,
+                BoardState::declaration(),
             ),
             (Decision::TYPE, Decision::VERSION, Decision::declaration()),
         ] {

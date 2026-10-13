@@ -46,6 +46,8 @@ its declaration.
 | `RoomState` | `room/state` | latest | none | Unknown, quiet or busy |
 | `Light` | `light/command`, `light/state` | latest | 1 s | On or off, one of ten colours by name, a level from 1 to 5 |
 | `Diagnostic` | `diagnostics` | event | 1 s | ROS's `DiagnosticStatus`: ok, warn, error or stale, a name, a message, a few keys and values |
+| `Health` | `lamp/health` | latest | 5 s, means nothing after 15 s | How the whole lamp is: the worst level, one sentence, every part that has reported with its level, message and age, worst first, and the parts that are expected and never reported |
+| `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |
 | `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, and the request's number if known. Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
@@ -56,9 +58,15 @@ said" and "when it changes" promise none. No lifespan is declared: the table
 has none. A topic that promises no period and can be silent for longer than
 the bus's lease needs its publisher to call `alive()`.
 
-`policy/decisions` was added after that table was written and is not in
-it: this table is where it is listed. `first_topics()` has it with the
-others.
+`policy/decisions`, `lamp/health` and `board/state` were added after that
+table was written and are not in it: this table is where they are listed.
+`first_topics()` has them with the others. The last two are the only
+topics with a lifespan: a kept report of how things are must not outlive
+whoever wrote it.
+
+`Level::rank()` orders the four levels for a reader: ok, stale, warn,
+error. A part never says of itself that it is stale; whoever writes
+`lamp/health` says it of a part not heard from.
 
 ## Adding one
 
@@ -79,14 +87,16 @@ topic can be published as that.
 
 ## Not shown
 
-Run on a development Mac (x86_64) only: 12 tests of the types and one that
-declares the fourteen topics on a real bus and sends six of the types
-through it. The example in the crate's documentation is compiled, not run.
-Type-checked for the lamp's processor, not run on Linux, never on a lamp.
-The voice publishes `Speech` and `VoiceState`
-(`crates/voice/src/bus_out.rs`), and the policy reads them and publishes
-`Decision` ([policy.md](policy.md)). Nothing uses the other types yet. The
-actions program still publishes
+The crate's own tests run on a development Mac (x86_64): 14 of the types
+and one that declares the sixteen topics on a real bus and sends six of
+the types through it. The example in the crate's documentation is
+compiled, not run. On lamp-4ace five of the types travel: the voice
+publishes `Speech`, `VoiceState` and `RoomState`
+(`crates/voice/src/bus_out.rs`), the eyes `Faces`
+(`crates/eyes/src/bus_out.rs`), and the policy reads all four and
+publishes `Decision` ([policy.md](policy.md)). Nothing publishes the
+others yet: `JointState`, `Diagnostic`, `Health`, `BoardState`, `Audio`,
+`ImageRef`, `VoiceLink` and `Light`. The actions program still publishes
 `{"rgb":[r,g,b]}` on `light/command` and reads the same from `light/state`,
 which is not `Light`. `VoiceLink`'s seven reasons group the voice program's
 fault categories and have not been agreed with its owner. Which way a face's

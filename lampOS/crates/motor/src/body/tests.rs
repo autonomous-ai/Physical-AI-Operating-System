@@ -1853,3 +1853,50 @@ fn a_joint_that_cannot_keep_up_ends_the_gesture_and_not_the_run() {
     assert!(report.retreats.is_empty());
     assert_eq!(lamp.servos[2].status, 0);
 }
+
+#[test]
+fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
+    // A stretch lifts the head 112 counts; with a floor just under where it
+    // stands, the head stops there and the arm makes its move all the same.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(16));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits {
+        pitch_floor: 1_880,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let time = clock.time.clone();
+    let mut asked_once = false;
+    let (mut lowest, mut highest_arm) = (u16::MAX, 0u16);
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        || Some((Mood::Thinking, 0)),
+        move || {
+            let due = !asked_once && time.get() >= Duration::from_secs(8);
+            asked_once |= due;
+            Asked {
+                seen: None,
+                gesture: due.then_some(&crate::clips::STRETCHING),
+            }
+        },
+        |glimpse| {
+            lowest = lowest.min(glimpse.goals[0]);
+            highest_arm = highest_arm.max(glimpse.arm_goals[0]);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.gestures, report.gestures_dropped), (1, 0));
+    assert_eq!(lowest, 1_880);
+    assert!(highest_arm >= 2_650 + 290, "{highest_arm}");
+}

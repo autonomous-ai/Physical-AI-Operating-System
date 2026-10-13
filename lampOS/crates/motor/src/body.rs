@@ -226,6 +226,10 @@ pub struct Limits {
     pub pitch_home: (u16, u16),
     /// And is never commanded outside this one, whatever the reach allows.
     pub pitch_window: (u16, u16),
+    /// The head's pitch is never asked to go under this, folded or stood
+    /// up, whatever a mood, the eyes and a gesture add up to: the servo's
+    /// own limit is just below it and a goal past that is never reached.
+    pub pitch_floor: u16,
     /// The farthest a goal may be from the found pose: up, down, roll, yaw.
     pub pitch_up: f32,
     pub pitch_down: f32,
@@ -322,6 +326,10 @@ impl Limits {
     pub const FOLDED: Self = Self {
         pitch_home: (1_760, 2_020),
         pitch_window: (1_740, 2_030),
+        // lamp-4ace's head pitch servo has its own lower limit at 1,657. A
+        // stretch on top of a look away asked it for 1,568 on 2026-10-13
+        // and it sat at 1,656 until the stretch was over.
+        pitch_floor: 1_670,
         pitch_up: 45.0,
         pitch_down: 15.0,
         roll: 30.0,
@@ -1189,7 +1197,7 @@ pub(crate) fn run_alive(
     // home with it, so these move as it rises.
     let bounds = |home: [f32; 3], stand: f32| -> ([f32; 3], [f32; 3]) {
         let (floor, ceiling) = if head_share(stand) > 0.0 {
-            (0.0, 4_095.0)
+            (f32::from(limits.pitch_floor), 4_095.0)
         } else {
             (
                 f32::from(limits.pitch_window.0),
@@ -1485,9 +1493,14 @@ pub(crate) fn run_alive(
             );
             commanded[index] = (commanded[index] + velocity[index] * step).clamp(floor, ceiling);
             // A gesture is laid over the pose, outside what follows the mood.
+            let least = if index == 0 {
+                f32::from(limits.pitch_floor)
+            } else {
+                0.0
+            };
             goals[index] = (commanded[index] + gesture_now[index])
                 .round()
-                .clamp(0.0, 4_095.0) as u16;
+                .clamp(least, 4_095.0) as u16;
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0

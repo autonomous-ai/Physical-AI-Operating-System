@@ -3,8 +3,11 @@
 //! [`picture`] turns a camera frame into what the detector takes, [`faces`]
 //! runs the detector and makes its outputs into boxes, and [`sight`] picks
 //! the one face the lamp should look at and says where it is. `lamp-eyes`
-//! (`src/main.rs`) owns the camera and sends that to the body. No frame is
-//! stored and none leaves the process.
+//! (`src/main.rs`) owns the camera and sends that to the body. No frame
+//! leaves the process unless it is started with `--sight-file`: then
+//! [`kept`] holds the newest one in a private file for the voice service to
+//! show the model, and no other.
 pub mod faces;
+pub mod kept;
 pub mod picture;
 pub mod sight;

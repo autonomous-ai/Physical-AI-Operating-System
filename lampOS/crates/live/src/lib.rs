@@ -30,6 +30,7 @@ pub mod reference;
 pub mod ring_face;
 pub mod ring_wire;
 pub mod ring_worker;
+pub mod sight;
 mod termination;
 pub mod thread;
 pub mod transport;

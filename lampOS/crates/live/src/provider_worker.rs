@@ -464,6 +464,7 @@ pub async fn run_with_visual_context(
         reporting,
         visual,
         Continuation::Off,
+        None,
     )
     .await
 }
@@ -477,6 +478,7 @@ pub async fn run_with_continuation(
     reporting: Reporting,
     visual: Option<(VisualSource, BootId)>,
     continuation: Continuation,
+    sight: Option<crate::sight::Sight>,
 ) -> Result<()> {
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
@@ -492,7 +494,7 @@ pub async fn run_with_continuation(
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
         .transpose()?;
-    serve_with_visual(channels, boot, provider, options, visual).await
+    serve_with_visual(channels, boot, provider, options, visual, sight).await
 }
 
 /// Paired producer/consumer qualification uses the real loop without loading
@@ -521,7 +523,7 @@ async fn serve<C: Connect>(
     provider: Supervisor<C>,
     options: Options,
 ) -> Result<()> {
-    serve_with_visual(channels, boot, provider, options, None).await
+    serve_with_visual(channels, boot, provider, options, None, None).await
 }
 
 async fn serve_with_visual<C: Connect>(
@@ -530,6 +532,7 @@ async fn serve_with_visual<C: Connect>(
     mut provider: Supervisor<C>,
     options: Options,
     mut visual: Option<ContextDelivery>,
+    mut sight: Option<crate::sight::Sight>,
 ) -> Result<()> {
     channels.control.send(WorkerEvent::Ready)?;
     let coordinated = options.reporting == Reporting::Coordinated;
@@ -596,6 +599,10 @@ async fn serve_with_visual<C: Connect>(
                         visual.export(intake.handoff.visual_turn(), &mut intake.guard, &provider);
                     }
                     visual.send_receipt(|receipt| channels.control.send(WorkerEvent::VisualContext { receipt: receipt.clone() }))?;
+                }
+                // What the lamp's eyes see, with what the person is saying.
+                if let Some(sight) = sight.as_mut() {
+                    sight.offer(intake.handoff.visual_turn().map(|turn| turn.request), &provider);
                 }
                 queue_undelivered(&mut intake.handoff, &mut output);
                 // receive_inputs can observe a newer authority too.
@@ -3222,7 +3229,9 @@ mod tests {
                 owner,
                 snapshot,
                 dials,
-                worker: tokio::spawn(serve_with_visual(worker, boot, provider, options, visual)),
+                worker: tokio::spawn(serve_with_visual(
+                    worker, boot, provider, options, visual, None,
+                )),
             };
             rig.publish();
             rig

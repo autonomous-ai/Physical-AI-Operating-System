@@ -1,15 +1,21 @@
 # The lamp's eyes
 
 `lamp-eyes` (crate `lamp-eyes`: `src/picture.rs`, `src/faces.rs`,
-`src/sight.rs`, `src/main.rs`) owns the camera in the lamp's head, finds a
-face in what it sees and tells the body where in the picture that face is.
-The body (`lamp-body`, [body.md](body.md), "Looking at a face") turns the head
-toward it while the lamp listens or speaks. That is all it is for: looking at
-the person the lamp is talking with.
+`src/sight.rs`, `src/kept.rs`, `src/main.rs`) owns the camera in the lamp's
+head, finds a face in what it sees and tells the body where in the picture
+that face is. The body (`lamp-body`, [body.md](body.md), "Looking at a face")
+turns the head toward it while the lamp listens or speaks. Started with
+`--sight-file` it also keeps its newest frame for the voice service to show
+the model, so that the lamp can say what it sees.
 
-Status on 2026-10-13: built for the lamp and tested on a Mac and under
-emulation. It has not run on a lamp, has not opened the lamp's camera, and the
-body has not turned to a face. Everything below is what the code does.
+Status on 2026-10-13: running on lamp-4ace since that morning. With a
+photograph of a face on a screen in front of the lamp it reported the face in
+66 of 66 looks, 53 to 55 ms a look. With people standing at the lamp for
+seven minutes it reported a face in 580 of 2,732 looks, and the body turned
+toward one as far as its yaw reach goes (250 counts) with the face still at
+0.44 to 0.75 of the half-picture off centre: they stood further round than
+the head turns. The picture for the model is described under "What the model
+sees" with what has and has not been shown of it.
 
 ## What it does and does not do
 
@@ -33,8 +39,9 @@ body has not turned to a face. Everything below is what the code does.
   share of the picture's. `turned` is how far its nose is from the point
   between its eyes, in eye distances: about 0 for a face turned to the
   camera.
-- No frame is written to disk, kept between looks or sent anywhere. The
-  program has no option that would do so. A line in the journal every ten
+- Without `--sight-file` no frame is written anywhere, kept between looks
+  or sent anywhere. With it, the newest frame and no other is kept in that
+  one file ("What the model sees", below). A line in the journal every ten
   seconds says how many frames came, how many were looked at, in how many
   there was a face and how long a look took.
 - It never moves anything and decides nothing about the conversation. It does
@@ -56,6 +63,44 @@ This is a narrower arrangement than the camera worker described in
 interaction authority's own camera grant and hands frames to other
 processes. The eyes use that crate's port for the device and nothing of its
 frame link. Joining the two is still to do.
+
+## What the model sees
+
+People standing at lamp-4ace on 2026-10-13 asked it "What you see in front of
+you?" within their first minutes, and it answered that it could not see.
+
+With `--sight-file PATH`, each frame the eyes look at (about six a second)
+also replaces the file at `PATH`: written beside it and renamed over it, so a
+reader gets one whole frame or the one before, mode 0600. The camera's frames
+are complete JPEGs of 12 to 17 KiB at 320 by 240 (checked on lamp-4ace: each
+carries its own Huffman tables); a frame that is not whole, or is over
+64 KiB, is not kept and the last good one stays. The file is removed when the
+camera closes, for whatever reason, and when the program ends. On lamp-4ace
+`PATH` is in the service's runtime directory, which is memory, not disk.
+There is never more than that one frame, and no history.
+
+The voice service reads it (`crates/live/src/sight.rs`). When
+`LAMP_EYES_SIGHT_FILE` is set in the service's environment, the provider
+worker is started with `--eyes-sight PATH`, and for each request it offers
+the file's frame to the model through `Supervisor::try_image`
+([gemini-visual-input.md](gemini-visual-input.md)): once as the person
+begins to speak and once more if they are still speaking two seconds later.
+A file last written more than a second ago is not offered, so closed eyes
+show the model nothing rather than something stale. The offer has the limits
+that call already has: only for the request whose input is open, at most two
+pictures a request, 64 KiB, never sent again on a later request or another
+connection. The worker's line in the journal says for each look whether a
+picture went and how old it was, or why none did.
+
+What this changes about privacy, plainly: with the option on, a picture of
+whoever is in front of the lamp goes to the provider with what they say, as
+their voice already does. Nothing but the one newest frame is on the lamp.
+The camera is still open only while the microphone is permitted. Without the
+option, and without the environment variable, everything is as it was.
+
+The character file has to say the lamp can see
+([character.md](character.md)); without that the model has the picture and
+still answers that it cannot.
 
 ## Which face
 
@@ -79,9 +124,9 @@ camera, and it can change from look to look.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option is required. `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two
-numbers as four hex digits; the lock directory must be private to the user it
-runs as. A camera that does not open, or fails, is tried again every five
+Every option shown is required; `--sight-file ABSOLUTE_PATH` may be added.
+`--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
+lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts.
 
 To look at one JPEG file without a camera:
@@ -92,8 +137,11 @@ cargo run --release -p lamp-eyes --example look -- MODEL.onnx PHOTO.jpg
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-eyes` (12 passed, 0 failed, on macOS), and the
-same under emulated ARM64. They cover: a 320 by 240 frame keeps every pixel in
+Host tests, `cargo test -p lamp-eyes` (14 passed, 0 failed, on macOS; the 12
+before the kept frame also passed under emulated ARM64). They cover: that the
+kept file is the newest frame, private, never a second file, left alone by a
+frame that is cut, has no tables or is too large, and gone when forgotten or
+dropped; a 320 by 240 frame keeps every pixel in
 blue, green, red order with the spare rows black, and a larger one is shrunk
 to fit; what is not a frame or not a JPEG is refused; a detection becomes a
 box where its cell is, and weak, duplicate and senseless detections are

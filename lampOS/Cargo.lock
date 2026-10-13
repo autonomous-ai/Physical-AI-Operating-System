@@ -919,6 +919,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-policy"
+version = "0.1.0"
+dependencies = [
+ "httparse",
+ "lamp-bus",
+ "lamp-msgs",
+ "rustls",
+ "serde",
+ "serde_json",
+ "webpki-roots 1.0.9",
+]
+
+[[package]]
 name = "lamp-ring"
 version = "0.1.0"
 dependencies = [

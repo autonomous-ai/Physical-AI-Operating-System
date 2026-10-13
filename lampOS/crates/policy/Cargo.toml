@@ -1,0 +1,29 @@
+[package]
+name = "lamp-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The policy: the one part that decides what the lamp does. It asks decision
+# models, which answer with probabilities and never with text, combines what
+# they say and makes the single choice. This first version makes one
+# decision, "is this said to the lamp?", in shadow mode: it publishes and
+# writes down what it would do, and nothing acts on it. Its own process: with
+# it gone the lamp talks on as before (docs/policy.md).
+[[bin]]
+name = "lamp-policy"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+httparse = "1.10"
+# The same features as lamp-gemini, so that one rustls is built for both.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+
+[lints]
+workspace = true

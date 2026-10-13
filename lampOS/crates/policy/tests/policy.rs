@@ -1,0 +1,1003 @@
+//! The policy's loop on a real bus, in a directory of the test's own, with
+//! a stand-in for the decision model: the test plays the voice, and reads
+//! what the policy publishes, writes down and says about itself.
+use lamp_bus::{Bus, Publisher, Subscriber};
+use lamp_msgs::{Decision, Speech, Voice, VoiceState};
+use lamp_policy::{
+    attention::{self, Context, Room},
+    decide::{Answer, Asked, Decider, Failed, Question, Usage},
+    policy::{self, Note, Options, Totals},
+};
+use serde_json::{Value, json};
+use std::{
+    fs, io,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    thread,
+    time::{Duration, Instant},
+};
+
+const WAIT: Duration = Duration::from_secs(5);
+const PAUSE: Duration = Duration::from_millis(300);
+/// The seven answers of the first measured example, in the order asked.
+const SEVEN: [f32; 7] = [0.07, 0.06, 0.28, 0.73, 0.06, 0.05, 0.09];
+
+fn ms(n: u64) -> Duration {
+    Duration::from_millis(n)
+}
+
+fn asked(seven: [f32; 7]) -> Asked {
+    Asked {
+        answers: attention::questions()
+            .into_iter()
+            .zip(seven)
+            .map(|((name, _), yes)| (name, Answer::Noul(yes)))
+            .collect(),
+        model: "stand-in-1.0-20261014".into(),
+        took: ms(1),
+        usage: Some(Usage {
+            input_tokens: Some(1066),
+            output_tokens: Some(134),
+            cost: Some(4.4772e-05),
+        }),
+    }
+}
+
+/// A decision model played by the test: it tells the test each state it
+/// is shown, and answers as the test's script says.
+struct StandIn<F> {
+    script: F,
+    shown: mpsc::Sender<Value>,
+}
+
+impl<F: FnMut(&Value) -> Result<Asked, Failed>> Decider for StandIn<F> {
+    fn ask(
+        &mut self,
+        state: &str,
+        questions: &[(String, Question)],
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        // What it is asked is the seven questions, with the deadline the
+        // policy was given.
+        assert_eq!(questions, attention::questions());
+        assert_eq!(deadline, ms(900));
+        let state: Value = serde_json::from_str(state).expect("the state is JSON");
+        let _ = self.shown.send(state.clone());
+        (self.script)(&state)
+    }
+
+    fn name(&self) -> &str {
+        "stand-in"
+    }
+}
+
+/// The policy running on a bus of the test's own, and the test as the
+/// voice on the same bus.
+struct Rig {
+    root: PathBuf,
+    log_dir: PathBuf,
+    bus: Bus,
+    stop: Arc<AtomicBool>,
+    running: Option<thread::JoinHandle<io::Result<Totals>>>,
+    /// What the policy says about itself, as it says it, and what of that
+    /// the test has taken in so far.
+    saying: mpsc::Receiver<Note>,
+    notes: Vec<Note>,
+    heard: Publisher,
+    said: Publisher,
+    state: Publisher,
+    decisions: Subscriber,
+    /// Each state the stand-in was shown.
+    states: mpsc::Receiver<Value>,
+    /// Every piece of text the test published as heard or said.
+    spoken: Vec<String>,
+}
+
+impl Rig {
+    fn new<F>(name: &str, script: F) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
+        Self::with(name, script, None, |_| {})
+    }
+
+    /// With a `lease`, the bus uses it, and the test's publishers declare
+    /// nothing and are not listed until they first publish: a voice that
+    /// is not there yet. `before` is given the rig before the policy
+    /// starts.
+    fn with<F>(name: &str, script: F, lease: Option<Duration>, before: impl FnOnce(&Self)) -> Self
+    where
+        F: FnMut(&Value) -> Result<Asked, Failed> + Send + 'static,
+    {
+        // A root short enough for a socket's path, which the system's own
+        // temporary directory on a Mac is not.
+        let root = PathBuf::from(format!("/tmp/lp-{name}-{}", std::process::id()));
+        let log_dir =
+            std::env::temp_dir().join(format!("lamp-policy-log-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&log_dir);
+        let _ = fs::remove_file(&log_dir);
+        fs::create_dir_all(&root).unwrap();
+        // Publishers look for new subscribers every 20 ms, not 200.
+        let bus = Bus::new(&root).unwrap().rescan_every(ms(20));
+        let bus = bus.lease(lease.unwrap_or(lamp_bus::DEFAULT_LEASE));
+        let [heard, said] = Speech::TOPICS;
+        // As the voice publishes: each topic declared with its type.
+        let publisher = |topic: &str, declaration: lamp_bus::Declaration| match lease {
+            None => bus
+                .publisher_declared(topic, &declaration, "voice")
+                .unwrap(),
+            Some(_) => bus.publisher(topic, declaration.kind, "voice").unwrap(),
+        };
+        let (shown, states) = mpsc::channel();
+        let (said_so, saying) = mpsc::channel();
+        let mut rig = Self {
+            // The test listens before the policy has anything to say.
+            decisions: bus
+                .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
+                .unwrap(),
+            heard: publisher(heard, Speech::declaration()),
+            said: publisher(said, Speech::declaration()),
+            state: publisher(VoiceState::TOPIC, VoiceState::declaration()),
+            stop: Arc::new(AtomicBool::new(false)),
+            running: None,
+            saying,
+            notes: Vec::new(),
+            states,
+            spoken: Vec::new(),
+            root,
+            log_dir,
+            bus,
+        };
+        before(&rig);
+        let (bus, stop) = (rig.bus.clone(), Arc::clone(&rig.stop));
+        let options = Options {
+            log_dir: rig.log_dir.clone(),
+            deadline: ms(900),
+            pause: PAUSE,
+        };
+        let stand_in = StandIn { script, shown };
+        rig.running = Some(thread::spawn(move || {
+            policy::run(&bus, stand_in, &options, &stop, &mut |note| {
+                let _ = said_so.send(note);
+            })
+        }));
+        // The policy has subscribed once its three sockets are there.
+        let started = Instant::now();
+        let listening = |topic: &str| {
+            rig.bus
+                .subscribers(topic)
+                .unwrap()
+                .iter()
+                .any(|listener| listener.socket.starts_with("policy.") && listener.listening)
+        };
+        while !(listening(heard) && listening(said) && listening(VoiceState::TOPIC)) {
+            assert!(started.elapsed() < WAIT, "the policy did not subscribe");
+            thread::sleep(ms(5));
+        }
+        rig
+    }
+
+    /// The voice heard `text`: one piece, not marked as the last.
+    fn hear(&mut self, text: &str) {
+        self.hear_as(text, false, None);
+    }
+
+    fn hear_as(&mut self, text: &str, finished: bool, request: Option<u64>) {
+        self.spoken.push(text.to_owned());
+        let piece = Speech {
+            text: text.to_owned(),
+            finished,
+            locale: None,
+            request,
+        };
+        let sent = self.heard.publish_json(0, &piece).unwrap();
+        assert_eq!((sent.delivered, sent.dropped), (1, 0), "{text:?}");
+    }
+
+    /// The lamp said `text` in answer to `request`.
+    fn say(&mut self, text: &str, request: u64) {
+        self.spoken.push(text.to_owned());
+        let piece = Speech {
+            text: text.to_owned(),
+            finished: false,
+            locale: None,
+            request: Some(request),
+        };
+        assert_eq!(self.said.publish_json(0, &piece).unwrap().delivered, 1);
+    }
+
+    fn voice(&mut self, state: Voice) {
+        let sent = self.state.publish_json(0, &VoiceState { state }).unwrap();
+        assert_eq!(sent.delivered, 1);
+    }
+
+    /// The next decision the policy publishes.
+    fn decision(&mut self) -> Decision {
+        let message = self
+            .decisions
+            .recv(WAIT)
+            .unwrap()
+            .expect("a decision on the bus");
+        assert_eq!(message.header.source, "policy");
+        assert_eq!(message.header.type_name.as_deref(), Some(Decision::TYPE));
+        let decision: Decision = message.parse().unwrap();
+        assert_eq!(decision.check(), Ok(()));
+        decision
+    }
+
+    fn no_decision_for(&mut self, time: Duration) {
+        assert!(self.decisions.recv(time).unwrap().is_none());
+    }
+
+    /// The state the stand-in was shown next.
+    fn shown(&self) -> Value {
+        self.states.recv_timeout(WAIT).expect("a question asked")
+    }
+
+    /// The decisions log once it has `lines` lines. A decision is
+    /// published before it is written down, so a test that has just read
+    /// one from the bus may be ahead of the log by a moment.
+    fn log(&self, lines: usize) -> Vec<Value> {
+        let started = Instant::now();
+        loop {
+            let log = self.log_now();
+            if log.len() >= lines {
+                assert_eq!(log.len(), lines, "more lines than decisions");
+                return log;
+            }
+            assert!(started.elapsed() < WAIT, "{} of {lines} lines", log.len());
+            thread::sleep(ms(5));
+        }
+    }
+
+    /// The lines of the decisions log, every day's file together.
+    fn log_now(&self) -> Vec<Value> {
+        let Ok(files) = fs::read_dir(&self.log_dir) else {
+            return Vec::new();
+        };
+        let mut files: Vec<PathBuf> = files.map(|file| file.unwrap().path()).collect();
+        files.sort();
+        files
+            .iter()
+            .flat_map(|file| {
+                let name = file.file_name().unwrap().to_str().unwrap().to_owned();
+                assert!(
+                    name.starts_with("decisions-") && name.ends_with(".jsonl"),
+                    "{name}"
+                );
+                fs::read_to_string(file)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).expect("a line of JSON"))
+                    .collect::<Vec<Value>>()
+            })
+            .collect()
+    }
+
+    /// Wait until the policy has done with its decision of this number:
+    /// published it, tried to write it down, and said so. A decision read
+    /// from the bus may not have reached the log yet.
+    fn done_with(&mut self, number: u64) {
+        loop {
+            let note = self.saying.recv_timeout(WAIT).expect("a decision made");
+            self.notes.push(note);
+            if matches!(note, Note::Decided { number: of, .. } if of == number) {
+                return;
+            }
+        }
+    }
+
+    /// Stop the policy. What it counted and what it said about itself,
+    /// none of which may hold anything that was heard or said.
+    fn stop(mut self) -> (Totals, Vec<Note>) {
+        self.stop.store(true, Ordering::SeqCst);
+        let totals = self.running.take().unwrap().join().unwrap();
+        let mut notes = std::mem::take(&mut self.notes);
+        notes.extend(self.saying.try_iter());
+        for note in &notes {
+            let line = note.to_string();
+            for text in &self.spoken {
+                let text = text.trim();
+                assert!(
+                    text.len() < 4 || !line.contains(text),
+                    "{line:?} holds {text:?}"
+                );
+            }
+        }
+        (totals.unwrap(), notes)
+    }
+}
+
+impl Drop for Rig {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(running) = self.running.take() {
+            let _ = running.join();
+        }
+        let _ = fs::remove_dir_all(&self.root);
+        let _ = fs::remove_dir_all(&self.log_dir);
+        let _ = fs::remove_file(&self.log_dir);
+    }
+}
+
+fn decided(notes: &[Note]) -> usize {
+    notes
+        .iter()
+        .filter(|note| matches!(note, Note::Decided { .. }))
+        .count()
+}
+
+#[test]
+fn pieces_become_one_utterance_and_one_decision_is_published_and_logged() {
+    let mut rig = Rig::new("one", |_| Ok(asked(SEVEN)));
+    rig.hear(" Hey");
+    thread::sleep(ms(60));
+    rig.hear(" Lamp,");
+    thread::sleep(ms(60));
+    rig.hear(" what time is it?");
+    let last = Instant::now();
+    let decision = rig.decision();
+    let after = last.elapsed();
+    // Not before the pause that ends the utterance, and soon after it:
+    // the stand-in answers at once.
+    assert!(after >= PAUSE, "{after:?}");
+    assert!(after < PAUSE + ms(500), "{after:?}");
+    println!("decision {after:?} after the last piece, of which {PAUSE:?} is the pause");
+    // The room is not known and the lamp has said nothing, so the sum is
+    // the bias and the seven answers: 0.51558, which is 0.6261.
+    assert!(
+        (decision.probability - 0.6261).abs() < 0.0005,
+        "{}",
+        decision.probability
+    );
+    let probability = decision.probability;
+    assert_eq!(
+        decision,
+        Decision {
+            about: "attention".into(),
+            choice: "look_up".into(),
+            probability,
+            answers: attention::questions()
+                .into_iter()
+                .zip(SEVEN)
+                .map(|((name, _), yes)| (name, yes))
+                .collect(),
+            by: "stand-in-1.0-20261014".into(),
+            took_ms: decision.took_ms,
+            shadow: true,
+            request: None,
+        }
+    );
+    assert!(decision.took_ms < 500);
+    // What the model was shown: the pieces as one, in the measured shape.
+    let context = Context {
+        heard: "Hey Lamp, what time is it?".into(),
+        room: Room::Unknown,
+        lamp_is_speaking: false,
+        lamp_last_said: None,
+        seconds_since_lamp_spoke: None,
+    };
+    assert_eq!(rig.shown(), attention::state(&context));
+    // One utterance, one decision, one line.
+    rig.no_decision_for(PAUSE + ms(200));
+    let log = rig.log(1);
+    let line = &log[0];
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let at = line["at_unix_ms"].as_u64().unwrap();
+    assert!(at <= now && now - at < 5_000, "{at} and {now}");
+    assert_eq!(
+        *line,
+        json!({
+            "at_unix_ms": at,
+            "about": "attention",
+            "shadow": true,
+            "context": {
+                "heard": "Hey Lamp, what time is it?",
+                "room": "unknown",
+                "lamp_is_speaking": false,
+                "lamp_last_said": null,
+                "seconds_since_lamp_spoke": null,
+            },
+            "in_conversation": false,
+            "state": attention::state(&context),
+            "asked": "stand-in",
+            "answers": {
+                "calls_lamp": 0.07, "names_someone_else": 0.06, "others_business": 0.28,
+                "lamp_could_answer": 0.73, "follows_lamp": 0.06, "listening_noise": 0.05,
+                "asks_to_stop": 0.09,
+            },
+            "judgement": {
+                "probability": line["judgement"]["probability"],
+                "choice": "look_up",
+                "from_rule": false,
+            },
+            "by": "stand-in-1.0-20261014",
+            "took_ms": decision.took_ms,
+            "waited_ms": line["waited_ms"],
+            "usage": {"input_tokens": 1066, "output_tokens": 134, "cost": 4.4772e-05},
+            "pieces": 3,
+            "cut": false,
+        })
+    );
+    let logged = line["judgement"]["probability"].as_f64().unwrap();
+    assert!((logged - f64::from(probability)).abs() < 1e-6);
+    // It waited for the pause, and for little else.
+    let waited = line["waited_ms"].as_u64().unwrap();
+    assert!((300..800).contains(&waited), "{waited}");
+    let (totals, notes) = rig.stop();
+    assert_eq!(
+        totals,
+        Totals {
+            utterances: 1,
+            decided: 1,
+            ..Totals::default()
+        }
+    );
+    assert_eq!(decided(&notes), 1);
+    assert!(matches!(
+        notes.last(),
+        Some(Note::Decided {
+            number: 1,
+            choice: attention::Choice::LookUp,
+            by_rule: false,
+            pieces: 3,
+            bytes: 26,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request() {
+    let mut rig = Rig::new("finished", |_| {
+        Ok(asked([0.9, 0.0, 0.0, 0.9, 0.0, 0.0, 0.0]))
+    });
+    rig.hear("Lamp,");
+    thread::sleep(ms(40));
+    let last = Instant::now();
+    rig.hear_as(" good night.", true, Some(12));
+    let decision = rig.decision();
+    let after = last.elapsed();
+    assert!(after < PAUSE, "{after:?}");
+    println!("decision {after:?} after a piece marked finished");
+    assert_eq!(decision.request, Some(12));
+    assert_eq!(rig.shown()["heard"], "Lamp, good night.");
+    assert_eq!(rig.log(1)[0]["request"], 12);
+    assert_eq!(rig.log(1)[0]["pieces"], 2);
+    rig.stop();
+}
+
+#[test]
+fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began() {
+    let mut rig = Rig::new("said", |_| Ok(asked(SEVEN)));
+    // The lamp answers something, and falls silent.
+    rig.voice(Voice::Speaking);
+    rig.say("It is", 5);
+    rig.say(" ten past four.", 5);
+    thread::sleep(ms(150));
+    rig.voice(Voice::Listening);
+    thread::sleep(ms(400));
+    // Somebody speaks, and before they have finished the lamp has begun
+    // on its answer to them.
+    rig.hear("And");
+    thread::sleep(ms(80));
+    rig.say("Tomorrow it will rain.", 6);
+    rig.voice(Voice::Speaking);
+    thread::sleep(ms(80));
+    rig.hear(" tomorrow?");
+    let decision = rig.decision();
+    let shown = rig.shown();
+    assert_eq!(shown["heard"], "And tomorrow?");
+    assert_eq!(shown["lamp_last_said"], "It is ten past four.");
+    assert_eq!(shown["lamp_is_speaking_now"], false);
+    // It stopped about 0.4 s before the first piece.
+    let seconds = shown["seconds_since_lamp_spoke"].as_f64().unwrap();
+    assert!((0.3..=0.9).contains(&seconds), "{seconds}");
+    let line = &rig.log(1)[0];
+    assert_eq!(line["context"]["lamp_last_said"], "It is ten past four.");
+    assert_eq!(line["context"]["lamp_is_speaking"], false);
+    assert_eq!(line["in_conversation"], true);
+    assert_eq!(line["state"], shown);
+    // In conversation takes 0.206 from the sum: 0.30958, which is 0.5768.
+    assert!(
+        (decision.probability - 0.5768).abs() < 0.0005,
+        "{}",
+        decision.probability
+    );
+    // Said while the lamp is speaking: it is, and what it is saying now
+    // is what it last said.
+    thread::sleep(ms(100));
+    rig.hear_as("Stop.", true, None);
+    rig.decision();
+    let shown = rig.shown();
+    assert_eq!(shown["lamp_is_speaking_now"], true);
+    assert_eq!(shown["lamp_last_said"], "Tomorrow it will rain.");
+    assert_eq!(shown["seconds_since_lamp_spoke"], 0.0);
+    // Half a minute of nothing is not played here, so the other side of
+    // the twenty seconds is shown by a lamp that only kept quiet aloud.
+    rig.voice(Voice::Resting);
+    rig.say("...", 7);
+    thread::sleep(ms(100));
+    rig.hear_as("Did the invoice go out?", true, None);
+    rig.decision();
+    let shown = rig.shown();
+    assert_eq!(shown["lamp_last_said"], Value::Null);
+    assert_eq!(shown["seconds_since_lamp_spoke"], Value::Null);
+    let last = rig.log(3).pop().unwrap();
+    assert_eq!(last["context"]["lamp_last_said"], "...");
+    assert_eq!(last["in_conversation"], false);
+    rig.stop();
+}
+
+#[test]
+fn when_the_model_fails_the_rule_decides_and_the_failure_is_said_once() {
+    let mut asked_times = 0;
+    let mut rig = Rig::new("rule", move |_| {
+        asked_times += 1;
+        match asked_times {
+            1 => Err(Failed::TimedOut),
+            2 => Err(Failed::Refused(503)),
+            3 => Ok(asked(SEVEN)),
+            // An answer that leaves a question out, from a judge that
+            // does not check its own.
+            4 => {
+                let mut part = asked(SEVEN);
+                part.answers.remove("follows_lamp");
+                Ok(part)
+            }
+            _ => Ok(asked(SEVEN)),
+        }
+    });
+    // Nothing is known of the room and the lamp has not spoken: the rule
+    // stays quiet.
+    rig.hear_as("Is the printer working?", true, Some(3));
+    let ruled = rig.decision();
+    assert_eq!(
+        ruled,
+        Decision {
+            about: "attention".into(),
+            choice: "stay_quiet".into(),
+            probability: 0.26,
+            answers: Default::default(),
+            by: "rule".into(),
+            took_ms: ruled.took_ms,
+            shadow: true,
+            request: Some(3),
+        }
+    );
+    // In conversation, the rule answers.
+    rig.say("Shall I go on?", 4);
+    thread::sleep(ms(80));
+    rig.hear_as("Yes please.", true, None);
+    let ruled = rig.decision();
+    assert_eq!((ruled.choice.as_str(), ruled.probability), ("answer", 0.74));
+    assert_eq!(ruled.by, "rule");
+    rig.hear_as("What is the capital of Peru?", true, None);
+    assert_eq!(rig.decision().by, "stand-in-1.0-20261014");
+    rig.hear_as("And of Chile?", true, None);
+    let ruled = rig.decision();
+    assert_eq!((ruled.by.as_str(), ruled.answers.len()), ("rule", 0));
+    rig.hear_as("Thanks.", true, None);
+    assert_eq!(rig.decision().by, "stand-in-1.0-20261014");
+
+    let log = rig.log(5);
+    let failed: Vec<&Value> = log.iter().map(|line| &line["failed"]).collect();
+    assert_eq!(
+        failed,
+        [
+            &json!("timed_out"),
+            &json!("refused"),
+            &Value::Null,
+            &json!("missing"),
+            &Value::Null
+        ]
+    );
+    assert_eq!(
+        log[0]["failed_why"],
+        "the decision model did not answer before the deadline"
+    );
+    assert_eq!(
+        log[1]["failed_why"],
+        "the decision model's service refused with HTTP 503"
+    );
+    assert_eq!(
+        log[3]["failed_why"],
+        "the decision model's answer leaves out follows_lamp"
+    );
+    for (line, by_rule) in log.iter().zip([true, true, false, true, false]) {
+        assert_eq!(line["judgement"]["from_rule"], by_rule);
+        assert_eq!(line["asked"], "stand-in");
+        assert_eq!(line["by"] == "rule", by_rule);
+        assert_eq!(
+            line["answers"].as_object().unwrap().len(),
+            if by_rule { 0 } else { 7 }
+        );
+        // What was heard is in the log whoever decided.
+        assert!(line["context"]["heard"].as_str().unwrap().len() > 5);
+        assert_eq!(line["state"]["heard"], line["context"]["heard"]);
+    }
+    assert_eq!(log[1]["judgement"]["choice"], "answer");
+    // What it cost is kept though the answers could not be used.
+    assert_eq!(log[3]["usage"]["input_tokens"], 1066);
+    assert_eq!(log[0].get("usage"), None);
+
+    let (totals, notes) = rig.stop();
+    assert_eq!((totals.decided, totals.by_rule), (5, 3));
+    let about_the_model: Vec<&Note> = notes
+        .iter()
+        .filter(|note| {
+            matches!(
+                note,
+                Note::ModelFailing { .. } | Note::ModelAnswering { .. }
+            )
+        })
+        .collect();
+    assert_eq!(
+        about_the_model,
+        [
+            &Note::ModelFailing { kind: "timed_out" },
+            &Note::ModelAnswering { failures: 2 },
+            &Note::ModelFailing { kind: "missing" },
+            &Note::ModelAnswering { failures: 1 },
+        ]
+    );
+    assert_eq!(decided(&notes), 5);
+}
+
+#[test]
+fn one_question_is_out_at_a_time_and_at_most_eight_utterances_wait() {
+    // The model does not answer until the test lets it.
+    let (release, held) = mpsc::channel::<()>();
+    let mut rig = Rig::new("queue", move |_| {
+        held.recv_timeout(WAIT).expect("released");
+        Ok(asked(SEVEN))
+    });
+    rig.hear_as("kumquat 1", true, Some(1));
+    assert_eq!(rig.shown()["heard"], "kumquat 1");
+    // While that one is out the bus is still read: ten more are heard to
+    // their end, and what the lamp does meanwhile is taken in.
+    rig.say("Mango.", 30);
+    for number in 2..=11 {
+        thread::sleep(ms(15));
+        rig.hear_as(&format!("kumquat {number}"), true, Some(number));
+    }
+    thread::sleep(ms(300));
+    // Nothing else has been asked, and nothing decided.
+    assert!(rig.states.try_recv().is_err());
+    rig.no_decision_for(ms(50));
+    for _ in 0..9 {
+        release.send(()).unwrap();
+    }
+    // The first, and the eight that came last: the two that had waited
+    // longest were let go.
+    let kept = [1, 4, 5, 6, 7, 8, 9, 10, 11];
+    for number in kept {
+        assert_eq!(rig.decision().request, Some(number));
+        if number > 1 {
+            let shown = rig.shown();
+            assert_eq!(shown["heard"], format!("kumquat {number}"));
+            assert_eq!(shown["lamp_last_said"], "Mango.");
+        }
+    }
+    rig.no_decision_for(ms(200));
+    assert!(rig.states.try_recv().is_err());
+    let log = rig.log(9);
+    let logged: Vec<u64> = log
+        .iter()
+        .map(|line| line["request"].as_u64().unwrap())
+        .collect();
+    assert_eq!(logged, kept);
+    // The ones that waited say how long.
+    assert!(log[0]["waited_ms"].as_u64().unwrap() < 100);
+    assert!(log[8]["waited_ms"].as_u64().unwrap() >= 300);
+    let (totals, notes) = rig.stop();
+    assert_eq!(
+        totals,
+        Totals {
+            utterances: 11,
+            decided: 9,
+            dropped: 2,
+            ..Totals::default()
+        }
+    );
+    let about_the_queue: Vec<&Note> = notes
+        .iter()
+        .filter(|note| matches!(note, Note::Dropping | Note::CaughtUp { .. }))
+        .collect();
+    assert_eq!(
+        about_the_queue,
+        [&Note::Dropping, &Note::CaughtUp { dropped: 2 }]
+    );
+}
+
+#[test]
+fn a_voice_that_is_not_there_yet_is_said_once_and_waited_for() {
+    // A lease of 600 ms, so that three seconds are not spent waiting for
+    // one to run out.
+    let mut rig = Rig::with("nobody", |_| Ok(asked(SEVEN)), Some(ms(600)), |_| {});
+    thread::sleep(ms(1_000));
+    rig.voice(Voice::Resting);
+    rig.say("Good morning.", 1);
+    rig.hear_as("Good morning, Lamp.", true, None);
+    let decision = rig.decision();
+    assert_eq!(decision.by, "stand-in-1.0-20261014");
+    let (totals, notes) = rig.stop();
+    assert_eq!(totals.decided, 1);
+    for topic in ["voice/heard", "voice/said", "voice/state"] {
+        let about: Vec<&Note> = notes
+            .iter()
+            .filter(|note| {
+                matches!(note, Note::SourceGone { topic: of, .. } | Note::SourceBack { topic: of } if *of == topic)
+            })
+            .collect();
+        assert_eq!(
+            about,
+            [
+                &Note::SourceGone { topic, times: 1 },
+                &Note::SourceBack { topic }
+            ],
+            "{topic}"
+        );
+    }
+}
+
+#[test]
+fn a_log_that_cannot_be_written_is_said_once_and_decisions_go_on() {
+    // Where the log's directory should be there is a file.
+    let mut rig = Rig::with(
+        "log",
+        |_| Ok(asked(SEVEN)),
+        None,
+        |rig| {
+            fs::write(&rig.log_dir, b"in the way").unwrap();
+        },
+    );
+    for number in 1..=3 {
+        rig.hear_as("Is it raining?", true, Some(number));
+        assert_eq!(rig.decision().request, Some(number));
+    }
+    // The way is cleared once the third has been given up on, and the
+    // next decision is written.
+    rig.done_with(3);
+    fs::remove_file(&rig.log_dir).unwrap();
+    rig.hear_as("Is it raining now?", true, Some(4));
+    rig.decision();
+    rig.hear_as("And now?", true, Some(5));
+    rig.decision();
+    let logged: Vec<u64> = rig
+        .log(2)
+        .iter()
+        .map(|line| line["request"].as_u64().unwrap())
+        .collect();
+    assert_eq!(logged, [4, 5]);
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |path: &PathBuf| fs::metadata(path).unwrap().permissions().mode() & 0o7777;
+    assert_eq!(mode(&rig.log_dir), 0o700);
+    let file = fs::read_dir(&rig.log_dir).unwrap().next().unwrap().unwrap();
+    assert_eq!(mode(&file.path()), 0o600);
+    let (totals, notes) = rig.stop();
+    assert_eq!(
+        (totals.decided, totals.unlogged, totals.unpublished),
+        (5, 3, 0)
+    );
+    let about_the_log: Vec<&Note> = notes
+        .iter()
+        .filter(|note| matches!(note, Note::LogFailing { .. } | Note::LogWriting { .. }))
+        .collect();
+    assert_eq!(
+        about_the_log,
+        [
+            &Note::LogFailing {
+                kind: io::ErrorKind::NotADirectory
+            },
+            &Note::LogWriting { missing: 3 },
+        ]
+    );
+}
+
+#[test]
+fn a_bus_that_cannot_be_published_to_is_said_once_and_decisions_are_still_written() {
+    // Where the policy's topic should be there is a file.
+    let mut rig = Rig::with(
+        "bus",
+        |_| Ok(asked(SEVEN)),
+        None,
+        |rig| {
+            fs::remove_dir_all(rig.root.join("policy")).unwrap();
+            fs::write(rig.root.join("policy"), b"in the way").unwrap();
+        },
+    );
+    rig.hear_as("Is it raining?", true, Some(1));
+    rig.hear_as("Is it?", true, Some(2));
+    // Written down, and not published.
+    rig.log(2);
+    // The way is cleared. Within a second or so the policy is publishing,
+    // and the test, whose own socket went with the file, listens again.
+    fs::remove_file(rig.root.join("policy")).unwrap();
+    rig.decisions = rig
+        .bus
+        .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
+        .unwrap();
+    let started = Instant::now();
+    while rig.bus.publishers(Decision::TOPIC).unwrap().is_empty() {
+        assert!(started.elapsed() < WAIT);
+        thread::sleep(ms(20));
+    }
+    rig.hear_as("And now?", true, Some(3));
+    assert_eq!(rig.decision().request, Some(3));
+    rig.log(3);
+    let (totals, notes) = rig.stop();
+    assert_eq!(
+        (totals.decided, totals.unpublished, totals.unlogged),
+        (3, 2, 0)
+    );
+    let about_the_bus: Vec<&Note> = notes
+        .iter()
+        .filter(|note| matches!(note, Note::BusFailing { .. } | Note::BusWorking { .. }))
+        .collect();
+    assert_eq!(
+        about_the_bus,
+        [
+            &Note::BusFailing {
+                kind: io::ErrorKind::NotADirectory
+            },
+            &Note::BusWorking { unpublished: 2 },
+        ]
+    );
+}
+
+#[test]
+fn messages_that_are_not_of_their_type_are_passed_over_and_nothing_of_them_is_said() {
+    let mut rig = Rig::new("unreadable", |_| Ok(asked(SEVEN)));
+    // A publisher that declared nothing can send anything.
+    let secret = "zanzibar marmalade";
+    for wrong in [
+        json!({"text": secret}),
+        json!({"text": 7, "finished": secret}),
+        json!(secret),
+    ] {
+        rig.spoken.push(secret.to_owned());
+        assert_eq!(rig.heard.publish_json(0, &wrong).unwrap().delivered, 1);
+    }
+    assert_eq!(
+        rig.state
+            .publish_json(0, &json!({"state": "dreaming"}))
+            .unwrap()
+            .delivered,
+        1
+    );
+    rig.no_decision_for(PAUSE + ms(100));
+    rig.hear_as("Lamp?", true, None);
+    rig.decision();
+    assert_eq!(rig.shown()["heard"], "Lamp?");
+    let (totals, notes) = rig.stop();
+    assert_eq!((totals.unreadable, totals.utterances), (4, 1));
+    let about: Vec<&Note> = notes
+        .iter()
+        .filter(|note| matches!(note, Note::Unreadable { .. } | Note::Readable { .. }))
+        .collect();
+    assert_eq!(about.len(), 3, "{about:?}");
+    assert!(about.contains(&&Note::Unreadable {
+        topic: "voice/heard"
+    }));
+    assert!(about.contains(&&Note::Unreadable {
+        topic: "voice/state"
+    }));
+    assert!(about.contains(&&Note::Readable {
+        topic: "voice/heard",
+        passed_over: 3
+    }));
+}
+
+#[test]
+fn a_judge_that_breaks_down_leaves_the_rule_to_decide() {
+    let mut rig = Rig::new("broken", |state| {
+        if state["heard"] == "Second." {
+            // Not what a judge is to do; the policy outlives it.
+            std::panic::resume_unwind(Box::new("the stand-in broke down"));
+        }
+        Ok(asked(SEVEN))
+    });
+    rig.hear_as("First.", true, Some(1));
+    assert_eq!(rig.decision().by, "stand-in-1.0-20261014");
+    rig.hear_as("Second.", true, Some(2));
+    rig.hear_as("Third.", true, Some(3));
+    for request in [2, 3] {
+        let ruled = rig.decision();
+        assert_eq!((ruled.by.as_str(), ruled.request), ("rule", Some(request)));
+    }
+    let log = rig.log(3);
+    assert_eq!(log[1]["failed"], "unreachable");
+    assert_eq!(log[2]["failed"], "unreachable");
+    let (totals, notes) = rig.stop();
+    assert_eq!((totals.decided, totals.by_rule), (3, 2));
+    assert_eq!(
+        notes
+            .iter()
+            .filter(|note| **note == Note::AskerGone)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text() {
+    // A note can be copied bit for bit, which nothing that owns text can.
+    fn plain<T: Copy + Send + 'static>() {}
+    plain::<Note>();
+    let notes = [
+        Note::Decided {
+            number: 12,
+            choice: attention::Choice::StayQuiet,
+            probability: 0.3594,
+            by_rule: false,
+            took_ms: 655,
+            waited_ms: 301,
+            pieces: 4,
+            bytes: 27,
+        },
+        Note::ModelFailing { kind: "timed_out" },
+        Note::ModelAnswering { failures: 3 },
+        Note::SourceGone {
+            topic: "voice/heard",
+            times: 2,
+        },
+        Note::SourceBack {
+            topic: "voice/heard",
+        },
+        Note::Unreadable {
+            topic: "voice/said",
+        },
+        Note::Readable {
+            topic: "voice/said",
+            passed_over: 5,
+        },
+        Note::NotReceiving {
+            topic: "voice/state",
+            kind: io::ErrorKind::PermissionDenied,
+        },
+        Note::Receiving {
+            topic: "voice/state",
+        },
+        Note::Dropping,
+        Note::CaughtUp { dropped: 2 },
+        Note::LogFailing {
+            kind: io::ErrorKind::StorageFull,
+        },
+        Note::LogWriting { missing: 7 },
+        Note::BusFailing {
+            kind: io::ErrorKind::NotFound,
+        },
+        Note::BusWorking { unpublished: 1 },
+        Note::AskerGone,
+    ];
+    let lines: Vec<String> = notes.iter().map(Note::to_string).collect();
+    assert_eq!(
+        lines[0],
+        "decision 12 about=attention choice=stay_quiet probability=0.359 by=model took_ms=655 waited_ms=301 pieces=4 bytes=27"
+    );
+    assert_eq!(
+        lines[1],
+        "the decision model is not answering (timed_out): the rule decides until it does"
+    );
+    assert_eq!(
+        lines[11],
+        "the decisions log cannot be written (no storage space): decisions go on without it"
+    );
+    for line in &lines {
+        assert!(!line.is_empty() && !line.contains('\n'), "{line:?}");
+    }
+    // Each says something of its own.
+    let mut distinct = lines.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert_eq!(distinct.len(), lines.len());
+}

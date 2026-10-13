@@ -1,0 +1,62 @@
+//! A certificate authority, and a certificate it signed for `localhost`
+//! and 127.0.0.1, so that the secure way of asking can be run against a
+//! server on this machine.
+//!
+//! Made on 2026-10-14 with `openssl` for these tests and nothing else:
+//! P-256 keys, valid until 2126. The authority's own key was thrown away
+//! once it had signed the one certificate, so nothing more can be signed
+//! under it. The server's key below is here in full and is no secret: it
+//! protects nothing but a test.
+
+/// The authority's certificate, DER in hex. The tests trust it in place
+/// of the roots the program is built with.
+pub const AUTHORITY: &str = "308201863082012ca00302010202144cc0bc4f831a6d9c3c308651b7da3b6902 \
+     e4bb85300a06082a8648ce3d0403023020311e301c06035504030c156c616d70 \
+     2d706f6c696379207465737420726f6f743020170d3236313031333137333434 \
+     315a180f32313236303931393137333434315a3020311e301c06035504030c15 \
+     6c616d702d706f6c696379207465737420726f6f743059301306072a8648ce3d \
+     020106082a8648ce3d030107034200040d6d19a0aeeb2be2d45424933e233db5 \
+     25997da362c85626bff2bed7365f06c0920f2fc1da93419672dca32da93e0a06 \
+     fa95ebe910ddd5cfa414bba2a16a7555a3423040300f0603551d130101ff0405 \
+     30030101ff300e0603551d0f0101ff040403020106301d0603551d0e04160414 \
+     741bfa888273a65fe248896ad65fccffb5a865c6300a06082a8648ce3d040302 \
+     034800304502210086d9adb1a8ad3ee6d3980acd803cc09769046db45e3640ef \
+     34223f973e4a23a4022021f17023d275a5f981cee4f93421db1cb8d962095723 \
+     ec9007bf16081a7e4ac5";
+
+/// The server's certificate, DER in hex: `localhost` and 127.0.0.1.
+pub const SERVER: &str = "308201cc30820171a00302010202146f1b5c8751f9d440849f9cace5a32fe5cf \
+     520e45300a06082a8648ce3d0403023020311e301c06035504030c156c616d70 \
+     2d706f6c696379207465737420726f6f743020170d3236313031333137333434 \
+     315a180f32313236303931393137333434315a30143112301006035504030c09 \
+     6c6f63616c686f73743059301306072a8648ce3d020106082a8648ce3d030107 \
+     03420004b6c9d0be9ba29c28f4f0d20e5b2fe42e19aabce7c768bd18b4ede203 \
+     64466e267f43d751009a4ea396c9730ba833b40f98824c68deafde3f11da86b4 \
+     bd898bc7a3819230818f300c0603551d130101ff04023000300e0603551d0f01 \
+     01ff04040302078030130603551d25040c300a06082b06010505070301301a06 \
+     03551d110413301182096c6f63616c686f737487047f000001301d0603551d0e \
+     041604148534fa1a03c91efa4e3a93cf2b44b334075d40e7301f0603551d2304 \
+     1830168014741bfa888273a65fe248896ad65fccffb5a865c6300a06082a8648 \
+     ce3d0403020349003046022100ed9f8c3a2730f2231b1b14347c9c7458d52908 \
+     797875f2185511098f17f57e17022100a5b754ddf1baadda93c200cc5b880ad9 \
+     2bb23f46b3d15be3fc2595776641d8ec";
+
+/// The server's key, PKCS#8 DER in hex.
+pub const SERVER_KEY: &str = "308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b02 \
+     0101042065e6b72b58b59d405bf2789b51c004f1e16542c67c13e11aa0ae39c7 \
+     d6193481a14403420004b6c9d0be9ba29c28f4f0d20e5b2fe42e19aabce7c768 \
+     bd18b4ede20364466e267f43d751009a4ea396c9730ba833b40f98824c68deaf \
+     de3f11da86b4bd898bc7";
+
+/// The bytes that `text` writes in hex.
+pub fn bytes(text: &str) -> Vec<u8> {
+    let digits: Vec<u8> = text
+        .chars()
+        .filter_map(|digit| digit.to_digit(16))
+        .map(|digit| digit as u8)
+        .collect();
+    digits
+        .chunks_exact(2)
+        .map(|pair| pair[0] << 4 | pair[1])
+        .collect()
+}

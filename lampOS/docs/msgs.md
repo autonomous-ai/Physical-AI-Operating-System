@@ -46,6 +46,7 @@ its declaration.
 | `RoomState` | `room/state` | latest | none | Unknown, quiet or busy |
 | `Light` | `light/command`, `light/state` | latest | 1 s | On or off, one of ten colours by name, a level from 1 to 5 |
 | `Diagnostic` | `diagnostics` | event | 1 s | ROS's `DiagnosticStatus`: ok, warn, error or stale, a name, a message, a few keys and values |
+| `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, and the request's number if known. Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
 read as declarations. A stream is `event` and a latched topic `latest`. "How
@@ -54,6 +55,10 @@ declared, because a period is a promise. "With each look", "with each thing
 said" and "when it changes" promise none. No lifespan is declared: the table
 has none. A topic that promises no period and can be silent for longer than
 the bus's lease needs its publisher to call `alive()`.
+
+`policy/decisions` was added after that table was written and is not in
+it: this table is where it is listed. `first_topics()` has it with the
+others.
 
 ## Adding one
 
@@ -74,11 +79,14 @@ topic can be published as that.
 
 ## Not shown
 
-Run on a development Mac (x86_64) only: 11 tests of the types and one that
-declares the thirteen topics on a real bus and sends five of the types
+Run on a development Mac (x86_64) only: 12 tests of the types and one that
+declares the fourteen topics on a real bus and sends six of the types
 through it. The example in the crate's documentation is compiled, not run.
 Type-checked for the lamp's processor, not run on Linux, never on a lamp.
-Nothing uses these types yet. The actions program still publishes
+The voice publishes `Speech` and `VoiceState`
+(`crates/voice/src/bus_out.rs`), and the policy reads them and publishes
+`Decision` ([policy.md](policy.md)). Nothing uses the other types yet. The
+actions program still publishes
 `{"rgb":[r,g,b]}` on `light/command` and reads the same from `light/state`,
 which is not `Light`. `VoiceLink`'s seven reasons group the voice program's
 fault categories and have not been agreed with its owner. Which way a face's

@@ -3,7 +3,8 @@
 //! back as its type.
 use lamp_bus::{Bus, Kind, Publisher};
 use lamp_msgs::{
-    Audio, Diagnostic, JointState, KeyValue, Level, Light, Speech, declaration_of, first_topics,
+    Audio, Decision, Diagnostic, JointState, KeyValue, Level, Light, Speech, declaration_of,
+    first_topics,
 };
 use std::{fs, io, path::PathBuf, time::Duration};
 
@@ -31,13 +32,13 @@ impl Drop for Root {
 fn every_first_topic_is_declared_on_the_bus_and_carries_its_type() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
-    // The bus takes every name and every declaration: thirteen topics,
+    // The bus takes every name and every declaration: fourteen topics,
     // each with a publisher that has not spoken yet.
     let mut publishers: Vec<Publisher> = first_topics()
         .iter()
         .map(|(topic, declaration)| bus.publisher_declared(topic, declaration, "part").unwrap())
         .collect();
-    assert_eq!(publishers.len(), 13);
+    assert_eq!(publishers.len(), 14);
     for (topic, declaration) in first_topics() {
         assert_eq!(
             bus.declaration(topic).unwrap(),
@@ -141,6 +142,32 @@ fn every_first_topic_is_declared_on_the_bus_and_carries_its_type() {
     );
     let message = watch.recv(WAIT).unwrap().expect("the report");
     assert_eq!(message.parse::<Diagnostic>().unwrap(), report);
+
+    // What the policy decided: an event, with its answers by name.
+    let mut watch = bus
+        .subscribe_typed(Decision::TOPIC, "t", Decision::TYPE)
+        .unwrap();
+    let decided = Decision {
+        about: "attention".into(),
+        choice: "answer".into(),
+        probability: 0.9078,
+        answers: [("calls_lamp".to_string(), 0.07)].into(),
+        by: "typesafe/jev-1.13-20260917".into(),
+        took_ms: 655,
+        shadow: true,
+        request: None,
+    };
+    assert_eq!(
+        publisher(Decision::TOPIC)
+            .publish_json(1, &decided)
+            .unwrap()
+            .delivered,
+        1
+    );
+    let message = watch.recv(WAIT).unwrap().expect("the decision");
+    assert_eq!(message.header.kind, Kind::Event);
+    assert_eq!(message.parse::<Decision>().unwrap(), decided);
+    assert!(bus.latest(Decision::TOPIC).unwrap().is_none());
 
     // A subscriber that expects another type of a first topic is refused,
     // and so is a publisher that would declare it as something else.

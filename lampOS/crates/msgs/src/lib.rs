@@ -44,7 +44,7 @@
 //! ```
 use lamp_bus::{Declaration, Kind};
 use serde::{Deserialize, Serialize};
-use std::{fmt, io, time::Duration};
+use std::{collections::BTreeMap, fmt, io, time::Duration};
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -561,8 +561,77 @@ impl Diagnostic {
     }
 }
 
-/// Every first topic with its declaration, by name: what `docs/bus.md`
-/// lists under "The first topics".
+/// One thing the policy decided (`policy/decisions`): what the question
+/// was about, what was chosen, how likely the policy held it to be right,
+/// and what each judgement behind it was.
+///
+/// The policy is the one part that chooses what the lamp does. It asks a
+/// decision model questions that are answered with probabilities, combines
+/// the answers, and says here what it chose (`docs/policy.md`). What was
+/// heard is not in this message: it says what was decided, not about what
+/// words.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Decision {
+    /// Which decision this is, by name: `attention` is "is this said to
+    /// the lamp?".
+    pub about: String,
+    /// What was chosen, by the decision's own names: for `attention`,
+    /// `answer`, `look_up` or `stay_quiet`.
+    pub choice: String,
+    /// How likely the policy holds it that the lamp should act, from 0 to
+    /// 1: what the choice was made from.
+    pub probability: f32,
+    /// What the decision model answered to each question, by the
+    /// question's name: the probability of yes, from 0 to 1. Empty when no
+    /// model answered and a rule decided.
+    pub answers: BTreeMap<String, f32>,
+    /// Who decided: the decision model's name as its service reported it,
+    /// or `rule` when no model answered.
+    pub by: String,
+    /// How long the asking took, in milliseconds, whether it was answered
+    /// or not.
+    pub took_ms: u32,
+    /// True while nothing acts on the decision: it is made and written
+    /// down so that it can be compared with what the lamp did.
+    pub shadow: bool,
+    /// The number of the request this is about, if it is known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<u64>,
+}
+
+impl Decision {
+    pub const TYPE: &str = "lamp_msgs/Decision";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "policy/decisions";
+
+    /// A stream: a decision is over when it has been made. With each thing
+    /// decided: no period is promised, so its publisher says that it is
+    /// alive between decisions.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+    }
+
+    /// The probability and every answer are probabilities.
+    pub fn check(&self) -> Result<(), Invalid> {
+        let unit = |value: f32| (0.0..=1.0).contains(&value);
+        if !unit(self.probability) {
+            return invalid(format!(
+                "a decision's probability is {}: from 0 to 1",
+                self.probability
+            ));
+        }
+        match self.answers.iter().find(|(_, answer)| !unit(**answer)) {
+            Some((question, answer)) => {
+                invalid(format!("the answer to {question} is {answer}: from 0 to 1"))
+            }
+            None => Ok(()),
+        }
+    }
+}
+
+/// Every topic that has a type here, with its declaration, by name: what
+/// `docs/bus.md` lists under "The first topics", and the topics added
+/// since, which are in the table of `docs/msgs.md`.
 pub fn first_topics() -> Vec<(&'static str, Declaration)> {
     let mut topics = vec![
         (ImageRef::TOPIC, ImageRef::declaration()),
@@ -572,6 +641,7 @@ pub fn first_topics() -> Vec<(&'static str, Declaration)> {
         (VoiceLink::TOPIC, VoiceLink::declaration()),
         (RoomState::TOPIC, RoomState::declaration()),
         (Diagnostic::TOPIC, Diagnostic::declaration()),
+        (Decision::TOPIC, Decision::declaration()),
     ];
     topics.extend(Audio::TOPICS.map(|topic| (topic, Audio::declaration())));
     topics.extend(Speech::TOPICS.map(|topic| (topic, Speech::declaration())));
@@ -923,11 +993,93 @@ mod tests {
     }
 
     #[test]
+    fn a_decision_says_what_was_chosen_how_likely_by_whom_and_from_which_answers() {
+        let decided = Decision {
+            about: "attention".into(),
+            choice: "look_up".into(),
+            probability: 0.655,
+            answers: BTreeMap::from([("others_business".into(), 0.33), ("calls_lamp".into(), 0.1)]),
+            by: "typesafe/jev-1.13-20260917".into(),
+            took_ms: 612,
+            shadow: true,
+            request: Some(7),
+        };
+        // The answers are written by the question's name, in the order of
+        // the names.
+        let text = "{\"about\":\"attention\",\"choice\":\"look_up\",\"probability\":0.655,\
+                    \"answers\":{\"calls_lamp\":0.1,\"others_business\":0.33},\
+                    \"by\":\"typesafe/jev-1.13-20260917\",\"took_ms\":612,\"shadow\":true,\
+                    \"request\":7}";
+        round_trip(&decided, text);
+        for field in [
+            "about",
+            "choice",
+            "probability",
+            "answers",
+            "by",
+            "took_ms",
+            "shadow",
+        ] {
+            needs::<Decision>(text, field);
+        }
+        assert_eq!(decided.check(), Ok(()));
+        // No model answered: a rule decided, from no answers, and nothing
+        // says which request it was about.
+        let ruled = Decision {
+            choice: "stay_quiet".into(),
+            probability: 0.26,
+            answers: BTreeMap::new(),
+            by: "rule".into(),
+            took_ms: 3_000,
+            request: None,
+            ..decided.clone()
+        };
+        round_trip(
+            &ruled,
+            "{\"about\":\"attention\",\"choice\":\"stay_quiet\",\"probability\":0.26,\
+             \"answers\":{},\"by\":\"rule\",\"took_ms\":3000,\"shadow\":true}",
+        );
+        assert_eq!(ruled.check(), Ok(()));
+        // Both ends of a probability are one.
+        for probability in [0.0, 1.0] {
+            let edge = Decision {
+                probability,
+                answers: BTreeMap::from([("calls_lamp".into(), probability)]),
+                ..decided.clone()
+            };
+            assert_eq!(edge.check(), Ok(()));
+        }
+        for probability in [1.5, -0.01, f32::NAN] {
+            let wrong = Decision {
+                probability,
+                ..decided.clone()
+            };
+            let why = wrong.check().unwrap_err();
+            assert!(why.0.contains("a decision's probability is"), "{why}");
+            let wrong = Decision {
+                answers: BTreeMap::from([("calls_lamp".into(), probability)]),
+                ..decided.clone()
+            };
+            let why = wrong.check().unwrap_err();
+            assert!(why.0.contains("the answer to calls_lamp is"), "{why}");
+        }
+        // Read from the bus it is whatever was sent: the check is asked for.
+        assert!(
+            serde_json::from_str::<Decision>(
+                "{\"about\":\"attention\",\"choice\":\"answer\",\"probability\":\"high\",\
+                 \"answers\":{},\"by\":\"rule\",\"took_ms\":0,\"shadow\":true}"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn every_first_topic_is_declared_as_the_table_of_first_topics_has_it() {
         // docs/bus.md, "The first topics": a stream is an event, a latched
         // topic keeps its latest, and "how often" is the period promised,
-        // the slower end where the table gives two.
-        let table: [(&str, &str, Kind, Option<u64>); 13] = [
+        // the slower end where the table gives two. The policy's topic was
+        // added since and is in the table of docs/msgs.md.
+        let table: [(&str, &str, Kind, Option<u64>); 14] = [
             (
                 "body/joint_states",
                 "lamp_msgs/JointState",
@@ -961,6 +1113,7 @@ mod tests {
             ("light/state", "lamp_msgs/Light", Kind::Latest, Some(1_000)),
             ("mic1/audio", "lamp_msgs/Audio", Kind::Event, Some(20)),
             ("mic2/audio", "lamp_msgs/Audio", Kind::Event, Some(20)),
+            ("policy/decisions", "lamp_msgs/Decision", Kind::Event, None),
             ("room/state", "lamp_msgs/RoomState", Kind::Latest, None),
             ("voice/heard", "lamp_msgs/Speech", Kind::Event, None),
             (
@@ -1023,6 +1176,7 @@ mod tests {
                 Diagnostic::VERSION,
                 Diagnostic::declaration(),
             ),
+            (Decision::TYPE, Decision::VERSION, Decision::declaration()),
         ] {
             assert_eq!(declaration.type_name, type_name);
             assert_eq!(declaration.version, version);

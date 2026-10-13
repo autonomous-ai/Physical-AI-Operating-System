@@ -612,7 +612,7 @@ HTTP và MQTT được xếp hàng và theo cùng luật.
 ```json
 {"enabled": true, "voice_input_mode": "automatic", "agent_name": "sam",
  "phrases": ["sam", "hey sam"], "phrases_custom": true, "phrases_default": ["wake up sam", "hello sam", "..."],
- "max_phrases": 30, "max_phrase_chars": 40,
+ "name_anywhere": false, "max_phrases": 30, "max_phrase_chars": 40,
  "chime": true, "has_light": true,
  "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5},
  "light_effects": ["solid", "breathing", "spin", "blink"], "light_speed_min": 0.25, "light_speed_max": 3,
@@ -627,6 +627,11 @@ HTTP và MQTT được xếp hàng và theo cùng luật.
   sách; `[]` khôi phục danh sách có sẵn. Câu được chuyển chữ thường, gộp khoảng
   trắng và bỏ trùng; mỗi câu cần ít nhất một chữ cái và tối đa
   `max_phrase_chars` ký tự, tổng cộng tối đa `max_phrases` câu.
+- `name_anywhere` là true trên Intern: mỗi mục là một **tên**, có tên ở bất kỳ
+  đâu trong câu là đánh thức ("hey intern", "what time is it, intern?"), và
+  danh sách có sẵn là `["autonomous", "intern"]` cộng tên agent. Hiển thị các
+  mục như tên và bỏ cảnh báo một từ. Trên Lamp là false: mục là câu chào + tên,
+  khớp ở đầu hoặc cuối câu.
 - `chime` và `light.enabled` là hai tín hiệu khi đánh thức; phải giữ ít nhất
   một cái, nên tắt cả hai sẽ lỗi `keep the wake chime or the wake light on, so
   a wake is noticeable`.

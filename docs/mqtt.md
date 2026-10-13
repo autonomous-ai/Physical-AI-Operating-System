@@ -630,7 +630,7 @@ same rules.
 ```json
 {"enabled": true, "voice_input_mode": "automatic", "agent_name": "sam",
  "phrases": ["sam", "hey sam"], "phrases_custom": true, "phrases_default": ["wake up sam", "hello sam", "..."],
- "max_phrases": 30, "max_phrase_chars": 40,
+ "name_anywhere": false, "max_phrases": 30, "max_phrase_chars": 40,
  "chime": true, "has_light": true,
  "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5},
  "light_effects": ["solid", "breathing", "spin", "blink"], "light_speed_min": 0.25, "light_speed_max": 3,
@@ -645,6 +645,11 @@ same rules.
   whole list; `[]` restores the built-in list. Phrases are lowercased, spaces
   collapsed and duplicates dropped; each needs a letter and at most
   `max_phrase_chars` characters, and there are at most `max_phrases`.
+- `name_anywhere` is true on Intern: each entry is a **name** that wakes the
+  device anywhere in a sentence ("hey intern", "what time is it, intern?"), and
+  the built-in list is `["autonomous", "intern"]` plus the agent's name. Show
+  the entries as names and drop the single-word warning. On Lamp it is false:
+  entries are greeting + name phrases matched at a sentence start or end.
 - `chime` and `light.enabled` are the two wake cues; at least one stays on, so
   turning both off fails with `keep the wake chime or the wake light on, so a
   wake is noticeable`.

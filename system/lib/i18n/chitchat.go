@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -148,6 +149,9 @@ func BuildVoiceWakeWords(name string) []string {
 // BuildSupportedVoiceWakeWords returns every phrase HAL's wake-word gate accepts.
 // Keep aligned with hal/drivers/voice/_internal/config.py and merge_wake_words.
 func BuildSupportedVoiceWakeWords(agentName, deviceType string) []string {
+	if WakesOnNameAnywhere(deviceType) {
+		return buildWakeNames(agentName, deviceType)
+	}
 	words := make([]string, 0, 21)
 	seen := make(map[string]struct{}, 21)
 	for _, name := range []string{"autonomous", deviceType, agentName} {
@@ -158,6 +162,23 @@ func BuildSupportedVoiceWakeWords(agentName, deviceType string) []string {
 			seen[word] = struct{}{}
 			words = append(words, word)
 		}
+	}
+	return words
+}
+
+// WakesOnNameAnywhere reports a device whose wake gate takes a bare name anywhere in a
+// sentence (Intern) rather than greeting + name phrases. Keep aligned with
+// WAKE_NAME_ANYWHERE in hal/drivers/voice/_internal/config.py.
+func WakesOnNameAnywhere(deviceType string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(deviceType)), "intern")
+}
+
+// buildWakeNames is the Intern built-in list: "autonomous", "intern", then the agent's name.
+func buildWakeNames(agentName, deviceType string) []string {
+	words := []string{"autonomous", "intern"}
+	n := strings.ToLower(strings.TrimSpace(agentName))
+	if n != "" && n != strings.ToLower(strings.TrimSpace(deviceType)) && !slices.Contains(words, n) {
+		words = append(words, n)
 	}
 	return words
 }

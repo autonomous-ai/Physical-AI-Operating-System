@@ -97,10 +97,17 @@ SPEAKER_MIN_AUDIO_S = _hal_config.SPEAKER_MIN_AUDIO_S
 
 _wake_name = _hal_config.resolve_device_type("friend")
 WAKE_WORD_PREFIXES = ("hello", "hey", "hi", "alo", "okay", "ok", "wake up")
-DEFAULT_WAKE_WORDS = [
-    *(f"{prefix} autonomous" for prefix in WAKE_WORD_PREFIXES),
-    *(f"{prefix} {_wake_name}" for prefix in WAKE_WORD_PREFIXES),
-]
+# Intern listens for a NAME anywhere in a sentence ("hey intern", "what time is it,
+# autonomous"); other devices keep greeting + name phrases at a sentence edge.
+WAKE_NAME_ANYWHERE = _wake_name.startswith("intern")
+if WAKE_NAME_ANYWHERE:
+    # "intern-v2" is the device class, not what people call it.
+    DEFAULT_WAKE_WORDS = ["autonomous", "intern"]
+else:
+    DEFAULT_WAKE_WORDS = [
+        *(f"{prefix} autonomous" for prefix in WAKE_WORD_PREFIXES),
+        *(f"{prefix} {_wake_name}" for prefix in WAKE_WORD_PREFIXES),
+    ]
 
 
 ENROLL_NUDGE_COOLDOWN_S = float(os.environ.get("HAL_ENROLL_NUDGE_COOLDOWN_S", str(30 * 60)))

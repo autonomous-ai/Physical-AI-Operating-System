@@ -214,3 +214,60 @@ def test_wake_followup_route_reports_the_window_in_effect(tmp_path, monkeypatch)
     assert get_wake_followup() == {"seconds": 5.0, "image_default_s": 5.0}
     _write_config(tmp_path, monkeypatch, {"wake_followup_s": 12})
     assert get_wake_followup()["seconds"] == 12.0
+
+
+def _intern(words: list[str]) -> SpeakerDecorator:
+    decorator = _decorator(words)
+    decorator._name_anywhere = True
+    return decorator
+
+
+def test_intern_wakes_on_a_name_anywhere_in_a_sentence():
+    decorator = _intern(["autonomous", "intern"])
+
+    assert decorator.starts_with_wake_word("Hey intern, turn on the light")
+    assert decorator.starts_with_wake_word("What time is it, Autonomous?")
+    assert decorator.starts_with_wake_word("Can you, intern, play some music")
+    assert decorator.starts_with_wake_word("Intern ơi, mấy giờ rồi")
+    # Whole words only: "internet" is not the name.
+    assert not decorator.starts_with_wake_word("the internet is down")
+    assert not decorator.starts_with_wake_word("turn on the light")
+
+
+def test_intern_bare_wake_is_a_greeting_around_a_name():
+    decorator = _intern(["autonomous", "intern"])
+
+    assert decorator.is_bare_wake_phrase("Intern.")
+    assert decorator.is_bare_wake_phrase("Hey intern!")
+    assert decorator.is_bare_wake_phrase("Wake up, Autonomous")
+    assert decorator.is_bare_wake_phrase("Intern ơi")
+    assert decorator.is_bare_wake_phrase("Hello Intrn")  # one typo, as for the gate
+    assert not decorator.is_bare_wake_phrase("Hey intern, what time is it?")
+    assert not decorator.is_bare_wake_phrase("Hey")
+    assert decorator.is_bare_wake_phrase("Hello sir", allow_name_slot=True)
+    assert not decorator.is_bare_wake_phrase("Hello sir")
+
+
+def test_intern_loose_and_name_slot_confirmation():
+    decorator = _intern(["intern"])
+
+    assert decorator.matches_wake_word_loosely("could you, intrn, read this")
+    assert not decorator.matches_wake_word_loosely("read this please")
+    assert decorator.matches_wake_prefix_slot("Hello sir. What time is it?")
+    assert not decorator.matches_wake_prefix_slot("What time is it")
+
+
+def test_lamp_keeps_phrases_at_a_sentence_edge():
+    decorator = _decorator(["hey lamp"])
+
+    assert decorator.starts_with_wake_word("hey lamp turn on")
+    assert not decorator.starts_with_wake_word("can you hey lamp turn on")
+
+
+def test_wake_name_of_drops_the_greeting():
+    from hal.drivers.voice._internal.speaker_decorate import wake_name_of
+
+    assert wake_name_of("Hey Sam") == "sam"
+    assert wake_name_of("wake up sam") == "sam"
+    assert wake_name_of("sam") == "sam"
+    assert wake_name_of("ê bé na ơi") == "bé na"

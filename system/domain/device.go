@@ -996,9 +996,12 @@ type WakeSettings struct {
 	Phrases        []string `json:"phrases"`
 	PhrasesCustom  bool     `json:"phrases_custom"`
 	PhrasesDefault []string `json:"phrases_default"`
-	MaxPhrases     int      `json:"max_phrases"`
-	MaxPhraseChars int      `json:"max_phrase_chars"`
-	Chime          bool     `json:"chime"`
+	// NameAnywhere: each entry is a name heard anywhere in a sentence ("hey intern",
+	// "what time is it, intern"), not a phrase said at its start or end.
+	NameAnywhere   bool `json:"name_anywhere"`
+	MaxPhrases     int  `json:"max_phrases"`
+	MaxPhraseChars int  `json:"max_phrase_chars"`
+	Chime          bool `json:"chime"`
 	// HasLight is false on devices without an LED strip; Light is then ignored.
 	HasLight bool          `json:"has_light"`
 	Light    WakeLightLook `json:"light"`
@@ -1310,6 +1313,8 @@ type ConfigPublicResponse struct {
 	WakePhrasesCustom bool `json:"wake_phrases_custom"`
 	// WakePhrasesDefault is the built-in list, for a "restore defaults" action.
 	WakePhrasesDefault []string `json:"wake_phrases_default"`
+	// WakeNameAnywhere: wake_phrases are names heard anywhere in a sentence (Intern).
+	WakeNameAnywhere bool `json:"wake_name_anywhere"`
 	// WakeChime is the effective wake chime toggle (default true).
 	WakeChime bool `json:"wake_chime"`
 	// WakeFollowupS is the owner's listening window after a wake, in seconds; nil when

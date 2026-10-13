@@ -12,6 +12,7 @@ from hal import config as hal_config
 from hal.drivers.voice._internal.config import (
     SPEAKER_ID_CACHE_FOLLOWUP_S,
     SPEAKER_ID_CACHE_S,
+    WAKE_WORD_PREFIXES,
     SPEAKER_MIN_AUDIO_S,
     STT_RATE,
 )
@@ -71,6 +72,39 @@ def _phrase_matches_loosely(sentence_part: str, phrase: str) -> bool:
     return _name_is_near(heard[-1], expected[-1])
 
 
+# Greetings and call-outs around a name that leave a turn with nothing to act on.
+_WAKE_LEAD_WORDS: tuple[tuple[str, ...], ...] = tuple(
+    sorted((tuple(p.split()) for p in (*WAKE_WORD_PREFIXES, "này", "ê")), key=len, reverse=True)
+)
+_WAKE_TRAIL_WORDS: frozenset[str] = frozenset({"ơi"})
+
+
+def _contains_run(words: list[str], run: list[str]) -> bool:
+    """Whether `run` appears in `words` as consecutive whole words."""
+    span = len(run)
+    return bool(run) and any(words[i:i + span] == run for i in range(len(words) - span + 1))
+
+
+def _strip_wake_greeting(words: list[str]) -> tuple[list[str], bool]:
+    """Drop one leading greeting ("hey", "wake up") and a trailing "ơi"; report a greeting."""
+    greeted = False
+    for lead in _WAKE_LEAD_WORDS:
+        if len(words) > len(lead) and tuple(words[: len(lead)]) == lead:
+            words = words[len(lead):]
+            greeted = True
+            break
+    if len(words) > 1 and words[-1] in _WAKE_TRAIL_WORDS:
+        words = words[:-1]
+    return words, greeted
+
+
+def wake_name_of(phrase: str) -> str:
+    """The name in a built-in greeting phrase ("hey sam" -> "sam"); other phrases unchanged."""
+    words = phrase.strip().casefold().split()
+    stripped, _ = _strip_wake_greeting(words)
+    return " ".join(stripped)
+
+
 def merge_wake_words(*word_lists: list[str]) -> list[str]:
     """Merge wake-word aliases case-insensitively while preserving order."""
     merged: list[str] = []
@@ -112,7 +146,17 @@ UNKNOWN_LABEL = "unknown"
 class SpeakerDecorator:
     """Owns wake-word list + speaker recognizer + speech-emotion service."""
 
-    def __init__(self, wake_words: list, nudge_cooldown_s: float, enable_people_perception: bool = True):
+    # Intern: a configured name anywhere in a sentence wakes it (see WAKE_NAME_ANYWHERE).
+    _name_anywhere: bool = False
+
+    def __init__(
+        self,
+        wake_words: list,
+        nudge_cooldown_s: float,
+        enable_people_perception: bool = True,
+        name_anywhere: bool = False,
+    ):
+        self._name_anywhere = name_anywhere
         self._wake_words: list = list(wake_words)
         self._wake_words_lock = threading.Lock()
 
@@ -258,6 +302,13 @@ class SpeakerDecorator:
         phrases = self._normalized_wake_phrases()
         if not phrases:
             return False
+        if self._name_anywhere:
+            runs = [p.split() for p in phrases]
+            return any(
+                _contains_run(sentence.split(), run)
+                for sentence in _sentences(transcript)
+                for run in runs
+            )
         for sentence in _sentences(transcript):
             for phrase in phrases:
                 if (
@@ -283,6 +334,13 @@ class SpeakerDecorator:
                 span = len(phrase.split())
                 if span > len(words):
                     continue
+                if self._name_anywhere:
+                    if any(
+                        _phrase_matches_loosely(" ".join(words[i:i + span]), phrase)
+                        for i in range(len(words) - span + 1)
+                    ):
+                        return True
+                    continue
                 head = " ".join(words[:span])
                 tail = " ".join(words[-span:])
                 if _phrase_matches_loosely(head, phrase) or _phrase_matches_loosely(
@@ -299,6 +357,13 @@ class SpeakerDecorator:
         whole prefix and exactly one word in the name slot at a sentence start or end.
         """
         phrases = self._normalized_wake_phrases()
+        if self._name_anywhere:
+            # Names carry no prefix of their own: a greeting plus one word stands in.
+            return bool(phrases) and any(
+                greeted and len(rest) == 1
+                for sentence in _sentences(transcript)
+                for rest, greeted in (_strip_wake_greeting(sentence.split()),)
+            )
         for sentence in _sentences(transcript):
             words = sentence.split()
             for phrase in phrases:
@@ -324,6 +389,17 @@ class SpeakerDecorator:
         sentences = _sentences(transcript)
         if not phrases or not sentences:
             return False
+        if self._name_anywhere:
+            # "Hey intern." / "Intern ơi!" — a greeting around a name, nothing else.
+            for sentence in sentences:
+                rest, greeted = _strip_wake_greeting(sentence.split())
+                said = " ".join(rest)
+                if said in phrases or any(_phrase_matches_loosely(said, p) for p in phrases):
+                    continue
+                if allow_name_slot and greeted and len(rest) == 1:
+                    continue
+                return False
+            return True
         for sentence in sentences:
             if sentence in phrases:
                 continue

@@ -61,6 +61,7 @@ func (s *Service) GetPublicConfig() domain.ConfigPublicResponse {
 		WakePhrases:              effectiveWakePhrases(s.config, agentName, deviceType),
 		WakePhrasesCustom:        len(s.config.WakePhrases) > 0,
 		WakePhrasesDefault:       i18n.BuildSupportedVoiceWakeWords(agentName, deviceType),
+		WakeNameAnywhere:         i18n.WakesOnNameAnywhere(deviceType),
 		WakeChime:                s.config.WakeChimeEnabled(),
 		WakeFollowupS:            s.config.WakeFollowupS,
 		WakeLight:                s.config.WakeLight,

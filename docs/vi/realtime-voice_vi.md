@@ -693,6 +693,20 @@ me?" bị bỏ nguyên lượt và người dùng chỉ nghe thấy im lặng. H
 `starts_with_wake_word` vì mọi nơi gọi nó đều hiểu là "lượt này có nói với mình
 không?".
 
+**Intern: tên ở bất kỳ đâu.** Trên Intern (`WAKE_NAME_ANYWHERE`, device type
+`intern*`, trong `hal/drivers/voice/_internal/config.py`) các mục là **tên** và
+decorator được tạo với `name_anywhere=True`: nghe thấy tên (nguyên từ) ở bất kỳ
+đâu trong câu là mở gate ("hey intern", "can you, intern, play music", "what
+time is it, autonomous?"); "the internet is down" thì không. Danh sách có sẵn
+là `["autonomous", "intern"]` cộng tên agent (`wake_name_of()` bỏ câu chào khỏi
+các phrase os-server đẩy xuống), trùng với danh sách
+`i18n.BuildSupportedVoiceWakeWords` trả về. Bare wake là câu chào
+(`hello|hey|hi|alo|okay|ok|wake up|này|ê`) và/hoặc `ơi` ở cuối quanh một tên;
+bước xác nhận lỏng cho phép một lỗi chính tả ở tên tại bất kỳ vị trí nào, còn
+bước xác nhận name-slot chấp nhận câu chào cộng một từ bất kỳ. Lamp giữ luật
+đầu-hoặc-cuối câu ở trên. Phrase chủ máy đã lưu trước thay đổi vẫn dùng được,
+khớp ở bất kỳ đâu.
+
 Bước xác nhận trên kết quả final chạy trên transcript đã **ghép**, tức bản còn
 nguyên dấu câu. `merge_stt_hypothesis()` chỉ giữ token `\w+` nên xoá luôn ranh
 giới câu, khiến cả lượt gộp thành một câu duy nhất và rút lại cái gate mà một

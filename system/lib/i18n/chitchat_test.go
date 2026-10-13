@@ -1,6 +1,9 @@
 package i18n
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestBuildChitchatWakeWordsPreservesLocalAttentionAliases(t *testing.T) {
 	words := BuildChitchatWakeWords("Luna")
@@ -42,6 +45,27 @@ func TestBuildSupportedVoiceWakeWordsIncludesCurrentAndPermanentAliases(t *testi
 		if words[i] != word {
 			t.Fatalf("BuildSupportedVoiceWakeWords() = %v, want %v", words, want)
 		}
+	}
+}
+
+func TestBuildSupportedVoiceWakeWordsInternIsNamesOnly(t *testing.T) {
+	cases := []struct {
+		agent, deviceType string
+		want              []string
+	}{
+		{"", "intern-v2", []string{"autonomous", "intern"}},
+		{"intern-v2", "intern-v2", []string{"autonomous", "intern"}},
+		{"Sam", "intern-v2", []string{"autonomous", "intern", "sam"}},
+		{"Intern", "intern-v2", []string{"autonomous", "intern"}},
+	}
+	for _, tc := range cases {
+		got := BuildSupportedVoiceWakeWords(tc.agent, tc.deviceType)
+		if !slices.Equal(got, tc.want) {
+			t.Fatalf("BuildSupportedVoiceWakeWords(%q, %q) = %v, want %v", tc.agent, tc.deviceType, got, tc.want)
+		}
+	}
+	if WakesOnNameAnywhere("lamp") {
+		t.Fatal("lamp must keep greeting + name phrases")
 	}
 }
 

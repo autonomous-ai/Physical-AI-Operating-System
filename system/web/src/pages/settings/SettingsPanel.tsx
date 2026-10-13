@@ -138,6 +138,7 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
   const [agentName, setAgentName] = useState("");
   const [wakePhrases, setWakePhrases] = useState<string[]>([]);
   const [wakePhrasesDefault, setWakePhrasesDefault] = useState<string[]>([]);
+  const [wakeNameAnywhere, setWakeNameAnywhere] = useState(false);
   const [wakeChime, setWakeChime] = useState(true);
   const [wakeFollowupS, setWakeFollowupS] = useState(WAKE_FOLLOWUP_DEFAULT_S);
   const [wakeLightOn, setWakeLightOn] = useState(true);
@@ -258,6 +259,7 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
         setAgentName(cfg.agent_name ?? "");
         setWakePhrases(cfg.wake_phrases ?? []);
         setWakePhrasesDefault(cfg.wake_phrases_default ?? []);
+        setWakeNameAnywhere(cfg.wake_name_anywhere === true);
         setWakeChime(cfg.wake_chime ?? true);
         setWakeFollowupS(cfg.wake_followup_s ?? WAKE_FOLLOWUP_DEFAULT_S);
         if (cfg.wake_followup_s == null) {
@@ -715,6 +717,7 @@ export function SettingsPanel({ activeSection }: { activeSection: SettingsSectio
               wakePhrases={wakePhrases}
               setWakePhrases={setWakePhrases}
               wakePhrasesDefault={wakePhrasesDefault}
+              wakeNameAnywhere={wakeNameAnywhere}
               wakeChime={wakeChime}
               setWakeChime={setWakeChime}
               wakeFollowupS={wakeFollowupS}

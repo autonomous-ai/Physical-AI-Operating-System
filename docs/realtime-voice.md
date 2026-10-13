@@ -710,6 +710,20 @@ Malaysia match? Hi lamp, can you hear me?" was dropped whole and the user just
 heard silence. The function keeps its `starts_with_wake_word` name because
 every caller reads it as "was this turn addressed to me?".
 
+**Intern: a name anywhere.** On Intern (`WAKE_NAME_ANYWHERE`, device type
+`intern*`, in `hal/drivers/voice/_internal/config.py`) the entries are **names**
+and the decorator is built with `name_anywhere=True`: a name heard as whole
+words anywhere in a sentence opens the gate ("hey intern", "can you, intern,
+play music", "what time is it, autonomous?"); "the internet is down" does not.
+The built-in list is `["autonomous", "intern"]` plus the agent's name
+(`wake_name_of()` drops the greeting from the phrases os-server pushes), the
+same list `i18n.BuildSupportedVoiceWakeWords` advertises. A bare wake is a
+greeting (`hello|hey|hi|alo|okay|ok|wake up|này|ê`) and/or a trailing `ơi`
+around a name; the loose confirmation allows one typo in a name at any position,
+and the name-slot confirmation accepts a greeting plus any one word. Lamp keeps
+the start-or-end phrase rule above. Owner phrases saved before the change still
+work, matched anywhere.
+
 The final-result confirmation runs on the **assembled** transcript, which still
 carries its punctuation. `merge_stt_hypothesis()` keeps only `\w+` tokens and
 therefore strips sentence boundaries, which would collapse the whole turn into

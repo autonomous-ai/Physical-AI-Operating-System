@@ -326,6 +326,8 @@ export interface DeviceConfig {
   // True when wake_phrases is the owner's edited list; wake_phrases_default is the built-in one.
   wake_phrases_custom?: boolean;
   wake_phrases_default?: string[];
+  // Intern: wake_phrases are names heard anywhere in a sentence, not edge phrases.
+  wake_name_anywhere?: boolean;
   // Chime on a spoken wake phrase (default true).
   wake_chime?: boolean;
   // Seconds the device keeps listening after a wake (WAKE_FOLLOWUP_MIN_S..MAX_S).

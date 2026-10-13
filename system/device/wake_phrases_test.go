@@ -43,13 +43,15 @@ func TestPublicConfigReportsOwnerWakePhrases(t *testing.T) {
 	if !cfg.WakePhrasesCustom || !reflect.DeepEqual(cfg.WakePhrases, []string{"ê bé na ơi"}) {
 		t.Fatalf("custom=%v phrases=%v", cfg.WakePhrasesCustom, cfg.WakePhrases)
 	}
-	if len(cfg.WakePhrasesDefault) != 21 {
+	// Intern's built-in list is names, not greeting phrases.
+	names := []string{"autonomous", "intern", "luna"}
+	if !reflect.DeepEqual(cfg.WakePhrasesDefault, names) {
 		t.Fatalf("defaults must stay available for restore: %v", cfg.WakePhrasesDefault)
 	}
 
 	s.config.WakePhrases = nil
-	if cfg := s.GetPublicConfig(); cfg.WakePhrasesCustom || len(cfg.WakePhrases) != 21 {
-		t.Fatalf("built-in: custom=%v phrases=%d", cfg.WakePhrasesCustom, len(cfg.WakePhrases))
+	if cfg := s.GetPublicConfig(); cfg.WakePhrasesCustom || !reflect.DeepEqual(cfg.WakePhrases, names) {
+		t.Fatalf("built-in: custom=%v phrases=%v", cfg.WakePhrasesCustom, cfg.WakePhrases)
 	}
 }
 

@@ -96,23 +96,26 @@ function WakeFollowupSelect({ value, onChange }: { value: number; onChange: (v: 
   );
 }
 
-function WakePhraseEditor({ phrases, setPhrases, defaults }: {
+function WakePhraseEditor({ phrases, setPhrases, defaults, nameAnywhere = false }: {
   phrases: string[];
   setPhrases: (v: string[]) => void;
   defaults: string[];
+  // Entries are names heard anywhere in a sentence, so a single word is expected.
+  nameAnywhere?: boolean;
 }) {
+  const noun = nameAnywhere ? "name" : "phrase";
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const isDefault = phrases.length === defaults.length && phrases.every((p, i) => p === defaults[i]);
-  const singleWord = phrases.filter((p) => !p.includes(" "));
+  const singleWord = nameAnywhere ? [] : phrases.filter((p) => !p.includes(" "));
 
   const add = () => {
     const phrase = normalizePhrase(draft);
     if (!phrase) return;
     if ([...phrase].length > MAX_WAKE_PHRASE_CHARS) return setError(`Keep it under ${MAX_WAKE_PHRASE_CHARS} characters.`);
-    if (!/\p{L}/u.test(phrase)) return setError("A wake phrase needs at least one letter.");
-    if (phrases.includes(phrase)) return setError("That phrase is already in the list.");
-    if (phrases.length >= MAX_WAKE_PHRASES) return setError(`At most ${MAX_WAKE_PHRASES} phrases.`);
+    if (!/\p{L}/u.test(phrase)) return setError(`A wake ${noun} needs at least one letter.`);
+    if (phrases.includes(phrase)) return setError(`That ${noun} is already in the list.`);
+    if (phrases.length >= MAX_WAKE_PHRASES) return setError(`At most ${MAX_WAKE_PHRASES} ${noun}s.`);
     setPhrases([...phrases, phrase]);
     setDraft("");
     setError("");
@@ -131,7 +134,7 @@ function WakePhraseEditor({ phrases, setPhrases, defaults }: {
           </span>
         ))}
         {phrases.length === 0 && (
-          <span style={{ color: C.textMuted }}>No phrases. The built-in list is used after you save.</span>
+          <span style={{ color: C.textMuted }}>No {noun}s. The built-in list is used after you save.</span>
         )}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
@@ -322,7 +325,7 @@ export function DeviceSection({
   rotateAdminPassword, setRotateAdminPassword,
   voiceInputMode = "automatic", setVoiceInputMode,
   wakeWord, setWakeWord,
-  agentName, wakePhrases, setWakePhrases, wakePhrasesDefault, wakeChime, setWakeChime,
+  agentName, wakePhrases, setWakePhrases, wakePhrasesDefault, wakeNameAnywhere = false, wakeChime, setWakeChime,
   wakeFollowupS, setWakeFollowupS,
   wakeLightOn, setWakeLightOn, wakeLook, setWakeLook,
 }: {
@@ -346,6 +349,7 @@ export function DeviceSection({
   // Present only where the phrases can be edited (Settings).
   setWakePhrases?: (v: string[]) => void;
   wakePhrasesDefault?: string[];
+  wakeNameAnywhere?: boolean;
   wakeChime?: boolean;
   setWakeChime?: (v: boolean) => void;
   wakeFollowupS?: number;
@@ -440,10 +444,20 @@ export function DeviceSection({
           {setWakePhrases ? (
             <div style={{ marginTop: 10, marginLeft: 23, fontSize: 11.5, lineHeight: 1.45, color: C.textMuted }}>
               <label htmlFor="wake_phrase_new" style={{ display: "block", marginBottom: 6 }}>
-                Spoken wake phrases (other triggers: tap, gaze, or a recognized person){agentName ? ` — current agent: ${agentName}` : ""}.
-                {" "}Say a phrase on its own and wait for the chime, then speak, or say it together with your request.
+                {wakeNameAnywhere ? (
+                  <>
+                    Names your device answers to (other triggers: tap, gaze, or a recognized person){agentName ? ` — current agent: ${agentName}` : ""}.
+                    {" "}Use a name anywhere in what you say: &quot;hey intern&quot;, &quot;hello intern, what&apos;s the weather?&quot; or &quot;what time is it, intern?&quot;.
+                    {" "}Say it on its own and wait for the chime, or together with your request.
+                  </>
+                ) : (
+                  <>
+                    Spoken wake phrases (other triggers: tap, gaze, or a recognized person){agentName ? ` — current agent: ${agentName}` : ""}.
+                    {" "}Say a phrase on its own and wait for the chime, then speak, or say it together with your request.
+                  </>
+                )}
               </label>
-              <WakePhraseEditor phrases={wakePhrases ?? []} setPhrases={setWakePhrases} defaults={wakePhrasesDefault ?? []} />
+              <WakePhraseEditor phrases={wakePhrases ?? []} setPhrases={setWakePhrases} defaults={wakePhrasesDefault ?? []} nameAnywhere={wakeNameAnywhere} />
               {setWakeChime && setWakeLightOn && setWakeLook ? (
                 <WakeCues
                   chime={wakeChime ?? true} setChime={setWakeChime}

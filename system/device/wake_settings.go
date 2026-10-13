@@ -23,6 +23,7 @@ func (s *Service) WakeSettings() domain.WakeSettings {
 		Phrases:        effectiveWakePhrases(s.config, agentName, deviceType),
 		PhrasesCustom:  len(s.config.WakePhrases) > 0,
 		PhrasesDefault: i18n.BuildSupportedVoiceWakeWords(agentName, deviceType),
+		NameAnywhere:   i18n.WakesOnNameAnywhere(deviceType),
 		MaxPhrases:     config.MaxWakePhrases,
 		MaxPhraseChars: config.MaxWakePhraseRunes,
 		Chime:          s.config.WakeChimeEnabled(),

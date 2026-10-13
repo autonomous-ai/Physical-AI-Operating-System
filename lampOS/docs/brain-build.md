@@ -605,8 +605,14 @@ the work, and "most of a week" for step 3 was too little. Two weeks is
 nearer, with the first of them ending at a paired, encrypted connection
 that can list the computer's agents.
 
-Open: reading the Harness team's own schema, or their word that
-`docs/harness.md` and V1's client are current.
+The Harness team's own definition can be read: their repository
+(`autonomous-ai/openharness`) is public, with the contract in
+`docs/autonomous-device-integration.md` (last changed 2026-10-06) and the
+computer's side in `cli/src/lib/autonomous-device` and `cli/src/lib/e2ee`,
+which carries test vectors of its own. It is to be read before step 3
+begins and has not been yet; V1 also has an interoperation check against
+that code (`system/harness/testdata/direct_interop.go`) that the Rust
+client should pass in the same way.
 
 ## What the page's review of the voice code predates
 

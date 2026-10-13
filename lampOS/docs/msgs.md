@@ -97,8 +97,10 @@ publishes `Speech`, `VoiceState` and `RoomState`
 publishes `Decision` ([policy.md](policy.md)). The body publishes
 `JointState` and its own `Diagnostic` (`crates/body/src/bus_out.rs`). The
 actions program asks for a `Light` and the voice's ring worker says the
-one it shows (`crates/voice/src/ring_light.rs`). Nothing publishes the
-others yet: `Health`, `BoardState`, `Audio`, `ImageRef` and `VoiceLink`.
+one it shows (`crates/voice/src/ring_light.rs`). The health program
+publishes `Health`, `BoardState` and the board's own `Diagnostic`
+([health.md](health.md)). Nothing publishes the others yet: `Audio`,
+`ImageRef` and `VoiceLink`.
 `VoiceLink`'s seven reasons group the voice program's
 fault categories and have not been agreed with its owner. Which way a face's
 yaw is positive is written down and no detector has been held to it.

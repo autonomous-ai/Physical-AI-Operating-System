@@ -287,15 +287,57 @@ subscribe again. And the board is read in the loop itself, so a file that
 hangs when read holds everything up until it answers; `lamp/health` then
 expires like that of a `serve` that has stopped.
 
+## On the lamp
+
+On lamp-4ace since 03:16 on 2026-10-14, as `lamp-health.service` under
+the lamp's ordinary user, with the command also at
+`/usr/local/bin/lamp-health`:
+
+    lamp-health serve --bus-root /run/lampos-bus --expect board --expect body --expect policy --judge-zone cpu --judge-zone skin
+
+Three parts report: the board (this program), the body
+([body.md](body.md), "On the bus") and the policy
+([policy.md](policy.md)). The voice, the eyes, the memory and the actions
+program do not report yet and are not expected, so their silence is not
+in the lamp's health.
+
+    $ lamp-health
+    The lamp is well.
+
+      ok     board     0.8 s ago
+      ok     body      0.3 s ago
+      ok     policy    0.7 s ago
+
+    board  hottest 65 °C (cpub_thermal_zone)  load 0.10  memory 12% used  disk 14% free  up 2 d 12 h
+
+What its first minutes on the lamp showed:
+
+- **The board runs warm.** Its eight zones, as it names them, with the
+  lamp at rest: both processor zones 64.7 to 64.9 °C (they slow
+  themselves down from 70 and again from 90, and the board turns itself
+  off at 110); two processor "idle" zones the same (limits 90 and 100);
+  graphics 64.5 (limits 60 and 90, off at 110); a neural processor 63.8
+  and memory 63.1 (off at 110); and `skin_zone` 37.0, at which the board
+  turns itself off at 50. While builds were being installed over SSH the
+  big processors read 75 and then 71 °C, and the lamp's health said so:
+  `board: cpub_thermal_zone is at 75 °C: the board slows itself down from
+  70`. So the processors are five degrees under their first limit when
+  the lamp does nothing, and over it under a few seconds of work.
+- **Two rules were wrong for this board** and were changed on what it
+  read. The warning began five degrees under a zone's first limit, which
+  is where this board sits all day. And every zone was judged, so the
+  graphics zone, which the lamp does not use and which sits four degrees
+  over its own first limit, made the lamp warn without end. Now the
+  warning begins at the limit, and the unit names the zones to judge.
+
 ## Not shown
 
-Everything here was run on one development Mac (x86_64), which has no
-`/proc` and no `/sys`. **The program has never run on a lamp**, and has not
-been built for the lamp's processor: this toolchain has no
-`aarch64-unknown-linux-gnu` target installed, so it was not even
-type-checked for it.
+The tests were run on one development Mac (x86_64), which has no `/proc`
+and no `/sys`, and as a build for the lamp's processor under emulation in
+a container each time a build went to the lamp. On the lamp it has run
+for minutes, not days.
 
-What was run: 54 tests of the crate, 14 times in a row with no failure:
+What was run: 55 tests of the crate. As 54, 14 times in a row with no failure:
 eight while the Mac was busy with other work (a load of 22 to 29) and six
 when it was less so (6 to 8). The tests of the loop and of the built
 program then passed 30 times more each, six at once. No test failed in any
@@ -318,15 +360,14 @@ run after it first passed.
 
 Not exercised:
 
-- **A real part.** Nothing publishes `diagnostics` today but this program's
-  own report. Every other report in every test was the test's.
-- **The real board's files.** No file under `/proc` or `/sys` of a lamp was
-  read. The trees in the tests are written from the description of the
-  board: eight zones by their types, the processor zones' three trip
-  points, eight processors. That only the two `cpu*_thermal_zone` zones
-  name trip points is the tests' assumption. What `trip_point_N_type` says
-  on that board for the other zones, and whether a zone's `temp` can fail
-  to read there, is not known.
+- **A part that fails on the lamp.** The body and the policy report there
+  and were well. A real part going quiet, or warning, has been seen only
+  in the tests.
+- **The tests' board is not quite the real one.** The trees in the tests
+  were written from a description of the board before it was read, and
+  give limits to the two processor zones only. On the board six of the
+  eight zones name limits ("On the lamp"). Whether a zone's `temp` can
+  fail to read there has not been seen.
 - **The Wi-Fi and the clock.** The real board has neither
   `/proc/net/wireless` nor `/run/systemd/timesync`, so both are left out
   there. The reader was run against files the tests wrote, in the layout

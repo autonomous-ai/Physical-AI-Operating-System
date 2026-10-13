@@ -92,6 +92,9 @@ pub struct Files {
     pub keep_link: bool,
     /// What the model may do other than speak (`--tools`, `--exec-dir`).
     pub tools: crate::tools::Settings,
+    /// Whether the lamp's own rule for whom it answers is applied
+    /// (`--attention`).
+    pub attention: bool,
 }
 /// The provider worker's flag for a link that is never given up. A service
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
@@ -464,6 +467,22 @@ pub(crate) struct Options {
     pub(crate) reporting: Reporting,
     /// What the model may do other than speak.
     pub(crate) tools: crate::tools::Settings,
+    /// The lamp's own rule for whom it answers ([`crate::attention`]), with
+    /// where it reads how the room is and whether a conversation is going
+    /// on. `None`: every answer is played.
+    pub(crate) attention: Option<fn() -> (crate::room_told::Room, bool)>,
+}
+/// How the room is and whether the lamp is in a conversation, now.
+fn attention_now() -> (crate::room_told::Room, bool) {
+    let room = crate::room_told::ROOM
+        .lock()
+        .map_or(crate::room_told::Room::Unknown, |mut room| {
+            room.at(monotonic_us())
+        });
+    let going_on = crate::thread::THREAD
+        .lock()
+        .is_ok_and(|thread| thread.going_on(Instant::now()));
+    (room, going_on)
 }
 #[cfg(test)]
 impl Options {
@@ -472,6 +491,7 @@ impl Options {
         Self {
             reporting,
             tools: crate::tools::Settings::default(),
+            attention: None,
         }
     }
 }
@@ -608,6 +628,7 @@ pub async fn run_with_continuation(
     let options = Options {
         reporting,
         tools: files.tools,
+        attention: files.attention.then_some(attention_now),
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -672,6 +693,7 @@ async fn serve_with_visual<C: Connect>(
     let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
     let mut told_session = None;
     let mut desk = ToolDesk::new(options.tools.clone());
+    let mut attention = crate::attention::Attention::default();
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -818,6 +840,22 @@ async fn serve_with_visual<C: Connect>(
                 }
             },
             notice=next_notice(&mut provider, coordinated), if !upstream_ended && output.len() < OUTPUT_HIGH_WATER=>{
+                // Whom the lamp answers: followed for every request, and
+                // decided when the first of an answer comes.
+                if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
+                    match event {
+                        Event::InputStarted { lineage, .. } => attention.began(lineage.request.get()),
+                        Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
+                        Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } => {
+                            let (room, going_on) = now();
+                            let request = lineage.request.get();
+                            if let Some(crate::attention::Verdict::Hold(why)) = attention.first_output(request, room, going_on) {
+                                eprintln!("lamp-live provider: request {request}: its answer is held back: {why}");
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 match notice {
                     Ok(Notice::Ready {..} | Notice::Unavailable {..}) if coordinated => {
                         return Err(io::Error::other("availability escaped the provider control plane").into());
@@ -854,7 +892,7 @@ async fn serve_with_visual<C: Connect>(
                     // its sound is let out, and none of its words are kept
                     // as something the lamp said.
                     Ok(Notice::Event(Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. }))
-                        if desk.declined(lineage.request) => {},
+                        if desk.declined(lineage.request) || attention.holds(lineage.request.get()) => {},
                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Unavailable {error})=>{
                         if typed {
@@ -1772,6 +1810,9 @@ impl InputHandoff {
                 } else {
                     text.as_str()
                 };
+                // The lamp's own turn: nothing was said to anyone else.
+                crate::attention::OWN_REQUEST
+                    .store(request.get(), std::sync::atomic::Ordering::Release);
                 if let Err(refusal) = input.written(expected, request, text, picture.as_deref()) {
                     return self.refused_start(request, refusal);
                 }
@@ -4237,7 +4278,71 @@ mod tests {
         Options {
             reporting: Reporting::Typed,
             tools,
+            attention: None,
         }
+    }
+
+    /// The lamp's own rule, through the worker, in a room it knows to be
+    /// busy. Two people talk and the model answers one of them: the text
+    /// of what was heard came before the answer's first sound, as on the
+    /// lamp, the name is not in it, and none of the answer gets out. Then
+    /// someone says its name, and that answer is played.
+    #[tokio::test]
+    async fn in_a_busy_room_an_answer_to_talk_without_its_name_is_held_back_and_a_called_one_is_played()
+     {
+        fn busy() -> (crate::room_told::Room, bool) {
+            (crate::room_told::Room::Busy, false)
+        }
+        let heard = |text: &str| json!({"serverContent":{"inputTranscription":{"text":text}}});
+        let said = |text: &str| json!({"serverContent":{"outputTranscription":{"text":text,"finished":true}}});
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Typed,
+                tools: crate::tools::Settings::default(),
+                attention: Some(busy),
+            },
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service.send(heard("How was your weekend?")).await;
+        // What was heard is passed on as before; the answer is not.
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Transcript { request: None, text, .. } if text == "How was your weekend?"
+        ));
+        dial.service.send(provider_audio(9, 480)).await;
+        dial.service
+            .send(said("It was so quiet and peaceful!"))
+            .await;
+        dial.service.send(provider_audio(9, 480)).await;
+        dial.service.send(idle_complete()).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::TurnComplete { request: done, idle: true } if done == request
+        ));
+        assert!(
+            rig.take().is_none(),
+            "sound or words of a held answer got out"
+        );
+
+        rig.owner
+            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        let next = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(heard("Lamp, how was your weekend?"))
+            .await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Transcript { request: None, .. }
+        ));
+        dial.service.send(provider_audio(7, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: played, .. } if played == next
+        ));
+        rig.stop().await;
     }
 
     /// Two people talk near the lamp and the model says so with the

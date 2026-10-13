@@ -1643,6 +1643,7 @@ fn spawn_rig(
         arguments.push(crate::provider_worker::KEEP_LINK_FLAG.to_owned());
     }
     arguments.extend(crate::tools::arguments_from_environment());
+    arguments.extend(crate::attention::arguments_from_environment());
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());
     }

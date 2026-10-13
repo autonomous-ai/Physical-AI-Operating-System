@@ -336,18 +336,54 @@ answers at once: 314 to 324 ms after the last piece, 319 in the middle, and
 is added, and each asking makes a new secure connection first. That has not
 been measured from this program.
 
+## On the lamp
+
+On lamp-4ace since 01:15 on 2026-10-14, as `lamp-policy.service`, in
+shadow mode. The owner approved, that night, sending the recognised text
+of what is said in the office to the decision model's service. The key is
+in `/etc/lampOS/policy/jev.key`, readable by root alone, and systemd hands
+the service its own copy (`LoadCredential`); the log is in
+`/var/lib/lampos-policy`, which only the service's user can enter.
+
+Its first run there, a synthetic voice through a loudspeaker with nobody
+in the office, eight lines played and seven heard as separate utterances:
+
+| What the voice heard | Room | The policy would | The lamp did |
+|---|---|---|---|
+| "What is 2 + 2?" (said as "Hey Lamp, ...") | quiet | answer (0.95) | answered |
+| "So, did you send the report to Maria yesterday?" | quiet | look up (0.57) | said nothing |
+| "I did, but she has not replied yet. ..." | quiet | look up (0.68) | said nothing |
+| "What is the capital of Italy?", no name | busy | look up (0.73) | said nothing |
+| "Milan. What color is the sky on a clear day?" (said as "Hey Lamp, ...") | busy | answer (0.83) | answered |
+| "I'm done, son's finished." (said as "And at sunset?") | busy | stay quiet (0.40) | said nothing |
+| "Good night, plan." (said as "Good night, Lamp.") | busy | look up (0.74) | answered |
+
+It never chose to answer other people's talk, and chose to answer both
+questions that began with the lamp's name. The follow-up question was
+lost before it reached anything that decides: the recogniser wrote
+something else. The room came from `room/state` (quiet, then busy after
+three lines the lamp left alone) and the eyes' count from
+`humans/faces/tracked` (no face: nobody was there).
+
+A decision took 574 to 785 ms once its first had made the connection
+(1,146 ms), each on a connection of its own, after the 300 ms the program
+waits to be sure an utterance is over. So it is known about 0.9 to 1.1 s
+after the voice has the text, which is about when the lamp begins to
+answer and too late to hold an answer back without making the lamp
+slower. Before it can act: the voice saying when a heard text is whole, a
+connection that is kept, and asking on the text so far.
+
+Its own journal that night: eight lines of counts and times, and no word
+of what was heard.
+
 ## Not shown
 
-Everything here was run on one development Mac (x86_64), and nowhere else.
-
-**It has never run on a lamp, and it has never asked the real service.**
-No request from this program has left the machine. The request and the
-answer have the form that was checked against the real service the night
-this was written, outside this program. Whether the service takes this
-program's own request is not shown: its headers, one connection for each
-asking, and the text of the state as this program writes it, without
-spaces and with letters outside ASCII as they are. Whether the roots it is
-built with trust the service's certificate is not shown either.
+Host tests on one development Mac (x86_64); the same 61 tests once as a
+Linux ARM64 build under emulation in a container; and the one run on a
+lamp above. That run is the first in which this program asked the real
+service, from the lamp and from the Mac alike (three decisions there the
+same night). What it shows of the service: that it takes this program's
+request and that the built-in roots trust its certificate.
 
 What was run: 60 tests of the crate. They passed 30 times in a row, and
 then in the three runs with `lamp-msgs` and `lamp-bus` that every change

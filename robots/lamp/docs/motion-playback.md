@@ -107,8 +107,8 @@ samples every joint's `Present_Load` at 20 Hz (`hal/drivers/motors/overload.py`)
   does not drop), silently, and blocks goal writes for 3 s. Then it eases back
   into idle from the pose it stopped at. A hand still holding the arm 1 s into that
   pause (`release_after_s`), the stopped joint still at the load or lag floor that
-  stopped it (10 % over it on `base_pitch`/`elbow_pitch`, which hold the arm's weight
-  even untouched), releases torque instead, like the overload cut-off. On lamp-52e6 these joints peak at 52 % in free
+  stopped it or pushed 1° off its pinned pose (`base_pitch`/`elbow_pitch` only on their `off_playback` floor or the
+  cut-off: they hold the arm's weight even untouched), releases torque instead, like the overload cut-off. On lamp-52e6 these joints peak at 52 % in free
   motion and a hand on `base_yaw` drives it to 94-100 %. `base_pitch` and `elbow_pitch`
   carry the arm's weight and reach 83-100 % in free motion, so they get no fixed floor;
   they and `base_yaw` are capped at 60 % torque (`torque_limit`; 70 % cost the worst

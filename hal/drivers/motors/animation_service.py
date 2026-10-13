@@ -52,14 +52,12 @@ STARTUP_MOVE_DURATION = 5.0
 # spin-up load (54 % on elbow_pitch) stopped the arm 0.2 s into moves no one touched.
 OFF_PLAYBACK_SETTLE_S = 0.5
 
-# A torque release on a weight-bearing joint's load needs this much (0.1 %) above the
-# floor that stopped the arm. Pinned still, such a joint keeps its gravity load:
-# lamp-52e6's elbow_pitch sat at exactly its 24.2 % stopping floor with no hand on it,
-# while a hand held it at 37-60 %. Weight-bearing = no fixed contact floor (the config
-# leaves those out because they carry the arm). A joint with one (base_yaw) reads near
-# zero pinned, and a hand held base_yaw at only 23-30 % over an 18-19 % floor. Lag
-# floors need no margin either: a pinned joint only lags when pushed.
-CONTACT_RELEASE_MARGIN = 100
+# Held this far off its pinned pose (0.1 deg) through the release window, a joint with a
+# fixed contact floor is being pushed: untouched, a pinned base_yaw drifted 0.0 deg on
+# lamp-52e6 and lamp-a0ae, while a hand on it read 1.3-8.5 deg. Its load says less:
+# a0ae's base_yaw (P=16) held only 12-16 % under a hand, under its 18 % stopping floor.
+CONTACT_RELEASE_LAG = 10
+
 
 # Plays per recording a learn run allows before giving up on a full pass.
 LEARN_ATTEMPTS = 3
@@ -1410,19 +1408,27 @@ class AnimationService:
                 self._contact.threshold, self._contact_release_s, 0.0, clock=self._contact._clock)
             # The floor that stopped the arm also decides the release: a hand that
             # stopped it under the learned envelope (18 % on base_yaw) holds it with
-            # about the same force, far below the fixed floor (55 %). Joints with no
-            # fixed floor (elbow_pitch) could never release otherwise.
+            # about the same force, far below the fixed floor (55 %). Only on a joint
+            # with a fixed floor (load or lag): those read near zero pinned. A
+            # weight-bearing joint (no fixed floor: base_pitch, elbow_pitch) keeps a
+            # gravity load, and some sag, that depend on the pose it stopped in, not the
+            # one the envelope learned: untouched, lamp-a0ae's elbow_pitch held 33.4 %
+            # after a 22.7 % stop and went limp even with a 10 % margin. Those still
+            # release on their off_playback floor or the cut-off.
             self._contact_hold_floors = dict(self._contact_off_playback)
             floor = self._contact.last_floor
-            if floor is not None:
-                fixed = self._contact.threshold_for(joint)
-                if not joint.startswith(LAG_PREFIX) and fixed is None:
-                    floor += CONTACT_RELEASE_MARGIN
+            motor = joint[len(LAG_PREFIX):] if joint.startswith(LAG_PREFIX) else joint
+            fixed = self._contact.threshold_for(joint)
+            if floor is not None and self._contact.threshold_for(motor) is not None:
                 # Never above a floor that already released this joint.
                 for known in (self._contact_hold_floors.get(joint), fixed):
                     if known is not None:
                         floor = min(floor, known)
                 self._contact_hold_floors[joint] = floor
+            if self._contact.threshold_for(motor) is not None:
+                lag = LAG_PREFIX + motor
+                self._contact_hold_floors[lag] = min(
+                    self._contact_hold_floors.get(lag, CONTACT_RELEASE_LAG), CONTACT_RELEASE_LAG)
         # Logged after the stop: nothing here may delay or skip it.
         unit = "deg behind" if joint.startswith(LAG_PREFIX) else "% load"
         logger.warning(
@@ -1440,7 +1446,7 @@ class AnimationService:
     def _contact_recover(self) -> None:
         """Pause over: allow goal writes again and ease back into idle from where it stopped."""
         hold, self._contact_hold = self._contact_hold, None
-        # How close the stopped joint came to a release, to tune CONTACT_RELEASE_MARGIN.
+        # How close the stopped joint came to a release, to tune the floors.
         held = ""
         joint = (self._contact.last_trip or (None,))[0]
         if hold is not None and joint in hold.peak and joint in self._contact_hold_floors:

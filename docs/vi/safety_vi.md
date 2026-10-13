@@ -405,19 +405,22 @@ kiện đã thực thi; setup-incomplete còn dự trữ.
       được đọc lại từ phần cứng và idle chạy tiếp; thân máy đã được park trong lúc đó thì
       giữ nguyên. Contact stop được kiểm tra trước cut-off, và tay đang giữ mà vẫn bị ép
       thì cut-off vẫn trip như cũ. Khi đặt `contact.release_after_s` (Lamp: `1` s), tay
-      vẫn **giữ** tay đèn lâu chừng đó trong lúc tạm dừng — khớp vừa dừng vẫn ở sàn tải đã
-      làm nó dừng trở lên (sàn đường bao đã học nếu có), cộng thêm 10 % với khớp gánh trọng
-      lượng (khớp không có sàn contact cố định); sàn lag giữ nguyên, vì khớp đã ghim chỉ
-      lệch khi bị đẩy — hoặc khớp nào còn vượt sàn
+      vẫn **giữ** tay đèn lâu chừng đó trong lúc tạm dừng — khớp vừa dừng vẫn ở sàn đã làm
+      nó dừng trở lên (sàn tải hoặc lag của đường bao đã học nếu có) hoặc bị đẩy lệch 1° khỏi
+      tư thế đã ghim (`CONTACT_RELEASE_LAG`), nếu khớp đó có sàn contact cố định, hoặc khớp
+      nào còn vượt sàn
       contact cố định hay sàn tải/lag `off_playback` — thì không phải va chạm thoáng qua: driver log
       `[contact] … releasing torque` và chuyển sang cắt torque như cut-off (tay đèn rũ,
       khoá `retry_s`, chime của cut-off). Chạm rồi buông trong khoảng đó thì chỉ tạm dừng.
       Sàn đã làm dừng quan trọng với đèn đã học: trên lamp-52e6 tay chặn `base_yaw` ở
-      39.6 % (đường bao 18 %) nhưng không giữ nổi tới sàn cố định 55 %, còn `elbow_pitch`
-      không có sàn cố định. Phần 10 % (`CONTACT_RELEASE_MARGIN`) loại trọng lực: ghim yên
-      không có tay, `elbow_pitch` của nó đứng đúng ở sàn dừng 24.2 %; tay giữ thì 37-60 %.
-      `base_yaw` không gánh trọng lượng nên không cộng: tay giữ nó ở 23-36 % trên sàn
-      18-19 %. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
+      39.6 % (đường bao 18 %) nhưng không giữ nổi tới sàn cố định 55 %, chỉ giữ ở 23-36 %; trên lamp-a0ae (`P=16`) tay
+      giữ `base_yaw` chỉ ở 12-16 % nhưng lệch 1.3-8.5°, còn `base_yaw` ghim yên không ai
+      chạm lệch 0.0°.
+      Khớp gánh trọng lượng (không có sàn cố định: `base_pitch`, `elbow_pitch`) không bao
+      giờ nhả theo sàn đã học: khi ghim, nó vẫn chịu tải trọng lực (và bị võng) tuỳ tư thế lúc dừng,
+      không phải tư thế đường bao đã học. Không ai chạm, `elbow_pitch` của lamp-a0ae dừng ở
+      38.0 % trên sàn 22.7 % rồi giữ 33.4 %, nên cộng 10 % vẫn rũ. Các khớp đó chỉ nhả theo
+      sàn `off_playback` hoặc cut-off. Lộ ra ở `GET /health.servo_overload.contact` (`active`,
       `resume_in_s`, `trips`, `last_trip`, các ngưỡng). Sàn của Lamp lấy từ lamp-52e6
       (2026-10-09): qua 19 recording, đỉnh chuyển động tự do là `base_yaw` 46 %,
       `wrist_roll` 52 %, `wrist_pitch` 43 %, còn lấy tay chặn `base_yaw` đẩy nó lên

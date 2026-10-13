@@ -34,9 +34,65 @@ pub fn was_a_sound(speech_blocks: usize, took_over: bool, since_own_words_us: Op
         && since_own_words_us.is_none_or(|since| since >= AFTER_OWN_WORDS_US)
 }
 
+/// Whether an answer opens with the name of a function said aloud, not
+/// called: `not_for_me`, or the service's own way of writing a call
+/// (`print(default_api.not_for_me())`). On lamp-4ace on 2026-10-13, with
+/// seven functions declared, three answers in one test were the words
+/// "not_for_me", played through the speaker to two people talking to each
+/// other. A word with an underscore in it at the start of an answer is
+/// never something a lamp says.
+pub fn names_a_function(opening: &str) -> bool {
+    let opening = opening.trim_start();
+    if opening.starts_with("print(")
+        || opening.starts_with("tool_code")
+        || opening.starts_with("default_api")
+    {
+        return true;
+    }
+    let name: &str = opening
+        .split(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
+        .next()
+        .unwrap_or_default();
+    name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name.contains('_')
+        && name.split('_').all(|part| !part.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_function_named_aloud_is_told_from_something_said() {
+        for named in [
+            "not_for_me",
+            " not_for_me.",
+            "not_for_me()",
+            "volume_down",
+            "heard_my_name, yes",
+            "print(default_api.not_for_me())",
+            "default_api.recall(about='coffee')",
+            "tool_code",
+        ] {
+            assert!(names_a_function(named), "{named}");
+        }
+        for said in [
+            "Not for me.",
+            "not for me",
+            "Remember, I told you.",
+            "recall",
+            "Four. Easy one.",
+            "...",
+            "",
+            "_",
+            "a_",
+            "_a",
+            "Good_morning",
+            "I can't do that_one",
+        ] {
+            assert!(!names_a_function(said), "{said}");
+        }
+    }
 
     const LONG_AGO: Option<u64> = Some(60_000_000);
 

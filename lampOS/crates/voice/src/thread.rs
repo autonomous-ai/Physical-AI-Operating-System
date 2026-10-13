@@ -80,6 +80,8 @@ pub struct Thread {
     heard_done: bool,
     /// An answer has grown since the thread was last saved.
     changed: bool,
+    /// The answer that opened with a function's name, if the newest did.
+    unsaid: Option<u64>,
 }
 
 /// One exchange as it is kept in the file: when, by the wall clock, since
@@ -120,6 +122,7 @@ impl Thread {
             heard_at: None,
             heard_done: false,
             changed: false,
+            unsaid: None,
         }
     }
 
@@ -204,7 +207,18 @@ impl Thread {
 
     /// A piece of what the lamp said in answer `request`.
     pub fn lamp(&mut self, request: u64, text: &str, now: Instant) {
+        // The name of a function said where it should have been called is
+        // not something the lamp said: neither that piece nor what follows
+        // it in the same answer is kept, told again or taken for a
+        // conversation going on.
+        if self.unsaid == Some(request) {
+            return;
+        }
         if self.exchanges.back().map(|last| last.request) != Some(request) {
+            if crate::not_speech::names_a_function(text) {
+                self.unsaid = Some(request);
+                return;
+            }
             let asked = self
                 .heard_at
                 .is_some_and(|at| now.saturating_duration_since(at) <= ASKED_WITHIN);
@@ -714,6 +728,21 @@ mod tests {
         assert_eq!(thread.recall(at(9), 4_000), None);
         assert!(!thread.going_on(at(9)));
         assert_eq!(thread.save(at(9), SystemTime::now()).as_deref(), Some("[]"));
+    }
+
+    #[test]
+    fn a_function_named_aloud_is_not_something_the_lamp_said() {
+        let start = Instant::now();
+        let mut thread = Thread::new();
+        thread.person("Then I will bring an umbrella.", true, start);
+        thread.lamp(7, "not_for_me", start);
+        thread.lamp(7, " and more of the same answer", start);
+        assert!(!thread.going_on(start));
+        assert_eq!(thread.recall(start, 4_000), None);
+        assert!(thread.finished(7, start).is_empty());
+        // The next answer is an answer.
+        thread.lamp(8, "Yes?", start);
+        assert!(thread.going_on(start));
     }
 
     #[test]

@@ -2500,15 +2500,23 @@ fn conversation(
                         let worded = text.chars().any(char::is_alphanumeric);
                         let had_word = answer_words.is_some_and(|(_, word)| word);
                         answer_words = Some((turn, had_word || worded));
+                        // Nor is the name of a function said aloud where it
+                        // should have been called.
+                        let named = !had_word && crate::not_speech::names_a_function(&text);
                         if !had_word
-                            && !worded
-                            && !text.trim().is_empty()
+                            && (named || (!worded && !text.trim().is_empty()))
                             && reply.as_ref().is_some_and(|current| {
                                 current.owner.turn() == turn
                                     && current.local_input_ended
                                     && current.playback.is_none()
                             })
                         {
+                            if named {
+                                record(
+                                    trace,
+                                    json!({"kind":"function_named","turn":turn,"at_us":monotonic_us()}),
+                                )?;
+                            }
                             cancel_reply(owner, reply, trace, "nothing_said")?;
                             speaker_pending = None;
                             provider_queue.clear();

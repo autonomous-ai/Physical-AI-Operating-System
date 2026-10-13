@@ -113,6 +113,54 @@ finally:
     os.unlink(name + ".sock")
 ```
 
+## What is taken from ROS
+
+The owner's direction on 2026-10-13: do not use ROS 2 itself, which is
+built for robots without a brain of this kind, but study how ROS designed
+publish and subscribe over ten years and bring the design over. The study
+is in three documents kept outside the repository (ROS's publish and
+subscribe design with its reasons, its conventions, and what else it has
+worked out), each claim with its source. This table is what is taken from
+it. **It is a design decision record: except where the last column says
+so, the crate does not do it yet.**
+
+| What ROS does, and its reason | What the lamp's bus does about it | In the crate |
+|---|---|---|
+| Names are `/`-separated lower-case tokens with underscores, grouped by the part the data comes from and named for the data, never for who uses it | The same rule, and only it: `mic2/audio`, `camera/image`, `body/joint_states`. The `.` separator and `-` in a token go | No: today `.` and `-` are accepted |
+| One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | No |
+| The registry only introduces; data goes straight from publisher to subscriber: "no central point of failure" | The filesystem is the registry and each message goes straight to each subscriber's socket | Yes |
+| A bounded queue per subscriber, so that one slow subscriber cannot hold the publisher or the others | Each subscriber's socket is its own queue; a full one loses that subscriber's message and is counted. ROS drops the oldest, this drops the newest; to be revisited for sound | Yes, with that difference |
+| Latched topics: "new subscribers always get the latest state" | The `latest` kind: the newest value is kept and read by a late joiner. It also outlives its publisher, which ROS's does not | Yes |
+| Liveliness and deadline: a publisher must show it is alive, a topic may promise a period, and missing either raises an event | Each publisher keeps a small entry it refreshes; the subscriber's library reports "the source has gone" and "this is late". This is how a part says whether it is ready | No |
+| Lifespan: a message older than its limit is dropped, not delivered | The header already carries how long a value lasts; the subscriber's library is to drop what has expired | Header only |
+| The graph: any tool can list topics, their types, who publishes and who subscribes | `lamp-bus info TOPIC` and `lamp-bus hz TOPIC` beside the tools there are | No |
+| Three patterns, not one: topics for streams, services for ask-and-answer, actions for long work with progress, one result and an acknowledged cancel | Topics on the bus. A service stays a direct ask-and-answer on its own socket (the executive's is one, [tools.md](tools.md)), and publishes each call as an event so that it can be watched. A task handed to an agent takes the shape of an action: an id made by the asker, accepted or refused, progress, one result, cancel acknowledged, its status latched | Topics only |
+| Recordings store each message's type and when it was sent and received | `record` and `replay` exist; the type name is to be stored with each topic | Partly |
+| People (ROS4HRI, REP-155): a permanent id for a person, passing ids for a face or a voice present now, lists of who is here, and engagement as five levels | The same shape for what the eyes and the voice know of people (`humans/...`). Engagement is what "is this said to me?" needs ([attention.md](attention.md)) | No |
+| Several requesters, one actuator: priorities and time limits at the actuator's owner | For the ring, the servos and the speaker: the owner arbitrates, and a request that is not renewed lapses | No |
+
+Not taken: negotiation of delivery settings between each pair of ends,
+a binary encoding with generated code, renaming topics at start-up,
+security beyond file ownership and modes, and a replaceable clock. One
+machine and one team do not need them yet.
+
+### The first topics
+
+Named by the rule above. Rates are those the parts already run at.
+
+| Topic | What it carries | Kind | Published by | How often |
+|---|---|---|---|---|
+| `mic1/audio`, `mic2/audio` | Sound, 20 ms at a time (16 kHz, one channel) | stream | The microphone's owner | 50 a second |
+| `camera/image` | Where the newest picture is, and when it was taken. The picture itself stays in a file | latched | Eyes | 2 to 4 a second |
+| `body/joint_states` | Each joint: where it is, how fast, how loaded (ROS's `JointState`) | latched | Body | 10 to 20 a second |
+| `humans/faces/tracked` | The faces in view: a passing id, where, and whether it is turned to the lamp | latched | Eyes | With each look |
+| `voice/heard`, `voice/said` | What was heard and what was said, as text | stream | Voice | With each thing said |
+| `voice/state` | Resting, listening, thinking or speaking | latched | Voice | When it changes, and once a second |
+| `voice/link` | Whether the provider can be reached | latched | Voice | When it changes, and once a second |
+| `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes |
+| `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
+| `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
+
 ## Not shown
 
 Host tests on a development Mac (x86_64): the library through real sockets,

@@ -26,10 +26,17 @@
 //! known to be busy, or in a turn the lamp began itself, the answer is
 //! played.
 //!
-//! Off unless the service's environment says `on`. What it does not know
-//! yet: whether the person is looking at the lamp. Someone who walks up to
-//! it in a busy office and speaks without its name is held back today.
-//! The eyes' report of who faces the lamp is to be added to the rule.
+//! Off unless the service's environment says `on`, and it should stay off
+//! as it is. Played on lamp-4ace the same evening it stopped every answer
+//! to other people's talk (0 of 11 new sessions) and also held back both
+//! of two questions that used the lamp's name in a busy room: the
+//! service's text of what it heard does not contain the name. It wrote
+//! "Milan, what is the capital of Italy?" for "Hey Lamp, ...", dropped
+//! "Lamp," from the other, and in 310 lines heard that day wrote "Lamp"
+//! not once. [`named`] below therefore cannot do what the rule needs, and
+//! a sign of being called that does not come from that text has to take
+//! its place: the model saying so, the name spotted in the captured
+//! sound, or the eyes seeing someone face the lamp (docs/attention.md).
 
 use crate::room_told::Room;
 use std::sync::atomic::{AtomicU64, Ordering};

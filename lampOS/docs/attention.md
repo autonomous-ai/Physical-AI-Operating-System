@@ -33,7 +33,8 @@ each other. Three runs on the evening's builds:
 told or given has taken this away, and a difference of one or two in
 twelve is not one that can be told from chance.
 
-What makes a rule on the lamp possible is timing. The service writes down
+What makes a rule on the lamp possible is timing (what makes this one
+unusable is further down). The service writes down
 what it heard as well as what it says. In those three runs the text of
 what was heard had arrived before the first sound of every one of the 24
 answers, by 0.32 s at the least and 0.44 s in the middle. When an answer's
@@ -62,13 +63,48 @@ busy office and speaks without its name is held back, until the room has
 been quiet for five minutes or they say its name once. The eyes' report of
 who faces the lamp ([eyes.md](eyes.md), `facing`) is to be added.
 
+## Played on the lamp, and why it is off
+
+On lamp-4ace on 2026-10-13, with the rule on:
+
+| Played | Result |
+|---|---|
+| Twelve new sessions, each hearing two people talk to each other | 0 of 11 judged sessions answered them. The rule held back the 4 answers the model began |
+| Seven questions with its name, straight after, a few seconds apart | 7 of 7 answered |
+| Room test: four questions without its name in a quiet room | 4 of 4 answered |
+| Room test: six lines of two people talking | Nothing said |
+| Room test, room busy: one question without its name | Left alone |
+| Room test, room busy: two questions with its name ("Hey Lamp, ...", "Lamp, ...") | **0 of 2 answered. Both were held back** |
+
+The last row is the rule failing at the thing it exists for. The service's
+text of what it heard does not contain the name. For "Hey Lamp, what is
+the capital of Italy?" it wrote "Milan, what is the capital of Italy?";
+for "Lamp, what colour is the sky on a clear day?" it wrote "What color is
+the sky on a clear day?". In 310 lines of what the lamp heard that day,
+many of them played with the name, the word "Lamp" was written not once:
+"Lam" and "Lan" three times each, and otherwise "Milan", "Man", "plan" or
+nothing. The seven answered above were answered because each came within
+45 seconds of the last, or before any text had arrived, not because the
+name was read.
+
+So the text of what was heard cannot say whether the lamp was called, and
+the rule was switched off the same evening (21:26). What the runs do
+show: the timing holds (the text arrives before the first sound), and
+holding an answer back at the worker works. What is missing is a sign of
+being called that does not come from that text. Candidates, none tried:
+the model saying so itself through a silent function, the lamp spotting
+its own name in the sound it captured, and the eyes' report that someone
+is facing it.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
-default.
+default, and off on lamp-4ace.
 
 ## Not shown
 
 Host tests: the rule and its bookkeeping (five), and the worker with the
-scripted provider in a room it is told is busy (one). Not yet played on a
-lamp.
+scripted provider in a room it is told is busy (one). The host tests give
+the rule text with the name in it, which the real service does not
+write: they did not catch the fault above, and the played room test
+did.

@@ -51,13 +51,17 @@ pub const HOLD_ENVIRONMENT: &str = "LAMP_FAINT_HOLD_MS";
 /// was thrown out as a sound.
 ///
 /// So a block under the floor is still heard for a while after a run of
-/// blocks clearly over it. The run has to be [`EARN_BLOCKS`] long, as many
-/// as begin an utterance, and each of them [`EARN_OVER`] above the floor: a
-/// voice across the room, which the floor is there for, has a block at the
-/// floor now and then and no such run, and gets nothing by this. That
-/// recorded phrase, put through this rule, has 49 blocks with the run
-/// asked for at the floor and the same 49 with it asked for 3 dB above;
-/// at 6 dB above it has its 22 again.
+/// blocks over it. The run has to be [`EARN_BLOCKS`] long, as many as begin
+/// an utterance: a voice across the room, which the floor is there for, has
+/// a block over it now and then and no such run, and gets nothing by this.
+///
+/// Asking that each block of the run be 3 dB clear of the floor was tried
+/// for an hour on lamp-4ace and taken out. It had looked free: that first
+/// recorded phrase counted 49 blocks either way. The next "Good night,
+/// Lamp." it met began with four blocks 3 dB over, one just over, two more
+/// 3 dB over and one just over: eight in a row over the floor, never six in
+/// a row 3 dB over it, and it was thrown out again with 9 and 12 blocks
+/// counted. One recording was not enough to choose a threshold by.
 #[derive(Debug, Default)]
 pub struct Near {
     hold_us: u64,
@@ -67,11 +71,8 @@ pub struct Near {
     held_until_us: Option<u64>,
 }
 
-/// Blocks clearly over the floor in a row that earn the hold.
+/// Blocks over the floor in a row that earn the hold.
 pub const EARN_BLOCKS: u8 = 6;
-/// How far over the floor each of them has to be, on the face's scale:
-/// three decibels.
-pub const EARN_OVER: u8 = 22;
 
 impl Near {
     pub fn new(hold_ms: u64) -> Self {
@@ -95,15 +96,15 @@ impl Near {
     /// Whether a block of this level, read at this time, is at or over the
     /// floor, or follows closely enough on a run of blocks that were.
     pub fn hears(&mut self, level: u8, floor: u8, at_us: u64) -> bool {
-        if level >= floor.saturating_add(EARN_OVER) {
+        if level >= floor {
             self.run = (self.run + 1).min(EARN_BLOCKS);
             if self.run == EARN_BLOCKS && self.hold_us > 0 {
                 self.held_until_us = Some(at_us + self.hold_us);
             }
-        } else {
-            self.run = 0;
+            return true;
         }
-        level >= floor || self.held_until_us.is_some_and(|until| at_us <= until)
+        self.run = 0;
+        self.held_until_us.is_some_and(|until| at_us <= until)
     }
 }
 
@@ -214,12 +215,19 @@ mod tests {
                 "block {n}"
             );
         }
-        // Nor does a long run that is only just over the floor.
-        let mut edge = Near::new(400);
-        for n in 0..40 {
-            assert!(edge.hears(floor + EARN_OVER - 1, floor, block(n)));
+        // The phrase that a stricter run threw out on the lamp: four blocks
+        // well over the floor, one just over, two well over, one just over,
+        // then a tail under it. Eight in a row over the floor earn the hold.
+        let mut phrase = Near::new(400);
+        for (n, level) in [190, 195, 190, 180, 160, 175, 172, 152]
+            .into_iter()
+            .enumerate()
+        {
+            assert!(phrase.hears(level, floor, block(n as u64)));
         }
-        assert!(!edge.hears(140, floor, block(40)));
+        for n in 8..30 {
+            assert!(phrase.hears(120, floor, block(n)), "block {n}");
+        }
         // Someone at the desk: six over the floor, then what trails under
         // it is heard for the hold and no longer.
         let mut near = Near::new(400);

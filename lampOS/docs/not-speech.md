@@ -69,23 +69,35 @@ of the phrase as speech; it began at about -20 dBFS and trailed to about
 -30; 28 of the 50 were turned away for being 1 to 4 dB under the floor,
 and the 22 left were under the 30 an utterance needs.
 
-So a block under the floor is now still counted for a while after a run
-of blocks clearly over it (`crates/voice/src/room_floor.rs`, `Near`): six
-blocks in a row, each at least 3 dB over the floor, as many as begin an
-utterance, and then 400 ms (`LAMP_FAINT_HOLD_MS` in the voice unit; unset
-or 0, each block is judged alone as before). A voice across the room has
-a block at the floor now and then and no such run. The recorded phrase
-put through the rule counts 49 blocks, with the run asked for at the
-floor or 3 dB over it alike.
+So a block under the floor is now still counted for a while after a run of
+blocks over it (`crates/voice/src/room_floor.rs`, `Near`): six blocks in a
+row, as many as begin an utterance, and then 400 ms (`LAMP_FAINT_HOLD_MS`
+in the voice unit; unset or 0, each block is judged alone as before). A
+voice across the room has a block at the floor now and then and no such
+run.
 
-On lamp-4ace with the hold at 400 ms and the run asked for at the floor,
-none of 7 short phrases was thrown out (six "Good night, Lamp." and a
-"Thank you, Lamp."), utterances with a middle level of -28 to -31 dBFS
-and a loudest tenth of -23 to -25 among them, and four lines played at a
-tenth of the volume were not admitted at all. Not shown: the stricter run
-(3 dB over) on the lamp, and the thing the floor is for, colleagues'
-voices from across a working office, which nothing played here stands in
-for.
+On lamp-4ace with the hold at 400 ms, none of 7 short phrases was thrown
+out (six "Good night, Lamp." and a "Thank you, Lamp."), utterances with a
+middle level of -28 to -31 dBFS and a loudest tenth of -23 to -25 among
+them, and four lines played at a tenth of the volume were not admitted at
+all.
+
+A stricter run was then tried, each of the six blocks 3 dB clear of the
+floor, to make it harder for a colleague's voice at the floor to earn the
+hold. Replaying the one recorded phrase, it made no difference (49 blocks
+counted either way), and on the lamp the next four short phrases passed.
+The fifth did not: its loud start was four blocks 3 dB over, one just
+over, two more and one just over, eight in a row over the floor and never
+six in a row at the stricter level, and it was thrown out with 9 and 12
+blocks counted. The stricter run was taken out again. One recording had
+been too little to choose it by.
+
+Not shown: the thing the floor is for, colleagues' voices from across a
+working office, which nothing played here stands in for. With the hold, a
+voice whose loud moments sit just over the floor is let in where before
+only its loud blocks were counted; how often that happens in the real
+office is to be read from the `not_speech` records and the count of turns
+admitted on a working day.
 
 ## An answer with no word in it
 

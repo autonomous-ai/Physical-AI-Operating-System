@@ -10,6 +10,7 @@ PROVIDER_OPENAI = "openai"
 PROVIDER_ELEVENLABS = "elevenlabs"
 PROVIDER_PIPER = "piper"
 PROVIDER_GEMINI = "gemini"
+PROVIDER_PHONON = "phonon"
 
 TTS_SAMPLE_RATE = 24000
 STREAM_CHUNK_SIZE = 4096
@@ -65,6 +66,9 @@ def create_backend(
     if provider == PROVIDER_PIPER:
         from hal.drivers.voice.tts.piper import PiperTTSBackend
         return PiperTTSBackend()
+    if provider == PROVIDER_PHONON:
+        from hal.drivers.voice.tts.phonon import PhononTTSBackend
+        return PhononTTSBackend()
     if provider == PROVIDER_GEMINI:
         from hal.drivers.voice.tts.gemini import GeminiTTSBackend
         return GeminiTTSBackend(api_key=api_key, base_url=base_url)

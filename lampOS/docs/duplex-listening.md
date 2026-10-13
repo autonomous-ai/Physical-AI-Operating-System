@@ -51,6 +51,86 @@ away unless a line says otherwise. One evening, one room, one lamp.
 - **Not known:** how a person at the lamp fares. Every count above but one
   is a loudspeaker.
 
+## On lamp-4ace, 2026-10-14: what recordings of a word over the lamp show
+
+Played again that night, with nobody in the office, the checks gave what
+they had given: the lamp stopped for six of ten sentences spoken over it,
+0.5 to 2.2 s after the person began, and paused for a seventh and went
+on. Of seven short words that asked it to stop or wait ("Stop.", "Lamp,
+stop.", "Wait.", "Okay, stop.") it stopped for one, and of three sounds of
+someone listening ("Mm-hm.", "Yeah.", "Uh-huh.") one stopped it.
+
+To see why, the lamp's microphone was recorded while that was played:
+four runs of 87 s, each three story requests with a word played four
+seconds into the answer, one run of the same words into quiet, and two
+more runs with the lamp's first microphone recorded beside the second
+(`record_run.py`, `record_both.sh`; the sound the microphone gave, the
+sound after the canceller and the sound sent to the speaker, with the
+record of which speaker samples went with each block). What they show:
+
+- **The canceller is WebRTC's AEC3** (the `sonora` port,
+  [architecture.md](architecture.md)), not a simple one. What is weak is
+  what it is given.
+- **The echo does not stay where the canceller expects it.** Against the
+  speaker samples the canceller was handed with each block, the lamp's own
+  voice arrived 91 ms late sixteen seconds into a run and 129 ms late at
+  thirty-nine, moving in steps of about 5.4 ms, and after that stepped
+  back and forth by one such step every few seconds (two runs: 90.9 to
+  131.4 ms and 85.6 to 131.6 ms; the canceller's own estimate followed
+  from 80 to 128 ms). The second microphone is a USB device with a clock of its own
+  (its endpoint is asynchronous); the speaker is another device.
+- **Little of the echo in the second microphone is a linear copy of the
+  speaker's sound.** Over 38 stretches of two seconds of the lamp's own
+  speech, the most a fixed linear filter could have taken off, by the
+  coherence of the two, was 1.8 to 14.3 dB, with a median under 7. A
+  canceller's linear part has that much to work with; the rest of the
+  silence it makes is its suppressor's, and a suppressor cannot tell a
+  person from the echo it is removing. That is the "canceller's state"
+  above.
+- **The lamp's own voice is as loud in its microphone as a person is, and
+  sometimes too loud for it.** Its own speech sat at -9.6 to -16.4 dBFS
+  over two-second stretches in four runs, and 0.01 to 0.05% of samples
+  were at the microphone's ceiling. The same played words into quiet
+  arrived at -12.3 to -27.4 dBFS: two of the three synthetic voices
+  mostly at -12 to -16 (one short "Stop!" at -23), and the third at -21
+  to -27. In the played check that night none of the three words in that
+  third voice made the lamp so much as pause.
+- **The first microphone hears the echo in one place.** It is the input
+  of the same USB card as the speaker, both on the board's clock, and
+  over two runs the echo's place in it did not move by more than 0.1 ms.
+  But it is a plain microphone a few centimetres from the speakers: the
+  lamp's voice is at -13 to -17 dBFS in it and the loudest part of a line
+  played from a metre away at -43, some 27 dB under. (The second
+  microphone had the same line at -12, level with the lamp's own voice.) Its echo was no more linear by the same measure (8.6 to
+  13.2 dB in 32 ms windows), and with one filter for a whole run nearly
+  all of that was under 1 kHz; whether that is the path or a drift of
+  less than a sample in how the two recordings were laid together is not
+  settled.
+- **The chips' "Auto Gain Control" switch is not it.** Both cards have one
+  and both were on. With both off, nothing about the second microphone
+  changed (levels, the moving echo), and the first became 11 dB quieter
+  in everything. They were put back on.
+
+Two ways of finding a person without the canceller were then tried on
+these recordings, off the lamp, and neither is a basis for a rule:
+
+| Tried | On the recordings |
+|---|---|
+| A linear canceller of our own for each frequency, guarded so a person cannot throw it off, and the energy it leaves where it took little away | It took nothing off the second microphone's echo (what it left was 3 dB under what came in in one run, level with it in one, 6 dB over it in one, and in the fourth it ran away) and 5 to 7 dB off the first's. At any level the played words passed, a third or more of the lamp's own speech passed too |
+| No canceller: the energy in each of 20 bands against what the speaker's sound of that moment would put there, by a ratio learned as it speaks | At the levels where 10 of 14 words passed, the lamp's own speech passed 45 to 89 times a minute |
+
+Not shown, and it matters more than any of this: **a person.** Every
+word was a synthetic voice from a loudspeaker, and the note that came
+with the second microphone says its chip treats a live voice differently
+from a played one. What is left to try, in the order of what each would
+tell: a person cutting in, recorded the same way; a reference that
+follows the second microphone's clock, so that the echo stays in one
+place and the canceller's linear part can be measured again; the
+canceller on the first microphone for the decision to stop alone; a
+listener for the few words that mean stop, trained on recordings like
+these of words under the lamp's own voice; and the lamp's own level,
+which is at its microphone's ceiling.
+
 ## Answer
 
 - **The lamp can keep hearing while it speaks, on one of the two lamps

@@ -108,12 +108,24 @@ played questions in each of six fresh sessions, three with the eyes shut
 open, open, shut, shut, open. First sound came a median 1.32 s after the
 end-of-speech decision without pictures (19 replies; the three sessions'
 medians 1.29, 1.24 and 1.61 s) and 1.78 s with them (20 replies; 1.75, 1.86
-and 1.75 s). So looks were moved from four seconds apart to thirty: the
-model keeps a recent view of the room, and most answers carry no picture.
-What that gives up is in `sight.rs`: something held up to the lamp within
-thirty seconds of its last look is not seen until the next one. Sending a
-picture when the scene has changed, which the eyes could tell, is not
-built.
+and 1.75 s). So looks were moved from four seconds apart to thirty.
+
+That did not bring the speed back, and the reason is worse than a picture
+costing its own answer. In a fresh session, one question with a picture
+(answered after 1.39 s) and then thirteen without any: medians of 1.73 and
+1.83 s in two runs of the seven questions. Once a session's history holds a
+picture, every later answer in that session is about as slow as if each
+carried one. The first answer, the one the picture came with, is not.
+
+So on lamp-4ace the model's sight is switched off again (13:38 on
+2026-10-13): `LAMP_EYES_SIGHT_FILE` is commented out in the voice unit, the
+eyes run without `--sight-file`, and the character file says it cannot see
+yet. Afterwards the provider's first audio came a median 1.21 s after the
+end-of-speech decision and the speaker's first write 0.21 s later, over
+nine answers. The code stays. What it needs before it is turned on again
+is a way to look only when looking was asked for, and a session without
+the picture afterwards (a renewal carries the conversation across, see
+[conversation-thread.md](conversation-thread.md)). Neither is built.
 
 On lamp-4ace, 2026-10-13, first run: a picture of 13.7 to 17.7 KiB, 18 to
 157 ms old, went with each of six requests. A played "Hey Lamp, what do you

@@ -2,8 +2,9 @@
 
 What the lamp does when it is not alone with one person: several people
 standing at it, or colleagues in conversation at the next desk. Status on
-2026-10-13: three measures are on lamp-4ace; the third has not yet been seen
-to act there. The problem is not solved.
+2026-10-13: four measures are on lamp-4ace and each has been seen to act
+there, the last two only in a staged scene of played voices. With real
+people talking around it the last two are not yet shown.
 
 ## What happens
 
@@ -66,22 +67,53 @@ during a hold is not sent to the model at all. For one person who pauses
 and goes on, that would lose the start of their second half, and the lamp
 would answer the first.
 
+The first build of this ended the service the first two times it acted
+(lamp-4ace, 12:22 and 12:28 on 2026-10-13, restarted by systemd four
+seconds later each time, with its conversation gone). It dropped the
+candidate with `suppress_prospective`, which checks the authority snapshot
+against the time it is given, and it was given a time read a few
+microseconds before that snapshot was issued. It now lets the candidate go
+with `InputAdmission::release_prospective`, which consults no authority and
+has its own test.
+
+**In a busy room the lamp finishes the start of its answer**
+(`KEEP_ANSWER_US`). A turn whose speech ended while the room was busy is
+remembered, and for the first four seconds that the lamp is heard answering
+it, what the microphone hears is not scored as speech: nothing over the
+lamp's voice stops it and nothing starts a new turn. The service records
+`answer_kept` once for the turn. Most answers are shorter than four
+seconds; a story can be stopped once they have passed. The cost is that the
+person who asked cannot stop it in those four seconds either.
+
 ## What is and is not shown
 
 - `body_link::tests`: when a room counts as busy, and that an answer or
-  half a minute of quiet ends it. The hold itself has no test of its own;
-  it is a few lines in the service's main loop.
-- On lamp-4ace the build with the hold answered six of six played
-  questions, five within 2 s. But the colleagues had stopped talking by
-  then: one turn was replaced by other talk in the whole run and
-  `floor_held` was recorded zero times. That run shows the hold does no
-  harm in a quiet room and nothing else.
+  half a minute of quiet ends it. `admission::tests`: that a pending
+  candidate can be let go without authority and an accepted stream cannot.
+  The hold and the kept answer themselves are a few lines each in the
+  service's main loop and have no test of their own.
+- A staged busy room on lamp-4ace (`hold.sh`: three lines between two
+  played voices, a question to the lamp by name, and the other voice
+  starting a third of a second after the question; twice over). With the
+  hold alone: the second question's answer began 1.32 s after the
+  end-of-speech decision, under the other voice ("It's a beautiful, bright
+  blue."), `floor_held` once, and that voice stopped it 1.2 s in. With the
+  kept answer as well: both questions answered whole ("Four. Easy one.",
+  "It's bright blue! Such a nice, cheerful color."), 1.40 and 1.28 s after
+  the decision, `answer_kept` twice, and nothing said to the lines that
+  were not for it. No restart in either run.
+- That is played speech, one scene, twice. With the two colleagues really
+  talking beside it, only the first two measures have been tried.
 
 Not solved, and known:
 
-- Once the lamp is speaking, a voice over it is judged by the rules for
-  being interrupted ([duplex-listening.md](duplex-listening.md)). People
-  who carry on talking beside it can stop it in the middle of its answer.
+- After those four seconds, and in a room that does not count as busy, a
+  voice over the lamp is judged by the rules for being interrupted
+  ([duplex-listening.md](duplex-listening.md)), and people who carry on
+  talking beside it can stop it.
+- A room is busy only after three things in a row went unanswered. The
+  first question put to the lamp in a conversation that has just begun
+  beside it is handled as it always was.
 - The lamp cannot tell who is speaking to it except by what is said. Its
   eyes report where a face is, and nothing uses that to decide whose turn
   it is.

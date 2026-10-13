@@ -63,6 +63,8 @@ struct Shared {
     /// The caller wants a new session in this one's place at the next
     /// moment nothing is owed on it.
     renew: AtomicBool,
+    /// The functions nothing is to be said on account of ([`crate::Tool::silent`]).
+    silent_tools: Vec<String>,
 }
 
 /// How long one image write may take. Commands that arrive meanwhile are
@@ -288,7 +290,8 @@ impl InputSender {
         response: &serde_json::Value,
     ) -> Result<()> {
         self.ensure_ready()?;
-        let message = wire::encode_tool_response(id, name, response)?;
+        let silent = self.shared.silent_tools.iter().any(|tool| tool == name);
+        let message = wire::encode_tool_response(id, name, response, silent)?;
         self.enqueue(Command::ToolResponse(id.into(), message))
     }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
@@ -693,6 +696,12 @@ where
         images: Mutex::new(Images::default()),
         image_abort: Notify::new(),
         renew: AtomicBool::new(false),
+        silent_tools: config
+            .tools
+            .iter()
+            .filter(|tool| tool.silent)
+            .map(|tool| tool.name.clone())
+            .collect(),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -704,6 +713,7 @@ where
         session,
         timeouts: config.timeouts,
         retain: config.resumption != Resumption::Off,
+        silent_calls: Vec::new(),
         shapes: std::env::var_os(SHAPES_ENVIRONMENT).is_some(),
         last_shape: String::new(),
         policy: config.barrier,
@@ -942,6 +952,9 @@ struct Actor<S> {
     session: SessionId,
     timeouts: Timeouts,
     retain: bool,
+    /// Calls of silent functions still to be answered. Their request may
+    /// have ended; the answer is owed to the service all the same.
+    silent_calls: Vec<String>,
     /// Say on stderr what each server message looked like ([`wire::shape`]).
     shapes: bool,
     last_shape: String,
@@ -1859,7 +1872,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                         Some(())
                     })
                     .is_some();
-                if !waiting {
+                let silent = self
+                    .silent_calls
+                    .iter()
+                    .position(|pending| *pending == id)
+                    .map(|index| self.silent_calls.swap_remove(index))
+                    .is_some();
+                if !waiting && !silent {
                     self.discard(Discard::StaleToolResponse);
                     return Ok(());
                 }
@@ -1881,10 +1900,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             .filter(|turn| turn.ended_at.is_some() && turn.tools.len() < crate::MAX_TOOL_CALLS);
         let Some(turn) = owner else {
             for call in &calls {
+                let silent = self.shared.silent_tools.contains(&call.name);
                 let message = wire::encode_tool_response(
                     &call.id,
                     &call.name,
                     &serde_json::json!({"error": "cancelled"}),
+                    silent,
                 )?;
                 self.write(Message::text(message), self.timeouts.write)
                     .await?;
@@ -1898,8 +1919,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
         turn.progress_at = Some(now);
         // A call after a completed generation reopens it, as audio does.
         turn.generation_at = None;
-        turn.tools.extend(calls.iter().map(|call| call.id.clone()));
-        turn.calls_turn_open = true;
+        // The service says nothing more on account of a silent function,
+        // so the turn it asks in is the last of the request, and its
+        // answer is owed whether or not the request is still there.
+        for call in &calls {
+            if self.shared.silent_tools.contains(&call.name) {
+                if self.silent_calls.len() == crate::MAX_TOOL_CALLS {
+                    self.silent_calls.remove(0);
+                }
+                self.silent_calls.push(call.id.clone());
+            } else {
+                turn.tools.push(call.id.clone());
+                turn.calls_turn_open = true;
+            }
+        }
         self.stale_terminal = None;
         self.last_responder = Some(lineage);
         for call in calls {
@@ -2016,6 +2049,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 turn.tools
                     .retain(|pending| !frame.tool_cancellations.contains(pending));
             }
+            self.silent_calls
+                .retain(|pending| !frame.tool_cancellations.contains(pending));
             self.emit(Event::ToolCallsCancelled {
                 session: self.session,
                 ids: frame.tool_cancellations,

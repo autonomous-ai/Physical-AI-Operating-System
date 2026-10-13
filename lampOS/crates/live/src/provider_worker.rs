@@ -3756,6 +3756,9 @@ mod tests {
                         .resumption(RESUMPTION)
                         .barrier_policy(barrier),
                 )
+                .unwrap()
+                // What the worker's sessions are told of, as in the service.
+                .tools(crate::tools::declared(&options.tools))
                 .unwrap();
             let (dialer, dials) = lamp_gemini::testing::connector_with_capacity(config, capacity);
             let provider = Supervisor::new(dialer, policy).unwrap();
@@ -4256,15 +4259,14 @@ mod tests {
         dial.service
             .send(function_call("c1", crate::tools::NOT_FOR_ME))
             .await;
-        // The service ends the turn it asked in at once, as the real one does.
-        dial.service.send(idle_complete()).await;
+        // Answered as a function nothing is to be said on account of.
         assert_eq!(
             rig.service_message(&mut dial).await,
             json!({"toolResponse":{"functionResponses":[
-                {"id":"c1","name":"not_for_me","response":{"ok":true}}
+                {"id":"c1","name":"not_for_me","response":{"ok":true},"scheduling":"SILENT"}
             ]}})
         );
-        // The model speaks all the same.
+        // The model speaks all the same, in the turn it asked in.
         dial.service.send(provider_audio(9, 480)).await;
         dial.service
             .send(json!({"serverContent":{"outputTranscription":{"text":"Sounds like a plan!","finished":true}}}))

@@ -8,6 +8,7 @@ fn tool(name: &str) -> Tool {
         name: name.into(),
         description: "Turn the light on.".into(),
         parameters: None,
+        silent: false,
     }
 }
 fn call(id: &str, name: &str, args: Value) -> Value {
@@ -39,6 +40,7 @@ async fn declared_tools_are_sent_at_setup_beside_search_and_not_at_all_when_ther
         parameters: Some(
             json!({"type":"object","properties":{"colour":{"type":"string","enum":["red","blue"]}},"required":["colour"]}),
         ),
+        silent: false,
     };
     let configuration = configuration(Timeouts::default())
         .search(true)
@@ -78,6 +80,7 @@ fn a_tool_must_have_a_plain_name_a_description_and_object_parameters_and_names_d
         name: "x".into(),
         description: description.into(),
         parameters: Some(parameters),
+        silent: false,
     };
     assert!(
         base()
@@ -201,6 +204,72 @@ async fn a_completion_that_follows_the_answer_still_ends_only_the_asking() {
         event(&mut connection).await,
         Event::Audio { lineage, .. } if lineage.request == next
     ));
+}
+
+/// A function nothing is to be said on account of. It is declared as one
+/// the service need not wait for and answered as one to take note of
+/// without generating. The service says nothing more for the request, so
+/// the turn it asked in is the request's last; and the answer is still
+/// sent when it comes after that.
+#[tokio::test]
+async fn a_silent_function_is_declared_and_answered_as_one_and_its_request_ends_with_the_asking() {
+    let quiet_one = Tool {
+        name: "not_for_me".into(),
+        description: "Not said to you.".into(),
+        parameters: None,
+        silent: true,
+    };
+    let configuration = configuration(Timeouts::default())
+        .tools(vec![quiet_one, tool("light_on")])
+        .unwrap();
+    let setup: Value = serde_json::from_str(&wire::encode_setup(&configuration).unwrap()).unwrap();
+    let declared = &setup["setup"]["tools"][0]["functionDeclarations"];
+    assert_eq!(declared[0]["behavior"], "NON_BLOCKING");
+    assert!(declared[1].get("behavior").is_none());
+
+    let (mut connection, mut server) = mock_with(configuration).await;
+    let request = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, call("call-1", "not_for_me", json!({}))).await;
+    called(&mut connection, request).await;
+    // The completion of the asking turn is the request's own.
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { lineage, idle: true } if lineage.request == request
+    ));
+    // The answer comes after the request has ended, and is sent.
+    connection
+        .input()
+        .try_tool_response("call-1", "not_for_me", &json!({"ok":true}))
+        .unwrap();
+    assert_eq!(
+        receive(&mut server).await,
+        json!({"toolResponse":{"functionResponses":[
+            {"id":"call-1","name":"not_for_me","response":{"ok":true},"scheduling":"SILENT"}
+        ]}})
+    );
+    // Once: a second answer has no call to go to.
+    connection
+        .input()
+        .try_tool_response("call-1", "not_for_me", &json!({"ok":true}))
+        .unwrap();
+    discarded(&mut connection, Discard::StaleToolResponse).await;
+    // A function that is not silent, on the same session, is still waited
+    // for across its asking turn and answered plainly.
+    let next = ended_turn(&mut connection, &mut server, 2).await;
+    send_json(&mut server, call("call-2", "light_on", json!({}))).await;
+    called(&mut connection, next).await;
+    send_json(&mut server, idle()).await;
+    quiet(&mut connection).await;
+    connection
+        .input()
+        .try_tool_response("call-2", "light_on", &json!({"light":"on"}))
+        .unwrap();
+    assert!(
+        receive(&mut server).await["toolResponse"]["functionResponses"][0]
+            .get("scheduling")
+            .is_none()
+    );
 }
 
 /// Several calls in one message, a call without arguments or identifier,

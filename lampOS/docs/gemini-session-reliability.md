@@ -236,6 +236,7 @@ connection as `UnsupportedMessage`. What the session does with one now:
 |---|---|
 | A call for the committed request | `Event::ToolCall` with that request's lineage. It counts as the request's first output, and the `stall` bound runs from it |
 | The service completes the turn it made the calls in | Not the end of the request, and not reported: the service ends that turn as soon as it has asked (4 ms after the call on lamp-4ace on 2026-10-13) and speaks in another once the calls are answered. The request ends at the completion after that. The same holds when the answer was sent before that first completion arrived |
+| A function declared silent (`Tool::silent`) | Declared with `behavior: NON_BLOCKING` and answered with `scheduling: SILENT`: the service says nothing on account of it. The turn it is asked in is then the request's last, so that completion ends the request, and the answer is sent even when it comes after that |
 | The answer (`InputSender::try_tool_response`, by identifier and name) | Written at once; the `stall` bound runs again from the answer. Not an object: sent as `{"result": ...}`. Over 4,096 bytes of JSON: refused where it is offered, nothing sent |
 | A call with no committed request to own it (none in progress, or one whose input is still open) | Answered on the wire as `{"error":"cancelled"}` so the service is not left waiting; `Discard::UnownedToolCall`; no `ToolCall` event |
 | The service withdraws calls (`toolCallCancellation`) | `Event::ToolCallsCancelled`; an answer offered for one afterwards is dropped, `Discard::StaleToolResponse`, nothing sent |
@@ -250,7 +251,7 @@ taken only by the connection that made the call
 (`Supervisor::try_tool_response`); a call dies with its connection and is
 not carried to the next.
 
-Tested with the scripted service (`session/tests/tools.rs`, nine tests).
+Tested with the scripted service (`session/tests/tools.rs`, ten tests).
 Against the real service, one silent written request each on lamp-4ace on
 2026-10-13: the relay accepted two declarations; "Lamp, make your light
 blue." got a call of the sample function with `{"colour":"blue"}` 0.93 s

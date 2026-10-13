@@ -676,6 +676,9 @@ pub fn encode_setup(config: &SessionConfig) -> Result<String> {
                 if let Some(parameters) = &tool.parameters {
                     declaration["parameters"] = parameters.clone();
                 }
+                if tool.silent {
+                    declaration["behavior"] = json!("NON_BLOCKING");
+                }
                 declaration
             })
             .collect();
@@ -767,8 +770,14 @@ pub fn encode_context(text: &str) -> Result<String> {
 }
 /// The answer to one function call. The service takes an object; anything
 /// else is given to it as `{"result": ...}`. `id` is left out when the call
-/// came without one.
-pub fn encode_tool_response(id: &str, name: &str, response: &serde_json::Value) -> Result<String> {
+/// came without one. `silent`: the service is to take note of the answer
+/// and generate nothing on account of it ([`crate::Tool::silent`]).
+pub fn encode_tool_response(
+    id: &str,
+    name: &str,
+    response: &serde_json::Value,
+    silent: bool,
+) -> Result<String> {
     if id.len() > MAX_TOOL_ID_BYTES || name.is_empty() || name.len() > 64 {
         return Err(Error::InvalidConfiguration);
     }
@@ -783,6 +792,9 @@ pub fn encode_tool_response(id: &str, name: &str, response: &serde_json::Value) 
     let mut answer = json!({"name": name, "response": response});
     if !id.is_empty() {
         answer["id"] = json!(id);
+    }
+    if silent {
+        answer["scheduling"] = json!("SILENT");
     }
     serde_json::to_string(&json!({"toolResponse": {"functionResponses": [answer]}}))
         .map_err(|_| Error::InvalidConfiguration)

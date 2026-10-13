@@ -118,6 +118,11 @@ fn not_for_me() -> Tool {
                       a noise. It is how you stay out of a conversation that is not yours."
             .into(),
         parameters: None,
+        // Declared as one nothing is said on account of. Declared as an
+        // ordinary function, on lamp-4ace on 2026-10-13, its answer made
+        // the model speak ("I'm sorry, I missed that. Could you please
+        // repeat it?"), talk nonsense, or call it again eleven times.
+        silent: true,
     }
 }
 

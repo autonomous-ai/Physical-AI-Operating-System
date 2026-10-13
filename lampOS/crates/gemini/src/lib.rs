@@ -128,6 +128,13 @@ pub struct Tool {
     /// A JSON Schema object for the arguments. Absent: it takes none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parameters: Option<serde_json::Value>,
+    /// Nothing is to be said on account of this function. It is declared
+    /// as one the service need not wait for, and its answer is sent as one
+    /// to take note of without generating anything. A request whose calls
+    /// were all of this kind ends when the service completes the turn it
+    /// made them in.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub silent: bool,
 }
 impl Tool {
     pub fn validate(&self) -> Result<()> {

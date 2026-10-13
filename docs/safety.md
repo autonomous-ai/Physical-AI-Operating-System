@@ -426,10 +426,19 @@ Six conditions are enforced today; setup-incomplete is reserved.
       resumes; a body parked meanwhile stays put. It is checked before the cut-off, and
       an arm still forced while held trips the cut-off as before. With
       `contact.release_after_s` set (Lamp: `1` s), a hand still **holding** the arm that
-      long into the pause — any joint still past its contact floor or `off_playback`
-      load/lag floor — is not a bump: the driver logs `[contact] … releasing torque` and
+      long into the pause — the stopped joint still at or above the load floor that
+      stopped it (its learned envelope floor when one applied), plus 10 % on a
+      weight-bearing joint (one with no fixed contact floor); a lag floor as is, since a
+      pinned joint only lags when pushed — or any joint past its fixed
+      contact floor or `off_playback` load/lag floor — is not a bump: the driver logs `[contact] … releasing torque` and
       hands over to the cut-off's torque-off (arm goes limp, `retry_s` lockout, the
-      cut-off's chime). A bump let go within the window only pauses. Surfaced at
+      cut-off's chime). A bump let go within the window only pauses. The stopping floor
+      matters on a learned unit: on lamp-52e6 a hand stopped `base_yaw` at 39.6 % (envelope
+      18 %) but could not hold it at the fixed 55 %, and `elbow_pitch` has no fixed floor.
+      The 10 % (`CONTACT_RELEASE_MARGIN`) keeps gravity out: pinned with no hand, its
+      `elbow_pitch` sat at exactly its 24.2 % stopping floor; a hand held it at 37-60 %.
+      `base_yaw` carries no weight and gets no margin: a hand held it at 23-36 % over an
+      18-19 % floor. Surfaced at
       `GET /health.servo_overload.contact` (`active`, `resume_in_s`, `trips`,
       `last_trip`, thresholds). Lamp's floors come from lamp-52e6 (2026-10-09): over
       19 recordings the free-motion peaks were `base_yaw` 46 %, `wrist_roll` 52 %,

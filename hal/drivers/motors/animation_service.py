@@ -52,6 +52,15 @@ STARTUP_MOVE_DURATION = 5.0
 # spin-up load (54 % on elbow_pitch) stopped the arm 0.2 s into moves no one touched.
 OFF_PLAYBACK_SETTLE_S = 0.5
 
+# A torque release on a weight-bearing joint's load needs this much (0.1 %) above the
+# floor that stopped the arm. Pinned still, such a joint keeps its gravity load:
+# lamp-52e6's elbow_pitch sat at exactly its 24.2 % stopping floor with no hand on it,
+# while a hand held it at 37-60 %. Weight-bearing = no fixed contact floor (the config
+# leaves those out because they carry the arm). A joint with one (base_yaw) reads near
+# zero pinned, and a hand held base_yaw at only 23-30 % over an 18-19 % floor. Lag
+# floors need no margin either: a pinned joint only lags when pushed.
+CONTACT_RELEASE_MARGIN = 100
+
 # Plays per recording a learn run allows before giving up on a full pass.
 LEARN_ATTEMPTS = 3
 
@@ -199,9 +208,11 @@ class AnimationService:
         # it the contact stop falls back to on_overload.
         self._on_contact = on_contact
         # A hand still holding the arm this long into the contact pause cuts torque
-        # (the overload cut-off's lockout). Timed by its own guard, armed per stop.
+        # (the overload cut-off's lockout). Timed by its own guard, armed per stop,
+        # against the floor that stopped the arm (see _contact_stop).
         self._contact_release_s = contact_release_s
         self._contact_hold: Optional[OverloadGuard] = None
+        self._contact_hold_floors: Dict[str, int] = {}
         # A direct move in flight, and when the last one ended (contact guard clock).
         self._direct_move = False
         self._direct_move_ended = float("-inf")
@@ -1166,7 +1177,7 @@ class AnimationService:
             lags = self._read_lags()
             if lags:
                 samples.update(lags)
-            held = self._contact_hold.observe(samples, self._contact_off_playback or None)
+            held = self._contact_hold.observe(samples, self._contact_hold_floors or None)
             if held:
                 self._contact_release(*held)
                 return
@@ -1397,6 +1408,21 @@ class AnimationService:
         if self._contact_release_s is not None:
             self._contact_hold = OverloadGuard(
                 self._contact.threshold, self._contact_release_s, 0.0, clock=self._contact._clock)
+            # The floor that stopped the arm also decides the release: a hand that
+            # stopped it under the learned envelope (18 % on base_yaw) holds it with
+            # about the same force, far below the fixed floor (55 %). Joints with no
+            # fixed floor (elbow_pitch) could never release otherwise.
+            self._contact_hold_floors = dict(self._contact_off_playback)
+            floor = self._contact.last_floor
+            if floor is not None:
+                fixed = self._contact.threshold_for(joint)
+                if not joint.startswith(LAG_PREFIX) and fixed is None:
+                    floor += CONTACT_RELEASE_MARGIN
+                # Never above a floor that already released this joint.
+                for known in (self._contact_hold_floors.get(joint), fixed):
+                    if known is not None:
+                        floor = min(floor, known)
+                self._contact_hold_floors[joint] = floor
         # Logged after the stop: nothing here may delay or skip it.
         unit = "deg behind" if joint.startswith(LAG_PREFIX) else "% load"
         logger.warning(
@@ -1413,7 +1439,15 @@ class AnimationService:
 
     def _contact_recover(self) -> None:
         """Pause over: allow goal writes again and ease back into idle from where it stopped."""
-        self._contact_hold = None
+        hold, self._contact_hold = self._contact_hold, None
+        # How close the stopped joint came to a release, to tune CONTACT_RELEASE_MARGIN.
+        held = ""
+        joint = (self._contact.last_trip or (None,))[0]
+        if hold is not None and joint in hold.peak and joint in self._contact_hold_floors:
+            motor = joint[len(LAG_PREFIX):] if joint.startswith(LAG_PREFIX) else joint
+            held = " (%s peaked %.1f while held, release at %.1f; lag peaked %.1f deg)" % (
+                joint, hold.peak[joint] / 10.0, self._contact_hold_floors[joint] / 10.0,
+                hold.peak.get(LAG_PREFIX + motor, 0) / 10.0)
         if self.overload_active:
             # The cut-off took over meanwhile; its own recovery unblocks the goals.
             return
@@ -1421,9 +1455,9 @@ class AnimationService:
             if self.robot:
                 self.robot.goal_writes_blocked = False
         if not self._running.is_set():
-            logger.info("[contact] pause over — body is parked, staying put")
+            logger.info("[contact] pause over%s — body is parked, staying put", held)
             return
-        logger.info("[contact] pause over — back to idle")
+        logger.info("[contact] pause over%s — back to idle", held)
         self._sync_state_from_hardware()
         self.dispatch(SERVO_CMD_PLAY, self.idle_recording)
 

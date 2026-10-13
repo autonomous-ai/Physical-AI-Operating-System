@@ -4,8 +4,11 @@ use crate::faces::Face;
 use serde::{Deserialize, Serialize};
 
 /// A face smaller than this share of the picture's height is somebody across
-/// the room, not somebody at the lamp.
-pub const LEAST_SIZE: f32 = 0.10;
+/// the room, not somebody at the lamp. V1 measured it in this office with
+/// this camera (`hal/config.py`, "office co-workers 8.3-13.6%, the user
+/// 19.2-46%") and drew the line between the two. V2 began at a tenth, a
+/// guess, under which a colleague's face counted as someone at the lamp.
+pub const LEAST_SIZE: f32 = 0.15;
 
 /// Where a face is. This is everything that leaves the process.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -89,6 +92,14 @@ mod tests {
         assert!(sight.turned.abs() < 1e-4);
         // Nobody near: the small face alone is not looked at.
         assert_eq!(choose(&faces[..1], (320, 240)), None);
+        // A colleague across the office, at the most V1 measured one
+        // (13.6% of the picture's height), is not somebody at the lamp;
+        // the user at their smallest (19.2%) is.
+        assert_eq!(
+            choose(&[face(100.0, 100.0, 0.136 * 240.0, 0.5)], (320, 240)),
+            None
+        );
+        assert!(choose(&[face(100.0, 100.0, 0.192 * 240.0, 0.5)], (320, 240)).is_some());
         assert_eq!(choose(&[], (320, 240)), None);
     }
 

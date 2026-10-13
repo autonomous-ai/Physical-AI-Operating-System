@@ -166,7 +166,7 @@ old runtime's tree has it).
 
 A detection counts as a face from a score of 0.6. Boxes that overlap by more
 than 0.3 are one face; a box that is not a number or lies off the picture is
-dropped. Of the faces left, the largest whose height is a tenth of the
+dropped. Of the faces left, the largest whose height is 15% of the
 picture's or more is the one reported: somebody at the lamp, not somebody
 across the room. With several people near, that is whoever is nearest the
 camera, and it can change from look to look.
@@ -237,7 +237,9 @@ look took 29 to 38 ms there, a third of it decoding the large JPEG.
 
 Not shown by any of this: how long a look takes on the lamp's processor; what
 the lamp's camera sees from its head, how wide, and how well in office light;
-whether a face at conversation distance is a tenth of that picture; how the
+whether a face at conversation distance is 15% of that picture, the line
+V1 measured between colleagues' faces (8.3 to 13.6%) and its user's (19.2
+to 46%) and V2 took on 2026-10-14 without anyone in front of this lamp; how the
 detector fares with a face lit from behind, in profile or with glasses, where
 the old runtime's notes say it struggles; anything about the camera's lock and
 identity check on the lamp itself.

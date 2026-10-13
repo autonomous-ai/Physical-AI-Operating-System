@@ -153,6 +153,11 @@ With it the lamp's health has six parts reporting.
 
 ## Not shown
 
+- **A bare "Lamp".** It was trained on "Hey Lamp" and "Lamp ơi". Of eight
+  played lines that began "Lamp," and nothing before it, on 2026-10-14,
+  it reported a hearing in none
+  ([conversation-latency.md](conversation-latency.md)). One syllable is
+  little to go on, and the study found the same of every spotter it tried.
 - **A person.** Every voice was synthetic and played through a
   loudspeaker near the lamp. Real voices, accents, distance and a full
   office are untried, and are what the classifier has to be trained for.

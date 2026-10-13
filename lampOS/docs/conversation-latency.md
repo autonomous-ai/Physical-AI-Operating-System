@@ -34,6 +34,44 @@ unwanted responses and gaps alongside latency and sample counts. Acoustic bounda
 proposals remain unscored until verified. Provider/log/ALSA receipts are separate
 software measurements and must not be relabeled as first audible words.
 
+## Where it stands on lamp-4ace, 2026-10-14, and a shorter wait that was tried
+
+Played questions on the always-on voice that night (`--end-silence-ms
+600`, `--playout-start-ms 350`, `gemini-3.8-live` through the relay): the
+first words of an answer arrive 1.4 to 2.1 s after the played line ends,
+which is 0.6 s of waiting to be sure the person has stopped and 0.9 to
+1.5 s more. The first sound was written 0.99 to 1.67 s after the
+end-of-speech decision in the night's checks (34 answers in five runs).
+Loudspeaker lines and the service's own records, not a first audible word.
+
+The 0.6 s is the one part of it that is the lamp's own to shorten, so
+400 ms was tried, once, on the pause test (`pauses.sh`: two plain
+questions and three thoughts with a silence of 450, 650 and 900 ms in
+them, each beginning "Lamp," or "Hey Lamp,").
+
+| | 600 ms, two runs | 400 ms, one run |
+|---|---|---|
+| The name and the comma after it | Part of the sentence | Ended as an utterance of its own in three of the five lines: thrown out as a sound twice, replaced by what followed once |
+| The thought with a 450 ms silence | Heard whole both times (and declined both times, for another reason: below) | Heard in three pieces after the name; the answer had no words in it |
+| The thoughts with 650 and 900 ms | Each in two pieces, continued, and answered in three of four | Each in two or three pieces, continued, and answered; one answer played with gaps |
+| First sound after the decision | 1.02 to 2.15 s (six answers) | 0.98, 0.98, 0.99 and 2.53 s |
+
+A synthetic voice leaves more than 400 ms after "Lamp," so at 400 ms
+three of five called sentences were cut in two after the name. The wait
+is back at 600 ms. Two tenths of a second is not worth a lamp that takes the
+name and the question apart; what would be worth it is ending the wait
+early only when the sentence is plainly finished, which the end-of-turn
+model does and is too slow at on this board
+([endpoint-pilot.md](endpoint-pilot.md)).
+
+The same test showed something else. Of eight lines that began with a
+bare "Lamp," over the two runs at 600 ms, four got no answer: the service
+wrote them without the name, the model took "we could go to the beach
+this weekend, what do you think?" for other people's talk, and the part
+that listens for the name heard it in none of the eight. It hears "Hey
+Lamp" and "Lamp ơi" ([name.md](name.md)), and a bare "Lamp" is not one
+of them.
+
 ## Latest ordinary conversation, 2026-10-12
 
 The [newest ordinary attempt](verification/pilot-readiness-20261012/README.md)

@@ -99,6 +99,10 @@ const GESTURE_TRACKING: u16 = 150;
 const GESTURE_LOAD: u16 = 700;
 const GESTURE_ARM_TRACKING: u16 = 260;
 const GESTURE_COOL_STEPS: u16 = 25;
+/// Looks in a row with a face in them, about a second of them, after which
+/// somebody is taken to be in front of the lamp: it stands up for them and
+/// stays up while they are there.
+const COMPANY_SIGHTS: u8 = 6;
 /// A lamp that may idle and has stood at rest this long shifts a little by
 /// itself, and waits this long after one shift before the next.
 const IDLE_AFTER: Duration = Duration::from_secs(4);
@@ -1271,6 +1275,8 @@ pub(crate) fn run_alive(
     let mut pending: Option<(&'static Clip, Duration)> = None;
     let mut gesture_now = [0.0f32; 5];
     let mut gesture_cooling = 0u16;
+    // Looks in a row in which its eyes reported a face.
+    let mut faces_running = 0u8;
     // When a lamp standing at rest next shifts by itself.
     let mut idle_due: Option<Duration> = None;
     let step = TICK.as_secs_f32();
@@ -1322,6 +1328,17 @@ pub(crate) fn run_alive(
         if let Some((mood, level)) = news() {
             heard = Some((mood, level, now));
         }
+        // What its eyes saw and a gesture asked of it, since the last step.
+        let asked_now = asked();
+        // Somebody in front of it: a face in several looks running.
+        match asked_now.seen {
+            Some(Seen { face: Some(_) }) if looking.is_some() => {
+                faces_running = faces_running.saturating_add(1);
+            }
+            Some(Seen { face: None }) => faces_running = 0,
+            _ => {}
+        }
+        let company = faces_running >= COMPANY_SIGHTS;
         let (mood, level) = match (leaving, heard) {
             (None, Some((mood, level, at))) if now.saturating_sub(at) < MOOD_STALE => (mood, level),
             _ => (Mood::Resting, 0),
@@ -1345,7 +1362,9 @@ pub(crate) fn run_alive(
         // A lamp that is folded, or folding, looks at nobody.
         let mut awake_now = leaving.is_none();
         if let Some(up) = standing {
-            if mood != Mood::Resting {
+            // Spoken to, or with somebody sitting in front of it: awake.
+            // It does not fold away from a person who is still there.
+            if mood != Mood::Resting || company {
                 awake_until = Some(now + up.awake);
             }
             let tired = retreats >= Standing::RETREATS_ALLOWED
@@ -1407,7 +1426,6 @@ pub(crate) fn run_alive(
         if resting_steps == 0 {
             relaxed = false;
         }
-        let asked_now = asked();
         // A gesture is for a lamp standing still at its full height.
         let upright = leaving.is_none()
             && !blind

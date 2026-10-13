@@ -2015,3 +2015,68 @@ fn standing_with_nothing_to_do_it_shifts_now_and_then_and_stops_when_spoken_to()
             .all(|step| step.1.is_none())
     );
 }
+
+#[test]
+fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() {
+    // Nobody speaks. A face is in front of the lamp from two seconds to
+    // twenty, seen six times a second, and then gone.
+    let company = |from: u64, until: u64| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(34));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let time = clock.time.clone();
+        let watched = clock.time.clone();
+        let mut last = Duration::ZERO;
+        let mut stood: Vec<(Duration, f32)> = Vec::new();
+        let report = run_alive(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            Some(HOME),
+            Some(standing(100, 5)),
+            Some(Looking::new([342, 200], [250, 120]).unwrap()),
+            || Some((Mood::Resting, 0)),
+            move || {
+                let now = time.get();
+                if now.saturating_sub(last) < Duration::from_millis(150) {
+                    return Asked::default();
+                }
+                last = now;
+                let there = (from..until).contains(&now.as_secs());
+                Asked {
+                    seen: Some(Seen {
+                        face: there.then_some(crate::gaze::Sight {
+                            x: 0.0,
+                            y: 0.0,
+                            size: 0.2,
+                            turned: 0.0,
+                        }),
+                    }),
+                    gesture: None,
+                }
+            },
+            |glimpse| stood.push((watched.get(), glimpse.stand)),
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        stood
+    };
+    let stood = company(2, 20);
+    let at = |seconds: u64| {
+        stood
+            .iter()
+            .rfind(|step| step.0 <= Duration::from_secs(seconds))
+            .unwrap()
+            .1
+    };
+    // Folded until a second after the face appeared, standing by eight
+    // seconds, still standing while it is there, and through the five
+    // seconds it stays awake after; folded again after that.
+    assert_eq!(at(2), 0.0);
+    assert_eq!(at(9), 1.0);
+    assert_eq!(at(19), 1.0);
+    assert_eq!(at(24), 1.0);
+    assert_eq!(at(33), 0.0);
+    // A face for half a second, somebody walking past, wakes nothing.
+    let passed = company(2, 2);
+    assert!(passed.iter().all(|step| step.1 == 0.0));
+}

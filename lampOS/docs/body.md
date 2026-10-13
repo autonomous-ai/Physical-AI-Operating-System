@@ -170,6 +170,14 @@ the shoulder (servo 2) and the elbow (servo 3):
   given. It stays up while such moods keep arriving and for `--awake-seconds`
   (90 without it) after the last, then folds down again. Asked to stop, it
   folds down first; that may take 3 s and twice the way.
+- A lamp with eyes (see "Looking at a face") also rises for somebody who
+  comes to sit in front of it, without a word: a face in six looks running,
+  about a second, counts as company, and company keeps it awake exactly as
+  being spoken to does. So it does not fold away from a person who is still
+  there, and folds once they have been gone for `--awake-seconds`. A face
+  for less than that, somebody walking past, wakes nothing. Not yet seen on
+  a lamp: whether a folded lamp-4ace's camera sees a person at the desk at
+  all.
 - The way is one number from 0, folded, to 1, stood up. It moves at most the
   whole way in `--stand-seconds` (5 without it; 2 to 20), reaching that speed
   in half a second, and the two joints follow it eased at both ends, so
@@ -467,7 +475,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (219 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-motor` (220 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

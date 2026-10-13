@@ -43,8 +43,9 @@ pub struct Looking {
 
 impl Looking {
     /// The most a whole half-picture may be worth, and the farthest reach:
-    /// about 50 degrees of turn, and 35 and 18 degrees of reach.
-    pub const TURN_CAP: i16 = 600;
+    /// about 80 degrees of turn, and 35 and 18 degrees of reach. lamp-4ace's
+    /// camera is a wide one: 727 counts of yaw and 553 of pitch.
+    pub const TURN_CAP: i16 = 900;
     pub const REACH_CAP: [u16; 2] = [400, 200];
 
     pub fn new(turn: [i16; 2], reach: [u16; 2]) -> Result<Self, &'static str> {
@@ -393,7 +394,8 @@ mod tests {
         );
         assert!(serde_json::from_str::<Seen>(r#"{"face":null,"goal":2100}"#).is_err());
         assert!(Looking::new([-342, 200], [300, 150]).is_ok());
-        assert!(Looking::new([601, 200], [300, 150]).is_err());
+        assert!(Looking::new([901, 200], [300, 150]).is_err());
+        assert!(Looking::new([727, 553], [250, 120]).is_ok());
         assert!(Looking::new([342, 200], [401, 150]).is_err());
         assert!(Looking::new([342, 200], [300, 201]).is_err());
     }

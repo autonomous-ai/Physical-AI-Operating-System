@@ -254,7 +254,20 @@ head returns to where the face was.
 
 The two numbers of `--gaze` have to be found on the lamp: nothing here knows
 how wide its camera sees or which way its joints turn the picture. The old
-runtime's own notes give its camera anything from 60 to 107 degrees across.
+runtime's own notes give its camera anything from 60 to 123 degrees across.
+
+Found on lamp-4ace on 2026-10-13, standing, by telling the body a face was to
+one side (a small script sending the eyes' datagram, no camera involved) and
+comparing one frame taken by hand before and after: 250 counts more of base
+yaw moved the scene 110 of the picture's 320 pixels of half-width to the
+left, and 120 counts more of head pitch moved it 52 of 240 pixels of
+half-height up. So a half-picture is worth 727 counts of yaw and 553 of
+pitch, both positive, near the middle of a lens that sees about 128 degrees
+across: `--gaze 727,553`. The body made the two corrections asked of it
+(160 and then to its reach of 250) and held. No face was in front of the
+lamp for any of this: its eyes have looked at an empty office for several
+minutes without reporting one, and found one in a photo file on the lamp's
+own processor in 50 ms, but the lamp has not yet turned to a person.
 
 ## Running it
 
@@ -275,7 +288,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--stand-seconds N` | fastest the whole way is travelled | 5 | 2 to 20 |
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
-| `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 600 either way |
+| `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch | 250,120 | 400, 200 |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and

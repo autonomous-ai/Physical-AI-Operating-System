@@ -137,6 +137,33 @@ what the missing name costs beyond this rule: "Hey Lamp, what is the
 capital of Italy?" was heard as beginning "Milan", and the lamp answered
 about Milan.
 
+Later the same night, with the memory's three functions also declared
+and the same rule, three more things were counted:
+
+- **New sessions and other people's talk, twice more:** 2 of 12 sessions
+  and then 1 of 12 answered within their first two things heard. Each
+  time one stray answer started it: the lamp answered a third thing on a
+  session (a scrap heard as one word; a remark about the weather), which
+  the rule does not cover, and because it had then "said something to
+  someone in the last 45 seconds" the rule let the next new session's
+  first answer through. An answer nobody asked for excuses the next one.
+- **New sessions and a question put to the lamp by name:** 14 of 16
+  answered their first one, and both that did not had heard "Hey Lamp" as
+  "Milan" and said nothing. With "Milan" and "Weiland" added to the names
+  the character file says its ears make of "Lamp": 7 of 8, two of them
+  heard as "Milan" and answered; the eighth was not heard at all.
+- **Short phrases with the name at the end:** of five "Good night, Lamp."
+  that reached the model, three were heard as "Good night, love" or
+  "Good night, man" and left unanswered.
+
+All three point the same way as the missing name in the text: the lamp
+needs to know it was called from something other than the provider's
+text. Measured on 346 examples from these records (`docs/policy.md`), a
+sign from the device that the lamp was called takes "is this said to the
+lamp" from about three in four right to about nineteen in twenty. That
+sign, and the face turned to the lamp that the eyes now publish, are what
+the part that decides whom the lamp answers is being built to use.
+
 One more thing was tried and is not used. The model was asked to say when
 it heard its name, through a function of the silent kind
 (`LAMP_NAME_SIGNAL`). It did hear it: on 6 of 7 called questions on a

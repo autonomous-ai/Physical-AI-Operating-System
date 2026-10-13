@@ -105,6 +105,57 @@ the request. The rest (the lamp saying "Let me look", the look following
 it, the renewal after) has host tests for its parts and has not run on a
 lamp.
 
+## Telling it something that needs no answer
+
+A third written form tells the model a fact and asks for nothing: one
+`clientContent` message whose turn is left incomplete
+(`InputSender::try_context` in `lamp-gemini`, `wire::encode_context`). It
+is no request: nothing is owed for it, the next thing heard is numbered as
+if it had not been written, and it is written only at a moment when no
+request is open and no answer is unsettled (otherwise it is dropped, for
+whoever offered it to offer again).
+
+Tried on lamp-4ace through its relay without a sound being played
+(`lamp-live provider-check CONFIG --context FACT --written NOTE`, and
+`--context FACT --then-sound-and-written NOTE`, which sends a second of
+near-silence as a heard request in between):
+
+- Nothing came back for the fact alone, in each of twelve runs (nine
+  waited three seconds for it; three went on to the near-silence).
+- It was taken in. Told a name this way, the model answered "do you know
+  my name?" with it, 0.93 s after the question; the same question to a
+  session not told got "I'm afraid I don't!". One run each.
+- A session takes sound after it: three times in three the near-silence
+  ended as unanswered, the connection stayed ready, and the written
+  question after it was answered ("Four.").
+- It changes what the model does with a written line, one run each: "you
+  hear someone say, without calling you: what is the weather like
+  outside?" went unanswered by itself, was answered after "the office has
+  emptied... what they say aloud is said to you", and after "the office is
+  full and people are talking to each other" ended with "..." and no
+  sound.
+
+The first use is for a new session (`crates/live/src/session_fact.rs`,
+`LAMP_SESSION_FACT=on`): being new, a session takes the first thing it
+hears for the start of a conversation with it. Of six that opened on
+lamp-4ace in a talking office with nothing told to them, two answered a
+colleague's sentence to a colleague. With the switch on, each new session
+is told once, unless the lamp said something to someone in the last 45
+seconds:
+
+```text
+(For you to know, not to answer: you have been at your desk for a while,
+and nobody is talking to you at the moment.)
+```
+
+It describes and does not ask for quiet, and a test holds it to that
+([conversation-thread.md](conversation-thread.md) has what asking did).
+Told this, a session still answered a question put to it by name in a
+written line, three times in three. The switch is off: what the fact does
+to the first thing a session hears has not been measured, and written
+lines in place of speech cannot measure it, since an uncalled written line
+is left alone with or without it.
+
 ## Tests
 
 `speak_up::tests`: one hello to someone back after five minutes and none
@@ -116,8 +167,12 @@ file counts only fresh and only for a near face; and only the lamp saying
 it will look asks for a look. `session::tests` in
 `lamp-gemini`: a written request is one message with no activity opened,
 what comes back is its own, an ordinary request follows it, and a look
-is the same one message with the picture before the note. The eyes'
-line has a test beside the kept frame's.
+is the same one message with the picture before the note; a fact is one
+incomplete turn, is no request, and is not written while an answer is
+owed. `session_fact::tests`: only `on` turns it on, and the fact asks for
+no quiet. The eyes' line has a test beside the kept frame's. The worker
+telling a new session has no host test: it is seen in the service's
+journal ("told the new session").
 
 Not shown: the lamp saying it. What a hello sounds like in a room, whether
 five minutes and twenty are the right numbers, and whether a face of 0.14

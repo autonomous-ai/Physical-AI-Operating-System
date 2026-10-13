@@ -986,6 +986,11 @@ struct ToolDesk {
     settings: crate::tools::Settings,
     /// The newest request the model said was not for it.
     declined: Option<u64>,
+    /// The newest request in which the executive was asked to do
+    /// something. Doing what was asked and then saying it was not for the
+    /// lamp cannot both be right, and what was done cannot be undone: the
+    /// request is taken as the lamp's.
+    acted: Option<u64>,
     asked: std::sync::mpsc::Sender<Asked>,
     answers: std::sync::mpsc::Receiver<Asked>,
     /// Calls the executive or the memory has not answered yet.
@@ -1015,6 +1020,7 @@ impl ToolDesk {
         Self {
             settings,
             declined: None,
+            acted: None,
             asked,
             answers,
             waiting: 0,
@@ -1073,6 +1079,14 @@ impl ToolDesk {
             return;
         }
         match crate::tools::route(&self.settings, &call.name) {
+            Route::Decline if self.acted == Some(request) => {
+                // Every call is answered, this one too. What the model
+                // says next is not dropped.
+                tell(&crate::tools::declined());
+                eprintln!(
+                    "lamp-voice provider: request {request}: the model said it was not for it after doing what was asked; not taken"
+                );
+            }
             Route::Decline => {
                 self.declined = Some(request);
                 tell(&crate::tools::declined());
@@ -1087,6 +1101,9 @@ impl ToolDesk {
                 // something to keep.
                 if matches!(route, Route::Memory(_)) && call.name != crate::remember::RECALL {
                     crate::remember::keep_out(request);
+                }
+                if matches!(route, Route::Executive(_)) {
+                    self.acted = Some(request);
                 }
                 let asked = self.asked.clone();
                 let session = lineage.session;
@@ -4688,6 +4705,91 @@ mod tests {
             rig.output().await,
             ProviderOutput::Audio { request: heard, .. } if heard == request
         ));
+        rig.stop().await;
+    }
+
+    /// The model does what it was asked and then says the request was not
+    /// for it. Both cannot be right, and what was done cannot be undone:
+    /// the call is answered and not taken, and what the model says next
+    /// in that request is played. Seen on lamp-4ace on 2026-10-14, three
+    /// requests in a row: the light changed each time and the lamp said
+    /// nothing.
+    #[tokio::test]
+    async fn a_request_the_lamp_acted_on_is_not_one_it_can_then_call_not_for_it() {
+        use std::io::{BufRead, Write};
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let listener =
+            std::os::unix::net::UnixListener::bind(home.path.join(crate::tools::CALL_SOCKET))
+                .unwrap();
+        let executive = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            std::io::BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            stream
+                .write_all(b"{\"ok\":true,\"result\":{\"result\":\"My light is off.\"}}\n")
+                .unwrap();
+        });
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: true,
+                exec: Some(home.path.clone()),
+                memory: None,
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service.send(function_call("c1", "light_off")).await;
+        dial.service.send(idle_complete()).await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c1","name":"light_off","response":{"result":"My light is off."}}
+            ]}})
+        );
+        executive.join().unwrap();
+        // Its second thought, which is still answered.
+        dial.service
+            .send(function_call("c2", crate::tools::NOT_FOR_ME))
+            .await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c2","name":"not_for_me","response":{"ok":true},"scheduling":"SILENT"}
+            ]}})
+        );
+        // What it then says is heard.
+        dial.service.send(provider_audio(5, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: heard, .. } if heard == request
+        ));
+        dial.service.send(idle_complete()).await;
+        loop {
+            match rig.output().await {
+                ProviderOutput::TurnComplete { request: done, .. } if done == request => break,
+                ProviderOutput::Audio { .. } => {}
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+        rig.owner
+            .complete_turn(real_time(), rig.snapshot.owner().unwrap())
+            .unwrap();
+        // The next request is its own: declined, it is silent as before.
+        let next = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(function_call("c3", crate::tools::NOT_FOR_ME))
+            .await;
+        rig.service_message(&mut dial).await;
+        dial.service.send(provider_audio(9, 480)).await;
+        dial.service.send(idle_complete()).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::TurnComplete { request: done, idle: true } if done == next
+        ));
+        assert!(rig.take().is_none(), "a declined request's sound got out");
         rig.stop().await;
     }
 

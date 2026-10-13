@@ -411,6 +411,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut said: Option<(lamp_motor::gesture::Mood, u64, [u16; 3], [u16; 2])> = None;
     let asked_to_stand = arguments.standing.is_some();
     let mut told_whether_it_stands = false;
+    let mut face_said = 0u64;
     let mut eased = [0u16; 3];
     let watch = |glimpse: &lamp_motor::body::Glimpse| {
         let due = match said {
@@ -430,14 +431,19 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 glimpse.step, glimpse.eased, glimpse.positions, glimpse.loads
             );
         }
+        // What the eyes report and where that has it look, at most twice a
+        // second: for setting the two numbers of --gaze on a lamp.
+        if let Some(face) = glimpse.face
+            && glimpse.step - face_said >= 25
+        {
+            face_said = glimpse.step;
+            eprintln!(
+                "lamp-body: step {} {:?} face at {:.2} across {:.2} down, size {:.2}; looking {:?}",
+                glimpse.step, glimpse.mood, face[0], face[1], face[2], glimpse.look
+            );
+        }
         if due {
             said = Some((glimpse.mood, glimpse.step, glimpse.goals, glimpse.arm_goals));
-            if glimpse.look != [0.0; 2] {
-                eprintln!(
-                    "lamp-body: step {} looking {:?} from its own direction",
-                    glimpse.step, glimpse.look
-                );
-            }
             if asked_to_stand && !told_whether_it_stands {
                 told_whether_it_stands = true;
                 eprintln!(

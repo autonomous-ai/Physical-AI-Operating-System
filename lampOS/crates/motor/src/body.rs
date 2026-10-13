@@ -357,6 +357,8 @@ pub struct Glimpse {
     /// Where the eyes have it look: yaw and pitch, in counts from the
     /// pose's own direction.
     pub look: [f32; 2],
+    /// A face the eyes reported on this step: across, down and size.
+    pub face: Option<[f32; 3]>,
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -1293,9 +1295,14 @@ pub(crate) fn run_looking(
         if resting_steps == 0 {
             relaxed = false;
         }
+        let mut face = None;
         if let Some(gaze) = gaze.as_mut() {
+            let seen = eyes();
+            face = seen
+                .and_then(|seen| seen.face)
+                .map(|sight| [sight.x, sight.y, sight.size]);
             look = gaze.step(
-                eyes(),
+                seen,
                 mood,
                 awake_now,
                 u64::from(still_steps) * TICK.as_micros() as u64,
@@ -1494,6 +1501,7 @@ pub(crate) fn run_looking(
             arm_loads: ARM.map(|joint| samples[joint.index()].load),
             arm_temperatures: ARM.map(|joint| samples[joint.index()].temperature),
             look,
+            face,
         });
         let mut surprise = None;
         for joint in Joint::ALL {

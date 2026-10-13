@@ -168,6 +168,9 @@ killed, and what the others do is counted.
 | Decisions | `lamp-decide` (new) | The choices no utterance starts, and the decision model behind them | open | The rules alone decide: no hello it is unsure of, no interruption with a result |
 | Controls | `lamp-controls` (new) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
 | Schedules | `lamp-schedule` (new) | Reminders and timers | open | The lamp says it cannot set one just now; one already set is said late, when the component is back |
+| Name | `lamp-name` ([name.md](name.md)) | Hearing "Hey Lamp" and "Lamp ơi" in what the microphone hears, and saying so on the bus. It decides nothing | open | The lamp talks as before. A new session in a busy room goes by the service's text alone, and no second look is taken at a call that got nothing ([attention.md](attention.md)). Running today |
+| Policy | `lamp-policy` ([policy.md](policy.md)) | For now only a record: what a decision model would have decided about each thing heard, beside what the lamp did | open | Nothing changes: it decides nothing yet. Running today |
+| Health | `lamp-health` ([health.md](health.md)) | Every part's own report gathered into one answer to "how is the lamp", and the board's temperature, load, memory and disk | open | Each part goes on as it was, and nobody is told how the lamp is. Running today |
 | The bus | No process of its own: `lamp-bus` ([bus.md](bus.md)) is a library in each publisher and subscriber and a tool; written and tested, not on a lamp | Carrying what each component senses and derives to whoever subscribes | open | There is nothing to be gone: a publisher or subscriber that dies takes only its own topics or its own copies with it |
 | The surround | setup, network, updates, reset, the operator's pages (last) | Getting a lamp onto a network and keeping its software current | open | The lamp goes on as it is until it next needs one of them |
 
@@ -517,6 +520,28 @@ limit, and gives the model a `not_for_me` it can call instead of speaking
 (part of step 7) on the lamp, where two played runs of twelve new sessions
 each showed no difference between telling a session how the room is and
 not telling it. Nothing else is started.
+
+Where each stood at 06:40 on 2026-10-14, all of it on lamp-4ace: the bus
+(step 0) has fourteen topics: what the voice is doing, heard and said,
+how the room is, the body's joints, the faces the eyes track, each part's
+own report and the lamp's health made of them, the board's state, the
+light asked for and shown, the name heard, the Policy's decisions, and,
+behind a switch of its own, what the second microphone hears (part of
+step 1; the first microphone and the camera's frame are not on it yet). The executive (step 3) changes the lamp's own
+light and volume when asked aloud. Memory (step 4) keeps and forgets what
+it is told; nobody is recognised. Of step 7: the name is heard in the
+sound by a part of its own, the voice lets an answer out on the strength
+of it and tells the model when it stayed silent to someone who called
+([attention.md](attention.md)), and the eyes report whether a face is
+turned to the lamp, which only the watching Policy reads yet. Of step 8: a decision model
+watches and is logged, and was measured too slow through its present
+route to hold back an answer ([policy.md](policy.md)). Health is new and
+outside the steps. Steps 5, 6 and 9 to 12 are not started.
+
+What that night's recordings showed about the voice itself is in
+[duplex-listening.md](duplex-listening.md): interrupting the lamp is
+limited by its second microphone's own clock and processing, not by a
+rule, and no figure for it yet comes from a person.
 
 ## What a session may be told
 

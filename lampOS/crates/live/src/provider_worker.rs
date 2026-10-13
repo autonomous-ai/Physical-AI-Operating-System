@@ -14,7 +14,7 @@ use crate::{
     wire::{Control, WorkerEvent},
 };
 use lamp_gemini::{
-    BarrierWait, Connect, Context, Dialer, Discard, Error, Event, Failure, FailureReason, Notice,
+    BarrierWait, Connect, Context, Discard, Error, Event, Failure, FailureReason, Notice,
     RequestId, SessionConfig, SessionId, Stage, StartRefusal, State, SuccessorStart, Supervisor,
 };
 use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
@@ -486,7 +486,8 @@ pub async fn run_with_continuation(
             .into_session_with_camera(visual.is_some())?
             .barrier_policy(barrier),
     )?;
-    let provider = Supervisor::new(Dialer::new(config), recovery)?;
+    // Each session it opens is told how the conversation went until then.
+    let provider = Supervisor::new(crate::thread::Recalling::new(config), recovery)?;
     let options = Options { reporting };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -755,8 +756,16 @@ fn forward(
             lineage,
             text,
             finished,
-        } => push_text(&mut push, Some(lineage.request.get()), text, finished),
+        } => {
+            if let Ok(mut thread) = crate::thread::THREAD.lock() {
+                thread.lamp(lineage.request.get(), &text, std::time::Instant::now());
+            }
+            push_text(&mut push, Some(lineage.request.get()), text, finished)
+        }
         Event::UncorrelatedInputTranscript { text, finished, .. } => {
+            if let Ok(mut thread) = crate::thread::THREAD.lock() {
+                thread.person(&text, finished, std::time::Instant::now());
+            }
             push_text(&mut push, None, text, finished);
         }
         Event::ModelText { .. } | Event::VoiceActivity { .. } => {}

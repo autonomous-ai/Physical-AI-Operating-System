@@ -364,6 +364,10 @@ impl SessionConfig {
         self.language_code = Some(language_code.into());
         Ok(self)
     }
+    /// The instruction as it will be sent.
+    pub fn instruction_text(&self) -> &str {
+        &self.instruction
+    }
     pub fn instruction(mut self, instruction: &str) -> Result<Self> {
         if instruction.len() > MAX_TEXT_BYTES || instruction.contains('\0') {
             return Err(Error::InvalidConfiguration);

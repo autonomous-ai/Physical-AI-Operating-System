@@ -1,0 +1,21 @@
+[package]
+name = "lamp-bus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Publish and subscribe between the lamp's processes, with no process in the
+# middle: a topic is a directory, a subscriber is a datagram socket in it, and
+# a publisher sends to each without ever waiting. With any one component gone
+# the others publish and subscribe as before (docs/bus.md).
+[[bin]]
+name = "lamp-bus"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

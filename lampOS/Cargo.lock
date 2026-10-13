@@ -807,6 +807,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-bus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-camera"
 version = "0.1.0"
 dependencies = [
@@ -912,6 +920,14 @@ dependencies = [
  "sonora-agc2",
  "sonora-simd",
  "tokio",
+]
+
+[[package]]
+name = "lamp-memory"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

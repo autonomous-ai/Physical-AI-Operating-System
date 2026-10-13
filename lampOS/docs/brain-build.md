@@ -164,11 +164,11 @@ killed, and what the others do is counted.
 | Executive | `lamp-exec` (new) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
 | Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
-| Memory | `lamp-memory` (new) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
+| Memory | `lamp-memory` ([memory.md](memory.md); written and tested, not on a lamp) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
 | Decisions | `lamp-decide` (new) | The choices no utterance starts, and the decision model behind them | open | The rules alone decide: no hello it is unsure of, no interruption with a result |
 | Controls | `lamp-controls` (new) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
 | Schedules | `lamp-schedule` (new) | Reminders and timers | open | The lamp says it cannot set one just now; one already set is said late, when the component is back |
-| The bus | `lamp-bus` (later, decision 15) | Carrying what happened to whoever only observes | open | Observers see nothing; nothing that publishes is slowed or stopped |
+| The bus | No process of its own: `lamp-bus` ([bus.md](bus.md)) is a library in each publisher and subscriber and a tool; written and tested, not on a lamp | Carrying what each component senses and derives to whoever subscribes | open | There is nothing to be gone: a publisher or subscriber that dies takes only its own topics or its own copies with it |
 | The surround | setup, network, updates, reset, the operator's pages (last) | Getting a lamp onto a network and keeping its software current | open | The lamp goes on as it is until it next needs one of them |
 
 What keeps one failure from becoming all of them, and each is a rule the
@@ -504,11 +504,16 @@ while the others are counted.
 | 11 | The second speech route | Deepgram, a text answer, speech synthesis |
 | 12 | The surround | Starting at power-up, setup, network, configuration, updates, reset, the operator's pages, V1's data |
 
-Where each stood at 19:15 on 2026-10-13: step 0 being built, with Memory
-(part of step 4) beside it, each by a second builder to a written
-specification; step 2's first fix written and tested on the host; the room
-told to the voice (part of step 7) on the lamp and heard once. Nothing else
-is started.
+Where each stood at 20:10 on 2026-10-13: step 0's library and tool
+written and passing their tests on the host and as a Linux ARM64 build
+under emulation, with nothing publishing yet; Memory (part of step 4) the
+same; step 2's kept link and its stall fix on lamp-4ace since 19:48, where
+26 staged cuts of the link in two five-minute runs restarted nothing; step
+3's first half, function calls in the provider link, written and tested on
+the host and not against the real service; the room told to the voice
+(part of step 7) on the lamp, where two played runs of twelve new sessions
+each showed no difference between telling a session how the room is and
+not telling it. Nothing else is started.
 
 ## What a session may be told
 

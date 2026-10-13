@@ -15,7 +15,7 @@ func TestNormalizeWakePhrases(t *testing.T) {
 		t.Fatalf("nil: %v, %v", got, err)
 	}
 	for _, bad := range [][]string{
-		{strings.Repeat("a", maxWakePhraseRunes+1)},
+		{strings.Repeat("a", MaxWakePhraseRunes+1)},
 		{"123 456"},
 	} {
 		if _, err := NormalizeWakePhrases(bad); err == nil {

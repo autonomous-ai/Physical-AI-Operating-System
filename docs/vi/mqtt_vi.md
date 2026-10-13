@@ -346,6 +346,9 @@ nhận HAL nhận yêu cầu phát, không đảm bảo audio đã phát xong.
 | `tts.set` | Lưu cấu hình TTS voice/provider/language/speed | `provider`, `voice`, `language`, `speed` (tùy chọn) |
 | `tts.preview` | Preview TTS một lần (không ghi config) | `text` (bắt buộc), tùy chọn `provider`/`voice`/`language`/`speed` |
 | `wakeword.gate` | Bật/tắt wake-word gate top-level (bất đồng bộ; ack `starting`) | `enabled` (boolean bắt buộc) |
+| `wakeword.settings.get` | Đọc cài đặt đánh thức: gate, câu đánh thức, tiếng chime, đèn đánh thức, thời gian nghe tiếp, kèm các giới hạn (đồng bộ) | _(không có)_ |
+| `wakeword.settings.set` | Lưu một phần bất kỳ của cài đặt đánh thức qua đúng đường `PUT /api/device/config`; trả lời một lần kèm cài đặt đã lưu | bất kỳ trong `enabled`, `phrases`, `chime`, `light`, `followup_s` |
+| `wakeword.light.preview` | Chạy thử một đèn đánh thức trong 3 giây qua HAL `POST /led/wake-light/preview`; không lưu gì (đồng bộ) | `color`, tùy chọn `effect`/`speed` |
 | `cloud_perception.set` | **Tắt** các luồng nhận thức camera hoặc giọng nói qua cloud (chỉ opt-out; bất đồng bộ; ack `starting`) | một hoặc nhiều `motion`, `emotion`, `pose`, `fire_hazard`, `speaker_id`, `speech_emotion` (phải là `false`) |
 | `voice.input_mode` | Chọn cách nhập giọng nói (ack bất đồng bộ) | `mode`: `automatic` hoặc `tap_to_talk` |
 | `timezone.set` | Áp dụng múi giờ IANA của device (bất đồng bộ; ack `starting`) | `timezone` (bắt buộc, ví dụ `Asia/Ho_Chi_Minh`) |
@@ -584,6 +587,71 @@ xác nhận voice pipeline sẵn sàng. Lỗi lưu, lỗi restart và restart qu
 trình os-server hiện tại, trạng thái wake chờ áp dụng được giữ lại sau lỗi lưu
 hoặc restart, nên gửi lại cùng giá trị mong muốn sẽ thử áp dụng lại. Khi đã áp
 dụng thành công, giá trị wake không đổi sẽ không gây thêm lần restart.
+
+#### `wakeword.settings.*` — Cài đặt đánh thức qua MQTT
+
+Bản dành cho điện thoại và website của phần đánh thức trong web **Settings > Device > How to talk**.
+`set` đi qua đúng phần kiểm tra và lưu của `PUT /api/device/config`, nên sửa qua
+HTTP và MQTT được xếp hàng và theo cùng luật.
+
+| Thao tác trên app | MQTT kind |
+|-------------------|-----------|
+| Mở màn hình | `wakeword.settings.get` |
+| Lưu | `wakeword.settings.set` |
+| Thử màu/hiệu ứng đèn trên device | `wakeword.light.preview` |
+
+```json
+{"cmd": "data", "kind": "wakeword.settings.get", "data": {}}
+{"cmd": "data", "kind": "wakeword.settings.set", "data": {"phrases": ["sam", "hey sam"], "chime": true,
+  "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5}, "followup_s": 5}}
+{"cmd": "data", "kind": "wakeword.light.preview", "data": {"color": [16, 9, 3], "effect": "spin", "speed": 1.5}}
+```
+
+`get` và `set` trả `success` kèm:
+
+```json
+{"enabled": true, "voice_input_mode": "automatic", "agent_name": "sam",
+ "phrases": ["sam", "hey sam"], "phrases_custom": true, "phrases_default": ["wake up sam", "hello sam", "..."],
+ "max_phrases": 30, "max_phrase_chars": 40,
+ "chime": true, "has_light": true,
+ "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5},
+ "light_effects": ["solid", "breathing", "spin", "blink"], "light_speed_min": 0.25, "light_speed_max": 3,
+ "followup_s": 5, "followup_custom": true, "followup_min_s": 3, "followup_max_s": 30}
+```
+
+- `enabled` là gate **Require attention trigger** (config `wakeword`). Cài đặt
+  đánh thức chỉ có tác dụng khi `voice_input_mode` là `automatic`; ẩn chúng khi
+  là `tap_to_talk`.
+- `phrases` là danh sách đang dùng. `phrases_custom` là false khi đó là danh
+  sách có sẵn (tự đổi theo tên agent). Trong `set`, `phrases` thay cả danh
+  sách; `[]` khôi phục danh sách có sẵn. Câu được chuyển chữ thường, gộp khoảng
+  trắng và bỏ trùng; mỗi câu cần ít nhất một chữ cái và tối đa
+  `max_phrase_chars` ký tự, tổng cộng tối đa `max_phrases` câu.
+- `chime` và `light.enabled` là hai tín hiệu khi đánh thức; phải giữ ít nhất
+  một cái, nên tắt cả hai sẽ lỗi `keep the wake chime or the wake light on, so
+  a wake is noticeable`.
+- `light` là kiểu đèn đang áp: kiểu chủ máy đã lưu đè lên kiểu listening của
+  board (`[4, 8, 16]`, `breathing`, `1.2`). Trong `set`, `light` thay cả kiểu
+  đèn và công tắc đã lưu; gửi đủ bốn trường. `color` là `[r, g, b]` 0-255 và
+  không được đen; `effect` thuộc `light_effects`; `speed` trong khoảng
+  `light_speed_min`–`light_speed_max`. Device có `has_light: false` bỏ qua nó.
+- `followup_s` là thời gian device nghe tiếp sau khi đánh thức hoặc sau câu trả
+  lời mà không cần câu đánh thức (`followup_min_s`–`followup_max_s`). Khi
+  `followup_custom` là false thì đó là mặc định của image do HAL báo (5 giây
+  trên Intern v2 và Lamp), hoặc 10 giây khi HAL không chạy.
+
+`set` chỉ đổi các trường được gửi; payload rỗng lỗi `nothing to change`. Câu
+đánh thức, chime, đèn và thời gian nghe tiếp áp dụng ngay. Đổi `enabled` sẽ
+restart HAL (tối đa 30 giây): nếu sau 5 giây vẫn chưa xong, device trả
+`success` kèm cài đặt đã lưu và `applying: true`, còn lỗi restart sau đó được
+gửi thành một `failure` riêng cùng kind. Lỗi kiểm tra dữ liệu luôn trả
+`failure` trước khi lưu bất cứ gì.
+
+`wakeword.light.preview` chạy kiểu đèn trong 3 giây rồi trả đèn về như cũ.
+`effect` mặc định `breathing`, `speed` mặc định `1.2`. Khi device đang ngủ,
+đang nói, đang phát nhạc hoặc đèn tắt mic đang chiếm dải đèn, nó trả `success`
+kèm `{"status": "ok", "painted": false}`. Device không có capability `light`
+trả `failure` với `this device has no light`.
 
 #### `cloud_perception.set`
 

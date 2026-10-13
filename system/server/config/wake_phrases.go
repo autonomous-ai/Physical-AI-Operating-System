@@ -11,8 +11,8 @@ import (
 const (
 	// MaxWakePhrases caps the owner list; every phrase is checked on each STT partial.
 	MaxWakePhrases = 30
-	// maxWakePhraseRunes keeps a phrase short enough to say in one breath.
-	maxWakePhraseRunes = 40
+	// MaxWakePhraseRunes keeps a phrase short enough to say in one breath.
+	MaxWakePhraseRunes = 40
 
 	// Listening window after a wake; keep aligned with hal/config.py (WAKE_FOLLOWUP_*).
 	WakeFollowupDefaultS = 10
@@ -38,8 +38,8 @@ func NormalizeWakePhrases(in []string) ([]string, error) {
 		if p == "" {
 			continue
 		}
-		if utf8.RuneCountInString(p) > maxWakePhraseRunes {
-			return nil, fmt.Errorf("wake phrase %q is longer than %d characters", p, maxWakePhraseRunes)
+		if utf8.RuneCountInString(p) > MaxWakePhraseRunes {
+			return nil, fmt.Errorf("wake phrase %q is longer than %d characters", p, MaxWakePhraseRunes)
 		}
 		if strings.IndexFunc(p, unicode.IsLetter) < 0 {
 			return nil, fmt.Errorf("wake phrase %q has no letters", p)
@@ -67,6 +67,9 @@ type WakeLight struct {
 
 // WakeLightEffects are the owner-facing effects; keep aligned with hal/wake_light.py.
 var WakeLightEffects = []string{"solid", "breathing", "spin", "blink"}
+
+// WakeLightDefault is the board's `listening` look in hal/presets.py, shown until the owner picks another.
+var WakeLightDefault = WakeLight{Color: []int{4, 8, 16}, Effect: "breathing", Speed: 1.2}
 
 const (
 	WakeLightSpeedMin = 0.25

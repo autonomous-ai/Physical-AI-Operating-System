@@ -357,6 +357,9 @@ before synthesis; valid requests acknowledge `starting`, then `success` or
 | `tts.set` | Persist TTS voice/provider/language/speed config | `provider`, `voice`, `language`, optional `speed` |
 | `tts.preview` | One-shot TTS preview (no config write) | `text` (required), optional `provider`/`voice`/`language`/`speed` |
 | `wakeword.gate` | Set the top-level wake-word gate (async; acks `starting`) | `enabled` (required boolean) |
+| `wakeword.settings.get` | Read the wake settings: gate, phrases, chime, wake light, listening window, plus limits (synchronous) | _(none)_ |
+| `wakeword.settings.set` | Save any subset of the wake settings through the `PUT /api/device/config` path; replies once with the saved settings | any of `enabled`, `phrases`, `chime`, `light`, `followup_s` |
+| `wakeword.light.preview` | Play a candidate wake light for 3 s via HAL `POST /led/wake-light/preview`; nothing is saved (synchronous) | `color`, optional `effect`/`speed` |
 | `cloud_perception.set` | Turn camera or voice cloud perceptions **off** (opt-out only; async; acks `starting`) | any of `motion`, `emotion`, `pose`, `fire_hazard`, `speaker_id`, `speech_emotion` (must be `false`) |
 | `voice.input_mode` | Select voice input behavior (async ack) | `mode`: `automatic` or `tap_to_talk` |
 | `timezone.set` | Apply the device's IANA timezone (async; acks `starting`) | `timezone` (required, e.g. `Asia/Ho_Chi_Minh`) |
@@ -601,6 +604,73 @@ already be saved when a restart fails. Within the current os-server process, a
 pending wake apply is retained after a save or restart failure, so retrying the
 same desired value retries the apply. Once applied successfully, an unchanged
 wake value does not trigger another restart.
+
+#### `wakeword.settings.*` — Wake settings over MQTT
+
+The phone and website twin of the web **Settings > Device > How to talk** wake
+controls. `set` goes through the same validation and save path as
+`PUT /api/device/config`, so HTTP and MQTT edits are serialized and follow the
+same rules.
+
+| App action | MQTT kind |
+|------------|-----------|
+| Open the screen | `wakeword.settings.get` |
+| Save | `wakeword.settings.set` |
+| Try a light colour/effect on the device | `wakeword.light.preview` |
+
+```json
+{"cmd": "data", "kind": "wakeword.settings.get", "data": {}}
+{"cmd": "data", "kind": "wakeword.settings.set", "data": {"phrases": ["sam", "hey sam"], "chime": true,
+  "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5}, "followup_s": 5}}
+{"cmd": "data", "kind": "wakeword.light.preview", "data": {"color": [16, 9, 3], "effect": "spin", "speed": 1.5}}
+```
+
+`get` and `set` reply `success` with:
+
+```json
+{"enabled": true, "voice_input_mode": "automatic", "agent_name": "sam",
+ "phrases": ["sam", "hey sam"], "phrases_custom": true, "phrases_default": ["wake up sam", "hello sam", "..."],
+ "max_phrases": 30, "max_phrase_chars": 40,
+ "chime": true, "has_light": true,
+ "light": {"enabled": true, "color": [16, 9, 3], "effect": "spin", "speed": 1.5},
+ "light_effects": ["solid", "breathing", "spin", "blink"], "light_speed_min": 0.25, "light_speed_max": 3,
+ "followup_s": 5, "followup_custom": true, "followup_min_s": 3, "followup_max_s": 30}
+```
+
+- `enabled` is the **Require attention trigger** gate (config `wakeword`). The
+  wake settings only matter while `voice_input_mode` is `automatic`; hide them
+  for `tap_to_talk`.
+- `phrases` is the list in effect. `phrases_custom` is false while it is the
+  built-in list (which follows agent renames). In `set`, `phrases` replaces the
+  whole list; `[]` restores the built-in list. Phrases are lowercased, spaces
+  collapsed and duplicates dropped; each needs a letter and at most
+  `max_phrase_chars` characters, and there are at most `max_phrases`.
+- `chime` and `light.enabled` are the two wake cues; at least one stays on, so
+  turning both off fails with `keep the wake chime or the wake light on, so a
+  wake is noticeable`.
+- `light` is the look in effect: the owner's saved look over the board's
+  listening look (`[4, 8, 16]`, `breathing`, `1.2`). In `set`, `light`
+  replaces the saved look and toggle; send all four fields. `color` is
+  `[r, g, b]` 0-255 and not black; `effect` is one of `light_effects`; `speed`
+  is `light_speed_min`–`light_speed_max`. Devices with `has_light: false`
+  ignore it.
+- `followup_s` is how long the device keeps listening after a wake or a reply
+  without the wake phrase (`followup_min_s`–`followup_max_s`). While
+  `followup_custom` is false it is HAL's image default (5 s on Intern v2 and
+  Lamp), or 10 s when HAL is down.
+
+`set` changes only the fields it sends, and an empty payload fails with
+`nothing to change`. Phrases, chime, light and the listening window apply live.
+Changing `enabled` restarts HAL (up to 30 s): if the update is still running
+after 5 s, the reply is `success` with the saved settings and `applying: true`,
+and a later restart failure is published as a separate `failure` for the same
+kind. Validation errors always reply `failure` before anything is saved.
+
+`wakeword.light.preview` plays the look for 3 s, then restores the strip.
+`effect` defaults to `breathing` and `speed` to `1.2`. It replies `success`
+with `{"status": "ok", "painted": false}` while sleep, speech, music or the
+mic-muted light owns the strip. Devices without the `light` capability reply
+`failure` with `this device has no light`.
 
 #### `cloud_perception.set`
 

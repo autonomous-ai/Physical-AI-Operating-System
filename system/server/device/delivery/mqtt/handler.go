@@ -252,6 +252,12 @@ func (h *DeviceMQTTHandler) dispatchData(env domain.MQTTDataCommand) error {
 		return h.handleVoiceInputMode(env)
 	case domain.KindWakeWordGate:
 		return h.handleWakeWordGate(env)
+	case domain.KindWakeSettingsGet:
+		return h.handleWakeSettingsGet(env)
+	case domain.KindWakeSettingsSet:
+		return h.handleWakeSettingsSet(env)
+	case domain.KindWakeLightPreview:
+		return h.handleWakeLightPreview(env)
 	case domain.KindCloudPerceptionSet:
 		return h.handleCloudPerceptionSet(env)
 	case domain.KindTimezoneSet:

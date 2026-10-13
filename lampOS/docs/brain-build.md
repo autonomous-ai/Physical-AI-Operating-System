@@ -5,21 +5,20 @@ Written 2026-10-13 by the owner of the voice runtime, in answer to the
 (called "the page" below). This is the short record the build works
 from; the page is the long reference and is amended to agree with it.
 
-**Status.** Given by the product owner on 2026-10-13: decision 1 (one
-builder for all of it, "so no communication overhead"), with the page's
-author reviewing and writing the failure tests; decision 7 (addressing
-follows the room, and a spoken yes before work leaves the lamp); decision
-12, which they made larger than was proposed (memory across days, not one
-day); the order (the experience first, setup, updates and the rest "the
-last steps before shipping to customers"); and decision 15, changed at
-their question. Also theirs, the same evening: the lamp is in Ho Chi Minh
-City, as its character says; the computer it pairs with for its first
-task is the one it sits beside, which already has Harness; and a key for
-the decision model's provider, which is kept off the lamp's repository
-and out of every record. The other decisions are proposed and await their
-word.
-Once given, a decision changes only on the product owner's word, and the
-change is written here first.
+**Status: settled by the product owner on 2026-10-13, at about 18:55
+local.** Every decision below has their word, given through that evening:
+one builder for all of it, with the page's author reviewing and writing
+the failure tests; the experience first and setup, updates and the rest
+"the last steps before shipping to customers"; the remaining decisions
+"approve all" as they stand here; and four that they changed from what
+was proposed, each marked where it is written (10, 12, 14 and 15). A
+decision changes only on the product owner's word, and the change is
+written here first. They asked for building to begin at once: "so you can
+start buildign the next 24 hours".
+
+Also theirs: the lamp is in Ho Chi Minh City, as its character says, and
+a key for the decision model's provider, which is kept off the lamp's
+repository and out of every record.
 
 Everything said about the lamp is from lamp-4ace on 2026-10-12 and 13;
 where a number is one run or a silent probe it says so.
@@ -67,26 +66,38 @@ The product:
 9. **The provider down, at launch:** an honest "voice is down" state with
    light and controls working. The second speech route (Deepgram, a text
    answer, speech synthesis) is later work and does not block launch.
-10. **Senses at launch:** the voice microphone; the plain microphone for
-    how near a voice is, if that proves out; the camera on the lamp only,
-    for whether a face is there and where, and one picture sent when the
-    lamp has said it will look. No recognition of who and no reading of
-    mood.
+10. **Senses: all of them, without limit.** Proposed was a camera kept to
+    noticing a face. The product owner's answer: "you can use all the
+    sensors with full permission ... including the camera. do everything
+    and come up with amazing cool features with the camera. it's one of
+    the most powerful sesnses. the eyes! don't limit it." So both
+    microphones and the camera for whatever serves the experience: who is
+    there, whether someone is looking at the lamp when they speak, what is
+    shown to it, what is on the desk. What stays is a matter of speed and
+    not of permission: a picture in a session slowed every later answer by
+    about 0.45 s, so what can be seen on the lamp is seen on the lamp, and
+    a picture goes to the provider when an answer needs it.
 11. **Motion at launch:** yes, what runs today, plus starting at power-up
     and a hands-on check of what the servos do at power-up.
-12. **Memory at launch:** the lamp remembers across days. Today it
-    remembers ten minutes. Still to be decided with the product owner:
-    one memory for whoever speaks to it or one for each person (the second
-    needs it to know who is speaking, which decision 10 leaves out);
-    whether it also keeps what it is told to remember; that it is kept on
-    the lamp only; and how it is told to forget.
+12. **Memory across days** (proposed was one day). One memory to begin
+    with; one for each person once the lamp can tell who is in front of
+    it, and then it does not tell one person another's conversations. It
+    keeps what was said with it and what it is told to remember, on the
+    lamp, and forgets on being told to ("forget that", "forget
+    everything").
 
 Engineering:
 
 13. **Audio leaves the lamp only after local admission.** No second cloud
     listens continuously.
-14. **Agents run off the lamp, through Harness,** one paired computer
-    first; a permission prompt stays on that computer.
+14. **Agents run off the lamp, through Harness, and Harness runs on the
+    lamp.** Proposed was a client on the lamp paired with one computer by
+    V1's protocol. The product owner had Harness itself installed on the
+    lamp and signed in to their account on 2026-10-13, so the lamp is one
+    of that account's machines and reaches the agents on the others
+    through Harness's own commands. Nothing of V1's pairing and encryption
+    is ported. The first task goes to the computer the lamp sits beside. A
+    permission prompt stays on the computer it appears on.
 15. **Publish and subscribe for everything outside the audio path,** on
     one small local bus, built when the first thing that only observes
     needs it (the operator's pages, a recorder) and not before. Each topic
@@ -122,6 +133,52 @@ tools costs ordinary answers (the provider's own search tool cost nothing,
 two runs each way), and whether a model with tools acts more readily on
 speech it only overheard, which is why decision 7 asks more of an action
 than of chat.
+
+## Components, processes and owners
+
+The product owner's instruction for the build, 2026-10-13: "design them
+by components and subsystems and clear runtime processes. good software
+engineering practices. we'll assign team members to own different
+components/subsystems. design it so that if one component fail it doesn't
+affect the whole system."
+
+Each component below is its own process under its own systemd unit, with
+its own crate or directory, one written interface to each neighbour, and
+a place for one person's name. A component is told what it needs over a
+local socket or a small file and never reaches into another's hardware or
+memory. The last column is the test each one has to pass on a lamp: it is
+killed, and what the others do is counted.
+
+| Component | Process | Owns | Owner | With it gone |
+|---|---|---|---|---|
+| Voice | `lamp-live` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
+| Body | `lamp-body` | The servo bus; standing, turning to a face, gestures | open | The lamp talks and does not move. Running today |
+| Eyes | `lamp-eyes` | The camera; whether a face is there, where, and later whose; the picture for a look | open | The lamp talks and moves without looking at anyone, says no hello, and says its eye is shut when asked to look. Running today |
+| Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
+| Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
+| Memory | `lamp-memory` (new) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
+| Decisions | `lamp-decide` (new) | The choices no utterance starts, and the decision model behind them | open | The rules alone decide: no hello it is unsure of, no interruption with a result |
+| The bus | `lamp-bus` (later, decision 15) | Carrying what happened to whoever only observes | open | Observers see nothing; nothing that publishes is slowed or stopped |
+| The surround | setup, network, updates, reset, the operator's pages (last) | Getting a lamp onto a network and keeping its software current | open | The lamp goes on as it is until it next needs one of them |
+
+What keeps one failure from becoming all of them, and each is a rule the
+code is held to:
+
+- **No component waits on another to do its own work.** What it sends is
+  sent without blocking; what it needs and does not get, it does without,
+  in a way a person at the lamp can tell.
+- **One writer for each piece of hardware,** and that writer is the one
+  that stops it. Two processes never hold the speaker, the ring, the
+  servo bus or a microphone.
+- **Each is restarted by itself.** Its unit restarts it; none is restarted
+  because another was. A restart of the voice waits for a moment when
+  nobody is speaking (below).
+- **Each says whether it is ready,** and nothing is inferred from a
+  process being alive.
+- **Each keeps its own records** and none reads another's files.
+
+Today the voice is one unit with its workers inside it, and a worker's
+death ends the service. Experience step 1 changes that.
 
 ## Rules between the runtime and what surrounds it
 
@@ -560,7 +617,44 @@ the general tool of decision 5. Both are to be tried in step 2 against the
 same counts as everything else: what they cost an ordinary answer, and
 what they do to the first thing a new session hears.
 
-## Experience step 3 in more detail: the Harness client
+## Experience step 3 in more detail: tasks through Harness on the lamp
+
+Decision 14 as the product owner settled it. On 2026-10-13 Harness 0.3.94
+was installed on lamp-4ace by its own installer, signed in to the product
+owner's account in the browser of the computer beside it, and started. The
+lamp shows on the account as a machine, with the computer it sits beside
+and the account's other machines. The voice was not disturbed. No task has
+been sent.
+
+What the Tasks component uses, all of it Harness's own and none of it
+ported: starting an agent on a named machine with a first message
+(`harness new <agent> @<machine> <project> -- <task>`), listing what is
+there (`harness ps`), reading an agent's state and its last turn, what it
+was asked and what it answered (`harness show`), waiting until it stops
+working, where one exit code means that it needs the person
+(`harness wait`), closing what it started (`harness close`), and the same
+verbs as a server for programs (`harness mcp`). Harness keeps agents
+starting agents off unless the account turns it on; on this account it is
+on.
+
+What carries over from the reading of V1 and of the device protocol
+below, because it is about the experience and not the wire: a task is
+never sent twice; "I cannot tell whether that went through" is a real
+outcome with its own words; a result is said once; a prompt for
+permission on a computer is said once and never answered by voice; a
+spoken yes comes before anything is sent (decision 7).
+
+Not yet known, and the first things step 3 finds out: how a result that
+answers two requests looks through these verbs; whether a follow-up can
+be given to a working agent from the lamp; what the lamp is told when the
+agent asks a question; how long each verb takes from the lamp.
+
+### The other route, not taken: V1's device protocol
+
+Kept because it is how V1 worked and how a lamp could work with a
+computer that is on the same network and no account between them. It is
+not built.
+
 
 Read from V1 on 2026-10-13 (`docs/harness.md` at the repository root,
 `system/harness/`, about 5,900 lines of Go with its tests); four of the

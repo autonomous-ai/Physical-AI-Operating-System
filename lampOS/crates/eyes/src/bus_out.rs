@@ -13,7 +13,7 @@
 //! list is left to run out.
 use crate::{faces, facing};
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{Face, Faces};
+use lamp_msgs::{Diagnostic, Face, Faces, Level};
 use std::{io, time::Duration};
 
 /// Where the eyes read whether to publish. `on` only.
@@ -132,10 +132,38 @@ pub fn message(found: &[faces::Face], filled: (usize, usize), ids: &mut Ids, now
     Faces { faces }
 }
 
+/// How the camera is, as far as the lamp's health is concerned.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Camera {
+    /// Closed because seeing is not permitted now. That is the eyes
+    /// working as they should: with the privacy switch closed, or nobody
+    /// to look at, they do not look.
+    Closed,
+    Open,
+    /// Permitted, and it does not open.
+    NotOpening,
+    /// It was open and stopped giving pictures.
+    Failed,
+}
+
+/// The eyes' own report (`diagnostics`): well unless the camera cannot be
+/// used when it may be.
+pub fn health(camera: Camera) -> Diagnostic {
+    let (level, message, state) = match camera {
+        Camera::Closed => (Level::Ok, "", "closed"),
+        Camera::Open => (Level::Ok, "", "open"),
+        Camera::NotOpening => (Level::Warn, "the camera does not open", "not opening"),
+        Camera::Failed => (Level::Warn, "the camera stopped giving pictures", "failed"),
+    };
+    Diagnostic::new(level, SOURCE, message).with("camera", state)
+}
+
 pub struct BusOut {
     faces: Publisher,
+    health: Publisher,
     ids: Ids,
     alive_at_us: u64,
+    reported_at_us: Option<u64>,
 }
 
 impl BusOut {
@@ -157,10 +185,14 @@ impl BusOut {
     pub fn on(bus: &Bus) -> io::Result<Self> {
         let mut faces = bus.publisher_declared(Faces::TOPIC, &Faces::declaration(), SOURCE)?;
         faces.expires_after(Some(LASTS));
+        let health =
+            bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), SOURCE)?;
         Ok(Self {
             faces,
+            health,
             ids: Ids::default(),
             alive_at_us: 0,
+            reported_at_us: None,
         })
     }
 
@@ -178,6 +210,20 @@ impl BusOut {
             self.alive_at_us = now_us;
             let _ = self.faces.alive();
         }
+    }
+
+    /// Say how the eyes are. Call from the loop on every turn, whatever
+    /// the camera is doing: it is said a little more often than once a
+    /// second, as the topic promises, and no more.
+    pub fn report(&mut self, camera: Camera, now_us: u64) {
+        if self
+            .reported_at_us
+            .is_some_and(|at| now_us.saturating_sub(at) < 950_000)
+        {
+            return;
+        }
+        self.reported_at_us = Some(now_us);
+        let _ = self.health.publish_json(now_us, &health(camera));
     }
 }
 
@@ -314,5 +360,70 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
         out.saw(&[], PICTURE, 7);
         out.tick(2_000_000);
+        out.report(Camera::Open, 2_000_000);
+    }
+
+    #[test]
+    fn the_eyes_are_well_with_the_camera_closed_or_open_and_warn_when_it_cannot_be_used() {
+        for (camera, level, message, state) in [
+            (Camera::Closed, Level::Ok, "", "closed"),
+            (Camera::Open, Level::Ok, "", "open"),
+            (
+                Camera::NotOpening,
+                Level::Warn,
+                "the camera does not open",
+                "not opening",
+            ),
+            (
+                Camera::Failed,
+                Level::Warn,
+                "the camera stopped giving pictures",
+                "failed",
+            ),
+        ] {
+            let report = health(camera);
+            assert_eq!(
+                (report.level, report.name.as_str(), report.message.as_str()),
+                (level, "eyes", message)
+            );
+            assert_eq!(report.values.len(), 1);
+            assert_eq!(
+                (
+                    report.values[0].key.as_str(),
+                    report.values[0].value.as_str()
+                ),
+                ("camera", state)
+            );
+        }
+    }
+
+    #[test]
+    fn how_the_eyes_are_is_said_about_once_a_second_whatever_the_camera_does() {
+        let root = std::path::PathBuf::from(format!("/tmp/leh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut hears = bus
+            .subscribe_typed(Diagnostic::TOPIC, "test", Diagnostic::TYPE)
+            .unwrap();
+        let mut out = BusOut::on(&bus).unwrap();
+        // Three seconds of the loop, a turn every 5 ms: closed, then the
+        // camera does not open.
+        for turn in 0..600u64 {
+            let camera = if turn < 300 {
+                Camera::Closed
+            } else {
+                Camera::NotOpening
+            };
+            out.report(camera, turn * 5_000);
+        }
+        let mut said = Vec::new();
+        while let Some(message) = hears.recv(std::time::Duration::from_millis(50)).unwrap() {
+            said.push(message.parse::<Diagnostic>().unwrap());
+        }
+        assert_eq!(said.len(), 4, "{said:?}");
+        assert_eq!(said[0].level, Level::Ok);
+        assert_eq!(said[3].message, "the camera does not open");
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

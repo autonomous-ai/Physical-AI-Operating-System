@@ -259,8 +259,17 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let (mut frames, mut looks, mut with_face, mut unreadable) = (0u32, 0u32, 0u32, 0u32);
     let mut spent = Duration::ZERO;
     let mut reported_at = Instant::now();
+    // How the camera is, for the lamp's health.
+    let mut camera = lamp_eyes::bus_out::Camera::Closed;
     eprintln!("lamp-eyes: ready; the camera stays closed until it is permitted");
     loop {
+        // On every turn, whatever the camera is doing: that the eyes are
+        // there, and how they are.
+        if let Some(bus) = bus_out.as_mut() {
+            let now = lamp_ipc::monotonic_us();
+            bus.tick(now);
+            bus.report(camera, now);
+        }
         let mut datagram = [0u8; 64];
         for _ in 0..32 {
             match permits.recv(&mut datagram) {
@@ -278,6 +287,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 eprintln!("lamp-eyes: camera closed: not permitted");
                 tell(Seen { face: None });
             }
+            camera = lamp_eyes::bus_out::Camera::Closed;
             if let Some(kept) = kept.as_mut() {
                 kept.forget();
             }
@@ -330,6 +340,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 Ok(mode) => {
                     eprintln!("lamp-eyes: camera open, {} by {}", mode.width, mode.height);
                     port = Some(opening);
+                    camera = lamp_eyes::bus_out::Camera::Open;
                     reported_at = Instant::now();
                 }
                 Err(error) => {
@@ -337,6 +348,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                         "lamp-eyes: camera did not open: {error:?} {:?}",
                         opening.diagnostics().fault
                     );
+                    camera = lamp_eyes::bus_out::Camera::NotOpening;
                     retry_at = Instant::now() + RETRY;
                     continue;
                 }
@@ -361,6 +373,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
         if let Some(error) = failed {
             eprintln!("lamp-eyes: camera failed: {error:?}; closing it");
+            camera = lamp_eyes::bus_out::Camera::Failed;
             if let Some(mut open) = port.take() {
                 let _ = open.stop(budget(STOP_BUDGET_US));
             }
@@ -416,9 +429,6 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 }
                 Err(_) => unreadable += 1,
             }
-        }
-        if let Some(bus) = bus_out.as_mut() {
-            bus.tick(lamp_ipc::monotonic_us());
         }
         if reported_at.elapsed() >= REPORT_EVERY {
             eprintln!(

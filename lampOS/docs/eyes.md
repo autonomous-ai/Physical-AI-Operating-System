@@ -199,6 +199,22 @@ whom the lamp answers ([policy.md](policy.md)) is to. The numbers for
 picture's width, and the sign of the angle assumes the picture is not
 mirrored: neither has been checked with a person in front of this lamp.
 
+About once a second the eyes also say how they are, on `diagnostics`
+under the name `eyes`, for the lamp's health ([health.md](health.md)):
+
+| Level | Message | When |
+|---|---|---|
+| `ok` | | The camera is open, or closed because seeing is not permitted now. Closed is the eyes working as they should |
+| `warn` | `the camera does not open` | Permitted, and the camera cannot be opened; it is tried again |
+| `warn` | `the camera stopped giving pictures` | It was open and failed, until it is open again |
+
+The one fact beside it is `camera`: `open`, `closed`, `not opening` or
+`failed`. It is said on every turn of the loop that is due, whatever the
+camera is doing, and the sign that the eyes are there is now given the
+same way: before 2026-10-14 it was not given while the camera was not
+permitted, so the eyes read as gone from the bus whenever they were not
+looking.
+
 ## Running it
 
 ```text

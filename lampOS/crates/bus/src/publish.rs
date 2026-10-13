@@ -13,7 +13,16 @@
 //! (`unix(7)`, `SO_SNDBUF`), so with one sending socket for all, a single
 //! subscriber that stopped reading would use the whole allowance up and
 //! every send to the others would fail with it.
-use crate::{Bus, FILE_MODE, name, wire};
+//!
+//! A publisher also shows that it is there: an entry in the topic's `pubs/`
+//! from its first message, or from the start if it declared the topic, given
+//! a new time at most once a second while it publishes (`live.rs`). That is
+//! one file touched a second and nothing a subscriber could hold up.
+use crate::{
+    Bus, FILE_MODE,
+    declare::{self, Declaration},
+    live, name, wire,
+};
 use serde::Serialize;
 use std::{
     fs,
@@ -27,6 +36,10 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+
+/// The longest a publisher goes between two refreshes of its entry while it
+/// publishes, whatever the lease: a third of the lease if that is less.
+const SHOW_EVERY: Duration = Duration::from_secs(1);
 
 /// The most subscribers one publisher sends to on a topic. A subscriber
 /// that binds socket after socket would otherwise cost every publisher a
@@ -120,6 +133,18 @@ pub struct Publisher {
     trouble: Option<io::Error>,
     /// The last publish ended in such trouble, and it has been said.
     failing: bool,
+    /// What this publisher declared the topic to be, if it did.
+    declaration: Option<Declaration>,
+    pubs: PathBuf,
+    /// Where this publisher shows that it is alive.
+    entry: PathBuf,
+    show_every: Duration,
+    /// When the entry was last given a new time, or that was last tried.
+    shown: Option<Instant>,
+    /// The entry has been there, so there may be one to remove at the end.
+    listed: bool,
+    /// The last try to show it failed.
+    unlisted: bool,
 }
 
 /// Sixteen hex characters no other publisher instance is likely to have:
@@ -139,29 +164,27 @@ fn boot() -> String {
     format!("{:016x}", stirred ^ (stirred >> 31))
 }
 
-fn unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_millis() as u64)
-}
-
 impl Publisher {
     pub(crate) fn new(bus: &Bus, topic: &str, kind: wire::Kind, source: &str) -> io::Result<Self> {
         name::topic(topic)?;
         name::source(source)?;
         let directory = bus.root.join(topic);
         let boot = boot();
+        let pubs = directory.join("pubs");
         Ok(Self {
             subs: directory.join("subs"),
             latest: directory.join("latest"),
             // No topic's directory begins with a dot, and no two publishers
             // have one `boot`.
             writing: directory.join(format!(".latest.{boot}.new")),
+            entry: live::entry(&pubs, source, &boot),
+            pubs,
             directory,
             header: wire::Header {
                 topic: topic.into(),
                 kind,
                 enc: String::new(),
+                type_name: None,
                 source: source.into(),
                 boot,
                 seq: 0,
@@ -178,11 +201,55 @@ impl Publisher {
             totals: Totals::default(),
             trouble: None,
             failing: false,
+            declaration: None,
+            show_every: SHOW_EVERY.min(bus.lease / 3),
+            shown: None,
+            listed: false,
+            unlisted: false,
         })
+    }
+
+    /// A publisher that says what its topic carries. The declaration is
+    /// written and the publisher listed before this returns, so a topic can
+    /// be seen to have a source that has not spoken yet. It fails if the
+    /// topic is already declared as another type or kind, and, unlike a
+    /// publisher that declares nothing, if the root cannot be used.
+    pub(crate) fn declared(
+        bus: &Bus,
+        topic: &str,
+        declaration: &Declaration,
+        source: &str,
+    ) -> io::Result<Self> {
+        declaration.check()?;
+        let mut publisher = Self::new(bus, topic, declaration.kind, source)?;
+        let place = publisher.directory.display().to_string();
+        let named = |error: io::Error| match error.kind() {
+            // A disagreement names the topic itself.
+            io::ErrorKind::InvalidData => error,
+            kind => io::Error::new(kind, format!("bus topic {place}: {error}")),
+        };
+        declare::write(
+            &publisher.directory,
+            topic,
+            declaration,
+            &publisher.header.boot,
+            bus.directory_mode,
+        )
+        .map_err(named)?;
+        publisher.header.type_name = Some(declaration.type_name.clone());
+        publisher.header.expires_ms = declaration.lifespan_ms;
+        publisher.declaration = Some(declaration.clone());
+        publisher.show(Instant::now()).map_err(named)?;
+        Ok(publisher)
     }
 
     pub fn topic(&self) -> &str {
         &self.header.topic
+    }
+
+    /// What this publisher declared the topic to be, if it declared it.
+    pub fn declaration(&self) -> Option<&Declaration> {
+        self.declaration.as_ref()
     }
 
     pub fn kind(&self) -> wire::Kind {
@@ -195,9 +262,51 @@ impl Publisher {
     }
 
     /// Say with every message from now on how long it stays meaningful, or
-    /// with `None` say nothing.
+    /// with `None` say nothing. A publisher that declared a lifespan starts
+    /// with that one. A subscriber's `recv` passes over a message that
+    /// arrives later than this.
     pub fn expires_after(&mut self, lasting: Option<Duration>) {
         self.header.expires_ms = lasting.map(|lasting| lasting.as_millis() as u64);
+    }
+
+    /// Show that this publisher is alive though it has nothing to publish.
+    /// Publishing does the same, so only a publisher of a topic that can be
+    /// silent for longer than the lease needs it: without it, its
+    /// subscribers are told after a lease of silence that the source has
+    /// gone. Costs nothing when the entry was refreshed a moment ago.
+    pub fn alive(&mut self) -> io::Result<()> {
+        let now = Instant::now();
+        if !self.unlisted && !self.due(now) {
+            return Ok(());
+        }
+        self.show(now).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("bus topic {}: {error}", self.directory.display()),
+            )
+        })
+    }
+
+    /// Whether the entry is old enough to be given a new time.
+    fn due(&self, now: Instant) -> bool {
+        self.shown
+            .is_none_or(|at| now.saturating_duration_since(at) >= self.show_every)
+    }
+
+    /// Give the entry a new time, creating it and `pubs/` if need be.
+    fn show(&mut self, now: Instant) -> io::Result<()> {
+        self.shown = Some(now);
+        let done = match live::touch(&self.entry) {
+            // The first publisher of the topic.
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                crate::make_directory(&self.pubs, self.directory_mode)
+                    .and_then(|()| live::touch(&self.entry))
+            }
+            done => done,
+        };
+        self.unlisted = done.is_err();
+        self.listed |= done.is_ok();
+        done
     }
 
     pub fn totals(&self) -> Totals {
@@ -256,7 +365,7 @@ impl Publisher {
         // refused one must not look like a lost one.
         self.header.seq = self.seq + 1;
         self.header.at_us = at_us;
-        self.header.at_unix_ms = unix_ms();
+        self.header.at_unix_ms = wire::unix_ms();
         let mut datagram = std::mem::take(&mut self.datagram);
         datagram.clear();
         let done = serde_json::to_writer(&mut datagram, &self.header)
@@ -289,6 +398,14 @@ impl Publisher {
             .is_none_or(|at| now.saturating_duration_since(at) >= self.rescan_every);
         if looked {
             self.scan(now);
+        }
+        // Once a second, and after a failure with every look at the root, so
+        // that a root which stays unusable is said once like any other
+        // trouble with it.
+        if (self.due(now) || (self.unlisted && looked))
+            && let Err(error) = self.show(now)
+        {
+            self.trouble.get_or_insert(error);
         }
         let mut outcome = Published::default();
         self.send(datagram, 0, &mut outcome)?;
@@ -465,11 +582,15 @@ impl Publisher {
 }
 
 impl Drop for Publisher {
-    /// The value stays for whoever subscribes next: only a half-written one
-    /// is cleared away.
+    /// The value and the declaration stay for whoever subscribes next: only
+    /// a half-written value is cleared away, and this publisher's entry, so
+    /// that it is seen to have gone at once and not a lease later.
     fn drop(&mut self) {
         if self.header.kind == wire::Kind::Latest && self.seq > 0 {
             let _ = fs::remove_file(&self.writing);
+        }
+        if self.listed {
+            let _ = fs::remove_file(&self.entry);
         }
     }
 }

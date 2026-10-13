@@ -3,7 +3,7 @@
 //! Everything here goes through the library the lamp's processes use, so a
 //! `tap` is an ordinary subscriber and can be as slow as it likes without a
 //! publisher noticing.
-use lamp_bus::{Bus, Header, Kind, Message, Publisher, Subscriber};
+use lamp_bus::{Bus, Declaration, Header, Kind, Message, Notice, Publisher, Subscriber};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -13,35 +13,49 @@ use std::{
     process::ExitCode,
     str::FromStr,
     thread,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const USAGE: &str = "\
 usage: lamp-bus [--root PATH] COMMAND ...
 
   topics
-      The topics under the root, how many listen and whether a value is kept.
+      The topics under the root, how many listen, whether a value is kept
+      and the type each was declared to carry.
+  info TOPIC
+      What the topic was declared to carry, who publishes it now, who
+      listens, and how old its kept value is. Status 1 if nobody has
+      published, subscribed to or declared it.
+  hz TOPIC [--seconds S]
+      Listen for S seconds (5) and print how many messages came, how often,
+      the mean and the largest gap between two, their mean age on arrival,
+      and how many were missed or had expired. Status 1 if none came.
   tap TOPIC [--name NAME] [--count N] [--seconds S]
       Subscribe and print each message: its header, then its payload if that
       is JSON, else <N bytes>. A value the topic keeps is printed too, once
       nothing else is waiting. Ends after N messages or S seconds, and with
       status 1 if N was asked for and fewer came.
   latest TOPIC
-      Print the topic's current value. Status 1 if it keeps none.
-  pub TOPIC latest|event JSON [--at-us N]
-      Publish one JSON message as lamp_bus_cli.
+      Print the topic's current value, expired or not. Status 1 if it keeps
+      none.
+  pub TOPIC latest|event JSON [--at-us N] [--type NAME]
+      Publish one JSON message as lamp_bus_cli. With --type, as a publisher
+      that declares the topic to carry NAME: status 1 if the topic is
+      declared as another type or kind.
   record DIR TOPIC... [--seconds S] [--max-mb N]
       Append every message of the topics to DIR/<topic with / as _>.jsonl
-      until killed or for S seconds. A file stops growing at N MiB (64).
+      until killed or for S seconds, a topic's declaration before its
+      messages. A file stops growing at N MiB (64).
   replay FILE [--speed X]
-      Publish a recording again as replay, X times as fast (0: at once).
+      Publish a recording again as replay, X times as fast (0: at once),
+      each topic declared as the recording says it was.
 
 The root is --root, else $LAMP_BUS_ROOT, else /run/lampos-bus.
 ";
 
 /// Every option takes one value.
-const OPTIONS: [&str; 7] = [
-    "root", "name", "count", "seconds", "max-mb", "speed", "at-us",
+const OPTIONS: [&str; 8] = [
+    "root", "name", "count", "seconds", "max-mb", "speed", "at-us", "type",
 ];
 
 /// A wait is cut into pieces this long: an empty one is when a subscriber
@@ -181,6 +195,15 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
             arguments.words(0, 0)?;
             topics(&bus)
         }
+        "info" => {
+            let words = arguments.words(1, 1)?;
+            info(&bus, &words[0])
+        }
+        "hz" => {
+            let seconds = arguments.amount("seconds")?.unwrap_or(5.0);
+            let words = arguments.words(1, 1)?;
+            hz(&bus, &words[0], Duration::from_secs_f64(seconds))
+        }
         "tap" => {
             let name = arguments.option::<String>("name", "a name")?;
             let count = arguments.option::<u64>("count", "a whole number")?;
@@ -194,6 +217,14 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
             match bus.latest(&words[0])? {
                 Some(message) => {
                     say(&line(&message));
+                    if message.expired {
+                        eprintln!(
+                            "lamp-bus: {}: the value expired {} ms ago",
+                            words[0],
+                            age_ms(&message.header)
+                                .saturating_sub(message.header.expires_ms.unwrap_or(0))
+                        );
+                    }
                     Ok(ExitCode::SUCCESS)
                 }
                 None => Err(Failure::Failed(format!("{} keeps no value", words[0]))),
@@ -201,6 +232,7 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
         }
         "pub" => {
             let at_us = arguments.option::<u64>("at-us", "a whole number")?;
+            let type_name = arguments.option::<String>("type", "a type's name")?;
             let words = arguments.words(3, 3)?;
             let kind = match words[1].as_str() {
                 "latest" => Kind::Latest,
@@ -213,7 +245,20 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
             };
             let value: serde_json::Value = serde_json::from_str(&words[2])
                 .map_err(|error| Failure::Usage(format!("{:?} is not JSON: {error}", words[2])))?;
-            let mut publisher = bus.publisher(&words[0], kind, "lamp_bus_cli")?;
+            let mut publisher = match type_name {
+                None => bus.publisher(&words[0], kind, "lamp_bus_cli")?,
+                Some(type_name) => {
+                    // A topic that already carries this type keeps what its
+                    // own publisher promised of it: this one only joins.
+                    let declaration = match bus.declaration(&words[0]) {
+                        Ok(Some(there)) if there.type_name == type_name && there.kind == kind => {
+                            there
+                        }
+                        _ => Declaration::new(&type_name, 1, kind),
+                    };
+                    bus.publisher_declared(&words[0], &declaration, "lamp_bus_cli")?
+                }
+            };
             // This process has no clock it shares with anyone: 0 says so.
             let outcome = publisher.publish_json(at_us.unwrap_or(0), &value)?;
             say(&format!(
@@ -272,20 +317,161 @@ fn tick(until: Option<Instant>) -> Option<Duration> {
     }
 }
 
+/// How long ago a message was sent, by this process's wall clock.
+fn age_ms(header: &Header) -> u64 {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64);
+    now.saturating_sub(header.at_unix_ms)
+}
+
+/// Say on standard error what has changed about a subscriber's topic.
+fn announce(subscriber: &mut Subscriber) {
+    for notice in subscriber.notices() {
+        let what = match notice {
+            Notice::SourceGone => "no publisher is alive and nothing has come for a lease",
+            Notice::SourceBack => "a publisher is there again",
+            Notice::Late => "nothing for more than twice the declared period",
+            Notice::OnTime => "messages are coming again",
+            _ => continue,
+        };
+        eprintln!("lamp-bus: {}: {what}", subscriber.topic());
+    }
+}
+
 fn topics(bus: &Bus) -> Result<ExitCode, Failure> {
     for topic in bus.topics()? {
         let stale = match topic.stale {
             0 => String::new(),
             stale => format!(" stale={stale}"),
         };
+        let declared = match bus.declaration(&topic.name) {
+            Ok(Some(declaration)) => format!(" type={}", declaration.type_name),
+            _ => String::new(),
+        };
         say(&format!(
-            "{} subscribers={}{stale} latest={}",
+            "{} subscribers={}{stale} latest={}{declared}",
             topic.name,
             topic.subscribers,
             if topic.latest { "yes" } else { "no" }
         ));
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// A declaration as `key=value` words.
+fn declared(declaration: &Declaration) -> String {
+    let mut words = format!(
+        "type={} version={} kind={}",
+        declaration.type_name,
+        declaration.version,
+        match declaration.kind {
+            Kind::Latest => "latest",
+            Kind::Event => "event",
+        }
+    );
+    if let Some(period) = declaration.period_ms {
+        words.push_str(&format!(" period_ms={period}"));
+    }
+    if let Some(lifespan) = declaration.lifespan_ms {
+        words.push_str(&format!(" lifespan_ms={lifespan}"));
+    }
+    words
+}
+
+fn info(bus: &Bus, topic: &str) -> Result<ExitCode, Failure> {
+    let declaration = bus.declaration(topic);
+    let publishers = bus.publishers(topic)?;
+    let subscribers = bus.subscribers(topic)?;
+    let latest = bus.latest(topic);
+    if !bus.root().join(topic).is_dir() {
+        return Err(Failure::Failed(format!(
+            "{topic} is not on the bus: nobody has published, subscribed to or declared it"
+        )));
+    }
+    say(&format!("topic {topic}"));
+    say(&match declaration {
+        Ok(Some(declaration)) => format!("declaration {}", declared(&declaration)),
+        Ok(None) => "declaration none".into(),
+        Err(error) => format!("declaration unreadable: {error}"),
+    });
+    if publishers.is_empty() {
+        say("publishers none");
+    }
+    for publisher in publishers {
+        say(&format!(
+            "publisher {} pid={} boot={} alive_ms={}",
+            publisher.name,
+            publisher.pid,
+            publisher.boot,
+            publisher.age.as_millis()
+        ));
+    }
+    if subscribers.is_empty() {
+        say("subscribers none");
+    }
+    for subscriber in subscribers {
+        say(&format!(
+            "subscriber {} {}",
+            subscriber.socket,
+            if subscriber.listening {
+                "listening"
+            } else {
+                "stale"
+            }
+        ));
+    }
+    say(&match latest {
+        Ok(Some(message)) => format!(
+            "latest source={} seq={} age_ms={} expired={}",
+            message.header.source,
+            message.header.seq,
+            age_ms(&message.header),
+            if message.expired { "yes" } else { "no" }
+        ),
+        Ok(None) => "latest none".into(),
+        Err(error) => format!("latest unreadable: {error}"),
+    });
+    Ok(ExitCode::SUCCESS)
+}
+
+fn hz(bus: &Bus, topic: &str, lasting: Duration) -> Result<ExitCode, Failure> {
+    let mut subscriber = bus.subscribe(topic, "hz")?;
+    // The value the topic keeps was sent before this listened: taken here,
+    // it is not counted as a message that came.
+    let _ = subscriber.latest();
+    let started = Instant::now();
+    let until = Some(started + lasting);
+    while let Some(wait) = tick(until) {
+        subscriber.recv(wait)?;
+        announce(&mut subscriber);
+    }
+    let seconds = started.elapsed().as_secs_f64();
+    let statistics = subscriber.statistics();
+    let milliseconds = |time: Option<Duration>| match time {
+        Some(time) => format!("{:.1}", time.as_secs_f64() * 1e3),
+        None => "-".into(),
+    };
+    // A rate is one over the time between two messages, so it takes two.
+    let rate = match statistics.mean_interval {
+        Some(mean) if !mean.is_zero() => format!("{:.2}", 1.0 / mean.as_secs_f64()),
+        _ => "-".into(),
+    };
+    say(&format!(
+        "{topic} messages={} seconds={seconds:.2} rate_hz={rate} gap_mean_ms={} gap_max_ms={} \
+         age_mean_ms={} missed={} expired={}",
+        statistics.received,
+        milliseconds(statistics.mean_interval),
+        milliseconds(statistics.largest_interval),
+        milliseconds(statistics.mean_age),
+        statistics.gaps,
+        statistics.expired
+    ));
+    Ok(if statistics.received == 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    })
 }
 
 fn tap(
@@ -299,7 +485,9 @@ fn tap(
         let Some(wait) = tick(until) else {
             break;
         };
-        let Some(message) = subscriber.recv(wait)? else {
+        let received = subscriber.recv(wait)?;
+        announce(&mut subscriber);
+        let Some(message) = received else {
             continue;
         };
         if message.publisher_restarted {
@@ -365,6 +553,21 @@ fn unbase64(text: &str) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
+/// A topic's declaration as a line of a recording.
+fn recorded_declaration(
+    topic: &str,
+    declaration: &Declaration,
+    line: &mut Vec<u8>,
+) -> io::Result<()> {
+    line.clear();
+    line.extend_from_slice(b"{\"topic\":");
+    serde_json::to_writer(&mut *line, topic)?;
+    line.extend_from_slice(b",\"declaration\":");
+    serde_json::to_writer(&mut *line, declaration)?;
+    line.extend_from_slice(b"}\n");
+    Ok(())
+}
+
 /// One message as a line of a recording.
 fn recorded(message: &Message, line: &mut Vec<u8>) -> io::Result<()> {
     line.clear();
@@ -395,19 +598,56 @@ struct Recorded {
 }
 
 impl Recording {
+    /// Append `line` unless the file would grow past `most` bytes: false
+    /// when it would.
+    fn append(&mut self, line: &[u8], most: u64) -> io::Result<bool> {
+        if self.bytes + line.len() as u64 > most {
+            return Ok(false);
+        }
+        self.file.write_all(line)?;
+        self.bytes += line.len() as u64;
+        Ok(true)
+    }
+
+    /// Write the topic's declaration if it is not the one last written: at
+    /// the start, and again before the first message of a publisher that
+    /// declared the topic after this began or declared it anew.
+    fn declare(
+        &mut self,
+        written: &mut Option<Declaration>,
+        line: &mut Vec<u8>,
+        most: u64,
+    ) -> io::Result<bool> {
+        let Some(declaration) = self.subscriber.declaration().cloned() else {
+            return Ok(true);
+        };
+        if written.as_ref() == Some(&declaration) {
+            return Ok(true);
+        }
+        recorded_declaration(self.subscriber.topic(), &declaration, line)?;
+        let fits = self.append(line, most)?;
+        *written = Some(declaration);
+        Ok(fits)
+    }
+
     /// Append each message as it comes. A line goes to the file in one
     /// write and nothing is held back, so the file is whole lines whenever
     /// this process is killed.
     fn run(mut self, until: Option<Instant>, most: u64, megabytes: f64) -> Recorded {
         let mut ended = Recorded {
             topic: self.subscriber.topic().into(),
-            path: self.path,
+            path: self.path.clone(),
             messages: 0,
             missed: 0,
             full: false,
             failed: None,
         };
         let mut line = Vec::new();
+        let mut declared = None;
+        if let Err(error) = self.declare(&mut declared, &mut line, most) {
+            ended.failed = Some(error.to_string());
+            return ended;
+        }
         while let Some(wait) = tick(until) {
             let message = match self.subscriber.recv(wait) {
                 Ok(Some(message)) => message,
@@ -418,17 +658,17 @@ impl Recording {
                 }
             };
             ended.missed += message.gap;
-            let written = recorded(&message, &mut line).and_then(|()| {
-                if self.bytes + line.len() as u64 > most {
-                    return Ok(false);
-                }
-                self.file.write_all(&line).map(|()| true)
-            });
+            let written = self
+                .declare(&mut declared, &mut line, most)
+                .and_then(|fits| {
+                    if !fits {
+                        return Ok(false);
+                    }
+                    recorded(&message, &mut line)?;
+                    self.append(&line, most)
+                });
             match written {
-                Ok(true) => {
-                    self.bytes += line.len() as u64;
-                    ended.messages += 1;
-                }
+                Ok(true) => ended.messages += 1,
                 Ok(false) => {
                     eprintln!(
                         "lamp-bus: record: {} has reached {megabytes} MiB: no more of {} is recorded",
@@ -519,11 +759,14 @@ fn record(
     })
 }
 
-/// A line of a recording.
+/// A line of a recording: a message, which is a header and a payload, or
+/// what a topic was declared to carry.
 #[derive(Deserialize)]
 struct Line {
-    header: Header,
-    payload_b64: String,
+    header: Option<Header>,
+    payload_b64: Option<String>,
+    topic: Option<String>,
+    declaration: Option<Declaration>,
 }
 
 fn replay(bus: &Bus, file: &Path, speed: f64) -> Result<ExitCode, Failure> {
@@ -534,6 +777,8 @@ fn replay(bus: &Bus, file: &Path, speed: f64) -> Result<ExitCode, Failure> {
     // two publishers need not have shared a clock.
     let mut instances: HashMap<String, (Instant, u64)> = HashMap::new();
     let (mut sent, mut refused) = (0u64, 0u64);
+    // What the publishers that were replaced had delivered and dropped.
+    let mut before = (0u64, 0u64);
     for (index, text) in lines.enumerate() {
         let wrong =
             |why: String| Failure::Failed(format!("{} line {}: {why}", file.display(), index + 1));
@@ -541,10 +786,29 @@ fn replay(bus: &Bus, file: &Path, speed: f64) -> Result<ExitCode, Failure> {
         if text.trim().is_empty() {
             continue;
         }
-        let Line {
-            header,
-            payload_b64,
-        } = serde_json::from_str(&text).map_err(|error| wrong(error.to_string()))?;
+        let line: Line = serde_json::from_str(&text).map_err(|error| wrong(error.to_string()))?;
+        if let (Some(topic), Some(declaration)) = (&line.topic, &line.declaration) {
+            // The topic is published from here on as it was declared, by a
+            // publisher that says so: one made before this line goes.
+            publishers.retain(|publisher| {
+                let other = publisher.topic() != topic;
+                if !other {
+                    before.0 += publisher.totals().delivered;
+                    before.1 += publisher.totals().dropped;
+                }
+                other
+            });
+            let publisher = bus
+                .publisher_declared(topic, declaration, "replay")
+                .map_err(|error| wrong(error.to_string()))?;
+            publishers.push(publisher);
+            continue;
+        }
+        let (Some(header), Some(payload_b64)) = (line.header, line.payload_b64) else {
+            return Err(wrong(
+                "neither a message, with header and payload_b64, nor a topic's declaration".into(),
+            ));
+        };
         let payload =
             unbase64(&payload_b64).ok_or_else(|| wrong("payload_b64 is not base64".into()))?;
         if speed > 0.0 {
@@ -585,7 +849,7 @@ fn replay(bus: &Bus, file: &Path, speed: f64) -> Result<ExitCode, Failure> {
     let totals = publishers
         .iter()
         .map(Publisher::totals)
-        .fold((0, 0), |(delivered, dropped), totals| {
+        .fold(before, |(delivered, dropped), totals| {
             (delivered + totals.delivered, dropped + totals.dropped)
         });
     eprintln!(

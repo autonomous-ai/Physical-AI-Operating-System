@@ -25,15 +25,51 @@
 //! }
 //! # Ok::<(), std::io::Error>(())
 //! ```
+//!
+//! A publisher can also say what its topic carries, and a subscriber what it
+//! expects: the two are then held to the same type, the subscriber learns
+//! when the source has gone or the topic is late, and a message that has
+//! outlived its time is not handed over.
+//!
+//! ```no_run
+//! use lamp_bus::{Bus, Declaration, Kind, Notice};
+//! use std::time::Duration;
+//!
+//! let bus = Bus::from_environment()?;
+//! let joints = Declaration::new("lamp_msgs/JointState", 1, Kind::Latest)
+//!     .every(Duration::from_millis(50))
+//!     .lasting(Duration::from_millis(500));
+//! let mut body = bus.publisher_declared("body/joint_states", &joints, "body")?;
+//! body.publish_json(98_123_456, &serde_json::json!({"position": [0.1]}))?;
+//!
+//! let mut follow = bus.subscribe_typed("body/joint_states", "follow", "lamp_msgs/JointState")?;
+//! // In the subscriber's loop: a message if there is one, then what has
+//! // changed about the topic since it last asked.
+//! if let Some(message) = follow.recv(Duration::from_millis(100))? {
+//!     println!("{}", message.json()?);
+//! }
+//! for notice in follow.notices() {
+//!     match notice {
+//!         Notice::SourceGone => println!("the body has gone"),
+//!         Notice::Late => println!("no joints for 100 ms"),
+//!         _ => {}
+//!     }
+//! }
+//! # Ok::<(), std::io::Error>(())
+//! ```
+mod declare;
+mod live;
 mod name;
 mod publish;
 mod subscribe;
 mod wire;
 
+pub use declare::Declaration;
+pub use live::Source;
 pub use name::MOST_TOPIC_BYTES;
 pub use publish::{MOST_SUBSCRIBERS, Published, Publisher, SubscriberTotals, Totals};
-pub use subscribe::Subscriber;
-pub use wire::{Header, JSON, Kind, MOST_BYTES, Message, NONE};
+pub use subscribe::{Notice, Statistics, Subscriber};
+pub use wire::{EXPIRY_GRACE_MS, Header, JSON, Kind, MOST_BYTES, Message, NONE};
 
 use std::{
     env, fs, io,
@@ -51,6 +87,10 @@ pub const DEFAULT_ROOT: &str = "/run/lampos-bus";
 /// The environment variable that says otherwise.
 pub const ROOT_VARIABLE: &str = "LAMP_BUS_ROOT";
 
+/// How long a publisher may go without showing itself alive before it is
+/// taken for dead, unless the `Bus` is told another.
+pub const DEFAULT_LEASE: Duration = Duration::from_secs(3);
+
 /// The longest path a subscriber's socket may have. A Unix socket's address
 /// holds 104 bytes on macOS and 108 on Linux, the last of them a NUL, and
 /// what is tried on one must hold on the other.
@@ -64,6 +104,18 @@ pub struct Bus {
     root: PathBuf,
     directory_mode: u32,
     rescan_every: Duration,
+    lease: Duration,
+}
+
+/// One subscriber's socket as a topic's `subs/` shows it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Listener {
+    /// The socket without `.sock`: the subscriber's name, its process and
+    /// a count.
+    pub socket: String,
+    /// There is a process behind it. A socket with none was left by a
+    /// subscriber that died, and the topic's next publish removes it.
+    pub listening: bool,
 }
 
 /// One topic as the directories show it.
@@ -96,6 +148,7 @@ impl Bus {
             root,
             directory_mode: 0o770,
             rescan_every: Duration::from_millis(200),
+            lease: DEFAULT_LEASE,
         })
     }
 
@@ -122,27 +175,71 @@ impl Bus {
         self
     }
 
+    /// How long a publisher may go without showing itself alive before it
+    /// is taken for dead and its entry removed (three seconds unless said).
+    /// A publisher refreshes its entry every third of this, and once a
+    /// second at the least. Every process on one root has to use the same
+    /// lease: with a shorter one a process takes its neighbours for dead.
+    pub fn lease(mut self, lease: Duration) -> Self {
+        self.lease = lease;
+        self
+    }
+
     pub fn root(&self) -> &Path {
         &self.root
     }
 
     /// A publisher of `topic` called `source`. Touches nothing: a root that
-    /// is not there yet is found, or not, with each publish.
+    /// is not there yet is found, or not, with each publish. From its first
+    /// message it is listed in the topic's `pubs/`.
     pub fn publisher(&self, topic: &str, kind: Kind, source: &str) -> io::Result<Publisher> {
         Publisher::new(self, topic, kind, source)
+    }
+
+    /// A publisher that says what `topic` carries. The declaration is
+    /// written to `<topic>/declaration`, every message names its type, and
+    /// a declared lifespan is put in every header. It fails if the topic is
+    /// already declared as another type or kind: two programs disagree
+    /// about the topic, and the second is the one told.
+    pub fn publisher_declared(
+        &self,
+        topic: &str,
+        declaration: &Declaration,
+        source: &str,
+    ) -> io::Result<Publisher> {
+        Publisher::declared(self, topic, declaration, source)
     }
 
     /// Bind a socket in the topic's `subs/`, creating the directories that
     /// are missing. Publishers already running find it at their next look.
     pub fn subscribe(&self, topic: &str, name: &str) -> io::Result<Subscriber> {
-        Subscriber::new(self, topic, name)
+        Subscriber::new(self, topic, name, None)
     }
 
-    /// The topic's current value, if it keeps one.
+    /// Subscribe to `topic` expecting messages of `type_name`. It fails,
+    /// with nothing created, if the topic is declared to carry another
+    /// type. A topic that nobody has declared yet is subscribed to: its
+    /// publisher may start later, and until then, and after, a message
+    /// whose header names another type is passed over and counted
+    /// (`Subscriber::wrong_type`).
+    pub fn subscribe_typed(
+        &self,
+        topic: &str,
+        name: &str,
+        type_name: &str,
+    ) -> io::Result<Subscriber> {
+        Subscriber::new(self, topic, name, Some(type_name))
+    }
+
+    /// The topic's current value, if it keeps one. A value that has
+    /// outlived its `expires_ms` is returned all the same, with `expired`
+    /// set: it is the last thing known, and the caller decides what an old
+    /// value is worth.
     pub fn latest(&self, topic: &str) -> io::Result<Option<Message>> {
         name::topic(topic)?;
         let kept = wire::kept(&self.root.join(topic).join("latest"), topic)?;
         Ok(kept.map(|(header, payload)| Message {
+            expired: header.expired_at(wire::unix_ms()),
             header,
             payload,
             gap: 0,
@@ -150,8 +247,29 @@ impl Bus {
         }))
     }
 
-    /// Every topic that has a `subs/` or a `latest`, by name. A topic of
-    /// events that nobody has subscribed to has neither and is not listed.
+    /// What the topic was declared to carry, if a publisher declared it.
+    pub fn declaration(&self, topic: &str) -> io::Result<Option<Declaration>> {
+        name::topic(topic)?;
+        declare::read(&self.root.join(topic).join("declaration"))
+    }
+
+    /// The publishers of the topic that have shown themselves alive within
+    /// the lease. Looking removes the entry of one that has not.
+    pub fn publishers(&self, topic: &str) -> io::Result<Vec<Source>> {
+        name::topic(topic)?;
+        live::list(&self.root.join(topic).join("pubs"), self.lease)
+    }
+
+    /// The topic's subscribers, by socket, and whether each has a process
+    /// behind it.
+    pub fn subscribers(&self, topic: &str) -> io::Result<Vec<Listener>> {
+        name::topic(topic)?;
+        Ok(listeners(&self.root.join(topic).join("subs")))
+    }
+
+    /// Every topic that has a `subs/`, a `pubs/`, a `latest` or a
+    /// declaration, by name: one that somebody has published, subscribed to
+    /// or declared since the root was made.
     pub fn topics(&self) -> io::Result<Vec<Topic>> {
         let mut found = Vec::new();
         match self.look(&self.root, "", &mut found) {
@@ -175,8 +293,14 @@ impl Bus {
             let path = entry.path();
             let subs = path.join("subs");
             let latest = path.join("latest").is_file();
-            if latest || subs.is_dir() {
-                let (subscribers, stale) = held(&subs);
+            if latest
+                || subs.is_dir()
+                || path.join("pubs").is_dir()
+                || path.join("declaration").is_file()
+            {
+                let held = listeners(&subs);
+                let subscribers = held.iter().filter(|held| held.listening).count();
+                let stale = held.len() - subscribers;
                 found.push(Topic {
                     name: name.clone(),
                     subscribers,
@@ -191,30 +315,32 @@ impl Bus {
     }
 }
 
-/// How many sockets in `subs` have somebody behind them, and how many do
-/// not. Connecting asks the kernel without sending anybody anything.
-fn held(subs: &Path) -> (usize, usize) {
-    let (mut live, mut stale) = (0, 0);
+/// The sockets in `subs`, by name, and whether each has somebody behind
+/// it. Connecting asks the kernel without sending anybody anything.
+fn listeners(subs: &Path) -> Vec<Listener> {
     let Ok(entries) = fs::read_dir(subs) else {
-        return (0, 0);
+        return Vec::new();
     };
+    let mut found = Vec::new();
     for entry in entries.flatten() {
+        let file = entry.file_name();
         // A subscriber's socket has its `.sock` name once it can be sent to.
-        if !entry.file_name().to_string_lossy().ends_with(".sock")
-            || !entry.file_type().is_ok_and(|kind| kind.is_socket())
-        {
+        let Some(socket) = file.to_str().and_then(|file| file.strip_suffix(".sock")) else {
+            continue;
+        };
+        if !entry.file_type().is_ok_and(|kind| kind.is_socket()) {
             continue;
         }
         let refused = UnixDatagram::unbound()
             .and_then(|probe| probe.connect(entry.path()))
             .is_err_and(|error| error.kind() == io::ErrorKind::ConnectionRefused);
-        if refused {
-            stale += 1;
-        } else {
-            live += 1;
-        }
+        found.push(Listener {
+            socket: socket.into(),
+            listening: !refused,
+        });
     }
-    (live, stale)
+    found.sort_by(|a, b| a.socket.cmp(&b.socket));
+    found
 }
 
 /// Create `path` and whatever is missing above it, each with exactly

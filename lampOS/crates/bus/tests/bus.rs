@@ -4,18 +4,18 @@
 //! How much a queue holds is the operating system's business and differs
 //! between the lamp and the machine these run on, so nothing here assumes a
 //! number: a test that needs a full queue fills one until a send is dropped.
-use lamp_bus::{Bus, Kind, MOST_BYTES, Published, Topic, Totals};
+use lamp_bus::{Bus, Declaration, Kind, MOST_BYTES, Notice, Published, Statistics, Topic, Totals};
 use serde_json::json;
 use std::{
     fs, io,
     os::unix::{fs::PermissionsExt, net::UnixDatagram},
     path::{Path, PathBuf},
     sync::{
-        Arc,
+        Arc, Barrier,
         atomic::{AtomicBool, AtomicU32, Ordering},
     },
     thread,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 /// Long enough for a message that has been sent to be there.
@@ -109,6 +109,35 @@ fn subscriber_bytes(subscriber: &mut lamp_bus::Subscriber) -> usize {
 
 fn mode(path: &Path) -> u32 {
     fs::metadata(path).unwrap().permissions().mode() & 0o7777
+}
+
+/// Wait for something another moment brings: a lease running out, a period
+/// passing. What is asserted of time is then a least time, never a most.
+fn until(what: &str, mut there: impl FnMut() -> bool) {
+    let started = Instant::now();
+    while !there() {
+        assert!(started.elapsed() < WAIT, "{what} did not come");
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
+
+/// A message made by hand, as a publisher in another language would make
+/// it, so that a test says exactly what its header carries: `extra` is
+/// more of the header's JSON, each field with a comma before it.
+fn by_hand(topic: &str, seq: u64, at_unix_ms: u64, extra: &str) -> Vec<u8> {
+    format!(
+        "{{\"topic\":\"{topic}\",\"kind\":\"event\",\"enc\":\"json\",\"source\":\"hand\",\
+         \"boot\":\"0123456789abcdef\",\"seq\":{seq},\"at_us\":{seq},\
+         \"at_unix_ms\":{at_unix_ms}{extra}}}\n{seq}"
+    )
+    .into_bytes()
 }
 
 /// Twenty milliseconds of sound as the microphones give it, every byte
@@ -404,8 +433,10 @@ fn messages_lost_to_a_full_queue_show_as_a_gap_on_the_next_one_that_arrives() {
             dropped: 8
         }
     );
-    // An event topic keeps nothing: the topic, its subs and one socket.
-    assert_eq!(root.contents().len(), 3, "{:?}", root.contents());
+    // An event topic keeps no value. There is the topic, its subscriber's
+    // socket and its publisher's entry, each in its directory.
+    assert_eq!(root.contents().len(), 5, "{:?}", root.contents());
+    assert!(!root.0.join("people/latest").exists());
 }
 
 #[test]
@@ -503,26 +534,43 @@ fn a_dropped_subscriber_removes_its_socket_and_a_dead_ones_is_removed_by_the_nex
     assert_eq!((message.header.seq, message.gap), (4, 0));
     assert_eq!(sockets(&subs).len(), 1);
     drop(successor);
-    assert_eq!(root.contents(), ["servos/", "servos/subs/"]);
+    // The publisher takes its entry with it as the subscriber its socket.
+    assert_eq!(root.contents().len(), 4, "{:?}", root.contents());
+    drop(publisher);
+    assert_eq!(root.contents(), ["servos/", "servos/pubs/", "servos/subs/"]);
 }
 
 #[test]
-fn publishing_to_nobody_succeeds_and_leaves_nothing_but_the_latest_value() {
+fn publishing_to_nobody_succeeds_and_leaves_only_the_latest_value_and_the_publishers_entry() {
     let root = Root::new();
     let bus = root.bus().rescan_every(Duration::ZERO);
+    let entry = |topic: &str, source: &str, publisher: &lamp_bus::Publisher| {
+        format!(
+            "{topic}/pubs/{source}.{}.{}",
+            std::process::id(),
+            publisher.boot()
+        )
+    };
     let mut sound_of = bus.publisher("mic2", Kind::Event, "voice").unwrap();
+    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
+    // A publisher that has said nothing has touched nothing.
+    assert!(!root.0.exists());
     for n in 1..=100u64 {
         let outcome = sound_of.publish_bytes(n, "pcm_s16le_16000_mono", &sound(n));
         assert_eq!(outcome.unwrap(), Published::default());
     }
-    // Events to nobody: not so much as the root is created.
-    assert!(!root.0.exists());
-    let mut pose = bus.publisher("servos", Kind::Latest, "body").unwrap();
-    assert!(!root.0.exists());
+    // Events to nobody: nothing of them is kept. What there is, is the
+    // publisher saying that it is there.
+    let voice = entry("mic2", "voice", &sound_of);
+    assert_eq!(root.contents(), ["mic2/", "mic2/pubs/", voice.as_str()]);
+    let body = entry("servos", "body", &pose);
     for n in 1..=100u64 {
         let outcome = pose.publish_json(n, &json!({"yaw": n}));
         assert_eq!(outcome.unwrap(), Published::default());
-        assert_eq!(root.contents(), ["servos/", "servos/latest"]);
+        assert_eq!(
+            root.contents()[3..],
+            ["servos/", "servos/latest", "servos/pubs/", body.as_str()]
+        );
     }
     let expected = Totals {
         published: 100,
@@ -534,10 +582,20 @@ fn publishing_to_nobody_succeeds_and_leaves_nothing_but_the_latest_value() {
     let current = bus.latest("servos").unwrap().unwrap();
     assert_eq!(current.header.seq, 100);
     assert_eq!(current.json().unwrap(), json!({"yaw": 100}));
-    // The value outlives its publisher: it is what the next subscriber reads.
+    // The value outlives its publisher: it is what the next subscriber
+    // reads. The publishers' entries go with them.
     drop(pose);
     drop(sound_of);
-    assert_eq!(root.contents(), ["servos/", "servos/latest"]);
+    assert_eq!(
+        root.contents(),
+        [
+            "mic2/",
+            "mic2/pubs/",
+            "servos/",
+            "servos/latest",
+            "servos/pubs/"
+        ]
+    );
 }
 
 #[test]
@@ -1162,4 +1220,885 @@ fn a_publisher_serves_sixty_four_subscribers_and_says_once_that_there_are_more()
     assert!(publisher.publish_json(4, &4).is_err());
     assert_eq!(publisher.publish_json(5, &5).unwrap(), all);
     assert_eq!(publisher.totals().published, 5);
+}
+
+#[test]
+fn a_declaration_is_written_when_its_publisher_is_made_and_every_message_names_the_type() {
+    let root = Root::new();
+    let bus = root.bus();
+    let topic = "body/joint_states";
+    assert!(bus.declaration(topic).unwrap().is_none());
+    let joints = Declaration::new("lamp_msgs/JointState", 1, Kind::Latest)
+        .every(Duration::from_millis(50))
+        .lasting(Duration::from_millis(5_000));
+    let mut body = bus.publisher_declared(topic, &joints, "body").unwrap();
+    // There before a message is: one line, whole, for the owner and the
+    // group, and nothing left over from the writing of it.
+    assert_eq!(body.declaration(), Some(&joints));
+    assert_eq!(bus.declaration(topic).unwrap(), Some(joints.clone()));
+    let file = root.0.join(topic).join("declaration");
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        "{\"type\":\"lamp_msgs/JointState\",\"version\":1,\"kind\":\"latest\",\
+         \"period_ms\":50,\"lifespan_ms\":5000}\n"
+    );
+    assert_eq!(mode(&file), 0o660);
+    let entry = format!(
+        "body/joint_states/pubs/body.{}.{}",
+        std::process::id(),
+        body.boot()
+    );
+    assert_eq!(
+        root.contents(),
+        [
+            "body/",
+            "body/joint_states/",
+            "body/joint_states/declaration",
+            "body/joint_states/pubs/",
+            entry.as_str()
+        ]
+    );
+    assert!(bus.latest(topic).unwrap().is_none());
+
+    // What it sends says what it is and how long it lasts, in the datagram
+    // and in the value kept.
+    let mut follow = bus
+        .subscribe_typed(topic, "f", "lamp_msgs/JointState")
+        .unwrap();
+    assert_eq!(follow.expects(), Some("lamp_msgs/JointState"));
+    assert_eq!(follow.declaration(), Some(&joints));
+    assert_eq!(
+        body.publish_json(1, &json!({"position": [0.1]})).unwrap(),
+        ONE
+    );
+    let message = follow.recv(WAIT).unwrap().expect("the joints");
+    assert_eq!(
+        message.header.type_name.as_deref(),
+        Some("lamp_msgs/JointState")
+    );
+    assert_eq!(message.header.expires_ms, Some(5_000));
+    assert_eq!(message.header.kind, Kind::Latest);
+    assert!(!message.expired);
+    let kept = bus.latest(topic).unwrap().expect("the value");
+    assert_eq!(kept.header, message.header);
+
+    // The declaration is the topic's: it stays when its writer goes. The
+    // next publisher of the same type and kind says the rest anew.
+    drop(body);
+    assert_eq!(bus.declaration(topic).unwrap(), Some(joints.clone()));
+    let newer =
+        Declaration::new("lamp_msgs/JointState", 2, Kind::Latest).every(Duration::from_millis(100));
+    let mut body = bus.publisher_declared(topic, &newer, "body").unwrap();
+    assert_eq!(bus.declaration(topic).unwrap(), Some(newer.clone()));
+    assert_eq!(
+        body.publish_json(2, &json!({"position": [0.2]})).unwrap(),
+        ONE
+    );
+    let message = follow.recv(WAIT).unwrap().expect("the joints");
+    assert_eq!(message.header.expires_ms, None);
+    assert!(message.publisher_restarted);
+    // The subscriber read it again when the new instance spoke.
+    assert_eq!(follow.declaration(), Some(&newer));
+
+    // A publisher that declares nothing publishes there as it always did,
+    // and a message that names no type is taken by one that expects one.
+    let mut old = bus.publisher(topic, Kind::Latest, "old_body").unwrap();
+    assert!(old.declaration().is_none());
+    assert_eq!(
+        old.publish_json(3, &json!({"position": [0.3]})).unwrap(),
+        ONE
+    );
+    let message = follow.recv(WAIT).unwrap().expect("the untyped joints");
+    assert_eq!(message.header.type_name, None);
+    assert_eq!(message.header.source, "old_body");
+    assert_eq!(bus.declaration(topic).unwrap(), Some(newer));
+    assert_eq!(follow.wrong_type(), 0);
+
+    // What cannot be a declaration is refused before anything is written.
+    for wrong in [
+        Declaration::new("joint_state", 1, Kind::Latest),
+        Declaration::new("lamp_msgs/JointState", 1, Kind::Latest).every(Duration::ZERO),
+    ] {
+        let error = bus.publisher_declared("x/y", &wrong, "body").err().unwrap();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{error}");
+    }
+    assert!(!root.0.join("x").exists());
+    // A file there that is no declaration says nothing: it is replaced.
+    fs::create_dir_all(root.0.join("x/y")).unwrap();
+    fs::write(root.0.join("x/y/declaration"), b"not json").unwrap();
+    assert!(bus.declaration("x/y").is_err());
+    assert!(bus.subscribe_typed("x/y", "f", "lamp_msgs/Speech").is_ok());
+    let speech = Declaration::new("lamp_msgs/Speech", 1, Kind::Event);
+    let _voice = bus.publisher_declared("x/y", &speech, "voice").unwrap();
+    assert_eq!(bus.declaration("x/y").unwrap(), Some(speech));
+}
+
+#[test]
+fn two_publishers_that_disagree_about_a_topic_are_not_both_made() {
+    let root = Root::new();
+    let bus = root.bus();
+    let topic = "light/state";
+    let light = Declaration::new("lamp_msgs/Light", 1, Kind::Latest);
+    let ring = bus.publisher_declared(topic, &light, "ring").unwrap();
+    let before = root.contents();
+
+    let other_type = Declaration::new("lamp_msgs/Rgb", 1, Kind::Latest);
+    let error = bus
+        .publisher_declared(topic, &other_type, "actions")
+        .err()
+        .expect("refused");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    let text = error.to_string();
+    assert!(
+        text.contains("topic light/state is already declared as lamp_msgs/Light (latest)")
+            && text.contains("this publisher says lamp_msgs/Rgb (latest)")
+            && text.contains("two programs disagree"),
+        "{text}"
+    );
+    let other_kind = Declaration::new("lamp_msgs/Light", 1, Kind::Event);
+    let error = bus
+        .publisher_declared(topic, &other_kind, "actions")
+        .err()
+        .expect("refused");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    assert!(
+        error.to_string().contains("lamp_msgs/Light (event)"),
+        "{error}"
+    );
+    // The one refused left nothing: not its declaration, not an entry.
+    assert_eq!(root.contents(), before);
+    assert_eq!(bus.declaration(topic).unwrap(), Some(light.clone()));
+    let sources = bus.publishers(topic).unwrap();
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0].name, "ring");
+
+    // A second publisher that agrees is made, whatever its name.
+    let also = bus.publisher_declared(topic, &light, "actions").unwrap();
+    assert_eq!(bus.publishers(topic).unwrap().len(), 2);
+    drop(also);
+
+    // The first having gone changes nothing: the declaration is the
+    // topic's, until somebody removes it, as the refusal says.
+    drop(ring);
+    let error = bus
+        .publisher_declared(topic, &other_type, "actions")
+        .err()
+        .expect("refused");
+    let file = root.0.join(topic).join("declaration");
+    assert!(
+        error
+            .to_string()
+            .ends_with(&format!("remove {}", file.display())),
+        "{error}"
+    );
+    fs::remove_file(&file).unwrap();
+    let actions = bus
+        .publisher_declared(topic, &other_type, "actions")
+        .unwrap();
+    assert_eq!(bus.declaration(topic).unwrap(), Some(other_type));
+    drop(actions);
+
+    // Started at the same moment, each with a type of its own: one is made
+    // and every other is told, whichever came first.
+    for round in 0..20 {
+        let topic = format!("race/t{round}");
+        let together = Arc::new(Barrier::new(6));
+        let starting: Vec<_> = (0..6)
+            .map(|n| {
+                let (bus, topic, together) = (bus.clone(), topic.clone(), Arc::clone(&together));
+                thread::spawn(move || {
+                    let mine = Declaration::new(&format!("lamp_msgs/T{n}"), 1, Kind::Event);
+                    together.wait();
+                    bus.publisher_declared(&topic, &mine, "p")
+                        .map(|publisher| (publisher, mine))
+                })
+            })
+            .collect();
+        let outcomes: Vec<_> = starting
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect();
+        let made: Vec<_> = outcomes.iter().flatten().collect();
+        assert_eq!(made.len(), 1, "round {round}");
+        assert_eq!(bus.declaration(&topic).unwrap().as_ref(), Some(&made[0].1));
+        for refused in outcomes.iter().filter_map(|outcome| outcome.as_ref().err()) {
+            assert_eq!(refused.kind(), io::ErrorKind::InvalidData, "{refused}");
+        }
+        // Nothing half-written is left beside the declaration.
+        let left: Vec<String> = fs::read_dir(root.0.join(&topic))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert!(
+            left.iter()
+                .all(|name| name == "declaration" || name == "pubs"),
+            "{left:?}"
+        );
+    }
+}
+
+#[test]
+fn a_subscriber_that_expects_another_type_is_refused_or_passes_its_messages_over() {
+    let root = Root::new();
+    let bus = root.bus();
+    // A topic that is declared: the subscriber is told at once, and leaves
+    // nothing behind.
+    let joints = Declaration::new("lamp_msgs/JointState", 3, Kind::Latest);
+    let _body = bus
+        .publisher_declared("body/joint_states", &joints, "body")
+        .unwrap();
+    let before = root.contents();
+    let error = bus
+        .subscribe_typed("body/joint_states", "f", "lamp_msgs/Faces")
+        .err()
+        .expect("refused");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    let text = error.to_string();
+    assert!(
+        text.contains(
+            "topic body/joint_states is declared to carry lamp_msgs/JointState (version 3)"
+        ) && text.contains("this subscriber expects lamp_msgs/Faces"),
+        "{text}"
+    );
+    assert_eq!(root.contents(), before);
+    let error = bus
+        .subscribe_typed("body/joint_states", "f", "faces")
+        .err()
+        .expect("refused");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    assert!(error.to_string().starts_with("type \"faces\""), "{error}");
+    assert_eq!(root.contents(), before);
+    // The type it carries, and no type at all, are taken.
+    let right = bus.subscribe_typed("body/joint_states", "f", "lamp_msgs/JointState");
+    assert!(right.is_ok());
+    assert!(bus.subscribe("body/joint_states", "f").is_ok());
+
+    // A topic nobody has declared: the subscriber may be there first. It
+    // is not refused, and what then comes with another type in its header
+    // is passed over and counted.
+    let mut early = bus
+        .subscribe_typed("voice/heard", "f", "lamp_msgs/Speech")
+        .unwrap();
+    assert!(early.declaration().is_none());
+    let faces = Declaration::new("lamp_msgs/Faces", 1, Kind::Latest);
+    let mut eyes = bus
+        .publisher_declared("voice/heard", &faces, "eyes")
+        .unwrap();
+    for n in 1..=3u64 {
+        assert_eq!(eyes.publish_json(n, &json!({"faces": n})).unwrap(), ONE);
+    }
+    assert!(early.recv(BRIEF).unwrap().is_none());
+    assert_eq!(early.wrong_type(), 3);
+    assert_eq!(
+        (early.malformed(), early.repeated(), early.expired()),
+        (0, 0, 0)
+    );
+    // Nor is the value those left behind handed over, by `recv` or when
+    // asked for, and it is not counted a second time.
+    assert!(early.latest().unwrap().is_none());
+    assert!(early.recv(Duration::ZERO).unwrap().is_none());
+    assert_eq!(early.wrong_type(), 3);
+    assert!(bus.latest("voice/heard").unwrap().is_some());
+    // A subscriber that came after the wrong value was kept is not handed
+    // it either: it is counted once, as what it is.
+    let mut late = bus.subscribe("voice/heard", "g").unwrap();
+    assert_eq!(late.recv(BRIEF).unwrap().expect("any type").header.seq, 3);
+    drop(late);
+
+    // The topic's own publisher, once the wrong declaration is out of the
+    // way: its messages are what the subscriber is given.
+    drop(eyes);
+    fs::remove_file(root.0.join("voice/heard/declaration")).unwrap();
+    let speech = Declaration::new("lamp_msgs/Speech", 1, Kind::Latest);
+    let mut voice = bus
+        .publisher_declared("voice/heard", &speech, "voice")
+        .unwrap();
+    assert_eq!(
+        voice.publish_json(1, &json!({"text": "lamp"})).unwrap(),
+        ONE
+    );
+    let message = early.recv(WAIT).unwrap().expect("the speech");
+    assert_eq!(
+        message.header.type_name.as_deref(),
+        Some("lamp_msgs/Speech")
+    );
+    assert_eq!((message.gap, message.publisher_restarted), (0, false));
+    assert_eq!(early.declaration(), Some(&speech));
+    let statistics = early.statistics();
+    assert_eq!((statistics.received, statistics.wrong_type), (1, 3));
+
+    // What a message that was passed over would have said of its publisher
+    // is said with the next one handed over: two were missed before the
+    // one of another type.
+    let path = sockets(&root.0.join("voice/heard/subs")).remove(0);
+    let stranger = UnixDatagram::unbound().unwrap();
+    let now = unix_ms();
+    let typed = |name: &str| format!(",\"type\":\"lamp_msgs/{name}\"");
+    let send = |seq, extra: &str| {
+        stranger
+            .send_to(&by_hand("voice/heard", seq, now, extra), &path)
+            .unwrap();
+    };
+    send(1, &typed("Speech"));
+    let message = early.recv(WAIT).unwrap().expect("made by hand");
+    assert_eq!((message.header.seq, message.gap), (1, 0));
+    send(4, &typed("Faces"));
+    send(5, &typed("Speech"));
+    let message = early.recv(WAIT).unwrap().expect("the one after");
+    assert_eq!((message.header.seq, message.gap), (5, 2));
+    assert_eq!(early.wrong_type(), 4);
+    assert_eq!(early.statistics().gaps, 2);
+}
+
+#[test]
+fn a_publisher_is_listed_while_it_shows_itself_alive_and_not_after() {
+    let root = Root::new();
+    let lease = Duration::from_millis(300);
+    let bus = root.bus().lease(lease).rescan_every(Duration::ZERO);
+    let pubs = root.0.join("servos/pubs");
+    let modified = |path: &Path| fs::metadata(path).unwrap().modified().unwrap();
+    let files = |directory: &Path| fs::read_dir(directory).map_or(0, Iterator::count);
+
+    // A publisher that declares nothing is not there until it speaks.
+    let mut body = bus.publisher("servos", Kind::Event, "body").unwrap();
+    assert!(bus.publishers("servos").unwrap().is_empty());
+    let entry = pubs.join(format!("body.{}.{}", std::process::id(), body.boot()));
+    let began = Instant::now();
+    body.publish_json(1, &1).unwrap();
+    let first = modified(&entry);
+    let listed = bus.publishers("servos").unwrap();
+    assert_eq!(listed.len(), 1, "{listed:?}");
+    assert_eq!(listed[0].name, "body");
+    assert_eq!(listed[0].pid, std::process::id());
+    assert_eq!(listed[0].boot, body.boot());
+    assert!(listed[0].age <= lease);
+    assert_eq!(mode(&entry), 0o660);
+    assert_eq!(fs::metadata(&entry).unwrap().len(), 0);
+    assert_eq!(mode(&pubs), 0o770);
+    // Publishing again at once does not touch it again: a third of the
+    // lease has to pass, a second at the most.
+    for n in 2..=50u64 {
+        body.publish_json(n, &n).unwrap();
+    }
+    let again = modified(&entry);
+    if began.elapsed() < lease / 3 {
+        assert_eq!(again, first);
+    }
+    // After that the next message refreshes it.
+    thread::sleep(lease / 3 + Duration::from_millis(20));
+    body.publish_json(51, &51).unwrap();
+    let refreshed = modified(&entry);
+    assert!(refreshed > first);
+    // And so does saying that it is alive, with nothing to publish.
+    thread::sleep(lease / 3 + Duration::from_millis(20));
+    body.alive().unwrap();
+    assert!(modified(&entry) > refreshed);
+    assert_eq!(body.totals().published, 51);
+
+    // One that only ever says so is listed too, and a subscriber is given
+    // the same list.
+    let mut quiet = bus.publisher("servos", Kind::Event, "voice").unwrap();
+    quiet.alive().unwrap();
+    let follow = bus.subscribe("servos", "f").unwrap();
+    let names = |sources: Vec<lamp_bus::Source>| {
+        sources
+            .into_iter()
+            .map(|source| source.name)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(names(follow.sources().unwrap()), ["body", "voice"]);
+    // One that declared its topic is there from the start.
+    let state = Declaration::new("lamp_msgs/RoomState", 1, Kind::Latest);
+    let declared = bus
+        .publisher_declared("room/state", &state, "voice")
+        .unwrap();
+    assert_eq!(names(bus.publishers("room/state").unwrap()), ["voice"]);
+
+    // Neither says anything for longer than the lease: both are taken for
+    // dead, and whoever lists them removes what they left.
+    thread::sleep(lease + Duration::from_millis(100));
+    assert_eq!(files(&pubs), 2);
+    assert!(follow.sources().unwrap().is_empty());
+    assert_eq!(files(&pubs), 0);
+    // It was only silent. Its next message puts it back.
+    body.publish_json(52, &52).unwrap();
+    assert_eq!(names(bus.publishers("servos").unwrap()), ["body"]);
+    assert!(quiet.alive().is_ok());
+    assert_eq!(names(bus.publishers("servos").unwrap()), ["body", "voice"]);
+
+    // A publisher that ends takes its entry with it at once.
+    drop(body);
+    assert_eq!(names(bus.publishers("servos").unwrap()), ["voice"]);
+    drop(quiet);
+    assert_eq!(files(&pubs), 0);
+    drop(declared);
+    assert_eq!(files(&root.0.join("room/state/pubs")), 0);
+
+    // Left by a process that died: listed for as long as its time is
+    // within the lease, by whatever name it had, and then removed.
+    let ghost = pubs.join("ghost.1.0123456789abcdef");
+    fs::write(&ghost, b"").unwrap();
+    let listed = bus.publishers("servos").unwrap();
+    assert_eq!((listed[0].name.as_str(), listed[0].pid), ("ghost", 1));
+    let set = |path: &Path, time: SystemTime| {
+        fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    };
+    set(
+        &ghost,
+        SystemTime::now() - lease - Duration::from_millis(200),
+    );
+    assert!(bus.publishers("servos").unwrap().is_empty());
+    assert!(!ghost.exists());
+    // A time ahead of the clock by less than the lease is a clock read a
+    // moment apart. One further ahead is what a clock set back leaves, and
+    // would otherwise be alive for as long as the clock was wrong.
+    fs::write(&ghost, b"").unwrap();
+    set(&ghost, SystemTime::now() + lease / 2);
+    let listed = bus.publishers("servos").unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].age, Duration::ZERO);
+    set(&ghost, SystemTime::now() + Duration::from_secs(3_600));
+    assert!(bus.publishers("servos").unwrap().is_empty());
+    assert!(!ghost.exists());
+    // What is not an entry is neither listed nor removed.
+    for other in ["notes", ".body.1.0123456789abcdef.new", "body.1.xyz"] {
+        fs::write(pubs.join(other), b"").unwrap();
+        set(
+            &pubs.join(other),
+            SystemTime::now() - Duration::from_secs(60),
+        );
+    }
+    assert!(bus.publishers("servos").unwrap().is_empty());
+    assert_eq!(files(&pubs), 3);
+    // A topic nobody has published has no publishers, and that is no error.
+    assert!(bus.publishers("mic2").unwrap().is_empty());
+    assert!(bus.publishers("../x").is_err());
+}
+
+#[test]
+fn a_subscriber_is_told_once_that_the_source_has_gone_and_once_that_it_is_back() {
+    let root = Root::new();
+    let lease = Duration::from_millis(200);
+    let bus = root.bus().lease(lease).rescan_every(Duration::ZERO);
+    let began = Instant::now();
+    let mut follow = bus.subscribe("room/state", "f").unwrap();
+    assert!(follow.sources().unwrap().is_empty());
+    // Nobody publishes it. A lease after subscribing that is said, once.
+    until("the source to be missed", || follow.source_gone());
+    assert!(began.elapsed() > lease, "{:?}", began.elapsed());
+    assert_eq!(follow.notices(), [Notice::SourceGone]);
+    assert!(follow.notices().is_empty());
+    assert!(follow.source_gone());
+    assert!(follow.notices().is_empty());
+
+    // A publisher that declares its topic shows itself before it speaks:
+    // the source is back, said once.
+    let state = Declaration::new("lamp_msgs/RoomState", 1, Kind::Latest);
+    let mut voice = bus
+        .publisher_declared("room/state", &state, "voice")
+        .unwrap();
+    until("the source to be seen", || {
+        voice.alive().unwrap();
+        !follow.source_gone()
+    });
+    assert_eq!(follow.notices(), [Notice::SourceBack]);
+    assert!(follow.notices().is_empty());
+    assert_eq!(follow.sources().unwrap().len(), 1);
+
+    // It ends without ever having spoken: nothing has come for a lease, so
+    // the moment its entry is gone the source is.
+    drop(voice);
+    assert_eq!(follow.notices(), [Notice::SourceGone]);
+    assert!(follow.notices().is_empty());
+
+    // A publisher that declares nothing is back with its first message.
+    let mut voice = bus.publisher("room/state", Kind::Latest, "voice").unwrap();
+    assert!(follow.notices().is_empty());
+    // Before it speaks: its last sign of life is no earlier than this.
+    let spoke = Instant::now();
+    assert_eq!(voice.publish_json(1, &json!("quiet")).unwrap(), ONE);
+    let message = follow.recv(WAIT).unwrap().expect("the state");
+    assert_eq!(message.json().unwrap(), json!("quiet"));
+    assert_eq!(follow.notices(), [Notice::SourceBack]);
+    assert!(!follow.source_gone());
+
+    // It hangs: no message, and its entry is not refreshed. A lease after
+    // its last sign of life it is gone, though its process is there.
+    until("the source to be missed again", || follow.source_gone());
+    assert!(spoke.elapsed() > lease, "{:?}", spoke.elapsed());
+    assert_eq!(follow.notices(), [Notice::SourceGone]);
+    assert!(follow.sources().unwrap().is_empty());
+    // And back when it speaks, with nothing lost and nothing said twice.
+    assert_eq!(voice.publish_json(2, &json!("busy")).unwrap(), ONE);
+    let message = follow.recv(WAIT).unwrap().expect("the state");
+    assert_eq!((message.header.seq, message.gap), (2, 0));
+    assert_eq!(follow.notices(), [Notice::SourceBack]);
+    assert!(follow.notices().is_empty());
+    assert_eq!(follow.sources().unwrap().len(), 1);
+
+    // A subscriber that never asks is told nothing and keeps receiving.
+    let mut plain = bus.subscribe("room/state", "g").unwrap();
+    assert_eq!(voice.publish_json(3, &json!("quiet")).unwrap().delivered, 2);
+    assert_eq!(plain.recv(WAIT).unwrap().unwrap().header.seq, 3);
+}
+
+#[test]
+fn messages_alone_keep_a_source_and_a_publisher_from_another_language_needs_no_entry() {
+    let root = Root::new();
+    let lease = Duration::from_millis(200);
+    let bus = root.bus().lease(lease).rescan_every(Duration::ZERO);
+    let mut follow = bus.subscribe("mic2/audio", "f").unwrap();
+    let path = sockets(&root.0.join("mic2/audio/subs")).remove(0);
+    let stranger = UnixDatagram::unbound().unwrap();
+    // Nothing is ever put in `pubs/`. For two leases a message comes every
+    // few milliseconds, and the source is there throughout.
+    let started = Instant::now();
+    let (mut seq, mut last, mut slowest) = (0u64, Instant::now(), Duration::ZERO);
+    let mut sent = started;
+    while started.elapsed() < 2 * lease {
+        seq += 1;
+        sent = Instant::now();
+        stranger
+            .send_to(&by_hand("mic2/audio", seq, unix_ms(), ""), &path)
+            .unwrap();
+        let message = follow.recv(WAIT).unwrap().expect("made by hand");
+        assert_eq!((message.header.seq, message.gap), (seq, 0));
+        let said = follow.notices();
+        // If this thread was not run for half a lease, a silence that long
+        // is the machine's and not the bus's, and proves nothing.
+        slowest = slowest.max(last.elapsed());
+        last = Instant::now();
+        assert!(
+            said.is_empty() || slowest > lease / 2,
+            "{said:?} with messages at most {slowest:?} apart"
+        );
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert!(follow.sources().unwrap().is_empty());
+    assert!(!root.0.join("mic2/audio/pubs").exists());
+    // It stops. With no entry to speak for it, a lease after its last
+    // message it is gone.
+    until("the source to be missed", || follow.source_gone());
+    assert!(sent.elapsed() > lease);
+    assert!(follow.notices().contains(&Notice::SourceGone));
+}
+
+#[test]
+fn a_topic_that_promised_a_period_is_late_after_twice_that_and_on_time_with_the_next() {
+    let root = Root::new();
+    let bus = root.bus().rescan_every(Duration::ZERO);
+    let period = Duration::from_millis(80);
+    let topic = "body/joint_states";
+    let joints = Declaration::new("lamp_msgs/JointState", 1, Kind::Event).every(period);
+    // One subscriber is there before the topic is declared, one after.
+    let mut early = bus.subscribe(topic, "e").unwrap();
+    assert!(early.declaration().is_none());
+    let mut body = bus.publisher_declared(topic, &joints, "body").unwrap();
+    let mut follow = bus.subscribe(topic, "f").unwrap();
+    assert_eq!(follow.declaration(), Some(&joints));
+    // A topic that promises nothing is never late.
+    let mut other = bus.subscribe("voice/heard", "f").unwrap();
+    let mut voice = bus.publisher("voice/heard", Kind::Event, "voice").unwrap();
+    assert_eq!(voice.publish_json(1, &1).unwrap(), ONE);
+    assert!(other.recv(WAIT).unwrap().is_some());
+
+    // Before it is sent: the message cannot have come earlier than this.
+    let sent = Instant::now();
+    assert_eq!(body.publish_json(1, &1).unwrap().delivered, 2);
+    assert!(follow.recv(WAIT).unwrap().is_some());
+    assert!(early.recv(WAIT).unwrap().is_some());
+    // The early one learned the period when the publisher first spoke.
+    assert_eq!(early.declaration(), Some(&joints));
+    // Nothing more comes: late after twice the period, said once.
+    until("the topic to be late", || follow.is_late());
+    assert!(sent.elapsed() > 2 * period, "{:?}", sent.elapsed());
+    assert_eq!(follow.notices(), [Notice::Late]);
+    assert!(follow.notices().is_empty());
+    assert!(follow.is_late());
+    assert!(follow.notices().is_empty());
+    until("the topic to be late for the early one", || early.is_late());
+    assert_eq!(early.notices(), [Notice::Late]);
+
+    // The next message ends it, said once.
+    assert_eq!(body.publish_json(2, &2).unwrap().delivered, 2);
+    assert!(follow.recv(WAIT).unwrap().is_some());
+    assert_eq!(follow.notices(), [Notice::OnTime]);
+    assert!(follow.notices().is_empty());
+
+    // A silence nobody asked about while it lasted is said with its end:
+    // the early subscriber has not looked since it was told `Late`, and the
+    // other is asked nothing until the next message has come.
+    assert!(early.recv(WAIT).unwrap().is_some());
+    thread::sleep(2 * period + Duration::from_millis(40));
+    assert_eq!(body.publish_json(3, &3).unwrap().delivered, 2);
+    assert!(follow.recv(WAIT).unwrap().is_some());
+    assert_eq!(follow.notices(), [Notice::Late, Notice::OnTime]);
+    assert!(early.recv(WAIT).unwrap().is_some());
+    assert_eq!(
+        early.notices(),
+        [Notice::OnTime, Notice::Late, Notice::OnTime]
+    );
+
+    // A subscriber whose declared topic never speaks at all is told so,
+    // twice the period after it subscribed.
+    drop(body);
+    let subscribed = Instant::now();
+    let mut waiting = bus.subscribe(topic, "w").unwrap();
+    until("the silent topic to be late", || waiting.is_late());
+    assert!(subscribed.elapsed() > 2 * period);
+    assert_eq!(waiting.notices()[0], Notice::Late);
+
+    // All this while the topic without a period was silent, and not late.
+    assert!(!other.is_late());
+    assert!(!other.notices().contains(&Notice::Late));
+}
+
+#[test]
+fn a_subscriber_that_has_not_read_is_not_told_that_its_topic_went_quiet() {
+    let root = Root::new();
+    let lease = Duration::from_millis(150);
+    let bus = root.bus().lease(lease).rescan_every(Duration::ZERO);
+    let period = Duration::from_millis(60);
+    let topic = "mic2/audio";
+    // The period is declared, and the messages are made by hand: no
+    // publisher has an entry to speak for the topic, so only they say that
+    // it has a source.
+    let audio = Declaration::new("lamp_msgs/Audio", 1, Kind::Event).every(period);
+    drop(bus.publisher_declared(topic, &audio, "mic").unwrap());
+    assert!(bus.publishers(topic).unwrap().is_empty());
+    let mut busy = bus.subscribe(topic, "b").unwrap();
+    assert_eq!(busy.declaration(), Some(&audio));
+    let path = sockets(&root.0.join(topic).join("subs")).remove(0);
+    let stranger = UnixDatagram::unbound().unwrap();
+    // Nine messages 20 ms apart while the subscriber reads none of them:
+    // longer than the lease, and than twice the period. Says how far apart
+    // the two furthest apart were sent: if this thread was held up between
+    // two for longer than twice the period, the topic was late, by the
+    // test's own doing.
+    let mut next = 1u64;
+    let mut burst = |last_sent: u64| {
+        let started = Instant::now();
+        let mut sent = vec![last_sent];
+        for _ in 0..9 {
+            sent.push(unix_ms());
+            stranger
+                .send_to(&by_hand(topic, next, sent[sent.len() - 1], ""), &path)
+                .unwrap();
+            next += 1;
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(started.elapsed() > lease.max(2 * period));
+        let widest = sent.windows(2).map(|pair| pair[1] - pair[0]).max().unwrap();
+        (sent[9], widest > 2 * period.as_millis() as u64)
+    };
+    let read = |busy: &mut lamp_bus::Subscriber, from: u64| {
+        for seq in from..from + 9 {
+            let message = busy.recv(WAIT).unwrap().expect("a waiting message");
+            assert_eq!((message.header.seq, message.gap), (seq, 0));
+        }
+    };
+    // During the first burst it reads nothing, and then asks. Nothing was
+    // taken in all that time and nothing is wrong with the topic: what it
+    // sent is waiting.
+    let (last_sent, held_up) = burst(unix_ms());
+    let said = (busy.is_late(), busy.source_gone(), busy.notices());
+    assert!(said == (false, false, Vec::new()) || held_up, "{said:?}");
+    read(&mut busy, 1);
+    let said = busy.notices();
+    assert!(said.is_empty() || held_up, "{said:?}");
+    // During the second it reads nothing either, and then reads without
+    // having asked: the tenth message is taken a long time after the ninth
+    // was. They were sent 20 ms apart, and that is what counts.
+    let (_, held_up) = burst(last_sent);
+    // Before the last is read: the lease runs from no earlier than this.
+    let reading = Instant::now();
+    read(&mut busy, 10);
+    let said = busy.notices();
+    assert!(said.is_empty() || held_up, "{said:?}");
+    assert_eq!(busy.statistics().received, 18);
+    // With everything read and nothing more coming, it is told both.
+    until("the topic to be late", || busy.is_late());
+    until("the source to be missed", || busy.source_gone());
+    assert!(reading.elapsed() > lease);
+    let said = busy.notices();
+    assert!(
+        said.contains(&Notice::Late) && said.contains(&Notice::SourceGone),
+        "{said:?}"
+    );
+    // One message more, read after a silence: back, and on time again.
+    stranger
+        .send_to(&by_hand(topic, 19, unix_ms(), ""), &path)
+        .unwrap();
+    assert_eq!(busy.recv(WAIT).unwrap().expect("the next").header.seq, 19);
+    let said = busy.notices();
+    assert!(
+        said.contains(&Notice::OnTime) && said.contains(&Notice::SourceBack),
+        "{said:?}"
+    );
+}
+
+#[test]
+fn a_message_that_has_outlived_its_time_is_not_handed_over_and_is_counted() {
+    let root = Root::new();
+    let bus = root.bus().rescan_every(Duration::ZERO);
+    let topic = "light/state";
+    let mut follow = bus.subscribe(topic, "f").unwrap();
+    let mut ring = bus.publisher(topic, Kind::Latest, "ring").unwrap();
+    // Within its time it arrives as any message does.
+    ring.expires_after(Some(Duration::from_secs(60)));
+    assert_eq!(ring.publish_json(1, &json!({"on": true})).unwrap(), ONE);
+    let message = follow.recv(WAIT).unwrap().expect("in time");
+    assert_eq!(
+        (message.header.expires_ms, message.expired),
+        (Some(60_000), false)
+    );
+    assert_eq!(follow.expired(), 0);
+
+    // One that lasts 20 ms and is read 150 ms later is not handed over,
+    // from the queue or from the file, and is counted once.
+    ring.expires_after(Some(Duration::from_millis(20)));
+    assert_eq!(ring.publish_json(2, &json!({"on": false})).unwrap(), ONE);
+    thread::sleep(Duration::from_millis(150));
+    assert!(follow.recv(BRIEF).unwrap().is_none());
+    assert!(follow.recv(Duration::ZERO).unwrap().is_none());
+    assert_eq!(follow.expired(), 1);
+    assert_eq!(follow.statistics().expired, 1);
+    // Asked for, the value is given and marked: the last thing known.
+    let kept = follow.latest().unwrap().expect("the old value");
+    assert_eq!((kept.header.seq, kept.expired), (2, true));
+    assert_eq!(kept.json().unwrap(), json!({"on": false}));
+    let kept = bus.latest(topic).unwrap().expect("the old value");
+    assert_eq!((kept.header.seq, kept.expired), (2, true));
+    assert_eq!(follow.expired(), 1);
+
+    // A subscriber that comes late to an expired value is not handed it
+    // by `recv`, counts it once, and can still ask for it.
+    let mut late = bus.subscribe(topic, "g").unwrap();
+    assert!(late.recv(BRIEF).unwrap().is_none());
+    assert!(late.recv(BRIEF).unwrap().is_none());
+    assert_eq!(late.expired(), 1);
+    assert!(late.latest().unwrap().expect("the old value").expired);
+    // One that asks first is given it marked, and `recv` does not count
+    // what was already taken.
+    let mut asks = bus.subscribe(topic, "h").unwrap();
+    assert!(asks.latest().unwrap().expect("the old value").expired);
+    assert!(asks.recv(BRIEF).unwrap().is_none());
+    assert_eq!(asks.expired(), 0);
+
+    // The next value in time is handed over: the expired one was received,
+    // so it is not a gap.
+    ring.expires_after(Some(Duration::from_secs(60)));
+    assert_eq!(
+        ring.publish_json(3, &json!({"on": true}))
+            .unwrap()
+            .delivered,
+        3
+    );
+    for subscriber in [&mut follow, &mut late, &mut asks] {
+        let message = subscriber.recv(WAIT).unwrap().expect("in time");
+        assert_eq!((message.header.seq, message.gap), (3, 0));
+        assert!(!message.expired && !message.publisher_restarted);
+    }
+    assert!(!bus.latest(topic).unwrap().unwrap().expired);
+
+    // By hand, so that the header says exactly when: ten seconds old with
+    // a life of a hundred milliseconds, then one stamped ten seconds ahead,
+    // then one with no limit that is as old as the clock.
+    let path = sockets(&root.0.join(topic).join("subs")).remove(0);
+    let stranger = UnixDatagram::unbound().unwrap();
+    let now = unix_ms();
+    let send = |seq, at, extra: &str| {
+        stranger
+            .send_to(&by_hand(topic, seq, at, extra), &path)
+            .unwrap();
+    };
+    send(1, now - 10_000, ",\"expires_ms\":100");
+    send(2, now + 10_000, ",\"expires_ms\":100");
+    let message = follow.recv(WAIT).unwrap().expect("the one from ahead");
+    assert_eq!((message.header.seq, message.gap), (2, 0));
+    send(3, 1, "");
+    let message = follow.recv(WAIT).unwrap().expect("the one with no limit");
+    assert_eq!(message.header.at_unix_ms, 1);
+    assert_eq!(follow.expired(), 2);
+    // Two missed before an expired one are said with the next handed over.
+    send(6, now - 10_000, ",\"expires_ms\":100");
+    send(7, now, ",\"expires_ms\":60000");
+    let message = follow.recv(WAIT).unwrap().expect("the one in time");
+    assert_eq!((message.header.seq, message.gap), (7, 2));
+    assert_eq!(follow.expired(), 3);
+}
+
+#[test]
+fn a_subscriber_keeps_statistics_of_what_came_and_what_did_not() {
+    let root = Root::new();
+    let bus = root.bus();
+    let mut follow = bus
+        .subscribe_typed("servos", "f", "lamp_msgs/JointState")
+        .unwrap();
+    assert_eq!(follow.statistics(), Statistics::default());
+    let path = sockets(&root.0.join("servos/subs")).remove(0);
+    let stranger = UnixDatagram::unbound().unwrap();
+    let joints = ",\"type\":\"lamp_msgs/JointState\"";
+    let send = |seq, age_ms: u64, extra: &str| {
+        let extra = format!("{joints}{extra}");
+        stranger
+            .send_to(&by_hand("servos", seq, unix_ms() - age_ms, &extra), &path)
+            .unwrap();
+    };
+    let mut take = |seq, gap| {
+        let message = follow.recv(WAIT).unwrap().expect("a message");
+        assert_eq!((message.header.seq, message.gap), (seq, gap));
+        follow.statistics()
+    };
+    // Each sent 400 ms before it is received.
+    send(1, 400, "");
+    let one = take(1, 0);
+    assert_eq!((one.received, one.gaps), (1, 0));
+    // It takes two to have a time between them.
+    assert_eq!((one.mean_interval, one.largest_interval), (None, None));
+    assert!(one.mean_age >= Some(Duration::from_millis(400)), "{one:?}");
+    thread::sleep(Duration::from_millis(30));
+    send(2, 400, "");
+    take(2, 0);
+    // Two never arrive.
+    send(5, 400, "");
+    take(5, 2);
+    thread::sleep(Duration::from_millis(90));
+    send(6, 400, "");
+    take(6, 0);
+    // One of another type, then one missed, then one that had expired.
+    stranger
+        .send_to(
+            &by_hand("servos", 7, unix_ms(), ",\"type\":\"lamp_msgs/Faces\""),
+            &path,
+        )
+        .unwrap();
+    send(9, 10_000, ",\"expires_ms\":100");
+    send(10, 400, "");
+    let all = take(10, 1);
+    assert_eq!(
+        (all.received, all.gaps, all.expired, all.wrong_type),
+        (5, 3, 1, 1)
+    );
+    // Four times between the five that were handed over: at least 30 ms,
+    // next to nothing, at least 90 ms, next to nothing.
+    let (mean, largest) = (all.mean_interval.unwrap(), all.largest_interval.unwrap());
+    assert!(largest >= Duration::from_millis(90), "{all:?}");
+    assert!(
+        mean >= Duration::from_millis(30) && mean <= largest,
+        "{all:?}"
+    );
+    // Every one was 400 ms old when sent, and read soon after.
+    let age = all.mean_age.unwrap();
+    assert!(
+        age >= Duration::from_millis(400) && age < Duration::from_millis(5_400),
+        "{all:?}"
+    );
+    assert_eq!((follow.expired(), follow.wrong_type()), (1, 1));
+    assert_eq!((follow.malformed(), follow.repeated()), (0, 0));
 }

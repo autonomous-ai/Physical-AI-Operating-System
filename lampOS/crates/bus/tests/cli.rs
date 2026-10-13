@@ -1,12 +1,17 @@
 //! The `lamp-bus` binary, run the way a shell runs it, with the test as the
 //! other end of the bus.
-use lamp_bus::{Bus, Kind, Published};
+use lamp_bus::{Bus, Declaration, Kind, Published};
 use serde_json::{Value, json};
 use std::{
+    collections::HashMap,
     fs,
+    os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -156,6 +161,70 @@ fn lines(path: &Path) -> Vec<Value> {
 
 fn sound() -> Vec<u8> {
     (0..640u32).map(|index| (index * 7) as u8).collect()
+}
+
+/// A publisher in a thread of its own, as another process would be one:
+/// it declares its topic if told what it carries, publishes every `every`
+/// until it is stopped, and then ends as a publisher does.
+struct Publishing {
+    stop: Arc<AtomicBool>,
+    thread: Option<thread::JoinHandle<u64>>,
+}
+
+impl Publishing {
+    fn start(
+        bus: Bus,
+        topic: &'static str,
+        declaration: Option<Declaration>,
+        every: Duration,
+    ) -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = thread::spawn({
+            let stop = Arc::clone(&stop);
+            move || {
+                let mut publisher = match &declaration {
+                    Some(declaration) => bus.publisher_declared(topic, declaration, "body"),
+                    None => bus.publisher(topic, Kind::Event, "body"),
+                }
+                .unwrap();
+                let started = Instant::now();
+                let mut sent = 0u64;
+                while !stop.load(Ordering::SeqCst) {
+                    sent += 1;
+                    let at_us = started.elapsed().as_micros() as u64;
+                    publisher.publish_json(at_us, &json!({"n": sent})).unwrap();
+                    thread::sleep(every);
+                }
+                sent
+            }
+        });
+        Self {
+            stop,
+            thread: Some(thread),
+        }
+    }
+
+    /// Stop it, and say how many it published.
+    fn end(mut self) -> u64 {
+        self.stop.store(true, Ordering::SeqCst);
+        self.thread.take().unwrap().join().unwrap()
+    }
+}
+
+impl Drop for Publishing {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+/// The `key=value` words of a line the tool printed.
+fn words(line: &str) -> HashMap<&str, &str> {
+    line.split(' ')
+        .filter_map(|word| word.split_once('='))
+        .collect()
 }
 
 #[test]
@@ -525,7 +594,7 @@ fn bad_input_prints_the_usage_and_is_status_2_with_nothing_touched() {
     let root = Root::new();
     let elsewhere = root.0.join("recordings");
     let elsewhere = elsewhere.to_str().unwrap();
-    let cases: [&[&str]; 24] = [
+    let cases: [&[&str]; 32] = [
         &[],
         &["frobnicate"],
         &["topics", "extra"],
@@ -550,6 +619,14 @@ fn bad_input_prints_the_usage_and_is_status_2_with_nothing_touched() {
         &["record", elsewhere, "a/b", "a_b"],
         &["replay"],
         &["replay", "recording.jsonl", "--speed", "-1"],
+        &["info"],
+        &["info", "servos", "mic2"],
+        &["info", "room.state"],
+        &["hz"],
+        &["hz", "servos", "--seconds", "soon"],
+        &["hz", "servos", "--count", "3"],
+        &["pub", "servos", "latest", "1", "--type", "joints"],
+        &["tap", "servos", "--type", "lamp_msgs/JointState"],
     ];
     for arguments in cases {
         let output = run(&root, arguments);
@@ -574,4 +651,376 @@ fn bad_input_prints_the_usage_and_is_status_2_with_nothing_touched() {
     let help = run(&root, &["--help"]);
     assert!(help.status.success() && help.stderr.is_empty());
     assert!(text(&help.stdout).starts_with("usage: lamp-bus"));
+}
+
+#[test]
+fn info_says_what_a_topic_carries_who_publishes_it_who_listens_and_how_old_its_value_is() {
+    let root = Root::new();
+    let bus = root.bus();
+    let topic = "body/joint_states";
+    // A topic nobody has touched is not on the bus.
+    let unknown = run(&root, &["info", topic]);
+    assert_eq!(unknown.status.code(), Some(1));
+    assert!(unknown.stdout.is_empty());
+    assert!(
+        text(&unknown.stderr).contains("body/joint_states is not on the bus"),
+        "{}",
+        text(&unknown.stderr)
+    );
+    assert!(!root.0.exists());
+
+    let joints = Declaration::new("lamp_msgs/JointState", 1, Kind::Latest)
+        .every(Duration::from_millis(20))
+        .lasting(Duration::from_secs(60));
+    let publishing = Publishing::start(
+        bus.clone(),
+        topic,
+        Some(joints.clone()),
+        Duration::from_millis(20),
+    );
+    let follow = bus.subscribe(topic, "f").unwrap();
+    until("the value", || {
+        bus.latest(topic).is_ok_and(|kept| kept.is_some())
+    });
+    // A subscriber whose process died, for the tool to tell from a live one.
+    drop(UnixDatagram::bind(root.0.join(topic).join("subs/ghost.1.0.sock")).unwrap());
+    // Whether the publisher has found and removed it by now is its affair.
+    let shown = run(&root, &["info", topic]);
+    assert!(shown.status.success(), "{}", text(&shown.stderr));
+    let said = text(&shown.stdout);
+    let lines: Vec<&str> = said
+        .lines()
+        .filter(|line| !line.starts_with("subscriber ghost."))
+        .collect();
+    assert_eq!(lines.len(), 5, "{said}");
+    assert_eq!(lines[0], "topic body/joint_states");
+    assert_eq!(
+        lines[1],
+        "declaration type=lamp_msgs/JointState version=1 kind=latest period_ms=20 \
+         lifespan_ms=60000"
+    );
+    let publisher = words(lines[2]);
+    assert!(lines[2].starts_with("publisher body pid="), "{said}");
+    assert_eq!(publisher["pid"], std::process::id().to_string());
+    assert_eq!(publisher["boot"].len(), 16);
+    // Refreshed every second: never a lease old while it publishes.
+    assert!(
+        publisher["alive_ms"].parse::<u64>().unwrap() < 3_000,
+        "{said}"
+    );
+    assert!(
+        lines[3].starts_with(&format!("subscriber f.{}.", std::process::id()))
+            && lines[3].ends_with(" listening"),
+        "{said}"
+    );
+    let latest = words(lines[4]);
+    assert!(lines[4].starts_with("latest source=body seq="), "{said}");
+    assert!(latest["seq"].parse::<u64>().unwrap() >= 1);
+    assert!(latest["age_ms"].parse::<u64>().unwrap() < 5_000, "{said}");
+    assert_eq!(latest["expired"], "no");
+
+    // `topics` says the type beside what it said before.
+    let listed = run(&root, &["topics"]);
+    assert!(
+        text(&listed.stdout).starts_with("body/joint_states subscribers=1 "),
+        "{}",
+        text(&listed.stdout)
+    );
+    assert!(
+        text(&listed.stdout).ends_with("latest=yes type=lamp_msgs/JointState\n"),
+        "{}",
+        text(&listed.stdout)
+    );
+
+    // The tool publishing with the topic's type joins it and leaves what
+    // its own publisher promised of it alone.
+    let joined = run(
+        &root,
+        &[
+            "pub",
+            topic,
+            "latest",
+            "{\"n\":0}",
+            "--type",
+            "lamp_msgs/JointState",
+        ],
+    );
+    assert!(joined.status.success(), "{}", text(&joined.stderr));
+    assert_eq!(bus.declaration(topic).unwrap(), Some(joints));
+    // With another type, or the same as another kind, it is told why not.
+    for (kind, type_name) in [
+        ("latest", "lamp_msgs/Faces"),
+        ("event", "lamp_msgs/JointState"),
+    ] {
+        let refused = run(&root, &["pub", topic, kind, "1", "--type", type_name]);
+        assert_eq!(refused.status.code(), Some(1), "{kind} {type_name}");
+        let why = text(&refused.stderr);
+        assert!(
+            why.contains("already declared as lamp_msgs/JointState (latest)")
+                && !why.contains("usage:"),
+            "{why}"
+        );
+    }
+
+    // The publisher and the subscriber end: the topic keeps what it was
+    // declared to be and its last value, and has nobody.
+    assert!(publishing.end() >= 1);
+    drop(follow);
+    let _ = fs::remove_file(root.0.join(topic).join("subs/ghost.1.0.sock"));
+    let shown = run(&root, &["info", topic]);
+    let said = text(&shown.stdout);
+    let lines: Vec<&str> = said.lines().collect();
+    assert_eq!(lines.len(), 5, "{said}");
+    assert!(lines[1].starts_with("declaration type=lamp_msgs/JointState "));
+    assert_eq!(lines[2], "publishers none");
+    assert_eq!(lines[3], "subscribers none");
+    assert!(lines[4].starts_with("latest source="), "{said}");
+
+    // A topic of events that the tool itself declared, and a subscriber
+    // left behind by a process that died.
+    let said = run(
+        &root,
+        &[
+            "pub",
+            "voice/heard",
+            "event",
+            "{\"text\":\"lamp\"}",
+            "--type",
+            "lamp_msgs/Speech",
+        ],
+    );
+    assert!(said.status.success(), "{}", text(&said.stderr));
+    fs::create_dir(root.0.join("voice/heard/subs")).unwrap();
+    drop(UnixDatagram::bind(root.0.join("voice/heard/subs/ghost.1.0.sock")).unwrap());
+    let shown = run(&root, &["info", "voice/heard"]);
+    assert_eq!(
+        text(&shown.stdout),
+        "topic voice/heard\n\
+         declaration type=lamp_msgs/Speech version=1 kind=event\n\
+         publishers none\n\
+         subscriber ghost.1.0 stale\n\
+         latest none\n"
+    );
+    // A value that has outlived its time is printed, and said to be old.
+    let mut ring = bus.publisher("light/state", Kind::Latest, "ring").unwrap();
+    ring.expires_after(Some(Duration::from_millis(1)));
+    ring.publish_json(1, &json!({"on": true})).unwrap();
+    thread::sleep(Duration::from_millis(80));
+    let shown = run(&root, &["info", "light/state"]);
+    assert!(text(&shown.stdout).ends_with(" expired=yes\n"));
+    assert!(text(&shown.stdout).contains("\ndeclaration none\npublisher ring pid="));
+    let latest = run(&root, &["latest", "light/state"]);
+    assert!(latest.status.success());
+    assert!(text(&latest.stdout).contains("\"expires_ms\":1"));
+    assert!(text(&latest.stderr).contains("light/state: the value expired "));
+}
+
+#[test]
+fn hz_measures_a_topic_while_a_publisher_runs_and_is_status_1_when_nothing_comes() {
+    let root = Root::new();
+    let bus = root.bus();
+    let topic = "mic2/audio";
+    let publishing = Publishing::start(bus.clone(), topic, None, Duration::from_millis(10));
+    until("the publisher", || {
+        bus.publishers(topic).is_ok_and(|found| !found.is_empty())
+    });
+    let measured = run(&root, &["hz", topic, "--seconds", "0.8"]);
+    let published = publishing.end();
+    assert!(measured.status.success(), "{}", text(&measured.stderr));
+    let said = text(&measured.stdout);
+    assert_eq!(said.matches('\n').count(), 1, "one line: {said:?}");
+    assert!(said.starts_with("mic2/audio messages="), "{said}");
+    let measured = words(said.trim_end());
+    let number = |key: &str| measured[key].parse::<f64>().unwrap();
+    // A message every 10 ms and a little: some sixty of them in 0.8 s less
+    // the time the publisher takes to find a new subscriber. The bounds are
+    // wide: what is tested is that the numbers are those of this stream.
+    let messages = number("messages");
+    assert!(messages >= 10.0 && messages <= published as f64, "{said}");
+    assert!((0.8..5.0).contains(&number("seconds")), "{said}");
+    assert!((10.0..=101.0).contains(&number("rate_hz")), "{said}");
+    assert!((9.9..100.0).contains(&number("gap_mean_ms")), "{said}");
+    assert!(number("gap_max_ms") >= number("gap_mean_ms"), "{said}");
+    assert!(number("age_mean_ms") < 1_000.0, "{said}");
+    assert_eq!((measured["missed"], measured["expired"]), ("0", "0"));
+    // The rate is the one the mean gap gives.
+    let from_gap = 1_000.0 / number("gap_mean_ms");
+    assert!(
+        (number("rate_hz") - from_gap).abs() < 0.02 * from_gap,
+        "{said}"
+    );
+    assert!(root.sockets(topic).is_empty());
+
+    // Nothing comes: status 1, and nothing is made up.
+    let silent = run(&root, &["hz", "room/state", "--seconds", "0.2"]);
+    assert_eq!(silent.status.code(), Some(1));
+    let said = text(&silent.stdout);
+    assert!(
+        said.starts_with("room/state messages=0 seconds=0.")
+            && said.ends_with(
+                " rate_hz=- gap_mean_ms=- gap_max_ms=- age_mean_ms=- missed=0 expired=0\n"
+            ),
+        "{said}"
+    );
+    // A value the topic keeps was sent before the tool listened: it is not
+    // a message that came.
+    let mut state = bus.publisher("room/state", Kind::Latest, "voice").unwrap();
+    state.publish_json(1, &json!("quiet")).unwrap();
+    let kept = run(&root, &["hz", "room/state", "--seconds", "0.3"]);
+    assert_eq!(kept.status.code(), Some(1));
+    assert!(text(&kept.stdout).starts_with("room/state messages=0 "));
+    // One message is a message and not yet a rate.
+    let listening = Running::start(&root, &["hz", "room/state", "--seconds", "1.5"]);
+    until("the tool's socket", || {
+        root.sockets("room/state").len() == 1
+    });
+    assert_eq!(state.publish_json(2, &json!("busy")).unwrap().delivered, 1);
+    let one = listening.output();
+    assert!(one.status.success(), "{}", text(&one.stderr));
+    let said = text(&one.stdout);
+    assert!(
+        said.starts_with("room/state messages=1 ") && said.contains(" rate_hz=- gap_mean_ms=- "),
+        "{said}"
+    );
+    assert_ne!(words(said.trim_end())["age_mean_ms"], "-");
+}
+
+#[test]
+fn a_recording_begins_with_what_its_topic_was_declared_to_carry_and_replay_declares_it_again() {
+    let root = Root::new();
+    let kept = Root::new();
+    let bus = root.bus();
+    let directory = kept.0.to_str().unwrap();
+    let joints = Declaration::new("lamp_msgs/JointState", 2, Kind::Latest)
+        .every(Duration::from_millis(50))
+        .lasting(Duration::from_secs(60));
+    // One topic is declared before the recorder starts, one after.
+    let mut body = bus
+        .publisher_declared("body/joint_states", &joints, "body")
+        .unwrap();
+    let recorder = Running::start(
+        &root,
+        &["record", directory, "body/joint_states", "voice/heard"],
+    );
+    until("the recorder's sockets", || {
+        root.sockets("body/joint_states").len() == 1 && root.sockets("voice/heard").len() == 1
+    });
+    let joints_file = kept.0.join("body_joint_states.jsonl");
+    let speech_file = kept.0.join("voice_heard.jsonl");
+    // Declared already: the file's first line, before any message.
+    until("the declaration", || lines(&joints_file).len() == 1);
+    assert_eq!(
+        lines(&joints_file)[0],
+        json!({"topic": "body/joint_states", "declaration": {
+            "type": "lamp_msgs/JointState", "version": 2, "kind": "latest",
+            "period_ms": 50, "lifespan_ms": 60000}})
+    );
+    assert!(lines(&speech_file).is_empty());
+    let speech = Declaration::new("lamp_msgs/Speech", 1, Kind::Event);
+    let mut voice = bus
+        .publisher_declared("voice/heard", &speech, "voice")
+        .unwrap();
+    for n in 0..3u64 {
+        assert_eq!(
+            body.publish_json(n * 1_000, &json!({"n": n}))
+                .unwrap()
+                .delivered,
+            1
+        );
+        assert_eq!(
+            voice
+                .publish_json(n * 1_000, &json!({"text": n}))
+                .unwrap()
+                .delivered,
+            1
+        );
+    }
+    until("the lines", || {
+        lines(&joints_file).len() == 4 && lines(&speech_file).len() == 4
+    });
+    recorder.kill();
+    // Declared after the recorder began: written before its first message.
+    let recorded = lines(&speech_file);
+    assert_eq!(
+        recorded[0],
+        json!({"topic": "voice/heard", "declaration": {
+            "type": "lamp_msgs/Speech", "version": 1, "kind": "event"}})
+    );
+    for (n, line) in recorded[1..].iter().enumerate() {
+        assert_eq!(line["header"]["seq"], n as u64 + 1);
+        assert_eq!(line["header"]["type"], "lamp_msgs/Speech");
+        assert!(line["header"].get("expires_ms").is_none());
+    }
+    for line in &lines(&joints_file)[1..] {
+        assert_eq!(line["header"]["type"], "lamp_msgs/JointState");
+        assert_eq!(line["header"]["expires_ms"], 60_000);
+    }
+
+    // Replayed on a bus that has never had the topic: declared as it was,
+    // and each message of the type it was.
+    let other = Root::new();
+    let mut follow = other
+        .bus()
+        .subscribe_typed("body/joint_states", "f", "lamp_msgs/JointState")
+        .unwrap();
+    assert!(
+        other
+            .bus()
+            .declaration("body/joint_states")
+            .unwrap()
+            .is_none()
+    );
+    let replayed = run(
+        &other,
+        &["replay", joints_file.to_str().unwrap(), "--speed", "0"],
+    );
+    let said = text(&replayed.stderr);
+    assert!(replayed.status.success(), "{said}");
+    assert!(
+        said.contains("3 messages, 3 delivered, 0 dropped"),
+        "{said}"
+    );
+    assert_eq!(
+        other.bus().declaration("body/joint_states").unwrap(),
+        Some(joints)
+    );
+    for n in 0..3u64 {
+        let message = follow.recv(WAIT).unwrap().expect("a replayed message");
+        assert_eq!(message.header.source, "replay");
+        assert_eq!(
+            message.header.type_name.as_deref(),
+            Some("lamp_msgs/JointState")
+        );
+        assert_eq!(message.header.expires_ms, Some(60_000));
+        assert_eq!(message.json().unwrap(), json!({"n": n}));
+    }
+    assert_eq!(follow.wrong_type(), 0);
+
+    // On a bus where the topic is something else the replay is refused
+    // where the recording declares it, and nothing of it is published.
+    let _eyes = other
+        .bus()
+        .publisher_declared(
+            "voice/heard",
+            &Declaration::new("lamp_msgs/Faces", 1, Kind::Event),
+            "eyes",
+        )
+        .unwrap();
+    let refused = run(&other, &["replay", speech_file.to_str().unwrap()]);
+    assert_eq!(refused.status.code(), Some(1));
+    let why = text(&refused.stderr);
+    assert!(
+        why.contains("voice_heard.jsonl line 1: ")
+            && why.contains("already declared as lamp_msgs/Faces (event)"),
+        "{why}"
+    );
+    // A line that is neither a message nor a declaration is said to be so.
+    fs::write(&speech_file, "{\"topic\":\"voice/heard\"}\n").unwrap();
+    let wrong = run(&other, &["replay", speech_file.to_str().unwrap()]);
+    assert_eq!(wrong.status.code(), Some(1));
+    assert!(
+        text(&wrong.stderr).contains("line 1: neither a message"),
+        "{}",
+        text(&wrong.stderr)
+    );
 }

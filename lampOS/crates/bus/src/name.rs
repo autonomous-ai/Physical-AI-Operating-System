@@ -14,6 +14,7 @@ use std::io;
 pub const MOST_TOPIC_BYTES: usize = 96;
 const MOST_TOKEN_BYTES: usize = 32;
 const MOST_ENCODING_BYTES: usize = 64;
+const MOST_TYPE_BYTES: usize = 64;
 
 /// The names a topic's own directory uses. A topic `a/subs` would be the
 /// directory where topic `a` keeps its subscribers.
@@ -73,6 +74,29 @@ pub fn subscriber(name: &str) -> io::Result<()> {
 
 pub fn source(name: &str) -> io::Result<()> {
     plain("publisher name", name)
+}
+
+/// What a message is: the package it is defined in, lower-case tokens as in
+/// a topic, then the type's own name, which begins with a capital, joined by
+/// `/` (`lamp_msgs/JointState`). ROS's shape for the same thing. It travels
+/// in every header and is the name two programs have to agree on.
+pub fn type_name(name: &str) -> io::Result<()> {
+    const RULE: &str = "a type: a package of [a-z][a-z0-9_]{0,31} tokens, then /, then \
+                        [A-Z][A-Za-z0-9]{0,31}, 64 bytes at most (lamp_msgs/JointState)";
+    let own = |text: &str| {
+        let bytes = text.as_bytes();
+        (1..=MOST_TOKEN_BYTES).contains(&bytes.len())
+            && bytes[0].is_ascii_uppercase()
+            && bytes.iter().all(u8::is_ascii_alphanumeric)
+    };
+    let shaped = name
+        .rsplit_once('/')
+        .is_some_and(|(package, last)| package.split('/').all(token) && own(last));
+    if name.len() <= MOST_TYPE_BYTES && shaped {
+        Ok(())
+    } else {
+        Err(refused("type", name, RULE))
+    }
 }
 
 /// How to read a payload: `json`, `none`, or a label for media such as
@@ -235,6 +259,40 @@ mod tests {
                 .to_string()
                 .starts_with("publisher name \"A\"")
         );
+    }
+
+    #[test]
+    fn a_type_is_a_package_and_a_capitalised_name() {
+        for name in [
+            "lamp_msgs/JointState",
+            "lamp_msgs/Audio",
+            "sensor_msgs/msg/JointState",
+            "a/B",
+            "hri_msgs/NormalizedRegionOfInterest2D",
+        ] {
+            assert!(type_name(name).is_ok(), "{name}");
+        }
+        for name in [
+            "",
+            "JointState",
+            "lamp_msgs",
+            "lamp_msgs/",
+            "lamp_msgs/jointState",
+            "lamp_msgs/Joint_State",
+            "lamp_msgs/Joint State",
+            "Lamp/JointState",
+            "lamp-msgs/JointState",
+            "/JointState",
+            "lamp_msgs//JointState",
+            "lamp_msgs/JointState/",
+            "lamp_msgs/\"x\"",
+            &format!("lamp_msgs/{}", "T".repeat(33)),
+            &format!("{}/{}/T", "a".repeat(32), "b".repeat(32)),
+        ] {
+            let error = type_name(name).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{name:?}");
+            assert!(error.to_string().starts_with("type "), "{error}");
+        }
     }
 
     #[test]

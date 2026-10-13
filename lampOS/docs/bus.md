@@ -2,9 +2,10 @@
 
 `lamp-bus` (`crates/bus`) is how the lamp's processes tell each other what
 they sense and what they make of it. A sensor publishes its stream once
-(`mic1`, `mic2`, `camera`, `servos`), any number of consumers subscribe, and a
-consumer publishes what it derives (`people`, `gemini/transcript`) the same
-way. It is decision 15 and step 0 of [brain-build.md](brain-build.md).
+(`mic2/audio`, `camera/image`, `body/joint_states`), any number of consumers
+subscribe, and a consumer publishes what it derives (`humans/faces/tracked`,
+`voice/heard`) the same way. It is decision 15 and step 0 of
+[brain-build.md](brain-build.md).
 
 There is no broker: the lamp is several processes with different owners, one
 failing must take no other down, and a process in the middle is one they
@@ -17,10 +18,12 @@ Under a root, `/run/lampos-bus` unless `LAMP_BUS_ROOT` or the caller names
 another (an absolute path, on a filesystem with hard links):
 
     <root>/<topic>/subs/<subscriber>.<pid>.<count>.sock   one for each subscriber
+    <root>/<topic>/pubs/<publisher>.<pid>.<boot>          one for each publisher that is alive
+    <root>/<topic>/declaration                            what the topic carries, if a publisher said
     <root>/<topic>/latest                                 the newest message, kind `latest` only
 
 Directories are made when first needed, mode 0770 unless the `Bus` is told
-another; sockets and `latest` are 0660. A topic's name follows ROS's rule
+another; sockets and files are 0660. A topic's name follows ROS's rule
 and only it: tokens of `[a-z][a-z0-9_]{0,31}` joined by `/`, each a directory
 under the one before, grouped by the part the data comes from and named for
 the data (`mic2/audio`, `body/joint_states`, `room/state`). It is 96 bytes at
@@ -35,21 +38,34 @@ only names publishers look at: a socket's file is there a moment before the
 socket can be sent to, and on the Mac 61 of 400 bound directly were removed
 as dead by a publisher that looked with every message.
 
+A publisher's entry in `pubs/` is an empty file whose time says when the
+publisher last showed that it was alive. It is there from the publisher's
+first message, or from the start if the publisher declared the topic. The
+publisher gives it a new time at most once a second while it publishes, and
+when it calls `Publisher::alive()` with nothing to publish, and removes it
+when it ends. An entry not refreshed for a lease (3 s unless the `Bus` is
+told another, the same for every process on a root) is a dead publisher's:
+whoever lists the publishers removes it. A publisher that was only silent
+puts its entry back with its next message.
+
 ## A message
 
 One datagram: a line of JSON, a line end, then the payload's bytes untouched.
 
-    {"topic":"servos","kind":"latest","enc":"json","source":"body","boot":"9f3a6c1e04b7d25a","seq":412,"at_us":98123456,"at_unix_ms":1791878400123,"expires_ms":500}
-    {"pitch":2048,"roll":2051,"yaw":1990}
+    {"topic":"body/joint_states","kind":"latest","enc":"json","type":"lamp_msgs/JointState","source":"body","boot":"9f3a6c1e04b7d25a","seq":412,"at_us":98123456,"at_unix_ms":1791878400123,"expires_ms":500}
+    {"name":["yaw"],"position":[0.12]}
 
 `enc` says how to read the payload: `json`, `none` (there is none), or a
-label for media such as `pcm_s16le_16000_mono`. `source` is the publisher's
-name, `boot` sixteen hex characters it picked when it was made, `seq` its
-count on this topic from 1, `at_us` the caller's monotonic clock in
-microseconds, `at_unix_ms` the wall clock, `expires_ms` (optional) how long
-the value means anything. The `kind` is one of two:
+label for media such as `pcm_s16le_16000_mono`. `type` (optional) says what
+the payload is, by the name its publisher declared for the topic; a publisher
+that declared nothing leaves it out, and so does a recording made before
+there were types. `source` is the publisher's name, `boot` sixteen hex
+characters it picked when it was made, `seq` its count on this topic from 1,
+`at_us` the caller's monotonic clock in microseconds, `at_unix_ms` the wall
+clock, `expires_ms` (optional) how long after `at_unix_ms` the value means
+anything. The `kind` is one of two:
 
-- `latest`: a value that replaces the one before it (where the servos are).
+- `latest`: a value that replaces the one before it (where the joints are).
   The publisher sends it, then puts the same bytes in `latest`, written
   beside and renamed over, so a subscriber that starts late reads one whole
   current value at once (`Bus::latest`).
@@ -61,6 +77,45 @@ publisher, never cut and never sent. Sound goes as byte payloads in small
 pieces (20 ms of 16 kHz mono is 640 bytes). A camera frame stays off the bus:
 its topic publishes a small message naming a file the publisher keeps.
 
+## Declaring a topic
+
+ROS checks, when a subscriber connects, that both ends mean the same
+message. Here nothing connects, so the agreement is a file. A publisher made
+with a declaration (`Bus::publisher_declared`) writes it to
+`<topic>/declaration` before it is returned: one line of JSON, written
+beside and put in place whole.
+
+    {"type":"lamp_msgs/JointState","version":1,"kind":"latest","period_ms":50,"lifespan_ms":500}
+
+| Field | What it says | What the bus does with it |
+|---|---|---|
+| `type` | The message's name: a package of topic-like tokens, `/`, a name that begins with a capital | Put in every header. A second publisher or a subscriber that names another is refused |
+| `version` | Which version of the type the publisher writes | Kept and shown. Not checked: a newer version adds fields an older reader ignores |
+| `kind` | `latest` or `event` | A second publisher that says the other is refused |
+| `period_ms` (optional) | A message comes at least this often | A subscriber calls the topic late after twice as long with nothing |
+| `lifespan_ms` (optional) | How long a message means anything | Put in every header as `expires_ms` |
+
+- A publisher whose declaration names another type or kind than the one
+  there is not made. The error names both and the file. With the same type
+  and kind the file is replaced: the version, the period and the lifespan are
+  the newest publisher's to say.
+- A topic's first declaration is put there by a link, which fails where a
+  rename would replace. Of two publishers that start at once and disagree,
+  one is told.
+- The declaration is the topic's, not its writer's. It stays when the
+  publisher ends, until the lamp restarts (the root is in memory) or somebody
+  removes the file. Changing a topic's type means removing it.
+- A subscriber that names the type it expects (`Bus::subscribe_typed`) is
+  refused, with nothing created, if the topic is declared as another. If the
+  topic is not declared yet it is subscribed: a subscriber may start before
+  its publisher. In both cases the type in each message's header is checked,
+  and a message of another type is passed over and counted. A message that
+  names no type is taken.
+- `Bus::publisher` and `Bus::subscribe`, which say nothing about types,
+  work on any topic as they did.
+
+The types themselves are not the bus's business: it compares names.
+
 ## What is promised, and what is not
 
 A publisher never waits and never fails because of a subscriber. Each send is
@@ -71,7 +126,9 @@ and keeps totals, for each subscriber too. It is an error only for a message
 too large or badly labelled, and once, not with every message, for a root it
 cannot use or more than 64 subscribers. `subs/` is read at most every 200 ms
 and when a subscriber is found dead; between reads, an event with nobody
-subscribed costs no system call.
+subscribed costs no system call but the publisher's own entry, once a second.
+A publisher that declares its topic is the one case that fails at the start:
+it has to write the declaration, so it needs a root it can use.
 
 A subscriber is not promised delivery. It is promised order within one
 publisher, none between two, and that loss shows: each message has `gap`, how
@@ -82,21 +139,116 @@ before is not a gap. On a `latest` topic, `recv` with nothing waiting returns
 the file's value if the subscriber has not had it, so the newest value
 arrives though its datagram was dropped.
 
+A subscriber also learns what no message can say:
+
+| What | When | How it is told |
+|---|---|---|
+| The source has gone | No publisher has an entry refreshed within the lease, and no message has come for a lease. At once when a publisher of a quiet topic ends; a lease after subscribing to a topic nobody publishes | `Notice::SourceGone`, once |
+| The source is back | After that: a publisher's entry is there, or a message came | `Notice::SourceBack`, once |
+| The topic is late | It declares a period and nothing has come for more than twice as long | `Notice::Late`, once |
+| It is on time again | After that: a message came | `Notice::OnTime`, once |
+| A message had expired | It arrived more than 50 ms after `at_unix_ms + expires_ms`, by the subscriber's wall clock. It is not handed over | Counted: `expired()` |
+| A message was of another type | The subscriber named a type and the header names another. It is not handed over | Counted: `wrong_type()` |
+
+`recv` returns messages and nothing else, as it did. The notices come from
+`Subscriber::notices()`, asked between two `recv`s, and
+`Subscriber::is_late()` and `source_gone()` say how things stand now. They
+are apart from `recv` so that no caller written before them changes, and
+because a notice is about the topic and belongs to no message. They are
+called notices because `event` is already a kind of topic. Three limits
+follow from asking and not being called:
+
+- A notice is as late as the caller's own loop: the state is judged when the
+  caller asks and when a message is taken, not by a thread of the bus's.
+- A subscriber that has not read for a while is not told that its topic went
+  quiet. Silence is said only when nothing is waiting in the socket, and a
+  silence found afterwards is measured between the times two messages were
+  sent, not the times they were read.
+- A publisher that is alive and silent has to say so. One that neither
+  publishes nor calls `alive()` for a lease is gone to its subscribers,
+  though its process runs. A publisher in another language that keeps no
+  entry is there for as long as its messages are less than a lease apart.
+
+A topic's kept value is not hidden when it has expired. `Bus::latest` and
+`Subscriber::latest` return it with `expired` set: it is the last thing
+known, and whether an old value is worth anything is the caller's to say.
+What a passed-over message would have said of its publisher, a gap or a new
+instance, is said with the next message handed over.
+
+`Subscriber::statistics()` gives what came since the subscriber was made:
+
+| Field | What it counts |
+|---|---|
+| `received` | Messages `recv` handed over |
+| `gaps` | Messages known to have been sent and not received |
+| `expired`, `wrong_type` | Messages passed over for either reason |
+| `mean_interval`, `largest_interval` | The time between taking one message and the next, by the subscriber's monotonic clock. The stream's rhythm for a subscriber that reads as fast as messages come, the reader's for one that does not |
+| `mean_age` | Wall clock at arrival less `at_unix_ms`: how old a message is when it gets here |
+
+Liveness and lifespan are judged by the wall clock, the only one two
+processes share. A clock stepped by more than the lease makes every publisher
+look dead until its next refresh, at most a second later, and a topic quiet
+for a lease is then reported gone and back.
+
+The queue is where this differs from ROS on purpose for now: each
+subscriber's socket is its own queue and the kernel cannot evict from it, so
+a full one loses the newest message, where ROS drops the oldest.
+
 ## The tool
 
-    lamp-bus topics                                 # servos subscribers=2 latest=yes
-    lamp-bus tap gemini/transcript --count 5        # header, then the payload if JSON, else <N bytes>
-    lamp-bus latest servos                          # status 1 if the topic keeps none
-    lamp-bus pub room/state latest '{"people":1}'   # as lamp_bus_cli, at_us 0 unless --at-us
-    lamp-bus record /var/tmp/rec mic2 servos --seconds 60
-    lamp-bus replay /var/tmp/rec/servos.jsonl --speed 2
+    lamp-bus topics                                 # body/joint_states subscribers=2 latest=yes type=lamp_msgs/JointState
+    lamp-bus info body/joint_states                 # declaration, publishers, subscribers, the kept value
+    lamp-bus hz mic2/audio --seconds 5              # rate, gaps between messages, age, what was missed
+    lamp-bus tap voice/heard --count 5              # header, then the payload if JSON, else <N bytes>
+    lamp-bus latest body/joint_states               # status 1 if the topic keeps none
+    lamp-bus pub room/state latest '"quiet"'        # as lamp_bus_cli, at_us 0 unless --at-us
+    lamp-bus pub room/state latest '"quiet"' --type lamp_msgs/RoomState
+    lamp-bus record /var/tmp/rec mic2/audio body/joint_states --seconds 60
+    lamp-bus replay /var/tmp/rec/body_joint_states.jsonl --speed 2
 
-Each takes `--root PATH`; bad input prints the usage and exits 2. `record`
-appends `{"header":{...},"payload_b64":"..."}` lines to `DIR/<topic with / as
-_>.jsonl` until killed or `--seconds` have passed, and stops a file at
-`--max-mb` (64 MiB) saying so. It cannot catch a signal: SIGTERM ends it with
-whole lines on disk and its sockets left for the next publish to remove.
-`replay` publishes them again as `replay`, spaced by `at_us` over `--speed`.
+Each takes `--root PATH`; bad input prints the usage and exits 2.
+
+`info` prints one fact to a line, and exits 1 for a topic nobody has
+published, subscribed to or declared. Its shape, with numbers made up:
+
+    topic body/joint_states
+    declaration type=lamp_msgs/JointState version=1 kind=latest period_ms=50 lifespan_ms=500
+    publisher body pid=412 boot=9f3a6c1e04b7d25a alive_ms=312
+    subscriber follow.420.0 listening
+    latest source=body seq=412 age_ms=31 expired=no
+
+`alive_ms` is how long ago the publisher refreshed its entry. A subscriber
+whose process died is `stale`. What is missing is `declaration none`,
+`publishers none`, `subscribers none` or `latest none`.
+
+`hz` listens for `--seconds` (5) and prints one line, and exits 1 if no
+message came. The gaps are between one message's arrival and the next,
+`missed` is the sum of the messages' `gap`, and a value the topic already
+kept is not counted. A rate takes two messages: before that it is `-`. This
+is what it printed on the Mac for five messages sent by hand a tenth of a
+second apart:
+
+    body/joint_states messages=5 seconds=1.00 rate_hz=8.69 gap_mean_ms=115.1 gap_max_ms=115.9 age_mean_ms=0.4 missed=0 expired=0
+
+`tap` and `hz` say on standard error when the topic's source goes or it is
+late. `latest` prints an expired value and says on standard error that it
+has expired. `pub --type NAME` publishes as a publisher that declares the
+topic: it joins a topic already declared as that type and kind without
+changing what was promised of it, and exits 1 where the topic is declared
+otherwise.
+
+`record` appends to `DIR/<topic with / as _>.jsonl` until killed or
+`--seconds` have passed, and stops a file at `--max-mb` (64 MiB) saying so.
+A message is a line `{"header":{...},"payload_b64":"..."}`. A topic's
+declaration is a line `{"topic":"...","declaration":{...}}`: the first line
+if the topic was declared when the recording began, else the line before the
+first message of the publisher that declared it. `record` cannot catch a
+signal: SIGTERM ends it with whole lines on disk and its sockets left for the
+next publish to remove. `replay` publishes the messages again as `replay`,
+spaced by `at_us` over `--speed`, and declares each topic again where the
+recording does: it fails at that line on a bus where the topic is declared
+as something else. A recording without declarations replays as before. One
+of a topic named the old way, with a `.`, is refused by the name rule.
 
 ## From another language
 
@@ -117,6 +269,11 @@ finally:
     os.unlink(name + ".sock")
 ```
 
+A publisher in another language sends that datagram to every `*.sock` in
+`subs/`, without waiting. To be listed, and to be there while it is silent,
+it keeps an empty file `pubs/<name>.<pid>.<16 hex>` and gives it a new time
+every second; to be held to a type it puts `type` in each header.
+
 ## What is taken from ROS
 
 The owner's direction on 2026-10-13: do not use ROS 2 itself, which is
@@ -131,15 +288,15 @@ so, the crate does not do it yet.**
 | What ROS does, and its reason | What the lamp's bus does about it | In the crate |
 |---|---|---|
 | Names are `/`-separated lower-case tokens with underscores, grouped by the part the data comes from and named for the data, never for who uses it | The same rule, and only it: `mic2/audio`, `camera/image`, `body/joint_states`. The `.` separator and `-` in a token are refused, in a publisher's or subscriber's name too | Yes |
-| One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | No |
+| One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | The declaration and both checks: yes. The bus compares names; it does not check a payload against its type. The shared crate of types: no |
 | The registry only introduces; data goes straight from publisher to subscriber: "no central point of failure" | The filesystem is the registry and each message goes straight to each subscriber's socket | Yes |
-| A bounded queue per subscriber, so that one slow subscriber cannot hold the publisher or the others | Each subscriber's socket is its own queue; a full one loses that subscriber's message and is counted. ROS drops the oldest, this drops the newest; to be revisited for sound | Yes, with that difference |
+| A bounded queue per subscriber, so that one slow subscriber cannot hold the publisher or the others | Each subscriber's socket is its own queue; a full one loses that subscriber's message and is counted. ROS drops the oldest, this drops the newest; to be revisited for sound | Yes, with that difference, which is unchanged |
 | Latched topics: "new subscribers always get the latest state" | The `latest` kind: the newest value is kept and read by a late joiner. It also outlives its publisher, which ROS's does not | Yes |
-| Liveliness and deadline: a publisher must show it is alive, a topic may promise a period, and missing either raises an event | Each publisher keeps a small entry it refreshes; the subscriber's library reports "the source has gone" and "this is late". This is how a part says whether it is ready | No |
-| Lifespan: a message older than its limit is dropped, not delivered | The header already carries how long a value lasts; the subscriber's library is to drop what has expired | Header only |
-| The graph: any tool can list topics, their types, who publishes and who subscribes | `lamp-bus info TOPIC` and `lamp-bus hz TOPIC` beside the tools there are | No |
+| Liveliness and deadline: a publisher must show it is alive, a topic may promise a period, and missing either raises an event | Each publisher keeps a small entry it refreshes; the subscriber's library reports "the source has gone" and "this is late". This is how a part says whether it is ready | Yes: `pubs/`, a lease of 3 s, `Notice`. A subscriber is told when it asks, not called. No publisher on the lamp calls `alive()` yet |
+| Lifespan: a message older than its limit is dropped, not delivered | The header already carries how long a value lasts; the subscriber's library is to drop what has expired | Yes: `recv` passes an expired message over and counts it. A kept value is returned marked `expired`, not hidden, which ROS does not do |
+| The graph: any tool can list topics, their types, who publishes and who subscribes | `lamp-bus info TOPIC` and `lamp-bus hz TOPIC` beside the tools there are | Yes, and `topics` shows each type. The same from a program: `Bus::declaration`, `publishers`, `subscribers`. Nothing says when the graph changes: a tool asks again |
 | Three patterns, not one: topics for streams, services for ask-and-answer, actions for long work with progress, one result and an acknowledged cancel | Topics on the bus. A service stays a direct ask-and-answer on its own socket (the executive's is one, [tools.md](tools.md)), and publishes each call as an event so that it can be watched. A task handed to an agent takes the shape of an action: an id made by the asker, accepted or refused, progress, one result, cancel acknowledged, its status latched | Topics only |
-| Recordings store each message's type and when it was sent and received | `record` and `replay` exist; the type name is to be stored with each topic | Partly |
+| Recordings store each message's type and when it was sent and received | `record` and `replay` exist; the type name is to be stored with each topic | Yes: a recording holds each topic's declaration and each message's type and send time, and `replay` declares the topic again. The time a message was received is not stored |
 | People (ROS4HRI, REP-155): a permanent id for a person, passing ids for a face or a voice present now, lists of who is here, and engagement as five levels | The same shape for what the eyes and the voice know of people (`humans/...`). Engagement is what "is this said to me?" needs ([attention.md](attention.md)) | No |
 | Several requesters, one actuator: priorities and time limits at the actuator's owner | For the ring, the servos and the speaker: the owner arbitrates, and a request that is not renewed lapses | No |
 
@@ -167,14 +324,39 @@ Named by the rule above. Rates are those the parts already run at.
 
 ## Not shown
 
-Host tests on a development Mac (x86_64): the library through real sockets,
-the built binary run and killed, the Python above against it. On 2026-10-13
-the 43 tests of the first version passed once as a Linux ARM64 build under
-emulation in a container (no Python there, so not the Python part): that run
-is the first in which a 60,000-byte message was delivered and a bound socket
-was linked to a second name on Linux. The name rule came after it and has
-been run on the Mac only. Never run on a lamp, and nothing publishes on it
-yet. Socket buffers are the system's defaults, which
+Everything here was run on one development Mac (x86_64) and nowhere else.
+On 2026-10-13 the crate's 64 tests passed ten times in a row there: 18 of
+its parts, 2 of the tool's, 32 of the library through real sockets, 10 of
+the built binary run and killed, and the 2 examples in its documentation.
+The 32 alone then passed 40 times in a row, and 60 times run six at once.
+The Python above was run once against this version, with its root changed
+to a temporary directory.
+
+On Linux this version has been type-checked for the lamp's processor
+(`cargo check --target aarch64-unknown-linux-gnu`) and not run. The 43 tests
+of the first version passed once, on 2026-10-13, as a Linux ARM64 build
+under emulation in a container: that run is the first in which a
+60,000-byte message was delivered and a bound socket was linked to a second
+name on Linux. Everything since has run on the Mac only: the name rule,
+declarations (put in place by a hard link), publishers' entries (whose
+times the standard library sets), notices, lifespan, statistics, `info` and
+`hz`. Never run on a lamp, and nothing publishes on it yet. No part
+declares its topic or calls `alive()`.
+
+Not exercised at all:
+
+- A wall clock that is stepped. The rule for an entry whose time is ahead
+  of the clock is tested by setting a file's time, not the clock.
+- The lease of 3 s. The tests of liveness use leases of 150 to 300 ms so
+  that they end quickly; the default was in use only where the tool was run
+  against a publisher.
+- What an entry costs a publisher (an open, a time set and a close, once a
+  second) is read from the code, not measured. Nor is how late a notice is.
+- The rates `hz` prints were compared with a publisher that sleeps 10 ms
+  between messages, within wide bounds (10 to 101 a second), not against a
+  clock.
+
+Socket buffers are the system's defaults, which
 the standard library cannot change. On this Mac a subscriber that does not
 read held 25 messages of 141 bytes, or 5 pieces of sound, before the next was
 dropped, and the system takes no datagram over 2,048 bytes: the test of a

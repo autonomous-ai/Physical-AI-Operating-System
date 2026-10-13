@@ -11,6 +11,7 @@ use std::{
     fs,
     io::{self, Read},
     path::Path,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// The most one message may be, header and payload together. A datagram is
@@ -22,6 +23,11 @@ pub const MOST_BYTES: usize = 60_000;
 pub const JSON: &str = "json";
 /// There is no payload: the header is the message.
 pub const NONE: &str = "none";
+
+/// How far past its time a message is still handed over: two processes read
+/// the same clock a moment apart, and a value that lasts 20 ms is not late
+/// because the reader was scheduled 21 ms after the writer.
+pub const EXPIRY_GRACE_MS: u64 = 50;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -41,6 +47,11 @@ pub struct Header {
     pub kind: Kind,
     /// How to read the payload: [`JSON`], [`NONE`] or a media label.
     pub enc: String,
+    /// What the payload is, as the publisher declared it for the topic
+    /// (`lamp_msgs/JointState`). A publisher that declared nothing, and a
+    /// recording made before there were declarations, say nothing here.
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub type_name: Option<String>,
     /// The publisher's name.
     pub source: String,
     /// Sixteen hex characters picked when the publisher was made. `seq`
@@ -52,9 +63,24 @@ pub struct Header {
     pub at_us: u64,
     /// When, by the publisher's wall clock, in milliseconds since 1970.
     pub at_unix_ms: u64,
-    /// How long after `at_us` the value still means something.
+    /// How long after `at_unix_ms` the value still means something. A
+    /// subscriber is not handed a message older than that.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_ms: Option<u64>,
+}
+
+impl Header {
+    /// Whether the value had outlived `expires_ms` at `now_unix_ms`, by more
+    /// than [`EXPIRY_GRACE_MS`]. A message that names no limit never has.
+    pub fn expired_at(&self, now_unix_ms: u64) -> bool {
+        self.expires_ms.is_some_and(|lasting| {
+            now_unix_ms
+                > self
+                    .at_unix_ms
+                    .saturating_add(lasting)
+                    .saturating_add(EXPIRY_GRACE_MS)
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,6 +93,12 @@ pub struct Message {
     /// The publisher of this name is not the instance heard before: it
     /// began again, and its count with it.
     pub publisher_restarted: bool,
+    /// The value had outlived its `expires_ms` when it was read. Only a
+    /// topic's kept value is ever returned so (`Bus::latest`,
+    /// `Subscriber::latest`): it is the last thing known, and the caller is
+    /// told that it is old. `Subscriber::recv` passes an expired message
+    /// over and counts it.
+    pub expired: bool,
 }
 
 impl Message {
@@ -89,6 +121,13 @@ impl Message {
 
 fn invalid(why: String) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, why)
+}
+
+/// The wall clock, in milliseconds since 1970.
+pub(crate) fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64)
 }
 
 /// The header and the payload of what arrived on `topic`, or why it is not
@@ -118,6 +157,7 @@ pub(crate) fn split<'a>(topic: &str, datagram: &'a [u8]) -> io::Result<(Header, 
     }
     name::source(&header.source)
         .and_then(|()| name::encoding(&header.enc))
+        .and_then(|()| header.type_name.as_deref().map_or(Ok(()), name::type_name))
         .map_err(|error| invalid(error.to_string()))?;
     Ok((header, &datagram[end + 1..]))
 }
@@ -146,6 +186,7 @@ mod tests {
             topic: "servos".into(),
             kind: Kind::Latest,
             enc: JSON.into(),
+            type_name: None,
             source: "body".into(),
             boot: "9f3a6c1e04b7d25a".into(),
             seq: 412,
@@ -177,6 +218,38 @@ mod tests {
         let text = serde_json::to_string(&header).unwrap();
         assert!(text.contains("\"kind\":\"event\"") && !text.contains("expires_ms"));
         assert_eq!(serde_json::from_str::<Header>(&text).unwrap(), header);
+        // A publisher that declared the topic says what the payload is,
+        // after how to read it. One that did not says nothing: a header
+        // written before there were declarations reads as it always did.
+        assert!(!text.contains("type"));
+        header.type_name = Some("lamp_msgs/JointState".into());
+        let text = serde_json::to_string(&header).unwrap();
+        assert!(
+            text.contains("\"enc\":\"json\",\"type\":\"lamp_msgs/JointState\",\"source\""),
+            "{text}"
+        );
+        assert_eq!(serde_json::from_str::<Header>(&text).unwrap(), header);
+    }
+
+    #[test]
+    fn a_message_has_expired_fifty_milliseconds_after_its_time_and_never_without_one() {
+        let mut header = header();
+        // Sent at ...123, lasting 500: good to ...623, handed over to ...673.
+        let sent = header.at_unix_ms;
+        assert!(!header.expired_at(0));
+        assert!(!header.expired_at(sent));
+        assert!(!header.expired_at(sent + 500));
+        assert!(!header.expired_at(sent + 500 + EXPIRY_GRACE_MS));
+        assert!(header.expired_at(sent + 500 + EXPIRY_GRACE_MS + 1));
+        assert!(header.expired_at(u64::MAX));
+        header.expires_ms = Some(0);
+        assert!(!header.expired_at(sent + EXPIRY_GRACE_MS));
+        assert!(header.expired_at(sent + EXPIRY_GRACE_MS + 1));
+        // A limit too large to add is no limit.
+        header.expires_ms = Some(u64::MAX);
+        assert!(!header.expired_at(u64::MAX));
+        header.expires_ms = None;
+        assert!(!header.expired_at(u64::MAX));
     }
 
     #[test]
@@ -219,6 +292,7 @@ mod tests {
         assert!(changed(|header| header.boot = "9f3a".into()).contains("boot"));
         assert!(changed(|header| header.source = "Lamp Body".into()).contains("publisher name"));
         assert!(changed(|header| header.enc = String::new()).contains("encoding"));
+        assert!(changed(|header| header.type_name = Some("joint state".into())).contains("type "));
         let mut large = datagram(&good, b"");
         large.resize(MOST_BYTES + 1, b' ');
         assert!(reason(&large).contains("more than 60000 bytes"));
@@ -238,6 +312,7 @@ mod tests {
             payload: b"{\"pitch\":2048,\"yaw\":1990}".to_vec(),
             gap: 0,
             publisher_restarted: false,
+            expired: false,
         };
         assert_eq!(message.json().unwrap()["yaw"], 1990);
         assert_eq!(

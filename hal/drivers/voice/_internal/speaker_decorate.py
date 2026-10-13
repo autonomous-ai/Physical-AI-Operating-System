@@ -8,12 +8,11 @@ import threading
 import time
 from typing import Optional
 
+from hal import config as hal_config
 from hal.drivers.voice._internal.config import (
     SPEAKER_ID_CACHE_FOLLOWUP_S,
     SPEAKER_ID_CACHE_S,
     SPEAKER_MIN_AUDIO_S,
-    SPEAKER_RECOGNITION_ENABLED,
-    SPEECH_EMOTION_ENABLED,
     STT_RATE,
 )
 
@@ -125,26 +124,41 @@ class SpeakerDecorator:
 
         self._speaker = None
         self._speech_emotion = None
+        self._enable_people_perception = enable_people_perception
         self._init_stop = threading.Event()
         self._init_lock = threading.Lock()
         self._init_threads = []
+        self._init_started: set[str] = set()
         # Optional perception must not hold up HAL or the basic voice pipeline.
+        self._ensure_optional_services()
+
+    def _ensure_optional_services(self) -> None:
+        """Start init for each voice upload the owner has opted into (Settings > Privacy).
+
+        Runs at construction and again before each use, so turning one on live takes
+        effect from the next utterance without a HAL restart.
+        """
+        if not self._enable_people_perception:
+            return
         for attribute, enabled, factory in (
-            ("_speaker", SPEAKER_RECOGNITION_ENABLED, self._init_speaker),
-            ("_speech_emotion", SPEECH_EMOTION_ENABLED, self._init_speech_emotion),
+            ("_speaker", hal_config.SPEAKER_RECOGNITION_ENABLED, self._init_speaker),
+            ("_speech_emotion", hal_config.SPEECH_EMOTION_ENABLED, self._init_speech_emotion),
         ):
-            if enable_people_perception and enabled:
-                worker = threading.Thread(
-                    target=self._init_optional_service,
-                    args=(attribute, factory),
-                    name=f"voice-init{attribute}", daemon=True,
-                )
-                try:
-                    worker.start()
-                except Exception:
-                    self.close()
-                    raise
-                self._init_threads.append(worker)
+            with self._init_lock:
+                if not enabled or attribute in self._init_started or self._init_stop.is_set():
+                    continue
+                self._init_started.add(attribute)
+            worker = threading.Thread(
+                target=self._init_optional_service,
+                args=(attribute, factory),
+                name=f"voice-init{attribute}", daemon=True,
+            )
+            try:
+                worker.start()
+            except Exception:
+                self.close()
+                raise
+            self._init_threads.append(worker)
 
     def _init_optional_service(self, attribute, factory):
         while not self._init_stop.is_set():
@@ -178,11 +192,8 @@ class SpeakerDecorator:
         if not enable_people_perception:
             logger.info("Speaker recognition off — device does not declare 'audio' (no mic for voice people-perception)")
             return None
-        if not SPEAKER_RECOGNITION_ENABLED:
-            logger.info(
-                "Speaker recognizer disabled by HAL_SPEAKER_RECOGNITION_ENABLED=false "
-                "(default is true — this is an explicit opt-out).",
-            )
+        if not hal_config.SPEAKER_RECOGNITION_ENABLED:
+            logger.info("Speaker recognition is off (Settings > Privacy)")
             return None
         try:
             # Share the ONE process-wide instance with the HTTP routes so their
@@ -209,8 +220,8 @@ class SpeakerDecorator:
         if not enable_people_perception:
             logger.info("Speech emotion recognition off — device does not declare 'audio' (no mic for voice people-perception)")
             return None
-        if not SPEECH_EMOTION_ENABLED:
-            logger.info("Speech emotion recognition disabled by HAL_SPEECH_EMOTION_ENABLED=false")
+        if not hal_config.SPEECH_EMOTION_ENABLED:
+            logger.info("Speech emotion recognition is off (Settings > Privacy)")
             return None
         try:
             from hal.drivers.voice.speech_emotion import SpeechEmotionService
@@ -441,14 +452,14 @@ class SpeakerDecorator:
         skipped. Caller-visible state (identity cache, enroll-nudge cooldown) is
         only touched by decorate(), so a discarded recognition leaves it as is.
         """
+        if not hal_config.SPEAKER_RECOGNITION_ENABLED:
+            return None  # owner has not opted in: no upload, no cached name
+        self._ensure_optional_services()
         cached = self._cached_identity(in_followup)
         if cached is not None:
             return ("cached", cached)
         if self._speaker is None:
-            logger.info(
-                "Skip speaker ID: recognizer not initialized "
-                "(HAL_SPEAKER_RECOGNITION_ENABLED or init failure)",
-            )
+            logger.info("Skip speaker ID: recognizer not initialized yet (or init failed)")
             return None
         if not audio_buffer:
             logger.warning("Skip speaker ID: audio buffer is empty (no frames captured this session)")
@@ -552,6 +563,9 @@ class SpeakerDecorator:
         self, audio_buffer: list[bytes], user: str = "unknown",
     ) -> None:
         """Submit SER on the full mic-session buffer (async via the service)."""
+        if not hal_config.SPEECH_EMOTION_ENABLED:
+            return  # owner has not opted in
+        self._ensure_optional_services()
         if self._speech_emotion is None or not self._speech_emotion.available:
             logger.info(
                 "Speech emotion submit skipped: service_init=%s available=%s",

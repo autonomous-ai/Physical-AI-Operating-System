@@ -243,7 +243,7 @@ DL_SER_BACKEND_URL: str = DL_BACKEND_URL.rstrip("/") + "/" + DL_SER_ENDPOINT.str
 
 
 def _cloud_perception_enabled(key: str) -> bool:
-    """Owner opt-in for a camera perception that uploads frames or face crops off the device.
+    """Owner opt-in for a perception that uploads frames, face crops or voice audio off the device.
 
     Only the os-server ``cloud_perception`` setting (web Settings > Privacy) can turn one
     on. A missing key is off, and env flags are deliberately not consulted: an old
@@ -377,9 +377,8 @@ IDLE_TIMEOUT_S = float(os.environ.get("HAL_IDLE_TIMEOUT_S", "300"))
 AWAY_TIMEOUT_S = float(os.environ.get("HAL_AWAY_TIMEOUT_S", "900"))
 IDLE_BRIGHTNESS = float(os.environ.get("HAL_IDLE_BRIGHTNESS", "0.20"))
 
-SPEAKER_RECOGNITION_ENABLED: bool = (
-    os.environ.get("HAL_SPEAKER_RECOGNITION_ENABLED", "true").lower() == "true"
-)
+# Uploads each utterance (and enrollment samples) to the DL backend; owner opt-in only.
+SPEAKER_RECOGNITION_ENABLED: bool = _cloud_perception_enabled("speaker_id")
 SPEAKER_MIN_AUDIO_S: float = float(os.environ.get("HAL_SPEAKER_MIN_AUDIO_S", "0.8")) # seconds
 # Speaker-ID clips are capped to this much cleaned speech before embed; enroll clips are <= 15 s (#555).
 SPEAKER_MAX_EMBED_AUDIO_S: float = float(os.environ.get("HAL_SPEAKER_MAX_EMBED_AUDIO_S", "20")) # seconds
@@ -500,9 +499,8 @@ SPEAKER_PROC_STOI_CHUNK_SEC: float = float(
     os.environ.get("HAL_SPEAKER_PROC_STOI_CHUNK_SEC", "5.0")
 )
 
-SPEECH_EMOTION_ENABLED: bool = (
-    os.environ.get("HAL_SPEECH_EMOTION_ENABLED", "true").lower() == "true"
-)
+# Uploads each utterance to the DL backend to read mood from the voice; owner opt-in only.
+SPEECH_EMOTION_ENABLED: bool = _cloud_perception_enabled("speech_emotion")
 SPEECH_EMOTION_FLUSH_S: float = float(
     os.environ.get("HAL_SPEECH_EMOTION_FLUSH_S", "10.0")
 )

@@ -206,3 +206,29 @@ func TestUpdateConfigCloudPerceptionUsesConfirmedPath(t *testing.T) {
 		t.Fatalf("applied = %d, saved = %+v", applied, s.config.CloudPerceptionSettings())
 	}
 }
+
+func TestVoiceOptInsMergeAndRejectEnableOverMQTT(t *testing.T) {
+	applied := make(chan config.CloudPerception, 2)
+	s := cloudTestService(t, func(_ context.Context, cp config.CloudPerception) error {
+		applied <- cp
+		return nil
+	}, nil)
+
+	got, err := s.UpdateCloudPerception(domain.CloudPerceptionSetData{SpeakerID: ptr(true), SpeechEmotion: ptr(true)}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp := <-applied; !cp.SpeakerID || !cp.SpeechEmotion || cp != got {
+		t.Fatalf("applied %+v, returned %+v", cp, got)
+	}
+	if _, err := s.UpdateCloudPerception(domain.CloudPerceptionSetData{SpeakerID: ptr(true)}, true); !errors.Is(err, ErrCloudPerceptionEnable) {
+		t.Fatalf("opt-out-only enable err = %v", err)
+	}
+	got, err = s.UpdateCloudPerception(domain.CloudPerceptionSetData{SpeechEmotion: ptr(false)}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.SpeakerID || got.SpeechEmotion {
+		t.Fatalf("opt-out of one key changed the other: %+v", got)
+	}
+}

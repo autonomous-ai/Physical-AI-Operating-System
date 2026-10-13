@@ -6,6 +6,8 @@
 
 Lamp nhận diện người nói qua **WeSpeaker ResNet293** theo mặc định (vector nhúng 256 chiều, ONNX Runtime; server chọn được qua `AUDIO_EMBEDDER__MODEL`). Khi không nhận ra người nói, HAL lưu audio và tuỳ điều kiện sẽ yêu cầu AI agent đăng ký giọng nói. Đăng ký chỉ áp dụng **tự phục vụ** — mỗi người tự đăng ký giọng nói của mình.
 
+Nhận diện người nói là **opt-in, mặc định tắt**: chủ máy phải bật **Voice recognition** (`cloud_perception.speaker_id`) trong web Settings > Privacy. Khi bật, clip mỗi câu nói (tối đa `HAL_SPEAKER_MAX_EMBED_AUDIO_S` = 20 s tiếng nói đã làm sạch, kể cả giọng người chưa đăng ký) và mẫu đăng ký được gửi lên perception service. Khi tắt, mọi lời gọi embedding (recognize, enroll, re-embed) bị từ chối trong `SpeakerRecognizer._call_embedding_api`, nên **đăng ký giọng cũng thất bại** cho tới khi bật opt-in. Xem [sensing-behavior_vi.md](sensing-behavior_vi.md#nhận-thức-camera-qua-cloud-mặc-định-tắt).
+
 ## Kiến trúc
 
 ```
@@ -213,7 +215,7 @@ Mọi giọng lạ được gom cụm local để server biết "đây là cùng
 | Ngưỡng match voice stranger | _(dùng chung)_ | `SPEAKER_MATCH_COS` | Dùng lại ngưỡng khớp known-speaker để gom giọng lạ vào `voice_N` đã có — không có knob riêng |
 | Số voice stranger tối đa | 50 | `HAL_MAX_VOICE_STRANGERS` | Giới hạn cluster; evict oldest khi vượt |
 | Thư mục voice strangers | `/root/local/voice_strangers` | `HAL_VOICE_STRANGERS_DIR` | Persist embedding cluster (tồn tại qua reboot) |
-| Bật/tắt nhận diện giọng nói | true | `HAL_SPEAKER_RECOGNITION_ENABLED` | Công tắc tổng (mặc định bật; gate theo capability `audio`) |
+| Bật/tắt nhận diện giọng nói | false | _(không đọc env)_ `SPEAKER_RECOGNITION_ENABLED` | Công tắc tổng, lấy từ key `speaker_id` của `cloud_perception` (opt-in của chủ máy trong Settings > Privacy, thiếu key là tắt; áp dụng live qua `POST /sensing/cloud-perception`); vẫn gate theo capability `audio`. Tắt: không upload clip, mọi người nói là `unknown`, không dùng danh tính cache, đăng ký thất bại; profile đã đăng ký vẫn giữ trên đĩa |
 
 ### Cấu hình tiền xử lý tại thiết bị
 

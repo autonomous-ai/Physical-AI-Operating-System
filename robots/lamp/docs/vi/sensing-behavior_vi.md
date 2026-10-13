@@ -207,14 +207,17 @@ Unknown Faces là read-only — nên xoá chúng là thao tác trên filesystem.
 
 ## Nhận thức camera qua cloud mặc định tắt
 
-Bốn luồng nhận thức camera gửi dữ liệu ảnh ra khỏi thiết bị tới DL backend
-(`DL_BACKEND_URL`, tức `llm_base_url`), nên chúng là **opt-in và mặc định tắt**.
-Chủ máy bật từng luồng trong web **Settings > Privacy**, lưu thành `cloud_perception`
-trong `config.json` và áp dụng live không cần restart HAL
+Bốn luồng nhận thức camera gửi dữ liệu ảnh, và hai luồng nhận thức giọng nói gửi
+audio, ra khỏi thiết bị tới DL backend (`DL_BACKEND_URL`, tức `llm_base_url`), nên cả
+sáu đều là **opt-in và mặc định tắt**. Chủ máy bật từng luồng trong web
+**Settings > Privacy** (hai luồng giọng nói nằm ở khối "Microphone"), lưu thành
+`cloud_perception` trong `config.json` và áp dụng live không cần restart HAL
 ([os-server_vi.md](../../../../docs/vi/os-server_vi.md#nhận-thức-camera-qua-cloud)). Chỉ setting
 đã lưu đó mới bật được: thiếu key là tắt và không đọc cờ env, nên default cũ còn sót trong
 `.env` của máy không bao giờ được tính là đồng ý (`hal/config.py`
-`_cloud_perception_enabled`). Nhận dạng hành động theo từng mặt (`HAL_MOTION_PER_FACE_ENABLED`)
+`_cloud_perception_enabled`). Điều này áp dụng cả cho giọng nói: HAL không còn đọc
+`HAL_SPEAKER_RECOGNITION_ENABLED` / `HAL_SPEECH_EMOTION_ENABLED`. MQTT
+`cloud_perception.set` chỉ tắt được, không bật được. Nhận dạng hành động theo từng mặt (`HAL_MOTION_PER_FACE_ENABLED`)
 cũng upload và cần opt-in `motion`:
 
 | Key `cloud_perception` | Dữ liệu rời thiết bị | Khi nào sẽ gửi |
@@ -223,9 +226,18 @@ cũng upload và cần opt-in `motion`:
 | `emotion` | ảnh mặt đã cắt | mỗi tick có mặt được phát hiện cục bộ |
 | `pose` | nguyên frame (WS pose/RULA) | một frame mỗi `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) khi presence là `PRESENT`; vắng người thì không gửi |
 | `fire_hazard` | nguyên frame (OWLv2) | mỗi `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), không kiểm tra presence |
+| `speaker_id` | clip mỗi câu nói, tối đa `HAL_SPEAKER_MAX_EMBED_AUDIO_S` (20 s) tiếng nói đã làm sạch, kể cả giọng người chưa đăng ký; cộng mẫu khi đăng ký giọng | mỗi câu nói VAD bắt được, và mỗi lần enroll / re-embed |
+| `speech_emotion` | audio của mỗi lượt hội thoại (session buffer) | cuối mỗi phiên mic đủ dài |
 
 Khi tắt, `motion.activity`, cảm xúc khuôn mặt, nhắc tư thế và `fire_hazard.detected`
-không được tạo ra. Nhận thức trên thiết bị (dò mặt và Face ID, presence, gaze, ánh
+không được tạo ra. Tắt `speaker_id` thì không clip nào được upload, mọi người nói đều là
+`unknown`, danh tính cache không được dùng và đăng ký giọng thất bại (mọi lời gọi embedding
+— recognize, enroll, re-embed — bị chặn trong `SpeakerRecognizer._call_embedding_api`);
+profile đã đăng ký vẫn nằm trên đĩa. Tắt `speech_emotion` thì không upload SER
+(`SpeakerDecorator.submit_speech_emotion_from_session` và `Emotion2VecRecognizer.recognize`).
+HAL đọc `config.SPEAKER_RECOGNITION_ENABLED` / `config.SPEECH_EMOTION_ENABLED` mỗi lần dùng:
+tắt thì dừng từ lần upload kế tiếp, bật thì service khởi tạo lazy và có hiệu lực từ câu nói
+kế tiếp, không cần restart HAL. Nhận thức trên thiết bị (dò mặt và Face ID, presence, gaze, ánh
 sáng, mức âm thanh) không bị ảnh hưởng. Bật một cờ là lựa chọn privacy có chủ ý: nó
 gửi frame lên kể cả khi không ai trong phòng gọi đèn. Tắt một luồng thì processor của nó
 bị gỡ trước khi request trả về: lượt kiểm tra còn trong hàng đợi bị bỏ, upload đang chạy

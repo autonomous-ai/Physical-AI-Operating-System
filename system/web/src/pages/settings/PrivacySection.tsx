@@ -4,13 +4,18 @@ import { C, ConfirmDialog, SectionCard } from "@/components/setup/shared";
 import { disableGuardMode, getDeviceConfig, getGuardMode, updateDeviceConfig } from "@/lib/api";
 import type { CloudPerception } from "@/lib/api";
 
-const ALL_OFF: CloudPerception = { motion: false, emotion: false, pose: false, fire_hazard: false };
+const ALL_OFF: CloudPerception = {
+  motion: false, emotion: false, pose: false, fire_hazard: false, speaker_id: false, speech_emotion: false,
+};
 
-// Each entry says what the camera is used for and exactly what is uploaded for cloud
-// analysis, so turning it on is an informed choice.
-const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upload: string; short: string }[] = [
+type Option = { key: keyof CloudPerception; source: "camera" | "voice"; label: string; purpose: string; upload: string; short: string };
+
+// Each entry says what the camera or microphone is used for and exactly what is uploaded
+// for cloud analysis, so turning it on is an informed choice.
+const OPTIONS: Option[] = [
   {
     key: "pose",
+    source: "camera",
     label: "Posture reminders",
     purpose: "Uses the camera to notice when you sit badly for a long time and reminds you to adjust. "
       + "A reminder sent to your Telegram includes the photos with the worst posture.",
@@ -20,6 +25,7 @@ const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upl
   },
   {
     key: "fire_hazard",
+    source: "camera",
     label: "Fire and smoke hints",
     purpose: "Uses the camera to look for visible flames or smoke and mention them. Best effort only: "
       + "this is not a smoke or fire alarm and does not replace one.",
@@ -28,6 +34,7 @@ const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upl
   },
   {
     key: "motion",
+    source: "camera",
     label: "Activity recognition",
     purpose: "Uses the camera to recognise what you are doing (for example working or stretching) so the lamp can react.",
     upload: "Uploads full camera images for cloud analysis about every 2 seconds while someone has been seen recently.",
@@ -35,12 +42,33 @@ const OPTIONS: { key: keyof CloudPerception; label: string; purpose: string; upl
   },
   {
     key: "emotion",
+    source: "camera",
     label: "Facial emotion",
     purpose: "Uses the camera to read facial expressions so the lamp can respond to how people seem to feel.",
     upload: "Uploads a cropped photo of each detected face for cloud analysis about every 2 seconds.",
     short: "Facial emotion (a cropped photo of each face, about every 2 s)",
   },
+  {
+    key: "speaker_id",
+    source: "voice",
+    label: "Voice recognition",
+    purpose: "Recognises who is speaking so the lamp can call people by name and remember things about them. "
+      + "Enrolling a voice also needs this. When off, the lamp does not know who is talking.",
+    upload: "Uploads a clip of each thing someone says (up to 20 seconds) for cloud analysis, "
+      + "including voices of people who are not enrolled.",
+    short: "Voice recognition (a clip of each thing anyone says, up to 20 s)",
+  },
+  {
+    key: "speech_emotion",
+    source: "voice",
+    label: "Voice emotion",
+    purpose: "Reads mood from the tone of voice so the lamp can respond to how people sound.",
+    upload: "Uploads the audio of each conversation turn for cloud analysis.",
+    short: "Voice emotion (the audio of each conversation turn)",
+  },
 ];
+const CAMERA_OPTIONS = OPTIONS.filter((o) => o.source === "camera");
+const VOICE_OPTIONS = OPTIONS.filter((o) => o.source === "voice");
 
 // Perception requests go to the configured LLM base URL (HAL DL_BACKEND_URL), so show its host.
 function recipientHost(baseUrl: string | undefined): string {
@@ -107,6 +135,36 @@ export function PrivacySection({ active }: { active: boolean }) {
   // Only turning something on needs consent; turning off applies without a prompt.
   const newlyEnabled = saved === null ? [] : OPTIONS.filter(({ key }) => draft[key] && !saved[key]);
   const destination = recipient || "the configured server";
+  const newSources = new Set(newlyEnabled.map((o) => o.source));
+  const uploadWhat = newSources.size > 1 ? "camera images and voice audio" : newSources.has("voice") ? "voice audio" : "camera images";
+  const whoIsIncluded = newSources.size > 1
+    ? "Anyone in view of the camera or speaking near the lamp is included."
+    : newSources.has("voice") ? "Anyone speaking near the lamp is included." : "Anyone in view of the camera is included.";
+
+  function renderOption({ key, label, purpose, upload }: Option) {
+    return (
+      <label
+        key={key}
+        htmlFor={`privacy-${key}`}
+        style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14, cursor: "pointer" }}
+      >
+        <input
+          id={`privacy-${key}`}
+          type="checkbox"
+          style={{ flexShrink: 0, marginTop: 3 }}
+          checked={draft[key]}
+          onChange={(e) => setDraft({ ...draft, [key]: e.target.checked })}
+        />
+        <span>
+          <span style={{ display: "block", fontSize: 13.5, color: C.text }}>{label}</span>
+          <span style={{ display: "block", fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>{purpose}</span>
+          <span style={{ display: "block", fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
+            {upload} Sent to {destination}.
+          </span>
+        </span>
+      </label>
+    );
+  }
 
   return (
     <SectionCard id="privacy" title="Privacy" active={active}>
@@ -123,35 +181,28 @@ export function PrivacySection({ active }: { active: boolean }) {
         already sent are not recalled.
       </div>
       <div style={{ fontSize: 12.5, color: C.text, marginBottom: 14 }}>
-        Images are sent to: <strong>{recipient || "no server configured (nothing is sent)"}</strong>
+        Images and voice clips are sent to: <strong>{recipient || "no server configured (nothing is sent)"}</strong>
       </div>
 
       {saved === null ? (
         <div style={{ fontSize: 12, color: C.textMuted }}>Loading…</div>
       ) : (
         <>
-          {OPTIONS.map(({ key, label, purpose, upload }) => (
-            <label
-              key={key}
-              htmlFor={`privacy-${key}`}
-              style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14, cursor: "pointer" }}
-            >
-              <input
-                id={`privacy-${key}`}
-                type="checkbox"
-                style={{ flexShrink: 0, marginTop: 3 }}
-                checked={draft[key]}
-                onChange={(e) => setDraft({ ...draft, [key]: e.target.checked })}
-              />
-              <span>
-                <span style={{ display: "block", fontSize: 13.5, color: C.text }}>{label}</span>
-                <span style={{ display: "block", fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>{purpose}</span>
-                <span style={{ display: "block", fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-                  {upload} Sent to {destination}.
-                </span>
-              </span>
-            </label>
-          ))}
+          {CAMERA_OPTIONS.map(renderOption)}
+
+          <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 13.5, color: C.text, marginBottom: 6 }}>Microphone</div>
+            <div style={{ fontSize: 12.5, color: C.textDim, lineHeight: 1.6 }}>
+              The lamp listens on the device for speech. When it hears someone talking, it streams
+              that audio to a speech-to-text service ({destination}, or Deepgram if you entered your
+              own Deepgram key) to catch its name and understand requests. This includes speech that
+              was not meant for the lamp. During a live voice conversation, audio also goes to the
+              voice AI provider. Muting the microphone stops all of it. The features below upload
+              voice audio for extra analysis and are off until you turn them on; anyone speaking
+              near the lamp is included, not only you.
+            </div>
+          </div>
+          {VOICE_OPTIONS.map(renderOption)}
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <button
@@ -201,11 +252,11 @@ export function PrivacySection({ active }: { active: boolean }) {
 
       {confirming && (
         <ConfirmDialog
-          title="Upload camera images to the cloud?"
-          message={`The lamp will upload camera images to ${destination} for cloud analysis: `
+          title={`Upload ${uploadWhat} to the cloud?`}
+          message={`The lamp will upload ${uploadWhat} to ${destination} for cloud analysis: `
             + `${newlyEnabled.map((o) => o.short).join("; ")}. `
-            + "Anyone in view of the camera is included. You can turn this off at any time; "
-            + "the lamp then stops new uploads once it confirms, but images already sent are not recalled."}
+            + `${whoIsIncluded} You can turn this off at any time; `
+            + "the lamp then stops new uploads once it confirms, but what was already sent is not recalled."}
           confirmLabel="Turn on and upload"
           onConfirm={() => { setConfirming(false); void apply(); }}
           onCancel={() => setConfirming(false)}

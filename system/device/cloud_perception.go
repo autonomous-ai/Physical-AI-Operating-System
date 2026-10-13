@@ -22,7 +22,7 @@ const (
 
 var (
 	// ErrCloudPerceptionEmpty rejects a request that names no perception.
-	ErrCloudPerceptionEmpty = errors.New("at least one of motion, emotion, pose, fire_hazard is required")
+	ErrCloudPerceptionEmpty = errors.New("at least one of motion, emotion, pose, fire_hazard, speaker_id, speech_emotion is required")
 	// ErrCloudPerceptionEnable rejects turning an upload on from a channel that cannot carry consent.
 	ErrCloudPerceptionEnable = errors.New("cloud perceptions can only be turned on from the device's local Settings > Privacy")
 )
@@ -41,14 +41,13 @@ type cloudPerceptionApply struct {
 // after HAL has applied them (live, or by a restart when the live call fails).
 // optOutOnly rejects any request to turn a perception on.
 func (s *Service) UpdateCloudPerception(patch domain.CloudPerceptionSetData, optOutOnly bool) (config.CloudPerception, error) {
-	fields := []*bool{patch.Motion, patch.Emotion, patch.Pose, patch.FireHazard}
 	named := false
-	for _, v := range fields {
-		if v == nil {
+	for _, f := range patch.Patch(&config.CloudPerception{}) {
+		if f.In == nil {
 			continue
 		}
 		named = true
-		if optOutOnly && *v {
+		if optOutOnly && *f.In {
 			return s.config.CloudPerceptionSettings(), ErrCloudPerceptionEnable
 		}
 	}
@@ -65,17 +64,9 @@ func (s *Service) UpdateCloudPerception(patch domain.CloudPerceptionSetData, opt
 		// requests that each name one key never overwrite each other.
 		prev := c.CloudPerceptionSettings()
 		next = prev
-		for _, f := range []struct {
-			in  *bool
-			out *bool
-		}{
-			{patch.Motion, &next.Motion},
-			{patch.Emotion, &next.Emotion},
-			{patch.Pose, &next.Pose},
-			{patch.FireHazard, &next.FireHazard},
-		} {
-			if f.in != nil {
-				*f.out = *f.in
+		for _, f := range patch.Patch(&next) {
+			if f.In != nil {
+				*f.Out = *f.In
 			}
 		}
 		c.CloudPerception = &next
@@ -102,13 +93,14 @@ func (s *Service) applyCloudPerceptionAndWait(cp config.CloudPerception) error {
 	apply := s.halCloudPerceptionApply
 	if apply == nil {
 		apply = func(ctx context.Context, cp config.CloudPerception) error {
-			return hal.SetCloudPerception(ctx, cp.Motion, cp.Emotion, cp.Pose, cp.FireHazard)
+			return hal.SetCloudPerception(ctx, cp)
 		}
 	}
 	err := apply(ctx, cp)
 	if err == nil {
 		slog.Info("hal cloud perception applied live", "component", "device",
-			"motion", cp.Motion, "emotion", cp.Emotion, "pose", cp.Pose, "fire_hazard", cp.FireHazard)
+			"motion", cp.Motion, "emotion", cp.Emotion, "pose", cp.Pose, "fire_hazard", cp.FireHazard,
+			"speaker_id", cp.SpeakerID, "speech_emotion", cp.SpeechEmotion)
 		if err := config.SnapshotHALConfig(); err != nil {
 			slog.Warn("hal config snapshot failed", "component", "device", "error", err)
 		}

@@ -288,12 +288,14 @@ export type LLMConfigMode = "" | "os" | "runtime";
 export type VoiceInputMode = "automatic" | "tap_to_talk";
 
 /** Sanitized device config — Has* booleans replace raw secrets so they never reach the DOM / sessionStorage / HAR captures. */
-/** Opt-ins for camera perceptions that upload frames or face crops off the device. */
+/** Opt-ins for perceptions that upload camera frames, face crops or voice audio off the device. */
 export interface CloudPerception {
   motion: boolean;
   emotion: boolean;
   pose: boolean;
   fire_hazard: boolean;
+  speaker_id: boolean;
+  speech_emotion: boolean;
 }
 
 export interface DeviceConfig {

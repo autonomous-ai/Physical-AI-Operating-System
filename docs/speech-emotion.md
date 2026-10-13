@@ -314,11 +314,11 @@ Three **further** rate limits apply server-side, after SER's own dedup: `speech_
 
 ## Configuration
 
-All knobs live in `hal/config.py` as `SPEECH_EMOTION_*`, overridable via env vars. Defaults mirror `EMOTION_*` so the two modalities behave identically out of the box.
+All knobs live in `hal/config.py` as `SPEECH_EMOTION_*`, overridable via env vars except `SPEECH_EMOTION_ENABLED`, which is the owner's opt-in (default off). Defaults mirror `EMOTION_*` so the two modalities behave identically out of the box.
 
 | Constant | Env var | Default | Purpose |
 |----------|---------|---------|---------|
-| `SPEECH_EMOTION_ENABLED` | `HAL_SPEECH_EMOTION_ENABLED` | `true` | Master kill switch |
+| `SPEECH_EMOTION_ENABLED` | — (not env; `HAL_SPEECH_EMOTION_ENABLED` is no longer read) | `false` | Owner opt-in `cloud_perception.speech_emotion` (web Settings > Privacy > **Voice emotion**), read from `config.json` at boot and updated live by `POST /sensing/cloud-perception`. Checked at each use (`SpeakerDecorator.submit_speech_emotion_from_session`, `Emotion2VecRecognizer.recognize`): off stops the next upload, on starts the service lazily from the next utterance. MQTT can only turn it off |
 | `SPEECH_EMOTION_FLUSH_S` | `HAL_SPEECH_EMOTION_FLUSH_S` | `10.0` | Buffer drain cadence |
 | `SPEECH_EMOTION_DEDUP_WINDOW_S` | `HAL_SPEECH_EMOTION_DEDUP_WINDOW_S` | `300.0` | TTL for `(user, bucket)` |
 | `SPEECH_EMOTION_MIN_AUDIO_S` | `HAL_SPEECH_EMOTION_MIN_AUDIO_S` | `3.0` | Min utterance length |
@@ -410,7 +410,7 @@ SER is never invoked from inside `identify_and_decorate`.
 ### When SER is not submitted
 
 - The device declares no `audio` capability — voice people-perception (speaker-ID + SER) is gated on the mic, so `SpeakerDecorator` is constructed with `enable_people_perception=False` and the SER service never initializes (`SpeakerDecorator._init_speech_emotion`). (This is the `audio` capability, not `presence`: a mic is all SER needs. Facial emotion in the sensing loop stays `presence`-gated.)
-- `SPEECH_EMOTION_ENABLED=false`, or `SpeechEmotionService` not `available` (no `DL_BACKEND_URL`)
+- `SPEECH_EMOTION_ENABLED` is false (the owner has not turned on `cloud_perception.speech_emotion`, the default), or `SpeechEmotionService` not `available` (no `DL_BACKEND_URL`)
 - `ser_audio_buffer` empty or shorter than `SPEAKER_MIN_AUDIO_S` (gates `_session_wav_for_ser`)
 - `duration_s < SPEECH_EMOTION_MIN_AUDIO_S` (gates `submit()` itself — default 3.0 s, the binding floor)
 - `submit()` drops (empty `user` after normalize, every bucket still inside its dedup window, or — rarely — the queue refilled between eviction and enqueue)

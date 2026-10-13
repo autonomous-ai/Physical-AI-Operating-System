@@ -31,7 +31,7 @@ func TestInfoReportsCloudPerception(t *testing.T) {
 	}
 	var m map[string]json.RawMessage
 	_ = json.Unmarshal(b, &m)
-	want := `{"motion":false,"emotion":true,"pose":false,"fire_hazard":false}`
+	want := `{"motion":false,"emotion":true,"pose":false,"fire_hazard":false,"speaker_id":false,"speech_emotion":false}`
 	if string(m["cloud_perception"]) != want {
 		t.Fatalf("cloud_perception = %s, want %s", m["cloud_perception"], want)
 	}

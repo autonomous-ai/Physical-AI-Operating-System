@@ -412,7 +412,7 @@ Per-face motion opens a separate WS session per detected face and runs action re
 **Voice integration (session end, transcript-independent):** in the `finally` block of every mic session (VAD trigger → ~2.5 s silence), `_stream_session` runs `_identify_and_decorate(final_text, audio_buffer)` **once** to resolve both `final_msg` (for the Lamp POST when STT had text) and `user_name` (for the SER submit). The result is passed to `_submit_speech_emotion_from_session(audio_buffer, user=...)`, which builds the WAV and calls `SpeechEmotionService.submit`. Unknown / no-match speakers still enqueue SER under the shared `unknown` dedup key when audio is long enough.
 
 ```python
-SPEECH_EMOTION_ENABLED = True
+SPEECH_EMOTION_ENABLED = False             # Owner opt-in cloud_perception.speech_emotion (not env)
 SPEECH_EMOTION_FLUSH_S = 10.0               # Per-user buffer drain cadence
 SPEECH_EMOTION_DEDUP_WINDOW_S = 300.0       # (user, bucket) TTL — 5 min
 SPEECH_EMOTION_MIN_AUDIO_S = 3.0            # Skip utterances shorter than this (hal.config default)

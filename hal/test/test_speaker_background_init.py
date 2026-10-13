@@ -11,8 +11,8 @@ from hal.drivers.voice._internal.speaker_decorate import SpeakerDecorator
 
 @pytest.fixture
 def factories(monkeypatch):
-    monkeypatch.setattr(module, 'SPEAKER_RECOGNITION_ENABLED', True)
-    monkeypatch.setattr(module, 'SPEECH_EMOTION_ENABLED', True)
+    monkeypatch.setattr(module.hal_config, 'SPEAKER_RECOGNITION_ENABLED', True)
+    monkeypatch.setattr(module.hal_config, 'SPEECH_EMOTION_ENABLED', True)
     speaker = mock.Mock()
     emotion = mock.Mock()
     monkeypatch.setattr(SpeakerDecorator, '_init_speaker', staticmethod(speaker))
@@ -81,8 +81,8 @@ def test_close_during_ser_init_disposes_late_service(factories):
 
 @pytest.mark.parametrize('capability,enabled', [(False, True), (True, False)])
 def test_disabled_services_do_not_start_or_fetch(factories, monkeypatch, capability, enabled):
-    monkeypatch.setattr(module, 'SPEAKER_RECOGNITION_ENABLED', enabled)
-    monkeypatch.setattr(module, 'SPEECH_EMOTION_ENABLED', enabled)
+    monkeypatch.setattr(module.hal_config, 'SPEAKER_RECOGNITION_ENABLED', enabled)
+    monkeypatch.setattr(module.hal_config, 'SPEECH_EMOTION_ENABLED', enabled)
     d = SpeakerDecorator(['lamp'], 0, enable_people_perception=capability)
     finish(d)
     assert d._init_threads == []

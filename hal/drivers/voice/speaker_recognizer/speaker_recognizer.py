@@ -973,7 +973,13 @@ class SpeakerRecognizer:
     def _call_embedding_api(
         self, audios_b64: list[str], *, use_sliding_window: bool = False
     ) -> np.ndarray:
-        """POST audios to the embedding API."""
+        """POST audios to the embedding API.
+
+        Every voice upload (recognize, enroll, re-embed) passes here, so the owner's
+        speaker-ID opt-in is enforced once for all of them.
+        """
+        if not config.SPEAKER_RECOGNITION_ENABLED:
+            raise SpeakerRecognizerError("speaker recognition is off in Settings > Privacy")
         if not self._api_url:
             raise SpeakerRecognizerError(
                 "SPEAKER_EMBEDDING_API_URL not configured"

@@ -92,9 +92,7 @@ SPEAKER_ID_CACHE_FOLLOWUP_S = float(
 )
 
 
-SPEAKER_RECOGNITION_ENABLED = _hal_config.SPEAKER_RECOGNITION_ENABLED
 SPEAKER_MIN_AUDIO_S = _hal_config.SPEAKER_MIN_AUDIO_S
-SPEECH_EMOTION_ENABLED = _hal_config.SPEECH_EMOTION_ENABLED
 
 
 _wake_name = _hal_config.resolve_device_type("friend")

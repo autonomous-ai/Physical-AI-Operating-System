@@ -57,7 +57,7 @@ OS server sử dụng MQTT để giao tiếp với backend server (báo cáo tr�
   "time": "2026-03-26T17:00:00Z",
   "wakeword_enabled": false,
   "voice_input_mode": "automatic",
-  "cloud_perception": { "motion": false, "emotion": false, "pose": false, "fire_hazard": false },
+  "cloud_perception": { "motion": false, "emotion": false, "pose": false, "fire_hazard": false, "speaker_id": false, "speech_emotion": false },
   "agent_runtime": "openclaw"
 }
 ```
@@ -71,7 +71,7 @@ Phản hồi còn kèm các field tùy chọn khi có: `hal_version`, `openclaw_
 `unsupported_channels`, `skills`. `wakeword_enabled` luôn có mặt và báo trạng thái
 effective của wake-word gate top-level trong config (`true` hoặc `false`; config legacy
 thiếu giá trị này sẽ báo `false`). `cloud_perception` luôn có mặt và báo các opt-in camera
-cloud đã lưu (config legacy thiếu giá trị sẽ báo tất cả `false`); xem
+và giọng nói qua cloud đã lưu (config legacy thiếu giá trị sẽ báo tất cả `false`); xem
 [`cloud_perception.set`](#cloud_perceptionset). `timezone` là múi giờ IANA **trực tiếp** của device (ví dụ
 `Asia/Ho_Chi_Minh`), đọc tươi từ `/etc/timezone` (fallback về config), không chỉ là
 bản ghi trong config. Cả sáu version per-runtime đều được probe lúc startup (mỗi cái
@@ -346,7 +346,7 @@ nhận HAL nhận yêu cầu phát, không đảm bảo audio đã phát xong.
 | `tts.set` | Lưu cấu hình TTS voice/provider/language/speed | `provider`, `voice`, `language`, `speed` (tùy chọn) |
 | `tts.preview` | Preview TTS một lần (không ghi config) | `text` (bắt buộc), tùy chọn `provider`/`voice`/`language`/`speed` |
 | `wakeword.gate` | Bật/tắt wake-word gate top-level (bất đồng bộ; ack `starting`) | `enabled` (boolean bắt buộc) |
-| `cloud_perception.set` | **Tắt** các luồng nhận thức camera qua cloud (chỉ opt-out; bất đồng bộ; ack `starting`) | một hoặc nhiều `motion`, `emotion`, `pose`, `fire_hazard` (phải là `false`) |
+| `cloud_perception.set` | **Tắt** các luồng nhận thức camera hoặc giọng nói qua cloud (chỉ opt-out; bất đồng bộ; ack `starting`) | một hoặc nhiều `motion`, `emotion`, `pose`, `fire_hazard`, `speaker_id`, `speech_emotion` (phải là `false`) |
 | `voice.input_mode` | Chọn cách nhập giọng nói (ack bất đồng bộ) | `mode`: `automatic` hoặc `tap_to_talk` |
 | `timezone.set` | Áp dụng múi giờ IANA của device (bất đồng bộ; ack `starting`) | `timezone` (bắt buộc, ví dụ `Asia/Ho_Chi_Minh`) |
 | `oauth.set` | Lưu/thay token OAuth cho một provider | `provider`, `access_token`, tùy chọn `refresh_token`/`token_type`/`expires_at`/`scopes`/`user_email`/`client_id` |
@@ -587,7 +587,7 @@ dụng thành công, giá trị wake không đổi sẽ không gây thêm lần 
 
 #### `cloud_perception.set`
 
-**Tắt** các luồng nhận thức camera gửi ảnh lên DL backend. MQTT không xác thực người
+**Tắt** các luồng nhận thức gửi ảnh camera hoặc audio giọng nói lên DL backend. MQTT không xác thực người
 gửi nên chỉ được rút lại đồng ý: key nào đặt `true` đều bị từ chối với
 `status:"failure"` và config không đổi. Bật một luồng vẫn là lựa chọn tại chỗ trong web
 **Settings > Privacy** của device ([os-server_vi.md](os-server_vi.md#nhận-thức-camera-qua-cloud)).
@@ -598,7 +598,7 @@ Key không gửi giữ nguyên giá trị đã lưu.
 Request hợp lệ ack `starting`, rồi đi qua cùng đường tuần tự với
 `PUT /api/device/config`: các key được gửi gộp vào giá trị đã lưu mới nhất dưới khoá
 dùng chung (nên hai lệnh tắt đồng thời không ghi đè nhau), HAL áp dụng live (hoặc, nếu apply lỗi,
-bị restart và phải trả lời lại lệnh apply), rồi device mới ack `success` hoặc `failure` kèm bốn giá trị kết
+bị restart và phải trả lời lại lệnh apply), rồi device mới ack `success` hoặc `failure` kèm sáu giá trị kết
 quả trong `data`. Payload rỗng, JSON không hợp lệ hoặc có giá trị
 `true` đều ack `failure` trước khi thay đổi. `info` báo trạng thái đã lưu trong
 `cloud_perception`.

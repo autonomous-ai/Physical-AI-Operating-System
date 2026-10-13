@@ -32,13 +32,18 @@ func (h *DeviceMQTTHandler) handleCloudPerceptionSet(env domain.MQTTDataCommand)
 		h.publishCloudPerceptionAck("failure", "invalid payload", nil)
 		return err
 	}
-	for _, v := range []*bool{req.Motion, req.Emotion, req.Pose, req.FireHazard} {
-		if v != nil && *v {
+	named := false
+	for _, f := range req.Patch(&config.CloudPerception{}) {
+		if f.In == nil {
+			continue
+		}
+		named = true
+		if *f.In {
 			h.publishCloudPerceptionAck("failure", device.ErrCloudPerceptionEnable.Error(), nil)
 			return device.ErrCloudPerceptionEnable
 		}
 	}
-	if req.Motion == nil && req.Emotion == nil && req.Pose == nil && req.FireHazard == nil {
+	if !named {
 		h.publishCloudPerceptionAck("failure", device.ErrCloudPerceptionEmpty.Error(), nil)
 		return device.ErrCloudPerceptionEmpty
 	}

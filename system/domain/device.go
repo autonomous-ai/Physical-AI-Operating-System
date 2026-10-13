@@ -978,10 +978,31 @@ type WakeWordGateData struct {
 
 // CloudPerceptionSetData lists the perceptions to change; omitted keys keep their value.
 type CloudPerceptionSetData struct {
-	Motion     *bool `json:"motion,omitempty"`
-	Emotion    *bool `json:"emotion,omitempty"`
-	Pose       *bool `json:"pose,omitempty"`
-	FireHazard *bool `json:"fire_hazard,omitempty"`
+	Motion        *bool `json:"motion,omitempty"`
+	Emotion       *bool `json:"emotion,omitempty"`
+	Pose          *bool `json:"pose,omitempty"`
+	FireHazard    *bool `json:"fire_hazard,omitempty"`
+	SpeakerID     *bool `json:"speaker_id,omitempty"`
+	SpeechEmotion *bool `json:"speech_emotion,omitempty"`
+}
+
+// Patch pairs each requested value with the saved field it overrides in cp.
+// Every caller (merge, opt-out check, empty check) walks this one list.
+func (d CloudPerceptionSetData) Patch(cp *config.CloudPerception) []CloudPerceptionField {
+	return []CloudPerceptionField{
+		{d.Motion, &cp.Motion},
+		{d.Emotion, &cp.Emotion},
+		{d.Pose, &cp.Pose},
+		{d.FireHazard, &cp.FireHazard},
+		{d.SpeakerID, &cp.SpeakerID},
+		{d.SpeechEmotion, &cp.SpeechEmotion},
+	}
+}
+
+// CloudPerceptionField is one requested opt-in (nil = unchanged) and its saved target.
+type CloudPerceptionField struct {
+	In  *bool
+	Out *bool
 }
 
 // MQTTCloudPerceptionAck is the cloud_perception.set ack; status is "starting" | "success" | "failure".

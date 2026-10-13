@@ -209,9 +209,10 @@ is read-only — so clearing them is a filesystem operation.
 
 ## Cloud camera perceptions are off by default
 
-Four camera perceptions send image data off the device to the DL backend
-(`DL_BACKEND_URL`, which is `llm_base_url`), so they are **opt-in and default off**.
-The owner turns each one on in web **Settings > Privacy**, saved as `cloud_perception`
+Four camera perceptions and two voice perceptions send image or audio data off the
+device to the DL backend (`DL_BACKEND_URL`, which is `llm_base_url`), so they are
+**opt-in and default off**. The owner turns each one on in web **Settings > Privacy**
+(voice under its **Microphone** block), saved as `cloud_perception`
 in `config.json` and applied live without a HAL restart
 ([os-server.md](../../../docs/os-server.md#cloud-camera-perception)). Only that saved
 setting can turn one on: a missing key is off and env flags are not read, so an old
@@ -225,10 +226,19 @@ also uploads and needs the `motion` opt-in:
 | `emotion` | face crops | every tick a face is detected locally |
 | `pose` | full frames (pose/RULA WS) | one frame per `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) while presence is `PRESENT`; nothing while away |
 | `fire_hazard` | full frames (OWLv2) | every `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), no presence gate |
+| `speaker_id` | a clip of each utterance, up to `HAL_SPEAKER_MAX_EMBED_AUDIO_S` (20 s) of cleaned speech, including voices of people not enrolled; plus enrollment samples | every utterance, and on each voice enrollment |
+| `speech_emotion` | the audio of each conversation turn (session buffer) | every turn long enough for SER |
 
 With them off, `motion.activity`, facial emotion, posture nudges and
-`fire_hazard.detected` are not produced. On-device perception (face detection and
-Face ID, presence, gaze, light, sound level) is unaffected. Enabling one is a
+`fire_hazard.detected` are not produced. With `speaker_id` off, every speaker is
+`unknown`, cached identity is not used and enrolling a voice fails (every embedding
+call is refused in `SpeakerRecognizer._call_embedding_api`); enrolled profiles stay on
+disk. With `speech_emotion` off, `speech_emotion.detected` is not produced. The two
+voice keys are set in `hal/config.py` (`SPEAKER_RECOGNITION_ENABLED`,
+`SPEECH_EMOTION_ENABLED`) and read at each use: turning one off stops the next upload,
+turning one on starts the service lazily from the next utterance. MQTT
+`cloud_perception.set` can only turn perceptions off. On-device perception (face
+detection and Face ID, presence, gaze, light, sound level) is unaffected. Enabling one is a
 deliberate privacy choice: it uploads frames even when nobody in the room asked
 the lamp for anything. Turning one off unregisters its processor before the request
 returns: a check still queued is dropped, an upload already in progress finishes, then

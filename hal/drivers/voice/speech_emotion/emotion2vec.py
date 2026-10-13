@@ -84,6 +84,9 @@ class Emotion2VecRecognizer(BaseSpeechEmotionRecognizer):
             "encrypted": self._crypto is not None,
             "silero_loaded": self._silero is not None,
         })
+        if not config.SPEECH_EMOTION_ENABLED:
+            tracer.fail("engine-opted-out")
+            return None  # owner has not opted in (Settings > Privacy)
         if not self._url:
             logger.warning("[speech_emotion.engine] recognize skipped — empty URL")
             tracer.fail("engine-no-url")

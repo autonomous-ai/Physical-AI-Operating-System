@@ -4,7 +4,7 @@
 
 ## Overview
 
-Lamp identifies who is speaking via **WeSpeaker ResNet293** by default (256-dim embedding, ONNX Runtime; server-selectable via `AUDIO_EMBEDDER__MODEL`). When a speaker is not recognized, HAL saves the audio and optionally nudges the AI agent to enroll the voice. Enrollment is **self-service only** — each person enrolls their own voice.
+Lamp identifies who is speaking via **WeSpeaker ResNet293** by default (256-dim embedding, ONNX Runtime; server-selectable via `AUDIO_EMBEDDER__MODEL`). When a speaker is not recognized, HAL saves the audio and optionally nudges the AI agent to enroll the voice. Enrollment is **self-service only** — each person enrolls their own voice. Speaker recognition is **off by default**: it uploads a clip of each utterance, so it needs the owner's `speaker_id` opt-in in web Settings > Privacy (see [Configuration](#configuration)); without it every speaker is `unknown` and enrolling fails.
 
 ## Architecture
 
@@ -210,7 +210,7 @@ Every unknown voice is locally clustered so the server can say "this is the same
 | Voice stranger match threshold | _(shared)_ | `SPEAKER_MATCH_COS` | Reuses the known-speaker match threshold to cluster an unknown voice into an existing `voice_N` — no separate knob |
 | Max voice strangers | 50 | `HAL_MAX_VOICE_STRANGERS` | Cluster **count** cap; oldest whole cluster evicted, its audio dir deleted with it |
 | Voice strangers dir | `/root/local/voice_strangers` | `HAL_VOICE_STRANGERS_DIR` | Persist cluster embeddings (survives reboot) |
-| Speaker recognition enabled | true | `HAL_SPEAKER_RECOGNITION_ENABLED` | Master toggle (default on; gated on the `audio` capability) |
+| Speaker recognition enabled | **false** | — (`HAL_SPEAKER_RECOGNITION_ENABLED` is no longer read) | `SPEAKER_RECOGNITION_ENABLED`, the owner opt-in `cloud_perception.speaker_id` (web Settings > Privacy > **Voice recognition**; MQTT can only turn it off), also gated on the `audio` capability. Read at each use: off stops the next upload, every speaker is `unknown`, cached identity is not used and enrollment fails (embedding calls refused in `_call_embedding_api`); enrolled profiles stay on disk. On starts the service lazily from the next utterance, no HAL restart |
 
 ### On-device preprocessing knobs
 

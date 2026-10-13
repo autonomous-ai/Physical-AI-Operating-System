@@ -353,7 +353,7 @@ Per-face motion mở WS session riêng cho từng khuôn mặt và chạy action
 **Tích hợp voice (cuối phiên mic, độc lập transcript):** trong khối `finally` của mọi phiên mic (VAD trigger → ~2.5 giây im lặng), `_stream_session` `_identify_and_decorate(final_text, audio_buffer)` chạy **đúng 1 lần** để lấy đồng thời `final_msg` (cho Lamp POST khi STT có chữ) và `user_name` (cho SER submit). Sau đó gọi `_submit_speech_emotion_from_session(audio_buffer, user=...)` — chỉ build WAV và `SpeechEmotionService.submit`, không gọi speaker lần 2. Người không match / lỗi speaker vẫn enqueue SER dưới key dedup chung `unknown` nếu audio đủ dài.
 
 ```python
-SPEECH_EMOTION_ENABLED = True
+SPEECH_EMOTION_ENABLED: bool = _cloud_perception_enabled("speech_emotion")  # owner opt-in, off by default
 SPEECH_EMOTION_FLUSH_S = 10.0               # Chu kỳ drain buffer theo user
 SPEECH_EMOTION_DEDUP_WINDOW_S = 300.0       # TTL (user, bucket) — 5 phút
 SPEECH_EMOTION_MIN_AUDIO_S = 3.0            # Bỏ utterance ngắn hơn (mặc định config)

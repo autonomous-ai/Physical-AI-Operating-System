@@ -3,8 +3,16 @@
 import time
 from unittest import mock
 
+import pytest
+
 from hal.drivers.voice._internal import speaker_decorate as sd
 from hal.drivers.voice._internal.speaker_decorate import UNKNOWN_LABEL, SpeakerDecorator
+
+
+@pytest.fixture(autouse=True)
+def _speaker_id_opted_in(monkeypatch):
+    # The cache only matters once the owner has opted into speaker ID.
+    monkeypatch.setattr(sd.hal_config, "SPEAKER_RECOGNITION_ENABLED", True)
 
 
 def _decorator():

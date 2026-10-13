@@ -817,12 +817,14 @@ class TTSConfigRequest(BaseModel):
 
 
 class CloudPerceptionRequest(BaseModel):
-    """Opt-ins for camera perceptions that upload frames or face crops off the device."""
+    """Opt-ins for perceptions that upload frames, face crops or voice audio off the device."""
 
     motion: bool = False
     emotion: bool = False
     pose: bool = False
     fire_hazard: bool = False
+    speaker_id: bool = False
+    speech_emotion: bool = False
 
 
 class VoiceInputModeRequest(BaseModel):

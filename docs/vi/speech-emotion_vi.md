@@ -213,7 +213,7 @@ Speaker recognize bắn **một lần** mỗi phiên mic. Kết quả `(final_ms
 ## Khi Nào **Không** Gọi SER
 
 - Thiết bị không khai báo capability `audio` — voice people-perception (speaker-ID + SER) phụ thuộc mic, nên `SpeakerDecorator` được dựng với `enable_people_perception=False` và service SER không bao giờ khởi tạo (`SpeakerDecorator._init_speech_emotion`). (Đây là capability `audio`, không phải `presence`: SER chỉ cần mic. Cảm xúc khuôn mặt trong vòng lặp sensing vẫn phụ thuộc `presence`.)
-- `SPEECH_EMOTION_ENABLED=false`, hoặc `SpeechEmotionService` không `available` (thiếu `DL_BACKEND_URL`)
+- Chủ máy chưa bật opt-in `speech_emotion` (`SPEECH_EMOTION_ENABLED` false — chặn trong `SpeakerDecorator.submit_speech_emotion_from_session` và `Emotion2VecRecognizer.recognize`), hoặc `SpeechEmotionService` không `available` (thiếu `DL_BACKEND_URL`)
 - `ser_audio_buffer` rỗng hoặc ngắn hơn `SPEAKER_MIN_AUDIO_S` (chặn `_session_wav_for_ser`)
 - `duration_s < SPEECH_EMOTION_MIN_AUDIO_S` (chặn ngay trong `submit()` — mặc định 3.0 s, đây là sàn ràng buộc)
 - `submit()` drop (`user` rỗng sau normalize, mọi bucket vẫn còn trong cửa sổ dedup, hoặc — hiếm — hàng đợi bị lấp lại giữa lúc loại job cũ và lúc đưa job mới vào)
@@ -389,11 +389,11 @@ Còn **ba** lớp giới hạn tốc độ nữa ở phía server, sau dedup c�
 
 ## Cấu Hình (`hal/config.py`)
 
-Mọi knob nằm trong `hal/config.py` dưới dạng `SPEECH_EMOTION_*`, override được qua biến môi trường. Các mặc định phản chiếu `EMOTION_*` để hai phương thức hành xử giống nhau ngay từ đầu.
+Mọi knob nằm trong `hal/config.py` dưới dạng `SPEECH_EMOTION_*`, override được qua biến môi trường (trừ `SPEECH_EMOTION_ENABLED`). Các mặc định phản chiếu `EMOTION_*` để hai phương thức hành xử giống nhau ngay từ đầu.
 
 | Hằng số | Biến env | Mặc định | Mục đích |
 |---------|----------|----------|----------|
-| `SPEECH_EMOTION_ENABLED` | `HAL_SPEECH_EMOTION_ENABLED` | `true` | Công tắc tổng |
+| `SPEECH_EMOTION_ENABLED` | _(không đọc env)_ | `false` | Công tắc tổng; lấy từ key `speech_emotion` của `cloud_perception` (opt-in của chủ máy trong Settings > Privacy, thiếu key là tắt), áp dụng live qua `POST /sensing/cloud-perception`. Bật thì service khởi tạo lazy, có hiệu lực từ câu nói kế tiếp. Xem [sensing-behavior_vi.md](../../robots/lamp/docs/vi/sensing-behavior_vi.md#nhận-thức-camera-qua-cloud-mặc-định-tắt) |
 | `SPEECH_EMOTION_FLUSH_S` | `HAL_SPEECH_EMOTION_FLUSH_S` | `10.0` | Nhịp rút buffer |
 | `SPEECH_EMOTION_DEDUP_WINDOW_S` | `HAL_SPEECH_EMOTION_DEDUP_WINDOW_S` | `300.0` | TTL cho `(user, bucket)` |
 | `SPEECH_EMOTION_MIN_AUDIO_S` | `HAL_SPEECH_EMOTION_MIN_AUDIO_S` | `3.0` | Độ dài câu nói tối thiểu |

@@ -205,10 +205,13 @@ def get_pose_bucket_image(bucket_id: str, filename: str):
 
 @router.post("/sensing/cloud-perception", response_model=StatusResponse, tags=["Sensing"])
 def set_cloud_perception(req: CloudPerceptionRequest):
-    """Apply the cloud camera perception opt-ins live, without restarting HAL.
+    """Apply the cloud camera and voice perception opt-ins live, without restarting HAL.
 
-    os-server persists the same values in config.json, which HAL reads at boot.
+    os-server persists the same values in config.json, which HAL reads at boot. The voice
+    opt-ins are read at each use, so setting them here is enough.
     """
+    config.SPEAKER_RECOGNITION_ENABLED = req.speaker_id
+    config.SPEECH_EMOTION_ENABLED = req.speech_emotion
     config.MOTION_ENABLED = req.motion
     config.EMOTION_ENABLED = req.emotion
     config.POSE_ENABLED = req.pose

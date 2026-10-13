@@ -115,11 +115,31 @@ that cannot be used is said once in the voice's log and the ring runs as
 it did, in its first light. The light is kept by the bus, which lives in
 memory: after the board restarts the lamp is back in its first light.
 
-Not shown: host tests only when this was written (the face in each colour
-and at each level, the ember, the faces of a turn unchanged by it, and
-the bus side against a bus in a temporary directory). How the colours and
-the levels look on the ring, and whether level 5 is a useful light under
-the ceiling the lamp runs with, are for a person in front of it.
+**On lamp-4ace, 2026-10-14, about 03:00, nobody in the office.** Called
+directly on the actions program's socket, each change was answered in 15
+to 108 ms with the state read back, and a colour that does not exist was
+refused. Stills through the office Mac's camera showed the ring blue at
+levels 1, 3 and 5, red at 5, and pink, white, purple and green at level
+1, each readable as its colour; and the ember, in its second form, as
+eight amber dots. Asked aloud by a played voice, ten requests in two
+sessions: nine did what was asked and said so ("There, blue." "Red it
+is!" "Better? That should be a bit easier on the eyes." "Back to warm,
+just how I like it."), one of them a follow-up with no name in it. The
+tenth, "make your light blue", reached the model as something else and it
+made the light brighter, and said that it had.
+
+Before that, the first four requests found a fault. The light changed
+each time and the lamp said nothing: the model did what was asked and
+then called its function for "that was not said to me", and the
+character file still told it that it could control nothing. One of the
+four, misheard, turned the volume up. The character now says what it can
+change and that it is to say so, and a decline is no longer taken in a
+request the lamp has acted on ([tools.md](tools.md)).
+
+Not shown: a person asking. How the levels look to someone in the room,
+and whether level 5 is a useful light under a ceiling of 24, a camera
+cannot say: it saturates on the ring. The light is not restored after the
+board restarts.
 
 Seen through the office iMac's camera on lamp-4ace on 2026-10-12 with a
 ceiling of 40: across eight stills of the resting face the dark centre of

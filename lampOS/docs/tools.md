@@ -41,6 +41,16 @@ closed by the four-second wait as before. None of the twelve was answered
 as if it had been said to the lamp. These were written requests; what the
 model does with the same sentences heard as speech is not known from them.
 
+**Not after acting.** A request in which the executive was asked to do
+something is the lamp's: doing what was asked and then saying it was not
+for the lamp cannot both be right, and what was done cannot be undone. A
+call of `not_for_me` in such a request is answered and not taken, and
+what the model says next is played. On lamp-4ace on 2026-10-14 the model
+did exactly that three requests in a row, changing the light and saying
+nothing, until its character said that changing its light is something
+it does and says ([ring-choreography.md](ring-choreography.md), "The
+lamp's own light").
+
 Switched on with `LAMP_TOOLS=on` in the voice unit (the worker's `--tools`).
 Off by default: what it does to those counts, and what a declared function
 costs an ordinary answer's first audio, has not been measured.

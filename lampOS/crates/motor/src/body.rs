@@ -1128,6 +1128,11 @@ pub(crate) fn run_looking(
                 f32::from(limits.pitch_window.1),
             )
         };
+        // Folded, the head can dip only a little before it meets the base.
+        // Stood up there is nothing under it, so it may look down as far as
+        // it may look up; in between, in proportion to how clear it is.
+        let clear = head_share(stand).powi(2);
+        let down = limits.pitch_down + (limits.pitch_up - limits.pitch_down).max(0.0) * clear;
         (
             [
                 (home[0] - limits.pitch_up).max(floor),
@@ -1135,7 +1140,7 @@ pub(crate) fn run_looking(
                 home[2] - limits.yaw,
             ],
             [
-                (home[0] + limits.pitch_down).min(ceiling),
+                (home[0] + down).min(ceiling),
                 home[1] + limits.roll,
                 home[2] + limits.yaw,
             ],

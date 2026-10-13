@@ -1627,3 +1627,54 @@ fn an_elbow_pushing_under_an_old_overload_is_told_to_stop_and_then_carries_the_l
     assert!((f32::from(shoulder.goal) - shoulder.position).abs() < 1.0);
     assert!((f32::from(elbow.goal) - elbow.position).abs() < 1.0);
 }
+
+#[test]
+fn stood_up_the_head_may_look_down_as_far_as_up_and_folded_it_may_not() {
+    // A face well below the middle of the picture, for a lamp that listens.
+    let below = || {
+        Some(Seen {
+            face: Some(crate::gaze::Sight {
+                x: 0.0,
+                y: 0.9,
+                size: 0.2,
+                turned: 0.0,
+            }),
+        })
+    };
+    let looking = Looking::new([342, 200], [250, 120]).unwrap();
+    // The furthest down the head's pitch was asked to go, folded and at
+    // its full height.
+    let lowest = |stands: Option<Standing>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let (mut down, mut up) = (0u16, 0u16);
+        let report = run_looking(
+            &mut lamp,
+            &mut clock,
+            Limits::FOLDED,
+            Some(HOME),
+            stands,
+            Some(looking),
+            || Some((Mood::Listening, 100)),
+            below,
+            |glimpse| {
+                if glimpse.stand <= 0.0 {
+                    down = down.max(glimpse.goals[0]);
+                } else if glimpse.stand >= 1.0 {
+                    up = up.max(glimpse.goals[0]);
+                }
+            },
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        (down, up)
+    };
+    // Folded, with its home at 2,000: fifteen counts under it and no more,
+    // whatever is seen.
+    assert_eq!(lowest(None), (2_015, 0));
+    // Stood up, with its home at 1,900: down by its whole upward reach of 45.
+    let (folded_low, stood_low) = lowest(Some(standing(100, 60)));
+    assert!(folded_low <= 2_015, "{folded_low}");
+    // (It comes to rest within a count of that bound.)
+    assert!((1_944..=1_945).contains(&stood_low), "{stood_low}");
+}

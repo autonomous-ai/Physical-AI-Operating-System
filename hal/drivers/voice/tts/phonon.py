@@ -6,6 +6,7 @@ process (phonon_worker.py) so the model loads and warms up once, and a crash in 
 engine cannot take HAL down. Model weights are installed by hand and never downloaded.
 """
 
+import glob
 import json
 import logging
 import os
@@ -66,7 +67,11 @@ def list_voices(model_dir: str = PHONON_MODEL_DIR) -> List[str]:
 
 
 def engine_installed() -> bool:
-    return os.path.isfile(PHONON_PYTHON) and os.access(PHONON_PYTHON, os.X_OK)
+    """The venv python plus the ptts package in it (a half-finished install has only the venv)."""
+    if not (os.path.isfile(PHONON_PYTHON) and os.access(PHONON_PYTHON, os.X_OK)):
+        return False
+    venv = os.path.dirname(os.path.dirname(PHONON_PYTHON))
+    return bool(glob.glob(os.path.join(venv, "lib", "python3*", "site-packages", "ptts", "__init__.py")))
 
 
 def model_installed(model_dir: str = PHONON_MODEL_DIR) -> bool:

@@ -207,6 +207,20 @@ impl InputSender {
             samples: samples.to_vec(),
         }))
     }
+    /// A written note for `request`, which must be the request whose input
+    /// is open: what the lamp is to respond to when nobody spoke (someone
+    /// has sat down in front of it), or beside what was said. Sent inside
+    /// the request's activity, in order with its audio. A note for a
+    /// request whose start is still being kept back is dropped.
+    pub fn try_note(&self, request: RequestId, text: &str) -> Result<()> {
+        self.ensure_ready()?;
+        if request.get() <= self.shared.retired_through.load(Ordering::Acquire) {
+            return Err(Error::StaleRequest);
+        }
+        // Checked here so that a refusal reaches the caller, not the socket.
+        wire::encode_note(text)?;
+        self.enqueue(Command::Note(request, text.into()))
+    }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
         self.enqueue(Command::End(request))?;
         self.shared
@@ -664,6 +678,7 @@ struct Audio {
 enum Command {
     Start(RequestId),
     Audio(Audio),
+    Note(RequestId, String),
     End(RequestId),
 }
 struct InputState {
@@ -1643,6 +1658,25 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 self.note_sent(&audio)?;
                 self.write(Message::text(wire::encode_audio(&audio.samples)?), deadline)
                     .await?;
+            }
+            Command::Note(request, text) => {
+                if request.get() <= self.retired_through() {
+                    return Ok(());
+                }
+                self.current
+                    .as_ref()
+                    .filter(|turn| turn.lineage.request == request && turn.input.open)
+                    .ok_or(Error::StaleRequest)?;
+                if self.held.is_some() {
+                    // Behind a kept start there is an earlier answer still
+                    // owed: this turn was not the lamp's to begin.
+                    return Ok(());
+                }
+                self.write(
+                    Message::text(wire::encode_note(&text)?),
+                    self.timeouts.write,
+                )
+                .await?;
             }
             Command::End(request) => {
                 let retired_through = self.retired_through();

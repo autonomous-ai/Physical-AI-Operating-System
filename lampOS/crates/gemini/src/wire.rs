@@ -623,5 +623,16 @@ pub fn encode_image(jpeg: &[u8]) -> Result<String> {
     }
     Ok(encoded)
 }
+/// A written note in place of, or beside, what was heard: for a turn the
+/// lamp begins itself. It goes inside the request's activity like its audio.
+pub fn encode_note(text: &str) -> Result<String> {
+    if text.trim().is_empty() || text.len() > MAX_NOTE_BYTES || text.contains('\0') {
+        return Err(Error::InvalidConfiguration);
+    }
+    serde_json::to_string(&json!({"realtimeInput": {"text": text}}))
+        .map_err(|_| Error::InvalidConfiguration)
+}
+/// The most a note may be.
+pub const MAX_NOTE_BYTES: usize = 1_024;
 pub const ACTIVITY_START: &str = r#"{"realtimeInput":{"activityStart":{}}}"#;
 pub const ACTIVITY_END: &str = r#"{"realtimeInput":{"activityEnd":{}}}"#;

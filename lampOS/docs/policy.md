@@ -59,6 +59,7 @@ It subscribes, each with its type from [lamp-msgs](msgs.md), to:
 | `voice/said` | What the lamp said: the pieces of its newest answer, put end to end |
 | `voice/state` | Whether the lamp is speaking; whether the person is still being listened to, which sets how long an utterance waits before it is judged; and the moment someone begins to speak, when the model is told to get ready |
 | `room/state` | How the room is: quiet, busy or not known. Not known until the voice has said, and again once the voice has gone |
+| `name/heard` | Each time the lamp's name was heard in its own microphone's sound, with a score ([name.md](name.md)). Whether anything is publishing there at all is looked at once a second |
 | `humans/faces/tracked` | How many faces the eyes see, how many of them are near (a box at least 15% of the picture's height), and how many of those are turned to the lamp. Written down with each decision (`seen`) when the eyes' list is no more than two seconds old, and **not used to make the decision yet**: nobody had stood in front of the lamp when this was written, so there is nothing to weigh it by |
 
 It publishes `policy/decisions` (`lamp_msgs/Decision`) under the name
@@ -182,9 +183,49 @@ What the model cannot do: it cannot tell that the lamp was called when the
 recogniser dropped the name from the text. So the next input is a sign from
 the device itself that it was called.
 
+**With the name heard on the lamp.** Since 2026-10-14 a part of its own
+listens for the lamp's name in what its microphone hears and says so on
+`name/heard` ([name.md](name.md)). While that part is there, the sum is
+another one, with the name as one more term:
+
+    sum = -0.328
+        + 0.540 x calls_lamp
+        - 0.634 x names_someone_else
+        - 1.704 x others_business
+        + 0.439 x lamp_could_answer
+        + 0.104 x follows_lamp
+        - 0.588 x listening_noise
+        + 0.038 x asks_to_stop
+        + 1.683 if the room is quiet
+        + 0.081 if the lamp is in conversation
+        + 2.346 if the name was heard, with a score of 0.9 or more
+
+A hearing belongs to what was said if it began between a second before
+the voice started to listen to that person and the moment the text came.
+The name is said at the beginning and the text arrives after the end, so
+the start of listening is what joins them; if that is not known, the
+eight seconds before the text count.
+
+With nothing on the lamp listening for the name, the first sum is used
+and the decision's context has no `name_heard`: not heard and not known
+are kept apart. The model is not shown the sign either way, because its
+answers were measured on the state without it.
+
+These eleven numbers are a fit to a simulated sign and to no real
+hearing. They were fitted on the same 182 examples as the first sum, with
+the sign drawn at the rates `lamp-name` showed on lamp-4ace's own
+microphone that night: heard for 85 in 100 calls, for 60 in 100 of the
+lines the model scores as naming someone else, and for nothing else. The
+numbers are the mean of 200 such fits. On the 164 examples held out, the
+sum with the sign was right 150.8 times on average, against 142 without
+it, and answered what was not for the lamp 7.5 times of 44 against 17; it
+ignored what was for the lamp 5.7 times of 120 against 5. The log now
+holds real hearings beside real decisions, which is what the next fit is
+to be made from.
+
 **When no model answers.** The rule that was the baseline decides:
-`answer` if the room is quiet or the lamp is in conversation, otherwise
-`stay_quiet`. It gives the probability 0.74 for the first and 0.26 for the
+`answer` if the room is quiet, the lamp is in conversation or its name
+was heard, otherwise `stay_quiet`. It gives the probability 0.74 for the first and 0.26 for the
 second, which is how often it was right, and the decision says that the
 rule made it.
 
@@ -521,7 +562,7 @@ Mac alike (three decisions there the same night). What it shows of the
 service: that it takes this program's request and that the built-in roots
 trust its certificate.
 
-What was run: 79 tests of the crate. As 60, they passed 30 times in a
+What was run: 81 tests of the crate. As 60, they passed 30 times in a
 row, and then in the three runs with `lamp-msgs` and `lamp-bus` that
 every change here is held to. Before that, one test of the log failed once
 in fifteen runs: it cleared the log's way before the program had finished
@@ -536,9 +577,9 @@ that held the loop to a time a loaded machine misses was widened.
   closed it, made ahead of a question). Four are over a secure
   connection, with a certificate made for the test and trusted in place
   of the built-in roots.
-- 10 of the decision, 8 of putting utterances together, 5 of the log, 5 of
+- 11 of the decision, 8 of putting utterances together, 5 of the log, 5 of
   the outcome, 2 of the options.
-- 17 of the loop on a real bus in a directory of its own, with a stand-in
+- 18 of the loop on a real bus in a directory of its own, with a stand-in
   for the model and the test as the voice.
 - 3 of the built program, started, fed and killed.
 

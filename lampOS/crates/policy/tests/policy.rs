@@ -2,7 +2,7 @@
 //! a stand-in for the decision model: the test plays the voice, and reads
 //! what the policy publishes, writes down and says about itself.
 use lamp_bus::{Bus, Publisher, Subscriber};
-use lamp_msgs::{Decision, Diagnostic, Level, Speech, Voice, VoiceState};
+use lamp_msgs::{Decision, Diagnostic, Level, NameHeard, Speech, Voice, VoiceState};
 use lamp_policy::{
     attention::{self, Context, Room},
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
@@ -421,6 +421,7 @@ fn pieces_become_one_utterance_and_one_decision_is_published_and_logged() {
         lamp_is_speaking: false,
         lamp_last_said: None,
         seconds_since_lamp_spoke: None,
+        name_heard: None,
     };
     assert_eq!(rig.shown(), attention::state(&context));
     // One utterance, one decision, one line.
@@ -646,6 +647,84 @@ fn the_policy_says_how_it_is_once_a_second_and_that_it_decides_without_a_model()
         }
         assert!(since.elapsed() < WAIT, "{report:?}");
     }
+    rig.stop();
+}
+
+#[test]
+fn the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said() {
+    let mut rig = Rig::new("name", |_| Ok(asked(SEVEN)));
+    // Nothing on the lamp listens for its name: not known, and not written.
+    rig.voice(Voice::Listening);
+    rig.voice(Voice::Thinking);
+    rig.hear("What time is it?");
+    let unknown = rig.decision();
+    rig.done_with(1);
+    assert!(rig.log(1)[0]["context"].get("name_heard").is_none());
+    rig.voice(Voice::Resting);
+
+    // Something starts to listen for it. The policy looks once a second.
+    let mut name = rig
+        .bus
+        .publisher_declared(NameHeard::TOPIC, &NameHeard::declaration(), "name")
+        .unwrap();
+    name.alive().unwrap();
+    thread::sleep(ms(1_300));
+    // Someone speaks, and the name is not heard: known, and nothing.
+    rig.voice(Voice::Listening);
+    thread::sleep(ms(100));
+    rig.voice(Voice::Thinking);
+    rig.hear("Did you send the report?");
+    let not_called = rig.decision();
+    rig.done_with(2);
+    assert_eq!(rig.log(2)[1]["context"]["name_heard"], 0.0);
+    rig.voice(Voice::Resting);
+    thread::sleep(ms(100));
+
+    // Someone speaks and the name is heard as they begin: the hearing is
+    // said 400 ms after the name began, which was just before the voice
+    // began to listen.
+    name.alive().unwrap();
+    rig.voice(Voice::Listening);
+    thread::sleep(ms(300));
+    name.publish_json(
+        0,
+        &NameHeard {
+            score: 0.97,
+            ago_ms: 400,
+        },
+    )
+    .unwrap();
+    thread::sleep(ms(200));
+    rig.voice(Voice::Thinking);
+    rig.hear("What time is it?");
+    let called = rig.decision();
+    rig.done_with(3);
+    let log = rig.log(3);
+    let heard = log[2]["context"]["name_heard"].as_f64().unwrap();
+    assert!((heard - 0.97).abs() < 1e-6, "{heard}");
+    // The same answers from the model: with the name it is more likely
+    // for the lamp than without, and than when nothing listened.
+    assert!(
+        called.probability > not_called.probability + 0.3,
+        "{called:?} {not_called:?}"
+    );
+    assert!(called.probability > unknown.probability);
+    // The model was shown the same state each time.
+    let shown: Vec<Value> = rig.states.try_iter().collect();
+    assert_eq!(shown.len(), 3);
+    assert!(shown.iter().all(|state| state.get("name_heard").is_none()));
+    rig.voice(Voice::Resting);
+    thread::sleep(ms(100));
+
+    // The next thing said, with no name: the hearing before is not its.
+    name.alive().unwrap();
+    rig.voice(Voice::Listening);
+    thread::sleep(ms(100));
+    rig.voice(Voice::Thinking);
+    rig.hear("And tomorrow?");
+    rig.decision();
+    rig.done_with(4);
+    assert_eq!(rig.log(4)[3]["context"]["name_heard"], 0.0);
     rig.stop();
 }
 

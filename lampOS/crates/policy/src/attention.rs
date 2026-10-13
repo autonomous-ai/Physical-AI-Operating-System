@@ -104,6 +104,32 @@ const QUIET: f64 = 1.771;
 /// Added when the lamp is in conversation.
 const IN_CONVERSATION: f64 = -0.206;
 
+/// The same sum when something on the lamp listens for its name
+/// (`name/heard`, `docs/name.md`), which is one more thing known: the
+/// weight of each of the seven answers in the order they are asked in,
+/// where the sum starts, and what is added for a quiet room, for being
+/// in conversation, and for the name having been heard.
+///
+/// Fitted on the same 182 examples as the weights above, with the sign
+/// simulated from what was really played at the rates `lamp-name` showed
+/// on lamp-4ace's own microphone on 2026-10-14: heard for 85 in 100 of
+/// the calls, for 60 in 100 of the lines the model scores as naming
+/// someone else, and for nothing else. They are the mean of 200 such
+/// fits, each with its own draw. On the 164 examples kept back that was
+/// right 150.8 times against 142 without the sign, and answered what was
+/// not for the lamp 7.5 times of 44 against 17. No example in the fit
+/// had a real hearing in it.
+const WITH_NAME: ([f64; 7], f64, f64, f64, f64) = (
+    [0.540, -0.634, -1.704, 0.439, 0.104, -0.588, 0.038],
+    -0.328,
+    1.683,
+    0.081,
+    2.346,
+);
+/// A hearing counts from this score, which is what the rates above were
+/// measured at.
+pub const NAME_HEARD_FROM: f32 = 0.9;
+
 /// What the room sounds like, as far as anyone has judged.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -140,9 +166,22 @@ pub struct Context {
     /// How long before this began to be heard the lamp had last spoken, in
     /// seconds.
     pub seconds_since_lamp_spoke: Option<f32>,
+    /// The highest score with which the lamp's name was heard in its own
+    /// microphone's sound while this was being said, or nothing if it
+    /// was not heard. Not there at all when nothing on the lamp is
+    /// listening for the name: not heard and not known are two things.
+    /// The model is not shown it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_heard: Option<f32>,
 }
 
 impl Context {
+    /// Something on the lamp was listening for its name, and heard it.
+    pub fn was_called(&self) -> bool {
+        self.name_heard
+            .is_some_and(|score| score >= NAME_HEARD_FROM)
+    }
+
     /// The lamp is speaking, or said something with a letter or a digit in
     /// it within the last [`IN_CONVERSATION_SECONDS`]. An answer that was
     /// only "..." is the lamp keeping quiet aloud, and starts nothing.
@@ -310,15 +349,31 @@ pub struct Judgement {
 /// One probability from the seven answers, the room and the conversation:
 /// a weighted sum put through the logistic curve.
 pub fn combine(answers: &Answers, context: &Context) -> Judgement {
-    let mut sum = BIAS;
-    for ((_, _, weight), yes) in ASKED.iter().zip(answers.0) {
+    // With something listening for the name, the weights that were
+    // fitted with that sign; with nothing listening, the ones without.
+    let listening = context.name_heard.is_some();
+    let (bias, quiet, in_conversation) = if listening {
+        (WITH_NAME.1, WITH_NAME.2, WITH_NAME.3)
+    } else {
+        (BIAS, QUIET, IN_CONVERSATION)
+    };
+    let mut sum = bias;
+    for (index, ((_, _, weight), yes)) in ASKED.iter().zip(answers.0).enumerate() {
+        let weight = if listening {
+            WITH_NAME.0[index]
+        } else {
+            *weight
+        };
         sum += weight * f64::from(yes);
     }
     if context.room == Room::Quiet {
-        sum += QUIET;
+        sum += quiet;
     }
     if context.in_conversation() {
-        sum += IN_CONVERSATION;
+        sum += in_conversation;
+    }
+    if context.was_called() {
+        sum += WITH_NAME.4;
     }
     let probability = (1.0 / (1.0 + (-sum).exp())) as f32;
     Judgement {
@@ -331,9 +386,10 @@ pub fn combine(answers: &Answers, context: &Context) -> Judgement {
 /// The judgement when no model answers: the rule the fitted weights were
 /// measured against. It answers when the room is quiet or the lamp is in
 /// conversation and stays quiet otherwise, and was right 74 times in 100
-/// on the same examples, which is the probability it gives.
+/// on the same examples, which is the probability it gives. A lamp that
+/// heard its own name answers too.
 pub fn fallback(context: &Context) -> Judgement {
-    let yes = context.room == Room::Quiet || context.in_conversation();
+    let yes = context.room == Room::Quiet || context.in_conversation() || context.was_called();
     Judgement {
         probability: if yes { RULE_YES } else { RULE_NO },
         choice: if yes {
@@ -356,6 +412,7 @@ mod tests {
             lamp_is_speaking: false,
             lamp_last_said: None,
             seconds_since_lamp_spoke: None,
+            name_heard: None,
         }
     }
 
@@ -411,6 +468,7 @@ mod tests {
             lamp_is_speaking: false,
             lamp_last_said: Some("It will rain this afternoon.".into()),
             seconds_since_lamp_spoke: Some(3.44),
+            name_heard: None,
         };
         assert!(replying.in_conversation());
         let text = state_text(&replying);
@@ -589,6 +647,78 @@ mod tests {
             ..busy.clone()
         };
         assert!((logit(combine(&seven, &talking)) - plain + 0.206).abs() < 1e-4);
+    }
+
+    #[test]
+    fn with_something_listening_for_the_name_the_sum_is_the_one_fitted_with_that_sign() {
+        let seven = answers([0.5; 7]);
+        let logit = |judged: Judgement| {
+            let p = f64::from(judged.probability);
+            (p / (1.0 - p)).ln()
+        };
+        let busy = Context {
+            room: Room::Busy,
+            ..heard("x")
+        };
+        // Nothing listens for the name: exactly as before.
+        let without = logit(combine(&seven, &busy));
+        assert!((without - (0.263 - 0.5935)).abs() < 1e-4, "{without}");
+        // Something listens and did not hear it: the other weights, with
+        // nothing added. Half of each of the seven, and where it starts.
+        let listening = |score: f32| Context {
+            name_heard: Some(score),
+            ..busy.clone()
+        };
+        let not_heard = logit(combine(&seven, &listening(0.0)));
+        assert!((not_heard - (-0.328 - 0.9025)).abs() < 1e-4, "{not_heard}");
+        // Heard: 2.346 more, from a score of 0.9 and not from one under it.
+        let heard_it = logit(combine(&seven, &listening(0.93)));
+        assert!((heard_it - not_heard - 2.346).abs() < 1e-4, "{heard_it}");
+        assert_eq!(
+            combine(&seven, &listening(0.89)),
+            combine(&seven, &listening(0.0))
+        );
+        assert_eq!(
+            combine(&seven, &listening(0.9)),
+            combine(&seven, &listening(1.0))
+        );
+        // A quiet room and a conversation add what they were fitted to add.
+        let quiet = Context {
+            room: Room::Quiet,
+            ..listening(0.0)
+        };
+        assert!((logit(combine(&seven, &quiet)) - not_heard - 1.683).abs() < 1e-4);
+        let talking = Context {
+            lamp_is_speaking: true,
+            ..listening(0.0)
+        };
+        assert!((logit(combine(&seven, &talking)) - not_heard - 0.081).abs() < 1e-4);
+        // What it comes to: other people's business in a busy room is
+        // left alone though the name seemed to be heard, and a question a
+        // lamp could answer, with the name, is answered there.
+        let theirs = answers([0.05, 0.9, 0.95, 0.1, 0.05, 0.05, 0.02]);
+        let for_it = answers([0.6, 0.05, 0.05, 0.9, 0.05, 0.02, 0.02]);
+        assert_ne!(combine(&theirs, &listening(0.95)).choice, Choice::Answer);
+        assert_eq!(combine(&for_it, &listening(0.95)).choice, Choice::Answer);
+        assert_ne!(combine(&for_it, &listening(0.0)).choice, Choice::Answer);
+        // The model is not shown the sign: its weights belong to the
+        // state it was measured with.
+        assert_eq!(state_text(&listening(0.95)), state_text(&busy));
+        assert_eq!(state(&listening(0.95)), state(&busy));
+        // With no model, a lamp that heard its name answers.
+        assert_eq!(fallback(&listening(0.95)).choice, Choice::Answer);
+        assert_eq!(fallback(&listening(0.5)).choice, Choice::StayQuiet);
+        // Written down with the decision only when something listened.
+        assert!(
+            serde_json::to_value(&busy)
+                .unwrap()
+                .get("name_heard")
+                .is_none()
+        );
+        assert_eq!(
+            serde_json::to_value(listening(0.5)).unwrap()["name_heard"],
+            0.5
+        );
     }
 
     #[test]

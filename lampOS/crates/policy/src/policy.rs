@@ -23,7 +23,9 @@ use crate::{
     record::Record,
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
-use lamp_msgs::{Decision, Diagnostic, Faces, Level, RoomState, Speech, Voice, VoiceState};
+use lamp_msgs::{
+    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Speech, Voice, VoiceState,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -456,6 +458,18 @@ enum Ask {
     About(String),
 }
 
+/// A hearing of the lamp's name is kept this long.
+const NAMES_KEPT: Duration = Duration::from_secs(60);
+/// The name counts for what was said if it was heard from this long
+/// before the voice began to listen: the name is what makes it listen.
+const NAME_BEFORE: Duration = Duration::from_secs(1);
+/// When the voice began to listen is taken as the start of what was said
+/// if it was no longer ago than this.
+const LISTENED_WITHIN: Duration = Duration::from_secs(30);
+/// Otherwise what was said is taken to have begun this long before its
+/// text came.
+const SAID_WITHIN: Duration = Duration::from_secs(8);
+
 /// How long the model may take to get ready. It is not waited for: a
 /// question that comes meanwhile is asked as soon as this is over.
 const READY_WITHIN: Duration = Duration::from_millis(1_500);
@@ -604,6 +618,13 @@ struct Policy<'a> {
     room: Room,
     /// The eyes' newest list, counted, and when it came.
     seen: Option<((u8, u8, u8), Instant)>,
+    /// Each time the lamp's name was heard in its microphone's sound of
+    /// late: when it began, and the score. And whether anything on the
+    /// lamp is listening for the name at all, and when the voice last
+    /// began to listen to someone.
+    names: VecDeque<(Instant, f32)>,
+    name_listening: bool,
+    spoke_from: Option<Instant>,
     record: Record,
     out: Option<Publisher>,
     /// Where the policy says how it is itself, once a second.
@@ -629,6 +650,7 @@ impl Policy<'_> {
                 .lamp
                 .spoke
                 .map(|at| utterance.began.saturating_duration_since(at).as_secs_f32()),
+            name_heard: self.name_heard(&utterance),
         };
         if self.waiting.len() == MOST_WAITING {
             self.waiting.pop_front();
@@ -913,6 +935,35 @@ impl Policy<'_> {
         }
     }
 
+    /// The highest score with which the lamp's name was heard while this
+    /// was being said: from a second before the voice began to listen to
+    /// whoever said it until its text came. Nothing heard is 0, and with
+    /// nothing on the lamp listening for the name there is no answer.
+    ///
+    /// The name is said at the start and the text comes after the end,
+    /// so the two are joined by when the voice began to listen. If that
+    /// is not known, or was long before, the last [`SAID_WITHIN`] count.
+    fn name_heard(&self, utterance: &Utterance) -> Option<f32> {
+        if !self.name_listening {
+            return None;
+        }
+        let back = |from: Instant, by: Duration| from.checked_sub(by).unwrap_or(from);
+        let began = self
+            .spoke_from
+            .filter(|at| {
+                *at <= utterance.began && utterance.began.duration_since(*at) <= LISTENED_WITHIN
+            })
+            .unwrap_or_else(|| back(utterance.began, SAID_WITHIN));
+        let from = back(began, NAME_BEFORE);
+        Some(
+            self.names
+                .iter()
+                .filter(|(at, _)| *at >= from && *at <= utterance.ended)
+                .map(|(_, score)| *score)
+                .fold(0.0, f32::max),
+        )
+    }
+
     /// How the policy itself is, for the lamp's health (`diagnostics`).
     /// It is well while a model answers and the log is written; with
     /// either gone it still decides, and says which it is without.
@@ -945,6 +996,12 @@ impl Policy<'_> {
     /// alive though it has decided nothing, which is also how it learns
     /// that the bus can be published to again.
     fn second(&mut self) {
+        // Whether anything on the lamp is listening for its name: a part
+        // that publishes hearings shows itself alive there between them.
+        self.name_listening = self
+            .bus
+            .publishers(NameHeard::TOPIC)
+            .is_ok_and(|live| !live.is_empty());
         if self.reports.is_none() {
             self.reports = self
                 .bus
@@ -1009,6 +1066,7 @@ pub fn run<D: Decider + Send + 'static>(
     let mut voice = Ear::new(bus, VoiceState::TOPIC, VoiceState::TYPE)?;
     let mut room = Ear::new(bus, RoomState::TOPIC, RoomState::TYPE)?;
     let mut eyes = Ear::new(bus, Faces::TOPIC, Faces::TYPE)?;
+    let mut names = Ear::new(bus, NameHeard::TOPIC, NameHeard::TYPE)?;
     let judge_name = decider.name().to_owned();
     let mut policy = Policy {
         bus,
@@ -1026,6 +1084,9 @@ pub fn run<D: Decider + Send + 'static>(
         outcomes: Record::of("outcomes", &options.log_dir),
         room: Room::Unknown,
         seen: None,
+        names: VecDeque::new(),
+        name_listening: false,
+        spoke_from: None,
         record: Record::new(&options.log_dir),
         out: None,
         reports: None,
@@ -1060,12 +1121,11 @@ pub fn run<D: Decider + Send + 'static>(
             // about when they stop: the model gets ready while they talk.
             // With a question out or waiting the thread is busy, and it
             // is ready already.
-            if listening
-                && !std::mem::replace(&mut was_listening, true)
-                && policy.asking.is_none()
-                && policy.waiting.is_empty()
-                && !policy.asker_gone
-            {
+            let began = listening && !std::mem::replace(&mut was_listening, true);
+            if began {
+                policy.spoke_from = Some(now);
+            }
+            if began && policy.asking.is_none() && policy.waiting.is_empty() && !policy.asker_gone {
                 let _ = policy.asker.states.try_send(Ask::Ready);
             }
             was_listening = listening;
@@ -1102,6 +1162,21 @@ pub fn run<D: Decider + Send + 'static>(
         }
         if eyes.source(policy.say) {
             policy.seen = None;
+        }
+        // Each hearing of the lamp's name, dated from when it began.
+        for heard in names.take::<NameHeard>(Duration::ZERO, unreadable, policy.say) {
+            let began = now
+                .checked_sub(Duration::from_millis(u64::from(heard.ago_ms)))
+                .unwrap_or(now);
+            policy.names.push_back((began, heard.score));
+        }
+        names.source(policy.say);
+        while policy
+            .names
+            .front()
+            .is_some_and(|(at, _)| now.saturating_duration_since(*at) > NAMES_KEPT)
+        {
+            policy.names.pop_front();
         }
         // The wait of the loop is here: for something to be heard.
         let wait = if policy.asking.is_some() {

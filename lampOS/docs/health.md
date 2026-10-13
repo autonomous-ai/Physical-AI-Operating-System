@@ -26,7 +26,7 @@ anybody listens.
 
 ## The commands
 
-    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]
+    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]
     lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]
     lamp-health --help
 
@@ -37,6 +37,7 @@ anybody listens.
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 | `--expect` | A part that should be reporting. May be given up to 64 times, each name once | none |
 | `--stale-ms` | After how long without a report a part is stale, from 100 to 600000 | 5000 |
+| `--judge-zone` (repeatable, at most 16) | How the name of a thermal zone begins whose own limits are judged. A board has zones for parts the lamp does not use: on lamp-4ace the graphics zone names a first limit of 60 °C and reads 64 at rest. Every zone's temperature is published whether it is judged or not | every zone is judged |
 | `--proc` | Where load, memory, uptime and the Wi-Fi signal are read | `/proc` |
 | `--sys` | Where the temperatures are read | `/sys` |
 | `--run` | Where the clock's state is read | `/run` |

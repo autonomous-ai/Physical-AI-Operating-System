@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
+const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
 const HELP: &str = "How the lamp is. See docs/health.md.
 
 serve: listens to every part's report on the bus (diagnostics), reads the board, and
@@ -94,6 +94,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
     let (mut bus, mut stale_after) = (None, None);
     let (mut proc, mut sys, mut run, mut disk) = (None, None, None, None);
     let mut expected: Vec<String> = Vec::new();
+    let mut judged: Vec<String> = Vec::new();
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(Command::Help);
@@ -107,6 +108,19 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             "--sys" => sys.replace(absolute(&option, &value)?).is_some(),
             "--run" => run.replace(absolute(&option, &value)?).is_some(),
             "--disk" => disk.replace(absolute(&option, &value)?).is_some(),
+            "--judge-zone" => {
+                if value.is_empty() || value.len() > 48 || value.chars().any(char::is_control) {
+                    return Err(
+                        "--judge-zone is how a zone's name begins: one line, of 48 bytes at most"
+                            .into(),
+                    );
+                }
+                if judged.len() == 16 {
+                    return Err("--judge-zone was given more than 16 times".into());
+                }
+                judged.push(value);
+                false
+            }
             "--expect" => {
                 if !parts::is_name(&value) {
                     return Err(format!(
@@ -152,6 +166,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             sys: sys.unwrap_or(places.sys),
             run: run.unwrap_or(places.run),
             disk: disk.unwrap_or(places.disk),
+            judged,
         },
     }))
 }
@@ -308,7 +323,7 @@ mod tests {
         assert_eq!(
             serving(
                 "serve --bus-root /run/lampos-bus --expect voice --stale-ms 8000 --proc /p \
-                 --expect body --sys /s --run /r --disk /var"
+                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin"
             ),
             ServeArguments {
                 bus: Some("/run/lampos-bus".into()),
@@ -319,6 +334,7 @@ mod tests {
                     sys: "/s".into(),
                     run: "/r".into(),
                     disk: "/var".into(),
+                    judged: vec!["cpu".into(), "skin".into()],
                 },
             }
         );
@@ -333,6 +349,7 @@ mod tests {
                     sys: "/sys".into(),
                     run: "/run".into(),
                     disk: "/".into(),
+                    judged: Vec::new(),
                 },
             }
         );

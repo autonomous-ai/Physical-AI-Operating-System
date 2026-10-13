@@ -31,6 +31,7 @@ fn well() -> Reading {
         wifi_dbm: None,
         clock_synced: None,
         unread: Vec::new(),
+        judged: Vec::new(),
     }
 }
 
@@ -246,6 +247,7 @@ fn a_number_whose_file_is_missing_is_not_read_and_the_report_says_which() {
         sys: "/nonexistent/sys".into(),
         run: "/nonexistent/run".into(),
         disk: "/nonexistent/disk".into(),
+        judged: Vec::new(),
     });
     assert_eq!(what(&nowhere), what(&reading));
     assert!(nowhere.zones.is_empty() && nowhere.state().is_none());
@@ -532,6 +534,59 @@ fn a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical(
 }
 
 #[test]
+fn only_the_zones_named_are_judged_and_every_zone_is_still_published() {
+    // The real board at rest: its graphics zone names a first passive
+    // point of 60 °C and reads 64. Judged like every zone, it is a
+    // warning all day.
+    let board = |judged: &[&str]| Reading {
+        zones: vec![
+            zone(
+                "cpub_thermal_zone",
+                65_000,
+                &[70_000, 90_000],
+                Some(110_000),
+            ),
+            zone("gpu_thermal_zone", 64_000, &[60_000, 90_000], Some(110_000)),
+            zone("skin_zone", 37_000, &[], Some(50_000)),
+        ],
+        judged: judged.iter().map(|begins| (*begins).to_owned()).collect(),
+        ..well()
+    };
+    assert_eq!(
+        said(&board(&[])),
+        (
+            Level::Warn,
+            "gpu_thermal_zone is at 64 °C: the board slows itself down from 60".into()
+        )
+    );
+    // With the processors and the skin named, the graphics zone's own
+    // limit is nothing to the lamp.
+    let watched = board(&["cpu", "skin"]);
+    assert_eq!(said(&watched), (Level::Ok, String::new()));
+    // Its temperature is still among the numbers, and still the hottest
+    // if it is.
+    assert_eq!(watched.state().unwrap().temperature_c.len(), 3);
+    // A zone that is named is judged as before.
+    let mut hot = board(&["cpu", "skin"]);
+    hot.zones[0].milli_c = 72_000;
+    assert_eq!(
+        said(&hot).1,
+        "cpub_thermal_zone is at 72 °C: the board slows itself down from 70"
+    );
+    let mut warm_case = board(&["cpu", "skin"]);
+    warm_case.zones[2].milli_c = 41_000;
+    assert_eq!(
+        said(&warm_case),
+        (
+            Level::Error,
+            "skin_zone is at 41 °C: the board turns itself off at 50".into()
+        )
+    );
+    // A beginning that no zone has judges none of them.
+    assert_eq!(said(&board(&["soc"])), (Level::Ok, String::new()));
+}
+
+#[test]
 fn a_zone_that_names_no_trip_point_warns_from_80_and_is_an_error_from_90() {
     let at = |milli_c| Reading {
         zones: vec![zone("gpu_thermal_zone", milli_c, &[], None)],
@@ -738,6 +793,7 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
         wifi_dbm: None,
         clock_synced: Some(false),
         unread: Vec::new(),
+        judged: Vec::new(),
     };
     assert_eq!(
         said(&reading),

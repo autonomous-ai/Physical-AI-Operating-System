@@ -79,6 +79,13 @@ pub struct Places {
     pub run: PathBuf,
     /// Any path on the disk whose free room is asked for.
     pub disk: PathBuf,
+    /// The zones whose own limits are judged, by how their names begin.
+    /// With none named, every zone is. A board has zones for parts the
+    /// lamp does not use, with limits of their own: on lamp-4ace the
+    /// graphics zone slows itself down from 60 °C and reads 64 at rest,
+    /// which is nothing to the lamp and would be a warning all day. Every
+    /// zone's temperature is published whether it is judged or not.
+    pub judged: Vec<String>,
 }
 
 impl Default for Places {
@@ -88,6 +95,7 @@ impl Default for Places {
             sys: "/sys".into(),
             run: "/run".into(),
             disk: "/".into(),
+            judged: Vec::new(),
         }
     }
 }
@@ -130,6 +138,9 @@ pub struct Reading {
     pub clock_synced: Option<bool>,
     /// Which of the four numbers above the Wi-Fi are not there.
     pub unread: Vec<Unread>,
+    /// The zones whose own limits are judged, by how their names begin:
+    /// every zone, with none named ([`Places::judged`]).
+    pub judged: Vec<String>,
 }
 
 /// One thing that is not as it should be.
@@ -248,7 +259,17 @@ impl Reading {
     /// first, then the disk, the memory, the load, the clock, and what
     /// could not be read.
     fn findings(&self) -> Vec<Finding> {
-        let mut zones: Vec<&Zone> = self.zones.iter().collect();
+        let mut zones: Vec<&Zone> = self
+            .zones
+            .iter()
+            .filter(|zone| {
+                self.judged.is_empty()
+                    || self
+                        .judged
+                        .iter()
+                        .any(|begins| zone.name.starts_with(begins.as_str()))
+            })
+            .collect();
         zones.sort_by_key(|zone| std::cmp::Reverse(zone.milli_c));
         let mut found: Vec<Finding> = zones.iter().filter_map(|zone| zone.finding()).collect();
         found.extend(self.disk_free.and_then(|free| {
@@ -556,5 +577,6 @@ pub fn read(places: &Places) -> Reading {
         wifi_dbm: wifi_dbm(&places.proc),
         clock_synced: clock_synced(&places.run),
         unread,
+        judged: places.judged.clone(),
     }
 }

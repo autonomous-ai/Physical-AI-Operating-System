@@ -60,6 +60,7 @@ fn well() -> Reading {
         wifi_dbm: None,
         clock_synced: None,
         unread: Vec::new(),
+        judged: Vec::new(),
     }
 }
 

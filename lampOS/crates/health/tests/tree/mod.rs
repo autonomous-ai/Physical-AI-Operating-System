@@ -145,6 +145,7 @@ impl Tree {
             sys: self.path("sys"),
             run: self.path("run"),
             disk: self.path("disk"),
+            judged: Vec::new(),
         }
     }
 }

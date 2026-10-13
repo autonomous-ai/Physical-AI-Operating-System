@@ -1,5 +1,5 @@
 use lamp_environment::*;
-use lamp_interaction::{BootId, Confidence, MonoTime};
+use lamp_turn_owner::{BootId, Confidence, MonoTime};
 
 fn time(us: u64) -> MonoTime {
     MonoTime::from_micros(us)

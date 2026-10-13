@@ -37,7 +37,7 @@ its active processing mode. Do not apply another board's advertised functions.
 
 ## Explicit microphone comparison
 
-`lamp-live directed` and `serve` accept `--microphone mic1|mic2`. The default
+`lamp-voice directed` and `serve` accept `--microphone mic1|mic2`. The default
 is still `mic2` (`plug:device_micro2`, Jieli). An explicit `mic1` selects
 `plug:device_micro1` (C-Media capture); it does not change the speaker route,
 mixer gain, AGC, software AEC, privacy checks, reference policy or turn-taking.

@@ -5,7 +5,7 @@
 //! An owning worker must drain priority control messages before calling `show`
 //! and call `tick` while a cue is displayed so leases expire without new output.
 
-use lamp_interaction::{BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit, Snapshot};
+use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit, Snapshot};
 use std::{fmt, io};
 
 #[cfg(target_os = "linux")]
@@ -146,7 +146,7 @@ pub enum BlankReason {
     ExplicitOff,
     Shutdown,
     ControlLost,
-    AuthorityLost(lamp_interaction::Error),
+    AuthorityLost(lamp_turn_owner::Error),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -187,7 +187,7 @@ impl std::error::Error for WriteFailure {
 
 #[derive(Debug)]
 pub enum Failure {
-    Authority(lamp_interaction::Error),
+    Authority(lamp_turn_owner::Error),
     Write(WriteFailure),
     Faulted,
     Stopped,
@@ -444,8 +444,8 @@ impl<S: FrameSink> GuardedRing<S> {
 
     /// Why a resting frame may not be on the strip now. Painting a new one
     /// also needs the lamp to have no owner; keeping the last one does not.
-    fn resting_denial(&self, now: MonoTime, painting: bool) -> Option<lamp_interaction::Error> {
-        use lamp_interaction::{Error as Denial, Permission};
+    fn resting_denial(&self, now: MonoTime, painting: bool) -> Option<lamp_turn_owner::Error> {
+        use lamp_turn_owner::{Error as Denial, Permission};
         if self.guard.is_faulted() {
             return Some(Denial::Faulted);
         }
@@ -484,7 +484,7 @@ impl<S: FrameSink> GuardedRing<S> {
     fn write_fault(&mut self, failure: WriteFailure) -> Error {
         self.latch_fault();
         let cleanup_error = self
-            .blank(BlankReason::AuthorityLost(lamp_interaction::Error::Faulted))
+            .blank(BlankReason::AuthorityLost(lamp_turn_owner::Error::Faulted))
             .err();
         Error {
             cause: Failure::Write(failure),
@@ -495,7 +495,7 @@ impl<S: FrameSink> GuardedRing<S> {
     fn reconcile(&mut self) -> Result<Option<BlankReceipt>, WriteFailure> {
         let reason = if self.guard.is_faulted() {
             self.faulted = true;
-            Some(lamp_interaction::Error::Faulted)
+            Some(lamp_turn_owner::Error::Faulted)
         } else if let Some(permit) = self.active {
             self.guard
                 .check((self.clock)(), permit, OutputKind::Light)
@@ -513,7 +513,7 @@ impl<S: FrameSink> GuardedRing<S> {
             .transpose()
     }
 
-    fn reject(&mut self, reason: lamp_interaction::Error) -> Error {
+    fn reject(&mut self, reason: lamp_turn_owner::Error) -> Error {
         let cleanup_error = self.reconcile().err();
         if cleanup_error.is_some() {
             self.latch_fault();

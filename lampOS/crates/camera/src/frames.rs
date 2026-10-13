@@ -28,7 +28,7 @@
 //! consumer may reconnect after any closure except its own protocol
 //! violation; `close_all` is terminal for the producer.
 use crate::{DriverTimestamp, FrameObservation, TimestampDomain, TimestampPoint};
-use lamp_interaction::{BootId, CameraGrant};
+use lamp_turn_owner::{BootId, CameraGrant};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,

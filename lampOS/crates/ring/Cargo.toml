@@ -6,7 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-lamp-interaction = { path = "../interaction" }
+lamp-turn-owner = { path = "../turn-owner" }
 lamp-ipc = { path = "../ipc" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

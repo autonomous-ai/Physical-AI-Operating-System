@@ -1,10 +1,10 @@
 #![cfg(target_os = "linux")]
 use lamp_audio::{RENDER_SAMPLES, pcm::Speaker};
-use lamp_interaction::{
+use lamp_ipc::monotonic_us;
+use lamp_turn_owner::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, OutputKind,
     Permission,
 };
-use lamp_ipc::monotonic_us;
 fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
@@ -197,8 +197,8 @@ fn playable_null(
 ) -> (
     Speaker,
     Controller,
-    lamp_interaction::TurnOwner,
-    lamp_interaction::OutputPermit,
+    lamp_turn_owner::TurnOwner,
+    lamp_turn_owner::OutputPermit,
 ) {
     let boot = BootId::new([id; 16]).unwrap();
     let mut speaker = Speaker::open("null", boot).unwrap();

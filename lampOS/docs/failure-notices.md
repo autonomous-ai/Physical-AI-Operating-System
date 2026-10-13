@@ -1,7 +1,7 @@
 # Spoken failure notices
 
 Scope: `crates/audio/src/notice.rs`, the `lamp-audio notices` check, and the
-optional same-owner integration in `lamp-live`. The loader plays nothing by
+optional same-owner integration in `lamp-voice`. The loader plays nothing by
 itself. Live playback requires explicit configuration and a still-valid owned
 failed turn. No recording is packaged in this source.
 
@@ -148,7 +148,7 @@ provisioning on any device, and no native qualification of the optional live pla
 
 ## Optional same-owner live integration
 
-`lamp-live directed` and `lamp-live serve` accept the paired options
+`lamp-voice directed` and `lamp-voice serve` accept the paired options
 `--failure-notice-dir ABS_PATH --failure-notice-language TAG`. Both must be
 explicit. Omission preserves silent failure behavior. Fixture-provider and
 child-worker commands reject these options. This integration selects only
@@ -221,14 +221,14 @@ Commands, from the exported `lampOS` root (Rust 1.96.0):
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live -p lamp-audio --all-targets -- -D warnings
-cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib coordinator:: -- --test-threads=1
-cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib options:: -- --test-threads=1
-cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib playback:: -- --test-threads=1
-cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --lib fixture_provider:: -- --test-threads=1
+cargo clippy --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice -p lamp-audio --all-targets -- -D warnings
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --lib coordinator:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --lib options:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --lib playback:: -- --test-threads=1
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --lib fixture_provider:: -- --test-threads=1
 cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-audio --test notice -- --test-threads=1
-cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --test process --test privacy_state -- --test-threads=1
-cargo build --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-live --bin lamp-live
+cargo test --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --test process --test privacy_state -- --test-threads=1
+cargo build --release --locked --offline -j2 --target aarch64-unknown-linux-gnu -p lamp-voice --bin lamp-voice
 ```
 
 The 407-file source manifest is

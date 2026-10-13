@@ -382,13 +382,13 @@ sends no speech. It establishes only that setup was accepted, not that a complet
 answer or account quota will succeed.
 
 ```sh
-cargo build --locked --release -p lamp-live
-target/release/lamp-live provider-check /absolute/private/provider.json
-target/release/lamp-live directed /absolute/private/provider.json 60 /new/private/run-directory
-target/release/lamp-live directed /absolute/private/provider.json 45 /new/private/diagnostic-run --diagnostics
-target/release/lamp-live directed /absolute/private/provider.json 45 /new/private/aec-only-run --diagnostics --noise-suppression off
-target/release/lamp-live directed /absolute/private/provider.json 45 /new/private/ring-run --diagnostics --ring-channel-ceiling 24
-target/release/lamp-live directed /absolute/private/provider.json 45 /new/private/observed-run --cue-socket /absolute/private/session/cue.sock
+cargo build --locked --release -p lamp-voice
+target/release/lamp-voice provider-check /absolute/private/provider.json
+target/release/lamp-voice directed /absolute/private/provider.json 60 /new/private/run-directory
+target/release/lamp-voice directed /absolute/private/provider.json 45 /new/private/diagnostic-run --diagnostics
+target/release/lamp-voice directed /absolute/private/provider.json 45 /new/private/aec-only-run --diagnostics --noise-suppression off
+target/release/lamp-voice directed /absolute/private/provider.json 45 /new/private/ring-run --diagnostics --ring-channel-ceiling 24
+target/release/lamp-voice directed /absolute/private/provider.json 45 /new/private/observed-run --cue-socket /absolute/private/session/cue.sock
 ```
 
 `--cue-socket` enables the bounded local [conversation lifecycle cues](live-session-cues.md)

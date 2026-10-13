@@ -15,7 +15,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A successor admitted within this distance of a `user_interrupted`
-/// cancellation caused it. lamp-live revokes the old reply and admits the
+/// cancellation caused it. lamp-voice revokes the old reply and admits the
 /// successor in one step: since b318 the admission is stamped microseconds
 /// after the revoke, in older traces just before it.
 const CAUSE_TOLERANCE_US: u64 = 20_000;

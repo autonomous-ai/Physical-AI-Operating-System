@@ -1,6 +1,6 @@
 //! Finite, synthetic component timing only. No sensor, driver or device I/O.
 use lamp_environment::*;
-use lamp_interaction::{BootId, MonoTime};
+use lamp_turn_owner::{BootId, MonoTime};
 use std::{hint::black_box, time::Instant};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,6 +1,6 @@
 # Optional camera context in directed chat
 
-This candidate adds `--camera-config /absolute/private-camera.json` to `lamp-live directed`.
+This candidate adds `--camera-config /absolute/private-camera.json` to `lamp-voice directed`.
 Camera context is **off by default**. There is no camera worker or device open
 without that option. `directed-fixture` rejects it. This is direct, fixed-view
 context for an admitted conversation turn; no inference service, face tracking,

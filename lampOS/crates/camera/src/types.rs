@@ -1,4 +1,4 @@
-use lamp_interaction::{BootId, CameraGrant, MonoTime};
+use lamp_turn_owner::{BootId, CameraGrant, MonoTime};
 use std::{fmt, num::NonZeroU64};
 
 pub const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
@@ -385,7 +385,7 @@ pub enum ErrorKind {
     InvalidConfig(&'static str),
     AllocationFailed,
     IncompatibleNegotiation,
-    Authority(lamp_interaction::Error),
+    Authority(lamp_turn_owner::Error),
     ClockUnavailable,
     ClockRegression,
     Closed,

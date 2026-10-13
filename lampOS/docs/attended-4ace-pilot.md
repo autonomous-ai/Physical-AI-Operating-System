@@ -1,6 +1,6 @@
 # Attended 4ace pilot package
 
-The installed stopped template runs Rust `lamp-live serve` on **lamp-4ace** from
+The installed stopped template runs Rust `lamp-voice serve` on **lamp-4ace** from
 source `e9bdcea282be7b787abb0568eb46a5c7958a6cce`, binary
 `b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd`, with voice
 and ring channel ceiling 12. The [latest installed conversation](verification/installed-eight-turn-20261011/README.md)
@@ -45,7 +45,7 @@ and the preflight below. Handoff to a facilitator additionally needs actual
 physical mute/reopen qualification and desk audibility checks. Keep those stages
 separate; installing this template neither starts it nor performs handover.
 
-The package consists of [the unit](../deploy/4ace-attended/lamp-live-pilot@.service)
+The package consists of [the unit](../deploy/4ace-attended/lamp-voice-pilot@.service)
 and [a private manifest template](../deploy/4ace-attended/manifest.template.json).
 The template records evidence; the runtime does not enforce its fields. Unknown
 pins or failed gates must not be filled with guessed values. No private Python
@@ -140,11 +140,11 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
    test ! -e "$RELEASE"
    test ! -L "$RELEASE"
    install -d -m 0755 -o root -g root "$RELEASE"
-   install -m 0555 -o root -g root "$STAGED_BINARY" "$RELEASE/lamp-live"
-   printf '%s  %s\n' "$SHA" "$RELEASE/lamp-live" | sha256sum --check --status
-   readelf -l "$RELEASE/lamp-live"
-   readelf -d "$RELEASE/lamp-live"
-   ldd "$RELEASE/lamp-live"
+   install -m 0555 -o root -g root "$STAGED_BINARY" "$RELEASE/lamp-voice"
+   printf '%s  %s\n' "$SHA" "$RELEASE/lamp-voice" | sha256sum --check --status
+   readelf -l "$RELEASE/lamp-voice"
+   readelf -d "$RELEASE/lamp-voice"
+   ldd "$RELEASE/lamp-voice"
    ```
 
    All dependencies must resolve; retain this report. Do not execute an unknown
@@ -166,7 +166,7 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
    Using the existing cloud authorization, the validator can also check setup:
 
    ```sh
-   timeout 30s "$RELEASE/lamp-live" provider-check /etc/lampOS/pilot-4ace/provider.json
+   timeout 30s "$RELEASE/lamp-voice" provider-check /etc/lampOS/pilot-4ace/provider.json
    ```
 
    It contacts the provider but opens no mic and sends no audio. A successful
@@ -177,12 +177,12 @@ check. Commands in this document assume Bash with `set -euo pipefail`.
 
    ```sh
    install -d -m 0700 -o root -g root /var/lib/lampOS/pilot-4ace/sessions
-   test ! -e /etc/systemd/system/lamp-live-pilot@.service
-   test ! -L /etc/systemd/system/lamp-live-pilot@.service
-   install -m 0644 -o root -g root deploy/4ace-attended/lamp-live-pilot@.service /etc/systemd/system/lamp-live-pilot@.service
-   systemd-analyze verify /etc/systemd/system/lamp-live-pilot@.service
+   test ! -e /etc/systemd/system/lamp-voice-pilot@.service
+   test ! -L /etc/systemd/system/lamp-voice-pilot@.service
+   install -m 0644 -o root -g root deploy/4ace-attended/lamp-voice-pilot@.service /etc/systemd/system/lamp-voice-pilot@.service
+   systemd-analyze verify /etc/systemd/system/lamp-voice-pilot@.service
    systemctl daemon-reload
-   sha256sum /etc/systemd/system/lamp-live-pilot@.service
+   sha256sum /etc/systemd/system/lamp-voice-pilot@.service
    ```
 
    Check the effective instance with `systemctl show`: no additional drop-ins,
@@ -205,7 +205,7 @@ an output leaf:
 ```sh
 PILOT_ID=20261012-attended-01
 [[ "$PILOT_ID" =~ ^[a-z0-9][a-z0-9-]{0,47}$ ]]
-UNIT=lamp-live-pilot@${PILOT_ID}.service
+UNIT=lamp-voice-pilot@${PILOT_ID}.service
 OUTPUT=/var/lib/lampOS/pilot-4ace/sessions/$PILOT_ID
 test ! -e "$OUTPUT"
 test ! -L "$OUTPUT"
@@ -256,7 +256,7 @@ before its shared 300 ms cleanup grace. Any forced kill remains a runtime failur
 
 ```sh
 CG=$(systemctl show "$UNIT" --property=ControlGroup --value)
-[[ "$CG" == /system.slice/lamp-live-pilot@*.service ]]
+[[ "$CG" == /system.slice/lamp-voice-pilot@*.service ]]
 timeout 8s systemctl stop "$UNIT"
 systemctl show "$UNIT" --property=ActiveState,SubState,MainPID,Result,ExecMainCode,ExecMainStatus
 ```
@@ -413,7 +413,7 @@ the inspected guard/rollback contract deliberately prevents those hooks during
 handover. No V1 prompt, audio algorithm, mixer mapping or motor limit is changed.
 Relevant Rust source: `main.rs:50`, `coordinator.rs:672,829,1474,1734,1865,2222`,
 `process.rs:201`, `config.rs:40`, `physical_privacy.rs:15` and
-`service_privacy.rs:64`, all under `crates/live/src/`.
+`service_privacy.rs:64`, all under `crates/voice/src/`.
 
 Host static checks can validate unit/manifest/argv consistency and documentation
 shell syntax. They do not qualify systemd on 4ace, device ownership, placement,

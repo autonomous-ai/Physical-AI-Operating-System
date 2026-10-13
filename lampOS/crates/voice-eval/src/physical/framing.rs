@@ -352,7 +352,7 @@ mod tests {
         );
         let (hash, bytes) = framer.finish_hash().unwrap();
         assert_eq!(bytes, data.len() as u64);
-        assert_eq!(hash, lamp_acoustic::hash(data));
+        assert_eq!(hash, lamp_sound_fixtures::hash(data));
         let (whole, _) = HashingReader::new(&data[..]).finish().unwrap();
         assert_eq!(whole, hash);
     }

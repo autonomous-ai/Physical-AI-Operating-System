@@ -9,7 +9,7 @@ provider interrupts.
 
 ## A sound
 
-The lamp's ears are a speech detector (`crates/live/src/activity.rs`): six
+The lamp's ears are a speech detector (`crates/voice/src/activity.rs`): six
 blocks of 10 ms in a row scored as speech start an utterance. A cough, a
 click or a bump can do that. The utterance goes to the model like any
 other, and the model hears words in it. On lamp-4ace on 2026-10-13, in the
@@ -28,7 +28,7 @@ shortest things really said to it in the same records ("How you doing?",
 "Okay.", "lungs", "Ouais.") had 34 to 41.
 
 So: when an utterance ends having had fewer than 30 blocks scored as speech
-(`SCRAP_BLOCKS` in `crates/live/src/not_speech.rs`; 25 at first), the turn ends there
+(`SCRAP_BLOCKS` in `crates/voice/src/not_speech.rs`; 25 at first), the turn ends there
 with outcome `not_speech`. Its end is not sent as a finished question, what
 the provider may still answer is dropped, and the `local_endpoint` record
 carries `not_speech` with the count. Two kinds of short utterance are never
@@ -80,8 +80,8 @@ lost with it. None was seen.
 
 Neither rule has a test of its own: both are a few lines in the service's
 main loop, on a cancellation path that existing coordinator tests cover for
-the provider's own interruptions. The whole `lamp-live` host suite passes
-with them (`cargo test -p lamp-live -- --test-threads=2`; one test of a
+the provider's own interruptions. The whole `lamp-voice` host suite passes
+with them (`cargo test -p lamp-voice -- --test-threads=2`; one test of a
 motor worker's two-second start timed out in one such run and passed alone
 three times in three).
 

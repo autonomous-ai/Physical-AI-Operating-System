@@ -1,6 +1,6 @@
 # Finite Rust motor control contract
 
-This batch extends `lamp-motor` with a concrete serialized control core. It
+This batch extends `lamp-body` with a concrete serialized control core. It
 encodes and executes STS3215 read transactions and five-joint position broadcasts
 through one owned nonblocking `BusPort`. The existing Linux inspection executable
 remains read-only. An explicit Linux motion adapter now reuses the same serial
@@ -174,11 +174,11 @@ edge clearance, tracking/load limits, bus contention, callback/tick timing, and
 what happens after cancellation, process exit, USB loss, and servo faults. No
 room, cabinet, posture, or actuator safety is claimed by host tests.
 
-The only added dependency is the sibling standalone Rust crate `lamp-interaction`.
+The only added dependency is the sibling standalone Rust crate `lamp-turn-owner`.
 There is no Python/Go runtime, new external crate, driver I/O in tests, or network
-dependency. Validation commands are `cargo fmt -p lamp-motor -- --check`,
-`cargo test --locked --offline -p lamp-motor`, and
-`cargo clippy --locked --offline -p lamp-motor --all-targets -- -D warnings`.
+dependency. Validation commands are `cargo fmt -p lamp-body -- --check`,
+`cargo test --locked --offline -p lamp-body`, and
+`cargo clippy --locked --offline -p lamp-body --all-targets -- -D warnings`.
 
 ## Opt-in Linux writer boundary
 

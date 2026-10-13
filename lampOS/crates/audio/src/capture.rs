@@ -31,8 +31,8 @@ use crate::{
     CAPTURE_RATE, CAPTURE_SAMPLES, CaptureBlock,
     device::{CaptureDevice, ConfigureError, DeviceFault, DeviceState, errno},
 };
-use lamp_interaction::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use lamp_ipc::monotonic_us;
+use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, Permission, Snapshot};
 use serde::Serialize;
 use std::fmt;
 
@@ -109,7 +109,7 @@ pub enum Discontinuity {
 pub enum ErrorKind {
     InvalidConfig(&'static str),
     UnsupportedFormat(CaptureFormat),
-    Authority(lamp_interaction::Error),
+    Authority(lamp_turn_owner::Error),
     NotPermitted,
     Closed,
     AlreadyOpen,
@@ -528,7 +528,7 @@ impl<D: CaptureDevice> MicrophoneOn<D> {
         }
         if self.guard.is_faulted() {
             return Err(CaptureError::new(ErrorKind::Authority(
-                lamp_interaction::Error::Faulted,
+                lamp_turn_owner::Error::Faulted,
             )));
         }
         self.partial.clear();
@@ -571,7 +571,7 @@ impl<D: CaptureDevice> MicrophoneOn<D> {
         if self.guard.is_faulted() {
             return Err(self.fail(
                 Discontinuity::ControlFault,
-                CaptureError::new(ErrorKind::Authority(lamp_interaction::Error::Faulted)),
+                CaptureError::new(ErrorKind::Authority(lamp_turn_owner::Error::Faulted)),
             ));
         }
         let state = self.guard.state();
@@ -736,7 +736,7 @@ mod tests {
         device::timestamp_us,
         testing::{CaptureControl, ScriptedCapture},
     };
-    use lamp_interaction::Controller;
+    use lamp_turn_owner::Controller;
 
     type Scripted = MicrophoneOn<ScriptedCapture>;
 

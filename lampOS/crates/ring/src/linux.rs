@@ -2,7 +2,7 @@
 //! with a measured SPI waveform or optical feedback from the LEDs.
 
 use crate::{EncodedFrame, FrameSink, GuardedRing, SPI_SPEED_HZ};
-use lamp_interaction::BootId;
+use lamp_turn_owner::BootId;
 use spidev::{SpiModeFlags, Spidev, SpidevOptions};
 use std::io;
 

@@ -1,13 +1,13 @@
 # Conversation lifecycle cues
 
-Both `lamp-live directed` (Gemini) and `directed-fixture` (one cached reply)
+Both `lamp-voice directed` (Gemini) and `directed-fixture` (one cached reply)
 can emit the same optional local scheduling cues. This closes proposal P1:
 the voice runner can trigger a follow-up after observed whole-turn completion or
 a topic change during observed playback, rather than guessing the model delay.
 It does not change admission, VAD, echo processing, voice ownership or content.
 
 ```sh
-lamp-live directed /absolute/private/provider.json 60 /new/private/run \
+lamp-voice directed /absolute/private/provider.json 60 /new/private/run \
   --cue-socket /absolute/private/session/cue.sock
 ```
 

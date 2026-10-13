@@ -1,0 +1,251 @@
+//! Opt-in end-of-turn confirmation for the directed session.
+//!
+//! The model runs only in the separate `lamp-turn-end` process. The
+//! coordinator holds a non-blocking client: loading, a missing model, failure,
+//! recovery and shutdown are observed states, and every pause without a usable
+//! verdict ends on the unchanged silence window. Nothing here waits for the
+//! worker; its process lifetime is supervised by the client, not by `Rig`.
+use crate::{
+    activity::{ConfirmPolicy, TurnDetector},
+    options::{DirectedOptions, Endpoint, TurnTaking},
+};
+use lamp_ipc::monotonic_us;
+use lamp_turn_end_wire::{
+    Availability, Classifier, Limits, Monitor, ProcessClassifier, Report, SMART_TURN_MODEL_FILE,
+    SMART_TURN_MODEL_SHA256, Teardown, WORKER_EXECUTABLE, WorkerCommand,
+};
+use serde_json::{Value, json};
+use std::{io, path::Path, time::Duration};
+
+pub(super) struct EndpointRig {
+    /// Moved into the session's detector when the conversation starts.
+    classifier: Option<Box<dyn Classifier>>,
+    /// Absent for in-process test doubles.
+    pub(super) monitor: Option<Monitor>,
+    command: Option<WorkerCommand>,
+}
+
+impl EndpointRig {
+    /// Starts loading at once; the session never waits for it.
+    pub(super) fn start(options: &DirectedOptions, executable: &Path) -> Option<Self> {
+        if options.endpoint != Endpoint::SmartTurn {
+            return None;
+        }
+        let directory = executable.parent().unwrap_or(Path::new("/"));
+        let command = WorkerCommand::smart_turn(
+            directory.join(WORKER_EXECUTABLE),
+            directory.join(SMART_TURN_MODEL_FILE),
+        );
+        Some(Self::process(command, Limits::default()))
+    }
+
+    pub(super) fn process(command: WorkerCommand, limits: Limits) -> Self {
+        let classifier = ProcessClassifier::spawn(command.clone(), limits);
+        Self {
+            monitor: Some(classifier.monitor()),
+            classifier: Some(Box::new(classifier)),
+            command: Some(command),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn double(classifier: Box<dyn Classifier>) -> Self {
+        Self {
+            classifier: Some(classifier),
+            monitor: None,
+            command: None,
+        }
+    }
+
+    /// Moves the classifier into the detector and describes the policy.
+    pub(super) fn attach(
+        endpoint: Option<&mut Self>,
+        turn_taking: TurnTaking,
+        mut detector: TurnDetector,
+    ) -> io::Result<(TurnDetector, Value)> {
+        let Some(endpoint) = endpoint else {
+            let silence = detector.endpoint_silence_ms();
+            return Ok((detector, policy_event(turn_taking, silence, None, None)));
+        };
+        let classifier = endpoint
+            .classifier
+            .take()
+            .ok_or_else(|| io::Error::other("endpoint classifier already in use"))?;
+        // The parity profile ends a confident turn after one second, which
+        // only makes sense under a longer silence window. A window chosen
+        // shorter than that asks for a quicker lamp, so a confident verdict
+        // ends the turn at 400 ms and the window itself decides the rest.
+        let policy = if detector.endpoint_silence_ms()
+            > u64::from(ConfirmPolicy::default().commit_blocks) * 10
+        {
+            ConfirmPolicy::default()
+        } else {
+            ConfirmPolicy::responsive()
+        };
+        detector = detector
+            .with_confirmation(classifier, policy)
+            .map_err(io::Error::other)?;
+        let event = policy_event(
+            turn_taking,
+            detector.endpoint_silence_ms(),
+            detector.confirmation_policy(),
+            endpoint.command.as_ref(),
+        );
+        Ok((detector, event))
+    }
+}
+
+fn policy_event(
+    turn_taking: TurnTaking,
+    silence_ms: u64,
+    confirmation: Option<ConfirmPolicy>,
+    command: Option<&WorkerCommand>,
+) -> Value {
+    let mut event = json!({"kind":"endpoint_policy","at_us":monotonic_us(),
+        "turn_taking":turn_taking,"silence_wait_ms":silence_ms,
+        "basis":"consecutive_low_vad_scores","semantic_confirmation":false});
+    // The baseline record keeps exactly its existing fields.
+    if let Some(confirmation) = confirmation {
+        event["basis"] = json!("smart_turn_with_silence_fallback");
+        event["semantic_confirmation"] = json!(true);
+        event["confirmation"] = json!(confirmation);
+        event["worker"] = json!(command.map(|command| json!({"program":command.program,
+            "args":command.args.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>()})));
+        event["model"] = json!({"file":SMART_TURN_MODEL_FILE,"sha256":SMART_TURN_MODEL_SHA256});
+    }
+    event
+}
+
+pub(super) fn availability_json(availability: &Availability) -> Value {
+    let (state, detail) = match availability {
+        Availability::Ready => ("ready", None),
+        Availability::Loading => ("loading", None),
+        Availability::Recovering(reason) => ("recovering", Some(reason)),
+        Availability::Failed(reason) => ("failed", Some(reason)),
+        Availability::Closed => ("closed", None),
+    };
+    json!({"state":state,"detail":detail})
+}
+
+pub(super) fn report_json(report: &Report) -> Value {
+    json!({"worker":report.worker,"pid":report.pid,"spawned":report.spawned,"ready":report.ready,
+        "load_us":report.load_us,"cold_us":report.cold_us,"ready_after_us":report.ready_after_us,
+        "model_sha256":report.model_sha256,"requests":report.requests,"verdicts":report.verdicts,
+        "errors":report.errors,"discarded":report.discarded,"lost":report.lost,"kills":report.kills,
+        "last_exit":report.last_exit,"last_failure":report.last_failure})
+}
+
+/// Records each change of classifier availability with the worker report.
+#[derive(Default)]
+pub(super) struct Watch {
+    last: Option<Availability>,
+}
+
+impl Watch {
+    pub(super) fn observe(
+        &mut self,
+        detector: &TurnDetector,
+        monitor: Option<&Monitor>,
+    ) -> Option<Value> {
+        let availability = detector.classifier_availability()?;
+        if self.last.as_ref() == Some(&availability) {
+            return None;
+        }
+        let event = json!({"kind":"endpoint_worker","at_us":monotonic_us(),
+            "availability":availability_json(&availability),
+            "report":monitor.map(|monitor| report_json(&monitor.report()))});
+        self.last = Some(availability);
+        Some(event)
+    }
+}
+
+impl EndpointRig {
+    /// Runtime teardown, never the live loop: closes a client the session did
+    /// not take, then waits at most `limit` for its last worker to be reaped,
+    /// so a later runtime cannot overlap it. Returns the final record.
+    ///
+    /// Returns the record, and an error unless every worker process was
+    /// confirmed reaped: an unconfirmed exit must keep a later runtime, such
+    /// as a service cycle after a physical mute, from starting.
+    pub(super) fn finish(mut self, limit: Duration) -> Option<(Value, io::Result<()>)> {
+        drop(self.classifier.take());
+        let monitor = self.monitor?;
+        let teardown = monitor.wait_finished(limit);
+        let (reaped, result) = match &teardown {
+            Teardown::Reaped => (true, Ok(())),
+            Teardown::Pending => (
+                false,
+                Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!(
+                        "endpoint worker exit not confirmed within {} ms",
+                        limit.as_millis()
+                    ),
+                )),
+            ),
+            Teardown::Unreaped(reason) => (
+                false,
+                Err(io::Error::other(format!("endpoint worker {reason}"))),
+            ),
+        };
+        let event = json!({"kind":"endpoint_worker_final","at_us":monotonic_us(),
+            "reaped":reaped,"teardown":format!("{teardown:?}"),
+            "availability":availability_json(&monitor.availability()),
+            "report":report_json(&monitor.report())});
+        Some((event, result))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lamp_turn_end_wire::{Outcome, Submit, Token};
+
+    struct Silent;
+    impl Classifier for Silent {
+        fn submit(&mut self, _: Token, _: &[i16]) -> Submit {
+            Submit::Unavailable
+        }
+        fn poll(&mut self) -> Option<Outcome> {
+            None
+        }
+        fn availability(&self) -> Availability {
+            Availability::Loading
+        }
+        fn cancel(&mut self) {}
+    }
+
+    fn attached(detector: TurnDetector) -> io::Result<ConfirmPolicy> {
+        let mut rig = EndpointRig::double(Box::new(Silent));
+        let (detector, _) = EndpointRig::attach(Some(&mut rig), TurnTaking::V1Baseline, detector)?;
+        Ok(detector.confirmation_policy().unwrap())
+    }
+
+    #[test]
+    fn a_short_silence_window_selects_the_quicker_profile_and_stays_the_fallback() {
+        // The baseline window keeps the parity profile exactly.
+        let parity = attached(TurnDetector::v1_baseline()).unwrap();
+        assert_eq!(
+            (
+                parity.commit_blocks,
+                parity.fallback_blocks,
+                parity.incomplete_blocks
+            ),
+            (100, 120, 150)
+        );
+        // 700 ms chosen: a confident verdict ends at 400 ms, an unfinished one
+        // holds to 1.5 s, and everything else ends on the 700 ms chosen.
+        let quick = attached(TurnDetector::v1_baseline().with_end_silence(70).unwrap()).unwrap();
+        assert_eq!(
+            (
+                quick.commit_blocks,
+                quick.fallback_blocks,
+                quick.incomplete_blocks
+            ),
+            (40, 70, 150)
+        );
+        assert_eq!(quick.complete_probability, parity.complete_probability);
+        // A window no longer than the quick commit leaves nothing to confirm.
+        assert!(attached(TurnDetector::v1_baseline().with_end_silence(40).unwrap()).is_err());
+    }
+}

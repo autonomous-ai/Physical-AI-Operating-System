@@ -1,6 +1,6 @@
 use super::*;
 use crate::{FrameInterval, PixelFormat, SourceId};
-use lamp_interaction::{BootId, MonoTime};
+use lamp_turn_owner::{BootId, MonoTime};
 use std::{
     cell::{Cell, RefCell},
     collections::VecDeque,

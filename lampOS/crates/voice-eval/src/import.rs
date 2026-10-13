@@ -1,4 +1,4 @@
-//! Score an existing lamp-live trace (for example a retained physical trial)
+//! Score an existing lamp-voice trace (for example a retained physical trial)
 //! against a declared scenario. Traces carry no stimulus times, so turns are
 //! attributed to steps by explicit declaration and labeled as such.
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
     },
     stimulus::StimulusCatalog,
 };
-use lamp_acoustic::hash;
+use lamp_sound_fixtures::hash;
 use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

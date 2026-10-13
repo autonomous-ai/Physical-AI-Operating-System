@@ -1,6 +1,6 @@
 # Input candidates before interruption
 
-`lamp-live::admission` separates detected speech from permission to replace a
+`lamp-voice::admission` separates detected speech from permission to replace a
 turn. The directed coordinator now passes each `TurnDetector` onset through
 this boundary before cancelling a reply, clearing pending output, admitting a
 new owner or sending Gemini `activityStart`. This is a retention and ordering
@@ -114,7 +114,7 @@ The source-only candidate passed formatting, strict workspace/all-target Clippy,
 Cargo/toolchain manifest identity is
 `8176c4752fe60756ca2d1a669d3c586e7137d87c331aa4f2ccedee4ec827e538`.
 
-`cargo run --release --locked --offline -p lamp-live --example admission_latency`
+`cargo run --release --locked --offline -p lamp-voice --example admission_latency`
 measured 4,096 synthetic immediate decisions: first/max 8.523 microseconds,
 p50 0.346, p95 0.356, and p99 0.364 microseconds. This includes candidate
 creation and immediate decision, excluding VAD, prefix preparation, result

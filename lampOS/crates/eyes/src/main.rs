@@ -188,7 +188,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         picture::Picture,
         sight::{Seen, choose},
     };
-    use lamp_interaction::{BootId, MonoTime};
+    use lamp_turn_owner::{BootId, MonoTime};
     use std::{
         num::NonZeroU64,
         os::unix::net::UnixDatagram,

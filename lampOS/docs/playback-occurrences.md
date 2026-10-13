@@ -91,7 +91,7 @@ commands ran sequentially with sources unchanged throughout:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 Rust/Cargo/toolchain manifest: `6b0ea9e37fdc57cb34560080c01843f63b21aca9285237a3cffada62585fcd96` (165 files,

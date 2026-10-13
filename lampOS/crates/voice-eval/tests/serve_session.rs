@@ -1,6 +1,6 @@
 //! The serve-session runner end to end without hardware: the runner starts
 //! the real `lamp-session` relay in serve mode, which starts the fake
-//! `lamp-live serve` (cues through lamp-live's own `CueSink`, serve-shaped
+//! `lamp-voice serve` (cues through lamp-voice's own `CueSink`, serve-shaped
 //! rolling metadata, SIGTERM stop). Every stimulus is prepared before its
 //! trigger and started by one original expiring grant at the fake prepared
 //! player's first "copy", a fake room datagram. Real time; no audio.
@@ -89,7 +89,7 @@ fn run(control: Control) -> AttemptRecord {
         BIN.into(),
     ]);
     let mut prefix: Vec<String> = [
-        "fake-lamp-live",
+        "fake-lamp-voice",
         "--fake-plan",
         &plan_copy.display().to_string(),
         "--fake-scenario",

@@ -13,10 +13,10 @@ use alsa::{
     Direction, ValueOr,
     pcm::{Access, Format, HwParams, PCM, State},
 };
-use lamp_interaction::{
+use lamp_ipc::monotonic_us;
+use lamp_turn_owner::{
     BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit, Snapshot, ZeroAuthority,
 };
-use lamp_ipc::monotonic_us;
 use serde::Serialize;
 use std::io;
 
@@ -678,7 +678,7 @@ fn now() -> MonoTime {
 #[cfg(test)]
 mod finish_tests {
     use super::*;
-    use lamp_interaction::{AdmissionState, AdmittedInput, CaptureState, Controller, Permission};
+    use lamp_turn_owner::{AdmissionState, AdmittedInput, CaptureState, Controller, Permission};
 
     fn clock_with_accepted_tail() -> (Speaker, Controller, OutputPermit) {
         let boot = BootId::new([120; 16]).unwrap();
@@ -755,8 +755,8 @@ mod finish_tests {
             speaker
                 .try_write(old, &[8; 23])
                 .unwrap_err()
-                .downcast_ref::<lamp_interaction::Error>(),
-            Some(&lamp_interaction::Error::StaleOwner)
+                .downcast_ref::<lamp_turn_owner::Error>(),
+            Some(&lamp_turn_owner::Error::StaleOwner)
         );
         assert_eq!(speaker.try_write(permit, &[7; 240]).unwrap().frames, 240);
         assert!(speaker.try_write(old, &[8; 23]).is_err());
@@ -796,7 +796,7 @@ mod finish_tests {
                         .unwrap();
                     assert_eq!(
                         speaker.take_discard().unwrap().reason,
-                        lamp_interaction::Error::PrivacyClosed
+                        lamp_turn_owner::Error::PrivacyClosed
                     );
                 }
                 _ => {
@@ -804,8 +804,8 @@ mod finish_tests {
                     // State expiry can be the earlier authoritative fence.
                     assert!(matches!(
                         speaker.take_discard().unwrap().reason,
-                        lamp_interaction::Error::ExpiredState
-                            | lamp_interaction::Error::ExpiredPermit
+                        lamp_turn_owner::Error::ExpiredState
+                            | lamp_turn_owner::Error::ExpiredPermit
                     ));
                 }
             }
@@ -872,7 +872,7 @@ mod finish_tests {
         );
         let receipt = speaker.take_discard().unwrap();
         assert_eq!(receipt.owner, old);
-        assert_eq!(receipt.reason, lamp_interaction::Error::StaleOwner);
+        assert_eq!(receipt.reason, lamp_turn_owner::Error::StaleOwner);
         assert_eq!(receipt.queued_frames, 240);
         assert!(!receipt.other_owners);
         assert!(speaker.take_discard().is_none());
@@ -952,7 +952,7 @@ mod finish_tests {
         assert!(written.end_sample.epoch < speaker.queued_range().epoch);
         let loss = speaker.take_discard().unwrap();
         assert_eq!(loss.owner, owner);
-        assert_eq!(loss.reason, lamp_interaction::Error::ExpiredPermit);
+        assert_eq!(loss.reason, lamp_turn_owner::Error::ExpiredPermit);
         assert_eq!(loss.queued_frames, RENDER_SAMPLES);
         assert_eq!(loss.range.accepted_through, written.end_sample.frame);
         assert!(!speaker.speech_retired(written.end_sample));

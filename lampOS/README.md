@@ -61,16 +61,16 @@ cargo fmt --all -- --check
 
 | Crate | Responsibility |
 |---|---|
-| `lamp-interaction` | Immutable turn/output ownership, cancellation, privacy lineage, readiness and observation freshness. |
+| `lamp-turn-owner` | Immutable turn/output ownership, cancellation, privacy lineage, readiness and observation freshness. |
 | `lamp-ipc` | Private bounded Unix datagrams, shared monotonic timestamps and a separate-process control latency probe. |
 | `lamp-audio` | Pure Rust Sonora AEC3/noise processing in 10 ms blocks; privacy-checked Linux ALSA capture and guarded speaker output. |
 | `lamp-ring` | Fixed-size WS2812 encoding, bounded brightness and ownership-checked Linux SPI writes. |
 | `lamp-camera` | Bounded frame lifecycle, privacy, latest-frame delivery and Linux V4L2 backend; opt-in live context integrated, native teardown correction and physical qualification pending. |
-| `lamp-motor` | Five-servo protocol, per-unit calibration, guarded motion core and Linux port; inactive in live interaction, with worker integration and physical qualification pending. |
+| `lamp-body` | Five-servo protocol, per-unit calibration, guarded motion core and Linux port; inactive in live interaction, with worker integration and physical qualification pending. |
 | `lamp-environment` | Typed latest sensor values, per-field freshness, partial readiness, faults and worker identity; I/O-free contract, drivers/integration pending. |
-| `lamp-acoustic` | Fixed desk scenarios, cached voices/noise mixes and asset integrity checks. |
+| `lamp-sound-fixtures` | Fixed desk scenarios, cached voices/noise mixes and asset integrity checks. |
 | `lamp-gemini` | Bounded Gemini Live WebSocket transport, explicit activity, immutable response ownership and cancellation barriers. |
-| `lamp-live` | Finite directed qualification with separate capture, speaker, physical privacy and provider processes, optional ring and camera workers; continuous service and complete failure isolation remain in progress. |
+| `lamp-voice` | Finite directed qualification with separate capture, speaker, physical privacy and provider processes, optional ring and camera workers; continuous service and complete failure isolation remain in progress. |
 | `lamp-observer` | Mac room recording and native microphone permission preflight; explicit cached iMac-speaker playback with delivery/failure evidence. |
 | `lamp-voice-eval` | Event-triggered conversation acceptance runner and evaluator: pre-registered scenarios, append-only attempt ledger, fake runtime, trace import and a prepared physical runner. See [voice evaluation](docs/voice-eval.md). |
 
@@ -87,8 +87,8 @@ addressee accuracy, physical privacy controls or motor safety.
 ## Reusable qualification tools
 
 ```sh
-cargo run -p lamp-acoustic -- render .cache/acoustic .cache/render-first.json
-cargo run -p lamp-acoustic -- verify .cache/acoustic
+cargo run -p lamp-sound-fixtures -- render .cache/acoustic .cache/render-first.json
+cargo run -p lamp-sound-fixtures -- verify .cache/acoustic
 cargo run --release -p lamp-ipc --bin lamp-ipc-probe -- --samples 1000
 cargo run --release -p lamp-audio -- bench-aec 6000
 cargo run -p lamp-voice-eval -- fake-run --out NEW_RUN_DIRECTORY

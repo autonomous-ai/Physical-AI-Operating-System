@@ -329,7 +329,7 @@ fn imported(dir: &common::Private, two_replies: bool) -> AttemptRecord {
     fs::write(
         &metadata,
         json!({"valid":true,"status":"captured_unscored",
-        "room_wav_sha256":lamp_acoustic::hash(&fs::read(wav).unwrap())})
+        "room_wav_sha256":lamp_sound_fixtures::hash(&fs::read(wav).unwrap())})
         .to_string(),
     )
     .unwrap();

@@ -1,5 +1,5 @@
 use crate::*;
-use lamp_interaction::{BootId, BoundaryGuard, CameraGrant, MonoTime, Snapshot};
+use lamp_turn_owner::{BootId, BoundaryGuard, CameraGrant, MonoTime, Snapshot};
 use std::num::NonZeroU64;
 
 struct Slot {
@@ -160,7 +160,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         // control gap merely because the replacement snapshot is fresh.
         if self.active.is_some() && self.guard.state().is_some_and(|s| now >= s.expires_at()) {
             return Err(self.fail(
-                ErrorKind::Authority(lamp_interaction::Error::ExpiredState),
+                ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState),
                 now,
             ));
         }
@@ -258,7 +258,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         if grant != active.grant {
             self.close_at(before)?;
             return Err(Error::new(ErrorKind::Authority(
-                lamp_interaction::Error::StaleCameraGrant,
+                lamp_turn_owner::Error::StaleCameraGrant,
             )));
         }
         let budget = self.authorized_budget(before, READ_BUDGET_US)?;
@@ -450,7 +450,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
             Err(_) => self.last_now,
         };
         self.fail(
-            ErrorKind::Authority(lamp_interaction::Error::NoAuthority),
+            ErrorKind::Authority(lamp_turn_owner::Error::NoAuthority),
             now,
         )
     }
@@ -477,7 +477,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         let expires = self
             .guard
             .state()
-            .ok_or_else(|| Error::new(ErrorKind::Authority(lamp_interaction::Error::NoAuthority)))?
+            .ok_or_else(|| Error::new(ErrorKind::Authority(lamp_turn_owner::Error::NoAuthority)))?
             .expires_at();
         Ok(OperationBudget {
             started_at: now,
@@ -487,10 +487,10 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
     fn recheck_grant(&mut self, original: CameraGrant, now: MonoTime) -> Result<(), Error> {
         match self.guard.current_camera_grant(now) {
             Ok(current) if current == original => Ok(()),
-            Ok(_) | Err(lamp_interaction::Error::PrivacyClosed) => {
+            Ok(_) | Err(lamp_turn_owner::Error::PrivacyClosed) => {
                 self.close_at(now)?;
                 Err(Error::new(ErrorKind::Authority(
-                    lamp_interaction::Error::StaleCameraGrant,
+                    lamp_turn_owner::Error::StaleCameraGrant,
                 )))
             }
             Err(error) => Err(self.fail(ErrorKind::Authority(error), now)),
@@ -502,7 +502,7 @@ impl<P: PortIo, C: Clock> Capture<P, C> {
         };
         match self.guard.current_camera_grant(now) {
             Ok(grant) if grant == active.grant => {}
-            Ok(_) | Err(lamp_interaction::Error::PrivacyClosed) => {
+            Ok(_) | Err(lamp_turn_owner::Error::PrivacyClosed) => {
                 self.close_at(now)?;
                 return Ok(());
             }

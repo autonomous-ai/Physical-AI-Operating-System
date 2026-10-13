@@ -5,7 +5,7 @@
 //! no audio device or transport is opened.
 mod common;
 
-use lamp_acoustic::hash;
+use lamp_sound_fixtures::hash;
 use lamp_voice_eval::{
     annotations::{Annotations, AttemptAnnotation, StepAnnotation},
     import::{ImportOptions, import_trace, receipt_room_evidence, verify_room_evidence},

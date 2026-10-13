@@ -1,14 +1,14 @@
 # lampOS eyes on lamp-4ace (the office lab prototype): finds a face in the head camera's picture
 # and tells the body where it is, so the lamp can look at the person it is talking with.
-# The camera opens only while lamp-live.service keeps permitting it, which it does exactly while
+# The camera opens only while lamp-voice.service keeps permitting it, which it does exactly while
 # the microphone is permitted; it closes within 1.5 s of that stopping. With --sight-file the
-# newest frame, and only that one, is kept in /run (memory) for lamp-live to show the model with
+# newest frame, and only that one, is kept in /run (memory) for lamp-voice to show the model with
 # what a person says; take the option out and no frame leaves the process (lampOS/docs/eyes.md).
 # Not enabled at boot.
 [Unit]
 Description=lampOS eyes (lamp-eyes)
 ConditionHost=lamp-4ace
-After=lamp-live.service
+After=lamp-voice.service
 
 [Service]
 Type=exec

@@ -1,14 +1,14 @@
 //! Deterministic fake runtime for offline scenarios.
 //!
-//! It mirrors the turn policy of `lamp-live`'s directed coordinator (source
-//! 64529dee): lamp-live's own `TurnDetector` decides admission and endpoints
+//! It mirrors the turn policy of `lamp-voice`'s directed coordinator (source
+//! 64529dee): lamp-voice's own `TurnDetector` decides admission and endpoints
 //! from 10 ms blocks; every admission cancels the current reply first
 //! (`user_interrupted`); the endpoint sends the input to the provider; a reply
 //! completes only after its final speech sample retires. There is no addressee,
 //! acknowledgment or echo gate, because the runtime has none yet.
 //!
 //! Speech probability comes either from declared stimulus intervals (timing
-//! mode) or from lamp-live's VAD on the exact cached digital mix (signal mode).
+//! mode) or from lamp-voice's VAD on the exact cached digital mix (signal mode).
 //! Neither includes room acoustics, the loudspeaker, the microphone or AEC, and
 //! host VAD numerics can differ from native ARM64. Results describe the policy,
 //! not the physical Lamp.
@@ -24,7 +24,7 @@ use crate::{
     runner::{AttemptContext, Backend, Begin, Finished, Injection},
     stimulus::{AssetIndex, SceneTiming, StimulusCatalog},
 };
-use lamp_live::activity::{Activity, ObservedAudio, SpeechProbability, TurnDetector};
+use lamp_voice::activity::{Activity, ObservedAudio, SpeechProbability, TurnDetector};
 use serde_json::{Value, json};
 use std::{collections::VecDeque, sync::Arc};
 
@@ -292,7 +292,7 @@ impl FakeRuntime {
         if !self.ready {
             if self.now_us >= self.ready_at_us {
                 self.ready = true;
-                // As lamp-live records them before readiness. `vad-only`
+                // As lamp-voice records them before readiness. `vad-only`
                 // never withdraws availability, so it is reported once.
                 self.emit(
                     EventKind::ProviderLink {
@@ -381,7 +381,7 @@ impl FakeRuntime {
         }
     }
 
-    /// Mirrors lamp-live since 9c2c82e1: a candidate is recorded, directed
+    /// Mirrors lamp-voice since 9c2c82e1: a candidate is recorded, directed
     /// mode accepts it at once on VAD alone, the old reply is revoked, and
     /// only then is the new owner admitted.
     fn admit(&mut self, prefix_start_us: u64) {
@@ -481,7 +481,7 @@ impl FakeRuntime {
         );
         match self.provider {
             ProviderKind::FixedReply => {
-                // lamp-live's fixture provider reserves its single reply for the
+                // lamp-voice's fixture provider reserves its single reply for the
                 // first admitted owner; later turns complete without audio.
                 if self.first_turn == Some(reply.turn) {
                     reply.total_us = u64::from(self.fixed_reply.duration_ms()) * 1000;
@@ -555,7 +555,7 @@ impl FakeRuntime {
         }
     }
 
-    /// Provider/worker failure: lamp-live cancels with `runtime_failed` and the
+    /// Provider/worker failure: lamp-voice cancels with `runtime_failed` and the
     /// whole finite run fails. It has no spoken failure path yet.
     fn fail(&mut self, error: &str) {
         if let Some(reply) = self.reply.take() {
@@ -813,8 +813,8 @@ impl Backend for FakeBackend<'_> {
             "kind": "fake",
             "profile": self.profile_id,
             "profile_parameters": self.profile,
-            "speech_probability": if self.assets.is_some() {"lamp-live VAD on cached digital mixes"} else {"declared stimulus intervals"},
-            "policy_source": "lamp-live directed coordinator at 64529dee, re-implemented; detector is lamp_live::activity::TurnDetector",
+            "speech_probability": if self.assets.is_some() {"lamp-voice VAD on cached digital mixes"} else {"declared stimulus intervals"},
+            "policy_source": "lamp-voice directed coordinator at 64529dee, re-implemented; detector is lamp_voice::activity::TurnDetector",
             "host_numerics": format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         })
     }
@@ -919,7 +919,7 @@ impl Backend for FakeBackend<'_> {
         })
     }
     fn finish(&mut self, _: &AttemptContext) -> Result<Finished> {
-        // Run the finite session to its declared end, like lamp-live.
+        // Run the finite session to its declared end, like lamp-voice.
         while self.next_event(u64::MAX)?.is_some() {}
         Ok(Finished {
             events: std::mem::take(&mut self.events),

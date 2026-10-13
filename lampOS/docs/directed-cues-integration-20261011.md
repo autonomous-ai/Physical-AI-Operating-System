@@ -21,7 +21,7 @@ zero ignored**, with these gates run sequentially:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 Host: macOS x86-64. Rust/Cargo/toolchain manifest: `5a827d27d4e2d98580011c7382260224cfc6c75f4b549c850d7d487d9e9184c1`

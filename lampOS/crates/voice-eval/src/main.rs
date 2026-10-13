@@ -187,7 +187,7 @@ fn run() -> Result<i32> {
             let stdout = std::io::stdout();
             return session::run(&options, std::io::stdin(), &mut stdout.lock());
         }
-        "fake-lamp-live" => return fake_lamp::run(&all),
+        "fake-lamp-voice" => return fake_lamp::run(&all),
         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
         "fake-slow-transport" => return fake_lamp::slow_transport(&all),
         _ => {}
@@ -410,7 +410,7 @@ fn run() -> Result<i32> {
         }
         "render-stimuli" => {
             // Renders only objects absent from the cache; existing verified speech
-            // and mixes are reused by lamp-acoustic's content-addressed keys.
+            // and mixes are reused by lamp-sound-fixtures's content-addressed keys.
             let cache = PathBuf::from(args.positional()?);
             let manifest = PathBuf::from(args.positional()?);
             args.done()?;
@@ -418,10 +418,13 @@ fn run() -> Result<i32> {
                 return Err(invalid("use a new report path for every render"));
             }
             let catalog = StimulusCatalog::load()?;
-            let cache = lamp_acoustic::Cache::new(cache)?;
-            let report =
-                lamp_acoustic::render(&catalog.catalog, &cache, &mut lamp_acoustic::MacSay)?;
-            lamp_acoustic::save_report(&manifest, &report)?;
+            let cache = lamp_sound_fixtures::Cache::new(cache)?;
+            let report = lamp_sound_fixtures::render(
+                &catalog.catalog,
+                &cache,
+                &mut lamp_sound_fixtures::MacSay,
+            )?;
+            lamp_sound_fixtures::save_report(&manifest, &report)?;
             println!(
                 "{}",
                 json!({"generated_speech": report.generated_speech, "reused_speech": report.reused_speech,
@@ -555,7 +558,7 @@ fn run() -> Result<i32> {
                 exe.clone(),
             ];
             let mut prefix = vec![
-                "fake-lamp-live".to_owned(),
+                "fake-lamp-voice".to_owned(),
                 "--fake-plan".into(),
                 plan_copy.display().to_string(),
                 "--fake-scenario".into(),
@@ -663,7 +666,7 @@ struct PhysicalFile {
     fixture_reply: Option<String>,
     fixture_sha256: Option<String>,
     provider_config: Option<String>,
-    /// One `lamp-live serve` runtime per attempt (Gemini provider config).
+    /// One `lamp-voice serve` runtime per attempt (Gemini provider config).
     #[serde(default)]
     serve_config: Option<String>,
     #[serde(default = "default_noise")]
@@ -686,7 +689,7 @@ struct PhysicalFile {
     allowance_seconds: u16,
     #[serde(default)]
     ring_channel_ceiling: Option<u16>,
-    /// lamp-live runtime policy, forwarded unchanged when set (`directed` and
+    /// lamp-voice runtime policy, forwarded unchanged when set (`directed` and
     /// serve only): for example the installed pilot's `v1-baseline` or `duplex`.
     #[serde(default)]
     microphone: Option<String>,

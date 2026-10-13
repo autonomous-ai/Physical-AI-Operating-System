@@ -25,7 +25,7 @@ and nonfinite float samples. Limits are 600 seconds, 8,000–192,000 Hz, 1–8
 channels, 1 GiB plus 4 KiB total file bytes, and 4,096 chunks. Metadata is limited
 to 1 MiB. These include the observer's current bounds. PCM data is streamed
 through a fixed 64 KiB buffer, without decoding the whole recording into memory.
-The existing `lamp-acoustic` reader is restricted to 16 kHz mono PCM16 and
+The existing `lamp-sound-fixtures` reader is restricted to 16 kHz mono PCM16 and
 60-second stimulus files, so it cannot verify the observer's multichannel
 float32 recordings.
 

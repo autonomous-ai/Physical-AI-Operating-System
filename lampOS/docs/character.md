@@ -137,7 +137,7 @@ in less the more talk there is around them, and that is now the rule: the
 file says that when the lamp has been told the room has gone quiet, what
 is said near it is most likely said to it, called or not, and that when it
 has been told the office is busy, or told nothing, the two cases stand.
-The telling is the runtime's (`crates/live/src/room_told.rs`,
+The telling is the runtime's (`crates/voice/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`): quiet after five minutes in which nothing was
 said (a bump or a click is not something said), busy after three things in a row inside a minute that the lamp
 said nothing to, each given to the session in a turn that asks for no
@@ -225,7 +225,7 @@ it cannot make the service answer sooner.
 Two things are put after the file each time a session with the provider
 opens. Neither is in the file, and neither is written anywhere.
 
-**The time.** `crates/live/src/local_time.rs` reads the system's own
+**The time.** `crates/voice/src/local_time.rs` reads the system's own
 compiled zone file (`/etc/localtime`) and adds, for example:
 
 ```text

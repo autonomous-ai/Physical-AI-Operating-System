@@ -18,13 +18,13 @@ concurrent direct pushes that can change the source under another agent's gates.
 
 | Workstream | Primary ownership | Expected deliverable |
 |---|---|---|
-| Codex integration | Microphone/AEC, input admission, `crates/live/src/coordinator.rs`, interaction ownership, choreography and final integration | Reliable local listening/cancellation, synchronized output, reviewed integration and physical qualification |
-| Claude Gemini reliability | `crates/gemini/**`, `crates/live/src/provider_worker.rs`, focused tests/docs | Complete answers, follow-ups, stale-event isolation and bounded failure/recovery behavior |
+| Codex integration | Microphone/AEC, input admission, `crates/voice/src/coordinator.rs`, interaction ownership, choreography and final integration | Reliable local listening/cancellation, synchronized output, reviewed integration and physical qualification |
+| Claude Gemini reliability | `crates/gemini/**`, `crates/voice/src/provider_worker.rs`, focused tests/docs | Complete answers, follow-ups, stale-event isolation and bounded failure/recovery behavior |
 | Claude voice evaluation | New `crates/voice-eval/**`, associated docs and necessary scenario additions | Executable Rust conversation runner, event-driven overlap/follow-up tests, complete attempt ledger and honest measurements |
 
 Propose shared Cargo/API changes separately for integration. Do not overwrite
 another workstream's files or assume its uncommitted changes are in HEAD. Reuse
-`crates/acoustic`, `crates/observer`, `fixtures/desk-v1.json` and existing cached
+`crates/sound-fixtures`, `crates/observer`, `fixtures/desk-v1.json` and existing cached
 audio. Production/tooling code remains Rust and standalone inside lampOS.
 Environmental acquisition is deferred behind voice completion; Harness, agentic
 tasks and new long-term memory are outside this first release.

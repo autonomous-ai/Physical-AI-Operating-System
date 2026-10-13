@@ -1,6 +1,6 @@
 # Opt-in local audio diagnostics
 
-`lamp_live::diagnostics` records bounded local evidence for investigating capture,
+`lamp_voice::diagnostics` records bounded local evidence for investigating capture,
 echo cancellation, VAD and self-interruptions. It is inactive unless its caller
 explicitly constructs a `Recorder`. It opens no audio device, reads no microphone,
 changes no authority or privacy setting, and sends no data to a provider. Turning
@@ -201,9 +201,9 @@ byte/frame/time caps, full queue, stalled/failing writer and incomplete finaliza
 The writer stall/fault hooks exist only in test builds.
 
 ```sh
-cargo test -p lamp-live --test diagnostics --locked --offline
-cargo test -p lamp-live --lib diagnostics::tests --locked --offline
-cargo clippy -p lamp-live --all-targets --locked --offline -- -D warnings
+cargo test -p lamp-voice --test diagnostics --locked --offline
+cargo test -p lamp-voice --lib diagnostics::tests --locked --offline
+cargo clippy -p lamp-voice --all-targets --locked --offline -- -D warnings
 ```
 
 These tests perform no microphone, speaker, camera, device, SSH or cloud operation.

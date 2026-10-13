@@ -138,7 +138,7 @@ These commands passed sequentially:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 The full host workspace passed **843 tests, zero failures, three ignored**.
@@ -156,9 +156,9 @@ Formatting passed again, followed by these commands:
 
 ```sh
 cargo clippy --workspace --all-targets --target aarch64-unknown-linux-gnu --locked --offline -- -D warnings
-cargo build --release --target aarch64-unknown-linux-gnu --locked --offline -p lamp-live -p lamp-voice-eval
+cargo build --release --target aarch64-unknown-linux-gnu --locked --offline -p lamp-voice -p lamp-voice-eval
 cargo test -p lamp-gemini --release --target aarch64-unknown-linux-gnu --locked --offline -- --test-threads=1
-cargo test -p lamp-live --lib --release --target aarch64-unknown-linux-gnu --locked --offline provider_worker::tests -- --test-threads=1
+cargo test -p lamp-voice --lib --release --target aarch64-unknown-linux-gnu --locked --offline provider_worker::tests -- --test-threads=1
 ```
 
 The targeted ARM tests passed **174 tests, zero failures, three ignored**.

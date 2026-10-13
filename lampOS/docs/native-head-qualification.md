@@ -9,7 +9,7 @@ qualification, collision inference, an automatic gesture producer, or permission
 to move based on a model's words.
 
 The trusted provisioner must supply an explicit `Plan` JSON matching
-`lamp_live::head_qualification::Plan`. It includes a complete numeric `HeadPlan`,
+`lamp_voice::head_qualification::Plan`. It includes a complete numeric `HeadPlan`,
 SHA-256 of the original private motor and camera configurations, the original
 motor `placement_source`, a nonzero placement-review SHA-256, the actual Linux
 kernel boot ID, and current-boot monotonic review/expiry times. No numeric pose,
@@ -34,7 +34,7 @@ or proof of obstacle clearance.
 
 Create a new owned mode-0700 channel directory. Start the same-host Rust
 `head_qualification_operator` example first; it binds `operator.sock`. Start a
-finite `lamp-live directed` session with all existing explicit settings plus:
+finite `lamp-voice directed` session with all existing explicit settings plus:
 
 ```text
 --camera-config ABS_PRIVATE_CAMERA_CONFIG

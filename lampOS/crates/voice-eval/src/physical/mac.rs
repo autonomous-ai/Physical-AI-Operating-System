@@ -2,7 +2,7 @@
 //! an operator-supplied command, maps Lamp time onto the runner clock with
 //! ping/pong, and starts cached stimuli on the explicit iMac speakers.
 //!
-//! In serve mode one attempt is one long-lived `lamp-live serve` runtime
+//! In serve mode one attempt is one long-lived `lamp-voice serve` runtime
 //! carrying a whole multi-turn conversation. Each stimulus is prepared
 //! (loaded, output opened in silence) before its trigger wait and started by
 //! one original expiring grant that the player enforces at its first source
@@ -253,7 +253,7 @@ impl Player for HumanPrompter {
     }
 }
 
-/// Loopback player for the fake lamp-live: sends the stimulus timing to the
+/// Loopback player for the fake lamp-voice: sends the stimulus timing to the
 /// fake room socket instead of producing sound.
 pub struct FakeRoomPlayer {
     pub room: PathBuf,
@@ -295,7 +295,7 @@ pub enum FakePlayerFault {
     SlowPrepare { delay_ms: u32 },
 }
 
-/// Loopback two-phase player for the fake lamp-live. It mirrors the
+/// Loopback two-phase player for the fake lamp-voice. It mirrors the
 /// observer's prepared contract (ready receipt, one original grant for its
 /// attempt, CLOCK_MONOTONIC expiry checked with a fresh sample immediately
 /// before the first copy) and "copies" by sending the stimulus timing to the
@@ -340,7 +340,7 @@ impl Player for FakePreparedRoomPlayer {
         if bytes.len() > ROOM_MAX_BYTES {
             return Err(invalid("stimulus timing exceeds the fake room datagram"));
         }
-        let source_sha256 = lamp_acoustic::hash(&fs::read(wav)?);
+        let source_sha256 = lamp_sound_fixtures::hash(&fs::read(wav)?);
         let room = self.room.clone();
         let cancel_file = cancel_file.to_path_buf();
         let attempt_id = format!("fake-{number}-{}", monotonic_ns());
@@ -449,7 +449,7 @@ pub enum LampMode {
     Directed {
         provider_config: String,
     },
-    /// One `lamp-live serve` runtime per attempt, stopped by the runner.
+    /// One `lamp-voice serve` runtime per attempt, stopped by the runner.
     Serve {
         provider_config: String,
     },
@@ -470,9 +470,9 @@ pub struct PhysicalConfig {
     pub room_recorder: Option<Vec<String>>,
     pub room_independent: bool,
     pub allowance_seconds: u16,
-    /// Forwarded to lamp-live so ring cues are traced and checked.
+    /// Forwarded to lamp-voice so ring cues are traced and checked.
     pub ring_channel_ceiling: Option<u16>,
-    /// lamp-live runtime policy for `directed` and `serve`; empty passes
+    /// lamp-voice runtime policy for `directed` and `serve`; empty passes
     /// nothing, so the runtime keeps its defaults.
     pub runtime_flags: crate::physical::session::RuntimeFlags,
     /// Loudspeaker replay or direct human speech; never pooled.
@@ -1729,7 +1729,7 @@ impl Backend for PhysicalBackend<'_> {
             "mode": match &self.config.mode {
                 LampMode::Fixture { sha256, .. } => json!({"provider": "fixed_reply", "reply_sha256": sha256}),
                 LampMode::Directed { .. } => json!({"provider": "gemini", "cues": "schema-1 socket required; software scheduling only"}),
-                LampMode::Serve { .. } => json!({"provider": "gemini", "runtime": "lamp-live serve, one per attempt",
+                LampMode::Serve { .. } => json!({"provider": "gemini", "runtime": "lamp-voice serve, one per attempt",
                     "cues": "schema-1 socket required; software scheduling only",
                     "start": "prepared player, one original expiring grant enforced at its first source copy",
                     "stop": "relay SIGTERM to the runtime, bounded grace, forced group kill"}),
@@ -1766,7 +1766,7 @@ impl Backend for PhysicalBackend<'_> {
                 return Some("Gemini scenario cannot run on the fixed-reply provider".into());
             }
             (LampMode::Directed { .. } | LampMode::Serve { .. }, ProviderKind::FixedReply) => {
-                return Some("fixed-reply scenario needs lamp-live directed-fixture".into());
+                return Some("fixed-reply scenario needs lamp-voice directed-fixture".into());
             }
             _ => {}
         }
@@ -1865,7 +1865,7 @@ impl Backend for PhysicalBackend<'_> {
         if let Some(ceiling) = self.config.ring_channel_ceiling {
             argv.extend(["--ring-channel-ceiling".into(), ceiling.to_string()]);
         }
-        // The relay validates these again before it starts lamp-live.
+        // The relay validates these again before it starts lamp-voice.
         argv.extend(self.config.runtime_flags.argv());
         let mut child = Command::new(&argv[0])
             .args(&argv[1..])

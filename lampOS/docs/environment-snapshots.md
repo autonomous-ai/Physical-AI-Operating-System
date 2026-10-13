@@ -18,10 +18,10 @@ per-field timestamps, sample-driven continuity, status faults and partial warmup
 The readiness invariant is usable fresh fields, not an initialized thread or a
 completed poll. Retrying or receiving a not-ready response adds no valid sample.
 
-The shared `lamp-interaction::ObservationTracker`, `BootId` and `MonoTime` provide
+The shared `lamp-turn-owner::ObservationTracker`, `BootId` and `MonoTime` provide
 ordering, worker identity and monotonic time semantics without a new common
 framework. This component has no new external dependency. Its local dependency
-on `lamp-interaction` transitively retains that crate's existing serde dependency.
+on `lamp-turn-owner` transitively retains that crate's existing serde dependency.
 
 | Explicit profile | Exported fields | Inherited freshness window, caller supplies |
 |---|---|---:|

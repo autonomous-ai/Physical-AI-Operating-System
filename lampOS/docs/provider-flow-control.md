@@ -90,7 +90,7 @@ builds:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 This includes Agent 1 `fbf9ecc3c`, Agent 2 through `447fa188b`, output credits,

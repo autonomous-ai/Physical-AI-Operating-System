@@ -1,9 +1,9 @@
-//! MAIN-021: offline verification of real lamp-live diagnostics directories,
-//! written by lamp-live's own `Recorder`, against a runtime trace.
+//! MAIN-021: offline verification of real lamp-voice diagnostics directories,
+//! written by lamp-voice's own `Recorder`, against a runtime trace.
 mod common;
 
-use lamp_interaction::BootId;
-use lamp_live::{
+use lamp_turn_owner::BootId;
+use lamp_voice::{
     diagnostic_control::{DiagnosticFinished, DiagnosticStarted, DiagnosticStream},
     diagnostics::{
         CaptureMeta, Config, DEFAULT_FINISH_WAIT, EndMeta, EndReason, PrivacyMeta, Recorder,

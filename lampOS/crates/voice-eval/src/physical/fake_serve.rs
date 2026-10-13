@@ -1,13 +1,13 @@
-//! A real-time stand-in for one long-lived `lamp-live serve` runtime, used to
+//! A real-time stand-in for one long-lived `lamp-voice serve` runtime, used to
 //! test the serve-session runner offline. It speaks serve's CLI shape
-//! (`serve CONFIG OUT --cue-socket S`), emits cues through lamp-live's own
+//! (`serve CONFIG OUT --cue-socket S`), emits cues through lamp-voice's own
 //! `CueSink`, writes serve-shaped rolling metadata
 //! (`OUT/metadata/events-{0..3}.jsonl` with a segment header and
 //! `service_sequence`, plus `health.json`), stops on SIGTERM with a final
 //! `run_end` and a `service_metadata_finished` stdout line, and models one
 //! physical-mute service cycle. The conversation is the fake runtime;
 //! stimuli arrive as fake room datagrams. It is a policy simulation of the
-//! service shape, not lamp-live, and it plays no audio.
+//! service shape, not lamp-voice, and it plays no audio.
 use crate::{
     Result,
     events::{EventKind, RuntimeEvent, to_trace},
@@ -17,9 +17,9 @@ use crate::{
     plan::{FakeProfile, FixedReply, Scenario},
     stimulus::SceneTiming,
 };
-use lamp_interaction::BootId;
 use lamp_ipc::monotonic_us;
-use lamp_live::fixture_provider::CueSink;
+use lamp_turn_owner::BootId;
+use lamp_voice::fixture_provider::CueSink;
 use serde_json::{Value, json};
 use std::{
     fs::{self, File, OpenOptions},
@@ -448,7 +448,7 @@ fn start_cycle(
     Ok(cycle)
 }
 
-/// Record the cycle's new events in lamp-live's vocabulary. The runtime's
+/// Record the cycle's new events in lamp-voice's vocabulary. The runtime's
 /// own start and end are service-level here; its failure is returned.
 fn drain(
     cycle: &mut Cycle,
@@ -488,7 +488,7 @@ fn drain(
     Ok(failure)
 }
 
-/// One record as lamp-live serve writes it. The link state readiness was
+/// One record as lamp-voice serve writes it. The link state readiness was
 /// validated against is published as current state with readiness.
 fn trace_record(cycle: &mut Cycle, event: &RuntimeEvent) -> Value {
     let owner = event

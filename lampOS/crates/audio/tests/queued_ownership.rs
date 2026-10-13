@@ -1,5 +1,5 @@
 use lamp_audio::ownership::{MAX_QUEUED_FRAMES, PlaybackOwnership, QueueError};
-use lamp_interaction::{
+use lamp_turn_owner::{
     AdmissionState, AdmittedInput, BootId, BoundaryGuard, CameraGrant, CaptureState, Controller,
     Error, MonoTime, OutputKind, OutputPermit, Permission, TurnOwner,
 };

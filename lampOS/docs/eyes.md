@@ -57,10 +57,10 @@ sees" with what has and has not been shown of it.
 
 ## When the camera is open
 
-Only while the voice service says so. `lamp-live serve`, when
+Only while the voice service says so. `lamp-voice serve`, when
 `LAMP_EYES_PERMIT_SOCKET` is set, sends `{"camera":true}` to that socket twice
 a second while the microphone is permitted, and `{"camera":false}` once, at
-once, when it is not (`crates/live/src/body_link.rs`, `EyesLink`). The eyes
+once, when it is not (`crates/voice/src/body_link.rs`, `EyesLink`). The eyes
 open the camera on the first yes and close it on a no or when no yes has come
 for 1.5 s, so a voice service that is muted, stopped or gone closes the
 lamp's eyes too. The rule is the same as for its ears: the camera may look
@@ -87,7 +87,7 @@ camera closes, for whatever reason, and when the program ends. On lamp-4ace
 `PATH` is in the service's runtime directory, which is memory, not disk.
 There is never more than that one frame, and no history.
 
-The voice service reads it (`crates/live/src/sight.rs`). When
+The voice service reads it (`crates/voice/src/sight.rs`). When
 `LAMP_EYES_SIGHT_FILE` is set in the service's environment, the provider
 worker is started with `--eyes-sight PATH`, and while a person is speaking
 it offers the file's frame to the model through `Supervisor::try_image`

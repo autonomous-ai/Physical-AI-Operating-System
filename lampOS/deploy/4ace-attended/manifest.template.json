@@ -12,7 +12,7 @@
     "packaging_base_commit": "e9bdcea282be7b787abb0568eb46a5c7958a6cce",
     "build_source_manifest_sha256": "8565c7d5b6b7eadb0e7cbf4e24c77b00bc698850f9f81c54ce3d14459a851c8b",
     "binary_sha256": "b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd",
-    "installed_binary": "/opt/lampOS/releases/b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd/lamp-live",
+    "installed_binary": "/opt/lampOS/releases/b1c61a224ea9958eeaa5f06b87fdc7591128da3daf01c21e2f3c851a7643edbd/lamp-voice",
     "unit_template_sha256": "513e313d72dae248be35058f75ada844db011bb93dedc3c086b0fcbabd8918b8",
     "native_dependency_report_sha256": null,
     "policy": {

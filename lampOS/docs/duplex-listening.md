@@ -3,7 +3,7 @@
 Scope: `MAIN-050`. The duplex turn-taking mode and the capture-clocked echo
 reference, both opt-in, on `lamp-a1-duplex`. Code:
 `crates/audio/src/{duplex,drift,evidence}.rs`,
-`crates/live/src/{turn_taking,reference,audio_workers}.rs`, and one commit
+`crates/voice/src/{turn_taking,reference,audio_workers}.rs`, and one commit
 of changes proposed to Main's coordinator, admission, options and wire.
 
 The proposal, from "Answer" on, was measured on recordings, in tests or
@@ -14,7 +14,7 @@ decision". No default changes: the mode is still chosen by flag.
 
 ## On lamp-4ace, 2026-10-12 and 13
 
-`lamp-live serve … --turn-taking duplex --microphone mic2 --reference-clock
+`lamp-voice serve … --turn-taking duplex --microphone mic2 --reference-clock
 capture`, with played prompts from another machine's loudspeakers a metre
 away unless a line says otherwise. One evening, one room, one lamp.
 
@@ -87,7 +87,7 @@ away unless a line says otherwise. One evening, one room, one lamp.
 ## Turning it on, and off
 
 ```sh
-lamp-live directed /absolute/private/provider.json 40 /new/private/run \
+lamp-voice directed /absolute/private/provider.json 40 /new/private/run \
   --turn-taking duplex --reference-clock capture
 ```
 
@@ -623,7 +623,7 @@ the frames waiting. A reference fault carries it too.
 
 ### Paced by the real clock
 
-`crates/live/examples/reference_pace.rs` runs the production reference
+`crates/voice/examples/reference_pace.rs` runs the production reference
 calls and the real canceller in one process, fed by a second process that
 sends one accepted-render packet per block of a clock running fast by a
 chosen amount, over the same datagram transport. Both are paced by the
@@ -681,7 +681,7 @@ quieter host or a lamp.
 
 ## The lab
 
-`crates/live/examples/duplex_lab.rs` replays a recorded session's
+`crates/voice/examples/duplex_lab.rs` replays a recorded session's
 microphone and accepted render through the real canceller, detector and
 evidence observer in the recorded interleave. With `--duplex` it closes
 the loop: a yield stops the recorded render after three more blocks,
@@ -826,8 +826,8 @@ Deterministic, no device, no recording:
 
 ```sh
 cargo test --locked -p lamp-audio --lib -- drift duplex evidence
-cargo test --locked -p lamp-live --lib -- reference turn_taking admission options coordinator::tests::duplex
-cargo test --locked --release -p lamp-live --lib -- four_virtual_hours --ignored
+cargo test --locked -p lamp-voice --lib -- reference turn_taking admission options coordinator::tests::duplex
+cargo test --locked --release -p lamp-voice --lib -- four_virtual_hours --ignored
 ```
 
 What the production-path tests in `coordinator/tests/duplex.rs` hold,
@@ -855,11 +855,11 @@ On `bc2f1a7df`, each from a source-only export of that commit.
 | Host, x86_64 macOS | `cargo fmt --all -- --check` | clean |
 | Host | `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | clean |
 | Host | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 1,374 passed, 0 failed, 6 ignored |
-| Host | `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | built |
-| Emulated Linux/ARM64 | `cargo clippy --locked --offline -p lamp-audio -p lamp-live --all-targets --target aarch64-unknown-linux-gnu -- -D warnings` | clean |
+| Host | `cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval` | built |
+| Emulated Linux/ARM64 | `cargo clippy --locked --offline -p lamp-audio -p lamp-voice --all-targets --target aarch64-unknown-linux-gnu -- -D warnings` | clean |
 | Emulated | `cargo test ... --release -p lamp-audio --lib -- drift duplex evidence --test-threads=1` | 21 passed |
-| Emulated | `cargo test ... --release -p lamp-live --lib -- reference turn_taking admission options coordinator::tests::duplex --test-threads=1` | 100 passed, 1 ignored |
-| Emulated | `cargo build ... --release -p lamp-live --bins --examples`, then `file` | `lamp-live`, `reference_pace` and `duplex_lab` are aarch64 ELF |
+| Emulated | `cargo test ... --release -p lamp-voice --lib -- reference turn_taking admission options coordinator::tests::duplex --test-threads=1` | 100 passed, 1 ignored |
+| Emulated | `cargo build ... --release -p lamp-voice --bins --examples`, then `file` | `lamp-voice`, `reference_pace` and `duplex_lab` are aarch64 ELF |
 
 The four-hour test ran on the host in a release build at `b09f69767`;
 `reference.rs` and `drift.rs` are the same in `bc2f1a7df`.

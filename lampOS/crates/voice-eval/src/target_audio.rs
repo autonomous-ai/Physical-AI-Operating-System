@@ -1,13 +1,13 @@
-//! Offline verification of lamp-live's certified audio diagnostics (MAIN-021).
+//! Offline verification of lamp-voice's certified audio diagnostics (MAIN-021).
 //!
 //! The runtime trace names each diagnostic stream's start identity and finish
-//! receipt. lamp-live's own certifier checks the completion marker against
+//! receipt. lamp-voice's own certifier checks the completion marker against
 //! both; this module then re-hashes every file and checks every length against
 //! that marker. A stream that fails any check is unverified, with its reason;
 //! nothing is adapted from other metadata. Render times are ALSA acceptance on
 //! the Lamp host clock, never acoustic times.
 use crate::{Result, invalid};
-use lamp_live::diagnostic_control::{
+use lamp_voice::diagnostic_control::{
     self, DiagnosticFinished, DiagnosticStarted, DiagnosticStream,
 };
 use serde::Serialize;
@@ -22,7 +22,7 @@ use std::{
 pub const RENDER_RATE: u32 = lamp_audio::RENDER_RATE;
 pub const CAPTURE_RATE: u32 = lamp_audio::CAPTURE_RATE;
 const MAX_MARKER_BYTES: u64 = 64 * 1024;
-const MAX_STREAM_BYTES: u64 = lamp_live::diagnostics::MAX_BYTES;
+const MAX_STREAM_BYTES: u64 = lamp_voice::diagnostics::MAX_BYTES;
 const MAX_RECORD_LINE: usize = 8 * 1024;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -84,7 +84,7 @@ impl TargetAudio {
             "render": stream(self.render.as_ref().map(|(s, _)| s)),
             "render_spans": self.render.as_ref().map(|(_, spans)| spans.len()).ok(),
             "capture": stream(self.capture.as_ref()),
-            "scope": "lamp-live diagnostics; host ALSA times, not acoustic times",
+            "scope": "lamp-voice diagnostics; host ALSA times, not acoustic times",
         })
     }
 }

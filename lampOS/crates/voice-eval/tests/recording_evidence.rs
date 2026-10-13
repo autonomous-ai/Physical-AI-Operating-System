@@ -1,7 +1,7 @@
 //! Synthetic file-only regressions. Never opens an audio device or transport.
 mod common;
 
-use lamp_acoustic::hash;
+use lamp_sound_fixtures::hash;
 use lamp_voice_eval::{
     annotations::{Annotations, AttemptAnnotation, StepAnnotation},
     import::{

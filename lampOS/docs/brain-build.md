@@ -158,10 +158,10 @@ killed, and what the others do is counted.
 
 | Component | Process | Owns | Owner | With it gone |
 |---|---|---|---|---|
-| Voice | `lamp-live` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
+| Voice | `lamp-voice` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
 | Body | `lamp-body` | The servo bus; standing, turning to a face, gestures | open | The lamp talks and does not move. Running today |
 | Eyes | `lamp-eyes` | The camera; whether a face is there, where, and later whose; the picture for a look | open | The lamp talks and moves without looking at anyone, says no hello, and says its eye is shut when asked to look. Running today |
-| Executive | `lamp-exec` (new; what the voice expects of it is written in [tools.md](tools.md)) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
+| Executive | `lamp-actions` (new; what the voice expects of it is written in [tools.md](tools.md)) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
 | Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
 | Memory | `lamp-memory` ([memory.md](memory.md); written and tested, not on a lamp) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
@@ -371,7 +371,7 @@ Two more facts of the same kind:
   gracias." got "You're welcome!"). Being new is itself a cue. A switch
   now lets each new session be told, in a turn that asks for no answer,
   that nobody is talking to the lamp at the moment
-  (`crates/live/src/session_fact.rs`); it is off, and what it does to a
+  (`crates/voice/src/session_fact.rs`); it is off, and what it does to a
   first turn is unmeasured.
 - One picture anywhere in a session made every later answer about 0.45 s
   slower (medians 1.32 s and 1.78 s over six balanced runs). What is put
@@ -493,7 +493,7 @@ while the others are counted.
 | 0 | The bus | Publish and subscribe with no process in the middle (`lamp-bus`, [bus.md](bus.md)) |
 | 1 | The sensors on the bus | `mic1` from a driver of its own, a copy of `mic2`, the camera's newest frame, `servos`, `people` |
 | 2 | The lamp outlives the provider | No exit for a refused quota, a stalled link or a dead worker |
-| 3 | The executive and the tools | `lamp-exec`; V1's 21 commands as the Live model's tools. Try: "Lamp, dim a little." |
+| 3 | The executive and the tools | `lamp-actions`; V1's 21 commands as the Live model's tools. Try: "Lamp, dim a little." |
 | 4 | Memory, and who is there | `lamp-memory`; faces recognised, one memory for each person |
 | 5 | One task, out and back | `lamp-tasks` through Harness on the lamp. Try: "Lamp, ask my coding agent to…" |
 | 6 | Questions and interruptions around a task | The agent's question asked at a pause; stopping speech never cancels work |

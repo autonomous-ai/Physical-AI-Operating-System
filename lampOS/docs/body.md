@@ -1,6 +1,6 @@
 # The lamp's small body
 
-`lamp-body` (crate `lamp-motor`, `src/body.rs`, `src/gesture.rs`,
+`lamp-body` (crate `lamp-body`, `src/body.rs`, `src/gesture.rs`,
 `src/bin/lamp-body.rs`) moves the lamp's head a few degrees for what the lamp
 is doing: a lift and a tilt while someone speaks to it, a look away while it
 has not answered yet, small nods on its own voice while it speaks, and back to
@@ -105,7 +105,7 @@ seconds at most), and prints one JSON report either way.
 ## What moves it
 
 The voice service names a mood and a voice level; the body decides the rest.
-`lamp-live serve` sends one datagram to the path in `LAMP_BODY_MOOD_SOCKET`,
+`lamp-voice serve` sends one datagram to the path in `LAMP_BODY_MOOD_SOCKET`,
 when that is set, on every change of mood and otherwise every 40 ms:
 
 ```json
@@ -330,7 +330,7 @@ and 800 counts a second:
 
 The voice service asks for one on the mood socket, `{"gesture":"nod"}`; a
 name that is not a clip is ignored. It asks at most once an answer, from the
-first words of what the lamp itself says (`crates/live/src/body_link.rs`,
+first words of what the lamp itself says (`crates/voice/src/body_link.rs`,
 `cue_for`): a nod with "yes", "sure", "of course", "okay"; a shake with "no",
 "nope", "I don't think"; a greeting with "hello", "hi", "good morning"; a
 laugh with "haha"; the shy dip with "thank you". Most answers begin with
@@ -406,7 +406,7 @@ side), so a wider reach makes every gesture larger. The head's pitch window,
 the load, tracking, drift, status and heat rules do not change with it.
 
 It takes the same exclusive ownership of the servo port as
-`lamp-motor-inspect`, so neither can run while the other does. Stop every
+`lamp-body-inspect`, so neither can run while the other does. Stop every
 other owner of the port first.
 
 ## First run on a lamp
@@ -486,7 +486,7 @@ rest without reading over 90. The bound is 20 counts now.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-motor` (221 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (221 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -499,7 +499,7 @@ and a silent wire each end it, while one hot reading does not; that a head
 found 43 counts from a given home is brought there in small steps and never
 away from it, and one found 100 counts away is refused; and that a mood that
 stops arriving returns it home.
-`gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-live`
+`gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 
 Standing up, in the same simulation with a shoulder and an elbow that follow
@@ -529,7 +529,7 @@ its reach, and comes home; and that without a face, or without eyes, the
 goals written are exactly those of a body that has none.
 
 Gestures (`clips::tests`, three in `body::tests`, and `body_link::tests` in
-`lamp-live`): every clip begins and ends at nothing and stays inside its
+`lamp-voice`): every clip begins and ends at nothing and stays inside its
 speed and size; a standing lamp asked to nod makes the clip's move, for the
 clip's time, with no goal jumping, and stands afterwards exactly as it
 stood; a gesture asked of a rising lamp begins when it stands, and one

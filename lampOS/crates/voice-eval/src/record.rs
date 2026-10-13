@@ -14,15 +14,15 @@ use serde_json::Value;
 pub enum Stratum {
     /// Fake runtime with declared speech-activity intervals.
     FakeTiming,
-    /// Fake runtime with lamp-live's VAD on the exact cached digital mixes.
+    /// Fake runtime with lamp-voice's VAD on the exact cached digital mixes.
     FakeSignal,
-    /// Real Lamp, `lamp-live directed-fixture`; source recorded separately.
+    /// Real Lamp, `lamp-voice directed-fixture`; source recorded separately.
     PhysicalFixture,
-    /// Real Lamp, `lamp-live directed` with Gemini; source recorded separately.
+    /// Real Lamp, `lamp-voice directed` with Gemini; source recorded separately.
     PhysicalGemini,
-    /// Real Lamp, one `lamp-live serve` runtime carrying a whole conversation.
+    /// Real Lamp, one `lamp-voice serve` runtime carrying a whole conversation.
     PhysicalServe,
-    /// An existing lamp-live trace scored against a declared scenario.
+    /// An existing lamp-voice trace scored against a declared scenario.
     ImportedTrace,
 }
 impl Stratum {
@@ -39,12 +39,12 @@ impl Stratum {
         match self {
             Self::FakeTiming => "fake runtime, declared timing (policy simulation; not acoustic)",
             Self::FakeSignal => {
-                "fake runtime, digital cached audio through lamp-live VAD (not room audio)"
+                "fake runtime, digital cached audio through lamp-voice VAD (not room audio)"
             }
             Self::PhysicalFixture => "physical Lamp, cached fixed reply",
             Self::PhysicalGemini => "physical Lamp, Gemini",
             Self::PhysicalServe => "physical Lamp, one Gemini serve session per conversation",
-            Self::ImportedTrace => "imported lamp-live trace, declared attribution",
+            Self::ImportedTrace => "imported lamp-voice trace, declared attribution",
         }
     }
 }
@@ -235,7 +235,7 @@ pub struct AttemptRecord {
     pub seed: Option<u64>,
     pub step_domain: ClockDomain,
     pub steps: Vec<StepRecord>,
-    /// Authoritative runtime events (fake output or the final lamp-live trace).
+    /// Authoritative runtime events (fake output or the final lamp-voice trace).
     pub events: Vec<RuntimeEvent>,
     /// Events seen live for triggering (cues/stdout), retained for audit.
     #[serde(default)]

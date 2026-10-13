@@ -42,8 +42,8 @@ plus an optional ring worker. It does not compose the whole robot. In particular
 
 ## Main agent: interaction owner, service and final integration
 
-Own `crates/interaction/**`, `crates/motor/**`, `crates/ring/**`,
-`crates/live/src/coordinator/**`, `coordinator.rs`,
+Own `crates/turn-owner/**`, `crates/body/**`, `crates/ring/**`,
+`crates/voice/src/coordinator/**`, `coordinator.rs`,
 `admission.rs`, `activity.rs`, `choreography.rs`, `process.rs`, shared wire/config/
 CLI registration, physical-control workers, runtime packaging and the shared
 integration branch.
@@ -133,7 +133,7 @@ host timing, emulated ARM, cloud protocol and physical acoustic evidence.
 
 ## Agent 2: camera, perception and acceptance infrastructure
 
-Own `crates/camera/**`, `crates/voice-eval/**`, `crates/acoustic/**`,
+Own `crates/camera/**`, `crates/voice-eval/**`, `crates/sound-fixtures/**`,
 `crates/observer/**`, camera-specific live files and new perception/frame-delivery
 modules. Keep the main agent as the writer of shared coordinator, wire,
 CLI and workspace registration; agree the interfaces before implementation.

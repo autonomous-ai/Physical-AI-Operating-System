@@ -38,7 +38,7 @@ prefix while remaining incomplete and invalid. The existing integration case
 also now asserts that both privacy and capture submissions were accepted.
 
 The isolated final verification passed 10 diagnostics unit tests, 18 diagnostics
-integration tests, scoped formatting and strict all-target lamp-live Clippy.
+integration tests, scoped formatting and strict all-target lamp-voice Clippy.
 All before/after sources, logs and hashes are retained. The final combined
 source and host/ARM results are recorded in
 [provider recovery integration](provider-recovery-integration.md).

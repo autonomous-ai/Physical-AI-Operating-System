@@ -11,7 +11,7 @@ serde.workspace = true
 serde_json.workspace = true
 hound.workspace = true
 sha2.workspace = true
-lamp-interaction = { path = "../interaction" }
+lamp-turn-owner = { path = "../turn-owner" }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "=1.1.5", features = ["fs"] }

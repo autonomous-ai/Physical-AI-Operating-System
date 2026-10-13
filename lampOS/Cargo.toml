@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/acoustic", "crates/interaction", "crates/ipc", "crates/audio", "crates/ring", "crates/gemini", "crates/live", "crates/endpoint-ipc", "crates/endpoint", "crates/observer", "crates/motor", "crates/camera", "crates/eyes", "crates/environment", "crates/voice-eval", "crates/memory", "crates/bus"]
+members = ["crates/sound-fixtures", "crates/turn-owner", "crates/ipc", "crates/audio", "crates/ring", "crates/gemini", "crates/voice", "crates/turn-end-wire", "crates/turn-end", "crates/observer", "crates/body", "crates/camera", "crates/eyes", "crates/environment", "crates/voice-eval", "crates/memory", "crates/bus"]
 resolver = "3"
 
 [workspace.package]

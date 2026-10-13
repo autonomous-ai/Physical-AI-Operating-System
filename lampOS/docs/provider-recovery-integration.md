@@ -77,9 +77,9 @@ These exact commands passed, sequentially:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --nocapture
-cargo test --locked --offline -p lamp-live --lib follows_output_capacity -- --ignored --nocapture --test-threads=1
+cargo test --locked --offline -p lamp-voice --lib follows_output_capacity -- --ignored --nocapture --test-threads=1
 ```
 
 The ordinary workspace run passed **810 tests, zero failed, three ignored**.
@@ -179,22 +179,22 @@ are:
 ```sh
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --target aarch64-unknown-linux-gnu --locked --offline -- -D warnings
-cargo build --release --target aarch64-unknown-linux-gnu --locked --offline -p lamp-live -p lamp-voice-eval
+cargo build --release --target aarch64-unknown-linux-gnu --locked --offline -p lamp-voice -p lamp-voice-eval
 cargo test --workspace --release --no-run --target aarch64-unknown-linux-gnu --locked --offline
 cargo test --workspace --no-fail-fast --release --target aarch64-unknown-linux-gnu --locked --offline -- --test-threads=1
 cargo test -p lamp-gemini --release --target aarch64-unknown-linux-gnu --locked --offline prolonged_conversations_with_injected_failures_keep_every_request_accounted_for -- --ignored --nocapture --test-threads=1
-cargo test -p lamp-live --release --target aarch64-unknown-linux-gnu --locked --offline sixty_second_answer_follows_output_capacity -- --ignored --nocapture --test-threads=1
-cargo test -p lamp-live --release --target aarch64-unknown-linux-gnu --locked --offline three_minute_answer_follows_output_capacity -- --ignored --nocapture --test-threads=1
+cargo test -p lamp-voice --release --target aarch64-unknown-linux-gnu --locked --offline sixty_second_answer_follows_output_capacity -- --ignored --nocapture --test-threads=1
+cargo test -p lamp-voice --release --target aarch64-unknown-linux-gnu --locked --offline three_minute_answer_follows_output_capacity -- --ignored --nocapture --test-threads=1
 ```
 
 Both release-build binaries were inspected as ARM aarch64 ELF executables:
 
-- `lamp-live` SHA256:
+- `lamp-voice` SHA256:
   `30e2c34b105fb561ed547cc9c7f85663250daeea81b2a45d4072cc76287f6d5a`.
 - `lamp-voice-eval` SHA256:
   `32adfe2f13e2be3317fcec1b9513b2b8434919a39b7f04d5e40a9d36a10f1460`.
 
-Later package-specific test compilation replaced `release/lamp-live`; its final
+Later package-specific test compilation replaced `release/lamp-voice`; its final
 hash is `d5793e8ad054bdd710d38f4e36d6324dd77193b015d6504bfbf0a55810c38434`.
 The receipt preserves both phases and their commands. The evaluator hash is
 unchanged. No binaries were copied or deployed.

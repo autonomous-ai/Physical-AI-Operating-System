@@ -114,10 +114,10 @@ measured scheduling remain explicit design obligations.
 
 ## Runtime responsibilities
 
-The entry point is `lamp-live`. The target is a small interaction/supervision
+The entry point is `lamp-voice`. The target is a small interaction/supervision
 core over Linux, with independent component workers. It is not a new kernel.
-The I/O-free `lamp-interaction` crate defines ownership, privacy and cancellation;
-`lamp-live` integrates that policy with workers. A crate is a code boundary, not
+The I/O-free `lamp-turn-owner` crate defines ownership, privacy and cancellation;
+`lamp-voice` integrates that policy with workers. A crate is a code boundary, not
 automatically a process. Different worker roles can share an executable while
 running as separate processes with their own lifetime and resource bounds.
 
@@ -142,7 +142,7 @@ inside the one core process. Owners shown are proposed human assignments.
                                    v
 INPUT WORKERS           ONE CORE PROCESS          OUTPUT WORKERS
 +-------------------+   +---------------------+   +-------------------+
-| Microphone + DSP  |-->| CORE: lamp-live     |-->| Speaker           |
+| Microphone + DSP  |-->| CORE: lamp-voice     |-->| Speaker           |
 | ndtran11-png      |   | Owner: Leo          |   | ndtran11-png      |
 +-------------------+   |                     |   +-------------------+
                         | Supervisor          |
@@ -337,7 +337,7 @@ qualification. An audio-only demo does not complete this release.
 
 ## Implemented test tooling
 
-The `lamp-acoustic` crate contains a versioned catalog of 20 desk scenarios and
+The `lamp-sound-fixtures` crate contains a versioned catalog of 20 desk scenarios and
 24 reusable utterances. Ownership, transport and audio processing now have Rust
 implementations as described below. Gemini transport and a directed voice process
 integration are described in [live runtime](live-runtime.md). The directed runtime
@@ -356,10 +356,10 @@ creates assets; a future runner must observe and execute those triggers.
 From `lampOS/`:
 
 ```sh
-cargo run -p lamp-acoustic -- list
-cargo run -p lamp-acoustic -- render .cache/acoustic .cache/render-first.json
-cargo run -p lamp-acoustic -- render .cache/acoustic .cache/render-repeat.json
-cargo run -p lamp-acoustic -- verify .cache/acoustic
+cargo run -p lamp-sound-fixtures -- list
+cargo run -p lamp-sound-fixtures -- render .cache/acoustic .cache/render-first.json
+cargo run -p lamp-sound-fixtures -- render .cache/acoustic .cache/render-repeat.json
+cargo run -p lamp-sound-fixtures -- verify .cache/acoustic
 ```
 
 The ignored `.cache/acoustic/` directory keeps rendered PCM and asset manifests
@@ -387,7 +387,7 @@ scoring will be separate run artifacts.
 
 ## Implemented runtime components
 
-`lamp-interaction` is a fixed-size, I/O-free controller with immutable turn and
+`lamp-turn-owner` is a fixed-size, I/O-free controller with immutable turn and
 output-plan tokens. An asynchronous callback retains its original plan; it cannot
 renew a cancelled turn or an obsolete listening/speaking cue. The final writer
 checks a short output permit against fresh controller authority immediately
@@ -445,7 +445,7 @@ settings and rejects short writes. Its 10 ms write budget is measured when the
 syscall returns, not a hard timeout. A supervised worker must service control
 and call its expiry tick at least every 10 ms. Cooperative file locking does
 not exclude legacy HAL or boot/shutdown services; cutover must ensure one writer.
-`lamp-live` now supplies that supervised worker and a bounded phase policy;
+`lamp-voice` now supplies that supervised worker and a bounded phase policy;
 its cooperative tick is 2 ms. Tests cover codec, cancellation, cross-channel
 ordering, stale feedback and fault paths. Physical light timing and brightness
 remain unmeasured. See [ring choreography](ring-choreography.md).

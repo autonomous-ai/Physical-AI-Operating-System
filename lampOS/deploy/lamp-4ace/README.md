@@ -1,7 +1,7 @@
 # The units lamp-4ace runs
 
 Copies of the three systemd units on lamp-4ace, the office lab prototype, as
-they were installed on 2026-10-13: its voice (`lamp-live.service`), body
+they were installed on 2026-10-13: its voice (`lamp-voice.service`), body
 (`lamp-body.service`) and eyes (`lamp-eyes.service`). The working copies are
 beside the deploy scripts on the machine that installs them; these are here
 so that what the lamp runs is in the repository. They name one lamp

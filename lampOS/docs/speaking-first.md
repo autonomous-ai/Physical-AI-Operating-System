@@ -1,6 +1,6 @@
 # Speaking first
 
-`crates/live/src/speak_up.rs`, with `lamp-eyes --presence-file` and a written
+`crates/voice/src/speak_up.rs`, with `lamp-eyes --presence-file` and a written
 request in `lamp-gemini`. Status on 2026-10-13: built, host tests, and the
 provider's part tried on lamp-4ace without a sound being played. The lamp
 has not yet said hello to anyone, nor taken a look on being asked. On
@@ -52,7 +52,7 @@ after being away for a while. Say hello the way a friend at the next desk
 would: a few warm words and no question they have to answer.)
 ```
 
-Tried on lamp-4ace through its relay with `lamp-live provider-check CONFIG
+Tried on lamp-4ace through its relay with `lamp-voice provider-check CONFIG
 --written NOTE`, which opens a session, sends the one request and plays
 nothing: with a note much like this the model answered "Hey! There you are.
 Good to see you.", 2.5 s of sound, the first of it 0.91 s after the note.
@@ -97,7 +97,7 @@ giving the model one with everything said was switched off).
 A picture leaves the lamp only on such a look: when a person has asked the
 lamp to and the lamp has said it will.
 
-Tried on lamp-4ace without a sound being played (`lamp-live provider-check
+Tried on lamp-4ace without a sound being played (`lamp-voice provider-check
 CONFIG --look PICTURE.jpg NOTE`): given a 21 KiB photograph of the office
 and a note like the one above, the model answered "I see a busy desk and a
 whole office full of chairs and computers.", the first of it 1.49 s after
@@ -116,7 +116,7 @@ request is open and no answer is unsettled (otherwise it is dropped, for
 whoever offered it to offer again).
 
 Tried on lamp-4ace through its relay without a sound being played
-(`lamp-live provider-check CONFIG --context FACT --written NOTE`, and
+(`lamp-voice provider-check CONFIG --context FACT --written NOTE`, and
 `--context FACT --then-sound-and-written NOTE`, which sends a second of
 near-silence as a heard request in between):
 
@@ -135,7 +135,7 @@ near-silence as a heard request in between):
   full and people are talking to each other" ended with "..." and no
   sound.
 
-The first use is for a new session (`crates/live/src/session_fact.rs`,
+The first use is for a new session (`crates/voice/src/session_fact.rs`,
 `LAMP_SESSION_FACT=on`): being new, a session takes the first thing it
 hears for the start of a conversation with it. Of six that opened on
 lamp-4ace in a talking office with nothing told to them, two answered a
@@ -148,7 +148,7 @@ seconds:
 and nobody is talking to you at the moment.)
 ```
 
-The second use is the room (`crates/live/src/room_told.rs`,
+The second use is the room (`crates/voice/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`; [character.md](character.md), "The rule follows the
 room"). The provider worker sees every request and whether the lamp spoke
 in it, and from that alone calls the room quiet (nothing said for five

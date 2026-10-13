@@ -5,7 +5,7 @@
 mod types;
 pub use types::*;
 
-use lamp_interaction::{BootId, Confidence, Freshness, MonoTime, Observation, ObservationTracker};
+use lamp_turn_owner::{BootId, Confidence, Freshness, MonoTime, Observation, ObservationTracker};
 
 #[derive(Debug)]
 struct Source {

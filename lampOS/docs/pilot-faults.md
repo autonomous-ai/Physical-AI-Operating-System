@@ -21,7 +21,7 @@ enabled. The tests show what the production coordinator does when one
 subsystem fails in a specific way. Whether real hardware fails in that way is
 not shown.
 
-## Harness (`crates/live/src/coordinator/tests/pilot_faults.rs`)
+## Harness (`crates/voice/src/coordinator/tests/pilot_faults.rs`)
 
 **Evidence boundary.**
 
@@ -197,7 +197,7 @@ visible. Under V1-baseline this case cannot arise.
   logs are kept. One of them failed, with FL1, and that log is kept too.
 - **O1. Intermittent failure in Main's test.**
   `failure_notice::failure_notice_failed_transport_keeps_attempt_then_uses_existing_cancellation`
-  failed once in a full parallel macOS `lamp-live` run with F1 applied.
+  failed once in a full parallel macOS `lamp-voice` run with F1 applied.
   - It passed 10/10 alone.
   - The test expects a send to a just-dropped speaker socket to fail, which
     the Unix socket may accept once.
@@ -213,19 +213,19 @@ resources.
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace --no-fail-fast
-cargo test --locked -p lamp-live --lib pilot_faults
-cargo test --locked -p lamp-live --lib pilot_faults::stalled -- --nocapture --test-threads=1
-cargo test --locked -p lamp-live --lib
+cargo test --locked -p lamp-voice --lib pilot_faults
+cargo test --locked -p lamp-voice --lib pilot_faults::stalled -- --nocapture --test-threads=1
+cargo test --locked -p lamp-voice --lib
 ```
 
 | Commit, host | Result |
 | --- | --- |
 | `1151380d`, Linux ARM64 VM | F1 reproducer (`--ignored`) fails, ended only by the 12 s scenario limit; `pilot_faults` 22 passed and 1 ignored, in 2 of 2 runs |
 | `1151380d` content, macOS | fmt and Clippy clean; `pilot_faults` 22 passed and 1 ignored in 13 of 13 runs (10 serial, 3 parallel) |
-| `33a86363`, Linux ARM64 VM | fmt and strict workspace Clippy clean. Workspace tests exit 0. Stalls: V1 "speaker write evidence expired" 204 ms, `vad-only` "speaker acknowledgment expired" 199 ms. `pilot_faults` 24/24 in 3 of 3 runs, with the peer's longest privacy gap 7.9, 32.1 and 10.0 ms. Full `lamp-live` library 501 passed, 0 failed, 4 ignored, in 3 of 3 runs |
-| `33a86363`, macOS | Clippy clean; the two stall tests in 6 of 6 runs with the reasons above; full `lamp-live` library 500 passed and 1 failed (O1) in one parallel run |
+| `33a86363`, Linux ARM64 VM | fmt and strict workspace Clippy clean. Workspace tests exit 0. Stalls: V1 "speaker write evidence expired" 204 ms, `vad-only` "speaker acknowledgment expired" 199 ms. `pilot_faults` 24/24 in 3 of 3 runs, with the peer's longest privacy gap 7.9, 32.1 and 10.0 ms. Full `lamp-voice` library 501 passed, 0 failed, 4 ignored, in 3 of 3 runs |
+| `33a86363`, macOS | Clippy clean; the two stall tests in 6 of 6 runs with the reasons above; full `lamp-voice` library 500 passed and 1 failed (O1) in one parallel run |
 
-| `95523a26` (r2), Linux ARM64 VM | fmt and strict workspace Clippy clean. `pilot_faults` 30/30 in 3 of 3 runs, with the peer's longest privacy gap 6.9–8.9 ms. Every stall control ended 199–210 ms after the stall with its expected reason. Full `lamp-live` library 507 passed, 0 failed, 4 ignored, in 2 of 2 runs |
+| `95523a26` (r2), Linux ARM64 VM | fmt and strict workspace Clippy clean. `pilot_faults` 30/30 in 3 of 3 runs, with the peer's longest privacy gap 6.9–8.9 ms. Every stall control ended 199–210 ms after the stall with its expected reason. Full `lamp-voice` library 507 passed, 0 failed, 4 ignored, in 2 of 2 runs |
 | `95523a26` content, macOS | Clippy clean; `pilot_faults` 30/30 in 5 of 5 serial runs, with the peer's longest privacy gap 14.5–32.6 ms |
 
 Earlier failures, all retained: FL1 (2), FL2 (1) and O1 (1), above. The
@@ -236,8 +236,8 @@ Earlier failures, all retained: FL1 (2), FL2 (1) and O1 (1), above. The
 Main integrated only the reviewed four-file subset from `4505ccbe`, on
 `6bf2a17b2`, with production code unchanged from `33a86363`. The source-only
 composition passed `cargo fmt --all -- --check`,
-`cargo clippy --locked --offline -p lamp-live --all-targets -- -D warnings`,
-and `cargo test --locked --offline -p lamp-live --lib -- --test-threads=1`: 507
+`cargo clippy --locked --offline -p lamp-voice --all-targets -- -D warnings`,
+and `cargo test --locked --offline -p lamp-voice --lib -- --test-threads=1`: 507
 passed, zero failed, four existing ignored. Independent review verified R2's
 required revocation and installing-stall assertions, plus the Duplex controls.
 The partial-write fixture sends half a chunk but does not independently assert

@@ -50,7 +50,7 @@ limited by the protocol's lack of transaction IDs.
 Build the standalone Linux inspector from this source with:
 
 ```text
-cargo build --release --locked --offline -j2 -p lamp-motor --bin lamp-motor-inspect
+cargo build --release --locked --offline -j2 -p lamp-body --bin lamp-body-inspect
 ```
 
 Root must qualify the Linux binary and hash, exclude every foreign bus handle,
@@ -58,7 +58,7 @@ verify exact device identity and trusted private lock directory, and retain the
 single finite report and close result. The CLI remains:
 
 ```text
-lamp-motor-inspect --device ABSOLUTE_DEVICE --unit-id EXPLICIT_UNIT \
+lamp-body-inspect --device ABSOLUTE_DEVICE --unit-id EXPLICIT_UNIT \
   --lock-directory PRIVATE_DIRECTORY
 ```
 

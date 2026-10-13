@@ -7,7 +7,7 @@ use lamp_camera::{
         STALL_DEADLINE_US,
     },
 };
-use lamp_interaction::{BootId, CameraGrant, Controller, MonoTime, Permission};
+use lamp_turn_owner::{BootId, CameraGrant, Controller, MonoTime, Permission};
 use std::{
     fs,
     io::{Read, Write},

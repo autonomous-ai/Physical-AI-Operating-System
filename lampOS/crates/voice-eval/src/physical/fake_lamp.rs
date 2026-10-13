@@ -1,7 +1,7 @@
-//! A real-time stand-in for `lamp-live` used to test the physical orchestration
+//! A real-time stand-in for `lamp-voice` used to test the physical orchestration
 //! path (relay, cue socket, clock mapping, triggered playback, trace import)
-//! without hardware. It speaks lamp-live's CLI, emits cues through lamp-live's
-//! own `CueSink`, and writes an `events.jsonl` in lamp-live's vocabulary. The
+//! without hardware. It speaks lamp-voice's CLI, emits cues through lamp-voice's
+//! own `CueSink`, and writes an `events.jsonl` in lamp-voice's vocabulary. The
 //! conversation is the fake runtime; "playback" arrives as datagrams on a fake
 //! room socket instead of sound.
 use crate::{
@@ -12,9 +12,9 @@ use crate::{
     plan::{FakeContinuation, LoadedPlan},
     stimulus::{SceneTiming, StimulusCatalog},
 };
-use lamp_interaction::BootId;
 use lamp_ipc::monotonic_us;
-use lamp_live::fixture_provider::CueSink;
+use lamp_turn_owner::BootId;
+use lamp_voice::fixture_provider::CueSink;
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -41,7 +41,7 @@ const CUE_FAULTS: [&str; 7] = [
     "foreign-completion",
 ];
 
-/// `fake-lamp-live --fake-scenario ID --fake-profile ID --fake-room SOCKET
+/// `fake-lamp-voice --fake-scenario ID --fake-profile ID --fake-room SOCKET
 /// [--fake-plan FILE] [--fake-seed N] [--fake-session-seconds N]
 /// [--fake-cue-fault KIND] [serve faults, see `fake_serve`]
 /// directed-fixture WAV SHA SECONDS OUT ... | directed CONFIG SECONDS OUT ...
@@ -135,7 +135,7 @@ pub fn run(arguments: &[String]) -> Result<i32> {
         }
         _ => {
             return Err(invalid(
-                "expected lamp-live directed-fixture or directed arguments",
+                "expected lamp-voice directed-fixture or directed arguments",
             ));
         }
     };

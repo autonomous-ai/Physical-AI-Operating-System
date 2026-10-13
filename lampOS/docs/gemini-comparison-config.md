@@ -155,7 +155,7 @@ latency, provider model availability or acoustic acceptance.
 
 ## Private runtime caller JSON
 
-`lamp_live::config::ProviderConfig::load(path).into_session()` now carries these
+`lamp_voice::config::ProviderConfig::load(path).into_session()` now carries these
 options into the same Gemini setup. A private caller file can contain:
 
 ```json
@@ -189,12 +189,12 @@ bounded to 16,384 bytes and the credential file to 4,098 bytes. The credential i
 still loaded only into the private authentication header and is absent from setup
 JSON. Provision and record the selected non-secret options separately from keys.
 
-`crates/live/tests/provider_config.rs` exercises the complete private-file path
+`crates/voice/tests/provider_config.rs` exercises the complete private-file path
 with a disposable test-only credential marker. It checks exact setup fields,
 omitted/null defaults, invalid options, unknown proxy aliases and existing file
 privacy/size/symlink guards without a provider connection:
 
 ```sh
-cargo test -p lamp-live --test provider_config --locked --offline
-cargo clippy -p lamp-live --all-targets --locked --offline -- -D warnings
+cargo test -p lamp-voice --test provider_config --locked --offline
+cargo clippy -p lamp-voice --all-targets --locked --offline -- -D warnings
 ```

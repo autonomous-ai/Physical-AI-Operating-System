@@ -1,7 +1,7 @@
 # What the model may do other than speak
 
-Scope: `crates/live/src/tools.rs`, the provider worker's `ToolDesk`
-(`crates/live/src/provider_worker.rs`), and function calls in the provider
+Scope: `crates/voice/src/tools.rs`, the provider worker's `ToolDesk`
+(`crates/voice/src/provider_worker.rs`), and function calls in the provider
 link ([gemini-session-reliability.md](gemini-session-reliability.md),
 "Function calls"). It is step 3 of [brain-build.md](brain-build.md), and the
 written interface between the Voice and the Executive.
@@ -47,9 +47,9 @@ costs an ordinary answer's first audio, has not been measured.
 
 ## The executive's
 
-The executive (`lamp-exec`, not yet built) keeps two things in its
-directory, which the voice is given as `LAMP_EXEC_DIR` (the worker's
-`--exec-dir`, an absolute path):
+The executive (`lamp-actions`, not yet built) keeps two things in its
+directory, which the voice is given as `LAMP_ACTIONS_DIR` (the worker's
+`--actions-dir`, an absolute path):
 
     <dir>/tools.json    {"tools":[{"name":"light_on","description":"...","parameters":{...}}]}
     <dir>/call.sock     a Unix stream socket
@@ -96,7 +96,7 @@ treated as no answer.
 
 ## Trying it without a sound
 
-    lamp-live provider-check /etc/lampOS/voice/provider.json --tools --written "NOTE"
+    lamp-voice provider-check /etc/lampOS/voice/provider.json --tools --written "NOTE"
 
 opens one session told of `not_for_me` and of a sample `light_colour`,
 sends the note as a written request, answers every call as done, and

@@ -1,8 +1,8 @@
 //! Shared helpers: private temporary directories and a synthetic acoustic cache
-//! built through lamp-acoustic's own cache API. Synthetic tones stand in for
+//! built through lamp-sound-fixtures's own cache API. Synthetic tones stand in for
 //! speech only to exercise code paths; they are never fixture speech.
 #![allow(dead_code)]
-use lamp_acoustic::{Asset, Cache, RenderReport, SceneAsset, hash, write_wave};
+use lamp_sound_fixtures::{Asset, Cache, RenderReport, SceneAsset, hash, write_wave};
 use lamp_voice_eval::stimulus::StimulusCatalog;
 use std::{
     fs,
@@ -39,7 +39,7 @@ impl Drop for Private {
     }
 }
 
-/// A 200 Hz tone where each clip of the scene is "spoken". lamp-live's VAD
+/// A 200 Hz tone where each clip of the scene is "spoken". lamp-voice's VAD
 /// scores such a tone as speech, which is itself a finding about the gate.
 pub fn tone_scene(catalog: &StimulusCatalog, scene: &str, amplitude: f32) -> Vec<f32> {
     let timing = catalog.estimate(scene).unwrap();

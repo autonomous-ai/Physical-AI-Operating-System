@@ -18,7 +18,7 @@ supervised pilot ([supervised-pilot.md](supervised-pilot.md)).
 
 | | Command line | Endpoint |
 | --- | --- | --- |
-| Baseline (unchanged default) | `lamp-live directed … --turn-taking v1-baseline`, or `lamp-live serve … --turn-taking duplex` | 1,200 ms of quiet; no endpoint worker starts |
+| Baseline (unchanged default) | `lamp-voice directed … --turn-taking v1-baseline`, or `lamp-voice serve … --turn-taking duplex` | 1,200 ms of quiet; no endpoint worker starts |
 | Candidate | The same command plus `--endpoint smart-turn` | Parity profile: a confident complete verdict ends at 1,000 ms of quiet, a clearly unfinished one at 1,500 ms, anything else and every failure at 1,200 ms |
 
 Duplex gates the scores that the same baseline detector sees, so the
@@ -174,16 +174,16 @@ motor code.
 
 | Commit | Files | Content | Shared? |
 | --- | --- | --- | --- |
-| `42a07701` | `crates/endpoint-ipc/**`, `crates/endpoint/**` | Worker, IPC, supervisor, features, pinned model loading, process and parity tests, fixture provenance | New crates only |
-| `1d94414d` | `Cargo.toml`, `Cargo.lock`, `crates/live/Cargo.toml` | Two workspace members; `lamp-live` → `lamp-endpoint-ipc`; 65 added lock entries, none removed or changed | Shared |
-| `ae5fea33` | `crates/live/src/activity.rs`, `crates/live/tests/endpoint_confirmation.rs` | Detector seam, baseline-exact pauses, parity `ConfirmPolicy`; no early end | Shared (`activity.rs`) |
+| `42a07701` | `crates/turn-end-wire/**`, `crates/turn-end/**` | Worker, IPC, supervisor, features, pinned model loading, process and parity tests, fixture provenance | New crates only |
+| `1d94414d` | `Cargo.toml`, `Cargo.lock`, `crates/voice/Cargo.toml` | Two workspace members; `lamp-voice` → `lamp-turn-end-wire`; 65 added lock entries, none removed or changed | Shared |
+| `ae5fea33` | `crates/voice/src/activity.rs`, `crates/voice/tests/endpoint_confirmation.rs` | Detector seam, baseline-exact pauses, parity `ConfirmPolicy`; no early end | Shared (`activity.rs`) |
 | `3de3b636` | `coordinator.rs`, `coordinator/endpoint.rs`, `options.rs`, `coordinator/tests/endpoint_session.rs`, and one `endpoint: None` field in the test `Rig` literals of `camera.rs`, `optional_ring_tests.rs`, `provider_terminal.rs`, `service_mute.rs`, `termination.rs`, `motor/tests.rs`, `tests/pilot_faults.rs` | `--endpoint smart-turn`, worker start in `spawn_rig`, traces, confirmed-reap teardown, full-session stress tests; the baseline `endpoint_policy` record keeps its fields | Shared |
-| `fc55a090` | `crates/endpoint/{Cargo.toml,src/main.rs,src/lib.rs,src/reference.rs,tests/parity.rs}`, `crates/endpoint-ipc/tests/process.rs` | `--check-model` self-check, Linux resource bounds, damaged-model and idle tests | New crates only |
-| `afd2c52b` | `crates/live/src/coordinator/tests/endpoint_session.rs` | Emulated endpoint sessions run one at a time | Agent 2 test file |
-| `eea0ac0c` | `crates/endpoint/src/main.rs` and tests | Worker bounds never raise an inherited soft or hard limit (MAIN-059) | New crates only |
-| `e053b100` | `crates/live/src/coordinator.rs` | Baseline `local_endpoint` records keep their exact fields | Shared |
-| `98075207` | `crates/voice-eval/src/{main.rs,physical/session.rs}`, `crates/voice-eval/tests/serve_plan.rs`, `fixtures/voice-eval-serve-endpoint-trial.example.json` | `--endpoint` as a typed runtime flag beside `--microphone`, validated by lamp-live's parser; the trial configuration | Agent 2 crate |
-| `549daeb7` | `crates/live/src/options.rs`, `coordinator/tests/endpoint_session.rs` (and formatting in `coordinator.rs`, `coordinator/endpoint.rs`) | Smart-turn on duplex, with duplex full-session tests | Shared (`options.rs`) |
+| `fc55a090` | `crates/turn-end/{Cargo.toml,src/main.rs,src/lib.rs,src/reference.rs,tests/parity.rs}`, `crates/turn-end-wire/tests/process.rs` | `--check-model` self-check, Linux resource bounds, damaged-model and idle tests | New crates only |
+| `afd2c52b` | `crates/voice/src/coordinator/tests/endpoint_session.rs` | Emulated endpoint sessions run one at a time | Agent 2 test file |
+| `eea0ac0c` | `crates/turn-end/src/main.rs` and tests | Worker bounds never raise an inherited soft or hard limit (MAIN-059) | New crates only |
+| `e053b100` | `crates/voice/src/coordinator.rs` | Baseline `local_endpoint` records keep their exact fields | Shared |
+| `98075207` | `crates/voice-eval/src/{main.rs,physical/session.rs}`, `crates/voice-eval/tests/serve_plan.rs`, `fixtures/voice-eval-serve-endpoint-trial.example.json` | `--endpoint` as a typed runtime flag beside `--microphone`, validated by lamp-voice's parser; the trial configuration | Agent 2 crate |
+| `549daeb7` | `crates/voice/src/options.rs`, `coordinator/tests/endpoint_session.rs` (and formatting in `coordinator.rs`, `coordinator/endpoint.rs`) | Smart-turn on duplex, with duplex full-session tests | Shared (`options.rs`) |
 | docs commits | `docs/endpoint-detection.md`, `docs/endpoint-pilot.md`, `coordination/agent-2.md` | This package | Agent 2 files |
 
 The hash of the docs and status commit is in
@@ -197,11 +197,11 @@ The hash of the docs and status commit is in
 | --- | --- |
 | Source | `https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx` |
 | Revision | `f766f81d3cfdf7737ac64aad813d91bbfd56bf93` |
-| Installed name | `smart-turn-v3.2-gpu.onnx`, beside `lamp-live` and `lamp-endpoint-worker` |
+| Installed name | `smart-turn-v3.2-gpu.onnx`, beside `lamp-voice` and `lamp-turn-end` |
 | Size | 32,411,198 bytes |
 | SHA256 | `ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be` |
 | License | BSD-2-Clause |
-| Pinned in | `lamp_endpoint_ipc::SMART_TURN_MODEL_SHA256` (core) and `lamp_endpoint::SMART_TURN_V3_2` (worker) |
+| Pinned in | `lamp_turn_end_wire::SMART_TURN_MODEL_SHA256` (core) and `lamp_turn_end::SMART_TURN_V3_2` (worker) |
 | Not used | The int8 `smart-turn-v3.2-cpu.onnx`: tract 0.23.8 mis-executes its uint8 quantize/dequantize pairs |
 
 The core refuses a worker whose `Ready` reports any other SHA256. The worker
@@ -211,20 +211,20 @@ refuses any other bytes before the ONNX parser reads them.
 
 | Binary | Links | Linux ARM64 VM size, release / stripped |
 | --- | --- | --- |
-| `lamp-live` | `lamp-endpoint-ipc` (no third-party crate added) | 9,665,032 bytes at `b1f43e50` (first package: 8,406,016 at `892ec0a1` → 8,506,584 bytes / 6,165,560 → 6,231,096 bytes) |
-| `lamp-endpoint-worker` | tract 0.23.8 and the crates below | 24,233,112 / 17,776,360 bytes |
+| `lamp-voice` | `lamp-turn-end-wire` (no third-party crate added) | 9,665,032 bytes at `b1f43e50` (first package: 8,406,016 at `892ec0a1` → 8,506,584 bytes / 6,165,560 → 6,231,096 bytes) |
+| `lamp-turn-end` | tract 0.23.8 and the crates below | 24,233,112 / 17,776,360 bytes |
 
 ### Rust dependencies
 
 - **Toolchain.** Rust 1.96.0 (`rust-toolchain.toml`); build with `--locked`.
-- **Direct dependencies of `lamp-endpoint`:**
+- **Direct dependencies of `lamp-turn-end`:**
   - `tract-onnx =0.23.8` with default features off;
   - `rustfft =6.4.1`;
   - `sha2` (workspace);
   - `rustix =1.1.5`, with features `process` and `time`.
-- **`lamp-endpoint-ipc`** depends only on `lamp-ipc`. It adds nothing to
-  `lamp-live`'s third-party tree:
-  `cargo tree --locked -p lamp-live -e normal --target all` lists no new
+- **`lamp-turn-end-wire`** depends only on `lamp-ipc`. It adds nothing to
+  `lamp-voice`'s third-party tree:
+  `cargo tree --locked -p lamp-voice -e normal --target all` lists no new
   third-party package.
 - **Lockfile.** The 63 third-party lock entries added against `892ec0a1` are
   listed in the [appendix](#appendix-added-lock-entries), with versions,
@@ -250,7 +250,7 @@ later. The bundle has no credentials and no audio. It is stored on M2 at
 | `smart-turn-v3.2-gpu.onnx` | 32,411,198 | `ab8dc64b88713f90b571c15b714bd1330e6c883cad8763dacf65c9376dc539be` |
 | `README.txt` | 1,352 | `0fed97e9fa1b71c146a68f95098a60c3aa6f12d1cd4e45baced5e85ea1c22196` |
 
-The same gate's `lamp-live` is 9,665,032 bytes, SHA256
+The same gate's `lamp-voice` is 9,665,032 bytes, SHA256
 `e0c306772c4ff6cd175894e8face40b6d7f3c9f7ecc74412e31d987abe61dc62`. It is not
 in the bundle: root builds and composes the shared runtime. Embedded build
 paths may change the hash of another build of the same commit.
@@ -276,14 +276,14 @@ These are not A733 numbers.
 ## Preparation and check (Rust only)
 
 ```sh
-cargo build --locked --release -p lamp-live -p lamp-endpoint
+cargo build --locked --release -p lamp-voice -p lamp-turn-end
 curl -fsSL --max-filesize 33000000 -o target/release/smart-turn-v3.2-gpu.onnx \
   https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx
-target/release/lamp-endpoint-worker --check-model target/release/smart-turn-v3.2-gpu.onnx
+target/release/lamp-turn-end --check-model target/release/smart-turn-v3.2-gpu.onnx
 ```
 
-Install `lamp-endpoint-worker` and the model in the same directory as
-`lamp-live`. Then run `--check-model` there, as the service user, under the
+Install `lamp-turn-end` and the model in the same directory as
+`lamp-voice`. Then run `--check-model` there, as the service user, under the
 service's own limits. It runs these steps:
 
 1. Applies the worker's Linux bounds.
@@ -454,7 +454,7 @@ Applies to the candidate (`--endpoint smart-turn`) only.
 
 ### Before the first candidate session
 
-1. **Device self-check.** `lamp-endpoint-worker --check-model` on the device,
+1. **Device self-check.** `lamp-turn-end --check-model` on the device,
    run as the service user and under its limits, exits 0.
 2. **Bounds.** Its `warm_max_ms` is below 400. A slower device falls back on
    most pauses and cannot show a benefit, so keep the baseline.
@@ -479,7 +479,7 @@ Restart without `--endpoint smart-turn` on any one of these:
 3. **Unreaped worker.** Any of:
    - `endpoint_worker_final` with `reaped` false;
    - a cleanup failure naming the endpoint worker;
-   - a `lamp-endpoint-worker` process alive after `lamp-live` has exited.
+   - a `lamp-turn-end` process alive after `lamp-voice` has exited.
 4. **Audio disturbed.** More `playback_gap` events or capture faults per turn
    than in the paired baseline session.
 5. **Continuations after model endpoints.** Three or more interrupted
@@ -521,9 +521,9 @@ Record for each session:
 ## Appendix: added lock entries
 
 Against `892ec0a1`, `Cargo.lock` gains these 63 third-party entries and the two
-workspace crates `lamp-endpoint` and `lamp-endpoint-ipc`. No entry is removed
+workspace crates `lamp-turn-end` and `lamp-turn-end-wire`. No entry is removed
 or changed. "Compiled" means the package is in
-`cargo tree --locked -p lamp-endpoint -e normal --target aarch64-unknown-linux-gnu`.
+`cargo tree --locked -p lamp-turn-end -e normal --target aarch64-unknown-linux-gnu`.
 
 | Crate | Version | License | Compiled | Cargo.lock checksum (SHA256) |
 | --- | --- | --- | --- | --- |

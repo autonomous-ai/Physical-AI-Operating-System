@@ -1,6 +1,6 @@
 # Ranked voice defects (voice-evaluation workstream, Agent 2)
 
-Checkpoint 2026-10-11, against `lamp-live` at `23bde487` (candidates before
+Checkpoint 2026-10-11, against `lamp-voice` at `23bde487` (candidates before
 admission; directed mode still accepts VAD-only activity). Lamp was unavailable,
 so every new result below is a **fake-runtime policy reproduction**, not a
 physical measurement, unless it cites a retained physical trial. Simulation
@@ -120,12 +120,12 @@ attempt under `attempts/`, including the exact reproduction command.
 - **Expected:** bounded waiting with an honest notice or retry; a deliberate,
   measured holdback policy for supply stalls (no stock fillers).
 
-## D9. Steady tones score as speech in lamp-live's VAD (Codex; needs physical check)
+## D9. Steady tones score as speech in lamp-voice's VAD (Codex; needs physical check)
 
 - **Evidence:** host-only signal probe: a 200 Hz tone reaches ~0.97 speech
   probability and is admitted under the 6 x 0.80 start rule; white noise peaks
   near 0.77 and is not. Host numerics can differ from native ARM64.
-- **Reproduce:** `cargo test -p lamp-voice-eval --test fake_runtime signal_mode_uses_lamp_live_vad_on_the_exact_cached_mix`
+- **Reproduce:** `cargo test -p lamp-voice-eval --test fake_runtime signal_mode_uses_lamp_voice_vad_on_the_exact_cached_mix`
 - **Expected:** notification beeps or music do not open a turn. Needs a physical
   check with real computer audio before acting on it.
 
@@ -143,7 +143,7 @@ no unterminated turns).
 
 ## Needed from other workstreams to test these physically
 
-- **P1 (Codex):** pass `--cue-socket` through `lamp-live directed` and add
+- **P1 (Codex):** pass `--cue-socket` through `lamp-voice directed` and add
   `input_admitted` and `local_endpoint` cue kinds. Until then, Gemini follow-ups,
   short answers, interruptions and acknowledgments can only run with the
   fixture provider, and those scenarios are withheld rather than run on fixed delays.

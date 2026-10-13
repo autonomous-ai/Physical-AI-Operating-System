@@ -51,7 +51,7 @@ an expired lease are discarded; a later allowed grant cannot relabel them.
 source, negotiated mode and timestamps through the delivery boundary. A delayed
 old delivery completion cannot release a newer in-flight frame.
 
-The `lamp-live` camera worker drains priority control before polling, again after a
+The `lamp-voice` camera worker drains priority control before polling, again after a
 port call returns, and before metadata handoff. These synchronous methods do
 not process concurrently arriving control messages themselves. Finite
 `maintain` calls remain necessary when no consumer wants images. Explicit
@@ -282,7 +282,7 @@ Construction/open/STREAMON alone never means camera or listening readiness.
 The Linux-only CLI entry is:
 
 ```text
-lamp-live camera-inspect /run/lampOS/camera.json 10 /run/lampOS/camera-report-001.json
+lamp-voice camera-inspect /run/lampOS/camera.json 10 /run/lampOS/camera-report-001.json
 ```
 
 This is explicit operator invocation, **not** a service, boot behavior, camera
@@ -437,7 +437,7 @@ composite USB microphone. Opening a camera is not permission to move Lamp.
 
 ## Verification and dependencies
 
-Portable lifecycle dependency: local `lamp-interaction`. Linux adds local
+Portable lifecycle dependency: local `lamp-turn-owner`. Linux adds local
 `lamp-ipc`, exact `rustix 1.1.5` (fs/process features), and exact `v4l2r 0.0.8`.
 All Lamp-owned code is Rust. There is no Python, OpenCV, libcamera, FFmpeg,
 libv4l2 C runtime, inference library or legacy HAL dependency.
@@ -508,12 +508,12 @@ and [actual frame intervals](https://www.kernel.org/doc/html/latest/userspace-ap
 Run from the lampOS root:
 
 ```text
-cargo +stable test --locked -p lamp-camera -p lamp-interaction
-cargo +stable clippy --locked -p lamp-camera -p lamp-interaction --all-targets -- -D warnings
-cargo +stable fmt -p lamp-camera -p lamp-interaction -- --check
-cargo +stable test --locked -p lamp-live
-cargo +stable clippy --locked -p lamp-live --all-targets -- -D warnings
-cargo +stable fmt -p lamp-live -- --check
+cargo +stable test --locked -p lamp-camera -p lamp-turn-owner
+cargo +stable clippy --locked -p lamp-camera -p lamp-turn-owner --all-targets -- -D warnings
+cargo +stable fmt -p lamp-camera -p lamp-turn-owner -- --check
+cargo +stable test --locked -p lamp-voice
+cargo +stable clippy --locked -p lamp-voice --all-targets -- -D warnings
+cargo +stable fmt -p lamp-voice -- --check
 ```
 
 Synthetic regressions cover closed startup, no readiness without a first frame,
@@ -529,7 +529,7 @@ tests cover the checked union, explicit identity/configuration and construction
 without device access. Host tests do not compile the Linux adapter; isolated
 native ARM64 compilation/test/clippy is required before any physical inspection.
 There have been no camera device opens or camera hardware measurements for this
-library slice. The finite `lamp-live camera-inspect` integration described above
+library slice. The finite `lamp-voice camera-inspect` integration described above
 is separate and remains a metadata-only qualifier, not a full vision runtime.
 
 

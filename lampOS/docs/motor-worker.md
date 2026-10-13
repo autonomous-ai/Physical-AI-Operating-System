@@ -1,8 +1,8 @@
 # Supervised motor worker
 
-`lamp-motor-worker` is an opt-in, separate Rust process over the existing
-`MotorControl` and `linux::motion::LinuxMotor`. It adds no gesture policy. `lamp-live` can explicitly opt into an idle worker;
-see [live motor integration](live-motor-integration.md). No default invocation launches it. The read-only `lamp-motor-inspect` is unchanged.
+`lamp-body-worker` is an opt-in, separate Rust process over the existing
+`MotorControl` and `linux::motion::LinuxMotor`. It adds no gesture policy. `lamp-voice` can explicitly opt into an idle worker;
+see [live motor integration](live-motor-integration.md). No default invocation launches it. The read-only `lamp-body-inspect` is unchanged.
 Opening the explicitly provisioned port starts idle: no probes, goals, park,
 torque, speed, acceleration, mode or EEPROM writes occur automatically.
 
@@ -18,7 +18,7 @@ There is no automatic torque-off, reopen, retry or recovery gesture.
 The supervisor library launches the dedicated executable with exactly:
 
 ```text
-lamp-motor-worker --config PRIVATE_JSON --directory FRESH_PRIVATE_DIRECTORY \
+lamp-body-worker --config PRIVATE_JSON --directory FRESH_PRIVATE_DIRECTORY \
   --controller CONTROLLER_BOOT_HEX --worker WORKER_BOOT_HEX --parent-pid PID
 ```
 
@@ -202,7 +202,7 @@ The extracted AArch64 worker SHA-256 is
 ELF inspection and inert QEMU CLI usage passed without opening hardware. Exact
 commands, logs and extraction receipts are retained locally under
 `/private/tmp/lamp-motor-composed-_8riuiv1/arm/evidence/`. The worker is integrated
-as an opt-in component; default `lamp-live` invocations do not start it. No on-device motion or
+as an opt-in component; default `lamp-voice` invocations do not start it. No on-device motion or
 physical stop latency has been measured for this worker.
 
 The additive `SelectedSegment` command is described in the [selected-joint contract](motor-selected-joints.md). Existing `Segment` retains all-five behavior; host receipts identify the emitted selection.

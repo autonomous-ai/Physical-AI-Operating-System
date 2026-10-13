@@ -1,8 +1,8 @@
-//! Lamp-side relay for one lamp-live session: a finite `directed` or
+//! Lamp-side relay for one lamp-voice session: a finite `directed` or
 //! `directed-fixture` run, or one long-lived `serve` runtime.
 //!
 //! It creates a fresh private work directory, binds the cue socket that
-//! lamp-live's `--cue-socket` connects to, starts the runtime, and relays
+//! lamp-voice's `--cue-socket` connects to, starts the runtime, and relays
 //! cues, stdout lines and ping replies as JSON lines. After a finite runtime
 //! exits (or is killed at the hard deadline) it streams the final
 //! `events.jsonl`. A serve runtime runs until the runner's `stop` line, the
@@ -10,7 +10,7 @@
 //! (SIGTERM, a bounded grace, then a forced group kill), and the relay then
 //! streams the rolling `metadata/events-*.jsonl` in generation order. It
 //! never stops or starts services and never touches mixers or motors;
-//! lamp-live itself refuses to run while legacy owners are active.
+//! lamp-voice itself refuses to run while legacy owners are active.
 //!
 //! Every relayed stream is framed with a fixed per-line bound; oversized,
 //! non-UTF-8 or cut-off lines are explicit failures in `session_end`, never
@@ -32,7 +32,7 @@ use crate::{
     },
 };
 use lamp_ipc::monotonic_us;
-use lamp_live::{
+use lamp_voice::{
     options::{
         DirectedOptions, Endpoint, Microphone, PlayoutStart, ReferenceClock, ReferenceRecovery,
         TurnTaking,
@@ -60,14 +60,14 @@ pub enum SessionMode {
     Directed {
         provider_config: PathBuf,
     },
-    /// One long-lived `lamp-live serve` runtime; `seconds` bounds it.
+    /// One long-lived `lamp-voice serve` runtime; `seconds` bounds it.
     Serve {
         provider_config: PathBuf,
     },
 }
 
-/// lamp-live runtime policy the relay forwards to `directed` and `serve`,
-/// typed with lamp-live's own option types. An omitted flag is not passed,
+/// lamp-voice runtime policy the relay forwards to `directed` and `serve`,
+/// typed with lamp-voice's own option types. An omitted flag is not passed,
 /// so the runtime keeps its own default and the child argv is unchanged.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RuntimeFlags {
@@ -77,13 +77,13 @@ pub struct RuntimeFlags {
     pub reference_recovery: Option<ReferenceRecovery>,
     pub playout_start_ms: Option<u16>,
     pub provider_continuation: Option<Continuation>,
-    /// Opt-in end-of-turn experiment; absent keeps lamp-live's default.
+    /// Opt-in end-of-turn experiment; absent keeps lamp-voice's default.
     pub endpoint: Option<Endpoint>,
 }
 
 impl RuntimeFlags {
     /// Take one runtime flag and its value; false when `flag` is not one.
-    /// Values use lamp-live's own parsers; a repeated flag is refused.
+    /// Values use lamp-voice's own parsers; a repeated flag is refused.
     pub fn take(&mut self, flag: &str, value: &str) -> Result<bool> {
         fn set<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<()> {
             if slot.replace(value).is_some() {
@@ -177,7 +177,7 @@ impl RuntimeFlags {
         argv
     }
 
-    /// Refuse what lamp-live would refuse, with its own parser and rules
+    /// Refuse what lamp-voice would refuse, with its own parser and rules
     /// (for example bounded reference recovery without a masking policy).
     pub fn validate(
         &self,
@@ -198,7 +198,7 @@ impl RuntimeFlags {
         }
         DirectedOptions::parse(&flags).map_err(|error| {
             invalid(&format!(
-                "lamp-live would refuse runtime options {flags:?}: {error}"
+                "lamp-voice would refuse runtime options {flags:?}: {error}"
             ))
         })?;
         Ok(())
@@ -206,10 +206,10 @@ impl RuntimeFlags {
 }
 
 /// Grace between a serve runtime's SIGTERM and the forced kill of its group.
-/// lamp-live records its end and finishes its bounded metadata wait well
+/// lamp-voice records its end and finishes its bounded metadata wait well
 /// inside it; a runtime that outlives it is a failure, never a retry.
 pub const SERVE_STOP_GRACE_US: u64 = 10_000_000;
-/// lamp-live serve's rolling metadata files and its health record bound.
+/// lamp-voice serve's rolling metadata files and its health record bound.
 const SERVE_SEGMENTS: usize = 4;
 const MAX_HEALTH_BYTES: u64 = 64 * 1024;
 
@@ -224,7 +224,7 @@ pub struct SessionOptions {
     pub noise_suppression: String,
     pub diagnostics: bool,
     /// Startup before readiness plus shutdown; added to `seconds` for the
-    /// hard kill deadline. lamp-live's own startup bound is 25 s.
+    /// hard kill deadline. lamp-voice's own startup bound is 25 s.
     pub allowance_seconds: u16,
     /// Passed as `--ring-channel-ceiling`; without it no ring device opens.
     pub ring_channel_ceiling: Option<u16>,
@@ -282,7 +282,7 @@ impl SessionOptions {
             }
         };
         if diagnostics && matches!(mode, SessionMode::Serve { .. }) {
-            // lamp-live serve refuses unbounded raw audio diagnostics.
+            // lamp-voice serve refuses unbounded raw audio diagnostics.
             return Err(invalid("--diagnostics needs a finite session, not serve"));
         }
         if !matches!(noise_suppression.as_str(), "on" | "off") {
@@ -332,7 +332,7 @@ impl SessionOptions {
         let output = text(&self.runtime_output());
         match &self.mode {
             SessionMode::Fixture { reply, sha256 } => {
-                // lamp-live requires --diagnostics for fixture experiments.
+                // lamp-voice requires --diagnostics for fixture experiments.
                 argv.extend([
                     "directed-fixture".into(),
                     text(reply),
@@ -655,7 +655,7 @@ fn group_gone(child: &Child, within_us: u64) -> bool {
     }
 }
 
-/// Stream lamp-live serve's rolling metadata as `trace` lines, oldest
+/// Stream lamp-voice serve's rolling metadata as `trace` lines, oldest
 /// generation first. Headers are checked and summarized, not relayed. A
 /// missing, overwritten, malformed or gapped history is reported, never
 /// repaired: the relay pushes it as an error so the attempt is not scored.
@@ -1275,7 +1275,7 @@ mod runtime_flag_tests {
     fn parse(extra: &[&str]) -> Result<SessionOptions> {
         let mut arguments: Vec<String> = [
             "--runtime",
-            "/opt/lamp-live",
+            "/opt/lamp-voice",
             "--work",
             "/w/a1",
             "--seconds",
@@ -1330,7 +1330,7 @@ mod runtime_flag_tests {
         assert_eq!(
             argv(&["--serve-config", "/p.json", "--ring-channel-ceiling", "12"]),
             [
-                "/opt/lamp-live",
+                "/opt/lamp-voice",
                 "serve",
                 "/p.json",
                 "/w/a1/runtime",
@@ -1345,7 +1345,7 @@ mod runtime_flag_tests {
         assert_eq!(
             argv(&["--provider-config", "/p.json", "--diagnostics"]),
             [
-                "/opt/lamp-live",
+                "/opt/lamp-voice",
                 "directed",
                 "/p.json",
                 "300",
@@ -1360,7 +1360,7 @@ mod runtime_flag_tests {
         assert_eq!(
             argv(&["--fixture-reply", "/r.wav", "--fixture-sha256", "ab"]),
             [
-                "/opt/lamp-live",
+                "/opt/lamp-voice",
                 "directed-fixture",
                 "/r.wav",
                 "ab",
@@ -1382,7 +1382,7 @@ mod runtime_flag_tests {
         assert_eq!(
             argv(&serve),
             [
-                "/opt/lamp-live",
+                "/opt/lamp-voice",
                 "serve",
                 "/p.json",
                 "/w/a1/runtime",
@@ -1415,7 +1415,7 @@ mod runtime_flag_tests {
         assert_eq!(
             directed,
             [
-                "/opt/lamp-live",
+                "/opt/lamp-voice",
                 "directed",
                 "/p.json",
                 "300",
@@ -1430,13 +1430,13 @@ mod runtime_flag_tests {
                 "/w/a1/cue.sock",
             ]
         );
-        // What the relay forwards is exactly what lamp-live accepts.
+        // What the relay forwards is exactly what lamp-voice accepts.
         let forwarded = &directed[5..directed.len() - 2];
-        assert!(lamp_live::options::DirectedOptions::parse(forwarded).is_ok());
+        assert!(lamp_voice::options::DirectedOptions::parse(forwarded).is_ok());
     }
 
     /// The opt-in endpoint trial: the pilot's settings plus `--endpoint
-    /// smart-turn`, forwarded last and accepted by lamp-live's own parser.
+    /// smart-turn`, forwarded last and accepted by lamp-voice's own parser.
     #[test]
     fn the_endpoint_trial_reaches_serve_after_the_pilot_settings() {
         let mut serve = vec!["--serve-config", "/p.json"];
@@ -1447,13 +1447,13 @@ mod runtime_flag_tests {
         assert_eq!(argv[at + 1], "smart-turn");
         assert_eq!(argv[at - 2], "--provider-continuation");
         let forwarded = &argv[4..argv.len() - 2];
-        let options = lamp_live::options::DirectedOptions::parse(forwarded).unwrap();
+        let options = lamp_voice::options::DirectedOptions::parse(forwarded).unwrap();
         assert_eq!(options.endpoint, Endpoint::SmartTurn);
         assert_eq!(options.turn_taking, TurnTaking::Duplex);
     }
 
     #[test]
-    fn values_and_combinations_lamp_live_refuses_are_refused_before_any_child() {
+    fn values_and_combinations_lamp_voice_refuses_are_refused_before_any_child() {
         for (extra, expected) in [
             (
                 vec![

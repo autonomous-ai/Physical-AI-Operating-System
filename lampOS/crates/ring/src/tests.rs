@@ -1,5 +1,5 @@
 use super::*;
-use lamp_interaction::{
+use lamp_turn_owner::{
     AdmissionState, AdmittedInput, CaptureState, Controller, Permission, TurnOwner,
 };
 use std::cell::Cell;
@@ -187,7 +187,7 @@ fn startup_black_does_not_create_authority_or_readiness() {
     assert!(is_black(&ring.sink.frames[0]));
     assert!(matches!(
         paint(&mut ring, permit).unwrap_err().cause,
-        Failure::Authority(lamp_interaction::Error::NoAuthority)
+        Failure::Authority(lamp_turn_owner::Error::NoAuthority)
     ));
     assert_eq!(ring.sink.frames.len(), 1);
 }
@@ -200,7 +200,7 @@ fn only_light_permits_can_paint_and_wrong_kind_cannot_erase_current_cue() {
     let count = ring.sink.frames.len();
     assert!(matches!(
         paint(&mut ring, speech).unwrap_err().cause,
-        Failure::Authority(lamp_interaction::Error::WrongOutputKind)
+        Failure::Authority(lamp_turn_owner::Error::WrongOutputKind)
     ));
     assert_eq!(ring.sink.frames.len(), count);
     assert!(!is_black(ring.sink.frames.last().unwrap()));
@@ -265,7 +265,7 @@ fn expiry_is_checked_on_idle_tick_and_blanks_only_once() {
     let blank = ring.tick().unwrap().unwrap();
     assert_eq!(
         blank.reason,
-        BlankReason::AuthorityLost(lamp_interaction::Error::ExpiredState)
+        BlankReason::AuthorityLost(lamp_turn_owner::Error::ExpiredState)
     );
     assert!(is_black(ring.sink.frames.last().unwrap()));
     let count = ring.sink.frames.len();
@@ -280,7 +280,7 @@ fn expiry_during_a_write_is_detected_and_blanked_on_return() {
     ring.sink.delay_us = 6;
     assert!(matches!(
         paint(&mut ring, short).unwrap_err().cause,
-        Failure::Authority(lamp_interaction::Error::ExpiredPermit)
+        Failure::Authority(lamp_turn_owner::Error::ExpiredPermit)
     ));
     assert_eq!(ring.sink.frames.len(), 3);
     assert!(is_black(ring.sink.frames.last().unwrap()));
@@ -456,7 +456,7 @@ fn closing_privacy_blanks_a_resting_frame_at_once() {
         .unwrap();
     assert_eq!(
         blank.reason,
-        BlankReason::AuthorityLost(lamp_interaction::Error::PrivacyClosed)
+        BlankReason::AuthorityLost(lamp_turn_owner::Error::PrivacyClosed)
     );
     assert!(is_black(ring.sink.frames.last().unwrap()));
     // And it stays dark: no resting frame while privacy is closed.
@@ -476,7 +476,7 @@ fn a_resting_frame_does_not_outlive_its_authority() {
     let blank = ring.tick().unwrap().unwrap();
     assert_eq!(
         blank.reason,
-        BlankReason::AuthorityLost(lamp_interaction::Error::ExpiredState)
+        BlankReason::AuthorityLost(lamp_turn_owner::Error::ExpiredState)
     );
     assert!(is_black(ring.sink.frames.last().unwrap()));
     assert!(rest(&mut ring).is_none());

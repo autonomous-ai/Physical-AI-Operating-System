@@ -1,6 +1,6 @@
 # Motor protocol, calibration and read-only inspection
 
-`lamp-motor` implements packet handling, calibration mathematics and a finite
+`lamp-body` implements packet handling, calibration mathematics and a finite
 Linux read-only inspection for Lamp's five Feetech STS3215 joints. The opt-in
 [finite guarded writer](motor-runtime-contract.md) is a separate library API;
 this document describes the read-only inspector. It has no
@@ -9,7 +9,7 @@ replace the movement runtime yet. No physical bus was opened for these batches;
 no adapter open/close effects, position, clearance, load threshold or holding
 behavior has been qualified on a Lamp.
 
-Source: [motor crate](../crates/motor/src/lib.rs). The broader source audit is
+Source: [motor crate](../crates/body/src/lib.rs). The broader source audit is
 [hardware contract](hardware-contract.md).
 
 ## Identities, packets, and bounded storage
@@ -163,7 +163,7 @@ It owns the port for one finite pass and always attempts explicit cleanup.
 The CLI accepts only these options, or `--help` alone:
 
 ```text
-lamp-motor-inspect --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks [--status-faults abort|report]
+lamp-body-inspect --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks [--status-faults abort|report]
 ```
 
 `--status-faults report` is for a lamp on which a servo holds a latched status
@@ -310,9 +310,9 @@ Host validation uses Rust 1.96.0 on macOS. Commands from the standalone `lampOS`
 root:
 
 ```text
-cargo +stable fmt -p lamp-motor -- --check
-cargo +stable test -p lamp-motor --locked
-cargo +stable clippy -p lamp-motor --all-targets --locked -- -D warnings
+cargo +stable fmt -p lamp-body -- --check
+cargo +stable test -p lamp-body --locked
+cargo +stable clippy -p lamp-body --all-targets --locked -- -D warnings
 ```
 
 The original read-only host suite had 54 tests. The original 35 cover exhaustive register-window bounds,
@@ -362,9 +362,9 @@ The read-only transport source set
 `ffa861b412380145c72ae0d54636c4130b90f29d5c01c31c2ba972fce52db93b`
 was built in isolated source snapshot
 `aec49f01943060d7c8f7a98b46282b86ab8e172f6a58a4dff08203f7b42723af`
-on lamp-4ace's ARM64 Linux board. `cargo test --locked -p lamp-motor` passed
+on lamp-4ace's ARM64 Linux board. `cargo test --locked -p lamp-body` passed
 57 tests (0 failed, 0 ignored); package formatting, strict clippy with all targets,
-and the release `lamp-motor-inspect` build also passed. This includes the three
+and the release `lamp-body-inspect` build also passed. This includes the three
 Linux-only policy tests that were absent from the 54-test host run.
 
 Exact commands, logs and identities are in `artifacts/motor-inspection-aec49f01/`.
@@ -374,8 +374,8 @@ checks. The current Lamp remains under its stationary motor inhibit.
 
 ## Supervised motor process
 
-The separate opt-in `lamp-motor-worker` now wraps the existing guarded control
-core and Linux owner. It is not activated by `lamp-live`, and the read-only
+The separate opt-in `lamp-body-worker` now wraps the existing guarded control
+core and Linux owner. It is not activated by `lamp-voice`, and the read-only
 inspector remains read-only. See [motor worker](motor-worker.md) for provisioning,
 priority cancellation, finite lifetimes, receipts, supervision and verification
 limits. No physical motion or serial I/O was used to implement this layer.

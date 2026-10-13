@@ -21,8 +21,8 @@ Not on this branch:
 ## Summary
 
 - **Separate inference process.** The pinned Smart Turn v3.2 model runs only in
-  `lamp-endpoint-worker`. The interaction core links `lamp-endpoint-ipc`, which
-  has no model runtime. `lamp-live` gains no third-party crate.
+  `lamp-turn-end`. The interaction core links `lamp-turn-end-wire`, which
+  has no model runtime. `lamp-voice` gains no third-party crate.
 - **Unchanged behaviour without a usable model.** A missing executable or
   model, loading, a crash, a hang, a malformed answer or a busy worker leaves
   every pause on the existing 1,200 ms silence window. A test shows that the
@@ -46,8 +46,8 @@ Not on this branch:
 
 | Crate | Linked by | Content |
 | --- | --- | --- |
-| `lamp-endpoint-ipc` | `lamp-live` (core) | Request and verdict types, the `Classifier` trait, the bounded frame format, the worker's serving loop, and the core-side supervisor `ProcessClassifier`. Depends only on `lamp-ipc`. |
-| `lamp-endpoint` | the worker only | Whisper features, pinned model loading with tract, the installation self-check, and the `lamp-endpoint-worker` binary. |
+| `lamp-turn-end-wire` | `lamp-voice` (core) | Request and verdict types, the `Classifier` trait, the bounded frame format, the worker's serving loop, and the core-side supervisor `ProcessClassifier`. Depends only on `lamp-ipc`. |
+| `lamp-turn-end` | the worker only | Whisper features, pinned model loading with tract, the installation self-check, and the `lamp-turn-end` binary. |
 
 ### Process boundary
 
@@ -110,7 +110,7 @@ Not on this branch:
 | Worker exit not confirmed by a native wait, or not within the teardown bound | No replacement starts; runtime cleanup fails, so a physical mute is not restartable | `unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service`, with the control `confirmed_endpoint_exit_keeps_the_restartable_mute` |
 | Long idle | The worker stays ready with the same process; only a request in flight is timed | `an_idle_worker_stays_ready_across_a_long_quiet`, `worker_process_stays_ready_and_bounded_across_idle_and_repeated_checks` |
 
-The process tests (`crates/endpoint-ipc/tests/process.rs`) re-execute their
+The process tests (`crates/turn-end-wire/tests/process.rs`) re-execute their
 own binary as a scripted worker. Every path above runs through a real child
 process and real pipes.
 
@@ -118,7 +118,7 @@ Endpoint authority never depends on trace metadata. Decisions come only from
 detector state and the client's in-memory availability; the trace events below
 are records written afterwards.
 
-## Decision policy (`crates/live/src/activity.rs`)
+## Decision policy (`crates/voice/src/activity.rs`)
 
 `TurnDetector::v1_baseline().with_confirmation(classifier, ConfirmPolicy::default())`
 
@@ -159,8 +159,8 @@ Each `Activity::End` records an `EndpointDecision`:
 
 - `--endpoint smart-turn` requires `--turn-taking v1-baseline`. `silence` stays
   the default; without the flag no worker is started.
-- The worker and model are found beside the `lamp-live` executable
-  (`lamp-endpoint-worker`, `smart-turn-v3.2-gpu.onnx`).
+- The worker and model are found beside the `lamp-voice` executable
+  (`lamp-turn-end`, `smart-turn-v3.2-gpu.onnx`).
 - The client starts at the beginning of `spawn_rig`, so loading overlaps the
   other workers' startup.
 - Traces:
@@ -314,10 +314,10 @@ are measured in [endpoint-pilot.md](endpoint-pilot.md#measured-bounds).
 ## Installation
 
 ```sh
-cargo build --locked --release -p lamp-live -p lamp-endpoint
+cargo build --locked --release -p lamp-voice -p lamp-turn-end
 curl -fsSL --max-filesize 33000000 -o target/release/smart-turn-v3.2-gpu.onnx \
   https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx
-target/release/lamp-endpoint-worker --check-model target/release/smart-turn-v3.2-gpu.onnx
+target/release/lamp-turn-end --check-model target/release/smart-turn-v3.2-gpu.onnx
 ```
 
 - `--check-model` loads the file under the worker's own bounds and verifies
@@ -333,9 +333,9 @@ Model tests are ignored by default. With the model under `.cache/endpoint/` or
 `LAMP_SMART_TURN_MODEL` set:
 
 ```sh
-cargo test --locked --release -p lamp-endpoint -- --include-ignored
-LAMP_ENDPOINT_WORKER=target/release/lamp-endpoint-worker \
-  cargo test --locked -p lamp-live --lib endpoint_session -- --include-ignored
+cargo test --locked --release -p lamp-turn-end -- --include-ignored
+LAMP_ENDPOINT_WORKER=target/release/lamp-turn-end \
+  cargo test --locked -p lamp-voice --lib endpoint_session -- --include-ignored
 ```
 
 `LAMP_ENDPOINT_IDLE_SECS` sets the quiet period of the two idle tests.

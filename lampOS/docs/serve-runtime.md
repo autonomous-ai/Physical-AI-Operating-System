@@ -1,6 +1,6 @@
 # Continuous chat core
 
-`lamp-live serve PRIVATE_CONFIG.json NEW_OUTPUT [session options]` uses the same
+`lamp-voice serve PRIVATE_CONFIG.json NEW_OUTPUT [session options]` uses the same
 coordinator, provider recovery, capture, speaker/reference, privacy and output
 ownership as `directed`. It has no elapsed conversation deadline and does not
 restart the provider or cancel an answer at 600 seconds. Startup still requires
@@ -19,7 +19,7 @@ by default; no motor is opened by this coordinator. Existing noise suppression,
 turn-taking, endpoint and playout defaults are unchanged. For example:
 
 ```text
-lamp-live serve /etc/lampOS/gemini.json /var/lib/lampOS/sessions/NEW_ID \
+lamp-voice serve /etc/lampOS/gemini.json /var/lib/lampOS/sessions/NEW_ID \
   --turn-taking v1-baseline --playout-start-ms 200
 ```
 
@@ -165,7 +165,7 @@ the lamp. Then, on purpose: twelve busy loops for forty seconds on its
 eight cores ended the service four times in those forty seconds. With the
 unit given round-robin real-time scheduling at a modest priority
 (`CPUSchedulingPolicy=rr`, `CPUSchedulingPriority=20`, which its workers
-inherit; see [`deploy/lamp-4ace/lamp-live.service`](../deploy/lamp-4ace/lamp-live.service)),
+inherit; see [`deploy/lamp-4ace/lamp-voice.service`](../deploy/lamp-4ace/lamp-voice.service)),
 the same forty seconds ended it not once, and the body and the eyes ran
 through it. The processor reached 92 to 95 degrees C in twenty seconds of
 that load either way, which is its own limit on what else this lamp can be

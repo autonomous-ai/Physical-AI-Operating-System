@@ -1,22 +1,22 @@
 # Optional motor integration
 
 This integration adds an explicit, independently supervised motor worker to
-`lamp-live directed` and `serve`. It composes with the current camera, reference,
+`lamp-voice directed` and `serve`. It composes with the current camera, reference,
 provider-continuation, ring and optional-notice paths; it changes none of their
 defaults. Default invocations remain motionless and launch no motor process.
 There is no gesture generator, automatic inspection, nod, park, home, room scan,
 torque write, or movement attached to Ready, input or an answer.
 
 ```text
-lamp-live directed PRIVATE_PROVIDER.json SECONDS NEW_OUTPUT \
+lamp-voice directed PRIVATE_PROVIDER.json SECONDS NEW_OUTPUT \
   --camera-config PRIVATE_CAMERA.json \
   --motor-worker ABSOLUTE_LAMP_MOTOR_WORKER --motor-config PRIVATE_MOTOR.json
 ```
 
 Both motor arguments are required together. `directed-fixture` rejects them.
 These flags authorize opening the configured idle bus, not arbitrary motion.
-The dedicated executable is built by `cargo build --release -p lamp-motor
---bin lamp-motor-worker`; there is no executable search or legacy fallback.
+The dedicated executable is built by `cargo build --release -p lamp-body
+--bin lamp-body-worker`; there is no executable search or legacy fallback.
 Real serial execution remains Linux-only and unqualified on hardware.
 
 ## Startup and ownership

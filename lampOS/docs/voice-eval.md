@@ -3,13 +3,13 @@
 Status 2026-10-11 (voice-evaluation workstream, Agent 2): the runner, evaluator,
 reports, evaluator self-test, fake runtime and trace import are implemented and
 tested offline. The physical runner is implemented and exercised end to end
-against a fake `lamp-live` over its real relay and cue socket, but **has not run
+against a fake `lamp-voice` over its real relay and cue socket, but **has not run
 on a Lamp or played any audio**. There are no physical attempts yet, so there is
 **no positive V2 overlap/interruption cohort**; none may be derived from the fake
 runtime. Ranked, reproducible defects are in [voice defects](voice-eval-defects.md).
 
 A long-lived [serve-session runner](voice-eval-serve.md) carries one
-conversation of up to 20 context-linked turns in a single `lamp-live serve`
+conversation of up to 20 context-linked turns in a single `lamp-voice serve`
 runtime. Each stimulus is armed before readiness and started by one original
 expiring grant. It is also tested offline only.
 
@@ -17,8 +17,8 @@ expiring grant. It is also tested offline only.
 a repeatable runner: pre-registered scenarios, stimuli started from actual
 runtime/playback events with bounded deadlines, an append-only attempt ledger,
 and reports that keep software, simulated and acoustic evidence apart. It reuses
-`lamp-acoustic` (catalog, verified cache, rendering), `lamp-observer` (iMac
-playback; room recording through the signed bundle), `lamp-live` (`TurnDetector`,
+`lamp-sound-fixtures` (catalog, verified cache, rendering), `lamp-observer` (iMac
+playback; room recording through the signed bundle), `lamp-voice` (`TurnDetector`,
 VAD, `CueSink`, trace vocabulary) and `lamp-ipc` (clock).
 
 ## One command per suite
@@ -50,10 +50,10 @@ never pool groups.
 | Stratum | What produced it | What it can show |
 |---|---|---|
 | `fake_timing` | Fake runtime, declared speech intervals | Turn-policy consequences: false/missed interruptions, splits, unwanted responses, provider-fault handling, voice/ring state. Not level- or acoustics-sensitive. |
-| `fake_signal` | Fake runtime, lamp-live VAD on the exact cached digital mixes | The same, plus what the VAD/detector does with the real stimulus waveform. No room, loudspeaker, microphone or AEC; host VAD numerics can differ from native ARM64. |
-| `physical_fixture` | `lamp-live directed-fixture` on the Lamp | Real capture/echo path with the cached Gemini reply. Only the first turn has a reply. |
-| `physical_gemini` | `lamp-live directed` | Conversation with event-triggered follow-ups and interruptions through the optional cue socket. |
-| `imported_trace` | An existing lamp-live `events.jsonl` | Retained trials scored with declared turn attribution. |
+| `fake_signal` | Fake runtime, lamp-voice VAD on the exact cached digital mixes | The same, plus what the VAD/detector does with the real stimulus waveform. No room, loudspeaker, microphone or AEC; host VAD numerics can differ from native ARM64. |
+| `physical_fixture` | `lamp-voice directed-fixture` on the Lamp | Real capture/echo path with the cached Gemini reply. Only the first turn has a reply. |
+| `physical_gemini` | `lamp-voice directed` | Conversation with event-triggered follow-ups and interruptions through the optional cue socket. |
+| `imported_trace` | An existing lamp-voice `events.jsonl` | Retained trials scored with declared turn attribution. |
 
 | Source | Meaning |
 |---|---|
@@ -175,11 +175,11 @@ Rules:
 - Traces map `turn_taking_availability` (`prospective_input_available`) to
   `input_availability`, and `provider_ready`, `provider_unavailable` and
   `provider_terminal` to `provider_link`.
-- The fake runtime reports both before `listening_ready`, as lamp-live does.
+- The fake runtime reports both before `listening_ready`, as lamp-voice does.
 - Live physical sessions need the cue kinds proposed in
   [the cue contract](voice-eval-directed-cues.md#proposed-readiness-cues).
   Without them a physical `next_turn_ready` step is `trigger_unavailable`.
-  With the proposed lamp-live cue sink, `tests/physical_loopback.rs` runs a
+  With the proposed lamp-voice cue sink, `tests/physical_loopback.rs` runs a
   physical follow-up through the real relay on those cues.
 - Existing plans keep their `turn_completed` triggers and hashes.
 
@@ -288,7 +288,7 @@ lines are explicit failures. Bounds (`physical/protocol.rs`):
 failure, and a file that changes length while relaying is reported. A final
 record without a newline is reported as cut off, not parsed.
 
-The relay starts `lamp-live` in its own process group. A hard-deadline stop, an
+The relay starts `lamp-voice` in its own process group. A hard-deadline stop, an
 early relay error and a closed runner transport all kill that group, so workers
 stop with the coordinator. If the runner transport closes before the runtime
 ends, the relay stops the runtime and reports it rather than leaving the
@@ -365,7 +365,7 @@ recording.
 
 **Target diagnostics.** The target's certified diagnostics beside the trace
 (`render-audio/` and `capture-audio/`) are verified against the trace:
-- lamp-live's own certifier checks each stream's identity and finish receipt;
+- lamp-voice's own certifier checks each stream's identity and finish receipt;
 - each PCM and record file must match the completion marker's hash and the
   certified frame counts.
 
@@ -376,10 +376,10 @@ ALSA accepted, which is not proof of audibility.
 
 Tests: `tests/recording_import.rs`, which uses root's real receipt examples
 with digests adapted to generated WAVs, and `tests/target_audio.rs`, which
-uses directories written by lamp-live's `Recorder`.
+uses directories written by lamp-voice's `Recorder`.
 
 A `user_interrupted` cancellation is caused by a later turn's admission stamped
-within 20 ms of it. lamp-live revokes the old reply and then admits its
+within 20 ms of it. lamp-voice revokes the old reply and then admits its
 successor in one step, so the admission follows the revoke by microseconds
 (older traces stamped it just before). The speech candidate is not the causal
 time: in duplex it precedes the revoke by the whole yield (470 ms on Lamp-4ace).
@@ -430,7 +430,7 @@ readable. Attempts without ring requests are counted as ring-unchecked.
 See [directed cue lifecycle](voice-eval-directed-cues.md).
 
 Latency rows are labeled `simulated` (fake profile; restates configured delays),
-`software` (lamp-live host clock), `runner` (start-request lateness) or
+`software` (lamp-voice host clock), `runner` (start-request lateness) or
 `ACOUSTIC` (annotations). The endpoint boundary states the silence wait from the
 runtime's own `local_endpoint` records (`includes_silence_wait_ms`), for example
 1,200 ms on every Lamp-4ace endpoint, with counts when values differ or are not
@@ -502,11 +502,11 @@ When Lamp returns, the operator first performs the readiness checks in the
 [handoff](../HANDOFF.md): thermal state, mixer readings, physical privacy,
 motor inhibit, exclusive ownership (stop installed services) and a rollback
 plan. `lamp-voice-eval` does not stop or restore services, change mixers, move
-motors or open SSH by itself; `lamp-live` still refuses to run while legacy
+motors or open SSH by itself; `lamp-voice` still refuses to run while legacy
 owners are active, and such an attempt is retained as failed.
 
 1. Build natively on the Lamp with the pinned toolchain:
-   `cargo build --locked --offline --release -p lamp-voice-eval -p lamp-live`.
+   `cargo build --locked --offline --release -p lamp-voice-eval -p lamp-voice`.
 2. Render the eight new utterances once on the Mac that holds the existing
    cache, then check that `assets` resolves every scene to be run.
 3. Write a private config (no credentials; it reuses the authorized SSH setup):
@@ -515,7 +515,7 @@ owners are active, and such an attempt is retained as failed.
 {
   "lamp_command": ["/usr/bin/ssh", "-S", "/private/tmp/lamp-4ace-voice-ssh", "-o", "BatchMode=yes",
     "orangepi@172.168.20.159", "/home/orangepi/.local/share/lampOS-build/BUILD/lamp-voice-eval",
-    "lamp-session", "--runtime", "/home/orangepi/.local/share/lampOS-build/BUILD/lamp-live"],
+    "lamp-session", "--runtime", "/home/orangepi/.local/share/lampOS-build/BUILD/lamp-voice"],
   "lamp_work_root": "/home/orangepi/.local/share/lampOS-build/voice-eval-runs",
   "fixture_reply": "/home/orangepi/.local/share/lampOS-build/reply-fixture-76x62xf9/reply.wav",
   "fixture_sha256": "d5bd0d6f880434b81846accf5181b9bf5ab28ac91479827aa9f73ddf8b52e144",
@@ -542,7 +542,7 @@ owners are active, and such an attempt is retained as failed.
 4. Dry run (the default) prints which attempts would run or be withheld:
    `cargo run --release -p lamp-voice-eval -- physical-run --config FILE --cache .cache/acoustic --manifest M... --out NEW_DIR --scenario fixed-reply-echo-only`
 5. Add `--execute` for the authorized run. Each attempt starts one finite
-   `lamp-session` (fresh private work directory, cue socket, `lamp-live`, hard
+   `lamp-session` (fresh private work directory, cue socket, `lamp-voice`, hard
    kill at `seconds + allowance`), maps clocks by ping/pong during the session,
    starts the room recorder and waits for its `ready.json`, starts each stimulus
    on its trigger, joins playback within a bound (cancelling through the
@@ -560,7 +560,7 @@ addressed Lamp or that echo was rejected.
 
 ## Measured behavior of the runner itself
 
-On the local loopback (debug build, one host, fake lamp-live over the real relay
+On the local loopback (debug build, one host, fake lamp-voice over the real relay
 and cue socket), intended stimulus start to runner start request was 166.5 ms
 (n=1) when stimulus timing was computed after the trigger, and 2.6/3.8/4.7 ms
 (n=3) after moving it before the session. Clock-map uncertainty was about
@@ -575,7 +575,7 @@ The table below retains Agent 2's reported simulation baseline through
 recording-provenance fixes and does not qualify the combined source.
 
 `fake-run --repetitions 3` (seed 1, 126 attempts per profile, self-test 21/21)
-against the lamp-live directed policy at 23bde487. These describe what the
+against the lamp-voice directed policy at 23bde487. These describe what the
 current turn policy does with declared speech; they are not Lamp measurements.
 
 | Profile | Outcome | Main findings |

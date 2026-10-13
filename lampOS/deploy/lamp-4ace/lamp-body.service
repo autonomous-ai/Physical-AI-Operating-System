@@ -1,5 +1,5 @@
 # lampOS body on lamp-4ace (the office lab prototype): small head motion for what the lamp is doing.
-# It owns the servo port; lamp-live.service cannot open it and only tells this unit a mood.
+# It owns the servo port; lamp-voice.service cannot open it and only tells this unit a mood.
 # Not enabled at boot. When it stops itself on a surprise (its JSON report in the journal says
 # which) systemd starts it again after 15 s, at most three times in ten minutes; each start
 # runs its checks again and refuses a lamp that is not as expected. After the third it stays
@@ -7,7 +7,7 @@
 [Unit]
 Description=lampOS body (lamp-body)
 ConditionHost=lamp-4ace
-After=lamp-live.service
+After=lamp-voice.service
 StartLimitIntervalSec=600
 StartLimitBurst=3
 

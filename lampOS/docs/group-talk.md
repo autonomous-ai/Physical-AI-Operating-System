@@ -39,7 +39,7 @@ after cancellation that morning, either way).
 -40 dBFS this removed the phantom utterances from across the office. It
 does nothing for people at the lamp.
 
-**The level follows the room** (`crates/live/src/room_floor.rs`,
+**The level follows the room** (`crates/voice/src/room_floor.rs`,
 `LAMP_FAINT_FLOOR_MAX_DB`). -40 was not enough in a working office: the
 talk at the next desks arrived at a median of -27 to -35 dBFS, every
 sentence of it lit the lamp up, and about thirty times in fifty minutes the
@@ -72,8 +72,8 @@ at the first pause, three not at all (18 turns were replaced by their talk
 during the run). Before the line: none of the three above.
 
 **In a busy room a just-asked lamp keeps its turn**
-(`crates/live/src/coordinator.rs`, `HOLD_FLOOR_US`; `Attention::busy` in
-`crates/live/src/body_link.rs`). The room counts as busy when the last three
+(`crates/voice/src/coordinator.rs`, `HOLD_FLOOR_US`; `Attention::busy` in
+`crates/voice/src/body_link.rs`). The room counts as busy when the last three
 things the lamp heard went unanswered: nothing it said, in a row, with less
 than half a minute of quiet since. Then, from the moment a person's speech
 is judged ended until the answer begins to play, a new sound does not take

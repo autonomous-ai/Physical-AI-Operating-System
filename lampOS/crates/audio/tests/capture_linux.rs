@@ -4,10 +4,10 @@ use lamp_audio::{
     CAPTURE_SAMPLES,
     capture::{CaptureConfig, Discontinuity, ErrorKind, Microphone},
 };
-use lamp_interaction::{
+use lamp_ipc::monotonic_us;
+use lamp_turn_owner::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, Permission,
 };
-use lamp_ipc::monotonic_us;
 
 fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())

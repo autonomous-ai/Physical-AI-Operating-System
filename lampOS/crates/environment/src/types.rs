@@ -1,4 +1,4 @@
-use lamp_interaction::{BootId, MonoTime, Observation};
+use lamp_turn_owner::{BootId, MonoTime, Observation};
 use std::{fmt, num::NonZeroU64};
 
 pub const MAX_SOURCES: usize = 3;
@@ -18,7 +18,7 @@ pub enum Error {
     Stopped,
     ClockRegression,
     Faulted,
-    Observation(lamp_interaction::Error),
+    Observation(lamp_turn_owner::Error),
 }
 
 impl fmt::Display for Error {
@@ -29,8 +29,8 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-impl From<lamp_interaction::Error> for Error {
-    fn from(error: lamp_interaction::Error) -> Self {
+impl From<lamp_turn_owner::Error> for Error {
+    fn from(error: lamp_turn_owner::Error) -> Self {
         Self::Observation(error)
     }
 }

@@ -1,0 +1,70 @@
+# lampOS voice on lamp-4ace: the Rust runtime as the lamp's only voice software.
+# Installed 2026-10-12 by Agent 1 (voice) on the owner's instruction
+# ("remove v1 from lamp entirely. just deploy v2. clean.").
+# The physical privacy switch is the mute: while it is closed only the GPIO
+# watcher runs. No motor worker is started by this unit.
+# Microphone mic2, turn-taking duplex (a person can interrupt), 600 ms end-of-speech wait.
+# After a failure it is started again in 4 s (15 s until 2026-10-13: a long time to face a dark lamp).
+# It tells the lamp's body its mood on LAMP_BODY_MOOD_SOCKET; lamp-body.service, a
+# separate unit, owns the servo port. This unit can never open that port.
+[Unit]
+Description=lampOS voice (lamp-voice serve)
+ConditionHost=lamp-4ace
+After=network-online.target sound.target lamp-cmedia-speaker.service
+Wants=network-online.target lamp-cmedia-speaker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+User=root
+Group=root
+Slice=system.slice
+WorkingDirectory=/
+UMask=0077
+ExecStart=/opt/lampOS/releases/02474c28a0ed0daa99973f2e54959e977e1abda3780d059385c34ab1830a2e91/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600
+# The microphone and speaker workers may not wait behind other work on the lamp: a read held up
+# for 10 ms, or a reference 20 ms late, ends the service (by design: the echo canceller's timing
+# is then unknown). With every core busy for 40 s (2026-10-13, twelve busy loops) the service
+# ended four times at the default scheduling. Round-robin real-time, a modest priority: above
+# everything ordinary, below the kernel's own threaded interrupts (50).
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=20
+Restart=on-failure
+RestartSec=4s
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+SendSIGKILL=yes
+TimeoutStopSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-voice
+NoNewPrivileges=yes
+# The conversation's last few exchanges, kept in memory under /run so that a service that ended
+# and was started again carries on where it was (lampOS/docs/conversation-thread.md). Private to
+# root, never on disk, kept across a restart of the unit and gone at a power cycle.
+RuntimeDirectory=lampos-voice
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json
+Environment=LAMP_BODY_MOOD_SOCKET=/run/lampos-body/mood.sock
+# And tell the eyes (lamp-eyes.service) they may look, while the microphone is permitted.
+Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock
+# Know when someone comes to sit in front of the lamp (lampOS/docs/speaking-first.md). With only
+# this line the moments a hello would be due are recorded and nothing is said; add
+# Environment=LAMP_SPEAK_FIRST=on for the lamp to say it.
+Environment=LAMP_EYES_PRESENCE_FILE=/run/lampos-eyes/present
+# Let the lamp take a look when it says "Let me look" (lampOS/docs/speaking-first.md): the eyes'
+# newest frame goes to the model with that one request and with no other.
+Environment=LAMP_EYES_LOOK_FILE=/run/lampos-eyes/sight.jpg
+# And show the model what the eyes see, one picture with each thing a person says
+# (lampOS/docs/eyes.md, "What the model sees"). Take this line out and it sees nothing.
+# Off since 2026-10-13 13:40: a picture anywhere in a session made every later answer about
+# 0.45 s later (lampOS/docs/eyes.md). Remove the next line's '#' to give the model its eyes again.
+#Environment=LAMP_EYES_SIGHT_FILE=/run/lampos-eyes/sight.jpg
+# Defence in depth only: this is not a mechanical stop.
+InaccessiblePaths=/dev/ttyACM0
+
+[Install]
+WantedBy=multi-user.target

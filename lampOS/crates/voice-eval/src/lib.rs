@@ -66,6 +66,6 @@ impl Rng {
 
 /// Stable 64-bit seed derived from a run seed and an attempt identity.
 pub fn derive_seed(seed: u64, label: &str) -> u64 {
-    let digest = lamp_acoustic::hash(format!("{seed}:{label}").as_bytes());
+    let digest = lamp_sound_fixtures::hash(format!("{seed}:{label}").as_bytes());
     u64::from_str_radix(&digest[..16], 16).unwrap_or(seed)
 }

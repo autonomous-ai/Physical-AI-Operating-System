@@ -3,9 +3,9 @@
 `lamp-ring` is a Rust library for the fixed 32-pixel WS2812 ring, not a complete
 runtime or a running ring process. It adds no animation, filler, idle behavior,
 privacy color or listening cue. Its caller must choose purposeful pixels and
-hold an actual `lamp-interaction` light permit.
+hold an actual `lamp-turn-owner` light permit.
 
-`lamp-live` now supplies an optional supervised writer and a phase policy for
+`lamp-voice` now supplies an optional supervised writer and a phase policy for
 directed qualification. See [conversation/ring ownership](../../docs/ring-choreography.md)
 for its option, bounded scheduling, cancellation and remaining physical checks.
 
@@ -46,7 +46,7 @@ writer in its own supervised process and enforce process-health deadlines
 without blocking microphone capture or local speaker interruption. Bytes and
 cleanup attempts are bounded; hard timing and optical response are unproven.
 
-Dependencies are confined to lampOS path crates `lamp-interaction` and
+Dependencies are confined to lampOS path crates `lamp-turn-owner` and
 `lamp-ipc`, plus Linux-only external Rust binding `spidev = 0.7.1`. The kernel
 SPI driver, device node and permissions must be provisioned by lampOS. No HAL,
 os-server, Python source, or sibling-repository configuration is required.

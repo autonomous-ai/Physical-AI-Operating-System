@@ -1,7 +1,7 @@
 # Whom the lamp answers
 
-Scope: `crates/live/src/attention.rs` and its use in the provider worker
-(`crates/live/src/provider_worker.rs`). Part of step 7 of
+Scope: `crates/voice/src/attention.rs` and its use in the provider worker
+(`crates/voice/src/provider_worker.rs`). Part of step 7 of
 [brain-build.md](brain-build.md), brought forward on what the lamp did.
 
 ## The rule

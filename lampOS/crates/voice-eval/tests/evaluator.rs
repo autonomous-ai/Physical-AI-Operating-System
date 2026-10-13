@@ -1,4 +1,4 @@
-//! Evaluator rules on imported lamp-live traces, acoustic annotations and plan
+//! Evaluator rules on imported lamp-voice traces, acoustic annotations and plan
 //! validation. Traces below follow the documented shape of retained physical
 //! trials; they are synthetic reconstructions, not the private recordings.
 mod common;
@@ -245,8 +245,8 @@ fn provider_mismatch_and_unknown_turns_are_rejected_on_import() {
 // measured by these annotation regression tests.
 fn room(dir: &Path) -> (Value, String) {
     let wav = dir.join("room.wav");
-    lamp_acoustic::write_wave(&wav, &vec![0.0; 160_000]).unwrap();
-    let sha = lamp_acoustic::hash(&fs::read(wav).unwrap());
+    lamp_sound_fixtures::write_wave(&wav, &vec![0.0; 160_000]).unwrap();
+    let sha = lamp_sound_fixtures::hash(&fs::read(wav).unwrap());
     let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha, "start_requested_host_ns": 1_000_000_000_u64});
     (metadata, sha)
 }

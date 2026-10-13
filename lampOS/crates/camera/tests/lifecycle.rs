@@ -1,5 +1,5 @@
 use lamp_camera::*;
-use lamp_interaction::{
+use lamp_turn_owner::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, Permission,
 };
 use std::{
@@ -260,12 +260,12 @@ fn construction_is_closed_and_cannot_start_without_fresh_permission() {
     assert_eq!(rig.capture.maintain().unwrap().phase, Phase::Closed);
     assert_eq!(
         rig.capture.start().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::NoAuthority)
+        ErrorKind::Authority(lamp_turn_owner::Error::NoAuthority)
     );
     rig.refresh().unwrap();
     assert_eq!(
         rig.capture.start().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::PrivacyClosed)
+        ErrorKind::Authority(lamp_turn_owner::Error::PrivacyClosed)
     );
     assert_eq!(rig.port.borrow().starts, 0);
     assert_eq!(rig.port.borrow().reads, 0);
@@ -300,7 +300,7 @@ fn old_duplicate_and_wrong_boot_authority_do_not_close_newer_valid_capture() {
     for _ in 0..3 {
         assert_eq!(
             rig.capture.install_authority(old).unwrap_err().kind,
-            ErrorKind::Authority(lamp_interaction::Error::StaleSnapshot)
+            ErrorKind::Authority(lamp_turn_owner::Error::StaleSnapshot)
         );
         assert_eq!(rig.capture.maintain().unwrap().phase, Phase::Ready);
     }
@@ -310,7 +310,7 @@ fn old_duplicate_and_wrong_boot_authority_do_not_close_newer_valid_capture() {
             .install_authority(other.snapshot(t(10)).unwrap())
             .unwrap_err()
             .kind,
-        ErrorKind::Authority(lamp_interaction::Error::WrongBoot)
+        ErrorKind::Authority(lamp_turn_owner::Error::WrongBoot)
     );
     assert_eq!(rig.port.borrow().stops, 0);
 }
@@ -394,7 +394,7 @@ fn expiry_during_read_cannot_publish_or_relabel_bytes() {
     rig.action(frame);
     assert_eq!(
         rig.capture.poll().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::ExpiredState)
+        ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState)
     );
     assert_eq!(rig.capture.counters().frames_received, 0);
     assert_eq!(rig.port.borrow().stops, 1);
@@ -411,7 +411,7 @@ fn fresh_heartbeat_after_control_gap_cannot_revive_active_capture() {
     rig.clock.set(250_000);
     assert_eq!(
         rig.refresh().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::ExpiredState)
+        ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState)
     );
     assert_eq!(rig.capture.counters().invalidated, 1);
     assert_eq!(rig.port.borrow().stops, 1);
@@ -886,7 +886,7 @@ fn fresh_pre_read_check_prevents_using_time_from_before_maintenance() {
     rig.clock.scheduled.borrow_mut().extend([0, 250_000]);
     assert_eq!(
         rig.capture.poll().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::ExpiredState)
+        ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState)
     );
     assert_eq!(rig.port.borrow().reads, 0);
     assert_eq!(rig.port.borrow().stops, 1);
@@ -902,7 +902,7 @@ fn expiry_during_retention_work_invalidates_the_frame_before_publication() {
         .extend([0, 0, 1_000, 250_000]);
     assert_eq!(
         rig.capture.poll().unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::ExpiredState)
+        ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState)
     );
     assert_eq!(rig.capture.counters().invalidated, 1);
     assert_eq!(rig.port.borrow().stops, 1);
@@ -916,7 +916,7 @@ fn delivery_has_a_fresh_check_after_maintenance_before_exposing_bytes() {
     rig.clock.scheduled.borrow_mut().extend([0, 250_000]);
     assert_eq!(
         rig.capture.delivery_view(&token).unwrap_err().kind,
-        ErrorKind::Authority(lamp_interaction::Error::ExpiredState)
+        ErrorKind::Authority(lamp_turn_owner::Error::ExpiredState)
     );
     assert_eq!(rig.capture.counters().invalidated, 1);
     assert_eq!(rig.port.borrow().stops, 1);

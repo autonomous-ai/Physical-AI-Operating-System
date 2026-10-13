@@ -1,7 +1,7 @@
 # Finite ID5 qualification controller
 
 This private proposal adds actual readback receipts and a finite controller over
-`lamp-motor`'s existing worker and `runtime::Supervisor`. It makes no hardware
+`lamp-body`'s existing worker and `runtime::Supervisor`. It makes no hardware
 claim, supplies no physical envelope or profile, and performs no automatic
 motion. The opt-in live lifecycle and selected-joint patches remain prerequisites.
 
@@ -73,14 +73,14 @@ It cannot pass validation without explicit provisioning and fresh verification.
 After provisioning, the offline-only preflight command is:
 
 ```sh
-cargo run --locked --offline -p lamp-motor --example head_plan -- \
+cargo run --locked --offline -p lamp-body --example head_plan -- \
   --dry-run /ABS/PRIVATE/worker.json /ABS/PRIVATE/head-plan.json
 ```
 
 It validates both private regular files and their qualification binding; it has
 no execute mode, serial open or worker-spawn path. Passing it is structural only.
 
-The native worker is already runnable as `lamp-motor-worker` under Supervisor.
+The native worker is already runnable as `lamp-body-worker` under Supervisor.
 The finite sequence is executable through its `send_authority`, `send_inspection`,
 `send_segment` and `poll` methods; tests run the commands through real local IPC,
 the production Worker and the actual control core with an inert bus. There is

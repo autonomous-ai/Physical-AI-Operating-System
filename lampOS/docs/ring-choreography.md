@@ -22,7 +22,7 @@ qualification work.
 
 ### The face
 
-`crates/live/src/ring_face.rs` holds what the ring shows and nothing else: a
+`crates/voice/src/ring_face.rs` holds what the ring shows and nothing else: a
 mood (resting, listening, thinking, speaking), a voice level and a time go in,
 32 colours come out, and no channel exceeds the configured ceiling. It has no
 I/O, no clock and no authority. The ring worker keeps one face and renders
@@ -90,7 +90,7 @@ missing, negative or out-of-range values fail argument validation. The option
 is independent of audio diagnostics and software noise suppression.
 
 ```sh
-target/release/lamp-live directed /absolute/private/provider.json 45 /new/private/run --diagnostics --ring-channel-ceiling 24
+target/release/lamp-voice directed /absolute/private/provider.json 45 /new/private/run --diagnostics --ring-channel-ceiling 24
 ```
 
 This flag isolates qualification experiments; light remains part of the full
@@ -265,7 +265,7 @@ or malformed fixture markers fail setup and kill/reap only that owned child.
 The process probe additionally starts a separate child with a memory-only sink:
 
 ```sh
-cargo run --locked -p lamp-live --example ring_process_probe -- --samples 120
+cargo run --locked -p lamp-voice --example ring_process_probe -- --samples 120
 ```
 
 It uses synthetic conversation transitions, including simulated accepted
@@ -283,7 +283,7 @@ boundaries.
 
 The source-only copy outside the parent repository passed **535 workspace
 tests**, with zero failures or ignored tests, strict workspace/all-target
-Clippy, formatting and a host release build of `lamp-live`. The Rust source
+Clippy, formatting and a host release build of `lamp-voice`. The Rust source
 manifest SHA-256 is
 `50cb160bc188b910b35117617448337265b2ab104f85c133c2b2b91772c91d97`.
 Exact commands, logs, ordered timing samples and file hashes are retained
@@ -322,7 +322,7 @@ failed and zero ignored**, formatting, strict Clippy and both release builds:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 Rust/Cargo/toolchain manifest: `962c876dae67917da4c831afb29978bb4d011f0b55b04b3257e4ea176033b374` (167 files;

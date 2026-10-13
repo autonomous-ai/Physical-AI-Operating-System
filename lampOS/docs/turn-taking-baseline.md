@@ -1,6 +1,6 @@
 # Opt-in V1-style turn taking
 
-`lamp-live directed` and `directed-fixture` accept
+`lamp-voice directed` and `directed-fixture` accept
 `--turn-taking v1-baseline|vad-only`. The default remains `vad-only`, the existing
 unqualified interruption experiment. The baseline is an opt-in candidate for
 physical qualification, not a selected release policy or a full-duplex fix.
@@ -8,7 +8,7 @@ It changes admission before turn replacement and uses a conservative local
 endpoint window. It does not change the audio pipeline.
 
 ```sh
-lamp-live directed /absolute/private/provider.json 40 /new/private/run \
+lamp-voice directed /absolute/private/provider.json 40 /new/private/run \
   --diagnostics --noise-suppression off --turn-taking v1-baseline
 ```
 

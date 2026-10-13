@@ -1,6 +1,6 @@
 # Keeping the thread across a new session
 
-`crates/live/src/thread.rs`. Status on 2026-10-13: host tests, and two
+`crates/voice/src/thread.rs`. Status on 2026-10-13: host tests, and two
 renewals on lamp-4ace with the first wording of the note, which the lamp
 spoke about (below). The present wording has not been through a renewal on a
 lamp yet.
@@ -117,7 +117,7 @@ bytes) all eight exchanges fit at their longest.
 ## A session renewed on purpose
 
 The provider worker also asks for a new session itself
-(`crates/live/src/provider_worker.rs`, `RENEW_AFTER_UNANSWERED`): when eight
+(`crates/voice/src/provider_worker.rs`, `RENEW_AFTER_UNANSWERED`): when eight
 requests in a row have gone unanswered it asks the connection to end at its
 next idle moment (`InputSender::renew_when_idle` in `lamp-gemini`, the same
 clean boundary as an announced close: an answer in progress finishes

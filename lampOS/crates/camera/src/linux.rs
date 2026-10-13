@@ -18,7 +18,7 @@ use crate::{
     NegotiatedMode, OperationBudget, PortError, PortFrame, PortIo, STOP_BUDGET_US, SourceId,
 };
 pub use identity::IdentityReport;
-use lamp_interaction::MonoTime;
+use lamp_turn_owner::MonoTime;
 pub use params::{
     CapabilityReport, ControlObservation, ControlReading, ControlState, IntervalStatus,
 };
@@ -395,7 +395,7 @@ mod tests {
                 port.cancellation().cancel();
             }
             let capture = CaptureId {
-                worker: lamp_interaction::BootId::new([1; 16]).unwrap(),
+                worker: lamp_turn_owner::BootId::new([1; 16]).unwrap(),
                 epoch: std::num::NonZeroU64::new(1).unwrap(),
             };
             let config = CaptureConfig {

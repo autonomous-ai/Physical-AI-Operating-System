@@ -1,7 +1,7 @@
 //! The newest frame, kept in one private file for the voice service.
 //!
 //! A person asks the lamp what it sees. The voice service gives the model one
-//! picture with what was said (`lamp-live`, `--eyes-sight`), and this is
+//! picture with what was said (`lamp-voice`, `--eyes-sight`), and this is
 //! where it finds it: the frame the eyes last looked at, replaced whole about
 //! six times a second while the camera is open and removed the moment it
 //! closes. One file, never a history, readable by its owner only. The file's
@@ -84,7 +84,7 @@ impl Kept {
 
 /// One line saying how large the near face is, kept fresh while there is
 /// one: how the voice service knows someone has come to sit in front of the
-/// lamp (`lamp-live`, `LAMP_EYES_PRESENCE_FILE`). No picture, no place, no
+/// lamp (`lamp-voice`, `LAMP_EYES_PRESENCE_FILE`). No picture, no place, no
 /// identity: a number between 0 and 1, the face's height as a share of the
 /// picture's. A file not written for a second and a half means nobody.
 pub struct Presence {

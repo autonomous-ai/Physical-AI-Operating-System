@@ -28,7 +28,7 @@ zero failed and zero ignored**, plus all four gates, run sequentially:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 ```
 
 Host: macOS x86-64. Source manifest: `30263f217d4e9ccb550e1f4a29a1fa1c0764bd489989b56079968dda7501aeda`

@@ -167,7 +167,7 @@ CPU behavior, or end-to-end speech latency.
 
 ## Finite cached-reply interruption fixture
 
-`lamp-live directed-fixture` replaces only the cloud provider with one preloaded
+`lamp-voice directed-fixture` replaces only the cloud provider with one preloaded
 local reply. It still uses the directed coordinator, physical privacy worker,
 real admitted microphone input, immutable turn ownership, ordinary speaker
 permits, actual accepted render reference, and normal local cancellation. It
@@ -178,7 +178,7 @@ existing exclusive-owner check still refuses active legacy services.
 On Linux, after explicit device-test authorization:
 
 ```sh
-lamp-live directed-fixture /absolute/cache/reply.wav WAV_SHA256 25 NEW_OUTPUT \
+lamp-voice directed-fixture /absolute/cache/reply.wav WAV_SHA256 25 NEW_OUTPUT \
   --diagnostics --noise-suppression on --cue-socket /private/session/cues.sock
 ```
 
@@ -297,7 +297,7 @@ new TTS during a run.
 
 The isolated source `9bdbcfaeddf9b0aed8b8a81fab135f358a47eefa6d55401a3980acacb63037b1`
 passed 437 native ARM64 workspace tests (none failed or ignored), strict workspace
-Clippy with all targets, workspace formatting, and the release `lamp-live` build.
+Clippy with all targets, workspace formatting, and the release `lamp-voice` build.
 The resulting binary SHA256 is
 `683df87861fa6df45c1c4741d17b4dabdd12be3f589e3b8803abfdaf7158e129`.
 Source identity, exact commands, logs, and the earlier failed source-overlay

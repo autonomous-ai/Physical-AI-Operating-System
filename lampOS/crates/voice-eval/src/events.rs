@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 pub enum ClockDomain {
     /// Fake runtime simulation time. Never comparable with wall clocks.
     Virtual,
-    /// Lamp host `CLOCK_MONOTONIC` microseconds (lamp-live traces and cues).
+    /// Lamp host `CLOCK_MONOTONIC` microseconds (lamp-voice traces and cues).
     LampMonotonic,
     /// Runner host `CLOCK_MONOTONIC` microseconds (the Mac driving stimuli).
     RunnerMonotonic,
@@ -19,11 +19,11 @@ pub enum ClockDomain {
 #[serde(rename_all = "snake_case")]
 pub enum EventSource {
     Fake,
-    /// Final `events.jsonl` written by lamp-live.
+    /// Final `events.jsonl` written by lamp-voice.
     Trace,
-    /// Live scheduling cue from lamp-live's optional cue socket.
+    /// Live scheduling cue from lamp-voice's optional cue socket.
     Cue,
-    /// A status line lamp-live printed on stdout.
+    /// A status line lamp-voice printed on stdout.
     Stdout,
     /// The runner's own evidence (player or room recorder), never Lamp's.
     Runner,
@@ -46,7 +46,7 @@ pub enum EventKind {
     },
     InputAdmitted {
         prefix_first_read_us: Option<u64>,
-        /// Candidate ID and admission basis, recorded since lamp-live 9c2c82e1.
+        /// Candidate ID and admission basis, recorded since lamp-voice 9c2c82e1.
         #[serde(default)]
         candidate: Option<Value>,
         #[serde(default)]
@@ -244,7 +244,7 @@ fn u64_field(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(Value::as_u64)
 }
 
-/// Map one lamp-live `events.jsonl` record. Unknown kinds return `None` and are
+/// Map one lamp-voice `events.jsonl` record. Unknown kinds return `None` and are
 /// counted by the caller; they are never guessed into a known meaning.
 pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
     let kind = record.get("kind")?.as_str()?;
@@ -408,7 +408,7 @@ pub fn from_trace(record: &Value) -> Option<RuntimeEvent> {
     })
 }
 
-/// Parse a lamp-live trace file's text, keeping a count of unmapped records.
+/// Parse a lamp-voice trace file's text, keeping a count of unmapped records.
 pub fn parse_trace(text: &str) -> Result<(Vec<RuntimeEvent>, usize)> {
     let mut events = Vec::new();
     let mut unmapped = 0;
@@ -428,7 +428,7 @@ pub fn parse_trace(text: &str) -> Result<(Vec<RuntimeEvent>, usize)> {
     Ok((events, unmapped))
 }
 
-/// lamp-live scheduling datagram (`fixture_provider::CueSink`, schema 1).
+/// lamp-voice scheduling datagram (`fixture_provider::CueSink`, schema 1).
 /// These timestamps are software events, never microphone/speaker onsets.
 pub const CUE_FRESH_US: u64 = 100_000;
 
@@ -467,7 +467,7 @@ pub fn parse_cue(bytes: &[u8]) -> Result<Cue> {
     }
     let cue: Cue = serde_json::from_slice(bytes)?;
     let owned = match cue.kind.as_str() {
-        // Unowned readiness evidence proposed for lamp-live's cue sink: the
+        // Unowned readiness evidence proposed for lamp-voice's cue sink: the
         // runner needs it to wait for the next turn by event, not by delay.
         "listening_ready" | "run_end" | "input_availability" | "provider_link"
         | "input_candidate" => false,
@@ -598,8 +598,8 @@ impl Cue {
     }
 }
 
-/// Serialize an event in lamp-live's trace vocabulary. Used by the fake
-/// lamp-live process for loopback tests of the physical orchestration path.
+/// Serialize an event in lamp-voice's trace vocabulary. Used by the fake
+/// lamp-voice process for loopback tests of the physical orchestration path.
 pub fn to_trace(event: &RuntimeEvent, owner: Option<Value>) -> Value {
     let at = event.at_us.unwrap_or(0);
     let mut record = match &event.kind {
@@ -694,7 +694,7 @@ mod tests {
     use super::*;
 
     /// Records copied field-for-field from the `json!` calls in
-    /// `crates/live/src/coordinator.rs` at source 64529dee.
+    /// `crates/voice/src/coordinator.rs` at source 64529dee.
     const COORDINATOR_RECORDS: &str = r#"{"kind":"run_start","at_us":10,"scope":"directed_voice_only","seconds":30,"acoustic_score":null,"audio_diagnostics_requested":true,"provider_kind":"one_cached_reply","fixture":null,"cue_requested":true}
 {"kind":"listening_ready","at_us":20,"scope":"explicit directed session; addressee inference absent"}
 {"kind":"input_admitted","owner":{"boot":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"turn":1,"generation":2},"turn":1,"at_us":30,"authority_issued_at_us":29,"prefix_first_host_read_us":5}

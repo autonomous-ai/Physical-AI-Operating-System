@@ -1,5 +1,5 @@
 //! The Lamp-side relay (`lamp-session`) with a shell script standing in for
-//! lamp-live. Each case checks one explicit framing, trace or cleanup
+//! lamp-voice. Each case checks one explicit framing, trace or cleanup
 //! failure; nothing is truncated, lossily repaired or left running.
 mod common;
 
@@ -14,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Run the relay with `/bin/sh -c SCRIPT`. The script receives lamp-live's
+/// Run the relay with `/bin/sh -c SCRIPT`. The script receives lamp-voice's
 /// arguments; `$5` is the runtime output directory it must create. With
 /// `close_runner_after`, the runner end closes once that file exists.
 fn relay(
@@ -31,7 +31,7 @@ fn relay(
         "--runtime-prefix-arg",
         script,
         "--runtime-prefix-arg",
-        "fake-lamp-live",
+        "fake-lamp-voice",
         "--work",
         &work.display().to_string(),
         "--seconds",
@@ -165,7 +165,7 @@ fn a_cut_off_final_trace_record_is_reported_and_the_digest_covers_the_whole_file
     assert!(error.unwrap().contains("trace closed inside a line"));
     assert_eq!((events, traces(&lines)), (1, 1));
     let bytes = fs::read(dir.join("work/runtime/events.jsonl")).unwrap();
-    assert_eq!(sha.unwrap(), lamp_acoustic::hash(&bytes));
+    assert_eq!(sha.unwrap(), lamp_sound_fixtures::hash(&bytes));
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn oversized_or_non_utf8_trace_records_stop_the_trace_explicitly() {
         // relayed as if the trace were whole, but the digest still covers it.
         assert_eq!((events, traces(&lines)), (1, 1), "{label}");
         let bytes = fs::read(dir.join("work/runtime/events.jsonl")).unwrap();
-        assert_eq!(sha.unwrap(), lamp_acoustic::hash(&bytes), "{label}");
+        assert_eq!(sha.unwrap(), lamp_sound_fixtures::hash(&bytes), "{label}");
     }
 }
 
@@ -301,7 +301,7 @@ fn an_early_relay_error_after_the_runtime_exited_still_stops_its_workers() {
         "--runtime-prefix-arg",
         &script,
         "--runtime-prefix-arg",
-        "fake-lamp-live",
+        "fake-lamp-voice",
         "--work",
         &work.display().to_string(),
         "--seconds",

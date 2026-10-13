@@ -160,7 +160,7 @@ These tests do not run the OS process supervisor or real audio/GPIO devices.
 Run the paired cases with:
 
 ```sh
-cargo test --locked --offline -p lamp-live --lib coordinator::tests::provider_pair -- --test-threads=1
+cargo test --locked --offline -p lamp-voice --lib coordinator::tests::provider_pair -- --test-threads=1
 ```
 
 Unix datagram access is required even though no network service is contacted.
@@ -190,8 +190,8 @@ worker's real-time 60-second and 180-second tests; they were not rerun for this
 checkpoint. An earlier focused combined run passed 607 tests with the same four
 ignored. These counts describe different scopes and must not be added together.
 
-A source-only Linux ARM64 container passed the release `lamp-live` build and
-strict all-target Clippy for `lamp-audio`, `lamp-gemini`, and `lamp-live`. The five
+A source-only Linux ARM64 container passed the release `lamp-voice` build and
+strict all-target Clippy for `lamp-audio`, `lamp-gemini`, and `lamp-voice`. The five
 paired coordinator/provider tests passed under QEMU in release mode. The ELF
 uses the expected ARM64 interpreter and requires no GLIBC symbol newer than
 2.34. Binary SHA256:

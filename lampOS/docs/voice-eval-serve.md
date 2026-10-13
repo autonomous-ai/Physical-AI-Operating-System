@@ -1,11 +1,11 @@
 # Serve-session conversation runner
 
 Status 2026-10-11 (Agent 2): implemented and tested offline only. The runner
-has driven a fake `lamp-live serve` through the real `lamp-session` relay on one
+has driven a fake `lamp-voice serve` through the real `lamp-session` relay on one
 Mac and a Linux VM. It has **not** run against a Lamp, a real provider or the
 iMac speakers. Nothing below is an acoustic, latency or quality result.
 
-One attempt is one supervised `lamp-live serve` runtime and one provider
+One attempt is one supervised `lamp-voice serve` runtime and one provider
 session. It carries a whole pre-registered conversation of up to 20
 context-linked turns. Every stimulus is cached speech: the runner never renders
 audio and never replays a prompt. Every attempt, including a failed or
@@ -27,8 +27,8 @@ Runtime policy is forwarded typed and validated. The fields are
 `turn_taking`, `reference_clock`, `reference_recovery`, `playout_start_ms` and
 `provider_continuation`, in the config or as the same `lamp-session` flags.
 
-- Each value is parsed with lamp-live's own types.
-- The whole set is checked with lamp-live's own `DirectedOptions` rules, on the
+- Each value is parsed with lamp-voice's own types.
+- The whole set is checked with lamp-voice's own `DirectedOptions` rules, on the
   Mac and again in the relay before any child starts. For example, bounded
   recovery without a masking policy is refused.
 - An omitted field passes nothing, so the default child argv is unchanged.
@@ -49,7 +49,7 @@ It contains no secrets: the SSH target is a placeholder, and the provider path
 is the template's path, not its content. The serve child then runs:
 
 ```text
-lamp-live serve PROVIDER OUT --noise-suppression off --turn-taking duplex --reference-clock capture
+lamp-voice serve PROVIDER OUT --noise-suppression off --turn-taking duplex --reference-clock capture
   --reference-recovery off --playout-start-ms 200 --provider-continuation kept-start
   --cue-socket WORK/cue.sock --ring-channel-ceiling 12
 ```
@@ -304,11 +304,11 @@ In addition to the proposed `input_availability`, `provider_link` and
   it just validated, `provider_link_current`. It is a fresh `provider_link`
   cue, never a re-stamped old record.
 
-Both are separate lamp-live proposal commits.
+Both are separate lamp-voice proposal commits.
 
 ## Offline controls
 
-These ran through the real relay process, lamp-live's own `CueSink` and the
+These ran through the real relay process, lamp-voice's own `CueSink` and the
 fake serve runtime and player, one attempt at a time. The 100 ms bound was
 unchanged; no lease was widened.
 
@@ -331,7 +331,7 @@ unchanged; no lease was widened.
 
 ## Limits
 
-- The fake runtime is a policy simulation of serve's shape, not lamp-live. The
+- The fake runtime is a policy simulation of serve's shape, not lamp-voice. The
   real serve path additionally needs the physical privacy worker, Gemini and
   hardware.
 - The prepared observer has not run in this runner against the iMac speakers.
@@ -356,7 +356,7 @@ expiry and refuses readiness.
 ## Microphone comparison option
 
 The physical configuration can set `"microphone": "mic1"` to forward the typed
-`--microphone mic1` option to lamp-live. Omission leaves the original command
+`--microphone mic1` option to lamp-voice. Omission leaves the original command
 unchanged and uses its mic2 default. No mixer is changed by the runner. Use an
 independent room recorder, retain the selected role in the report, and keep this
 cohort separate from mic2 and direct-human results. See [microphone topology](microphone-topology.md).

@@ -4,7 +4,7 @@ use crate::{
     Result, invalid,
     stimulus::{StimulusCatalog, TriggerKind},
 };
-use lamp_acoustic::{Trigger as SceneTrigger, hash};
+use lamp_sound_fixtures::{Trigger as SceneTrigger, hash};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -42,7 +42,7 @@ pub struct Targets {
     pub yield_p95_ms: u32,
 }
 
-/// Identity of the cached Gemini reply used by `lamp-live directed-fixture`.
+/// Identity of the cached Gemini reply used by `lamp-voice directed-fixture`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FixedReply {
@@ -102,7 +102,7 @@ pub enum Capability {
 pub enum ProviderKind {
     /// Live provider: every admitted turn may receive a generated answer.
     Gemini,
-    /// `lamp-live directed-fixture`: only the first admitted owner receives the
+    /// `lamp-voice directed-fixture`: only the first admitted owner receives the
     /// cached reply; later turns complete without audio.
     FixedReply,
 }
@@ -118,7 +118,7 @@ pub struct Scenario {
     /// False when the scenario needs fault injection that the physical runtime
     /// does not expose. Such scenarios run only against the fake runtime.
     pub physical: bool,
-    /// The finite `lamp-live` session length after listening readiness.
+    /// The finite `lamp-voice` session length after listening readiness.
     pub session_seconds: u16,
     /// Bounded observation after the last step before the attempt is closed.
     pub observe_ms: u32,
@@ -156,7 +156,7 @@ pub enum TriggerEvent {
     SpeechRetired,
     /// Whole reply completed after all provider generations and playback occurrences.
     TurnCompleted,
-    /// A reply revoked for any reason (lamp-live's `cancelled` cue).
+    /// A reply revoked for any reason (lamp-voice's `cancelled` cue).
     TurnCancelled,
     /// Ready for the next turn: every turn admitted since the previous step
     /// has finished, and the runtime then reports prospective input available
@@ -302,7 +302,7 @@ pub struct FakeProfile {
     /// The current runtime has no audible failure message; keep this false
     /// until the runtime implements one.
     pub spoken_failure_notice: bool,
-    /// Emit ring requests like `lamp-live --ring-channel-ceiling` (phase
+    /// Emit ring requests like `lamp-voice --ring-channel-ceiling` (phase
     /// changes only; the real policy also renews each static cue every 20 ms).
     #[serde(default)]
     pub ring_cues: bool,

@@ -83,12 +83,12 @@ recall or speech-end-to-first-word latency.
 
 The source-only macOS x86_64 candidate passed 559 tests (zero failed/ignored),
 formatting, strict workspace/all-target Clippy and release builds of `lamp-audio`
-and `lamp-live`, using pinned Rust 1.96.0. Rust/Cargo source identity:
+and `lamp-voice`, using pinned Rust 1.96.0. Rust/Cargo source identity:
 `173d1793fe09b229a75b29d8c9e7c3446baf8ff3e3a938b86834cc84ac1f3219`.
 Commands were `cargo fmt --all -- --check`,
 `cargo clippy --locked --offline --workspace --all-targets -- -D warnings`,
 `cargo test --locked --offline --workspace -- --test-threads=1` and
-`cargo build --release --locked --offline -p lamp-audio -p lamp-live`.
+`cargo build --release --locked --offline -p lamp-audio -p lamp-voice`.
 An 8,192-read release probe measured the cached getter plus host clock overhead:
 first 80 ns, p50 31 ns, p95 32 ns, p99 33 ns, maximum 8,662 ns. This met the
 host getter target; it excludes DSP, recording serialization and all hardware.

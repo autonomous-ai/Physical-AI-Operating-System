@@ -1,5 +1,5 @@
 //! Fake-runtime scenarios: the runner's event triggering and the evaluator's
-//! findings against lamp-live's directed turn policy. No audio is produced.
+//! findings against lamp-voice's directed turn policy. No audio is produced.
 mod common;
 
 use lamp_voice_eval::{
@@ -433,7 +433,7 @@ fn a_missing_trigger_is_recorded_not_replaced_by_a_fixed_delay() {
 }
 
 #[test]
-fn signal_mode_uses_lamp_live_vad_on_the_exact_cached_mix() {
+fn signal_mode_uses_lamp_voice_vad_on_the_exact_cached_mix() {
     let s = setup();
     let dir = common::Private::new("sig");
     let manifest = common::synthetic_cache(

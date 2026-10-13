@@ -122,7 +122,7 @@ fn sample() -> std::path::PathBuf {
 }
 
 /// The shipped pilot config parses, validates its runtime policy with
-/// lamp-live's own rules and forwards it, in a dry run that starts nothing.
+/// lamp-voice's own rules and forwards it, in a dry run that starts nothing.
 #[test]
 fn the_sample_pilot_config_forwards_the_installed_pilot_settings() {
     let dir = common::Private::new("cfg");
@@ -194,7 +194,7 @@ fn the_endpoint_trial_config_adds_only_the_endpoint_flag() {
 }
 
 #[test]
-fn a_config_policy_lamp_live_would_refuse_is_refused_on_the_mac() {
+fn a_config_policy_lamp_voice_would_refuse_is_refused_on_the_mac() {
     let dir = common::Private::new("cfg");
     let mut config: Value =
         serde_json::from_str(&std::fs::read_to_string(sample()).unwrap()).unwrap();
@@ -207,7 +207,7 @@ fn a_config_policy_lamp_live_would_refuse_is_refused_on_the_mac() {
     assert!(!output.status.success());
     let error = String::from_utf8_lossy(&output.stderr);
     assert!(
-        error.contains("lamp-live would refuse runtime options"),
+        error.contains("lamp-voice would refuse runtime options"),
         "{error}"
     );
 }

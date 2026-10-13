@@ -1,6 +1,6 @@
 //! End-to-end physical orchestration without hardware: the runner starts the
-//! real `lamp-session` relay, which starts a fake lamp-live that emits cues via
-//! lamp-live's own `CueSink`; "playback" goes to a fake room socket. This runs
+//! real `lamp-session` relay, which starts a fake lamp-voice that emits cues via
+//! lamp-voice's own `CueSink`; "playback" goes to a fake room socket. This runs
 //! in real time and plays no audio.
 mod common;
 
@@ -37,7 +37,7 @@ fn config_with_fault(
         BIN.into(),
     ];
     for arg in [
-        "fake-lamp-live",
+        "fake-lamp-voice",
         "--fake-scenario",
         scenario,
         "--fake-profile",
@@ -701,12 +701,12 @@ fn missing_or_stale_whole_completion_withholds_followup_after_valid_retirement()
     }
 }
 
-/// lamp-live's own cue sink now sends input availability, the provider link
+/// lamp-voice's own cue sink now sends input availability, the provider link
 /// and candidates, so a physical next-turn wait follows real readiness cues
 /// through the relay: it starts only after the turn completed and the
 /// runtime reported availability and a ready link.
 #[test]
-fn physical_next_turn_ready_follows_lamp_live_readiness_cues() {
+fn physical_next_turn_ready_follows_lamp_voice_readiness_cues() {
     let mut source: serde_json::Value =
         serde_json::from_str(lamp_voice_eval::plan::DEFAULT_PLAN).unwrap();
     for scenario in source["scenarios"].as_array_mut().unwrap() {

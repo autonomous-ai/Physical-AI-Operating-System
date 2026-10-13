@@ -1,6 +1,6 @@
 # Gemini session reliability
 
-Scope: `crates/gemini` and `crates/live/src/provider_worker.rs`.
+Scope: `crates/gemini` and `crates/voice/src/provider_worker.rs`.
 
 The shared branch integrates Agent 1 through `d6b813695` with additional review
 corrections. See [integration qualification](provider-recovery-integration.md)
@@ -336,12 +336,12 @@ response deadlines are unchanged.
 | Combined-source check | Result |
 |---|---|
 | `cargo fmt --all -- --check` | passed |
-| `cargo clippy --locked --offline -p lamp-gemini -p lamp-live --all-targets -- -D warnings` | passed on macOS and emulated Linux/ARM64 |
+| `cargo clippy --locked --offline -p lamp-gemini -p lamp-voice --all-targets -- -D warnings` | passed on macOS and emulated Linux/ARM64 |
 | `cargo test --locked --offline -p lamp-gemini --lib -- --test-threads=1` | 144 passed, 0 failed, 2 existing ignored |
-| `cargo test --locked --offline -p lamp-live --lib failure_notice -- --test-threads=1` | 13 passed, 0 failed |
-| `cargo test --locked --offline -p lamp-live --lib provider_worker -- --test-threads=1` | 62 passed, 0 failed, 2 existing ignored |
+| `cargo test --locked --offline -p lamp-voice --lib failure_notice -- --test-threads=1` | 13 passed, 0 failed |
+| `cargo test --locked --offline -p lamp-voice --lib provider_worker -- --test-threads=1` | 62 passed, 0 failed, 2 existing ignored |
 | ARM64 release `lamp-gemini --lib` filtered to `stop_fence` and `a_stop_with` | 7 passed, 0 failed, 0 ignored |
-| ARM64 release build of `lamp-live` | linked as little-endian AArch64 ELF |
+| ARM64 release build of `lamp-voice` | linked as little-endian AArch64 ELF |
 
 This is 219 passing host tests and seven focused emulated ARM tests, not a new
 full-workspace pass or physical Stop measurement. Agent 1's separate
@@ -701,9 +701,9 @@ From `lampOS/`, with a fresh target directory:
 cargo fmt --all -- --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
 cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1
-cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval
+cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval
 cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --nocapture
-cargo test --locked --offline -p lamp-live --lib follows_output_capacity -- --ignored --nocapture --test-threads=1
+cargo test --locked --offline -p lamp-voice --lib follows_output_capacity -- --ignored --nocapture --test-threads=1
 ```
 
 The last two are the prolonged conversations (about 150 s of CPU) and the
@@ -736,7 +736,7 @@ outside the repository, fresh target directory:
 | Formatting | pass |
 | Strict Clippy, workspace, all targets | pass |
 | Workspace tests, serial | 755 passed, 0 failed, 3 ignored |
-| Release build of `lamp-live` and `lamp-voice-eval` | pass |
+| Release build of `lamp-voice` and `lamp-voice-eval` | pass |
 | Prolonged conversations (ignored by default) | pass: 4 seeds x 400 turns, tallies unchanged |
 | 60 s and 180 s real-time answers (ignored by default) | pass, run in the working tree on the same source |
 
@@ -759,7 +759,7 @@ All on merge commit `a09b305bc`:
 | Gate | Result |
 |---|---|
 | Strict Clippy, workspace, all targets, ARM64 target | pass |
-| Release build of `lamp-live` and `lamp-voice-eval` | pass: `lamp-live` is ELF 64-bit ARM aarch64, dynamically linked |
+| Release build of `lamp-voice` and `lamp-voice-eval` | pass: `lamp-voice` is ELF 64-bit ARM aarch64, dynamically linked |
 | `lamp-gemini` tests, debug and release builds | 99 passed, 0 failed, each |
 | Provider worker tests, release build | 36 passed, 0 failed |
 | 60 s real-time answer, release build | pass: playback ended at 70.02 s after a 10.00 s hold; backlog peaked at 30.00 s |
@@ -829,7 +829,7 @@ Assignment: items 1 and 3 of Agent 1's list in the
 |---|---|---|---|
 | `67154e0b6` | `gemini-voice` | `crates/gemini/src/recovery.rs`, `recovery/tests.rs`, `recovery/tests/availability.rs`, new `recovery/tests/pressure.rs` | Retry work is no longer held back by an unread link update; five regressions |
 | `155bab4e2` | `gemini-voice` | `crates/gemini/src/recovery/tests/soak.rs` | Adversarial conversations through both supervisor interfaces |
-| `548fda500` | `gemini-voice-worker-proposal` | `crates/live/src/provider_worker.rs` (tests only) | Stopped-playback measurement. A proposal: that file is under the main agent's lock |
+| `548fda500` | `gemini-voice-worker-proposal` | `crates/voice/src/provider_worker.rs` (tests only) | Stopped-playback measurement. A proposal: that file is under the main agent's lock |
 
 Behavior change, one: [recovery does not wait for its
 reader](#recovery-does-not-wait-for-its-reader). Nothing else in the runtime
@@ -906,10 +906,10 @@ only ignored tests.
 | `cargo fmt --all -- --check` | pass |
 | `cargo clippy --locked --offline --workspace --all-targets -- -D warnings` | pass |
 | `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1` | 849 passed, 0 failed, 11 ignored |
-| `cargo build --locked --offline --release -p lamp-live -p lamp-voice-eval` | pass |
+| `cargo build --locked --offline --release -p lamp-voice -p lamp-voice-eval` | pass |
 | `cargo test --locked --offline -p lamp-gemini --lib soak -- --ignored --nocapture --test-threads=1` | 2 passed in 553 s: the earlier prolonged conversation with unchanged tallies, and the adversarial one |
-| `cargo test --locked --offline -p lamp-live --lib follows_output_capacity -- --ignored --nocapture --test-threads=1` | 2 passed in 270 s: the 60 s answer finished playing at 70.03 s, the 180 s answer at 200.05 s |
-| `cargo test --locked --offline -p lamp-live --lib stopped -- --ignored --nocapture --test-threads=7` | 7 passed in 118 s; see [a stopped speaker](#a-stopped-speaker) |
+| `cargo test --locked --offline -p lamp-voice --lib follows_output_capacity -- --ignored --nocapture --test-threads=1` | 2 passed in 270 s: the 60 s answer finished playing at 70.03 s, the 180 s answer at 200.05 s |
+| `cargo test --locked --offline -p lamp-voice --lib stopped -- --ignored --nocapture --test-threads=7` | 7 passed in 118 s; see [a stopped speaker](#a-stopped-speaker) |
 
 `lamp-gemini` contributes 136 of the 849 (118 unit, 6 setup, 12 codec). The
 eleven ignored tests are the two prolonged conversations, the 60 s and 180 s
@@ -930,7 +930,7 @@ read-only source-only export. **Not the device.**
 | Gate | Result |
 |---|---|
 | Strict Clippy, workspace, all targets, ARM64 target | pass |
-| Release build of `lamp-live`, `lamp-voice-eval` and the `service_probe` example | pass; ARM aarch64 ELF |
+| Release build of `lamp-voice`, `lamp-voice-eval` and the `service_probe` example | pass; ARM aarch64 ELF |
 | `lamp-gemini` tests, release build | 136 passed, 0 failed, 2 ignored |
 | Provider worker tests, release build | 44 passed, 0 failed, 2 ignored |
 | Prolonged adversarial conversations, release build | pass; every tally identical to the host run through both interfaces |
@@ -1053,7 +1053,7 @@ Branch `gemini-voice`. It contains shared checkpoint `4b8436d23` of
 | the merge after it | `lamp-v2-chat` `4b8436d23`; the worker moves from its provisional seam to the shared output-capacity contract |
 | the commit after that | This document, for the merged tree |
 
-Changed files: `crates/gemini/**`, `crates/live/src/provider_worker.rs`, this
+Changed files: `crates/gemini/**`, `crates/voice/src/provider_worker.rs`, this
 document, and the barrier sentence in `docs/live-runtime.md`. No shared
 manifest, lock file, coordinator, admission, audio or choreography file is
 touched, and `ProviderInput` / `ProviderOutput` are unchanged on the wire.
@@ -1404,7 +1404,7 @@ Integration, in three places and no others:
 3. `main.rs`: the provider worker takes that flag off the front of its
    flags and calls `provider_worker::run_with_continuation`.
 
-To try it: `lamp-live serve CONFIG OUTPUT --provider-continuation
+To try it: `lamp-voice serve CONFIG OUTPUT --provider-continuation
 kept-start`, with whatever else the session already uses. A reply
 fixture (`directed-fixture`) refuses `kept-start`: it has no Gemini
 session to apply it to, and its worker takes exactly its WAV and digest.

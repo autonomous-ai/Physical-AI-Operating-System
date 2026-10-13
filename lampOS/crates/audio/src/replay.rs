@@ -135,7 +135,7 @@ struct Render {
     accepted_at_us: u64,
     queue_observed_at_us: u64,
     queued_frames: i64,
-    owner: Option<lamp_interaction::TurnOwner>,
+    owner: Option<lamp_turn_owner::TurnOwner>,
     chunk_sequence: Option<u64>,
 }
 #[derive(Clone, Debug, Deserialize)]

@@ -38,7 +38,7 @@ fn options_with(
     let mut arguments: Vec<String> = vec!["--runtime".into(), BIN.into()];
     let plan = plan.display().to_string();
     let mut prefix = vec![
-        "fake-lamp-live",
+        "fake-lamp-voice",
         "--fake-plan",
         &plan,
         "--fake-scenario",

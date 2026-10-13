@@ -1,7 +1,7 @@
 //! Stimuli: the existing `desk-v1` catalog plus voice-eval additions, resolved
 //! through the existing verified acoustic cache. Nothing here synthesizes speech.
 use crate::{Result, invalid};
-use lamp_acoustic::{Cache, Catalog, RenderReport, Scene, hash};
+use lamp_sound_fixtures::{Cache, Catalog, RenderReport, Scene, hash};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -12,7 +12,7 @@ use std::{
 pub const DESK_SOURCE: &str = include_str!("../../../fixtures/desk-v1.json");
 pub const EXTENSION_SOURCE: &str = include_str!("../../../fixtures/voice-eval-stimuli-v1.json");
 pub const BLOCK_SAMPLES: usize = 160;
-const RATE: u32 = lamp_acoustic::RATE;
+const RATE: u32 = lamp_sound_fixtures::RATE;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerKind {
@@ -29,7 +29,7 @@ pub struct StimulusCatalog {
     pub catalog: Catalog,
     pub desk_file_sha256: String,
     pub extension_file_sha256: String,
-    /// Hash of the merged catalog serialization, as `lamp-acoustic` reports it.
+    /// Hash of the merged catalog serialization, as `lamp-sound-fixtures` reports it.
     pub merged_sha256: String,
     pub extension_utterances: BTreeSet<String>,
     pub extension_scenes: BTreeSet<String>,
@@ -224,7 +224,7 @@ impl SceneTiming {
     }
 }
 
-/// Verified scene assets from one or more existing `lamp-acoustic` render
+/// Verified scene assets from one or more existing `lamp-sound-fixtures` render
 /// manifests. Each manifest scene must equal the current catalog definition.
 pub struct AssetIndex {
     cache: Cache,

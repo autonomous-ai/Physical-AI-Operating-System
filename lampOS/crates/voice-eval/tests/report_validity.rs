@@ -1,6 +1,6 @@
 //! Report validity on the first eight-step native serve conversation
-//! (Lamp-4ace: b318 lamp-live, e1dc relay; summary in
-//! `docs/verification/final-serve-pilot-20261012`). Trace rows use lamp-live's
+//! (Lamp-4ace: b318 lamp-voice, e1dc relay; summary in
+//! `docs/verification/final-serve-pilot-20261012`). Trace rows use lamp-voice's
 //! coordinator record shapes in the order it writes them: a revoke records the
 //! old turn's `user_interrupted` finish, then admits and records the successor.
 //! The interruption pair is the run's own: turn 3 finished at 64,624,013,887 us
@@ -710,8 +710,8 @@ fn the_invalid_room_terminal_report_is_retained_and_surfaced() {
 fn a_verified_or_absent_room_recording_keeps_its_own_state() {
     let dir = common::Private::new("rv-valid");
     let wav = dir.join("room.wav");
-    lamp_acoustic::write_wave(&wav, &vec![0.0; 16_000]).unwrap();
-    let sha = lamp_acoustic::hash(&fs::read(&wav).unwrap());
+    lamp_sound_fixtures::write_wave(&wav, &vec![0.0; 16_000]).unwrap();
+    let sha = lamp_sound_fixtures::hash(&fs::read(&wav).unwrap());
     let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha,
         "start_requested_host_ns": 1_000_000_000_u64});
     let mut verified = record(&conversation());
@@ -754,8 +754,8 @@ fn a_verified_or_absent_room_recording_keeps_its_own_state() {
 fn a_valid_wav_from_a_recorder_that_ended_mid_session_certifies_nothing() {
     let dir = common::Private::new("rv-cover");
     let wav = dir.join("room.wav");
-    lamp_acoustic::write_wave(&wav, &vec![0.0; 16_000]).unwrap();
-    let sha = lamp_acoustic::hash(&fs::read(&wav).unwrap());
+    lamp_sound_fixtures::write_wave(&wav, &vec![0.0; 16_000]).unwrap();
+    let sha = lamp_sound_fixtures::hash(&fs::read(&wav).unwrap());
     let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha,
         "start_requested_host_ns": 1_000_000_000_u64});
     let lost = |kind: &str| {
@@ -807,8 +807,8 @@ fn a_listened_annotation_cannot_certify_a_recording_whose_recorder_exited_early(
     let dir = common::Private::new("rv-r1");
     let wav = dir.join("room.wav");
     // 30 s at 16 kHz: the annotated boundaries lie inside it.
-    lamp_acoustic::write_wave(&wav, &vec![0.0; 480_000]).unwrap();
-    let sha = lamp_acoustic::hash(&fs::read(&wav).unwrap());
+    lamp_sound_fixtures::write_wave(&wav, &vec![0.0; 480_000]).unwrap();
+    let sha = lamp_sound_fixtures::hash(&fs::read(&wav).unwrap());
     let metadata = json!({"valid": true, "status": "captured_unscored", "room_wav_sha256": sha,
         "start_requested_host_ns": 1_000_000_000_u64});
     let annotations = |record: &AttemptRecord| {

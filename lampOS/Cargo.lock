@@ -782,28 +782,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "lamp-acoustic"
-version = "0.1.0"
-dependencies = [
- "hound",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
 name = "lamp-audio"
 version = "0.1.0"
 dependencies = [
  "alsa",
  "hound",
- "lamp-interaction",
  "lamp-ipc",
+ "lamp-turn-owner",
  "rustix",
  "serde",
  "serde_json",
  "sha2",
  "sonora",
+]
+
+[[package]]
+name = "lamp-body"
+version = "0.1.0"
+dependencies = [
+ "lamp-ipc",
+ "lamp-turn-owner",
+ "nix 0.29.0",
+ "rustix",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -818,8 +820,8 @@ dependencies = [
 name = "lamp-camera"
 version = "0.1.0"
 dependencies = [
- "lamp-interaction",
  "lamp-ipc",
+ "lamp-turn-owner",
  "rustix",
  "serde",
  "serde_json",
@@ -828,29 +830,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "lamp-endpoint"
-version = "0.1.0"
-dependencies = [
- "lamp-endpoint-ipc",
- "rustfft",
- "rustix",
- "serde_json",
- "sha2",
- "tract-onnx",
-]
-
-[[package]]
-name = "lamp-endpoint-ipc"
-version = "0.1.0"
-dependencies = [
- "lamp-ipc",
-]
-
-[[package]]
 name = "lamp-environment"
 version = "0.1.0"
 dependencies = [
- "lamp-interaction",
+ "lamp-turn-owner",
 ]
 
 [[package]]
@@ -858,8 +841,8 @@ name = "lamp-eyes"
 version = "0.1.0"
 dependencies = [
  "lamp-camera",
- "lamp-interaction",
  "lamp-ipc",
+ "lamp-turn-owner",
  "serde",
  "serde_json",
  "sha2",
@@ -882,14 +865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lamp-interaction"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "lamp-ipc"
 version = "0.1.0"
 dependencies = [
@@ -898,46 +873,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "lamp-live"
-version = "0.1.0"
-dependencies = [
- "gpiocdev",
- "hound",
- "lamp-audio",
- "lamp-camera",
- "lamp-endpoint-ipc",
- "lamp-gemini",
- "lamp-interaction",
- "lamp-ipc",
- "lamp-motor",
- "lamp-ring",
- "rtrb",
- "rustix",
- "serde",
- "serde_json",
- "sha2",
- "signal-hook",
- "sonora-agc2",
- "sonora-simd",
- "tokio",
-]
-
-[[package]]
 name = "lamp-memory"
 version = "0.1.0"
 dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lamp-motor"
-version = "0.1.0"
-dependencies = [
- "lamp-interaction",
- "lamp-ipc",
- "nix 0.29.0",
- "rustix",
  "serde",
  "serde_json",
 ]
@@ -964,9 +902,71 @@ dependencies = [
 name = "lamp-ring"
 version = "0.1.0"
 dependencies = [
- "lamp-interaction",
  "lamp-ipc",
+ "lamp-turn-owner",
  "spidev",
+]
+
+[[package]]
+name = "lamp-sound-fixtures"
+version = "0.1.0"
+dependencies = [
+ "hound",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "lamp-turn-end"
+version = "0.1.0"
+dependencies = [
+ "lamp-turn-end-wire",
+ "rustfft",
+ "rustix",
+ "serde_json",
+ "sha2",
+ "tract-onnx",
+]
+
+[[package]]
+name = "lamp-turn-end-wire"
+version = "0.1.0"
+dependencies = [
+ "lamp-ipc",
+]
+
+[[package]]
+name = "lamp-turn-owner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "lamp-voice"
+version = "0.1.0"
+dependencies = [
+ "gpiocdev",
+ "hound",
+ "lamp-audio",
+ "lamp-body",
+ "lamp-camera",
+ "lamp-gemini",
+ "lamp-ipc",
+ "lamp-ring",
+ "lamp-turn-end-wire",
+ "lamp-turn-owner",
+ "rtrb",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "signal-hook",
+ "sonora-agc2",
+ "sonora-simd",
+ "tokio",
 ]
 
 [[package]]
@@ -974,12 +974,12 @@ name = "lamp-voice-eval"
 version = "0.1.0"
 dependencies = [
  "hound",
- "lamp-acoustic",
  "lamp-audio",
- "lamp-interaction",
  "lamp-ipc",
- "lamp-live",
  "lamp-observer",
+ "lamp-sound-fixtures",
+ "lamp-turn-owner",
+ "lamp-voice",
  "rustix",
  "serde",
  "serde_json",

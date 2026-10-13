@@ -405,10 +405,10 @@ commit to your files. Its commit is named in
 
 | File | Change |
 |---|---|
-| `crates/live/src/options.rs` | `PlayoutStart` carries the choice. `--playout-continuity` selects `Continuity::EVALUATED` and excludes `--playout-start-ms`. `PlayoutStart::gate()` builds the gate, `policy()` reports it. One test |
-| `crates/live/src/coordinator.rs` | `append_provider_audio` calls `start.arrival(at, frames)`. `next_speaker_chunk` calls `start.generation_ended()` on the final block. The reply is built with `playout_start.gate()`. `run_start` and the start receipt gain the policy, the measured lead and the reason |
-| `crates/live/src/main.rs` | The usage line |
-| `crates/live/src/coordinator/tests/playout_continuity.rs` | New: four tests through the production queue |
+| `crates/voice/src/options.rs` | `PlayoutStart` carries the choice. `--playout-continuity` selects `Continuity::EVALUATED` and excludes `--playout-start-ms`. `PlayoutStart::gate()` builds the gate, `policy()` reports it. One test |
+| `crates/voice/src/coordinator.rs` | `append_provider_audio` calls `start.arrival(at, frames)`. `next_speaker_chunk` calls `start.generation_ended()` on the final block. The reply is built with `playout_start.gate()`. `run_start` and the start receipt gain the policy, the measured lead and the reason |
+| `crates/voice/src/main.rs` | The usage line |
+| `crates/voice/src/coordinator/tests/playout_continuity.rs` | New: four tests through the production queue |
 
 26 changed lines in `coordinator.rs`. With neither flag, and with
 `--playout-start-ms`, the gate is the plain one and behaves as before; your

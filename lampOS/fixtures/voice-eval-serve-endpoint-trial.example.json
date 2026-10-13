@@ -1,7 +1,7 @@
 {
   "lamp_command": ["/usr/bin/ssh", "-o", "BatchMode=yes", "LAMP_USER@LAMP_HOST",
     "/opt/lampOS/voice-eval/BUILD/lamp-voice-eval", "lamp-session",
-    "--runtime", "/opt/lampOS/voice-eval/BUILD/lamp-live"],
+    "--runtime", "/opt/lampOS/voice-eval/BUILD/lamp-voice"],
   "lamp_work_root": "/var/lib/lampOS/voice-eval-runs",
   "serve_config": "/etc/lampOS/pilot-4ace/provider.json",
   "noise_suppression": "off",

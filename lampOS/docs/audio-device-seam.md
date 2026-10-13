@@ -1,7 +1,7 @@
 # Audio device seam
 
 Scope: `crates/audio/src/{device,alsa_device,testing,capture}.rs` and the
-capture loop in `crates/live/src/audio_workers.rs`. **The capture half is
+capture loop in `crates/voice/src/audio_workers.rs`. **The capture half is
 done. The speaker half is not started.**
 
 ## Why
@@ -97,7 +97,7 @@ Results are in [Agent 1's status](../coordination/agent-1.md).
   and no off-board test of the speaker loop.
 - **The capture loop itself has no test yet.** `capture_on` exists and
   compiles for the board; nothing drives it. `audio_workers` is compiled only
-  on Linux (`crates/live/src/lib.rs`, the integrator's file), so a test of it
+  on Linux (`crates/voice/src/lib.rs`, the integrator's file), so a test of it
   runs in a Linux container or needs that gate opened.
 - **Nothing here is evidence about a device.** A scripted stall is a sleep; a
   scripted xrun is a number. They prove what the boundary does when the

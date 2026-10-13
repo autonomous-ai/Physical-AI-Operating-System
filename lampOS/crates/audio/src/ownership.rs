@@ -6,7 +6,7 @@
 //! Only an explicitly recorded continuous-clock acceptance may retire after
 //! ordinary supersession; strict callers retain the original owner checks.
 //! This ledger is not an audio buffer, an acoustic clock, or a timing measurement.
-use lamp_interaction::{
+use lamp_turn_owner::{
     BoundaryGuard, Error as InteractionError, MonoTime, OutputKind, OutputPermit, TurnOwner,
     ZeroAuthority,
 };

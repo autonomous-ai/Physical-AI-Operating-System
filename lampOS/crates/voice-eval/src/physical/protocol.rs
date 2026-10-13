@@ -80,7 +80,7 @@ pub enum SessionLine {
     },
 }
 
-/// How a long-lived `lamp-live serve` runtime ended. Every serve session
+/// How a long-lived `lamp-voice serve` runtime ended. Every serve session
 /// ends through the same path: SIGTERM to the runtime, a bounded grace, then
 /// a forced kill of its process group.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

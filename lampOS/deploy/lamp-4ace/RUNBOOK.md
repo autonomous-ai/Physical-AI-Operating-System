@@ -1,7 +1,9 @@
 # lamp-4ace (office prototype): how to run it
 
-Everything below is run from this iMac. The lamp is `orangepi@172.168.20.159`; the key is `~/.ssh/lamp_4ace_voice`.
-Short form used below: `L` = `/usr/bin/ssh -i ~/.ssh/lamp_4ace_voice -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/lamp_4ace_known_hosts orangepi@172.168.20.159`
+A copy of the runbook kept beside the deploy scripts, with the lamp's address, user and key file left out.
+
+Everything below is run from this iMac. The lamp is `USER@LAMP_ADDRESS`; the key is `~/.ssh/LAMP_KEY`.
+Short form used below: `L` = `/usr/bin/ssh -i ~/.ssh/LAMP_KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/LAMP_KNOWN_HOSTS USER@LAMP_ADDRESS`
 
 ## What runs on the lamp
 

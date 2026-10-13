@@ -180,6 +180,7 @@ FACE_EXTEND_MIN_ENROLL_SIM = 0.45   # Ngưỡng ảnh upload phải đạt để
 FACE_COOLDOWN_S = 10.0              # Số giây tối thiểu giữa hai presence event
 FACE_OWNER_FORGET_S = 3600.0        # Bắn lại presence sau N giây không thấy chủ
 FACE_STRANGER_FORGET_S = 1800.0     # Tương tự cho người lạ
+FACE_STRANGER_RETENTION_S = 2592000 # (HAL_FACE_STRANGER_RETENTION_S) Quên hẳn người lạ sau 30 ngày không ghé
 FACE_STRANGER_GAZE_TICKS = 3        # Chào người lạ: số nhịp face-ID trong lượt bỏ phiếu gaze
 FACE_STRANGER_GAZE_MIN_FACING = 2   # Chào người lạ: số nhịp nhìn về đèn cần có
 FACE_STRANGER_GAZE_WINDOW_S = 10.0  # Chào người lạ: tuổi tối đa của một phiếu gaze

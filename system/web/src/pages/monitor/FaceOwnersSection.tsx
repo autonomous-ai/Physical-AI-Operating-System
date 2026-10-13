@@ -67,6 +67,7 @@ export function FaceOwnersSection() {
     confirmStrangerFile, setConfirmStrangerFile,
     handleDeleteCluster, confirmDeleteCluster,
     handleDeleteStrangerFile, confirmDeleteStrangerFile,
+    confirmFaceForget, setConfirmFaceForget, forgettingFace, confirmForgetFace,
   } = useStrangers();
 
   const {
@@ -266,6 +267,19 @@ export function FaceOwnersSection() {
         />
       )}
 
+      {confirmFaceForget != null && (
+        <ConfirmDialog
+          danger
+          title={confirmFaceForget === "all" ? "Delete every unknown face?" : "Delete this unknown face?"}
+          message={confirmFaceForget === "all"
+            ? "The face data, visit counts and snapshots of every unknown face are deleted from the lamp. Anyone who comes back is treated as new."
+            : <>The face data, visit count and snapshots of <code style={{ color: "var(--lm-text)" }}>{confirmFaceForget}</code> are deleted from the lamp. If they come back they are treated as new.</>}
+          confirmLabel="Delete"
+          onConfirm={confirmForgetFace}
+          onCancel={() => setConfirmFaceForget(null)}
+        />
+      )}
+
       {confirmStrangerFile != null && (
         <ConfirmDialog
           danger
@@ -336,6 +350,8 @@ export function FaceOwnersSection() {
       <UnknownFacesCard
         faceStrangers={faceStrangers}
         faceStrangersError={faceStrangersError}
+        forgetting={forgettingFace}
+        onForget={setConfirmFaceForget}
         monCard={monCard}
         cardHeader={cardHeader}
       />

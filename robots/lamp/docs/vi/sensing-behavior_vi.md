@@ -197,11 +197,18 @@ thiết bị đang chạy tốt. Việc nhận diện không hề bị ảnh hư
 ảnh đã enroll, không đụng tới các file này); cái giá phải trả là journald đầy
 traceback và chôn vùi các lỗi thật.
 
-**Xoá khuôn mặt lạ:** để làm rỗng card Unknown Faces trên monitor UI, xoá
-`<HAL_USERS_DIR>/.stranger_stats.json` và ĐỪNG đụng vào bank `.npy`. Lưu ý file
-stats và bank nằm ở hai thư mục khác nhau, nên "xoá người lạ" rất dễ làm thiếu.
-Hiện chưa có endpoint xoá cho face stranger — cụm *voice* lạ thì có, còn card
-Unknown Faces là read-only — nên xoá chúng là thao tác trên filesystem.
+**Xoá khuôn mặt lạ:** HAL giữ ba thứ cho mỗi người lạ, nằm ở hai thư mục khác
+nhau: dòng embedding trong bank (`<HAL_STRANGERS_DIR>/embeds.npy` + `labels.npy`),
+visit stats trong `<HAL_USERS_DIR>/.stranger_stats.json`, và ảnh familiar-stranger
+`<HAL_STRANGERS_DIR>/snapshots/<id>_<ts>.jpg`. `FacePerception.forget_strangers`
+xoá cả ba cùng lúc (dòng bank bị xoá cả trên đĩa, vì bank được đọc lại từ đĩa mỗi
+frame), cộng với entry presence trong bộ nhớ; `counter.npy` được giữ nguyên để id
+không bị cấp lại. Người đã bị quên mà quay lại sẽ được coi là người lạ mới. Card
+Unknown Faces trên monitor UI có nút ✕ ở mỗi dòng và nút **Clear all** ở header,
+cả hai đều hỏi xác nhận trước; chúng gọi `DELETE /face/strangers/{stranger_id}` và
+`DELETE /face/strangers` (xem
+[Theo dõi người lạ](#theo-dõi-người-lạ-stranger-visit-tracking)). Đừng xoá tay
+từng file — xoá thiếu một chỗ sẽ để lại dữ liệu mồ côi.
 
 ---
 
@@ -399,6 +406,8 @@ HAL (port 5001) theo dõi số lần mỗi stranger đã xuất hiện:
 - Stats bao gồm `count`, `first_seen`, và `last_seen` timestamps cho mỗi stranger.
 - Lưu trữ tại thư mục data của HAL (giữ qua restart).
 - Truy vấn stats qua `GET http://127.0.0.1:5001/face/stranger-stats`.
+- **Tự hết hạn:** người lạ có `last_seen` cũ hơn `HAL_FACE_STRANGER_RETENTION_S` (mặc định 2592000 s = 30 ngày) bị quên hẳn — embedding, stats và ảnh. Việc này chạy trong cùng lượt quét mỗi giờ dọn ảnh snapshot (chạy theo tick camera), do `FacePerception.expire_strangers` thực hiện. Lượt quét cũng xoá các dòng bank không có bản ghi stats (vì web không bao giờ xoá được chúng). `last_seen` không parse được thì được giữ lại và ghi log.
+- **Xoá sớm hơn:** `DELETE http://127.0.0.1:5001/face/strangers` quên mọi người lạ và trả `{"status":"ok","forgotten":[ids]}`; `DELETE http://127.0.0.1:5001/face/strangers/{stranger_id}` quên một người (400 nếu id không có dạng `stranger_<n>`, 404 nếu id không có visit stats). Các route HAL chỉ nghe loopback; web gọi qua os-server `/api/hardware/*`, cần session/token của chủ máy. Card Unknown Faces trên monitor có nút ✕ mỗi dòng và **Clear all**, đều hỏi xác nhận; dưới header có dòng ghi rằng dữ liệu khuôn mặt người lạ được giữ trên máy để đếm lượt ghé và tự xoá sau 30 ngày không ghé.
 
 ### Prompt enroll khi quen mặt (familiar-stranger)
 

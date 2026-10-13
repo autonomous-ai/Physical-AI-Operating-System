@@ -300,7 +300,7 @@ Config field: `guard_mode` trong `config/config.json` (bool, mặc định `fals
 | POST | `/api/mood/log` | Ghi mood user (agent gọi qua Mood skill) |
 | POST | `/api/monitor/event` | Push event trực tiếp vào monitor bus (dùng bởi HAL để gửi trạng thái sound tracker) |
 
-> **Ghi chú:** Theo dõi stranger (stats, lưu trữ) được xử lý bởi **HAL** (port 5001) tại `GET /face/stranger-stats`. Xem [sensing-behavior_vi.md](../../robots/lamp/docs/vi/sensing-behavior_vi.md#theo-dõi-người-lạ-stranger-visit-tracking) để biết chi tiết.
+> **Ghi chú:** Theo dõi stranger (stats, lưu trữ) được xử lý bởi **HAL** (port 5001) tại `GET /face/stranger-stats`; xoá qua `DELETE /face/strangers` (tất cả) và `DELETE /face/strangers/{stranger_id}` (một người), web gọi qua `/api/hardware/*`. Người lạ không ghé lại sau 30 ngày (`HAL_FACE_STRANGER_RETENTION_S`) sẽ tự bị xoá. Xem [sensing-behavior_vi.md](../../robots/lamp/docs/vi/sensing-behavior_vi.md#theo-dõi-người-lạ-stranger-visit-tracking) để biết chi tiết.
 
 **Request body:**
 ```json
@@ -585,6 +585,9 @@ Cần sensing có camera (InsightFace). Mặc định ảnh người đã đăng
 | GET | `/face/owners` | `enrolled_count`, `persons[]` gồm ảnh, mẫu giọng, Telegram identity và các ngày có log theo người (mood / wellbeing / music-suggestions / posture / audio_history). Một thư mục chỉ được coi là một người khi có ảnh khuôn mặt, mẫu giọng hoặc `metadata.json`; thư mục chỉ có log bị bỏ qua. Bucket chung `unknown/` vẫn được liệt kê (để xem log) nhưng không tính vào `enrolled_count`. |
 | POST | `/face/remove` | Body: `label` — xóa một người đã đăng ký (404 nếu không có) |
 | POST | `/face/reset` | Xóa toàn bộ người đã đăng ký và ảnh trên đĩa |
+| GET | `/face/stranger-stats` | Visit stats của người lạ: `count`, `first_seen`, `last_seen` theo từng `stranger_<n>` |
+| DELETE | `/face/strangers` | Quên mọi người lạ (embedding, visit stats, ảnh snapshot) → `{"status":"ok","forgotten":[ids]}` |
+| DELETE | `/face/strangers/{stranger_id}` | Quên một người lạ (400 nếu id không có dạng `stranger_<n>`, 404 nếu không có visit stats) |
 
 ### User (dữ liệu per-user)
 

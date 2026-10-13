@@ -178,6 +178,7 @@ FACE_EXTEND_MIN_ENROLL_SIM = 0.45   # Bar the uploads must clear to auto-capture
 FACE_COOLDOWN_S = 10.0              # Min seconds between face presence events
 FACE_OWNER_FORGET_S = 3600.0        # Re-fire presence after N seconds without seeing owner
 FACE_STRANGER_FORGET_S = 1800.0     # Same for strangers
+FACE_STRANGER_RETENTION_S = 2592000.0  # HAL_FACE_STRANGER_RETENTION_S: forget a stranger after 30 days without a visit
 FACE_STRANGER_GAZE_TICKS = 3        # Stranger greeting: face-ID ticks in the gaze vote
 FACE_STRANGER_GAZE_MIN_FACING = 2   # Stranger greeting: ticks facing the lamp needed
 FACE_STRANGER_GAZE_WINDOW_S = 10.0  # Stranger greeting: max age of a gaze vote

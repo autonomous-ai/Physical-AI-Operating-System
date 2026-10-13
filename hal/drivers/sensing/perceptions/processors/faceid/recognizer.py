@@ -1092,6 +1092,47 @@ class FaceRecognizer:
         self._stranger_embeddings = self._stranger_embeddings[drop:]
         self._stranger_labels = self._stranger_labels[drop:]
 
+    def stranger_ids(self) -> set[str]:
+        """Stranger ids that have face data in the bank (e.g. ``stranger_5``)."""
+        with self._lock:
+            self._load_strangers_state()
+            if self._stranger_labels is None:
+                return set()
+            return {str(lbl).removeprefix(self.STRANGER_PREFIX) for lbl in self._stranger_labels}
+
+    def forget_strangers(self, stranger_ids: set[str] | None = None) -> None:
+        """Delete the face data of these strangers (all when None), on disk too.
+
+        The bank is re-read from disk on every frame, so the files must change or the
+        rows come back. The id counter is kept so a forgotten id is never reused while
+        other strangers remain.
+        """
+        with self._lock:
+            self._load_strangers_state()
+            if self._stranger_embeddings is None or self._stranger_labels is None:
+                return
+            if stranger_ids is None:
+                keep = np.zeros(len(self._stranger_labels), dtype=bool)
+            else:
+                keep = np.array([
+                    str(lbl).removeprefix(self.STRANGER_PREFIX) not in stranger_ids
+                    for lbl in self._stranger_labels
+                ], dtype=bool)
+            if keep.all():
+                return
+            if keep.any():
+                self._stranger_embeddings = self._stranger_embeddings[keep]
+                self._stranger_labels = self._stranger_labels[keep]
+                self._save_strangers_state()
+                return
+            self._stranger_embeddings = None
+            self._stranger_labels = None
+            for name in ("embeds.npy", "labels.npy"):
+                try:
+                    (STRANGER_STATE_DIR / name).unlink(missing_ok=True)
+                except OSError as e:
+                    logger.warning("Failed to delete stranger bank file %s: %s", name, e)
+
     def _save_strangers_state(self):
         if self._stranger_embeddings is not None and self._stranger_labels is not None:
             try:

@@ -521,6 +521,28 @@ def face_stranger_stats():
     return fr.stranger_stats()
 
 
+@router.delete("/face/strangers", tags=["Face"])
+def face_strangers_forget_all():
+    """Forget every unknown face: face data, visit stats and snapshots."""
+    fr = _require_face_recognizer()
+    forgotten = fr.forget_strangers(None)
+    return {"status": "ok", "forgotten": sorted(forgotten)}
+
+
+@router.delete("/face/strangers/{stranger_id}", tags=["Face"])
+def face_stranger_forget(stranger_id: str):
+    """Forget one unknown face: face data, visit stats and snapshots."""
+    from hal.drivers.sensing.perceptions.processors.faceid.perception import is_stranger_id
+
+    if not is_stranger_id(stranger_id):
+        raise HTTPException(400, "not a stranger id")
+    fr = _require_face_recognizer()
+    if stranger_id not in fr.stranger_stats():
+        raise HTTPException(404, "stranger not found")
+    fr.forget_strangers({stranger_id})
+    return {"status": "ok", "forgotten": [stranger_id]}
+
+
 @router.get("/face/cooldowns", tags=["Face"])
 def face_cooldowns():
     """Return current cooldown state for all tracked persons."""

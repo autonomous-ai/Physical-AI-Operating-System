@@ -42,8 +42,26 @@ the same day and the checks below have to be run on it.
 | A question that reached it as "pyramids" | "I can't access information or search the internet yet; I'm mostly just a lamp" | It knows a great deal about the world and tells it. What it cannot do is look up what is happening now, and it says so in a few words and gives what it can instead |
 | "What's the weather like this weekend", "What you see in front of you?" | "I can't check the weather forecasts yet; I'm mostly just a lamp sitting on your desk", and the same shape three more times in seven minutes | The same line: a few light words, differently each time, never a speech about what it cannot do |
 | "Okay." after the lamp had finished | "So, is there anything else you'd like to chat about, or should we just enjoy the quiet?" | A bare "okay" just after it finished is listening too: nothing, or a word |
-| Scraps of other people's talk, heard as "merde", "¿Qué?" | "Sorry, I missed that.", "I couldn't quite catch that." | "Sorry, I missed that" only in the middle of talking with someone. A scrap when nobody was talking with it is the room: nothing |
+| Scraps of other people's talk, heard as "merde", "¿Qué?" | "Sorry, I missed that.", "I couldn't quite catch that." | First: "Sorry, I missed that" only in the middle of talking with someone, and a scrap when nobody was talking with it is the room. That made it worse (next paragraph) and was replaced the same hour: what is not words is the room, even in the middle of a conversation; say nothing; never say you missed something and never ask anyone to repeat themselves |
 | "How are you doing?" at eleven in the morning | "Just enjoying the quiet evening on the desk" | Nothing: the runtime now tells it the time (below) |
+
+The rule about scraps was wrong at first. With "in the middle of talking
+with someone … say so simply" in the file, the lamp said "Sorry, I missed
+that. Can you say it again?" nine times in seven minutes (11:34 to 11:41),
+each time to a sound its ears had scored as 0.1 to 0.3 s of speech and the
+provider transcribed as "¿Qué?", "comida" or "devolver"; its owner, sitting
+beside it, reported that a cough set it off. A conversation is exactly when
+a person coughs. The line now forbids the answer outright. What it costs:
+someone whose sentence really was lost gets silence and has to say it
+again. Not measured after the change: the office was too busy for a played
+check (people talking beside the lamp replaced every played line before it
+was answered). `~/lamp-voice-data/tools/sounds.sh` plays six synthetic
+bursts in the middle of a conversation for when it is quiet; those are
+noise shapes, not recordings of a person coughing.
+
+The ears are the other half of this and are unchanged: any short loud
+sound above the faint floor is still taken for the start of speech, shown
+on the lamp's face as listening and then thinking, and sent to the model.
 
 The first row reverses a rule. The file had said "Always speak English,
 whatever language you hear" since 2026-10-12, when the lamp's first tests

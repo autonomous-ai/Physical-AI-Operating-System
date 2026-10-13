@@ -1,7 +1,7 @@
 import { SettingsSelect } from "@/components/SettingsSelect";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeLang, type Lang as RobotLang } from "@/lib/i18n";
-import { getPiperStatus, installPiperEngine, installPiperVoice, removePiperVoice, type PiperJobStart, type PiperStatus } from "@/lib/api";
+import { getPhononStatus, getPiperStatus, installPiperEngine, installPiperVoice, removePiperVoice, type PhononStatus, type PiperJobStart, type PiperStatus } from "@/lib/api";
 import { Loader2, Volume2, Check, AlertCircle } from "lucide-react";
 import { C, LockedField, LockedPasswordField, SectionCard } from "@/components/setup/shared";
 import { testTTSVoice } from "@/lib/api";
@@ -44,6 +44,11 @@ const CHOICES: Record<ProviderChoice, ChoiceMeta> = {
     label: "Piper (Local — free)",
     baseUrl: "",
     hint: "Runs on the robot — no API key, no quota, works offline. Lower quality than a hosted voice.",
+  },
+  phonon: {
+    label: "Phonon (Local — Gradium)",
+    baseUrl: "",
+    hint: "Gradium's on-device model, runs on the robot — no API key, works offline. English, French, German, Spanish, Portuguese.",
   },
   custom: {
     label: "Custom (BYO URL)",
@@ -163,10 +168,21 @@ export function TTSSection({
 
   const [lang, setLang] = useState<Lang>("");
   const [piperInstalled, setPiperInstalled] = useState<string[]>([]);
+  const [phononVoices, setPhononVoices] = useState<string[]>([]);
+  // On-device engines: no base URL, API key or language filter.
+  const isLocal = choice === "piper" || choice === "phonon";
   const piperLang: string = choice === "piper" ? (ttsVoice.split("_")[0] || "") : "";
   const voices = choice === "piper"
     ? piperInstalled
-    : voicesFor(vendor, lang, sttLanguage);
+    : choice === "phonon"
+      ? phononVoices
+      : voicesFor(vendor, lang, sttLanguage);
+
+  // A saved voice from another provider would make Phonon fall back to its default.
+  const onPhononLoaded = useCallback((available: string[]) => {
+    setPhononVoices(available);
+    if (available.length > 0 && !available.includes(ttsVoice)) setTtsVoice(available[0]);
+  }, [ttsVoice, setTtsVoice]);
 
   const keyRequired = choice === "openai" || choice === "elevenlabs";
   // A stored key belongs to the choice it was saved under (#309).
@@ -175,7 +191,7 @@ export function TTSSection({
   const onChoice = (next: ProviderChoice) => {
     if (next === choice) return;
     keyDrafts.current[choice] = ttsApiKey;
-    setTtsApiKeyRaw(next === "autonomous" || next === "piper" ? "" : (keyDrafts.current[next] ?? ""));
+    setTtsApiKeyRaw(next === "autonomous" || next === "piper" || next === "phonon" ? "" : (keyDrafts.current[next] ?? ""));
     setChoice(next);
     const nextMeta = CHOICES[next];
     if (next === "custom") {
@@ -186,6 +202,12 @@ export function TTSSection({
       setTtsProvider("piper");
       // Only keep a voice the device actually has (ttsVoices may still hold the previous provider's list).
       if (!piperInstalled.includes(ttsVoice)) setTtsVoice("");
+      return;
+    }
+    if (next === "phonon") {
+      setTtsBaseUrl("");
+      setTtsProvider("phonon");
+      if (!phononVoices.includes(ttsVoice)) setTtsVoice(phononVoices[0] ?? "");
       return;
     }
     setTtsBaseUrl(nextMeta.baseUrl);
@@ -242,6 +264,8 @@ export function TTSSection({
         />
       )}
 
+      {choice === "phonon" && <PhononPanel onLoaded={onPhononLoaded} />}
+
       {choice === "autonomous" && (
         <div style={{ marginBottom: 12 }}>
           <label htmlFor="tts_vendor" style={labelStyle}>Voice vendor</label>
@@ -258,7 +282,7 @@ export function TTSSection({
         </div>
       )}
 
-      {choice === "piper" ? null : choice === "custom" ? (
+      {isLocal ? null : choice === "custom" ? (
         <LockedField
           lockedInitially={ttsLoaded.baseUrl || llmLoaded.baseUrl}
           label="Base URL"
@@ -295,7 +319,7 @@ export function TTSSection({
         </div>
       )}
 
-      {choice !== "piper" && (<>
+      {!isLocal && (<>
       <div style={{ marginBottom: 5, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
         <label htmlFor="tts_api_key" style={labelStyle}>
           {keyRequired
@@ -326,7 +350,7 @@ export function TTSSection({
       </p>
       </>)}
 
-      {choice !== "piper" && (
+      {!isLocal && (
       <div style={{ marginBottom: 12 }}>
         <label htmlFor="tts_lang" style={labelStyle}>Voice language</label>
         <SettingsSelect
@@ -376,7 +400,9 @@ export function TTSSection({
           style={{ width: "100%", accentColor: C.green }}
         />
         <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
-          {speedMin}×–{speedMax}× · 1.0× normal. Test Voice uses this speed immediately.
+          {choice === "phonon"
+            ? "Phonon speaks at its natural pace — this model has no speed control yet."
+            : `${speedMin}×–${speedMax}× · 1.0× normal. Test Voice uses this speed immediately.`}
         </div>
         <TestVoiceButton
           voice={ttsVoice}
@@ -386,7 +412,8 @@ export function TTSSection({
           apiKey={ttsApiKey}
           speed={effectiveSpeed}
           blockedReason={
-            choice !== "piper" ? ""
+            choice === "phonon" ? (phononVoices.length === 0 ? "Install Phonon on the robot first" : "")
+              : choice !== "piper" ? ""
               : piperInstalled.length === 0 ? "Download a voice first"
               : !piperInstalled.includes(ttsVoice) ? "Select a downloaded voice"
               : ""
@@ -683,6 +710,70 @@ function PiperPanel({ voice, onPickVoice, onInstalledChange }: {
       )}
       {job.error && (
         <div style={{ fontSize: 12, color: C.red, marginTop: 8 }}>Last job failed: {job.error}</div>
+      )}
+    </div>
+  );
+}
+
+// Phonon install state. Read-only: the engine and model are put on the robot by hand
+// (the model weights are not redistributable), so there is no download button.
+function PhononPanel({ onLoaded }: { onLoaded: (voices: string[]) => void }) {
+  const [st, setSt] = useState<PhononStatus | null>(null);
+  // Not an error: saving a voice restarts HAL, so status is briefly unreachable.
+  const [unreachable, setUnreachable] = useState(false);
+
+  const load = useCallback(() => {
+    return getPhononStatus()
+      .then((next) => {
+        setSt(next);
+        setUnreachable(false);
+        onLoaded(next.voices);
+      })
+      .catch(() => setUnreachable(true));
+  }, [onLoaded]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!unreachable) return;
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, [unreachable, load]);
+
+  if (!st) {
+    return (
+      <div style={{ fontSize: 12, color: C.textDim, marginBottom: 12 }}>
+        {unreachable ? "Robot is restarting — reconnecting…" : "Checking robot…"}
+      </div>
+    );
+  }
+
+  const ready = st.engine_installed && st.model_installed;
+  return (
+    <div style={{ marginBottom: 14, padding: "12px 14px", background: "var(--lm-surface-2, #1a1a1a)", borderRadius: 8 }}>
+      <div style={{ fontSize: 12, color: C.text, marginBottom: 4 }}>
+        Engine: {st.engine_installed ? "✓ installed" : "✗ not installed"} · Model: {st.model_installed ? "✓ installed" : "✗ not installed"}
+        {ready && ` · ${st.voices.length} voice${st.voices.length === 1 ? "" : "s"}`}
+      </div>
+      {!ready && (
+        <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5 }}>
+          Install on the robot by hand:
+          {!st.engine_installed && (
+            <div style={{ fontFamily: "ui-monospace, monospace", marginTop: 4, wordBreak: "break-all" }}>
+              python3 -m venv {st.phonon_dir}/.venv && {st.phonon_dir}/.venv/bin/pip install ptts==0.4.0rc1
+            </div>
+          )}
+          {!st.model_installed && (
+            <div style={{ marginTop: 4 }}>
+              Copy the Phonon model folder to <code>{st.model_dir}</code> (it must contain config.json).
+            </div>
+          )}
+        </div>
+      )}
+      {unreachable && (
+        <div style={{ fontSize: 12, color: C.textDim, marginTop: 8 }}>
+          Robot is restarting — reconnecting…
+        </div>
       )}
     </div>
   );

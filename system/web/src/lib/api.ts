@@ -1000,6 +1000,19 @@ export async function getPiperStatus(): Promise<PiperStatus> {
   return apiRequest<PiperStatus>(`${API_BASE}/api/voice/piper/status`);
 }
 
+export interface PhononStatus {
+  engine_installed: boolean;
+  model_installed: boolean;
+  phonon_dir: string;
+  model_dir: string;
+  voices: string[];
+}
+
+/** Phonon engine/model presence and the model's voices (installed by hand on the robot). */
+export async function getPhononStatus(): Promise<PhononStatus> {
+  return apiRequest<PhononStatus>(`${API_BASE}/api/voice/phonon/status`);
+}
+
 /** Install the Piper engine. Already-installed returns ok, not an error. */
 export async function installPiperEngine(): Promise<PiperJobStart> {
   return apiRequest<PiperJobStart>(`${API_BASE}/api/voice/piper/install`, {

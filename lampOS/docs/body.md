@@ -329,6 +329,11 @@ first words of what the lamp itself says (`crates/live/src/body_link.rs`,
 "nope", "I don't think"; a greeting with "hello", "hi", "good morning"; a
 laugh with "haha"; the shy dip with "thank you". Most answers begin with
 none of these and get no gesture. "No problem" and "no worries" get none.
+The same in Vietnamese: a nod with "ừ", "dạ", "vâng", "đúng rồi", "có chứ";
+a shake with "không", "chưa"; a greeting with "chào", "xin chào"; a laugh
+with "hihi"; the shy dip with "cảm ơn"; none for "không sao" and "không có
+gì", nor for a bare "có", which begins too many sentences that are not a
+yes.
 
 What the body does with the request:
 

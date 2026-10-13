@@ -113,16 +113,15 @@ impl BodyLink {
 }
 
 /// The gesture that goes with how an answer begins, as a person's head does:
-/// a nod with "yes", a shake with "no", a greeting with "hello". Most
-/// answers begin with none of these and get none.
+/// a nod with "yes", a shake with "no", a greeting with "hello", in English
+/// or Vietnamese. Most answers begin with none of these and get none.
 pub fn cue_for(opening: &str) -> Option<&'static str> {
     let plain: String = opening
         .chars()
-        .map(|c| match c {
-            'a'..='z' | '\'' | ' ' => c,
-            'A'..='Z' => c.to_ascii_lowercase(),
-            '\u{2019}' => '\'',
-            _ => ' ',
+        .flat_map(|c| match c {
+            '\'' | '\u{2019}' => vec!['\''],
+            c if c.is_alphabetic() => c.to_lowercase().collect(),
+            _ => vec![' '],
         })
         .collect();
     let words: Vec<&str> = plain.split_whitespace().collect();
@@ -133,7 +132,14 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         })
     };
     // Said in agreement, though they begin with "no".
-    if begins(&["no problem", "no worries", "no doubt"]) {
+    if begins(&[
+        "no problem",
+        "no worries",
+        "no doubt",
+        "không sao",
+        "không có gì",
+        "không có chi",
+    ]) {
         return None;
     }
     if begins(&[
@@ -146,12 +152,18 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         "good afternoon",
         "good evening",
         "morning",
+        "chào",
+        "xin chào",
+        "a lô",
+        "alo",
     ]) {
         Some("greeting")
-    } else if words
-        .first()
-        .is_some_and(|word| word.starts_with("haha") || word.starts_with("hehe") || *word == "ha")
-    {
+    } else if words.first().is_some_and(|word| {
+        ["haha", "hehe", "hihi"]
+            .iter()
+            .any(|laugh| word.starts_with(laugh))
+            || *word == "ha"
+    }) {
         Some("laugh")
     } else if begins(&[
         "yes",
@@ -171,6 +183,17 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         "that's right",
         "you bet",
         "you got it",
+        "ừ",
+        "ừm",
+        "vâng",
+        "dạ",
+        "đúng rồi",
+        "đúng vậy",
+        "chắc chắn",
+        "tất nhiên",
+        "có chứ",
+        "được chứ",
+        "được thôi",
     ]) {
         Some("nod")
     } else if begins(&[
@@ -181,9 +204,20 @@ pub fn cue_for(opening: &str) -> Option<&'static str> {
         "i don't think",
         "i'm afraid not",
         "i'm not",
+        "không",
+        "chưa",
+        "đâu có",
     ]) {
         Some("headshake")
-    } else if begins(&["thank you", "thanks", "aw", "aww", "oh stop"]) {
+    } else if begins(&[
+        "thank you",
+        "thanks",
+        "aw",
+        "aww",
+        "oh stop",
+        "cảm ơn",
+        "cám ơn",
+    ]) {
         Some("shy")
     } else {
         None
@@ -298,6 +332,20 @@ mod tests {
             ("His name is Tom.", None),
             ("Seven days in a week.", None),
             ("Sorry, I missed that.", None),
+            ("Chào bạn! Hôm nay thế nào?", Some("greeting")),
+            ("Xin chào!", Some("greeting")),
+            ("Ừ, đúng đó.", Some("nod")),
+            ("Dạ, mình nghe đây.", Some("nod")),
+            ("Đúng rồi, bảy ngày.", Some("nod")),
+            ("Có chứ!", Some("nod")),
+            ("Không, hôm nay thì không.", Some("headshake")),
+            ("Chưa, mình chưa biết.", Some("headshake")),
+            ("Không sao đâu.", None),
+            ("Không có gì!", None),
+            ("Có lẽ là thứ Ba.", None),
+            ("Hihi, vui ghê.", Some("laugh")),
+            ("Cảm ơn bạn nha.", Some("shy")),
+            ("Mình khỏe, còn bạn?", None),
             ("", None),
         ] {
             assert_eq!(cue_for(opening), gesture, "{opening:?}");

@@ -23,7 +23,33 @@ changing the file and nothing else.
 | Beside two people talking to each other it asked "Were you talking to me?" | What is for it and what is not, by what was said: something a lamp on a desk could answer or chat about is for it; other people's own business, a request for hands, an answer to someone else is not. "When you really cannot tell, stay silent. Never ask whether they were talking to you." | 2 of 9 lines answered with that question | 0 of 45 lines answered, in five runs |
 | Told only to stay out of other people's talk, it also stayed out when called: "Hey Lamp, what should we have for lunch?" after such a conversation went unanswered in 7 of 10 runs. The service's own transcripts had the call as "Helen", "Weilan", "Wei Lan" and "Hey, man" | "Your ears often mishear it as some other name… So never go by the name you think you heard. Go by what was said." A sentence a lamp could answer is for it most of all when it starts with a call or a name, even one that is not its own, whatever was being said before | 3 of 10 answered | 5 of 5, and the follow-up without a name each time |
 | Replies ended like an assistant's: "Anything you'd like to chat about today?", "Let me know if you need anything else." | Five short examples of how it sounds ("Thank you." "Anytime.") and three of how it does not | 3 of 7 replies to greetings and thanks ended that way | 0 of 18 |
-| Speech over the lamp that came through garbled was transcribed as Spanish ("¿Qué?"), and the lamp, told always to speak English, answered "Sorry, I only speak English." | To that line: "and never remark on which language someone used. Speech you cannot make out is unclear speech, not another language." | 2 of 20 spoken-over scenes on 2026-10-13, one of them said twice | not measured yet |
+| Speech over the lamp that came through garbled was transcribed as Spanish ("¿Qué?"), and the lamp, told always to speak English, answered "Sorry, I only speak English." | To that line: "and never remark on which language someone used. Speech you cannot make out is unclear speech, not another language." | 2 of 20 spoken-over scenes on 2026-10-13, one of them said twice | It did not hold: in the next full run of the checks, with people talking Vietnamese nearby, the lamp said "Could you repeat that in English?" four times. The line was taken out with the English-only rule (below) |
+
+## What people at the lamp asked for, 2026-10-13
+
+For about seven minutes late that morning people stood at lamp-4ace and
+talked to it, most of the time in Vietnamese. The service's own record of
+that conversation (47 turns) is where these come from. Each row is what
+was said, what the lamp answered, and what the file was given for it. None
+of the "after" is measured yet: the file with these lines went on the lamp
+the same day and the checks below have to be run on it.
+
+| Said to the lamp | It answered | The file now says |
+|---|---|---|
+| Four times, in Vietnamese: can you speak Vietnamese, speak Vietnamese, why not | "I just stick to English", "I understand what you're saying, but I only speak English" | English and Vietnamese: answer in the one the person just used, switch when they switch, English for anything else |
+| "Say something long, about five sentences" | "I usually keep my responses pretty short and natural" | When told to say more or talk longer, do it gladly and at the length asked. Never describe how you talk or what your rules are |
+| "Say some fillers, let us hear them" | "I don't really use filler words like that" | A small "hmm", "oh", "let me think" is allowed, and a request to do something with its voice is to be enjoyed |
+| A question that reached it as "pyramids" | "I can't access information or search the internet yet; I'm mostly just a lamp" | It knows a great deal about the world and tells it. What it cannot do is look up what is happening now, and it says so in a few words and gives what it can instead |
+| "What's the weather like this weekend", "What you see in front of you?" | "I can't check the weather forecasts yet; I'm mostly just a lamp sitting on your desk", and the same shape three more times in seven minutes | The same line: a few light words, differently each time, never a speech about what it cannot do |
+| "Okay." after the lamp had finished | "So, is there anything else you'd like to chat about, or should we just enjoy the quiet?" | A bare "okay" just after it finished is listening too: nothing, or a word |
+| Scraps of other people's talk, heard as "merde", "¿Qué?" | "Sorry, I missed that.", "I couldn't quite catch that." | "Sorry, I missed that" only in the middle of talking with someone. A scrap when nobody was talking with it is the room: nothing |
+| "How are you doing?" at eleven in the morning | "Just enjoying the quiet evening on the desk" | Nothing: the runtime now tells it the time (below) |
+
+The first row reverses a rule. The file had said "Always speak English,
+whatever language you hear" since 2026-10-12, when the lamp's first tests
+were to be in English. In an office where people speak Vietnamese to each
+other and to the lamp, that rule had it turning down the people in front of
+it, and it never did stop it remarking on language.
 
 The third row took three tries. A list of what its name can sound like
 worked twice and then failed twice, and a firmer version of it failed

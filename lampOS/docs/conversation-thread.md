@@ -70,10 +70,13 @@ timed out), two things followed:
 An answer with no letter or digit in it is also left out of what is told,
 so a "..." cannot come back as something the lamp said.
 
-With nothing said in the last ten minutes the instruction is sent exactly as
-written, so a lamp left alone starts its next session as it always did. If
-the instruction with the thread would be too long for the provider's limit,
-the session opens without it.
+With nothing said in the last ten minutes the thread adds nothing, so a
+lamp left alone starts its next session as it always did. The instruction
+may be 8,192 bytes in all. The thread takes what the character file and the
+time of day ([character.md](character.md), "What the runtime adds to it")
+leave of that, and when it does not all fit, the latest exchanges that do
+are told and the older ones are left out. With the file lamp-4ace runs
+(6,431 bytes) that is about 1,300 bytes of conversation.
 
 ## What it keeps to itself
 
@@ -87,11 +90,14 @@ That is no more than they could say to the lamp directly.
 ## Verification
 
 `thread::tests` (3 passed on macOS): that what was asked and answered is
-kept, in pieces as it arrives, and the talk around it is not; that an
-exchange older than ten minutes is not told, something said long before an
-answer is not taken for its question, and only eight exchanges of bounded
-length are held; that a new session's instruction is the written one with
-the thread after it, and with an empty thread is the written one unchanged.
+kept, in pieces as it arrives, and the talk around it is not, nor an answer
+with no word in it; that an exchange older than ten minutes is not told,
+something said long before an answer is not taken for its question, only
+eight exchanges of bounded length are held, and with less room the latest
+that fit are told in order; that a new session's instruction is the written
+one with the time and then the thread after it, with an empty thread and no
+time is the written one unchanged, and with no room for the thread still
+carries the time.
 
 Not shown: that the model, told this in its present wording, does carry
 on, does not bring the earlier conversation up by itself, and still stays

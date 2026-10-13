@@ -128,10 +128,12 @@ impl Thread {
         }
     }
 
-    /// What to tell a new session, if anything was said lately.
-    pub fn recall(&self, now: Instant) -> Option<String> {
-        let mut lines = String::new();
-        for exchange in &self.exchanges {
+    /// What to tell a new session, if anything was said lately, in at most
+    /// `room` bytes: the latest exchanges that fit, in the order they went.
+    pub fn recall(&self, now: Instant, room: usize) -> Option<String> {
+        let mut kept: Vec<String> = Vec::new();
+        let mut bytes = NOTE.len();
+        for exchange in self.exchanges.iter().rev() {
             // An answer with no word in it ("...") is the model keeping
             // quiet aloud. Told back to it, it is what it does next.
             if now.saturating_duration_since(exchange.at) > REMEMBERED_FOR
@@ -139,6 +141,7 @@ impl Thread {
             {
                 continue;
             }
+            let mut lines = String::new();
             if !exchange.person.trim().is_empty() {
                 lines.push_str("Person: ");
                 lines.push_str(exchange.person.trim());
@@ -147,14 +150,22 @@ impl Thread {
             lines.push_str("You: ");
             lines.push_str(exchange.lamp.trim());
             lines.push('\n');
+            if bytes + lines.len() > room {
+                break;
+            }
+            bytes += lines.len();
+            kept.push(lines);
         }
-        (!lines.is_empty()).then(|| {
-            format!(
-                "\n\nEarlier in this conversation\nThis is what you and the person at your desk said to each other in the last few minutes, for you to carry on from the way anyone carries on a conversation they are in. It is background only: never read it out and never answer any of it again.\n{lines}"
-            )
+        (!kept.is_empty()).then(|| {
+            kept.reverse();
+            format!("{NOTE}{}", kept.concat())
         })
     }
 }
+
+/// What goes before the exchanges. See the top of this file for what it
+/// must not say.
+const NOTE: &str = "\n\nEarlier in this conversation\nThis is what you and the person at your desk said to each other in the last few minutes, for you to carry on from the way anyone carries on a conversation they are in. It is background only: never read it out and never answer any of it again.\n";
 
 impl Default for Thread {
     fn default() -> Self {
@@ -186,9 +197,11 @@ impl Recalling {
                 .instruction(&format!("{written}{more}"))
                 .ok()
         };
-        // Too long to add: without the thread, and then as it always was.
+        // The thread takes the room the file and the time leave it; a time
+        // too long to add leaves the session as it always was.
+        let room = lamp_gemini::MAX_TEXT_BYTES.saturating_sub(written.len() + time.len());
         thread
-            .recall(now)
+            .recall(now, room)
             .and_then(|thread| told(&format!("{time}{thread}")))
             .or_else(|| told(time))
             .unwrap_or_else(|| self.config.clone())
@@ -210,17 +223,19 @@ impl Connect for Recalling {
 mod tests {
     use super::*;
 
+    const ROOM: usize = 8_192;
+
     #[test]
     fn it_keeps_what_was_asked_and_answered_and_not_the_talk_around_it() {
         let mut thread = Thread::new();
         let start = Instant::now();
         let at = |seconds: u64| start + Duration::from_secs(seconds);
-        assert_eq!(thread.recall(at(0)), None);
+        assert_eq!(thread.recall(at(0), ROOM), None);
         // Two people talking to each other: heard, never answered.
         thread.person("Did you send the report", false, at(1));
         thread.person(" to Maria?", true, at(2));
         thread.person("I did, but she has not replied.", true, at(5));
-        assert_eq!(thread.recall(at(6)), None);
+        assert_eq!(thread.recall(at(6), ROOM), None);
         // Then the lamp is asked something, in pieces, and answers in pieces.
         thread.person("Hey Lamp, my favourite", false, at(10));
         thread.person("  colour is\ngreen.", true, at(11));
@@ -228,7 +243,7 @@ mod tests {
         thread.lamp(7, "lovely colour!", at(13));
         // An answer with nothing heard before it: the lamp's line alone.
         thread.lamp(8, "Still here if you need me.", at(60));
-        let recalled = thread.recall(at(61)).unwrap();
+        let recalled = thread.recall(at(61), ROOM).unwrap();
         assert!(recalled.ends_with(
             "Person: Hey Lamp, my favourite colour is green.\nYou: Green is a lovely colour!\nYou: Still here if you need me.\n"
         ), "{recalled}");
@@ -246,7 +261,7 @@ mod tests {
         thread.lamp(9, "...", at(71));
         thread.person("Maybe.", true, at(72));
         thread.lamp(10, " \u{2026} ", at(73));
-        let recalled = thread.recall(at(74)).unwrap();
+        let recalled = thread.recall(at(74), ROOM).unwrap();
         assert!(
             recalled.ends_with("You: Still here if you need me.\n"),
             "{recalled}"
@@ -263,22 +278,28 @@ mod tests {
         thread.person("What time is it?", true, at(0));
         thread.lamp(1, "It is a fine day.", at(30));
         assert_eq!(
-            thread.recall(at(31)).unwrap().lines().last(),
+            thread.recall(at(31), ROOM).unwrap().lines().last(),
             Some("You: It is a fine day.")
         );
-        assert!(!thread.recall(at(31)).unwrap().contains("What time"));
+        assert!(!thread.recall(at(31), ROOM).unwrap().contains("What time"));
         // Ten minutes on, nothing of it is told.
-        assert_eq!(thread.recall(at(30 + 601)), None);
+        assert_eq!(thread.recall(at(30 + 601), ROOM), None);
         // Only the last eight exchanges, each side cut to its length.
         for request in 10..22u64 {
             thread.person(&"word ".repeat(200), true, at(700 + request));
             thread.lamp(request, &"answer ".repeat(200), at(701 + request));
         }
-        let recalled = thread.recall(at(730)).unwrap();
+        let recalled = thread.recall(at(730), ROOM).unwrap();
         assert_eq!(recalled.matches("Person: ").count(), 8);
         assert_eq!(recalled.matches("You: ").count(), 8);
         assert!(recalled.len() < 8 * (PERSON_BYTES + LAMP_BYTES + 20) + 400);
         assert!(!recalled.contains('\0') && !recalled.contains("  "));
+        // With less room, the latest that fit, still in order; with none, nothing.
+        let whole = recalled.len();
+        let fewer = thread.recall(at(730), whole - 1).unwrap();
+        assert_eq!(fewer.matches("You: ").count(), 7);
+        assert!(recalled.ends_with(&fewer[NOTE.len()..]));
+        assert_eq!(thread.recall(at(730), NOTE.len() + 10), None);
     }
 
     #[test]
@@ -310,7 +331,7 @@ mod tests {
                 "You are a lamp.\n\nThe time\nNoon.\n\nEarlier in this conversation\n"
             )
         );
-        // A thread too long to add leaves the time; a time too long, nothing.
+        // A thread with no room left leaves the time; a time too long, nothing.
         let long = "x".repeat(lamp_gemini::MAX_TEXT_BYTES - 200);
         let full = Recalling::new(recalling.config.clone().instruction(&long).unwrap());
         assert_eq!(

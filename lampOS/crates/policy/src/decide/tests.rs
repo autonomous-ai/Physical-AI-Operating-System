@@ -55,12 +55,13 @@ fn key_file(name: &str, holds: &str) -> PathBuf {
 }
 
 /// Jev at `url`, with the key in a file as an editor leaves it: a line
-/// end after it.
+/// end after it. The file is gone again before the result is looked at, so
+/// that a test that fails here leaves nothing behind.
 fn jev(url: &str, name: &str) -> Jev {
     let path = key_file(name, &format!("{KEY}\n"));
-    let jev = Jev::new(url, "typesafe/jev-1.13", &path).unwrap();
+    let jev = Jev::new(url, "typesafe/jev-1.13", &path);
     std::fs::remove_file(path).unwrap();
-    jev
+    jev.unwrap()
 }
 
 /// Whatever a failure says, it says nothing of the key or of the state.
@@ -723,8 +724,9 @@ fn a_key_file_that_is_missing_or_holds_no_key_is_refused_without_showing_it() {
         ("not-ascii", format!("{KEY}ơ")),
     ] {
         let path = key_file(name, &holds);
-        let error = Jev::new(url, "m", &path).err().expect("refused");
+        let refused = Jev::new(url, "m", &path).err();
         std::fs::remove_file(&path).unwrap();
+        let error = refused.expect("refused");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData, "{name}");
         let said = error.to_string();
         assert!(said.contains("does not hold one key"), "{said}");
@@ -732,9 +734,9 @@ fn a_key_file_that_is_missing_or_holds_no_key_is_refused_without_showing_it() {
     }
     // Space around the one line is not part of the key.
     let path = key_file("padded", &format!("\n  {KEY} \r\n\n"));
-    let padded = Jev::new(url, "m", &path).unwrap();
+    let padded = Jev::new(url, "m", &path);
     std::fs::remove_file(&path).unwrap();
-    assert_eq!(padded.authorization, format!("Bearer {KEY}"));
+    assert_eq!(padded.unwrap().authorization, format!("Bearer {KEY}"));
     // The endpoint and the model are checked before the file is read.
     for (endpoint, model) in [("ftp://127.0.0.1/", "m"), (url, ""), (url, "a\nb")] {
         let error = Jev::new(endpoint, model, &missing).err().expect("refused");
@@ -935,10 +937,9 @@ fn jev_trusting_the_test(url: &str, name: &str) -> Jev {
             .add(certificates::bytes(certificates::AUTHORITY).into())
             .unwrap();
         roots
-    })
-    .unwrap();
+    });
     std::fs::remove_file(path).unwrap();
-    jev
+    jev.unwrap()
 }
 
 #[test]

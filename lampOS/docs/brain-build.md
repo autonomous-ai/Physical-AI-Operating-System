@@ -41,9 +41,12 @@ How a request is decided:
 3. **Chat:** the Live model answers. No decision model.
 4. **A clear device command:** the Live model's tool call, checked by the
    runtime. On the Live route a transcript is never a command.
-5. **An open choice or a task for an agent:** the runtime builds the valid
-   options and the decision model picks one or abstains. The voice does not
-   wait for it.
+5. **A task for an agent:** it goes to the agent the person named, or
+   else to the one in focus in the Harness app on their computer, which is
+   the Harness contract's own way of choosing. Only where that leaves a
+   real choice does the runtime build the valid options and ask the
+   decision model, which picks one or abstains. The voice does not wait
+   for it.
 6. **Nothing was said** (someone sat down, a task finished, the room went
    quiet): a rule or the decision model decides, and if the lamp is to
    speak the Live model speaks from a note.
@@ -97,7 +100,7 @@ table says so.
 |---|---|---|---|
 | Chat | The Live model | No | No |
 | "Lamp, dim a little" | The Live model, by calling one of the tools it was given; the runtime checks that the tool was offered, the numbers are in range and the lamp was addressed, runs it, and returns the result | No | Only for the result of a local call, which is milliseconds; "done" is said from it |
-| "Ask my coding agent to fix the tests" | The Live model calls one general tool with the request as said; the runtime finds the agents that could take it; the decision model picks one, asks for a missing detail, or abstains | Yes | No. The voice says a neutral "on it" and stays available; the task waits for the choice |
+| "Ask my coding agent to fix the tests" | The Live model calls one general tool with the request as said; the runtime sends it to the agent that was named, or else to the one in focus in the Harness app. With no such agent, or more than one that fits, the decision model picks one, asks for the missing detail, or abstains | Only when there is a real choice | No. The voice says a neutral "on it" and stays available; the task waits for the choice |
 | Nothing was said | A rule, or the decision model | Yes | There is no turn. If the lamp is to speak, the runtime gives the Live model a note to speak from |
 
 One request has one chooser and is carried out once. The page's 0.6 text
@@ -605,14 +608,49 @@ the work, and "most of a week" for step 3 was too little. Two weeks is
 nearer, with the first of them ending at a paired, encrypted connection
 that can list the computer's agents.
 
-The Harness team's own definition can be read: their repository
-(`autonomous-ai/openharness`) is public, with the contract in
-`docs/autonomous-device-integration.md` (last changed 2026-10-06) and the
-computer's side in `cli/src/lib/autonomous-device` and `cli/src/lib/e2ee`,
-which carries test vectors of its own. It is to be read before step 3
-begins and has not been yet; V1 also has an interoperation check against
-that code (`system/harness/testdata/direct_interop.go`) that the Rust
-client should pass in the same way.
+The Harness team's own definition is public (`autonomous-ai/openharness`):
+the contract in `docs/autonomous-device-integration.md` (last changed
+2026-10-06), read in full on 2026-10-13, and the computer's side in
+`cli/src/lib/autonomous-device` and `cli/src/lib/e2ee`, which carries test
+vectors of its own. It agrees with the reading of V1 above and adds what
+follows. Three documents it points to are still to be read before step 3
+begins: how a result is tied to its request
+(`autonomous-device-result-correlation.md`), input while an agent is
+working (`in-flight-agent-input.md`), and the Store
+(`autonomous-device-store.md`). V1 also has an interoperation check
+against the computer's code (`system/harness/testdata/direct_interop.go`)
+that the Rust client should pass in the same way.
+
+What the contract adds:
+
+- **Which agent is not the lamp's to guess.** The Harness app on the
+  computer says which agent is in focus (`focus.get`), and a task is sent
+  with that agent and the focus's revision; if the focus has moved in the
+  meantime the send is refused (`FOCUS_CHANGED`) and nothing runs. With
+  nothing in focus when voice is first switched on, the lamp may ask for
+  the first agent to be selected (`focus.ensure`), and a gesture on the
+  lamp can step to the next or the previous one (`focus.step`). This is
+  why decision 5 names the focus before the decision model.
+- **The code is shown by the lamp.** The person picks the lamp on their
+  computer and types the code the lamp displays. This lamp has no screen
+  and its operator's pages come last, so until then the lamp says the
+  six characters aloud when asked to pair. Whoever can hear it could pair,
+  for the sixty seconds the code lasts, as whoever could read a screen
+  could.
+- **While an agent is working,** a further `turn.send` is taken as input
+  to that work. Being taken is not being done, and a summary that is not
+  tied to that message is never given as its answer.
+- **A permission prompt:** said once, in the contract's own words ("Agent
+  … needs permission. Open OpenHarness to review and approve or deny."),
+  remembered across a reconnection so that it is not said twice, and
+  cleared silently when it closes. Never answered by voice.
+- **After a reconnection:** a request found queued is waited for; found
+  delivered, started or completed, it is taken as sent; found rejected, it
+  is reported; found unknown or not found at all, the person is asked
+  before anything is sent again.
+- **Sizes and rates:** a request to an agent is at most 16 KiB and is
+  never cut; a result's full text at most 8,192 bytes; a frame 65,536; one
+  request a second after a burst of twenty, four in flight.
 
 ## Decision 12 in more detail: memory across days
 

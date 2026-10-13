@@ -172,7 +172,7 @@ the shoulder (servo 2) and the elbow (servo 3):
   folds down first; that may take 3 s and twice the way.
 - A lamp with eyes (see "Looking at a face") also rises for somebody who
   comes to sit in front of it, without a word: a face in six looks running,
-  about a second, counts as company, and company keeps it awake exactly as
+  about a second and a half at the eyes' four looks a second, counts as company, and company keeps it awake exactly as
   being spoken to does. So it does not fold away from a person who is still
   there, and folds once they have been gone for `--awake-seconds`. A face
   for less than that, somebody walking past, wakes nothing. Not yet seen on

@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames about six times a second with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model.\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model.\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -190,8 +190,16 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
 
     /// A permission older than this is none.
     const PERMIT_STALE: Duration = Duration::from_millis(1_500);
-    /// The newest frame is looked at this often at most.
-    const LOOK_EVERY: Duration = Duration::from_millis(150);
+    /// The newest frame is looked at this often at most while there is a
+    /// face to follow, and for a few seconds after the last one.
+    const LOOK_EVERY: Duration = Duration::from_millis(250);
+    /// And this often with nobody there: often enough to notice someone
+    /// sitting down within a second, at a quarter of the work. Looking six
+    /// times a second all day kept lamp-4ace's processor 8 to 10 degrees
+    /// warmer (63 to 64 degrees C with the eyes stopped, 70 to 75 with them),
+    /// above the 70 at which its kernel begins to hold it back.
+    const GLANCE_EVERY: Duration = Duration::from_millis(600);
+    const FOLLOW_FOR: Duration = Duration::from_secs(4);
     /// A camera that did not open, or failed, is tried again after this.
     const RETRY: Duration = Duration::from_secs(5);
     const REPORT_EVERY: Duration = Duration::from_secs(10);
@@ -237,6 +245,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     // Bytes of a frame that has not been looked at yet.
     let mut latest: Option<usize> = None;
     let mut looked_at = Instant::now();
+    let mut face_at: Option<Instant> = None;
     let (mut frames, mut looks, mut with_face, mut unreadable) = (0u32, 0u32, 0u32, 0u32);
     let mut spent = Duration::ZERO;
     let mut reported_at = Instant::now();
@@ -350,8 +359,13 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             retry_at = Instant::now() + RETRY;
             continue;
         }
+        let every = if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
+            LOOK_EVERY
+        } else {
+            GLANCE_EVERY
+        };
         if let Some(used) = latest
-            && looked_at.elapsed() >= LOOK_EVERY
+            && looked_at.elapsed() >= every
         {
             latest = None;
             looked_at = Instant::now();
@@ -371,6 +385,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 Ok(face) => {
                     looks += 1;
                     with_face += u32::from(face.is_some());
+                    if face.is_some() {
+                        face_at = Some(Instant::now());
+                    }
                     tell(Seen { face });
                 }
                 Err(_) => unreadable += 1,

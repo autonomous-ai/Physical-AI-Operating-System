@@ -23,9 +23,17 @@ sees" with what has and has not been shown of it.
   port, which checks the device against the USB identity given (vendor,
   product and port) and takes the camera's lock before the first frame:
   320 by 240 MJPG at ten frames a second.
-- It looks at the newest frame at most every 150 ms: decode the JPEG
-  (`zune-jpeg`), put it into a 320 by 256 picture, run the face detector,
-  pick one face.
+- It looks at the newest frame at most every 250 ms while there is a face
+  to follow and for four seconds after the last one, and every 600 ms with
+  nobody there: decode the JPEG (`zune-jpeg`), put it into a 320 by 256
+  picture, run the face detector, pick one face. It was every 150 ms
+  always, and a look takes 52 to 55 ms of one core on lamp-4ace. Measured
+  there on 2026-10-13: the processor read 63 to 64 degrees C with the eyes
+  stopped and 70 to 75 with them looking six times a second, above the
+  70 degrees at which its kernel's first thermal trip point sits. The voice
+  service had ended once that afternoon on a late audio reference, in the
+  same second as the SD card retuned itself; whether heat had a part in
+  that is not known.
 - It sends one datagram per look to the body's gaze socket and nothing else
   anywhere:
 

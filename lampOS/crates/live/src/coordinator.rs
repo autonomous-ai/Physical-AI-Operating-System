@@ -81,6 +81,15 @@ const INPUT_LEASE_US: u64 = 100_000;
 /// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
 /// question ends.
 const HOLD_FLOOR_US: u64 = 1_800_000;
+/// Fewer blocks of speech than this in a whole utterance and it was a sound,
+/// not something said: a cough, a click, a bump. On lamp-4ace on 2026-10-13
+/// the fourteen such sounds the lamp answered ("Sorry, I missed that", "I'm
+/// Lamp. What's your name?") had 11 to 33 blocks, twelve of them under 25;
+/// the four shortest things really said to it that morning had 34 to 41.
+const SCRAP_BLOCKS: usize = 25;
+/// A short word soon after the lamp's own is an answer to it ("Yes.", "No.")
+/// and is never taken for a sound.
+const AFTER_OWN_WORDS_US: u64 = 10_000_000;
 #[cfg(test)]
 const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
@@ -2108,6 +2117,10 @@ fn conversation(
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
     let mut floor_held_for: Option<u64> = None;
+    // When the lamp was last speaking, and the turn that took the place of
+    // another: neither a word after its own nor one that cut in is a sound.
+    let mut last_spoke_us: Option<u64> = None;
+    let mut took_over_turn: Option<u64> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -2785,11 +2798,9 @@ fn conversation(
                                 }
                         });
                     if holding {
-                        let context = AdmissionContext {
-                            capture: lineage,
-                            authority: owner.snapshot(now())?,
-                        };
-                        if let Some(rejection) = admission.suppress_prospective(context, at_us)? {
+                        // Read the clock again: the admission's own must
+                        // not be handed a time before its last.
+                        if let Some(rejection) = admission.release_prospective(monotonic_us())? {
                             record_input_rejection(trace, rejection)?;
                         }
                         detector.clear_prospective();
@@ -2850,6 +2861,7 @@ fn conversation(
                         last_publish = monotonic_us();
                         continue;
                     };
+                    let took_over = reply.is_some();
                     snapshot = commit_admitted_input(
                         owner,
                         reply,
@@ -2862,6 +2874,9 @@ fn conversation(
                         |state| rig.publish(state),
                     )?;
                     last_publish = monotonic_us();
+                    if took_over {
+                        took_over_turn = reply.as_ref().map(|current| current.owner.turn());
+                    }
                 }
                 AdmissionStep::Audio(audio) => {
                     if let Some(current) = reply.as_mut() {
@@ -2875,6 +2890,35 @@ fn conversation(
                     } else {
                         return Err(io::Error::other("speech continuation lost its owner").into());
                     }
+                }
+                AdmissionStep::End(audio)
+                    if speech_levels.len() < SCRAP_BLOCKS
+                        && reply.as_ref().is_some_and(|current| {
+                            took_over_turn != Some(current.owner.turn())
+                                && last_spoke_us.is_none_or(|at| {
+                                    monotonic_us().saturating_sub(at) >= AFTER_OWN_WORDS_US
+                                })
+                        }) =>
+                {
+                    // A sound, not something said. It is not sent on as a
+                    // finished question: the turn ends here, unanswered.
+                    if let Some(current) = reply.as_ref() {
+                        record(
+                            trace,
+                            json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,
+                                "last_block_host_read_us":audio.captured_at_us,
+                                "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
+                                "acoustic_speech_end":null,
+                                "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":SCRAP_BLOCKS}}),
+                        )?;
+                    }
+                    speech_levels.clear();
+                    cancel_reply(owner, reply, trace, "not_speech")?;
+                    speaker_pending = None;
+                    provider_queue.clear();
+                    snapshot = owner.snapshot(now())?;
+                    rig.publish(snapshot)?;
+                    last_publish = monotonic_us();
                 }
                 AdmissionStep::End(audio) => {
                     let current = reply
@@ -3076,6 +3120,12 @@ fn conversation(
                 .map(|current| (current.owner.turn(), current.had_audio)),
             clock,
         );
+        if reply
+            .as_ref()
+            .is_some_and(|current| current.playback.is_some())
+        {
+            last_spoke_us = Some(monotonic_us());
+        }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
             let phase = RingPhase::from_snapshot(snapshot);

@@ -263,6 +263,32 @@ impl InputAdmission {
             _ => None,
         })
     }
+    /// Let a prospective candidate go because the caller is keeping the turn
+    /// it has. Unlike [`Self::suppress_prospective`] this consults no
+    /// authority: nothing is admitted and nothing accepted is touched, so
+    /// there is nothing for a stale snapshot to invalidate. (The first use
+    /// of the suppressing call for this, with a snapshot issued a moment
+    /// after the time it was checked against, ended the service twice on
+    /// lamp-4ace.)
+    pub fn release_prospective(&mut self, at_us: u64) -> io::Result<Option<Rejection>> {
+        self.advance(at_us)?;
+        match &self.phase {
+            Phase::Streaming(_) | Phase::Draining(Some(_)) => {
+                Err(io::Error::other("cannot release admitted input"))
+            }
+            Phase::Pending(_) => {
+                let Phase::Pending(pending) = std::mem::replace(&mut self.phase, Phase::Idle)
+                else {
+                    unreachable!("matched pending above");
+                };
+                Ok(Some(Rejection {
+                    candidate: pending.candidate.id,
+                    reason: RejectReason::Policy,
+                }))
+            }
+            Phase::Idle | Phase::Draining(None) => Ok(None),
+        }
+    }
     pub fn owns_stream(&self) -> bool {
         matches!(self.phase, Phase::Streaming(_) | Phase::Draining(Some(_)))
     }
@@ -775,6 +801,28 @@ mod outage_drain_tests {
     fn no_output(update: Update) {
         assert!(update.rejection.is_none());
         assert!(matches!(update.step, Step::None), "{:?}", update.step);
+    }
+
+    #[test]
+    fn a_pending_candidate_can_be_let_go_without_authority_and_an_accepted_stream_cannot() {
+        let mut local = LocalInput::new();
+        let mut gate = InputAdmission::default();
+        let first = candidate(&mut gate, local.context(START), 1, START);
+        // No snapshot is asked for: one issued after this instant, as the
+        // coordinator's was, cannot make letting go a fault.
+        let let_go = gate.release_prospective(START + 1_000).unwrap().unwrap();
+        assert_eq!(let_go.candidate, first.id);
+        assert_eq!(let_go.reason, RejectReason::Policy);
+        assert!(gate.release_prospective(START + 2_000).unwrap().is_none());
+        // The next start is a new candidate with its own identity.
+        let later = START + 500_000;
+        let second = candidate(&mut gate, local.context(later), 60, later);
+        assert_ne!(second.id, first.id);
+        // What has been accepted is not prospective.
+        let (mut streaming, _local, _) = accepted_stream();
+        assert!(streaming.release_prospective(START + 1_000).is_err());
+        // A clock that went backwards is still a fault.
+        assert!(gate.release_prospective(START).is_err());
     }
 
     #[test]

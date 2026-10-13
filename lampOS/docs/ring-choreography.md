@@ -121,8 +121,8 @@ to 108 ms with the state read back, and a colour that does not exist was
 refused. Stills through the office Mac's camera showed the ring blue at
 levels 1, 3 and 5, red at 5, and pink, white, purple and green at level
 1, each readable as its colour; and the ember, in its second form, as
-eight amber dots. Asked aloud by a played voice, ten requests in two
-sessions: nine did what was asked and said so ("There, blue." "Red it
+eight amber dots. Asked aloud by a played voice, ten requests: nine did
+what was asked and said so ("There, blue." "Red it
 is!" "Better? That should be a bit easier on the eyes." "Back to warm,
 just how I like it."), one of them a follow-up with no name in it. The
 tenth, "make your light blue", reached the model as something else and it

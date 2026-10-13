@@ -229,10 +229,33 @@ impl NameIn {
         })
     }
 
+    /// The subscriber, if the bus is switched on and can be used. A bus
+    /// that cannot is said once and the voice goes on without.
+    pub fn from_environment() -> Option<Self> {
+        if std::env::var(ENVIRONMENT).ok().as_deref() != Some("on") {
+            return None;
+        }
+        let root = std::env::var_os(lamp_bus::ROOT_VARIABLE)
+            .filter(|root| !root.is_empty())
+            .unwrap_or_else(|| lamp_bus::DEFAULT_ROOT.into());
+        match Self::on(Path::new(&root)) {
+            Ok(names) => Some(names),
+            Err(error) => {
+                eprintln!("lamp-voice: the lamp's name is not taken from the bus: {error}");
+                None
+            }
+        }
+    }
+
     /// When the newest hearing since the last look began, by the clock
     /// `now_us` is of, if there was one. Never waits, and looks at the
     /// bus at most every 20 ms however often it is called.
     pub fn newest(&mut self, now_us: u64) -> Option<u64> {
+        self.newest_scored(now_us).map(|(began, _)| began)
+    }
+
+    /// The same, with the hearing's score.
+    pub fn newest_scored(&mut self, now_us: u64) -> Option<(u64, f32)> {
         if self
             .looked_at_us
             .is_some_and(|at| now_us.saturating_sub(at) < NAME_LOOK_EVERY_US)
@@ -240,14 +263,16 @@ impl NameIn {
             return None;
         }
         self.looked_at_us = Some(now_us);
-        let mut newest = None;
+        let mut newest: Option<(u64, f32)> = None;
         for _ in 0..8 {
             let Ok(Some(message)) = self.heard.recv(std::time::Duration::ZERO) else {
                 break;
             };
             if let Ok(heard) = message.parse::<lamp_msgs::NameHeard>() {
                 let began = now_us.saturating_sub(u64::from(heard.ago_ms) * 1_000);
-                newest = Some(newest.map_or(began, |before: u64| before.max(began)));
+                if newest.is_none_or(|(before, _)| began >= before) {
+                    newest = Some((began, heard.score));
+                }
             }
         }
         newest
@@ -544,7 +569,7 @@ mod tests {
         // Asked again within 20 ms of the last look: the bus is not
         // looked at, and nothing is lost by that.
         assert_eq!(names.newest(now + NAME_LOOK_EVERY_US - 1), None);
-        assert_eq!(names.newest(20_000_000), Some(19_900_000));
+        assert_eq!(names.newest_scored(20_000_000), Some((19_900_000, 0.99)));
         assert_eq!(names.newest(21_000_000), None);
         std::fs::remove_dir_all(root).unwrap();
     }

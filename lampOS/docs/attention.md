@@ -170,6 +170,47 @@ Not shown: a person, and a real office. The talk was two synthetic voices
 from one loudspeaker, and the name part hears a synthetic "Hey Lamp"
 better than it may hear a colleague's.
 
+### A second look when the lamp heard its name and the model did not
+
+The rule above only lets an answer out. It cannot make one. In the check
+of two people talking ([character.md](character.md)), on 2026-10-14, the
+closing "Hey Lamp, what do you think we should have for lunch?" got
+nothing in two runs of two: the service wrote it as "Hey, what do you
+think we should have for lunch?", it followed a conversation about lunch,
+and the model took it for more of that. The part that listens for the
+name had heard it both times, with a score of 1.000.
+
+So the lamp now tells the model what its own ears heard
+(`crates/voice/src/second_look.rs`, switched on with
+`LAMP_SECOND_LOOK=on` in the voice unit, with the bus on). When a request
+that was heard ends with nothing said, and the name began to be heard in
+the sound no more than 1.5 s before that request began or at any time in
+it, with a score of 0.98 or more, the voice begins one turn of its own
+with a written note in place of speech, as it does for a hello:
+
+> (Your own ears caught your name, Lamp, at the start of what was just
+> said to you, so you were being called. If it is something a lamp on a
+> desk could answer or chat about, answer it now in your usual way, as if
+> you had not waited, and do not mention the wait or your name. If it is
+> other people's own business, say nothing.)
+
+What the model then says is spoken like any answer. The trace has
+`second_look_due` with the score, and the turn's `input_admitted` has
+`"admission_basis":"lamp_looks_again"`.
+
+- **Once.** The turn the lamp begins is not a heard request, so whatever
+  comes of it, nothing more is owed.
+- **Someone who speaks first is listened to.** A request that begins
+  before the second look has drops it, and one that could not begin
+  within three seconds of the silence is dropped too.
+- **It is late.** That nothing was said is only known when the service's
+  wait for an answer has run out, four seconds after the person stopped
+  (`no_reply_after_ms`). The answer comes a second or so after that.
+- **A name like the lamp's.** Lines to "Lan" or "Liam" set the name part
+  off in five of ten at the score it reports from (0.9) and in two of ten
+  at 0.999 ([name.md](name.md)); 0.98 is between, and what such a line
+  gets is then the note's last sentence and the model's judgement.
+
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:
 

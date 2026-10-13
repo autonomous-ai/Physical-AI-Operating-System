@@ -37,6 +37,7 @@ pub mod ring_wire;
 pub mod ring_worker;
 pub mod room_floor;
 pub mod room_told;
+pub mod second_look;
 pub mod session_fact;
 pub mod sight;
 pub mod speak_up;

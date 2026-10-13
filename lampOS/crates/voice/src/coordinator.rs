@@ -2203,6 +2203,13 @@ fn conversation(
     // And, only if someone switched it on, what the microphone hears, for
     // a part of the lamp that listens for itself.
     let mut mic_out = crate::bus_out::MicOut::from_environment(rig.microphone.as_str());
+    // The lamp's name as its own part hears it in the room's sound, for a
+    // second look at something said to it by name that got nothing. Only
+    // if that is switched on.
+    let mut name_in = crate::second_look::on()
+        .then(crate::bus_out::NameIn::from_environment)
+        .flatten();
+    let mut second_look = crate::second_look::SecondLook::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -3103,6 +3110,9 @@ fn conversation(
                     if took_over {
                         took_over_turn = reply.as_ref().map(|current| current.owner.turn());
                     }
+                    if let Some(current) = reply.as_ref() {
+                        second_look.request_began(current.owner.turn(), monotonic_us());
+                    }
                     // The sound just before a turn began is the turn's.
                     turn_blocks.extend(loose_blocks.drain(..).map(|(_, level)| level));
                 }
@@ -3313,6 +3323,16 @@ fn conversation(
                 "start_need_censored":!matches!(current.cloud.outcome,Some(RequestOutcome::Complete))}),
             )?;
             finish_duplex_yield(trace, monotonic_us(), "reply_completed", None, None)?;
+            // Said to the lamp by name, and nothing came of it: the model
+            // is told what the lamp's own ears heard, once.
+            let said_nothing = current.delivery_outcome() == "no_audio_answer"
+                && matches!(current.cloud.outcome, Some(RequestOutcome::Complete));
+            if let Some(score) = second_look.finished(turn, said_nothing, monotonic_us()) {
+                record(
+                    trace,
+                    json!({"kind":"second_look_due","turn":turn,"at_us":monotonic_us(),"name_score":score}),
+                )?;
+            }
             *reply = None;
         }
         // Terminal priority status can overtake valid PCM/outcomes. Only the
@@ -3463,6 +3483,7 @@ fn conversation(
                             &mut provider_queue,
                             crate::speak_up::LOOK_NOTE,
                             true,
+                            "lamp_looks",
                             provider_session,
                             rig.playout_start,
                             trace,
@@ -3472,6 +3493,40 @@ fn conversation(
                     }
                 }
             }
+        }
+        if let Some(names) = name_in.as_mut()
+            && let Some((began, score)) = names.newest_scored(clock)
+        {
+            second_look.name_heard(began, score);
+        }
+        // A second look at something said to the lamp by name that got
+        // nothing, as soon as the lamp is at rest. Someone who has spoken
+        // since is being listened to, and it was dropped for them.
+        if let Some(turn) = second_look.due(clock)
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && !admission.owns_stream()
+            && !submission_draining
+            && snapshot.listening_ready(now())
+            && let Some(provider_session) = cloud.ready_session()
+        {
+            second_look.taken();
+            eprintln!(
+                "lamp-voice: request {turn} was said to the lamp by name and got nothing: the model is told its name was heard"
+            );
+            snapshot = commit_written_turn(
+                owner,
+                reply,
+                &mut provider_queue,
+                crate::second_look::NOTE,
+                false,
+                "lamp_looks_again",
+                provider_session,
+                rig.playout_start,
+                trace,
+                |state| rig.publish(state),
+            )?;
+            last_publish = monotonic_us();
         }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
@@ -3493,6 +3548,7 @@ fn conversation(
                     &mut provider_queue,
                     crate::speak_up::NOTE,
                     false,
+                    "lamp_speaks_first",
                     provider_session,
                     rig.playout_start,
                     trace,
@@ -3850,6 +3906,7 @@ fn commit_written_turn(
     provider_queue: &mut VecDeque<ProviderInput>,
     note: &str,
     look: bool,
+    basis: &'static str,
     provider_session: u64,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
@@ -3866,7 +3923,7 @@ fn commit_written_turn(
     record(
         trace,
         json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),
-            "admission_basis":if look {"lamp_looks"} else {"lamp_speaks_first"},"provider_session":provider_session,
+            "admission_basis":basis,"provider_session":provider_session,
             "boundary":"no sound was heard: a written note stands in for speech"}),
     )?;
     provider_queue.push_back(ProviderInput::Written {

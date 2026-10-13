@@ -826,7 +826,7 @@ impl Peers {
                         None => {}
                     }
                 }
-                Ok(Some(ProviderInput::Audio { .. })) => {}
+                Ok(Some(ProviderInput::Audio { .. } | ProviderInput::Written { .. })) => {}
                 Ok(None) | Err(_) => break,
             }
         }

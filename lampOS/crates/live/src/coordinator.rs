@@ -1479,7 +1479,8 @@ fn flush_provider_input_with(
         let request = match command {
             ProviderInput::Start { request, .. }
             | ProviderInput::Audio { request, .. }
-            | ProviderInput::End { request, .. } => *request,
+            | ProviderInput::End { request, .. }
+            | ProviderInput::Written { request, .. } => *request,
         };
         if request != current.owner.turn() {
             return Err(io::Error::other(
@@ -2136,6 +2137,15 @@ fn conversation(
     // The answer whose words are arriving, and whether any of them has been
     // a word yet.
     let mut answer_words: Option<(u64, bool)> = None;
+    // Saying hello first to someone who comes and sits down, when the eyes
+    // keep a presence file for it; and when anything was last said to the
+    // lamp or by it.
+    let mut arrival = if lifetime.continuous() {
+        crate::speak_up::Arrival::from_environment(monotonic_us())
+    } else {
+        None
+    };
+    let mut last_turn_us = monotonic_us();
     let mut gesture_cue = crate::body_link::Cue::default();
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
@@ -3224,6 +3234,46 @@ fn conversation(
                 clock,
             );
         }
+        // The one thing the lamp says unasked. Only from rest: nothing
+        // being heard, nothing owed, a provider ready to take the turn.
+        if reply.is_some() || admission.owns_stream() {
+            last_turn_us = clock;
+        }
+        if let Some(arrival) = arrival.as_mut() {
+            arrival.watch(clock);
+        }
+        if let Some(arrival) = arrival.as_mut()
+            && arrival.due(clock.saturating_sub(last_turn_us), clock)
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && !admission.owns_stream()
+            && !submission_draining
+            && snapshot.listening_ready(now())
+            && let Some(provider_session) = cloud.ready_session()
+        {
+            arrival.said(clock);
+            if arrival.speaks() {
+                snapshot = commit_written_turn(
+                    owner,
+                    reply,
+                    &mut provider_queue,
+                    crate::speak_up::NOTE,
+                    provider_session,
+                    rig.playout_start,
+                    trace,
+                    |state| rig.publish(state),
+                )?;
+                last_publish = monotonic_us();
+            } else {
+                eprintln!(
+                    "lamp-live: someone has sat down; a hello was due and is not switched on"
+                );
+                record(
+                    trace,
+                    json!({"kind":"hello_due","at_us":clock,"said":false,"provider_session":provider_session}),
+                )?;
+            }
+        }
         service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {
             rig.running()?;
@@ -3553,6 +3603,66 @@ fn decide_prospective_input(
         return Ok(None);
     };
     accepted_decision(admission.decide(evidence, context, at_us)?, trace)
+}
+
+/// A turn the lamp begins itself. Nothing was heard: the request is a
+/// written note, started and ended at once, and what comes back is spoken
+/// like any answer. The caller has checked that nothing else owns the lamp.
+#[allow(clippy::too_many_arguments)]
+fn commit_written_turn(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    note: &str,
+    provider_session: u64,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    mut publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    let turn = owner.admit(now(), AdmittedInput::NewTurn)?;
+    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
+    let mut snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    let admitted_at_us = monotonic_us();
+    trace
+        .receipts
+        .admitted(turn, snapshot.issued_at().as_micros())?;
+    record(
+        trace,
+        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),
+            "admission_basis":"lamp_speaks_first","provider_session":provider_session,
+            "boundary":"no sound was heard: a written note stands in for speech"}),
+    )?;
+    provider_queue.push_back(ProviderInput::Written {
+        request: turn.turn(),
+        session: provider_session,
+        privacy_generation: snapshot.microphone_generation(),
+        text: note.to_owned(),
+    });
+    let current = Reply {
+        owner: turn,
+        cloud: CloudRequest::new(provider_session)?,
+        local_input_ended: true,
+        plan,
+        playback: None,
+        pcm: VecDeque::new(),
+        generation_done: false,
+        provider_idle: false,
+        input_sequence: 0,
+        had_audio: false,
+        voice_level: 0,
+        final_chunk: None,
+        playback_gaps: 0,
+        notice: NoticeDelivery::default(),
+        last_provider_audio_at_us: None,
+        start: playout_start.gate(),
+        need: StartNeed::default(),
+    };
+    owner.input_ended(now(), current.owner)?;
+    snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    *reply = Some(current);
+    Ok(snapshot)
 }
 
 #[allow(clippy::too_many_arguments)]

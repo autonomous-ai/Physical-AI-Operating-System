@@ -296,7 +296,9 @@ fn run_with_notice_policy(
                                     });
                                 }
                                 Some(ProviderInput::End { .. }) => evidence.provider_ends += 1,
-                                Some(ProviderInput::Audio { .. }) => {}
+                                Some(
+                                    ProviderInput::Audio { .. } | ProviderInput::Written { .. },
+                                ) => {}
                                 None => break,
                             }
                         }

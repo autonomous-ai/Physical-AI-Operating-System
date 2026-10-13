@@ -1578,6 +1578,53 @@ async fn go_away_ends_an_idle_connection_and_lets_an_unfinished_answer_complete(
 }
 
 #[tokio::test]
+async fn a_written_request_is_one_message_outside_any_activity_and_its_answer_is_its_own() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let input = connection.input();
+    input
+        .try_written(request(1), "(Someone has sat down. Say hello.)")
+        .unwrap();
+    // One message: the turn in writing, complete. No activity is opened.
+    let sent = receive(&mut server).await;
+    assert_eq!(
+        sent["clientContent"]["turns"][0]["parts"][0]["text"],
+        "(Someone has sat down. Say hello.)"
+    );
+    assert_eq!(sent["clientContent"]["turns"][0]["role"], "user");
+    assert_eq!(sent["clientContent"]["turnComplete"], true);
+    silent(&mut server).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::InputStarted { lineage, waiting_for_barrier: false } if lineage.request == request(1))
+    );
+    // What comes back belongs to it, as to any request whose input ended.
+    send_json(&mut server, audio(5)).await;
+    send_json(&mut server, generated()).await;
+    send_json(&mut server, idle()).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, pcm, .. } if lineage.request == request(1) && pcm == [5])
+    );
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::GenerationComplete { .. }
+    ));
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { idle: true, .. }
+    ));
+    // The next thing heard is an ordinary request after it.
+    let next = ended_turn(&mut connection, &mut server, 2).await;
+    assert_eq!(next, request(2));
+    // An empty note, an old request and an oversized note are refused here.
+    assert!(input.try_written(request(3), "  ").is_err());
+    assert!(input.try_written(request(1), "again").is_err());
+    assert!(
+        input
+            .try_written(request(3), &"x".repeat(crate::wire::MAX_NOTE_BYTES + 1))
+            .is_err()
+    );
+}
+
+#[tokio::test]
 async fn a_renewal_asked_for_ends_the_connection_once_nothing_is_owed_on_it() {
     // Idle: it ends at once, as after an announced close.
     let (mut connection, _server) = mock(Timeouts::default()).await;

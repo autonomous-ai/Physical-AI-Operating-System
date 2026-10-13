@@ -82,6 +82,52 @@ impl Kept {
     }
 }
 
+/// One line saying how large the near face is, kept fresh while there is
+/// one: how the voice service knows someone has come to sit in front of the
+/// lamp (`lamp-live`, `LAMP_EYES_PRESENCE_FILE`). No picture, no place, no
+/// identity: a number between 0 and 1, the face's height as a share of the
+/// picture's. A file not written for a second and a half means nobody.
+pub struct Presence {
+    path: PathBuf,
+    writing: PathBuf,
+    present: bool,
+}
+
+impl Presence {
+    pub fn new(path: PathBuf) -> Self {
+        let mut writing = path.clone().into_os_string();
+        writing.push(".new");
+        Self {
+            path,
+            writing: writing.into(),
+            present: false,
+        }
+    }
+
+    /// There is a face this large in the look just made.
+    pub fn there(&mut self, size: f32) -> io::Result<()> {
+        fs::write(&self.writing, format!("{:.3}\n", size.clamp(0.0, 1.0)))?;
+        fs::rename(&self.writing, &self.path)?;
+        self.present = true;
+        Ok(())
+    }
+
+    /// The camera closed: nobody can be seen.
+    pub fn gone(&mut self) {
+        if self.present {
+            let _ = fs::remove_file(&self.path);
+            self.present = false;
+        }
+    }
+}
+
+impl Drop for Presence {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+        let _ = fs::remove_file(&self.writing);
+    }
+}
+
 impl Drop for Kept {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);
@@ -164,6 +210,22 @@ mod tests {
         assert!(!path.exists());
         kept.keep(&first).unwrap();
         drop(kept);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+        // The presence line beside it: a size, replaced whole, gone with
+        // the camera.
+        let line = directory.join("present");
+        let mut presence = Presence::new(line.clone());
+        presence.gone();
+        assert!(!line.exists());
+        presence.there(0.2134).unwrap();
+        assert_eq!(fs::read_to_string(&line).unwrap(), "0.213\n");
+        presence.there(7.0).unwrap();
+        assert_eq!(fs::read_to_string(&line).unwrap(), "1.000\n");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+        presence.gone();
+        assert!(!line.exists());
+        presence.there(0.5).unwrap();
+        drop(presence);
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         fs::remove_dir(&directory).unwrap();
     }

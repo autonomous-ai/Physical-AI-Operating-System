@@ -274,6 +274,7 @@ fn provider_peer(
                         due.push((Instant::now() + reply.after_end, request));
                     }
                 }
+                ProviderInput::Written { .. } => seen.provider.push("written"),
             }
         }
         let now = Instant::now();

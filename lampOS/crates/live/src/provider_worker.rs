@@ -164,13 +164,22 @@ pub enum ProviderInput {
         request: u64,
         privacy_generation: u64,
     },
+    /// A whole request in writing, for a turn the lamp begins itself: it is
+    /// a start and an end at once and carries no sound.
+    Written {
+        request: u64,
+        session: u64,
+        privacy_generation: u64,
+        text: String,
+    },
 }
 impl ProviderInput {
     fn request(&self) -> u64 {
         match self {
             Self::Start { request, .. }
             | Self::Audio { request, .. }
-            | Self::End { request, .. } => *request,
+            | Self::End { request, .. }
+            | Self::Written { request, .. } => *request,
         }
     }
     fn privacy_generation(&self) -> u64 {
@@ -182,6 +191,9 @@ impl ProviderInput {
                 privacy_generation, ..
             }
             | Self::End {
+                privacy_generation, ..
+            }
+            | Self::Written {
                 privacy_generation, ..
             } => *privacy_generation,
         }
@@ -1407,6 +1419,22 @@ impl InputHandoff {
                     submitted.open = false;
                 }
             }
+            ProviderInput::Written { session, text, .. } => {
+                if self.submitted.is_some() {
+                    return Err(io::Error::other("provider input already started").into());
+                }
+                let expected = SessionId::new(session)?;
+                if let Err(refusal) = input.written(expected, request, &text) {
+                    return self.refused_start(request, refusal);
+                }
+                // Started and ended at once: nothing more is sent for it.
+                self.submitted = Some(SubmittedInput {
+                    request,
+                    session: expected,
+                    open: false,
+                    captured: None,
+                });
+            }
         }
         Ok(())
     }
@@ -1439,6 +1467,16 @@ trait InputSink {
         samples: &[i16],
     ) -> lamp_gemini::Result<()>;
     fn end(&self, request: RequestId) -> lamp_gemini::Result<()>;
+    /// A whole request in writing. A sink that has no way to take one
+    /// refuses it as a start it could not make.
+    fn written(
+        &self,
+        _session: SessionId,
+        _request: RequestId,
+        _text: &str,
+    ) -> std::result::Result<(), StartRefusal> {
+        Err(StartRefusal::NotConnected)
+    }
     fn retire(&self, request: RequestId);
     /// Retirement of a request that was given up and not continued. A sink
     /// that keeps no input treats it as any retirement.
@@ -1471,6 +1509,14 @@ impl<C: Connect> InputSink for Supervisor<C> {
     }
     fn end(&self, request: RequestId) -> lamp_gemini::Result<()> {
         self.try_end(request)
+    }
+    fn written(
+        &self,
+        session: SessionId,
+        request: RequestId,
+        text: &str,
+    ) -> std::result::Result<(), StartRefusal> {
+        self.try_written_for_session(session, request, text)
     }
     fn retire(&self, request: RequestId) {
         Supervisor::retire(self, request);

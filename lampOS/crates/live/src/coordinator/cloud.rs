@@ -133,6 +133,12 @@ impl CloudRequest {
             {
                 Ok(())
             }
+            // A whole request in writing is its own start and end.
+            ProviderInput::Written { session, .. }
+                if !self.start_submitted && *session == self.session =>
+            {
+                Ok(())
+            }
             _ => Err(invalid("provider input boundary duplicated or reordered")),
         }
     }
@@ -143,6 +149,10 @@ impl CloudRequest {
             ProviderInput::Start { .. } => self.start_submitted = true,
             ProviderInput::End { .. } => self.input_end_submitted = true,
             ProviderInput::Audio { .. } => {}
+            ProviderInput::Written { .. } => {
+                self.start_submitted = true;
+                self.input_end_submitted = true;
+            }
         }
         Ok(())
     }

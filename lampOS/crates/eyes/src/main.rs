@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model.\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number.\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -24,6 +24,7 @@ struct Arguments {
     permit_socket: PathBuf,
     body_socket: PathBuf,
     sight_file: Option<PathBuf>,
+    presence_file: Option<PathBuf>,
 }
 
 /// `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits each.
@@ -53,7 +54,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut args = args.into_iter();
     let (mut device, mut lock_directory, mut usb) = (None, None, None);
     let (mut model, mut permit_socket, mut body_socket) = (None, None, None);
-    let mut sight_file = None;
+    let (mut sight_file, mut presence_file) = (None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = device.is_none()
@@ -63,6 +64,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 && permit_socket.is_none()
                 && body_socket.is_none()
                 && sight_file.is_none()
+                && presence_file.is_none()
                 && args.next().is_none();
             return if alone {
                 Ok(None)
@@ -86,6 +88,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             Some("--sight-file") if sight_file.is_none() => {
                 sight_file = Some(PathBuf::from(value));
             }
+            Some("--presence-file") if presence_file.is_none() => {
+                presence_file = Some(PathBuf::from(value));
+            }
             Some("--usb") if usb.is_none() => {
                 usb =
                     Some(value.to_str().and_then(usb_of).ok_or(
@@ -103,6 +108,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         permit_socket: permit_socket.ok_or("--permit-socket is required")?,
         body_socket: body_socket.ok_or("--body-socket is required")?,
         sight_file,
+        presence_file,
     };
     for path in [
         &result.device,
@@ -113,6 +119,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     ]
     .into_iter()
     .chain(&result.sight_file)
+    .chain(&result.presence_file)
     {
         if !path.is_absolute()
             || path.as_os_str().len() > 200
@@ -177,7 +184,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
     use lamp_eyes::{
         faces::Detector,
-        kept::Kept,
+        kept::{Kept, Presence},
         picture::Picture,
         sight::{Seen, choose},
     };
@@ -237,6 +244,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
 
     let mut kept = arguments.sight_file.clone().map(Kept::new);
+    let mut presence = arguments.presence_file.clone().map(Presence::new);
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
     let mut permitted_at: Option<Instant> = None;
@@ -270,6 +278,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             }
             if let Some(kept) = kept.as_mut() {
                 kept.forget();
+            }
+            if let Some(presence) = presence.as_mut() {
+                presence.gone();
             }
             latest = None;
             std::thread::sleep(Duration::from_millis(50));
@@ -355,6 +366,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if let Some(kept) = kept.as_mut() {
                 kept.forget();
             }
+            if let Some(presence) = presence.as_mut() {
+                presence.gone();
+            }
             latest = None;
             retry_at = Instant::now() + RETRY;
             continue;
@@ -385,8 +399,11 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 Ok(face) => {
                     looks += 1;
                     with_face += u32::from(face.is_some());
-                    if face.is_some() {
+                    if let Some(face) = face.as_ref() {
                         face_at = Some(Instant::now());
+                        if let Some(presence) = presence.as_mut() {
+                            let _ = presence.there(face.size);
+                        }
                     }
                     tell(Seen { face });
                 }
@@ -459,6 +476,14 @@ mod tests {
             ))
             .is_err()
         );
+        // And the one line that says someone is there.
+        assert_eq!(value.presence_file, None);
+        let present = [&FULL[..], &["--presence-file", "/run/lampos-eyes/present"]].concat();
+        assert_eq!(
+            parse(args(&present)).unwrap().unwrap().presence_file,
+            Some(PathBuf::from("/run/lampos-eyes/present"))
+        );
+        assert!(parse(args(&[&FULL[..], &["--presence-file", "present"]].concat())).is_err());
         for missing in 0..6 {
             let mut some = FULL.to_vec();
             some.drain(missing * 2..missing * 2 + 2);

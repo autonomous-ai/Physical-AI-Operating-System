@@ -638,6 +638,44 @@ impl<C: Connect> Supervisor<C> {
         }));
         Ok(())
     }
+    /// See [`InputSender::try_written`]: a whole request in writing, on the
+    /// connection `expected` names and no other. It is submitted and ended
+    /// at once, so it awaits its response from the moment it is accepted.
+    pub fn try_written_for_session(
+        &self,
+        expected: SessionId,
+        request: RequestId,
+        text: &str,
+    ) -> std::result::Result<(), StartRefusal> {
+        let (input, live) = self.input().map_err(|_| StartRefusal::NotConnected)?;
+        if live != expected {
+            return Err(StartRefusal::SessionMismatch { live });
+        }
+        if request.get() <= self.retired_through.get()
+            || self
+                .submitted
+                .get()
+                .is_some_and(|previous| request <= previous.request)
+        {
+            return Err(StartRefusal::Refused(Error::StaleRequest));
+        }
+        input
+            .try_written(request, text)
+            .map_err(StartRefusal::Refused)?;
+        if let Ok(previous) = RequestId::new(request.get() - 1) {
+            self.retire(previous);
+        }
+        let lineage = Lineage {
+            session: live,
+            request,
+        };
+        self.submitted.set(Some(lineage));
+        self.tracked.set(Some(Tracked {
+            lineage,
+            stage: Stage::AwaitingResponse,
+        }));
+        Ok(())
+    }
     /// Narrow evidence for classifying a stale handoff, not an ownership grant.
     /// True only for the exact last successfully submitted request when a ready
     /// replacement connection now has a different session. In particular, it is

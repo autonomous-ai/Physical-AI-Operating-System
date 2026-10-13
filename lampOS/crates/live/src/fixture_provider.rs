@@ -369,6 +369,11 @@ impl FixtureProvider {
             | ProviderInput::End {
                 request,
                 privacy_generation,
+            }
+            | ProviderInput::Written {
+                request,
+                privacy_generation,
+                ..
             } => (*request, *privacy_generation),
         };
         if request == 0
@@ -451,6 +456,10 @@ impl FixtureProvider {
                     stage: 0,
                     audio: self.first_owner == Some(owner),
                 });
+            }
+            // The fixture answers what it hears. It has no written turns.
+            ProviderInput::Written { .. } => {
+                return Err(invalid("the fixture provider takes no written request"));
             }
         }
         Ok(())

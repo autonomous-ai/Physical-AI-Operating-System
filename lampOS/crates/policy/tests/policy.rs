@@ -272,6 +272,26 @@ impl Rig {
 
     /// The lines of the decisions log, every day's file together.
     fn log_now(&self) -> Vec<Value> {
+        self.lines_of("decisions-")
+    }
+
+    /// The outcomes log once it has `lines` lines.
+    fn outcomes(&self, lines: usize) -> Vec<Value> {
+        let started = Instant::now();
+        loop {
+            let log = self.lines_of("outcomes-");
+            if log.len() >= lines {
+                assert_eq!(log.len(), lines, "more outcomes than expected");
+                return log;
+            }
+            assert!(started.elapsed() < WAIT, "{} of {lines} lines", log.len());
+            thread::sleep(ms(5));
+        }
+    }
+
+    /// The lines of the files of one kind. The directory holds the two
+    /// logs and nothing else.
+    fn lines_of(&self, kind: &str) -> Vec<Value> {
         let Ok(files) = fs::read_dir(&self.log_dir) else {
             return Vec::new();
         };
@@ -279,12 +299,16 @@ impl Rig {
         files.sort();
         files
             .iter()
-            .flat_map(|file| {
+            .filter(|file| {
                 let name = file.file_name().unwrap().to_str().unwrap().to_owned();
                 assert!(
-                    name.starts_with("decisions-") && name.ends_with(".jsonl"),
+                    (name.starts_with("decisions-") || name.starts_with("outcomes-"))
+                        && name.ends_with(".jsonl"),
                     "{name}"
                 );
+                name.starts_with(kind)
+            })
+            .flat_map(|file| {
                 fs::read_to_string(file)
                     .unwrap()
                     .lines()
@@ -544,6 +568,116 @@ fn the_judge_is_told_to_get_ready_each_time_someone_begins_to_speak() {
     // The next thing said.
     rig.voice(Voice::Listening);
     reaches(2);
+    rig.stop();
+}
+
+#[test]
+fn what_the_lamp_did_after_each_decision_is_written_beside_it() {
+    let mut rig = Rig::new("outcome", |_| Ok(asked(SEVEN)));
+    // Said to someone else: the lamp does nothing about it.
+    rig.voice(Voice::Listening);
+    rig.voice(Voice::Thinking);
+    rig.hear("Did you send the report?");
+    rig.decision();
+    rig.done_with(1);
+    rig.voice(Voice::Resting);
+    thread::sleep(ms(150));
+    // Said to the lamp: it answers, after the decision.
+    rig.voice(Voice::Listening);
+    rig.voice(Voice::Thinking);
+    rig.hear("Hey Lamp, what is two plus two?");
+    rig.decision();
+    rig.done_with(2);
+    let decided = Instant::now();
+    thread::sleep(ms(200));
+    rig.say("Four.", 31);
+    rig.voice(Voice::Speaking);
+    rig.say(" Easy one.", 31);
+    let spoke = decided.elapsed();
+    // The first is closed by the second, and the second a second after
+    // the lamp's first sound.
+    let outcomes = rig.outcomes(2);
+    let decisions = rig.log(2);
+    let [silent, answered] = [&outcomes[0], &outcomes[1]];
+    assert_eq!(silent["about"], "attention");
+    assert_eq!(silent["decision_at_unix_ms"], decisions[0]["at_unix_ms"]);
+    assert_eq!(silent["choice"], decisions[0]["judgement"]["choice"]);
+    assert_eq!(silent["lamp"], "silent");
+    assert_eq!(silent["overtaken"], true);
+    for absent in [
+        "spoke_after_ms",
+        "said_after_ms",
+        "heard_to_sound_ms",
+        "request",
+        "said",
+    ] {
+        assert!(silent.get(absent).is_none(), "{absent}: {silent}");
+    }
+    assert_eq!(answered["decision_at_unix_ms"], decisions[1]["at_unix_ms"]);
+    assert_eq!(answered["lamp"], "spoke");
+    assert_eq!(answered["overtaken"], false);
+    assert_eq!(answered["request"], 31);
+    assert_eq!(answered["said"], "Four. Easy one.");
+    let after = answered["spoke_after_ms"].as_i64().unwrap();
+    let said_after = answered["said_after_ms"].as_i64().unwrap();
+    let from_heard = answered["heard_to_sound_ms"].as_i64().unwrap();
+    println!(
+        "spoke {after} ms after the decision ({spoke:?} by the test), said {said_after}, {from_heard} from the last piece"
+    );
+    assert!(
+        (150..=200 + spoke.as_millis() as i64).contains(&after),
+        "{after}"
+    );
+    assert!(said_after <= after && said_after >= 150, "{said_after}");
+    assert!(from_heard > after, "{from_heard}");
+    let (_, notes) = rig.stop();
+    let outcomes: Vec<&Note> = notes
+        .iter()
+        .filter(|note| matches!(note, Note::Outcome { .. }))
+        .collect();
+    assert!(matches!(
+        outcomes[..],
+        [
+            Note::Outcome {
+                number: 1,
+                spoke: false,
+                overtaken: true,
+                logged: true,
+                ..
+            },
+            Note::Outcome {
+                number: 2,
+                spoke: true,
+                overtaken: false,
+                logged: true,
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn a_lamp_that_spoke_before_it_was_decided_is_written_with_a_time_less_than_nothing() {
+    // A model that takes 300 ms: the lamp is quicker.
+    let mut rig = Rig::new("outcome-late", |_| {
+        thread::sleep(ms(300));
+        Ok(asked(SEVEN))
+    });
+    rig.voice(Voice::Listening);
+    rig.voice(Voice::Thinking);
+    rig.hear("What time is it?");
+    thread::sleep(ms(150));
+    rig.say("It is noon.", 8);
+    rig.voice(Voice::Speaking);
+    rig.decision();
+    let outcome = &rig.outcomes(1)[0];
+    assert_eq!(outcome["lamp"], "spoke");
+    assert_eq!(outcome["request"], 8);
+    assert_eq!(outcome["said"], "It is noon.");
+    let after = outcome["spoke_after_ms"].as_i64().unwrap();
+    println!("spoke {after} ms after the decision");
+    assert!((-400..0).contains(&after), "{after}");
+    assert!(outcome["heard_to_sound_ms"].as_i64().unwrap() >= 140);
     rig.stop();
 }
 
@@ -1122,6 +1256,24 @@ fn every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text() {
         },
         Note::BusWorking { unpublished: 1 },
         Note::AskerGone,
+        Note::Outcome {
+            number: 12,
+            choice: attention::Choice::StayQuiet,
+            spoke: true,
+            spoke_after_ms: Some(-140),
+            heard_to_sound_ms: Some(1_180),
+            overtaken: false,
+            logged: true,
+        },
+        Note::Outcome {
+            number: 13,
+            choice: attention::Choice::LookUp,
+            spoke: false,
+            spoke_after_ms: None,
+            heard_to_sound_ms: None,
+            overtaken: true,
+            logged: false,
+        },
     ];
     let lines: Vec<String> = notes.iter().map(Note::to_string).collect();
     assert_eq!(
@@ -1135,6 +1287,14 @@ fn every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text() {
     assert_eq!(
         lines[11],
         "the decisions log cannot be written (no storage space): decisions go on without it"
+    );
+    assert_eq!(
+        lines[16],
+        "outcome of decision 12 choice=stay_quiet lamp=spoke spoke_after_ms=-140 heard_to_sound_ms=1180 overtaken=false logged=true"
+    );
+    assert_eq!(
+        lines[17],
+        "outcome of decision 13 choice=look_up lamp=silent spoke_after_ms=none heard_to_sound_ms=none overtaken=true logged=false"
     );
     for line in &lines {
         assert!(!line.is_empty() && !line.contains('\n'), "{line:?}");

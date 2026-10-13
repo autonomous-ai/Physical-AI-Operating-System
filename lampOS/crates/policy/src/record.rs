@@ -64,22 +64,32 @@ pub fn day(unix_ms: u64) -> String {
 /// The log, written a line at a time.
 pub struct Record {
     dir: PathBuf,
+    /// What its files are named for: `decisions`, or `outcomes`.
+    kind: &'static str,
     /// The day's file, while it is open.
     open: Option<(String, File)>,
 }
 
 impl Record {
-    /// A log under `dir`. Nothing is opened until there is a line.
+    /// The decisions log under `dir`. Nothing is opened until there is a
+    /// line.
     pub fn new(dir: impl Into<PathBuf>) -> Self {
+        Self::of("decisions", dir)
+    }
+
+    /// A log under `dir` whose files are named `KIND-2026-10-14.jsonl`.
+    pub fn of(kind: &'static str, dir: impl Into<PathBuf>) -> Self {
         Self {
             dir: dir.into(),
+            kind,
             open: None,
         }
     }
 
     /// The file a line written at `unix_ms` goes to.
     pub fn file(&self, unix_ms: u64) -> PathBuf {
-        self.dir.join(format!("decisions-{}.jsonl", day(unix_ms)))
+        self.dir
+            .join(format!("{}-{}.jsonl", self.kind, day(unix_ms)))
     }
 
     /// Append `line` to the file of the day `unix_ms` falls on, with one
@@ -103,7 +113,7 @@ impl Record {
     fn day_file(&mut self, unix_ms: u64) -> io::Result<&mut File> {
         let day = day(unix_ms);
         if self.open.as_ref().is_none_or(|(open, _)| *open != day) {
-            let path = self.dir.join(format!("decisions-{day}.jsonl"));
+            let path = self.dir.join(format!("{}-{day}.jsonl", self.kind));
             let open = || {
                 OpenOptions::new()
                     .read(true)

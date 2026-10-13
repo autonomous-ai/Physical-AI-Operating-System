@@ -19,6 +19,7 @@ use crate::{
     attention::{self, Answers, Choice, Context, Judgement, Room},
     decide::{Asked, Decider, Failed, Usage},
     gather::{Gather, Lamp, Utterance},
+    outcome::{Begun, Watch},
     record::Record,
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
@@ -162,6 +163,30 @@ pub enum Note {
     },
     /// The thread that asks the decision model has ended.
     AskerGone,
+    /// What the lamp did after a decision: whether it spoke, how long
+    /// after the decision its first sound came (less than nothing if the
+    /// sound came first), and how long after the last of what was heard.
+    Outcome {
+        number: u64,
+        choice: Choice,
+        spoke: bool,
+        spoke_after_ms: Option<i64>,
+        heard_to_sound_ms: Option<i64>,
+        overtaken: bool,
+        logged: bool,
+    },
+}
+
+/// A time that may not be there, for a line of the journal.
+struct Perhaps(Option<i64>);
+
+impl fmt::Display for Perhaps {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(time) => write!(f, "{time}"),
+            None => f.write_str("none"),
+        }
+    }
 }
 
 impl fmt::Display for Note {
@@ -232,6 +257,22 @@ impl fmt::Display for Note {
             ),
             Self::AskerGone => f.write_str(
                 "the thread that asks the decision model has ended: the rule decides from now on",
+            ),
+            Self::Outcome {
+                number,
+                choice,
+                spoke,
+                spoke_after_ms,
+                heard_to_sound_ms,
+                overtaken,
+                logged,
+            } => write!(
+                f,
+                "outcome of decision {number} choice={} lamp={} spoke_after_ms={} heard_to_sound_ms={} overtaken={overtaken} logged={logged}",
+                choice.as_str(),
+                if spoke { "spoke" } else { "silent" },
+                Perhaps(spoke_after_ms),
+                Perhaps(heard_to_sound_ms),
             ),
         }
     }
@@ -486,6 +527,34 @@ struct Line<'a> {
     cut: bool,
 }
 
+/// One line of the outcomes log: what the lamp did after a decision.
+#[derive(Serialize)]
+struct After<'a> {
+    at_unix_ms: u64,
+    about: &'static str,
+    /// The `at_unix_ms` of the decision this is the outcome of.
+    decision_at_unix_ms: u64,
+    choice: Choice,
+    /// `spoke` or `silent`.
+    lamp: &'static str,
+    /// From the decision to the lamp's first sound and to the first of
+    /// its words in writing; from the last of what was heard to the first
+    /// sound. Less than nothing if it came before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    spoke_after_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    said_after_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    heard_to_sound_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request: Option<u64>,
+    /// The lamp's words, as far as they had come.
+    #[serde(skip_serializing_if = "str::is_empty")]
+    said: &'a str,
+    /// Another utterance was decided before this was known.
+    overtaken: bool,
+}
+
 fn millis(time: Duration) -> u32 {
     u32::try_from(time.as_millis()).unwrap_or(u32::MAX)
 }
@@ -510,6 +579,11 @@ struct Policy<'a> {
     waiting: VecDeque<Waiting>,
     gather: Gather,
     lamp: Lamp,
+    /// When the lamp last began to speak, and the newest decision while
+    /// what the lamp does about it is waited for, with its number.
+    begun: Begun,
+    watch: Option<(Watch, u64)>,
+    outcomes: Record,
     /// What the room sounds like, as the voice last published it on
     /// `room/state`: not known until it has, or once it has gone.
     room: Room,
@@ -663,6 +737,11 @@ impl Policy<'_> {
                 None,
             ),
         };
+        // What the lamp did about the one before is closed first: its
+        // sound from here on is taken as its answer to this one.
+        if let Some((watch, number)) = self.watch.take() {
+            self.close(&watch, number, true);
+        }
         self.totals.decided += 1;
         self.totals.by_rule += u64::from(judgement.from_rule);
         match &failed {
@@ -694,6 +773,16 @@ impl Policy<'_> {
             request: utterance.request,
         });
         let at_unix_ms = unix_ms();
+        self.watch = Some((
+            Watch::new(
+                at_unix_ms,
+                judgement.choice,
+                Instant::now(),
+                (utterance.began, utterance.ended),
+                &self.begun,
+            ),
+            self.totals.decided,
+        ));
         let line = Line {
             at_unix_ms,
             about: attention::ABOUT,
@@ -737,6 +826,50 @@ impl Policy<'_> {
             waited_ms,
             pieces: utterance.pieces,
             bytes: u32::try_from(utterance.text.len()).unwrap_or(u32::MAX),
+        });
+    }
+
+    /// Close the newest decision's outcome once nothing more of it is
+    /// waited for.
+    fn after(&mut self, now: Instant) {
+        if let Some((watch, number)) = self.watch.take_if(|(watch, _)| watch.over(now)) {
+            self.close(&watch, number, false);
+        }
+    }
+
+    /// Write down what the lamp did after a decision, and say so.
+    fn close(&mut self, watch: &Watch, number: u64, overtaken: bool) {
+        let outcome = watch.outcome(overtaken);
+        // Its words, if the answer it holds is the one this is about.
+        let (request, words) = self.lamp.answer();
+        let said = if outcome.request.is_some() && request == outcome.request {
+            words
+        } else {
+            ""
+        };
+        let at_unix_ms = unix_ms();
+        let line = After {
+            at_unix_ms,
+            about: attention::ABOUT,
+            decision_at_unix_ms: outcome.decision_at_unix_ms,
+            choice: outcome.choice,
+            lamp: if outcome.spoke { "spoke" } else { "silent" },
+            spoke_after_ms: outcome.spoke_after_ms,
+            said_after_ms: outcome.said_after_ms,
+            heard_to_sound_ms: outcome.heard_to_sound_ms,
+            request: outcome.request,
+            said,
+            overtaken,
+        };
+        let logged = self.outcomes.write(at_unix_ms, &line).is_ok();
+        (self.say)(Note::Outcome {
+            number,
+            choice: outcome.choice,
+            spoke: outcome.spoke,
+            spoke_after_ms: outcome.spoke_after_ms,
+            heard_to_sound_ms: outcome.heard_to_sound_ms,
+            overtaken,
+            logged,
         });
     }
 
@@ -827,6 +960,9 @@ pub fn run<D: Decider + Send + 'static>(
         waiting: VecDeque::new(),
         gather: Gather::new(options.pause),
         lamp: Lamp::default(),
+        begun: Begun::default(),
+        watch: None,
+        outcomes: Record::of("outcomes", &options.log_dir),
         room: Room::Unknown,
         seen: None,
         record: Record::new(&options.log_dir),
@@ -849,7 +985,13 @@ pub fn run<D: Decider + Send + 'static>(
         let now = Instant::now();
         let unreadable = &mut policy.totals.unreadable;
         for state in voice.take::<VoiceState>(Duration::ZERO, unreadable, policy.say) {
-            policy.lamp.state(state.state == Voice::Speaking, now);
+            let speaking = state.state == Voice::Speaking;
+            policy.lamp.state(speaking, now);
+            if policy.begun.state(speaking, now)
+                && let Some((watch, _)) = policy.watch.as_mut()
+            {
+                watch.spoke(now);
+            }
             let listening = state.state == Voice::Listening;
             policy.gather.person_stopped(!listening);
             // Someone has begun to speak, and what they say will be asked
@@ -868,11 +1010,17 @@ pub fn run<D: Decider + Send + 'static>(
         }
         if voice.source(policy.say) {
             policy.lamp.gone();
+            policy.begun.gone();
             policy.gather.person_stopped(false);
             was_listening = false;
         }
         for piece in said.take::<Speech>(Duration::ZERO, unreadable, policy.say) {
             policy.lamp.said(&piece.text, piece.request, now);
+            if policy.begun.said(piece.request, now)
+                && let Some((watch, _)) = policy.watch.as_mut()
+            {
+                watch.said(piece.request, now);
+            }
         }
         said.source(policy.say);
         // How the room is and who the eyes see, as each was last said. A
@@ -916,6 +1064,7 @@ pub fn run<D: Decider + Send + 'static>(
             policy.heard(utterance);
         }
         policy.judge(now);
+        policy.after(now);
         if now.saturating_duration_since(shown) >= EVERY_SECOND {
             shown = now;
             policy.second();

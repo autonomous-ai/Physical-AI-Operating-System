@@ -251,6 +251,12 @@ impl Lamp {
         self.speaking = false;
     }
 
+    /// Its newest answer: the request it belongs to, and its pieces end
+    /// to end as far as they are kept.
+    pub fn answer(&self) -> (Option<u64>, &str) {
+        (self.request, &self.said)
+    }
+
     /// How things stand at `now`, to go with an utterance that begins.
     pub fn then(&self, now: Instant) -> LampThen {
         LampThen {

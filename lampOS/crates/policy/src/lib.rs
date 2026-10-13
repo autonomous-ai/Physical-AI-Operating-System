@@ -15,6 +15,8 @@
 //! - [`gather`]: the pieces of what was heard put together into whole
 //!   utterances, and what the lamp itself last said.
 //! - [`record`]: the decisions log.
+//! - [`outcome`]: what the lamp did after a decision, and how long before
+//!   its first sound the decision was known.
 //! - [`policy`]: the loop that listens on the bus and does the rest.
 
 // Nothing in this library prints. What it has to say about itself leaves
@@ -26,5 +28,6 @@
 pub mod attention;
 pub mod decide;
 pub mod gather;
+pub mod outcome;
 pub mod policy;
 pub mod record;

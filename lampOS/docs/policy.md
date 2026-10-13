@@ -235,16 +235,56 @@ act on one does not wait for a disk. Each line is one write. A line that a
 failed write left unfinished is ended before the next one is added: a
 reader passes over a line that is not JSON. Nothing removes old days.
 
+## What the lamp then did
+
+In shadow mode nothing acts on a decision, so what the lamp does next is
+the voice's own doing. It is written beside the decision, one line of JSON
+for each, in `<log-dir>/outcomes-YYYY-MM-DD.jsonl`
+(`crates/policy/src/outcome.rs`). With numbers made up:
+
+    {"at_unix_ms":1791936001900,"about":"attention","decision_at_unix_ms":1791936000123,"choice":"answer","lamp":"spoke","spoke_after_ms":412,"said_after_ms":380,"heard_to_sound_ms":1290,"request":17,"said":"It is ten past nine.","overtaken":false}
+
+| Field | What it says |
+|---|---|
+| `decision_at_unix_ms` | The `at_unix_ms` of the decision this belongs to |
+| `choice` | What the policy would have done |
+| `lamp` | `spoke`: the voice's state turned to speaking. `silent`: it did not within 6 s of the last of what was heard |
+| `spoke_after_ms` | From the decision being published to the lamp's first sound. **Less than nothing when the sound came first.** This is all the time anything acting on the decision would have had |
+| `said_after_ms` | The same, to the first of the lamp's words in writing |
+| `heard_to_sound_ms` | From the last piece of what was heard to the lamp's first sound |
+| `request`, `said` | The request the lamp's answer belongs to, and its words as far as they had come a second after its first sound |
+| `overtaken` | Another utterance was decided before this outcome was known |
+
+It is two things. The other half of an example: what was judged, and what
+then happened, which is what the weights and thresholds are to be fitted
+again from once someone has said which outcomes were right. And a
+measurement, on every turn the lamp takes, of whether a decision comes
+early enough to be acted on.
+
+Which answer belongs to which utterance is told by time alone, because
+what is heard carries no request number: the lamp's first sound after an
+utterance began is taken as its answer to it. With two utterances close
+together that can be wrong, and the earlier one's outcome is then closed
+as it stands and marked `overtaken`. Words that were written and never
+played (an answer that was dropped) are `silent`, with `said_after_ms` and
+no `spoke_after_ms`. An outcome that is still waited for when the program
+is stopped is not written.
+
+The journal gets a line of the same without the words:
+
+    lamp-policy: outcome of decision 12 choice=answer lamp=spoke spoke_after_ms=412 heard_to_sound_ms=1290 overtaken=false logged=true
+
 ## Privacy
 
 - **What is heard is sent to the decision model's service.** Every
   utterance goes, as text, to the service at `--endpoint`, with the end of
   what the lamp last said: unless told otherwise, to OpenRouter, for
-  TypeSafe's model. This program must not be run on real speech in the
-  office until the owner has said so. It is for played tests.
-- **The log holds what was heard, in words.** That is deliberate: a
-  judgement cannot be fitted again without what it was a judgement of. It
-  is why the directory is the owner's alone. It is made with mode 0700 and
+  TypeSafe's model. On lamp-4ace the owner approved that for what is said
+  in the office, on 2026-10-14. On any other lamp it is for played tests
+  until its owner has said so.
+- **The logs hold what was heard, and what the lamp said, in words.** That
+  is deliberate: a judgement cannot be fitted again without what it was a
+  judgement of. It is why the directory is the owner's alone. It is made with mode 0700 and
   its files with 0600, and a directory that its group or everyone can enter
   is refused at the start.
 - **What the program prints never holds what was heard or said.** Its
@@ -412,26 +452,31 @@ of what was heard.
 
 ## Not shown
 
-Host tests on one development Mac (x86_64); the same 61 tests once as a
-Linux ARM64 build under emulation in a container; and the one run on a
-lamp above. That run is the first in which this program asked the real
-service, from the lamp and from the Mac alike (three decisions there the
-same night). What it shows of the service: that it takes this program's
-request and that the built-in roots trust its certificate.
+Host tests on one development Mac (x86_64); the same tests as a Linux
+ARM64 build under emulation in a container, each time a build went to the
+lamp; and the runs on a lamp above. The first of those runs is the first
+in which this program asked the real service, from the lamp and from the
+Mac alike (three decisions there the same night). What it shows of the
+service: that it takes this program's request and that the built-in roots
+trust its certificate.
 
-What was run: 60 tests of the crate. They passed 30 times in a row, and
-then in the three runs with `lamp-msgs` and `lamp-bus` that every change
-here is held to. Before that, one test of the log failed once in fifteen
-runs: it cleared the log's way before the program had finished with the
-decision before, which was then written after all. The test now waits. The
-program was not changed for it.
+What was run: 78 tests of the crate. As 60, they passed 30 times in a
+row, and then in the three runs with `lamp-msgs` and `lamp-bus` that
+every change here is held to. Before that, one test of the log failed once
+in fifteen runs: it cleared the log's way before the program had finished
+with the decision before, which was then written after all. The test now
+waits. The program was not changed for it. As 78, six times in a row on
+the Mac while it was loaded.
 
-- 22 of asking, against a server on 127.0.0.1 that plays a script. Three
-  of them are over a secure connection, with a certificate made for the
-  test and trusted in place of the built-in roots.
-- 10 of the decision, 7 of putting utterances together, 5 of the log, 2 of
-  the options.
-- 11 of the loop on a real bus in a directory of its own, with a stand-in
+- 29 of asking, against a server on 127.0.0.1 that plays a script: eight
+  of them of the kept connection (kept by length and in chunks, not kept
+  after an unclean end or past its time, replaced when the server had
+  closed it, made ahead of a question). Four are over a secure
+  connection, with a certificate made for the test and trusted in place
+  of the built-in roots.
+- 10 of the decision, 8 of putting utterances together, 5 of the log, 5 of
+  the outcome, 2 of the options.
+- 16 of the loop on a real bus in a directory of its own, with a stand-in
   for the model and the test as the voice.
 - 3 of the built program, started, fed and killed.
 
@@ -457,11 +502,13 @@ Not exercised:
 - **That an answer's text comes before its sound has ended.** It is the
   reason for the two moments "last spoke" is taken from. It was not
   measured here.
-- **The lamp's processor.** `cargo check` for `aarch64-unknown-linux-gnu`
-  did not complete on this Mac: the target is installed, and `ring`, which
-  the secure connection is built on, needs a C compiler for ARM that is
-  not. `lamp-msgs` with the new type does check for it. Nothing of the
-  policy has been built for Linux or run on it.
+- **A kept connection that dies without a word.** One the other end
+  closed is found out at once and replaced. One that a network box
+  between has silently dropped would take the request and never answer:
+  that asking would time out, and the next would make a new connection.
+  It was not played and has not been seen.
+- **How long the service really keeps a connection.** The figures are
+  from one night, one connection each, from one network.
 - **The system's own lookup of a name.** The tests connect by address, or
   with a lookup of their own in its place. An IPv6 address is read from an
   endpoint and has never been connected to.
@@ -473,4 +520,6 @@ Not exercised:
 - **SIGTERM.** The built program was killed with SIGKILL.
 - **Hours of running.** The longest run was a few seconds. The lease of
   3 s and the once-a-second sign of life were not watched for longer.
-- **A unit.** There is no systemd unit and nothing in `deploy/` for it.
+- **A unit in the repository.** `lamp-policy.service` runs on lamp-4ace
+  and is kept with that lamp's other deploy files, outside the
+  repository. Nothing in `deploy/` installs the policy yet.

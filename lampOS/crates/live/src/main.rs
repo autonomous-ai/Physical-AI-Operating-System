@@ -313,8 +313,9 @@ fn run() -> Result<()> {
                     let (keep_link, flags) = lamp_live::provider_worker::take_keep_link(flags);
                     let (tools, flags) = lamp_live::tools::take(flags)?;
                     let (attention, flags) = lamp_live::attention::take(flags);
+                    let (name_signal, flags) = lamp_live::attention::take_name(flags);
                     let visual = lamp_live::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link,tools,attention}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_live::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_live::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_live::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link,tools,attention,name_signal}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

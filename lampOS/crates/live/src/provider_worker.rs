@@ -95,6 +95,9 @@ pub struct Files {
     /// Whether the lamp's own rule for whom it answers is applied
     /// (`--attention`).
     pub attention: bool,
+    /// Whether the model is asked to say when it hears the lamp's name
+    /// (`--name-signal`).
+    pub name_signal: bool,
 }
 /// The provider worker's flag for a link that is never given up. A service
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
@@ -471,6 +474,8 @@ pub(crate) struct Options {
     /// where it reads how the room is and whether a conversation is going
     /// on. `None`: every answer is played.
     pub(crate) attention: Option<fn() -> (crate::room_told::Room, bool)>,
+    /// The model is asked to say when it hears the lamp's name.
+    pub(crate) name_signal: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -492,6 +497,7 @@ impl Options {
             reporting,
             tools: crate::tools::Settings::default(),
             attention: None,
+            name_signal: false,
         }
     }
 }
@@ -622,13 +628,16 @@ pub async fn run_with_continuation(
     )?;
     // Each session it opens is told how the conversation went until then.
     let provider = Supervisor::new(
-        crate::thread::Recalling::new(config).tools(files.tools.clone()),
+        crate::thread::Recalling::new(config)
+            .tools(files.tools.clone())
+            .name_signal(files.name_signal),
         recovery,
     )?;
     let options = Options {
         reporting,
         tools: files.tools,
         attention: files.attention.then_some(attention_now),
+        name_signal: files.name_signal,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -693,6 +702,7 @@ async fn serve_with_visual<C: Connect>(
     let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
     let mut told_session = None;
     let mut desk = ToolDesk::new(options.tools.clone());
+    desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
@@ -840,6 +850,9 @@ async fn serve_with_visual<C: Connect>(
                 }
             },
             notice=next_notice(&mut provider, coordinated), if !upstream_ended && output.len() < OUTPUT_HIGH_WATER=>{
+                if let Ok(Notice::Event(Event::Audio { lineage, .. })) = &notice {
+                    desk.sound(lineage.request.get());
+                }
                 // Whom the lamp answers: followed for every request, and
                 // decided when the first of an answer comes.
                 if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
@@ -948,6 +961,12 @@ struct ToolDesk {
     answers: std::sync::mpsc::Receiver<Asked>,
     /// Calls the executive has not answered yet.
     waiting: usize,
+    /// The model is asked to say when it hears the lamp's name.
+    name_signal: bool,
+    /// The newest request in which it said so, and when.
+    named: Option<(u64, u64)>,
+    /// The newest request an answer's sound came for, and when it began.
+    sounded: Option<(u64, u64)>,
 }
 /// A call the executive was asked, with what to tell the model.
 struct Asked {
@@ -967,6 +986,28 @@ impl ToolDesk {
             asked,
             answers,
             waiting: 0,
+            name_signal: false,
+            named: None,
+            sounded: None,
+        }
+    }
+    /// The first sound of an answer to `request` has come. Said once for a
+    /// request, with how long before it the model said it heard the name,
+    /// if it did: the count that decides whether its sign can be used.
+    fn sound(&mut self, request: u64) {
+        if !self.name_signal || self.sounded.is_some_and(|(sounded, _)| sounded == request) {
+            return;
+        }
+        let now = monotonic_us();
+        self.sounded = Some((request, now));
+        match self.named {
+            Some((named, at)) if named == request => eprintln!(
+                "lamp-live provider: request {request}: first sound {} ms after the model said it heard its name",
+                now.saturating_sub(at) / 1_000
+            ),
+            _ => eprintln!(
+                "lamp-live provider: request {request}: first sound, and the model has not said it heard its name"
+            ),
         }
     }
     fn declined(&self, request: RequestId) -> bool {
@@ -984,6 +1025,21 @@ impl ToolDesk {
         let tell = |told: &serde_json::Value| {
             let _ = provider.try_tool_response(lineage.session, &call.id, &call.name, told);
         };
+        if self.name_signal && call.name == crate::attention::HEARD_MY_NAME {
+            tell(&crate::tools::declined());
+            let now = monotonic_us();
+            self.named = Some((request, now));
+            match self.sounded {
+                Some((sounded, at)) if sounded == request => eprintln!(
+                    "lamp-live provider: request {request}: the model said it heard its name {} ms after its first sound",
+                    now.saturating_sub(at) / 1_000
+                ),
+                _ => eprintln!(
+                    "lamp-live provider: request {request}: the model said it heard its name"
+                ),
+            }
+            return;
+        }
         match crate::tools::route(&self.settings, &call.name) {
             Route::Decline => {
                 self.declined = Some(request);
@@ -3799,7 +3855,12 @@ mod tests {
                 )
                 .unwrap()
                 // What the worker's sessions are told of, as in the service.
-                .tools(crate::tools::declared(&options.tools))
+                .tools(
+                    crate::tools::declared(&options.tools)
+                        .into_iter()
+                        .chain(options.name_signal.then(crate::attention::name_tool))
+                        .collect(),
+                )
                 .unwrap();
             let (dialer, dials) = lamp_gemini::testing::connector_with_capacity(config, capacity);
             let provider = Supervisor::new(dialer, policy).unwrap();
@@ -4279,7 +4340,42 @@ mod tests {
             reporting: Reporting::Typed,
             tools,
             attention: None,
+            name_signal: false,
         }
+    }
+
+    /// The model is asked to say when it hears the lamp's name, and does.
+    /// The call is answered as a silent function, nothing is held back on
+    /// account of it, and the answer is played as it would have been.
+    #[tokio::test]
+    async fn the_models_sign_that_it_heard_its_name_is_answered_silently_and_changes_nothing_played()
+     {
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Typed,
+                tools: crate::tools::Settings::default(),
+                attention: None,
+                name_signal: true,
+            },
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(function_call("n1", crate::attention::HEARD_MY_NAME))
+            .await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"n1","name":"heard_my_name","response":{"ok":true},"scheduling":"SILENT"}
+            ]}})
+        );
+        dial.service.send(provider_audio(5, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: played, .. } if played == request
+        ));
+        rig.stop().await;
     }
 
     /// The lamp's own rule, through the worker, in a room it knows to be
@@ -4301,6 +4397,7 @@ mod tests {
                 reporting: Reporting::Typed,
                 tools: crate::tools::Settings::default(),
                 attention: Some(busy),
+                name_signal: false,
             },
         );
         let mut dial = rig.ready().await;

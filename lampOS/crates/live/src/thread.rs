@@ -354,6 +354,7 @@ impl Default for Thread {
 pub struct Recalling {
     config: SessionConfig,
     tools: crate::tools::Settings,
+    name_signal: bool,
 }
 
 impl Recalling {
@@ -361,7 +362,15 @@ impl Recalling {
         Self {
             config,
             tools: crate::tools::Settings::default(),
+            name_signal: false,
         }
+    }
+
+    /// Each session is also asked to say when it hears the lamp's name
+    /// ([`crate::attention::name_tool`]).
+    pub fn name_signal(mut self, on: bool) -> Self {
+        self.name_signal = on;
+        self
     }
 
     /// Each session is also told what the model may do other than speak
@@ -375,7 +384,10 @@ impl Recalling {
     /// go with the executive; a list the link would refuse leaves the
     /// session without any.
     fn equipped(&self, config: SessionConfig) -> SessionConfig {
-        let tools = crate::tools::declared(&self.tools);
+        let mut tools = crate::tools::declared(&self.tools);
+        if self.name_signal && tools.len() < lamp_gemini::MAX_TOOLS {
+            tools.push(crate::attention::name_tool());
+        }
         config.clone().tools(tools).unwrap_or(config)
     }
 

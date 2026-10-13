@@ -63,6 +63,47 @@ fn arguments(value: Option<&str>) -> Vec<String> {
     }
 }
 
+/// Where the coordinator reads whether the model is asked to say when it
+/// hears the lamp's name. `on` only. A measurement switch: it changes
+/// nothing the lamp does, and exists to count whether the model's own sign
+/// can stand where the heard text could not.
+pub const NAME_ENVIRONMENT: &str = "LAMP_NAME_SIGNAL";
+/// The provider worker's flag for it.
+pub const NAME_FLAG: &str = "--name-signal";
+/// The function the model calls when it hears the name.
+pub const HEARD_MY_NAME: &str = "heard_my_name";
+
+/// The provider worker's argument for that switch in the environment.
+pub fn name_arguments_from_environment() -> Vec<String> {
+    if std::env::var(NAME_ENVIRONMENT).ok().as_deref() == Some("on") {
+        vec![NAME_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading `--name-signal` off a worker's flags.
+pub fn take_name(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == NAME_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// The function itself: silent, so that calling it neither delays the
+/// answer nor adds a word to it.
+pub fn name_tool() -> lamp_gemini::Tool {
+    lamp_gemini::Tool {
+        name: HEARD_MY_NAME.into(),
+        description: "Call this every time someone says your name, Lamp, when speaking to you, \
+                      whatever else they say. It makes no sound and nobody sees it. Then answer \
+                      them exactly as you would have."
+            .into(),
+        parameters: None,
+        silent: true,
+    }
+}
+
 /// Take a leading `--attention` off a worker's flags.
 pub fn take(flags: &[String]) -> (bool, &[String]) {
     match flags {

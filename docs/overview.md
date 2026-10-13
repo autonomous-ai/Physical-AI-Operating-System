@@ -271,7 +271,8 @@ board — point `OS_CONFIG_PATH` at the `make os-dev` state dir and one file fee
 both processes. `llm_api_key` alone covers LLM, `AutonomousSTT`, ElevenLabs TTS,
 image description, **and** Gemini Live (whose key falls back to it and whose
 endpoint is `llm_base_url` + `/ws/gemini`); `deepgram_api_key` is optional and
-only swaps the STT provider.
+only swaps the STT provider. HAL then connects to Deepgram directly and sends
+`mip_opt_out=true` on every connect, so the audio is not used to train Deepgram models.
 
 Music plays too. `MusicService` streams yt-dlp → ffmpeg → **aplay** (ALSA), or
 **paplay** when a Bluetooth sink is active — neither exists on macOS, so both

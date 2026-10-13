@@ -17,6 +17,9 @@ DEFAULT_INTERIM_RESULTS = "true"
 DEFAULT_ENDPOINTING_MS = 1500
 DEFAULT_ENCODING = "linear16"
 
+# Keep mic audio out of Deepgram's Model Improvement Program (training); sent on every connect.
+MIP_OPT_OUT = "true"
+
 
 def _is_flux(model: str) -> bool:
     return model.startswith("flux")
@@ -47,6 +50,7 @@ def _build_flux_listen_params(
         model=model,
         encoding=DEFAULT_ENCODING,
         sample_rate=sample_rate,
+        mip_opt_out=MIP_OPT_OUT,
     )
 
 
@@ -69,6 +73,7 @@ def _build_nova_listen_params(
         interim_results=DEFAULT_INTERIM_RESULTS,
         endpointing=DEFAULT_ENDPOINTING_MS,
         vad_events="true",
+        mip_opt_out=MIP_OPT_OUT,
     )
     if keywords:
         if _is_nova3(model):

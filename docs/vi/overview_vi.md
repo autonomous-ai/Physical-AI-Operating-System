@@ -269,7 +269,8 @@ trên board — trỏ `OS_CONFIG_PATH` vào state dir của `make os-dev` là m�
 nuôi cả hai process. Riêng `llm_api_key` phủ cả LLM, `AutonomousSTT`, TTS
 ElevenLabs, mô tả ảnh, **và cả** Gemini Live (key fallback về nó, endpoint là
 `llm_base_url` + `/ws/gemini`); `deepgram_api_key` là tuỳ chọn, chỉ để đổi
-provider STT.
+provider STT. Khi đó HAL kết nối thẳng tới Deepgram và mỗi lần kết nối đều gửi
+`mip_opt_out=true`, nên audio không bị dùng để train model của Deepgram.
 
 Nhạc cũng phát được. `MusicService` stream yt-dlp → ffmpeg → **aplay** (ALSA),
 hoặc **paplay** khi có sink Bluetooth — macOS không có cái nào, nên cả hai đường

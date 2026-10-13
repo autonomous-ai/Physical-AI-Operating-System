@@ -67,11 +67,23 @@ struct Open {
     began: Instant,
     last: Instant,
     lamp: LampThen,
+    /// The person had stopped speaking when its newest piece came.
+    stopped: bool,
 }
+
+/// How long an utterance waits for another piece once the voice has said
+/// the person stopped speaking. The text of what was said comes about half
+/// a second after that, usually whole; this is for a second piece that
+/// follows on its heels. On lamp-4ace on 2026-10-14, waiting the full
+/// pause every time, a decision was known about when the lamp began to
+/// answer: too late to be of use to it.
+pub const AFTER_STOP: Duration = Duration::from_millis(80);
 
 /// Pieces of what was heard, gathered into utterances.
 pub struct Gather {
     pause: Duration,
+    /// The voice is no longer listening: the person has stopped.
+    stopped: bool,
     open: Option<Open>,
     ended: VecDeque<Utterance>,
     empty: u64,
@@ -81,10 +93,19 @@ impl Gather {
     pub fn new(pause: Duration) -> Self {
         Self {
             pause,
+            stopped: false,
             open: None,
             ended: VecDeque::new(),
             empty: 0,
         }
+    }
+
+    /// The voice said whether it is still listening to someone. While it
+    /// is, more of what they say may come and an utterance waits the whole
+    /// pause; once it is not, what comes is the text of something already
+    /// said and waits [`AFTER_STOP`]. Not known is taken as still speaking.
+    pub fn person_stopped(&mut self, stopped: bool) {
+        self.stopped = stopped;
     }
 
     /// A piece came at `now`. The pieces are what the recogniser wrote
@@ -110,6 +131,7 @@ impl Gather {
                 began: now,
                 last: now,
                 lamp: lamp.then(now),
+                stopped: false,
             });
             let mut fits = rest.len().min(MOST_HEARD_BYTES - open.text.len());
             while !rest.is_char_boundary(fits) {
@@ -119,6 +141,7 @@ impl Gather {
             open.pieces += 1;
             open.request = request.or(open.request);
             open.last = now;
+            open.stopped = self.stopped;
             rest = &rest[fits..];
             if rest.is_empty() {
                 break;
@@ -134,11 +157,15 @@ impl Gather {
     /// Time has passed. An utterance that has had no piece for the pause
     /// is over.
     pub fn tick(&mut self, now: Instant) {
-        if self
-            .open
-            .as_ref()
-            .is_some_and(|open| now.saturating_duration_since(open.last) >= self.pause)
-        {
+        let pause = self.pause;
+        if self.open.as_ref().is_some_and(|open| {
+            let wait = if open.stopped {
+                AFTER_STOP.min(pause)
+            } else {
+                pause
+            };
+            now.saturating_duration_since(open.last) >= wait
+        }) {
             self.end(false);
         }
     }
@@ -289,6 +316,32 @@ mod tests {
         gather.tick(start + ms(1_400));
         assert_eq!(gather.over(), None);
         assert_eq!(gather.empty(), 2);
+    }
+
+    #[test]
+    fn once_the_person_has_stopped_an_utterance_waits_a_moment_and_not_the_whole_pause() {
+        let start = Instant::now();
+        let at = |ms: u64| start + Duration::from_millis(ms);
+        let lamp = Lamp::default();
+        let mut gather = Gather::new(Duration::from_millis(300));
+        // Still speaking, or not known: the whole pause.
+        gather.piece("What is", false, None, &lamp, at(0));
+        gather.tick(at(299));
+        assert!(gather.over().is_none());
+        // The voice says they have stopped, and the rest of the text comes.
+        gather.person_stopped(true);
+        gather.piece(" two plus two?", false, None, &lamp, at(299));
+        gather.tick(at(378));
+        assert!(gather.over().is_none());
+        gather.tick(at(379));
+        assert_eq!(gather.over().unwrap().text, "What is two plus two?");
+        // Someone speaks again: the whole pause again.
+        gather.person_stopped(false);
+        gather.piece("And", false, None, &lamp, at(1_000));
+        gather.tick(at(1_200));
+        assert!(gather.over().is_none());
+        gather.tick(at(1_300));
+        assert_eq!(gather.over().unwrap().text, "And");
     }
 
     #[test]

@@ -830,9 +830,13 @@ pub fn run<D: Decider + Send + 'static>(
         let unreadable = &mut policy.totals.unreadable;
         for state in voice.take::<VoiceState>(Duration::ZERO, unreadable, policy.say) {
             policy.lamp.state(state.state == Voice::Speaking, now);
+            policy
+                .gather
+                .person_stopped(state.state != Voice::Listening);
         }
         if voice.source(policy.say) {
             policy.lamp.gone();
+            policy.gather.person_stopped(false);
         }
         for piece in said.take::<Speech>(Duration::ZERO, unreadable, policy.say) {
             policy.lamp.said(&piece.text, piece.request, now);

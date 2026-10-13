@@ -476,6 +476,28 @@ fn a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request()
 }
 
 #[test]
+fn once_the_voice_is_no_longer_listening_a_decision_does_not_wait_the_pause() {
+    let mut rig = Rig::new("stopped", |_| Ok(asked(SEVEN)));
+    // The person is speaking: what is heard waits the whole pause.
+    rig.voice(Voice::Listening);
+    thread::sleep(ms(60));
+    let sent = Instant::now();
+    rig.hear("What is");
+    rig.decision();
+    assert!(sent.elapsed() >= PAUSE, "{:?}", sent.elapsed());
+    // They have stopped, and the text of what they said comes.
+    rig.voice(Voice::Thinking);
+    thread::sleep(ms(60));
+    let sent = Instant::now();
+    rig.hear("What is two plus two?");
+    rig.decision();
+    let after = sent.elapsed();
+    println!("decision {after:?} after the text of something already said");
+    assert!(after < PAUSE - ms(100), "{after:?}");
+    rig.stop();
+}
+
+#[test]
 fn what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began() {
     let mut rig = Rig::new("said", |_| Ok(asked(SEVEN)));
     // The lamp answers something, and falls silent.

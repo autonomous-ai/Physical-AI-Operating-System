@@ -659,7 +659,8 @@ def test_a_hand_still_holding_through_the_pause_releases_torque(contact_rig):
 
 
 def _hit_under_learned_floor(rig, monkeypatch, joint, floor, load):
-    """Stop the arm on a learned envelope floor far below the fixed one (950 here)."""
+    """Stop the arm on a learned envelope floor far below Lamp's fixed ones."""
+    rig.svc._contact.threshold = {"base_yaw": 550, "wrist_roll": 750, "wrist_pitch": 650}
     monkeypatch.setattr(rig.svc, "_contact_samples", lambda loads: (loads, {joint: floor}))
     _hit(rig, joint, load)
     assert rig.svc.contact_active and rig.svc._contact.last_floor == floor
@@ -669,22 +670,35 @@ def test_a_hold_at_the_force_that_stopped_the_arm_releases_torque(contact_rig, m
     """lamp-52e6: a hand stopped base_yaw at 39.6 % (envelope 18 %) but could never reach
     the fixed 55 %; elbow_pitch has no fixed floor at all. Both release now."""
     contact_rig.svc._contact_release_s = 0.5
-    _hit_under_learned_floor(contact_rig, monkeypatch, "elbow_pitch", 300, 400)
-    for _ in range(12):                          # the hand stays on, still at 40 %
+    _hit_under_learned_floor(contact_rig, monkeypatch, "elbow_pitch", 300, 600)
+    for _ in range(12):                          # the hand stays on, still at 60 %
         contact_rig.svc._overload_tick()
         contact_rig.clock.advance(0.05)
     assert contact_rig.svc.overload_active and not contact_rig.svc.contact_active
     assert contact_rig.bus.writes == [("Torque_Enable", joint, 0) for joint in JOINTS]
 
 
-def test_load_back_under_the_stopping_floor_only_pauses(contact_rig, monkeypatch):
+def test_a_joint_with_a_fixed_floor_releases_at_the_stopping_floor(contact_rig, monkeypatch):
+    """base_yaw carries no weight: a hand held it at 23-30 % over an 18-19 % floor."""
     contact_rig.svc._contact_release_s = 0.5
-    _hit_under_learned_floor(contact_rig, monkeypatch, "elbow_pitch", 300, 400)
-    contact_rig.bus.loads = _stalled("elbow_pitch", 250)   # holding still, hand gone
-    for _ in range(70):
+    _hit_under_learned_floor(contact_rig, monkeypatch, "base_yaw", 190, 520)
+    contact_rig.bus.loads = _stalled("base_yaw", 232)
+    for _ in range(12):
         contact_rig.svc._overload_tick()
         contact_rig.clock.advance(0.05)
-    assert not contact_rig.svc.overload_active and not contact_rig.svc.contact_active
+    assert contact_rig.svc.overload_active
+
+
+def test_gravity_load_at_the_stopping_floor_only_pauses(contact_rig, monkeypatch):
+    """lamp-52e6 went limp untouched: elbow_pitch held at its 24.2 % stopping floor."""
+    contact_rig.svc._contact_release_s = 0.5
+    _hit_under_learned_floor(contact_rig, monkeypatch, "elbow_pitch", 300, 400)
+    # No hand: pinned still, the joint keeps its gravity load right at the floor.
+    contact_rig.bus.loads = _stalled("elbow_pitch", 350)
+    for _ in range(50):                          # the whole pause, short of its 3 s end
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    assert contact_rig.svc.contact_active and not contact_rig.svc.overload_active
     assert contact_rig.bus.writes == []
 
 

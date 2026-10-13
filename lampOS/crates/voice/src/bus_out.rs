@@ -204,6 +204,56 @@ impl MicOut {
     }
 }
 
+/// The lamp's name, heard in the room's sound by the part that listens
+/// for it (`name/heard`, `docs/name.md`): for the rule that decides
+/// whether an answer is played (`crate::attention`).
+pub struct NameIn {
+    heard: lamp_bus::Subscriber,
+    looked_at_us: Option<u64>,
+}
+
+/// The bus is looked at for a hearing this often. A hearing is said a
+/// tenth of a second or more after the name began, and it is dated from
+/// when it began, so this adds nothing that matters to the rule.
+const NAME_LOOK_EVERY_US: u64 = 20_000;
+
+impl NameIn {
+    pub fn on(root: &Path) -> io::Result<Self> {
+        Ok(Self {
+            heard: Bus::new(root)?.subscribe_typed(
+                lamp_msgs::NameHeard::TOPIC,
+                SOURCE,
+                lamp_msgs::NameHeard::TYPE,
+            )?,
+            looked_at_us: None,
+        })
+    }
+
+    /// When the newest hearing since the last look began, by the clock
+    /// `now_us` is of, if there was one. Never waits, and looks at the
+    /// bus at most every 20 ms however often it is called.
+    pub fn newest(&mut self, now_us: u64) -> Option<u64> {
+        if self
+            .looked_at_us
+            .is_some_and(|at| now_us.saturating_sub(at) < NAME_LOOK_EVERY_US)
+        {
+            return None;
+        }
+        self.looked_at_us = Some(now_us);
+        let mut newest = None;
+        for _ in 0..8 {
+            let Ok(Some(message)) = self.heard.recv(std::time::Duration::ZERO) else {
+                break;
+            };
+            if let Ok(heard) = message.parse::<lamp_msgs::NameHeard>() {
+                let began = now_us.saturating_sub(u64::from(heard.ago_ms) * 1_000);
+                newest = Some(newest.map_or(began, |before: u64| before.max(began)));
+            }
+        }
+        newest
+    }
+}
+
 /// The link to the speech service may be down this long before the voice
 /// says anything is the matter. It is down for a second or two each time
 /// the voice starts and each time the service renews its session, which
@@ -460,6 +510,42 @@ mod tests {
             facts(&said[9])[1],
             ("down_for_s".to_string(), "7".to_string())
         );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_hearing_of_the_name_is_taken_from_the_bus_dated_from_when_it_began() {
+        use lamp_msgs::NameHeard;
+        let (bus, root) = bus("name");
+        let mut names = NameIn::on(&root).unwrap();
+        // Nothing heard: nothing, at once.
+        assert_eq!(names.newest(5_000_000), None);
+        let mut says = bus
+            .publisher_declared(NameHeard::TOPIC, &NameHeard::declaration(), "name")
+            .unwrap();
+        let heard = |score, ago_ms| NameHeard { score, ago_ms };
+        says.publish_json(1, &heard(0.95, 400)).unwrap();
+        let since = std::time::Instant::now();
+        let mut now = 9_000_000;
+        let began = loop {
+            now += NAME_LOOK_EVERY_US;
+            if let Some(began) = names.newest(now) {
+                break began;
+            }
+            assert!(since.elapsed() < WAIT * 4);
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        // 400 ms before it was taken up.
+        assert_eq!(began, now - 400_000);
+        // Two that came together: the one that began latest.
+        says.publish_json(2, &heard(0.91, 900)).unwrap();
+        says.publish_json(3, &heard(0.99, 100)).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        // Asked again within 20 ms of the last look: the bus is not
+        // looked at, and nothing is lost by that.
+        assert_eq!(names.newest(now + NAME_LOOK_EVERY_US - 1), None);
+        assert_eq!(names.newest(20_000_000), Some(19_900_000));
+        assert_eq!(names.newest(21_000_000), None);
         std::fs::remove_dir_all(root).unwrap();
     }
 

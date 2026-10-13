@@ -723,6 +723,12 @@ async fn serve_with_visual<C: Connect>(
             })
             .ok()
     });
+    // The lamp's name as the part that listens for it hears it, for the
+    // rule below. With no such part, or no bus, the rule goes by the text
+    // alone, as it did.
+    let mut name_in = BUS_ROOT
+        .get()
+        .and_then(|root| crate::bus_out::NameIn::on(root).ok());
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
@@ -760,6 +766,11 @@ async fn serve_with_visual<C: Connect>(
                 {
                     let now = monotonic_us();
                     out.tell(room.at(now), now);
+                }
+                if let Some(names) = name_in.as_mut()
+                    && let Some(began) = names.newest(monotonic_us())
+                {
+                    attention.name_heard(began);
                 }
                 // The session is told how the room is when that changes,
                 // and a new session how it is now, unless a conversation is
@@ -885,13 +896,19 @@ async fn serve_with_visual<C: Connect>(
                 // decided when the first of an answer comes.
                 if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
                     match event {
-                        Event::InputStarted { lineage, .. } => attention.began(lineage.request.get(), lineage.session.get()),
+                        Event::InputStarted { lineage, .. } => attention.began_at(lineage.request.get(), lineage.session.get(), monotonic_us()),
                         Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
                         Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } => {
                             let (room, going_on) = now();
                             let request = lineage.request.get();
-                            if let Some(crate::attention::Verdict::Hold(why)) = attention.first_output(request, room, going_on) {
-                                eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
+                            match attention.first_output(request, room, going_on) {
+                                Some(crate::attention::Verdict::Hold(why)) => {
+                                    eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
+                                }
+                                Some(_) if attention.played_for_its_name() => {
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound");
+                                }
+                                _ => {}
                             }
                         }
                         _ => {}

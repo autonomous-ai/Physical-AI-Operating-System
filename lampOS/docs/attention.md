@@ -116,6 +116,24 @@ first two requests after a new session, in words the text gives no sign
 of, is not answered until they say it again. A session is renewed at most
 every fifteen minutes in a busy room.
 
+Since 2026-10-14 there is a second thing that can show the lamp was
+called, and it does not depend on the text: the lamp's name heard in the
+room's sound, by the part that listens for nothing else
+([name.md](name.md)). The provider worker takes its hearings from
+`name/heard`. A hearing counts for a request if the name began no more
+than 1.5 s before the request did, or at any time while it is in hand:
+the name is the first thing said, a little before the voice is sure
+someone is speaking. Like the text, it can speak for playing an answer
+and never against: a held request is played, and the log says
+`its answer is played: the lamp's name was heard in the room's sound`.
+With no such part running, or no bus, the rule goes by the text alone.
+
+That narrows the cost above to the calls that part misses, which were
+three in twenty on its first measurement, and adds one: a line that begins
+with a name like the lamp's ("Hey Lan") now passes this rule in a busy
+room on a new session, and is left to the model's own judgement as
+everything was before the rule.
+
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:
 

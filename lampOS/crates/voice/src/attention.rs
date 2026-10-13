@@ -150,10 +150,25 @@ pub enum Verdict {
     Hold(&'static str),
 }
 
+/// The lamp's name counts for a request if it began to be heard no longer
+/// than this before the request began: the name is the first thing said,
+/// and the voice takes a moment to be sure someone is speaking.
+pub const NAME_BEFORE_US: u64 = 1_500_000;
+const NAMED: &str = "its name was heard in the room's sound";
+
 /// The rule. `fresh`: the request is one of its session's first
 /// [`FRESH_REQUESTS`]. `heard`: the text of what was heard since the
-/// request began, empty when none has arrived.
-pub fn decide(room: Room, going_on: bool, own: bool, fresh: bool, heard: &str) -> Verdict {
+/// request began, empty when none has arrived. `named`: the lamp's name
+/// was heard in the sound itself as the request began (`docs/name.md`),
+/// which like the text can speak for playing and never against.
+pub fn decide(
+    room: Room,
+    going_on: bool,
+    own: bool,
+    fresh: bool,
+    heard: &str,
+    named: bool,
+) -> Verdict {
     if own {
         Verdict::Play("the lamp began this turn itself")
     } else if !fresh {
@@ -164,6 +179,8 @@ pub fn decide(room: Room, going_on: bool, own: bool, fresh: bool, heard: &str) -
         Verdict::Play("a conversation with the lamp is going on")
     } else if called(heard) {
         Verdict::Play("the text shows it was called")
+    } else if named {
+        Verdict::Play(NAMED)
     } else {
         Verdict::Hold("a new session in a busy room, and nothing shows it was called")
     }
@@ -180,12 +197,36 @@ pub struct Attention {
     /// What was heard since it began, as far as the service has written it.
     heard: String,
     verdict: Option<Verdict>,
+    /// When the request began, if that is known, and when the lamp's name
+    /// last began to be heard in the room's sound, by this process's clock.
+    began_us: Option<u64>,
+    named_us: Option<u64>,
 }
 
 /// The most text kept for one request.
 const MOST_HEARD_BYTES: usize = 2_048;
 
 impl Attention {
+    /// A request began on `session`, at `now_us`.
+    pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
+        self.began(request, session);
+        self.began_us = Some(now_us);
+    }
+
+    /// The lamp's name began to be heard in the room's sound at `at_us`.
+    pub fn name_heard(&mut self, at_us: u64) {
+        self.named_us = Some(self.named_us.map_or(at_us, |before| before.max(at_us)));
+    }
+
+    /// Whether the name was heard for the request in hand: as it began,
+    /// or since. A request whose beginning has no time has no name.
+    fn named(&self) -> bool {
+        match (self.named_us, self.began_us) {
+            (Some(named), Some(began)) => named.saturating_add(NAME_BEFORE_US) >= began,
+            _ => false,
+        }
+    }
+
     /// A request began on `session`.
     pub fn began(&mut self, request: u64, session: u64) {
         if session != self.session {
@@ -196,6 +237,7 @@ impl Attention {
         self.request = request;
         self.heard.clear();
         self.verdict = None;
+        self.began_us = None;
     }
 
     /// The service wrote down more of what it heard.
@@ -218,9 +260,15 @@ impl Attention {
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         let fresh = self.begun <= FRESH_REQUESTS;
-        let verdict = decide(room, going_on, own, fresh, &self.heard);
+        let verdict = decide(room, going_on, own, fresh, &self.heard, self.named());
         self.verdict = Some(verdict);
         Some(verdict)
+    }
+
+    /// Whether the answer to the request in hand was let out because the
+    /// name was heard, for the record: the one case the sound decided.
+    pub fn played_for_its_name(&self) -> bool {
+        self.verdict == Some(Verdict::Play(NAMED))
     }
 
     /// Whether `request`'s answer is being held back.
@@ -283,18 +331,18 @@ mod tests {
     fn only_a_new_sessions_first_requests_in_a_busy_room_are_held_and_every_doubt_plays() {
         let weekend = "How was your weekend?";
         assert_eq!(
-            decide(Room::Busy, false, false, true, weekend),
+            decide(Room::Busy, false, false, true, weekend, false),
             Verdict::Hold("a new session in a busy room, and nothing shows it was called")
         );
         // No text at all is held too: the text can only ever speak for
         // playing, and its absence says nothing.
         assert!(matches!(
-            decide(Room::Busy, false, false, true, ""),
+            decide(Room::Busy, false, false, true, "", false),
             Verdict::Hold(_)
         ));
         // The same request on a session that has heard enough: played.
         assert!(matches!(
-            decide(Room::Busy, false, false, false, weekend),
+            decide(Room::Busy, false, false, false, weekend, false),
             Verdict::Play("the session has heard enough to be trusted")
         ));
         assert!(matches!(
@@ -303,24 +351,89 @@ mod tests {
                 false,
                 false,
                 true,
-                "Milan, how was your weekend?"
+                "Milan, how was your weekend?",
+                false,
             ),
             Verdict::Play("the text shows it was called")
         ));
         assert!(matches!(
-            decide(Room::Busy, true, false, true, weekend),
+            decide(Room::Busy, true, false, true, weekend, false),
             Verdict::Play("a conversation with the lamp is going on")
         ));
         assert!(matches!(
-            decide(Room::Busy, false, true, true, weekend),
+            decide(Room::Busy, false, true, true, weekend, false),
             Verdict::Play("the lamp began this turn itself")
         ));
         for room in [Room::Quiet, Room::Unknown] {
             assert!(matches!(
-                decide(room, false, false, true, weekend),
+                decide(room, false, false, true, weekend, false),
                 Verdict::Play("the room is not known to be busy")
             ));
         }
+        // The name heard in the sound plays what would have been held,
+        // whatever the text says or does not say.
+        for text in [weekend, ""] {
+            assert_eq!(
+                decide(Room::Busy, false, false, true, text, true),
+                Verdict::Play("its name was heard in the room's sound")
+            );
+        }
+    }
+
+    /// The name is the first thing said, a little before the voice is
+    /// sure someone is speaking. It counts for the request that begins
+    /// then, and for no later one.
+    #[test]
+    fn the_name_heard_as_a_request_began_plays_it_and_is_not_carried_to_the_next() {
+        let second = 1_000_000u64;
+        let mut attention = Attention::default();
+        // Heard 0.4 s before the request began.
+        attention.name_heard(10 * second - 400_000);
+        attention.began_at(1, 7, 10 * second);
+        assert_eq!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Play("its name was heard in the room's sound"))
+        );
+        assert!(attention.played_for_its_name() && !attention.holds(1));
+        // The next request, twenty seconds on, with no name: held.
+        attention.began_at(2, 7, 30 * second);
+        assert!(matches!(
+            attention.first_output(2, Room::Busy, false),
+            Some(Verdict::Hold(_))
+        ));
+        assert!(!attention.played_for_its_name() && attention.holds(2));
+        // A name heard in the middle of a request counts for it too.
+        let mut attention = Attention::default();
+        attention.began_at(1, 8, 50 * second);
+        attention.name_heard(51 * second);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Play(_))
+        ));
+        // To the limit: 1.5 s before counts, a moment more does not.
+        for (before, plays) in [(NAME_BEFORE_US, true), (NAME_BEFORE_US + 1, false)] {
+            let mut attention = Attention::default();
+            attention.name_heard(80 * second - before);
+            attention.began_at(1, 9, 80 * second);
+            let verdict = attention.first_output(1, Room::Busy, false).unwrap();
+            assert_eq!(matches!(verdict, Verdict::Play(_)), plays, "{before}");
+        }
+        // Nothing is listening for the name, or it was not heard: as before.
+        let mut attention = Attention::default();
+        attention.began_at(1, 10, 90 * second);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Hold(_))
+        ));
+        // A request that began at no known time takes no name, however
+        // lately one was heard.
+        let mut attention = Attention::default();
+        attention.name_heard(95 * second);
+        attention.began(1, 11);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Hold(_))
+        ));
     }
 
     /// A session's first two requests are the fresh ones; the count starts

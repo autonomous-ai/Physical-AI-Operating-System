@@ -1,0 +1,357 @@
+# Health: how the lamp is
+
+`lamp-health` (`crates/health`) answers one question: how is the lamp? Each
+part of the lamp says how it is on [the bus](bus.md). This program puts
+what they say together, adds the board's own numbers, and shows both to a
+person with one command.
+
+## What it is for
+
+ROS gives every robot a `/diagnostics` stream, to which each part reports
+on itself, and one aggregated view of all of them. The owner asked for the
+same defaults. Here that is three things:
+
+1. Every part's newest report, put together into `lamp/health`
+   (`lamp_msgs/Health`): the worst level, one sentence, every part with its
+   level, message and age, and the parts that should report and never have.
+2. The board's own numbers, read from the system and published as
+   `board/state` (`lamp_msgs/BoardState`). The board is also one more part:
+   it reports on itself as the others do, under the name `board`.
+3. One command, `lamp-health`, that prints how the lamp is and ends with a
+   status a script can use.
+
+It is its own process. With it gone nothing else on the lamp changes:
+today no part reads what it publishes, and a part reports whether or not
+anybody listens.
+
+## The commands
+
+    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]
+    lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]
+    lamp-health --help
+
+`serve` is the program that runs all the time.
+
+| Option | What it is | If left out |
+|---|---|---|
+| `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
+| `--expect` | A part that should be reporting. May be given up to 64 times, each name once | none |
+| `--stale-ms` | After how long without a report a part is stale, from 100 to 600000 | 5000 |
+| `--proc` | Where load, memory, uptime and the Wi-Fi signal are read | `/proc` |
+| `--sys` | Where the temperatures are read | `/sys` |
+| `--run` | Where the clock's state is read | `/run` |
+| `--disk` | Any path on the disk whose free room is watched | `/` |
+
+Every path is absolute. A wrong option prints the usage and exits with 2.
+A bus that cannot be subscribed to exits with 1 before anything is listened
+to. After that nothing ends it but being killed. It cannot catch a signal
+(the standard library has no way and the crate takes in nothing else), so
+SIGTERM ends it where it stands. Nothing is half done by that: each value
+on the bus is put in place whole. Its socket is left for the next report
+to remove, and what it kept on the bus means nothing fifteen seconds later.
+
+`show`, which is also what `lamp-health` alone does, is for a person or a
+script. It takes `--bus-root` as above, and `--json`.
+
+| It ends with | When |
+|---|---|
+| 0 | The lamp is ok |
+| 1 | The worst of it is a warning |
+| 2 | The worst of it is an error |
+| 3 | A part is stale or missing, or nobody is reporting the lamp's health at all |
+| 64 | It was called wrongly: an unknown option or command, or a bus root that is not an absolute path. Not 1 or 2, so that a mistake cannot be taken for a level |
+
+`--help` prints the options and these statuses, and exits with 0.
+
+## What it reads and publishes
+
+All with the types of [lamp-msgs](msgs.md), under the name `health`.
+
+| Topic | Type | Kind | What `serve` does with it | When |
+|---|---|---|---|---|
+| `diagnostics` | `lamp_msgs/Diagnostic` | event | Subscribes: every part's report | As they come |
+| `diagnostics` | `lamp_msgs/Diagnostic` | event | Publishes the board's own report, named `board` | Once a second. With a stale time under three seconds, three times within it, so that the board is never stale by its own doing |
+| `lamp/health` | `lamp_msgs/Health` | latest | Publishes how the whole lamp is | At once when it says something new, and every 5 s besides. It means nothing after 15 s |
+| `board/state` | `lamp_msgs/BoardState` | latest | Publishes the board's numbers | Every 5 s, when the board is read. It means nothing after 15 s |
+
+The two kept values come five seconds apart, and the bus takes a publisher
+that has been silent for its lease of three seconds for gone. So the
+program tells the bus that it is alive (`Publisher::alive()`) on all three
+topics with every turn of its loop, ten times a second or more. The bus
+gives a publisher's entry a new time at most once a second
+([bus.md](bus.md)), so that is one file touched a second for each topic.
+
+The board's report is also put straight into the program's own table of
+parts, so the board is in `lamp/health` even if that message is lost.
+
+`show` subscribes to nothing. It reads the kept values of `lamp/health`
+and `board/state` (`Bus::latest`) and creates nothing on the bus. A value
+that has outlived its fifteen seconds is the same as none: whoever wrote it
+has stopped.
+
+## How the lamp's health is worked out
+
+A part is whatever reports under a name. `serve` keeps each part's newest
+report by its `name`, with when it arrived by the program's own clock, and
+works the lamp's health out again whenever a report has come and once a
+second besides. The rule is one function that touches nothing
+(`parts::health`: the reports, the time, what is expected and the stale
+time go in, a `Health` comes out):
+
+- **A part that has reported** has the level and the message it gave, and
+  `age_ms`, how long ago its newest report came.
+- **Stale.** A part not heard from for longer than the stale time (more
+  than 5000 ms, to the millisecond) is `stale`, whatever it last said, and
+  its message is `not heard from for N s`, in whole seconds, not rounded
+  up. A part never says of itself that it has gone quiet. One that does
+  report itself `stale` is taken at its word, with its own message.
+- **Missing.** A name given with `--expect` that has never reported is in
+  `missing`, in the order given. A part that reported once is never missing
+  again, however long ago: it is stale.
+- **Order.** The items are worst first by `Level::rank()` (error, warn,
+  stale, ok), then by name.
+- **The lamp's level** is the worst item's, and `stale` at least when a
+  part is missing.
+- **The lamp's message** is empty when the level is ok. Otherwise it is
+  the first item that is not ok, as `NAME: MESSAGE`, or
+  `NAME: LEVEL, and it does not say why` if that part gave no message.
+  When only a missing part makes the lamp not ok, it is
+  `NAME: has never reported`.
+
+Every result passes `Health::check()`; the tests ask that of each one.
+
+Three consequences of these rules that may surprise:
+
+- A part that said `error` and then stops reporting becomes `stale` five
+  seconds later, and stale ranks below a warning. The lamp's level can so
+  go from error to stale without anything having got better.
+- A part that is stale stays in the list for as long as `serve` runs. A
+  part that was taken off the lamp is forgotten when `serve` is started
+  again.
+- Before any part has reported, every expected part is missing, so a lamp
+  that has just started is `stale` for its first moments.
+
+**What is kept.** A name is anything on one line of 48 bytes at most, with
+no space at either end. A report with another name is passed over like a
+message that is no report. A message is put on one line (line ends become
+spaces) and cut to 160 bytes, ending in `…` where it was cut. At most 64
+parts are kept: a report from a 65th name is turned away, and those kept
+go on reporting. With 64 parts and 64 names expected, each as long as may
+be, a `Health` is under 50,000 bytes, where the bus carries 60,000.
+
+**What is news.** A health is published at once when it differs from the
+one last published in anything but the ages: a level, a message, a part
+more, a part no longer missing, a part gone stale or come back. The count
+of seconds in `not heard from for N s` is an age too, so a part that stays
+quiet is news once and not again with every second. A health that is no
+news is published when five seconds have passed since the last.
+
+## The board
+
+Every five seconds `serve` reads the board. Each place is an option, so
+that a test can point it at a tree of files of its own.
+
+| Number | Read from | How |
+|---|---|---|
+| `temperature_c` | `SYS/class/thermal/thermal_zoneN/` | Every zone that has a `type` and a `temp`: the type is the key, the temperature is `temp` over 1000. Zones are taken by their number; a second zone of a type already seen gets `_N` after its key. A reading under -273.15 °C or over 1000 °C is not a temperature and the zone is left out |
+| `cpu_load` | `PROC/loadavg`, `PROC/stat` | The first number of `loadavg`, over the number of lines `cpu0`, `cpu1`, ... in `stat` |
+| `memory_used` | `PROC/meminfo` | 1 less `MemAvailable` over `MemTotal` |
+| `disk_free` | `statvfs(DISK)` | The blocks an ordinary program may still use (`f_bavail`) over all the disk's (`f_blocks`) |
+| `uptime_s` | `PROC/uptime` | Its first number, in whole seconds |
+| `wifi_dbm` | `PROC/net/wireless` | The level of the first device that gives one between -150 and 0. Left out if the file is not there or has no such line |
+| `clock_synced` | `RUN/systemd/timesync/` | `true` if the file `synchronized` is in it, `false` if the directory is there without it, left out if there is no directory |
+
+Nothing here fails. `cpu_load`, `memory_used`, `disk_free` and `uptime_s`
+are the four the lamp cannot do without: if one cannot be read or is not a
+number, no `board/state` is published that round, and the board's report
+says which. A zone, the Wi-Fi and the clock are left out where they cannot
+be read, and nothing is said. No file is read past 256 KiB, and at most
+64 zones and 16 trip points of each are looked at.
+
+Each zone may name trip points: `trip_point_N_temp` and
+`trip_point_N_type`, from 0 without a hole. Those of type `passive` and
+`critical` are used, the others (`active`, `hot`) are not.
+
+### When the board is not well
+
+The board's report is the worst of what is found, in words, and of two
+findings as bad the first in the order of this table. The thresholds are
+named constants at the top of `crates/health/src/board.rs`, and each is
+tested from both sides.
+
+| What | Warn | Error | Why there |
+|---|---|---|---|
+| A zone that names trip points | Within 5 °C of its lowest passive point, or above it: `cpul_thermal_zone is at 66 °C: the board slows itself down from 70` | At or above its second passive point, or within 10 °C of its critical point: `... the board turns itself off at 110` | A passive point is where the board slows its processors down to cool, and what the lamp says then comes late: the warning comes before it does. The critical point is where the board turns itself off. A zone that has one of these points and not another is held only to the rules it has points for |
+| A zone that names none | From 80 °C | From 90 °C | Two fixed lines of this program's own, not taken from the board: 90 is where the processor zones have their second passive point |
+| `disk_free` | Under 0.10 | Under 0.03 | Logs, recordings and updates all need room. At a tenth there is still time to make some; at three hundredths the next thing written may not fit |
+| `memory_used` | Over 0.90 | never | Little is left before the system has to end a program to find some |
+| `cpu_load` | Over 1.5 | never | For a minute there has been half as much work again as the processors can do, and everything waits its turn |
+| `clock_synced` | `false` | never | The bus judges a publisher's lease and a value's lifespan by the wall clock, and so do the logs. A clock that is not set will be stepped when it is |
+| A number that could not be read | Always: `could not be read: cpu_load, uptime_s` | never | The board is not known to be well |
+
+The Wi-Fi signal is published and never judged. With no thermal zone at
+all, nothing is said of temperature.
+
+The report's `values` are the numbers as text, each there only if it was
+read: `cpu_load` (two decimals), `memory_used` and `disk_free` (three),
+`uptime_s`, `hottest_zone` and `hottest_c` (one decimal).
+
+The real board's processor zones have passive points at 70 and 90 °C and a
+critical point at 110 °C, and read about 63 to 66 °C when the lamp is idle.
+That is on both sides of the 65 °C at which the warning begins. Nothing
+here holds a level for a while once it has changed, so on that board the
+board's level is to be expected to go between ok and warn as often as
+every five seconds, and the lamp's level with it.
+
+## What `show` prints
+
+This is the program's own output on the development Mac, with `serve`
+reading a board made of files, the reports sent by hand with `lamp-bus
+pub`, `--expect actions` and a stale time of two seconds:
+
+    The lamp is not well: voice: the link to the service is down
+
+      error  voice   the link to the service is down                                     0.0 s ago
+      warn   board   cpul_thermal_zone is at 66 °C: the board slows itself down from 70  0.4 s ago
+      stale  eyes    not heard from for 2 s                                              2.7 s ago
+      ok     memory                                                                      0.0 s ago
+      never reported: actions
+
+    board  hottest 66 °C (cpul_thermal_zone)  load 0.31  memory 44% used  disk 14% free  up 2 d 10 h
+    written 0.4 s ago; the board's numbers 4.8 s ago
+
+The first line is the lamp's level and message: `The lamp is well.`,
+`The lamp has a warning: ...`, `The lamp is not well: ...` for an error,
+`Not all of the lamp is reporting: ...` for stale. Then every part, worst
+first, with how long before the health was written it last reported. Then
+the board's numbers: the hottest zone, the load for each processor, memory,
+disk, uptime, and the Wi-Fi signal and `clock set` or `clock not set` where
+the board could be asked.
+
+What is shown is a picture of one moment. The last line says how old it
+is, and the ages above it are as they were then, not as they are now: a
+health that had nothing new to say is up to five seconds old.
+
+With no health to read it prints:
+
+    Nobody is reporting the lamp's health: lamp-health serve is not running, or the bus is somewhere else.
+    Looked in /run/lampos-bus.
+
+`--json` prints one line, `{"health":...,"board":...}`: the two values as
+they were published, and `null` for one that is not there. The status is
+the same as without it.
+
+A kept value that cannot be read, is not of its type, or does not pass its
+type's `check()` is said on standard error and counts as not there. Text
+from the bus is printed with its control characters turned into spaces:
+anyone can write to the bus, and a terminal obeys what it is sent.
+
+## What it prints while serving
+
+One line each on standard error, beginning `lamp-health: `. How it started:
+
+    lamp-health: started bus_root=/run/lampos-bus expect=voice,eyes stale_ms=5000 proc=/proc sys=/sys run=/run disk=/
+
+A line whenever the lamp's level becomes another, with the lamp's message:
+
+    lamp-health: health ok
+    lamp-health: health ok -> warn: board: cpul_thermal_zone is at 66 °C: the board slows itself down from 70
+    lamp-health: health warn -> ok
+
+And each trouble of the table below once when it begins and once when it
+ends. Nothing else: no line for a report, a reading or a publish.
+
+## When something around it fails
+
+None of these stops it.
+
+| What | What it does meanwhile | What it prints |
+|---|---|---|
+| A topic cannot be published | Goes on with the other topics. The publisher is let go and made again within a second. A health that could not be published stays news and is tried again with each working out | `lamp/health cannot be published (not a directory): it is tried again each second`, then `lamp/health is published again; unpublished=7` |
+| One of the four numbers of the board cannot be read | Publishes no `board/state` that round. The board's report is a warning that names the number | `the board cannot be read: cpu_load (/proc/loadavg: No such file or directory (os error 2))`, again when another number joins or leaves, then `the board is read again` |
+| A zone, the Wi-Fi or the clock cannot be read | Leaves it out | nothing |
+| A message on `diagnostics` is no report, or names a part no part can be called | Passes it over and counts it. The trouble is over when none has come for the stale time: a good report from another part does not end it, or one part sending something else every second would be said to begin and end every second | `a message on diagnostics is not a report: such messages are passed over`, then `diagnostics carries nothing but reports again; passed_over=6` |
+| A 65th part reports | Does not keep it | `more than 64 parts report: the newcomers are not kept`, once |
+| The socket for reports cannot be read | Waits a turn and tries again | `diagnostics cannot be received from (...)`, then `diagnostics is received from again` |
+| Nobody publishes `diagnostics` | The board alone is in the lamp's health, and every expected part is missing | the lamp's level |
+| `serve` itself stops | Nothing publishes the two values. Fifteen seconds later they have expired, and `show` says that nobody is reporting and ends with 3 | nothing |
+
+Two things it does not notice. If its socket's file is removed from under
+it, it hears no more reports and every part goes stale: it does not
+subscribe again. And the board is read in the loop itself, so a file that
+hangs when read holds everything up until it answers; `lamp/health` then
+expires like that of a `serve` that has stopped.
+
+## Not shown
+
+Everything here was run on one development Mac (x86_64), which has no
+`/proc` and no `/sys`. **The program has never run on a lamp**, and has not
+been built for the lamp's processor: this toolchain has no
+`aarch64-unknown-linux-gnu` target installed, so it was not even
+type-checked for it.
+
+What was run: 54 tests of the crate, 14 times in a row with no failure:
+eight while the Mac was busy with other work (a load of 22 to 29) and six
+when it was less so (6 to 8). The tests of the loop and of the built
+program then passed 30 times more each, six at once. No test failed in any
+run after it first passed.
+
+- 12 of the rule that makes a `Health`: order, the worst level, stale to
+  the millisecond on both sides, missing, the message, a part that comes
+  back, a part that calls itself stale, what is kept of a name and a
+  message, the 64 parts, the size of the largest health, and what is news.
+- 14 of the board: the reader against trees of files (the real board's
+  shapes as the brief gave them, each file missing, garbage in each, no
+  zones, trip points), and each threshold from both sides as arithmetic.
+- 7 of what `show` prints and 3 of the options.
+- 12 of the loop: 10 on a real bus in a directory of its own, the test
+  playing the parts and, in all but one of them, handing the loop the
+  board it reads; and 2 of what it says and of its times.
+- 6 of the built program: `serve` started and killed, `show` and `--json`
+  run against it for ok, warn, error, stale and nobody, wrong arguments,
+  and a bus that cannot be subscribed to.
+
+Not exercised:
+
+- **A real part.** Nothing publishes `diagnostics` today but this program's
+  own report. Every other report in every test was the test's.
+- **The real board's files.** No file under `/proc` or `/sys` of a lamp was
+  read. The trees in the tests are written from the description of the
+  board: eight zones by their types, the processor zones' three trip
+  points, eight processors. That only the two `cpu*_thermal_zone` zones
+  name trip points is the tests' assumption. What `trip_point_N_type` says
+  on that board for the other zones, and whether a zone's `temp` can fail
+  to read there, is not known.
+- **The Wi-Fi and the clock.** The real board has neither
+  `/proc/net/wireless` nor `/run/systemd/timesync`, so both are left out
+  there. The reader was run against files the tests wrote, in the layout
+  the kernel and systemd are known to use, not against any taken from a
+  board.
+- **The disk on Linux.** `statvfs` was asked of the Mac's own disk, which
+  had about 14% free. The tests cannot choose that number: where they need
+  the board to be ok they read what the machine gave and say so if it is
+  under a tenth. The two disk thresholds are tested as arithmetic.
+- **What the thresholds do on a lamp.** They were given, not tuned. The
+  going between ok and warn at 65 °C described above is reasoned from the
+  board's numbers and has not been watched.
+- **The lease of three seconds for long.** One test runs the built program
+  with the lamp's own times and watches for about six seconds that two
+  subscribers are never told their source has gone. Another shows the
+  publishers' entries given a new time while nothing is published. Hours
+  of running were not watched.
+- **More than about fifteen parts on a bus.** macOS takes no datagram over
+  2,048 bytes, so a health of many parts cannot be published on the Mac.
+  The 64 parts are tested in the table and as the size of the message, not
+  through a bus.
+- **A wall clock that is stepped.** `show` works out `written N s ago`
+  from the wall clock, and the bus the fifteen seconds.
+- **How long a reading takes on a board.** Some fifty small files every
+  five seconds on the board as described, read in the loop. Not measured,
+  and a file that hangs was not played.
+- **The socket that cannot be read.** Its two lines are in the code and
+  were not made to happen.
+- **A bus that cannot be used at all while it runs.** One topic that
+  cannot be published was played with a file in its way. A root that
+  cannot be subscribed to at the start was played and ends the program.
+- **SIGTERM.** The built program was killed with SIGKILL.
+- **A unit in the repository.** Nothing in `deploy/` installs or starts it.

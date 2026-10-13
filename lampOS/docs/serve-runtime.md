@@ -118,6 +118,20 @@ existing capture, authority, transport and utterance bounds. Finite experiments
 keep their existing lifetime behavior. The tests use synthetic peers and real
 local IPC, not a cloud outage or acoustic measurement.
 
+One terminal end is treated differently after all of that: the provider's
+quota or its rate limit (`quota_exceeded`, `rate_limited` in the terminal link
+state). Serve shuts down and records exactly as above, and then the process
+stays for 120 s before it exits with the same failure status, with a line in
+the journal saying so; a request to stop ends the wait at once. The reason is
+whoever restarts the service. On lamp-4ace on 2026-10-13 the relay refused
+every new session with `quota_exceeded` from about 07:05 local, each start
+ended within a second, and systemd (`Restart=on-failure`, `RestartSec=4s`)
+started it again about 380 times in half an hour before anyone looked. With
+the wait that is one request every two minutes. The lamp is still silent and
+dark for as long as the refusal lasts; nothing here tells the person in front
+of it why. Checked by a unit test of which faults count as such a refusal,
+not against a provider that refuses.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

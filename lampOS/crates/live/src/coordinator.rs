@@ -754,6 +754,25 @@ pub fn run_directed_session(
 
 /// Continuous conversation, with bounded best-effort metadata. It does not
 /// relax privacy, worker, provider or per-turn permission/watchdog checks.
+/// The provider refuses for now: its quota or its rate limit. The run ended
+/// in order like any other terminal end.
+#[derive(Debug)]
+pub struct ProviderRefusesForNow;
+impl std::fmt::Display for ProviderRefusesForNow {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(
+            "terminal provider output settled; the provider refuses for now (quota or rate limit); service stopped without retry",
+        )
+    }
+}
+impl std::error::Error for ProviderRefusesForNow {}
+
+/// How long the service stays before it leaves after such a refusal. Whoever
+/// restarts it would ask the provider again at once: on lamp-4ace on
+/// 2026-10-13 systemd did, every five seconds, about 380 times in half an
+/// hour of a spent quota.
+const REFUSAL_WAIT: Duration = Duration::from_secs(120);
+
 pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Result<()> {
     options.validate_serve()?;
     let termination = Termination::install()?;
@@ -762,7 +781,7 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
         .as_deref()
         .map(CueSink::connect)
         .transpose()?;
-    run_source(
+    let result = run_source(
         ProviderSource::Gemini(config),
         Lifetime::Serve,
         output,
@@ -773,7 +792,23 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
         None,
         cues,
         &termination,
-    )
+    );
+    // Everything is shut down and recorded by now. What is left is not to
+    // come straight back; a request to stop ends the wait at once.
+    if result
+        .as_ref()
+        .is_err_and(|error| error.is::<ProviderRefusesForNow>())
+    {
+        eprintln!(
+            "lamp-live: the provider refuses for now (quota or rate limit); staying {} s before leaving",
+            REFUSAL_WAIT.as_secs()
+        );
+        let until = Instant::now() + REFUSAL_WAIT;
+        while Instant::now() < until && termination.signal_name().is_none() {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }
+    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2901,6 +2936,9 @@ fn conversation(
                     "automatic_retry":false}),
             )?;
             flush_cues(trace, cues);
+            if cloud.refused_for_now() {
+                return Err(ProviderRefusesForNow.into());
+            }
             return Err(io::Error::other(
                 "terminal provider output settled; service stopped without retry",
             )

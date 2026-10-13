@@ -64,6 +64,18 @@ impl CloudAvailability {
     pub(super) fn output_ended(&self) -> bool {
         self.output_ended
     }
+
+    /// The link ended on a refusal that passes with time: the provider's
+    /// quota or its rate limit. Asking again at once only adds load.
+    pub(super) fn refused_for_now(&self) -> bool {
+        matches!(
+            self.latest.map(|link| link.state),
+            Some(ProviderLinkState::Terminal {
+                fault: Fault::QuotaExceeded | Fault::RateLimited,
+                ..
+            })
+        )
+    }
 }
 
 /// A coordinator request is bound to the session available at admission. A
@@ -822,6 +834,43 @@ mod tests {
             .unwrap();
         assert!(!cloud.available());
         assert!(cloud.observe(ready(5, 3, 500), 500).is_err());
+        // A lost connection is not a refusal that passes with time.
+        assert!(!cloud.refused_for_now());
+    }
+
+    #[test]
+    fn a_spent_quota_or_a_rate_limit_is_a_refusal_for_now_and_nothing_else_is() {
+        let ended_on = |fault: Fault| {
+            let mut cloud = CloudAvailability::default();
+            assert!(!cloud.refused_for_now());
+            cloud
+                .observe(
+                    ProviderLink {
+                        revision: 1,
+                        session: 1,
+                        observed_at_us: 100,
+                        source_clock: None,
+                        state: ProviderLinkState::Terminal {
+                            reason: LinkFailure::InitialConnect,
+                            fault,
+                            attempts: 0,
+                        },
+                    },
+                    100,
+                )
+                .unwrap();
+            cloud.refused_for_now()
+        };
+        assert!(ended_on(Fault::QuotaExceeded));
+        assert!(ended_on(Fault::RateLimited));
+        for other in [
+            Fault::Authentication,
+            Fault::ServerUnavailable,
+            Fault::Transport,
+            Fault::ConnectTimeout,
+        ] {
+            assert!(!ended_on(other), "{other:?}");
+        }
     }
 
     #[test]

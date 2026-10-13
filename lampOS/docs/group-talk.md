@@ -22,10 +22,10 @@ talking to it and to each other (47 turns in the service's record):
 - One of them asked "Why you not speaking up?".
 - Twice the lamp answered a scrap of their talk to each other.
 
-Later the same day, with two colleagues in conversation beside it, six
-played questions by name 25 s apart ("Hey Lamp, what is two plus two?")
-went unanswered three times running in one run: every one was replaced by
-their talk before the lamp spoke.
+Later the same day, with two colleagues in conversation beside it, three
+questions played to it by name in one scene ("Hey Lamp, what do you see in
+front of you right now?", "Lamp, what is two plus two?") all went
+unanswered: each was replaced by their talk before the lamp spoke.
 
 How loud a voice is does not tell these apart. People standing at the lamp
 are all as loud as the person speaking to it (a median of -15 to -29 dBFS
@@ -43,10 +43,10 @@ people at the lamp.
 hear other people talking to each other before you have had the chance to
 answer … answer it at the first pause, once, as if the talk in between had
 not happened". The model hears everything in the session, so it can do
-this. With that line alone and the two colleagues still talking, six played
-questions: two answered within 2 s, one 11 s late at the first pause, three
-not at all (18 turns were replaced by their talk during the run). Before
-the line: none of three.
+this. With that line alone and the two colleagues still talking, six
+questions played by name 25 s apart: two answered within 2 s, one 11 s late
+at the first pause, three not at all (18 turns were replaced by their talk
+during the run). Before the line: none of the three above.
 
 **In a busy room a just-asked lamp keeps its turn**
 (`crates/live/src/coordinator.rs`, `HOLD_FLOOR_US`; `Attention::busy` in

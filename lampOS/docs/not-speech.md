@@ -1,11 +1,11 @@
 # Sounds that are not speech, and answers that are not answers
 
 Two things the runtime now stops by itself, because telling the model to
-stop them did not work. Status on 2026-10-13: host tests for the parts that
-have them; on lamp-4ace the first has not yet been seen to act and the
-second was built after it was seen happening. Both end a turn without a
-successor, a path the service already had for an answer the provider
-interrupts.
+stop them did not work. Status on 2026-10-13: on lamp-4ace the first has
+been seen to act on a played sound, without a fault; the second was built
+after it was seen happening and has not happened since. Both end a turn
+without a successor, a path the service already had for an answer the
+provider interrupts.
 
 ## A sound
 
@@ -75,8 +75,18 @@ lost with it. None was seen.
 Neither rule has a test of its own: both are a few lines in the service's
 main loop, on a cancellation path that existing coordinator tests cover for
 the provider's own interruptions. The whole `lamp-live` host suite passes
-with them (`cargo test -p lamp-live -- --test-threads=2`). On lamp-4ace the
-build ran the look-up and ordinary question checks without a restart; a
-check of the sound rule with played sounds is still to be done, and the
-synthetic bursts made for it (`sounds.sh`) are noise shapes that the
-detector mostly does not take for speech at all.
+with them (`cargo test -p lamp-live -- --test-threads=2`; one test of a
+motor worker's two-second start timed out in one such run and passed alone
+three times in three).
+
+On lamp-4ace, `sounds2.sh`: a question, then eight short sounds eleven
+seconds apart, each more than four seconds after the lamp's last word (a
+played "Ha.", "Mm." and "Uh.", a synthetic throat-clearing, four of the
+Mac's alert sounds), then a second question. The two questions were
+answered and none of the eight sounds was. One ("Ha.") was taken for the
+start of speech and ended as `not_speech` 0.64 s later; two ("Mm.", heard
+as "M&M", and an alert sound) were long enough to be sent on and the model
+left them unanswered; five were never taken for speech at all. No restart,
+and the turns after the dropped one went as usual. These are played and
+synthetic sounds. A person's cough beside the lamp, which is what was
+reported, has not been tried on purpose.

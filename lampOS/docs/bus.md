@@ -114,7 +114,8 @@ beside and put in place whole.
 - `Bus::publisher` and `Bus::subscribe`, which say nothing about types,
   work on any topic as they did.
 
-The types themselves are not the bus's business: it compares names.
+The types themselves are not the bus's business: it compares names. Those
+of the first topics are in `lamp-msgs` ([msgs.md](msgs.md)).
 
 ## What is promised, and what is not
 
@@ -288,7 +289,7 @@ so, the crate does not do it yet.**
 | What ROS does, and its reason | What the lamp's bus does about it | In the crate |
 |---|---|---|
 | Names are `/`-separated lower-case tokens with underscores, grouped by the part the data comes from and named for the data, never for who uses it | The same rule, and only it: `mic2/audio`, `camera/image`, `body/joint_states`. The `.` separator and `-` in a token are refused, in a publisher's or subscriber's name too | Yes |
-| One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | The declaration and both checks: yes. The bus compares names; it does not check a payload against its type. The shared crate of types: no |
+| One declared message type per topic, checked when a subscriber connects: both ends "must agree on the layout" | Each topic carries a declaration written by its publisher (type name, kind, how often, how long a value lasts). A subscriber names the type it expects and is refused another. The types are Rust structures in one shared crate, sent as JSON | Yes. The bus compares names and does not check a payload against its type. The types of the first topics are in `lamp-msgs` ([msgs.md](msgs.md)); no part publishes them yet |
 | The registry only introduces; data goes straight from publisher to subscriber: "no central point of failure" | The filesystem is the registry and each message goes straight to each subscriber's socket | Yes |
 | A bounded queue per subscriber, so that one slow subscriber cannot hold the publisher or the others | Each subscriber's socket is its own queue; a full one loses that subscriber's message and is counted. ROS drops the oldest, this drops the newest; to be revisited for sound | Yes, with that difference, which is unchanged |
 | Latched topics: "new subscribers always get the latest state" | The `latest` kind: the newest value is kept and read by a late joiner. It also outlives its publisher, which ROS's does not | Yes |
@@ -307,7 +308,10 @@ machine and one team do not need them yet.
 
 ### The first topics
 
-Named by the rule above. Rates are those the parts already run at.
+Named by the rule above. Rates are those the parts already run at. The type
+of each, and its kind and period as a declaration, are in
+[msgs.md](msgs.md): a stream is declared as `event`, a latched topic as
+`latest`.
 
 | Topic | What it carries | Kind | Published by | How often |
 |---|---|---|---|---|

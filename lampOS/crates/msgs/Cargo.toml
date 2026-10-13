@@ -1,0 +1,18 @@
+[package]
+name = "lamp-msgs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# What the lamp's first topics carry: one type for each, in one place, so
+# that a publisher and its subscribers cannot each have their own idea of a
+# message. A library and nothing else: no process, no socket, no clock. It
+# knows the bus only to say how each topic is declared (docs/msgs.md).
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+lamp-bus = { path = "../bus" }
+
+[lints]
+workspace = true

@@ -55,6 +55,38 @@ language other than English or Vietnamese is a noise, and is not answered
 ([character.md](character.md)). The lamp's light still shows that it heard
 something for the length of the sound.
 
+### A short phrase thrown out as a sound, and the floor that did it
+
+"Good night, Lamp." was thrown out as a sound in 5 of 8 played runs on
+2026-10-13. Blocks under the faint floor ([character.md](character.md),
+`--faint-floor-db`, -28 dBFS on lamp-4ace) are not counted as speech
+whatever the detector makes of them, and that was applied to each 10 ms
+block alone. A `not_speech` record now carries how the last two seconds
+of blocks were judged (`last_blocks`: twentieths of the detector's score,
+the level, and how many blocks the detector scored as speech and the
+floor turned away). The first one recorded: the detector scored 50 blocks
+of the phrase as speech; it began at about -20 dBFS and trailed to about
+-30; 28 of the 50 were turned away for being 1 to 4 dB under the floor,
+and the 22 left were under the 30 an utterance needs.
+
+So a block under the floor is now still counted for a while after a run
+of blocks clearly over it (`crates/voice/src/room_floor.rs`, `Near`): six
+blocks in a row, each at least 3 dB over the floor, as many as begin an
+utterance, and then 400 ms (`LAMP_FAINT_HOLD_MS` in the voice unit; unset
+or 0, each block is judged alone as before). A voice across the room has
+a block at the floor now and then and no such run. The recorded phrase
+put through the rule counts 49 blocks, with the run asked for at the
+floor or 3 dB over it alike.
+
+On lamp-4ace with the hold at 400 ms and the run asked for at the floor,
+none of 7 short phrases was thrown out (six "Good night, Lamp." and a
+"Thank you, Lamp."), utterances with a middle level of -28 to -31 dBFS
+and a loudest tenth of -23 to -25 among them, and four lines played at a
+tenth of the volume were not admitted at all. Not shown: the stricter run
+(3 dB over) on the lamp, and the thing the floor is for, colleagues'
+voices from across a working office, which nothing played here stands in
+for.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose
@@ -75,6 +107,21 @@ whether the room's talk has been for the lamp
 ([group-talk.md](group-talk.md)) a turn counts as answered only if the
 lamp was heard in it. An answer that begins "..." and goes on to words is
 lost with it. None was seen.
+
+## A function's name said aloud
+
+With seven functions declared (2026-10-13, the memory's three added), the
+model sometimes writes a call as words and does not make it: in one test
+three answers were "not_for_me", played through the speaker to two people
+talking to each other. The same guard now ends an answer that opens with
+a function's name (a word of lower-case letters with an underscore in
+it, or the service's own way of writing a call, such as
+`print(default_api.not_for_me())`) before any of it is played, with
+outcome `nothing_said` and a `function_named` record. Its words are not
+kept as something the lamp said (`Thread::lamp`), so they are neither
+told to the next session nor taken for a conversation going on. On
+lamp-4ace, in the next run in which it happened, "not_for_me()" came
+twice as an answer's text and neither was played.
 
 ## Tests
 

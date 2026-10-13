@@ -326,9 +326,33 @@ of each, and its kind and period as a declaration, are in
 | `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
 | `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
 
+## On the lamp
+
+On lamp-4ace since 2026-10-13: the root is `/run/lampos-bus`, made at
+start by `/etc/tmpfiles.d/lampos-bus.conf` as `root:orangepi` with mode
+2770. The lamp's programs run as two users, root (the voice) and
+orangepi (the rest), and the set-group-ID bit on the root is what lets
+both use it: everything made below takes the group. The tool is
+`/usr/local/bin/lamp-bus`. A unit with `ProtectSystem=strict` needs
+`ReadWritePaths=/run/lampos-bus` to publish or subscribe.
+
+The first time two users used one root, it failed: a topic made by root
+could not be entered by the other user, and a kept value written by root
+could not be read. A new directory's mode was set outright, which took
+the bit off. A directory now keeps its parent's bit. After that, on the
+lamp: an event in each direction between the two users, a kept value
+written by each and read by the other, one message of 58,955 bytes, and
+`hz` over twenty messages a tenth of a second apart (gaps of 103.6 ms on
+average and 105.1 at most, 0.2 ms old on arrival, none missed).
+
+The voice publishes `voice/state`, `voice/heard` and `voice/said` when
+its unit has `LAMP_BUS=on` (`crates/voice/src/bus_out.rs`), each declared
+with its type from `lamp-msgs`. Nothing subscribes yet.
+
 ## Not shown
 
-Everything here was run on one development Mac (x86_64) and nowhere else.
+Everything in this section was run on one development Mac (x86_64); what
+has run on a lamp is in the section above and is all that has.
 On 2026-10-13 the crate's 64 tests passed ten times in a row there: 18 of
 its parts, 2 of the tool's, 32 of the library through real sockets, 10 of
 the built binary run and killed, and the 2 examples in its documentation.
@@ -344,8 +368,8 @@ under emulation in a container: that run is the first in which a
 name on Linux. Everything since has run on the Mac only: the name rule,
 declarations (put in place by a hard link), publishers' entries (whose
 times the standard library sets), notices, lifespan, statistics, `info` and
-`hz`. Never run on a lamp, and nothing publishes on it yet. No part
-declares its topic or calls `alive()`.
+`hz`. On a lamp, only what the section above lists: not the notices, a
+lease running out, a lifespan, or a subscriber that falls behind.
 
 Not exercised at all:
 

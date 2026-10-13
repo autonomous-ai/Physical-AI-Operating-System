@@ -19,6 +19,15 @@ what the thing does for the lamp, in the words the owner uses for it.
 | `crates/acoustic`, `lamp-acoustic`, `lamp_acoustic` | `crates/sound-fixtures`, `lamp-sound-fixtures`, `lamp_sound_fixtures` | Fixed desk scenes and cached voices for repeatable sound tests. |
 | `lamp-live-pilot@.service` | `lamp-voice-pilot@.service` | The attended pilot's unit template. |
 
+## Added since
+
+| Name | What it is |
+|---|---|
+| `crates/actions`, `lamp-actions`, `lamp-actions.service` | Carries out what the lamp is asked to do to itself ([actions.md](actions.md)). Other documents and drawings call this role the executive. |
+| `crates/bus`, `lamp-bus` | How the lamp's programs tell each other what they sense and make of it, and the tool for looking at it ([bus.md](bus.md)). Not a service: a directory and a library. |
+| `crates/msgs`, `lamp-msgs` | The message types the bus's topics carry, defined once ([msgs.md](msgs.md)). A library. |
+| `crates/memory`, `lamp-memory`, `lamp-memory.service` | What the lamp remembers from one day to the next ([memory.md](memory.md)). |
+
 ## Deliberately not renamed
 
 - `crates/observer`, `lamp-observer` and `tools/observer-bundle`: the built

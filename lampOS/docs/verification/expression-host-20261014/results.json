@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-14",
+  "scope": "Expression host verification; no lamp access",
+  "base_commit": "1e1fb807a3486944cf55298cf3b1c2640b0cc3eb",
+  "machine": {
+    "builder": "Third",
+    "os": "macOS 26.6.2",
+    "kernel": "Darwin 25.6.0",
+    "target": "x86_64-apple-darwin",
+    "cpu": "Intel Core i7-10700K @ 3.80GHz",
+    "memory_bytes": 68719476736,
+    "rustc": "1.96.0 (ac68faa20 2026-05-25)"
+  },
+  "unchanged_baseline": {
+    "cargo_build_workspace": "pass, 1m33s",
+    "cargo_fmt_all_check": "pass",
+    "clippy_all_message_dependents": "pass, 36.75s"
+  },
+  "gate": {
+    "working_directory": "lampOS",
+    "format": {
+      "command": "cargo fmt --all --check",
+      "exit_code": 0
+    },
+    "clippy": {
+      "command": "cargo clippy --offline -p lamp-expression -p lamp-msgs -p lamp-actions -p lamp-body -p lamp-voice -p lamp-voice-eval -p lamp-eyes -p lamp-health -p lamp-name -p lamp-policy --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    "tests": {
+      "command": "cargo test --offline -p lamp-expression -p lamp-msgs -p lamp-actions -p lamp-body -p lamp-voice -p lamp-voice-eval -p lamp-eyes -p lamp-health -p lamp-name -p lamp-policy -- --test-threads=1",
+      "exit_code": 0,
+      "suites": 88,
+      "totals": {
+        "passed": 1701,
+        "failed": 0,
+        "ignored": 5,
+        "measured": 0,
+        "filtered_out": 0
+      },
+      "ignored_tests": [
+        "test coordinator::tests::endpoint_session::real_worker_session_records_verdict_provenance ... ignored, requires a built lamp-turn-end and the pinned model",
+        "test provider_worker::tests::sixty_second_answer_follows_output_capacity ... ignored, one minute of real time; run explicitly",
+        "test provider_worker::tests::three_minute_answer_follows_output_capacity ... ignored, three minutes of real time; run explicitly",
+        "test reference::recovery::tests::recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift ... ignored",
+        "test reference::tests::four_virtual_hours_capture_clocked ... ignored, four virtual hours; run in release"
+      ]
+    },
+    "build": {
+      "command": "cargo build --offline --workspace",
+      "exit_code": 0
+    },
+    "permission": "Unix socket tests run outside the default socket-restricting sandbox; no device access",
+    "new_checks": {
+      "expression": 67,
+      "message_contracts": 8,
+      "ignored": 0
+    }
+  },
+  "standalone": {
+    "directory": "/private/tmp/lamp-expression-standalone-3n2l05g5/lampOS",
+    "target_directory": "/private/tmp/lamp-expression-standalone-3n2l05g5/target",
+    "commands": [
+      "cargo build --offline --workspace",
+      "cargo test --offline -p lamp-expression -p lamp-msgs"
+    ],
+    "build_exit": 0,
+    "test_exit": 0,
+    "test_totals": {
+      "passed": 92,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "suites": 11,
+    "host_metadata_exit": 0,
+    "host_metadata_local_packages": 23,
+    "local_sources_inside_copy": true,
+    "parent_repository_source_references": 0,
+    "copied_source_files_unchanged": 666,
+    "all_platform_metadata_exit": 101,
+    "all_platform_metadata_limitation": "Linux-only alsa v0.12.1 is absent from cache; no offline download attempted."
+  },
+  "fixture": {
+    "path": "crates/expression/fixtures/five-behaviours.jsonl",
+    "sha256": "6f2a2f723875741ed1c8f416e4a43521e1cdffa6045d853a01f4a5d0459bed38",
+    "input_records": 42,
+    "ticks": 101,
+    "simulated_until_us": 2000000,
+    "rejected": 0
+  },
+  "catalogue_sha256": "5869a66e993a57875a6dadaacd520e25b2cb4c6704c88bd61c09f88f452cccd2",
+  "computation": {
+    "command": "cargo run --offline --release -p lamp-expression --example replay_cost -- 100",
+    "notes": "Two invocations, 100 repetitions each in one process. Catalogue parsing precedes each timed series. Engine construction includes catalogue cloning. First is the first timed iteration, not cold process startup. Output serialization goes to a sink. No before/after optimization claim.",
+    "before_full_gate": {
+      "arch": "x86_64",
+      "boundary": "construct engine, parse fixed JSONL, run two simulated seconds, serialize output to sink",
+      "first_ns": 290721,
+      "input_records_per_run": 42,
+      "kind": "host_computation_only",
+      "median_ns": 191458,
+      "os": "macos",
+      "physical_measurement": false,
+      "rejected_inputs": 0,
+      "runs": 100,
+      "ticks_per_run": 101,
+      "worst_ns": 290721
+    },
+    "after_full_gate": {
+      "arch": "x86_64",
+      "boundary": "construct engine, parse fixed JSONL, run two simulated seconds, serialize output to sink",
+      "first_ns": 284349,
+      "input_records_per_run": 42,
+      "kind": "host_computation_only",
+      "median_ns": 192103,
+      "os": "macos",
+      "physical_measurement": false,
+      "rejected_inputs": 0,
+      "runs": 100,
+      "ticks_per_run": 101,
+      "worst_ns": 296518
+    }
+  },
+  "retained_failures": [
+    {
+      "stage": "initial compilation",
+      "result": "replay called private Declaration::check; replaced with local validation without changing lamp-bus"
+    },
+    {
+      "stage": "initial strict clippy",
+      "result": "nonminimal_bool in engine sequence validation; simplified without suppressing the lint"
+    },
+    {
+      "stage": "initial replay fixture",
+      "result": "18 of 20 tests passed; missing Voice heartbeats let the written turn expire. Added its explicit heartbeats. Final replay suite:21 passed."
+    },
+    {
+      "stage": "initial process/socket checks",
+      "result": "default sandbox denied Unix socket operations (Operation not permitted); authorized host rerun passed"
+    },
+    {
+      "stage": "first full dependent test attempt",
+      "command": "cargo test --offline -p lamp-expression -p lamp-msgs -p lamp-actions -p lamp-body -p lamp-voice -p lamp-voice-eval -p lamp-eyes -p lamp-health -p lamp-name -p lamp-policy",
+      "voice_library": {
+        "passed": 702,
+        "failed": 28,
+        "ignored": 5
+      },
+      "detail_file": "parallel-test-failures.txt",
+      "context": "default test parallelism overlapped the independent source-copy build; observed socket-buffer exhaustion and real-time fixture timeouts",
+      "resolution": "same code passed the complete serial gate after concurrent build completed; no Voice edits"
+    }
+  ],
+  "not_shown": [
+    "Linux/ARM64 build or execution",
+    "physical motor safety, deadband, calibration, lag, comfort or naturalness",
+    "acoustic onset or optical latency",
+    "real lamp bus capture and transport arrival latency",
+    "new Voice publications or actuator consumers",
+    "model-backed endpoint and existing long-duration ignored soaks",
+    "cold process startup or scheduling jitter from the computation benchmark"
+  ]
+}

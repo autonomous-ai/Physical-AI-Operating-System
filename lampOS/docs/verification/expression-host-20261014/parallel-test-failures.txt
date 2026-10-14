@@ -1,0 +1,209 @@
+Expression host gate, first attempt — 2026-10-14
+
+Machine: Darwin 25.6.0, x86_64, Intel Core i7-10700K, 64 GiB RAM,
+Rust 1.96.0. This is Third's development machine, not the lamp.
+
+Command from lampOS:
+cargo test --offline -p lamp-expression -p lamp-msgs -p lamp-actions -p lamp-body -p lamp-voice -p lamp-voice-eval -p lamp-eyes -p lamp-health -p lamp-name -p lamp-policy
+
+Default test parallelism; an independent source-copy workspace build ran
+concurrently for part of this attempt. Formatting and strict clippy passed
+before this command. Cargo stopped on lamp-voice lib; later targets and the
+following workspace build were not reached. The terminal results follow.
+
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+test reference::tests::the_capture_clocked_reference_follows_that_difference ... ok
+
+failures:
+
+---- coordinator::motor::tests::motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch stdout ----
+
+thread 'coordinator::motor::tests::motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch' (109544257) panicked at crates/voice/src/coordinator/motor/tests.rs:721:9:
+assertion failed: matches!(peer.control.receive::<LiveControl>().unwrap(),Some(LiveControl::Authority{snapshot})
+    if snapshot.owner()==Some(original))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once stdout ----
+
+thread 'coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once' (109544222) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup stdout ----
+
+thread 'coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup' (109544219) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening stdout ----
+
+thread 'coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening' (109544239) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return' (109544259) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement stdout ----
+
+thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (109544241) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap' (109544273) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant' (109544291) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants' (109544321) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches' (109544323) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::optional_ring_tests::audio_authority_failure_is_still_terminal_even_if_ring_is_disabled stdout ----
+
+thread 'coordinator::optional_ring_tests::audio_authority_failure_is_still_terminal_even_if_ring_is_disabled' (109544644) panicked at crates/voice/src/coordinator/optional_ring_tests.rs:215:5:
+assertion failed: rig.publish(controller.snapshot(now()).unwrap()).is_err()
+
+---- coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only' (109544352) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal' (109544373) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests' (109544374) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant stdout ----
+
+thread 'coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant' (109544378) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate stdout ----
+
+thread 'coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate' (109544417) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write stdout ----
+
+thread 'coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write' (109544431) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure stdout ----
+
+thread 'coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure' (109544465) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue stdout ----
+
+thread 'coordinator::motor::tests::readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue' (109544467) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::stale_snapshot_does_not_revoke_newer_idle_authority stdout ----
+
+thread 'coordinator::motor::tests::stale_snapshot_does_not_revoke_newer_idle_authority' (109544472) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write stdout ----
+
+thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (109544471) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::motor::tests::unresolved_cleanup_removes_the_service_mute_restart_token stdout ----
+
+thread 'coordinator::motor::tests::unresolved_cleanup_removes_the_service_mute_restart_token' (109544482) panicked at crates/voice/src/coordinator/motor/tests.rs:441:9:
+owned child timed out: None
+
+---- coordinator::optional_ring_tests::mandatory_worker_faults_remain_terminal_during_optional_spawn stdout ----
+
+thread 'coordinator::optional_ring_tests::mandatory_worker_faults_remain_terminal_during_optional_spawn' (109544854) panicked at crates/voice/src/coordinator/optional_ring_tests.rs:470:9:
+assertion `left == right` failed
+  left: "No buffer space available (os error 55)"
+ right: "mandatory provider failure"
+
+---- coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping stdout ----
+
+thread 'coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping' (109544489) panicked at crates/voice/src/coordinator/optional_ring.rs:388:34:
+called `Option::unwrap()` on a `None` value
+
+---- coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure stdout ----
+
+thread 'coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure' (109544831) panicked at crates/voice/src/coordinator/optional_ring_tests.rs:580:5:
+assertion failed: error.to_string().contains("unexpected worker startup message")
+
+---- coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run stdout ----
+{"seconds":null,"status":"listening_ready"}
+result Err("service privacy freshness lost before next observation")
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "turn_finished(\"runtime_failed\")", "worker_shutdown_event"]
+peer privacy gap 48290 us, refused writes 0, end-to-speaker revocation [(1, 1335)] us
+frames 169 starts [1] ends [] chunks 0 accepted 0 fired [] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+
+thread 'coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run' (109545942) panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:1303:5:
+Err(Custom { kind: Other, error: "service privacy freshness lost before next observation" })
+
+---- coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes stdout ----
+{"seconds":9,"status":"listening_ready"}
+
+thread 'coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes' (109545424) panicked at crates/voice/src/coordinator/tests/endpoint_session.rs:1112:29:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "capture discontinuity" }
+
+---- process::ring_startup_tests::failed_handshake_retains_owned_child_and_cleans_only_its_socket_namespace stdout ----
+ring unavailable fixture: worker socket startup timed out
+
+thread 'process::ring_startup_tests::failed_handshake_retains_owned_child_and_cleans_only_its_socket_namespace' (109552250) panicked at crates/voice/src/process/ring_startup_tests.rs:114:5:
+assertion failed: error.to_string().contains("unexpected worker startup")
+
+
+failures:
+    coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup
+    coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once
+    coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening
+    coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement
+    coordinator::motor::tests::motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch
+    coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return
+    coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap
+    coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant
+    coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants
+    coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches
+    coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only
+    coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal
+    coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests
+    coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant
+    coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate
+    coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write
+    coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure
+    coordinator::motor::tests::readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue
+    coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write
+    coordinator::motor::tests::stale_snapshot_does_not_revoke_newer_idle_authority
+    coordinator::motor::tests::unresolved_cleanup_removes_the_service_mute_restart_token
+    coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping
+    coordinator::optional_ring_tests::audio_authority_failure_is_still_terminal_even_if_ring_is_disabled
+    coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure
+    coordinator::optional_ring_tests::mandatory_worker_faults_remain_terminal_during_optional_spawn
+    coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes
+    coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run
+    process::ring_startup_tests::failed_handshake_retains_owned_child_and_cleans_only_its_socket_namespace
+
+test result: FAILED. 702 passed; 28 failed; 5 ignored; 0 measured; 0 filtered out; finished in 103.16s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+
+Not shown
+These failures do not establish a lamp failure or identify the cause of each
+assertion. The follow-up gate uses one test thread after the source-copy build
+has completed. See results.json for that result; no Voice code was changed.
+

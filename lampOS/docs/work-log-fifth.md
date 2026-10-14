@@ -20,6 +20,18 @@ lamp-4ace.
   [v1-verdicts.md](v1-verdicts.md), HAL-4.
 - Questions: none yet.
 
+## 2026-10-14 — keeper — taken
+
+- Task: 27, The keeper: one lamp of many parts, started, watched, stopped
+  and resumed. Taken before the rest of task 22, as the list says; task 22's
+  install of the body on lamp-52e6 is its first step and is done
+  (`fifth/body-second-lamp`).
+- Base: `origin/lamp-voice` at `44543db0234c63306e1a59f3f678779baf3e09d8`.
+- Branch: `fifth/keeper`, based on `lamp-fifth` after this claim.
+- Lamp: lamp-52e6. Its voice, body and eyes run as lampOS units; the old
+  runtime is stopped and disabled.
+- Questions: none yet.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

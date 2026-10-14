@@ -332,6 +332,66 @@ same way: before 2026-10-14 it was not given while the camera was not
 permitted, so the eyes read as gone from the bus whenever they were not
 looking.
 
+## Whether a mouth moves (task 39, off unless set)
+
+With `LAMP_EYES_MOUTH=on` beside `LAMP_BUS=on` the eyes also say, for each
+face on `humans/faces/tracked`, how much its mouth moves, on
+`humans/faces/mouths` (`crates/eyes/src/mouth.rs`). It is for the one
+thing sound cannot do on this lamp: hear a person over the lamp's own
+voice (#720; [duplex-listening.md](duplex-listening.md)). A mouth that
+moves while the lamp talks is not the lamp's echo. Nothing uses it yet:
+how the voice weighs it with a weak sound cue is the first builder's.
+
+**How.** No model beyond the detector. YuNet already gives the nose and
+the two corners of the mouth. From every camera frame while there is a
+face (not only the four a second the detector looks at), the lower face
+(from the nose down past the lips, twice the mouth's width) and a band
+round the eyes are each read as 16 by 12 points; how much the lower face
+changed since the frame before, less how much the eyes changed, is the
+mouth's own movement: a head that turns, or a light that flickers, moves
+both alike. Six grey levels of that is "fully moving" (`FULL`, a guess
+until the recordings with people set it). The score is the mean over the
+last 0.5 s, and needs three frames in it. Between two looks a face is
+read where the last look found it; a face that moved is read afresh.
+
+```json
+{"mouths":[{"id":"f3","moving":0.62,"window_ms":500,"frames":4,"age_ms":120}]}
+```
+
+`id` is the face's passing id on `humans/faces/tracked`; `age_ms` is from
+the newest frame's taking (the camera driver's clock) to the message. A
+face not read in three frames of late is left out. Without the switch no
+frame is read for mouths, the topic is not declared, and every message on
+`humans/faces/tracked` is byte for byte what it was (a test).
+
+**What it costs, lamp-52e6, 2026-10-14.** 0.6 to 1.1 ms a frame (a grey
+JPEG decode and 384 points) against 61 to 89 ms a look for the detector;
+nothing at all with nobody in view. The camera gives about 7 frames a
+second at 320 by 240, so a 0.5 s window holds three or four. The newest
+frame read is 116 to 135 ms old when it is said (mostly the camera's own
+queue), so a two-word "Stop" (about 0.4 s) shows within about 0.6 s of its
+start. The process: 22 MB, 15% of one core, as before; the board at 51 to
+52 degrees.
+
+**What it cannot do.** Tell talking from chewing, laughing or a smile; see
+a mouth behind a hand, in a face turned side on, or in a face too small:
+at a metre a face is about a fifth of the picture's height and the lower
+face 25 points across, enough for frame differences, not for lip shapes.
+
+### The study (2026-10-14)
+
+| Way | What it is | On this board | Taken? |
+|---|---|---|---|
+| Frame differences round the lips | The oldest active-speaker cue: how much a window round the tracked lips changes between frames, over a threshold ([KU Leuven, 2015](https://homes.esat.kuleuven.be/~konijn/publications/2015/3946_postprint.pdf): flags faces whose lips move above a threshold, and notes it fails on a profile or a hand over the lips; [Caus et al. 2021](https://www.inf.uni-hamburg.de/en/inst/ab/cv/media/caus-etal-icvs2021.pdf): the lower face works better than the mouth alone) | Under 1 ms a frame on the CPU, no model, works on a 25 pixel mouth | **Yes, first**: the lightest thing that can work, and the recordings say whether it is enough |
+| Optical flow in the mouth region | Flow magnitude or variance as a visual VAD ([Tao 2015](https://msp.utdallas.edu/publications/Tao_2015.pdf); [Liu, Cheung and Tang 2016](https://www.comp.hkbu.edu.hk/~ymc/papers/journal/YCVIU_2350_publication_version.pdf)); unstable when the light changes | A few ms a frame on the CPU at this size | Next if differences are too noisy: same input, less sensitive to texture |
+| Lip landmarks (MediaPipe Face Landmarker, `jawOpen`) | 478 points and 52 blendshapes from a 256 by 256 face crop ([Google](https://ai.google.dev/mediapipe/solutions/vision/face_landmarker)); jitter needs smoothing | A second model of a few MB at 256 by 256 per face: tens of ms on the CPU; would need a crop from a larger frame, since the face is 40 to 50 pixels here | No: the face is too small in 320 by 240, and the cost sits beside a board at 74 degrees on lamp-4ace |
+| Light-ASD | Audio-visual active speaker detection, about 1.0M parameters and 0.6 GFLOPs, 94.1% mAP on AVA ([Liao et al., CVPR 2023](https://openaccess.thecvf.com/content/CVPR2023/html/Liao_A_Light_Weight_Model_for_Active_Speaker_Detection_CVPR_2023_paper.html)); used on a Nao robot ([2024](https://arxiv.org/html/2407.11915v1)) | Could fit the A733's 3 TOPS VIP9000 NPU ([Radxa](https://docs.radxa.com/en/cubie/a7a/app-dev/npu-dev/cubie_acuity_sdk)) after an ACUITY conversion (not tried); it needs the sound too, and the sound on this lamp carries the lamp's own voice | Later, its visual half only, if the recordings show differences cannot part speech from chewing |
+| TalkNet | Audio-visual, long-term attention ([Tao et al. 2021](https://arxiv.org/pdf/2107.06592)) | Far heavier than Light-ASD | No |
+| Furhat, Misty, Jibo, Astro | Nothing published that we found on how they see who speaks | | |
+
+The 8 MP camera could give a larger crop of the face (it is opened at 320
+by 240 now); that is the way to a lip-shape model, and not taken here.
+
 ## Running it
 
 ```text

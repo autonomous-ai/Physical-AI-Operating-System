@@ -17,6 +17,7 @@ pub mod bus_out;
 pub mod faces;
 pub mod facing;
 pub mod kept;
+pub mod mouth;
 pub mod permit;
 pub mod picture;
 pub mod sight;

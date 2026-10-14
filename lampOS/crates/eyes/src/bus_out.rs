@@ -11,7 +11,10 @@
 //! while the camera is open, and a list that old says nothing about who is
 //! there now. With the camera closed nothing is published, and the last
 //! list is left to run out.
-use crate::{faces, facing};
+use crate::{
+    faces, facing,
+    mouth::{self, Mouth, MouthsMoving},
+};
 use lamp_bus::{Bus, Publisher};
 use lamp_msgs::{Diagnostic, Face, Faces, Level};
 use std::{io, time::Duration};
@@ -102,9 +105,25 @@ pub fn edges(face: &faces::Face, filled: (usize, usize)) -> [f32; 4] {
 /// sits, positive to the picture's right, which is the face's own left if
 /// the picture is not mirrored. That has not been checked against a person.
 pub fn message(found: &[faces::Face], filled: (usize, usize), ids: &mut Ids, now_us: u64) -> Faces {
+    message_and_ids(found, filled, ids, now_us).0
+}
+
+/// The message, and the id each of `found` was given in it, in their order:
+/// none for one left out.
+fn message_and_ids(
+    found: &[faces::Face],
+    filled: (usize, usize),
+    ids: &mut Ids,
+    now_us: u64,
+) -> (Faces, Vec<Option<String>>) {
     let (width, height) = (filled.0.max(1) as f32, filled.1.max(1) as f32);
     let boxes: Vec<[f32; 4]> = found.iter().map(|face| edges(face, filled)).collect();
     let ids = ids.of(&boxes, now_us);
+    let named = boxes
+        .iter()
+        .zip(&ids)
+        .map(|(edges, id)| (edges[0] < edges[2] && edges[1] < edges[3]).then(|| format!("f{id}")))
+        .collect();
     let faces = found
         .iter()
         .zip(&boxes)
@@ -131,7 +150,7 @@ pub fn message(found: &[faces::Face], filled: (usize, usize), ids: &mut Ids, now
             }
         })
         .collect();
-    Faces { faces }
+    (Faces { faces }, named)
 }
 
 /// How the camera is, as far as the lamp's health is concerned.
@@ -163,6 +182,10 @@ pub fn health(camera: Camera) -> Diagnostic {
 pub struct BusOut {
     faces: Publisher,
     health: Publisher,
+    /// Only with the mouths read (`mouth::ENVIRONMENT`).
+    mouths: Option<Publisher>,
+    /// The ids of the faces of the last look, in their order.
+    named: Vec<Option<String>>,
     ids: Ids,
     alive_at_us: u64,
     reported_at_us: Option<u64>,
@@ -175,7 +198,15 @@ impl BusOut {
         if std::env::var(ENVIRONMENT).ok().as_deref() != Some("on") {
             return None;
         }
-        match Bus::from_environment().and_then(|bus| Self::on(&bus)) {
+        let mouths = std::env::var(mouth::ENVIRONMENT).ok().as_deref() == Some("on");
+        let made = Bus::from_environment().and_then(|bus| {
+            let mut out = Self::on(&bus)?;
+            if mouths {
+                out.read_mouths(&bus)?;
+            }
+            Ok(out)
+        });
+        match made {
             Ok(out) => Some(out),
             Err(error) => {
                 eprintln!("lamp-eyes: nothing is published on the bus: {error}");
@@ -192,15 +223,54 @@ impl BusOut {
         Ok(Self {
             faces,
             health,
+            mouths: None,
+            named: Vec::new(),
             ids: Ids::default(),
             alive_at_us: 0,
             reported_at_us: None,
         })
     }
 
+    /// Say how far each face's mouth moves, on `humans/faces/mouths`.
+    pub fn read_mouths(&mut self, bus: &Bus) -> io::Result<()> {
+        let mut out =
+            bus.publisher_declared(MouthsMoving::TOPIC, &MouthsMoving::declaration(), SOURCE)?;
+        out.expires_after(Some(LASTS));
+        self.mouths = Some(out);
+        Ok(())
+    }
+
+    /// Whether the mouths are said: then the caller reads them.
+    pub fn reads_mouths(&self) -> bool {
+        self.mouths.is_some()
+    }
+
+    /// The mouths of the faces of the last look, in its order
+    /// (`mouth::Mouths::scores`). Nothing without `read_mouths`.
+    pub fn mouths(&mut self, scores: &[Option<mouth::Score>], now_us: u64) {
+        let Some(out) = self.mouths.as_mut() else {
+            return;
+        };
+        let mouths = self
+            .named
+            .iter()
+            .zip(scores)
+            .filter_map(|(id, score)| Some((id.as_ref()?, score.as_ref()?)))
+            .map(|(id, score)| Mouth {
+                id: id.clone(),
+                moving: score.moving,
+                window_ms: (mouth::WINDOW_US / 1_000) as u32,
+                frames: score.frames as u32,
+                age_ms: (now_us.saturating_sub(score.taken_us) / 1_000) as u32,
+            })
+            .collect();
+        let _ = out.publish_json(now_us, &MouthsMoving { mouths });
+    }
+
     /// One look: what the detector found in it.
     pub fn saw(&mut self, found: &[faces::Face], filled: (usize, usize), now_us: u64) {
-        let seen = message(found, filled, &mut self.ids, now_us);
+        let (seen, named) = message_and_ids(found, filled, &mut self.ids, now_us);
+        self.named = named;
         self.alive_at_us = now_us;
         let _ = self.faces.publish_json(now_us, &seen);
     }
@@ -363,6 +433,60 @@ mod tests {
         out.saw(&[], PICTURE, 7);
         out.tick(2_000_000);
         out.report(Camera::Open, 2_000_000);
+    }
+
+    #[test]
+    fn mouths_are_said_only_when_asked_and_the_faces_are_said_alike_either_way() {
+        let root = std::path::PathBuf::from(format!("/tmp/lem-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let found = [
+            face(240.0, 120.0, 160.0, 200.0, 0.0),
+            face(700.0, 100.0, 100.0, 100.0, 0.0),
+            face(40.0, 100.0, 120.0, 150.0, 0.0),
+        ];
+        let score = |moving| {
+            Some(mouth::Score {
+                moving,
+                frames: 5,
+                taken_us: 1_000,
+            })
+        };
+        // Without the switch: no mouths topic at all, whatever is given.
+        let mut plain = BusOut::on(&bus).unwrap();
+        assert!(!plain.reads_mouths());
+        plain.saw(&found, PICTURE, 5_000);
+        plain.mouths(&[score(0.9), None, score(0.1)], 5_000);
+        let without = bus.latest(Faces::TOPIC).unwrap().unwrap().payload;
+        assert!(bus.latest(MouthsMoving::TOPIC).unwrap().is_none());
+        // With it: the same faces, and each mouth under its face's id; the
+        // face left out of the list and the one not read are not said.
+        let root2 = root.join("on");
+        std::fs::create_dir_all(&root2).unwrap();
+        let bus2 = Bus::new(&root2).unwrap();
+        let mut reading = BusOut::on(&bus2).unwrap();
+        reading.read_mouths(&bus2).unwrap();
+        reading.saw(&found, PICTURE, 5_000);
+        reading.mouths(&[score(0.9), score(0.5), None], 5_000);
+        assert_eq!(bus2.latest(Faces::TOPIC).unwrap().unwrap().payload, without);
+        let said: MouthsMoving = bus2
+            .latest(MouthsMoving::TOPIC)
+            .unwrap()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(
+            said.mouths,
+            [Mouth {
+                id: "f1".into(),
+                moving: 0.9,
+                window_ms: 500,
+                frames: 5,
+                age_ms: 4
+            }]
+        );
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

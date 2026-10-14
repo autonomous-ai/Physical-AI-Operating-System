@@ -349,6 +349,15 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut bus_out = lamp_eyes::bus_out::BusOut::from_environment();
     // Faces that never move, left out when asked.
     let mut still = arguments.leave_still.then(lamp_eyes::still::Still::default);
+    // With LAMP_EYES_MOUTH=on as well: whether each face's mouth moves,
+    // read from every frame while there is a face.
+    let mut mouths = bus_out
+        .as_ref()
+        .is_some_and(|bus| bus.reads_mouths())
+        .then(lamp_eyes::mouth::Mouths::default);
+    // A frame not yet read for mouths: its bytes, and when it was taken.
+    let mut unread: Option<(usize, u64)> = None;
+    let (mut mouth_frames, mut mouth_spent_us, mut mouth_age_us) = (0u32, 0u64, 0u64);
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
     let permit = lamp_eyes::permit::Permit::listen(permits)?;
@@ -475,6 +484,10 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 presence.gone();
             }
             latest = None;
+            unread = None;
+            if let Some(mouths) = mouths.as_mut() {
+                mouths.faces(&[]);
+            }
             std::thread::sleep(Duration::from_millis(50));
             continue;
         }
@@ -566,6 +579,13 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     Ok(Some(got)) => {
                         frames += 1;
                         latest = Some(got.bytes_used.min(frame.len()));
+                        let taken = got
+                            .timestamp
+                            .filter(|stamp| {
+                                stamp.domain == lamp_camera::TimestampDomain::HostMonotonic
+                            })
+                            .map_or_else(lamp_ipc::monotonic_us, |stamp| stamp.micros);
+                        unread = Some((got.bytes_used.min(frame.len()), taken));
                     }
                     Ok(None) => break,
                     Err(error) => {
@@ -589,8 +609,25 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 presence.gone();
             }
             latest = None;
+            unread = None;
+            if let Some(mouths) = mouths.as_mut() {
+                mouths.faces(&[]);
+            }
             retry_at = Instant::now() + RETRY;
             continue;
+        }
+        if let Some(mouths) = mouths.as_mut()
+            && let Some((used, taken)) = unread.take()
+            && mouths.any()
+        {
+            let started = lamp_ipc::monotonic_us();
+            if let Ok(grey) = lamp_eyes::mouth::Grey::from_jpeg(&frame[..used]) {
+                mouths.frame(&grey, taken);
+                let now = lamp_ipc::monotonic_us();
+                mouth_frames += 1;
+                mouth_spent_us += now.saturating_sub(started);
+                mouth_age_us += now.saturating_sub(taken);
+            }
         }
         let every = if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
             LOOK_EVERY
@@ -622,7 +659,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                             });
                         }
                         if let Some(bus) = bus_out.as_mut() {
-                            bus.saw(&faces, picture.filled, lamp_ipc::monotonic_us());
+                            let now = lamp_ipc::monotonic_us();
+                            bus.saw(&faces, picture.filled, now);
+                            if let Some(mouths) = mouths.as_mut() {
+                                mouths.faces(&faces);
+                                bus.mouths(&mouths.scores(now), now);
+                            }
                         }
                         // Whose the near face is, when it is time to ask or
                         // someone is being remembered.
@@ -690,6 +732,14 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     still.left_out
                 ))
             );
+            if mouths.is_some() && mouth_frames > 0 {
+                eprintln!(
+                    "lamp-eyes: mouths read in {mouth_frames} frames, {:.1} ms a frame, {:.0} ms from the frame's taking",
+                    mouth_spent_us as f32 / 1e3 / mouth_frames.max(1) as f32,
+                    mouth_age_us as f32 / 1e3 / mouth_frames.max(1) as f32
+                );
+                (mouth_frames, mouth_spent_us, mouth_age_us) = (0, 0, 0);
+            }
             (frames, looks, with_face, unreadable) = (0, 0, 0, 0);
             spent = Duration::ZERO;
             reported_at = Instant::now();

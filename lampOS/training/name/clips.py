@@ -1,6 +1,6 @@
 """Step 3 of make.sh: the name's own sets of clips, in lampOS/.cache/name/clips.
 
-    python clips.py mswc|libri|fleurs|edacc|piper
+    python clips.py mswc|libri|fleurs|edacc|piper|kokoro
 
 - "mswc": MSWC English clips of "lamp" (a bare call, by real people) and of
   the near misses ("lamb", "land", "plan", "lab", "Sam", "Liam", "Lan",
@@ -12,7 +12,8 @@
   test.
 - "fleurs": Google FLEURS Vietnamese, its own train and test splits.
 - "edacc": EdAcc's Vietnamese speakers of English, for testing only.
-- "piper": the generated speech of speak.py.
+- "piper": the generated speech of speak.py in Piper's voices.
+- "kokoro": the same in Kokoro's voices (`kokoro-calls-train` and so on).
 """
 
 from __future__ import annotations
@@ -170,12 +171,15 @@ def edacc() -> None:
     save("edacc-vi-test", clips, metas, root=shared.CLIPS)
 
 
-def piper() -> None:
+def generated(kokoro: bool) -> None:
+    """Piper's voices (LibriTTS, with Cori and LJ Speech in the test sets), or Kokoro's, as sets of their own."""
     for kind in ["calls", "near", "replies", "talk"]:
         for split in ["train", "test"]:
             clips, metas = [], []
             for index in sorted((shared.CACHE / "made" / "piper").glob(f"{kind}-{split}*/index-*.jsonl")):
                 folder = index.parent
+                if folder.name.endswith("-kokoro") != kokoro:
+                    continue
                 for line in index.read_text().splitlines():
                     if not line.strip():
                         continue
@@ -184,10 +188,21 @@ def piper() -> None:
                     clips.append(x)
                     metas.append(row)
             if clips:
-                name = "piper-accented-talk" if kind == "talk" else f"piper-{kind}"
+                if kokoro:
+                    name = f"kokoro-{kind}"
+                else:
+                    name = "piper-accented-talk" if kind == "talk" else f"piper-{kind}"
                 save(f"{name}-{split}", clips, metas, root=shared.CLIPS)
+
+
+def piper() -> None:
+    generated(kokoro=False)
+
+
+def kokoro() -> None:
+    generated(kokoro=True)
 
 
 if __name__ == "__main__":
     for what in sys.argv[1:]:
-        {"mswc": mswc, "libri": libri, "fleurs": fleurs, "edacc": edacc, "piper": piper}[what]()
+        {"mswc": mswc, "libri": libri, "fleurs": fleurs, "edacc": edacc, "piper": piper, "kokoro": kokoro}[what]()

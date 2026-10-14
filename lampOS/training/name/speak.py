@@ -1,10 +1,12 @@
 """Generated speech for the name: calls, near misses, and the lamp's kind of replies.
 
-    python speak.py calls|near|replies|talk --split train|test --count N --part I/K
+    python speak.py calls|near|replies|talk --split train|test --count N --part I/K [--voice kokoro]
 
 The voice is Piper's `en_US-libritts-high` (904 speakers, trained from
 scratch on LibriTTS), as for training/stop, with the same 113 speakers kept
-for testing (the number 7 more than a multiple of 8).
+for testing (the number 7 more than a multiple of 8); or, with `--voice
+kokoro`, Kokoro's (kokoro.py): blends of its training voices, and its test
+voices as they are.
 
 A call or near miss is made in two pieces by the same voice: the start
 ("Hey Lamp", "Lamp", "Lan"...) and what follows, joined by a pause of 30
@@ -141,13 +143,18 @@ def main() -> None:
     p.add_argument("--count", type=int, required=True)
     p.add_argument("--part", default="0/1")
     p.add_argument("--threads", type=int, default=2)
-    p.add_argument("--voice", choices=["libritts", *OTHER_VOICES], default="libritts")
+    p.add_argument("--voice", choices=["libritts", "kokoro", *OTHER_VOICES], default="libritts")
     a = p.parse_args()
-    if a.voice != "libritts" and a.split != "test":
+    if a.voice in OTHER_VOICES and a.split != "test":
         raise SystemExit("the other voices are for testing only")
     part, parts = (int(x) for x in a.part.split("/"))
     os.environ["OMP_NUM_THREADS"] = str(a.threads)
-    speaker = Speaker(a.threads, OTHER_VOICES.get(a.voice, VOICE))
+    if a.voice == "kokoro":
+        from kokoro import KokoroSpeaker
+
+        speaker = KokoroSpeaker(a.threads)
+    else:
+        speaker = Speaker(a.threads, OTHER_VOICES.get(a.voice, VOICE))
     out = OUT / (f"{a.kind}-{a.split}" + ("" if a.voice == "libritts" else f"-{a.voice}"))
     out.mkdir(parents=True, exist_ok=True)
     index_path = out / f"index-{part}.jsonl"
@@ -162,8 +169,15 @@ def main() -> None:
         if n % parts != part or f"{n:06d}.wav" in done:
             continue
         rng = random.Random(f"name-{a.kind}-{a.split}-{n}")
-        voice = rng.choice(who)
-        row = {"path": f"{n:06d}.wav", "speaker": f"piper-{voice if voice is not None else a.voice}", "split": a.split}
+        if a.voice == "kokoro":
+            from kokoro import pick_voice
+
+            voice = pick_voice(a.split, rng, female_only=a.kind == "replies")
+            label = f"kokoro-{voice[0]}" if voice[0] == voice[1] else f"kokoro-{voice[0]}+{voice[1]}"
+        else:
+            voice = rng.choice(who)
+            label = f"piper-{voice if voice is not None else a.voice}"
+        row = {"path": f"{n:06d}.wav", "speaker": label, "split": a.split}
         if a.kind == "replies":
             text = rng.choice(REPLIES)
             audio = trimmed(speaker.say(text, voice, rng, accent=False))
@@ -193,7 +207,7 @@ def main() -> None:
                 second = trimmed(speaker.say(rest[0].upper() + rest[1:], voice, rng, accent))
                 pause = np.zeros(int(rng.uniform(0.03, 0.35) * RATE), np.float32)
                 audio = np.concatenate([first, pause, second])
-            reading = "vi" if accent else "en" if a.voice == "libritts" else a.voice
+            reading = "vi" if accent else "en" if a.voice in ("libritts", "kokoro") else a.voice
             row.update(text=f"{start}, {rest}".strip(", "), what=what, accent=reading, name_end=anchor)
         if len(audio) == 0:
             continue

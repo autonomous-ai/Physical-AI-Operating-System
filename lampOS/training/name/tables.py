@@ -26,6 +26,8 @@ def calls_table(rows, point: str) -> list[str]:
             ("generated, English reading", lambda r: r["set"] == "piper-calls-test" and r["accent"] == "en"),
             ("generated, Vietnamese reading", lambda r: r["set"] == "piper-calls-test" and r["accent"] == "vi"),
             ("generated, a British voice (Cori)", lambda r: r["set"] == "piper-calls-test" and r["accent"] == "cori"),
+            ("Kokoro's test voices, English reading", lambda r: r["set"] == "kokoro-calls-test" and r["accent"] == "en"),
+            ("Kokoro's test voices, Vietnamese reading", lambda r: r["set"] == "kokoro-calls-test" and r["accent"] == "vi"),
             ("real people (MSWC), the word alone", lambda r: r["set"] == "mswc-lamp-test"),
         ]:
             sel = [r for r in rows if r["way"] == way and keep(r)]

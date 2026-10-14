@@ -6,6 +6,9 @@
 - **A voice from a loudspeaker is muffled.** A small speaker's band
   (high-pass 250 to 600 Hz, low-pass 3 to 6 kHz), a resonance of +3 to
   +8 dB somewhere from 0.8 to 2.5 kHz, and a little saturation.
+- **Another microphone, another voice.** One to three bumps or dips of up
+  to 8 dB anywhere from 100 Hz to 6 kHz (`colour`), as a different
+  microphone, room or throat would put there.
 
 Both are guesses at the lamp from its documents, not measurements of it.
 """
@@ -69,4 +72,14 @@ def loudspeaker(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     peak = np.max(np.abs(y)) + 1e-9
     drive = rng.uniform(1.0, 2.5)
     y = np.tanh(drive * y / peak) / np.tanh(drive) * peak
+    return y.astype(np.float32)
+
+
+def colour(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """One to three peaking filters, each -8 to +8 dB, 100 Hz to 6 kHz, one to three octaves wide."""
+    y = np.asarray(x, np.float64)
+    for _ in range(int(rng.integers(1, 4))):
+        freq = float(np.exp(rng.uniform(np.log(100), np.log(6000))))
+        b, a = peaking(freq, rng.uniform(-8, 8), q=rng.uniform(0.5, 2.0))
+        y = lfilter(b, a, y)
     return y.astype(np.float32)

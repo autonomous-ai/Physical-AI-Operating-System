@@ -4,7 +4,9 @@
 # check-talk (an hour of LibriSpeech dev readers kept back), linked here.
 here=$(cd "$(dirname "$0")" && pwd)
 cd "$here" || exit 1
-inputs="$here/../../.cache/name/inputs"
+# Into lampOS/.cache/name/inputs, or the folder NAME_INPUTS names.
+inputs="${NAME_INPUTS:-$here/../../.cache/name/inputs}"
+export NAME_INPUTS="$inputs"
 mkdir -p "$inputs"
 for part in 0 1 2; do
   ln -sf "$here/../../.cache/stop/inputs/check-talk-$part.npz" "$inputs/check-talk-$part.npz"

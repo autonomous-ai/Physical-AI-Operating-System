@@ -21,6 +21,9 @@ the threshold, or N steps in a row).
   FLEURS Vietnamese test speech, in held-out generated talk read with a
   Vietnamese accent, in EdAcc's Vietnamese speakers of English
   (when it has been fetched), and in 34 AMI meetings as recorded.
+- Kokoro's test voices (kokoro.py), when their sets have been made: their
+  calls and near misses with the others, and their replies and talk as
+  talk. A generator the model in models/name never learned from.
 """
 
 from __future__ import annotations
@@ -119,7 +122,7 @@ def scores_of(front, model, sound):
 def calls(front, model, every: int) -> list[dict]:
     talk = Store("libri-talk-test")
     rows = []
-    for name in ["piper-calls-test", "mswc-lamp-test"]:
+    for name in ["piper-calls-test", "mswc-lamp-test"] + (["kokoro-calls-test"] if exists("kokoro-calls-test", shared.CLIPS) else []):
         store = Store(name, shared.CLIPS)
         for i in range(0, len(store), every):
             meta = store.meta[i]
@@ -145,6 +148,8 @@ def near(front, model, every: int) -> dict:
     out = {}
     jobs = [("piper-near-test", shared.CLIPS, "generated"), ("mswc-near-test", shared.CLIPS, "real"),
             ("libri-lamp-test", shared.CLIPS, "real"), ("piper-replies-test", shared.CLIPS, "generated")]
+    if exists("kokoro-near-test", shared.CLIPS):
+        jobs += [("kokoro-near-test", shared.CLIPS, "Kokoro"), ("kokoro-replies-test", shared.CLIPS, "Kokoro")]
     for name, root, source in jobs:
         store = Store(name, root)
         for i in range(0, len(store), every):
@@ -224,6 +229,9 @@ def main() -> None:
             "FLEURS Vietnamese": talk_streams(front, model, Store("fleurs-vi-test", shared.CLIPS), a.every, by_speaker=False),
             "generated talk, Vietnamese accent": talk_streams(front, model, Store("piper-accented-talk-test", shared.CLIPS), a.every),
         }
+        if exists("kokoro-talk-test", shared.CLIPS):
+            result["talk"]["Kokoro's test voices, replies"] = talk_streams(front, model, Store("kokoro-replies-test", shared.CLIPS), a.every)
+            result["talk"]["Kokoro's test voices, talk"] = talk_streams(front, model, Store("kokoro-talk-test", shared.CLIPS), a.every)
         print("talk done", flush=True)
     if "edacc" in only or ("talk" in only and exists("edacc-vi-test", shared.CLIPS)):
         result["talk_edacc"] = {"EdAcc, Vietnamese speakers of English": talk_streams(front, model, Store("edacc-vi-test", shared.CLIPS), a.every)}

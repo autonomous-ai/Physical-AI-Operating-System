@@ -28,6 +28,11 @@ other words, and half inputs of talk alone or of two voices. With `--hard 1`,
 after half the steps the negatives the model then scores highest are drawn
 as often as the rest. `--lowest` leaves out the targets put more than that
 many dB under the other voice; `--heard` those plainly mixed under it.
+
+For training/name (all off by default): `--near-sets` names the sets of
+near misses and `--near-share` the share of the other-word quarter they
+make up, however many there are; `--leave-out` leaves whole sets out, and
+`--leave-out-way` one or more ways of calling.
 """
 
 from __future__ import annotations
@@ -54,11 +59,27 @@ MODEL_DIR = HERE.parent.parent / "models" / "stop"
 
 
 def load(pattern: str, folder: Path = INPUTS) -> dict:
+    """The inputs of every file matching `pattern`, one after another. Files made with
+    different lists of sets keep their sets apart: `source` then numbers the sets of
+    all the files together, in `names`."""
     parts = [np.load(p) for p in sorted(glob.glob(str(folder / pattern)))]
     out = {}
     for key in parts[0].files:
-        if key != "names":
+        if key not in ("names", "source"):
             out[key] = np.concatenate([p[key] for p in parts])
+    if "source" in parts[0].files:
+        names: list[str] = []
+        sources = []
+        for p in parts:
+            local = [str(n) for n in p["names"]] if "names" in p.files else []
+            for n in local:
+                if n not in names:
+                    names.append(n)
+            ids = np.array([names.index(n) for n in local] or [0], np.int16)
+            s = p["source"]
+            sources.append(np.where(s >= 0, ids[np.clip(s, 0, len(ids) - 1)], s).astype(np.int16))
+        out["source"] = np.concatenate(sources)
+        out["names"] = names
     return out
 
 
@@ -227,7 +248,10 @@ def main() -> None:
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--inputs", default=str(INPUTS), help="the folder of inputs (training/name passes its own)")
-    p.add_argument("--leave-out-way", type=int, default=0, help="training/name: leave out the calls of this way (3, a bare Lamp)")
+    p.add_argument("--leave-out-way", default="", help="training/name: leave out the calls of these ways (3, a bare Lamp; or 1,2)")
+    p.add_argument("--leave-out", default="", help="training/name: sets of clips (comma-separated) whose inputs are left out")
+    p.add_argument("--near-sets", default="", help="training/name: the sets of near misses (comma-separated), drawn as --near-share of the other words")
+    p.add_argument("--near-share", type=float, default=-1.0, help="training/name: the share of near misses among the other words of a batch (-1: as many as they are)")
     args = p.parse_args()
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
@@ -248,11 +272,26 @@ def main() -> None:
         kept &= (wl > 50) | (words["suppressed"] == 1) | (wl >= args.heard)
     if args.leave_out_way and "way" in words:
         # Targets of one way of calling left out altogether (training/name).
-        leave = words["way"] == args.leave_out_way
+        leave = np.isin(words["way"], [int(w) for w in args.leave_out_way.split(",")])
         kept &= ~leave
         wy = np.where(leave, -1, wy)
+    if args.leave_out:
+        # Whole sets of clips left out, by name (training/name).
+        names = words["names"]
+        drop = [names.index(n) for n in args.leave_out.split(",") if n in names]
+        leave = np.isin(words["source"], drop)
+        kept &= ~leave
+        wy = np.where(leave, -1, wy)
+        print(f"left out {int(leave.sum())} inputs of {args.leave_out}", flush=True)
     pos = np.flatnonzero(kept)
     near = np.flatnonzero(wy == 0)
+    misses = others = None
+    if args.near_share >= 0 and args.near_sets:
+        # Near misses drawn as a set share of the other words, whatever their number.
+        ids = [words["names"].index(n) for n in args.near_sets.split(",") if n in words["names"]]
+        is_miss = np.isin(words["source"][near], ids)
+        misses, others = near[is_miss], near[~is_miss]
+        print(f"near misses: {len(misses)} inputs, drawn as {args.near_share:.2f} of the other words; others {len(others)}", flush=True)
     wx = torch.from_numpy(words["x"])
     tx = torch.from_numpy(talk["x"])
     cx = torch.from_numpy(check["x"])
@@ -285,6 +324,10 @@ def main() -> None:
         if hard_near is not None:
             bn = torch.cat([wx[rng.choice(near, q // 2)], wx[rng.choice(hard_near, q - q // 2)]])
             bt = torch.cat([tx[rng.choice(len(tx), q)], tx[rng.choice(hard_talk, q)]])
+        elif misses is not None:
+            k = int(round(q * args.near_share))
+            bn = torch.cat([wx[rng.choice(misses, k)], wx[rng.choice(others, q - k)]])
+            bt = tx[rng.choice(len(tx), 2 * q)]
         else:
             bn = wx[rng.choice(near, q)]
             bt = tx[rng.choice(len(tx), 2 * q)]

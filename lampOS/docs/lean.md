@@ -451,6 +451,82 @@ first calls in their test process, not CPU-cold or disk-cold measurements.
 Both ordinary targets passed on this Mac. The work-cap case demonstrates why
 that ordinary-path target is not a universal deadline. No lamp timing follows.
 
+## lamp-4ace, 14 October (first builder)
+
+Taken onto `lamp-voice` unchanged (`bbbd82fc9`). On the first builder's Mac
+its 63 tests pass and clippy is clean; built for the lamp, the same tests
+pass under emulation. The example and the timing test were then run on
+lamp-4ace itself at 11:05, beside the running voice and body. Arithmetic
+only: nothing here commands a motor.
+
+| What was run on the lamp | What the handoff said to expect | What the lamp showed |
+|---|---|---|
+| `./lean-check geometry.stand-in.json behaviours.json 2048,2048,2048,2048,2048` | clearance +0.09 m, 16 `within_margin`, all checks true, not qualified, exit 0 | The same, exit 0 |
+| The level-arm counts `2048,3072,2048,2048,2048` | exit 1 | exit 1 |
+| A count of 4096 | exit 2, no JSON | exit 2, nothing on standard output |
+
+Timing on the lamp, the cost test in release (`Instant` around each call,
+inputs resident; first call, then 30 more: median, p95, worst, in ms):
+
+| Boundary | First | Median | p95 | Worst |
+|---|---|---|---|---|
+| Parse the geometry and make the model | 0.113 | 0.016 | 0.057 | 0.066 |
+| One pose | 0.026 | 0.0006 | 0.002 | 0.003 |
+| A 1,000-step path | 1.506 | 0.582 | 1.481 | 1.505 |
+| A 1.2 s clip, 61 evaluations | 0.117 | 0.040 | 0.109 | 0.112 |
+| All 100,000 evaluations spent, unresolved | 63.0 | 46.9 | 47.3 | 47.3 |
+
+The whole example program once, from start to exit with its two file reads
+and 16 checks, took 7.4 ms. One pose is far inside the 1 ms the handoff set;
+a path that runs out its work cap is not, and belongs off the path to a
+first movement, as the handoff says.
+
+**The lamp's postures.** The body says its five motor readings on
+`body/joint_states` (radians; counts are 2048 + radians x 4096 / 2pi). At
+rest at 11:08: `2023,2052,2047,2053,1950`. Standing, as it does when someone
+speaks, at 11:06: `2023,2558,2503,2053,1820`; at 11:11
+`2014,2629,2603,2053,1771`.
+
+**A file from the first software's model, and why it is still a stand-in.**
+[`deploy/lamp-4ace/lean-first-software.json`](../deploy/lamp-4ace/lean-first-software.json)
+is the first software's
+[body description](https://github.com/autonomous-ai/lampOS/blob/bbbd82fc9/robots/lamp/urdf/lamp.urdf)
+in this check's form, made by
+[`crates/lean/tools/from_first_software.py`](../crates/lean/tools/from_first_software.py):
+joint positions and axes as drawn by the maker, each estimated mass at its
+joint, and zero positions at the middles of the motor ranges in the first
+software's calibration kept on lamp-4ace
+(`/root/bootstrap/rollback/hal.previous/calibration/robots/hal_follower/hal.json`,
+dated 2026-08-21). Given the same angles, this check and the first
+software's own function put the centre of mass in the same place to within
+0.02 mm over 42 poses (the two rest and standing readings and 40 drawn at
+random); [a test](../crates/lean/tests/first_software.rs) keeps four of them.
+That shows the conversion is right. It does not make the file the lamp:
+
+- The masses add up to 1.49 kg; the lamp's own specification
+  (`robots/lamp/README.md`) says 7 kg, and its parts list has an optional
+  steel plate of about 3 kg in the base. Most of the weight is unaccounted for.
+- The first software's limit cannot be carried over. Its motors ran in
+  -100..100 of each calibrated range (`use_degrees` is false and is never set),
+  and its tipping check read those values as degrees; so its 22 mm limit, the
+  31.6 mm of the clip that tipped a lamp and the 17.7 mm of its worst shipped
+  clip belong to that scale only. Scored that way, the lamp's rest posture
+  comes to 19.1 mm and standing to 13.1 mm: the first software would have
+  played both, and warned on rest (above 85 % of its limit).
+- Nobody has measured the base. The footprint in the file is the 100 mm circle
+  inside the 200 mm square that the specification gives for the whole lamp,
+  drawn as 32 sides, at most 0.48 mm stricter than the circle. With it every
+  pose tried is far inside (rest +81.7 mm, standing +98.0 mm), which says
+  nothing until the masses are real.
+
+So the file stays `stand_in` and the check qualifies nothing. What it adds:
+the lamp's true joint geometry and zeros in this check's form, so that when
+the parts are weighed and the base drawn ("Measurements the first builder
+needs" above), only masses, centres and the outline change. The motions lampOS
+makes today are small beside the first software's dances: standing up moves
+the shoulder and elbow about 510 and 455 counts together, and Expression's
+nods move the head 20 to 40 counts. The check is not wired into the body.
+
 ## What this does not establish
 
 The criterion describes static gravity balance on rigid horizontal contacts.

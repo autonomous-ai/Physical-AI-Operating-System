@@ -1155,6 +1155,18 @@ configuration shared by LLM/STT/TTS. Requests identify the client with `User-Age
 the Hermes plugin. It never falls back to a direct OpenRouter call. Disabled or missing-credential requests make no Jev HTTP call and retain
 the existing main-runtime fallback immediately.
 
+The shared classification rules (`jevBoundary`) are sent once, in
+`state.rules`; every question starts with `Apply state.rules.` instead of
+repeating them. Repeating them in all 24 questions made each request about
+89 KB and 18,100 input tokens; once, it is about 8,600. Two interleaved runs
+of the 162-case live corpus on lamp-52e6 (2026-10-14) cut the decision p50
+from 1,598 to 845 ms and from 804 to 542 ms, with 154 instead of 152 cases
+right, no wrong action and the same single false fire. The shipped client
+then scored 153 with p50 488 ms and p90 535 ms. The `state` field
+order (`candidates`, `prompt`, `rules`) is part of that result: with `rules`
+before `candidates` the same corpus scored 144. Harness session selection
+still repeats its own, shorter boundary per question.
+
 Core inference code lives in `system/intent/jev/` (`client`, `resolver`, and
 `catalog`). `system/intent/semantic.go` connects it to local rules and execution,
 keeping the model decision separate from HAL side effects.

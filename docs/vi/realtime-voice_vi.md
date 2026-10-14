@@ -1,5 +1,84 @@
 # Realtime Voice Agent (Trợ lý giọng nói thời gian thực)
 
+Lượt Gemini automatic đã qua wake gate và có bằng chứng âm thanh là tiếng nói
+có thể commit trước Deepgram FINAL. STT chốt song song để phục vụ delegate/fallback;
+câu trả lời trực tiếp và lượt model từ chối rõ ràng không chờ STT. Callback STT
+muộn bị vô hiệu khi lượt audio kết thúc. History của lượt realtime đã trả lời và handoff answered-for-main ưu tiên
+transcript đầu vào Gemini kể cả khi STT đã xong; thiếu transcript provider mới
+fallback về STT. Không dùng câu trả lời làm lời user. Metadata speaker/enrollment
+được giữ nguyên; delegation thông thường vẫn dùng STT. Wake gate
+đóng, lời chỉ gọi tên, câu hỏi main-agent đang chờ và provider khác giữ luồng
+nhận lượt hiện có. Vẫn cần chốt endpoint và model đánh giá người được nói tới.
+Nếu lượt Gemini timeout mà chưa nhận tín hiệu kết thúc, phiên đó phải được
+thay trước capture tiếp theo; không tự replay hay coi timeout là từ chối.
+Trong turn mode dùng model thường, tool blocking phụ như `express_emotion`
+không kết thúc yêu cầu của user: giữ generation và consumer qua ACK đến câu
+trả lời tiếp theo. Grace của extended-thinking và replay `look` giữ luồng cũ.
+PCM native kèm tín hiệu IDLE được tính là câu trả lời hoàn tất dù thiếu output
+transcript; TTS ngoài vẫn cần text. Tool đang chờ, continuation chưa xong và
+transport timeout vẫn giữ fallback. Marker im lặng rõ ràng (`NO_REPLY` /
+`<no speech>`) không phát phần audio đã buffer và chỉ đi theo đường rejection
+khi chưa có audio thật được phát. Output rỗng thông thường không tự động là
+rejection. ACK reject muộn không tạo thêm response trên phiên không resumable
+đã phải thay mới.
+
+Capture Gemini automatic đã được cho phép có thể upload STT bằng worker riêng,
+có giới hạn và một owner: connect/send/close STT không chặn mic. Upload lỗi hoặc
+chưa hoàn tất không cung cấp transcript thiếu cho fallback. Manual, provider
+khác và STT preconnected giữ vòng đời hiện có. Gemini reconnect xong trong lúc
+thu thì gửi tiếp audio buffer ngay; nếu đến endpoint vẫn đang reconnect, chờ
+readiness tối đa hai giây rồi fallback. Lượt đã hủy không upload muộn.
+
+Kiểm tra noise để chốt lượt automatic non-LIVE dùng cửa sổ audio liên tục, gồm
+cả frame yên lặng; không ghép các frame lớn tiếng cách nhau bởi khoảng quiet.
+Window có frame lớn tiếng đang chờ phải được phân loại trước khi đóng lượt.
+Window được nhận là speech cập nhật clock/index trim theo frame vượt RMS cuối
+cùng, không theo đuôi quiet. Window toàn quiet không reset clock, kể cả khi VAD
+fail-open. Không đổi threshold, manual/Harness hoặc bộ đo idle LIVE riêng.
+
+Kiểm tra Silero sau capture tái sử dụng tối đa một kết quả metrics hợp lệ trong
+chính lượt đó, chỉ khi byte PCM, sample rate và detector giống hệt. Audio đã đổi
+hoặc trim vẫn chạy lại. Mỗi lần gọi vẫn xét ngưỡng và chính sách fail-open/
+fail-closed; không cache kết quả unavailable, lỗi hay sentinel. Thay đổi chỉ bỏ
+inference lặp trên cùng audio, không bỏ lần kiểm tra speech đầu và không đổi
+ngưỡng chốt câu.
+
+`HAL_STREAM_NOISE_EVIDENCE=true` bật bằng chứng Silero tính dần, mặc định tắt.
+Worker mỗi capture nhận cùng PCM gửi STT; queue 256 KiB tính cả phần đang xử lý,
+và giới hạn tổng sample theo thời lượng capture. Chỉ prefix đã xử lý, căn theo
+512 sample, khớp SHA256 và cùng model mới thay được phép quét cả đoạn. Dữ liệu
+khác, chưa đủ, bị hủy, lỗi hoặc tràn queue quay ngay về guard cũ. Không đổi
+threshold hay chính sách fail-open/fail-closed, không thêm chờ inference trên
+capture. Block lẻ cuối không được pad hoặc tái sử dụng.
+
+## Thử nghiệm luồng đọc microphone riêng
+
+`HAL_CONTINUOUS_MIC_CAPTURE=true` bật luồng đọc riêng sau AEC cho ALSA automatic,
+không LIVE. Mặc định vẫn tắt trong khi kiểm chứng bằng âm thanh thực tế.
+Mặc định giữ 16 frame mới nhất (1,024 giây với frame 64 ms). Biến
+`HAL_CONTINUOUS_MIC_BACKLOG_S` chỉnh retention trong khoảng 1,024–10 giây, làm
+tròn lên theo frame. Bài đo device dùng 8 giây nhưng không đổi mặc định. Luồng
+tiếp tục đọc khi đang xử lý câu trả lời, loại audio playback và khoảng đuôi echo hiện có theo thời
+điểm capture. VAD không bỏ thêm echo sau khi consumer quay lại trễ.
+Cue backchannel chỉ thay frame trùng lúc cue bằng silence, giữ audio user đang
+chờ và thứ tự frame; bản thân cue không làm hủy lượt đang thu.
+Mất audio thật sẽ reset lịch sử VAD; nếu xảy ra trong lượt STT, lượt thiếu
+audio bị bỏ thay vì gửi transcript ghép đoạn. Manual, sounddevice và LIVE không
+đổi. Reader phải dừng trước khi đóng backend; teardown lỗi sẽ dừng voice loop,
+không mở recorder thứ hai. Đây là giới hạn backlog, chưa phải full-duplex: câu
+nói khi consumer bận lâu hơn cửa sổ lưu vẫn có thể mất audio. Mục tiêu không thêm
+delay ở consumer sau playback, không đưa playback cũ vào STT. Latency capture
+vật lý và end-to-end cần đo trên device.
+
+Smart Turn tải analyzer trên worker nền sẵn có ngay khi khởi động detector,
+để endpoint đầu tiên không phải trả thêm thời gian tải model. Capture không
+chờ preload; tối đa một request được giữ trong lúc khởi tạo và bị bỏ khi hủy.
+Khởi tạo lỗi vẫn dùng silence fallback hiện có. Không đổi ngưỡng endpoint hay
+quy tắc nhận lượt. Chi phí cold-load làm cơ sở sửa là 120 ms đo trên 52e6;
+đây không phải tuyên bố cải thiện latency end-to-end.
+
+Gemini xét ngữ cảnh từng câu, kể cả follow-up trong wake window đang mở. Tên bị nhận sai hoặc đổi chủ đề tự nó không chứng minh câu nói dành cho người khác. Sau ngắt lời, prompt yêu cầu xử lý câu mới hướng tới thiết bị thay vì tiếp tục câu trả lời cũ. HAL không hẹn wait filler tự động cho Gemini và không phát backchannel từ STT partial khi Gemini khả dụng; phản ứng giọng nói tự nhiên nằm trong câu trả lời đã được model chấp nhận. Provider khác và fallback main-agent giữ chính sách cue hiện có. SOUL, quy tắc ngôn ngữ cấu hình và hợp đồng delegation không đổi. Không thêm lượt network hay thời gian chờ chủ động; mục tiêu không tăng latency do lập lịch. Quy tắc prompt vẫn cần test âm thanh thực tế, không bảo đảm nhận đúng người được nói tới.
+
 Yêu cầu sleep/wake hướng tới thiết bị (kể cả “Can you sleep?”) được chuyển im lặng sang main, không trả lời như câu hỏi về bản thân. Main vẫn kiểm tra khả năng và điều kiện chặn sleep khi bật Harness voice, chỉ xác nhận kết quả thực tế. “Do robots need sleep?” là kiến thức chung; “I can’t sleep” nói về sức khỏe người dùng, không phải lệnh cho máy ngủ. Quy tắc áp dụng cho mọi prompt realtime, kể cả GPT Live backend.
 
 Rule sleep/wake cũng bao gồm yêu cầu hướng tới máy dùng cách nói chung hoặc đính chính như “Can we sleep now?”, “I mean, can you sleep now?”, và “Ngủ đi”. Rule ưu tiên hơn mặc định trả lời trực tiếp/persona và ưu tiên tránh latency delegate. Realtime phải handoff trước khi nói, không thay thực thi bằng giải thích về giấc ngủ sinh học, chúc ngủ ngon, hứa hạ đèn/im lặng hoặc `complete_response`. Đây vẫn là rule prompt theo ngữ cảnh, không phải router bắt từ khóa sleep; test nội dung prompt không chứng minh model thực tế tuân thủ.

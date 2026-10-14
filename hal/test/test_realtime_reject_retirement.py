@@ -61,30 +61,34 @@ def test_rejection_signal_unchanged_and_only_manual_unresumable_gemini_skips_ack
     agent.end_turn.assert_called_once()
 
 
-def test_late_reject_after_spoken_answer_keeps_existing_error_handling(monkeypatch):
+@pytest.mark.parametrize('resumption', [False, True])
+def test_late_reject_keeps_answer_without_requesting_unused_gemini_response(monkeypatch, resumption):
     orch, agent = setup_orch(monkeypatch)
+    monkeypatch.setattr(config, 'REALTIME_GEMINI_SESSION_RESUMPTION', resumption)
     agent.receive.return_value = iter([TextOutput(text='Hello!'), FunctionCallOutput(
         name='reject_turn', arguments='{}', call_id='late')])
     assert list(orch.stream_output()) == [TextOutput(text='Hello!')]
     result, = agent.send.call_args.args[0]
-    assert result.trigger_response is True
+    assert result.trigger_response is resumption
     assert 'error' in result.output
 
 
 @pytest.mark.parametrize('connect_fails', [False, True])
-def test_real_provider_no_wire_ack_then_replace_before_capture(monkeypatch, connect_fails):
+@pytest.mark.parametrize('after_answer', [False, True])
+def test_real_provider_no_wire_ack_then_replace_before_capture(monkeypatch, connect_fails, after_answer):
     orch, _ = setup_orch(monkeypatch)
     agent = GeminiLiveAgent(GeminiConfig(api_key='test', session_resumption_enabled=False), tools=[])
     session = SimpleNamespace(send_tool_response=AsyncMock())
     agent._session = session
     agent._pending_tool_calls.add('reject-1')
     agent._pending_tool_names['reject-1'] = 'reject_turn'
-    agent.receive = Mock(return_value=iter([FunctionCallOutput(
+    answer = [TextOutput(text='Good morning.')] if after_answer else []
+    agent.receive = Mock(return_value=iter(answer + [FunctionCallOutput(
         name='reject_turn', arguments='{}', call_id='reject-1')]))
     queued = []
     agent.send = lambda inputs: queued.extend(inputs)
     orch._agent = agent
-    assert list(orch.stream_output()) == [RejectSignal()]
+    assert list(orch.stream_output()) == (answer if after_answer else [RejectSignal()])
     # Already unsafe to reuse BEFORE the asynchronous sender handles the result.
     assert agent.requires_fresh_session
     asyncio.run(agent._async_send_input(queued[0]))

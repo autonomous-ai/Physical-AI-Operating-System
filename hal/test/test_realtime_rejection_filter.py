@@ -245,6 +245,10 @@ def test_manual_late_reject_preserves_existing_output_policy(monkeypatch):
 @pytest.mark.parametrize('parts,completed,expected', [
     (['<no ', 'speech>'], True, True),
     ([' <NO SPEECH>\n<no speech> '], True, True),
+    (['NO_REPLY'], True, True),
+    (['NO_', 'REPLY'], True, True),
+    (['NO_REPLY'], False, False),
+    (['NO_REPLY The answer is five.'], True, False),
     (['<no speech>'], False, False),
     ([], True, False),
     (['<no spe'], True, False),
@@ -292,7 +296,7 @@ def test_marker_after_tool_does_not_discard_a_real_task(monkeypatch):
 def test_silent_marker_replay_dispatch_and_kpi(monkeypatch, kpi, completed, filter_enabled, native):
     """Replay the split marker observed on lamp-4ace, not a text-length guess."""
     from hal.drivers.voice.voice_service import VoiceService
-    from hal.realtime.models import TextOutput
+    from hal.realtime.models import TextOutput, InterruptedOutput
     from hal.telemetry import voice_metrics
 
     monkeypatch.setattr(hal_config, 'REALTIME_ENABLED', True)
@@ -305,6 +309,7 @@ def test_silent_marker_replay_dispatch_and_kpi(monkeypatch, kpi, completed, filt
     orchestrator, agent = _orchestrator_for_reject()
     agent.execution_completed = completed
     agent.receive = lambda **kwargs: iter([
+        InterruptedOutput(reason='output_turn_start'),
         TextOutput(text='<no '), TextOutput(text='speech>'),
     ])
 
@@ -326,7 +331,7 @@ def test_silent_marker_replay_dispatch_and_kpi(monkeypatch, kpi, completed, filt
     tts.speak_queue.assert_not_called()
     kpi.close_all()
     row = kpi.of(voice_metrics.EVENT_INTERACTION)[-1]['params']
-    if completed and filter_enabled and not native:
+    if completed and filter_enabled:
         assert result.rejected and result.route == ROUTE_AI_REJECTED
         assert not result.execution_completed
         assert not sender.sent

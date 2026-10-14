@@ -16,7 +16,7 @@ from hal.drivers.voice._internal.device_capture import DeviceCapture
 from hal.drivers.voice._internal.device_retry_feedback import maybe_emit_retry
 from hal.drivers.voice._internal.realtime_turn import (
     RealtimeTurnResult, ROUTE_NOISE_DROPPED, ROUTE_NOT_STARTED,
-    is_noise_turn, needs_noise_guard,
+    canonical_realtime_user_text, is_noise_turn, needs_noise_guard,
     should_drop_downstream_turn,
 )
 from hal.drivers.voice._internal.session_finalize import finalize_session
@@ -464,7 +464,7 @@ class DeviceVoicePipeline:
             return
         if (self.stream_realtime is not None and self.record_handoff is not None
                 and combined and not result.handled and not should_drop_downstream_turn(result)):
-            self.record_handoff(combined)
+            self.record_handoff(canonical_realtime_user_text(combined, result))
         logger.info("Device session END — bytes=%d transcript=%r interaction_id=%s",
                     turn.byte_count, combined or "(empty)", interaction_id)
         if raw_stt_empty:

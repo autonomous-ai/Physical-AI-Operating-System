@@ -53,7 +53,7 @@ func TestHarnessResolverRejectsUnknownAndAmbiguousDecisions(t *testing.T) {
 	for _, body := range []string{
 		strings.Replace(harnessDecision, `"choice":"session_1"`, `"choice":"invented"`, 1),
 		strings.Replace(harnessDecision, `"choice":"session_1"`, `"choice":"none"`, 1),
-		strings.Replace(harnessDecision, `"noul":0.99`, `"noul":0.7`, 1),
+		strings.Replace(harnessDecision, `"noul":0.99`, `"noul":0.69`, 1),
 		`{invalid`,
 	} {
 		resolver := NewHarnessResolver()
@@ -94,5 +94,16 @@ func TestHarnessResolverRejectsActionParametersBeforeRequest(t *testing.T) {
 	candidates := []Candidate{{ID: "session_0", Description: "House", Parameters: map[string]Parameter{"color": {Description: "Color", Options: []string{"red"}}}}}
 	if got := resolver.Resolve(context.Background(), "Paint house red", candidates, Options{Enabled: true, Endpoint: testJevEndpoint, APIKey: "test"}); got.Intent != "" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+// Harness ownership fit is scored lower than device-intent fit; each keeps its own gate.
+func TestHarnessFitGateIsSeparateFromDeviceIntents(t *testing.T) {
+	body := strings.Replace(harnessDecision, `"noul":0.99`, `"noul":0.8`, 1)
+	if got, err := parseJevDecision([]byte(body), harnessCandidates, jevHarnessMinFit); err != nil || got.Intent != "session_1" {
+		t.Fatalf("Harness fit 0.8 must select: %+v, %v", got, err)
+	}
+	if got, err := parseJevDecision([]byte(body), harnessCandidates, jevMinFit); err != nil || got.Intent != "" {
+		t.Fatalf("device fit 0.8 must abstain: %+v, %v", got, err)
 	}
 }

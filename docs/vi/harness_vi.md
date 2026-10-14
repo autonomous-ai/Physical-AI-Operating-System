@@ -334,6 +334,15 @@ main model đề xuất. Tắt cờ thì bỏ qua JEV. Proxy nhận text task v�
 viên có giới hạn, không nhận toàn bộ transcript hay history. Metadata vẫn là dữ
 liệu không đáng tin cậy; không bảo đảm JEV đủ context để hiểu ý định gốc.
 
+Một lựa chọn cần xác suất ≥0,90, margin ≥0,40 và fit quyền sở hữu ≥0,70
+(`jevHarnessMinFit`; intent thiết bị giữ 0,95). Jev chấm câu "bằng chứng có xác
+lập quyền sở hữu không" thấp hơn fit của intent: với ngưỡng chung 0,95, mọi
+request trong corpus có nhãn đều bị bỏ. Trên lamp-52e6 (14/10/2026), ngưỡng 0,70
+được chọn trên 34 câu và kiểm trên 25 câu held-out, mỗi bộ ba lượt: đúng 100/102
+và 71/75 quyết định, không chọn nhầm session nào, các lần bỏ quay về ID của main
+model. Code được ship sau đó đúng 116/118. Chạy corpus bằng
+`JEV_EVAL_CONFIG=/root/config/config.json` và `-test.run TestJevHarnessLiveOwnership`.
+
 Helper kiểm tra lại máy đã pair và server instance sau khi chọn; nếu danh tính
 kết nối đổi thì từ chối dispatch, không gửi qua kết nối khác. Sau khi reservation
 delivery được lưu, target không đổi khi retry hoặc đối chiếu receipt chưa rõ. Store `dispatch` giữ agent đã chuẩn bị; `answer` và `stop` giữ

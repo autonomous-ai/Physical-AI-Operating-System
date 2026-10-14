@@ -338,6 +338,16 @@ helper's selector HTTP timeout is four seconds. Only one JEV selection runs at a
 time, with no queue. A missing or stale snapshot, oversized input, missing proxy
 credentials, busy selector, provider error, timeout, invalid result or abstention
 falls back to the main model's proposed ID. Disabling the flag bypasses JEV.
+
+A selection needs choice probability ≥0.90, margin ≥0.40 and ownership fit
+≥0.70 (`jevHarnessMinFit`; device intents keep 0.95). Jev scores "does this
+evidence establish ownership" lower than an intent fit: under the shared 0.95
+gate every request on the labeled corpus abstained. On lamp-52e6 (2026-10-14)
+the 0.70 gate was chosen on 34 cases and checked on 25 held-out ones, three
+runs each: 100/102 and 71/75 decisions right, no wrong session, with the
+misses abstaining to the main model's ID. The shipped code then scored 116/118.
+Run the corpus with `JEV_EVAL_CONFIG=/root/config/config.json` and
+`-test.run TestJevHarnessLiveOwnership`.
 The proxy receives bounded delegated task text and candidate metadata, not full
 transcripts or conversation history. Metadata remains untrusted input; this does
 not guarantee that JEV has enough context to recover the original user intent.

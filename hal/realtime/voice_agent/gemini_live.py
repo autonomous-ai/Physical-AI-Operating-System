@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import queue
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -87,6 +88,76 @@ def _gemini_rates_for(model: str) -> dict[tuple[str, str], float]:
     return _GEMINI_RATES_FALLBACK
 
 
+class _SilenceMarkerAudioGate:
+    """Hold only audio accompanied by a possible explicit silence marker.
+
+    Audio without text remains streaming. Once any audio is released, later
+    metadata cannot retroactively make the response silent. Overflow fails open.
+    """
+
+    def __init__(self, emit, *, enabled, max_bytes=192000):
+        self._emit = emit
+        self._enabled = enabled
+        self._max_bytes = max_bytes
+        self.reset()
+
+    def reset(self):
+        self._text = ""
+        self._pending = []
+        self._bytes = 0
+        self._released = False
+
+    def _candidate(self):
+        text = re.sub(r"\s+", "", self._text).upper()
+        if not text:
+            return False
+        tail = re.sub(r"^(?:(?:NO_REPLY)|(?:<NOSPEECH>))+", "", text)
+        return not tail or any(marker.startswith(tail) for marker in ("NO_REPLY", "<NOSPEECH>"))
+
+    def _complete(self):
+        return bool(re.fullmatch(r"\s*(?:(?:NO_REPLY|<\s*no\s+speech\s*>)\s*)+", self._text, re.I))
+
+    def observe(self, text):
+        if not self._enabled or self._released:
+            return
+        self._text += text
+        if len(self._text) > 256 or not self._candidate():
+            self._flush()
+            self._released = True
+
+    def _flush(self):
+        for event in self._pending:
+            self._emit(event)
+        if self._pending:
+            self._released = True
+        self._pending.clear()
+        self._bytes = 0
+
+    def publish(self, event):
+        if not isinstance(event.output, AudioOutput):
+            self._emit(event)
+            return
+        if self._enabled and not self._released and self._candidate():
+            size = event.output.audio.nbytes
+            if self._bytes + size <= self._max_bytes:
+                self._pending.append(event)
+                self._bytes += size
+                return
+            self._flush()
+        self._released = True
+        self._emit(event)
+
+    def finish(self):
+        if self._complete() and not self._released:
+            if self._pending:
+                logger.info("[realtime] Suppressed marker-only native audio: marker=%r buffered_bytes=%d",
+                            self._text.strip(), self._bytes)
+            self._pending.clear()
+            self._bytes = 0
+        else:
+            self._flush()
+
+
 class GeminiLiveAgent(VoiceAgentBase):
     def __init__(
         self,
@@ -166,6 +237,20 @@ class GeminiLiveAgent(VoiceAgentBase):
         return getattr(self, "_requires_fresh_session", False) or bool(
             self._pending_tool_calls
         )
+
+    @override
+    def _on_receive_timeout(self) -> None:
+        # A consumer timeout cannot finish the provider's receive coroutine or
+        # release its turn-done barrier. Reusing that connection makes the next
+        # commit wait ten seconds and can attribute late output to a new turn.
+        # Live idle periods have no manual response obligation and stay open.
+        if (not app_config.LIVE_MODE and self._committed_at > 0
+                and not self._turn_done.is_set()):
+            self._requires_fresh_session = True
+            logger.warning(
+                "[realtime] Gemini response timed out without completion; "
+                "session requires replacement before the next capture"
+            )
 
     @property
     @override
@@ -773,6 +858,8 @@ class GeminiLiveAgent(VoiceAgentBase):
         self._progress_watchdog_enabled = _requires_outcome and not app_config.LIVE_MODE
         _outcome_received = False
         _routing_received = False
+        _blocking_tool_continuation = False
+        _blocking_tool_boundary_seen = False
         _direct_answer_confirmed = False
         # Log-only: whether the model called complete_response this turn. In an
         # IDLE session that call is advisory and sets nothing else, so without
@@ -784,6 +871,7 @@ class GeminiLiveAgent(VoiceAgentBase):
         _turn_transcript = ""
         _spoken_response = ""
         _initial_speech = False
+        _accepted_pcm = False
         _text_segment_open = _held_text_segment_open = False
         _empty_terminal_pending = False
         _initial_active_until = 0.0
@@ -802,6 +890,7 @@ class GeminiLiveAgent(VoiceAgentBase):
         _grace_deadline: float = 0.0
         _deferred_finalize: Callable[[], Any] | None = None
         _receiver = self._session.receive().__aiter__()
+        silence_audio = _SilenceMarkerAudioGate(self._recv_queue.put, enabled=not app_config.LIVE_MODE)
 
         def _log_timing(event: str) -> None:
             now = time.monotonic()
@@ -886,7 +975,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                 # Extended Thinking finished the whole interaction; empty output still needs recovery.
                 return (_requires_outcome and not _routing_received
                         and not execution_interrupted and not delayed_playback_ack
-                        and (not _spoken_response.strip() or bool(self._pending_tool_calls)
+                        and (not (_spoken_response.strip() or _accepted_pcm) or bool(self._pending_tool_calls)
                              or bool(_continuation) or _continuation_overflow))
             independently_complete = None
             continuation_released = False
@@ -920,8 +1009,9 @@ class GeminiLiveAgent(VoiceAgentBase):
                         logger.warning("[realtime] Continuation outcome check timed out")
                         continuation_complete = None
                     if continuation_complete is True:
+                        silence_audio.observe(_continuation_text)
                         for event in _continuation:
-                            self._recv_queue.put(event)
+                            silence_audio.publish(event)
                         independently_complete = True
                         continuation_released = True
                         logger.info("[realtime] Releasing confirmed continuation after initial response")
@@ -971,6 +1061,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                 logger.warning("[realtime] No confirmed outcome after NON_BLOCKING response — forwarding to main")
                 if _initial_speech or _continuation or _progress_until:
                     self._requires_fresh_session = True
+            silence_audio.finish()
             _log_closed_without_handoff(transcript, fallback, "turn_complete")
             self._awaiting_playback_turn_complete = False
             self._first_audio_received = False
@@ -999,6 +1090,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                 logger.warning("[realtime] No confirmed outcome after NON_BLOCKING response — forwarding to main")
                 if _initial_speech or _continuation or _progress_until:
                     self._requires_fresh_session = True
+            silence_audio.finish()
             _log_closed_without_handoff(transcript, fallback, "generation_complete")
             self._user_transcript = ""
             self._awaiting_playback_turn_complete = True
@@ -1055,6 +1147,7 @@ class GeminiLiveAgent(VoiceAgentBase):
         while True:
             if replay_signal.is_set():
                 replay_signal.clear()
+                silence_audio.reset()
                 # A successful look replay replaces the filler even without `interrupted`.
                 try:
                     for check in (_outcome_check, _continuation_check):
@@ -1070,7 +1163,9 @@ class GeminiLiveAgent(VoiceAgentBase):
                 _initial_active_until = _continuation_active_until = 0.0
                 _last_continuation_output_until = _progress_until = 0.0
                 _outcome_received = _routing_received = False
+                _blocking_tool_continuation = _blocking_tool_boundary_seen = False
                 _direct_answer_confirmed = _initial_speech = False
+                _accepted_pcm = False
                 _complete_response_seen = False
                 _empty_terminal_pending = False
                 _text_segment_open = _held_text_segment_open = False
@@ -1134,8 +1229,10 @@ class GeminiLiveAgent(VoiceAgentBase):
                 if message is None:
                     continue
             except StopAsyncIteration:
-                if _deferred_finalize is not None or replay_response or interaction_status == "IN_PROGRESS":
+                if (_deferred_finalize is not None or replay_response
+                        or interaction_status == "IN_PROGRESS" or _blocking_tool_boundary_seen):
                     # SDK receive() ends at turn_complete, not socket close; keep reading the same session.
+                    _blocking_tool_boundary_seen = False
                     _receiver = self._session.receive().__aiter__()
                     await asyncio.sleep(0)
                     continue
@@ -1159,6 +1256,13 @@ class GeminiLiveAgent(VoiceAgentBase):
             # Liveness for the silent-turn watchdog (see note_server_activity).
             self.note_server_activity()
             self._log_usage(message, response_user_turn_id)
+            if (not app_config.LIVE_MODE and not _requires_outcome
+                    and message.tool_call and message.tool_call.function_calls):
+                if any(fc.name not in {"complete_response", "delegate_to_main", "reject_turn", "end_conversation", "look"}
+                       for fc in message.tool_call.function_calls):
+                    # Blocking tools finish a model generation, not the user's
+                    # request. Keep its receiver/consumer until the ACK's reply.
+                    _blocking_tool_continuation = True
             if app_config.LIVE_MODE and getattr(self, "_reject_followup_barrier", False):
                 content = message.server_content
                 incoming = getattr(content, "input_transcription", None)
@@ -1173,6 +1277,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                     self._live_speech_emitted = False
                     self._user_transcript = ""
                     response_user_turn_id = None
+                    _accepted_pcm = False
                     _text_segment_open = _held_text_segment_open = False
                     _routing_received = _outcome_received = False
                     _empty_terminal_pending = False
@@ -1213,6 +1318,7 @@ class GeminiLiveAgent(VoiceAgentBase):
             activity = getattr(message, "voice_activity", None)
             activity_type = getattr(activity, "voice_activity_type", None)
             if activity_type == "ACTIVITY_START":
+                _accepted_pcm = False
                 self._live_user_turn_id = ""
                 self._live_speech_emitted = False
             elif activity_type == "ACTIVITY_END":
@@ -1311,8 +1417,11 @@ class GeminiLiveAgent(VoiceAgentBase):
                                 and not _empty_terminal_pending
                                 and not _routing_received and not routing_in_message
                                 and not execution_interrupted and not content.interrupted):
+                            _accepted_pcm = _accepted_pcm or any(
+                                isinstance(event.output, AudioOutput) for event in _continuation)
+                            silence_audio.observe(_continuation_text)
                             for event in _continuation:
-                                self._recv_queue.put(event)
+                                silence_audio.publish(event)
                             _text_segment_open = _text_segment_open or _held_text_segment_open
                             _held_text_segment_open = False
                             _spoken_response += _continuation_text
@@ -1341,6 +1450,19 @@ class GeminiLiveAgent(VoiceAgentBase):
                     response_user_turn_id = interrupted_user_turn_id
                     self._live_user_turn_id = ""
                     self._live_speech_emitted = False
+
+                if _blocking_tool_continuation and not message.tool_call:
+                    continuation_speech = bool(
+                        content.output_transcription and content.output_transcription.text
+                    ) or any(
+                        not getattr(part, "thought", False)
+                        and getattr(part, "inline_data", None)
+                        and part.inline_data.data
+                        for part in (content.model_turn.parts if content.model_turn else [])
+                    )
+                    if ((continuation_speech and not self._pending_tool_calls)
+                            or content.interrupted):
+                        _blocking_tool_continuation = False
 
                 _in_tx = getattr(content, "input_transcription", None)
                 if _in_tx is not None and (_in_tx.text or getattr(_in_tx, "finished", False) is True):
@@ -1403,12 +1525,22 @@ class GeminiLiveAgent(VoiceAgentBase):
                     # Freeze unknown ownership instead of attributing this response to a later input.
                     response_user_turn_id = getattr(self, "_live_user_turn_id", "")
 
+                if accept_speech and content.output_transcription and content.output_transcription.text:
+                    silence_audio.observe(content.output_transcription.text)
+                if content.interrupted:
+                    _accepted_pcm = False
+                    silence_audio.reset()
+
                 if content.model_turn and content.model_turn.parts and accept_speech:
                     for part in content.model_turn.parts:
                         # Skip thought parts (part.thought=True) so reasoning is never spoken.
                         if getattr(part, "thought", False):
                             continue
                         if part.inline_data and part.inline_data.data:
+                            # Native PCM is response evidence even when the provider
+                            # omits output transcription. Only server IDLE uses it
+                            # as completion evidence; the renderer decides delivery.
+                            _accepted_pcm = True
                             _initial_speech = True
                             _initial_active_until = (
                                 time.monotonic() + app_config.REALTIME_RECV_QUEUE_TIMEOUT_S)
@@ -1436,7 +1568,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                                         )
                                 self._last_audio_sent_at = None
                                 self._activity_end_sent_at = None
-                            self._recv_queue.put(
+                            silence_audio.publish(
                                 OutputEvent(
                                     gen=getattr(self, "_turn_gen", 0),
                                     output=AudioOutput(
@@ -1454,6 +1586,18 @@ class GeminiLiveAgent(VoiceAgentBase):
                 if _in_tx is not None and _in_tx.text:
                     logger.info("[realtime] <<< user said: %r", _in_tx.text)
                     self._user_transcript = getattr(self, "_user_transcript", "") + _in_tx.text
+                    if not app_config.LIVE_MODE:
+                        # Manual activity boundaries already own this turn. Publish
+                        # input text without creating live VAD or barge-in state.
+                        generation = getattr(self, "_turn_gen", 0)
+                        self._recv_queue.put(OutputEvent(
+                            gen=generation,
+                            output=UserSpeechOutput(
+                                turn_id=f"gemini-turn-{generation}",
+                                transcript=_in_tx.text,
+                                transcript_finished=getattr(_in_tx, "finished", False) is True,
+                            ),
+                        ))
 
                 if (content.output_transcription and content.output_transcription.text
                         and accept_speech):
@@ -1594,7 +1738,12 @@ class GeminiLiveAgent(VoiceAgentBase):
                     await _finalize_turn_complete(False)
                     return
 
-                if interaction_status is None and content.turn_complete and not reject_in_message:
+                if (_blocking_tool_continuation and (content.turn_complete
+                        or getattr(content, "generation_complete", False))):
+                    _blocking_tool_boundary_seen = True
+
+                if (interaction_status is None and content.turn_complete and not reject_in_message
+                        and not _blocking_tool_continuation):
                     _continuation_active_until = 0.0
                     delayed_playback_ack = app_config.LIVE_MODE and getattr(
                         self, "_awaiting_playback_turn_complete", False
@@ -1615,6 +1764,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                     return
 
                 if (interaction_status is None and not reject_in_message
+                        and not _blocking_tool_continuation
                         and getattr(content, "generation_complete", False)):
                     _continuation_active_until = 0.0
                     # HAL plays audio itself, so don't wait for Gemini's playback-deferred turn_complete.
@@ -1684,6 +1834,7 @@ class GeminiLiveAgent(VoiceAgentBase):
                         # Publish before the consumer can ACK.
                         self._reject_followup_barrier = True
                     if fc.name in {"delegate_to_main", "reject_turn", "end_conversation"}:
+                        _blocking_tool_continuation = False
                         _outcome_received = True
                         _routing_received = True
                     if (fc.name == "delegate_to_main"
@@ -1705,7 +1856,9 @@ class GeminiLiveAgent(VoiceAgentBase):
                             ),
                         )
                     )
-                if (reject_in_message and message.server_content is not None
+                if ((reject_in_message or (not app_config.LIVE_MODE
+                        and not _requires_outcome and _routing_received))
+                        and message.server_content is not None
                         and (message.server_content.turn_complete
                              or getattr(message.server_content, "generation_complete", False))):
                     await _finalize_turn_complete(False)
@@ -1732,8 +1885,11 @@ class GeminiLiveAgent(VoiceAgentBase):
                 if (_empty_terminal_pending and not _routing_received
                         and not execution_interrupted and not _continuation_overflow
                         and not self._pending_tool_calls):
+                    _accepted_pcm = _accepted_pcm or any(
+                        isinstance(event.output, AudioOutput) for event in _continuation)
+                    silence_audio.observe(_continuation_text)
                     for event in _continuation:
-                        self._recv_queue.put(event)
+                        silence_audio.publish(event)
                     _spoken_response += _continuation_text
                     _continuation.clear()
                     _continuation_text = ""

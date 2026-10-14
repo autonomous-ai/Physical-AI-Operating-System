@@ -181,11 +181,13 @@ class SileroVADFilter:
             logger.warning("Silero VAD inference error: %s", e)
             return True
 
-    def speech_metrics(self, data, device_rate: int):
+    def speech_metrics(self, data, device_rate: int, *, score_sink=None):
         """Return (peak, mean, voiced_ratio, span_ratio, span_seconds) for `data`.
 
         The 0.0 span is deliberately NOT a plausible utterance length — a fail-open path
-        must not hand a duration gate a number it can act on.
+        must not hand a duration gate a number it can act on. Optional score_sink
+        receives raw probabilities after inference; strict consumers must still
+        reject the failure sentinel rather than treating it as measured evidence.
         """
         if self._session is None:
             return (1.0, 1.0, 1.0, 1.0, 0.0)
@@ -222,6 +224,8 @@ class SileroVADFilter:
 
             if not confs:
                 return (1.0, 1.0, 1.0, 1.0, 0.0)
+            if score_sink is not None:
+                score_sink.extend(confs)
             peak = max(confs)
             mean = sum(confs) / len(confs)
             voiced = [c >= SILERO_VAD_THRESHOLD for c in confs]

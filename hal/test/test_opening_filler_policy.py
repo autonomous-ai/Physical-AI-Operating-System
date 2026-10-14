@@ -13,6 +13,7 @@ from hal.drivers.voice._internal.wakeword_focus import WakeWordFocus
 from hal.realtime.models import TextOutput
 
 
+@pytest.mark.parametrize('provider,available', [('openai', True), ('gemini', True), ('gemini', False)])
 @pytest.mark.parametrize(
     'entry,active,wake,enabled,expire,suppressed',
     [
@@ -27,7 +28,7 @@ from hal.realtime.models import TextOutput
     ],
 )
 def test_capture_keeps_listening_but_only_openers_get_audio_feedback(
-    monkeypatch, entry, active, wake, enabled, expire, suppressed,
+    monkeypatch, entry, active, wake, enabled, expire, suppressed, provider, available,
 ):
     clock = [0.0]
     focus = WakeWordFocus(5, clock=lambda: clock[0])
@@ -42,10 +43,11 @@ def test_capture_keeps_listening_but_only_openers_get_audio_feedback(
     service._automatic_reply_cancelled_at = None
     service._stt_drain_worker = None
     service._stt_drain_future = None
+    service.bare_wake_phrase.return_value = False
     service._running = False
     service._tts = None
     service._wakeword_focus = focus
-    service._realtime.available = True
+    service._realtime.available = available
     service._realtime.rebuilding = False
     service._decorator.starts_with_wake_word.side_effect = lambda t: t.lower().startswith('hello lamp')
     service._decorator.classify_wake_word.return_value = (request, 'voice_command' if wake else 'voice')
@@ -66,6 +68,7 @@ def test_capture_keeps_listening_but_only_openers_get_audio_feedback(
     stt.start.side_effect = start
     monkeypatch.setattr(voice.hal_config, 'VOICE_OPENING_FILLERS_ONLY', enabled)
     monkeypatch.setattr(voice.hal_config, 'REALTIME_ENABLED', True)
+    monkeypatch.setattr(voice.hal_config, 'REALTIME_PROVIDER', provider)
     monkeypatch.setattr(voice.hal_config, 'WAKEWORD_ENABLED', True)
     monkeypatch.setattr(voice.voice_cfg, 'LIVE_MODE', False)
     monkeypatch.setattr(gaze, 'on_speech_end', lambda: None)
@@ -86,12 +89,15 @@ def test_capture_keeps_listening_but_only_openers_get_audio_feedback(
     )
 
     service._set_emotion_local.assert_any_call(presets.EMO_LISTENING)
-    assert service._backchannel.on_partial.called is (not suppressed)
-    realtime.assert_called_once()
-    assert realtime.call_args.kwargs['suppress_auto_fillers'] is suppressed
+    assert service._backchannel.on_partial.called is (not suppressed and not (provider == "gemini" and available))
+    if available:
+        realtime.assert_called_once()
+        assert realtime.call_args.kwargs['suppress_auto_fillers'] is suppressed
+    else:
+        realtime.assert_not_called()
     dispatch.assert_called_once()
     assert dispatch.call_args.kwargs['suppress_auto_fillers'] is suppressed
-    assert filler.arm.called is (not suppressed)
+    assert filler.arm.called is (available and not suppressed)
 
 
 @pytest.mark.parametrize('suppressed', [False, True])
@@ -257,3 +263,42 @@ def test_existing_explicit_and_live_routes_do_not_inherit_followup_suppression(m
         service._backchannel.on_partial.assert_not_called()
     else:
         service._try_live_opener.assert_called_once()
+
+
+@pytest.mark.parametrize("provider", ["gemini", "openai"])
+def test_wait_filler_only_schedules_for_other_providers(monkeypatch, provider):
+    monkeypatch.setattr(realtime_turn.hal_config, "REALTIME_PROVIDER", provider)
+    monkeypatch.setattr(realtime_turn.hal_config, "REALTIME_FILLER_DELAY_S", 2.0)
+    timer = Mock()
+    post = Mock()
+    monkeypatch.setattr(realtime_turn.threading, "Timer", timer)
+    monkeypatch.setattr(realtime_turn.requests, "post", post)
+    filler = realtime_turn._WaitFiller(owner="test-turn")
+    filler.arm()
+    if provider == "gemini":
+        timer.assert_not_called()
+        filler._fire()
+        post.assert_not_called()
+        assert not filler.fired
+    else:
+        timer.assert_called_once_with(2.0, filler._fire)
+        timer.return_value.start.assert_called_once()
+        filler._fire()
+        post.assert_called_once_with(realtime_turn.voice_cfg.OS_FILLER_URL, json={"owner": "test-turn"}, timeout=2)
+        assert filler.fired
+        filler.cancel()
+        timer.return_value.cancel.assert_called_once()
+
+
+def test_queued_wait_filler_stays_silent_after_switch_to_gemini(monkeypatch):
+    monkeypatch.setattr(realtime_turn.hal_config, "REALTIME_PROVIDER", "openai")
+    monkeypatch.setattr(realtime_turn.hal_config, "REALTIME_FILLER_DELAY_S", 2.0)
+    monkeypatch.setattr(realtime_turn.threading, "Timer", Mock())
+    post = Mock()
+    monkeypatch.setattr(realtime_turn.requests, "post", post)
+    filler = realtime_turn._WaitFiller()
+    filler.arm()
+    monkeypatch.setattr(realtime_turn.hal_config, "REALTIME_PROVIDER", "gemini")
+    filler._fire()
+    post.assert_not_called()
+    assert not filler.fired

@@ -1,5 +1,90 @@
 # Realtime Voice Agent
 
+Authorized automatic Gemini turns with positive acoustic speech evidence can
+commit before Deepgram FINAL. STT drains in parallel for delegation/fallback;
+direct replies and explicit rejections do not wait for the drain. Late STT
+callbacks are retired when that audio turn completes. Handled realtime history and answered-for-main handoffs prefer Gemini's input
+transcript even when STT has finished; absent provider input falls back to STT.
+The assistant answer is never used as user text. Speaker/enrollment metadata
+is preserved, and ordinary delegation retains STT. Closed
+wake gates, bare calls, pending main-agent questions and other providers keep
+their existing admission paths. This removes a dependency, not the need for
+endpoint detection or model addressee judgment.
+If a committed Gemini turn times out without provider completion, replace its
+session before the next capture; do not replay it or treat timeout as rejection.
+In non-LIVE plain-model turns, an auxiliary blocking tool such as `express_emotion`
+does not complete the user's request: keep its generation and consumer through
+the tool ACK and subsequent answer. Extended-thinking grace and `look` replay
+retain their existing lifecycles.
+Native PCM followed by provider IDLE counts as a completed response even without
+output transcription; external TTS still needs text. Pending tools, unfinished
+continuations and transport timeouts retain fallback. Explicit silence markers
+(`NO_REPLY` / `<no speech>`) suppress buffered marker audio and use the rejection
+path only when no real audio has already played. An ordinary empty response is
+not automatically a rejection. Late reject ACKs do not generate another response
+on a non-resumable session that already requires replacement.
+
+Authorized automatic Gemini capture can upload STT on a bounded, single-owner
+worker, so STT connect/send/close does not stall microphone capture. Incomplete
+or failed uploads cannot supply partial fallback transcripts. Existing manual,
+other-provider and preconnected STT paths retain their lifecycle. If a Gemini
+rebuild finishes during capture, buffered audio resumes immediately; if it is
+still running at the endpoint, the existing readiness wait is capped at two
+seconds before fallback. Cancellation never uploads a late completed take.
+
+Automatic non-LIVE endpoint noise checks use contiguous audio windows, including
+quiet frames. Intermittent loud frames are never concatenated across quiet gaps.
+A pending loud window must be classified before closing; accepted windows update
+the speech clock/trim index to their last above-RMS frame, not their quiet tail.
+All-quiet windows do not refresh the clock, including VAD failure fallback.
+Thresholds, manual/Harness capture and the separate LIVE idle detector are unchanged.
+
+Post-capture Silero checks reuse one valid metrics result within the same capture
+only when PCM bytes, sample rate and detector identity match exactly. Changed or
+trimmed audio is analyzed again. Admission thresholds and fail-open/fail-closed
+policy are reapplied on every call; unavailable, failed and sentinel results are
+not cached. This removes repeated inference on identical audio, not the first
+speech check, and does not change endpoint thresholds.
+
+`HAL_STREAM_NOISE_EVIDENCE=true` enables optional streaming Silero evidence
+(default off). A per-capture worker receives the same PCM sent to STT, with a
+256 KiB queue including in-flight bytes and a capture-duration sample limit.
+Only exact SHA256-matched, 512-sample-aligned processed prefixes from the same
+model may replace a whole-buffer scan. Changed, incomplete, cancelled, failed
+or overflowing evidence falls back immediately to the existing guard. Thresholds
+and fail-open/fail-closed policy remain unchanged; no inference wait is added
+to capture. Partial trailing blocks are not padded or reused.
+
+## Experimental independent microphone capture
+
+`HAL_CONTINUOUS_MIC_CAPTURE=true` opts automatic, non-LIVE ALSA capture into an
+independent reader after AEC. It remains off by default pending acoustic testing.
+The reader defaults to 16 recent frames (1.024 seconds at 64 ms/frame).
+`HAL_CONTINUOUS_MIC_BACKLOG_S` configures retention, clamped to 1.024–10 seconds;
+frame count is rounded up. Device trials used 8 seconds without changing the
+default. The reader drains during reply processing, and suppresses playback plus the existing echo-tail
+budget at capture time. VAD does not repeat the echo skip after a delayed resume.
+A backchannel cue replaces only overlapping frames with silence, preserving
+queued speech and sequence; it does not itself abort an active turn.
+Discontinuities from actual loss reset VAD history; a gap during an STT turn discards that incomplete
+turn rather than dispatching a stitched transcript. Manual capture, sounddevice
+and LIVE paths are unchanged. Reader teardown must finish before backend closure;
+a failed teardown stops the voice loop instead of opening a second recorder.
+This bounds backlog, not full-duplex support: a user speaking while the consumer
+is occupied longer than the retained window can still lose audio. Target: no
+additional post-playback consumer delay and no stale playback reaching STT.
+Physical capture and end-to-end latency must be measured on device.
+
+Smart Turn loads its analyzer on its existing background worker at detector
+startup, so the first endpoint does not pay model-loading time. Capture never
+waits for this preload; one request may wait for initialization, and cancellation
+discards it. Initialization failure retains the existing silence fallback.
+Endpoint thresholds and admission rules are unchanged. The measured cold-load
+cost motivating this change was 120 ms on 52e6; this is not a claimed end-to-end
+latency improvement.
+
+Gemini uses conversational context to assess each utterance, including follow-ups in an open wake window. A misheard name or topic change alone does not establish bystander speech. After interruption, the prompt requests a response to the new addressed request rather than resuming the old answer. HAL does not schedule automatic wait fillers for Gemini, and suppresses STT-partial backchannels while Gemini is available; natural vocal reactions belong inside an admitted model answer. Other providers and the existing main-agent fallback retain their cue policies. SOUL, configured-language rules and delegation contracts are unchanged. This adds no network round trip or deliberate delay; target zero added scheduling latency. Prompt rules still require acoustic testing and do not guarantee addressee recognition.
+
 Sleep/wake requests addressed to the device (including “Can you sleep?”) delegate silently to main rather than receiving an identity/chat reply. Main retains capability checks and Harness voice sleep restrictions, and confirms only the actual outcome. “Do robots need sleep?” remains general knowledge; “I can’t sleep” is user wellbeing, not a device sleep command. This rule applies to all realtime provider prompts, including the GPT Live backend.
 
 The sleep/wake rule also covers addressed joint requests and corrections such as “Can we sleep now?”, “I mean, can you sleep now?”, and “Ngủ đi”. It takes precedence over the direct-answer/persona default and delegation-latency preference. Realtime must hand off before speaking and must not substitute biological-sleep explanations, goodnight, promises to dim lights/stay quiet, or `complete_response` for execution. This remains a contextual prompt rule, not a sleep-keyword router; prompt-contract tests do not prove live-model compliance.

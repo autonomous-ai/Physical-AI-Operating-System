@@ -2,11 +2,13 @@
 
 import json
 import logging
+import re
 
 from hal import config as hal_config
 from hal.drivers.voice._internal.realtime_turn import (
     ROUTE_NOISE_DROPPED,
     ROUTE_HANDLED,
+    canonical_realtime_user_text,
     should_drop_downstream_turn,
 )
 from hal.drivers.voice.speech_emotion.constants import UNKNOWN_USER_LABEL
@@ -171,6 +173,26 @@ def dispatch_turn(
     final_text, event_type = decorator.classify_wake_word(combined)
     if event_type_override is not None:
         event_type = event_type_override
+    # Authorization/event classification belongs to the original capture. Only
+    # after that decision choose the user's text paired with the spoken answer.
+    stt_text = combined
+    combined = canonical_realtime_user_text(combined, rt)
+    if combined != stt_text:
+        if identity is not None:
+            decorated, se_user, display = identity
+            # Preserve the already-resolved speaker and enrollment metadata
+            # without another recognition call or the competing STT text.
+            speaker_prefix = f"Speaker - {display}: " if display else ""
+            prefix = speaker_prefix if speaker_prefix and decorated.startswith(speaker_prefix) else ""
+            if not prefix:
+                unknown_prefix = re.match(r"Unknown Speaker:(?: \[voice:[^\]]*\])? ", decorated)
+                if unknown_prefix:
+                    prefix = unknown_prefix.group(0)
+            body = decorated[len(prefix):]
+            decorated = (prefix + body.replace(final_text, combined, 1)
+                         if final_text and final_text in body else prefix + combined)
+            identity = (decorated, se_user, display)
+        final_text = combined
     routing_kwargs["voice_turn_type"] = voice_turn_type or event_type
     user = UNKNOWN_USER_LABEL
 
@@ -190,7 +212,7 @@ def dispatch_turn(
         rt.route,
         destination,
         event_type,
-        combined[:80] if combined else "(empty)",
+        stt_text[:80] if stt_text else "(empty)",
         interaction_id,
     )
 

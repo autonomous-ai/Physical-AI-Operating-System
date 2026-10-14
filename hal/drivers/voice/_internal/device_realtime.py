@@ -7,7 +7,7 @@ from hal import config
 from hal.drivers.voice._internal import config as voice_config
 from hal.drivers.voice._internal.realtime_turn import (
     ROUTE_CANCELLED, ROUTE_ERROR, ROUTE_NOISE_DROPPED, ROUTE_UNAVAILABLE,
-    RealtimeTurnResult, build_turn_context, run_realtime_turn,
+    RealtimeTurnResult, build_turn_context, canonical_realtime_user_text, run_realtime_turn,
     should_drop_downstream_turn,
 )
 from hal.realtime.utils import StreamingResampler, pcm16_bytes_to_float32
@@ -204,7 +204,7 @@ class DeviceRealtimeTurn:
                 try:
                     # Memory belongs to the orchestrator, not its current
                     # connection; unavailable-provider fallbacks still count.
-                    realtime.save_main_handoff(combined)
+                    realtime.save_main_handoff(canonical_realtime_user_text(combined, result))
                 except Exception:
                     logger.exception("Device main-agent handoff memory failed")
         return result

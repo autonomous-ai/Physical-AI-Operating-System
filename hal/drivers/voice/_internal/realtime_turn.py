@@ -17,6 +17,7 @@ from hal.realtime.config import gemini_needs_idle_workaround
 from hal.realtime.voice_agent.base import AudioTurnSessionChanged
 from hal.realtime.models import AudioOutput as RTAudioOutput
 from hal.realtime.models import TextOutput as RTTextOutput
+from hal.realtime.models import UserSpeechOutput
 from hal.realtime.models import TextSegmentEndOutput as RTTextSegmentEndOutput
 from hal.realtime.models.signal import DelegateSignal, LookReplaySignal, RejectSignal
 from hal.drivers.voice._internal import config as voice_cfg
@@ -218,6 +219,10 @@ class _WaitFiller:
         self._owner = owner
 
     def arm(self) -> None:
+        # Gemini owns conversational sounds inside its admitted answer. Keep
+        # other providers' wait cues and the main-agent fallback unchanged.
+        if hal_config.REALTIME_PROVIDER.strip().lower() == "gemini":
+            return
         delay = hal_config.REALTIME_FILLER_DELAY_S
         if delay <= 0 or self._timer is not None or self._fired:
             return
@@ -226,6 +231,9 @@ class _WaitFiller:
         self._timer.start()
 
     def _fire(self) -> None:
+        # A queued callback must also honor a provider switch to Gemini.
+        if hal_config.REALTIME_PROVIDER.strip().lower() == "gemini":
+            return
         self._fired = True
         try:
             requests.post(
@@ -349,6 +357,15 @@ class RealtimeTurnResult(NamedTuple):
     handoff_context: str = ""
     # Realtime answered aloud a turn owed to a pending main-agent question (#564).
     answered_for_main: bool = False
+    # Provider input transcription; never assistant speech.
+    user_transcript: str = ""
+
+
+def canonical_realtime_user_text(stt_text: str, rt: RealtimeTurnResult) -> str:
+    """Pair a realtime answer with its provider's input, retaining STT fallback."""
+    if rt.handled or rt.answered_for_main:
+        return rt.user_transcript.strip() or stt_text
+    return stt_text
 
 
 def should_drop_realtime_rejection(rt: RealtimeTurnResult) -> bool:
@@ -530,6 +547,7 @@ def run_realtime_turn(
     capture_finished_at: Optional[float] = None,
     suppress_auto_fillers: bool = False,
     background_cancel_recovery: bool = False,
+    audio_admitted: bool = False,
 ) -> RealtimeTurnResult:
     """Commit the captured audio to the realtime agent and stream its reply."""
     delegated = False
@@ -538,6 +556,7 @@ def run_realtime_turn(
     rejected = False
     foreign_suppressed = False
     transcript = ""
+    user_transcript = ""
     delegate_msg = ""
     handoff_context = ""
     route = ROUTE_NOT_STARTED
@@ -595,12 +614,17 @@ def run_realtime_turn(
         logger.info("[realtime] Harness follow-up active — delegating without realtime reply")
         return RealtimeTurnResult(delegated=True, delegate_msg=combined, route=ROUTE_DELEGATED)
 
-    # Noise/false-trigger guard: a session with no STT transcript is not worth a model
-    # turn. "No transcript" → don't speak.
+    # Default noise guard requires STT evidence before opening a model turn.
     # An explicit finish tap authorizes voiced audio without waiting for STT.
-    # Automatic turns retain their transcript-based false-trigger policy.
+    # A caller may explicitly admit verified Gemini speech before STT completes.
+    # Existing transcript rejection and explicit-tap semantics stay unchanged.
     noise_turn = ((buf_duration <= 0 or not audio_is_speech) if explicit_capture
                   else is_noise_turn(combined, buf_duration, audio_is_speech))
+    if (not explicit_capture and not combined and audio_admitted
+            and hal_config.REALTIME_PROVIDER.strip().lower() == "gemini"
+            and audio_is_speech is True
+            and buf_duration >= hal_config.REALTIME_MIN_COMMIT_DURATION_S):
+        noise_turn = False
     # Only the first actionable answer after main's question is owed to main;
     # noise keeps the window for the real answer (#564). Checked here but consumed
     # at the end, so a session recovery mid-turn still resends the delegate note.
@@ -661,6 +685,7 @@ def run_realtime_turn(
                         _check_turn_active(stop_event)
                         realtime.append_audio(_frame, **({"turn": audio_turn} if audio_turn is not None else {}))
                     text_parts = []
+                    user_transcript = ""
                     sentence_buf = ""
                     first_sentence_sent = False
                     leak_filter = CoTLeakFilter(reply_lang)
@@ -684,6 +709,9 @@ def run_realtime_turn(
                 native_pending = []
                 native_pending_samples = 0
                 for output in _active_outputs(outputs, stop_event):
+                    if isinstance(output, UserSpeechOutput):
+                        user_transcript += output.transcript
+                        continue
                     if not first_output_logged:
                         first_output_logged = True
                         if capture_finished_at is not None:
@@ -867,6 +895,7 @@ def run_realtime_turn(
                         _check_turn_active(stop_event)
                         realtime.append_audio(_frame, **({"turn": audio_turn} if audio_turn is not None else {}))
                     text_parts = []
+                    user_transcript = ""
                     sentence_buf = ""
                     first_sentence_sent = False
                     leak_filter = CoTLeakFilter(reply_lang)
@@ -886,15 +915,18 @@ def run_realtime_turn(
 
             _check_turn_active(stop_event)
             transcript = clean_transcript(strip_markers("".join(text_parts)), reply_lang)
-            if (not native and not first_sentence_sent and not delegated
-                    and not look_replayed and not transcript and execution_completed
+            if (not native_started and not native_played and not first_sentence_sent and not delegated
+                    and not look_replayed and execution_completed
+                    and (not transcript or re.fullmatch(
+                        r"\s*(?:(?:NO_REPLY|<\s*no\s+speech\s*>)\s*)+", transcript, re.IGNORECASE))
                     and getattr(realtime, "intentional_silence", False) is True):
                 # Gemini completed a marker-only silent decision. Reuse the
                 # rejection route (including its feature flag and KPI exclusion)
                 # instead of sending a non-request to main as an empty failure.
                 rejected = True
+                transcript = ""
                 execution_completed = False
-                logger.info("[realtime] Completed <no speech> decision — treating as rejected input")
+                logger.info("[realtime] Completed explicit silence-marker decision — treating as rejected input")
 
             # Native playback owns the speaker for the whole turn — release it once all
             # frames are in (records transcript for STT echo cancel).
@@ -967,10 +999,10 @@ def run_realtime_turn(
                         "[realtime] Chit-chat complete — agent_reply=%r",
                         transcript[:200] if transcript else "(empty)",
                     )
-                    if save_history and (combined or transcript):
+                    if save_history and (combined or user_transcript or transcript):
                         _check_turn_active(stop_event)
                         realtime.save_turn(
-                            user_text=combined or "(audio only)",
+                            user_text=user_transcript.strip() or combined or "(audio only)",
                             agent_text=transcript or "(audio only)",
                         )
                 else:
@@ -1070,4 +1102,5 @@ def run_realtime_turn(
         rejected=rejected,
         execution_completed=execution_completed,
         answered_for_main=answered_for_main,
+        user_transcript=user_transcript,
     )

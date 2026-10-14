@@ -77,3 +77,14 @@ def test_unavailable_or_failed_model_still_fails_open(monkeypatch, metrics):
 
 def test_measured_silence_is_not_the_fail_open_sentinel():
     assert not accepts_speech_metrics((0, 0, 0, 0, 0), min_ratio=.45, min_voiced_ms=160)
+
+
+@pytest.mark.parametrize('metrics', [(1, 1, 1, 1, 0), RuntimeError('inference failed')])
+def test_audio_only_admission_requires_measured_evidence(metrics):
+    service = object.__new__(VoiceService)
+    service._rt_noise_vad = Mock(available=True)
+    if isinstance(metrics, Exception):
+        service._rt_noise_vad.speech_metrics.side_effect = metrics
+    else:
+        service._rt_noise_vad.speech_metrics.return_value = metrics
+    assert not service._rt_noise_is_speech(b'pcm', fail_open=False)

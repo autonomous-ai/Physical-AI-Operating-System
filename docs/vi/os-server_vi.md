@@ -1135,6 +1135,18 @@ Không fallback sang gọi OpenRouter trực tiếp. Khi tắt
 hoặc thiếu credential, không gọi HTTP Jev và chuyển tiếp ngay theo đường main
 runtime hiện có.
 
+Bộ luật phân loại chung (`jevBoundary`) chỉ gửi một lần, trong `state.rules`;
+mỗi câu hỏi mở đầu bằng `Apply state.rules.` thay vì chép lại. Chép lại ở cả
+24 câu hỏi làm mỗi request khoảng 89 KB và 18.100 token input; gửi một lần
+còn khoảng 8.600. Hai lượt chạy xen kẽ corpus live 162 câu trên lamp-52e6
+(14/10/2026) giảm p50 thời gian quyết định từ 1.598 xuống 845 ms và từ 804
+xuống 542 ms, đúng 154 thay vì 152 câu, không chọn sai action nào và vẫn
+đúng một lần kích nhầm như cũ. Bản client được ship sau đó đúng 153 câu,
+p50 488 ms, p90 535 ms. Thứ tự field của `state` (`candidates`,
+`prompt`, `rules`) là một phần của kết quả đó: đặt `rules` trước
+`candidates` thì cùng corpus chỉ đúng 144. Chọn session Harness vẫn lặp
+boundary riêng (ngắn hơn) ở từng câu hỏi.
+
 Code suy luận cốt lõi nằm trong `system/intent/jev/` (`client`, `resolver` và
 `catalog`). `system/intent/semantic.go` nối phần này với rule local và thực thi,
 tách quyết định của model khỏi tác động lên HAL.

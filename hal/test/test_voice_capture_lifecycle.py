@@ -37,13 +37,17 @@ def service(monkeypatch):
     s._np = np
     s._sd = Mock()
     s._stt = Mock(name='stt')
+    s._tts = None
+    s._music = None
+    s._backchannel = Mock(self_audio_active=False)
     monkeypatch.setattr(module.hal_config, 'REALTIME_ENABLED', False)
     monkeypatch.setattr(module.voice_cfg, 'TURN_END_ENABLED', False)
     return s
 
 
 @pytest.mark.parametrize('low_latency', [False, True])
-def test_stop_reaps_recorder_and_unblocks_read(monkeypatch, low_latency):
+@pytest.mark.parametrize('continuous', [False, True])
+def test_stop_reaps_recorder_and_unblocks_read(monkeypatch, low_latency, continuous):
     s = service(monkeypatch)
     popen = subprocess.Popen
     children = []
@@ -61,11 +65,15 @@ def test_stop_reaps_recorder_and_unblocks_read(monkeypatch, low_latency):
 
     def capture():
         try:
-            with s._capture(ArecordStream('test', 16000, 1, 320, np, low_latency=low_latency)) as mic:
+            with s._capture(
+                ArecordStream('test', 16000, 1, 320, np, low_latency=low_latency),
+                16000 if continuous else None,
+                continuous_frames=320 if continuous else None,
+            ) as mic:
                 reading.set()
                 while s._running:
                     mic.read(320)
-        except IOError:
+        except (IOError, InterruptedError):
             pass
         except Exception as error:
             errors.append(error)
@@ -81,6 +89,53 @@ def test_stop_reaps_recorder_and_unblocks_read(monkeypatch, low_latency):
     assert children[0].poll() is not None
     assert children[0].stdout.closed and children[0].stderr.closed
     assert not errors
+
+
+def test_continuous_capture_wraps_aec_and_stops_before_closing(monkeypatch):
+    s = service(monkeypatch)
+    backend = MagicMock()
+    wrapped = MagicMock()
+    events = []
+    wrapped.__exit__.side_effect = lambda *args: events.append('close')
+    monkeypatch.setattr(module.aec, 'wrap_mic', Mock(return_value=wrapped))
+    pump = Mock()
+    pump.start.return_value = pump
+    pump.stop.side_effect = lambda: events.append('join')
+    factory = Mock(return_value=pump)
+    monkeypatch.setattr(module, 'ContinuousCapture', factory)
+    with s._capture(backend, 16000, continuous_frames=1024) as mic:
+        assert mic is pump
+        assert factory.call_args.args[0] is wrapped.__enter__.return_value
+        assert s._active_mic is backend
+        suppressed = factory.call_args.kwargs['suppressed']
+        assert not suppressed()
+        s._backchannel.self_audio_active = True
+        assert not suppressed()
+        assert factory.call_args.kwargs['silenced']()
+    assert events == ['join', 'close']
+    assert s._active_mic is None
+
+
+def test_continuous_capture_failed_join_keeps_backend_open(monkeypatch):
+    s = service(monkeypatch)
+    backend = MagicMock()
+    wrapped = MagicMock()
+    monkeypatch.setattr(module.aec, 'wrap_mic', Mock(return_value=wrapped))
+    pump = Mock()
+    pump.start.return_value = pump
+    pump.stop.side_effect = RuntimeError('reader did not stop')
+    monkeypatch.setattr(module, 'ContinuousCapture', Mock(return_value=pump))
+    with pytest.raises(RuntimeError, match='reader did not stop'):
+        with s._capture(backend, 16000, continuous_frames=1024):
+            pass
+    wrapped.__exit__.assert_not_called()
+    assert s._active_mic is backend
+    assert not s._running
+    assert s._capture_teardown_failed
+    s._loop = Mock()
+    s.start()
+    assert not s._running
+    s._loop.assert_not_called()
 
 
 def test_abort_kills_and_reaps_unresponsive_recorder():

@@ -1165,6 +1165,13 @@ class RealtimeOrchestrator:
                     if not clean:
                         continue
                     output = output.model_copy(update={"text": clean})
+            if isinstance(output, InterruptedOutput) and output.reason == "output_turn_start":
+                # Gemini's first transcription emits a segment boundary, not
+                # an interrupted user turn. Preserve silence-marker admission
+                # only when this precedes all actual output in the response.
+                had_tool_or_interruption = had_tool_or_interruption or produced
+                yield output
+                continue
             if isinstance(output, (FunctionCallOutput, MainAgentFallbackOutput, InterruptedOutput)):
                 had_tool_or_interruption = True
             if isinstance(output, TextOutput):
@@ -1250,24 +1257,6 @@ class RealtimeOrchestrator:
                 isinstance(output, FunctionCallOutput)
                 and output.name == REJECT_TURN_TOOL_NAME
             ):
-                # LIVE output can be queued before the routing tool arrives; honor explicit rejection.
-                if produced and not config.LIVE_MODE:
-                    logger.warning(
-                        "[realtime] Ignoring reject_turn after output already began"
-                    )
-                    self._agent.send(
-                        [
-                            FunctionCallResultInput(
-                                call_id=output.call_id,
-                                output='{"error": "reject_turn must be the only turn outcome"}',
-                            )
-                        ]
-                    )
-                    # End rather than letting an ack generate a second response.
-                    self._agent.end_turn()
-                    break
-                rejected = True
-                logger.info("[realtime] Model explicitly rejected this turn")
                 # The rejection is final. An ACK can ask Gemini to generate another
                 # (unused) answer. Only abandon a non-resumable manual session whose
                 # pending tool already forces replacement before the next capture.
@@ -1282,6 +1271,25 @@ class RealtimeOrchestrator:
                     ) is False
                     and getattr(execution_agent, "requires_fresh_session", False) is True
                 )
+                # LIVE output can be queued before the routing tool arrives; honor explicit rejection.
+                if produced and not config.LIVE_MODE:
+                    logger.warning(
+                        "[realtime] Ignoring reject_turn after output already began"
+                    )
+                    self._agent.send(
+                        [
+                            FunctionCallResultInput(
+                                call_id=output.call_id,
+                                output='{"error": "reject_turn must be the only turn outcome"}',
+                                trigger_response=not abandon_rejection,
+                            )
+                        ]
+                    )
+                    # End rather than letting an ack generate a second response.
+                    self._agent.end_turn()
+                    break
+                rejected = True
+                logger.info("[realtime] Model explicitly rejected this turn")
                 self._agent.send(
                     [
                         FunctionCallResultInput(
@@ -1384,7 +1392,7 @@ class RealtimeOrchestrator:
             self.execution_completed
             and config.REALTIME_PROVIDER.strip().lower() == "gemini"
             and not had_tool_or_interruption
-            and re.fullmatch(r"\s*(?:<\s*no\s+speech\s*>\s*)+", "".join(silence_text), re.IGNORECASE)
+            and re.fullmatch(r"\s*(?:(?:NO_REPLY|<\s*no\s+speech\s*>)\s*)+", "".join(silence_text), re.IGNORECASE)
         )
 
         # Look replay continues the same logical turn: recycling now would orphan the sent image.

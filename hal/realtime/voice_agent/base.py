@@ -221,6 +221,9 @@ class VoiceAgentBase(ABC):
         """Raise the silent-turn watchdog for the current turn only (reset when receive() exits)."""
         self._recv_timeout_override_s = seconds
 
+    def _on_receive_timeout(self) -> None:
+        """Let a provider retire an unfinished response without inventing completion."""
+
     def receive(
         self, *, stop_on_done: bool = True, stop_event: threading.Event | None = None,
     ) -> Generator[OutputBase, None, None]:
@@ -321,6 +324,7 @@ class VoiceAgentBase(ABC):
                         max(0.0, self._progress_deadline_at - now),
                         max(0.0, self._output_deadline_at - now),
                     )
+                    self._on_receive_timeout()
                     turn_ended = True
                     break
                 if isinstance(event, TurnDoneEvent):

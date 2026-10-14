@@ -42,6 +42,8 @@ def capture(monkeypatch, frames, *, realtime=False, enabled=True, detector=None,
     service._wakeword_focus.is_active.side_effect = focus or (lambda: False)
     service._decorator.starts_with_wake_word.return_value = False
     service._decorator.matches_wake_word_loosely.return_value = False
+    service._decorator.matches_wake_prefix_slot.return_value = False
+    service.bare_wake_phrase.return_value = False
     service._decorator.classify_wake_word.side_effect = lambda text: (text, "voice")
     service._decorator.identify_and_decorate.side_effect = lambda text, *a, **kw: (text, None, None)
     stt = Mock()

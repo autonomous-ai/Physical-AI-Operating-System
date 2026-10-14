@@ -481,8 +481,10 @@ to speak to it and, as far as the records show, nobody did.
 | Times it stopped or paused for someone | 0 |
 
 **The one answer.** At 10:04:33 someone near the lamp said one short,
-loud word (0.31 s of speech) that the service wrote as "Oye.", and 2.3 s
-later the lamp said "Hey, I'm here." Nothing in the lamp's rule stood in
+loud word (0.31 s of speech) that the service wrote as a one-word "hey"
+in another language, and 2.3 s later the lamp said "Hey, I'm here." (What
+people around the lamp say is not copied into these pages, even one
+word.) Nothing in the lamp's rule stood in
 the way, and by the rule as decided it was not meant to: the room was
 judged quiet at that moment, and in a quiet room the lamp answers what is
 said near it. Its name was not heard. The eyes saw no face. The session

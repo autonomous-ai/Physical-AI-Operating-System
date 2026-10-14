@@ -140,25 +140,41 @@ you in the office", whose voice "must be perfect".
 
 ## The list
 
-Top first, each builder taking its own. The last column is the first
-builder's: `open`; `taken` and `on its builder's branch` as that
-builder's log reports them; then `on the lamp <date>`.
+The owner, 2026-10-14, 07:45: "let's finish building asap and get lamp in
+front of real customers!" So the order below is the order in which a
+piece gets the lamp nearer to a customer's desk, and each builder takes
+its own from the top. The numbers are names, not the order.
+
+**What a lamp in front of a customer needs that this one lacks,** and who
+has it:
+
+| It needs | Today | Who |
+|---|---|---|
+| To be stopped and silenced by a hand, whatever the voice is doing | No button or touch pad in V2 | Third: task 7 |
+| To start by itself after power comes back, get onto a network without a builder, and take new software | Voice and light come back; the body and the eyes are started by hand; no setup, no updates | Third: task 12. First: on the lamp |
+| A body that gives way against a hand and cannot tip itself over | V1's force limit and lean check are not in V2 | First |
+| Answers that begin sooner than two seconds after the person stops | Half begin within 1.98 s | Second: task 1. First: on the lamp |
+| To stop when someone says stop | One or two of seven short words | Second: task 3. First: with a person's voice |
+| To hear its name however it is said | "Hey Lamp" and "Lamp ơi", not a bare "Lamp" | Second: task 5 |
+| A day in a real room without a fault, with real voices | Played voices at night; one working day of records | First |
+| To move and light up as one thing | The body and the light each follow the voice | Third: task 4. First: with the camera |
+| To remember yesterday | A journal and whole-word search | Fourth: task 13 |
 
 | # | Task | Short name | Builder | State |
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | taken 2026-10-14 |
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | taken 2026-10-14 |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | open |
-| 4 | Expression: one part that authors what the lamp shows | `expression` | Third | open |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
-| 6 | Reminders and timers | `schedule` | Third | open |
-| 7 | The button and the touch pad | `controls` | Third | open |
-| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
-| 9 | Faster answers: what exists | `faster-answers` | Second | open |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
-| 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
+| 9 | Faster answers: what exists | `faster-answers` | Second | open |
+| 4 | Expression: one part that authors what the lamp shows | `expression` | Third | taken 2026-10-14 |
+| 7 | The button and the touch pad | `controls` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
-| 13 | Memory across days | `memory-days` | Fourth | open |
+| 6 | Reminders and timers | `schedule` | Third | open |
+| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
+| 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
+| 13 | Memory across days | `memory-days` | Fourth | taken 2026-10-14 |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second

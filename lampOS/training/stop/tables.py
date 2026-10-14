@@ -125,8 +125,12 @@ def main() -> None:
     print(f"\n## Phrases at {a.point}\n")
     print("\n".join(phrase_table(rows, a.point)))
     ami = result["ami"]
-    print(f"\n## AMI: hearings within 1.5 s after a transcribed target ({ami['targets_said']} said)\n")
-    print(json.dumps(ami["near_said_target"]))
+    print(f"\n## AMI: {ami['meetings']} meetings, {ami['hours']:.1f} h; targets said in them, and caught\n")
+    print("| Score from / steps in a row | " + " | ".join(f"{t} ({ami['targets_said'].get(t, 0)})" for t in TARGETS) + " |")
+    print("|---|" + "---:|" * len(TARGETS))
+    for point in points:
+        c = ami["targets_caught"].get(point, {})
+        print(f"| {point} | " + " | ".join(str(c.get(t, 0)) for t in TARGETS) + " |")
     print("\nAt 0.9/1, what was said before each hearing:\n")
     for d in ami["details_at_0.9"]:
         print(f"- {d['meeting']} {d['t']} s, {d['score']:.3f}{' (a target was said)' if d['target_said'] else ''}: \"{d['words']}\"")

@@ -25,6 +25,9 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 
+# The cut-short mel model leaves one constant unused, which onnxruntime warns of.
+ort.set_default_logger_severity(3)
+
 STEP = 1_280
 CHUNK = 1_760
 BINS = 32

@@ -189,24 +189,36 @@ def talk_streams(front, model, store: Store, quick: bool, group_by_speaker: bool
     return {"hours": seconds / 3600, "hearings": dict(total)}
 
 
-def ami_words(meeting: str) -> list[tuple[float, str]]:
+def ami_words(meeting: str):
+    """All words said in a meeting (start, word), and each target said (target, start, end)."""
     path = CACHE / "downloads" / "ami" / "ami_public_manual_1.6.2.zip"
-    out = []
+    words, targets = [], []
     with zipfile.ZipFile(path) as z:
         for name in z.namelist():
-            if re.fullmatch(rf"words/{meeting}\.[A-Z]\.words\.xml", name):
-                root = ElementTree.fromstring(z.read(name))
-                for w in root.iter():
-                    if w.tag.endswith("w") and w.text and "starttime" in w.attrib:
-                        out.append((float(w.attrib["starttime"]), w.text.lower()))
-    return sorted(out)
+            if not re.fullmatch(rf"words/{meeting}\.[A-Z]\.words\.xml", name):
+                continue
+            root = ElementTree.fromstring(z.read(name))
+            # One speaker's words in order: "hold" then "on" is only theirs.
+            own = [
+                (float(w.attrib["starttime"]), float(w.attrib.get("endtime", w.attrib["starttime"])), w.text.lower())
+                for w in root.iter()
+                if w.tag.endswith("w") and w.text and "starttime" in w.attrib and w.attrib.get("punc") != "true"
+            ]
+            words += [(s, w) for s, _, w in own]
+            for k, (s, e, w) in enumerate(own):
+                if w in ("stop", "wait"):
+                    targets.append((w, s, e))
+                elif w == "hold" and k + 1 < len(own) and own[k + 1][2] == "on":
+                    targets.append(("hold on", s, own[k + 1][1]))
+    return sorted(words), sorted(targets, key=lambda t: t[1])
 
 
 def ami(front, model, quick: bool) -> dict:
+    """Ordinary talk in meetings: hearings an hour away from any transcribed target, and the targets caught."""
     total = defaultdict(int)
-    said = defaultdict(int)
     seconds = 0.0
-    targets_said = 0
+    caught = defaultdict(lambda: defaultdict(int))
+    said = defaultdict(int)
     details = []
     files = sorted((CACHE / "downloads" / "ami").glob("*.Mix-Headset.wav"))
     if quick:
@@ -216,23 +228,34 @@ def ami(front, model, quick: bool) -> dict:
         x, rate = sf.read(path, dtype="float32")
         assert rate == RATE
         x = x * FULL
-        words = ami_words(meeting)
-        # Times at which a target was said: "stop", "wait", or "hold" then "on".
-        said_at = [t for k, (t, w) in enumerate(words) if w in ("stop", "wait") or (w == "hold" and k + 1 < len(words) and words[k + 1][1] == "on")]
-        targets_said += len(said_at)
+        words, targets = ami_words(meeting)
+        for target, _, _ in targets:
+            said[target] += 1
         scores = stream_scores(front, model, x)
         for least in LEASTS:
             for run in RUNS:
-                for k in hearings(scores, least, run):
-                    t = float(seen_until(k))
-                    near_target = any(0 <= t - a <= 1.5 for a in said_at)
-                    (said if near_target else total)[f"{least}/{run}"] += 1
+                key = f"{least}/{run}"
+                steps = hearings(scores, least, run)
+                begun = [float(seen_until(k)) for k in steps]
+                for target, s, e in targets:
+                    caught[key][target] += any(s <= t <= e + 1.0 for t in begun)
+                for k, t in zip(steps, begun):
+                    near_target = any(s - 0.2 <= t <= e + 1.5 for _, s, e in targets)
+                    if not near_target:
+                        total[key] += 1
                     if least == 0.9 and run == 1:
                         context = " ".join(w for (a, w) in words if t - 2.5 <= a <= t + 0.2)
                         details.append({"meeting": meeting, "t": round(t, 2), "score": float(scores[k]), "target_said": near_target, "words": context})
         seconds += len(x) / RATE
         print(f"ami: {meeting} done", flush=True)
-    return {"hours": seconds / 3600, "hearings": dict(total), "near_said_target": dict(said), "targets_said": targets_said, "details_at_0.9": details}
+    return {
+        "hours": seconds / 3600,
+        "meetings": len(files),
+        "hearings": dict(total),
+        "targets_said": dict(said),
+        "targets_caught": {k: dict(v) for k, v in caught.items()},
+        "details_at_0.9": details,
+    }
 
 
 def near_misses(front, model, quick: bool) -> dict:

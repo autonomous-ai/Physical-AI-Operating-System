@@ -407,7 +407,7 @@ Judged, but with one fact still to confirm:
 | HAL-3.10 | Whether V2's widening of `facing` at the picture's edges has an upper limit |
 | HAL-3.13 | Whether a tenth of the picture's height lets a colleague's face count as "at the lamp". V1 measured colleagues at up to 13.6% |
 | HAL-3.16 | Whether V2 sets the camera's gain, and what it does with a frozen or corrupted picture |
-| HAL-4.1, HAL-4.5 | Which gains and which torque limit lamp-4ace's servos hold while `lamp-body` runs |
+| HAL-4.1 | Which gains lamp-4ace's servos hold while `lamp-body` runs. (Their torque limit was read on 2026-10-14: 1,000 of 1,000 on all five, [body.md](body.md).) |
 | HAL-4.13 | Who made the current gesture files and with what tool (commit `8fc305afe`, "from design"). Expression wants several versions of each small behaviour, so V2 will need a way to make new ones |
 | HAL-4.15 | The lean figures (22 mm limit, 31.6 mm for the file that fell, 17.7 mm for the worst shipped) were all computed with the same unit mistake. They may rank gestures correctly and still not be millimetres |
 | HAL-4.19 | Whether V2's ring ceiling is comfortable (ring-choreography.md records 40 on lamp-4ace and also mentions 24), given that V1 cut its cues to 3 after complaints of glare |

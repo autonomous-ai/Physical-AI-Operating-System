@@ -582,6 +582,55 @@ more times, each time at rest at 1,937 and asked to lift 11 or 12 counts,
 which it did not begin to do while its load passed 170. It lifts 40 from
 rest without reading over 90. The bound is 20 counts now.
 
+## The force its servos are allowed (lamp-4ace, 2026-10-14)
+
+The old runtime capped the force of the three joints that carry the lamp
+(the base's turn, the shoulder and the elbow) at 600 of 1,000 while it
+ran, so that the arm gives way sooner against a hand, and measured what
+that cost in lag ([v1-verdicts.md](v1-verdicts.md), HAL-4.5). This body
+writes no such cap, and what the servos hold had never been read.
+
+It was read on 2026-10-14 at 07:48, with the body stopped for the few
+seconds it took and nothing written: one read instruction for each
+register and servo, from a script on the lamp, each reply checked by its
+checksum. The names are the servo's published register table's, not
+checked against this firmware.
+
+| Register | Base turn | Shoulder | Elbow | Head roll | Head pitch |
+|---|---|---|---|---|---|
+| 16, the force limit it starts with | 1,000 | 1,000 | 1,000 | 1,000 | 1,000 |
+| 48, the force limit now | 1,000 | 1,000 | 1,000 | 1,000 | 1,000 |
+| 40, torque on | 1 | 1 | 1 | 1 | 1 |
+| 36, the load at which it protects itself, in hundredths | 80 | 80 | 80 | 80 | 80 |
+| 35, for how long, in hundredths of a second | 200 | 200 | 200 | 200 | 200 |
+| 34, the force it falls back to then, in hundredths | 20 | 20 | 20 | 20 | 20 |
+| 28, the current at which it protects itself | 310 | 310 | 310 | 310 | 310 |
+
+So every joint may push with all it has. What makes the arm give way
+today is this program alone (a load over its bound for six steps, a
+joint off its goal for half a second, warmth: "Standing up" above), and
+behind it the servo's own protection, which lets go only after two
+seconds over 80%.
+
+What the lamp's own movements use: the run of the body that ended with
+that reading had every stand-up and gesture of a night's played tests in
+it (204,330 steps, no retreat). Its report gives the highest load each
+joint read: 428 at the shoulder and 490 at the elbow, and 229, 60 and
+156 at the three joints of the head and base. A cap of 600 is above all
+of them, so on this unit it would cost ordinary movement nothing, and it
+would take four tenths off what the arm can push with against a hand or
+an edge.
+
+Not done yet: the cap itself. It is to be an option that is off unless
+set, written to the three joints at start and read back, with the load
+bound brought under it (a joint capped at 600 never reads 950, so that
+guard would be switched off by the cap otherwise). It needs the lamp in
+view when it is first tried, and a hand on the arm to show that it gives
+way. One oddity in the same report: the highest warmth read was 150 for
+two of the three head and base joints, which no servo here has been; a
+single bad reading counted as a peak is the likely cause, and the guard
+that acts on warmth needs a whole second of it.
+
 ## Verification without a lamp
 
 Host tests, `cargo test -p lamp-body` (221 passed, 0 failed, on macOS):

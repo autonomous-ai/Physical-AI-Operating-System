@@ -349,3 +349,111 @@ fn said_ahead_the_lamps_sound_reaches_the_planner_in_time() {
         "said as taken: {said_late}, {refused_late} refused; said ahead: {said}, {refused} refused"
     );
 }
+
+/// The second pair, for a planner that understands a held turn
+/// (`voice/progress`, `voice/sound`), made by `Resumable` from what the
+/// voice says on the first, through the same scene and the third
+/// builder's rest catalogue. Nothing refused; the nod as speech ends, the
+/// played sound and the hold for the person who cut in are all planned.
+#[test]
+fn the_held_turn_pair_is_taken_whole_by_the_rest_catalogue() {
+    use lamp_voice::expression_out::{Resumable, ResumableSaid};
+    let catalogue =
+        Catalogue::from_json(include_str!("../../expression/rest-behaviours.json")).unwrap();
+    let mut engine = Engine::new(catalogue, true, BOOT).unwrap();
+    let mut timing = Timing::new(BOOT, "voice-run-1");
+    let mut second = Resumable::default();
+    let mut refused = Vec::new();
+    let mut behaviours: Vec<(u64, String)> = Vec::new();
+    let (mut progress, mut held, mut sound) = (0, 0, 0);
+    let rate_per_ms = u64::from(lamp_audio::RENDER_RATE) / 1_000;
+    for step in 0..1_200u64 {
+        let at = step * 10;
+        let now_us = at * MS;
+        if step % 10 == 0 {
+            context(&mut engine, now_us, step / 10 + 1);
+        }
+        let moment = scene(at);
+        let mut inputs = Vec::new();
+        if let Some(said) = second.holding(moment.yielding, now_us) {
+            inputs.push(said);
+        }
+        let mut out = timing.tick(Seen {
+            now_us,
+            turn: moment.turn,
+            phase: moment.phase,
+            accepting_input: true,
+            yielding: moment.yielding,
+            person_speaking: moment.person_speaking,
+            first_sound_us: moment.first_sound_ms.map(|ms| ms * MS),
+        });
+        if moment.playing {
+            let turn = moment.turn.unwrap();
+            let (start_us, end_us) = sounds(240, 480, now_us);
+            out.extend(timing.played(turn, start_us, end_us, 150, now_us));
+            let ends_ms: u64 = if turn == 1 { 4_200 } else { 9_700 };
+            let ahead = (ends_ms.saturating_sub(at + 20) * rate_per_ms) as usize;
+            let ahead = ahead.min(lamp_voice::expression_out::foretell_samples());
+            out.extend(timing.foretell(turn, end_us, &vec![6_000i16; ahead], now_us));
+        }
+        let mut activity = Vec::new();
+        for message in out {
+            match message {
+                Said::Timing(value) => inputs.push(second.timing(&value, now_us)),
+                Said::Playout(value) => inputs.extend(second.sound(&value, now_us)),
+                Said::Activity(value) => activity.push(Input::Activity(value)),
+            }
+        }
+        for said in inputs {
+            let input = match said {
+                ResumableSaid::Progress(value) => {
+                    progress += 1;
+                    held += usize::from(value.held);
+                    Input::Progress(value)
+                }
+                ResumableSaid::Sound(value) => {
+                    sound += 1;
+                    Input::Sound(value)
+                }
+            };
+            let shown = format!("{input:?}");
+            if let Err(why) = engine.ingest(now_us, input) {
+                refused.push(format!(
+                    "at {at} ms: {why}: {}",
+                    &shown[..shown.len().min(200)]
+                ));
+            }
+        }
+        for input in activity {
+            if let Err(why) = engine.ingest(now_us, input) {
+                refused.push(format!("at {at} ms: {why}"));
+            }
+        }
+        if step % 2 == 0 {
+            for behaviour in engine.tick(now_us).state.behaviours {
+                if !behaviours.iter().any(|(_, seen)| *seen == behaviour) {
+                    behaviours.push((at, behaviour));
+                }
+            }
+        }
+    }
+    assert!(
+        refused.is_empty(),
+        "{} refused:\n{}",
+        refused.len(),
+        refused[..refused.len().min(10)].join("\n")
+    );
+    assert!(
+        progress >= 100 && held >= 3 && sound >= 60,
+        "{progress} {held} {sound}"
+    );
+    let planned: Vec<&str> = behaviours.iter().map(|(_, name)| name.as_str()).collect();
+    for wanted in [
+        "nod as speech ends",
+        "follow played sound",
+        "yield when interrupted",
+    ] {
+        assert!(planned.contains(&wanted), "{wanted}: {behaviours:?}");
+    }
+    println!("rest catalogue: {behaviours:?}; {progress} progress ({held} held), {sound} sound");
+}

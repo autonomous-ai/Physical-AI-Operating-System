@@ -20,7 +20,10 @@
 
 use crate::ring_wire::RingPhase;
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{ClockStamp, PersonActivity, Voice, VoiceEvent, VoicePlayout, VoiceTiming};
+use lamp_msgs::{
+    ClockStamp, PersonActivity, Voice, VoiceEvent, VoicePlayout, VoiceProgress, VoiceSound,
+    VoiceTiming,
+};
 use std::io;
 
 /// `on` for the three to be published. Anything else: nothing.
@@ -483,12 +486,131 @@ impl Timing {
     }
 }
 
+/// What the voice says for a planner that understands a turn held back
+/// for someone and resumed (`voice/progress`, `voice/sound`;
+/// docs/expression.md, "Held turns: the protocol First must publish"),
+/// made from what it says on the first pair. Each turn's sound has a
+/// generation, from 1; holding back for someone drops what was not yet
+/// said and starts the next; while held every heartbeat says so, as
+/// Listening; the first sound after a resume follows a heartbeat that
+/// says it is no longer held, and none from before the resume is said.
+#[derive(Debug, Default)]
+pub struct Resumable {
+    turn: u64,
+    generation: u64,
+    held: bool,
+    /// The newest timing said on the first pair, for heartbeats of its own.
+    last: Option<VoiceTiming>,
+    /// What the newest progress said: held or not.
+    said_held: Option<bool>,
+    /// When the turn was last resumed: no sound from before it is said.
+    resumed_at_us: u64,
+    sequences: [u64; 2],
+}
+
+/// One message of the second pair.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ResumableSaid {
+    Progress(VoiceProgress),
+    Sound(VoiceSound),
+}
+
+impl Resumable {
+    fn stamp(&mut self, stream: usize, clock_id: &str, now_us: u64) -> ClockStamp {
+        self.sequences[stream] += 1;
+        ClockStamp {
+            clock_id: clock_id.to_owned(),
+            at_us: now_us,
+            sequence: self.sequences[stream],
+        }
+    }
+
+    fn progress(&mut self, timing: &VoiceTiming, now_us: u64) -> VoiceProgress {
+        let terminal = matches!(
+            timing.event,
+            VoiceEvent::Interrupted | VoiceEvent::Cancelled | VoiceEvent::Finished
+        );
+        let held = self.held && !terminal;
+        let mut timing = timing.clone();
+        timing.stamp = self.stamp(0, &timing.stamp.clock_id, now_us);
+        if held {
+            timing.state = Voice::Listening;
+            timing.event = VoiceEvent::State;
+            timing.first_audio_us = None;
+        }
+        self.said_held = Some(held);
+        VoiceProgress {
+            timing,
+            audio_generation: self.generation.max(1),
+            held,
+        }
+    }
+
+    /// Whether the lamp is holding its sound back for someone, each pass.
+    /// On the edge into a hold the next generation begins and a held
+    /// heartbeat is said at once.
+    pub fn holding(&mut self, yielding: bool, now_us: u64) -> Option<ResumableSaid> {
+        let speaking = self
+            .last
+            .as_ref()
+            .is_some_and(|t| t.state == Voice::Speaking && t.event == VoiceEvent::State);
+        if yielding && !self.held && speaking {
+            self.held = true;
+            self.generation = self.generation.max(1) + 1;
+            let last = self.last.clone()?;
+            return Some(ResumableSaid::Progress(self.progress(&last, now_us)));
+        }
+        if !yielding && self.held {
+            self.held = false;
+            self.resumed_at_us = now_us;
+        }
+        None
+    }
+
+    /// A timing said on the first pair: its progress on the second.
+    pub fn timing(&mut self, timing: &VoiceTiming, now_us: u64) -> ResumableSaid {
+        if timing.turn != self.turn {
+            self.turn = timing.turn;
+            self.generation = 1;
+            self.held = false;
+            self.resumed_at_us = 0;
+        }
+        self.last = Some(timing.clone());
+        ResumableSaid::Progress(self.progress(timing, now_us))
+    }
+
+    /// A piece of sound said on the first pair: nothing while held or from
+    /// before the resume; after a resume, first the heartbeat that says so.
+    pub fn sound(&mut self, playout: &VoicePlayout, now_us: u64) -> Vec<ResumableSaid> {
+        let mut said = Vec::new();
+        if self.held || playout.turn != self.turn || playout.start_us < self.resumed_at_us {
+            return said;
+        }
+        if self.said_held == Some(true)
+            && let Some(last) = self.last.clone()
+        {
+            said.push(ResumableSaid::Progress(self.progress(&last, now_us)));
+        }
+        let mut playout = playout.clone();
+        playout.stamp = self.stamp(1, &playout.stamp.clock_id, now_us);
+        said.push(ResumableSaid::Sound(VoiceSound {
+            playout,
+            audio_generation: self.generation.max(1),
+        }));
+        said
+    }
+}
+
 /// The three publishers.
 pub struct ExpressionOut {
     timing: Timing,
     to_timing: Publisher,
     to_activity: Publisher,
     to_playout: Publisher,
+    /// The second pair, for a planner that understands a held turn.
+    to_progress: Publisher,
+    to_sound: Publisher,
+    resumable: Resumable,
     /// How long after the speaker's queue was looked at a piece written
     /// then begins to sound: the newest measured, for foretelling the
     /// first sound of the next answer.
@@ -546,6 +668,17 @@ impl ExpressionOut {
                 &VoicePlayout::declaration(),
                 source,
             )?,
+            to_progress: bus.publisher_declared(
+                VoiceProgress::TOPIC,
+                &VoiceProgress::declaration(),
+                source,
+            )?,
+            to_sound: bus.publisher_declared(
+                VoiceSound::TOPIC,
+                &VoiceSound::declaration(),
+                source,
+            )?,
+            resumable: Resumable::default(),
             ahead_us: AHEAD_AT_FIRST_US,
             queue_end: None,
             refused: 0,
@@ -559,6 +692,11 @@ impl ExpressionOut {
     }
 
     fn put(&mut self, now_us: u64, said: Said) {
+        let second = match &said {
+            Said::Timing(value) => vec![self.resumable.timing(value, now_us)],
+            Said::Playout(value) => self.resumable.sound(value, now_us),
+            Said::Activity(_) => Vec::new(),
+        };
         let checked = match &said {
             Said::Timing(value) => value.check().map(|()| {
                 let _ = self.to_timing.publish_json(now_us, value);
@@ -570,6 +708,11 @@ impl ExpressionOut {
                 let _ = self.to_playout.publish_json(now_us, value);
             }),
         };
+        let checked = checked.and_then(|()| {
+            second
+                .iter()
+                .try_for_each(|said| self.put_second(now_us, said))
+        });
         // Its own check refused it: a fault here, said once in a while
         // and never sent for a reader to refuse.
         if let Err(why) = checked {
@@ -583,8 +726,26 @@ impl ExpressionOut {
         }
     }
 
+    fn put_second(&mut self, now_us: u64, said: &ResumableSaid) -> Result<(), lamp_msgs::Invalid> {
+        match said {
+            ResumableSaid::Progress(value) => value.check().map(|()| {
+                let _ = self.to_progress.publish_json(now_us, value);
+            }),
+            ResumableSaid::Sound(value) => value.check().map(|()| {
+                let _ = self.to_sound.publish_json(now_us, value);
+            }),
+        }
+    }
+
     /// One pass of the voice's loop.
     pub fn tick(&mut self, seen: Seen) {
+        if let Some(held) = self.resumable.holding(seen.yielding, seen.now_us) {
+            // What was gathered and not said is not to be said now.
+            self.timing.piece = None;
+            if let Err(why) = self.put_second(seen.now_us, &held) {
+                eprintln!("lamp-voice: a held turn could not be said: {why:?}");
+            }
+        }
         for said in self.timing.tick(seen) {
             self.put(seen.now_us, said);
         }
@@ -592,6 +753,7 @@ impl ExpressionOut {
         // lease: their readers are told the voice is still there.
         let _ = self.to_activity.alive();
         let _ = self.to_playout.alive();
+        let _ = self.to_sound.alive();
     }
 
     /// The speaker took `frames` of `turn`'s sound; its queue held
@@ -983,6 +1145,84 @@ mod tests {
         let mut waiting = seen(3 * SECOND, Some(1), Some(RingPhase::Waiting));
         waiting.person_speaking = true;
         assert!(activity(&timing.tick(waiting)).is_empty());
+    }
+
+    /// A held turn on the second pair: the next generation and a held
+    /// heartbeat at once; nothing sounds while held; after the resume, a
+    /// heartbeat that says so before the first sound, and nothing from
+    /// before it; the turn's end said not held.
+    #[test]
+    fn a_turn_held_for_someone_is_said_with_its_generation() {
+        let timing = |state: Voice, event: VoiceEvent, at: u64| VoiceTiming {
+            stamp: ClockStamp {
+                clock_id: "boot".into(),
+                at_us: at,
+                sequence: at,
+            },
+            session_id: "voice-1".into(),
+            turn: 3,
+            request: 3,
+            state,
+            accepting_input: true,
+            event,
+            first_audio_us: None,
+        };
+        let piece = |start: u64| VoicePlayout {
+            stamp: ClockStamp {
+                clock_id: "boot".into(),
+                at_us: start,
+                sequence: start,
+            },
+            session_id: "voice-1".into(),
+            turn: 3,
+            request: 3,
+            start_us: start,
+            end_us: start + 20 * MS,
+            level: 0.5,
+        };
+        let progress = |said: &ResumableSaid| match said {
+            ResumableSaid::Progress(p) => Some((p.audio_generation, p.held, p.timing.state)),
+            ResumableSaid::Sound(_) => None,
+        };
+        let mut second = Resumable::default();
+        let said = second.timing(&timing(Voice::Speaking, VoiceEvent::State, SECOND), SECOND);
+        assert_eq!(progress(&said), Some((1, false, Voice::Speaking)));
+        assert!(matches!(
+            second.sound(&piece(SECOND + 30 * MS), SECOND)[..],
+            [ResumableSaid::Sound(ref s)] if s.audio_generation == 1
+        ));
+        let held = second.holding(true, SECOND + 50 * MS).unwrap();
+        assert_eq!(progress(&held), Some((2, true, Voice::Listening)));
+        assert!(
+            second
+                .sound(&piece(SECOND + 60 * MS), SECOND + 55 * MS)
+                .is_empty()
+        );
+        let heartbeat = second.timing(
+            &timing(Voice::Speaking, VoiceEvent::State, SECOND + 90 * MS),
+            SECOND + 90 * MS,
+        );
+        assert_eq!(progress(&heartbeat), Some((2, true, Voice::Listening)));
+        assert!(second.holding(false, SECOND + 200 * MS).is_none());
+        assert!(
+            second
+                .sound(&piece(SECOND + 190 * MS), SECOND + 200 * MS)
+                .is_empty()
+        );
+        let after = second.sound(&piece(SECOND + 230 * MS), SECOND + 210 * MS);
+        assert_eq!(progress(&after[0]), Some((2, false, Voice::Speaking)));
+        assert!(matches!(after[1], ResumableSaid::Sound(ref s) if s.audio_generation == 2));
+        second.holding(true, SECOND + 300 * MS);
+        let end = second.timing(
+            &timing(Voice::Listening, VoiceEvent::Interrupted, SECOND + 400 * MS),
+            SECOND + 400 * MS,
+        );
+        assert_eq!(progress(&end), Some((3, false, Voice::Listening)));
+        for said in [held, heartbeat, end] {
+            if let ResumableSaid::Progress(p) = said {
+                assert!(p.check().is_ok());
+            }
+        }
     }
 
     /// What is held before the speaker is said ahead, in whole 20 ms

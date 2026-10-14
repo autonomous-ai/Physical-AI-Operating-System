@@ -140,9 +140,13 @@ const MONTHS: [&str; 12] = [
     "December",
 ];
 
-/// What a session opened at `now` is told about the time, in the zone of
-/// this compiled zone file.
-pub fn told(file: &[u8], now: i64) -> Option<String> {
+/// The moment `now` in the zone of this compiled zone file, in words: the
+/// weekday, the date, the time on a twelve-hour clock and the part of the
+/// day.
+fn words(
+    file: &[u8],
+    now: i64,
+) -> Option<(&'static str, i64, &'static str, i64, i64, i64, &'static str)> {
     let local = now.checked_add(i64::from(offset_at(file, now)?))?;
     let (days, seconds) = (local.div_euclid(86_400), local.rem_euclid(86_400));
     let (year, month, day) = civil(days);
@@ -156,8 +160,33 @@ pub fn told(file: &[u8], now: i64) -> Option<String> {
     let weekday = DAYS[days.rem_euclid(7) as usize];
     let month = MONTHS[month - 1];
     let hour = if hour % 12 == 0 { 12 } else { hour % 12 };
+    Some((weekday, day, month, year, hour, minute, part))
+}
+
+/// What a session opened at `now` is told about the time, in the zone of
+/// this compiled zone file.
+pub fn told(file: &[u8], now: i64) -> Option<String> {
+    let (weekday, day, month, year, hour, minute, part) = words(file, now)?;
     Some(format!(
         "\n\nThe time\nIt is {weekday} {day} {month} {year}, around {hour}:{minute:02} {part}. You have no clock, so this may be up to an hour old: if someone asks the time, give it roughly."
+    ))
+}
+
+/// The same for a session that may ask the time ([`crate::tools::THE_TIME`]):
+/// what it is told on opening is for the part of the day, not for telling.
+pub fn told_with_clock(file: &[u8], now: i64) -> Option<String> {
+    let (weekday, day, month, year, hour, minute, part) = words(file, now)?;
+    Some(format!(
+        "\n\nThe time\nYou woke on {weekday} {day} {month} {year}, around {hour}:{minute:02} {part}, and it may be much later now. If someone asks the time or the date, or how long until something, call the_time first and tell them what it gives."
+    ))
+}
+
+/// The time at `now`, exactly, for the model that asked
+/// ([`crate::tools::THE_TIME`]).
+pub fn said(file: &[u8], now: i64) -> Option<String> {
+    let (weekday, day, month, year, hour, minute, part) = words(file, now)?;
+    Some(format!(
+        "It is {hour}:{minute:02} {part}, {weekday} {day} {month} {year}."
     ))
 }
 
@@ -172,13 +201,28 @@ pub fn offset_here() -> Option<i32> {
 }
 
 /// The same for this machine, now.
-pub fn told_here() -> Option<String> {
+pub fn told_here(clock: bool) -> Option<String> {
+    let (file, now) = here()?;
+    if clock {
+        told_with_clock(&file, now)
+    } else {
+        told(&file, now)
+    }
+}
+
+/// The time now where the lamp stands, exactly, in words.
+pub fn now_here() -> Option<String> {
+    let (file, now) = here()?;
+    said(&file, now)
+}
+
+fn here() -> Option<(Vec<u8>, i64)> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
         .as_secs();
     let file = std::fs::read("/etc/localtime").ok()?;
-    told(&file, i64::try_from(now).ok()?)
+    Some((file, i64::try_from(now).ok()?))
 }
 
 #[cfg(test)]
@@ -278,5 +322,27 @@ mod tests {
         );
         // No offset to be had, nothing told.
         assert_eq!(told(b"TZif", NOW), None);
+    }
+
+    #[test]
+    fn the_model_that_asks_is_given_the_minute_and_no_hedge() {
+        let saigon = zone(b'2', &[], &[25_200], "<+07>-7");
+        assert_eq!(
+            said(&saigon, NOW).unwrap(),
+            "It is 11:14 in the morning, Tuesday 13 October 2026."
+        );
+        // Thirty-three minutes on, as the session opened at 10:48 on
+        // 2026-10-14 was asked at 11:17: the minute moves with the clock.
+        assert_eq!(
+            said(&saigon, NOW + 33 * 60).unwrap(),
+            "It is 11:47 in the morning, Tuesday 13 October 2026."
+        );
+        assert_eq!(said(b"TZif", NOW), None);
+        // Told on opening when it may ask: the part of the day, and to ask.
+        let opening = told_with_clock(&saigon, NOW).unwrap();
+        assert!(
+            opening.contains("You woke on Tuesday 13 October 2026, around 11:14 in the morning")
+        );
+        assert!(opening.contains("call the_time first") && !opening.contains("roughly"));
     }
 }

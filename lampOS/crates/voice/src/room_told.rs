@@ -20,14 +20,24 @@
 //! - **busy**: three things in a row, inside a minute, that the lamp said
 //!   nothing to. People are talking to each other. Only something said
 //!   through to its end counts: a cough or a click that the coordinator
-//!   dropped as a sound is not talk.
+//!   dropped as a sound is not talk. A quiet room needs only two inside a
+//!   minute: on lamp-4ace on 2026-10-14 a meeting began beside it at 11:09
+//!   in a room that had been quiet since 10:50; two things were left
+//!   unanswered 54 s apart, the third came four minutes later, and in
+//!   between, still taken for quiet, the lamp answered someone at the
+//!   table.
 //!
-//! Busy holds until the five quiet minutes come; quiet holds until the run
-//! of three. Neither is known when the service starts. The session is told
-//! when the room changes, and a new session is told how it is, in a turn
-//! that asks for no answer ([`crate::session_fact`] has how that is sent
-//! and what was tried). The character file says what each means for who is
-//! being spoken to; here only the room is described.
+//! Busy holds until the five quiet minutes come; quiet holds until the run.
+//! Neither is known when the service starts. The session is told when the
+//! room changes, and a new session is told how it is: in a turn that asks
+//! for no answer when nothing has been heard or said for a moment
+//! ([`crate::session_fact`] has how that is sent and what was tried), or
+//! else inside the next request, beside what is being said, as the
+//! lamp's name is ([`crate::called`]). A meeting leaves no quiet moment:
+//! that same morning the room was busy from 11:14:50 and the session was
+//! told at 11:16:30, and the lamp answered the table at 11:15:04. The
+//! character file says what each means for who is being spoken to; here
+//! only the room is described.
 //!
 //! Off unless the service's environment says `on`. Not yet heard on a lamp.
 use std::{collections::VecDeque, sync::Mutex};
@@ -45,6 +55,8 @@ const QUIET_AFTER_US: u64 = 300_000_000;
 /// long, and the room is busy.
 const BUSY_RUN: usize = 3;
 const BUSY_WITHIN_US: u64 = 60_000_000;
+/// From a quiet room, this many inside the same minute.
+const QUIET_ENDS_RUN: usize = 2;
 /// The room is told only when nothing has been heard or said for this
 /// long: a fact written into a request would be taken for part of it, and
 /// one offered while an answer is owed is dropped. Longer than the four
@@ -147,16 +159,28 @@ impl RoomTold {
         self.unanswered.push_back(now_us);
     }
 
+    /// Whether the latest `run` things left unanswered all fell inside a
+    /// minute.
+    fn run_of(&self, run: usize) -> bool {
+        self.unanswered.len() >= run
+            && self
+                .unanswered
+                .iter()
+                .rev()
+                .nth(run - 1)
+                .zip(self.unanswered.back())
+                .is_some_and(|(first, last)| last.saturating_sub(*first) <= BUSY_WITHIN_US)
+    }
+
     /// How the room is now.
     pub fn at(&mut self, now_us: u64) -> Room {
         let since = *self.quiet_since_us.get_or_insert(now_us);
-        if self.unanswered.len() == BUSY_RUN
-            && self
-                .unanswered
-                .front()
-                .zip(self.unanswered.back())
-                .is_some_and(|(first, last)| last.saturating_sub(*first) <= BUSY_WITHIN_US)
-        {
+        let run = if self.room == Room::Quiet {
+            QUIET_ENDS_RUN
+        } else {
+            BUSY_RUN
+        };
+        if self.run_of(run) {
             self.room = Room::Busy;
             // The run has been counted; the next three decide afresh.
             self.unanswered.clear();
@@ -171,10 +195,17 @@ impl RoomTold {
     /// when it is known, differs from what this session was told, and
     /// nothing has been heard or said for a moment.
     pub fn due(&mut self, session: u64, now_us: u64) -> Option<&'static str> {
+        if now_us.saturating_sub(self.last_sound_us) < SETTLED_US {
+            return None;
+        }
+        self.due_in_request(session, now_us)
+    }
+
+    /// The same, for a note inside the request being heard now, which
+    /// needs no quiet moment.
+    pub fn due_in_request(&mut self, session: u64, now_us: u64) -> Option<&'static str> {
         let room = self.at(now_us);
-        if self.told == Some((session, room))
-            || now_us.saturating_sub(self.last_sound_us) < SETTLED_US
-        {
+        if self.told == Some((session, room)) {
             return None;
         }
         room.fact()
@@ -246,8 +277,11 @@ mod tests {
         said(&mut room, 2, 500);
         room.unanswered(2, 506 * S);
         said(&mut room, 3, 508);
+        assert_eq!(room.at(510 * S), Room::Quiet);
+        // Two inside the minute end a quiet room (the first and the
+        // second, counted as the third began).
         said(&mut room, 4, 511);
-        assert_eq!(room.at(514 * S), Room::Quiet);
+        assert_eq!(room.at(514 * S), Room::Busy);
         room.unanswered(4, 517 * S);
         assert_eq!(room.at(518 * S), Room::Busy);
         // Told once nothing has been heard or said for a moment.
@@ -268,6 +302,35 @@ mod tests {
         // Everyone leaves. Five minutes after the last thing: quiet.
         assert_eq!(room.at(543 * S + 299 * S), Room::Busy);
         assert_eq!(room.due(2, 543 * S + 301 * S), Some(QUIET));
+    }
+
+    #[test]
+    fn a_meeting_that_begins_in_a_quiet_room_makes_it_busy_at_its_second_unanswered_thing() {
+        let mut room = RoomTold::new();
+        assert_eq!(room.at(S), Room::Unknown);
+        assert_eq!(room.due(1, 302 * S), Some(QUIET));
+        room.told(1);
+        // One remark left alone: a person alone at their desk may mutter.
+        said(&mut room, 1, 400);
+        room.unanswered(1, 406 * S);
+        assert_eq!(room.at(407 * S), Room::Quiet);
+        // Another more than a minute later: still not a meeting.
+        said(&mut room, 2, 470);
+        room.unanswered(2, 476 * S);
+        assert_eq!(room.at(477 * S), Room::Quiet);
+        // The next inside the minute, as at 11:09:08 and 11:10:02: busy.
+        said(&mut room, 3, 524);
+        room.unanswered(3, 530 * S);
+        assert_eq!(room.at(531 * S), Room::Busy);
+        // The meeting goes on with no quiet moment: the session is not told
+        // between requests, and is told inside the one being heard.
+        said(&mut room, 4, 532);
+        assert_eq!(room.due(1, 535 * S), None);
+        assert_eq!(room.due_in_request(1, 535 * S), Some(BUSY));
+        room.told(1);
+        assert_eq!(room.due_in_request(1, 536 * S), None);
+        // Busy now takes the run of three to stay as it is, as before.
+        assert_eq!(room.at(600 * S), Room::Busy);
     }
 
     #[test]

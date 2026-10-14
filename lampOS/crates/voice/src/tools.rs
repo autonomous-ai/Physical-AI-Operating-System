@@ -21,6 +21,12 @@
 //!   words it can say, and the voice goes on. The voice never waits on the
 //!   executive for anything else.
 //!
+//! - **`the_time`**, its own too, answered here at once from the lamp's
+//!   clock. A session is told the time when it opens and may run for hours:
+//!   on lamp-4ace on 2026-10-14 one opened at 10:48 told someone at 11:17
+//!   that it was "roughly around ten forty-five". Off unless the service's
+//!   environment says `on` ([`CLOCK_ENVIRONMENT`]).
+//!
 //! Every call is answered, whatever becomes of it: the service generates
 //! nothing more for a request until its calls are.
 
@@ -45,6 +51,13 @@ pub const ACTIONS_FLAG: &str = "--actions-dir";
 
 /// The function the model calls instead of speaking.
 pub const NOT_FOR_ME: &str = "not_for_me";
+/// The function the model calls to know the time now.
+pub const THE_TIME: &str = "the_time";
+/// Where the coordinator reads whether the model may ask the time. `on`
+/// only.
+pub const CLOCK_ENVIRONMENT: &str = "LAMP_CLOCK";
+/// The provider worker's flag for it.
+pub const CLOCK_FLAG: &str = "--clock";
 /// The executive's list of functions, in its directory.
 pub const CATALOG_FILE: &str = "tools.json";
 /// The executive's socket, in its directory.
@@ -65,6 +78,8 @@ pub struct Settings {
     pub exec: Option<PathBuf>,
     /// The memory's socket ([`crate::remember`]).
     pub memory: Option<PathBuf>,
+    /// The model may call [`THE_TIME`].
+    pub clock: bool,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -73,10 +88,16 @@ pub fn arguments_from_environment() -> Vec<String> {
         std::env::var(ENVIRONMENT).ok().as_deref(),
         std::env::var(ACTIONS_ENVIRONMENT).ok().as_deref(),
         std::env::var(crate::remember::ENVIRONMENT).ok().as_deref(),
+        std::env::var(CLOCK_ENVIRONMENT).ok().as_deref(),
     )
 }
 
-fn arguments(decline: Option<&str>, exec: Option<&str>, memory: Option<&str>) -> Vec<String> {
+fn arguments(
+    decline: Option<&str>,
+    exec: Option<&str>,
+    memory: Option<&str>,
+    clock: Option<&str>,
+) -> Vec<String> {
     let mut arguments = Vec::new();
     if decline == Some("on") {
         arguments.push(FLAG.to_owned());
@@ -89,11 +110,14 @@ fn arguments(decline: Option<&str>, exec: Option<&str>, memory: Option<&str>) ->
         arguments.push(crate::remember::FLAG.to_owned());
         arguments.push(socket.to_owned());
     }
+    if clock == Some("on") {
+        arguments.push(CLOCK_FLAG.to_owned());
+    }
     arguments
 }
 
-/// Take a leading `--tools`, `--actions-dir PATH` and `--memory-socket
-/// PATH` off a worker's flags.
+/// Take a leading `--tools`, `--actions-dir PATH`, `--memory-socket PATH`
+/// and `--clock` off a worker's flags.
 pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
     let mut settings = Settings::default();
     let mut flags = flags;
@@ -127,6 +151,12 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.memory = Some(PathBuf::from(socket));
         flags = rest;
     }
+    if let [flag, rest @ ..] = flags
+        && flag == CLOCK_FLAG
+    {
+        settings.clock = true;
+        flags = rest;
+    }
     Ok((settings, flags))
 }
 
@@ -146,13 +176,39 @@ fn not_for_me() -> Tool {
     }
 }
 
-/// The functions a session opened now is told of: the voice's own if it is
-/// switched on, then the executive's if its list is there and reads. A name
-/// the voice uses itself is left out of the executive's.
+fn the_time() -> Tool {
+    Tool {
+        name: THE_TIME.into(),
+        description:
+            "Call this whenever you need the time or the date now: when someone asks what \
+                      time it is, what day it is, or how long until something. The time you were \
+                      told when you woke may be hours old; this one is exact. Then say it the way \
+                      a person would, \"twenty past eleven\", not as a clock reads."
+                .into(),
+        parameters: None,
+        silent: false,
+    }
+}
+
+/// What the model is told when it asks the time: the lamp's clock now, in
+/// words, or that the clock could not be read.
+pub fn time_now() -> Value {
+    match crate::local_time::now_here() {
+        Some(now) => json!({ "now": now }),
+        None => json!({"error": "My clock could not be read just now."}),
+    }
+}
+
+/// The functions a session opened now is told of: the voice's own if they
+/// are switched on, then the executive's if its list is there and reads. A
+/// name the voice uses itself is left out of the executive's.
 pub fn declared(settings: &Settings) -> Vec<Tool> {
     let mut tools = Vec::new();
     if settings.decline {
         tools.push(not_for_me());
+    }
+    if settings.clock {
+        tools.push(the_time());
     }
     if settings.memory.is_some() {
         tools.extend(crate::remember::tools());
@@ -162,7 +218,11 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
         tools.extend(
             catalog(&directory.join(CATALOG_FILE))
                 .into_iter()
-                .filter(|tool| tool.name != NOT_FOR_ME && !crate::remember::is_tool(&tool.name))
+                .filter(|tool| {
+                    tool.name != NOT_FOR_ME
+                        && tool.name != THE_TIME
+                        && !crate::remember::is_tool(&tool.name)
+                })
                 .take(room),
         );
     }
@@ -206,6 +266,8 @@ pub enum Route {
     Executive(PathBuf),
     /// Ask the memory on this socket.
     Memory(PathBuf),
+    /// The time: answered here, at once.
+    Clock,
     /// Nobody here runs that.
     Nobody,
 }
@@ -216,7 +278,10 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
-        (Some(directory), name) if name != NOT_FOR_ME && !crate::remember::is_tool(name) => {
+        (_, THE_TIME) if settings.clock => Route::Clock,
+        (Some(directory), name)
+            if name != NOT_FOR_ME && name != THE_TIME && !crate::remember::is_tool(name) =>
+        {
             Route::Executive(directory.clone())
         }
         _ => Route::Nobody,
@@ -354,6 +419,7 @@ mod tests {
             decline: true,
             exec: Some(dir.clone()),
             memory: Some("/run/lampos-memory/memory.sock".into()),
+            clock: false,
         };
         let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
         assert_eq!(
@@ -383,12 +449,21 @@ mod tests {
 
     #[test]
     fn only_on_and_an_absolute_path_become_flags_and_they_are_taken_from_the_front() {
-        assert!(arguments(None, None, None).is_empty());
-        assert!(arguments(Some("yes"), Some("relative/dir"), Some("memory.sock")).is_empty());
+        assert!(arguments(None, None, None, None).is_empty());
+        assert!(
+            arguments(
+                Some("yes"),
+                Some("relative/dir"),
+                Some("memory.sock"),
+                Some("yes")
+            )
+            .is_empty()
+        );
         let all = arguments(
             Some("on"),
             Some("/run/lampos-actions"),
             Some("/run/lampos-memory/memory.sock"),
+            None,
         );
         let memory = crate::remember::FLAG;
         assert_eq!(
@@ -410,6 +485,7 @@ mod tests {
                 decline: true,
                 exec: Some("/run/lampos-actions".into()),
                 memory: Some("/run/lampos-memory/memory.sock".into()),
+                clock: false,
             }
         );
         assert_eq!(rest, ["rest"]);
@@ -436,6 +512,7 @@ mod tests {
             decline: true,
             exec: None,
             memory: None,
+            clock: false,
         };
         let told = declared(&own);
         assert_eq!(told.len(), 1);
@@ -448,6 +525,7 @@ mod tests {
             decline: true,
             exec: Some(dir.clone()),
             memory: None,
+            clock: false,
         };
         // No file yet: the executive has not started.
         assert_eq!(declared(&with).len(), 1);
@@ -464,6 +542,7 @@ mod tests {
             decline: false,
             exec: Some(dir.clone()),
             memory: None,
+            clock: false,
         };
         assert_eq!(declared(&alone).len(), 2);
         // One function the link would refuse, a name twice, a file that is
@@ -493,6 +572,7 @@ mod tests {
             decline: true,
             exec: Some(dir.clone()),
             memory: None,
+            clock: false,
         };
         assert_eq!(route(&all, NOT_FOR_ME), Route::Decline);
         assert_eq!(route(&all, "light_on"), Route::Executive(dir.clone()));
@@ -500,6 +580,7 @@ mod tests {
             decline: true,
             exec: None,
             memory: None,
+            clock: false,
         };
         assert_eq!(route(&own, "light_on"), Route::Nobody);
         // Not declared, so not meant: it is never handed to the executive.
@@ -507,9 +588,43 @@ mod tests {
             decline: false,
             exec: Some(dir),
             memory: None,
+            clock: false,
         };
         assert_eq!(route(&exec, NOT_FOR_ME), Route::Nobody);
         assert_eq!(route(&Settings::default(), "light_on"), Route::Nobody);
+    }
+
+    #[test]
+    fn the_time_is_declared_and_answered_here_only_when_switched_on() {
+        assert_eq!(arguments(None, None, None, Some("on")), [CLOCK_FLAG]);
+        let flags = [CLOCK_FLAG.to_owned(), "rest".to_owned()];
+        let (settings, rest) = take(&flags).unwrap();
+        assert!(settings.clock && !settings.decline && settings.exec.is_none());
+        assert_eq!(rest, ["rest"]);
+        let on = Settings {
+            clock: true,
+            ..Settings::default()
+        };
+        let names = |settings: &Settings| {
+            declared(settings)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&on), [THE_TIME]);
+        assert!(names(&Settings::default()).is_empty());
+        assert_eq!(route(&on, THE_TIME), Route::Clock);
+        // Off, it is nobody's, and never the executive's either.
+        let exec = Settings {
+            exec: Some("/run/lampos-actions".into()),
+            ..Settings::default()
+        };
+        assert_eq!(route(&exec, THE_TIME), Route::Nobody);
+        assert_eq!(route(&Settings::default(), THE_TIME), Route::Nobody);
+        // Spoken, not silent: the model is to say what it is told.
+        assert!(!the_time().silent);
+        let told = time_now();
+        assert!(told["now"].is_string() || told["error"].is_string());
     }
 
     #[test]

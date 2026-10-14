@@ -277,6 +277,24 @@ impl NameIn {
     }
 }
 
+/// Whether the eyes see someone turned to the lamp now
+/// (`humans/faces/tracked`, `docs/eyes.md`): true when a face in their
+/// newest look is, false when that look saw nobody turned to it, nothing
+/// when they have said nothing still fresh (not running, the camera closed,
+/// the look older than its two seconds).
+pub fn someone_turned_to_lamp(bus: &Bus) -> Option<bool> {
+    let message = bus.latest(lamp_msgs::Faces::TOPIC).ok()??;
+    turned_in(&message)
+}
+
+fn turned_in(message: &lamp_bus::Message) -> Option<bool> {
+    if message.expired {
+        return None;
+    }
+    let faces = message.parse::<lamp_msgs::Faces>().ok()?;
+    Some(faces.faces.iter().any(|face| face.facing == Some(true)))
+}
+
 /// The link to the speech service may be down this long before the voice
 /// says anything is the matter. It is down for a second or two each time
 /// the voice starts and each time the service renews its session, which
@@ -466,6 +484,42 @@ mod tests {
         // Whoever starts late reads how things stand.
         let latest = bus.latest(VoiceState::TOPIC).unwrap().unwrap();
         assert_eq!(latest.parse::<VoiceState>().unwrap().state, Voice::Speaking);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn someone_is_turned_to_the_lamp_only_when_the_eyes_newest_fresh_look_says_so() {
+        use lamp_msgs::{Face, Faces};
+        let (bus, root) = bus("faces");
+        // No eyes: nothing known.
+        assert_eq!(someone_turned_to_lamp(&bus), None);
+        let mut eyes = bus
+            .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+            .unwrap();
+        eyes.expires_after(Some(Duration::from_millis(300)));
+        let face = |facing: Option<bool>| Face {
+            id: "f1".into(),
+            xmin: 0.4,
+            ymin: 0.3,
+            xmax: 0.6,
+            ymax: 0.6,
+            confidence: 1.0,
+            yaw: facing.map(|_| 0.1),
+            facing,
+        };
+        let say = |eyes: &mut lamp_bus::Publisher, faces: Vec<Face>| {
+            eyes.publish_json(lamp_ipc::monotonic_us(), &Faces { faces })
+                .unwrap();
+        };
+        say(&mut eyes, vec![]);
+        assert_eq!(someone_turned_to_lamp(&bus), Some(false));
+        say(&mut eyes, vec![face(Some(false)), face(None)]);
+        assert_eq!(someone_turned_to_lamp(&bus), Some(false));
+        say(&mut eyes, vec![face(None), face(Some(true))]);
+        assert_eq!(someone_turned_to_lamp(&bus), Some(true));
+        // A look older than its life says nothing.
+        std::thread::sleep(Duration::from_millis(400));
+        assert_eq!(someone_turned_to_lamp(&bus), None);
         std::fs::remove_dir_all(root).unwrap();
     }
 

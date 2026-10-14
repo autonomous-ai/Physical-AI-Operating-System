@@ -30,12 +30,29 @@ pub const BEFORE_US: u64 = crate::attention::NAME_BEFORE_US;
 /// environment and is told everything by its arguments.
 pub const FLAG: &str = "--name-note";
 
-/// The provider worker's argument for that switch in the environment.
+/// `face` for the note to wait, in a busy room, for someone turned to the
+/// lamp. On lamp-4ace on 2026-10-14, in a meeting beside it, the part that
+/// listens for the name heard it four times in twenty minutes in people's
+/// talk (0.928 to 0.993), and after both notes it gave, the lamp answered
+/// the table. A person who half hears their name in a meeting looks up; they
+/// answer only someone looking at them. In a quiet room nothing changes.
+pub const BUSY_ENVIRONMENT: &str = "LAMP_NAME_NOTE_BUSY";
+/// The provider worker's flag for that, after [`FLAG`].
+pub const BUSY_FLAG: &str = "--name-note-busy-face";
+
+/// The provider worker's arguments for those switches in the environment.
 pub fn arguments_from_environment() -> Vec<String> {
-    if std::env::var(ENVIRONMENT).ok().as_deref() == Some("on") {
-        vec![FLAG.to_owned()]
-    } else {
-        Vec::new()
+    arguments(
+        std::env::var(ENVIRONMENT).ok().as_deref(),
+        std::env::var(BUSY_ENVIRONMENT).ok().as_deref(),
+    )
+}
+
+fn arguments(note: Option<&str>, busy: Option<&str>) -> Vec<String> {
+    match (note, busy) {
+        (Some("on"), Some("face")) => vec![FLAG.to_owned(), BUSY_FLAG.to_owned()],
+        (Some("on"), _) => vec![FLAG.to_owned()],
+        _ => Vec::new(),
     }
 }
 
@@ -45,11 +62,24 @@ pub fn on() -> bool {
     std::env::var(ENVIRONMENT).ok().as_deref() == Some("on")
 }
 
-/// Take a leading `--name-note` off a worker's flags.
-pub fn take(flags: &[String]) -> (bool, &[String]) {
+/// Take a leading `--name-note`, and `--name-note-busy-face` after it, off
+/// a worker's flags: whether the note is sent, and whether in a busy room it
+/// waits for someone turned to the lamp.
+pub fn take(flags: &[String]) -> (bool, bool, &[String]) {
     match flags {
-        [flag, rest @ ..] if flag == FLAG => (true, rest),
-        _ => (false, flags),
+        [flag, busy, rest @ ..] if flag == FLAG && busy == BUSY_FLAG => (true, true, rest),
+        [flag, rest @ ..] if flag == FLAG => (true, false, rest),
+        _ => (false, false, flags),
+    }
+}
+
+/// Whether a note due in a room this busy, with the eyes saying this of
+/// who is turned to the lamp, is sent; and, when it is not, why.
+pub fn busy_gate(needs_face: bool, busy: bool, turned: Option<bool>) -> Result<(), &'static str> {
+    match (needs_face && busy, turned) {
+        (false, _) | (true, Some(true)) => Ok(()),
+        (true, Some(false)) => Err("nobody is turned to the lamp"),
+        (true, None) => Err("the eyes have said nothing fresh"),
     }
 }
 
@@ -157,14 +187,45 @@ mod tests {
     fn only_its_own_flag_at_the_front_turns_it_on() {
         let flags = |list: &[&str]| list.iter().map(|flag| flag.to_string()).collect::<Vec<_>>();
         let given = flags(&[FLAG, "--bus-root", "/run/lampos-bus"]);
-        let (on, rest) = take(&given);
-        assert!(on);
+        let (on, face, rest) = take(&given);
+        assert!(on && !face);
         assert_eq!(rest, &given[1..]);
+        let given = flags(&[FLAG, BUSY_FLAG, "--bus-root", "/run/lampos-bus"]);
+        let (on, face, rest) = take(&given);
+        assert!(on && face);
+        assert_eq!(rest, &given[2..]);
+        // Never the second without the first.
+        let given = flags(&[BUSY_FLAG, "--bus-root", "/run/lampos-bus"]);
+        let (on, face, rest) = take(&given);
+        assert!(!on && !face);
+        assert_eq!(rest, &given[..]);
         let given = flags(&["--bus-root", "/run/lampos-bus", FLAG]);
-        let (on, rest) = take(&given);
+        let (on, _, rest) = take(&given);
         assert!(!on);
         assert_eq!(rest, &given[..]);
         assert!(!take(&[]).0);
+        assert_eq!(arguments(Some("on"), Some("face")), [FLAG, BUSY_FLAG]);
+        assert_eq!(arguments(Some("on"), Some("yes")), [FLAG]);
+        assert!(arguments(None, Some("face")).is_empty());
+    }
+
+    /// In a busy room the note waits for someone turned to the lamp; in
+    /// any other room, or with the switch off, it goes as before.
+    #[test]
+    fn in_a_busy_room_the_note_waits_for_someone_turned_to_the_lamp() {
+        assert_eq!(busy_gate(true, true, Some(true)), Ok(()));
+        assert_eq!(
+            busy_gate(true, true, Some(false)),
+            Err("nobody is turned to the lamp")
+        );
+        assert_eq!(
+            busy_gate(true, true, None),
+            Err("the eyes have said nothing fresh")
+        );
+        for turned in [Some(true), Some(false), None] {
+            assert_eq!(busy_gate(true, false, turned), Ok(()));
+            assert_eq!(busy_gate(false, true, turned), Ok(()));
+        }
     }
 
     /// A note that could not be sent is not offered again and again.

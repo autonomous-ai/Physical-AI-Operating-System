@@ -475,7 +475,7 @@ impl Recalling {
 
 impl Connect for Recalling {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
-        let mut time = crate::local_time::told_here();
+        let mut time = crate::local_time::told_here(self.tools.clock);
         // What it was asked to remember, as the memory last gave it: held
         // in this process, so that opening a session waits for nobody.
         if self.tools.memory.is_some() {
@@ -517,6 +517,7 @@ mod tests {
             decline: true,
             exec: None,
             memory: None,
+            clock: false,
         });
         let told = setup(&declining);
         let declared = &told["setup"]["tools"][0]["functionDeclarations"];

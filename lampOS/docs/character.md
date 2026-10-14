@@ -143,9 +143,12 @@ has been told the office is busy, or told nothing, the two cases stand.
 The telling is the runtime's (`crates/voice/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`): quiet after five minutes in which nothing was
 said (a bump or a click is not something said), busy after three things in a row inside a minute that the lamp
-said nothing to, each given to the session in a turn that asks for no
+said nothing to, or two inside a minute when the room was quiet (since
+2026-10-14: [attention.md](attention.md), "A meeting beside the lamp"),
+each given to the session in a turn that asks for no
 answer ([speaking-first.md](speaking-first.md), "Telling it something
-that needs no answer"). As silent probes with a written line in place of
+that needs no answer") or, when no quiet moment comes, inside the next
+request beside what is being said. As silent probes with a written line in place of
 speech, one run each, the fact that the office had emptied made the model
 answer an uncalled question it otherwise left alone. With the switch off
 the line in the file does nothing.

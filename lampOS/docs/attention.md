@@ -516,10 +516,91 @@ late.
 Not shown: someone who did call the lamp that morning and was ignored.
 Nobody is known to have tried.
 
+## A meeting beside the lamp (lamp-4ace, 2026-10-14, 11:08 to 11:21)
+
+A meeting began at the table beside the lamp at about 11:08. In the next
+twenty minutes the voice took 75 things as said, the part that listens
+for the name heard it four times (0.928, 0.930, 0.953 and 0.993, all in
+people's talk), and the lamp answered three times: at 11:10:37 "Four." (the model
+had been told its name was heard), at 11:15:04 a long answer about a car
+part, and at 11:17:29 the time, wrongly ("roughly around ten forty-five").
+None of the three is known to have been said to it. From its own records:
+
+- **The room was still taken for quiet.** It had been quiet since 10:50.
+  The meeting's first things left unanswered were 54 s apart (11:09:08 and
+  11:10:02), the third more than three minutes later, so the run of three
+  inside a minute that makes a room busy did not come until 11:14:50. The
+  answer at 11:10:37 was given in a room the model had been told was
+  quiet, where what is said near the lamp is most likely said to it.
+- **Busy was known and not told.** From 11:14:50 the room was busy, but the
+  fact waits for six seconds with nothing heard or said, and for no
+  conversation going on; a meeting gives neither. The session was told at
+  11:16:30. The answer at 11:15:04 came in between, after a name note at
+  11:14:47.
+- **The name was heard in people's talk.** 0.953 and 0.928 at 11:10,
+  0.930 at 11:14:47, 0.993 at 11:20: what this part hears in Vietnamese
+  talk scores as high as a real call ([name.md](name.md)), so the score
+  cannot be the test.
+- **The time.** A session is told the time when it opens; this one opened
+  at 10:48 and was told to give the time "roughly".
+
+What was changed, each behind a switch and none yet played to on the lamp:
+
+| | Change | Switch |
+|---|---|---|
+| 1 | A quiet room becomes busy at two things left unanswered inside a minute, not three | `LAMP_ROOM_FACTS=on`, as before |
+| 2 | When the room changes and no quiet moment comes, it is told inside the request being heard, beside what is said, as the name is; a request's name and room go as one note | `LAMP_ROOM_FACTS=on`, as before |
+| 3 | In a busy room the name note is given only when the eyes' newest look, under two seconds old, has a face turned to the lamp (`humans/faces/tracked`, [eyes.md](eyes.md)); otherwise it is held and the journal says why | `LAMP_NAME_NOTE_BUSY=face`, beside `LAMP_NAME_NOTE=on` |
+| 4 | The model asks the lamp's clock for the time ([tools.md](tools.md), "`the_time`") | `LAMP_CLOCK=on` |
+| 5 | The rule's busy form: in a busy room every answer is held, not only a new session's first two, unless a conversation with the lamp is going on, the text shows it was called, or the eyes' newest fresh look has someone turned to the lamp; the name heard in the sound counts only with someone turned to it | `LAMP_ATTENTION=busy` in place of `on` |
+
+Against this meeting, by its records: with 1 the room would have been busy
+from 11:10:02, before the first answer, and with 2 told inside the next
+request; with 3 the notes at 11:10:37 and 11:14:47 would have been held
+unless someone was turned to the lamp (the eyes' newest look at 11:29 had
+nobody). The third answer, the time at 11:17:29, came in a room the model
+had been told was busy, with no note: 1 to 3 would not have stopped it,
+and with 4 it would at least have been right. 5 is for that one.
+
+Why 5 and not only 1 to 3: the same afternoon, as silent probes (a
+recorded sentence and a written note sent to the service, nothing played,
+one run each, a new session each time), with the note that the office was
+busy beside it, "Did you push the fix for the login page yesterday?" was
+left alone and "Hey Lamp, what do you think we should have for lunch?" was
+answered, but "What is 2 + 2?" was answered "Four." and "How was your
+weekend?" was answered as if asked of the lamp. Told the room is busy, the
+model still takes a plain question for its own. A person at the next desk
+in a busy office answers a question put to them by name or with a look.
+
+What each costs. 5: in a busy room a question put to the lamp without
+its name in the service's text and without a face turned to it is not
+answered, nor one from someone whose face the camera cannot see or with the
+camera closed; played voices from a loudspeaker have no face, so played
+busy-room scenes measure the text alone with it. 1: a person alone who says two things inside a minute
+that the lamp leaves alone, then asks it something without its name, is
+not answered until they use the name. 2: a note that is not about what is
+being said goes to the service in the middle of someone's sentence; the
+name note has gone there since 2026-10-14 and three of three called
+questions were answered with it, but a room note has not been tried. 3: a
+real call in a busy room from someone not facing the lamp, or with the
+camera closed, goes without the note, as it did before notes existed; and
+whether the eyes judge "turned to the lamp" rightly has not been checked
+with a person in front of this lamp. The second look (in the coordinator)
+is not gated by the room or the eyes: it comes only when the model said
+nothing and the name was heard, and in this meeting it never came.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
 default. On on lamp-4ace since 22:15 on 2026-10-13.
+
+`LAMP_ATTENTION=busy` (the worker's `--attention --attention-busy`): the
+rule's busy form, 5 above. Not yet on lamp-4ace.
+
+`LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
+after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room
+the name note waits for a face turned to the lamp. Off by default; not yet
+on lamp-4ace.
 
 ## Not shown
 

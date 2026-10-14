@@ -129,6 +129,27 @@ asked. A memory that does not answer is told to the model as "My memory
 is not answering right now, so I could not do that." An executive that
 lists a function of one of these names does not get it.
 
+## `the_time`, the voice's own
+
+With `LAMP_CLOCK=on` in the voice unit (the worker's `--clock`, after
+`--memory-socket`) a session is told of one more function, run in the
+voice itself and answered at once: `the_time`, which the model is to call
+whenever someone asks the time or the date or how long until something.
+It is told `{"now":"It is 11:47 in the morning, Wednesday 14 October
+2026."}` from the lamp's clock and zone (`crates/voice/src/local_time.rs`),
+or `{"error":"My clock could not be read just now."}`. Unlike
+`not_for_me`, it is not silent: the model says what it was told.
+
+Why: a session is told the time when it opens, and may run for hours. On
+lamp-4ace on 2026-10-14 a session opened at 10:48 told someone at 11:17
+that it was "roughly around ten forty-five": it was doing as told ("this
+may be up to an hour old: if someone asks the time, give it roughly").
+With the switch on, a new session is told instead that it woke at that
+time, that it may be much later now, and to call `the_time` first.
+
+What it costs: one call and its answer before the model speaks, for a
+question about the time only. Not yet measured on the lamp.
+
 ## What the voice promises, and what it does not
 
 - **Every call is answered.** The service generates nothing more for a

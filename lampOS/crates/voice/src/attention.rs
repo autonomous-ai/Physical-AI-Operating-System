@@ -60,10 +60,33 @@ pub fn arguments_from_environment() -> Vec<String> {
 }
 
 fn arguments(value: Option<&str>) -> Vec<String> {
-    if value == Some("on") {
-        vec![FLAG.to_owned()]
-    } else {
-        Vec::new()
+    match value {
+        Some("on") => vec![FLAG.to_owned()],
+        Some("busy") => vec![FLAG.to_owned(), BUSY_FLAG.to_owned()],
+        _ => Vec::new(),
+    }
+}
+
+/// The provider worker's flag, right after [`FLAG`], for the rule's busy
+/// form (`LAMP_ATTENTION=busy`): in a room the lamp knows to be busy, every
+/// answer is held unless something shows it was meant for the lamp, and a
+/// name heard in the sound counts only with someone turned to the lamp.
+///
+/// Why: on lamp-4ace on 2026-10-14 a meeting at the table beside it went
+/// on for twenty minutes and the lamp answered it three times, none in a
+/// new session's first requests. Silent probes the same day, with the
+/// session told the office was busy, still had "What is 2 + 2?" answered
+/// "Four." and "How was your weekend?" answered: told is not enough. A
+/// person at the next desk answers a question in a busy room when it is
+/// put to them by name or by a look.
+pub const BUSY_FLAG: &str = "--attention-busy";
+
+/// Take a leading `--attention-busy` off a worker's flags, after
+/// [`take`].
+pub fn take_busy(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == BUSY_FLAG => (true, rest),
+        _ => (false, flags),
     }
 }
 
@@ -178,9 +201,31 @@ pub fn decide(
     heard: &str,
     named: bool,
 ) -> Verdict {
+    decide_busy(room, going_on, own, fresh, heard, named, false, None)
+}
+
+const TURNED: &str = "someone is turned to the lamp";
+
+/// The same, in its busy form when `strict` ([`BUSY_FLAG`]): in a busy room
+/// every request is covered, not only a new session's first, and the name
+/// heard in the sound counts only with someone turned to the lamp.
+/// `turned`: whether the eyes' newest fresh look has a face turned to the
+/// lamp (`crate::bus_out::someone_turned_to_lamp`), which speaks for
+/// playing and never against.
+#[allow(clippy::too_many_arguments)]
+pub fn decide_busy(
+    room: Room,
+    going_on: bool,
+    own: bool,
+    fresh: bool,
+    heard: &str,
+    named: bool,
+    strict: bool,
+    turned: Option<bool>,
+) -> Verdict {
     if own {
         Verdict::Play("the lamp began this turn itself")
-    } else if !fresh {
+    } else if !(fresh || strict && room == Room::Busy) {
         Verdict::Play("the session has heard enough to be trusted")
     } else if room != Room::Busy {
         Verdict::Play("the room is not known to be busy")
@@ -188,8 +233,18 @@ pub fn decide(
         Verdict::Play("a conversation with the lamp is going on")
     } else if called(heard) {
         Verdict::Play("the text shows it was called")
-    } else if named {
+    } else if turned == Some(true) {
+        Verdict::Play(TURNED)
+    } else if named && !strict {
         Verdict::Play(NAMED)
+    } else if strict && named {
+        Verdict::Hold(
+            "a busy room: its name was heard in the sound, and nobody is turned to the lamp",
+        )
+    } else if strict {
+        Verdict::Hold(
+            "a busy room, and nothing shows it was called or that anyone is turned to the lamp",
+        )
     } else {
         Verdict::Hold("a new session in a busy room, and nothing shows it was called")
     }
@@ -286,12 +341,34 @@ impl Attention {
     /// The first of an answer to `request` has come: decide once, and say
     /// so. `None` for a request this is not following, or already decided.
     pub fn first_output(&mut self, request: u64, room: Room, going_on: bool) -> Option<Verdict> {
+        self.first_output_busy(request, room, going_on, false, None)
+    }
+
+    /// The same, in the rule's busy form when `strict`, with what the eyes
+    /// say of who is turned to the lamp.
+    pub fn first_output_busy(
+        &mut self,
+        request: u64,
+        room: Room,
+        going_on: bool,
+        strict: bool,
+        turned: Option<bool>,
+    ) -> Option<Verdict> {
         if request != self.request || self.verdict.is_some() {
             return None;
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         let fresh = self.begun <= FRESH_REQUESTS;
-        let verdict = decide(room, going_on, own, fresh, &self.heard, self.named);
+        let verdict = decide_busy(
+            room,
+            going_on,
+            own,
+            fresh,
+            &self.heard,
+            self.named,
+            strict,
+            turned,
+        );
         self.verdict = Some(verdict);
         Some(verdict)
     }
@@ -311,6 +388,87 @@ impl Attention {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The meeting of 2026-10-14: a session long past its first requests,
+    /// a busy room. The busy form holds what nothing shows was meant for the
+    /// lamp, a name heard in the sound with nobody turned to it included,
+    /// and lets out what was called in the text or asked with a look.
+    #[test]
+    fn in_its_busy_form_a_busy_room_needs_a_sign_on_every_request() {
+        let busy = |heard: &str, named: bool, turned: Option<bool>| {
+            decide_busy(Room::Busy, false, false, false, heard, named, true, turned)
+        };
+        assert!(matches!(
+            busy("What is 2 + 2?", false, None),
+            Verdict::Hold(_)
+        ));
+        assert!(matches!(busy("", false, Some(false)), Verdict::Hold(_)));
+        assert_eq!(
+            busy("", true, Some(false)),
+            Verdict::Hold(
+                "a busy room: its name was heard in the sound, and nobody is turned to the lamp"
+            )
+        );
+        assert!(matches!(busy("", true, None), Verdict::Hold(_)));
+        assert_eq!(busy("", true, Some(true)), Verdict::Play(TURNED));
+        assert_eq!(busy("", false, Some(true)), Verdict::Play(TURNED));
+        assert_eq!(
+            busy("Lamp, what is 2 + 2?", false, None),
+            Verdict::Play("the text shows it was called")
+        );
+        // A conversation with the lamp, and its own turns, go on.
+        assert!(matches!(
+            decide_busy(Room::Busy, true, false, false, "", false, true, None),
+            Verdict::Play(_)
+        ));
+        assert!(matches!(
+            decide_busy(Room::Busy, false, true, false, "", false, true, None),
+            Verdict::Play(_)
+        ));
+        // Any other room: as before, whatever the form.
+        for room in [Room::Quiet, Room::Unknown] {
+            assert!(matches!(
+                decide_busy(room, false, false, false, "", false, true, None),
+                Verdict::Play(_)
+            ));
+            assert!(matches!(
+                decide_busy(room, false, false, true, "", false, true, None),
+                Verdict::Play(_)
+            ));
+        }
+        // And without the busy form, nothing changes past a session's
+        // first requests.
+        assert!(matches!(
+            decide_busy(
+                Room::Busy,
+                false,
+                false,
+                false,
+                "",
+                true,
+                false,
+                Some(false)
+            ),
+            Verdict::Play(_)
+        ));
+        assert_eq!(
+            decide_busy(Room::Busy, false, false, true, "", true, false, None),
+            Verdict::Play(NAMED)
+        );
+    }
+
+    #[test]
+    fn busy_adds_its_flag_after_the_rules_own() {
+        assert_eq!(arguments(Some("busy")), [FLAG, BUSY_FLAG]);
+        let flags = [FLAG.to_owned(), BUSY_FLAG.to_owned(), "rest".to_owned()];
+        let (on, rest) = take(&flags);
+        let (busy, rest) = take_busy(rest);
+        assert!(on && busy);
+        assert_eq!(rest, ["rest"]);
+        let (busy, rest) = take_busy(&flags[2..]);
+        assert!(!busy);
+        assert_eq!(rest, ["rest"]);
+    }
 
     #[test]
     fn only_on_turns_it_on_and_the_flag_is_taken_from_the_front() {

@@ -50,7 +50,7 @@ fn run() -> Result<()> {
         // Every call is answered as done. Nothing is captured or played,
         // and nothing on the lamp is changed.
         [command,path,flag,then,note] if command=="provider-check" && flag=="--tools" && then=="--written" => {
-            let own=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None});
+            let own=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false});
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
             // LAMP_PROBE_PLAIN set: the voice's own function is declared as an ordinary one, to compare.
             let own:Vec<lamp_gemini::Tool>=own.into_iter().map(|mut tool|{tool.silent=std::env::var_os("LAMP_PROBE_PLAIN").is_none();tool}).collect();
@@ -361,11 +361,12 @@ fn run() -> Result<()> {
                     let (keep_link, flags) = lamp_voice::provider_worker::take_keep_link(flags);
                     let (tools, flags) = lamp_voice::tools::take(flags)?;
                     let (attention, flags) = lamp_voice::attention::take(flags);
+                    let (attention_busy, flags) = lamp_voice::attention::take_busy(flags);
                     let (name_signal, flags) = lamp_voice::attention::take_name(flags);
-                    let (name_note, flags) = lamp_voice::called::take(flags);
+                    let (name_note, name_note_busy_face, flags) = lamp_voice::called::take(flags);
                     let (bus_root, flags) = lamp_voice::bus_out::take_root(flags)?;
                     let visual = lamp_voice::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_voice::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_voice::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_voice::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link,tools,attention,name_signal,name_note,bus_root}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_voice::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_voice::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_voice::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,keep_link,tools,attention,attention_busy,name_signal,name_note,name_note_busy_face,bus_root}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

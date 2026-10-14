@@ -79,6 +79,13 @@ static ROOM_FACTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 /// Whether the model is told, while a person is still speaking, that the
 /// lamp's name was heard (`crate::called`).
 static NAME_NOTE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether, in a busy room, the note waits for someone turned to the lamp
+/// (`crate::called::BUSY_ENVIRONMENT`).
+static NAME_NOTE_BUSY_FACE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+/// Whether the rule for whom the lamp answers is in its busy form
+/// (`crate::attention::BUSY_FLAG`).
+static ATTENTION_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -98,12 +105,17 @@ pub struct Files {
     /// Whether the lamp's own rule for whom it answers is applied
     /// (`--attention`).
     pub attention: bool,
+    /// Whether that rule is in its busy form (`--attention-busy`).
+    pub attention_busy: bool,
     /// Whether the model is asked to say when it hears the lamp's name
     /// (`--name-signal`).
     pub name_signal: bool,
     /// Whether the model is told beside what it hears that the lamp's
     /// name was heard (`--name-note`).
     pub name_note: bool,
+    /// Whether, in a busy room, that waits for someone turned to the lamp
+    /// (`--name-note-busy-face`).
+    pub name_note_busy_face: bool,
     /// The lamp's bus, if how the room is gets published on it
     /// (`--bus-root`).
     pub bus_root: Option<std::path::PathBuf>,
@@ -617,6 +629,14 @@ pub async fn run_with_continuation(
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE.store(files.name_note, std::sync::atomic::Ordering::Relaxed);
+    NAME_NOTE_BUSY_FACE.store(
+        files.name_note_busy_face,
+        std::sync::atomic::Ordering::Relaxed,
+    );
+    ATTENTION_BUSY.store(
+        files.attention && files.attention_busy,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
         if let Ok(text) = std::fs::read_to_string(&path)
@@ -745,10 +765,20 @@ async fn serve_with_visual<C: Connect>(
     // And, if that is switched on, the model is told so while the person
     // is still speaking.
     let name_note = NAME_NOTE.load(std::sync::atomic::Ordering::Relaxed);
+    let busy_needs_face = NAME_NOTE_BUSY_FACE.load(std::sync::atomic::Ordering::Relaxed);
+    let attention_busy = ATTENTION_BUSY.load(std::sync::atomic::Ordering::Relaxed);
+    // The eyes, for whether anyone is turned to the lamp. Read only in a
+    // busy room, when a note is due or an answer is decided.
+    let eyes = BUS_ROOT
+        .get()
+        .filter(|_| busy_needs_face || attention_busy)
+        .and_then(|root| lamp_bus::Bus::new(root).ok());
     let mut called = crate::called::Called::default();
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
+    // What the request being heard has been given as its note so far.
+    let mut noted: Option<(u64, String)> = None;
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -803,13 +833,27 @@ async fn serve_with_visual<C: Connect>(
                         && let Some(open) = open
                     {
                         called.told(request);
-                        match provider.try_note(open, crate::called::NOTE) {
-                            Ok(()) => eprintln!(
-                                "lamp-voice provider: request {request}: the model is told the lamp's name was heard"
+                        let busy = busy_needs_face
+                            && crate::room_told::ROOM.lock().is_ok_and(|mut room| {
+                                room.at(monotonic_us()) == crate::room_told::Room::Busy
+                            });
+                        let turned = if busy {
+                            eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp)
+                        } else {
+                            None
+                        };
+                        match crate::called::busy_gate(busy_needs_face, busy, turned) {
+                            Err(why) => eprintln!(
+                                "lamp-voice provider: request {request}: the lamp's name was heard in a busy room and {why}; the model is not told"
                             ),
-                            Err(error) => eprintln!(
-                                "lamp-voice provider: request {request}: the lamp's name was heard and the model could not be told: {error}"
-                            ),
+                            Ok(()) => match add_note(&provider, &mut noted, open, crate::called::NOTE) {
+                                Ok(()) => eprintln!(
+                                    "lamp-voice provider: request {request}: the model is told the lamp's name was heard"
+                                ),
+                                Err(error) => eprintln!(
+                                    "lamp-voice provider: request {request}: the lamp's name was heard and the model could not be told: {error}"
+                                ),
+                            },
                         }
                     }
                 }
@@ -819,16 +863,34 @@ async fn serve_with_visual<C: Connect>(
                 if room_facts
                     && let Some(live) = provider.live_session()
                     && let Ok(mut room) = crate::room_told::ROOM.lock()
-                    && let Some(fact) = room.due(live.get(), monotonic_us())
                 {
-                    let going_on = crate::thread::THREAD
-                        .lock()
-                        .is_ok_and(|thread| thread.going_on(Instant::now()));
-                    if !going_on && provider.try_context(fact).is_some() {
+                    let now = monotonic_us();
+                    let going_on = || {
+                        crate::thread::THREAD
+                            .lock()
+                            .is_ok_and(|thread| thread.going_on(Instant::now()))
+                    };
+                    if let Some(fact) = room.due(live.get(), now) {
+                        if !going_on() && provider.try_context(fact).is_some() {
+                            room.told(live.get());
+                            // The room says more than the plain fact would.
+                            told_session = Some(live);
+                            eprintln!("lamp-voice provider: told the session {fact}");
+                        }
+                    } else if let Some(open) = intake.handoff.visual_turn()
+                        && open.session == live
+                        && let Some(fact) = room.due_in_request(live.get(), now)
+                        && !going_on()
+                        && add_note(&provider, &mut noted, open.request, fact).is_ok()
+                    {
+                        // No quiet moment comes in a meeting: it goes
+                        // beside what is being said, as the name does.
                         room.told(live.get());
-                        // The room says more than the plain fact would.
                         told_session = Some(live);
-                        eprintln!("lamp-voice provider: told the session {fact}");
+                        eprintln!(
+                            "lamp-voice provider: request {}: told the session inside it {fact}",
+                            open.request.get()
+                        );
                     }
                 }
                 // A new session is told how things stand, once, unless a
@@ -942,7 +1004,10 @@ async fn serve_with_visual<C: Connect>(
                         Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } => {
                             let (room, going_on) = now();
                             let request = lineage.request.get();
-                            match attention.first_output(request, room, going_on) {
+                            let turned = (attention_busy && room == crate::room_told::Room::Busy)
+                                .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
+                                .flatten();
+                            match attention.first_output_busy(request, room, going_on, attention_busy, turned) {
                                 Some(crate::attention::Verdict::Hold(why)) => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
                                 }
@@ -1137,6 +1202,13 @@ impl ToolDesk {
             return;
         }
         match crate::tools::route(&self.settings, &call.name) {
+            Route::Clock => {
+                let told = crate::tools::time_now();
+                tell(&told);
+                eprintln!(
+                    "lamp-voice provider: request {request}: the model asked the time; told {told}"
+                );
+            }
             Route::Decline if self.acted == Some(request) => {
                 // Every call is answered, this one too. What the model
                 // says next is not dropped.
@@ -1179,7 +1251,7 @@ impl ToolDesk {
                                 "the executive",
                                 crate::tools::ask(directory, &work, deadline),
                             ),
-                            Route::Decline | Route::Nobody => {
+                            Route::Decline | Route::Clock | Route::Nobody => {
                                 ("nobody", (crate::tools::unavailable(), false))
                             }
                         };
@@ -2077,6 +2149,32 @@ trait InputSink {
     /// Absence of this proof never turns StaleRequest into a recoverable error.
     fn belongs_to_replaced_connection(&self, _request: RequestId) -> bool {
         false
+    }
+}
+
+/// Give `request` a note beside what is being said, keeping what it was
+/// given already: a request sends only its newest note, so the name and
+/// the room, due in the same request, go as one.
+fn add_note<C: Connect>(
+    provider: &Supervisor<C>,
+    noted: &mut Option<(u64, String)>,
+    request: RequestId,
+    part: &str,
+) -> std::result::Result<(), Error> {
+    let text = note_text(noted.as_ref(), request.get(), part);
+    provider.try_note(request, &text)?;
+    *noted = Some((request.get(), text));
+    Ok(())
+}
+
+/// What a request's note says once `part` is added to what it was given.
+fn note_text(noted: Option<&(u64, String)>, request: u64, part: &str) -> String {
+    match noted {
+        Some((given, text)) if *given == request && !text.contains(part) => {
+            format!("{text} {part}")
+        }
+        Some((given, text)) if *given == request => text.clone(),
+        _ => part.to_owned(),
     }
 }
 
@@ -4614,6 +4712,7 @@ mod tests {
                 decline: true,
                 exec: None,
                 memory: None,
+                clock: false,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4655,6 +4754,63 @@ mod tests {
         rig.stop().await;
     }
 
+    /// The name and the room due in the same request go as one note, each
+    /// once; a later request starts afresh.
+    #[test]
+    fn a_requests_note_keeps_what_it_was_given() {
+        let name = crate::called::NOTE;
+        let busy = crate::room_told::BUSY;
+        let first = note_text(None, 7, name);
+        assert_eq!(first, name);
+        let both = note_text(Some(&(7, first)), 7, busy);
+        assert_eq!(both, format!("{name} {busy}"));
+        assert_eq!(note_text(Some(&(7, both.clone())), 7, busy), both);
+        assert_eq!(note_text(Some(&(7, both)), 8, busy), busy);
+    }
+
+    /// Someone asks the time and the model asks the lamp's clock. The call
+    /// is answered at once, in this process, with the minute as the clock
+    /// has it, and the model then speaks in the same request.
+    #[tokio::test]
+    async fn a_call_for_the_time_is_answered_at_once_from_the_lamps_clock() {
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            typed_with(crate::tools::Settings {
+                decline: false,
+                exec: None,
+                memory: None,
+                clock: true,
+            }),
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, true).await;
+        let asked = Instant::now();
+        dial.service
+            .send(function_call("t1", crate::tools::THE_TIME))
+            .await;
+        let answer = rig.service_message(&mut dial).await;
+        assert!(asked.elapsed() < Duration::from_secs(1));
+        let response = &answer["toolResponse"]["functionResponses"][0];
+        assert_eq!(response["id"], "t1");
+        assert_eq!(response["name"], "the_time");
+        // The clock as this machine has it, or that it could not be read;
+        // never nothing, which would leave the service waiting.
+        let told = &response["response"];
+        assert!(
+            told["now"]
+                .as_str()
+                .is_some_and(|now| now.starts_with("It is "))
+                || told["error"].is_string(),
+            "{answer}"
+        );
+        dial.service.send(provider_audio(9, 480)).await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Audio { request: heard, .. } if heard == request
+        ));
+        rig.stop().await;
+    }
+
     /// The model asks for something the lamp can do. The executive, in a
     /// process of its own, is asked over its socket and what it established
     /// goes back to the model under the call's identifier. The voice's loop
@@ -4688,6 +4844,7 @@ mod tests {
                 decline: false,
                 exec: None,
                 memory: Some(socket),
+                clock: false,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4745,6 +4902,7 @@ mod tests {
                 decline: false,
                 exec: Some(home.path.clone()),
                 memory: None,
+                clock: false,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4799,6 +4957,7 @@ mod tests {
                 decline: true,
                 exec: Some(home.path.clone()),
                 memory: None,
+                clock: false,
             }),
         );
         let mut dial = rig.ready().await;
@@ -4869,6 +5028,7 @@ mod tests {
                     decline: false,
                     exec: Some(home.path.clone()),
                     memory: None,
+                    clock: false,
                 },
                 "light_on",
             ),

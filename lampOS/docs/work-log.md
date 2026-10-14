@@ -16,12 +16,88 @@ the lamp, and nothing here was run on a lamp.
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady` |
-| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | being built |
+| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | being built |
 
 ## Handed back
 
 Newest first.
+
+### Task 20: the replay takes the lamp's own recordings (2026-10-14)
+
+**Built** (`crates/audio/src/replay.rs`; `docs/steady-reference.md`, "The
+replay takes the lamp's recordings"):
+
+- `lamp-audio replay-aec` follows a capture-clocked recording through. It
+  rebuilds the voice's ring as `ReferenceAssembly` does: the lead and the
+  prime at each start or reset; before each capture block, every frame
+  accepted by then (`reference.accepted_through`); one block taken; the
+  rate for the next from the fill and the frames owed since the last packet
+  (`analysed_at_us` less `accepted_at_us`, at most 20 ms). After every
+  block its cursor must equal the lamp's (`reference.analysed_through`), so
+  the canceller gets the lamp's blocks in the lamp's order.
+- It knows the mode from `run_start` in `events.jsonl` (`reference_clock`),
+  or, for a session too old to say, from the first capture record's
+  cursor; `report.json` says which and how.
+- Where it cannot follow, it stops at that capture record, names it and
+  why in `limitations`, and keeps and writes out everything before it.
+- `events.jsonl` is read a line at a time (up to 4 GiB, which a long serve
+  session may need; it was read whole under 32 MiB before): a cut-off last
+  line is passed over and reported (`events_cut_off`); a line over 64 KiB
+  is counted (`events_long_lines`); any other bad line is an error naming
+  its number.
+- Without an option the cancellers get the reference the recorded voice
+  used (`echo_reference` in `run_start`); `--steady-reference` or the new
+  `--as-given-reference` chooses.
+
+**Tested** in `crates/audio/tests/replay.rs` on recordings made in the
+tests as the voice makes them: a capture-clocked one of 300 blocks (the
+speaker 1,000 ppm fast, every seventh packet late, so the rate moves)
+replays whole, `aec_only_mismatched_samples_vs_recorded` 0; the same
+without `run_start`, known by its cursor, exact; a reset in the middle,
+two segments, both exact; events cut off mid-line, read and reported; a
+cursor moved by one frame at the 61st record, stopped there, the record
+named, the 60 blocks before kept and exact. The 12 older replay tests pass
+unchanged. Gate on the Linux ARM64 VM, on `cb4d24e61`: `cargo fmt --all --check` clean;
+`cargo clippy --locked -p lamp-audio --all-targets -- -D warnings` clean;
+`cargo test --locked`: `lamp-audio` 178 passed (2 ignored), `lamp-voice-eval`
+284 passed, `lamp-voice` 935 passed in its library and every test target
+but one; `cargo build --locked --workspace` builds. The one is
+`crates/voice/tests/capture_hold_worker.rs`, which does not compile on
+`lamp-voice` itself (`1766259f3`): line 161 calls `capture_on` with nine
+arguments, and it takes ten since the steady reference was wired
+(`--echo-reference`). This change touches nothing in `crates/voice`; see
+"Questions".
+
+**On the lamp** (any recording made with the audio diagnostics):
+
+```sh
+lamp-audio replay-aec RUN artifacts/replay-as-recorded
+lamp-audio replay-aec RUN artifacts/replay-steady --steady-reference
+```
+
+The first should end `replay_complete_for_recorded_capture: true` with
+`aec_only_mismatched_samples_vs_recorded: 0` in every segment (the lamp
+runs without noise suppression). If so, compare the second's
+`lamp_sounding_internal_alignment_ms` and `…_changes` with the first's,
+and listen to `segment-*-aec_only.wav` at the words played over the lamp.
+
+**Where it is most likely to be wrong on the lamp:** a kind of record the
+lamp's recordings have and the made ones do not. The made recordings
+follow the recorder's format as `replay.rs` checks it, not the voice's
+recorder run against scripted devices (no test in `crates/voice` does that
+in a capture-clocked session, and that crate is not this task's).
+Candidates: recovery (`--reference-recovery`, off on the lamp but its
+reseeds would move the ring), a privacy close and reopen mid-run, or the
+fourth recording's events failing for a reason other than a cut-off or
+long line (the message now names the line). The first mismatch's
+`limitations` line names the record.
+
+**Asked for:** two of the lamp's capture-clocked recordings with played
+voices only (for example `cut-a` and the run of words into quiet), as a
+`.tar` attached to a draft release of this repository, or wherever is
+easiest; say where in "Answers". With them I will make the made
+recordings' shape match whatever the lamp's have.
 
 ### Task 10: a reference that follows the microphone's clock (2026-10-14)
 
@@ -304,4 +380,12 @@ an everyday event there.
 
 ## Questions
 
-None yet.
+1. **2026-10-14, task 20.** `cargo test -p lamp-voice` does not compile on
+   `lamp-voice` at `1766259f3`: `crates/voice/tests/capture_hold_worker.rs`
+   line 161 calls `capture_on` with nine arguments; since the steady
+   reference was wired it takes ten (the echo reference). Adding
+   `EchoReference::AsGiven` there is likely all it needs; `crates/voice` is
+   yours, so it is left to you.
+2. **2026-10-14, task 20.** Two of the lamp's capture-clocked recordings,
+   with played voices only, to check the replay against: where can I
+   fetch them? (A `.tar` on a draft release of this repository would do.)

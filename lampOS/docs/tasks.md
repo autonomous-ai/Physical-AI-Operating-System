@@ -357,6 +357,31 @@ compatibility, its ordinary environment and executable wrapper, storage sync
 latency relative to the 1.1-second receipt deadline, and Linux process-group
 cleanup. No host result substitutes for those checks.
 
+## First real Harness check (lamp-4ace, 2026-10-14, 21:36)
+
+By hand, not through `lamp-tasks`, with the owner's leave to use their account
+and their office computer. Harness 0.3.99 on the lamp (`~/.local/bin/harness`)
+and on the office machine (`office`, `m0.local`); `harness machines --json` on
+the lamp listed ten machines, the lamp itself among them ("current").
+
+- **Starting works.** On the lamp, `harness new claude @<office's full id>
+  lamp-first-task --mode ask --name lamp-test-1 --json --task "<a text-only
+  request>"` returned `ok` with the agent's id, `permissionMode: ask`, and a
+  new project `~/harnesses/lamp-first-task` on the office machine, 6.2 s after
+  it was run. Claude Code answered with one sentence and used no tools.
+- **Reading it back from the lamp does not.** `harness show` and `harness wait`
+  read only the agents on the machine they run on: on the lamp, `show` by id,
+  by name and with the machine named in every form tried said
+  `UNKNOWN_HARNESS` ("on this machine"); on the office machine `show
+  lamp-test-1` gave the asked text, the answer, `state: idle` and `tools: 0`.
+  So `lamp-tasks` can start work on another machine and cannot read its
+  answer there. Asked of the owner, for the Harness team: `show`/`wait` for an
+  agent on another machine of the same account. The alternative is to run the
+  agents on the lamp itself, which needs Claude Code installed and signed in
+  there.
+- An agent may close only what it started: `harness close lamp-test-1` from the
+  office machine was refused (`NOT_YOURS`); it stays for the person to close.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

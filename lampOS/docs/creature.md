@@ -19,9 +19,10 @@ lampOS listens to it yet.
 | Sight | The ZVCAI USB camera, in the head at the centre of the light ring, so it moves with the head; up to 3264 x 2448 (MJPEG) | Eyes (`lamp-eyes`): faces, where, whether turned to the lamp | Running |
 | Hearing, speech | mic2, the Jieli dual microphone in the base (its own echo filter, beam and noise cancelling) | Voice, Name | Running |
 | Hearing, the room | mic1, the plain capsule in the base on the C-Media adapter | Ears (`lamp-ears`): level, quiet, sudden sounds | Running since 16:13 |
-| Hearing, from the head | The camera's own microphone, two channels at 22.05 kHz | Nothing | Not read. If its two channels are two capsules, it gives left and right: where a voice came from |
-| Touch, head | A touch line on chip 0 (line 96 reads it; V1's newest profile also names line 100) | Controls | Running, seen at 17:16 |
-| Touch, base | On top of the base. Most likely chip 1 line 9 (kernel `gpio-361`), which V1 called a button and which the voice holds today as its privacy input | Nothing acts on it | Being identified with a hand, 17:23 |
+| Hearing, from the head | The camera's own microphone: two channels at 22.05 kHz, 8 bits, but the left is silent (six seconds on 2026-10-14: left RMS 0.00, right 0.71) | Nothing | One capsule: no left and right, so no direction from sound. At most a level at the head |
+| Touch, head | Two pads: chip 0 line 96 and kernel gpio-37 both change with a touch (the owner's hand, 17:24) | Controls | Running; both read, reported as the head; meanings to be redone (#711) |
+| Touch, base | A strip of ten capacitive pads on top of the base: an MPR121 on I2C bus 0 at 0x5A, pads 0-3, 5-7, 9-11 in order (the owner's hand, 17:27: a tap, a three-second hold on five pads, a slide across in about 0.6 s each way) | Nothing | Not read by lampOS yet: #711 |
+| A privacy switch | Chip 1 line 9 (kernel gpio-361): V1's microphone slide switch, "not wired" in its notes; the voice reads it as its physical privacy input and it reads high (unmuted) | Voice | No switch is fitted; a touch on the base does not change it |
 | Its own body | Five servos: where each joint is, its load and warmth, 50 times a second | Body | Running. A hand pushing the head shows up as load: the body can feel being moved |
 | Time | The board's clock and a battery-backed clock (HYM8563) | Schedule, voice | Running |
 | Nearby phones | Bluetooth (`hci0`) | Nothing | Not read. Could notice a known phone arriving or leaving |
@@ -100,7 +101,7 @@ From general knowledge of well-known companions, not a fresh survey:
 
 1. Touch: both touches identified, then the four touch rows above
    (controls, voice, Expression, body). Started 2026-10-14 17:15.
-2. Hearing where: the camera's two channels, then turning to a voice.
+2. Turning to a voice: from the faces the eyes see and a small look around, since no microphone gives a direction (the camera's has one capsule).
 3. The inner state: one part that keeps it and that Expression reads.
 4. Sleep and waking, with the time of day.
 5. Familiarity: who it knows (eyes and memory).

@@ -424,6 +424,25 @@ of two functions:
 A request whose answer is held back (the busy-room rule) has neither run, as
 for the other functions. Hearing the answer back waits on Harness (above).
 
+**On lamp-4ace since 2026-10-14, 22:24** (voice `c2ac775f5`,
+`LAMP_TASKS_DIR=/run/lampos-tasks`; `lamp-tasks.service` with the build of
+`b73dfe6fa`, `--harness-as-person`, target `office`, Claude Code, project
+`lamp-tasks`; its target list is in `/var/lib/lampos-tasks/targets.json`, as
+the service user cannot enter `/etc/lampOS`, which at first left it
+restarting with "Permission denied"). Played at 22:39: "Hey Lamp, can you
+ask Claude Code on my office computer to suggest three friendly names for a
+desk lamp?" got "I'll ask the code to find three friendly names for a desk
+lamp. Shall I start that?" (`prepare` answered in 35 ms); "Yes, go ahead."
+got "I've started that task on your office computer." (`confirm` in 38 ms),
+and the tasks part started a Claude Code session on the office machine,
+which answered there with three names. The answer was not heard on the lamp.
+
+One try before it failed: "Yes, please start it." was ended after "Yes." and
+its rest heard as a new utterance; the model's `confirm_agent_task` for the
+first arrived after the second had taken over and was dropped
+(`UnownedToolCall`), and the model then said it could not start the task. A
+yes said in one breath worked.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

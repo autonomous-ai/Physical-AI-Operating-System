@@ -1,0 +1,27 @@
+# /etc/systemd/system/lamp-tasks.service
+# lampOS tasks on lamp-4ace (lampOS/docs/tasks.md): work handed to Claude Code on another computer through Harness,
+# started only after the person's spoken yes, which reaches it only on the voice's own socket.
+# As the person (--harness-as-person): the owner chose the plain Harness CLI on 2026-10-14.
+# Sessions run on other computers only: "lamp doesn't have enough resources" (owner, 2026-10-14).
+[Unit]
+Description=lampOS tasks (lamp-tasks)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=orangepi
+Group=orangepi
+Environment=HOME=/home/orangepi
+Environment=PATH=/home/orangepi/.local/bin:/usr/local/bin:/usr/bin:/bin
+RuntimeDirectory=lampos-tasks
+RuntimeDirectoryMode=0700
+StateDirectory=lampos-tasks
+StateDirectoryMode=0700
+ExecStart=/opt/lampOS/tasks/d97ee80e3d0fa7a842ac46a568f827c2aab44a182466bc47483812a405d39aaa/lamp-tasks serve --enable --harness-as-person --dir /var/lib/lampos-tasks/store --socket /run/lampos-tasks/request.sock --voice-socket /run/lampos-tasks/voice.sock --targets /var/lib/lampos-tasks/targets.json --harness /home/orangepi/.local/bin/harness
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

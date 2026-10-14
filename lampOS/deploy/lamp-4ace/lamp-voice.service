@@ -21,7 +21,7 @@ Group=root
 Slice=system.slice
 WorkingDirectory=/
 UMask=0077
-ExecStart=/opt/lampOS/releases/486d6f9456b8ee1c186a817dc0dad2c0e48d6c870fa49dbee225b087391e870e/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
+ExecStart=/opt/lampOS/releases/c8ccd3dd1676e4e569204570f3b6ddb20d96b51e50bd7c9ecc0df5a2b7dda4e0/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 200 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
 # The microphone and speaker workers may not wait behind other work on the lamp: a read held up
 # for 10 ms, or a reference 20 ms late, ends the service (by design: the echo canceller's timing
 # is then unknown). With every core busy for 40 s (2026-10-13, twelve busy loops) the service
@@ -57,6 +57,11 @@ Environment=LAMP_AIR_FACTS=on
 # The ring as the lamp's eye (task 34, #712; lampOS/docs/ring-choreography.md, "The eye"): listening, it looks toward the
 # nearest face the eyes see; at rest it blinks now and then. Take this line out and the ring is as before.
 Environment=LAMP_RING_EYE=on
+# A short utterance in a room that is not busy goes to the model to judge, where the noise gate would drop it
+# (lampOS/docs/not-speech.md; on 2026-10-14 the gate dropped 13 of 36 short words such as "Hi.").
+Environment=LAMP_SHORT_SOUNDS=quiet-room
+# Work for Claude Code on the office computer through lamp-tasks.service (lampOS/docs/tasks.md, "The voice's side").
+Environment=LAMP_TASKS_DIR=/run/lampos-tasks
 # Whom it answered: one line per first output the rule judged, private to root on the lamp, never published
 # (lampOS/docs/attention.md, "The record of whom it answered"). Take this line out and nothing is written.
 Environment=LAMP_FIRST_OUTPUT=/var/lib/lampOS/voice/first-output

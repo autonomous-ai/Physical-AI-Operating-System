@@ -219,8 +219,17 @@ look away and the way back do.
 
 ## Waking
 
-Not yet run on a lamp, and no power cut has been tried. Everything in this
-section is what the code does against simulated servos.
+No power cut has been tried. On lamp-52e6 on 2026-10-14, folded, with its
+voice stopped, the body was started twice with `--wake on` and a home it was
+not found at: once with the base's home 300 counts round (found at 2,024,
+home 2,335), once back again (found at 2,318, home 2,035). It woke the base
+311 counts in 24.3 s and 283 counts in 22.2 s, the head's roll the 8 counts
+it was off with it, with no missed read, no joint giving way, and loads of
+at most 127, 52 and 112 (pitch, roll, yaw). Each run then went on until it
+was stopped. That the joints never moved away from home on the way is shown
+by the tests below, not by these runs, whose reports give where each began
+and ended. Every other sentence of this section is what the code does
+against simulated servos.
 
 A lamp whose power comes back is found wherever it fell or was pushed: on
 lamp-4ace the head rests pressed on the base (2,095 on 2026-10-12, above

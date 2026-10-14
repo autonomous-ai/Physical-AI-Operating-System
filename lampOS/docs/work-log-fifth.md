@@ -143,6 +143,23 @@ lamp-4ace.
   written when the task is done). The specification quoted in the task says
   7 kg; the old runtime's model adds up to 1.5 kg.
 
+## 2026-10-14 — wake — code on lamp-fifth, the unplugs still to come
+
+- `fifth/wake`: `lampOS: let the body wake from wherever it is found, slowly
+  and never away from home, behind a switch` (`--wake on`, off unless given;
+  without it the packets are unchanged, a test says so). Gate on the Mac:
+  fmt and clippy clean, `cargo test -p lamp-body` 247 passed, 0 failed,
+  workspace builds; built for the lamp.
+- On lamp-52e6, without a person: (1) folded, every servo's torque switched
+  off: nothing drooped in 10 s; the installed body (`--torque on`) started
+  from there to ready in 0.18 s with no jump. (2) `--wake on` with the base's
+  home moved 300 counts: woke 311 counts in 24.3 s, and back 283 in 22.2 s,
+  no missed read, nothing gave way. Raw in
+  `docs/verification/wake-lamp-52e6-20261014/`.
+- Kind (builder-with-a-lamp.md): off unless set.
+- Not shown, waiting for the person: the ten unplugs (what the servos do
+  at power-up, then with `lamp-os` enabled); a power cut while standing.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

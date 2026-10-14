@@ -245,6 +245,7 @@ has it:
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | done 2026-10-14: on `lamp-voice`; `lamp-policy-judges` is a played-scene tool (at most ten minutes, watching only), on lamp-4ace beside the service; the first 58 labelled rows from played scenes are in `docs/verification/policy-scenes-lamp-4ace-20261014/` and fit end to end; too few calls yet to judge it |
 | 28 | Memory says it is well, for the lamp's health | `memory-health` | Fourth | open |
 | 29 | The voice uses what memory across days adds | `memory-voice` | Fourth | open |
+| 30 | V1 and V2 side by side, on the same played scenes | `v1-v2` | Fifth | open: after 27, 24 and 26 |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -1240,6 +1241,33 @@ costs the voice its deadline and an honest answer, nothing more.
 
 **Hand back:** the change, the tests, and the played scenes for the first
 builder (`~/lamp-voice-data/tools/memory.sh`) with what each should show.
+
+## 30. V1 and V2 side by side, on the same played scenes
+
+Document: a new `docs/v1-v2-side-by-side.md`, linked from
+[benchmark-progress.md](benchmark-progress.md).
+
+**Why.** The owner asked on 2026-10-14: are we building something
+significantly better than V1? What exists is one V1 answer (4.4 s from the
+end of the question to its first sound, 2026-10-11) against 1,034 of V2's
+own (half within 1.98 s), never the two on the same questions in the same
+room. lamp-52e6 still has V1; lamp-4ace does not.
+
+**Wanted.** On lamp-52e6, the same played scenes once under V1 and once
+under lampOS, the same day, the same loudspeaker at the same place,
+scored from a room recording (the Mac's microphone near the lamp), not
+from either side's own logs, since V1 and V2 log differently. The scenes
+are the first builder's (`pauses.sh`, `cutins.sh`, `shorts.sh`,
+`twopeople.sh`, `near.sh`: ask for their text, they play `say` voices);
+take the lines and the waits, not their lamp-4ace plumbing. For each
+version: from the end of each question to the lamp's first sound (every
+answer, with half-within and nine-in-ten-within); sentences and short words
+said over its answer that stopped it, and how soon; lines of other
+people's talk it answered, and calls it answered. Say which V1 options
+were in force (live mode or not) and do not tune either side for the test.
+
+**Hand back:** the table, the recordings' place, and what it does not
+show (played voices, one lamp, one day).
 
 ## What the lamp showed
 

@@ -20,13 +20,16 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-voice`; on the lamp 148 ms against 382; the voice does not use it yet |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | on `lamp-voice`: hears the word alone; under the lamp's voice only through the canceller, partly; a first look on lamp-4ace heard no played stop; not wired |
-| 5 | The name, heard as a bare "Lamp" (issue #694) | `second/bare-name` | 2026-10-14 | on `lamp-voice` (#725, merged 23:05); the first builder tries the model on lamp-4ace |
+| 5 | The name, heard as a bare "Lamp" (issue #694) | `second/bare-name`, then `second/bare-name-2` | 2026-10-14 | #725's model on `lamp-voice`; on lamp-4ace at 23:56 it heard 1 of 6 played calls against the installed model's 3 to 4: not installed; a better model being trained |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-voice` (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-voice`, behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2, (b) behind `--early-end-ms`, being built |
+| 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
+| 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
+| 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | `second/phone` | 2026-10-15 | study first |
 
 ## Proposed tasks
 

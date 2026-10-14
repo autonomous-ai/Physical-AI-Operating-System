@@ -1,0 +1,23 @@
+    Blocking waiting for file lock on build directory
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.20s
+     Running tests/rest_engine.rs (target/debug/deps/rest_engine-c54e05d153ce6b60)
+
+running 1 test
+test a_missed_hold_may_first_be_observed_after_resume_while_still_listening ... FAILED
+
+failures:
+
+---- a_missed_hold_may_first_be_observed_after_resume_while_still_listening stdout ----
+
+thread 'a_missed_hold_may_first_be_observed_after_resume_while_still_listening' (110366280) panicked at crates/expression/tests/rest_engine.rs:71:45:
+called `Result::unwrap()` on an `Err` value: Error("a retired voice turn cannot resume audio or thinking")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_missed_hold_may_first_be_observed_after_resume_while_still_listening
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-expression --test rest_engine`

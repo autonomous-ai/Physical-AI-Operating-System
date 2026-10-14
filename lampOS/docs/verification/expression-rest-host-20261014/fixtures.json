@@ -1,0 +1,90 @@
+{
+  "provenance": "authored inputs, not lamp recordings",
+  "clock_id": "expression-rest-fixture",
+  "assertions_verified_by": "crates/expression/tests/rest_replay.rs",
+  "fixtures": [
+    {
+      "fixture": "crates/expression/fixtures/held-resumed.jsonl",
+      "input_records": 18,
+      "expected_accepted": 14,
+      "expected_intentionally_refused": 4,
+      "default_final_tick_us": 400000
+    },
+    {
+      "fixture": "crates/expression/fixtures/held-cancelled.jsonl",
+      "input_records": 16,
+      "expected_accepted": 13,
+      "expected_intentionally_refused": 3,
+      "default_final_tick_us": 440000
+    },
+    {
+      "fixture": "crates/expression/fixtures/finish-nod.jsonl",
+      "input_records": 37,
+      "expected_accepted": 37,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 2000000
+    },
+    {
+      "fixture": "crates/expression/fixtures/no-concentration.jsonl",
+      "input_records": 7,
+      "expected_accepted": 7,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 400000
+    },
+    {
+      "fixture": "crates/expression/fixtures/rest-quiet.jsonl",
+      "input_records": 2244,
+      "expected_accepted": 2244,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 140200000
+    },
+    {
+      "fixture": "crates/expression/fixtures/rest-busy.jsonl",
+      "input_records": 804,
+      "expected_accepted": 804,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 50200000
+    },
+    {
+      "fixture": "crates/expression/fixtures/rest-concentrating.jsonl",
+      "input_records": 805,
+      "expected_accepted": 805,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 50200000
+    },
+    {
+      "fixture": "crates/expression/fixtures/rest-expired.jsonl",
+      "input_records": 766,
+      "expected_accepted": 766,
+      "expected_intentionally_refused": 0,
+      "default_final_tick_us": 48200000
+    }
+  ],
+  "injected_face_timing": [
+    {
+      "case": "hold",
+      "arrival_us": 41001,
+      "tick_us": 60000,
+      "elapsed_us": 18999
+    },
+    {
+      "case": "resume",
+      "arrival_us": 120001,
+      "tick_us": 140000,
+      "elapsed_us": 19999
+    }
+  ],
+  "timing_excludes": [
+    "transport",
+    "scheduler delay",
+    "physical ring response",
+    "sound",
+    "motors"
+  ],
+  "rest_onsets_us": [
+    45000000,
+    139000000
+  ],
+  "first_rest_completion_us": 49000000,
+  "room_expiry_cancel_us": 47000000
+}

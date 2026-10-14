@@ -1,0 +1,3 @@
+    Checking lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.55s

@@ -1,0 +1,41 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.01s
+     Running tests/rest_replay.rs (target/debug/deps/rest_replay-7fe0504d336e0cc5)
+
+running 18 tests
+test no_concentration_publication_means_not_concentrating_and_healthy_with_other_inputs_known ... ok
+test bus_import_keeps_new_generations_declarations_sequence_loss_and_estimated_arrival_limits ... ok
+test runtime_adapts_additive_topics_without_replacing_shared_stamps_or_generation ... FAILED
+test a_missed_hold_snapshot_still_discards_pre_generation_audio_on_resume ... ok
+test a_held_turn_without_input_admission_never_claims_listening_readiness ... ok
+test bad_new_contracts_fail_before_output_or_engine_mutation ... ok
+test interrupted_and_cancelled_held_turns_cannot_be_resumed_even_with_a_new_generation ... ok
+test held_face_is_next_tick_and_resume_accepts_only_new_generation_sound ... ok
+test renewed_speech_cancels_the_carried_nod_and_thinking_alone_cannot_start_one ... ok
+test a_started_finish_nod_continues_into_thinking_and_ends_once_without_more_activity ... ok
+test real_service_subscribes_to_exactly_one_complete_voice_protocol ... ok
+test quiet_expiry_stops_an_active_rest_at_the_exact_boundary ... ok
+test all_opted_in_fixtures_remain_shadow_without_the_enable_switch ... ok
+test busy_and_explicit_concentration_never_start_rest_even_after_the_delay ... ok
+test rest_requests_stop_when_joints_or_voice_expire_and_later_receipts_do_not_retroactively_extend_them ... ok
+test built_cli_uses_explicit_catalogue_and_default_shadow_for_the_new_fixtures ... ok
+test quiet_rest_is_finite_small_pitch_only_and_waits_ninety_seconds_after_completion ... ok
+test every_authored_fixture_has_exact_counts_and_only_its_declared_refusals ... ok
+
+failures:
+
+---- runtime_adapts_additive_topics_without_replacing_shared_stamps_or_generation stdout ----
+
+thread 'runtime_adapts_additive_topics_without_replacing_shared_stamps_or_generation' (110364085) panicked at crates/expression/tests/rest_replay.rs:465:9:
+assertion `left == right` failed
+  left: Object {"accepting_input": Bool(true), "audio_generation": Number(1), "event": String("state"), "held": Bool(false), "kind": String("progress"), "request": Number(1), "session_id": String("fixture-voice"), "stamp": Object {"at_us": Number(0), "clock_id": String("expression-rest-fixture"), "sequence": Number(1)}, "state": String("speaking"), "turn": Number(1)}
+ right: Object {"accepting_input": Bool(true), "audio_generation": Number(1), "event": String("state"), "first_audio_us": Null, "held": Bool(false), "kind": String("progress"), "request": Number(1), "session_id": String("fixture-voice"), "stamp": Object {"at_us": Number(0), "clock_id": String("expression-rest-fixture"), "sequence": Number(1)}, "state": String("speaking"), "turn": Number(1)}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime_adapts_additive_topics_without_replacing_shared_stamps_or_generation
+
+test result: FAILED. 17 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+
+error: test failed, to rerun pass `-p lamp-expression --test rest_replay`

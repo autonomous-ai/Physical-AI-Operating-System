@@ -437,6 +437,20 @@ Ready for lamp-voice: no (the recordings with a person are not done; draft pull 
   `docs/verification/mouth-moving-lamp-52e6-20261014/` (on the branch),
   with the build already installed on lamp-52e6.
 
+## 2026-10-15 — look-at-name by default (follows #715) — on unless `off`
+
+Ready for lamp-voice: yes (#742)
+
+- `fifth/look-at-name-default`, from `lamp-voice`, two commits: the command
+  line's default flipped to on, `--look-at-name off` turns it off (asked by
+  the first builder merging #724, under joining.md "The switch is for that
+  first minute"); and its verification. Kind: changes every lamp's default.
+  Gate green, `cargo test -p lamp-body` 276 passed, native ARM64 runs green.
+- On lamp-52e6 with its recorded options: the body said it turns to a call;
+  two lines said aloud from the Mac, both heard and taken (standing: called
+  9 ms after `name/heard`, base +45/-44 counts; folded: rose, glanced once
+  up 5.6 s later, while already answering). Recorded units back on after.
+
 ## Found, not mine
 
 Seen on lamp-52e6 while working on the body, outside `crates/body`; left

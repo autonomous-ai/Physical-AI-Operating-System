@@ -659,6 +659,21 @@ tilt, back by 1.6 s):
   lamp-52e6 glances only if that window is widened, which is not done
   here.
 
+**On lamp-4ace, 2026-10-14, 18:40 to 18:44** (the first builder,
+[readings](verification/rest-glance-lamp-4ace-20261014/README.md)), on by
+default in its unit since 18:41. A minute with the switch off changed
+nothing. A knock and a bang played from a loudspeaker a metre away did not
+reach the ears' 30 dB threshold, so nothing was asked. One sudden sound
+published by hand on `ears/sudden`, the lamp folded at rest: Expression
+asked for its glance, and the head lifted 49 counts (1,952 to 1,903, about
+4.3 degrees), highest about 1.2 s after, and was back within 6 counts a
+second later; roll, base and arm as before. lamp-4ace's home pitch is 210
+counts inside the folded window. Seen once, not explained: about 7 s
+later the resting head was held 4 to 5 counts from its goal with its load
+rising to 163, until its goal moved 8 counts and the load fell to 25.
+Whether a folded lamp-52e6 should have its own window: #710's answer is a
+lamp's own `--pitch-window`, a separate task.
+
 ## Gestures
 
 Not yet run on a lamp. This is what the code does against simulated servos.

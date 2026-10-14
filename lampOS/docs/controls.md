@@ -161,7 +161,7 @@ a pull-down and once with a pull-up, 10 ms each, and serves nothing: a
 line that reads the same both ways is driven by something, and one that
 follows the pull is not.
 
-**On lamp-4ace, 2026-10-14, 10:50, nobody touching it.** The older
+**On lamp-4ace, 2026-10-14, about 10:35, nobody touching it.** The older
 software's record names the primary button on chip 0, line 99, and four
 places a head pad may be wired, lines 37, 96, 97 and 98
 (`robots/lamp/docs/physical-controls.md`). The probe:

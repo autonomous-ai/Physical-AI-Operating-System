@@ -13,6 +13,7 @@ the lamp, and nothing here was run on a lamp.
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | being built |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`) |
+| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
 
 ## Handed back
 

@@ -639,6 +639,16 @@ queue or a full file is counted, and the run's last line (`capture_end`)
 says how many lines were admitted and how many dropped. A file without that
 line is a run that did not end cleanly.
 
+Its first build (`8ae7b8868`) failed on lamp-4ace on 2026-10-14 at 20:42:
+opening the record read and hashed the whole program on the provider's own
+thread, which held the worker so long that its messages reached the voice
+late, and the voice ended the worker at every start ("stale, reordered or
+wrong-boot runtime message"). Seven restarts and about 45 seconds without a
+voice, then the build before it was put back. The hash is now taken on the
+record's own thread and written as the file's first line (`capture_start`),
+with the machine, the boot and the run; a test checks that opening the
+record is quick.
+
 What was heard is in these files, and so are bystanders' words in an office:
 they stay on the lamp and are not published. Not recorded yet: whether any
 sound of the answer was played (`request_outcome`), when a request began, and

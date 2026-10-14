@@ -91,7 +91,6 @@ pub struct FirstOutputLog {
     run: String,
     machine: Option<String>,
     boot: Option<String>,
-    build: Option<String>,
     seq: u64,
     began_unix_ms: u64,
 }
@@ -117,11 +116,19 @@ impl FirstOutputLog {
             .open(&path)?;
         let counts = Arc::new(Counts::default());
         let (lines, queued) = sync_channel(QUEUE);
+        let machine = read_trimmed("/etc/machine-id");
+        let boot = read_trimmed("/proc/sys/kernel/random/boot_id");
         let writer = {
             let counts = Arc::clone(&counts);
+            let start = Start {
+                run: run.clone(),
+                machine: machine.clone(),
+                boot: boot.clone(),
+                began_unix_ms,
+            };
             std::thread::Builder::new()
                 .name("first-output".into())
-                .spawn(move || write_lines(file, &queued, &counts))?
+                .spawn(move || write_lines(file, &start, &queued, &counts))?
         };
         Ok(Self {
             lines: Some(lines),
@@ -129,9 +136,8 @@ impl FirstOutputLog {
             counts,
             path,
             run,
-            machine: read_trimmed("/etc/machine-id"),
-            boot: read_trimmed("/proc/sys/kernel/random/boot_id"),
-            build: build_sha256(),
+            machine,
+            boot,
             seq: 0,
             began_unix_ms,
         })
@@ -150,7 +156,6 @@ impl FirstOutputLog {
             "machine": self.machine,
             "os_boot": self.boot,
             "voice_run": self.run,
-            "build_sha256": self.build,
             "event_seq": self.seq,
             "session": decision.session,
             "request": decision.request,
@@ -209,9 +214,30 @@ impl Drop for FirstOutputLog {
     }
 }
 
-fn write_lines(mut file: std::fs::File, queued: &Receiver<String>, counts: &Counts) {
+/// What the run's first line says of it, written by the writer's own thread.
+struct Start {
+    run: String,
+    machine: Option<String>,
+    boot: Option<String>,
+    began_unix_ms: u64,
+}
+
+/// The writer's thread. Its first line names the run and the program that
+/// ran it, by its SHA-256: reading and hashing the program takes too long
+/// for the provider's own thread (on lamp-4ace on 2026-10-14 doing it there
+/// delayed the worker's messages and the voice ended it at every start).
+fn write_lines(mut file: std::fs::File, start: &Start, queued: &Receiver<String>, counts: &Counts) {
+    let first = json!({
+        "schema": 1,
+        "event": "capture_start",
+        "machine": start.machine,
+        "os_boot": start.boot,
+        "voice_run": start.run,
+        "build_sha256": build_sha256(),
+        "began_unix_ms": start.began_unix_ms,
+    });
     let mut written_bytes = 0u64;
-    for line in queued {
+    for line in std::iter::once(first.to_string()).chain(queued) {
         let length = line.len() as u64 + 1;
         if written_bytes + length > MOST_BYTES {
             counts.dropped.fetch_add(1, Ordering::Relaxed);
@@ -337,8 +363,12 @@ mod tests {
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[0]["event"], "capture_start");
+        assert_eq!(lines[0]["build_sha256"].as_str().map(str::len), Some(64));
+        let lines = &lines[1..];
         assert_eq!(lines[0]["event"], "voice_first_output");
+        assert_eq!(lines[0]["voice_run"], lines[2]["voice_run"]);
         assert_eq!(lines[0]["permission"], "hold");
         assert_eq!(lines[1]["permission"], "play");
         assert_eq!(lines[1]["event_seq"], 2);
@@ -371,6 +401,22 @@ mod tests {
         assert_eq!(rest, &flags[2..]);
         assert!(take(&[FLAG.to_owned()]).is_err());
         assert!(take(&[FLAG.to_owned(), "d".to_owned()]).is_err());
+    }
+
+    #[test]
+    fn opening_reads_nothing_large_on_the_callers_thread() {
+        // Hashing the program happens on the writer's thread: opening is
+        // quick whatever the program's size.
+        let directory = private_directory("quick");
+        let started = std::time::Instant::now();
+        let log = FirstOutputLog::open(&directory).unwrap();
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(50),
+            "{:?}",
+            started.elapsed()
+        );
+        drop(log);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

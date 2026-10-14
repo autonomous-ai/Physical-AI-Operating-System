@@ -1973,16 +1973,31 @@ fn expression_run(
     until: Duration,
     seconds: u64,
 ) -> (BodyReport, Vec<(Duration, [u16; 3])>) {
+    expression_run_at(None, mood, offsets, from, until, seconds)
+}
+
+/// [`expression_run`] with a nod's own speed, or none.
+fn expression_run_at(
+    nod_speed: Option<f32>,
+    mood: Mood,
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    seconds: u64,
+) -> (BodyReport, Vec<(Duration, [u16; 3])>) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
-    let limits = Limits::folded_with(Tuning {
-        reach: [150, 15, 1, 250],
-        speed: 120,
-        servo_speed: 1_000,
-        servo_acceleration: 60,
-    })
-    .unwrap();
+    let limits = Limits {
+        nod_speed,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
     let time = clock.time.clone();
     let seen_at = clock.time.clone();
     let mut seen = Vec::new();
@@ -2053,6 +2068,74 @@ fn a_listening_lamp_dips_its_head_for_expression_and_comes_back() {
     {
         assert!(pair[1].1[0].abs_diff(pair[0].1[0]) <= 3, "{pair:?}");
     }
+}
+
+/// With a nod's own speed, a nod as Expression's catalogue holds it (head
+/// pitch 45 counts toward the base, held 0.15 s, back) is made whole and
+/// is back within 0.4 s; without it, it is the slow, small dip it was. A
+/// movement that also turns the base is not a nod and keeps to `--speed`.
+#[test]
+fn a_nod_passes_at_its_own_speed_only_when_asked_and_only_a_nod() {
+    let (from, until) = (Duration::from_secs(8), Duration::from_millis(8_150));
+    let watched = Duration::from_secs(12);
+    let nod = |nod_speed, offsets| {
+        let (report, seen) =
+            expression_run_at(nod_speed, Mood::Listening, offsets, from, until, 16);
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+        let before = seen.iter().rfind(|step| step.0 < from).unwrap().1;
+        let during: Vec<(Duration, [u16; 3])> = seen
+            .into_iter()
+            .filter(|step| step.0 >= from && step.0 < watched)
+            .collect();
+        (before, during)
+    };
+    let peak = |before: [u16; 3], during: &[(Duration, [u16; 3])]| {
+        during.iter().map(|step| step.1[0]).max().unwrap() - before[0]
+    };
+    let back_by = |before: [u16; 3], during: &[(Duration, [u16; 3])]| {
+        let last_off = during
+            .iter()
+            .rfind(|step| step.1[0].abs_diff(before[0]) > 3)
+            .unwrap()
+            .0;
+        last_off - from
+    };
+    let fastest = |during: &[(Duration, [u16; 3])], index: usize| {
+        during
+            .windows(2)
+            .map(|pair| pair[1].1[index].abs_diff(pair[0].1[index]))
+            .max()
+            .unwrap()
+    };
+
+    let (before, during) = nod(Some(300.0), [45.0, 0.0, 0.0]);
+    assert!(peak(before, &during) >= 43, "{}", peak(before, &during));
+    assert!(
+        back_by(before, &during) <= Duration::from_millis(400),
+        "{:?}",
+        back_by(before, &during)
+    );
+    // 300 counts a second is six a step, and no more.
+    assert!(fastest(&during, 0) <= 6, "{}", fastest(&during, 0));
+
+    // A small nod is made too, though a resting joint is not woken for
+    // less than 20 counts; without the nod's speed it is not made at all.
+    let (before, during) = nod(Some(300.0), [15.0, 0.0, 0.0]);
+    assert!(peak(before, &during) >= 13, "{}", peak(before, &during));
+    let (before, during) = nod(None, [15.0, 0.0, 0.0]);
+    assert!(peak(before, &during) <= 1, "{}", peak(before, &during));
+
+    // Without it: what it was, a dip of a few counts, slow to come back.
+    let (before, during) = nod(None, [45.0, 0.0, 0.0]);
+    assert!(peak(before, &during) <= 20, "{}", peak(before, &during));
+    assert!(fastest(&during, 0) <= 3, "{}", fastest(&during, 0));
+
+    // The base turned alongside: not a nod, so at `--speed` for both.
+    let (before, during) = nod(Some(300.0), [45.0, 0.0, 45.0]);
+    assert!(peak(before, &during) <= 20, "{}", peak(before, &during));
+    assert!(fastest(&during, 0) <= 3, "{}", fastest(&during, 0));
+    assert!(fastest(&during, 2) <= 3, "{}", fastest(&during, 2));
 }
 
 /// What is asked is cut to a few degrees and then to the joint's own

@@ -107,6 +107,17 @@ const STALL_SLACK: u16 = 6;
 const ARRIVED_COUNTS: f32 = 6.0;
 const ARRIVED_SPEED: f32 = 15.0;
 const ARRIVED_STEPS: u8 = 15;
+/// With [`Limits::nod_speed`]: what Expression sends carries no kind, so a
+/// nod is known by its shape. An offset of the head's pitch alone, asked
+/// from nothing, is taken as a nod for its first `NOD_STEPS` steps (half a
+/// second) and, if it has gone back to nothing by then, for its way back,
+/// at most as long again. Still asked after half a second it is a dip, not
+/// a nod, and the rest of it follows at `speed`. Anything asked of the
+/// roll or the base's turn alongside is not a nod. A nod is at most
+/// [`EXPRESSION_REACH`] (five degrees), and while it plays the head's pitch
+/// goes straight for what is wanted at up to the nod's speed, inside the
+/// same reach, window and floor, and is not put to rest on the way.
+const NOD_STEPS: u16 = 25;
 /// Steps in a row on which a read, or a write, may fail before the run
 /// ends: half a second. While one is failing nothing new is asked of the
 /// joints. Three steps were not enough: on lamp-4ace one stall of the whole
@@ -424,6 +435,11 @@ pub struct Limits {
     /// on all five for two minutes, after which the lamp is taken up again
     /// slowly. Off: torque is never written off.
     pub overload_release: bool,
+    /// The fastest the head's pitch may follow a nod Expression asks for,
+    /// in counts a second, at most [`Tuning::SPEED_CAP`]; see [`NOD_STEPS`].
+    /// `None`: a nod follows at `speed` like everything else, exactly as
+    /// before this was chosen.
+    pub nod_speed: Option<f32>,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -546,6 +562,7 @@ impl Limits {
         wake: false,
         give_way: None,
         overload_release: false,
+        nod_speed: None,
     };
 }
 
@@ -2459,6 +2476,10 @@ pub(crate) fn run_alive(
     let mut asleep = [false; 3];
     let mut arriving = [0u8; 3];
     let mut wanted_of = commanded;
+    // Under `nod_speed`: steps since a nod began, and the pitch Expression
+    // asked on the step before.
+    let mut nod: Option<u16> = None;
+    let mut pitch_asked = 0.0f32;
     // Under `--overload release`: the load at which each of the five
     // (in servo order) trips the cut-off, steps in a row each has read
     // it, when it last let go, and whether the joints are to be left as
@@ -2705,6 +2726,27 @@ pub(crate) fn run_alive(
             }
             _ => [0.0; 3],
         };
+        if limits.nod_speed.is_some() {
+            let pitch_only = extra[0] != 0.0 && extra[1] == 0.0 && extra[2] == 0.0;
+            nod = match nod {
+                None if pitch_only && pitch_asked == 0.0 => Some(0),
+                Some(steps)
+                    if (extra[0] == 0.0 || (pitch_only && steps < NOD_STEPS))
+                        && steps < 2 * NOD_STEPS
+                        && !(extra[0] == 0.0
+                            && (wanted_of[0] - commanded[0]).abs() < 1.0
+                            && velocity[0] == 0.0) =>
+                {
+                    Some(steps + 1)
+                }
+                _ => None,
+            };
+            pitch_asked = extra[0];
+        }
+        let nod_speed = limits
+            .nod_speed
+            .filter(|_| nod.is_some())
+            .map(|fast| fast.min(f32::from(Tuning::SPEED_CAP)));
         let offsets = [
             pitch
                 * if pitch < 0.0 {
@@ -2744,16 +2786,21 @@ pub(crate) fn run_alive(
             let wanted = (home_now[index] + kept[index] + offset).clamp(low[index], high[index]);
             wanted_of[index] = wanted;
             if asleep[index] {
-                if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() {
+                let nodding = index == 0 && nod_speed.is_some();
+                if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() && !nodding
+                {
                     continue;
                 }
                 asleep[index] = false;
             }
             let pull =
                 FOLLOW * FOLLOW * (wanted - commanded[index]) - 2.0 * FOLLOW * velocity[index];
-            velocity[index] = (velocity[index]
-                + pull.clamp(-limits.acceleration, limits.acceleration) * step)
-                .clamp(-limits.speed, limits.speed);
+            velocity[index] = match nod_speed {
+                Some(fast) if index == 0 => ((wanted - commanded[index]) / step).clamp(-fast, fast),
+                _ => (velocity[index]
+                    + pull.clamp(-limits.acceleration, limits.acceleration) * step)
+                    .clamp(-limits.speed, limits.speed),
+            };
             let (floor, ceiling) = (
                 low[index].min(commanded[index]),
                 high[index].max(commanded[index]),
@@ -2874,6 +2921,7 @@ pub(crate) fn run_alive(
                 && !relaxed
                 && gesture_cooling == 0
                 && leaving.is_none()
+                && (index != 0 || nod.is_none())
                 && (wanted_of[index] - commanded[index]).abs() < ARRIVED_COUNTS
                 && velocity[index].abs() < ARRIVED_SPEED;
             arriving[index] = if there {

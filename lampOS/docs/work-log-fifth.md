@@ -135,6 +135,11 @@ lamp-4ace.
   for that one movement (its cap is 300). Smaller than 20 counts is never
   asked by the body at all, so a nod under about 2 degrees cannot be made.
 - Not shown: how it looks to a person; heat over many nods; folded.
+- Values for Expression's catalogue: nod = head pitch 45 counts toward the
+  base, held 0.15 s, back. It needs `--nod-speed 300` on the body (branch
+  `agent/nod-speed`; body.md, "A nod at its own speed"), which passes a
+  pitch-only offset from nothing at up to 300 counts a second for half a
+  second and its way back. About 3 degrees in about 0.35 s on lamp-52e6.
 
 ## 2026-10-14 — weigh — first figure
 

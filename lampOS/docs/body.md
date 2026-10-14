@@ -550,6 +550,43 @@ counts in a step, and neither the tilt nor the turn moved. Asked for 500
 counts of dip and of turn, it dipped no more than 60 and never under its
 own reach, and turned 60 to 70. Asked while at rest, nothing was written.
 
+### A nod at its own speed
+
+At `--speed` a nod Expression asks for is slow and small: 45 counts take
+0.375 s each way before the servo is involved, about 0.75 s in all, and
+less than 20 counts from where a joint rests is not asked at all. The
+servo itself, asked directly on lamp-52e6 for head pitch 45 counts toward
+the base held 0.15 s and back, reached 34 to 35 counts (about 3 degrees)
+in about 0.2 s and was back within 3 counts in 0.31 to 0.37 s (see "How
+the head follows"). With `--nod-speed N` (10 to 300; 300 is that nod) the
+body passes such a nod at up to N counts a second.
+
+- **What a nod is.** What Expression sends carries no kind, so a nod is
+  known by its shape: an offset of the head's pitch alone (nothing of the
+  roll or the turn), asked from nothing. It counts as a nod for its first
+  half second and, if it is back to nothing by then, for its way back (at
+  most half a second more, ending once the head is there). Still asked
+  after half a second, it is a dip and the rest of it follows at
+  `--speed`; anything asked of the roll or the turn alongside is not a
+  nod at all. A nod is at most 60 counts like anything Expression asks.
+- **What changes while it plays.** The head's pitch goes straight for
+  what is wanted at up to N counts a second instead of easing at
+  `--speed`, and it is not put to rest on the way, so a nod under 20
+  counts is made too. Reach, window, floor, the hold after resistance,
+  load and tracking guards are as before. The roll, the turn and every
+  other movement keep to `--speed`.
+- **Without it.** Exactly as before, byte for byte.
+
+Against simulated servos with `--nod-speed 300`, a listening lamp asked
+for 45 counts for 0.15 s: the head's goal went 43 or more counts down,
+no more than 6 counts a step, and was back within 3 counts of where it
+listened from within 0.4 s; a nod of 15 counts was made too. Without the
+option the same nod dipped no more than 20 counts and the 15-count one
+not at all; with the base's turn asked alongside, both kept to `--speed`.
+
+**Not shown:** how such a nod looks to a person, its heat over many nods,
+and the body passing it on a lamp.
+
 **On lamp-4ace, 2026-10-14, 10:09, without a sound.** The lamp was made to
 stand and listen through its mood socket (a socket of its own for the
 trial, so that the voice's own word of its mood did not mix with it), and
@@ -664,7 +701,7 @@ more for a lamp that stands.
 ## Running it
 
 ```text
-lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW] [--gaze-socket /run/lampos-body/gaze.sock --gaze YAW,PITCH]
+lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-directory /home/WORKER/private-motor-locks --mood-socket /run/lampos-body/mood.sock [--home PITCH,ROLL,YAW] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW] [--gaze-socket /run/lampos-body/gaze.sock --gaze YAW,PITCH] [--nod-speed COUNTS_PER_SECOND]
 ```
 
 Reach and speed can be chosen at start, each inside a cap fixed in the code:
@@ -685,6 +722,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
 | `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
+| `--nod-speed N` | the fastest the head's pitch follows a nod Expression asks for, in counts a second (see "A nod at its own speed") | a nod follows at `--speed`, exactly as before | 10 to 300 |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
@@ -1216,7 +1254,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (264 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (266 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

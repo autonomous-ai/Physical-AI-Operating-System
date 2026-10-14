@@ -222,6 +222,54 @@ Not shown: a person, a real office, and a line with a name like the
 lamp's that a lamp could answer ("Hey Lan, what time is it?"), which the
 note would let through.
 
+### The same sign, given while the person is still speaking
+
+A second look is late: five seconds after the caller stopped. The same
+sign can be given in time. When the name is heard plainly (0.98 or more)
+no more than 1.5 s before a request's sound began to be sent, or at any
+time while it is being sent, the provider worker sends the service one
+written note inside that request, beside the sound
+(`crates/voice/src/called.rs`; `try_note` in `crates/gemini`, which the
+service receives as `realtimeInput.text` within the request's activity):
+
+> (For you to know, not to answer: your own ears caught your name, Lamp,
+> just now. If what is being said is something a lamp on a desk could
+> answer or chat about, it is said to you. Other people's own business
+> still is not yours.)
+
+It opens as the lines about the room do, and the character file says of
+such a line that nobody said it aloud and that it is never to be answered
+or mentioned. It is sent once for a request, and only while that
+request's sound is still going to the service: sent at any other moment
+it would end the link, so the link's own wrapper refuses it then. It is
+switched on with `LAMP_NAME_NOTE=on` in the voice unit, which the voice
+hands to the worker as `--name-note` (the worker is started with an empty
+environment; the first build read the switch there and never sent a
+note). The log has `the model is told the lamp's name was heard`.
+
+Played on lamp-4ace on 2026-10-14 from 07:28, nobody in the office:
+
+| What was played | What happened |
+|---|---|
+| Two people talking for nine lines, then the call and a follow-up, four rounds | Nothing said through the talk. The call answered in all four, its first words 2.2 to 2.5 s after the caller stopped. The model was told in three (the name heard at 1.000, 0.996 and 1.000); in the fourth the name part reported nothing and the model answered by itself. No second look was needed |
+| Ten lines to someone with a name like the lamp's, ten seconds apart | Nothing said to any of the ten. The name part reported five hearings (0.977, 0.991, 0.966, 0.946, 1.000); the model was told twice and said nothing both times |
+
+**What this shows is that the note arrives and does no harm.** It does
+not show that the note is why the calls were answered: in the four rounds
+played just before, with the note not reaching the service through the
+build's fault, the model answered all four by itself, and in the four
+before those it left two unanswered. Whether it raises the rate needs
+many more rounds than twelve.
+
+One thing to mend: when the model has been told inside a request and
+still says nothing, the second look asks it again. That happened twice
+with the lines to a similar name, and nothing was said either time, but
+one asking is enough.
+
+The rule has five tests of its own, and the note inside a request one
+against a scripted service (it goes in order with the sound and the link
+goes on). The worker's wiring has none; it was exercised on the lamp.
+
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:
 

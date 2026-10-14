@@ -169,8 +169,14 @@ the clock's answer carries the time in the words a person says it in
 ("Said aloud: twenty-three past six in the evening": o'clock, past up to
 half past, then to the next hour, quarter and half by name), and the
 function's description says it is not for "now" or "today" in a question
-about something else, such as how the lamp is feeling right now. Not yet
-played.
+about something else, such as how the lamp is feeling right now. On
+lamp-4ace since 19:36 (build `e3a92c070`). Played at 19:51: "Hey Lamp, how
+are you feeling right now?" got "I'm all warmed up and ready to chat! How
+are things with you?" with no call to the clock; "Hey Lamp, what time is
+it?" and "Lamp, what time is it now?" each called it, were told "Said
+aloud: nine to eight in the evening.", and said "It's just about nine to
+eight in the evening." and "It's right around nine to eight in the
+evening." (the hedge is the model's: the minute was exact). One run each.
 
 ## What the voice promises, and what it does not
 

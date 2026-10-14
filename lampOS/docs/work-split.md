@@ -832,6 +832,20 @@ after it. Held back and given up: as an interruption today. The planner
 switched on with nothing publishing concentration reports itself well.
 Rest: bounded, never in a busy room, never when concentrating.
 
+**What the lamp showed meanwhile (first builder, 2026-10-14, 12:30).**
+Expression on lamp-4ace has refused 565 inputs since 09:43, nearly all
+`voice/playout` as "expired, too far ahead, overlapping or out of
+order". A recording of the topic over four answers at 12:08 (353
+messages) shows why: each piece is dated rightly, by the speaker's own
+queue, but that queue holds only about 20 ms, so a piece is published
+1.7 ms (median) after it began to sound and has at most 18 ms left. None
+was too far ahead or overlapping; the ones refused had played by the
+time they were read. The voice will say its sound earlier, from the
+350 ms it holds before the speaker (the first builder's, next). Until
+then do not lean on `voice/playout` arriving ahead: follow the level
+from what it says, and treat a piece that has just ended as heard, not
+as a fault.
+
 **Hand back:** the change with its tests, the message contract the voice
 must then follow, and a replay fixture for each case. Most likely wrong
 on the lamp: how the rest behaviour looks, which only the camera shows.

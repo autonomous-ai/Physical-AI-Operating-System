@@ -51,13 +51,16 @@ enum Wire {
 #[derive(Default)]
 struct Seen {
     capture_started: Option<Instant>,
-    /// Each block handed to the speaker: its turn, when, its first sample.
-    chunks: Vec<(u64, Instant, i16)>,
+    /// Each block handed to the speaker: its turn, when, its first sample,
+    /// and when by the coordinator's clock.
+    chunks: Vec<(u64, Instant, i16, u64)>,
     /// What the service received: on which connection, what, and when.
     wire: Vec<(usize, Wire, Instant)>,
     /// Each answer the service began: its sample value and when.
     answers: Vec<(i16, Instant)>,
     connections: usize,
+    /// Why the provider worker ended, if it ended by itself.
+    worker: Option<String>,
 }
 
 impl Seen {
@@ -89,13 +92,13 @@ impl Seen {
     fn first_played(&self, value: i16) -> Option<Instant> {
         self.chunks
             .iter()
-            .find(|(_, _, sample)| *sample == value)
-            .map(|(_, at, _)| *at)
+            .find(|(_, _, sample, _)| *sample == value)
+            .map(|(_, at, _, _)| *at)
     }
     fn played(&self, value: i16) -> usize {
         self.chunks
             .iter()
-            .filter(|(_, _, sample)| *sample == value)
+            .filter(|(_, _, sample, _)| *sample == value)
             .count()
     }
 }
@@ -366,10 +369,12 @@ fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<
     while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
         while let Some(chunk) = channels.data.receive::<SpeakerChunk>().unwrap() {
             let owner = chunk.permit.owner();
-            seen.lock()
-                .unwrap()
-                .chunks
-                .push((owner.turn(), Instant::now(), chunk.samples[0]));
+            seen.lock().unwrap().chunks.push((
+                owner.turn(),
+                Instant::now(),
+                chunk.samples[0],
+                monotonic_us(),
+            ));
             let frames = chunk.samples.len();
             let at = monotonic_us();
             channels
@@ -402,6 +407,17 @@ struct Session {
 }
 
 impl Session {
+    /// The session ran to its end; if not, why, with the provider worker's
+    /// own reason and the last records.
+    fn ok(&self) {
+        if let Err(error) = &self.result {
+            let last: Vec<&Value> = self.trace.iter().rev().take(12).collect();
+            panic!(
+                "the session ended: {error}; the provider worker: {:?}; the last records, newest first: {last:#?}",
+                self.seen.worker
+            );
+        }
+    }
     fn events(&self, kind: &str) -> Vec<&Value> {
         self.trace
             .iter()
@@ -436,7 +452,7 @@ impl Session {
         let first = seen
             .chunks
             .iter()
-            .map(|(_, at, _)| *at)
+            .map(|(_, at, _, _)| *at)
             .filter(|at| *at >= seen.block(last))
             .min()
             .map(|at| self.after_block(last, at));
@@ -546,13 +562,16 @@ impl Setup {
                             provider,
                         ));
                         let answering =
-                            tokio::spawn(serve_dials(dials, service, seen, stop.clone()));
+                            tokio::spawn(serve_dials(dials, service, seen.clone(), stop.clone()));
                         while !stop.load(Ordering::SeqCst) {
                             tokio::time::sleep(Duration::from_millis(5)).await;
                         }
                         worker.abort();
                         answering.abort();
-                        let _ = worker.await;
+                        // A worker that ended by itself says why.
+                        if let Ok(Err(error)) = worker.await {
+                            seen.lock().unwrap().worker = Some(error.to_string());
+                        }
                         let _ = answering.await;
                     });
                 }
@@ -657,7 +676,7 @@ fn request(from: u64, through: u64) -> Vec<Wire> {
 fn quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before() {
     let _one = one_session();
     let session = Setup::lamp(Some(200), 4, one_question, Service::answering_after(150)).run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("quiet to the end", LAST);
     let seen = &session.seen;
     assert_eq!(seen.connections, 1);
@@ -673,7 +692,7 @@ fn quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before() {
     assert!(
         seen.chunks
             .iter()
-            .all(|(_, at, _)| *at >= seen.block(LAST + 60))
+            .all(|(_, at, _, _)| *at >= seen.block(LAST + 60))
     );
     assert_eq!(seen.played(FIRST_ANSWER), 12 * 4);
     // The records: the end sent early, then the lamp's own end of speech
@@ -705,7 +724,7 @@ fn name_then_question(block: u64) -> f32 {
 
 fn resumed_at_three_tenths(name: &str, setup: Setup) {
     let session = setup.run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary(name, 290);
     let seen = &session.seen;
     // Given up once, at the sixth block of speech again (196), with what
@@ -727,7 +746,7 @@ fn resumed_at_three_tenths(name: &str, setup: Setup) {
     assert!(
         seen.chunks
             .iter()
-            .all(|(_, at, _)| *at >= seen.block(290 + 60))
+            .all(|(_, at, _, _)| *at >= seen.block(290 + 60))
     );
     // One turn heard: the first part is a turn given up as continued, and
     // the lamp's own end of speech came once, after the whole.
@@ -788,7 +807,7 @@ fn an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment() {
         },
     )
     .run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("an answer before the lamp is sure", LAST);
     let seen = &session.seen;
     assert_eq!(seen.heard(1), request(76, LAST + 20));
@@ -823,7 +842,7 @@ fn an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played() {
         },
     )
     .run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("nothing said before the lamp is sure", LAST);
     assert!(session.seen.chunks.is_empty());
     assert_eq!(session.outcomes(), ["nothing_said"]);
@@ -843,8 +862,8 @@ fn an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_witho
     let _one = one_session();
     let on = Setup::lamp(Some(200), 5, one_question, Service::answering_after(900)).run();
     let off = Setup::lamp(None, 5, one_question, Service::answering_after(900)).run();
-    on.result.as_ref().unwrap();
-    off.result.as_ref().unwrap();
+    on.ok();
+    off.ok();
     on.summary("an answer after the lamp is sure, with the option", LAST);
     off.summary("an answer after the lamp is sure, without it", LAST);
     let (on_first, off_first) = (
@@ -894,7 +913,7 @@ fn the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answer
         },
     )
     .run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("the link dropping in between", 450);
     let seen = &session.seen;
     assert_eq!(seen.connections, 2);
@@ -906,7 +925,7 @@ fn the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answer
     assert!(
         seen.chunks
             .iter()
-            .all(|(_, at, _)| *at >= seen.block(450 + 60))
+            .all(|(_, at, _, _)| *at >= seen.block(450 + 60))
     );
     let outcomes = session.outcomes();
     assert_eq!(outcomes[0], "provider_failed", "{outcomes:?}");
@@ -942,7 +961,7 @@ fn lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played(
         },
     )
     .run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("Lamp, stop. over an answer", 380);
     let seen = &session.seen;
     // Three requests: the question, "Lamp," (written at once over an
@@ -962,14 +981,29 @@ fn lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played(
     assert_eq!(heard[starts[2] + 1], Wire::Audio(346));
     assert_eq!(*heard.last().unwrap(), Wire::End);
     assert_eq!(heard[heard.len() - 2], Wire::Audio(380 + 20));
-    // The first answer played until "Lamp," was heard over it.
+    // The first answer played until "Lamp," was heard over it, and not a
+    // block of it after: every one came before any block of a later turn,
+    // and was taken by the speaker within its permit's lease of the
+    // coordinator stopping that answer (the coordinator's own clock,
+    // whatever the load on the machine running the test).
     assert!(seen.played(FIRST_ANSWER) > 0);
-    let interrupted = seen
+    let stopped = session.events("turn_finished")[0]["at_us"]
+        .as_u64()
+        .unwrap();
+    let first_turn = seen.chunks[0].0;
+    let later = seen
         .chunks
         .iter()
-        .filter(|(_, _, sample)| *sample == FIRST_ANSWER)
-        .all(|(_, at, _)| *at < seen.block(305 + 5));
-    assert!(interrupted);
+        .position(|(turn, ..)| *turn != first_turn)
+        .expect("a later answer was played");
+    assert!(seen.chunks[..later].iter().all(|(_, _, sample, at_us)| {
+        *sample == FIRST_ANSWER && *at_us <= stopped + SPEAKER_PERMIT_LEASE_US
+    }));
+    assert!(
+        seen.chunks[later..]
+            .iter()
+            .all(|(turn, _, sample, _)| *turn != first_turn && *sample != FIRST_ANSWER)
+    );
     // The answer to "Lamp," alone was begun and never heard; the answer to
     // the whole was, after the lamp was sure.
     assert_eq!(seen.answers.len(), 3);
@@ -1005,7 +1039,7 @@ fn a_lone_lamp_and_a_pause_and_the_question_go_as_one_request() {
         Service::answering_after(900),
     )
     .run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("a lone Lamp, a pause and the question", 270);
     let seen = &session.seen;
     assert_eq!(seen.heard(1), request(76, 270 + 20), "{:?}", seen.heard(1));
@@ -1021,7 +1055,7 @@ fn a_lone_lamp_and_a_pause_and_the_question_go_as_one_request() {
 fn without_the_option_every_message_and_record_is_what_it_was() {
     let _one = one_session();
     let session = Setup::lamp(None, 6, name_then_question, Service::answering_after(150)).run();
-    session.result.as_ref().unwrap();
+    session.ok();
     session.summary("without the option: Hey Lamp, 0.3 s, the question", 290);
     let seen = &session.seen;
     // "Hey Lamp," and the question are one utterance: 300 ms of quiet is

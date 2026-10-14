@@ -174,6 +174,7 @@ use the same form without their ids meeting.
 | Id | Short name | Why it is not part of 22 to 26 | What it touches | Answer |
 |---|---|---|---|---|
 | fifth-P1 | `builder-with-a-lamp` | Not a task: how a builder with its own lamp proves a result and when a piece is taken into `lamp-voice` without running it again on lamp-4ace (off unless set, with a test that it is unchanged when off). Written so that later builders with lamps work the same way. | [builder-with-a-lamp.md](builder-with-a-lamp.md); work-split.md, if taken | |
+| fifth-P2 | `lamp-owner-file` | Not a task: so that any number of builders and lamps can tell from Git alone who owns a lamp and what it runs: a `LAMP.md` of three lines in each `deploy/<lamp>/`. | [builder-with-a-lamp.md](builder-with-a-lamp.md), "Which lamp is whose"; one file per lamp folder | |
 
 ## Found, not mine
 

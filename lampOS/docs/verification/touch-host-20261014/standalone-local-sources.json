@@ -1,0 +1,138 @@
+{
+  "workspace_packages": 32,
+  "all_local_packages_including_patches": 33,
+  "packages": [
+    {
+      "name": "lamp-actions",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/actions/Cargo.toml"
+    },
+    {
+      "name": "lamp-air",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/air/Cargo.toml"
+    },
+    {
+      "name": "lamp-audio",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/audio/Cargo.toml"
+    },
+    {
+      "name": "lamp-body",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/body/Cargo.toml"
+    },
+    {
+      "name": "lamp-bus",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/bus/Cargo.toml"
+    },
+    {
+      "name": "lamp-camera",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/camera/Cargo.toml"
+    },
+    {
+      "name": "lamp-controls",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/controls/Cargo.toml"
+    },
+    {
+      "name": "lamp-ears",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/ears/Cargo.toml"
+    },
+    {
+      "name": "lamp-environment",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/environment/Cargo.toml"
+    },
+    {
+      "name": "lamp-expression",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/expression/Cargo.toml"
+    },
+    {
+      "name": "lamp-eyes",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/eyes/Cargo.toml"
+    },
+    {
+      "name": "lamp-gemini",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/gemini/Cargo.toml"
+    },
+    {
+      "name": "lamp-health",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/health/Cargo.toml"
+    },
+    {
+      "name": "lamp-ipc",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/ipc/Cargo.toml"
+    },
+    {
+      "name": "lamp-keeper",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/keeper/Cargo.toml"
+    },
+    {
+      "name": "lamp-lean",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/lean/Cargo.toml"
+    },
+    {
+      "name": "lamp-memory",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/memory/Cargo.toml"
+    },
+    {
+      "name": "lamp-msgs",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/msgs/Cargo.toml"
+    },
+    {
+      "name": "lamp-name",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/name/Cargo.toml"
+    },
+    {
+      "name": "lamp-observer",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/observer/Cargo.toml"
+    },
+    {
+      "name": "lamp-policy",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/policy/Cargo.toml"
+    },
+    {
+      "name": "lamp-records",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/records/Cargo.toml"
+    },
+    {
+      "name": "lamp-ring",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/ring/Cargo.toml"
+    },
+    {
+      "name": "lamp-schedule",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/schedule/Cargo.toml"
+    },
+    {
+      "name": "lamp-sound-fixtures",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/sound-fixtures/Cargo.toml"
+    },
+    {
+      "name": "lamp-surround",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/surround/Cargo.toml"
+    },
+    {
+      "name": "lamp-tasks",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/tasks/Cargo.toml"
+    },
+    {
+      "name": "lamp-turn-end",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/turn-end/Cargo.toml"
+    },
+    {
+      "name": "lamp-turn-end-wire",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/turn-end-wire/Cargo.toml"
+    },
+    {
+      "name": "lamp-turn-owner",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/turn-owner/Cargo.toml"
+    },
+    {
+      "name": "lamp-voice",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/voice/Cargo.toml"
+    },
+    {
+      "name": "lamp-voice-eval",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/crates/voice-eval/Cargo.toml"
+    },
+    {
+      "name": "tough",
+      "manifest_path": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8/vendor/tough/Cargo.toml"
+    }
+  ]
+}

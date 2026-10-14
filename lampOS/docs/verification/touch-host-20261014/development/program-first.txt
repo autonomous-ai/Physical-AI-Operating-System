@@ -1,0 +1,18 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.09s
+     Running tests/touch_program.rs (target/debug/deps/touch_program-5f8e336211d9e50b)
+
+running 8 tests
+test new_records_and_new_pins_schema_require_the_explicit_touch_selector ... ok
+test malformed_or_unknown_schema_fields_are_rejected_before_creating_output ... ok
+test invalid_and_duplicate_cli_options_are_rejected_before_replay_or_output_creation ... ok
+test wrong_boot_clock_is_visible_in_summary_and_never_becomes_ready_or_actionable ... ok
+authored shadow CLI summary: {"records":1052,"gpio_samples":0,"strip_samples":1052,"rejected":0,"rejected_by_fault":[],"faults":0,"events":54,"ticks":9975,"frames":1050,"start_us":0,"end_us":19948000}
+test replay_succeeds_with_a_nonexistent_i2c_adapter_and_an_unopenable_bus_root ... ok
+test real_cli_defaults_to_shadow_even_when_config_says_enabled_and_reports_exact_fixture_counts ... ok
+test enable_flag_changes_only_event_and_state_authority_fields ... ok
+test output_is_private_jsonl_and_existing_evidence_is_never_overwritten ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
+

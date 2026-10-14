@@ -1,0 +1,30 @@
+warning: output filename collision at /Users/d/code/autonomous-os/lampOS/target/debug/examples/replay_cost
+  |
+  = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)`
+  = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+  = help: consider changing their names to be unique or compiling them separately
+warning: output filename collision at /Users/d/code/autonomous-os/lampOS/target/debug/examples/replay_cost.dSYM
+  |
+  = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)`
+  = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+  = help: consider changing their names to be unique or compiling them separately
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+   Compiling lamp-keeper v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/keeper)
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+   Compiling lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy)
+   Compiling lamp-memory v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/memory)
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+   Compiling lamp-lean v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/lean)
+   Compiling lamp-health v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/health)
+   Compiling lamp-name v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/name)
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+   Compiling lamp-records v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/records)
+   Compiling lamp-eyes v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/eyes)
+   Compiling lamp-ears v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ears)
+   Compiling lamp-air v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/air)
+   Compiling lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+   Compiling lamp-voice-eval v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice-eval)

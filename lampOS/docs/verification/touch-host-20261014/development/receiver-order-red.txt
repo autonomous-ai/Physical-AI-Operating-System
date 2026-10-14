@@ -1,0 +1,22 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.24s
+     Running tests/touch_receiver.rs (target/debug/deps/touch_receiver-f2e22c23d04bf3cc)
+
+running 1 test
+test delayed_older_hold_cannot_follow_newer_touch_of_same_source ... FAILED
+
+failures:
+
+---- delayed_older_hold_cannot_follow_newer_touch_of_same_source stdout ----
+
+thread 'delayed_older_hold_cannot_follow_newer_touch_of_same_source' (111646871) panicked at crates/controls/tests/touch_receiver.rs:351:5:
+assertion failed: r.event(2_040_001, &older).unwrap().is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    delayed_older_hold_cannot_follow_newer_touch_of_same_source
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-controls --test touch_receiver`

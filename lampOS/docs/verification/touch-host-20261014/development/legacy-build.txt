@@ -1,0 +1,22 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling serde_core v1.0.229
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling libc v0.2.190
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling rustix v1.1.5
+   Compiling bitflags v2.13.2
+   Compiling signal-hook v0.4.4
+   Compiling syn v3.0.7
+   Compiling errno v0.3.14
+   Compiling signal-hook-registry v1.4.8
+   Compiling serde_derive v1.0.229
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lamp-third-touch-log/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lamp-third-touch-log/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lamp-third-touch-log/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lamp-third-touch-log/lampOS/crates/controls)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.20s

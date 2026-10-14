@@ -1,0 +1,22 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running tests/touch.rs (target/debug/deps/touch-0fe57c48390c69b6)
+
+running 14 tests
+test brief_qualified_strip_release_has_no_invented_current_position ... ok
+test invalid_identities_and_temporal_order_are_refused ... ok
+test primary_preserves_stop_and_software_mute_release_tiers ... ok
+test head_qualifies_actual_continuous_observations_only ... ok
+test reset_is_a_distinct_five_second_release_only_request ... ok
+test original_acquisition_and_publication_both_expire_exactly ... ok
+test head_names_mask_and_source_geometry_are_exact ... ok
+test slides_require_finite_normalized_geometry_and_explicit_destination ... ok
+test state_requires_current_acquisition_and_unknown_withdraws_contact ... ok
+test touch_topics_are_explicit_and_leave_v1_inventory_unchanged ... ok
+test contextual_intent_is_chosen_by_owner_and_contains_no_readiness ... ok
+test retained_events_cannot_change_session_time_or_overwrite_motion ... ok
+test sleep_and_wake_are_distinct_fixed_alternatives_not_toggle_or_mic_grants ... ok
+test roundtrip_new_contract_and_reject_unknown_actions_fields ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

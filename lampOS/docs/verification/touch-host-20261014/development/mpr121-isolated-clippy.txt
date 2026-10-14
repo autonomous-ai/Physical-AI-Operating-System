@@ -1,0 +1,8 @@
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking serde v1.0.229
+    Checking serde_json v1.0.151
+    Checking lamp-controls v0.0.0 (/private/tmp/lamp-third-touch-module-31z_wb92)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.30s

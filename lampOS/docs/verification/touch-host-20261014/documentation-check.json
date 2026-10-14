@@ -1,0 +1,12 @@
+{
+  "files_checked": [
+    "lampOS/docs/controls.md",
+    "lampOS/docs/creature.md",
+    "lampOS/docs/msgs.md",
+    "lampOS/docs/reuse-decisions.md",
+    "lampOS/crates/controls/fixtures/strip-711-README.md",
+    "lampOS/docs/verification/touch-host-20261014/README.md"
+  ],
+  "missing_local_targets": [],
+  "first_check": "Two historical log links were relative to files now held only on the respective builder branch; changed to their explicit branch URLs. Remote HTTP and anchors not checked by this local existence check."
+}

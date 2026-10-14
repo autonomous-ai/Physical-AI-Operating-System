@@ -1,0 +1,80 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+error[E0277]: can't compare `i32` with `u8`
+   --> crates/controls/src/base/strip.rs:580:68
+    |
+580 |                 if previous.is_some_and(|previous| rank - previous > self.max_rank_gap) {
+    |                                                                    ^ no implementation for `i32 < u8` and `i32 > u8`
+    |
+help: the trait `PartialOrd<u8>` is not implemented for `i32`
+      but trait `PartialOrd<i32>` is implemented for it
+   --> /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/cmp.rs:1996:12
+   ::: /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/cmp.rs:2079:4
+    |
+    = note: in this macro invocation
+    = help: for that trait implementation, expected `i32`, found `u8`
+    = note: this error originates in the macro `ord_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `lamp-controls` (lib) due to 1 previous error
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.37s
+     Running tests/strip.rs (target/debug/deps/strip-819089b3d725904b)
+
+running 53 tests
+test brief_qualified_touch_on_zero_has_explicit_release_and_no_current_position ... ok
+test distance_and_speed_are_normalized_sampled_units_not_electrodes_or_millimetres ... ok
+test exact_release_grace_then_press_is_a_new_contact ... ok
+test direction_hysteresis_ignores_sub_half_rank_retreat_without_losing_position ... ok
+test irregular_brief_disjoint_footprint_does_not_become_touch_on_release ... ok
+test freshness_and_gap_use_the_same_exclusive_hundred_millisecond_boundary ... ok
+test irregular_release_can_first_prove_both_contact_and_chord_debounce ... ok
+test each_fault_disarms_without_a_release_sleep_or_new_contact ... ok
+test authored_twenty_millisecond_sampling_bounds_position_and_touch_dispatch ... ok
+test known_hole_does_not_bridge_zero_acquisitions_past_the_existing_release_grace ... ok
+test delayed_receipt_and_ticks_cannot_advance_observed_hold ... ok
+test issue711_changed_rows_alone_cannot_prove_continuous_touch_hold_or_slide ... ok
+test missing_four_and_eight_remain_physical_holes_without_invalidating_trace_chord ... ok
+test excluded_only_input_releases_without_current_presence_or_extending_a_hold ... ok
+test qualification_closes_before_an_irregular_falling_edge ... ok
+test order_is_a_complete_permutation_and_preserves_weak_electrode_positions ... ok
+test disjoint_second_finger_invalidates_geometry_until_whole_release ... ok
+test qualifying_handoff_does_not_fabricate_a_zero_mask_touch_without_real_release ... ok
+test qualified_contact_emits_touch_once_and_nothing_new_on_release ... ok
+test excluded_electrode_noise_cannot_change_selected_geometry_events_or_readiness ... ok
+test reversed_and_non_numeric_orders_change_position_and_direction ... ok
+test reversed_sparse_order_retains_missing_widths_and_reverses_slide_direction ... ok
+test missing_electrode_crossings_keep_one_contact_and_physical_distance_without_taps ... ok
+test qualified_chord_crosses_known_missing_pads_without_retouch_release_or_sleep ... ok
+test release_grace_cannot_promote_a_short_hold_into_sleep ... ok
+test reset_keeps_timestamp_high_water_and_requires_release_before_another_sleep ... ok
+test selected_held_at_startup_stays_unarmed_until_selected_release_despite_excluded_noise ... ok
+test raw_movement_at_sleep_boundary_suppresses_sleep_before_new_pad_filter_settles ... ok
+test recruitment_then_original_departure_does_not_slide_but_consumes_sleep ... ok
+test reversal_changes_direction_without_new_contact_and_pause_keeps_consumption ... ok
+test sparse_authored_first_and_repeated_touch_keep_the_existing_sampling_bounds ... ok
+test sparse_layout_rejects_unknown_spacing_duplicate_ids_and_invalid_bounds ... ok
+test sparse_coordinates_preserve_full_strip_slots_and_do_not_rescale_the_selected_extent ... ok
+test one_and_two_pads_have_position_but_cannot_touch_or_sleep ... ok
+test sampled_short_pulse_matrix_rejects_noise_and_does_not_delay_first_touch_for_a_double ... ok
+test startup_held_requires_full_release_before_any_contact_or_action ... ok
+test single_pad_travel_produces_continuous_positions_without_tap_or_sleep ... ok
+test staggered_lift_and_palm_growth_do_not_create_slide_or_new_touch ... ok
+test sparse_raw_status_faults_and_unknown_acquisitions_disarm_instead_of_becoming_release ... ok
+test separated_short_third_pad_spikes_do_not_accumulate ... ok
+test working_sets_accept_three_through_twelve_unique_electrodes_in_both_directions ... ok
+test short_zero_chatter_keeps_one_contact_and_cannot_rearm_sleep ... ok
+test slow_sampled_travel_keeps_position_and_emits_one_stroke_after_motion_span ... ok
+test sparse_topology_skips_exclusions_but_inactive_working_electrodes_are_ambiguous ... ok
+test subthreshold_travel_cannot_creep_into_sleep ... ok
+test three_pad_sparse_set_qualifies_only_all_three_selected_electrodes ... ok
+test initial_long_hold_is_excluded_from_stroke_speed_and_pause_alone_cannot_stroke ... ok
+test long_reversing_contact_faults_at_bounded_distance_instead_of_saturating_silently ... ok
+test sleep_emits_at_exact_observed_two_seconds_once_until_verified_repress ... ok
+test issue711_reconstruction_preserves_every_original_row_and_labels_all_fill_frames ... ok
+test issue711_authored_reconstruction_is_one_hold_with_reversing_slides_not_multiple_taps ... ok
+test issue711_reconstruction_has_identical_geometry_and_effects_with_explicit_working_pads ... ok
+test implausibly_fast_sampled_motion_faults_instead_of_publishing_unbounded_speed ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

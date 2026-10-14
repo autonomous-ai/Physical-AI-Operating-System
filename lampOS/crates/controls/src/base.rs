@@ -7,6 +7,8 @@
 //! Swipes are deliberately not actions here: travelling contacts are consumed.
 use std::fmt;
 
+pub mod strip;
+
 pub const ALL_PADS: u16 = 0x0fff;
 pub const MIN_PADS: u32 = 3;
 pub const PAD_DEBOUNCE_US: u64 = 5_000;

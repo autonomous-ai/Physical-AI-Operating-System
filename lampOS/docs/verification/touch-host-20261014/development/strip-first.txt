@@ -1,0 +1,47 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.97s
+     Running tests/strip.rs (target/debug/deps/strip-528ce1bf5ad76dce)
+
+running 28 tests
+test brief_qualified_touch_on_zero_has_explicit_release_and_no_current_position ... ok
+test exact_release_grace_then_press_is_a_new_contact ... ok
+test freshness_and_gap_use_the_same_exclusive_hundred_millisecond_boundary ... ok
+test qualification_closes_before_an_irregular_falling_edge ... ok
+test missing_four_and_eight_remain_physical_holes_without_invalidating_trace_chord ... ok
+test authored_twenty_millisecond_sampling_bounds_position_and_touch_dispatch ... ok
+test order_is_a_complete_permutation_and_preserves_weak_electrode_positions ... ok
+test each_fault_disarms_without_a_release_sleep_or_new_contact ... ok
+test qualified_contact_emits_touch_once_and_nothing_new_on_release ... ok
+test issue711_changed_rows_alone_cannot_prove_continuous_touch_hold_or_slide ... ok
+test reversed_and_non_numeric_orders_change_position_and_direction ... ok
+test delayed_receipt_and_ticks_cannot_advance_observed_hold ... ok
+test disjoint_second_finger_invalidates_geometry_until_whole_release ... ok
+test startup_held_requires_full_release_before_any_contact_or_action ... ok
+test staggered_lift_and_palm_growth_do_not_create_slide_or_new_touch ... ok
+test release_grace_cannot_promote_a_short_hold_into_sleep ... ok
+test reset_keeps_timestamp_high_water_and_requires_release_before_another_sleep ... ok
+test recruitment_then_original_departure_does_not_slide_but_consumes_sleep ... ok
+test reversal_changes_direction_without_new_contact_and_pause_keeps_consumption ... ok
+test single_pad_travel_produces_continuous_positions_without_tap_or_sleep ... ok
+test separated_short_third_pad_spikes_do_not_accumulate ... ok
+
+thread 'subthreshold_travel_cannot_creep_into_sleep' (111604812) panicked at crates/controls/tests/strip.rs:313:5:
+assertion failed: rig.state().position.is_some()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test one_and_two_pads_have_position_but_cannot_touch_or_sleep ... ok
+test subthreshold_travel_cannot_creep_into_sleep ... FAILED
+test short_zero_chatter_keeps_one_contact_and_cannot_rearm_sleep ... ok
+test long_reversing_contact_faults_at_bounded_distance_instead_of_saturating_silently ... ok
+test sleep_emits_at_exact_observed_two_seconds_once_until_verified_repress ... ok
+test issue711_authored_reconstruction_is_one_hold_with_reversing_slides_not_multiple_taps ... ok
+test issue711_reconstruction_preserves_every_original_row_and_labels_all_fill_frames ... ok
+
+failures:
+
+failures:
+    subthreshold_travel_cannot_creep_into_sleep
+
+test result: FAILED. 27 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-controls --test strip`

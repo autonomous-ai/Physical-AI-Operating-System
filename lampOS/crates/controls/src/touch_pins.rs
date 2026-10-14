@@ -1,0 +1,208 @@
+//! Explicit Orange Pi wiring for the opt-in touch path. Its separate schema
+//! leaves the legacy pins reader, including unknown-field rejection, intact.
+use crate::{
+    engine::Config,
+    input::{InputError, Observation, PinReader},
+    mpr121,
+    pins::{Pin, PinsConfig},
+    touch::{GpioSample, TouchConfig},
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::BTreeSet,
+    fs::File,
+    io::{self, Read},
+    path::Path,
+};
+
+pub const HEAD_CANDIDATES: [u32; 4] = [37, 96, 97, 98];
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TouchPinsConfig {
+    pub chip: String,
+    pub buttons: Vec<Pin>,
+    pub head_pads: Vec<Pin>,
+    pub every_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset: Option<Pin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<mpr121::Config>,
+}
+
+impl TouchPinsConfig {
+    pub fn load(path: &Path) -> io::Result<Self> {
+        let mut bytes = Vec::new();
+        File::open(path)?.take(16_385).read_to_end(&mut bytes)?;
+        if bytes.len() > 16_384 {
+            return Err(io::Error::other("touch pins file exceeds 16 KiB"));
+        }
+        Ok(serde_json::from_slice(&bytes)?)
+    }
+
+    pub fn check(&self, config: &Config) -> Result<TouchConfig, String> {
+        config.check().map_err(|e| e.to_string())?;
+        if self.chip != "/dev/gpiochip0" {
+            return Err("touch wiring currently describes Orange Pi chip 0; privacy chip 1 belongs to Voice".into());
+        }
+        if !(2..=50).contains(&self.every_ms) {
+            return Err("GPIO acquisition interval must be 2..50 ms".into());
+        }
+        if self.buttons.len() > 1 || self.buttons.iter().any(|pin| pin.line != 99) {
+            return Err("only the optional primary button may be in buttons (chip 0 line 99); reset line 100 has its own field".into());
+        }
+        if self
+            .reset
+            .as_ref()
+            .is_some_and(|pin| pin.line != 100 || !pin.active_low)
+        {
+            return Err("the optional reset is active-low chip 0 line 100, reset only".into());
+        }
+        if self
+            .head_pads
+            .iter()
+            .any(|pin| !HEAD_CANDIDATES.contains(&pin.line))
+        {
+            return Err(
+                "head pads must be explicitly qualified per-unit candidates 37, 96, 97 or 98"
+                    .into(),
+            );
+        }
+        let mut names = BTreeSet::new();
+        let mut lines = BTreeSet::new();
+        for pin in self
+            .buttons
+            .iter()
+            .chain(&self.head_pads)
+            .chain(self.reset.iter())
+        {
+            crate::input::check_name(&pin.name).map_err(|e| e.to_string())?;
+            if !names.insert(&pin.name) || !lines.insert(pin.line) {
+                return Err("touch input names and GPIO lines must be unique".into());
+            }
+        }
+        if self
+            .buttons
+            .iter()
+            .map(|pin| &pin.name)
+            .ne(config.buttons.iter())
+            || self
+                .head_pads
+                .iter()
+                .map(|pin| &pin.name)
+                .ne(config.head_pads.iter())
+        {
+            return Err(
+                "touch pins must name configured primary/head inputs in the same order".into(),
+            );
+        }
+        if let Some(base) = &self.base {
+            base.check()?;
+        }
+        let selected_mask = self
+            .base
+            .as_ref()
+            .map(|base| base.pads.iter().fold(0_u16, |mask, &pad| mask | (1 << pad)));
+        if config.base_selected_mask != selected_mask {
+            return Err("touch base_selected_mask must exactly match the profile's working electrodes, or both must be absent".into());
+        }
+        let touch = TouchConfig {
+            enabled: config.enabled,
+            primary: self.buttons.first().map(|pin| pin.name.clone()),
+            reset: self.reset.as_ref().map(|pin| pin.name.clone()),
+            head_pads: self.head_pads.iter().map(|pin| pin.name.clone()).collect(),
+            strip_pads: self.base.as_ref().map(|base| base.pads.clone()),
+        };
+        touch.check().map_err(|e| e.to_string())?;
+        Ok(touch)
+    }
+
+    /// Reuse the tested GPIO acquisition adapter, without inserting cached
+    /// strip readings into its complete GPIO observations. Reset gets a
+    /// separate semantic role after acquisition, never a legacy button role.
+    pub fn gpio_config(&self) -> Option<(PinsConfig, Config)> {
+        if self.buttons.is_empty() && self.head_pads.is_empty() && self.reset.is_none() {
+            return None;
+        }
+        let mut buttons = self.buttons.clone();
+        buttons.extend(self.reset.clone());
+        let controls = Config {
+            enabled: false,
+            buttons: buttons.iter().map(|pin| pin.name.clone()).collect(),
+            head_pads: self.head_pads.iter().map(|pin| pin.name.clone()).collect(),
+            base_selected_mask: None,
+        };
+        Some((
+            PinsConfig {
+                chip: self.chip.clone(),
+                buttons,
+                head_pads: self.head_pads.clone(),
+                every_ms: self.every_ms,
+            },
+            controls,
+        ))
+    }
+
+    pub fn gpio_sample(&self, observation: Observation) -> Result<GpioSample, InputError> {
+        observation.check()?;
+        let value = |pin: &Option<&Pin>| -> Result<Option<bool>, InputError> {
+            pin.map(|pin| {
+                observation
+                    .buttons
+                    .iter()
+                    .find(|level| level.name == pin.name)
+                    .map(|level| level.active)
+                    .ok_or_else(|| {
+                        InputError::new(
+                            lamp_msgs::ControlFault::Missing,
+                            "configured GPIO absent from acquisition",
+                        )
+                    })
+            })
+            .transpose()
+        };
+        let expected = self.buttons.len() + usize::from(self.reset.is_some());
+        if observation.buttons.len() != expected || observation.base_mask.is_some() {
+            return Err(InputError::new(
+                lamp_msgs::ControlFault::Invalid,
+                "GPIO observation has unexpected inputs",
+            ));
+        }
+        Ok(GpioSample {
+            primary: value(&self.buttons.first())?,
+            reset: value(&self.reset.as_ref())?,
+            stamp: observation.stamp,
+            session_id: observation.session_id,
+            head_pads: observation.head_pads,
+        })
+    }
+}
+
+/// No configured GPIO is absence, not a failed optional strip or a made-up
+/// released input. The touch state contains only explicitly configured sources.
+pub struct NoGpio;
+impl PinReader for NoGpio {
+    fn read(&mut self, _: u64) -> Result<Option<Observation>, InputError> {
+        Ok(None)
+    }
+}
+
+/// An optional GPIO acquisition that could not start. Report its fault once;
+/// later polls cannot turn it into a fresh release or stop the strip owner.
+pub struct FailedGpio(Option<InputError>);
+impl FailedGpio {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self(Some(InputError::new(
+            lamp_msgs::ControlFault::Missing,
+            message,
+        )))
+    }
+}
+impl PinReader for FailedGpio {
+    fn read(&mut self, _: u64) -> Result<Option<Observation>, InputError> {
+        match self.0.take() {
+            Some(error) => Err(error),
+            None => Ok(None),
+        }
+    }
+}

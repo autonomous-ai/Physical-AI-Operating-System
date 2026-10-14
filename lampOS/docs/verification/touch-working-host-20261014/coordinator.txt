@@ -1,0 +1,18 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+error[E0277]: can't compare `i32` with `u8`
+   --> crates/controls/src/base/strip.rs:580:68
+    |
+580 |                 if previous.is_some_and(|previous| rank - previous > self.max_rank_gap) {
+    |                                                                    ^ no implementation for `i32 < u8` and `i32 > u8`
+    |
+help: the trait `PartialOrd<u8>` is not implemented for `i32`
+      but trait `PartialOrd<i32>` is implemented for it
+   --> /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/cmp.rs:1996:12
+   ::: /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/cmp.rs:2079:4
+    |
+    = note: in this macro invocation
+    = help: for that trait implementation, expected `i32`, found `u8`
+    = note: this error originates in the macro `ord_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `lamp-controls` (lib) due to 1 previous error

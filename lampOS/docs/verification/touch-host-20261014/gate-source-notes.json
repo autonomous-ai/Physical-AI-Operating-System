@@ -1,0 +1,6 @@
+{
+  "source_commit": "42bdf65a2144e2168d2643494d8b9e9598404a35",
+  "format_clippy_and_compiled_tests": "Original implementation bytes in source-sha256.json.",
+  "workspace_build": "The Linux-only result annotation in final-source-sha256.json was applied while already-compiled Mac tests were running. The subsequent workspace build includes that annotation, which is excluded by cfg on this Mac.",
+  "native_and_rebase": "The clean final task head is separately built/tested in native CI, with rebase supplements saved on lamp-third. Neither this completed host run nor the first standalone run is relabelled as that final clean head."
+}

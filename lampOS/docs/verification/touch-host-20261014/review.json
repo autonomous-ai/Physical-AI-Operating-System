@@ -1,0 +1,45 @@
+{
+  "kind": "Independent read-only source review; not a build, execution, or lamp measurement",
+  "source_basis": "42bdf65a2144e2168d2643494d8b9e9598404a35 plus explicit io::Result<()> at strip_worker.rs:412",
+  "reviews": [
+    {
+      "scope": [
+        "crates/controls/src/touch.rs",
+        "crates/controls/src/touch_receiver.rs",
+        "crates/msgs/src/controls.rs"
+      ],
+      "checked": [
+        "per-source fault clearing and pending withdrawal",
+        "original acquisition expiry",
+        "reader and Controls retirement",
+        "bootstrap and unknown-interval suppression",
+        "same-source delivered-event ordering",
+        "primary/reset mapping",
+        "contact-start Sleep/Wake semantics"
+      ],
+      "finding": "No concrete code defect found. Fixed the documented topic spelling controls/touch_state. Final owners still must persist deduplication, validate bus declaration/envelope/publisher, and bind lifecycle history once at contact start."
+    },
+    {
+      "scope": [
+        "crates/controls/src/strip_worker.rs",
+        "crates/controls/src/mpr121.rs",
+        "crates/controls/src/touch_pins.rs",
+        "crates/controls/src/touch_runtime.rs",
+        "crates/controls/src/head_discovery.rs"
+      ],
+      "checked": [
+        "pinned i2cdev 0.6.2 error conversions and exact u32 transfer count",
+        "Linux GPIO/discovery calls and imports",
+        "device claim lifetime",
+        "four-transfer readback and fault checks",
+        "nonblocking datagram bounds",
+        "deadline checked before drain",
+        "bounded shutdown"
+      ],
+      "finding": "No additional concrete compile/lint or I/O defect found after the result annotation. The timestamp is acquisition start before the I2C sequence, not a measured physical touch timestamp."
+    }
+  ],
+  "tests_run_by_reviewers": false,
+  "files_edited_by_reviewers": false,
+  "hardware_accessed": false
+}

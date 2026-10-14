@@ -1,0 +1,70 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.51s
+     Running tests/touch.rs (target/debug/deps/touch-12d7add8f7ee7150)
+
+running 40 tests
+test configuration_is_bounded_unique_explicit_and_strict ... ok
+test backwards_clock_is_terminal_and_near_max_timestamps_do_not_wrap ... ok
+test default_disabled_reports_shadow_without_eligible_events ... ok
+test gpio_fault_preserves_independent_strip_request_identity ... ok
+test gpio_and_strip_faults_do_not_withdraw_the_other_group ... ok
+test configured_head_order_controls_mask_and_active_names_not_input_vector_order ... ok
+test head_qualification_uses_acquisition_time_not_receipt_or_ticks ... ok
+test invalid_head_snapshot_cannot_omit_or_duplicate_configured_inputs ... ok
+test head_needs_startup_settle_and_a_released_baseline ... ok
+test malformed_future_duplicate_and_wrong_clock_inputs_clear_pending ... ok
+test out_of_range_raw_bits_are_faults_even_when_no_working_electrode_is_active ... ok
+test excluded_only_acquisitions_never_become_active_or_lifecycle_requests ... ok
+test excluded_only_bits_release_a_working_contact_before_its_sleep_deadline ... ok
+test lost_acquisition_cannot_turn_hidden_release_repress_into_mute ... ok
+test primary_short_release_is_immediate_stop_with_no_double_tap_wait ... ok
+test pending_event_and_feedback_do_not_gain_new_age_on_heartbeat ... ok
+test excluded_electrodes_cannot_complete_the_three_working_pad_chord ... ok
+test reader_restart_consumes_first_sample_then_requires_release_and_rejects_old_reader ... ok
+test qualified_head_touch_offers_wake_without_changing_awake_pair ... ok
+test fast_mode_pulses_never_fabricate_a_resting_hand ... ok
+test acquisition_gap_disarms_hold_and_later_released_sample_recovers ... ok
+test missing_working_electrodes_are_not_artificial_gaps_during_a_slide ... ok
+test excluded_pad_noise_does_not_cancel_a_working_stationary_hold ... ok
+test reader_session_retirement_is_bounded_and_never_reopens_old_identity ... ok
+test reversed_strip_order_names_actual_destination_electrode ... ok
+test output_queue_is_bounded_and_overflow_withdraws_undelivered_group ... ok
+test source_ttl_withdraws_feedback_at_exact_boundary_without_synthetic_release ... ok
+test strip_brief_qualified_release_and_reversed_mapping_are_preserved ... ok
+test strip_raw_handoff_is_active_even_while_filtered_geometry_is_empty ... ok
+test primary_hold_never_commits_before_release_and_never_factory_resets ... ok
+test same_polarity_button_debounce_cancels_bounce_hold_evidence ... ok
+test working_electrodes_accept_bounded_ordered_subsets_without_changing_full_layouts ... ok
+test physical_button_events_preserve_stop_mute_and_reset_asleep ... ok
+test strip_restart_and_expiry_cannot_reuse_old_hold ... ok
+test stationary_head_stroke_occurs_once_at_actual_half_second ... ok
+test authored_head_qualification_target_covers_first_and_repeated_sample_phases ... ok
+test working_subset_faults_remain_unknown_until_a_verified_release_baseline ... ok
+test startup_held_buttons_and_orphan_release_cannot_act ... ok
+test strip_stationary_hold_requests_sleep_once_and_raw_release_is_not_a_tap ... ok
+test reset_short_release_does_nothing_and_exact_five_seconds_is_reset_only ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/touch_pins.rs (target/debug/deps/touch_pins-ca746424f0b583c4)
+
+running 16 tests
+test empty_configuration_does_not_claim_a_functional_touch_source ... ok
+test complete_gpio_conversion_preserves_stamp_session_and_independent_roles ... ok
+test base_only_configuration_does_not_invent_gpio_or_released_pads ... ok
+test sparse_base_remains_optional_and_does_not_enable_shadow_or_gpio ... ok
+test all_four_head_candidates_require_explicit_name_order_and_polarity ... ok
+test explicit_roles_keep_reset_separate_and_strip_out_of_gpio_snapshots ... ok
+test strip_presence_working_mask_geometry_and_profile_must_agree ... ok
+test partial_or_foreign_gpio_observations_are_not_filled_with_false_levels ... ok
+test sparse_working_configuration_preserves_all_physical_threshold_indices ... ok
+test sparse_working_electrodes_require_the_exact_configured_mask ... ok
+test duplicated_names_lines_and_unmatched_configured_inputs_are_rejected ... ok
+test sparse_invalid_or_ambiguous_orders_are_refused_before_wiring_is_accepted ... ok
+test new_wiring_rejects_unknown_fields_and_does_not_relax_legacy_schema ... ok
+test gpio_and_strip_poll_bounds_are_checked_independently ... ok
+test privacy_chip_and_wrong_primary_reset_or_head_lines_are_rejected ... ok
+test file_size_bound_accepts_exact_limit_and_refuses_over_limit_or_corrupt_input ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,5 +1,281 @@
 # Controls: a hand can ask the lamp to stop
 
+Task 33 adds an opt-in touch path, described below. The later sections retain
+the installed Task 7 path and its evidence. Without `--touch`, that path's
+schema, topics, recognition and output remain unchanged.
+
+## Touch and slides, Task 33
+
+### What exists and what we take
+
+The MPR121's electrical rules come from NXP's
+[Rev. 4 datasheet](https://www.nxp.com/docs/en/data-sheet/MPR121.pdf),
+[startup example](https://www.nxp.com/docs/en/application-note/AN3944.pdf),
+[auto-configuration](https://www.nxp.com/docs/en/application-note/AN3889.pdf),
+[debounce](https://www.nxp.com/docs/en/application-note/AN3892.pdf) and
+[filter timing](https://www.nxp.com/docs/en/application-note/AN3890.pdf).
+V1's reset/Stop/configure/Run order, status-error rejection, startup-held
+suppression, pad/chord filtering and bounded stale-work rules are retained.
+Its direct callbacks, `Pet`, toggle and shutdown meanings are replaced.
+`i2cdev` 0.6.2 supplies Linux combined transfers; a small injected register
+interface permits fault tests. `mpr121-hal` 0.5.0 was inspected but not used:
+its reset discards a write error and its touch accessor masks fault bits.
+See the source comparison in [reuse decisions](reuse-decisions.md#touch-strip-and-head-task-33-2026-10-14).
+
+`serve --touch --pins FILE` selects the new, independent GPIO/strip path.
+It **configures the selected MPR121 even in shadow mode**; omit `--touch` to
+keep the installed reader. `--enable` separately marks published requests as
+enabled, overriding a configuration file's `enabled` field. Neither switch
+wires Voice, Expression, lights or motors to the requests. This task installs
+no unit and changes no per-lamp deployment file.
+
+### What a hand requests
+
+`TouchEvent` on `controls/touch` and `TouchState` on `controls/touch_state`
+are new declarations, separate from the existing controls types. They carry
+the original clock, Controls and reader sessions, source, contact identity,
+contact-begin/acquisition/release times, active mask/names and strip geometry.
+The speaking/quiet/asleep alternatives are conditional requests, not reports
+of the lamp's current state or of an action applied.
+
+| Observation | While awake | Contact began asleep |
+|---|---|---|
+| Qualified head or three-pad base touch | Stop if speaking, Attend if quiet | Wake |
+| Continuously observed head hold, at least 500 ms | Stroke | No further request |
+| Stationary qualified base held two seconds | Sleep | Wake |
+| Moving base contact | Slide; an eligible slow movement also emits Stroke | No further request |
+| Optional primary button, short release | Stop | Stop |
+| Optional primary button, release after two seconds | One-way SoftwareMute | One-way SoftwareMute |
+| Optional reset button, release after five seconds | FactoryReset only | FactoryReset only |
+
+Sleep and Wake are separate, idempotent requested transitions. They never
+toggle microphone mute. First's 18:23 decision in
+[#711](https://github.com/autonomous-ai/lampOS/issues/711) makes Voice close
+microphones for Sleep and reopen on Wake, subject to physical privacy and
+its existing independent mute gate. Controls grants no capture permission.
+The lifecycle owner must bind awake/asleep **at `began_us` for the entire
+contact**, using history that covers that instant. Unknown history denies
+Sleep. A waking hand still held at two seconds must remain a Wake request,
+not send the lamp back to sleep. Speaking/quiet is checked at application.
+Deduplicate accepted events durably across owner restarts before applying a
+destructive request such as reset; this crate has no factory-reset executor.
+
+`TouchReceiver` checks source and Controls sessions, original acquisition age
+below 100 ms, current source freshness below 100 ms, state freshness below
+300 ms, sequence ordering and fault/restart fences. The 500 ms transport
+declaration is not a renewed action lifetime. Repeating retained state cannot
+refresh old evidence. It suppresses lifecycle/reset records for contacts
+already underway when a receiver attaches or recovers. An owner must also
+validate the bus declaration, envelope and trusted publisher before passing
+payloads to it; state publisher boot equals `TouchState.session_id`, while the
+event topic has its own publisher boot. Do not compare that event-header boot
+to the state publisher's session.
+
+For an explicitly configured primary button, touch mode also publishes the
+existing Stop/SoftwareMute protocol so installed Voice keeps working. A new
+owner must choose one authoritative primary protocol; it must not independently
+apply both representations of one release. Head/base/reset never enter that
+legacy engine, and a malformed complete GPIO observation cannot retain a
+primary action from just the valid-looking portion.
+
+### Geometry, qualification and missing evidence
+
+The pins file lists **3–12 working electrodes**, each once, in physical order.
+First's [20:05 hardware answer](https://github.com/autonomous-ai/lampOS/issues/711#issuecomment-6169047710)
+confirms E4/E8 are faulty on lamp-4ace: its set is E0–E3, E5–E7, E9–E11.
+That exclusion belongs to this unit, not every lamp. The hardware specification
+orders E11→E0 from right to left. A complete twelve-pad order may be any
+permutation; a sparse order must be strictly ascending or descending, since
+it otherwise does not locate the missing physical slots unambiguously.
+Position is a filtered centroid over the full twelve-slot span, 0..1;
+sparse ascending E5 stays at 5/11, rather than becoming the fifth of ten pads.
+Reversing the order reverses that coordinate. Excluded pads are skipped only
+when checking whether a footprint is connected; they do not shrink distance.
+Distance is accumulated normalized travel and speed is normalized travel per
+second. None is millimetres, physical velocity or an extrapolated finger.
+Direction names the configured endpoint electrode, not a guessed left/right.
+
+One or two pads can provide position. Touch and Sleep need a three-pad chord
+qualified continuously for 10 ms, after the 5 ms per-pad filter and 10 ms
+contact qualification. Release needs 30 ms. In a sparse working set, an inactive
+working electrode between active ones makes the footprint ambiguous and
+consumes the contact. The original full-set mode retains its one-hole tolerance
+(a gap spanning more than two ranks is ambiguous). Raw selected samples
+determine actual release; filtered geometry must not invent a release during
+electrode handoff. Movement consumes Sleep for that contact, even after a
+pause or reversal. Releasing a slide never adds a tap/Touch. Direction uses
+half-rank hysteresis, and speed covers at most 200 ms/128 acquisitions.
+Stroke requires fresh movement, at least 300 ms since movement began, at
+least one rank travelled, and mean travel at most two ranks/second over that
+moving span. This authored heuristic needs hands-on qualification; a pause
+followed by travel can lower its estimate.
+
+Known head inputs settle for 500 ms and qualify a touch for 20 ms. Head Stroke
+requires **actual continuous active observations** for 500 ms. V1 FastMode
+TTP223 pads can pulse for about 50–100 ms while a hand remains there: low
+gaps are not joined into an invented sustained hand. On such a unit Stroke
+may never occur. Touch remains useful. Polling can miss a pulse shorter than
+its interval; start qualification at 5 ms, and measure actual hand latency.
+
+Both sources preserve acquisition time and consecutive sequence, rejecting
+100 ms age/gaps, future/duplicate/reordered samples, wrong clocks, source
+changes and malformed levels. Recovery requires a released baseline.
+GPIO failure makes GPIO unknown; strip failure makes the strip unknown.
+Neither is a zero/release, nor does either refresh the other source.
+`TouchSourceState.active_mask` contains the raw acquired **working** bits;
+current geometry and event masks are filtered evidence. Acquisitions and
+recordings retain the complete raw twelve-bit mask. An excluded-only sample
+cannot start a contact or keep one held. No observation is invented while a
+finger crosses a blind area: an actual all-selected-released interval still
+ends a contact after the release grace. An unchanged published state does not
+mean a newly acquired sample.
+
+### Reader, startup and shutdown
+
+The new pins schema has `chip`, `buttons`, `head_pads`, `every_ms`, optional
+`reset`, and optional `base`. Only chip 0 is allowed. Optional primary is
+line 99; reset is active-low line 100 in its own field. Head candidates are
+37/96/97/98, selected and polarized per unit. Names/lines are unique and
+match the Controls configuration. The privacy switch, chip 1 line 9, remains
+Voice's. A base requires `base_selected_mask` to exactly match its working
+electrodes (4095 for all twelve, 3823/0x0EEF for lamp-4ace's ten), and a complete
+explicit profile: twelve independently specified touch thresholds and twelve
+release thresholds, baseline filters, FFI/SFI/ESI, global/per-pad CDC/CDT,
+debounce, ECR and auto-configuration limits. Unknown fields and missing
+electrical settings fail validation before I/O. There is no shared-threshold
+shortcut or automatic threshold calibration; every working pad must be
+qualified through its own assembled shell. The arrays are indexed by electrode
+number, not by position in the working list. Each release threshold is below
+that electrode's touch threshold.
+
+An I²C child does all reset, calibration and reads. The parent runs GPIO and
+the nonblocking socket, draining at most 32 acquisitions from each per 2 ms
+step. State is refreshed every 20 ms or on an event. No I²C, worker wait,
+record-file write or hand-log output is in that polling path. A child packet
+is bounded to 1 KiB; faults retain at most 256 UTF-8 bytes. Source time is
+sampled before the I²C transaction sequence. A full socket drops the packet
+without reusing its sequence, so the next arrival exposes the loss.
+Touch recordings use a separate strict tagged schema. The existing bounded
+recorder keeps its 32-entry queue, 32 MiB/100,000-record/16 KiB-line/ten-minute
+limits; a dropped touch record inserts `all_fault` so replay cannot splice a
+continuous hold across missing observations. Mixing legacy/touch formats fails.
+
+The child must answer within seven seconds of spawn and thereafter within
+150 ms of its last packet. These deadlines are checked before draining even
+a fresh queued packet. Any failure inhibits it; no automatic replacement
+starts. Teardown waits at most 100 ms, reports whether exit was actually
+observed, and never calls a kill request proof of exit. A kernel-blocked child
+may outlive that bound.
+
+Besides `controls.lock` per bus root, the child holds the fixed advisory file
+`/run/lock/lamp-controls-mpr121-<bus>-<address-hex>.lock` before opening I²C.
+The file is mode 0600, regular, single-link and opened without following a
+symlink. It is **never unlinked**; a still-blocked child retains ownership
+even if its parent dies. The service user needs permission to create/open
+this file and access `/dev/i2c-0`. A lock or spawn failure leaves GPIO working
+and strip state unavailable. A GPIO open failure on Linux similarly leaves
+the configured strip working. The lock excludes cooperating Controls owners,
+not arbitrary external I²C tools: First must stop the prior reader first.
+
+Initialization checks existing overcurrent before reset, verifies reset
+CONFIG2, writes in Stop, starts with ECR last, waits a profile-derived settle
+interval, then verifies readback. The observed lamp-4ace profile gives an
+authored conservative wait of 1,044,480 µs, not a measured calibration time.
+Each sample makes four combined transfers (94 register bytes), checking
+status before/after static configuration readback and ECR. OVCF, OOR on any
+working electrode, ACFF/ARFF, proximity/reserved status, stop/reset or
+static-register drift are terminal unknown input. OOR confined to explicitly
+excluded electrodes does not invalidate the working set. ECR enables a
+contiguous hardware prefix, so all twelve are still scanned to reach E11;
+excluding E4/E8 in software does not disable them electrically. An excluded
+electrode can still cause a global auto-configuration failure, which remains
+a fault and requires actual per-unit electrical qualification.
+Auto-adjusted CDC/CDT are not falsely compared to their startup values.
+No force-address, scan, adapter-global timeout/retry ioctl or bus-speed change
+is made. This checks reported faults; it cannot undo a physical bus fault.
+
+### Run without a lamp, then qualify on one
+
+From `lampOS/`, the checked-in CLI fixture runs without hardware or a bus:
+
+```sh
+cargo run --offline -p lamp-controls -- replay --touch \
+  --config crates/controls/fixtures/strip-711-controls.json \
+  --pins crates/controls/fixtures/strip-711-pins-example.json \
+  --input crates/controls/fixtures/strip-711-replay.jsonl \
+  --clock-id strip-711-authored --enable --until-us 19948000
+```
+
+Expect 1,052 inputs, zero rejected, 54 events (one Touch, one stationary
+Sleep alternative, 52 Slides, zero Stroke), 9,975 steps and 1,050 frames.
+Only 57 changed masks came from First's lamp-4ace comment; 995 constant-mask
+acquisitions, monotonic/session/sequence and receipt times are **authored**.
+Replaying only the real changed rows correctly gives nine stale rejections
+and no events. The [fixture provenance](../crates/controls/fixtures/strip-711-README.md)
+keeps both versions. The original full-set example profile transcribes First's
+earlier register dump; its uniform thresholds are historical evidence, not
+recommended calibration. Its E0→E11 order is for replay coordinates.
+The `strip-711-working-controls.json` and `strip-711-working-pins-example.json`
+pair runs the same fixture with lamp-4ace's ten-pad working set and explicit
+**authored** unequal thresholds. It gives the same geometry/events for these
+rows, which never contain E4/E8. Neither example is a qualified live profile.
+
+`--output FILE` creates a new private file, buffers writes in 8 KiB, and
+returns success only after flushing the same JSONL bytes as stdout. An
+existing file is refused. This is an offline replay path; it is not the
+bounded live acquisition recorder.
+
+First's on-lamp sequence is:
+
+1. Keep the installed service as rollback. Stop the prior GPIO/I²C owner,
+   leave the surface untouched at initialization, and determine the unit's
+   working electrodes with a full record. On lamp-4ace use the confirmed ten;
+   other units must establish their own set. Calibrate each working pad's
+   touch/release thresholds separately with touch, release and near-hand
+   observations through the assembled shell; record the values and noise
+   margin. Match the mask and ordered list. Do not apply either example's
+   threshold values as a lamp calibration. Charge auto-configuration does not
+   calibrate these thresholds. Verify any excluded pad does not cause a global
+   chip fault.
+2. With hands away initially, run `lamp-controls discover-head --seconds 20`,
+   then touch and release each physical pad twice. It probes pull-down/up,
+   requires driven idle and two complete ≥20 ms pulses, prints candidate
+   polarity and installs nothing. A floating, untested or startup-held line
+   is not a pad mapping. Set the actual observed candidates in the pins file;
+   remove the nonexistent primary from lamp-4ace's configuration, not all lamps.
+3. Run `lamp-controls serve --touch --config <unit-controls.json>
+   --pins <unit-touch-pins.json> --bus-root <isolated-bus> --seconds 60
+   --record <new-touch.jsonl>` first without `--enable`. Verify the closing
+   counters, independent readiness, no capture/output changes and actual child
+   cleanup. Never reuse an existing record pathname. Then repeat with enabled
+   requests on that isolated bus before wiring a consumer.
+4. Tap/hold each head pad, tap the base near both ends, hold for two seconds,
+   slide both ways quickly and slowly, reverse, pause, lift one edge at a time,
+   hover near the surface, cross both missing positions on lamp-4ace, and
+   start/restart with a hand present. A missing electrode must not split an
+   otherwise observed contiguous hand; a real blind interval must not become
+   invented contact. Record
+   first/repeated contact latency from a separate physical reference; acquisition
+   intervals alone cannot measure hand-to-response latency.
+5. Verify device permissions/lock conflict, missing strip and acquisition gaps
+   leave GPIO usable. Test external reset/unplug only under First's hardware
+   procedure. No fault may emit release, Sleep, reset or mute. Replay the full
+   saved clip with its recorded boot ID and the exact configuration.
+6. Voice/Expression owners apply fresh requests with privacy, contact-start
+   lifecycle and dedup guards. Verify actual acoustic Stop, microphone closure
+   on Sleep, one Wake from an asleep touch, and no Wake→Sleep from the same
+   still-held hand. Qualify motor/light responses separately.
+
+Most likely wrong on the lamp: per-pad thresholds admitting a nearby hand;
+startup-baseline learning; a faulty excluded pad upsetting auto-configuration;
+a narrow finger becoming unobserved over a dead pad; the pulsed head not providing
+sustained-hand evidence; sampled slide speed around pauses; I²C load alongside
+Air; service-user lock access; physical GPIO polarity; and final owner latency.
+No lamp, acoustic, electrical contention, sustained-head, privacy application,
+light/motor response or physical timing result is established by this task's
+host tests. Native ARM64 evidence and the complete gate are recorded in Third's
+task log before the ready line becomes yes.
+
 ## What exists and what we take
 
 V1 has three different inputs. Its mechanical button stops speech on a short
@@ -409,7 +685,7 @@ The unchanged workspace built on Third's x86_64 development Mac before this
 task. The new tests exercise pure clocks, historical/written touch masks, local
 Unix datagrams, source/owner restarts, input loss, private mute files, a real
 CLI child and SIGTERM. The final gate and standalone-copy evidence are recorded
-in [Third's log](work-log-third.md) and the
+in [Third's log](https://github.com/autonomous-ai/lampOS/blob/lamp-third/lampOS/docs/work-log-third.md) and the
 [host evidence](verification/controls-host-20261014/results.json); none is an
 on-lamp result. The Controls crate has 121 tests and the new message contracts
 have 13. The source-only copy passed all 159 Controls/message checks, including
@@ -454,7 +730,7 @@ ignored; the new timing probe was run explicitly above. Both workspace builds
 passed. Native strict Clippy passed; ARM64 strict dependency Clippy found an
 inherited Body dead-code warning, while selected-crate `--no-deps` checking
 passed. Earlier test failures, their fixes and the repeated timing-sensitive
-cases remain in [Fourth's log](work-log-fourth.md) and
+cases remain in [Fourth's log](https://github.com/autonomous-ai/lampOS/blob/lamp-fourth/lampOS/docs/work-log-fourth.md) and
 [task 21 evidence](verification/controls-voice-host-20261014/results.json).
 No ARM program or lamp hardware was run by Fourth.
 
@@ -470,10 +746,11 @@ that an actuator stopped.
 
 ## Not shown
 
-No GPIO/I²C adapter, lamp build, installed subscription, physical privacy
-transition, electrode-noise acceptance, touch-to-silence latency or safe motion
-stop was run by Third. No hardware feedback or applied mute/clear receipt is
-provided by this process. The most likely lamp mismatch is base qualification
+Neither GPIO/I²C adapter was run on a lamp by Third. Installed subscriptions,
+physical privacy transitions, electrode-noise acceptance, touch-to-silence
+latency and safe motion stops remain unmeasured by Third. No hardware feedback
+or applied mute/clear receipt is provided by this process. The most likely lamp
+mismatch is base qualification
 and release timing under its actual electrodes/noise, followed by lost GPIO
 edges or an acquisition clock converted incorrectly. Third's original handback
 could not operate a hand control until First supplied the real reader and the

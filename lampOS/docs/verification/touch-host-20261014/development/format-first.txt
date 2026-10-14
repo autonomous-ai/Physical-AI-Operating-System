@@ -1,0 +1,629 @@
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/lib.rs:4:
+ pub mod engine;
+ pub mod head_discovery;
+ pub mod input;
+-pub mod mute;
+ pub mod mpr121;
++pub mod mute;
+ pub mod pins;
+ pub mod receiver;
+ pub mod record;
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:299:
+         let (mut recorder, receiver) = recorder(2);
+         recorder.touch = true;
+         let counters = recorder.counters.clone();
+-        let row = |now_us| touch_replay::Record {now_us, input: Input::AllFault {fault: ControlFault::Missing}};
++        let row = |now_us| touch_replay::Record {
++            now_us,
++            input: Input::AllFault {
++                fault: ControlFault::Missing,
++            },
++        };
+         recorder.submit_touch(&row(100));
+         recorder.submit_touch(&row(200));
+         recorder.submit_touch(&row(300));
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:309:
+         assert!(!recorder.gap);
+         drop(recorder);
+         let mut bytes = Vec::new();
+-        write_records(&mut bytes, prefix.into_iter().chain(receiver), &counters,
+-            &mut WriteProgress {touch:true, ..WriteProgress::default()});
++        write_records(
++            &mut bytes,
++            prefix.into_iter().chain(receiver),
++            &counters,
++            &mut WriteProgress {
++                touch: true,
++                ..WriteProgress::default()
++            },
++        );
+         let saved = touch_replay::read(bytes.as_slice()).unwrap();
+         assert_eq!(saved.len(), 4);
+         assert_eq!(saved[2].now_us, 400);
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:317:
+-        assert!(matches!(saved[2].input, Input::AllFault {fault: ControlFault::Overflow}));
+-        assert!(matches!(saved[3].input, Input::AllFault {fault: ControlFault::Missing}));
++        assert!(matches!(
++            saved[2].input,
++            Input::AllFault {
++                fault: ControlFault::Overflow
++            }
++        ));
++        assert!(matches!(
++            saved[3].input,
++            Input::AllFault {
++                fault: ControlFault::Missing
++            }
++        ));
+         assert!(!counters.failed.load(Ordering::Relaxed));
+     }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:326:
+         recorder.touch = true;
+         let counters = recorder.counters.clone();
+         for now_us in [100, 200] {
+-            recorder.submit_touch(&touch_replay::Record {now_us, input: Input::GpioFault {fault: ControlFault::Missing}});
++            recorder.submit_touch(&touch_replay::Record {
++                now_us,
++                input: Input::GpioFault {
++                    fault: ControlFault::Missing,
++                },
++            });
+         }
+         assert_eq!(recorder.stats().dropped, 1);
+         drop(recorder);
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:333:
+         let mut bytes = Vec::new();
+-        write_records(&mut bytes, receiver, &counters, &mut WriteProgress {touch:true, ..WriteProgress::default()});
++        write_records(
++            &mut bytes,
++            receiver,
++            &counters,
++            &mut WriteProgress {
++                touch: true,
++                ..WriteProgress::default()
++            },
++        );
+         let saved = touch_replay::read(bytes.as_slice()).unwrap();
+         assert_eq!(saved.len(), 2);
+         assert_eq!(saved[1].now_us, 100);
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:338:
+-        assert!(matches!(saved[1].input, Input::AllFault {fault: ControlFault::Overflow}));
++        assert!(matches!(
++            saved[1].input,
++            Input::AllFault {
++                fault: ControlFault::Overflow
++            }
++        ));
+         assert!(overflow(u64::MAX, true).unwrap().len() as u64 + 1 <= TERMINAL_BYTES);
+     }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/record.rs:342:
+     #[test]
+     fn recording_formats_cannot_be_mixed_silently() {
+         let (mut legacy, _) = recorder(1);
+-        legacy.submit_touch(&crate::touch_replay::Record {now_us: 100,
+-            input: crate::touch_replay::Input::AllFault {fault: ControlFault::Missing}});
++        legacy.submit_touch(&crate::touch_replay::Record {
++            now_us: 100,
++            input: crate::touch_replay::Input::AllFault {
++                fault: ControlFault::Missing,
++            },
++        });
+         assert!(legacy.stats().failed);
+         let (mut touch, _) = recorder(1);
+         touch.touch = true;
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/strip_worker.rs:1:
+ //! One disposable MPR121 process. I2C, including initialization, never runs in
+ //! the GPIO/gesture owner. There is no replacement until this owner restarts.
+ //! Datagram loss remains sequence loss; cached levels are never re-stamped.
+-use crate::{
+-    input::InputError,
+-    mpr121,
+-    touch::StripSample,
+-};
++use crate::{input::InputError, mpr121, touch::StripSample};
+ use lamp_msgs::{ClockStamp, ControlFault};
+ use serde::{Deserialize, Serialize};
+ use std::{
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/strip_worker.rs:12:
+     fs, io,
+-    os::unix::{fs::{MetadataExt, PermissionsExt}, net::UnixDatagram},
++    os::unix::{
++        fs::{MetadataExt, PermissionsExt},
++        net::UnixDatagram,
++    },
+     path::{Path, PathBuf},
+     process::{Child, Command, Stdio},
+     thread,
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/strip_worker.rs:41:
+         if !metadata.is_file() || metadata.nlink() != 1 || metadata.mode() & 0o077 != 0 {
+             return Err(io::Error::other("unsafe MPR121 device claim file"));
+         }
+-        file.try_lock().map_err(|error| io::Error::other(format!("MPR121 already owned or claim unavailable: {error}")))?;
++        file.try_lock().map_err(|error| {
++            io::Error::other(format!(
++                "MPR121 already owned or claim unavailable: {error}"
++            ))
++        })?;
+         Ok(Self { _file: file })
+     }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/strip_worker.rs:48:
+     #[cfg(target_os = "linux")]
+     fn acquire(config: &mpr121::Config) -> io::Result<Self> {
+-        Self::at(Path::new(&format!("/run/lock/lamp-controls-mpr121-{}-{:02x}.lock", config.bus, config.address)))
++        Self::at(Path::new(&format!(
++            "/run/lock/lamp-controls-mpr121-{}-{:02x}.lock",
++            config.bus, config.address
++        )))
+     }
+ }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/strip_worker.rs:268:
+         let timeout = self.last_packet_us.map_or(STARTUP_US, |_| SILENCE_US);
+         let last = self.last_packet_us.unwrap_or(self.started_us);
+         if now_us.saturating_sub(last) >= timeout {
+-            return Err(self.fail(ControlFault::Stale, "strip worker exceeded its response deadline"));
++            return Err(self.fail(
++                ControlFault::Stale,
++                "strip worker exceeded its response deadline",
++            ));
+         }
+         let mut bytes = [0u8; MAX_PACKET_BYTES + 1];
+         match self.socket.recv(&mut bytes) {
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/touch_pins.rs:188:
+ pub struct FailedGpio(Option<InputError>);
+ impl FailedGpio {
+     pub fn new(message: impl Into<String>) -> Self {
+-        Self(Some(InputError::new(lamp_msgs::ControlFault::Missing, message)))
++        Self(Some(InputError::new(
++            lamp_msgs::ControlFault::Missing,
++            message,
++        )))
+     }
+ }
+ impl PinReader for FailedGpio {
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/touch_runtime.rs:187:
+ 
+     fn strip_error(&mut self, now_us: u64, error: InputError) {
+         self.counts.reader_errors += 1;
+-        self.last_strip_error = Some(error.to_string().chars().filter(|c| !c.is_control()).take(256).collect());
++        self.last_strip_error = Some(
++            error
++                .to_string()
++                .chars()
++                .filter(|c| !c.is_control())
++                .take(256)
++                .collect(),
++        );
+         self.record(now_us, Input::StripFault { fault: error.fault });
+         self.engine.strip_fault(now_us, error.fault);
+     }
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/touch_runtime.rs:325:
+             .with("touch_enabled", output.state.enabled)
+             .with("gpio_accepted", self.gpio_accepted)
+             .with("strip_accepted", self.strip_accepted)
+-            .with("strip_error", self.last_strip_error.as_deref().unwrap_or("none"))
++            .with(
++                "strip_error",
++                self.last_strip_error.as_deref().unwrap_or("none"),
++            )
+             .with("rejected", self.counts.rejected)
+             .with("reader_errors", self.counts.reader_errors)
+             .with("publish_errors", self.counts.publish_errors)
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/src/main.rs:393:
+         Ok(lines) => lines,
+         Err(error) => {
+             eprintln!("touch GPIO unavailable: {error}");
+-            return Ok(Box::new(lamp_controls::touch_pins::FailedGpio::new(error.to_string())));
++            return Ok(Box::new(lamp_controls::touch_pins::FailedGpio::new(
++                error.to_string(),
++            )));
+         }
+     };
+     Ok(Box::new(lamp_controls::pins::LinePins::new(
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/head_discovery.rs:1:
+ use lamp_controls::head_discovery::Discovery;
+ 
+ fn feed(discovery: &mut Discovery, start: u64, end: u64, mask: u8) {
+-    for at in (start..=end).step_by(5_000) { discovery.ingest(at, mask).unwrap(); }
++    for at in (start..=end).step_by(5_000) {
++        discovery.ingest(at, mask).unwrap();
++    }
+ }
+ 
+ #[test]
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/head_discovery.rs:8:
+ fn driven_high_and_low_candidates_need_two_complete_pulses_and_do_not_install_wiring() {
+-    let mut scan = Discovery::new(0, [(true,true),(false,false),(false,true),(false,true)]).unwrap();
+-    feed(&mut scan,0,600_000,1);
+-    for begin in [610_000,800_000] {
+-        feed(&mut scan,begin,begin+100_000,2);
+-        feed(&mut scan,begin+105_000,begin+175_000,1);
++    let mut scan = Discovery::new(
++        0,
++        [(true, true), (false, false), (false, true), (false, true)],
++    )
++    .unwrap();
++    feed(&mut scan, 0, 600_000, 1);
++    for begin in [610_000, 800_000] {
++        feed(&mut scan, begin, begin + 100_000, 2);
++        feed(&mut scan, begin + 105_000, begin + 175_000, 1);
+     }
+     let report = scan.report();
+-    assert_eq!(report.lines[0].active_low_candidate,Some(true));
+-    assert_eq!(report.lines[1].active_low_candidate,Some(false));
+-    assert_eq!(report.lines[0].completed_pulses,2);
+-    assert_eq!(report.lines[0].longest_pulse_us,105_000);
+-    assert!(report.lines[2..].iter().all(|line|line.active_low_candidate.is_none()));
++    assert_eq!(report.lines[0].active_low_candidate, Some(true));
++    assert_eq!(report.lines[1].active_low_candidate, Some(false));
++    assert_eq!(report.lines[0].completed_pulses, 2);
++    assert_eq!(report.lines[0].longest_pulse_us, 105_000);
++    assert!(
++        report.lines[2..]
++            .iter()
++            .all(|line| line.active_low_candidate.is_none())
++    );
+     assert!(!report.hardware_mapping_installed);
+ }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/head_discovery.rs:24:
+ #[test]
+ fn startup_held_floating_chatter_and_unreleased_contact_do_not_qualify() {
+-    let mut scan = Discovery::new(0,[(true,true),(false,true),(true,true),(true,true)]).unwrap();
+-    feed(&mut scan,0,700_000,0);
+-    assert!(scan.report().lines.iter().all(|line|line.completed_pulses==0));
+-    feed(&mut scan,705_000,800_000,15);
+-    for begin in [810_000,900_000] {
+-        feed(&mut scan,begin,begin+10_000,0);
+-        feed(&mut scan,begin+15_000,begin+75_000,15);
++    let mut scan =
++        Discovery::new(0, [(true, true), (false, true), (true, true), (true, true)]).unwrap();
++    feed(&mut scan, 0, 700_000, 0);
++    assert!(
++        scan.report()
++            .lines
++            .iter()
++            .all(|line| line.completed_pulses == 0)
++    );
++    feed(&mut scan, 705_000, 800_000, 15);
++    for begin in [810_000, 900_000] {
++        feed(&mut scan, begin, begin + 10_000, 0);
++        feed(&mut scan, begin + 15_000, begin + 75_000, 15);
+     }
+-    feed(&mut scan,980_000,1_500_000,0);
+-    assert!(scan.report().lines.iter().all(|line|line.completed_pulses==0));
++    feed(&mut scan, 980_000, 1_500_000, 0);
++    assert!(
++        scan.report()
++            .lines
++            .iter()
++            .all(|line| line.completed_pulses == 0)
++    );
+ }
+ 
+ #[test]
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/head_discovery.rs:39:
+ fn missing_samples_cannot_extend_a_pulse_and_recovery_needs_idle_again() {
+-    let mut scan = Discovery::new(0,[(true,true);4]).unwrap();
+-    feed(&mut scan,0,600_000,15);
+-    feed(&mut scan,605_000,620_000,0);
+-    scan.ingest(800_000,0).unwrap();
+-    feed(&mut scan,805_000,900_000,15);
+-    assert_eq!(scan.report().gaps,1);
+-    assert!(scan.report().lines.iter().all(|line|line.completed_pulses==0));
+-    assert!(scan.ingest(900_000,15).is_err());
+-    assert!(scan.ingest(905_000,16).is_err());
++    let mut scan = Discovery::new(0, [(true, true); 4]).unwrap();
++    feed(&mut scan, 0, 600_000, 15);
++    feed(&mut scan, 605_000, 620_000, 0);
++    scan.ingest(800_000, 0).unwrap();
++    feed(&mut scan, 805_000, 900_000, 15);
++    assert_eq!(scan.report().gaps, 1);
++    assert!(
++        scan.report()
++            .lines
++            .iter()
++            .all(|line| line.completed_pulses == 0)
++    );
++    assert!(scan.ingest(900_000, 15).is_err());
++    assert!(scan.ingest(905_000, 16).is_err());
+ }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:1:
+-use lamp_controls::strip_worker::{DeviceClaim, MAX_PACKET_BYTES, Packet, STARTUP_US, SILENCE_US, StripReader, Worker};
++use lamp_controls::strip_worker::{
++    DeviceClaim, MAX_PACKET_BYTES, Packet, SILENCE_US, STARTUP_US, StripReader, Worker,
++};
+ use lamp_msgs::{ClockStamp, ControlFault};
+ use std::{
+     fs, io,
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:14:
+ impl Root {
+     fn new() -> Self {
+         static NEXT: AtomicU64 = AtomicU64::new(0);
+-        let root = std::env::temp_dir().join(format!("ctw-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
++        let root = std::env::temp_dir().join(format!(
++            "ctw-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
+         fs::create_dir(&root).unwrap();
+         Self(root)
+     }
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:21:
+ }
+-impl Drop for Root { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); } }
++impl Drop for Root {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.0);
++    }
++}
+ 
+ // The fixture is this Rust test executable; no shell, sleep program, I2C or
+ // external interpreter is needed. Extra args after -- are harmless libtest
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:26:
+ // filters. The explicit exact fixture name ensures that this test runs.
+ #[test]
+ fn worker_fixture() {
+-    let Ok(mode) = std::env::var("LAMP_CONTROLS_WORKER_FIXTURE") else { return; };
++    let Ok(mode) = std::env::var("LAMP_CONTROLS_WORKER_FIXTURE") else {
++        return;
++    };
+     let args: Vec<_> = std::env::args().collect();
+     let value = |name: &str| args.windows(2).find(|pair| pair[0] == name).unwrap()[1].clone();
+-    if mode == "silent" { thread::sleep(Duration::from_secs(10)); return; }
++    if mode == "silent" {
++        thread::sleep(Duration::from_secs(10));
++        return;
++    }
+     let _claim = if mode == "claim" {
+-        Some(DeviceClaim::at(std::path::Path::new(&std::env::var("LAMP_CONTROLS_CLAIM_FIXTURE").unwrap())).unwrap())
+-    } else { None };
++        Some(
++            DeviceClaim::at(std::path::Path::new(
++                &std::env::var("LAMP_CONTROLS_CLAIM_FIXTURE").unwrap(),
++            ))
++            .unwrap(),
++        )
++    } else {
++        None
++    };
+     let socket = UnixDatagram::unbound().unwrap();
+     socket.connect(value("--sink")).unwrap();
+     socket.set_nonblocking(true).unwrap();
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:39:
+     let mut clock = value("--clock-id");
+     let mut session = value("--session");
+-    if mode == "clock" { clock = "other-clock".into(); }
+-    if mode == "session" { session = "other-reader".into(); }
++    if mode == "clock" {
++        clock = "other-clock".into();
++    }
++    if mode == "session" {
++        session = "other-reader".into();
++    }
+     let now = lamp_ipc::monotonic_us();
+-    let at_us = match mode.as_str() { "stale" => now - 100_000, "future" => now + 1_000_000, _ => now };
+-    let stamp = ClockStamp {clock_id: clock, at_us, sequence: 1};
++    let at_us = match mode.as_str() {
++        "stale" => now - 100_000,
++        "future" => now + 1_000_000,
++        _ => now,
++    };
++    let stamp = ClockStamp {
++        clock_id: clock,
++        at_us,
++        sequence: 1,
++    };
+     let packet = if mode == "fault" {
+-        Packet::Fault {stamp, session_id: session, detail: "I2C failed".into()}
++        Packet::Fault {
++            stamp,
++            session_id: session,
++            detail: "I2C failed".into(),
++        }
+     } else {
+-        Packet::Sample {stamp, session_id: session, mask: if mode == "mask" {0x8000} else {7}}
++        Packet::Sample {
++            stamp,
++            session_id: session,
++            mask: if mode == "mask" { 0x8000 } else { 7 },
++        }
+     };
+     let bytes = match mode.as_str() {
+-        "oversized" => vec![b'x'; MAX_PACKET_BYTES + 1], "corrupt" => b"broken".to_vec(),
++        "oversized" => vec![b'x'; MAX_PACKET_BYTES + 1],
++        "corrupt" => b"broken".to_vec(),
+         _ => serde_json::to_vec(&packet).unwrap(),
+     };
+     socket.send(&bytes).unwrap();
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:58:
+ 
+ fn spawn(root: &Root, mode: &str) -> Worker {
+     let mut command = Command::new(std::env::current_exe().unwrap());
+-    command.arg("--exact").arg("worker_fixture").arg("--nocapture").arg("--")
++    command
++        .arg("--exact")
++        .arg("worker_fixture")
++        .arg("--nocapture")
++        .arg("--")
+         .env("LAMP_CONTROLS_WORKER_FIXTURE", mode);
+-    Worker::spawn(command, &root.0, "worker-clock", "worker-session", lamp_ipc::monotonic_us()).unwrap()
++    Worker::spawn(
++        command,
++        &root.0,
++        "worker-clock",
++        "worker-session",
++        lamp_ipc::monotonic_us(),
++    )
++    .unwrap()
+ }
+ 
+-fn receive(worker: &mut Worker) -> Result<lamp_controls::touch::StripSample, lamp_controls::input::InputError> {
++fn receive(
++    worker: &mut Worker,
++) -> Result<lamp_controls::touch::StripSample, lamp_controls::input::InputError> {
+     let deadline = Instant::now() + Duration::from_secs(3);
+     loop {
+-        if let Some(sample) = worker.read(lamp_ipc::monotonic_us())? { return Ok(sample); }
+-        assert!(Instant::now() < deadline, "Rust worker fixture sent no result");
++        if let Some(sample) = worker.read(lamp_ipc::monotonic_us())? {
++            return Ok(sample);
++        }
++        assert!(
++            Instant::now() < deadline,
++            "Rust worker fixture sent no result"
++        );
+         thread::sleep(Duration::from_millis(1));
+     }
+ }
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:92:
+ #[test]
+ fn malformed_faulted_or_mismatched_workers_never_become_releases() {
+     for (mode, fault) in [
+-        ("stale", ControlFault::Stale), ("future", ControlFault::Future),
+-        ("clock", ControlFault::WrongClock), ("session", ControlFault::Invalid),
+-        ("mask", ControlFault::Invalid), ("fault", ControlFault::Missing),
+-        ("oversized", ControlFault::Overflow), ("corrupt", ControlFault::Invalid),
++        ("stale", ControlFault::Stale),
++        ("future", ControlFault::Future),
++        ("clock", ControlFault::WrongClock),
++        ("session", ControlFault::Invalid),
++        ("mask", ControlFault::Invalid),
++        ("fault", ControlFault::Missing),
++        ("oversized", ControlFault::Overflow),
++        ("corrupt", ControlFault::Invalid),
+     ] {
+         let root = Root::new();
+         let mut worker = spawn(&root, mode);
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:110:
+     let root = Root::new();
+     let mut worker = spawn(&root, "silent");
+     let now = lamp_ipc::monotonic_us();
+-    for _ in 0..1000 { assert!(worker.read(now).unwrap().is_none()); }
+-    assert_eq!(worker.read(now + STARTUP_US).unwrap_err().fault, ControlFault::Stale);
+-    for _ in 0..1000 { assert!(worker.read(now + STARTUP_US + 1).unwrap().is_none()); }
++    for _ in 0..1000 {
++        assert!(worker.read(now).unwrap().is_none());
++    }
++    assert_eq!(
++        worker.read(now + STARTUP_US).unwrap_err().fault,
++        ControlFault::Stale
++    );
++    for _ in 0..1000 {
++        assert!(worker.read(now + STARTUP_US + 1).unwrap().is_none());
++    }
+     assert!(worker.shutdown().exit_observed);
+ }
+ 
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:120:
+ fn failed_spawn_cleans_only_its_socket_and_does_not_remove_foreign_files() {
+     let root = Root::new();
+     fs::write(root.0.join("preserve"), "owned by another path").unwrap();
+-    let failed = Worker::spawn(Command::new(root.0.join("missing-executable")), &root.0, "clock", "session", 1);
++    let failed = Worker::spawn(
++        Command::new(root.0.join("missing-executable")),
++        &root.0,
++        "clock",
++        "session",
++        1,
++    );
+     assert!(matches!(failed, Err(ref error) if error.kind() == io::ErrorKind::NotFound));
+     assert_eq!(fs::read_dir(&root.0).unwrap().count(), 1);
+-    assert_eq!(fs::read_to_string(root.0.join("preserve")).unwrap(), "owned by another path");
++    assert_eq!(
++        fs::read_to_string(root.0.join("preserve")).unwrap(),
++        "owned by another path"
++    );
+ }
+ 
+ #[test]
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:130:
+ fn an_existing_socket_path_is_never_unlinked_by_a_second_worker() {
+     let root = Root::new();
+-    let path = root.0.join(format!("controls-mpr-{}-123.sock", std::process::id()));
++    let path = root
++        .0
++        .join(format!("controls-mpr-{}-123.sock", std::process::id()));
+     let owner = UnixDatagram::bind(&path).unwrap();
+     assert!(Worker::spawn(Command::new("unused"), &root.0, "clock", "session", 123).is_err());
+     assert!(path.exists());
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:142:
+         let root = Root::new();
+         let now = lamp_ipc::monotonic_us();
+         let mut worker = spawn(&root, "silent");
+-        let path = fs::read_dir(&root.0).unwrap().next().unwrap().unwrap().path();
++        let path = fs::read_dir(&root.0)
++            .unwrap()
++            .next()
++            .unwrap()
++            .unwrap()
++            .path();
+         let sender = UnixDatagram::unbound().unwrap();
+         sender.connect(path).unwrap();
+         let packet = |at_us, sequence| Packet::Sample {
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:149:
+-            stamp: ClockStamp {clock_id: "worker-clock".into(), at_us, sequence},
+-            session_id: "worker-session".into(), mask: 0,
++            stamp: ClockStamp {
++                clock_id: "worker-clock".into(),
++                at_us,
++                sequence,
++            },
++            session_id: "worker-session".into(),
++            mask: 0,
+         };
+         let first = lamp_ipc::monotonic_us();
+         if established {
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:154:
+             lamp_controls::strip_worker::send(&sender, &packet(first, 1)).unwrap();
+             assert!(worker.read(first).unwrap().is_some());
+         }
+-        let expired = if established { first + SILENCE_US } else { now + STARTUP_US + 1_000_000 };
++        let expired = if established {
++            first + SILENCE_US
++        } else {
++            now + STARTUP_US + 1_000_000
++        };
+         lamp_controls::strip_worker::send(&sender, &packet(expired, 2)).unwrap();
+         assert_eq!(worker.read(expired).unwrap_err().fault, ControlFault::Stale);
+         assert!(worker.read(expired + 1).unwrap().is_none());
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:168:
+     let second_root = Root::new();
+     let path = second_root.0.join("shared-device.lock");
+     let mut command = Command::new(std::env::current_exe().unwrap());
+-    command.arg("--exact").arg("worker_fixture").arg("--nocapture").arg("--")
++    command
++        .arg("--exact")
++        .arg("worker_fixture")
++        .arg("--nocapture")
++        .arg("--")
+         .env("LAMP_CONTROLS_WORKER_FIXTURE", "claim")
+         .env("LAMP_CONTROLS_CLAIM_FIXTURE", &path);
+-    let mut worker = Worker::spawn(command, &root.0, "worker-clock", "worker-session", lamp_ipc::monotonic_us()).unwrap();
++    let mut worker = Worker::spawn(
++        command,
++        &root.0,
++        "worker-clock",
++        "worker-session",
++        lamp_ipc::monotonic_us(),
++    )
++    .unwrap();
+     receive(&mut worker).unwrap();
+     assert!(DeviceClaim::at(&path).is_err());
+     assert!(worker.shutdown().exit_observed);
+Diff in /Users/d/code/autonomous-os/lampOS/crates/controls/tests/strip_worker.rs:178:
+     let after_exit = DeviceClaim::at(&path).unwrap();
+     assert!(DeviceClaim::at(&path).is_err());
+     drop(after_exit);
+-    assert!(path.exists(), "claim inode must never be unlinked on release");
++    assert!(
++        path.exists(),
++        "claim inode must never be unlinked on release"
++    );
+     assert!(DeviceClaim::at(&path).is_ok());
+ }
+ 

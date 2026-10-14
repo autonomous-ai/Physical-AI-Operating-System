@@ -1,0 +1,51 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.26s
+     Running tests/mpr121.rs (target/debug/deps/mpr121-50e5bec91db2c728)
+
+running 43 tests
+test active_overcurrent_is_not_cleared_by_reset ... ok
+test brownout_defaults_cannot_be_mistaken_for_zero_touch ... ok
+test gpio_data_aliases_are_not_mistaken_for_static_configuration ... ok
+test fault_during_static_readback_is_checked_before_returning_mask ... ok
+test auto_adjusted_charge_registers_are_not_compared_to_initial_values ... ok
+test excluded_electrode_oor_alone_does_not_mask_or_rewrite_raw_touch_bits ... ok
+test explicit_profile_roundtrips_without_hidden_defaults ... ok
+test excluded_thresholds_are_still_required_and_validated ... ok
+test ignored_reset_cannot_pass_with_one_expected_default ... ok
+test any_runtime_transfer_failure_is_terminal_and_not_retried ... ok
+test ignored_run_never_returns_a_released_sensor ... ok
+test faults_after_entering_run_prevent_initialization_success ... ok
+test all_ecr_values_are_checked_without_reinterpreting_software_selection ... ok
+test excluded_channel_static_configuration_is_still_verified ... ok
+test io_error_display_does_not_copy_arbitrary_transport_text ... ok
+test invalid_working_sets_fail_before_any_io_or_delay ... ok
+test mask_comes_from_the_final_fault_checked_status_snapshot ... ok
+test no_threshold_or_baseline_value_is_silently_replaced ... ok
+test acknowledged_but_ignored_profile_writes_are_detected_before_run ... ok
+test reset_between_static_and_status_reads_is_caught_by_final_ecr ... ok
+test individual_fault_bits_are_not_hidden_by_touch_masking ... ok
+test reset_stop_profile_readback_then_run_and_settle_are_ordered ... ok
+test returns_every_electrode_bit_including_unit_specific_missing_pads ... ok
+test sensing_wait_over_five_seconds_is_rejected_before_io ... ok
+test settle_uses_filter_scan_debounce_and_auto_search_bounds ... ok
+test selected_electrode_oor_is_terminal_even_beside_excluded_oor_bits ... ok
+test skipped_charge_time_search_keeps_cdt_static_but_not_cdc ... ok
+test sparse_oor_policy_is_rechecked_after_the_static_configuration_read ... ok
+test sparse_selection_does_not_change_electrical_scan_or_startup_wait ... ok
+test sparse_thresholds_stay_indexed_by_electrode_including_excluded_channels ... ok
+test startup_touch_is_not_rewritten_as_release ... ok
+test malformed_numeric_enum_array_and_missing_fields_are_rejected ... ok
+test steady_state_work_is_fixed_size_without_delay_or_writes ... ok
+test manual_charge_drift_is_detected ... ok
+test unexpected_proximity_or_reserved_status_is_not_a_release ... ok
+test invalid_settings_are_rejected_before_any_io_or_delay ... ok
+test unknown_fields_at_every_configuration_layer_are_rejected ... ok
+test sparse_selection_never_excuses_global_proximity_or_reserved_faults ... ok
+test explicit_afe_charge_and_debounce_fields_keep_exact_register_bit_positions ... ok
+test all_addresses_poll_boundaries_and_all12_ecr_encodings_are_valid ... ok
+test working_sets_accept_three_through_twelve_with_shared_geometry_validation ... ok
+test every_initialization_transfer_error_stops_without_retry ... ok
+test static_drift_is_checked_on_every_read ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

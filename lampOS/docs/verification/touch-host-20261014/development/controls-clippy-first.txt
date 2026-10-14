@@ -1,0 +1,14 @@
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+error: unnecessary `>= y + 1` or `x - 1 >=`
+   --> crates/controls/src/record.rs:339:17
+    |
+339 |         assert!(overflow(u64::MAX, true).unwrap().len() as u64 + 1 <= TERMINAL_BYTES);
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change it to: `overflow(u64::MAX, true).unwrap().len() as u64 < TERMINAL_BYTES`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#int_plus_one
+    = note: `-D clippy::int-plus-one` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::int_plus_one)]`
+
+error: could not compile `lamp-controls` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

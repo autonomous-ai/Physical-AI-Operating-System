@@ -21,7 +21,7 @@ lampOS listens to it yet.
 | Hearing, the room | mic1, the plain capsule in the base on the C-Media adapter | Ears (`lamp-ears`): level, quiet, sudden sounds | Running since 16:13 |
 | Hearing, from the head | The camera's own microphone: two channels at 22.05 kHz, 8 bits, but the left is silent (six seconds on 2026-10-14: left RMS 0.00, right 0.71) | Nothing | One capsule: no left and right, so no direction from sound. At most a level at the head |
 | Touch, head | Two pads: chip 0 line 96 and kernel gpio-37 both change with a touch (the owner's hand, 17:24) | Controls | Running; both read, reported as the head; meanings to be redone (#711) |
-| Touch, base | A strip of ten capacitive pads on top of the base: an MPR121 on I2C bus 0 at 0x5A, pads 0-3, 5-7, 9-11 in order (the owner's hand, 17:27: a tap, a three-second hold on five pads, a slide across in about 0.6 s each way) | Nothing | Not read by lampOS yet: #711 |
+| Touch, base | A twelve-electrode strip E0..E11, MPR121 on I2C bus 0 at 0x5A; the hardware team's 20:05 answer confirms faulty E4/E8 on lamp-4ace. Its working set is 0-3, 5-7, 9-11; every pad needs its own thresholds through the shell | Controls, opt-in `--touch` (#711) | Per-unit working sets preserve full-span slide positions across excluded pads; installation/calibration and applied responses remain First's lamp qualification |
 | A privacy switch | Chip 1 line 9 (kernel gpio-361): V1's microphone slide switch, "not wired" in its notes; the voice reads it as its physical privacy input and it reads high (unmuted) | Voice | No switch is fitted; a touch on the base does not change it |
 | The air | Sensirion SEN63C on I2C bus 0 at 0x6B: particles, humidity, CO2 (its temperature is the base's, warmed by the lamp) | Air (`lamp-air`) | Running since 17:43; 1,870 ppm CO2, "stuffy", in the office at work |
 | Its own body | Five servos: where each joint is, its load and warmth, 50 times a second | Body | Running. A hand pushing the head shows up as load: the body can feel being moved |
@@ -85,8 +85,23 @@ runs; the rest are to be built (owners in "Order of building").
 | Keep your hand on its head | Leans a little into your hand, the eye warms and breathes slowly; lets go when you do | #711, Expression, body |
 | Tap the base | Same as a head tap: stop, or attend | #711 |
 | Slide a finger along the base | Its light follows your finger (brighter one way, dimmer the other); a slow stroke the other way makes it sway a little, pleased | #711, light |
-| Hold the base two seconds | Goes to sleep: eye closes to a thin red line, head bows, microphones off. Hold again: it stretches and wakes | #711, voice, Expression |
+| Hold the base two seconds | Goes to sleep: eye closes to a thin red line, head bows, microphones off. A new touch or hold while asleep asks it to wake | Separate Sleep/Wake requests in #711; Voice, lifecycle, Expression apply them |
 | Move its head by hand | Gives way, stays where you put it (it is lighting what you need), and only drifts back after a long while or when asked | #702-#703 (give-way), body |
+
+Task 33's [touch contract](controls.md#touch-and-slides-task-33) publishes
+qualified head/base touches, position, slide direction/travel/speed and
+conditional Stop/Attend/Stroke/Sleep/Wake requests. It changes no default
+service or actuator. Awake/asleep is bound at contact start: a waking hand
+held for two seconds cannot send the lamp back to sleep. Sleep is separate
+from one-way microphone mute; Voice owns capture and physical privacy.
+The present TTP223 may pulse instead of staying active under a resting hand;
+that pulse is a touch, not proof of a sustained Stroke. These host-tested
+requests do not establish any of the physical responses in the table.
+The working electrode list and each pad's touch/release thresholds belong to
+the particular lamp. Excluding faulty E4/E8 on lamp-4ace does not exclude them
+on every unit. A known missing pad does not break an otherwise observed
+contiguous hand, but Controls cannot invent contact while every working pad
+is released or the reader has failed.
 
 ### Voice and sound
 
@@ -183,3 +198,10 @@ What this changes in the design above:
   still, or the light asked for), the body moves plainly and little.
 - **Touch:** three meanings only (a tap, a stroke, a hold), each answered
   at once; a stroke answered all the while it lasts.
+
+## What Task 33 has not shown
+
+Third's opt-in touch implementation is host-tested and publishes requests.
+It has not shown calibrated electrodes/head pads, sustained resting-hand
+detection, physical latency, applied Voice/privacy transitions or the lamp's
+body/light responses. First's lamp qualification establishes those separately.

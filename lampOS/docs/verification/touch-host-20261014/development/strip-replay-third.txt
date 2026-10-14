@@ -1,0 +1,49 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+warning: unused import: `PinReader`
+ --> crates/controls/src/strip_worker.rs:5:25
+  |
+5 |     input::{InputError, PinReader},
+  |                         ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-controls` (lib) generated 1 warning
+error[E0599]: no variant, associated function, or constant named `Read` found for enum `ControlFault` in the current scope
+   --> crates/controls/tests/touch_replay.rs:156:34
+    |
+156 |             fault: ControlFault::Read,
+    |                                  ^^^^ variant, associated function, or constant not found in `ControlFault`
+
+error[E0599]: no variant, associated function, or constant named `Read` found for enum `ControlFault` in the current scope
+   --> crates/controls/tests/touch_replay.rs:170:28
+    |
+170 |         Some(ControlFault::Read)
+    |                            ^^^^ variant, associated function, or constant not found in `ControlFault`
+
+error[E0599]: no variant, associated function, or constant named `Read` found for enum `ControlFault` in the current scope
+   --> crates/controls/tests/touch_replay.rs:210:42
+    |
+210 |                     fault: ControlFault::Read,
+    |                                          ^^^^ variant, associated function, or constant not found in `ControlFault`
+
+error[E0599]: no variant, associated function, or constant named `Read` found for enum `ControlFault` in the current scope
+   --> crates/controls/tests/touch_replay.rs:313:34
+    |
+313 |             fault: ControlFault::Read,
+    |                                  ^^^^ variant, associated function, or constant not found in `ControlFault`
+
+error[E0533]: expected value, found struct variant `Input::Tick`
+   --> crates/controls/tests/touch_replay.rs:367:24
+    |
+367 |                 input: Input::Tick
+    |                        ^^^^^^^^^^^ not a value
+    |
+help: you might have meant to create a new value of the struct
+    |
+367 |                 input: Input::Tick {}
+    |                                    ++
+
+Some errors have detailed explanations: E0533, E0599.
+For more information about an error, try `rustc --explain E0533`.
+error: could not compile `lamp-controls` (test "touch_replay") due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...

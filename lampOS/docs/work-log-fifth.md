@@ -67,6 +67,42 @@ lamp-4ace.
 - For lamp-4ace: nothing changes without `--torque on`; with it, a lamp
   whose old runtime is gone starts by itself.
 
+## 2026-10-14 — keeper — done on lamp-fifth, in part
+
+- Task branch `fifth/keeper`. Crate `crates/keeper` (`lamp-keeper`, new
+  workspace member, no new dependency), the body wired to it, units and
+  templates in `deploy/units/` and `deploy/lamp-52e6/`, [keeper.md](keeper.md).
+  No message type added: a part's state rides in its `diagnostics` under
+  `state`.
+- One service for the lamp, as agreed between the owner and the fifth
+  builder's person: the old runtime's updater (parent repository,
+  `docs/bootstrap-ota.md`, explicit service replacement, PR #674) installs
+  one package whose `bin/service` is `lamp-keeper`; `serve` links the units
+  the package carries, ties `lampos.target` to its own unit and starts it;
+  `health` answers `{ready, version, pid}`. systemd still runs every part.
+- Gate on the Mac, from `lampOS/`: `cargo fmt --all --check` clean;
+  `cargo clippy -p lamp-keeper -p lamp-body --all-targets -- -D warnings`
+  clean; `cargo test -p lamp-keeper -p lamp-body` 257 passed, 0 failed;
+  `cargo build --workspace` clean. In `rust:1.96.0-bookworm` (linux/arm64)
+  both build; clippy there stops on the two warnings already on
+  `lamp-voice` in `lamp-body`.
+- On lamp-52e6 (`lamp-keeper` `2f112fbb…` then rebuilt with the stale-answer
+  mend, body `91a9d458…`), the package laid out as the updater lays it, the
+  updater itself not run: start to ready 2.56 s and 2.53 s (5.8 s once, the
+  body still folding from the stop before); stop to every part stopped about
+  12 s, in order; body killed, back in 15.3 s; body hung, back in 19.6 s
+  through its watchdog. Journal in
+  `docs/verification/keeper-lamp-52e6-20261014/`.
+- Failures kept: the first start skipped the target (its host was still the
+  template's placeholder) while the parts ran anyway; `health` once answered
+  ready at once from the run before, mended by writing "not ready" first.
+- Not built: task 12's update and reset choreography, the pause in any part,
+  a command topic on the bus. Not shown: the updater's own activation and
+  rollback, a power cut with `lamp-os` enabled, the voice in its own slice.
+- For the first builder: on lamp-4ace nothing changes until its units are
+  made parts of the target (`deploy/units/README.md`); the body's
+  `Type=notify` needs this build of the body.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

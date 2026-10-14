@@ -152,7 +152,7 @@ has it:
 |---|---|---|
 | To be stopped and silenced by a hand, whatever the voice is doing | No button or touch pad in V2 | Third: task 7 |
 | To start by itself after power comes back, get onto a network without a builder, and take new software | Voice and light come back; the body and the eyes are started by hand; no setup, no updates | Third: task 12. First: on the lamp |
-| A body that gives way against a hand and cannot tip itself over | V1's force limit and lean check are not in V2 | First |
+| A body that gives way against a hand and cannot tip itself over | The force limit is on the lamp at 600 since 2026-10-14, 08:01, not yet tried by a hand; there is still no lean check | First |
 | Answers that begin sooner than two seconds after the person stops | Half begin within 1.98 s | Second: task 1. First: on the lamp |
 | To stop when someone says stop | One or two of seven short words | Second: task 3. First: with a person's voice |
 | To hear its name however it is said | "Hey Lamp" and "Lamp ơi", not a bare "Lamp" | Second: task 5 |

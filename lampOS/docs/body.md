@@ -640,10 +640,41 @@ is refused. The report has `force_writes` and `force`.
 Two tests against the simulated servos: the write byte for byte, to
 which joints, before the first goal, and nothing written without the
 option; and a servo that does not keep the limit, which ends the run
-before anything moves. One for the option. **Not yet shown on a lamp:**
-that it stands up and gestures as before under the cap, and that the arm
-gives way against a hand, which needs a hand. One oddity in the same
-report: the highest warmth read was 150 for
+before anything moves. One for the option.
+
+**On lamp-4ace since 08:01 on 2026-10-14, at 600.** One scene, played to
+the body with no sound, once without the cap and once with it: the body
+was told on its own socket what the voice would tell it (listening for
+eight seconds, so that it stands; thinking; then speaking, with a nod, a
+shake of the head, a stretch and a laugh asked for), while its joints
+were recorded from the bus at 12.5 a second and the lamp was photographed
+every five seconds.
+
+| | Without the cap | With it at 600 |
+|---|---|---|
+| Highest load read: base turn, shoulder, elbow | 192, 368, 481 | 192, 316, 438 |
+| Farthest from its goal: base turn, shoulder, elbow, in counts | 76, 95, 68 | 72, 81, 58 |
+| The shoulder's way up, 609 counts | 9.2 s | 9.3 s |
+| Gestures begun, and let go | | 3, 0 |
+| Sent back down, or met resistance | | never |
+
+The body's own report of the run with the cap, which reads every step
+and not twelve times a second: 3 writes of the limit, 600 read back, the
+elbow's highest load 508 and the shoulder's 340, nothing dropped. Read
+afterwards with the body stopped and nothing written: the base's turn,
+the shoulder and the elbow hold 600 and will start again with 1,000; the
+head's two joints hold 1,000. In the photographs it stands upright and
+moves as it did.
+
+So on this unit the cap costs its own movements nothing that one scene
+can show, and the elbow's 508 is 52 under the bound that sends the arm
+back down.
+
+**Not shown:** that the arm gives way against a hand, which is the point
+of it and needs a hand; a cold lamp, a warm one, or another unit, where
+the same movements may ask for more; and anything about leaning: this
+body still has no check that a pose keeps the lamp on its base. One
+oddity in the same report: the highest warmth read was 150 for
 two of the three head and base joints, which no servo here has been; a
 single bad reading counted as a peak is the likely cause, and the guard
 that acts on warmth needs a whole second of it.

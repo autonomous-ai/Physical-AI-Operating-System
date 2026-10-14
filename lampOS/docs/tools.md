@@ -148,7 +148,8 @@ With the switch on, a new session is told instead that it woke at that
 time, that it may be much later now, and to call `the_time` first.
 
 What it costs: one call and its answer before the model speaks, for a
-question about the time only. Not yet measured on the lamp.
+question about the time only. Not yet measured on the lamp. On lamp-4ace
+since 11:52 on 2026-10-14.
 
 ## What the voice promises, and what it does not
 

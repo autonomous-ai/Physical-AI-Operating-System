@@ -544,7 +544,7 @@ None of the three is known to have been said to it. From its own records:
 - **The time.** A session is told the time when it opens; this one opened
   at 10:48 and was told to give the time "roughly".
 
-What was changed, each behind a switch and none yet played to on the lamp:
+What was changed, each behind a switch, all on lamp-4ace since 11:52 the same day (`0ca828c67`), none yet played to:
 
 | | Change | Switch |
 |---|---|---|
@@ -595,12 +595,12 @@ nothing and the name was heard, and in this meeting it never came.
 default. On on lamp-4ace since 22:15 on 2026-10-13.
 
 `LAMP_ATTENTION=busy` (the worker's `--attention --attention-busy`): the
-rule's busy form, 5 above. Not yet on lamp-4ace.
+rule's busy form, 5 above. On lamp-4ace since 11:52 on 2026-10-14.
 
 `LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room
-the name note waits for a face turned to the lamp. Off by default; not yet
-on lamp-4ace.
+the name note waits for a face turned to the lamp. Off by default. On
+lamp-4ace since 11:52 on 2026-10-14.
 
 ## Not shown
 

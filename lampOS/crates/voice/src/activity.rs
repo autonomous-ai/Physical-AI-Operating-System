@@ -591,7 +591,16 @@ impl Confirmation {
         let policy = self.policy;
         let pause = self.pause_blocks;
         match self.pause {
-            Pause::Listening if pause >= policy.check_blocks => self.submit(),
+            // An utterance too short for an early verdict to count is not
+            // sent to the model at all: it ends on the silence window, as
+            // it would anyway. On lamp-4ace on 2026-10-14, in a talkative
+            // office, the model took a whole core and the board 76 °C.
+            Pause::Listening
+                if pause >= policy.check_blocks
+                    && self.speech_blocks >= policy.least_speech_blocks =>
+            {
+                self.submit()
+            }
             Pause::Busy => self.submit(),
             Pause::Waiting { submitted, .. }
                 if pause.saturating_sub(submitted) >= policy.result_timeout_blocks =>
@@ -637,6 +646,10 @@ impl Confirmation {
             }
             Pause::Busy if pause >= policy.fallback_blocks => {
                 Some(decide("silence_fallback", None, Some("busy")))
+            }
+            // Too short to be sent to the model: the silence window.
+            Pause::Listening if pause >= policy.fallback_blocks => {
+                Some(decide("silence_fallback", None, Some("short")))
             }
             Pause::Waiting { .. } if pause >= policy.fallback_blocks => {
                 Some(decide("silence_fallback", None, Some("timeout")))

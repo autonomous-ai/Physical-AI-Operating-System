@@ -335,6 +335,14 @@ person activity while no listening input was kept. Not yet seen: any of
 the quiet-room behaviours on the lamp, the light taking its requests (the
 ring does not read `expression/light` yet), and how it looks.
 
+Since 14:36 it reads lamp-4ace's own copy of the rest catalogue,
+`deploy/lamp-4ace/expression-rest-lamp-4ace.json`, the same in every
+behaviour with `body_lag_us: 300000`: in the trial at 10:12 that morning
+the head was at its farthest about 0.3 s after Expression asked
+([body.md](body.md), "What Expression may add"). Acting without a body lag,
+Expression reported "waiting for measured body lag" as a warning, and the
+lamp with it. The fifth builder's task 25 is to measure it properly.
+
 Before that, use the built-in catalogue and
 legacy pair on the lamp. Selecting the new catalogue against the current
 publisher leaves required progress missing; it does not manufacture a hold

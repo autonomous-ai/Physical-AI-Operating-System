@@ -314,21 +314,23 @@ fn retained_snapshot_is_the_latest_model_window() {
 /// only at the full silence window, so the question that follows stays in
 /// the same turn. A long enough utterance still ends at the early commit.
 #[test]
-fn a_complete_verdict_on_a_few_words_waits_for_the_silence_window() {
+fn a_few_words_are_not_sent_to_the_model_and_end_on_the_silence_window() {
     let floor = ConfirmPolicy {
         least_speech_blocks: 80,
         ..mechanics()
     };
+    // Too short to count: not even sent to the model (it took a whole
+    // core in a talkative office), and ended on the silence window.
     let mut short = Rig::with(floor);
     short.speak(60);
     short.quiet(20);
-    short.script.reply(short.script.submissions()[0], 0.99);
+    assert!(short.script.submissions().is_empty());
     let window = floor.fallback_blocks;
     assert_eq!(short.quiet_until_end(400), Some(window - 20));
     let decision = short.decision();
     assert_eq!(
-        (decision.basis, decision.silence_ms),
-        ("model_complete", u64::from(window) * 10)
+        (decision.basis, decision.silence_ms, decision.fallback),
+        ("silence_fallback", u64::from(window) * 10, Some("short"))
     );
     let mut long = Rig::with(floor);
     long.speak(120);

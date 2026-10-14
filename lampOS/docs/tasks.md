@@ -535,6 +535,29 @@ finished." (1.82 s). Three faults, all mended the same night:
 - The model, given that news, called `check_agent_task` by itself to read
   the answer (the tasks part answered in 19 ms); both kept it as told.
 
+### The whole loop in a played day (2026-10-15, 01:25:42)
+
+With the three faults mended (voice `fd1a273ee` from 01:24:30; the target a
+folder), in `~/lamp-voice-data/tools/day.sh`, ten lines played in one voice
+at the lamp, nobody in view, the empty office at night:
+
+- "Hey Lamp, can you ask Claude Code on my office computer to write a
+  two-line poem about a desk lamp?" → "I can ask Claude to write a two-line
+  poem about a desk lamp. Should I go ahead and start?"
+- "Yes, go ahead." → "I'm passing that over to Claude Code and will let you
+  know when it's finished." (1.84 s after the end of speech)
+- 39 s later, unasked: "Oh, Claude Code just finished that poem for you. It
+  describes a small bent sun leaning over the page, pouring gold where worries
+  disappear." (Claude Code on the office Mac; the watch saw it finished; the
+  news was told at a quiet moment because a person had spoken within two
+  minutes.)
+- "How is that task going?" → "It's finished!", and the gist again.
+
+Every other reply in the day began 1.17 to 1.96 s after the end of speech.
+Two things to improve after the MVP: a short piece of writing (a two-line
+poem) is described instead of read, and asking right after the news repeats
+it.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

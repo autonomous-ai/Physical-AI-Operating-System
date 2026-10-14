@@ -211,6 +211,7 @@ def main() -> None:
     p.add_argument("--lowest", type=float, default=-20.0)
     p.add_argument("--latest", type=int, default=8, help="train on target inputs up to this many steps after the first")
     p.add_argument("--heard", type=float, default=None, help="leave out targets mixed plainly (no suppressor) lower than this many dB")
+    p.add_argument("--against", type=float, default=2.0, help="weight of a negative input against a target input in the loss")
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -271,7 +272,7 @@ def main() -> None:
         y = torch.cat([torch.ones(len(bp)), torch.zeros(len(bn) + len(bt))])
         x = x + torch.randn_like(x) * noise_scale
         loss = loss_fn(model.logits(x), y)
-        weight = torch.where(y > 0, torch.tensor(1.0), torch.tensor(2.0))
+        weight = torch.where(y > 0, torch.tensor(1.0), torch.tensor(args.against))
         loss = (loss * weight).mean()
         opt.zero_grad()
         loss.backward()

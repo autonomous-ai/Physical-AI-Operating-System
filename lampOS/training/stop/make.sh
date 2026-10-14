@@ -9,10 +9,11 @@
 #   openWakeWord v0.5.1  melspectrogram.onnx, embedding_model.onnx (SHA-256 checked in features.py)
 #   Speech Commands v0.02  http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz
 #   LibriSpeech  test-clean, test-other, dev-clean, dev-other  https://www.openslr.org/resources/12/
+#                train-clean-100 as parquet from https://huggingface.co/datasets/openslr/librispeech_asr (not gated)
 #   MSWC English  data/opus/en/{train/35,66,78; dev/4,8,10; test/4,8,10}.tar.gz and data/splits/en/splits.tar.gz
 #                 from https://huggingface.co/datasets/MLCommons/ml_spoken_words (not gated)
 #   Piper voice  en_US-libritts-high (.onnx, .onnx.json) from https://huggingface.co/rhasspy/piper-voices
-#   AMI  ten meetings' Mix-Headset.wav and ami_public_manual_1.6.2.zip from https://groups.inf.ed.ac.uk/ami/
+#   AMI  34 meetings' Mix-Headset.wav and ami_public_manual_1.6.2.zip from https://groups.inf.ed.ac.uk/ami/
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 cache="$here/../../.cache/stop"
@@ -32,6 +33,11 @@ done
 get "$d/speech_commands_v0.02.tar.gz" http://download.tensorflow.org/data/speech_commands_v0.02.tar.gz
 for s in test-clean test-other dev-clean dev-other; do
   get "$d/$s.tar.gz" "https://www.openslr.org/resources/12/$s.tar.gz"
+done
+mkdir -p "$d/train-clean-100-parquet"
+for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13; do
+  get "$d/train-clean-100-parquet/00$i.parquet" \
+    "https://huggingface.co/datasets/openslr/librispeech_asr/resolve/main/all/train.clean.100/00$i.parquet"
 done
 m=https://huggingface.co/datasets/MLCommons/ml_spoken_words/resolve/main/data
 get "$d/mswc/splits.tar.gz" "$m/splits/en/splits.tar.gz"
@@ -56,7 +62,7 @@ sh run.sh unpack.py mswc test-clean test-other dev-clean dev-other
 # 2. Generated speech (speak.py).
 sh make_speech.sh
 # 3. Real speech, aligned, cut and split by speaker.
-sh run.sh clips.py sc mswc libri piper
+sh run.sh clips.py sc mswc words libri more piper
 # 4. Training inputs, three processes of two threads.
 sh make_inputs.sh
 # 5. Train and write the model.

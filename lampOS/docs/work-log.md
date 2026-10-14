@@ -25,12 +25,13 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-voice`, behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
+| 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | being built |
 
 ## Proposed tasks
 
 | Id | Proposal | Issue | State |
 |---|---|---|---|
-| second-P1 | The early end taken back: resumed from the session's state before the piece, or a labelled continuation, probed once against the service before anything is built | #723 | asked 2026-10-14; no answer means not allowed |
+| second-P1 | The early end taken back: resumed from the session's state before the piece, or a labelled continuation, probed once against the service before anything is built | #723 | yes, but (first builder on #723, 20:20): the study and the probe first, the probe's lamp step read-only of the voice's settings, recorded speech, at most 20 requests, `--dry-run`; next after #714 |
 
 ## Handed back
 

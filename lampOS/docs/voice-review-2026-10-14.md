@@ -1,9 +1,15 @@
 # Trying to break the voice changes of 2026-10-14
 
-Task 2 of the running list ([work-split.md](work-split.md)). It stays on
-its branch, `second/voice-review`, and is not merged. It adds tests and
-this page and changes nothing the lamp does. Nothing here is fixed: the
-first builder fixes, because only it can run the result on the lamp.
+Task 2 of the running list ([work-split.md](work-split.md)), by the second
+builder. It adds tests and this page and changes nothing the lamp does.
+
+**What became of it.** The first builder took the page and its tests onto
+`lamp-voice` the same morning and mended there the five faults shown by a
+test and the five found by reading. What was done for each, and
+which three tests were changed and why, is under "What the lamp showed"
+in [work-split.md](work-split.md). The page below is as the review wrote
+it: where it says a test fails "today", or that something "is" so, that
+was the code before those mends.
 
 ## What was looked at
 

@@ -145,16 +145,13 @@ async fn review_a_note_for_a_request_given_up_is_not_carried_into_the_next_reque
             .try_audio(one, 0, Instant::now(), &[1; 160])
             .unwrap();
         supervisor.try_note(one, NOTE).unwrap();
-        // The note is written well before the request is given up: on the
+        // The note is offered well before the request is given up: on the
         // lamp the name is heard in its first second, and an utterance is
-        // judged a sound only after 600 ms of quiet at its end.
-        let mut sent = Vec::new();
-        while !sent
-            .iter()
-            .any(|message: &Value| message["realtimeInput"]["text"] == NOTE)
-        {
-            sent.push(dial.service.receive().await);
-        }
+        // judged a sound only after 600 ms of quiet at its end. (As first
+        // written this test waited here until the note was on the wire,
+        // which it was. The mend is that it is no longer written until the
+        // request is committed, so there is nothing to wait for.)
+        let mut sent: Vec<Value> = everything(&mut dial, Duration::from_millis(150)).await;
         // Given up, as `ProviderIntake::synchronize` does for an abandoned
         // request: discard, then close the input it still holds open.
         supervisor.discard(one);
@@ -233,8 +230,10 @@ async fn review_sound_a_note_at_a_wrong_moment_is_refused_here_and_the_link_stay
         supervisor.discard(two);
         assert_eq!(supervisor.try_note(two, NOTE), Err(Error::StaleRequest));
         supervisor.try_end(two).unwrap();
-        // And at the right moment, the note goes inside the activity, in
-        // order with the sound.
+        // And at the right moment, the note goes inside the activity: after
+        // the request's sound and just before its end, since the mend of
+        // the fault above (it went in order with the sound when this was
+        // first written).
         let three = request(3);
         supervisor.try_start(three).unwrap();
         started(&mut supervisor, three).await;
@@ -250,8 +249,8 @@ async fn review_sound_a_note_at_a_wrong_moment_is_refused_here_and_the_link_stay
         let shape = shape(&sent);
         let at = shape.iter().position(|word| word == "note").expect("noted");
         assert_eq!(
-            shape[at - 1..],
-            ["audio of 3", "note", "audio of 3", "activityEnd"]
+            shape[at - 2..],
+            ["audio of 3", "audio of 3", "note", "activityEnd"]
         );
         assert!(supervisor.is_connected());
     }

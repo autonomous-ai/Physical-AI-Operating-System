@@ -163,7 +163,7 @@ has it:
 | # | Task | Short name | Builder | State |
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | taken 2026-10-14 |
-| 2 | Try to break last night's changes to the voice | `voice-review` | Second | taken 2026-10-14 |
+| 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | open |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
@@ -618,6 +618,38 @@ Figures that are published and not measured here are marked as such.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 2, the review of the voice changes
+([voice-review-2026-10-14.md](voice-review-2026-10-14.md)).** Taken onto
+`lamp-voice` with its tests, and mended there:
+
+| What the review found | What was done |
+|---|---|
+| 1. A note about one request reached the next one | The link keeps the note and writes it as the last thing before the end of the request's sound; a request that is given up takes its note with it (`crates/gemini/src/session.rs`). The note was off on the lamp from 08:14 until this was on it |
+| 2. A name heard after a request's sound ended let out its answer | The rule and the second look count a hearing only if it began before the request's sound ended (`attention.rs`, `second_look.rs`; the worker passes the end on) |
+| 3. The lamp's own second look used up a new session's two held requests | A turn the lamp wrote itself is not counted among them |
+| 4. A plain hearing just before a request was lost to a fainter one | The plainest hearing in the 1.5 s before a request is the request's |
+| 5. A hearing could be said with a score over 1 | Held to 1 |
+| By reading: a wordless answer got no second look | It is owed one like a silent answer |
+| By reading: a second look could go to a session that never heard the call | It goes to the session that heard it, or is dropped |
+| By reading: a hearing cut short by lost sound was dated 0.8 s early | Dated from its first high score |
+| By reading: the worker said nothing if it could not take hearings from the bus | It says so in the journal |
+
+Three of the review's tests were changed, and why: the two in
+`crates/gemini/tests/` waited for the note on the wire the moment it was
+offered, and now expect it just before the end of the request's sound,
+which is the mend; the worker's `review_sound_a_name_heard_as_a_request_began…`
+keeps its request's sound going while the name is heard, because the
+rig's own requests are over in milliseconds and a name after the end no
+longer counts; and `review_sound_the_note_is_offered_once…` took 0.97 for
+a faint score, which it was when the bar was 0.98 and is not at 0.9.
+
+Left as they are, each needing the lamp's own microphone or a longer
+look: the lamp hearing its own name in its own answer; a late answer
+arriving after a second look was sent; "Hey Lamp", a long pause, then
+the question; and a silent second look counted as talk the lamp left
+alone. The trade-off the review names (the words taken from the text as
+a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
 

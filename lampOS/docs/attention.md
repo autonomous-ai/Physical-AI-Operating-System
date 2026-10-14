@@ -121,9 +121,14 @@ called, and it does not depend on the text: the lamp's name heard in the
 room's sound, by the part that listens for nothing else
 ([name.md](name.md)). The provider worker takes its hearings from
 `name/heard`. A hearing counts for a request if the name began no more
-than 1.5 s before the request did, or at any time while it is in hand:
-the name is the first thing said, a little before the voice is sure
-someone is speaking. Like the text, it can speak for playing an answer
+than 1.5 s before the request did, or at any time until the request's
+sound ended: the name is the first thing said, a little before the voice
+is sure someone is speaking, or it is said in the middle or last. A name
+that begins to be heard after the person has finished was not said in
+what they said, and is not counted for it (it was, until the review of
+2026-10-14 showed a line to "Liam" a second later letting out an answer to
+other people's talk). Once a hearing has counted for a request, a later
+one does not take that away. Like the text, it can speak for playing an answer
 and never against: a held request is played, and the log says
 `its answer is played: the lamp's name was heard in the room's sound`.
 With no such part running, or no bus, the rule goes by the text alone.
@@ -184,10 +189,10 @@ So the lamp now tells the model what its own ears heard
 (`crates/voice/src/second_look.rs`, switched on with
 `LAMP_SECOND_LOOK=on` in the voice unit, with the bus on). When a request
 that was heard ends with nothing said, and the name began to be heard in
-the sound no more than 1.5 s before that request began or at any time in
-it (with a score of 0.98 or more at first; any hearing the name part
-reports, since 07:45 the same day: see the end of the next section), the
-voice begins one turn of its own
+the sound no more than 1.5 s before that request began or at any time
+until its sound ended (with a score of 0.98 or more at first; any hearing
+the name part reports, since 07:45 the same day: see the end of the next
+section), the voice begins one turn of its own
 with a written note in place of speech, as it does for a hello:
 
 > (Your own ears caught your name, Lamp, at the start of what was just
@@ -201,7 +206,24 @@ What the model then says is spoken like any answer. The trace has
 `"admission_basis":"lamp_looks_again"`.
 
 - **Once.** The turn the lamp begins is not a heard request, so whatever
-  comes of it, nothing more is owed.
+  comes of it, nothing more is owed. Nor does it count as one of the two
+  first requests the rule above covers on a new session: the session
+  heard nothing in it. (It did count, until the review of 2026-10-14: a
+  line to "Liam", its second look, and the next line of other people's
+  talk was already the session's third request and no longer held.)
+- **The plainest hearing counts.** Of the hearings in the 1.5 s before a
+  request, and of those in it, the one with the highest score is the
+  request's, not the newest.
+- **Only what was said in the request.** A name that begins to be heard
+  after the person has stopped is the next request's, if one begins
+  within 1.5 s, and nobody's otherwise.
+- **Only to the session that heard it.** The note speaks of "what was
+  just said to you". If the link was renewed in between, the session
+  that is there was never told, and nothing is asked: the journal has
+  `the session that heard it has gone` and the trace `second_look_dropped`.
+- **A wordless answer is nothing said.** An answer with no word in it
+  ("...") ends the turn as `nothing_said`, and is owed a second look like
+  a silent one; its `second_look_due` has `"after":"nothing_said"`.
 - **Someone who speaks first is listened to.** A request that begins
   before the second look has drops it, and one that could not begin
   within three seconds of the silence is dropped too.
@@ -241,9 +263,18 @@ service receives as `realtimeInput.text` within the request's activity):
 
 It opens as the lines about the room do, and the character file says of
 such a line that nobody said it aloud and that it is never to be answered
-or mentioned. It is sent once for a request, and only while that
-request's sound is still going to the service: sent at any other moment
-it would end the link, so the link's own wrapper refuses it then. It is
+or mentioned. It is offered once for a request, and only while that
+request's sound is still going to the service: at any other moment it
+would end the link, so the link's own wrapper refuses it then. The link
+keeps it and writes it as the last thing before the end of the request's
+sound (`commit` in `crates/gemini/src/session.rs`), so that it shares the
+request's fate: a request that is given up, thrown out as a sound, or
+taken over by a newer one takes its note with it. As first built the note
+was written the moment it was offered, and one whose request was then
+given up stayed with the service and was read with the next thing heard,
+whoever said it and whenever: the review of 2026-10-14 showed that with a
+failing test, and the note was switched off on the lamp at 08:14 until
+the mend was on it. It is
 switched on with `LAMP_NAME_NOTE=on` in the voice unit, which the voice
 hands to the worker as `--name-note` (the worker is started with an empty
 environment; the first build read the switch there and never sent a
@@ -273,9 +304,13 @@ name part has said so. (A note the link itself dropped, which it does
 while an earlier answer is still owed, is not known of here, and such a
 request now gets neither. Not seen yet.)
 
-The rule has five tests of its own, and the note inside a request one
-against a scripted service (it goes in order with the sound and the link
-goes on). The worker's wiring has none; it was exercised on the lamp.
+The rule has five tests of its own, and the note inside a request three
+against a scripted service: it is written just before the end of the
+request's sound and the link goes on; one whose request is given up is
+never written; and one offered to a request that then ends is not there
+for the next. The worker's wiring is tested for the rule (a name heard
+as a request began, and one heard after its sound ended); for the note
+it was exercised on the lamp.
 
 **The score asked for was lowered the same morning, from 0.98 to the 0.9
 the name part reports from.** A played "Hey Lamp, tell me two interesting

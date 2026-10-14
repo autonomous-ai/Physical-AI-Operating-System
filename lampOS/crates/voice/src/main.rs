@@ -139,6 +139,54 @@ fn run() -> Result<()> {
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
         },
+        // A note for the model beside a request's sound, as the worker gives
+        // one when the lamp's name is heard: a recorded question is sent as if
+        // heard (16 kHz, one channel, 16-bit little-endian, no header), the
+        // note is offered half a second in, and the request ends. Whether the
+        // link takes a note in that place, and what is answered. Nothing is
+        // captured or played.
+        [command,path,flag,note,sound] if command=="provider-check" && flag=="--note-in-speech" => {
+            let config=ProviderConfig::load(Path::new(path))?.into_session()?;
+            let samples:Vec<i16>=std::fs::read(sound)?.chunks_exact(2).map(|pair| i16::from_le_bytes([pair[0],pair[1]])).collect();
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                let input=connection.input();
+                let request=lamp_gemini::RequestId::new(1)?;
+                input.try_start(request)?;
+                let mut noted=false;
+                for (sequence,block) in samples.chunks(lamp_gemini::MAX_INPUT_SAMPLES).enumerate() {
+                    input.try_audio(request,sequence as u64,std::time::Instant::now(),block)?;
+                    if !noted && sequence>=25 {
+                        input.try_note(request,note)?;
+                        noted=true;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+                if !noted {
+                    input.try_note(request,note)?;
+                }
+                input.try_end(request)?;
+                let asked=lamp_ipc::monotonic_us();
+                let (mut heard,mut said,mut audio,mut first,mut ended)=(String::new(),String::new(),0usize,None,"timeout");
+                let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(12);
+                loop {
+                    match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                        Ok(Some(Event::Audio{pcm,..})) => { first.get_or_insert(lamp_ipc::monotonic_us()-asked); audio+=pcm.len(); }
+                        Ok(Some(Event::OutputTranscript{text,..})) => said.push_str(&text),
+                        Ok(Some(Event::UncorrelatedInputTranscript{text,..})) => heard.push_str(&text),
+                        Ok(Some(Event::TurnComplete{..})) => { ended="turn_complete"; break; }
+                        Ok(Some(Event::Unanswered{..})) => { ended="unanswered"; break; }
+                        Ok(Some(_)) => {}
+                        Ok(None) => { ended="connection_ended"; break; }
+                        Err(_) => break,
+                    }
+                }
+                println!("{}",serde_json::json!({"status":"note_in_speech_tried","sound_ms":samples.len()/16,"ended":ended,"heard":heard,"first_audio_us":first,"audio_samples":audio,"said":said,"state":format!("{:?}",connection.state()),"microphone_opened":false,"audio_played":false}));
+                connection.shutdown();
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+        },
         // Something told to the service that it should not answer, then a
         // second of near-silence sent as if heard, then a written request: does
         // a session take sound after such a fact, and still answer afterwards?

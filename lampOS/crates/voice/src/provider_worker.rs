@@ -733,9 +733,15 @@ async fn serve_with_visual<C: Connect>(
     // The lamp's name as the part that listens for it hears it, for the
     // rule below. With no such part, or no bus, the rule goes by the text
     // alone, as it did.
-    let mut name_in = BUS_ROOT
-        .get()
-        .and_then(|root| crate::bus_out::NameIn::on(root).ok());
+    let mut name_in = BUS_ROOT.get().and_then(|root| {
+        crate::bus_out::NameIn::on(root)
+            .inspect_err(|why| {
+                eprintln!(
+                    "lamp-voice provider: the lamp's name cannot be taken from the bus, so whom it answers goes by the text alone: {why}"
+                );
+            })
+            .ok()
+    });
     // And, if that is switched on, the model is told so while the person
     // is still speaking.
     let name_note = NAME_NOTE.load(std::sync::atomic::Ordering::Relaxed);
@@ -777,6 +783,11 @@ async fn serve_with_visual<C: Connect>(
                 {
                     let now = monotonic_us();
                     out.tell(room.at(now), now);
+                }
+                // Before the name is read: one that began after the
+                // request's sound ended is not that request's.
+                if let Some((request, at_us)) = intake.handoff.ended {
+                    attention.ended(request, at_us);
                 }
                 if let Some(names) = name_in.as_mut()
                     && let Some((began, score)) = names.newest_scored(monotonic_us())
@@ -1693,6 +1704,9 @@ struct InputHandoff {
     abandoned_through: u64,
     abandoned_sent_through: u64,
     submitted: Option<SubmittedInput>,
+    /// The newest request whose sound was ended here, and when: a name
+    /// heard after that was not said in it (`crate::attention`).
+    ended: Option<(u64, u64)>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
     failed_through: u64,
@@ -1961,6 +1975,7 @@ impl InputHandoff {
                 if let Ok(mut room) = crate::room_told::ROOM.lock() {
                     room.ended(request.get(), now_us);
                 }
+                self.ended = Some((request.get(), now_us));
                 if let Some(submitted) = self.submitted.as_mut() {
                     submitted.open = false;
                 }

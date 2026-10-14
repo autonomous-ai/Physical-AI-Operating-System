@@ -199,17 +199,23 @@ pub fn decide(
 #[derive(Default)]
 pub struct Attention {
     request: u64,
-    /// The session the request began on, and how many requests have begun
-    /// on it.
+    /// The session the request began on, and how many requests that were
+    /// heard have begun on it. A turn the lamp wrote itself is not one:
+    /// the session heard nothing in it.
     session: u64,
     begun: u32,
     /// What was heard since it began, as far as the service has written it.
     heard: String,
     verdict: Option<Verdict>,
-    /// When the request began, if that is known, and when the lamp's name
-    /// last began to be heard in the room's sound, by this process's clock.
+    /// When the request began, if that is known, and when its sound ended,
+    /// if it has, by this process's clock.
     began_us: Option<u64>,
+    ended_us: Option<u64>,
+    /// When the lamp's name last began to be heard in the room's sound.
     named_us: Option<u64>,
+    /// The name was heard for the request in hand: as it began, or in its
+    /// sound.
+    named: bool,
 }
 
 /// The most text kept for one request.
@@ -220,19 +226,31 @@ impl Attention {
     pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
         self.began(request, session);
         self.began_us = Some(now_us);
+        self.named = self
+            .named_us
+            .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
+    }
+
+    /// The sound of `request` stopped being sent at `at_us`: the person
+    /// had finished. A name that begins to be heard after this was not
+    /// said in the request, whoever said it.
+    pub fn ended(&mut self, request: u64, at_us: u64) {
+        if request == self.request && self.began_us.is_some() {
+            self.ended_us = Some(at_us);
+        }
     }
 
     /// The lamp's name began to be heard in the room's sound at `at_us`.
+    /// It counts for the request in hand if it began as the request did or
+    /// in its sound, and once it has counted a later hearing does not take
+    /// that away.
     pub fn name_heard(&mut self, at_us: u64) {
         self.named_us = Some(self.named_us.map_or(at_us, |before| before.max(at_us)));
-    }
-
-    /// Whether the name was heard for the request in hand: as it began,
-    /// or since. A request whose beginning has no time has no name.
-    fn named(&self) -> bool {
-        match (self.named_us, self.began_us) {
-            (Some(named), Some(began)) => named.saturating_add(NAME_BEFORE_US) >= began,
-            _ => false,
+        if let Some(began) = self.began_us
+            && at_us.saturating_add(NAME_BEFORE_US) >= began
+            && self.ended_us.is_none_or(|ended| at_us <= ended)
+        {
+            self.named = true;
         }
     }
 
@@ -242,11 +260,15 @@ impl Attention {
             self.session = session;
             self.begun = 0;
         }
-        self.begun = self.begun.saturating_add(1);
+        if OWN_REQUEST.load(Ordering::Acquire) != request {
+            self.begun = self.begun.saturating_add(1);
+        }
         self.request = request;
         self.heard.clear();
         self.verdict = None;
         self.began_us = None;
+        self.ended_us = None;
+        self.named = false;
     }
 
     /// The service wrote down more of what it heard.
@@ -269,7 +291,7 @@ impl Attention {
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         let fresh = self.begun <= FRESH_REQUESTS;
-        let verdict = decide(room, going_on, own, fresh, &self.heard, self.named());
+        let verdict = decide(room, going_on, own, fresh, &self.heard, self.named);
         self.verdict = Some(verdict);
         Some(verdict)
     }
@@ -447,6 +469,51 @@ mod tests {
         assert!(matches!(
             attention.first_output(1, Room::Busy, false),
             Some(Verdict::Hold(_))
+        ));
+    }
+
+    /// A name that begins to be heard after a request's sound has ended
+    /// was not said in it, and one heard in it is not lost to a later one.
+    #[test]
+    fn a_name_counts_for_a_request_only_if_it_began_before_the_requests_sound_ended() {
+        let second = 1_000_000;
+        // Someone else's "Hey Liam" a second after the person finished.
+        let mut attention = Attention::default();
+        attention.began_at(1, 20, 10 * second);
+        attention.ended(1, 12 * second);
+        attention.name_heard(13 * second);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Hold(_))
+        ));
+        // Said at the very end of the request, and read by the worker only
+        // after its sound had ended: it is dated, and counts.
+        let mut attention = Attention::default();
+        attention.began_at(1, 21, 10 * second);
+        attention.ended(1, 12 * second);
+        attention.name_heard(12 * second);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Play(_))
+        ));
+        // Called by name, and then the other line: the call still counts.
+        let mut attention = Attention::default();
+        attention.name_heard(10 * second - 200_000);
+        attention.began_at(1, 22, 10 * second);
+        attention.ended(1, 12 * second);
+        attention.name_heard(13 * second);
+        assert!(matches!(
+            attention.first_output(1, Room::Busy, false),
+            Some(Verdict::Play(_))
+        ));
+        // The late name is the next request's, if that begins soon enough,
+        // and another request's end changes nothing.
+        attention.began_at(2, 22, 14 * second);
+        attention.ended(1, 14 * second);
+        attention.name_heard(15 * second);
+        assert!(matches!(
+            attention.first_output(2, Room::Busy, false),
+            Some(Verdict::Play(_))
         ));
     }
 

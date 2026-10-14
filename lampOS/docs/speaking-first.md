@@ -58,8 +58,11 @@ nothing: with a note much like this the model answered "Hey! There you are.
 Good to see you.", 2.5 s of sound, the first of it 0.91 s after the note.
 The other form a note could take, text inside a request's own activity
 (`--note`), made the service close the connection (code 1007), three times
-in three; `try_note` is kept for a service that takes it and nothing here
-uses it.
+in three. That was a request with a note and no sound in it. Beside a
+request's sound the service takes one, and that is how the model is told
+the lamp's name was heard ([attention.md](attention.md)); `provider-check
+CONFIG --note-in-speech NOTE SOUND` tries that form without a microphone
+or a speaker, sending a recorded question as if heard.
 
 A written request goes only onto a connection that owes nothing. Sent
 while an earlier answer is unsettled it is not written, and ends as a

@@ -255,9 +255,11 @@ impl InputSender {
     }
     /// A written note for `request`, which must be the request whose input
     /// is open: what the lamp is to respond to when nobody spoke (someone
-    /// has sat down in front of it), or beside what was said. Sent inside
-    /// the request's activity, in order with its audio. A note for a
-    /// request whose start is still being kept back is dropped.
+    /// has sat down in front of it), or beside what was said. It is sent
+    /// inside the request's activity, after its audio and just before its
+    /// end, and only if the request is put to the service at all: a
+    /// request that is given up takes its note with it. The newest note
+    /// for a request is the one sent.
     pub fn try_note(&self, request: RequestId, text: &str) -> Result<()> {
         self.ensure_ready()?;
         if request.get() <= self.shared.retired_through.load(Ordering::Acquire) {
@@ -827,6 +829,11 @@ struct Turn {
     /// them in. That completion ends the model's asking, not the request:
     /// what it says once the calls are answered is still this request's.
     calls_turn_open: bool,
+    /// A note to go beside what was said. It is written with the request's
+    /// end and not before: a request that is given up leaves its activity
+    /// open for the next one to continue, and a note already written would
+    /// be read as the next one's.
+    note: Option<String>,
 }
 impl Turn {
     fn new(lineage: Lineage) -> Self {
@@ -844,6 +851,7 @@ impl Turn {
             audio_sequence: 0,
             tools: Vec::new(),
             calls_turn_open: false,
+            note: None,
         }
     }
 }
@@ -1398,6 +1406,15 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.current = None;
             return Ok(());
         }
+        // The note that goes beside what was said, now that it is certain
+        // the request is being put to the service.
+        if let Some(note) = self.current.as_mut().and_then(|turn| turn.note.take()) {
+            self.write(
+                Message::text(wire::encode_note(&note)?),
+                self.timeouts.write,
+            )
+            .await?;
+        }
         self.write(Message::text(wire::ACTIVITY_END), self.timeouts.write)
             .await?;
         self.activity_open = false;
@@ -1821,20 +1838,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 if request.get() <= self.retired_through() {
                     return Ok(());
                 }
+                // Kept until the request is committed. A request that is
+                // given up never has it written.
+                wire::encode_note(&text)?;
                 self.current
-                    .as_ref()
+                    .as_mut()
                     .filter(|turn| turn.lineage.request == request && turn.input.open)
-                    .ok_or(Error::StaleRequest)?;
-                if self.held.is_some() {
-                    // Behind a kept start there is an earlier answer still
-                    // owed: this turn was not the lamp's to begin.
-                    return Ok(());
-                }
-                self.write(
-                    Message::text(wire::encode_note(&text)?),
-                    self.timeouts.write,
-                )
-                .await?;
+                    .ok_or(Error::StaleRequest)?
+                    .note = Some(text);
             }
             Command::End(request) => {
                 let retired_through = self.retired_through();

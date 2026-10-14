@@ -47,7 +47,7 @@ impl Hearings {
         }
         match (&mut self.open, score >= self.least) {
             (Some((began, highest)), true) => {
-                *highest = highest.max(score);
+                *highest = highest.max(score.min(1.0));
                 (now.saturating_duration_since(*began) >= LONGEST)
                     .then(|| self.close(now))
                     .flatten()
@@ -59,6 +59,12 @@ impl Hearings {
             }
             (None, false) => None,
         }
+    }
+
+    /// The sound stopped coming, or some of it was lost: a hearing that
+    /// is open is said as it stands, dated from when it began.
+    pub fn cut(&mut self, now: Instant) -> Option<NameHeard> {
+        self.close(now)
     }
 
     /// Time has passed with no score: a hearing that has gone on long
@@ -115,6 +121,25 @@ mod tests {
         // At 0.8 s, then nothing for a second, then a second hearing that
         // begins at 1.84 s and is said at 2.64 s.
         assert_eq!(said, [(10, 800), (33, 800)]);
+    }
+
+    /// Sound lost in the middle of a hearing: said at once, and dated from
+    /// its first high score, not 0.8 s before it.
+    #[test]
+    fn a_hearing_cut_short_is_said_then_and_dated_from_when_it_began() {
+        let start = Instant::now();
+        let mut hearings = Hearings::new(0.9);
+        assert_eq!(hearings.cut(start), None);
+        assert_eq!(hearings.score(0.97, start + ms(80)), None);
+        let heard = hearings.cut(start + ms(240)).unwrap();
+        assert_eq!((heard.score, heard.ago_ms), (0.97, 160));
+        // Said once, and the same call is not heard again for a second.
+        assert_eq!(hearings.cut(start + ms(300)), None);
+        assert_eq!(
+            hearings.score(1.0, start + ms(240) + HOLD_OFF - ms(1)),
+            None
+        );
+        assert_eq!(hearings.tick(start + ms(5_000)), None);
     }
 
     #[test]

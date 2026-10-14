@@ -2,10 +2,7 @@
 //! lamp's name, and say when it was heard. See `docs/name.md`.
 use lamp_bus::{Bus, Notice, Publisher};
 use lamp_msgs::{Audio, Diagnostic, Level, NameHeard};
-use lamp_name::{
-    hear::Hearer,
-    said::{Hearings, LONGEST},
-};
+use lamp_name::{hear::Hearer, said::Hearings};
 use std::{
     io::{self, Write},
     path::PathBuf,
@@ -204,7 +201,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
                     if lost || gap {
                         counted.lost += u64::from(lost);
                         hearer.forget();
-                        name_said = hearings.tick(now + LONGEST);
+                        name_said = hearings.cut(now);
                     }
                     next_sequence = Some(header.sequence + 1);
                     last_sound = Some(now);

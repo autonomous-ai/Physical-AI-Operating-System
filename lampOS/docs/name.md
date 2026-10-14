@@ -85,11 +85,15 @@ A name that is said raises the score for several steps in a row. That is
 one hearing (`src/said.rs`): it is said once, when the score falls again
 or after 0.8 s, with the highest score it reached and how long ago it
 began. For a second after it, scores are passed over, so the same call
-is not heard twice.
+is not heard twice. The score said is never over 1, whatever the models
+gave (one over 1 fails the message's own check and would not be sent).
 
 After sound was lost, or the microphone was closed for more than half a
 second, the models start afresh: they need about two seconds of sound
-before they give a score again.
+before they give a score again. A hearing that was open at that moment is
+said then, dated from its first high score (it was dated 0.8 s earlier
+than that until 2026-10-14, which left a call 0.7 s, not 1.5 s, to count
+for the request after it).
 
 ## How it says it is
 

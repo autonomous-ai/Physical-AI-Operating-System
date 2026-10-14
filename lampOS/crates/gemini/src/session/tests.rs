@@ -1577,10 +1577,11 @@ async fn go_away_ends_an_idle_connection_and_lets_an_unfinished_answer_complete(
     assert_eq!(connection.state(), State::Disconnected(Error::ServerGoAway));
 }
 
-/// A note beside what is being said goes inside the request's activity, in
-/// order with its sound, and the request is answered as any other.
+/// A note beside what is being said goes inside the request's activity,
+/// after its sound and just before its end, and the request is answered
+/// as any other.
 #[tokio::test]
-async fn a_note_beside_what_is_said_goes_inside_the_activity_in_order_with_its_sound() {
+async fn a_note_beside_what_is_said_goes_inside_the_activity_just_before_its_end() {
     let (mut connection, mut server) = mock(Timeouts::default()).await;
     let input = connection.input();
     let one = request(1);
@@ -1599,19 +1600,16 @@ async fn a_note_beside_what_is_said_goes_inside_the_activity_in_order_with_its_s
         .unwrap();
     input.try_audio(one, 11, Instant::now(), &[2; 160]).unwrap();
     input.try_end(one).unwrap();
-    assert!(
-        receive(&mut server).await["realtimeInput"]
-            .get("audio")
-            .is_some()
-    );
+    for _ in 0..2 {
+        assert!(
+            receive(&mut server).await["realtimeInput"]
+                .get("audio")
+                .is_some()
+        );
+    }
     assert_eq!(
         receive(&mut server).await["realtimeInput"]["text"],
         "(For you to know: your name was heard.)"
-    );
-    assert!(
-        receive(&mut server).await["realtimeInput"]
-            .get("audio")
-            .is_some()
     );
     assert!(
         receive(&mut server).await["realtimeInput"]

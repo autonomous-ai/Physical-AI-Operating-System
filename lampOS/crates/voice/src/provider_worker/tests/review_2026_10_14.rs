@@ -178,7 +178,11 @@ async fn review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_ru
     let mut rig = LiveRig::start_with(quick_policy(), in_a_busy_room());
     let mut dial = rig.ready().await;
     let began = monotonic_us();
-    let request = rig.speak(&mut dial, false, true).await;
+    // The request's sound goes on while the name is heard, as a person's
+    // does: the rig's own requests are over in a few milliseconds, and a
+    // name that begins after a request's sound has ended is not counted
+    // for it (the test above).
+    let request = rig.speak(&mut dial, false, false).await;
     dial.service
         .send(heard("What do you think we should have for lunch?"))
         .await;
@@ -187,6 +191,21 @@ async fn review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_ru
         ProviderOutput::Transcript { request: None, .. }
     ));
     name_heard(&mut rig, &root.0, began + 200_000).await;
+    let owner = rig.snapshot.owner().unwrap();
+    rig.owner.input_ended(real_time(), owner).unwrap();
+    rig.publish();
+    rig.parent
+        .data
+        .send(ProviderInput::End {
+            request,
+            privacy_generation: rig.snapshot.microphone_generation(),
+        })
+        .unwrap();
+    let message = rig.service_message(&mut dial).await;
+    assert!(
+        message["realtimeInput"].get("activityEnd").is_some(),
+        "expected the end of the request's sound, service received {message}"
+    );
     dial.service.send(provider_audio(9, 480)).await;
     let first = rig.output().await;
     assert!(

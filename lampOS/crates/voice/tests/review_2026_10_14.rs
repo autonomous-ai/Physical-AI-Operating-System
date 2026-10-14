@@ -135,8 +135,9 @@ fn review_sound_the_note_is_offered_once_for_the_request_the_name_began() {
         called.due(Some(2), 10 * SECOND + 900_000 + NAME_BEFORE_US + 1),
         None
     );
-    // A faint one, in the middle of a request, tells nothing.
-    called.name_heard(13 * SECOND, 0.97);
+    // A faint one, in the middle of a request, tells nothing. (Under the
+    // least score, which was 0.98 when this was written and is 0.9 now.)
+    called.name_heard(13 * SECOND, LEAST_SCORE - 0.05);
     assert_eq!(called.due(Some(2), 13 * SECOND + 100_000), None);
 }
 

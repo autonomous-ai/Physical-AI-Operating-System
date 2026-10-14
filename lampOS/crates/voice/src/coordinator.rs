@@ -2558,7 +2558,20 @@ fn conversation(
                                     json!({"kind":"function_named","turn":turn,"at_us":monotonic_us()}),
                                 )?;
                             }
+                            let heard_on = reply.as_ref().map(|current| current.cloud.session);
                             cancel_reply(owner, reply, trace, "nothing_said")?;
+                            // An answer with no word in it is nothing said:
+                            // someone who called the lamp by name is owed
+                            // the second look all the same.
+                            if let Some(score) = second_look.finished(turn, true, monotonic_us()) {
+                                if let Some(session) = heard_on {
+                                    second_look.heard_on(session);
+                                }
+                                record(
+                                    trace,
+                                    json!({"kind":"second_look_due","turn":turn,"at_us":monotonic_us(),"name_score":score,"after":"nothing_said"}),
+                                )?;
+                            }
                             speaker_pending = None;
                             provider_queue.clear();
                             snapshot = owner.snapshot(now())?;
@@ -3168,7 +3181,7 @@ fn conversation(
                     let input_end_us = audio.captured_at_us;
                     current.local_input_ended = true;
                     speech_ended = Some((current.owner.turn(), monotonic_us()));
-                    second_look.speech_ended(current.owner.turn());
+                    second_look.speech_ended(current.owner.turn(), monotonic_us());
                     if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
                         said_turn = Some(current.owner.turn());
                     }
@@ -3331,6 +3344,7 @@ fn conversation(
             let said_nothing = current.delivery_outcome() == "no_audio_answer"
                 && matches!(current.cloud.outcome, Some(RequestOutcome::Complete));
             if let Some(score) = second_look.finished(turn, said_nothing, monotonic_us()) {
+                second_look.heard_on(current.cloud.session);
                 record(
                     trace,
                     json!({"kind":"second_look_due","turn":turn,"at_us":monotonic_us(),"name_score":score}),
@@ -3513,23 +3527,36 @@ fn conversation(
             && snapshot.listening_ready(now())
             && let Some(provider_session) = cloud.ready_session()
         {
+            let heard_it = second_look.is_for(provider_session);
             second_look.taken();
-            eprintln!(
-                "lamp-voice: request {turn} was said to the lamp by name and got nothing: the model is told its name was heard"
-            );
-            snapshot = commit_written_turn(
-                owner,
-                reply,
-                &mut provider_queue,
-                crate::second_look::NOTE,
-                false,
-                "lamp_looks_again",
-                provider_session,
-                rig.playout_start,
-                trace,
-                |state| rig.publish(state),
-            )?;
-            last_publish = monotonic_us();
+            if heard_it {
+                eprintln!(
+                    "lamp-voice: request {turn} was said to the lamp by name and got nothing: the model is told its name was heard"
+                );
+                snapshot = commit_written_turn(
+                    owner,
+                    reply,
+                    &mut provider_queue,
+                    crate::second_look::NOTE,
+                    false,
+                    "lamp_looks_again",
+                    provider_session,
+                    rig.playout_start,
+                    trace,
+                    |state| rig.publish(state),
+                )?;
+                last_publish = monotonic_us();
+            } else {
+                // The note speaks of what was just said, and this session
+                // was not there for it.
+                eprintln!(
+                    "lamp-voice: request {turn} was said to the lamp by name and got nothing, and the session that heard it has gone: nothing is asked"
+                );
+                record(
+                    trace,
+                    json!({"kind":"second_look_dropped","turn":turn,"at_us":monotonic_us(),"why":"session_gone"}),
+                )?;
+            }
         }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);

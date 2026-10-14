@@ -1,0 +1,62 @@
+name: lampOS on ARM64
+
+# Builds and tests lampOS natively on Linux ARM64, inside Debian 12 like the
+# lamps (glibc 2.36), for every push to a lampOS branch. The binaries are kept
+# as an artifact for a week, with their SHA-256, so the first builder can put
+# a builder's work on a lamp without building it again. See
+# lampOS/docs/joining.md.
+
+on:
+  push:
+    branches: ['lamp-*', 'second/**', 'third/**', 'fourth/**', 'fifth/**']
+    paths: ['lampOS/**', '.github/workflows/lampos-arm64.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: lampos-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64:
+    name: lampOS — build and test on Linux ARM64 (Debian 12)
+    runs-on: ubuntu-24.04-arm
+    container: debian:12
+    timeout-minutes: 90
+    steps:
+      - name: system packages
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev
+      - uses: actions/checkout@v4
+      - name: Rust 1.96.0
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lampOS/target
+          key: lampos-arm64-deb12-${{ hashFiles('lampOS/Cargo.lock') }}
+          restore-keys: lampos-arm64-deb12-
+      - name: build (release, the lamps' binaries)
+        working-directory: lampOS
+        run: cargo build --locked --release --workspace --bins --examples
+      - name: test (one test at a time, as on a lamp's few cores)
+        working-directory: lampOS
+        run: cargo test --locked --release --workspace -- --test-threads=1
+      - name: SHA-256 of each binary
+        working-directory: lampOS/target/release
+        run: |
+          mkdir -p ../../arm64-out
+          for f in lamp-* examples/schedule_check examples/replay_cost; do
+            [ -f "$f" ] && [ -x "$f" ] && case "$f" in *.d) ;; *) cp "$f" ../../arm64-out/ ;; esac
+          done
+          cd ../../arm64-out && sha256sum * | tee SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lampos-arm64-${{ github.sha }}
+          path: lampOS/arm64-out/
+          retention-days: 7

@@ -181,7 +181,17 @@ def validate(model, check: dict, check_x: torch.Tensor, talk_x: torch.Tensor) ->
     np.maximum.at(best, example, s[pos])
     level = np.zeros(len(best), np.float32)
     level[example] = check["level"].astype(np.float32)[pos]
-    bands = {"alone": level > 50, "0..6": (level >= 0) & (level <= 6), "-10..0": (level >= -10) & (level < 0), "-15..-10": (level >= -15) & (level < -10), "-20..-15": level < -15}
+    cut = np.zeros(len(best), bool)
+    cut[example] = check["suppressed"][pos] == 1
+    bands = {
+        "alone": level > 50,
+        "plain 0..6": ~cut & (level >= 0) & (level <= 6),
+        "plain -10..0": ~cut & (level >= -10) & (level < 0),
+        "plain -20..-10": ~cut & (level < -10),
+        "suppressed 0..6": cut & (level >= 0) & (level <= 6),
+        "suppressed -10..0": cut & (level >= -10) & (level < 0),
+        "suppressed -20..-10": cut & (level < -10),
+    }
     out = {}
     for least in [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]:
         row = {"fa_per_h": len(hearings(talk, least)) / hours}
@@ -200,6 +210,7 @@ def main() -> None:
     p.add_argument("--batch", type=int, default=1024)
     p.add_argument("--lowest", type=float, default=-20.0)
     p.add_argument("--latest", type=int, default=8, help="train on target inputs up to this many steps after the first")
+    p.add_argument("--heard", type=float, default=None, help="leave out targets mixed plainly (no suppressor) lower than this many dB")
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -214,7 +225,12 @@ def main() -> None:
     wy = words["y"]
     wl = words["level"].astype(np.float32)
     since = steps_since_first(words["x"])
-    pos = np.flatnonzero((wy == 1) & (wl >= args.lowest) & (since <= args.latest))
+    kept = (wy == 1) & (wl >= args.lowest) & (since <= args.latest)
+    if args.heard is not None:
+        # Only targets a listener could hear: alone, through the suppressor,
+        # or plainly mixed no lower than `--heard` dB.
+        kept &= (wl > 50) | (words["suppressed"] == 1) | (wl >= args.heard)
+    pos = np.flatnonzero(kept)
     near = np.flatnonzero(wy == 0)
     wx = torch.from_numpy(words["x"])
     tx = torch.from_numpy(talk["x"])
@@ -264,7 +280,7 @@ def main() -> None:
         if (step + 1) % 2000 == 0 or step + 1 == args.steps:
             v = validate(model, check, cx, ctx)
             line = "  ".join(f"{k}: " + "/".join(f"{x:.2f}" for x in r.values()) for k, r in v.items() if k in (0.5, 0.9, 0.98))
-            print(f"step {step + 1} loss {loss.item():.4f} | thr: FA-per-h/alone/0..6/-10..0/-15..-10/-20..-15 {line}", flush=True)
+            print(f"step {step + 1} loss {loss.item():.4f} | thr: FA-per-h/" + "/".join(list(v[0.5])[1:]) + f" {line}", flush=True)
     model.eval()
     out = Path(args.out)
     export(model, out)

@@ -11,18 +11,18 @@ from collections import defaultdict
 
 import numpy as np
 
-LEVELS = ["clean", 0, -5, -10, -15, "suppressed"]
+LEVELS = ["alone", "0", "-5", "-10", "-15", "0 s", "-5 s", "-10 s", "-15 s"]
 TARGETS = ["stop", "wait", "hold on"]
 
 
 def head(level) -> str:
-    return {"clean": "alone", "suppressed": "-10, suppressed"}.get(level, f"{level} dB")
+    return "alone" if level == "alone" else level.replace(" s", " dB, suppressed") if level.endswith(" s") else f"{level} dB"
 
 
 def catch_table(rows, point: str, other: str) -> list[str]:
     cells = defaultdict(lambda: [0, 0])
     for r in rows:
-        if r["other"] != other and r["level"] != "clean":
+        if r["other"] != other and r["level"] != "alone":
             continue
         real = "real people" if r["source"] != "Piper" else "generated voices"
         for key in [(r["target"], r["source"]), (r["target"], real)]:
@@ -51,21 +51,25 @@ def per_hour(block, key: str) -> str:
 
 def operating_points(result, points) -> list[str]:
     rows = result["catches"]
+    shown = ["alone", "0", "-10", "-15", "0 s", "-10 s", "-15 s"]
     out = [
-        "| Score from / steps in a row | Real people, 0 dB | Real people, -10 dB | Real people, -15 dB | Other voice alone, readers, an hour | Generated voice alone, an hour | AMI meetings, an hour | Near misses with a hearing |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Score from / steps in a row | "
+        + " | ".join(f"Real people, {head(lv)}" for lv in shown)
+        + " | Readers alone, an hour | Generated voice alone, an hour | AMI meetings, an hour | Near misses with a hearing |",
+        "|---|" + "---:|" * (len(shown) + 4),
     ]
     for point in points:
         rec = {}
-        for level in [0, -10, -15]:
-            sel = [r for r in rows if r["source"] != "Piper" and r["level"] == level and r["other"] == "reader"]
+        for level in shown:
+            sel = [r for r in rows if r["source"] != "Piper" and r["level"] == level and (r["other"] == "reader" or level == "alone")]
             rec[level] = 100 * np.mean([r["found"][point] is not None for r in sel]) if sel else float("nan")
         near = result.get("near", {})
         clips = sum(g["clips"] for g in near.values())
         hit = sum(g["with_hearing"].get(point, 0) for g in near.values())
+        ami = per_hour(result["ami"], point) if "ami" in result else ""
         out.append(
-            f"| {point} | {rec[0]:.0f} % | {rec[-10]:.0f} % | {rec[-15]:.0f} % | {per_hour(result['talk_reader'], point)} | "
-            f"{per_hour(result['talk_generated'], point)} | {per_hour(result['ami'], point)} | {hit}/{clips} ({100 * hit / max(clips, 1):.1f} %) |"
+            f"| {point} | " + " | ".join(f"{rec[lv]:.0f} %" for lv in shown) + f" | {per_hour(result['talk_reader'], point)} | "
+            f"{per_hour(result['talk_generated'], point)} | {ami} | {hit}/{clips} ({100 * hit / max(clips, 1):.1f} %) |"
         )
     return out
 
@@ -81,17 +85,17 @@ def near_table(result, points) -> list[str]:
 def latency(rows, point: str) -> list[str]:
     out = ["| Level | Caught | From the word's end to the hearing: median | 90th percentile |", "|---|---:|---:|---:|"]
     for level in LEVELS:
-        d = [r["found"][point] for r in rows if r["level"] == level and r["found"][point] is not None and (r["other"] == "reader" or level == "clean")]
+        d = [r["found"][point] for r in rows if r["level"] == level and r["found"][point] is not None and (r["other"] == "reader" or level == "alone")]
         if d:
             out.append(f"| {head(level)} | {len(d)} | {1000 * np.median(d):.0f} ms | {1000 * np.percentile(d, 90):.0f} ms |")
     return out
 
 
 def phrase_table(rows, point: str) -> list[str]:
-    """Generated voices, by phrase, at 0 dB under a reader: which phrases are hard."""
+    """Generated voices, by phrase, at -10 dB under a reader: which phrases are hard."""
     by = defaultdict(lambda: [0, 0])
     for r in rows:
-        if r["source"] == "Piper" and r["level"] == -10 and r["other"] == "reader":
+        if r["source"] == "Piper" and r["level"] == "-10" and r["other"] == "reader":
             c = by[r["text"]]
             c[0] += r["found"][point] is not None
             c[1] += 1
@@ -118,12 +122,15 @@ def main() -> None:
     points = sorted({k for r in rows[:1] for k in r["found"]}, key=lambda k: (int(k.split("/")[1]), float(k.split("/")[0])))
     print("\n## Operating points\n")
     print("\n".join(operating_points(result, points)))
-    print(f"\n## Near misses at {a.point} and {a.stricter}\n")
-    print("\n".join(near_table(result, [a.point, a.stricter])))
+    if "near" in result:
+        print(f"\n## Near misses at {a.point} and {a.stricter}\n")
+        print("\n".join(near_table(result, [a.point, a.stricter])))
     print(f"\n## How soon, at {a.point}\n")
     print("\n".join(latency(rows, a.point)))
     print(f"\n## Phrases at {a.point}\n")
     print("\n".join(phrase_table(rows, a.point)))
+    if "ami" not in result:
+        return
     ami = result["ami"]
     print(f"\n## AMI: {ami['meetings']} meetings, {ami['hours']:.1f} h; targets said in them, and caught\n")
     print("| Score from / steps in a row | " + " | ".join(f"{t} ({ami['targets_said'].get(t, 0)})" for t in TARGETS) + " |")

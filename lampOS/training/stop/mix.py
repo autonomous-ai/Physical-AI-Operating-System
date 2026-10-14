@@ -94,9 +94,11 @@ def mixture(
     other: np.ndarray | None,
     rng: np.random.Generator | None = None,
     noise: np.ndarray | None = None,
+    done: dict | None = None,
 ) -> np.ndarray:
     """The person and the other voice, each already placed and scaled to the full length, heard
-    together: with the training augmentations when `rng` is given, plainly otherwise."""
+    together: with the training augmentations when `rng` is given, plainly otherwise. What was
+    done at random is noted in `done`, if given."""
     length = len(person) if person is not None else len(other)
     p = np.zeros(length, np.float32) if person is None else person
     o = np.zeros(length, np.float32) if other is None else other
@@ -104,6 +106,8 @@ def mixture(
         if person is not None and rng.random() < 0.3:
             p = room(p, rng)
         if rng.random() < 0.4 and other is not None:
+            if done is not None:
+                done["suppressed"] = True
             y = suppress(p, o, strength=rng.uniform(0.5, 2.0), floor=rng.uniform(0.03, 0.3))
         else:
             y = p + o

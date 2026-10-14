@@ -35,6 +35,8 @@ from store import CACHE, Store
 
 INPUTS = 9
 LENGTH = WINDOW + STEP * (INPUTS - 1)
+# The level noted for a word heard with no other voice.
+ALONE = 99.0
 SEEN_UNTIL = (STEP * np.arange(INPUTS) + 31_712) / RATE
 OUT = CACHE / "inputs"
 
@@ -97,6 +99,7 @@ def example_with(clip, targets, others, noise, rng, positive: bool):
         word_level = active_level(clip)
     other = None
     noise_part = None
+    relative = ALONE
     if rng.random() < 0.12:
         person = scaled(person, word_level, rng.uniform(-35, -10))
     else:
@@ -109,9 +112,11 @@ def example_with(clip, targets, others, noise, rng, positive: bool):
         if rng.random() < 0.1:
             n = noise.stretch(rng, LENGTH)
             noise_part = scaled(n, active_level(n), other_level - rng.uniform(5, 25))
-    sound = mixture(person, other, rng, noise_part)
+    done = {}
+    sound = mixture(person, other, rng, noise_part, done)
     shifted = [(s + at / RATE, e + at / RATE) for s, e in targets]
-    return sound, (labels(shifted) if positive else np.zeros(INPUTS, np.int8))
+    y = labels(shifted) if positive else np.zeros(INPUTS, np.int8)
+    return sound, y, relative, bool(done.get("suppressed"))
 
 
 def words(part: int, parts: int, check: bool) -> None:
@@ -146,22 +151,8 @@ def words(part: int, parts: int, check: bool) -> None:
         index = [i for i, m in enumerate(store.meta) if keep(m) and not (name == "mswc-near-train" and m["text"] == "hold")]
         jobs += [(name, int(index[k % len(index)]), k // len(index), False) for k in range(count if not check else min(count, len(index)))]
     stores = {}
-    xs, ys, srcs = [], [], []
-    batch, batch_y, batch_src = [], [], []
+    xs, ys, srcs, levels, suppressed = [], [], [], [], []
     names = sorted({j[0] for j in jobs})
-
-    def flush():
-        if not batch:
-            return
-        for sound, y, src in zip(batch, batch_y, batch_src):
-            emb = front.of(sound)
-            x = stacks(emb)
-            assert len(x) == INPUTS, (len(x), len(sound))
-            keep_rows = y >= 0
-            xs.append(x[keep_rows].astype(np.float16))
-            ys.append(y[keep_rows])
-            srcs.append(np.full(int(keep_rows.sum()), src, np.int16))
-        batch.clear(), batch_y.clear(), batch_src.clear()
 
     for n, (name, i, r, positive) in enumerate(jobs):
         if n % parts != part:
@@ -170,16 +161,25 @@ def words(part: int, parts: int, check: bool) -> None:
         store = stores.setdefault(name, Store(name))
         clip = store.audio(i)
         targets = [(t[1], t[2]) for t in store.meta[i].get("targets", [])]
-        sound, y = example_with(clip, targets, others, noise, rng, positive)
-        batch.append(sound), batch_y.append(y), batch_src.append(names.index(name))
-        if len(batch) >= 64:
-            flush()
+        sound, y, relative, was_suppressed = example_with(clip, targets, others, noise, rng, positive)
+        x = stacks(front.of(sound))
+        assert len(x) == INPUTS, (len(x), len(sound))
+        keep_rows = y >= 0
+        count = int(keep_rows.sum())
+        xs.append(x[keep_rows].astype(np.float16))
+        ys.append(y[keep_rows])
+        srcs.append(np.full(count, names.index(name), np.int16))
+        levels.append(np.full(count, relative, np.float16))
+        suppressed.append(np.full(count, was_suppressed, np.int8))
         if n % 5000 < parts:
             print(f"part {part}: {n}/{len(jobs)}", flush=True)
-    flush()
     OUT.mkdir(parents=True, exist_ok=True)
     tag = "check" if check else "words"
-    np.savez(OUT / f"{tag}-{part}.npz", x=np.concatenate(xs), y=np.concatenate(ys), source=np.concatenate(srcs), names=np.array(names))
+    np.savez(
+        OUT / f"{tag}-{part}.npz",
+        x=np.concatenate(xs), y=np.concatenate(ys), source=np.concatenate(srcs),
+        level=np.concatenate(levels), suppressed=np.concatenate(suppressed), names=np.array(names),
+    )
     print(f"{tag} part {part}: {sum(len(v) for v in ys)} inputs, {int(sum(v.sum() for v in ys))} positive")
 
 

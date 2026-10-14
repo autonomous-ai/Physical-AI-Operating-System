@@ -625,7 +625,7 @@ Newest first. Each builder's own notes are in its log, on its branch.
 
 | What the review found | What was done |
 |---|---|
-| 1. A note about one request reached the next one | The link keeps the note and writes it as the last thing before the end of the request's sound; a request that is given up takes its note with it (`crates/gemini/src/session.rs`). The note was off on the lamp from 08:14 until this was on it |
+| 1. A note about one request reached the next one | The link keeps the note and writes it as the last thing before the end of the request's sound; a request that is given up takes its note with it (`crates/gemini/src/session.rs`). The note was off on the lamp from 08:15 to 08:51 |
 | 2. A name heard after a request's sound ended let out its answer | The rule and the second look count a hearing only if it began before the request's sound ended (`attention.rs`, `second_look.rs`; the worker passes the end on) |
 | 3. The lamp's own second look used up a new session's two held requests | A turn the lamp wrote itself is not counted among them |
 | 4. A plain hearing just before a request was lost to a fainter one | The plainest hearing in the 1.5 s before a request is the request's |
@@ -643,6 +643,12 @@ keeps its request's sound going while the name is heard, because the
 rig's own requests are over in milliseconds and a name after the end no
 longer counts; and `review_sound_the_note_is_offered_once…` took 0.97 for
 a faint score, which it was when the bar was 0.98 and is not at 0.9.
+
+On lamp-4ace since 08:51 (voice `4bec0602…`, name `a6045715…`, both
+built from `a3e36ce93`), with the note switched on again. Before that the
+new place of the note was tried against the service without a sound,
+three recorded questions of three answered and the link up after each
+([attention.md](attention.md)). Not played to: people are in the office.
 
 Left as they are, each needing the lamp's own microphone or a longer
 look: the lamp hearing its own name in its own answer; a late answer

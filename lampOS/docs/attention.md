@@ -273,8 +273,28 @@ taken over by a newer one takes its note with it. As first built the note
 was written the moment it was offered, and one whose request was then
 given up stayed with the service and was read with the next thing heard,
 whoever said it and whenever: the review of 2026-10-14 showed that with a
-failing test, and the note was switched off on the lamp at 08:14 until
-the mend was on it. It is
+failing test, and the note was off on the lamp from 08:15 to 08:51, when
+the mend went on it.
+
+A note in that place was new to the service, which had closed the link on
+a note with no sound beside it ([speaking-first.md](speaking-first.md)).
+So before it went back on it was tried without a sound, on lamp-4ace
+through its relay at 08:50 (`lamp-voice provider-check CONFIG
+--note-in-speech NOTE SOUND`: a recorded question sent as if heard, the
+note offered half a second in, nothing captured or played). Three
+questions in a synthetic voice, one session each:
+
+| Sent as if heard | What the service wrote | Link after | Answer, and its first sound after the end was sent |
+|---|---|---|---|
+| "Hey Lamp, what do you think we should have for lunch?" | The same | Up | "Hmm, maybe something spicy like some good pho? What are you craving?", 1.06 s |
+| "What is two plus two?" | "What is 2 + 2?" | Up | "Four.", 0.87 s |
+| "How was your weekend?" | The same | Up | "It was so peaceful here with the office quiet. I just enjoyed the stillness. Did you do anything fun?", 1.41 s |
+
+What that shows: the service takes a note written just before the end of
+a request's sound, three times of three, and answers. Not shown: the same
+through the lamp's microphones (nothing is played while people are in),
+and a request given up on the lamp with a note in it, which the scripted
+tests cover and nothing on the lamp has yet. It is
 switched on with `LAMP_NAME_NOTE=on` in the voice unit, which the voice
 hands to the worker as `--name-note` (the worker is started with an empty
 environment; the first build read the switch there and never sent a

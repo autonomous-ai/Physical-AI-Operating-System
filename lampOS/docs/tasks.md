@@ -381,6 +381,18 @@ the lamp listed ten machines, the lamp itself among them ("current").
   there.
 - An agent may close only what it started: `harness close lamp-test-1` from the
   office machine was refused (`NOT_YOURS`); it stays for the person to close.
+- **Through `lamp-tasks`, 21:40, a trial by hand** (the CI build `377d975b…`
+  in a private folder on the lamp, `serve --enable --run-for-ms 900000`, not a
+  service; target `office`, engine `claude`, project `lamp-tasks`): `prepare`
+  and the voice route's `confirm` both answered `ok`; 8 ms after the confirm
+  it ran `harness new`, which failed in 3 s, and the task was kept
+  `uncertain` with `new_failed`, as designed. The same call by hand with the
+  adapter's environment says why: `"Agents may not start harnesses: the
+  person turns on \"Agents can start other agents\" in Harness Settings ▸
+  Experimental, or runs harness settings agents-start-agents on."` The
+  adapter marks itself as an agent (`AI_AGENT=lampos`), so that setting is
+  the owner's to turn on; the earlier call worked because it carried no such
+  mark. Not worked around.
 
 ## Real Harness and Voice qualification still required
 

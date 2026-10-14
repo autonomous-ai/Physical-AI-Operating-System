@@ -779,6 +779,8 @@ async fn serve_with_visual<C: Connect>(
     let mut attention = crate::attention::Attention::default();
     // What the request being heard has been given as its note so far.
     let mut noted: Option<(u64, String)> = None;
+    // When the name was last heard plainly enough to count as a call.
+    let mut sure_name_us: Option<u64> = None;
     UNANSWERED.store(0, std::sync::atomic::Ordering::Relaxed);
     loop {
         // Control is polled first and never waits for the provider: stop,
@@ -822,8 +824,11 @@ async fn serve_with_visual<C: Connect>(
                 if let Some(names) = name_in.as_mut()
                     && let Some((began, score)) = names.newest_scored(monotonic_us())
                 {
-                    attention.name_heard(began);
+                    attention.name_heard_scored(began, score);
                     called.name_heard(began, score);
+                    if score >= crate::attention::SURE_SCORE {
+                        sure_name_us = Some(began);
+                    }
                 }
                 // Heard plainly as this request began: the model is told,
                 // beside what it is hearing, once.
@@ -837,7 +842,13 @@ async fn serve_with_visual<C: Connect>(
                             && crate::room_told::ROOM.lock().is_ok_and(|mut room| {
                                 room.at(monotonic_us()) == crate::room_told::Room::Busy
                             });
-                        let turned = if busy {
+                        // A plain hearing of the name stands for a face.
+                        let plain = sure_name_us.is_some_and(|at| {
+                            monotonic_us().saturating_sub(at) < 3 * crate::attention::NAME_BEFORE_US
+                        });
+                        let turned = if busy && plain {
+                            Some(true)
+                        } else if busy {
                             eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp)
                         } else {
                             None

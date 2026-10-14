@@ -212,6 +212,14 @@ pub fn decide(
 }
 
 const TURNED: &str = "someone is turned to the lamp";
+const NAMED_PLAINLY: &str = "its name was heard plainly in the room's sound";
+
+/// A hearing of the name this sure counts as a call in a busy room even
+/// with nobody seen turned to the lamp. On lamp-4ace on 2026-10-14, from
+/// 07:45 to 13:02 with nobody calling it, the part that listens for the
+/// name heard it 17 times in people's talk, at 0.903 to 0.997; played calls
+/// that afternoon scored 1.000, 1.000, 0.999 and 0.922.
+pub const SURE_SCORE: f32 = 0.999;
 
 /// The same, in its busy form when `strict` ([`BUSY_FLAG`]): in a busy room
 /// every request is covered, not only a new session's first, and the name
@@ -278,6 +286,10 @@ pub struct Attention {
     /// The name was heard for the request in hand: as it began, or in its
     /// sound.
     named: bool,
+    /// When the name was last heard at [`SURE_SCORE`] or more, and whether
+    /// such a hearing counts for the request in hand.
+    named_sure_us: Option<u64>,
+    named_sure: bool,
 }
 
 /// The most text kept for one request.
@@ -290,6 +302,9 @@ impl Attention {
         self.began_us = Some(now_us);
         self.named = self
             .named_us
+            .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
+        self.named_sure = self
+            .named_sure_us
             .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
     }
 
@@ -307,12 +322,23 @@ impl Attention {
     /// in its sound, and once it has counted a later hearing does not take
     /// that away.
     pub fn name_heard(&mut self, at_us: u64) {
+        self.name_heard_scored(at_us, 0.0);
+    }
+
+    /// The same, with the hearing's score: one at [`SURE_SCORE`] or more is
+    /// also kept as a sure one.
+    pub fn name_heard_scored(&mut self, at_us: u64, score: f32) {
         self.named_us = Some(self.named_us.map_or(at_us, |before| before.max(at_us)));
+        let sure = score >= SURE_SCORE;
+        if sure {
+            self.named_sure_us = Some(self.named_sure_us.map_or(at_us, |b| b.max(at_us)));
+        }
         if let Some(began) = self.began_us
             && at_us.saturating_add(NAME_BEFORE_US) >= began
             && self.ended_us.is_none_or(|ended| at_us <= ended)
         {
             self.named = true;
+            self.named_sure |= sure;
         }
     }
 
@@ -331,6 +357,7 @@ impl Attention {
         self.began_us = None;
         self.ended_us = None;
         self.named = false;
+        self.named_sure = false;
     }
 
     /// The service wrote down more of what it heard.
@@ -366,6 +393,11 @@ impl Attention {
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         let fresh = self.begun <= FRESH_REQUESTS;
+        if strict && room == Room::Busy && self.named_sure {
+            let verdict = Verdict::Play(NAMED_PLAINLY);
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
         let verdict = decide_busy(
             room,
             going_on,
@@ -395,6 +427,28 @@ impl Attention {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Played calls on 2026-10-14 afternoon: the name heard at 1.000 in a
+    /// busy room with no face to see is a call; at 0.997, as people's talk
+    /// scored that morning, it is not.
+    #[test]
+    fn in_a_busy_room_a_name_heard_plainly_is_a_call_without_a_face() {
+        for (score, plays) in [(1.0f32, true), (0.999, true), (0.997, false)] {
+            let mut attention = Attention::default();
+            for request in 1..=3 {
+                attention.began_at(request, 1, request * 10_000_000);
+            }
+            attention.name_heard_scored(30_000_000, score);
+            let verdict = attention
+                .first_output_busy(3, Room::Busy, false, true, None)
+                .unwrap();
+            assert_eq!(
+                matches!(verdict, Verdict::Play(_)),
+                plays,
+                "{score}: {verdict:?}"
+            );
+        }
+    }
 
     /// The meeting of 2026-10-14: a session long past its first requests,
     /// a busy room. The busy form holds what nothing shows was meant for the

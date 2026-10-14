@@ -705,6 +705,15 @@ recommends a local judge that fuses the signs the lamp already has and
 answers in milliseconds, with the slow judge adding to it when it is in
 time.
 
+The case to build it for happened on the lamp the same morning
+([attention.md](attention.md), "A working morning in the office"): one
+short word said near the lamp in a room judged quiet, its name not
+heard, nobody facing it, and the lamp answered. The slow judge was late
+for exactly that one and the policy's stand-in rule said to answer.
+Wanted from this task besides: when the slow judge has not answered,
+and nothing shows the lamp was called, the choice is to look up and not
+to answer.
+
 **Wanted.** A second implementation of `Decider` that asks nobody: from
 the state the policy already builds (was the name heard and how surely,
 is a conversation with the lamp going on, how the room is, is a face

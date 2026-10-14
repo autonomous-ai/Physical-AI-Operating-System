@@ -49,7 +49,13 @@ It builds for its own lamp, installs there and measures there, and what
 it measures there is a result on a lamp, said with that lamp's name. It
 never touches lamp-4ace. Its lamp's folder under `deploy/` is its own.
 Its loop is the one below, with "The loop, for the builder with a lamp"
-in place of steps 5 and 6.
+in place of steps 5 and 6. It installs on its own lamp from its own
+branch and does not merge into `lamp-voice`: the first builder takes its
+work as it is, does not repeat what it measured, and runs it on
+lamp-4ace for a few minutes before it goes onto `lamp-voice`, because
+`lamp-voice` is what lamp-4ace runs and no two lamps have the same servo
+zeros, reach or loads (owner's question and the first builder's answer,
+2026-10-14).
 
 ## The loop, for the builders without a lamp
 

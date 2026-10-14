@@ -1,0 +1,56 @@
+   Compiling serde v1.0.229
+   Compiling parking_lot_core v0.9.12
+   Compiling nom v8.0.0
+   Compiling tract-linalg v0.23.8
+   Compiling erased-serde v0.4.10
+   Compiling bytemuck_derive v1.12.1
+   Compiling lamp-turn-end-wire v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end-wire)
+   Compiling hyper-util v0.1.21
+   Compiling pin-project-internal v1.1.13
+   Compiling snafu-derive v0.8.9
+   Compiling lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+   Compiling parking_lot v0.12.5
+   Compiling lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+   Compiling string-interner v0.20.0
+   Compiling lamp-turn-owner v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-owner)
+   Compiling lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+   Compiling olpc-cjson v0.1.4
+   Compiling lamp-sound-fixtures v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/sound-fixtures)
+   Compiling lamp-observer v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/observer)
+   Compiling serde_plain v1.0.2
+   Compiling lamp-memory v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/memory)
+   Compiling pin-project v1.1.13
+   Compiling bytemuck v1.25.2
+   Compiling hyper-rustls v0.27.10
+   Compiling axum v0.8.9
+   Compiling lamp-ring v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ring)
+   Compiling lamp-camera v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/camera)
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-environment v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/environment)
+   Compiling reqwest v0.13.5
+   Compiling snafu v0.8.9
+   Compiling nom-language v0.1.0
+   Compiling lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+   Compiling lamp-health v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/health)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+   Compiling lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy)
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+   Compiling sonora-agc2 v0.2.0
+   Compiling tract-data v0.23.8
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+   Compiling sonora v0.2.0
+   Compiling tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+   Compiling lamp-audio v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/audio)
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+   Compiling tract-core v0.23.8
+   Compiling lamp-voice-eval v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice-eval)
+   Compiling tract-nnef v0.23.8
+   Compiling tract-hir v0.23.8
+   Compiling tract-extra v0.23.8
+   Compiling tract-onnx-opl v0.23.8
+   Compiling tract-onnx v0.23.8
+   Compiling lamp-eyes v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/eyes)
+   Compiling lamp-name v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/name)
+   Compiling lamp-turn-end v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 58.47s

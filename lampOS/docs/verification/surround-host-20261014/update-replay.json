@@ -1,0 +1,259 @@
+{
+  "all_assertions_passed": true,
+  "persistence": "JSON round trip before dispatch; real fsync and crash durability require the separate atomic/worker tests",
+  "scenario_count": 5,
+  "scenarios": [
+    {
+      "action_count": 13,
+      "actions": [
+        {
+          "kind": "inspect",
+          "uncertain_step": null
+        },
+        {
+          "kind": "observe_quiet"
+        },
+        {
+          "kind": "quiesce_voice"
+        },
+        {
+          "kind": "stop_voice"
+        },
+        {
+          "kind": "rest_body"
+        },
+        {
+          "kind": "stop_body"
+        },
+        {
+          "kind": "stop_eyes"
+        },
+        {
+          "kind": "switch_set",
+          "to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "kind": "start_body"
+        },
+        {
+          "kind": "start_eyes"
+        },
+        {
+          "kind": "start_voice"
+        },
+        {
+          "kind": "verify_ready"
+        },
+        {
+          "kind": "release_ownership"
+        }
+      ],
+      "assertions_passed": true,
+      "authored_elapsed_us": 13000,
+      "authored_start_us": 100000000,
+      "blocked_candidates": [],
+      "outcome": {
+        "release": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "status": "succeeded"
+      },
+      "scenario": "happy_update_with_privacy_inhibited_capabilities"
+    },
+    {
+      "action_count": 21,
+      "actions": [
+        {
+          "kind": "inspect",
+          "uncertain_step": null
+        },
+        {
+          "kind": "observe_quiet"
+        },
+        {
+          "kind": "quiesce_voice"
+        },
+        {
+          "kind": "stop_voice"
+        },
+        {
+          "kind": "rest_body"
+        },
+        {
+          "kind": "stop_body"
+        },
+        {
+          "kind": "stop_eyes"
+        },
+        {
+          "kind": "switch_set",
+          "to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "kind": "start_body"
+        },
+        {
+          "kind": "start_eyes"
+        },
+        {
+          "kind": "start_voice"
+        },
+        {
+          "kind": "inspect",
+          "uncertain_step": 11
+        },
+        {
+          "kind": "rest_body"
+        },
+        {
+          "kind": "stop_body"
+        },
+        {
+          "kind": "stop_eyes"
+        },
+        {
+          "kind": "switch_set",
+          "to": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "kind": "start_body"
+        },
+        {
+          "kind": "start_eyes"
+        },
+        {
+          "kind": "start_voice"
+        },
+        {
+          "kind": "verify_ready"
+        },
+        {
+          "kind": "release_ownership"
+        }
+      ],
+      "assertions_passed": true,
+      "authored_elapsed_us": 21000,
+      "authored_start_us": 100000000,
+      "blocked_candidates": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "outcome": {
+        "release": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "rolled_back"
+      },
+      "scenario": "candidate_start_failure_and_safe_rollback"
+    },
+    {
+      "action_count": 7,
+      "actions": [
+        {
+          "kind": "inspect",
+          "uncertain_step": null
+        },
+        {
+          "kind": "observe_quiet"
+        },
+        {
+          "kind": "quiesce_voice"
+        },
+        {
+          "kind": "stop_voice"
+        },
+        {
+          "kind": "rest_body"
+        },
+        {
+          "kind": "inspect",
+          "uncertain_step": 5
+        },
+        {
+          "kind": "rest_body"
+        }
+      ],
+      "assertions_passed": true,
+      "authored_elapsed_us": 7000,
+      "authored_start_us": 100000000,
+      "blocked_candidates": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "outcome": {
+        "reason": "authored missing Body rest protocol",
+        "status": "recovery_failed"
+      },
+      "scenario": "missing_body_rest_blocks_stop_and_leaves_recovery_incomplete"
+    },
+    {
+      "action_count": 0,
+      "assertions_passed": true,
+      "authored_elapsed_us": 0,
+      "outcome": "idle",
+      "scenario": "disabled"
+    },
+    {
+      "action_count": 15,
+      "actions": [
+        {
+          "kind": "inspect",
+          "uncertain_step": null
+        },
+        {
+          "kind": "observe_quiet"
+        },
+        {
+          "kind": "quiesce_voice"
+        },
+        {
+          "kind": "stop_voice"
+        },
+        {
+          "kind": "rest_body"
+        },
+        {
+          "kind": "stop_body"
+        },
+        {
+          "kind": "stop_eyes"
+        },
+        {
+          "kind": "switch_set",
+          "to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "kind": "inspect",
+          "uncertain_step": 9
+        },
+        {
+          "kind": "switch_set",
+          "to": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "kind": "start_body"
+        },
+        {
+          "kind": "start_eyes"
+        },
+        {
+          "kind": "start_voice"
+        },
+        {
+          "kind": "verify_ready"
+        },
+        {
+          "kind": "release_ownership"
+        }
+      ],
+      "assertions_passed": true,
+      "authored_elapsed_us": 15000,
+      "authored_start_us": 100000000,
+      "blocked_candidates": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "outcome": {
+        "release": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "rolled_back"
+      },
+      "scenario": "power_cut_after_set_switch_requires_new_inspection_and_recovery"
+    }
+  ],
+  "schema_version": 1,
+  "source": "authored scripted owners; no lamp, network, shell or filesystem effects",
+  "timing": "injected monotonic microseconds; 1000us per accepted authored action, not measured latency"
+}

@@ -475,3 +475,61 @@ Lean documents the ruler/scale measurements and future final-writer boundary;
 the first builder owns physical calibration and opt-in integration.
 
 Not shown.
+
+## Surround: keep recovery evidence, replace shared ownership (2026-10-14)
+
+This review uses the current V1 checkout for [Surround](surround.md). The
+reported V1 faults are inherited records, not new measurements on Third's
+machine. The complete per-piece verdict and remaining lamp work are in that
+document; no V1 runtime is required by the new crate.
+
+Keep setup's attempt identities, cancellation and distinct network/runtime
+failures from `system/device/{setup,setup_runtime,setup_failure}.go`. Keep the
+90-second network-loss grace, 120-second retry, 45-second join and hotspot
+client guard from `system/network/{recovery,setup_failure}.go`. Preserve a
+healthy LAN after runtime failure, but require fresh selected-device proof;
+Ethernet cannot masquerade as a successful Wi-Fi join. Add durable generation
+fences so a repeated display ID cannot revive an old result. Do not carry
+forward logged passwords, credential command arguments, hardware-ID-derived
+admin codes, an open recovery hotspot or a guessed network manager.
+
+Keep the updater's lock, journal before publication, whole-file sync/rename
+and previous installation from `system/bootstrap/state/state.go` and the
+failure history in V1 `docs/bootstrap-ota.md`. Replace the unsigned feed and
+downloaded executable script with signed metadata and targets from the first
+installation. Preserve known-good recovery without accepting corrupt trust
+as empty state. Reset was read beyond the earlier verdict's excerpts:
+`system/server/system/factoryreset.go` wipes multiple personal stores, logs
+individual failures and reboots. V2 instead requires every configured store's
+durable freeze and empty receipt; partial erasure cannot become success.
+
+| Maintained primary source inspected | Decision |
+|---|---|
+| [systemd service model](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml), [network-online semantics](https://systemd.io/NETWORK_ONLINE/) | Independent units remain First's integration boundary. Reuse supervision semantics, but a PID or boot network target cannot stand in for a fresh capability. Startup policy supplies generation-bound plans and requires exit, quiet and rest before replacement. |
+| [TUF specification](https://theupdateframework.github.io/specification/), [Tough 0.24.0](https://docs.rs/tough/0.24.0/tough/struct.RepositoryLoader.html) | Reuse signature/expiry/rollback verification. Add bounded transport, explicit trusted-time evidence, an atomic trust envelope and interruption recovery around Tough's ordinary cache writes. Never disable expiry. |
+| [NetworkManager D-Bus](https://networkmanager.dev/docs/api/latest/gdbus-org.freedesktop.NetworkManager.html) | Reuse an installed selected manager's device/checkpoint mechanism through optional `zbus`; do not implement Wi-Fi authentication. Checkpoint commit is not atomic with profile persistence; report uncertainty and qualify device restart reconciliation. Unknown AP client count prevents automatic retry. |
+| [RAUC](https://rauc.readthedocs.io/en/latest/integration.html), [SWUpdate](https://sbabic.github.io/swupdate/swupdate.html), [systemd-sysupdate](https://github.com/systemd/systemd/blob/main/man/systemd-sysupdate.xml) | Keep as evaluated installation alternatives. Whole-image adoption requires the actual boot layout/version and still needs lamp-specific quiet/rest acceptance. This task implements immutable signed application sets, not an unqualified A/B image installer. |
+| [Axum service interface](https://docs.rs/axum/latest/axum/serve/index.html) | Reuse HTTP parsing/routing, with exact-origin authentication, private transport, bounded connections/requests, and a separate durable maintenance worker. Static page assets require no legacy server or frontend build service. |
+
+The new configuration document wraps the existing Voice provider payload
+without changing its strict unversioned reader. Stage complete private
+generations and select only under the supervisor's quiet/exit fence. The
+release-set selector similarly requires real owner proofs rather than
+successful process commands; it never controls motors or privacy itself.
+
+An integration test exposed a dependency-level regression: Tough's
+unconditional Rustls default features enabled AWS-LC alongside Voice's Ring
+provider, making an existing implicit TLS client panic. The pinned snapshot
+in `vendor/tough` disables only that manifest default; runtime source hashes
+match Tough 0.24.0 and licenses/provenance are retained. Surround explicitly
+selects Ring for HTTPS. Tough's unchanged native AWS-LC TUF signing dependency
+remains; its cross-compilation cost is not hidden. See the host evidence and
+regression gate in Surround's handoff.
+
+## What this Surround review has not shown
+
+The V1 source and documented failure cases were reviewed, not rerun against
+V2 on hardware. No relative V1/V2 performance, actual Wi-Fi/AP handover,
+calibrated Body rest, Voice worker exit, customer setup, real flash power-cut
+durability or production signing/time service was measured. Local signed
+fixtures, mock manager calls and authored owner receipts are not those proofs.

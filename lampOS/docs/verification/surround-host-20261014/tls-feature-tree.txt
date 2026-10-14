@@ -1,0 +1,90 @@
+rustls v0.23.45
+├── hyper-rustls v0.27.10
+│   ├── hyper-rustls feature "http1"
+│   │   └── reqwest v0.13.5
+│   │       ├── reqwest feature "__rustls"
+│   │       │   └── reqwest feature "rustls-no-provider"
+│   │       │       └── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+│   │       │           └── lamp-surround feature "default" (command-line)
+│   │       ├── reqwest feature "__tls"
+│   │       │   └── reqwest feature "__rustls" (*)
+│   │       ├── reqwest feature "rustls-no-provider" (*)
+│   │       └── reqwest feature "stream"
+│   │           └── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+│   └── hyper-rustls feature "tls12"
+│       └── reqwest v0.13.5 (*)
+├── tokio-tungstenite v0.30.0
+│   ├── tokio-tungstenite feature "__rustls-tls"
+│   │   └── tokio-tungstenite feature "rustls-tls-webpki-roots"
+│   │       └── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+│   │           └── lamp-gemini feature "default" (command-line)
+│   │               ├── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+│   │               └── lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+│   │                   └── lamp-voice feature "default" (command-line)
+│   │                       └── lamp-voice-eval v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice-eval)
+│   │                           └── lamp-voice-eval feature "default" (command-line)
+│   ├── tokio-tungstenite feature "connect"
+│   │   └── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini) (*)
+│   ├── tokio-tungstenite feature "handshake"
+│   │   └── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini) (*)
+│   │   ├── tokio-tungstenite feature "__rustls-tls" (*)
+│   │   └── tokio-tungstenite feature "connect" (*)
+│   ├── tokio-tungstenite feature "rustls"
+│   │   └── tokio-tungstenite feature "__rustls-tls" (*)
+│   ├── tokio-tungstenite feature "rustls-pki-types"
+│   │   └── tokio-tungstenite feature "__rustls-tls" (*)
+│   ├── tokio-tungstenite feature "rustls-tls-webpki-roots" (*)
+│   ├── tokio-tungstenite feature "stream"
+│   │   ├── tokio-tungstenite feature "__rustls-tls" (*)
+│   │   └── tokio-tungstenite feature "connect" (*)
+│   ├── tokio-tungstenite feature "tokio-rustls"
+│   │   └── tokio-tungstenite feature "__rustls-tls" (*)
+│   └── tokio-tungstenite feature "webpki-roots"
+│       └── tokio-tungstenite feature "rustls-tls-webpki-roots" (*)
+└── tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+    └── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+├── rustls feature "ring"
+│   ├── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini) (*)
+│   ├── lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy)
+│   │   └── lamp-policy feature "default" (command-line)
+│   └── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+├── rustls feature "std"
+│   ├── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini) (*)
+│   ├── lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy) (*)
+│   ├── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+│   ├── reqwest v0.13.5 (*)
+│   ├── rustls-platform-verifier v0.7.1
+│   │   └── rustls-platform-verifier feature "default"
+│   │       ├── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+│   │       └── reqwest v0.13.5 (*)
+│   ├── tokio-rustls v0.26.6
+│   │   ├── hyper-rustls v0.27.10 (*)
+│   │   └── tokio-tungstenite v0.30.0 (*)
+│   │   └── tokio-rustls feature "tls12"
+│   │       └── reqwest v0.13.5 (*)
+│   │       └── hyper-rustls feature "tls12" (*)
+│   └── tungstenite v0.30.0
+│       └── tokio-tungstenite v0.30.0 (*)
+│       ├── tungstenite feature "__rustls-tls"
+│       │   └── tokio-tungstenite feature "__rustls-tls" (*)
+│       ├── tungstenite feature "data-encoding"
+│       │   └── tungstenite feature "handshake"
+│       │       └── tokio-tungstenite feature "handshake" (*)
+│       ├── tungstenite feature "handshake" (*)
+│       ├── tungstenite feature "http"
+│       │   └── tungstenite feature "handshake" (*)
+│       ├── tungstenite feature "httparse"
+│       │   └── tungstenite feature "handshake" (*)
+│       ├── tungstenite feature "rustls"
+│       │   └── tungstenite feature "__rustls-tls" (*)
+│       ├── tungstenite feature "rustls-pki-types"
+│       │   └── tungstenite feature "__rustls-tls" (*)
+│       └── tungstenite feature "sha1"
+│           └── tungstenite feature "handshake" (*)
+└── rustls feature "tls12"
+    ├── lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini) (*)
+    ├── lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy) (*)
+    ├── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround) (*)
+    └── reqwest v0.13.5 (*)
+    ├── tokio-rustls feature "tls12" (*)
+    └── hyper-rustls feature "tls12" (*)

@@ -1,0 +1,49 @@
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.46s
+     Running tests/release.rs (target/debug/deps/release-c6325e20b5f5e2b2)
+
+running 31 tests
+test accepted_feed_identity_and_provisioned_anchor_cannot_silently_change ... ok
+test cancellation_during_binary_staging_keeps_the_clock_recovery_journal ... ok
+test compatibility_names_counts_and_lengths_fail_closed ... ok
+test complete_pending_metadata_is_recovered_but_corrupt_partial_metadata_fails_closed ... ok
+test corrupt_trust_or_missing_initialization_marker_never_silently_reset ... ok
+test delegated_targets_are_rejected_before_any_delegated_fetch_or_cache_write ... ok
+test expired_feed_does_not_disable_previously_accepted_offline_recovery ... ok
+test hardlinked_repository_target_and_symlink_ancestor_are_rejected ... ok
+test incomplete_binary_staging_preserves_old_set_and_retries_without_replacing_it ... ok
+test insecure_urls_credentials_queries_and_manifest_paths_are_rejected ... ok
+test interrupted_root_cache_reconstructs_consecutive_signed_proofs ... ok
+test later_tuf_observed_utc_survives_restart_even_without_an_accepted_update ... ok
+test malformed_rotation_does_not_poison_the_last_trusted_root ... ok
+test manifest_and_binary_tampering_never_produce_a_descriptor ... ok
+test metadata_and_target_byte_caps_are_independent_of_signed_lengths ... ok
+test no_provisioned_anchor_and_untrusted_anchor_both_refuse ... ok
+test offline_recovery_rehashes_and_rejects_writable_or_missing_binaries ... ok
+test overflowing_root_version_is_rejected_before_library_arithmetic ... ok
+test persistent_checksum_cannot_replace_signed_manifest_authentication ... ok
+test repository_and_installed_symlinks_are_never_followed ... ok
+test retained_set_and_binary_directory_bounds_do_not_erase_rollback_releases ... ok
+test root_rotation_is_retained_when_later_metadata_fails ...
+thread 'root_rotation_is_retained_when_later_metadata_fails' (110184435) panicked at crates/surround/tests/release.rs:514:5:
+assertion failed: f.stage().await.is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test rotation_requires_old_and_new_thresholds_and_consecutive_version ... ok
+test signatures_and_all_three_tuf_role_expiries_are_enforced ... ok
+test stage_disk_obstruction_is_reported_and_never_acknowledged ... ok
+test target_count_request_count_and_deadline_are_bounded ... ok
+test timestamp_key_rotation_resets_fast_forward_floors_even_when_an_old_key_remains ... ok
+test tuf_versions_release_sequence_and_same_sequence_substitution_are_fenced ... ok
+test unknown_backwards_and_disagreeing_utc_refuse ... ok
+test valid_root_rotation_survives_restart_and_old_key_revocation ... ok
+test verified_set_is_complete_immutable_hash_addressed_and_recoverable ... ok
+
+failures:
+
+failures:
+    root_rotation_is_retained_when_later_metadata_fails
+
+test result: FAILED. 30 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 42.67s
+
+error: test failed, to rerun pass `-p lamp-surround --test release`

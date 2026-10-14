@@ -1,0 +1,143 @@
+# Surround release / selection / worker failure ledger
+
+This is a curated record of tool output and review findings, not a reconstructed
+raw log. All executions were on the builder's Darwin x86_64 host (Intel
+i7-10700K, 64 GiB, Rust 1.96); none were on a lamp.
+
+## Build and fixture failures
+
+- Initial release compile was blocked while the parent `pub mod release`
+  declaration was absent. A test import used private `tough::schema::Key`;
+  corrected to `tough::schema::key::Key`.
+- Initial 20-case release run: 18 passed, 2 failed, 19.29 s. Both were fixtures:
+  `metadata_and_target_byte_caps_are_independent_of_signed_lengths` expected a
+  1024-byte cap failure but the signed metadata fit. The replacement pads signed
+  metadata to 4096 bytes and uses a 2048-byte cap.
+  `unknown_backwards_and_disagreeing_utc_refuse` used host now minus one second,
+  which could still exceed the previously persisted UTC floor after test work;
+  it now tests the actual persisted floor minus one.
+- Release Clippy initially reported `collapsible_if` and `manual_contains`
+  around root proof retention. Fixed the expression without lint suppression.
+- One intermediate combined compile was blocked by parent-owned missing web
+  include files while that separate implementation was in progress.
+- Worker first compile: `call_owner(&self)` held `&Worker` across await, requiring
+  the Send-only NetworkAdapter to be Sync. Changed to `&mut self`; removed
+  unused test imports. No trait requirement was weakened.
+- Worker first 17-case runtime run: 13 passed, 4 failed, 2.88 s. All four failed
+  at `UnixListener::bind`, EPERM/PermissionDenied, before assertions:
+  `wifi_commit_requires_selected_candidate_lan_and_keeps_runtime_distinct`,
+  `configuration_applies_only_after_private_owner_selection_and_fresh_capability_proof`,
+  `probe_retains_original_voice_observation_age`, and
+  `transport_success_without_configuration_activation_proof_is_failure`.
+  The same 17 passed with local socket permission in 3.15 s.
+- Collection-test compile inferred `Option<str>` for `previous=None`; added the
+  intended `Option<String>` annotation. No runtime cases ran in that invocation.
+- All-target Clippy reported `await_holding_lock` in the worker status test at
+  the old line716 even though the guard had an explicit drop. A lexical scope
+  now ends the lock before awaiting; no lint suppression.
+
+## Correctness findings and regressions
+
+- The first final serial release gate was30 passed/1 failed in42.67s.
+  `root_rotation_is_retained_when_later_metadata_fails` failed at its final
+  repaired-feed stage (`ReleaseError("cached metadata signature is corrupt")`).
+  Keeping verification-pending through target reads exposed a second metadata
+  import after root2/cleared floors were already durable: root1-seeded roles
+  were treated as newly corrupt. An atomic `cache_metadata_captured` phase is
+  now stored with root/role floors. After loader completion, only UTC advances;
+  recovery reads that clock without importing retired seeded roles again.
+  The next31-case release run passed in45.95s. Tests explicitly cover a leftover
+  pending marker at this phase boundary, including rotation retaining an old
+  role key. The production checksum-tamper test fixture was also corrected to
+  preserve serialized field order, recompute a valid envelope checksum, and
+  assert failure specifically at signed target hash authentication.
+- Strengthening that checksum fixture initially replaced the digest inside
+  signed targets as well as the accepted-set key. The next serial release run
+  was30 passed/1 fixture assertion failed in46.66s because the expected signed
+  target hash message was not reached. Replacement now changes only the
+  manifest, accepted-map key and highest-set pointer, with a correctly
+  recomputed envelope checksum. The dedicated case passes and asserts the
+  precise signed-target length/SHA-256 error.
+- Root-cache audit: Tough advances `latest_known_time.json` during target reads.
+  Clearing `verification-pending` immediately after metadata loading could lose
+  that later anti-clock-rollback floor after a crash. The marker now survives
+  all target reads and is cleared only after final atomic capture. Regression:
+  `cancellation_during_binary_staging_keeps_the_clock_recovery_journal`.
+- Root/version/cache protections have dedicated passing regressions:
+  `overflowing_root_version_is_rejected_before_library_arithmetic`,
+  `interrupted_root_cache_reconstructs_consecutive_signed_proofs`,
+  `root_rotation_is_retained_when_later_metadata_fails`,
+  `malformed_rotation_does_not_poison_the_last_trusted_root`,
+  `later_tuf_observed_utc_survives_restart_even_without_an_accepted_update`, and
+  `timestamp_key_rotation_resets_fast_forward_floors_even_when_an_old_key_remains`.
+  No failing pre-fix invocation of these cases was retained in this record;
+  do not label them as captured failed tests.
+- Worker audit fixed reused reset RPC IDs, declined reset receipts leaving a
+  non-resumable pending action, idle readiness never refreshing, missing
+  withdrawal on failed probes, a lifetime128 operation quota, and uncollected
+  release storage. Tests now cover these boundaries with deterministic fixtures.
+- Worker 21-case run: 20 passed, 1 failed, 20.27 s.
+  `probe_retains_original_voice_observation_age` expected Some(99_000_000), got
+  None. A valid periodic Voice proof that predated the new setup attempt was
+  being discarded globally when setup refused it for that attempt. Fixed by
+  retaining its true global observation age and withdrawing only attempt
+  readiness. The subsequent 23-case worker run passed in22.55 s.
+- Manual rollback audit: a requested B-to-A change that failed and recovered B
+  was incorrectly treated as Complete when the coordinator returned RolledBack.
+  Only Succeeded now completes the requested change. Regression:
+  `failed_manual_rollback_recovers_original_but_is_not_a_successful_requested_change`
+  drives real Worker/RPC/Coordinator/Selector with test-only owner receipts.
+- Lifecycle audit: cached Listening could outlive known admitted teardown for
+  its remaining2s lease. The worker now withdraws runtime, Voice capability and
+  setup runtime freshness before lifecycle mutation, restoring only fresh proof.
+  Regression:
+  `admitted_lifecycle_work_immediately_withdraws_listening_at_an_unchanged_clock`.
+- Wi-Fi CommitUncertain now yields CheckStatus and selected-interface read-only
+  re-probe. It is never labeled Committed or promised to have erased a possibly
+  saved credential profile.
+
+## Host timing finding
+
+- Default-parallel 25-case worker run: 24 passed, 1 failed, 23.31 s.
+  `stalled_idle_read_only_probe_is_preempted_for_durable_admission` measured
+  channel send to durable-journal admission at1,605,898 microseconds, exceeding
+  an initial500ms assertion while the130-probe fsync case ran concurrently.
+  The pending network probe never completed; preemption was functioning.
+- Isolated rerun measured330,900 microseconds and passed (1/1,0.60 s). Raw log:
+  `/private/tmp/lamp-third-worker-idle-latency.log`.
+- The functional test now proves preemption with a generous10s bound and checks
+  that the pending probe never completed its timeout/withdrawal path. It logs
+  elapsed host time separately. Storage contention is not a lamp measurement or
+  an end-to-end latency guarantee.
+- Final serial worker run observed331,266 microseconds for the same boundary.
+
+## Final focused results
+
+- `cargo test --offline -p lamp-surround --test release -- --test-threads=1 --nocapture`:
+  31 passed,0 failed,0 ignored,45.95s after the atomic metadata-phase production
+  fix. Later crash-boundary strengthening passed in the next31-case invocation;
+  that invocation's only failure was the checksum fixture described above.
+- `cargo test --offline -p lamp-surround --test release persistent_checksum_cannot_replace_signed_manifest_authentication -- --exact --nocapture`:
+  the corrected final checksum case passed1/1 in0.80s.
+- `cargo test --offline -p lamp-surround --test selection --test worker -- --test-threads=1 --nocapture`:
+  selection16/16 passed in43.38s; worker25/25 passed in27.84s. No ignored cases.
+- Parent reports final default and all-feature strict all-target Clippy and fmt
+  passing; those raw artifacts are parent-owned under the verification folder.
+
+## Final evidence files
+
+- Final focused serial suite output:
+  `/private/tmp/lamp-third-surround-release-selection-worker-final-fixed.log`.
+  This run retained the checksum-fixture assertion failure above. The final
+  selection/worker gate is
+  `/private/tmp/lamp-third-surround-selection-worker-final.log`.
+  The earlier failed serial run is retained as
+  `/private/tmp/lamp-third-surround-release-selection-worker-final.log`.
+  The intermediate successful31-case release-only run is
+  `/private/tmp/lamp-third-surround-release-phase-final.log`.
+- Final strict Clippy/fmt artifacts are parent-owned under
+  `lampOS/docs/verification/surround-host-20261014/`.
+- No signature fixture contains a production key. Fixture target bytes are
+  text and are never executed. Disk-error tests inject path obstruction and
+  private-directory write denial; they do not demonstrate real power-loss,
+  ENOSPC, SD-card durability or ARM64 behavior.

@@ -11,13 +11,109 @@ the lamp, and nothing here was run on a lamp.
 
 | # | Task | Branch | Taken | State |
 |---|---|---|---|---|
-| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | being built |
+| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`) |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
+| 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | being built (taken before 5 and 10: it is a study, done beside them) |
 
 ## Handed back
 
 Newest first.
+
+### Task 1: the end-of-turn model in a tenth of a second (2026-10-14)
+
+**Built.** `lamp-turn-end --fast`: the same pinned model
+(`smart-turn-v3.2-gpu.onnx`, unchanged), made 8-bit in memory as the worker
+starts and run by ONNX Runtime 1.30.0 on two threads, the worker kept on
+the cores with the largest `cpu_capacity` (cpu6 and cpu7 on the A733).
+Without `--fast` the worker is what it was, byte for byte in its answers.
+Also `lamp-turn-end bench` (the timing the task asked for),
+`lamp-turn-end agree` (fast against exact on labelled clips),
+`lamp-turn-end --check-model PATH --fast`, and
+`WorkerCommand::smart_turn_fast` in `crates/turn-end-wire` for the voice
+to start it with. Nothing in the voice uses it. Everything is in
+`docs/endpoint-pilot.md`, "The fast model": what was tried and why each
+was or was not taken, the measurements, the agreement tables, the cost of
+the native library, and what was not shown.
+
+**What it showed, on the Linux ARM64 VM** (M2 Max host; not the lamp):
+
+| | Today (exact) | Fast |
+|---|---|---|
+| Verdict, features and model, median of 24 warm runs | 87.0 ms | 29.5–30.3 ms (three runs) |
+| Worst of the 24 | 92.8 ms | 31.3–33.2 ms |
+| Peak address space | 114 MiB | 243.5 MiB (cap 544 MiB) |
+| Processor time per verdict | 88 ms | 59–61 ms, two threads |
+| Processor time over 3 s idle | | 0 ms |
+
+Held-out human clips (1,167, shards 4 and 5 of Pipecat's test set), asked
+200 ms into a pause as the voice asks: 3 verdicts on the other side of 0.5,
+18 in another of the voice's bands (5 newly "finished"), 95.54% correct
+against 95.63%. The one multiplication kept in floats was chosen on the
+development shards 0 and 1, not on these. By the exact model's measured
+ratio (383 ms on lamp-4ace's fast cores against 87 ms here) the fast model
+would take about 130 ms on the lamp. That is an estimate, not a
+measurement.
+
+**Two findings beside it:**
+
+- tract 0.23.8 built in a Debian bookworm container has no fast 8-bit
+  kernel: its build script's assembler probe (`.cpu
+  generic+fp+simd+dotprod`) fails on binutils 2.40 and clang 14 to 16, so
+  the SDOT kernel is left out without a warning. It does not touch any
+  float model the lamp runs today, but anyone who tries 8-bit under tract
+  will find it no faster. `.arch armv8.2-a+dotprod` assembles everywhere.
+- Asked 100 ms into a pause instead of 200 ms, today's model is no worse
+  at what ends a turn early: finished turns judged finished 91.5% against
+  90.6%, unfinished ones judged finished 3.3% against 4.0% (held-out clips,
+  digital replay). With the fast model that would put a verdict near
+  230 ms. That is `ConfirmPolicy` in `crates/voice/src/activity.rs`, yours.
+
+**Tested** on the Linux ARM64 VM, from `lampOS/`, on `1968ba608` rebased on
+`lamp-voice` `40e9b1c00`: `cargo fmt --all --check` clean; `cargo clippy
+--locked -p lamp-turn-end -p lamp-turn-end-wire --all-targets -- -D
+warnings` clean; for `-p lamp-voice` and `-p lamp-voice-eval` clippy stops
+on one warning in `lamp-body` (`run` in `crates/body/src/inspection.rs` is
+never used), a crate this change does not touch, and lists no other
+warning; `cargo test --locked` for `lamp-turn-end` (16 + 7 + 1 + 5, model
+tests ignored), `lamp-turn-end-wire` (4 + 12), `lamp-voice-eval` (all
+suites) and `lamp-voice` (744 in the library and every integration suite):
+no failure; `cargo build --locked --workspace` builds. With the model and
+the library present, all 4 tests of `tests/fast.rs` and all 11 of
+`tests/parity.rs` pass on the VM, and the 4 of `tests/fast.rs` on macOS.
+
+**On the lamp, as the service user, in the release directory:**
+
+```sh
+curl -fsSLO https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz
+tar -xzf onnxruntime-linux-aarch64-1.30.0.tgz
+cp onnxruntime-linux-aarch64-1.30.0/lib/libonnxruntime.so.1.30.0 .
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30                # as it is
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30 --cores fast   # held to the fast cores
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30 --fast         # the fast model
+./lamp-turn-end --check-model smart-turn-v3.2-gpu.onnx --fast
+```
+
+It should show `"cores":[6,7]` on the fast runs, the second run's
+`total_ms` median near 383 ms, the third's under 150 ms, and the check
+exiting 0. To use it: in `crates/voice/src/coordinator/endpoint.rs`
+(`EndpointRig::start`), `WorkerCommand::smart_turn_fast` in place of
+`WorkerCommand::smart_turn`, for example behind an `--endpoint
+smart-turn-fast` beside `smart-turn`.
+
+**Where it is most likely to be wrong on the lamp:** the time. The
+130 ms is a ratio carried over from the float model, and an 8-bit
+multiplication may lose more on the A76 (half the M2's vector units) than
+a float one does. If `bench --fast` is over 150 ms, try `--threads 1`
+too: `lamp-name` uses the same two cores every 80 ms, and two threads can
+wait on each other. Next most likely: the library not loading on the
+lamp's system (it needs glibc 2.28 and `GLIBCXX_3.4.22`; the check says
+so at once), and no `cpu_capacity` in the lamp's kernel (the worker then
+falls back to the highest frequency; `"cores"` shows what it chose).
+
+**Not shown:** anything on the lamp; speech through its microphone; the
+fast model inside a full voice session; whether a 300 or 400 ms end suits
+people.
 
 ### Task 2: try to break last night's changes to the voice (2026-10-14)
 

@@ -205,6 +205,37 @@ lamp-4ace.
 - The task asks for ten unplugs; the fifth builder's person asked for
   fewer. Planned: these two, one standing, two with `lamp-os` enabled.
 
+## 2026-10-14 — wake — five unplugs done; the wake mended and on lamp-52e6
+
+- `fifth/wake-fix`: `lampOS: let the body wake a head that drooped in a
+  power cut, leading the servo enough to lift it` and `lampOS: let a wake
+  that settles a little short of home end there and run from where the
+  joints are`. Gate on the Mac: fmt, clippy clean; `cargo test -p lamp-body`
+  256 passed, 0 failed; workspace and the Linux arm64 build as before.
+  Installed on lamp-52e6 under `lamp-os` with `--torque on --wake on`
+  (body `255e618b…`).
+- Five unplugs on lamp-52e6, the person's hand on it (fewer than the ten the
+  task asks, at the person's request):
+  1, 2: folded, read only (above). 3: the same, by mistake: the install made
+  just before it never reached the flash (the journal of that boot ended
+  before it), so the lamp booted as for 1 and 2; one more reading of the
+  same kind. 4: folded, `lamp-os` enabled: `lamp-os` started 10.7 s after the
+  kernel, the voice 13.3 s, the body lifted the head 2029 to about 1800 in
+  about 21 s and said ready at 34.8 s, the eyes with it; `health` ready.
+  5: standing: the shoulder stayed up (2633, held by its gears, load 0), the
+  elbow fell to folded (2074), the head drooped. The body refused to stand
+  ("elbow_pitch is 507 counts off the way"), woke the head in 21.4 s, and
+  then stopped on tracking three times running (head pitch held 30 to 37
+  counts short of goals 1759 and 1775 in that pose), so systemd started it
+  again each time; stopped by hand. The shoulder was then lowered by hand
+  script to folded (2633 to 2059 in 15 s, load at most 172) and the body ran
+  on and stood up.
+- Learnt: an install must be synced before a power cut can be taken; the
+  journal of a boot cut short is lost (journald writes every 5 minutes).
+- To mend next (`fifth/wake-fix`): lower a shoulder found up with its elbow
+  folded, the pose a standing power cut leaves; and a head held a little
+  short of a small goal at rest should rest there, not end the run.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

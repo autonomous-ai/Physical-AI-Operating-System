@@ -1,0 +1,12 @@
+{
+  "command": [
+    "cargo",
+    "fmt",
+    "--all",
+    "--check"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T09:43:56.428985+00:00",
+  "elapsed_s": 3.404686308,
+  "exit": 0
+}

@@ -1,0 +1,81 @@
+{
+  "observed_utc": "2026-10-14T09:44:59.101237+00:00",
+  "records": [
+    {
+      "command": [
+        "uname",
+        "-a"
+      ],
+      "exit": 0,
+      "output": "Darwin violet4.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:11:49 PDT 2026; root:xnu-12377.161.14~5/RELEASE_X86_64 x86_64\n"
+    },
+    {
+      "command": [
+        "sw_vers"
+      ],
+      "exit": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit": 1,
+      "output": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.logicalcpu"
+      ],
+      "exit": 1,
+      "output": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit": 1,
+      "output": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "rustc",
+        "-Vv"
+      ],
+      "exit": 0,
+      "output": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: x86_64-apple-darwin\nrelease: 1.97.1\nLLVM version: 22.1.6\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exit": 0,
+      "output": "cargo 1.97.1 (c980f4866 2026-06-30)\n"
+    },
+    {
+      "command": [
+        "df",
+        "-k",
+        "/private/tmp"
+      ],
+      "exit": 0,
+      "output": "Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on\n/dev/disk1s2   488245288 304035212 167513088    65% 4161323 1675130880    0%   /System/Volumes/Data\n"
+    },
+    {
+      "command": [
+        "diskutil",
+        "info",
+        "/private/tmp"
+      ],
+      "exit": 1,
+      "output": "Unable to run because unable to use the DiskManagement framework.\nCommon reasons include, but are not limited to, the DiskArbitration\nframework being unavailable due to being booted in single-user mode.\n"
+    }
+  ]
+}

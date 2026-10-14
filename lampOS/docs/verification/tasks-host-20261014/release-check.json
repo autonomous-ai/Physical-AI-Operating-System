@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/Users/d/code/autonomous-os/lampOS/target/release/examples/tasks_check",
+    "--scratch-parent",
+    "/private/tmp",
+    "--samples",
+    "8"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T09:49:43.112015+00:00",
+  "elapsed_s": 13.998392566,
+  "exit": 0,
+  "binary_bytes": 3801880,
+  "binary_sha256": "698031b3eb8ac69e6aba3398b3374f97682068c65ccf14ec594767683d0e9ffd",
+  "process_binary_bytes": 3718032,
+  "process_binary_sha256": "347be8b24fa5a80651781722c9f94d5fba263756475b5fc093142ea7b4633814",
+  "no_other_third_builds_or_tests_running": true,
+  "unrelated_host_load": "not controlled",
+  "source_hashes_match_gate": true
+}

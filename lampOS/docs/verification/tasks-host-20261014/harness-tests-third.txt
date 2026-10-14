@@ -1,0 +1,50 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.99s
+     Running tests/harness.rs (target/debug/deps/harness-df22d6e64359a8e3)
+
+running 21 tests
+test cancellation_before_spawn_does_not_run_preflight ... ok
+test a_missing_working_directory_is_a_proven_preflight_spawn_failure ... ok
+test input_limits_and_parser_ambiguity_are_refused_before_any_process ... ok
+test missing_or_competing_environment_and_unsafe_sessions_are_refused ... ok
+test read_failure_codes_do_not_echo_private_cli_details ... ok
+test cancellation_after_new_and_busy_calls_do_not_start_another_process ... ok
+test launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity ... ok
+test show_uses_full_agent_id_and_preserves_observation_only_fields ... ok
+test claude_and_explicit_folder_are_preserved_without_shell_expansion ... ok
+test pending_keeps_creation_identity_without_guessing_an_agent ... ok
+test machine_change_and_existing_name_heuristic_remain_uncertain ... ok
+test preflight_requires_exact_unique_full_machine_ids_in_ndjson ... ok
+test a_live_descendant_with_closed_pipes_is_still_killed_on_normal_exit ... ok
+test errors_and_malformed_success_after_new_are_never_retried ... ok
+test observation_bounds_wrong_identity_and_invented_completion_are_rejected ... ok
+test a_descendant_holding_pipes_is_killed_without_an_unbounded_drain ... ok
+test created_requires_every_identity_and_permission_binding ... ok
+test changed_executable_after_preflight_proves_new_was_not_spawned ... FAILED
+test executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused ... FAILED
+test a_machine_list_error_or_timeout_cannot_issue_new ... ok
+test both_pipe_caps_and_exit_deadline_are_enforced_after_new ... ok
+
+failures:
+
+---- changed_executable_after_preflight_proves_new_was_not_spawned stdout ----
+
+thread 'changed_executable_after_preflight_proves_new_was_not_spawned' (111264815) panicked at crates/tasks/tests/harness.rs:521:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_timeout" }
+ right: NotSent { code: "executable_changed" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused stdout ----
+
+thread 'executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused' (111264819) panicked at crates/tasks/tests/harness.rs:274:5:
+NotSent { code: "preflight_timeout" }
+
+
+failures:
+    changed_executable_after_preflight_proves_new_was_not_spawned
+    executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused
+
+test result: FAILED. 19 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+error: test failed, to rerun pass `-p lamp-tasks --test harness`

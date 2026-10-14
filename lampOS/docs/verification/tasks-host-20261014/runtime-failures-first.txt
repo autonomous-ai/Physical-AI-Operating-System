@@ -1,0 +1,12 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.76s
+     Running tests/runtime_failures.rs (target/debug/deps/runtime_failures-54cd24a1c80cf3a4)
+
+running 2 tests
+test blocked_owner_expires_queued_preparation_and_withdraws_then_restores_readiness ... host injected-clock fixture: blocked owner to uncertain receipt=1.108649723s; blocked owner to unavailable diagnostic=1.488059062s; release to ready diagnostic=5.451455ms; no CLI calls
+ok
+test full_unread_stderr_cannot_block_production_status_or_sigterm_cleanup ... host fixture: prefilled stderr=8192 bytes; status round trip=1.058117ms; SIGTERM to exit=16.437174ms; no CLI calls
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.36s
+

@@ -1,0 +1,18 @@
+{
+  "Cargo.toml": "a32af8e17fcd985e5e1f420f29608323e9110a38a24d69bdd707c84e2da5312f",
+  "Cargo.lock": "4b1f5aef79d23d53e8319fcf22cfd2c6607024b1bdfd0c1c9fa24ed88e8d8b1c",
+  "crates/tasks/Cargo.toml": "f07a7ccd305c9c38122d5802e6f1f734a2ae38da6de4a196f6a2609ef43858f2",
+  "crates/tasks/examples/tasks_check.rs": "731bcf1d4920d9f8c378ca56e808e4ad4cbd37351d04c46f8d655a9ddaeb1b44",
+  "crates/tasks/src/engine.rs": "ba331c1b4a6d49b509c25caed08715d7e8d0871a1929aad3382e17b900259a98",
+  "crates/tasks/src/harness.rs": "2bfc66e0946a3f1f822497a0fc9698a40d0aa0b2a70bf481dd8f8b6ed687005d",
+  "crates/tasks/src/lib.rs": "ae659b2241e149bde790ad5014bac3d4cdfe3d374b47ee0c856b6b16b1225ac4",
+  "crates/tasks/src/main.rs": "8b6178a899315df62a48953a2831f77c52b53c54e8e89825d2ac3a3de4cebbdc",
+  "crates/tasks/src/protocol.rs": "31f7e358bc703849fb2f08115c0c353c0e43569e7d80a223e7a98c2dbd5f5177",
+  "crates/tasks/src/runtime.rs": "68141a53d00db4d76dc0060b3b718c124b5b9186951ea91ede11712543b07551",
+  "crates/tasks/src/store.rs": "6edfcf7e187ed45f5c8cd573b5a657a7d98bbe6fc98b5f2ceb1df7c1d462195f",
+  "crates/tasks/tests/fixtures/harness_cli.rs": "a27fc5538e80954fd16ded60beef31e4cd4aeffa6b975c9f5b94ff82e2092c73",
+  "crates/tasks/tests/harness.rs": "90fa7a86fbd83b90eb0eac5d6b1c100b78dfd6a0f5a75583fe2835678eb625c9",
+  "crates/tasks/tests/runtime.rs": "d1471b2ae2602c669876ce57290ccaef5b604d5f456671f2add5546797091d9c",
+  "crates/tasks/tests/runtime_failures.rs": "42f14821a3d0105d08bb1d44df33558f77453b66fa53044e5f3aca8df35b8d9c",
+  "crates/tasks/tests/store.rs": "04c95ab9bd4d94fbde2b7665ca8d9165de35e914ac70e1bdb065fd73b325da5b"
+}

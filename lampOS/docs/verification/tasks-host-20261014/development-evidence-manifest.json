@@ -1,0 +1,202 @@
+[
+  {
+    "source": "/private/tmp/lamp-third-tasks-baseline-build.json",
+    "file": "baseline-build.json",
+    "sha256": "764c57b597608bdf9e5e73a2e9173693b3d10515eb57ccf3e6dfbbdd1bfa28be"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-baseline-build.txt",
+    "file": "baseline-build.txt",
+    "sha256": "c9b98de244856e941f4a520ee93a6b0f80d9258a44dfdd22e2b450476959cb8e"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-check-02.json",
+    "file": "check-02.json",
+    "sha256": "61bd2212c97605356b1b925c49390266a7c7bb54f6956c777975bffbdfa3e7b6"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-check-02.txt",
+    "file": "check-02.txt",
+    "sha256": "8df925b0b301e23529752afc7b337cf0969ecc903440025124a6e13334a6dde2"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-checker-preflight-01.json",
+    "file": "checker-preflight-01.json",
+    "sha256": "9d16e716c0e8deb7f34ca99015c3c413a3edd1c46c155deb0c767f1f60be3ebc"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-checker-preflight-01.stderr.txt",
+    "file": "checker-preflight-01.stderr.txt",
+    "sha256": "1557d20dc2b3eb9cb60c942f3f9f2afad09fefd6b61c2088010afe3ef6d09736"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-checker-preflight-01.stdout.json",
+    "file": "checker-preflight-01.stdout.json",
+    "sha256": "9832b7982f026b800bb5a6d752dac36a0d7cc66084c6cd104f83949dfe2afc6f"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-engine-clippy-first.txt",
+    "file": "engine-clippy-first.txt",
+    "sha256": "e042ed19c60ad1be97278883d3ed59b313aa172e1721371df9f8585554fa2748"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-engine-first.txt",
+    "file": "engine-first.txt",
+    "sha256": "028c351aa2f39c865c17acc6fa35d847fee9680e1f1620ee55af54a9a38a8a5e"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-check-first.txt",
+    "file": "harness-check-first.txt",
+    "sha256": "438a929388b5110f6ffb44568dd30f12218e5692fa4998cdb5f801578fd4a218"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-clippy-first.txt",
+    "file": "harness-clippy-first.txt",
+    "sha256": "574a88b6fab984b835003baa6c1c988bb3d9c7303f7c43698cfddb52845b79b2"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-existing-host-all.txt",
+    "file": "harness-existing-host-all.txt",
+    "sha256": "63dfd30dbf7476b5657e41f62b665147d0b26f75fcd4cb377dac746893e35571"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-existing-host.txt",
+    "file": "harness-existing-host.txt",
+    "sha256": "7b825702e6e61a2021bc20fffb707eff2ff3e98ad2f64b8eabce34d8bb2800aa"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-format-final.txt",
+    "file": "harness-format-final.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-format-second.txt",
+    "file": "harness-format-second.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-format-third.txt",
+    "file": "harness-format-third.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-tests-first.txt",
+    "file": "harness-tests-first.txt",
+    "sha256": "9e368b8e1ac73157788b9ba84bea577cb94b95d2eba05cf95789d9088b29f944"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-tests-fourth.txt",
+    "file": "harness-tests-fourth.txt",
+    "sha256": "f811515836868aeaec622fcf772526b4904941022be0828aa1b23f6f5aae0318"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-tests-host.txt",
+    "file": "harness-tests-host.txt",
+    "sha256": "70d8a9aac3915f816b865b34e4762062f6a2ed007725aae008a31209ba7fe91e"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-tests-second.txt",
+    "file": "harness-tests-second.txt",
+    "sha256": "5455776e15bb7a2d3d4cd07011502d3a3d719cf441bb46530a3941cd679ae7c8"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-harness-tests-third.txt",
+    "file": "harness-tests-third.txt",
+    "sha256": "2d7d7d84633c4a5189bfb3afe6d370e039a8702c88a21519b447fef880036983"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-process-repro-v2.txt",
+    "file": "process-repro-v2.txt",
+    "sha256": "d23768ed650e494b37fae2efe2324fd54b879bc69195483de044d9a12fbccfbd"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-process-repro.rs",
+    "file": "process-repro.rs",
+    "sha256": "84ab7b32dcd8ed0a1447568fcc46350c514e3d144fc1bed4752b48ee6d08656e"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-process-repro.txt",
+    "file": "process-repro.txt",
+    "sha256": "dbb2169e705d86558256a577d3eff89a7458928557aa6e1b76e8dbc99a67463c"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-protocol-first.txt",
+    "file": "protocol-first.txt",
+    "sha256": "ff1c30d9ac9436ce4838f0bf53a2aaaca87df7c66104791341d432cedae795c8"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-01.json",
+    "file": "runtime-01.json",
+    "sha256": "995680886e06fd9d9e9da5cb929e3b2c368826b1dd8dc1b84b2212290ef8d55a"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-01.txt",
+    "file": "runtime-01.txt",
+    "sha256": "860b371c15d87a464e8b35bdc39c3b23ca413b74a9c0b68aecbe61dd7c90c556"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-02.json",
+    "file": "runtime-02.json",
+    "sha256": "b663022b8870bc9e81ff64ef528383fe40e6df45ead3cc00f9f54ca760c02541"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-02.txt",
+    "file": "runtime-02.txt",
+    "sha256": "d0961213744bff10edfcbf0b036756506ebbff0f829f48933ed771729c3466f3"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-failures-clippy-final.txt",
+    "file": "runtime-failures-clippy-final.txt",
+    "sha256": "3500aa8858ca8b69900fa12339ffdcad4dd813ff2573184a0067da568133cbce"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-failures-clippy.txt",
+    "file": "runtime-failures-clippy.txt",
+    "sha256": "b347905f95c43c9d6d02f57881f11cb18ceac8916c3828141ce1910544f69c92"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-failures-final.txt",
+    "file": "runtime-failures-final.txt",
+    "sha256": "f181cad9ef01847c9191e599aff305d647356dd31fcf7f09148b4e5533ecb876"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-failures-first.txt",
+    "file": "runtime-failures-first.txt",
+    "sha256": "30435eef8e42a209c2781e212cc1561b96aad7a9f8228c74c9d50ca7bb8522a4"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-runtime-storage-failure-first.txt",
+    "file": "runtime-storage-failure-first.txt",
+    "sha256": "5f333160cc7cfeea8b70b75c3e39ed7571fa951825dbafbba45f0dce07aac06b"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-clippy.txt",
+    "file": "store-clippy.txt",
+    "sha256": "a41051563a4cb5fc1b1bcdd9aa0ba28ca80f7736d629d90cc138218756e8e3a9"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-format-first.txt",
+    "file": "store-format-first.txt",
+    "sha256": "bcf8e79d68c42536889e2c13c84f4fe0c2ed1b95baee802e12266be6a8747118"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-format.txt",
+    "file": "store-format.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-tests-first.txt",
+    "file": "store-tests-first.txt",
+    "sha256": "a01a3066cccf91a7e4c7c34d1e1da1f3989673b1b9bd227578776ac417cf1b59"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-tests.txt",
+    "file": "store-tests.txt",
+    "sha256": "a961b7d606759271cdba07e83e457701f1c452dbc56ec1d30a412ba9679fe5ff"
+  },
+  {
+    "source": "/private/tmp/lamp-third-tasks-store-unit.txt",
+    "file": "store-unit.txt",
+    "sha256": "f466270341ad9fa5e1381347c042fb575a1fe5da79dafb18a86c92fb609c96e3"
+  }
+]

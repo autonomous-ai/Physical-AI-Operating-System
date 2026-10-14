@@ -1,0 +1,12 @@
+{
+  "command": [
+    "diskutil",
+    "info",
+    "-plist",
+    "/dev/disk1s2"
+  ],
+  "exit": 1,
+  "selected_fields": {},
+  "stderr": "Unable to run because unable to use the DiskManagement framework.\nCommon reasons include, but are not limited to, the DiskArbitration\nframework being unavailable due to being booted in single-user mode.\n",
+  "observed_utc": "2026-10-14T09:47:04.358052+00:00"
+}

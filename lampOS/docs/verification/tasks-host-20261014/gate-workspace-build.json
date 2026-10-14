@@ -1,0 +1,12 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--workspace"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T09:44:53.524713+00:00",
+  "elapsed_s": 4.771166086000001,
+  "exit": 0
+}

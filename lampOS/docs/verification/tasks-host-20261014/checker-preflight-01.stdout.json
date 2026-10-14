@@ -1,0 +1,133 @@
+{
+  "all_assertions_passed": true,
+  "boundaries": "real local SQLite, sockets, process spawn and scripted JSON; fresh private store per cycle; confirmation, boot identity and played receipts authored; no account, remote execution, physical reboot or sound",
+  "cycles": [
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 80.750716,
+      "confirm_receipt_ms": 85.974863,
+      "confirm_to_scripted_created_ms": 309.622487,
+      "new_calls": 1,
+      "observe_to_stored_ms": 291.478938,
+      "prepare_receipt_ms": 81.121533,
+      "restart_ms": 104.82417199999999,
+      "show_calls": 2,
+      "speech_claim_ms": 90.976214,
+      "startup_ms": 220.47806,
+      "status_beside_silent_ms": 8.328828
+    }
+  ],
+  "elapsed_ms": 3101.882126,
+  "malformed_reply": {
+    "new_calls": 1,
+    "observation_refused": true,
+    "restarted_without_resend": true,
+    "state": "uncertain"
+  },
+  "pending": {
+    "new_calls": 1,
+    "observation_refused": true,
+    "restarted_without_resend": true,
+    "state": "pending"
+  },
+  "platform": {
+    "arch": "x86_64",
+    "os": "macos"
+  },
+  "samples": 1,
+  "scratch": "/private/tmp/tasks-check-ff4136b26fa7",
+  "scratch_removed": true,
+  "statistics": {
+    "authored_playout_ack_ms": {
+      "all_ms": [
+        80.750716
+      ],
+      "count": 1,
+      "first_ms": 80.750716,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "confirm_receipt_ms": {
+      "all_ms": [
+        85.974863
+      ],
+      "count": 1,
+      "first_ms": 85.974863,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "confirm_to_scripted_created_ms": {
+      "all_ms": [
+        309.622487
+      ],
+      "count": 1,
+      "first_ms": 309.622487,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "observe_to_stored_ms": {
+      "all_ms": [
+        291.478938
+      ],
+      "count": 1,
+      "first_ms": 291.478938,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "prepare_receipt_ms": {
+      "all_ms": [
+        81.121533
+      ],
+      "count": 1,
+      "first_ms": 81.121533,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "restart_ms": {
+      "all_ms": [
+        104.82417199999999
+      ],
+      "count": 1,
+      "first_ms": 104.82417199999999,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "speech_claim_ms": {
+      "all_ms": [
+        90.976214
+      ],
+      "count": 1,
+      "first_ms": 90.976214,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "startup_ms": {
+      "all_ms": [
+        220.47806
+      ],
+      "count": 1,
+      "first_ms": 220.47806,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    },
+    "status_beside_silent_ms": {
+      "all_ms": [
+        8.328828
+      ],
+      "count": 1,
+      "first_ms": 8.328828,
+      "warm_count": 0,
+      "warm_max_ms": null,
+      "warm_median_ms": null
+    }
+  },
+  "unit": "milliseconds"
+}

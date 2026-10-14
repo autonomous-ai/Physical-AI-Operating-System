@@ -1,0 +1,10 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.50s
+     Running tests/runtime_failures.rs (target/debug/deps/runtime_failures-54cd24a1c80cf3a4)
+
+running 1 test
+host storage-failure fixture: prefilled stderr=8192 bytes; Prepare start to error exit=28.80421ms; both sockets removed; replacement untouched; no CLI calls
+test full_unread_stderr_cannot_hold_storage_failure_exit_or_socket_cleanup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.88s
+

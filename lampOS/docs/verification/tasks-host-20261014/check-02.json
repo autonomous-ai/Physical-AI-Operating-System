@@ -1,0 +1,12 @@
+{
+  "command": [
+    "cargo",
+    "check",
+    "-p",
+    "lamp-tasks",
+    "--all-targets"
+  ],
+  "at": "2026-10-14T09:23:41.132073+00:00",
+  "elapsed_s": 2.9438775440000002,
+  "exit": 0
+}

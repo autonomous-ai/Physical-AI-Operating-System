@@ -1,0 +1,172 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+warning: unused import: `Guard`
+ --> crates/tasks/src/engine.rs:5:16
+  |
+5 |     protocol::{Guard, MAX_PAGE_SIZE, MAX_REPLY_BYTES, Request},
+  |                ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-tasks` (lib) generated 1 warning (run `cargo fix --lib -p lamp-tasks` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.11s
+     Running tests/harness.rs (target/debug/deps/harness-df22d6e64359a8e3)
+
+running 20 tests
+test cancellation_before_spawn_does_not_run_preflight ... ok
+test input_limits_and_parser_ambiguity_are_refused_before_any_process ... ok
+test missing_or_competing_environment_and_unsafe_sessions_are_refused ... ok
+test a_non_executable_format_is_a_proven_preflight_spawn_failure ... FAILED
+test a_machine_list_error_or_timeout_cannot_issue_new ... FAILED
+test launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity ... FAILED
+test show_uses_full_agent_id_and_preserves_observation_only_fields ... FAILED
+test observation_bounds_wrong_identity_and_invented_completion_are_rejected ... FAILED
+test pending_keeps_creation_identity_without_guessing_an_agent ... FAILED
+test created_requires_every_identity_and_permission_binding ... FAILED
+test machine_change_and_existing_name_heuristic_remain_uncertain ... FAILED
+test claude_and_explicit_folder_are_preserved_without_shell_expansion ... FAILED
+test errors_and_malformed_success_after_new_are_never_retried ... FAILED
+test preflight_requires_exact_unique_full_machine_ids_in_ndjson ... FAILED
+test both_pipe_caps_and_exit_deadline_are_enforced_after_new ... FAILED
+test read_failure_codes_do_not_echo_private_cli_details ... FAILED
+test a_descendant_holding_pipes_is_killed_without_an_unbounded_drain ... FAILED
+test changed_executable_after_preflight_proves_new_was_not_spawned ... FAILED
+test executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused ... FAILED
+test cancellation_after_new_and_busy_calls_do_not_start_another_process ... FAILED
+
+failures:
+
+---- a_non_executable_format_is_a_proven_preflight_spawn_failure stdout ----
+
+thread 'a_non_executable_format_is_a_proven_preflight_spawn_failure' (111237242) panicked at crates/tasks/tests/harness.rs:294:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: NotSent { code: "preflight_spawn_failed" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a_machine_list_error_or_timeout_cannot_issue_new stdout ----
+
+thread 'a_machine_list_error_or_timeout_cannot_issue_new' (111237241) panicked at crates/tasks/tests/harness.rs:351:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_timeout" }
+ right: NotSent { code: "preflight_failed" }
+
+---- launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity stdout ----
+
+thread 'launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity' (111237252) panicked at crates/tasks/tests/harness.rs:130:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Created { agent_id: "11111111-1111-4111-8111-111111111111" }
+
+---- show_uses_full_agent_id_and_preserves_observation_only_fields stdout ----
+
+thread 'show_uses_full_agent_id_and_preserves_observation_only_fields' (111237279) panicked at crates/tasks/tests/harness.rs:535:48:
+called `Result::unwrap()` on an `Err` value: "cleanup_incomplete"
+
+---- observation_bounds_wrong_identity_and_invented_completion_are_rejected stdout ----
+
+thread 'observation_bounds_wrong_identity_and_invented_completion_are_rejected' (111237255) panicked at crates/tasks/tests/harness.rs:582:9:
+assertion `left == right` failed
+  left: Err("cleanup_incomplete")
+ right: Err("invalid_observation")
+
+---- pending_keeps_creation_identity_without_guessing_an_agent stdout ----
+
+thread 'pending_keeps_creation_identity_without_guessing_an_agent' (111237259) panicked at crates/tasks/tests/harness.rs:360:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Pending { creation_id: "22222222-2222-4222-8222-222222222222" }
+
+---- created_requires_every_identity_and_permission_binding stdout ----
+
+thread 'created_requires_every_identity_and_permission_binding' (111237248) panicked at crates/tasks/tests/harness.rs:394:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Uncertain { code: "invalid_reply" }
+
+---- machine_change_and_existing_name_heuristic_remain_uncertain stdout ----
+
+thread 'machine_change_and_existing_name_heuristic_remain_uncertain' (111237253) panicked at crates/tasks/tests/harness.rs:420:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Uncertain { code: "machine_mismatch" }
+
+---- claude_and_explicit_folder_are_preserved_without_shell_expansion stdout ----
+
+thread 'claude_and_explicit_folder_are_preserved_without_shell_expansion' (111237247) panicked at crates/tasks/tests/harness.rs:178:5:
+assertion failed: matches!(rig.cli().launch(&request), LaunchOutcome::Created { .. })
+
+---- errors_and_malformed_success_after_new_are_never_retried stdout ----
+
+thread 'errors_and_malformed_success_after_new_are_never_retried' (111237249) panicked at crates/tasks/tests/harness.rs:441:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Uncertain { code: "new_failed" }
+
+---- preflight_requires_exact_unique_full_machine_ids_in_ndjson stdout ----
+
+thread 'preflight_requires_exact_unique_full_machine_ids_in_ndjson' (111237270) panicked at crates/tasks/tests/harness.rs:333:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: NotSent { code: "machine_unavailable" }
+
+---- both_pipe_caps_and_exit_deadline_are_enforced_after_new stdout ----
+
+thread 'both_pipe_caps_and_exit_deadline_are_enforced_after_new' (111237243) panicked at crates/tasks/tests/harness.rs:463:9:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Uncertain { code: "stdout_limit" }
+
+---- read_failure_codes_do_not_echo_private_cli_details stdout ----
+
+thread 'read_failure_codes_do_not_echo_private_cli_details' (111237273) panicked at crates/tasks/tests/harness.rs:599:5:
+assertion `left == right` failed
+  left: Err("cleanup_incomplete")
+ right: Err("observe_failed")
+
+---- a_descendant_holding_pipes_is_killed_without_an_unbounded_drain stdout ----
+
+thread 'a_descendant_holding_pipes_is_killed_without_an_unbounded_drain' (111237240) panicked at crates/tasks/tests/harness.rs:474:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: Uncertain { code: "pipes_open" }
+
+---- changed_executable_after_preflight_proves_new_was_not_spawned stdout ----
+
+thread 'changed_executable_after_preflight_proves_new_was_not_spawned' (111237246) panicked at crates/tasks/tests/harness.rs:497:5:
+assertion `left == right` failed
+  left: NotSent { code: "preflight_cleanup_incomplete" }
+ right: NotSent { code: "executable_changed" }
+
+---- executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused stdout ----
+
+thread 'executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused' (111237250) panicked at crates/tasks/tests/harness.rs:272:5:
+assertion failed: matches!(cli.launch(&launch()), LaunchOutcome::Created { .. })
+
+---- cancellation_after_new_and_busy_calls_do_not_start_another_process stdout ----
+
+thread 'cancellation_after_new_and_busy_calls_do_not_start_another_process' (111237244) panicked at crates/tasks/tests/harness.rs:85:13:
+fixture did not enter new
+
+
+failures:
+    a_descendant_holding_pipes_is_killed_without_an_unbounded_drain
+    a_machine_list_error_or_timeout_cannot_issue_new
+    a_non_executable_format_is_a_proven_preflight_spawn_failure
+    both_pipe_caps_and_exit_deadline_are_enforced_after_new
+    cancellation_after_new_and_busy_calls_do_not_start_another_process
+    changed_executable_after_preflight_proves_new_was_not_spawned
+    claude_and_explicit_folder_are_preserved_without_shell_expansion
+    created_requires_every_identity_and_permission_binding
+    errors_and_malformed_success_after_new_are_never_retried
+    executable_is_canonicalized_and_replacement_or_unsafe_modes_are_refused
+    launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity
+    machine_change_and_existing_name_heuristic_remain_uncertain
+    observation_bounds_wrong_identity_and_invented_completion_are_rejected
+    pending_keeps_creation_identity_without_guessing_an_agent
+    preflight_requires_exact_unique_full_machine_ids_in_ndjson
+    read_failure_codes_do_not_echo_private_cli_details
+    show_uses_full_agent_id_and_preserves_observation_only_fields
+
+test result: FAILED. 3 passed; 17 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+
+error: test failed, to rerun pass `-p lamp-tasks --test harness`

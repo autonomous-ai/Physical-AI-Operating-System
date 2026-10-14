@@ -1,0 +1,11 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+error[E0425]: cannot find function `receipt_effect` in this scope
+   --> crates/tasks/src/engine.rs:600:20
+    |
+600 |                 || receipt_effect(self, &receipt.request)? != &receipt.at
+    |                    ^^^^^^^^^^^^^^------------------------
+    |                    |
+    |                    help: try calling `receipt_effect` as a method: `self.receipt_effect(&receipt.request)`
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `lamp-tasks` (lib) due to 1 previous error

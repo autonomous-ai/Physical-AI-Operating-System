@@ -1,0 +1,13 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--offline",
+    "--locked",
+    "--workspace"
+  ],
+  "cwd": "/private/tmp/lamp-third-tasks-source-20261014",
+  "started_utc": "2026-10-14T09:45:54.521325+00:00",
+  "elapsed_s": 83.97707145199999,
+  "exit": 0
+}

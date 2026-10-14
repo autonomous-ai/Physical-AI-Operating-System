@@ -1,0 +1,26 @@
+# lampOS controls: reads the lamp's button and the touch pads on its head and says on the bus what a hand did
+# (a tap, a hold, a pat; lampOS/docs/controls.md). Watching only: without --enable nothing it says may be acted on.
+# Its own process and unit: with it stopped the lamp talks and moves as before.
+# Its two settings files hold no secret and sit beside the build, because /etc/lampOS is readable by root alone and this runs as orangepi.
+[Unit]
+Description=lampOS controls (lamp-controls)
+After=local-fs.target
+ConditionHost=lamp-4ace
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/lamp-controls serve --config /opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/controls.json --pins /opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/controls-pins.json --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-controls
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -281,13 +281,15 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .into_iter()
         .collect::<io::Result<Vec<_>>>()?;
     let started = lamp_ipc::monotonic_us();
+    let mut hands = HandLog::default();
     while !stop.load(Ordering::Relaxed)
         && args
             .seconds
             .is_none_or(|seconds| lamp_ipc::monotonic_us() - started < seconds * 1_000_000)
     {
         let began = lamp_ipc::monotonic_us();
-        service.step(lamp_ipc::monotonic_us);
+        let output = service.step(lamp_ipc::monotonic_us);
+        hands.note(began, &output);
         let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
         if elapsed < runtime::POLL_US {
             thread::sleep(Duration::from_micros(runtime::POLL_US - elapsed));
@@ -321,5 +323,153 @@ fn main() -> ExitCode {
             eprintln!("lamp-controls: {error}\n{USAGE}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// One journal line whenever a hand changes something: a button pressed or
+/// let go, the head touched or let go, a gesture, a fault or its end. So the
+/// first real press or pat is kept even when nobody is watching the bus.
+/// Written to standard error: standard output carries only the closing summary.
+/// Changes only, and at most `HandLog::LINES` lines in any ten seconds, so a
+/// line that flaps cannot fill the journal; what is held back is counted.
+#[derive(Default)]
+struct HandLog {
+    last: Option<String>,
+    window_us: u64,
+    lines: u32,
+    held_back: u64,
+}
+
+impl HandLog {
+    const LINES: u32 = 20;
+    const WINDOW_US: u64 = 10_000_000;
+
+    fn note(&mut self, at_us: u64, output: &lamp_controls::engine::Output) {
+        let state = &output.state;
+        let mut now = state
+            .buttons
+            .iter()
+            .map(|button| {
+                let word = if button.pressed {
+                    "pressed"
+                } else {
+                    "released"
+                };
+                format!("button {} {word}", button.name)
+            })
+            .collect::<Vec<_>>();
+        now.push(
+            if state.head_active {
+                "head touched"
+            } else {
+                "head not touched"
+            }
+            .into(),
+        );
+        if let Some(fault) = state.fault {
+            now.push(format!("fault {fault:?}"));
+        }
+        let gestures = output
+            .gestures
+            .iter()
+            .map(|gesture| {
+                format!(
+                    "gesture {:?} on {} ({:?}), {} ms, acted on: {}",
+                    gesture.gesture,
+                    gesture.name,
+                    gesture.intent,
+                    gesture.duration_us / 1000,
+                    gesture.enabled
+                )
+            })
+            .collect();
+        for line in self.lines(at_us, now.join(", "), gestures) {
+            eprintln!("lamp-controls: hand: {line}");
+        }
+    }
+
+    fn lines(&mut self, at_us: u64, now: String, gestures: Vec<String>) -> Vec<String> {
+        let mut said = Vec::new();
+        if self.last.as_deref() != Some(now.as_str()) {
+            said.push(now.clone());
+            self.last = Some(now);
+        }
+        said.extend(gestures);
+        let mut out = Vec::new();
+        if said.is_empty() {
+            return out;
+        }
+        if at_us.saturating_sub(self.window_us) >= Self::WINDOW_US {
+            if self.held_back > 0 {
+                out.push(format!("{} more changes not written", self.held_back));
+                self.held_back = 0;
+            }
+            self.window_us = at_us;
+            self.lines = 0;
+        }
+        for line in said {
+            if self.lines < Self::LINES {
+                self.lines += 1;
+                out.push(line);
+            } else {
+                self.held_back += 1;
+            }
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod hand_log_tests {
+    use super::HandLog;
+
+    #[test]
+    fn only_changes_are_written() {
+        let mut log = HandLog::default();
+        let start = 20_000_000;
+        assert_eq!(
+            log.lines(start, "head not touched".into(), vec![]),
+            ["head not touched"]
+        );
+        assert!(
+            log.lines(start + 5_000, "head not touched".into(), vec![])
+                .is_empty()
+        );
+        assert_eq!(
+            log.lines(start + 10_000, "head touched".into(), vec![]),
+            ["head touched"]
+        );
+        assert_eq!(
+            log.lines(
+                start + 15_000,
+                "head touched".into(),
+                vec!["gesture Pet".into()]
+            ),
+            ["gesture Pet"]
+        );
+    }
+
+    #[test]
+    fn a_flapping_line_is_held_to_twenty_lines_in_ten_seconds_and_counted() {
+        let mut log = HandLog::default();
+        let start = 20_000_000;
+        let mut written = 0;
+        for i in 0..200u64 {
+            let now = if i % 2 == 0 {
+                "head touched"
+            } else {
+                "head not touched"
+            };
+            written += log.lines(start + i * 5_000, now.into(), vec![]).len();
+        }
+        assert_eq!(written, 20);
+        let next = log.lines(start + 10_000_000, "head touched".into(), vec![]);
+        assert_eq!(
+            next,
+            [
+                "180 more changes not written".to_string(),
+                "head touched".into()
+            ]
+        );
     }
 }

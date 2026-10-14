@@ -182,6 +182,21 @@ only: 3,232 observations taken, one every 6.2 ms, none refused, no
 reading failed, the longest step 0.5 ms, and all three inputs at rest
 throughout. `controls/state` was published.
 
+**Running on lamp-4ace since 11:03 the same day**, as its own unit
+(`deploy/lamp-4ace/lamp-controls.service`), watching only: no `--enable`, so
+its gestures say `enabled:false` and nothing acts on them. Its two files sit
+beside its build in `/opt/lampOS/controls/<sha>/`, because `/etc/lampOS` is
+root's alone and the first start, with them there, failed on "Permission
+denied". It says `controls/state` on the bus, and since 11:17 it writes one
+line to its journal (standard error; standard output stays the closing
+summary) whenever a hand changes something: the button pressed or let go,
+the head touched or let go, a gesture, a fault. Changes only, at most 20
+lines in ten seconds, the rest counted. Its first line was
+`hand: button primary released, head not touched`. So the first real press
+or pat is kept whenever it comes, with
+`journalctl -u lamp-controls | grep hand:`. Polling every 5 ms it took 11.5 s
+of processor time in its first 14 minutes, 1.4 % of one core.
+
 Not shown: a press or a touch. Nobody's hand has been on the lamp for
 this. The first press of the button and the first pat of the head, with
 `serve --record`, will show which way each line goes and how long a

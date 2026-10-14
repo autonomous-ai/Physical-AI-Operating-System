@@ -1,8 +1,9 @@
 # The units lamp-4ace runs
 
-Copies of the three systemd units on lamp-4ace, the office lab prototype, as
-they were installed on 2026-10-13: its voice (`lamp-voice.service`), body
-(`lamp-body.service`) and eyes (`lamp-eyes.service`). The working copies are
+Copies of the systemd units on lamp-4ace, the office lab prototype: its voice
+(`lamp-voice.service`), body (`lamp-body.service`) and eyes
+(`lamp-eyes.service`) as they were installed on 2026-10-13, and its hand
+controls (`lamp-controls.service`, watching only) since 2026-10-14. The working copies are
 beside the deploy scripts on the machine that installs them; these are here
 so that what the lamp runs is in the repository. They name one lamp
 (`ConditionHost=lamp-4ace`), its devices and its measured poses, and are not
@@ -12,3 +13,10 @@ a private file the voice unit only names.
 The long hexadecimal directories in `ExecStart` are the SHA-256 of the binary
 installed there. The character file the voice unit's configuration names is
 [`../character/lamp.txt`](../character/lamp.txt).
+
+`controls.json` and `controls-pins.json` are the hand controls' settings and
+the board's wiring ([controls.md](../../docs/controls.md)). On the lamp they
+sit beside the build they were installed with, not in `/etc/lampOS`, which
+only root may read; the controls run as `orangepi`. `lean-first-software.json`
+is the first software's body model in the lean check's form, a stand-in
+([lean.md](../../docs/lean.md), "lamp-4ace, 14 October").

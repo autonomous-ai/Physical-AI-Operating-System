@@ -152,7 +152,7 @@ has it:
 |---|---|---|
 | To be stopped and silenced by a hand, whatever the voice is doing | No button or touch pad in V2 | Third: task 7 |
 | To start by itself after power comes back, get onto a network without a builder, and take new software | Voice and light come back; the body and the eyes are started by hand; no setup, no updates | Third: task 12. First: on the lamp |
-| A body that gives way against a hand and cannot tip itself over | The force limit is on the lamp at 600 since 2026-10-14, 08:01, not yet tried by a hand; there is still no lean check | First |
+| A body that gives way against a hand and cannot tip itself over | The force limit is on the lamp at 600 since 2026-10-14, 08:01, not yet tried by a hand; the lean check runs on the lamp, but nothing of the lamp has been weighed, so it is not wired | First |
 | Answers that begin sooner than two seconds after the person stops | Half begin within 1.98 s | Second: task 1. First: on the lamp |
 | To stop when someone says stop | One or two of seven short words | Second: task 3. First: with a person's voice |
 | To hear its name however it is said | "Hey Lamp" and "Lamp ơi", not a bare "Lamp" | Second: task 5 |
@@ -171,7 +171,7 @@ has it:
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | done 2026-10-14: on `lamp-voice`, behind the voice's `--echo-reference steady`; to be played to on the lamp |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
-| 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; its written scenario runs on the lamp; reading the lamp's real pins and the voice and body acting on it are the first builder's |
+| 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; reads the lamp's real pins and runs there as its own service since 11:03, watching only; the voice acting on it is task 21 |
 | 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | taken 2026-10-14 |
 | 6 | Reminders and timers | `schedule` | Third | open |
@@ -180,7 +180,7 @@ has it:
 | 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; on the lamp in its old mode, the new store not switched on |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
-| 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | taken 2026-10-14 |
+| 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |
 | 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | open |
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
 
@@ -897,6 +897,38 @@ head pads, which is set from the lines at rest and not from a touch.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 16, the lean check.** Taken onto `lamp-voice`
+unchanged (`bbbd82fc9`). Its 63 tests pass on the first builder's Mac and,
+built for the lamp, under emulation. On lamp-4ace at 11:05 the first command
+the log gives printed what it said to expect (+0.09 m, 16 within, not
+qualified, exit 0), the level arm exited 1 and a count of 4096 exited 2. On
+the lamp one pose takes 0.003 ms at worst, a 1,000-step path 1.5 ms, the
+whole program with its files 7.4 ms; a path that spends all its work 47 ms.
+
+The lamp's motor readings come off `body/joint_states`: at rest
+`2023,2052,2047,2053,1950`, standing `2023,2558,2503,2053,1820`. The first
+software's body model, put in the check's form from its URDF and the motor
+calibration kept on this lamp, agrees with the first software's own
+function to 0.02 mm over 42 poses. It is not the lamp: its masses add up to
+1.49 kg where the lamp's specification says 7 kg; the first software read
+its motors' -100..100 values as degrees, so its 22 mm limit cannot be
+carried over (scored its way, rest is 19.1 mm and standing 13.1 mm: it would
+have played both); and nobody has measured the base. All in
+[lean.md](lean.md), "lamp-4ace, 14 October". The file stays a stand-in,
+the check is not wired, and what a person can do in ten minutes with a
+kitchen scale and a ruler is listed there under "Measurements the first
+builder needs".
+
+**2026-10-14, task 7, the hand controls as a service.** Since 11:03
+`lamp-controls` runs on lamp-4ace as its own unit, watching only, reading
+the button and the two head pads every 5 ms and saying `controls/state`. Its
+first start failed ("Permission denied": `/etc/lampOS` is root's and it runs
+as `orangepi`); its two files now sit beside its build. Since 11:17 it
+writes a line to its journal whenever a hand changes something, at most 20
+in ten seconds, so the first real press or pat is kept whenever it comes
+(two tests for that bound; standard output stays the closing summary, which
+a test of the program caught). 1.4 % of one core. Nothing acts on it yet.
 
 **2026-10-14, task 15, the bound on the lamp's records.** Taken onto
 `lamp-voice` (`c998cd75e`; the workspace's list of crates merged by hand

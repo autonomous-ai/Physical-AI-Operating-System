@@ -612,7 +612,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
-    // while the goals are changing: what it did, afterwards.
+    // while the goals are changing: what it did, afterwards. At rest the
+    // goals never stop changing (it breathes and glances), so there it is
+    // a line every thirty seconds: on lamp-4ace on 2026-10-15 the resting
+    // body wrote two lines a second, 92% of the journal, and the 47 MB
+    // RAM log held only the last 25 minutes.
     let mut said: Option<(lamp_body::gesture::Mood, u64, [u16; 3], [u16; 2])> = None;
     let asked_to_stand = arguments.standing.is_some();
     let mut told_whether_it_stands = false;
@@ -638,7 +642,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             // how warm the two joints that carry it are getting.
             Some((_, step, _, _)) if glimpse.stand > 0.0 && glimpse.step - step >= 500 => true,
             Some((_, step, goals, arm)) => {
-                (goals != glimpse.goals || arm != glimpse.arm_goals) && glimpse.step - step >= 25
+                let pace = if glimpse.mood == lamp_body::gesture::Mood::Resting {
+                    1500
+                } else {
+                    25
+                };
+                (goals != glimpse.goals || arm != glimpse.arm_goals) && glimpse.step - step >= pace
             }
         };
         if glimpse.limp != limp {
@@ -689,10 +698,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 None => eprintln!("lamp-body: step {} gesture over", glimpse.step),
             }
         }
-        // What the eyes report and where that has it look, at most twice a
-        // second: for setting the two numbers of --gaze on a lamp.
+        // What the eyes report and where that has it look, at most every
+        // five seconds: for setting the two numbers of --gaze on a lamp.
+        // Twice a second filled the journal on a day of faces at desks.
         if let Some(face) = glimpse.face
-            && glimpse.step - face_said >= 25
+            && glimpse.step - face_said >= 250
         {
             face_said = glimpse.step;
             eprintln!(

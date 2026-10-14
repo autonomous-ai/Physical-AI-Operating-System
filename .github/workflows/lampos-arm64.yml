@@ -14,7 +14,8 @@ on:
 
 concurrency:
   group: lampos-arm64-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push waits for the running one instead of cancelling it, so a busy branch still gets results.
+  cancel-in-progress: false
 
 jobs:
   arm64:

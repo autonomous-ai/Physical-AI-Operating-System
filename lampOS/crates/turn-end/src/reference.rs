@@ -6,6 +6,14 @@
 pub const VOICED_PROBABILITY: f32 = 0.968_532_3;
 /// Largest accepted difference between tract and ONNX Runtime.
 pub const TOLERANCE: f32 = 1e-4;
+/// The fast model's probability for [`voiced`]: the pinned model rewritten
+/// to 8 bits (`crate::eight_bit`) under ONNX Runtime 1.30.0, as measured on
+/// Linux ARM64 and macOS (docs/endpoint-pilot.md, "The fast model").
+pub const VOICED_PROBABILITY_FAST: f32 = 0.968_226_6;
+/// Largest accepted difference for the fast model: its 8-bit rounding is
+/// the same everywhere, but its float stages may take other routes on
+/// other processors.
+pub const TOLERANCE_FAST: f32 = 1e-3;
 
 /// 9 s of xorshift32 noise (seed 2) with a 3-sample pulse every 100 samples,
 /// whose height steps every 0.1 s.

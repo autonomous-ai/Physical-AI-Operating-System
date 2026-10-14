@@ -14,6 +14,248 @@ supervised pilot ([supervised-pilot.md](supervised-pilot.md)).
   base's. The `endpoint_policy` and `local_endpoint` trace records keep
   exactly their existing fields.
 
+## The fast model (2026-10-14)
+
+The worker can run the same pinned model fast: `lamp-turn-end --fast`. Its
+weight multiplications are done in 8 bits by ONNX Runtime, on two threads,
+on the fastest cores. Without `--fast` nothing changes. The second builder
+built it for task 1 of [work-split.md](work-split.md). Nothing here ran on
+a lamp.
+
+**Why.** On lamp-4ace one verdict took 383 ms on the two fast cores and
+1,292 ms on the six slow ones, so the model could never end a turn before
+the 600 ms window ([endpoint-detection.md](endpoint-detection.md), "On the
+lamp, 2026-10-14"). Wanted: a verdict within 150 ms of being asked, on the
+fast cores, that agrees with the present model on labelled speech.
+
+### What exists and what we take
+
+Each way was timed on the Linux ARM64 VM (Colima on the M2 Max, 6 virtual
+cores, Debian bookworm, Rust 1.96.0) with one full 8 s window: the model
+alone, warm median. The agreement in this table was measured on the M2 Max
+itself (tract, or ONNX Runtime 1.31 in Python), on the 1,167 held-out human
+clips described below; the chosen way's is measured again on the VM, with
+the worker's own code, in "Agreement with today's model".
+
+| Way | Time | Agrees with today's model? | Taken |
+| --- | --- | --- | --- |
+| tract, floats, 1 thread (today) | 85 ms | it is today's | Kept as the default |
+| tract, floats, 2 threads (`multithread-mm`) | 54 ms | yes | No: not enough |
+| tract, half floats (the A76 and the M2 both have them) | 69 ms; 58 ms with softmax and normalisation kept in floats | 0.9678 against 0.9685 on the check signal | No: tract's half-float softmax took 21.5 ms, and the conversions eat what is saved |
+| tract, 8 bits | as slow as floats, see below | | No |
+| A shorter window, 6 or 4 s in place of 8 | not timed | No: on the 1,167 held-out human clips, 15–25 verdicts change side of 0.5 at 6 s and 52–59 at 4 s, and 4 s loses 2.7–3.3 points of accuracy | No |
+| ONNX Runtime 1.31, floats | 85 ms; 44 ms on 2 threads | yes | No: not enough |
+| ONNX Runtime 1.31, Pipecat's own 8-bit file (`smart-turn-v3.2-cpu.onnx`) | 40 ms; 22 ms on 2 threads | 24 of 1,167 change side as recorded and 44 asked 200 ms into a pause; 0.5 and 1.4 points of accuracy lost | No |
+| ONNX Runtime 1.30, the pinned float file made 8-bit as the worker loads it, one multiplication kept in floats | 52 ms; 26.6–27.4 ms on 2 threads | 2 and 3 of 1,167 change side; accuracy within 0.2 point | **Yes** |
+
+**Why tract's 8 bits are slow.** tract 0.23.8 has a fast 8-bit kernel for
+ARM (SDOT), but its build script assembles a probe with the directive
+`.cpu generic+fp+simd+dotprod`. Debian bookworm's assembler (binutils 2.40)
+and clang 14, 15 and 16 refuse it; binutils 2.42 (Ubuntu 24.04) and 2.44
+(Debian trixie) accept it, and `.arch armv8.2-a+dotprod` works everywhere.
+So every lamp build made in a bookworm container has no SDOT kernel, and
+tract's 8-bit multiplication runs at float speed without a word. With the
+directive patched the 8-bit multiplications became 3.2 times faster, but the
+whole model only reached 53 ms, 45 ms on 2 threads: tract quantizes in a
+scalar loop (8.9 ms of the 53) and runs everything but multiplications on
+one thread. Pipecat's own 8-bit file still gives a wrong answer under tract
+(0.5588 against ONNX Runtime's 0.9809), from a quantize-and-dequantize
+pair outside the multiplications; with those pairs bypassed it is right
+(0.9646 against 0.9641). Neither is used.
+
+**Also checked.** The VM's processor has an 8-bit matrix instruction
+(i8mm) that the A76 lacks. Hiding it from ONNX Runtime (a test library that
+masks the bit in `getauxval`; ONNX Runtime reads it) changed nothing:
+26.0 against 27.0 ms. So the VM's ONNX Runtime times do not lean on an
+instruction the lamp does not have. ONNX Runtime's threads busy-wait
+between steps by default; that cost no more processor time per verdict than
+sleeping (54 against 53 ms) and kept the worst case steadier (28–30 against
+33–36 ms), so it is kept.
+
+**The 8-bit form.** The model file stays the one the lamp has,
+`smart-turn-v3.2-gpu.onnx`, pinned by size and SHA-256. Each time the worker
+starts it makes the 8-bit form in memory (`crates/turn-end/src/eight_bit.rs`),
+in the form ONNX Runtime's own `quantize_dynamic` writes, which ONNX Runtime
+runs as one 8-bit multiplication:
+
+- each weight matrix in int8, one scale per output column, symmetric;
+- each activation quantized as it arrives, with its own scale (once when
+  several multiplications read it);
+- 24 of the model's 26 weight multiplications; the pooling's last (256 × 1)
+  is too small to bother, and one is kept in floats on purpose.
+
+That one is the third layer's projection after the GELU (`node_MatMul_223`).
+Its input has outliers that one 8-bit scale per request cannot hold. It was
+chosen on the development clips (shards 0 and 1), where keeping it in floats
+alone took the verdicts that change side of 0.5 from 13 to 4, and only then
+checked on the held-out clips (shards 4 and 5), where it took them from 21 to
+0 under ONNX Runtime 1.31 in Python. It costs about 2 ms.
+
+### How it runs
+
+- `lamp-turn-end --model PATH [--parent PID] --fast`, otherwise as before:
+  - keeps itself on the cores with the largest `cpu_capacity` (cpu6 and cpu7
+    on the A733; where all cores are alike, as in the VM, it chooses none),
+    so ONNX Runtime's second thread starts there too;
+  - checks the ONNX Runtime library beside the worker
+    (`libonnxruntime.so.1.30.0`) by size and SHA-256 before loading it;
+  - checks the model as before, makes its 8-bit form and opens it on two
+    threads;
+  - answers exactly as before. `Ready` names the same model.
+- Its address space is capped at 544 MiB in place of 256 MiB: 2.2 times the
+  243.5 MiB peak measured with two threads. Core files stay off and the
+  niceness +10.
+- A missing or different library ends the worker at startup with the
+  reason. The core then keeps the silence window on every pause, as for any
+  other failed worker, and never restarts it.
+- `WorkerCommand::smart_turn_fast` (`crates/turn-end-wire`) is the command
+  the voice would start it with. Nothing in the voice uses it yet.
+- `lamp-turn-end --check-model PATH --fast` checks the installation: the
+  check signal must give the fast model's recorded 0.9682266 within 0.001.
+- `lamp-turn-end bench PATH [RUNS] [--fast] [--threads N] [--cores fast|all|LIST]`
+  times the features and the model separately for each run on the full
+  check signal (an 8 s window, the longest request), under the worker's own
+  bounds, then prints one JSON line: the median and worst of each, processor
+  time, memory, the cores it was kept on and each core's part number.
+- `lamp-turn-end agree PATH DIRECTORY... [--csv FILE]` runs both models on
+  labelled clips (a `manifest.json` and 16 kHz WAV files, the layout of
+  [endpoint-detection.md](endpoint-detection.md), "Recorded human clips")
+  as recorded and 200 ms into a pause, and reports how far they agree.
+
+### Measured, not on the lamp
+
+On the Linux ARM64 VM, the release worker, `bench` with 25 runs, under the
+worker's bounds (niceness +10). The fast runs were repeated three times.
+
+| | Exact (today) | Fast | |
+| --- | --- | --- | --- |
+| Verdict: features and model, median | 87.0 ms | 29.5–30.3 ms | 2.9 times faster |
+| Worst of 24 warm runs | 92.8 ms | 31.3–33.2 ms | |
+| Features | 2.8 ms | 2.9 ms | |
+| Model | 84.2 ms | 26.6–27.4 ms | 3.1 times |
+| One thread in place of two, median of 24 | | 54.7–55.9 ms | |
+| Processor time per verdict | 88 ms | 59–61 ms over two threads | |
+| Load: check, rewrite, session | 151 ms | 263–272 ms | |
+| Peak address space / resident | 114 / 101 MiB | 243.5 / 100 MiB | |
+| Processor time over 3 s idle after a verdict | | 0 ms | |
+
+On the M2 Max itself (macOS): 34.2 ms exact (tract uses Apple's matrix
+unit there) and 25.5 ms fast (before the kept multiplication).
+
+**An estimate for the lamp, not a measurement.** The exact model took 383 ms
+on lamp-4ace's fast cores against 87 ms here, 4.4 times as long. At the same
+ratio the fast model would take about 130 ms, inside the 150 ms wanted. The
+ratio may not hold; see below.
+
+### Agreement with today's model
+
+`lamp-turn-end agree` on the VM, release build, every clip asked as
+recorded and 200 ms into a pause (with a −63 dBFS floor, as the voice asks).
+The clips are the human clips of `pipecat-ai/smart-turn-data-v3.2-test`
+(revision `dfc179241fee`, CC-BY-4.0; English and Spanish) and its English
+generated speech. "Change side" is a verdict on the other side of 0.5. The
+bands are the voice's (`ConfirmPolicy`: finished at 0.9 or more, clearly
+unfinished under 0.01).
+
+| Clips | Asked | Clips | Change side | Change band | Of which into "finished" | Correct at 0.5, today / fast | Largest difference |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Human, development (shards 0, 1) | as recorded | 1,180 | 6 | 12 | 5 | 95.42% / 95.42% | 0.177 |
+| | 200 ms into a pause | 1,180 | 3 | 14 | 5 | 94.41% / 94.32% | 0.197 |
+| Human, held out (shards 4, 5) | as recorded | 1,167 | 2 | 10 | 5 | 96.32% / 96.14% | 0.208 |
+| | 200 ms into a pause | 1,167 | 3 | 18 | 5 | 95.63% / 95.54% | 0.228 |
+| English, generated (shards 4, 5) | as recorded | 503 | 2 | 2 | 2 | 94.43% / 94.43% | 0.262 |
+| | 200 ms into a pause | 503 | 2 | 4 | 3 | 93.44% / 93.44% | 0.133 |
+
+The median difference is 0.0001 everywhere and the 99th percentile at most
+0.121. Held out, 200 ms into a pause, the 18 band changes are: 5 into
+"finished" (the turn would end at 400 ms where today it waits), 7 out of it,
+3 into "clearly unfinished" and 3 out of it. Pipecat's own 8-bit file under
+ONNX Runtime 1.31 (Python, M2 Max), on the same clips asked the same way:
+44 change side and 117 change band, 1.4 points lost.
+
+**Asking earlier.** The voice asks 200 ms into a pause. The same held-out
+clips asked by today's model (ONNX Runtime 1.31 floats, Python, M2 Max) at
+100 ms into the pause: finished turns judged finished 91.5% (90.6% at
+200 ms), unfinished ones judged finished 3.3% (4.0%), correct at 0.5 95.2%
+(95.6%). So asking at 100 ms is no worse at what ends a turn early. With the
+fast model's 130 ms (if the estimate holds) a verdict would be in hand at
+about 230 ms, and a finished sentence could end at 300 ms. That is the
+voice's rule (`ConfirmPolicy` in `crates/voice/src/activity.rs`) and the first
+builder's to change; nothing here changes it. These are recordings replayed
+digitally, not pauses as the lamp's own detector finds them.
+
+### What it costs
+
+- **ONNX Runtime 1.30.0**, released by Microsoft on 2026-09-10 (a month
+  older than 1.31.0, released 2026-10-09). MIT licence. The file
+  `lib/libonnxruntime.so.1.30.0` of
+  `https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz`
+  (archive SHA-256 `e16a27a8…3e3da`): 25,135,496 bytes, SHA-256
+  `64e903a43a041240fd6bcffe0ac6d4fea47ef87bf24b9d097801bd00a9612a4b`. Built
+  by Microsoft; nothing is built here. It needs glibc 2.28 and libstdc++
+  `GLIBCXX_3.4.22` or later (Debian bookworm has 2.36 and 3.4.30), and only
+  the system's C and C++ libraries besides. Only `lamp-turn-end --fast`
+  loads it; `lamp-voice` links nothing new.
+- **Rust crates:** `ort` 2.0.0-rc.14 and `ort-sys` 2.0.0-rc.14 (MIT or
+  Apache-2.0; a release candidate, used with its default features off and
+  `load-dynamic`, so its build script links and downloads nothing), and
+  `libloading` 0.9.0 (ISC). Three lock entries; none removed or changed.
+- **The worker:** 24,854,552 bytes in release on Linux ARM64 (18,235,200
+  stripped), 0.6 MB more than before.
+
+### On the lamp
+
+The one thing to learn first is the time on the A76. From the release
+directory, as the service user, with the library copied beside the worker:
+
+```sh
+curl -fsSLO https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz
+tar -xzf onnxruntime-linux-aarch64-1.30.0.tgz
+cp onnxruntime-linux-aarch64-1.30.0/lib/libonnxruntime.so.1.30.0 .
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30                # today's worker, as it is
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30 --cores fast   # held to the fast cores
+./lamp-turn-end bench smart-turn-v3.2-gpu.onnx 30 --fast         # the fast model
+./lamp-turn-end --check-model smart-turn-v3.2-gpu.onnx --fast
+```
+
+What it should show: the fast runs list `"cores":[6,7]` and `"cpus"` with
+`0xd0b` (Cortex-A76) for cpu6 and cpu7; the second line's `total_ms`
+median near 383 ms (the check-model figure); the third's under 150 ms; the
+check exits 0. Then, to use it, the voice starts the worker with
+`WorkerCommand::smart_turn_fast` in place of `WorkerCommand::smart_turn`
+(`crates/voice/src/coordinator/endpoint.rs`, `EndpointRig::start`), for
+example behind an `--endpoint smart-turn-fast` value beside `smart-turn`.
+
+### Where this is most likely to be wrong on the lamp
+
+1. **The time.** The 130 ms is the VM's time scaled by the exact model's
+   ratio. The A76 has half the M2's vector units, and an 8-bit
+   multiplication may lose more or less than a float one on it. `bench
+   --fast` answers it in one line. If it is over 150 ms, try `--threads 1`
+   too: with lamp-name on the same two cores every 80 ms, two threads may
+   wait on each other.
+2. **The fast cores.** If the lamp's kernel gives no `cpu_capacity`, the
+   worker falls back to each core's highest frequency (2.0 GHz against
+   1.79 GHz); if neither is there it keeps no core and says `"cores"` with
+   all eight. Then `--cores 6,7` on `bench` shows what keeping would give.
+3. **The library on the lamp's system.** If the lamp's libstdc++ or glibc is
+   older than the library needs, the check fails at load with the loader's
+   message. The worker then fails at startup and the voice keeps its window.
+4. **The memory cap.** 544 MiB was measured in the VM. Another glibc may
+   reserve more address space per thread; then loading aborts. The check
+   prints `vm_peak_kib`.
+5. **Load time.** About 270 ms in the VM; perhaps 1.2 s on the lamp, inside
+   the 10 s the core allows a worker to become ready.
+
+### Not shown
+
+Anything on the lamp: its time, its memory, its cores, its loader. Speech
+through the lamp's microphone and its processing; the clips are recordings
+replayed digitally. Whether a 300 or 400 ms end for a finished sentence
+suits the people at the desk (the review above found that earlier ends
+interrupt more). The fast model in a full session of the voice (its tests
+use the worker through the core's client, not the voice).
+
 ## What the pilot runs
 
 | | Command line | Endpoint |
@@ -221,7 +463,12 @@ refuses any other bytes before the ONNX parser reads them.
   - `tract-onnx =0.23.8` with default features off;
   - `rustfft =6.4.1`;
   - `sha2` (workspace);
-  - `rustix =1.1.5`, with features `process` and `time`.
+  - `rustix =1.1.5`, with features `process`, `thread` (keeping the fast
+    model on the fast cores) and `time`;
+  - since 2026-10-14, for the fast model: `ort =2.0.0-rc.14` (default
+    features off; `std`, `load-dynamic`, `api-30`), `prost =0.14.4`
+    (already in tract's tree), and `hound` and `serde_json` (workspace) for
+    `lamp-turn-end agree`.
 - **`lamp-turn-end-wire`** depends only on `lamp-ipc`. It adds nothing to
   `lamp-voice`'s third-party tree:
   `cargo tree --locked -p lamp-voice -e normal --target all` lists no new

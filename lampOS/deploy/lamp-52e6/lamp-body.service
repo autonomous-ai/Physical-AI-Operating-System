@@ -1,7 +1,9 @@
 # lamp-52e6: deploy/lamp-4ace/lamp-body.service with this lamp's own readings (2026-10-14,
 # the fifth builder): home, stand roll and yaw and folded arm as found at rest; --gaze
 # measured on this lamp; --torque on --wake on, since nothing else gives its servos torque after a
-# power cut or after the old runtime stops. See docs/body.md, "lamp-52e6".
+# power cut or after the old runtime stops; --pitch-window, this head's own folded window
+# (measured 2026-10-14: it meets the base at 2,010 and lifts freely to the servo's 1,451).
+# See docs/body.md, "lamp-52e6".
 # lampOS body on lamp-52e6: small head motion for what the lamp is doing.
 # It owns the servo port; lamp-voice.service cannot open it and only tells this unit a mood.
 # Not enabled at boot. When it stops itself on a surprise (its JSON report in the journal says
@@ -28,7 +30,7 @@ SupplementaryGroups=dialout
 WorkingDirectory=/
 RuntimeDirectory=lampos-body
 RuntimeDirectoryMode=0755
-ExecStart=/opt/lampOS/body/d673c4484fc9f9e6ef32ebcb5521bd72e6885fde55b25d06400ffd236979bb89/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on --wake on
+ExecStart=/opt/lampOS/body/852880034d1bf756c3eeb79724ef128419dc114c3d4d95a55145925eeab0eb57/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on --wake on --pitch-window 1670,1995
 Restart=on-failure
 RestartSec=15s
 KillMode=mixed

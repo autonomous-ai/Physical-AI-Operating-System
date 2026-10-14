@@ -225,9 +225,9 @@ has it:
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |
 | 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | taken 2026-10-14 |
+| 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | open |
 | 22 | The body on a second lamp | `body-second-lamp` | Fifth | open |
 | 23 | Waking up after the power comes back | `wake` | Fifth | open |
-| 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | open |
 | 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
 | 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | open |
 | 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | open |
@@ -1035,8 +1035,11 @@ head that drops when torque comes on.
 
 ## 27. The keeper: one lamp of many parts, started, watched, stopped and resumed
 
-Take it after task 23 (owner, 2026-10-14: "let's send that task to 5th
-builder"). Crate: new `crates/keeper` (`lamp-keeper`), yours. Units: your
+Take it first: the owner, 2026-10-14, "let's send that task to 5th
+builder", and the fifth builder's person wants to solve it. It needs a
+lampOS part running on your lamp to keep: install the body as task 22
+says (its home, reach and first runs) as the first step of this one, and
+carry on with the rest of task 22 after. Crate: new `crates/keeper` (`lamp-keeper`), yours. Units: your
 lamp's folder under `deploy/`, and templates for every lamp in
 `deploy/units/`. Document: a new `docs/keeper.md`.
 

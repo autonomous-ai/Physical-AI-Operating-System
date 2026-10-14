@@ -41,7 +41,17 @@ anything else is the 600 ms window).
 
 So it is off again. For it to make the lamp quicker, a verdict has to
 take well under 100 ms on this board: a smaller or quantised model, a
-faster runtime, or asking earlier than the pause. None of that was tried.
+faster runtime, or asking earlier than the pause.
+
+The same day the second builder built the fast model: `lamp-turn-end
+--fast`, the pinned model made 8-bit in memory and run by ONNX Runtime on
+two threads on the fast cores. On the Linux ARM64 VM a verdict takes 30 ms
+against 87 ms, with 3 of 1,167 held-out verdicts on the other side of 0.5;
+about 130 ms on the lamp by the exact model's ratio, not measured there.
+What was tried, the measurements, the cost of the native library and the
+commands to run on the lamp are in [endpoint-pilot.md](endpoint-pilot.md),
+"The fast model". Asking at 100 ms in place of 200 ms is measured there
+too.
 
 ## Summary
 
@@ -72,7 +82,7 @@ faster runtime, or asking earlier than the pause. None of that was tried.
 | Crate | Linked by | Content |
 | --- | --- | --- |
 | `lamp-turn-end-wire` | `lamp-voice` (core) | Request and verdict types, the `Classifier` trait, the bounded frame format, the worker's serving loop, and the core-side supervisor `ProcessClassifier`. Depends only on `lamp-ipc`. |
-| `lamp-turn-end` | the worker only | Whisper features, pinned model loading with tract, the installation self-check, and the `lamp-turn-end` binary. |
+| `lamp-turn-end` | the worker only | Whisper features, pinned model loading with tract, the fast model (8-bit, ONNX Runtime loaded at run time with `--fast`), the installation self-check, `bench` and `agree`, and the `lamp-turn-end` binary. |
 
 ### Process boundary
 
@@ -365,6 +375,18 @@ LAMP_ENDPOINT_WORKER=target/release/lamp-turn-end \
 
 `LAMP_ENDPOINT_IDLE_SECS` sets the quiet period of the two idle tests.
 
+The fast model (`--fast`) also needs the pinned ONNX Runtime library beside
+the worker: `libonnxruntime.so.1.30.0` from Microsoft's
+`onnxruntime-linux-aarch64-1.30.0.tgz` (25,135,496 bytes, SHA-256
+`64e903a4…a4b`; on macOS `libonnxruntime.1.30.0.dylib` from the
+`osx-arm64` archive, for development). Its tests (`tests/fast.rs`) read it
+from `.cache/endpoint/` or `LAMP_ONNX_RUNTIME`:
+
+```sh
+cargo test --locked --release -p lamp-turn-end --test fast -- --include-ignored
+target/release/lamp-turn-end --check-model target/release/smart-turn-v3.2-gpu.onnx --fast
+```
+
 ## Limitations
 
 1. **No device evidence.** Startup, inference and memory on the A733 are
@@ -384,6 +406,10 @@ LAMP_ENDPOINT_WORKER=target/release/lamp-turn-end \
    settlement. It failed with an immediate Start and has single successful
    `kept-start` cases, not a qualified rate.
 5. **Memory and size.** The worker is a separate 24 MB binary with its own
-   resident memory. A smaller runtime or a corrected int8 path is future work.
+   resident memory. The fast model adds ONNX Runtime, a 25 MB native library
+   loaded only by the worker, and doubles the worker's peak address space
+   (243.5 against 114 MiB); see [endpoint-pilot.md](endpoint-pilot.md), "The
+   fast model". tract's own 8-bit path is not used: built in a Debian
+   bookworm container it lacks its fast kernel.
 6. **Endpointing only.** This does not identify an addressee and is not an
    interruption gate.

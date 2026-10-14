@@ -1,5 +1,10 @@
-//! `lamp-turn-end --model PATH [--parent PID]`
-//! `lamp-turn-end --check-model PATH` (installation self-check)
+//! `lamp-turn-end --model PATH [--parent PID] [--fast [--runtime LIBRARY]]`
+//! `lamp-turn-end --check-model PATH [--fast [--runtime LIBRARY]]`
+//! (installation self-check)
+//! `lamp-turn-end bench PATH [RUNS] [--fast] [--threads N] [--cores fast|all|LIST]
+//! [--runtime LIBRARY]` (timing on the device)
+//! `lamp-turn-end agree PATH DIRECTORY... [--runtime LIBRARY] [--csv FILE]`
+//! (fast against exact verdicts on labelled speech)
 //!
 //! Serves Smart Turn v3.2 verdicts for one interaction core over stdin and
 //! stdout (see `lamp_turn_end_wire::frame`). It verifies the pinned model, runs
@@ -10,7 +15,18 @@
 //! started it; an input end of stream is an ordinary stop. Before it reads the
 //! model on Linux, it disables core files, caps its address space and lowers
 //! its CPU priority.
-use lamp_turn_end::{FeatureExtractor, SMART_TURN_V3_2, SmartTurn, classify, reference};
+//!
+//! Without `--fast` it runs the exact model under tract on one thread, as it
+//! always has. With `--fast` it keeps itself on the fastest cores, rewrites
+//! the model's weight multiplications to 8 bits in memory and runs them with
+//! ONNX Runtime on two threads; the library is the pinned file beside the
+//! worker unless `--runtime` names another copy of it.
+mod commands;
+
+use lamp_turn_end::{
+    FAST_THREADS, FastTurn, FeatureExtractor, Network, SMART_TURN_V3_2, SmartTurn, classify, cores,
+    fast, reference,
+};
 use lamp_turn_end_wire::serve;
 use std::{
     ffi::OsString,
@@ -31,31 +47,90 @@ const NICE: i32 = 10;
 /// it ends the worker, which the core treats like any other worker failure.
 #[cfg(target_os = "linux")]
 const ADDRESS_SPACE_LIMIT: u64 = 256 << 20;
+/// The fast model's cap: 2.2 times the 243.5 MiB `VmPeak` its `bench` and
+/// self-check measured on ARM64 Linux with two threads (docs/endpoint-pilot.md,
+/// "The fast model"). ONNX Runtime maps its 25 MB library and reserves a
+/// stack and a heap arena for its second thread.
+#[cfg(target_os = "linux")]
+const FAST_ADDRESS_SPACE_LIMIT: u64 = 544 << 20;
 /// Classifications of the reference signal in `--check-model`. The first is
 /// cold; the rest report the warm cost.
 const CHECK_RUNS: usize = 10;
 
+/// How the worker runs the model.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Speed {
+    /// 32-bit floats under tract, one thread, wherever the scheduler puts it.
+    Exact,
+    /// 8-bit weight multiplications under ONNX Runtime, on the fastest cores.
+    Fast { runtime: PathBuf, threads: usize },
+}
+
+impl Speed {
+    fn fast(runtime: Option<PathBuf>, threads: usize) -> Result<Self, String> {
+        let runtime = match runtime {
+            Some(runtime) => runtime,
+            None => beside_worker(fast::runtime_asset().map_err(|e| e.to_string())?.file_name)?,
+        };
+        Ok(Self::Fast { runtime, threads })
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::Fast { .. } => "fast",
+        }
+    }
+}
+
+/// A file installed in the worker's own directory.
+fn beside_worker(file_name: &str) -> Result<PathBuf, String> {
+    let worker = std::env::current_exe().map_err(|error| format!("worker path: {error}"))?;
+    Ok(worker.with_file_name(file_name))
+}
+
 struct Arguments {
     model: PathBuf,
     parent: Option<u32>,
+    speed: Speed,
 }
 
+const USAGE: &str = "usage: lamp-turn-end --model PATH [--parent PID] [--fast [--runtime LIBRARY]]";
+
 fn parse(mut arguments: impl Iterator<Item = OsString>) -> Result<Arguments, String> {
-    let (mut model, mut parent) = (None, None);
+    let (mut model, mut parent, mut fast, mut runtime) = (None, None, false, None);
     while let Some(argument) = arguments.next() {
+        match argument.to_str() {
+            Some("--fast") if !fast => {
+                fast = true;
+                continue;
+            }
+            Some("--model" | "--parent" | "--runtime") => {}
+            _ => return Err(USAGE.into()),
+        }
         let value = arguments.next().ok_or("missing option value")?;
         match argument.to_str() {
             Some("--model") if model.is_none() => model = Some(PathBuf::from(value)),
+            Some("--runtime") if runtime.is_none() => runtime = Some(PathBuf::from(value)),
             Some("--parent") if parent.is_none() => {
                 let pid = value.to_str().and_then(|pid| pid.parse().ok());
                 parent = Some(pid.ok_or("invalid parent process ID")?);
             }
-            _ => return Err("usage: lamp-turn-end --model PATH [--parent PID]".into()),
+            _ => return Err(USAGE.into()),
         }
     }
+    if runtime.is_some() && !fast {
+        return Err("--runtime is only used with --fast".into());
+    }
+    let speed = if fast {
+        Speed::fast(runtime, FAST_THREADS)?
+    } else {
+        Speed::Exact
+    };
     Ok(Arguments {
         model: model.ok_or("missing --model")?,
         parent,
+        speed,
     })
 }
 
@@ -89,7 +164,7 @@ fn lowest_limit(current: Option<u64>, maximum: Option<u64>, cap: u64) -> u64 {
 /// Bounds the worker before it reads the model. Never raises a soft or hard
 /// limit the service manager already set lower.
 #[cfg(target_os = "linux")]
-fn bound_resources() -> Result<(), String> {
+fn bound_resources(speed: &Speed) -> Result<(), String> {
     use rustix::process::{Resource, Rlimit, getrlimit, nice, setrlimit};
     let cap = |resource, bytes: u64| {
         let inherited = getrlimit(resource);
@@ -102,16 +177,19 @@ fn bound_resources() -> Result<(), String> {
             },
         )
     };
+    let address_space = match speed {
+        Speed::Exact => ADDRESS_SPACE_LIMIT,
+        Speed::Fast { .. } => FAST_ADDRESS_SPACE_LIMIT,
+    };
     // A crash must not write retained speech to a core file.
     cap(Resource::Core, 0).map_err(|error| format!("core file limit: {error}"))?;
-    cap(Resource::As, ADDRESS_SPACE_LIMIT)
-        .map_err(|error| format!("address space limit: {error}"))?;
+    cap(Resource::As, address_space).map_err(|error| format!("address space limit: {error}"))?;
     nice(NICE).map_err(|error| format!("priority: {error}"))?;
     Ok(())
 }
 
 #[cfg(not(target_os = "linux"))]
-fn bound_resources() -> Result<(), String> {
+fn bound_resources(_speed: &Speed) -> Result<(), String> {
     Ok(())
 }
 
@@ -151,25 +229,63 @@ fn ms(us: u64) -> f64 {
     us as f64 / 1_000.0
 }
 
+/// Keeps the worker on the fastest cores when the cores differ. Returns the
+/// cores chosen, or `None` when there is nothing to choose.
+fn keep_on_fast_cores() -> Result<Option<Vec<usize>>, String> {
+    let Some(fast) = cores::fastest(&cores::capacities(Path::new("/sys/devices/system/cpu")))
+    else {
+        return Ok(None);
+    };
+    cores::keep_on(&fast)?;
+    Ok(Some(fast))
+}
+
+/// Loads the model the way `speed` says. With `Fast`, the calling thread is
+/// first kept on the fastest cores so that ONNX Runtime's threads start there.
+fn load(model: &Path, speed: &Speed) -> Result<Box<dyn Network>, String> {
+    match speed {
+        Speed::Exact => SmartTurn::load(model, &SMART_TURN_V3_2)
+            .map(|model| Box::new(model) as Box<dyn Network>)
+            .map_err(|error| format!("model {}: {error}", model.display())),
+        Speed::Fast { runtime, threads } => {
+            keep_on_fast_cores()?;
+            FastTurn::load(model, &SMART_TURN_V3_2, runtime, *threads)
+                .map(|model| Box::new(model) as Box<dyn Network>)
+                .map_err(|error| format!("fast model {}: {error}", model.display()))
+        }
+    }
+}
+
 /// Loads the model under the worker's own bounds, classifies the reference
-/// signal `CHECK_RUNS` times against ONNX Runtime's probability, and returns
+/// signal `CHECK_RUNS` times against its recorded probability, and returns
 /// one JSON line of costs.
-fn self_check(path: &Path) -> Result<String, String> {
-    bound_resources()?;
+fn self_check(path: &Path, speed: &Speed) -> Result<String, String> {
+    bound_resources(speed)?;
     let (started, cpu_started) = (Instant::now(), cpu_us());
-    let model = SmartTurn::load(path, &SMART_TURN_V3_2).map_err(|error| error.to_string())?;
+    let mut model = load(path, speed)?;
     let load_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     let load_cpu_us = cpu_us() - cpu_started;
+    let (expected, tolerance, reference_name) = match speed {
+        Speed::Exact => (
+            reference::VOICED_PROBABILITY,
+            reference::TOLERANCE,
+            "ONNX Runtime's",
+        ),
+        Speed::Fast { .. } => (
+            reference::VOICED_PROBABILITY_FAST,
+            reference::TOLERANCE_FAST,
+            "the fast model's recorded",
+        ),
+    };
     let (mut extractor, signal) = (FeatureExtractor::default(), reference::voiced());
     let (mut costs, mut probability) = (Vec::with_capacity(CHECK_RUNS), 0.0);
     let cpu_started = cpu_us();
     for _ in 0..CHECK_RUNS {
-        let classified = classify(&model, &mut extractor, &signal)?;
+        let classified = classify(model.as_mut(), &mut extractor, &signal)?;
         probability = classified.probability;
-        if (probability - reference::VOICED_PROBABILITY).abs() > reference::TOLERANCE {
+        if (probability - expected).abs() > tolerance {
             return Err(format!(
-                "reference probability {probability} differs from ONNX Runtime's {}",
-                reference::VOICED_PROBABILITY
+                "reference probability {probability} differs from {reference_name} {expected}"
             ));
         }
         costs.push(classified.features_us + classified.inference_us);
@@ -180,19 +296,19 @@ fn self_check(path: &Path) -> Result<String, String> {
     warm.sort_unstable();
     let [peak, hwm, rss] = memory_kib().map(|value| value.map_or("null".into(), |v| v.to_string()));
     let [address_space, nice] = bounds();
-    Ok(format!(
+    let mut line = format!(
         concat!(
             "{{\"model\":\"{}\",\"bytes\":{},\"sha256\":\"{}\",\"probability\":{},",
             "\"reference\":{},\"load_ms\":{:.1},\"load_cpu_ms\":{:.1},\"cold_ms\":{:.1},",
             "\"warm_median_ms\":{:.1},\"warm_max_ms\":{:.1},\"cpu_per_check_ms\":{:.1},",
             "\"vm_peak_kib\":{},\"vm_hwm_kib\":{},\"vm_rss_kib\":{},",
-            "\"address_space_limit_kib\":{},\"nice\":{}}}"
+            "\"address_space_limit_kib\":{},\"nice\":{}"
         ),
         SMART_TURN_V3_2.file_name,
         SMART_TURN_V3_2.bytes,
         SMART_TURN_V3_2.sha256,
         probability,
-        reference::VOICED_PROBABILITY,
+        expected,
         ms(load_us),
         ms(load_cpu_us),
         ms(cold_us),
@@ -204,35 +320,66 @@ fn self_check(path: &Path) -> Result<String, String> {
         rss,
         address_space,
         nice,
-    ))
+    );
+    if let Speed::Fast { runtime, threads } = speed {
+        let asset = fast::runtime_asset().map_err(|error| error.to_string())?;
+        line.push_str(&format!(
+            ",\"speed\":\"fast\",\"threads\":{threads},\"cores\":{},\"runtime\":\"{}\",\"runtime_version\":\"{}\",\"runtime_sha256\":\"{}\"",
+            commands::json_cores(cores::allowed()),
+            runtime.display(),
+            asset.version,
+            asset.sha256,
+        ));
+    }
+    line.push('}');
+    Ok(line)
+}
+
+/// `--check-model PATH [--fast [--runtime LIBRARY]]`.
+fn check_model(arguments: &[OsString]) -> Option<ExitCode> {
+    let (flag, rest) = arguments.split_first()?;
+    if flag != "--check-model" {
+        return None;
+    }
+    let path = PathBuf::from(rest.first()?);
+    let speed = match &rest[1..] {
+        [] => Ok(Speed::Exact),
+        [fast] if fast == "--fast" => Speed::fast(None, FAST_THREADS),
+        [fast, runtime, library] if fast == "--fast" && runtime == "--runtime" => {
+            Speed::fast(Some(PathBuf::from(library)), FAST_THREADS)
+        }
+        _ => Err("usage: lamp-turn-end --check-model PATH [--fast [--runtime LIBRARY]]".into()),
+    };
+    Some(match speed.and_then(|speed| self_check(&path, &speed)) {
+        Ok(line) => {
+            println!("{line}");
+            ExitCode::SUCCESS
+        }
+        Err(reason) => {
+            eprintln!("{}: {reason}", path.display());
+            ExitCode::from(2)
+        }
+    })
 }
 
 fn main() -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().skip(1).collect();
-    if let [flag, path] = arguments.as_slice()
-        && flag == "--check-model"
-    {
-        let path = PathBuf::from(path);
-        return match self_check(&path) {
-            Ok(line) => {
-                println!("{line}");
-                ExitCode::SUCCESS
-            }
-            Err(reason) => {
-                eprintln!("{}: {reason}", path.display());
-                ExitCode::from(2)
-            }
-        };
+    if let Some(code) = check_model(&arguments) {
+        return code;
+    }
+    match arguments.first().and_then(|first| first.to_str()) {
+        Some("bench") => return commands::bench(&arguments[1..]),
+        Some("agree") => return commands::agree(&arguments[1..]),
+        _ => {}
     }
     let mut output = io::stdout().lock();
     let started = Instant::now();
     let setup = parse(arguments.into_iter()).and_then(|arguments| {
         follow_parent(arguments.parent)?;
-        bound_resources()?;
-        SmartTurn::load(&arguments.model, &SMART_TURN_V3_2)
-            .map_err(|error| format!("model {}: {error}", arguments.model.display()))
+        bound_resources(&arguments.speed)?;
+        load(&arguments.model, &arguments.speed)
     });
-    let model = match setup {
+    let mut model = match setup {
         Ok(model) => model,
         Err(reason) => {
             let _ = serve::startup_failed(&mut output, &reason);
@@ -241,7 +388,7 @@ fn main() -> ExitCode {
     };
     let load_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     let mut extractor = FeatureExtractor::default();
-    let cold = match classify(&model, &mut extractor, &[]) {
+    let cold = match classify(model.as_mut(), &mut extractor, &[]) {
         Ok(cold) => cold.features_us + cold.inference_us,
         Err(reason) => {
             let _ = serve::startup_failed(&mut output, &format!("cold inference: {reason}"));
@@ -253,7 +400,7 @@ fn main() -> ExitCode {
         return ExitCode::from(5);
     }
     let stop = serve::serve(&mut io::stdin().lock(), &mut output, |pcm| {
-        classify(&model, &mut extractor, pcm)
+        classify(model.as_mut(), &mut extractor, pcm)
     });
     if !matches!(stop, serve::Stop::Closed) {
         eprintln!("lamp-turn-end: {stop:?}");
@@ -263,7 +410,15 @@ fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::lowest_limit;
+    use super::{Speed, lowest_limit, parse};
+    use std::{ffi::OsString, path::PathBuf};
+
+    fn arguments(text: &str) -> impl Iterator<Item = OsString> {
+        text.split_whitespace()
+            .map(OsString::from)
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
 
     #[test]
     fn inherited_lower_limits_are_never_raised() {
@@ -279,5 +434,43 @@ mod tests {
         assert_eq!(lowest_limit(None, None, CAP), CAP);
         assert_eq!(lowest_limit(Some(1 << 40), None, CAP), CAP);
         assert_eq!(lowest_limit(None, None, 0), 0);
+    }
+
+    #[test]
+    fn the_default_command_line_keeps_the_exact_model() {
+        let parsed = parse(arguments("--model m.onnx --parent 42")).unwrap();
+        assert_eq!(
+            (parsed.model, parsed.parent, parsed.speed),
+            (PathBuf::from("m.onnx"), Some(42), Speed::Exact)
+        );
+    }
+
+    #[test]
+    fn fast_is_only_chosen_by_its_flag() {
+        let parsed = parse(arguments("--model m.onnx --fast --runtime /x/lib.so")).unwrap();
+        assert_eq!(
+            parsed.speed,
+            Speed::Fast {
+                runtime: PathBuf::from("/x/lib.so"),
+                threads: 2
+            }
+        );
+        // Order does not matter; the library defaults to the worker's own
+        // directory.
+        let parsed = parse(arguments("--fast --parent 7 --model m.onnx")).unwrap();
+        let Speed::Fast { runtime, .. } = parsed.speed else {
+            panic!("not fast");
+        };
+        let worker = std::env::current_exe().unwrap();
+        assert_eq!(runtime.parent(), worker.parent());
+        for wrong in [
+            "--model m.onnx --runtime /x/lib.so",
+            "--model m.onnx --fast --fast",
+            "--model m.onnx --threads 2",
+            "--model m.onnx --model n.onnx",
+            "--fast",
+        ] {
+            assert!(parse(arguments(wrong)).is_err(), "{wrong}");
+        }
     }
 }

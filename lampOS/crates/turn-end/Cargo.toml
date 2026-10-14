@@ -21,9 +21,15 @@ rustfft = "=6.4.1"
 
 # Parent death signal and resource bounds on Linux; process CPU time for the
 # installation self-check.
-rustix = { version = "=1.1.5", features = ["process", "time"] }
+rustix = { version = "=1.1.5", features = ["process", "thread", "time"] }
+# ONNX Runtime, loaded at run time from a pinned library beside the worker,
+# for the 8-bit model (docs/endpoint-detection.md, "The fast model").
+ort = { version = "=2.0.0-rc.14", default-features = false, features = ["std", "load-dynamic", "api-30"] }
+# Already in tract-onnx's tree: encodes the 8-bit graph handed to ONNX Runtime.
+prost = "=0.14.4"
 
-[dev-dependencies]
+# `lamp-turn-end agree`: labelled clips and their manifest.
+hound.workspace = true
 serde_json.workspace = true
 
 [lints]

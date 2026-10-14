@@ -26,6 +26,28 @@ pub const SMART_TURN_V3_2: ModelAsset = ModelAsset {
     source: "https://huggingface.co/pipecat-ai/smart-turn-v3/resolve/f766f81d3cfdf7737ac64aad813d91bbfd56bf93/smart-turn-v3.2-gpu.onnx",
 };
 
+/// Reads a pinned file whole and returns its bytes only if their size and
+/// SHA256 are the pinned ones.
+pub fn read_pinned(path: &Path, bytes: u64, sha256: &str) -> Result<Vec<u8>> {
+    let file = File::open(path)?;
+    if file.metadata()?.len() != bytes {
+        return Err(format!("{} has an unexpected size", path.display()).into());
+    }
+    let mut contents = Vec::with_capacity(bytes as usize);
+    file.take(bytes + 1).read_to_end(&mut contents)?;
+    if contents.len() as u64 != bytes {
+        return Err(format!("{} changed while it was read", path.display()).into());
+    }
+    let digest = Sha256::digest(&contents)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    if digest != sha256 {
+        return Err(format!("{} does not match the pinned SHA256", path.display()).into());
+    }
+    Ok(contents)
+}
+
 pub struct SmartTurn {
     plan: Arc<TypedRunnableModel>,
 }
@@ -33,22 +55,7 @@ pub struct SmartTurn {
 impl SmartTurn {
     /// Verifies the exact pinned bytes before the ONNX parser sees them.
     pub fn load(path: &Path, asset: &ModelAsset) -> Result<Self> {
-        let file = File::open(path)?;
-        if file.metadata()?.len() != asset.bytes {
-            return Err(format!("{} has an unexpected size", path.display()).into());
-        }
-        let mut bytes = Vec::with_capacity(asset.bytes as usize);
-        file.take(asset.bytes + 1).read_to_end(&mut bytes)?;
-        if bytes.len() as u64 != asset.bytes {
-            return Err(format!("{} changed while it was read", path.display()).into());
-        }
-        let digest = Sha256::digest(&bytes)
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
-        if digest != asset.sha256 {
-            return Err(format!("{} does not match the pinned SHA256", path.display()).into());
-        }
+        let bytes = read_pinned(path, asset.bytes, asset.sha256)?;
         // The export annotates a symbolic batch that conflicts with its
         // fixed-batch reshapes; tract re-infers every shape from one batch.
         let plan = tract_onnx::onnx()

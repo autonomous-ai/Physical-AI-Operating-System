@@ -1,0 +1,26 @@
+# lampOS actions: carries out what the lamp is asked to do to itself (lampOS/docs/actions.md).
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS actions (lamp-actions)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=local-fs.target sound.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+SupplementaryGroups=audio
+Slice=lampos-parts.slice
+ExecStart=/opt/lampOS/actions/@ACTIONS_SHA256@/lamp-actions --dir @ACTIONS_DIR@ --mixer-card @MIXER_CARD@ --mixer-control @MIXER_CONTROL@ --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-actions
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

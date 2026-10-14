@@ -1,0 +1,30 @@
+# lampOS policy: what it would decide about each thing heard, beside what the lamp did
+# (lampOS/docs/policy.md). It decides nothing yet.
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS policy (lamp-policy)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=network-online.target lamp-voice.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+DynamicUser=yes
+Slice=lampos-parts.slice
+Nice=5
+# The key stays readable by root alone; systemd hands the service its own copy.
+LoadCredential=jev.key:/etc/lampOS/policy/jev.key
+StateDirectory=lampos-policy
+ExecStart=/opt/lampOS/policy/@POLICY_SHA256@/lamp-policy --key-file ${CREDENTIALS_DIRECTORY}/jev.key --log-dir /var/lib/lampos-policy --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-policy
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

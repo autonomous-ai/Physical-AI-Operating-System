@@ -1,0 +1,45 @@
+# lampOS body: all motion (lampOS/docs/body.md). It owns the servo port; nothing else opens it.
+# Template: replace every @NAME@ (README.md here). lamp-4ace's own unit is the worked example.
+# Type=notify: it says READY=1 once its start checks have passed and its loop runs, and
+# WATCHDOG=1 from that loop. A loop silent for 5 s is a hung body: systemd ends it and starts
+# it again, as for one that died (lampOS/docs/keeper.md). The servos keep their last goal
+# and torque meanwhile; a killed body does not fold down.
+# When it stops itself on a surprise it is started again after 15 s, at most three times in
+# ten minutes; after the third it stays stopped until someone has looked.
+[Unit]
+Description=lampOS body (lamp-body)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+# After the voice: the lamp can talk before it can move, and a body without a voice only rests.
+After=lamp-voice.service
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=5
+# Never root: the servo port owner refuses a process that could bypass its exclusive lock.
+User=@LAMP_USER@
+Group=@LAMP_USER@
+SupplementaryGroups=dialout
+Slice=lampos-parts.slice
+WorkingDirectory=/
+RuntimeDirectory=lampos-body
+RuntimeDirectoryMode=0755
+# @BODY_POSES@: this lamp's measured poses (--reach, --gaze, --stand, --folded-arm, --home and the rest).
+ExecStart=/opt/lampOS/body/@BODY_SHA256@/lamp-body --device @SERVO_DEVICE@ --unit-id @UNIT_ID@ --lock-directory @MOTOR_LOCK_DIR@ --mood-socket /run/lampos-body/mood.sock --gaze-socket /run/lampos-body/gaze.sock @BODY_POSES@
+Restart=on-failure
+RestartSec=15s
+KillMode=mixed
+KillSignal=SIGTERM
+# A lamp that stands folds down before it leaves: up to 3 s and twice its way.
+TimeoutStopSec=25s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-body
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

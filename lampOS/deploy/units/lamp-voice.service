@@ -1,0 +1,55 @@
+# lampOS voice: listens, talks with the model, speaks and drives the light ring (lampOS/docs/serve-runtime.md).
+# Template: replace every @NAME@ (README.md here). lamp-4ace's own unit is the worked example.
+# Type=simple until it calls the keeper's helper: "started" then means only "forked", not "can hear".
+# Its own restart (Restart=) happens only after the process is gone, when nobody is being heard
+# anyway; nothing restarts a running voice while someone speaks (lampOS/docs/keeper.md).
+# Ten failures in ten minutes and it stays stopped, and lamp-keeper reports it.
+[Unit]
+Description=lampOS voice (lamp-voice serve)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+# The memory is read before the first session, and the actions answer its functions: both first.
+# With them Type=simple this orders only the forks; the voice does without either if it is late.
+After=network-online.target sound.target lamp-memory.service lamp-actions.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=root
+Group=root
+Slice=lampos-voice.slice
+WorkingDirectory=/
+UMask=0077
+# @VOICE_OPTIONS@: the measured options of this lamp (microphone, turn-taking, floors, ring ceiling).
+ExecStart=/opt/lampOS/releases/@VOICE_SHA256@/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} @VOICE_OPTIONS@
+# Microphone and speaker threads may not wait behind other work (lamp-4ace, 2026-10-13).
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=20
+Restart=on-failure
+RestartSec=4s
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+SendSIGKILL=yes
+TimeoutStopSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-voice
+NoNewPrivileges=yes
+RuntimeDirectory=lampos-voice
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json
+Environment=LAMP_BUS_ROOT=/run/lampos-bus
+Environment=LAMP_BODY_MOOD_SOCKET=/run/lampos-body/mood.sock
+Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock
+Environment=LAMP_MEMORY_SOCKET=@MEMORY_SOCKET@
+Environment=LAMP_ACTIONS_DIR=@ACTIONS_DIR@
+# The body's servo port: only the body opens it. Defence in depth only, not a mechanical stop.
+InaccessiblePaths=@SERVO_DEVICE@
+
+[Install]
+WantedBy=lampos.target

@@ -1,0 +1,12 @@
+# The voice's own slice: a late word is worse than anything else the lamp can do late.
+# The voice's microphone and speaker threads are also round-robin real-time, set in the
+# voice's unit; this weight is for the rest of the voice, against everything else.
+# Not shown on a lamp: whether its kernel has CONFIG_RT_GROUP_SCHED. With it, a real-time
+# thread cannot be made in a cgroup given no real-time budget, and the voice would not
+# start; then the voice goes back to system.slice (lampOS/docs/keeper.md).
+[Unit]
+Description=lampOS voice slice
+
+[Slice]
+CPUWeight=1000
+IOWeight=1000

@@ -1,0 +1,29 @@
+# lampOS surround: setup, network, updates and reset (lampOS/docs/surround.md).
+# Not part of lampos.target, on purpose: an update stops and starts the lamp, and what
+# asked for the update must not be stopped with it. It starts at power-up on its own.
+# Without --enable (and enabled: true in its configuration) it changes nothing.
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS surround (lamp-surround serve)
+ConditionHost=@UNIT_ID@
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@SURROUND_USER@
+Group=@SURROUND_USER@
+Slice=lampos-parts.slice
+Nice=5
+ExecStart=/opt/lampOS/surround/@SURROUND_SHA256@/lamp-surround serve --config /etc/lampos/surround.json
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-surround
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

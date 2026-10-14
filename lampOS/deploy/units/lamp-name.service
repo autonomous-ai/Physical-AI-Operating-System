@@ -1,0 +1,29 @@
+# lampOS name: hears "Hey Lamp" in what the microphone hears and says so on the bus (lampOS/docs/name.md).
+# It decides nothing. It needs the voice's unit to publish the sound (LAMP_BUS_AUDIO=on there).
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS name (lamp-name)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=lamp-voice.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+Slice=lampos-parts.slice
+# A little below ordinary, on the board's fast processors (@FAST_CPUS@, for example 4 5).
+Nice=5
+CPUAffinity=@FAST_CPUS@
+ExecStart=/opt/lampOS/name/@NAME_SHA256@/lamp-name --models /opt/lampOS/name/models --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-name
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

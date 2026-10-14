@@ -42,12 +42,50 @@ pub trait Systemd {
     fn command(&mut self, verb: &str, unit: &str) -> Result<(), String>;
     /// `systemctl show` of the units the patterns match, as text.
     fn show(&mut self, patterns: &[&str]) -> Result<String, String>;
+    /// `systemctl link --force <file>`: a unit file a release carries.
+    fn link(&mut self, file: &std::path::Path) -> Result<(), String> {
+        Err(format!("cannot link {}", file.display()))
+    }
+    /// `systemctl daemon-reload`.
+    fn reload(&mut self) -> Result<(), String> {
+        Err("cannot reload".into())
+    }
+    /// `systemctl enable <unit>`: a part is wanted by the lamp through its
+    /// own `WantedBy=lampos.target`, which only enabling makes so.
+    fn enable(&mut self, unit: &str) -> Result<(), String> {
+        Err(format!("cannot enable {unit}"))
+    }
 }
 
 /// The real one.
 pub struct Systemctl;
 
+/// Run `systemctl` with these words and say why it failed, if it did.
+fn systemctl(words: &[&std::ffi::OsStr]) -> Result<(), String> {
+    let output = Command::new("systemctl")
+        .args(words)
+        .output()
+        .map_err(|error| format!("systemctl: {error}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
+    }
+}
+
 impl Systemd for Systemctl {
+    fn link(&mut self, file: &std::path::Path) -> Result<(), String> {
+        systemctl(&["link".as_ref(), "--force".as_ref(), file.as_os_str()])
+    }
+
+    fn reload(&mut self) -> Result<(), String> {
+        systemctl(&["daemon-reload".as_ref()])
+    }
+
+    fn enable(&mut self, unit: &str) -> Result<(), String> {
+        systemctl(&["enable".as_ref(), unit.as_ref()])
+    }
+
     fn active(&mut self, unit: &str) -> bool {
         Command::new("systemctl")
             .args(["is-active", "--quiet", unit])

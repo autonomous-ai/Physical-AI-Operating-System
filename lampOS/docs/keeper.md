@@ -196,18 +196,72 @@ voice comes only after its process has ended, when nobody is being heard.
 Once the voice keeps a watchdog, a voice whose loop has hung is ended
 whether or not someone is speaking; a hung voice hears nobody either.
 
+## One service for the lamp
+
+To the rest of the machine the lamp is one service. The old runtime's
+updater (the parent repository's `docs/bootstrap-ota.md`, explicit service
+replacement) installs a package that carries `bin/service` and `VERSION`,
+runs `bin/service serve` under a unit of its own, stops `hal` and
+`os-server`, and asks `bin/service health` for
+`{"ready","version","pid"}`. For lampOS that package is the keeper:
+`bin/service` is `lamp-keeper`, and the parts' units travel in the
+package's `units/` folder.
+
+Started that way (`AUTONOMOUS_SERVICE_NAME` set), `lamp-keeper serve`:
+
+1. writes an answer that is not ready, so that one left by the run before
+   is never taken for this one;
+2. links every unit in the release's `units/` (`systemctl link --force`),
+   writes `lampos.target.d/keeper.conf` (`BindsTo=` and `After=` its own
+   unit), reloads, and enables each part, which puts it under the target;
+3. starts `lampos.target`, and from then on writes after every look whether
+   every part the release carries is running, with its own process id,
+   which `health` prints.
+
+systemd still runs every part; the keeper only brings them up together and
+watches. The target itself is not enabled: at power-up it is the keeper's
+unit that starts, and the lamp with it. Stopping the keeper's unit stops
+the target, and the parts in reverse order.
+
+On lamp-52e6, 2026-10-14, with a package laid out as the updater lays it
+(`/opt/lampOS/lamp-os/<version>`, the updater's own unit text, the voice,
+body and eyes of `deploy/lamp-52e6/` in `units/`), the updater itself not
+run:
+
+| What | Measured |
+|---|---|
+| `systemctl start lamp-os` to `health` saying ready, the `pid` equal to the unit's main process | 2.56 s, 2.53 s; once 5.8 s while the body was still folding down from the stop before |
+| `systemctl stop lamp-os` to every part stopped | about 12 s: the eyes at once, the body after folding down, the voice last |
+| The body killed (`kill -9`) to running again | 15.3 s (its `RestartSec=15`) |
+| The body hung (`kill -STOP`) to running again | 19.6 s: the watchdog after 5 s, `SIGABRT`, then 15 s |
+
+The journal of that window is in
+[`verification/keeper-lamp-52e6-20261014/`](verification/keeper-lamp-52e6-20261014/README.md).
+
+The body is the only part that says ready and alive (`Type=notify`,
+`WatchdogSec=5`); for the others "running" is all systemd knows, and the
+keeper's `health` says no more than that.
+
 ## What was not shown
 
-- No unit here has run on a lamp. Each was checked with `systemd-analyze
-  verify` (systemd 252, Debian bookworm, in a container) with every
-  placeholder filled: no complaint but the missing binaries.
+- The templates in `deploy/units/` have not run on a lamp as a whole: they
+  were checked with `systemd-analyze verify` (systemd 252, Debian bookworm,
+  in a container) with every placeholder filled, no complaint but the
+  missing binaries. lamp-52e6 ran its own three (voice, body, eyes) under
+  the target, above.
+- The updater installing the package: the layout and the unit were copied
+  from it by hand; its activation, its own health check and a rollback
+  through it were not run.
+- A power cut with the keeper's unit enabled.
 - The order at power-up and how long each step takes; whether the eyes
   should wait for the body's start checks; whether the voice should wait
   for the memory once it can.
-- Whether the lamp's kernel has `CONFIG_RT_GROUP_SCHED`. With it, the
-  voice's real-time threads cannot be made in `lampos-voice.slice` and the
-  voice will not start; then it goes back to `system.slice`, as on lamp-4ace.
+- The voice in `lampos-voice.slice`. lamp-52e6's kernel (5.15.147) has no
+  `CONFIG_RT_GROUP_SCHED`, so its real-time threads should start in any
+  slice; lamp-52e6 still runs it in `system.slice`, as lamp-4ace does.
 - The voice's limit of ten starts in ten minutes.
-- The pause, in any part: none honours one yet.
+- The pause, in any part: none honours one yet. The update and reset
+  choreography (task 12's owner protocol) and a command topic on the bus
+  are not built.
 - lamp-4ace's units are unchanged here: they have no target, no slices and
   no watchdog.

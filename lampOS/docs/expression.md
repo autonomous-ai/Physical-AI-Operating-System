@@ -14,6 +14,9 @@ Task 18 adds the separate `voice/progress` and `voice/sound` contract and
 the optional [`rest-behaviours.json`](../crates/expression/rest-behaviours.json)
 catalogue. The current Voice publisher still uses the original contract;
 First must wire the new pair before selecting that catalogue on the lamp.
+The separate [`playout-behaviours.json`](../crates/expression/playout-behaviours.json)
+catalogue adds bounded recent-level sampling to today's original Voice
+protocol. Selecting it does not enable the finishing nod, rest or new protocol.
 
 ## What exists and what we take
 
@@ -65,7 +68,8 @@ triggers, states, delays, cooldowns and keyframes are data.
 A clip using an existing trigger can be added without changing the engine.
 A new evidence source requires a new typed input and engine rule. There are
 at most 24 behaviors and 64 keyframes per behavior; catalogues are at most
-128 KiB. A repeating clip is allowed only on actual playout.
+128 KiB. A repeating clip is allowed only on playout evidence: a committed
+interval, or the explicitly enabled bounded recent level described below.
 
 | Initial behavior | Built-in plan |
 |---|---|
@@ -147,6 +151,65 @@ therefore supplies a rest plan, not resting motion on the lamp. First must
 choose one author, decide how an eligible rest request reaches the final
 writer, and preserve Body's local safety and privacy rules. See
 [What Expression may add](body.md#what-expression-may-add).
+
+## Optional recent playout level
+
+First's task 18 addendum reports 565 cumulative refusals on lamp-4ace since
+09:43, nearly all playout. Its separate four-answer recording at 12:08 had
+353 messages: roughly 20 ms pieces, median publication 1.7 ms after interval
+start, and at most 18 ms left when published. Those are First's measurements
+in [the task list](work-split.md), not Third's replay or a 565-of-353 rate.
+Third has not received that recording. A valid piece can end before receipt,
+or between receipt and Expression's next 20 ms tick.
+
+`Timing.recent_playout_us` defaults to **0**, preserving strict current
+interval sampling in both existing catalogues. It accepts 0 or
+20,000–200,000 microseconds. Select
+`--catalogue crates/expression/playout-behaviours.json` to use **100,000**
+with the original Voice protocol and original clips. This is an initial
+tuning choice, not a measured optimum. To combine it with the resumable
+protocol and longer nod/rest, copy `rest-behaviours.json` and explicitly add
+`"recent_playout_us": 100000` to `timing`; deploy that combination only after
+the new Voice publisher is wired. `serve --enable` is still separate.
+
+With this option, a report whose interval has just ended is valid while
+`now - end_us < recent_playout_us`. It remains subject to the same payload
+and bus-header freshness, identity, ordering, non-overlap and generation
+checks. Typed observation age must stay below 200 ms; the bus's 200 ms
+lifespan and existing 50 ms wall-clock expiry grace are unchanged. The
+planner retains one latest ended piece beside its queue of at most 128 committed
+pieces. An admitted queued piece also becomes recent when its interval
+ends. There is no queue of historical gestures and no catch-up after a
+stalled tick.
+
+Only fresh Voice already in Speaking may use that recent level. Its gain is
+`level * (1 - (now - end_us) / recent_playout_us)`, sampled at the current
+tick, with zero authority at the exact expiry. The immutable interval end
+sets the deadline; new receipt times, ticks and Voice heartbeats cannot
+renew it. A current interval wins, including a reported zero level. Future
+sound cannot illuminate early or renew the recent observation. Recent
+sound cannot change Thinking into Speaking, establish first-audio timing,
+claim input readiness or revive a held/retired turn. Voice phase changes,
+hold/resume, new identities/generations, terminal events, Voice expiry and
+clock faults clear the recent evidence.
+
+A measured body lag still selects a committed future interval for body
+anticipation. If none covers that sample, the optional reactive fallback
+uses the current/recent level at real `now`; it does not advance historical
+sound by the lag. Light always samples at real `now`. Quiet-room,
+concentration, joint freshness and actuator-local rules continue to apply.
+Recent level is normal evidence rather than a refusal or missing-level
+warning; after expiry a Speaking owner again reports missing
+`fresh current or recent playout level`.
+
+The publisher's normalized level is a ring envelope (the maximum of
+constituent levels in a piece), not a microphone or independently measured
+acoustic RMS. The recent fade extends visual/motion modulation; it does not
+extend reported sound duration. The target remains a plan on the next
+20 ms tick and measured lamp light response within 100 ms of receipt.
+The most likely mismatch is a visible tail that feels late; compare current
+and recent intervals separately before changing the window. See the
+[source review](reuse-decisions.md#expression-recent-playout-evidence-2026-10-14).
 
 ## Clock and input contract
 
@@ -404,6 +467,7 @@ cargo run -p lamp-expression -- clock --clock-id development
 cargo run -p lamp-expression -- serve --clock-id development --bus-root /tmp/expression-bus --seconds 5
 cargo run -p lamp-expression -- replay --input crates/expression/fixtures/five-behaviours.jsonl --clock-id written-scenario --enable --until-us 2000000 --output /tmp/expression-plan.jsonl
 cargo run --offline -p lamp-expression -- replay --input crates/expression/fixtures/held-resumed.jsonl --clock-id expression-rest-fixture --catalogue crates/expression/rest-behaviours.json --enable
+cargo run --offline -p lamp-expression -- replay --input crates/expression/fixtures/recent-playout.jsonl --clock-id recent-playout-fixture --catalogue crates/expression/playout-behaviours.json --enable --until-us 400000
 ```
 
 The server above is shadow-only. `serve --enable` enables planner output,
@@ -462,6 +526,41 @@ Their isolated healthy-status case supplies an authored zero body lag;
 the shipped catalogue leaves lag unknown, so the CLI still reports that
 missing measurement. A refused interval in the two adversarial fixtures is
 the intended result, not permission to ignore refusals in a lamp recording.
+
+The recent-level addendum uses the separate `recent-playout-fixture` clock:
+
+- [`recent-playout.jsonl`](../crates/expression/fixtures/recent-playout.jsonl)
+  supplies authored 20 ms pieces with publication 1.7 ms after onset. Some
+  arrive then and end before the next tick; others have an explicitly
+  authored transport delay and arrive after their end. Use
+  `playout-behaviours.json` for this legacy-protocol fixture.
+- [`recent-playout-generation.jsonl`](../crates/expression/fixtures/recent-playout-generation.jsonl)
+  exercises recent levels across hold/resume, delayed stale-generation
+  sound and a terminal event. It requires a catalogue with both
+  `resumable_voice: true` and `timing.recent_playout_us: 100000`.
+
+Neither fixture is First's recording. Payload publication time, authored
+receipt time and planner tick are distinct. Tests compare the requested
+output with the default option disabled; no inferred delay is labelled an
+acoustic, optical or motor measurement.
+
+The first three reports in the legacy fixture each reach their next planner
+tick 18,300 us after authored receipt. With the option enabled, the requested
+brightness follows the admitted level at that tick. With strict sampling,
+the first has ended by that tick and the two delayed reports are refused.
+The zero-level report then takes precedence; future sound begins at its
+committed time, and the last recent level expires at 320,000 us even though
+Voice heartbeats continue. These are exact injected-clock assertions.
+
+`cargo run --offline --release --locked -p lamp-expression --example recent_playout_cost`
+runs one first iteration and 100 warm iterations per mode on the same
+15-record, 21-tick authored trace. It compares strict mode with the optional
+100 ms window in this build, in that order. Timing includes catalogue clone,
+Engine construction, JSONL parsing, injected planning and serialization to a
+sink; it excludes catalogue parsing, process startup, transport, disk output
+and hardware. Warm median is the average of the two middle sorted samples.
+The example embeds its catalogue and fixture; First can build it for the lamp
+and run the resulting `recent_playout_cost` binary without a source checkout.
 
 ## Verification and lamp checklist
 
@@ -559,6 +658,28 @@ For task 18, First must additionally:
   idle writer, arm motion, room scan or misleading listening face. The new
   rest shape's appearance and deadband losses are the likeliest mismatch.
 
+**Recent-level addendum, 2026-10-14.** On Third's same development Mac,
+formatting, strict all-target Clippy, serial tests for Expression and all
+three dependents, and the workspace build passed: **1,461 tests, zero
+failures, seven inherited ignored cases**. All 46 added tests passed.
+A source-only copy built all 27 workspace members and passed all 171
+Expression tests, without failures or skips. The final source hashes,
+commands, results and failures are retained in the
+[addendum evidence](verification/expression-playout-host-20261014/results.json)
+and [failure ledger](verification/expression-playout-host-20261014/failures.md).
+
+One release invocation of `recent_playout_cost` ran the same authored trace
+first in strict mode, then with the option, with no other Third-owned build
+or test running; unrelated host load was uncontrolled. Strict mode's first
+iteration was 0.151605 ms, warm median 0.0514965 ms and maximum 0.057421 ms.
+Optional mode's first iteration was 0.056098 ms, warm median 0.0510775 ms and
+maximum 0.055327 ms. These are the computation boundaries described above,
+not process startup or a statistically established speed improvement. All
+202 samples are retained. The direct built-CLI replay accepted all 15 inputs
+and produced 21 requested frames through 400,000 us. First should compare
+the lamp's real short reports and visible tail before changing the window;
+no new Voice, Body, Audio or deployment code is part of this addendum.
+
 ## Not shown
 
 First's legacy publisher, shadow planner and Body consumer measurements are
@@ -573,5 +694,8 @@ calibration, optical latency, acoustic onset/cancellation, safe motor
 trajectories or acceptable expressiveness. Published robot studies are not
 lampOS measurements. Body lag remains unknown; the new fixtures are written,
 not captured from the lamp. Transport age estimates cannot repair clock
-steps or recover receipt timing. First owns the remaining device wiring,
-choice of idle author, timing measurements and observation of how it looks.
+steps or recover receipt timing. First owns the remaining lamp-4ace wiring
+and observation; Fifth now owns Body and its separate lamp qualification.
+The recent-level addendum does not establish how the 100 ms tail looks, or
+validate First's planned earlier Voice publication. Its normalized levels
+remain speaker-owner reports.

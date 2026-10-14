@@ -1,0 +1,1 @@
+lamp-expression: replay Summary { input_records: 15, accepted: 15, rejected: 0, ticks: 21, first_tick_us: Some(0), last_tick_us: Some(400000), warnings: [] }; simulated request timing only

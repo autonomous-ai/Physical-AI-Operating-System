@@ -1,0 +1,15 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.81s
+     Running tests/recent_playout_replay.rs (target/debug/deps/recent_playout_replay-b790bfedb536edb1)
+
+running 8 tests
+test ended_frames_are_not_queued_and_hold_discards_the_one_future_frame ... ok
+test hold_and_terminal_edges_clear_recent_level_and_queued_old_generation ... ok
+test recent_level_fades_from_immutable_end_and_heartbeats_cannot_extend_it ... ok
+test current_zero_replaces_recent_sound_and_future_frames_never_play_early ... ok
+test publication_receipt_and_next_tick_are_separate_authored_boundaries ... ok
+test existing_catalogues_keep_strict_default_and_same_output_when_window_is_zero ... ok
+test opted_in_shadow_replay_has_the_same_admission_and_no_actuator_requests ... ok
+test authored_fixtures_have_exact_counts_and_only_named_intentional_refusals ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

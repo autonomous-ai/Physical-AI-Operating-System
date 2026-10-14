@@ -1,0 +1,12 @@
+[Unit]
+Description=Check lamp diagnostic retention hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=60
+AccuracySec=1min
+Persistent=true
+Unit=lamp-records.service
+
+[Install]
+WantedBy=timers.target

@@ -1007,6 +1007,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-records"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-msgs",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "lamp-ring"
 version = "0.1.0"
 dependencies = [

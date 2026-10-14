@@ -299,6 +299,53 @@ sent privately by `coordinator.rs` to `BodyLink`. `room/state` describes room
 speech, not concentration. First wires these inputs and the body/ring owners;
 Expression cannot infer the missing facts from transcript arrival.
 
+## Records: bounded closed-session retention (2026-10-14)
+
+This source review supports [Records](records.md). V1 was inspected at the
+task's source base `96e5b83a7059fb82283381665c8667b670d9c376`, separately from
+the earlier baseline above. No lamp access or new performance measurement
+is part of this review.
+
+**Keep bounded writers:** the V1
+[Go logger](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/96e5b83a7059fb82283381665c8667b670d9c376/system/lib/logger/logger.go)
+uses 2 MB files and ten backups; the
+[HAL logger](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/96e5b83a7059fb82283381665c8667b670d9c376/hal/server_support/log_setup.py)
+uses 20 MiB server files and 5 MiB usage files, each with three backups.
+Preserve writer-owned rotation. V1's
+[flow cleanup](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/96e5b83a7059fb82283381665c8667b670d9c376/system/lib/flow/flow.go)
+removes dated files older than seven calendar days at startup, without an
+aggregate byte limit. Age alone neither bounds heavy recent traffic nor
+proves a writer has closed its output. Add age and allocated-byte limits
+across recognized closed voice invocations; retain the active writer's files.
+
+**Reuse filesystem and ownership primitives:** rustix is already used by
+[lamp-ipc](../crates/ipc/Cargo.toml); the new
+[store](../crates/records/src/store.rs) reuses it for descriptor-relative,
+no-follow operations and recoverable quarantine. Reuse the existing bus and
+diagnostic type. The
+[systemd invocation contract](https://raw.githubusercontent.com/systemd/systemd/v255/man/systemd.exec.xml)
+identifies a runtime cycle, but an invocation alone cannot exclude older
+surviving or manual writers. The [guard](../crates/records/src/guard.rs)
+combines manager observations with bounded host-procfs inspection, after a
+fixed inventory. Its safety also depends on the voice producer exclusively
+creating new output directories. Unknown ownership refuses cleanup; no age,
+quiet-period heuristic or process signal substitutes for that evidence.
+
+**Keep native journal ownership:**
+[journald](https://raw.githubusercontent.com/systemd/systemd/v257/man/journald.conf.xml)
+owns its active files and archived-file retention. The present journal is
+shared; a unit filter is not a deletion boundary. A proposed dedicated
+namespace needs the deployment owner's qualification and explicit opt-in.
+No journal vacuum or competing journal writer is introduced.
+
+**State the implemented scope:** the adapter recognizes only the private
+voice-service metadata layout. Optional
+[bus recordings](../crates/bus/src/main.rs), policy daily logs, finite
+experiment archives and other writers lack a supported cleanup ownership
+contract here; their aggregate lifetime retention is not covered. Memory
+keeps its own retention and forgetting rules. Configuration defaults off,
+and a successful voice cleanup does not establish a whole-disk bound.
+
 ## What this Expression review has not shown
 
 No V1 or Rust tests were run for this source review, and no lamp was accessed.

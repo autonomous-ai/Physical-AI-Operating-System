@@ -1,0 +1,30 @@
+[Unit]
+Description=Report the last lamp diagnostic cleanup
+ConditionPathExists=/etc/lampOS/records.json
+
+[Service]
+Type=exec
+User=root
+Group=root
+UMask=0077
+ExecStart=/opt/lampOS/bin/lamp-records report /etc/lampOS/records.json /run/lamp-records/last.json
+RuntimeDirectory=lamp-records
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=5
+Nice=19
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+# The bus creates its own root on first publication, including after boot.
+# /var, /etc and release binaries remain read-only in this reporter.
+ReadWritePaths=/run
+RestrictAddressFamilies=AF_UNIX
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-records-report
+
+[Install]
+WantedBy=multi-user.target

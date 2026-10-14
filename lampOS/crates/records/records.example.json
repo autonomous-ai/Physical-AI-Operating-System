@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "bus_root": "/run/lampos-bus",
+  "roots": [
+    {
+      "kind": "voice_service_metadata",
+      "path": "/var/lib/lampOS/voice/sessions",
+      "unit": "lamp-voice.service",
+      "max_bytes": 500000000,
+      "max_age_seconds": 1209600
+    }
+  ]
+}

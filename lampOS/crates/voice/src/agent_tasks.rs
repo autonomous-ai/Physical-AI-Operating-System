@@ -16,10 +16,11 @@
 //! `--tasks-dir DIR`. The target is the tasks part's alias `office` unless
 //! `LAMP_TASKS_TARGET` names another.
 //!
-//! Not done yet: hearing back. Harness 0.3.99 cannot read a session on
-//! another machine (`docs/tasks.md`, "First real Harness check"), so the
-//! model is told the work was started and that the answer will be on that
-//! computer.
+//! Hearing back: the tasks part watches what it started (`serve --watch`),
+//! [`crate::task_news`] tells the person unasked when the agent has
+//! finished or asks something, and [`CHECK`] answers "how's it going?" from
+//! what was last seen, at once. What the person heard through [`CHECK`] is
+//! kept as told, so it is not told again unasked.
 use lamp_gemini::{Tool, ToolCall};
 use serde_json::{Value, json};
 use std::{
@@ -39,6 +40,7 @@ pub const DEFAULT_TARGET: &str = "office";
 /// The model's two functions.
 pub const START: &str = "start_agent_task";
 pub const CONFIRM: &str = "confirm_agent_task";
+pub const CHECK: &str = "check_agent_task";
 /// A yes counts this long after the task was prepared.
 pub const CONFIRM_WITHIN: Duration = Duration::from_secs(120);
 /// The longest task text the tasks part takes.
@@ -85,11 +87,20 @@ pub fn tools() -> Vec<Tool> {
             parameters: None,
             silent: false,
         },
+        Tool {
+            name: CHECK.into(),
+            description: "How the latest work you handed over is going, and what the agent came \
+                          back with if it has finished. Call it when the person asks about that \
+                          work (\"how's it going?\", \"what did Claude Code say?\")."
+                .into(),
+            parameters: None,
+            silent: false,
+        },
     ]
 }
 
 pub fn is_tool(name: &str) -> bool {
-    name == START || name == CONFIRM
+    name == START || name == CONFIRM || name == CHECK
 }
 
 /// What the tasks part is reached by.
@@ -284,8 +295,8 @@ pub fn run(
                     (
                         json!({
                             "started": true,
-                            "where": "Claude Code on the office computer",
-                            "next": "Say briefly that it has been started there. You will not hear its answer: it will be on that computer."
+                            "who": "Claude Code",
+                            "next": "Tell them in a few natural words that you have handed it to Claude Code and will let them know when it is done, the way a chief of staff would (\"Done, Claude Code's on it. I'll tell you when it's finished.\")."
                         }),
                         true,
                     )
@@ -294,8 +305,100 @@ pub fn run(
                 None => (crate::tools::unavailable(), false),
             }
         }
+        CHECK => check(place, &crate::task_news::told_file(), left()),
         _ => (crate::tools::unavailable(), false),
     }
+}
+
+/// How the newest task handed over is going, from what the tasks part last
+/// saw: no new look at the agent, so the answer comes at once. A finished
+/// one the person now hears about is kept as told.
+fn check(place: &Place, told_file: &Path, deadline: Duration) -> (Value, bool) {
+    let started = Instant::now();
+    let left = || deadline.saturating_sub(started.elapsed());
+    let socket = place.directory.join("request.sock");
+    let mut newest: Option<u64> = None;
+    let mut store;
+    let mut after = 0;
+    loop {
+        let Some(page) = ask(&socket, &json!({"op":"list","after_id":after}), left()) else {
+            return (crate::tools::unavailable(), false);
+        };
+        store = page["store_id"].as_str().unwrap_or_default().to_owned();
+        for item in page["items"].as_array().into_iter().flatten() {
+            if item["dispatch"]["state"] == json!("accepted")
+                && let Some(id) = item["id"].as_u64()
+            {
+                newest = newest.max(Some(id));
+            }
+        }
+        match page["next_after_id"].as_u64() {
+            Some(next) if next > after => after = next,
+            _ => break,
+        }
+    }
+    let Some(id) = newest else {
+        return (
+            json!({"none": true, "next": "Tell them there is no work handed over just now."}),
+            true,
+        );
+    };
+    let Some(task) = ask(&socket, &json!({"op":"get_task","id":id}), left()) else {
+        return (crate::tools::unavailable(), false);
+    };
+    let who = crate::task_news::who(&task);
+    let (asked, _) = crate::task_news::quoted(
+        task["text"].as_str().unwrap_or_default(),
+        crate::task_news::MOST_TASK_CHARS,
+    );
+    let Some(observation_id) = task["observations"]
+        .as_array()
+        .and_then(|seen| seen.iter().filter_map(|seen| seen["id"].as_u64()).max())
+    else {
+        return (
+            json!({"who": who, "task": asked, "state": "working",
+                "next": format!("Tell them {who} is still working on it, and that you will tell them when it is done.")}),
+            true,
+        );
+    };
+    let Some(observation) = ask(
+        &socket,
+        &json!({"op":"get_observation","id":id,"observation_id":observation_id}),
+        left(),
+    ) else {
+        return (crate::tools::unavailable(), false);
+    };
+    let data = &observation["data"];
+    let state = data["state"].as_str().unwrap_or("unknown");
+    let (answer, cut) = crate::task_news::quoted(
+        data["answer"].as_str().unwrap_or_default(),
+        crate::task_news::MOST_ANSWER_CHARS,
+    );
+    let settled = match state {
+        "idle" => !answer.is_empty(),
+        "needs-input" | "stopped" | "failed" => true,
+        _ => false,
+    };
+    if settled {
+        crate::task_news::keep_told(told_file, &format!("{store}:{id}:{observation_id}"));
+    }
+    let next = match state {
+        "idle" if settled => {
+            "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
+        }
+        "needs-input" => {
+            "Tell them it has stopped to ask them something, and ask its question in your own words."
+        }
+        "stopped" | "failed" => {
+            "Tell them in one plain sentence that it stopped without finishing."
+        }
+        _ => "Tell them it is still working on it, and that you will tell them when it is done.",
+    };
+    (
+        json!({"who": who, "task": asked, "state": state, "answer": answer,
+            "more": cut || data["truncated"] == json!(true), "next": next}),
+        true,
+    )
 }
 
 /// The tasks part's guard for a mutation: its store, its revision now, and
@@ -510,5 +613,50 @@ mod tests {
             )
             .1
         );
+    }
+
+    #[test]
+    fn asked_how_it_is_going_the_lamp_answers_from_the_last_look_and_keeps_it_told() {
+        let directory = std::env::temp_dir().join(format!("agent-check-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let told = directory.join("told");
+        let place = Place {
+            directory: directory.clone(),
+            target: DEFAULT_TARGET.into(),
+        };
+        let task = json!({"ok":true,"text":"Suggest three names","target":{"engine":"claude"},
+            "observations":[{"id":4,"state":"idle"}]});
+        let seen = tasks_part(
+            &directory,
+            vec![
+                (
+                    "request.sock",
+                    json!({"ok":true,"store_id":"s1","items":[
+                    {"id":1,"dispatch":{"state":"accepted"}},{"id":2,"dispatch":{"state":"accepted"}},
+                    {"id":3,"dispatch":{"state":"invalidated"}}]}),
+                ),
+                ("request.sock", task),
+                (
+                    "request.sock",
+                    json!({"ok":true,"data":{"state":"idle","answer":"Lumi, Sunny and Archie.","truncated":false}}),
+                ),
+            ],
+        );
+        let (told_model, answered) = check(&place, &told, Duration::from_secs(2));
+        assert!(answered);
+        assert_eq!(told_model["who"], "Claude Code");
+        assert_eq!(told_model["state"], "idle");
+        assert_eq!(told_model["answer"], "Lumi, Sunny and Archie.");
+        // The newest task handed over, not the newest prepared.
+        assert_eq!(seen.recv().unwrap()["op"], "list");
+        assert_eq!(seen.recv().unwrap(), json!({"op":"get_task","id":2}));
+        assert_eq!(
+            seen.recv().unwrap(),
+            json!({"op":"get_observation","id":2,"observation_id":4})
+        );
+        // Heard now, so not told again unasked.
+        assert_eq!(std::fs::read_to_string(&told).unwrap(), "s1:2:4\n");
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

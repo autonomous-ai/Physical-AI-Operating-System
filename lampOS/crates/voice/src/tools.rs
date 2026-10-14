@@ -635,7 +635,11 @@ mod tests {
         let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
         assert_eq!(
             names,
-            [crate::agent_tasks::START, crate::agent_tasks::CONFIRM]
+            [
+                crate::agent_tasks::START,
+                crate::agent_tasks::CONFIRM,
+                crate::agent_tasks::CHECK
+            ]
         );
         assert_eq!(
             route(&with, crate::agent_tasks::CONFIRM),

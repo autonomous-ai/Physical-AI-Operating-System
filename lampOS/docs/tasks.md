@@ -458,6 +458,57 @@ first arrived after the second had taken over and was dropped
 (`UnownedToolCall`), and the model then said it could not start the task. A
 yes said in one breath worked.
 
+## The lamp as chief of staff: watching and telling (2026-10-15)
+
+The owner, just after midnight: the lamp is the person's chief of staff at
+work and their best friend. It hands work to Claude Code, Codex and the
+others like an assistant hands work to staff ("I gave it to Claude Code to
+work on it"), and later, unasked and at a good moment, says how it went ("oh
+Claude Code just finished the task on xyz. the result is xyz"), "but must be
+natural". Watching and deciding cost no model tokens; the realtime model is
+used only to say it.
+
+- **Handing over.** After the yes, the model is told to say in a few natural
+  words that Claude Code has it and that the lamp will say when it is done.
+- **Watching** (`serve --watch`, `Engine::watch`). Each accepted task is read
+  on its own, with the same `show --machine` as an asked read: every 30 s for
+  its first 10 minutes, then every 2 minutes, for at most a day in one boot.
+  A read made by the watch keeps an observation only when the agent has
+  finished (idle with an answer), stopped, failed, or stopped to ask
+  (`needs-input`); otherwise it ends as a failed read with code `working`,
+  so the four observations a task may keep are not spent on work in
+  progress. Once one such observation is kept, the watch leaves that task.
+  An asked read's receipt that a watch read replaces is dropped: a retry of
+  that request finds the revision moved on and is refused, never run twice.
+  Nothing is read while a launch or another read is in hand.
+- **Telling** (`crates/voice/src/task_news.rs`). A thread of the voice reads
+  `list`, `get_task` and `get_observation` every 10 s and offers the newest
+  settled observation of each task, if it was seen in this boot within the
+  last 12 hours and has not been told. The coordinator tells it as a turn the
+  lamp begins itself (basis `lamp_tells_news`, record `task_news`) when the
+  eyes say someone is at the lamp, or something was said to or by it within
+  two minutes; nothing has been said for 15 s; nothing is owed or being
+  heard; and the room is not busy. The note gives the model the task's words
+  and up to 1,200 characters of the answer, and asks for one or two natural
+  sentences starting like "Oh, Claude Code just finished…" ("earlier" after
+  ten minutes), the gist in plain words, no code, lists, paths or links, and
+  the rest left on the computer. A question from the agent is asked in the
+  lamp's own words; a stop is said plainly. Each piece is told once: its key
+  (store, task, observation) goes into `/var/lib/lampOS/voice/tasks-told`
+  (`LAMP_TASKS_TOLD`), read again on each pass.
+- **Asked** (`check_agent_task`). "How's it going?" or "what did Claude Code
+  say?" is answered at once from what was last seen, with no new read; a
+  finished answer heard this way is kept as told, so it is not told again
+  unasked.
+- **Progress** is #732: `show` is empty while an agent works (measured
+  2026-10-15, 00:05), so the progress signal will be `ps --machine`, put on
+  the bus as typed state, with Jev deciding whether a step is worth telling
+  now, and the model used only to say it.
+
+The voice's side is on wherever the tasks part is (`LAMP_TASKS_DIR`). The
+watch is `--watch` on the tasks service for its first minute on lamp-4ace,
+and then the default, as `docs/joining.md` now asks.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

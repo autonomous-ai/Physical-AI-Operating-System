@@ -191,6 +191,12 @@ impl Arrival {
                 .is_none_or(|at| now_us.saturating_sub(at) >= AT_MOST_EVERY_US)
     }
 
+    /// Whether someone has been at the lamp for a moment now.
+    pub fn present(&self, now_us: u64) -> bool {
+        self.there_since
+            .is_some_and(|since| now_us.saturating_sub(since) >= THERE_FOR_US)
+    }
+
     /// The hello has been begun.
     pub fn said(&mut self, now_us: u64) {
         self.greeted_this_arrival = true;

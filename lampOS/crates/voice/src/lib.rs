@@ -48,6 +48,7 @@ pub mod second_look;
 pub mod session_fact;
 pub mod sight;
 pub mod speak_up;
+pub mod task_news;
 mod termination;
 pub mod thread;
 pub mod tools;

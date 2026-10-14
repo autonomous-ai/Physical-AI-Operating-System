@@ -2396,6 +2396,13 @@ fn conversation_with_controls(
         None
     };
     let mut last_turn_us = monotonic_us();
+    // News from the work handed to agents on other computers, told
+    // unasked at a good moment (`docs/tasks.md`).
+    let mut task_news = if lifetime.continuous() {
+        crate::task_news::TaskNews::from_environment()
+    } else {
+        None
+    };
     // The level under which sound is not speech, which may follow the room;
     // the speech blocks of the turn in hand and of the moment before it,
     // until it is known whether they were for the lamp; and the turn they
@@ -4220,6 +4227,48 @@ fn conversation_with_controls(
                     json!({"kind":"hello_due","at_us":clock,"said":false,"provider_session":provider_session}),
                 )?;
             }
+        }
+        // News from an agent, told the way a chief of staff would: when
+        // someone is at the lamp (its eyes say so, or they spoke to it a
+        // moment ago), nothing has been said for a little while, nothing is
+        // owed, and the room is not busy with other talk.
+        if let Some(news) = task_news.as_mut()
+            && news.waiting().is_some()
+            && clock.saturating_sub(last_turn_us) >= crate::task_news::QUIET_US
+            && (arrival
+                .as_ref()
+                .is_some_and(|arrival| arrival.present(clock))
+                || clock.saturating_sub(last_turn_us) < crate::task_news::HEARD_WITHIN_US)
+            && !room.busy()
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && !admission.owns_stream()
+            && !submission_draining
+            && snapshot.listening_ready(now())
+            && let Some(provider_session) = cloud.ready_session()
+            && let Some(told) = news.tell()
+        {
+            eprintln!(
+                "lamp-voice: telling news from the work handed over ({})",
+                told.key
+            );
+            record(
+                trace,
+                json!({"kind":"task_news","at_us":clock,"key":told.key,"provider_session":provider_session}),
+            )?;
+            snapshot = commit_written_turn(
+                owner,
+                reply,
+                &mut provider_queue,
+                &told.note,
+                false,
+                "lamp_tells_news",
+                provider_session,
+                rig.playout_start,
+                trace,
+                |state| rig.publish(state),
+            )?;
+            last_publish = monotonic_us();
         }
         service_optional_ring(rig, &mut choreography, owner, trace, &mut ring_trace)?;
         if clock.saturating_sub(last_health) >= 50_000 {

@@ -219,7 +219,7 @@ has it:
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
-| 19 | The end sent early, the answer played only when sure | `early-end` | Second | open |
+| 19 | The end sent early, the answer played only when sure | `early-end` | Second | back on the lamp 2026-10-14: on `lamp-voice`, played, worse; switched off ("What the lamp showed") |
 | 20 | The replay takes the lamp's own recordings | `replay-capture-clocked` | Second | done 2026-10-14: on `lamp-voice`; follows the lamp's own recordings sample for sample; the steady reference judged on them, mixed |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | done 2026-10-14: on `lamp-voice`, behind the voice's `--echo-reference steady`; to be played to on the lamp |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
@@ -1190,6 +1190,25 @@ voice before the light?), which only a lamp shows.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14 afternoon, played on lamp-4ace from 13:30 (the owner:
+"test 24/7").** The fast end-of-turn worker (task 1) is on since 13:21:
+it took "Hey Lamp," for a finished turn and cut the name off its question
+until the first builder gave its early commit a floor of 0.8 s of speech
+(`bea2dd1c9`); with it, 4 of 5 pause scenes answered, about 0.5 s sooner
+([endpoint-pilot.md](endpoint-pilot.md)). The end sent early (task 19,
+`af9ff59c5`, `e251ef842`) made the scenes worse and is off
+([faster-answers.md](faster-answers.md), "The end sent early, played on
+lamp-4ace"); back to the second builder below. The clock answered three of
+three; the voice's sound said ahead (`d721c34c1`) brought Expression's
+refusals from about a thousand an hour to 22 over the afternoon. The
+busy-room rule kept out of 36 lines of talk and held three of four calls
+for want of a face; a name heard at 0.999 or more now counts as a call
+([attention.md](attention.md)). The records bound (task 15) is on, at
+2 GB, hourly ([records.md](records.md)). The hand stop (task 21,
+`5f9914314`) is on `lamp-voice` and on the lamp with its switches off,
+waiting for a hand; the stop listener (task 3) is on `lamp-voice`; both are
+for the evening's stop and interruption tests.
+
 **2026-10-14, task 20, the replay of the lamp's own recordings.** Taken
 onto `lamp-voice` unchanged (`03ebfbb3b`); its 17 replay tests pass on
 the Mac and under emulation. On lamp-4ace, on last night's six played
@@ -1464,6 +1483,14 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**To the second builder, 2026-10-14, task 19.** Played on the lamp at
+13:45 with `--early-end-ms 200` and the fast end-of-turn worker: worse
+(see "What the lamp showed" and [faster-answers.md](faster-answers.md)).
+What would help: an early end that does not tell the service the request
+is over, or one taken back cleanly when speech resumes before confirming,
+so that the service never hears half a sentence as a whole one. Not
+urgent: stopping and interruption come first in your list.
 
 **To the second builder, 2026-10-14, task 20.** (1) `capture_hold_worker.rs`:
 mended in `46403ffbd` (it passes the echo reference now), and the first

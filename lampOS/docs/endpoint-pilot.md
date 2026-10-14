@@ -743,6 +743,34 @@ What the pilot would do in each case:
   so these are not counted as splits. In a live conversation the person
   would continue after more than 2.5 s, past either endpoint.
 
+## Played on lamp-4ace with the fast worker, 2026-10-14 afternoon
+
+The five pause scenes (`pauses.sh`: two plain questions, and thoughts with
+a 450, 650 and 900 ms silence inside), synthetic voices from the office
+iMac, the voice's other settings as on the lamp that day. One run each.
+
+| Run (local time) | The voice | Answered | From the end of speech to the first word, answered ones |
+|---|---|---|---|
+| 13:03 | 600 ms of quiet, no model | 2 of 5 (the first held by the busy-room rule) | 2.1, 1.9 and 2.9 s |
+| 13:30 | `--endpoint smart-turn-fast` | 4 of 5 | 0.4 s of quiet, then 1.1 to 1.7 s |
+| 13:32 | the same | 0 of 5 | (the name cut off; below) |
+| 13:42 | the same, with the floor below | 4 of 5 | Tokyo 1.3 s, spider 1.4 s |
+
+The model took "Hey Lamp," said alone for a finished turn (p 0.99, 0.98)
+and ended it after 400 ms. Kept-start continuation then healed it where
+the room was quiet, but in a busy room the question that followed had no
+name in it, and the voice's rule held its answer (13:32, four times). So
+since 13:41 the policy's early commit counts only for an utterance with at
+least 80 speech blocks (`ConfirmPolicy::least_speech_blocks`, 0.8 s,
+`bea2dd1c9`); a shorter one waits the full 600 ms as before. The beach
+scene (450 ms inside a sentence) is cut and goes unanswered in both fast
+runs that answered; the synthetic voice ends each piece with a falling
+tone, which is what this model listens for, so a person's pause is likely
+kinder to it. Not shown: people's own voices and pauses.
+
+The fast worker is on, on lamp-4ace, since 13:21 (`--endpoint
+smart-turn-fast`; with the floor since 13:41).
+
 ## Pilot acceptance and rollback rule
 
 Applies to the candidate (`--endpoint smart-turn`) only.

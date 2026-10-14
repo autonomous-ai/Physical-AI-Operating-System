@@ -867,6 +867,20 @@ audible word.
 8. **Another speech service** (way 6), only on the owner's word about the
    voice.
 
+## The end sent early, played on lamp-4ace (first builder, 2026-10-14, 13:45)
+
+Taken onto `lamp-voice` (`af9ff59c5`, `e251ef842`) and played with
+`--early-end-ms 200` on top of the fast end-of-turn worker, the five pause
+scenes, one run: worse than without it. The pizza question (650 ms inside)
+came apart into four pieces, one with a service failure, and was not
+answered; given pieces ended early, the service wrote two of them as
+Spanish ("¿Vos qué dices?", "¿Qué?"); during the 900 ms pause it answered
+the first half ("Tell me about the movie" for "the moon") before the
+person went on; and where it did answer it was no sooner than the fast
+worker alone. Switched off again at 13:46. The second builder has the
+findings; the likely cause is that each early end is a finished request to
+the service, which then hears half-sentences as whole ones.
+
 ## What was not shown
 
 - **Nothing was timed.** No service was called, nothing ran on a lamp,

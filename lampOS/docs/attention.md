@@ -573,6 +573,19 @@ weekend?" was answered as if asked of the lamp. Told the room is busy, the
 model still takes a plain question for its own. A person at the next desk
 in a busy office answers a question put to them by name or with a look.
 
+**Played, 2026-10-14, 13:52 (four rounds of `twopeople.sh`):** the lamp
+spoke into none of the 36 lines of two people talking to each other, and
+answered the call that followed in one round of four. In the other three
+its name was heard (1.000, 1.000, 0.922) and nobody's face was seen, a
+loudspeaker having none, and the answer was held. Today's record of the
+name heard in the office with nobody calling, 07:45 to 13:02: 17 hearings,
+0.903 to 0.997. So since 14:04 (`e07449e13`) a name heard at 0.999 or
+more counts as a call in a busy room with or without a face
+(`attention::SURE_SCORE`), and stands for a face in the name note too;
+on those numbers three of the four calls are answered and none of the
+seventeen. A second played check at 14:05 does not count: colleagues were
+talking beside the lamp and the service wrote their words.
+
 What each costs. 5: in a busy room a question put to the lamp without
 its name in the service's text and without a face turned to it is not
 answered, nor one from someone whose face the camera cannot see or with the

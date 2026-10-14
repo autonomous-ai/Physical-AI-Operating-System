@@ -148,8 +148,18 @@ With the switch on, a new session is told instead that it woke at that
 time, that it may be much later now, and to call `the_time` first.
 
 What it costs: one call and its answer before the model speaks, for a
-question about the time only. Not yet measured on the lamp. On lamp-4ace
-since 11:52 on 2026-10-14.
+question about the time only. On lamp-4ace since 11:52 on 2026-10-14.
+
+Played at 13:46 that day, three questions: "what time is it?" at 13:46 got
+"It's just before two in the afternoon", "what day is it today?" got
+"It's Wednesday, October fourteenth", and "what time is it now?" at 13:47
+got "It's twenty to two": each asked the clock first (the voice's log
+says so), and the first word came 1.0 to 1.1 s after the end of speech
+was decided, as for other questions. The last is rounder than a person
+would say at 13:47 ("quarter to two"); the function's description asks
+for a person's way of saying it, and the model rounded to ten minutes.
+At 12:08 someone at the lamp asked it, and it said "It's a little past
+twelve.", which was right.
 
 ## What the voice promises, and what it does not
 

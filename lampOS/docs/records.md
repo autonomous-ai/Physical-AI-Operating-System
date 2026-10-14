@@ -429,6 +429,20 @@ No lamp records were available to this builder. Initial development failures
 and the exact container commands are retained in
 [Fourth's work log](work-log-fourth.md).
 
+## Switched on, lamp-4ace (first builder, 2026-10-14, 14:03)
+
+`/etc/lampOS/records.json` set to `enabled: true` with a 2 GB bound and
+the 14-day age (it was 500 MB and off; the old file is kept beside it),
+the service and its hourly timer installed from `crates/records/systemd/`
+with the binary's path on this lamp (`/opt/lampOS/records/lamp-records`).
+The first dry run refused: since 13:21 the voice runs the fast end-of-turn
+worker, `lamp-turn-end`, inside its own group, and the guard took it for
+an unknown process sharing the voice's ownership. It now knows that one
+helper by name and still checks its open files (`136e23c09`, with a test;
+the guard's 19 Linux tests pass under emulation). Then the dry run and the
+first real run: 1.18 GB of sessions, nothing planned and nothing removed,
+no error. The timer runs every hour.
+
 ## Not shown
 
 The lamp's loaded systemd command serialization, host procfs visibility,

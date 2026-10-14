@@ -39,7 +39,11 @@ for pair in train:35 train:66 train:78 dev:4 dev:8 dev:10 test:4 test:8 test:10;
   split=${pair%%:*}; shard=${pair##*:}
   get "$d/mswc/${split}_$shard.tar.gz" "$m/opus/en/$split/audio/$shard.tar.gz"
 done
-for meeting in ES2004a ES2004b ES2004c ES2004d IS1009a IS1009b IS1009c TS3003a TS3003b TS3003c; do
+# Ten meetings taken first, then every meeting whose transcript holds "hold
+# on" and seven with many "wait" and "stop": 34 meetings, 24 h. Testing only.
+for meeting in ES2004a ES2004b ES2004c ES2004d IS1009a IS1009b IS1009c TS3003a TS3003b TS3003c \
+  EN2001d EN2005a EN2006b EN2009d ES2005b ES2005c ES2005d ES2007c ES2008d ES2009c ES2012c ES2014d \
+  ES2016a ES2016b IS1007c TS3004c TS3012c ES2010b IN1016 IN1014 IS1003d TS3008b TS3010d EN2001a; do
   get "$d/ami/$meeting.Mix-Headset.wav" "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/$meeting/audio/$meeting.Mix-Headset.wav"
 done
 get "$d/ami/ami_public_manual_1.6.2.zip" https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip
@@ -54,10 +58,7 @@ sh make_speech.sh
 # 3. Real speech, aligned, cut and split by speaker.
 sh run.sh clips.py sc mswc libri piper
 # 4. Training inputs, three processes of two threads.
-for what in words talk check check-talk; do
-  for part in 0 1 2; do OMP_NUM_THREADS=2 sh run.sh make_data.py "$what" --part "$part/3" & done
-  wait
-done
+sh make_inputs.sh
 # 5. Train and write the model.
 sh run.sh train.py --out "$here/../../models/stop/stop.onnx"
 # 6. Measure it on held-out speakers.

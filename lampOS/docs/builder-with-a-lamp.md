@@ -73,6 +73,26 @@ whose description lists, for each task, its log entry and its
 verification folder, and which of the three kinds above each piece is. It
 stops there: the first builder merges.
 
+## Which lamp is whose (`fifth-P2`)
+
+With more lamps than builders, or builders sharing a room, nothing in the
+repository says today which lamp a builder may touch or what each runs:
+lamp-4ace's units are in `deploy/lamp-4ace/` and the table in work-split.md
+names it, and that is all. Proposed: each lamp's folder `deploy/<lamp>/`
+holds a `LAMP.md` with three lines kept current by the one builder who owns
+it, so that any agent can tell from Git alone whether it may act on a lamp
+and what is on it:
+
+```text
+owner: fifth            # the only builder that may ssh to it or install on it
+runs: lamp-os 0.1.0-fifth, body 91a9d458, voice 4cd315ee, eyes 2a109496
+since: 2026-10-14 14:34 +07, from lamp-fifth at <commit>
+```
+
+An agent that finds no `LAMP.md`, or another owner in it, does not touch
+the lamp. A change of owner is a line in work-split.md by the first
+builder. A lamp that is lent for one test says so in `runs:` and goes back.
+
 ## The lamp and its person
 
 - Every ssh is to its own lamp only. Before installing, it writes down what

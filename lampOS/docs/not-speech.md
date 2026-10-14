@@ -211,6 +211,25 @@ The played sets of that night ran before the change was installed:
 So that run measured the side effect, not the switch. It is to be run again with
 the change installed.
 
+Again with the change installed (voice `dcc2e6b1e` from 00:23:54 on
+2026-10-15, the same empty office at night, nobody in the camera's view):
+
+- *Noises* (00:25:48 to 00:36:20): 0 of 48 answered; 13 taken for a voice.
+- *Short words* (00:37 to 00:47): **2 of 36 answered** ("Hello?" got "Oh,
+  hello! There you are. What's on your mind?"; "Lamp?", heard as "Plan.",
+  got "Oh, hi! What's up?"); 21 heard, 13 not. This time no sound made the
+  room busy: the model itself left the first short words alone, three of
+  them inside a minute counted as talk not for the lamp, the room was busy
+  from 00:37:49, and the session, told so, left the rest alone too, "Good
+  morning." three times among them.
+
+A short word from across a dark, empty office, with nobody in view, is
+arguably one the lamp should leave alone; and the first played set, without
+the switch, which got 6 of 36 answered, ran in the evening.
+The switch stays on (it answers no noise), and short words are parked
+until the V2 MVP works end to end (the owner, 2026-10-15: "wide first.
+deep later"). Next time: with a person at the lamp, in view.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

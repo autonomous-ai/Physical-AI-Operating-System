@@ -53,6 +53,12 @@ away unless a line says otherwise. One evening, one room, one lamp.
 
 ## On lamp-4ace, 2026-10-14: what recordings of a word over the lamp show
 
+(The evening of 2026-10-14, 18:00 to 19:35, played three times as the
+lamp runs and three with the steady reference, gave 13 of 28 sentences and
+5 of 17 stop words as it runs, with 3 pauses for nothing in 53 trials:
+[steady-reference.md](steady-reference.md), "Played on lamp-4ace, off and
+on".)
+
 Played again that night, with nobody in the office, the checks gave what
 they had given: the lamp stopped for six of ten sentences spoken over it,
 0.5 to 2.2 s after the person began, and paused for a seventh and went

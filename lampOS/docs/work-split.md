@@ -1259,6 +1259,20 @@ builder (`~/lamp-voice-data/tools/memory.sh`) with what each should show.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14, 18:00 to 19:35, on lamp-4ace (first builder).** Spoken
+over, six played runs alternating the echo reference: as recorded, the lamp
+stopped for 13 of 28 sentences and 5 of 17 stop words, with 3 pauses for
+nothing; steady, 14 of 27 and 5 of 16, with 35 pauses for nothing and 6
+stories it gave up after hearing itself. Steady stays off
+([steady-reference.md](steady-reference.md)). Two more ways of hearing a
+person over the lamp were measured and are no basis: the room
+microphone's own canceller, and the name part hearing "Lamp"
+([duplex-listening.md](duplex-listening.md), the table of ways tried). A
+camera cue is now #720 (fifth). The glance from rest (#710, pull request
+#718) is on lamp-4ace; the voice tells a stuffy room once and counts a
+name heard close as a call (both on since 18:46); the clock answers in
+spoken words (built, going on next).
+
 **2026-10-14, 16:10 to 16:57, on lamp-4ace.** New parts and pieces, each
 built for the lamp and running there: the ears (`lamp-ears`, the first
 builder's: the room microphone's level and sudden sounds, 30 dB over the

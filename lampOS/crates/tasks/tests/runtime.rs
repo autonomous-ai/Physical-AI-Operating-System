@@ -53,8 +53,10 @@ impl Adapter for Script {
             agent_id: AGENT.into(),
         }
     }
-    fn observe(&self, id: &str) -> Result<Observation, String> {
+    fn observe(&self, machine: &str, id: &str) -> Result<Observation, String> {
         self.counts.reads.fetch_add(1, Ordering::SeqCst);
+        // Read on the machine the task was started on.
+        assert_eq!(machine, "0123456789abcdef0123456789abcdef");
         assert_eq!(id, AGENT);
         Ok(Observation {
             agent_id: AGENT.into(),

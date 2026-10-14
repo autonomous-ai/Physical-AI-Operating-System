@@ -188,14 +188,14 @@ pub fn read_targets(path: &Path) -> io::Result<BTreeMap<String, Target>> {
 
 pub trait Adapter: Send + 'static {
     fn launch(&self, launch: &Launch) -> LaunchOutcome;
-    fn observe(&self, agent_id: &str) -> Result<Observation, String>;
+    fn observe(&self, machine_id: &str, agent_id: &str) -> Result<Observation, String>;
 }
 impl Adapter for Cli {
     fn launch(&self, launch: &Launch) -> LaunchOutcome {
         Cli::launch(self, launch)
     }
-    fn observe(&self, agent_id: &str) -> Result<Observation, String> {
-        Cli::observe(self, agent_id)
+    fn observe(&self, machine_id: &str, agent_id: &str) -> Result<Observation, String> {
+        Cli::observe(self, machine_id, agent_id)
     }
 }
 
@@ -665,7 +665,7 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                                 Outcome::Launch(job.task_id, adapter.launch(&job.launch))
                             }
                             Job::Observe(job) => {
-                                let result = adapter.observe(&job.agent_id);
+                                let result = adapter.observe(&job.machine_id, &job.agent_id);
                                 Outcome::Observe(job, result)
                             }
                         };
@@ -948,7 +948,7 @@ mod tests {
             fn launch(&self, _: &Launch) -> LaunchOutcome {
                 panic!("launch while disabled")
             }
-            fn observe(&self, _: &str) -> Result<Observation, String> {
+            fn observe(&self, _: &str, _: &str) -> Result<Observation, String> {
                 panic!("observe while disabled")
             }
         }

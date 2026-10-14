@@ -617,6 +617,9 @@ pub struct LaunchJob {
 pub struct ObservationJob {
     pub task_id: u64,
     pub request_id: u64,
+    /// The machine the agent was started on: Harness reads another
+    /// machine's agent only when told which (`--machine`, since 0.4.2).
+    pub machine_id: String,
     pub agent_id: String,
 }
 
@@ -1272,6 +1275,7 @@ impl<P: Persistence> Engine<P> {
         let job = ObservationJob {
             task_id: task.id,
             request_id: read.request_id,
+            machine_id: task.launch.target.machine_id.clone(),
             agent_id: task.dispatch.agent_id.clone().expect("accepted task"),
         };
         self.save(next)?;

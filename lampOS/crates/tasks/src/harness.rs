@@ -354,10 +354,13 @@ impl Cli {
         }
         // This is a preflight, not a reservation. Harness resolves the account
         // list again and can fall back to a name if the ID disappears meanwhile.
+        // The machine is named with `--machine` (Harness 0.4.2); the `@id`
+        // form before it is refused.
         let args = vec![
             "new".into(),
             launch.target.engine.argument().into(),
-            format!("@{}", launch.target.machine_id).into(),
+            "--machine".into(),
+            launch.target.machine_id.clone().into(),
             launch.target.project.clone().into(),
             "--name".into(),
             launch.name.clone().into(),
@@ -375,7 +378,11 @@ impl Cli {
         }
     }
 
-    pub fn observe(&self, agent_id: &str) -> Result<Observation, String> {
+    /// The agent's last turn, read on the machine it was started on.
+    pub fn observe(&self, machine: &str, agent_id: &str) -> Result<Observation, String> {
+        if !machine_id(machine) {
+            return Err("invalid_machine".into());
+        }
         if !uuid(agent_id) {
             return Err("invalid_agent_id".into());
         }
@@ -384,6 +391,8 @@ impl Cli {
             .run(
                 &[
                     "show".into(),
+                    "--machine".into(),
+                    machine.into(),
                     agent_id.into(),
                     "--chars".into(),
                     "4000".into(),

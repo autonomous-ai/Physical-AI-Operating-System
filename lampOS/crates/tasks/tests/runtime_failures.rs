@@ -153,7 +153,7 @@ impl Adapter for UncalledAdapter {
             code: "unexpected_fixture_call".into(),
         }
     }
-    fn observe(&self, _: &str) -> Result<Observation, String> {
+    fn observe(&self, _: &str, _: &str) -> Result<Observation, String> {
         self.0.fetch_add(1, Ordering::Relaxed);
         Err("unexpected_fixture_call".into())
     }

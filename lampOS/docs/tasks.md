@@ -187,9 +187,15 @@ Only three argv forms are constructed, without a shell:
 
 ```text
 harness machines --json
-harness new codex @<full-machine-id> <project> --name <unique-label> --mode ask --json --task <exact-text>
-harness show <full-agent-id> --chars 4000 --json
+harness new codex --machine <full-machine-id> <project> --name <unique-label> --mode ask --json --task <exact-text>
+harness show --machine <full-machine-id> <full-agent-id> --chars 4000 --json
 ```
+
+The machine is named with `--machine` since Harness 0.4.2 (openharness #1333,
+2026-10-14), on `new` and on `show`, and `show` reads the agent on the machine
+the task was started on. The `@<id>` form before it is refused ("Name the
+machine with --machine <id>."), so a `lamp-tasks` build from before that
+change fails every launch with `new_failed`.
 
 The engine allowlist is `codex` or `claude`. A project is an explicit name
 (at most 128 UTF-8 bytes) or an absolute/`~/` folder (at most 512 bytes).
@@ -388,6 +394,13 @@ the lamp listed ten machines, the lamp itself among them ("current").
   agent on another machine of the same account. The alternative is to run the
   agents on the lamp itself, which needs Claude Code installed and signed in
   there.
+- **Reading it back works since Harness 0.4.2** (installed on the lamp by
+  its own update, 2026-10-14 evening). On the lamp, `harness show --machine
+  office lamp-8b18c0ad6a1fe15fc84148fb81446b16 --json` gave the 22:39 task's
+  ask, its answer (three names, 331 characters), `state: idle`, `tools: 0`
+  and `startedBy: person`: 2.8 s once, 4.4 s at 23:51:39. The machine's full
+  id and the agent's id in place of the two names gave the same. `harness ps --machine office` lists
+  that machine's sessions. The old `@<id>` form is refused.
 - An agent may close only what it started: `harness close lamp-test-1` from the
   office machine was refused (`NOT_YOURS`); it stays for the person to close.
 - **Through `lamp-tasks`, 21:40, a trial by hand** (the CI build `377d975b…`
@@ -422,7 +435,9 @@ of two functions:
   started and that the answer will be on that computer.
 
 A request whose answer is held back (the busy-room rule) has neither run, as
-for the other functions. Hearing the answer back waits on Harness (above).
+for the other functions. Harness can now be read on the other machine
+(above, since 0.4.2); the voice does not yet ask `lamp-tasks` to read the
+answer and say it.
 
 **On lamp-4ace since 2026-10-14, 22:24** (voice `c2ac775f5`,
 `LAMP_TASKS_DIR=/run/lampos-tasks`; `lamp-tasks.service` with the build of

@@ -115,13 +115,13 @@ pub fn main() -> io::Result<()> {
             ),
             "new" => println!(
                 "{}",
-                json!({"ok":true,"machineId":args.get(2).unwrap().trim_start_matches('@'),"agent":{
+                json!({"ok":true,"machineId":flag("--machine"),"agent":{
                     "id":"11111111-1111-4111-8111-111111111111","name":flag("--name"),"engine":args.get(1),"permissionMode":"ask","bypassPermission":null
                 }})
             ),
             "show" => println!(
                 "{}",
-                json!({"id":args.get(1),"state":"idle","ask":"Earlier unrelated question","answer":"Observed answer","truncated":false,"tools":2})
+                json!({"id":args.get(3),"state":"idle","ask":"Earlier unrelated question","answer":"Observed answer","truncated":false,"tools":2})
             ),
             _ => return Err(io::Error::other("fixture operation unknown")),
         }

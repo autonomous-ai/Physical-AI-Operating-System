@@ -148,7 +148,8 @@ fn launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity() {
         json!([
             "new",
             "codex",
-            format!("@{MACHINE}"),
+            "--machine",
+            MACHINE,
             "fixture-project",
             "--name",
             "lamp-task-001",
@@ -209,7 +210,7 @@ fn claude_and_explicit_folder_are_preserved_without_shell_expansion() {
         LaunchOutcome::Created { .. }
     ));
     assert_eq!(rig.calls()[1]["args"][1], "claude");
-    assert_eq!(rig.calls()[1]["args"][3], "~/code/my project");
+    assert_eq!(rig.calls()[1]["args"][4], "~/code/my project");
 }
 
 #[test]
@@ -556,7 +557,7 @@ fn cancellation_before_spawn_does_not_run_preflight() {
     rig.config.cancel = Some(Arc::new(AtomicBool::new(true)));
     let cli = rig.cli();
     assert_eq!(cli.launch(&launch()), not_sent("cancelled"));
-    assert_eq!(cli.observe(AGENT), Err("cancelled".into()));
+    assert_eq!(cli.observe(MACHINE, AGENT), Err("cancelled".into()));
     assert!(rig.calls().is_empty());
 }
 
@@ -585,7 +586,7 @@ fn cancellation_after_new_and_busy_calls_do_not_start_another_process() {
     let running = thread::spawn(move || worker.launch(&launch()));
     rig.wait_operation("new");
     assert_eq!(cli.launch(&launch()), not_sent("busy"));
-    assert_eq!(cli.observe(AGENT), Err("busy".into()));
+    assert_eq!(cli.observe(MACHINE, AGENT), Err("busy".into()));
     let began = Instant::now();
     cancel.store(true, Ordering::Release);
     assert_eq!(running.join().unwrap(), uncertain("cancelled"));
@@ -598,7 +599,7 @@ fn show_uses_full_agent_id_and_preserves_observation_only_fields() {
     let rig = Rig::new();
     let reply = shown();
     rig.show_step(step(reply));
-    let observation = rig.cli().observe(AGENT).unwrap();
+    let observation = rig.cli().observe(MACHINE, AGENT).unwrap();
     assert_eq!(observation.agent_id, AGENT);
     assert_eq!(observation.state, "idle");
     assert_eq!(
@@ -608,14 +609,22 @@ fn show_uses_full_agent_id_and_preserves_observation_only_fields() {
     assert_eq!(observation.answer, "Observed output only");
     assert_eq!(
         rig.calls()[0]["args"],
-        json!(["show", AGENT, "--chars", "4000", "--json"])
+        json!([
+            "show",
+            "--machine",
+            MACHINE,
+            AGENT,
+            "--chars",
+            "4000",
+            "--json"
+        ])
     );
     let rig = Rig::new();
     let mut reply = shown();
     reply["state"] = json!("needs-input");
     reply["truncated"] = json!(true);
     rig.show_step(step(reply));
-    let observation = rig.cli().observe(AGENT).unwrap();
+    let observation = rig.cli().observe(MACHINE, AGENT).unwrap();
     assert!(observation.truncated);
     assert_eq!(observation.state, "needs-input");
 }
@@ -647,14 +656,27 @@ fn observation_bounds_wrong_identity_and_invented_completion_are_rejected() {
     for reply in cases {
         let rig = Rig::new();
         rig.show_step(step(reply));
-        assert_eq!(rig.cli().observe(AGENT), Err("invalid_observation".into()));
+        assert_eq!(
+            rig.cli().observe(MACHINE, AGENT),
+            Err("invalid_observation".into())
+        );
     }
     let rig = Rig::new();
     let mut wrong = shown();
     wrong["id"] = json!(CREATION);
     rig.show_step(step(wrong));
-    assert_eq!(rig.cli().observe(AGENT), Err("agent_mismatch".into()));
-    assert_eq!(rig.cli().observe("111111"), Err("invalid_agent_id".into()));
+    assert_eq!(
+        rig.cli().observe(MACHINE, AGENT),
+        Err("agent_mismatch".into())
+    );
+    assert_eq!(
+        rig.cli().observe(MACHINE, "111111"),
+        Err("invalid_agent_id".into())
+    );
+    assert_eq!(
+        rig.cli().observe("office", AGENT),
+        Err("invalid_machine".into())
+    );
     assert_eq!(rig.calls().len(), 1);
 }
 
@@ -664,7 +686,10 @@ fn read_failure_codes_do_not_echo_private_cli_details() {
     rig.show_step(
         json!({"exit":1,"stdout":"{\"error\":\"private account detail\"}","stderr_bytes":100}),
     );
-    assert_eq!(rig.cli().observe(AGENT), Err("observe_failed".into()));
+    assert_eq!(
+        rig.cli().observe(MACHINE, AGENT),
+        Err("observe_failed".into())
+    );
 }
 
 #[test]
@@ -680,7 +705,7 @@ fn read_timeout_and_output_cap_never_retry_show() {
         }
         rig.show_step(step);
         let began = Instant::now();
-        assert_eq!(rig.cli().observe(AGENT), Err(code.into()));
+        assert_eq!(rig.cli().observe(MACHINE, AGENT), Err(code.into()));
         assert!(began.elapsed() < Duration::from_secs(2));
         assert_eq!(rig.calls().len(), 1);
     }

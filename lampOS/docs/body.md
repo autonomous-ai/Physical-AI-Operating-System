@@ -283,7 +283,10 @@ is found is its home and there is nothing to wake to):
   the body runs, the three joints are brought to their home the way
   something alive wakes, not the way a machine homes (the repository's
   rule 8): first a stir of up to 24 counts toward home (80 for a head that
-  lifts: its goal must lead it by about that much before it moves at all),
+  lifts and for the base either way: their goals must lead them by about
+  that much before they move at all; on lamp-4ace the base, gain P 16,
+  stuck at 2,101, 34 behind a goal moving at the wake's speed, after 72
+  counts of a 286-count wake),
   a second's pause,
   then the rest of the way, each eased at both ends and timed so that the
   joint with the farthest to go moves at 20 counts a second at most, two
@@ -294,7 +297,9 @@ is found is its home and there is nothing to wake to):
   about 12 s; lamp-52e6's head drooped to 2,034, about 21 s; a base turned
   300 counts, about 24 s.
 - On the way it reads all five joints every step. A changed status byte, a
-  shoulder or an elbow that moves more than 6 counts, a commanded joint over
+  shoulder or an elbow that moves more than 15 counts (on lamp-4ace the
+  shoulder swayed 7 as the base turned 189 counts of its wake, one over the
+  run's 6, which ended that wake on `drift`), a commanded joint over
   its load bound for six steps (400 for a head that lifts, which read up to
   320 doing it, otherwise the run's own), off its goal by more than 100 for
   ten steps while the goal is on its way, or a wire that fails for half a
@@ -319,12 +324,37 @@ is found is its home and there is nothing to wake to):
   has been seen. The whole 400 at the wake's speed takes 31 s, inside the
   90 s systemd gives a service to say it is ready; the body says it is ready
   only once it has woken and its loop runs.
-- An arm found off the way between folded and stood up, on a lamp given
-  `--stand`, is not lowered. Which way down from there keeps the head clear
-  of the base and the desk is not known, and these two joints carry the
-  lamp, so the lamp runs folded and says why (`standing_refused`: "... off
-  the way between folded and stood up; waking does not lower an arm found
-  off its way"). The head still wakes.
+- On a lamp given `--stand`, an arm found with its elbow folded (within 80
+  counts) and its shoulder up is lowered first, before the head and the
+  base wake: the shoulder alone, eased down onto its folded count at 40
+  counts a second at most, the elbow, the head and the base held where
+  they are. That is how a power cut leaves a standing lamp: on lamp-52e6 on
+  2026-10-14 the shoulder stayed up at 2,633 on its gears and the elbow
+  fell to 2,074, folded; eased down by hand from there over 15 s (39 a
+  second on average, 58 at its fastest) the shoulder reached 2,059 at a load
+  of 172 at most. 40 is a little under that at its fastest: 580 counts take
+  about 22 s, so with the head's wake after it the lamp is up inside 90 s.
+  Every step all five are read: a changed status byte, another joint moving
+  more than 30 counts, the shoulder over its `--arm-load` for six steps,
+  more than 160 from its goal for half a second, or stopping farther than
+  80 from folded once its goal is there, or a wire failing for half a
+  second ends the run, holding all five where they are. The report says
+  what it did (`lowered`, as `woke`). Then the lamp may stand as it would
+  have. Any other arm off its way is not lowered: which way down from there
+  keeps the head clear of the base and the desk is not known, and these
+  two joints carry the lamp, so the lamp runs folded and says why
+  (`standing_refused`: "... off the way between folded and stood up;
+  waking does not lower an arm found off its way"). The head still wakes.
+- In the run itself, with `--wake on` only: a commanded joint farther than
+  30 counts from its goal but no farther than 50, under its load bound,
+  whose goal has not changed and which has not moved 3 counts in half a
+  second rests where it is, instead of the run ending on tracking: its goal
+  becomes its position and later moods are laid from there, as for a joint
+  a hand left (`rested_short` counts the times). It is the same weight as
+  above: on lamp-52e6, woken with its shoulder up, the head held 30 to 37
+  counts short of goals of 1,759 and 1,775 and the run ended on tracking
+  three times in a row. Without `--wake on` such a joint ends the run as
+  before.
 - The report says what the wake did (`woke`: the joints it moved, where
   each was found, where their goals had got to, where they were when it
   ended (`settled`) and the seconds it took),
@@ -672,7 +702,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
 | `--give-way return\|stay` | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | as before the option: no stall rule, a joint that gave way always comes back | return or stay |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
-| `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else (see "Waking") | such a joint is refused | on or off |
+| `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
@@ -1104,7 +1134,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (256 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (260 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -1129,7 +1159,7 @@ moving away from home, the way itself never over 20 counts a second; that
 one found 450 away is refused with nothing written, as is a head on the base
 without a home given; that an arm off its way is never written and the lamp
 runs folded, saying why; and that a lamp found where it may start writes
-exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on.
+exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on. With `--wake on` too: lamp-52e6 as found unplugged standing (shoulder 2,633, elbow 2,074) has its shoulder lowered first, only ever down, under a count a write, the elbow never asked to move, and then stands when spoken to; without the option it is refused standing as before. A head held 35 short at rest rests where it is, where without the option the run ends on tracking. A base that sticks 34 behind its goal is led round and settles 34 short, running from there; a shoulder that sways 7 counts while the base wakes is let, and one moved 20 ends the run.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 

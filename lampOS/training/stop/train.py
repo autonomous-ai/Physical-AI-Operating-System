@@ -53,8 +53,8 @@ HERE = Path(__file__).resolve().parent
 MODEL_DIR = HERE.parent.parent / "models" / "stop"
 
 
-def load(pattern: str) -> dict:
-    parts = [np.load(p) for p in sorted(glob.glob(str(INPUTS / pattern)))]
+def load(pattern: str, folder: Path = INPUTS) -> dict:
+    parts = [np.load(p) for p in sorted(glob.glob(str(folder / pattern)))]
     out = {}
     for key in parts[0].files:
         if key != "names":
@@ -226,15 +226,18 @@ def main() -> None:
     p.add_argument("--against", type=float, default=3.0, help="weight of a negative input against a target input in the loss")
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--inputs", default=str(INPUTS), help="the folder of inputs (training/name passes its own)")
+    p.add_argument("--leave-out-way", type=int, default=0, help="training/name: leave out the calls of this way (3, a bare Lamp)")
     args = p.parse_args()
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
 
-    words = load("words-*.npz")
-    talk = load("talk-*.npz")
-    check = load("check-[0-9]*.npz")
+    folder = Path(args.inputs)
+    words = load("words-*.npz", folder)
+    talk = load("talk-*.npz", folder)
+    check = load("check-[0-9]*.npz", folder)
     check["since"] = steps_since_first(check["x"])
-    check_talk = load("check-talk-*.npz")
+    check_talk = load("check-talk-*.npz", folder)
     wy = words["y"]
     wl = words["level"].astype(np.float32)
     since = steps_since_first(words["x"])
@@ -243,6 +246,11 @@ def main() -> None:
         # Only targets a listener could hear: alone, through the suppressor,
         # or plainly mixed no lower than `--heard` dB.
         kept &= (wl > 50) | (words["suppressed"] == 1) | (wl >= args.heard)
+    if args.leave_out_way and "way" in words:
+        # Targets of one way of calling left out altogether (training/name).
+        leave = words["way"] == args.leave_out_way
+        kept &= ~leave
+        wy = np.where(leave, -1, wy)
     pos = np.flatnonzero(kept)
     near = np.flatnonzero(wy == 0)
     wx = torch.from_numpy(words["x"])
@@ -297,7 +305,7 @@ def main() -> None:
     model.eval()
     out = Path(args.out)
     export(model, out)
-    runs = CACHE / "runs"
+    runs = Path(args.inputs).parent / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     torch.save({"state": model.state_dict(), "hidden": args.hidden, "shape": args.shape, "args": vars(args)}, runs / f"{out.stem}.pt")
     (runs / f"{out.stem}.validation.json").write_text(json.dumps({str(k): v for k, v in validate(model, check, cx, ctx).items()}, indent=1))

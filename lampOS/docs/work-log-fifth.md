@@ -267,6 +267,26 @@ Ready for lamp-voice: as each line says (`fifth-P4`, proposed).
 - 25 head-follow: no. Measured; the nod's speed switch is still to make.
 - 26 weigh: no. Only the whole lamp's weight.
 
+## 2026-10-14 — wake — done for lamp-52e6
+
+Ready for lamp-voice: yes (the commit that adds this entry)
+
+- `fifth/wake`: `lampOS: let a woken lamp lower a shoulder left up by a
+  power cut and rest a head held a little short` (both behind `--wake on`),
+  with the two ends lamp-4ace showed: the base now gets the lifting lead,
+  and an arm may sway 15 counts during a wake. Gate on the Mac: fmt, clippy
+  clean; `cargo test -p lamp-body` 264 passed, 0 failed; workspace and the
+  Linux arm64 build as before. Body `d673c448…` installed on lamp-52e6 under
+  `lamp-os` (`deploy/lamp-52e6/lamp-body.service`).
+- On lamp-52e6, the pose a standing power cut left (shoulder up, elbow
+  folded) made again by a script: shoulder 2588, elbow 2085. The body
+  lowered the shoulder to 2059 before it said ready and ran on: no stop, no
+  restart. The unplug with `lamp-os` enabled (entry above) is the one at
+  power-up; `lamp-os` is enabled at boot on lamp-52e6, which is the unit's
+  `[Install]` the task asks for.
+- Kind: off unless set (`--wake on`). Not shown on lamp-4ace: its base and
+  arm mends; not shown: a standing power cut with this build.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

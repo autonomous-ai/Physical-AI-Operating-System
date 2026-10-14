@@ -405,6 +405,26 @@ and boot identity. This does not change the meaning of existing bus header
 `at_us`: that remains a publisher-private timestamp. Expression's replay
 importer warns when it estimates a shared timeline from legacy wall stamps.
 
+## Optional Controls topics (Third, 2026-10-14)
+
+The additive [Controls](controls.md) contract names two topics, separate from
+the original catalogue and from Voice's physical privacy worker:
+
+| Topic | Kind | Published by | Intended readers |
+|---|---|---|---|
+| `controls/gesture` | event, 500 ms lifespan | `lamp-controls` | Voice for Stop/SoftwareMute, body/output owners for Stop, Expression for Pet |
+| `controls/state` | latest, 100 ms period, 300 ms lifespan | `lamp-controls` | The same owners for independently retained latest Stop/mute identities; observers for input faults and hold feedback |
+
+The [message types](msgs.md#optional-controls-contracts) carry shared monotonic
+clock/boot stamps, a Controls session and increasing event identities. An event
+and its retained copy are one request. A state heartbeat does not renew the
+request's time, and a slow subscriber can still lose events on this bus. Owners
+must deduplicate, reject stale or replaced sessions and retain any accepted
+software inhibit themselves. Shadow messages cannot act; no Controls message
+is a microphone/camera permit, an applied-mute receipt or proof of silence.
+First wires the physical adapter and final owners; these topics have not been
+observed on the lamp in this review.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what
@@ -450,3 +470,7 @@ socket for all would let one stuck subscriber starve the rest: that is read,
 not measured, and macOS charges the receiver, so no test here tells the two
 apart. How many messages a subscriber that does not read holds on the lamp
 is not known.
+
+The Controls topic addition has not been measured on a lamp. This source review
+does not establish hardware acquisition, consumer integration or hand-to-silence
+latency, and adds no test or benchmark result to those above.

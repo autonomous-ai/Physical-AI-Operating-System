@@ -1,0 +1,319 @@
+use crate::{
+    engine::{Config, Engine, Output},
+    input::{InputError, PinReader},
+};
+use lamp_bus::{Bus, Published, Publisher};
+use lamp_msgs::{ControlFault, ControlGesture, ControlsState, Diagnostic, Level};
+use serde::Serialize;
+use std::{
+    fs::{self, File, OpenOptions},
+    io,
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    path::Path,
+};
+
+pub const POLL_US: u64 = 2_000;
+pub const DRAIN_LIMIT: usize = 64;
+
+#[derive(Debug, Default, Serialize)]
+pub struct Counts {
+    pub accepted: u64,
+    pub rejected: u64,
+    pub reader_errors: u64,
+    pub drain_overflows: u64,
+    pub published: u64,
+    pub dropped: u64,
+    pub publish_errors: u64,
+    pub steps: u64,
+    pub longest_step_us: u64,
+}
+
+/// The shipped binary cannot pretend that hardware was fitted. First replaces
+/// this adapter with one for the explicitly verified board, using this trait.
+pub struct MissingPins;
+impl PinReader for MissingPins {
+    fn read(&mut self, _: u64) -> Result<Option<crate::input::Observation>, InputError> {
+        Err(InputError::new(
+            ControlFault::Missing,
+            "no physical controls adapter is installed",
+        ))
+    }
+}
+
+fn invalid(why: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, why.into())
+}
+
+pub fn clock_id(given: Option<&str>) -> io::Result<String> {
+    let id = match given {
+        Some(id) => id.to_owned(),
+        None => fs::read_to_string("/proc/sys/kernel/random/boot_id")?
+            .trim()
+            .to_owned(),
+    };
+    if id.is_empty()
+        || id.len() > 128
+        || !id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_-.".contains(&b))
+    {
+        return Err(invalid(
+            "clock identity needs 1..128 letters, digits, '.', '_' or '-'",
+        ));
+    }
+    Ok(id)
+}
+
+fn owner_lock(root: &Path) -> io::Result<File> {
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o770)
+        .create(root)?;
+    let path = root.join("controls.lock");
+    if let Ok(meta) = fs::symlink_metadata(&path)
+        && !meta.is_file()
+    {
+        return Err(invalid("controls owner lock is not a regular file"));
+    }
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .mode(0o600)
+        .open(path)?;
+    file.try_lock().map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("controls owner lock: {error}"),
+        )
+    })?;
+    Ok(file)
+}
+
+pub struct Service<R: PinReader> {
+    reader: R,
+    engine: Engine,
+    state: Publisher,
+    gestures: Publisher,
+    diagnostic: Publisher,
+    last_state: Option<u64>,
+    last_fault: Option<ControlFault>,
+    last_report: Option<u64>,
+    last_feedback: Option<Feedback>,
+    pub counts: Counts,
+    recorder: Option<crate::record::Recorder>,
+    _lock: File,
+}
+
+#[derive(PartialEq, Eq)]
+struct Feedback {
+    buttons: Vec<(bool, bool, lamp_msgs::HoldTier)>,
+    head_active: bool,
+    base_ready: bool,
+    base_tier: lamp_msgs::HoldTier,
+}
+
+impl From<&ControlsState> for Feedback {
+    fn from(state: &ControlsState) -> Self {
+        Self {
+            buttons: state
+                .buttons
+                .iter()
+                .map(|button| (button.pressed, button.armed, button.tier))
+                .collect(),
+            head_active: state.head_active,
+            base_ready: state.base_ready,
+            base_tier: state.base_tier,
+        }
+    }
+}
+
+impl<R: PinReader> Service<R> {
+    pub fn new(bus: &Bus, config: Config, reader: R, clock: &str) -> io::Result<Self> {
+        config.check().map_err(|e| invalid(e.to_string()))?;
+        let lock = owner_lock(bus.root())?;
+        let state = bus.publisher_declared(
+            ControlsState::TOPIC,
+            &ControlsState::declaration(),
+            "controls",
+        )?;
+        let engine =
+            Engine::new(config, clock, state.boot()).map_err(|e| invalid(e.to_string()))?;
+        Ok(Self {
+            reader,
+            engine,
+            state,
+            gestures: bus.publisher_declared(
+                ControlGesture::TOPIC,
+                &ControlGesture::declaration(),
+                "controls",
+            )?,
+            diagnostic: bus.publisher_declared(
+                Diagnostic::TOPIC,
+                &Diagnostic::declaration(),
+                "controls",
+            )?,
+            last_state: None,
+            last_fault: None,
+            last_report: None,
+            last_feedback: None,
+            counts: Counts::default(),
+            recorder: None,
+            _lock: lock,
+        })
+    }
+
+    pub fn record_to(&mut self, path: &Path) -> io::Result<()> {
+        if self.recorder.is_some() {
+            return Err(invalid("an acquisition recorder is already attached"));
+        }
+        self.recorder = Some(crate::record::Recorder::create(path)?);
+        Ok(())
+    }
+
+    pub fn finish_recording(&mut self) -> Option<crate::record::RecordStats> {
+        self.recorder.take().map(crate::record::Recorder::finish)
+    }
+
+    fn record(
+        &mut self,
+        now_us: u64,
+        observation: Option<crate::input::Observation>,
+        fault: Option<ControlFault>,
+    ) {
+        if let Some(recorder) = &mut self.recorder {
+            recorder.submit(&crate::replay::Record {
+                now_us,
+                observation,
+                fault,
+            });
+        }
+    }
+
+    /// A bounded drain; obtain time again after reading so an unexpectedly
+    /// slow adapter cannot make its old samples fresh by taking time to read.
+    pub fn step(&mut self, now: impl Fn() -> u64) -> Output {
+        let start = now();
+        let mut drained = 0;
+        for _ in 0..DRAIN_LIMIT {
+            match self.reader.read(now()) {
+                Ok(Some(sample)) => {
+                    drained += 1;
+                    let received = now();
+                    if sample.check().is_ok() {
+                        self.record(received, Some(sample.clone()), None);
+                    } else {
+                        self.record(received, None, Some(ControlFault::Invalid));
+                    }
+                    if self.engine.ingest(received, sample).is_ok() {
+                        self.counts.accepted += 1;
+                    } else {
+                        self.counts.rejected += 1;
+                    }
+                }
+                Ok(None) => break,
+                Err(error) => {
+                    self.counts.reader_errors += 1;
+                    let received = now();
+                    self.record(received, None, Some(error.fault));
+                    self.engine.input_fault(received, error.fault);
+                    break;
+                }
+            }
+        }
+        if drained == DRAIN_LIMIT {
+            self.counts.drain_overflows += 1;
+            let received = now();
+            self.record(received, None, Some(ControlFault::Overflow));
+            self.engine.input_fault(received, ControlFault::Overflow);
+        }
+        let at_us = now();
+        let output = self.engine.tick(at_us);
+        let feedback = Feedback::from(&output.state);
+        if !output.gestures.is_empty()
+            || self
+                .last_state
+                .is_none_or(|at| at_us.saturating_sub(at) >= 100_000)
+            || self.last_fault != output.state.fault
+            || self.last_feedback.as_ref() != Some(&feedback)
+        {
+            // Publish the session-bearing retained state before advisory
+            // events. Receivers still handle loss/order independently.
+            account(
+                &mut self.counts,
+                self.state.publish_json(at_us, &output.state),
+            );
+            self.last_state = Some(at_us);
+            self.last_fault = output.state.fault;
+            self.last_feedback = Some(feedback);
+        }
+        for gesture in &output.gestures {
+            account(&mut self.counts, self.gestures.publish_json(at_us, gesture));
+        }
+        if self
+            .last_report
+            .is_none_or(|at| at_us.saturating_sub(at) >= 1_000_000)
+        {
+            if self.gestures.alive().is_err() {
+                self.counts.publish_errors += 1;
+            }
+            let report = self.report(&output);
+            account(
+                &mut self.counts,
+                self.diagnostic.publish_json(at_us, &report),
+            );
+            self.last_report = Some(at_us);
+        }
+        self.counts.steps += 1;
+        self.counts.longest_step_us = self.counts.longest_step_us.max(now().saturating_sub(start));
+        output
+    }
+
+    pub fn report(&self, output: &Output) -> Diagnostic {
+        let (level, message) = if !output.state.ready {
+            (Level::Error, "controls input is unavailable or invalid")
+        } else if !output.state.enabled {
+            (Level::Warn, "shadow mode; gestures are not commands")
+        } else {
+            (
+                Level::Ok,
+                "requests published; owner application is not verified",
+            )
+        };
+        let record = self
+            .recorder
+            .as_ref()
+            .map(crate::record::Recorder::stats)
+            .unwrap_or_default();
+        let level = if self.counts.publish_errors > 0 || record.failed {
+            Level::Error
+        } else {
+            level
+        };
+        Diagnostic::new(level, "controls", message)
+            .with("enabled", output.state.enabled)
+            .with("input_ready", output.state.ready)
+            .with("input_fault", format!("{:?}", output.state.fault))
+            .with("accepted", self.counts.accepted)
+            .with("rejected", self.counts.rejected)
+            .with("reader_errors", self.counts.reader_errors)
+            .with("drain_overflows", self.counts.drain_overflows)
+            .with("publish_errors", self.counts.publish_errors)
+            .with("dropped", self.counts.dropped)
+            .with("longest_step_us", self.counts.longest_step_us)
+            .with("record_dropped", record.dropped)
+            .with("record_failed", record.failed)
+            .with("physical_stop_verified", false)
+            .with("capture_permission", "not_owned")
+    }
+}
+
+fn account(counts: &mut Counts, result: io::Result<Published>) {
+    match result {
+        Ok(result) => {
+            counts.published += 1;
+            counts.dropped += result.dropped as u64;
+        }
+        Err(_) => counts.publish_errors += 1,
+    }
+}

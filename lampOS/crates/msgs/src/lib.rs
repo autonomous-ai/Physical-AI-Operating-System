@@ -48,6 +48,8 @@ use std::{collections::BTreeMap, fmt, io, time::Duration};
 
 mod expression;
 pub use expression::*;
+mod controls;
+pub use controls::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -883,6 +885,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
     first_topics()
         .into_iter()
         .chain(expression_topics())
+        .chain(controls_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 

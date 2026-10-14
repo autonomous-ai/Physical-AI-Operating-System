@@ -2057,6 +2057,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-update"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "httparse",
+ "lamp-bus",
+ "lamp-msgs",
+ "ring",
+ "rustix",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "webpki-roots 1.0.9",
+]
+
+[[package]]
 name = "lamp-voice"
 version = "0.1.0"
 dependencies = [

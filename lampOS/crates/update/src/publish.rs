@@ -1,0 +1,147 @@
+//! The manifest of a build, made where it is built: every lampOS binary
+//! in a folder (CI's `arm64-out`, with its `SHA256SUMS`), and every unit of
+//! every lamp's own folder (`deploy/<lamp>/`, a folder with a `LAMP.md`).
+//! The units are copied beside the binaries as `<lamp>.<unit>`, so that
+//! the folder is what is published.
+use crate::{
+    manifest::{self, File, Manifest, SCHEMA, Unit},
+    unit,
+};
+use std::{fs, io, path::Path};
+
+fn invalid(why: String) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, why)
+}
+
+/// The manifest, written as `manifest.json` into `binaries`, with the units
+/// copied there.
+pub fn make(
+    binaries: &Path,
+    deploy: &Path,
+    channel: &str,
+    sequence: u64,
+    commit: &str,
+    files_url: &str,
+) -> io::Result<Manifest> {
+    let mut files = Vec::new();
+    let sums = fs::read_to_string(binaries.join("SHA256SUMS")).ok();
+    for entry in fs::read_dir(binaries)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !manifest::is_binary_name(&name) || !entry.file_type()?.is_file() {
+            continue;
+        }
+        let bytes = fs::read(entry.path())?;
+        let sha256 = manifest::sha256_hex(&bytes);
+        // CI's own list, where there is one, must agree.
+        if let Some(sums) = &sums
+            && !sums
+                .lines()
+                .any(|line| line.split_whitespace().eq([sha256.as_str(), name.as_str()]))
+        {
+            return Err(invalid(format!("{name} is not in SHA256SUMS as {sha256}")));
+        }
+        files.push(File {
+            name,
+            sha256,
+            size: bytes.len() as u64,
+        });
+    }
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut units = Vec::new();
+    for lamp in fs::read_dir(deploy)? {
+        let lamp = lamp?;
+        let name = lamp.file_name().to_string_lossy().into_owned();
+        if !manifest::is_token(&name) || !lamp.path().join("LAMP.md").is_file() {
+            continue;
+        }
+        for entry in fs::read_dir(lamp.path())? {
+            let entry = entry?;
+            let unit_name = entry.file_name().to_string_lossy().into_owned();
+            if !manifest::is_unit_name(&unit_name) || !entry.file_type()?.is_file() {
+                continue;
+            }
+            let bytes = fs::read(entry.path())?;
+            // Only a part installed by build: the others are not updated.
+            let Some(_) = std::str::from_utf8(&bytes).ok().and_then(unit::program) else {
+                continue;
+            };
+            let unit = Unit {
+                lamp: name.clone(),
+                unit: unit_name,
+                sha256: manifest::sha256_hex(&bytes),
+                size: bytes.len() as u64,
+            };
+            fs::write(binaries.join(unit.file_name()), &bytes)?;
+            units.push(unit);
+        }
+    }
+    units.sort_by(|a, b| (&a.lamp, &a.unit).cmp(&(&b.lamp, &b.unit)));
+    let made = Manifest {
+        schema: SCHEMA,
+        channel: channel.to_owned(),
+        sequence,
+        commit: commit.to_owned(),
+        files_url: files_url.to_owned(),
+        files,
+        units,
+    };
+    let mut bytes = serde_json::to_vec_pretty(&made).map_err(io::Error::other)?;
+    bytes.push(b'\n');
+    manifest::parse(&bytes).map_err(|why| invalid(why.0))?;
+    fs::write(binaries.join("manifest.json"), bytes)?;
+    Ok(made)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn binaries_and_each_lamps_units_but_nothing_else() {
+        let folder = tempfile::tempdir().unwrap();
+        let out = folder.path().join("out");
+        let deploy = folder.path().join("deploy");
+        fs::create_dir_all(&out).unwrap();
+        fs::write(out.join("lamp-voice"), b"voice").unwrap();
+        fs::write(out.join("lamp-body"), b"body").unwrap();
+        fs::write(out.join("schedule_check"), b"example").unwrap();
+        fs::write(out.join("lamp-voice.d"), b"dependencies").unwrap();
+        let sums = format!(
+            "{}  lamp-body\n{}  lamp-voice\n",
+            manifest::sha256_hex(b"body"),
+            manifest::sha256_hex(b"voice")
+        );
+        fs::write(out.join("SHA256SUMS"), sums).unwrap();
+        let sha = "a".repeat(64);
+        for (lamp, owned) in [("lamp-4ace", true), ("units", false)] {
+            fs::create_dir_all(deploy.join(lamp)).unwrap();
+            if owned {
+                fs::write(deploy.join(lamp).join("LAMP.md"), b"owner: first\n").unwrap();
+            }
+            fs::write(
+                deploy.join(lamp).join("lamp-voice.service"),
+                format!("[Service]\nExecStart=/opt/lampOS/releases/{sha}/lamp-voice serve\n"),
+            )
+            .unwrap();
+            fs::write(
+                deploy.join(lamp).join("lamp-air.service"),
+                "[Service]\nExecStart=/usr/bin/true\n",
+            )
+            .unwrap();
+        }
+        let url = "https://github.com/autonomous-ai/lampOS/releases/download/lampos-lamp-voice-7/";
+        let made = make(&out, &deploy, "lamp-voice", 7, &"c".repeat(40), url).unwrap();
+        let names: Vec<&str> = made.files.iter().map(|file| file.name.as_str()).collect();
+        assert_eq!(names, ["lamp-body", "lamp-voice"]);
+        assert_eq!(made.units.len(), 1);
+        assert_eq!(made.units[0].file_name(), "lamp-4ace.lamp-voice.service");
+        assert!(out.join("lamp-4ace.lamp-voice.service").is_file());
+        let written = fs::read(out.join("manifest.json")).unwrap();
+        assert_eq!(manifest::parse(&written).unwrap(), made);
+
+        // A binary that SHA256SUMS does not know as it is: refused.
+        fs::write(out.join("lamp-body"), b"changed").unwrap();
+        assert!(make(&out, &deploy, "lamp-voice", 7, &"c".repeat(40), url).is_err());
+    }
+}

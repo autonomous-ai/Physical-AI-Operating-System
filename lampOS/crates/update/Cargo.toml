@@ -1,0 +1,40 @@
+[package]
+name = "lamp-update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Updates: a lamp keeps its lampOS current by itself. It learns that a newer
+# signed build of its channel is published, fetches the parts that changed,
+# installs each beside the old one, switches them at a quiet moment, watches
+# their health for a minute and goes back to the previous build by itself if
+# a part is not well. Its own process, its own unit and its own records; with
+# it gone nothing else on the lamp changes (docs/updates.md).
+[[bin]]
+name = "lamp-update"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+# Ed25519 signatures and SHA-256. Already in the workspace through rustls; no
+# other cryptography is taken in.
+ring = "0.17"
+base64 = "0.22"
+# The channel over HTTPS, as lamp-policy reaches its decision models: the same
+# rustls features, so one rustls is built for all of them.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
+httparse = "1.10"
+# How much of the disk is free (statvfs) and one run at a time (flock), which
+# the standard library cannot ask. The same version as the other crates.
+rustix = { version = "=1.1.5", features = ["fs"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

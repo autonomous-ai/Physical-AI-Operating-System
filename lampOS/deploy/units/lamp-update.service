@@ -1,0 +1,42 @@
+# lampOS updates: keeps the lamp's lampOS current by itself (lampOS/docs/updates.md).
+# Not part of lampos.target, on purpose: an update restarts the lamp's parts, and what
+# restarts them must not be stopped with them. It starts at power-up on its own.
+# @UPDATE_APPLY@ is the switch: off, it only says in its journal what the newest build
+# would change and writes nothing; on, it installs, switches at a quiet moment and puts
+# a build back by itself. Off for its first minute on a lamp, then on.
+# Template: replace every @NAME@ (README.md here).
+[Unit]
+Description=lampOS updates (lamp-update serve)
+ConditionHost=@UNIT_ID@
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Root: it writes /opt/lampOS and /etc/systemd/system and restarts the parts' units.
+User=root
+Group=root
+Slice=lampos-parts.slice
+# Fetching and hashing a build is never worth a late word.
+Nice=10
+IOSchedulingClass=idle
+# @UPDATE_CHANNEL_URL@: the channel's folder, ending in / (docs/updates.md, "Publishing").
+# The public key it checks every build with is given at setup, never by the channel.
+ExecStart=/opt/lampOS/update/@UPDATE_SHA256@/lamp-update serve --channel-url @UPDATE_CHANNEL_URL@ --channel lamp-voice --key-file /etc/lampOS/update/key.pub --apply @UPDATE_APPLY@
+Restart=on-failure
+RestartSec=30s
+StandardInput=null
+SyslogIdentifier=lamp-update
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/lampOS /etc/systemd/system -/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+StateDirectory=lampos-update
+StateDirectoryMode=0700
+Environment=LAMP_BUS_ROOT=/run/lampos-bus
+
+[Install]
+WantedBy=multi-user.target

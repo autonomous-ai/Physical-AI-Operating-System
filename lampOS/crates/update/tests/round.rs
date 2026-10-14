@@ -1,0 +1,987 @@
+//! Rounds of an update on a lamp made of files, with a channel, systemd,
+//! a bus and a clock of the test's own: no network, no systemd, no lamp.
+//!
+//! The lamp has a voice (with a worker and a model beside it, as lamp-4ace
+//! has), a body, the controls (with their settings beside them), a unit
+//! that is not a part, and lamp-update's own. A part's "binary" is a line
+//! of text: one with `crash` in it dies whenever it is started, and one
+//! with `unwell` says it is in error in the lamp's health.
+use lamp_msgs::{Health, HealthItem, Level, Voice};
+use lamp_update::{
+    Config, Outcome, World,
+    fetch::{Channel, Fetch},
+    judge::UnitState,
+    manifest::{self, File, Manifest, Unit, sha256_hex},
+    quiet::Heard,
+    round, unit,
+    world::{Clock, Disk, Ears, Systemd},
+};
+use ring::{
+    rand::SystemRandom,
+    signature::{Ed25519KeyPair, KeyPair},
+};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{BTreeMap, HashMap},
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    rc::Rc,
+    time::Duration,
+};
+
+const CHANNEL: &str = "https://channel.test/lamp-voice/";
+
+/// A key made for these tests and thrown away with them.
+fn throwaway() -> Ed25519KeyPair {
+    let document = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
+    Ed25519KeyPair::from_pkcs8(document.as_ref()).unwrap()
+}
+
+#[derive(Default)]
+struct FakeChannel {
+    files: HashMap<String, Vec<u8>>,
+    offline: bool,
+}
+
+impl Channel for FakeChannel {
+    fn fetch(&mut self, url: &str, most: u64, out: &mut dyn Write) -> Result<u64, Fetch> {
+        if self.offline {
+            return Err(Fetch::Unreachable("no network".into()));
+        }
+        let bytes = self.files.get(url).ok_or(Fetch::Missing)?;
+        if bytes.len() as u64 > most {
+            return Err(Fetch::Failed("larger than expected".into()));
+        }
+        out.write_all(bytes).unwrap();
+        Ok(bytes.len() as u64)
+    }
+}
+
+struct FakeClock(Rc<Cell<u64>>);
+
+impl Clock for FakeClock {
+    fn now_ms(&self) -> u64 {
+        self.0.get()
+    }
+}
+
+/// What the voice says between two times: a resting state every second,
+/// and speech when the test says so.
+type Talk = Box<dyn Fn(u64) -> bool>;
+
+struct FakeEars {
+    now: Rc<Cell<u64>>,
+    talking: Talk,
+    root: PathBuf,
+}
+
+impl Ears for FakeEars {
+    fn listen(&mut self, wait: Duration) -> Vec<Heard> {
+        let from = self.now.get();
+        let to = from + wait.as_millis() as u64;
+        self.now.set(to);
+        let mut heard = Vec::new();
+        for second in (from / 1000 + 1)..=(to / 1000) {
+            let at = second * 1000;
+            if (self.talking)(at) {
+                heard.push(Heard::Speech);
+                heard.push(Heard::State(Voice::Speaking));
+            } else {
+                heard.push(Heard::State(Voice::Resting));
+            }
+        }
+        heard
+    }
+
+    /// Every part that runs reports: in error if its binary is unwell.
+    fn health(&mut self) -> Option<Health> {
+        let mut items = Vec::new();
+        for (unit, binary) in running_binaries(&self.root) {
+            let part = unit
+                .trim_start_matches("lamp-")
+                .trim_end_matches(".service");
+            let level = if binary.contains("unwell") {
+                Level::Error
+            } else {
+                Level::Ok
+            };
+            items.push(HealthItem {
+                name: part.to_owned(),
+                level,
+                message: if level == Level::Ok {
+                    String::new()
+                } else {
+                    "it says it is unwell".into()
+                },
+                age_ms: 200,
+            });
+        }
+        items.sort_by_key(|item| std::cmp::Reverse(item.level.rank()));
+        let level = items.first().map_or(Level::Ok, |item| item.level);
+        Some(Health {
+            level,
+            message: String::new(),
+            items,
+            missing: Vec::new(),
+        })
+    }
+}
+
+/// Each part's unit and the text of the binary it starts now.
+fn running_binaries(root: &Path) -> Vec<(String, String)> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir(root.join("etc/systemd/system")).unwrap() {
+        let entry = entry.unwrap();
+        let text = fs::read_to_string(entry.path()).unwrap();
+        if let Some(program) = unit::program(&text) {
+            let path = root
+                .join(program.folder().trim_start_matches('/'))
+                .join(&program.binary);
+            let binary = fs::read_to_string(path).unwrap_or_default();
+            found.push((entry.file_name().to_string_lossy().into_owned(), binary));
+        }
+    }
+    found
+}
+
+#[derive(Clone, Default)]
+struct Running {
+    active: String,
+    sub: String,
+    pid: u32,
+    restarts: u32,
+}
+
+struct FakeSystemd {
+    root: PathBuf,
+    units: BTreeMap<String, Running>,
+    calls: Rc<RefCell<Vec<String>>>,
+    next_pid: u32,
+    now: Rc<Cell<u64>>,
+    /// When each restart was asked for.
+    restarted_at: Vec<(String, u64)>,
+}
+
+impl FakeSystemd {
+    fn start(&mut self, unit: &str) {
+        let text = fs::read_to_string(self.root.join("etc/systemd/system").join(unit)).unwrap();
+        let program = unit::program(&text).unwrap();
+        let binary = fs::read_to_string(
+            self.root
+                .join(program.folder().trim_start_matches('/'))
+                .join(&program.binary),
+        )
+        .unwrap_or_default();
+        self.next_pid += 1;
+        let running = if binary.contains("crash") {
+            Running {
+                active: "activating".into(),
+                sub: "auto-restart".into(),
+                pid: 0,
+                restarts: 1,
+            }
+        } else {
+            Running {
+                active: "active".into(),
+                sub: "running".into(),
+                pid: self.next_pid,
+                restarts: 0,
+            }
+        };
+        self.units.insert(unit.to_owned(), running);
+    }
+}
+
+impl Systemd for FakeSystemd {
+    fn states(&mut self, units: &[String]) -> Result<Vec<UnitState>, String> {
+        Ok(units
+            .iter()
+            .map(|unit| {
+                let running = self.units.get(unit).cloned().unwrap_or(Running {
+                    active: "inactive".into(),
+                    sub: "dead".into(),
+                    ..Running::default()
+                });
+                UnitState {
+                    unit: unit.clone(),
+                    active: running.active,
+                    sub: running.sub,
+                    pid: running.pid,
+                    restarts: running.restarts,
+                }
+            })
+            .collect())
+    }
+
+    fn reload(&mut self) -> Result<(), String> {
+        self.calls.borrow_mut().push("reload".into());
+        Ok(())
+    }
+
+    fn restart(&mut self, unit: &str) -> Result<(), String> {
+        self.calls.borrow_mut().push(format!("restart {unit}"));
+        self.restarted_at.push((unit.to_owned(), self.now.get()));
+        self.start(unit);
+        Ok(())
+    }
+}
+
+struct FakeDisk(u64);
+
+impl Disk for FakeDisk {
+    fn free(&self, _: &Path) -> io::Result<u64> {
+        Ok(self.0)
+    }
+}
+
+/// The SHA-256 of a binary's text.
+fn sha(text: &str) -> String {
+    sha256_hex(text.as_bytes())
+}
+
+fn voice_unit(build: &str) -> String {
+    format!(
+        "# lamp-4ace's voice\n[Unit]\nDescription=lampOS voice\n\n[Service]\nExecStart=/opt/lampOS/releases/{build}/lamp-voice serve /etc/lampOS/voice/provider.json --endpoint smart-turn-fast\nRestart=on-failure\n"
+    )
+}
+
+fn body_unit(build: &str, options: &str) -> String {
+    format!(
+        "[Unit]\nDescription=lampOS body\n\n[Service]\nExecStart=/opt/lampOS/body/{build}/lamp-body --device /dev/ttyACM0{options}\nRestart=on-failure\n"
+    )
+}
+
+fn controls_unit(build: &str) -> String {
+    format!(
+        "[Service]\nExecStart=/opt/lampOS/controls/{build}/lamp-controls serve --config /opt/lampOS/controls/{build}/controls.json\n"
+    )
+}
+
+/// A lamp made of files, its channel, and the rest of its world.
+struct Lamp {
+    _folder: tempfile::TempDir,
+    root: PathBuf,
+    key: Ed25519KeyPair,
+    channel: FakeChannel,
+    systemd: FakeSystemd,
+    calls: Rc<RefCell<Vec<String>>>,
+    now: Rc<Cell<u64>>,
+    talking: Option<Talk>,
+    free: u64,
+    said: Vec<String>,
+    config: Config,
+}
+
+impl Lamp {
+    /// lamp-4ace as it runs build 1, every part running.
+    fn new() -> Self {
+        let folder = tempfile::tempdir().unwrap();
+        let root = folder.path().to_owned();
+        let write = |path: &str, text: &str| {
+            let path = root.join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, text).unwrap();
+        };
+        write("etc/hostname", "lamp-4ace\n");
+        let (voice, body, controls) = (sha("voice 1"), sha("body 1"), sha("controls 1"));
+        write(
+            &format!("opt/lampOS/releases/{voice}/lamp-voice"),
+            "voice 1",
+        );
+        write(
+            &format!("opt/lampOS/releases/{voice}/lamp-turn-end"),
+            "turn-end 1",
+        );
+        write(
+            &format!("opt/lampOS/releases/{voice}/smart-turn.onnx"),
+            "a model",
+        );
+        write(&format!("opt/lampOS/body/{body}/lamp-body"), "body 1");
+        write(
+            &format!("opt/lampOS/controls/{controls}/lamp-controls"),
+            "controls 1",
+        );
+        write(
+            &format!("opt/lampOS/controls/{controls}/controls.json"),
+            "{\"pads\":2}",
+        );
+        write("etc/systemd/system/lamp-voice.service", &voice_unit(&voice));
+        write(
+            "etc/systemd/system/lamp-body.service",
+            &body_unit(&body, ""),
+        );
+        write(
+            "etc/systemd/system/lamp-controls.service",
+            &controls_unit(&controls),
+        );
+        write(
+            "etc/systemd/system/lamp-cmedia-speaker.service",
+            "[Service]\nExecStart=/usr/bin/amixer set Speaker 80%\n",
+        );
+        write(
+            "etc/systemd/system/lamp-update.service",
+            &format!(
+                "[Service]\nExecStart=/opt/lampOS/update/{}/lamp-update serve\n",
+                sha("update 1")
+            ),
+        );
+        let key = throwaway();
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let now = Rc::new(Cell::new(1_000_000));
+        let mut systemd = FakeSystemd {
+            root: root.clone(),
+            units: BTreeMap::new(),
+            calls: Rc::clone(&calls),
+            next_pid: 100,
+            now: Rc::clone(&now),
+            restarted_at: Vec::new(),
+        };
+        for unit in [
+            "lamp-voice.service",
+            "lamp-body.service",
+            "lamp-controls.service",
+        ] {
+            systemd.start(unit);
+        }
+        let config = Config {
+            root: root.clone(),
+            units: "/etc/systemd/system/".into(),
+            records: "/var/lib/lampos-update/".into(),
+            channel: "lamp-voice".into(),
+            channel_url: CHANNEL.into(),
+            key: key.public_key().as_ref().try_into().unwrap(),
+            lamp: "lamp-4ace".into(),
+            apply: true,
+            quiet_wait: Duration::from_secs(600),
+            watch: Duration::from_secs(60),
+            keep_free: 256_000_000,
+        };
+        Self {
+            _folder: folder,
+            root,
+            key,
+            channel: FakeChannel::default(),
+            systemd,
+            calls,
+            now,
+            talking: None,
+            free: 10_000_000_000,
+            said: Vec::new(),
+            config,
+        }
+    }
+
+    /// Publishes build `sequence` with these binaries and these units of
+    /// lamp-4ace's own folder, signed with the lamp's key.
+    fn publish(
+        &mut self,
+        sequence: u64,
+        binaries: &[(&str, &str)],
+        units: &[(&str, &str)],
+    ) -> Manifest {
+        let manifest = self.manifest(sequence, binaries, units);
+        let bytes = serde_json::to_vec(&manifest).unwrap();
+        let envelope = manifest::seal(&bytes, &self.key).unwrap();
+        self.channel
+            .files
+            .insert(format!("{CHANNEL}{}", manifest::ENVELOPE), envelope);
+        manifest
+    }
+
+    fn manifest(
+        &mut self,
+        sequence: u64,
+        binaries: &[(&str, &str)],
+        units: &[(&str, &str)],
+    ) -> Manifest {
+        let files_url = format!("https://channel.test/build-{sequence}/");
+        let mut files = Vec::new();
+        for (name, text) in binaries {
+            self.channel
+                .files
+                .insert(format!("{files_url}{name}"), text.as_bytes().to_vec());
+            files.push(File {
+                name: (*name).into(),
+                sha256: sha(text),
+                size: text.len() as u64,
+            });
+        }
+        let mut carried = Vec::new();
+        for (name, text) in units {
+            let unit = Unit {
+                lamp: "lamp-4ace".into(),
+                unit: (*name).into(),
+                sha256: sha(text),
+                size: text.len() as u64,
+            };
+            self.channel.files.insert(
+                format!("{files_url}{}", unit.file_name()),
+                text.as_bytes().to_vec(),
+            );
+            carried.push(unit);
+        }
+        Manifest {
+            schema: 1,
+            channel: "lamp-voice".into(),
+            sequence,
+            commit: format!("{sequence:040}"),
+            files_url,
+            files,
+            units: carried,
+        }
+    }
+
+    fn round(&mut self) -> Outcome {
+        let clock = FakeClock(Rc::clone(&self.now));
+        let talking = self.talking.take().unwrap_or_else(|| Box::new(|_| false));
+        let mut ears = FakeEars {
+            now: Rc::clone(&self.now),
+            talking,
+            root: self.root.clone(),
+        };
+        let disk = FakeDisk(self.free);
+        let said = &mut self.said;
+        let mut say = |line: &str| said.push(line.to_owned());
+        let mut world = World {
+            channel: &mut self.channel,
+            systemd: &mut self.systemd,
+            ears: &mut ears,
+            disk: &disk,
+            clock: &clock,
+            say: &mut say,
+        };
+        let outcome = round(&self.config, &mut world);
+        self.talking = Some(ears.talking);
+        outcome
+    }
+
+    fn read(&self, path: &str) -> String {
+        fs::read_to_string(self.root.join(path.trim_start_matches('/'))).unwrap()
+    }
+
+    fn exists(&self, path: &str) -> bool {
+        self.root.join(path.trim_start_matches('/')).exists()
+    }
+
+    fn calls(&self) -> Vec<String> {
+        self.calls.borrow().clone()
+    }
+
+    /// Every file under the root but the records, with its bytes.
+    fn files(&self) -> BTreeMap<String, Vec<u8>> {
+        fn walk(folder: &Path, root: &Path, found: &mut BTreeMap<String, Vec<u8>>) {
+            for entry in fs::read_dir(folder).unwrap() {
+                let path = entry.unwrap().path();
+                let name = path.strip_prefix(root).unwrap().display().to_string();
+                if path.is_dir() {
+                    found.insert(format!("{name}/"), Vec::new());
+                    walk(&path, root, found);
+                } else {
+                    found.insert(name, fs::read(&path).unwrap());
+                }
+            }
+        }
+        let mut found = BTreeMap::new();
+        walk(&self.root, &self.root, &mut found);
+        found
+    }
+
+    /// The same, but lamp-update's own records (the lamp has nothing else
+    /// under /var here).
+    fn lamp_files(&self) -> BTreeMap<String, Vec<u8>> {
+        self.files()
+            .into_iter()
+            .filter(|(name, _)| !name.starts_with("var/"))
+            .collect()
+    }
+
+    fn state(&self) -> serde_json::Value {
+        serde_json::from_str(&self.read("/var/lib/lampos-update/state.json")).unwrap()
+    }
+}
+
+/// Build 2: a new voice and its worker; the body and the controls as they
+/// are.
+fn build_two(lamp: &mut Lamp) -> Manifest {
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 2"),
+            ("lamp-turn-end", "turn-end 2"),
+            ("lamp-body", "body 1"),
+            ("lamp-controls", "controls 1"),
+        ],
+        &[],
+    )
+}
+
+#[test]
+fn a_new_build_is_installed_beside_the_old_and_switched() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    let started = lamp.now.get();
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+
+    let (old, new) = (sha("voice 1"), sha("voice 2"));
+    // The new folder beside the old one: the new voice and worker, and the
+    // model carried from the old folder.
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/releases/{new}/lamp-voice")),
+        "voice 2"
+    );
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/releases/{new}/lamp-turn-end")),
+        "turn-end 2"
+    );
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/releases/{new}/smart-turn.onnx")),
+        "a model"
+    );
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/releases/{old}/lamp-voice")),
+        "voice 1"
+    );
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&new)
+    );
+    // Nothing else changed, and only the voice was restarted.
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-body.service"),
+        body_unit(&sha("body 1"), "")
+    );
+    assert_eq!(lamp.calls(), ["reload", "restart lamp-voice.service"]);
+    // At a quiet moment, 45 s after watching began, and then watched for a
+    // minute.
+    assert!(
+        lamp.now.get() - started >= 105_000,
+        "{}",
+        lamp.now.get() - started
+    );
+    let state = lamp.state();
+    assert_eq!(state["installed"]["sequence"], 2);
+    assert_eq!(state["made"][0], format!("/opt/lampOS/releases/{new}/"));
+    assert!(!lamp.exists("/var/lib/lampos-update/journal.json"));
+    assert_eq!(
+        lamp.read("/var/lib/lampos-update/previous/lamp-voice.service"),
+        voice_unit(&old)
+    );
+    assert!(
+        lamp.read("/var/lib/lampos-update/log.jsonl")
+            .contains("\"event\":\"switched\"")
+    );
+
+    // The same build again: nothing to do.
+    assert_eq!(lamp.round(), Outcome::UpToDate(2));
+    assert_eq!(lamp.calls().len(), 2);
+}
+
+#[test]
+fn a_unit_the_build_carries_is_carried_with_the_build_written_in() {
+    let mut lamp = Lamp::new();
+    // The body's own unit in the repository names some older build: the
+    // build is written in, the new option stays.
+    let carried = body_unit(&"0".repeat(64), " --stand-share 50");
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 1"),
+            ("lamp-turn-end", "turn-end 1"),
+            ("lamp-body", "body 1"),
+            ("lamp-controls", "controls 1"),
+        ],
+        &[("lamp-body.service", &carried)],
+    );
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-body.service"),
+        body_unit(&sha("body 1"), " --stand-share 50")
+    );
+    assert_eq!(lamp.calls(), ["reload", "restart lamp-body.service"]);
+}
+
+#[test]
+fn a_bad_signature_or_a_bad_checksum_is_refused_with_nothing_installed() {
+    let mut lamp = Lamp::new();
+    let before = lamp.lamp_files();
+
+    // Signed with another key.
+    let manifest = build_two(&mut lamp);
+    let other = throwaway();
+    let envelope = manifest::seal(&serde_json::to_vec(&manifest).unwrap(), &other).unwrap();
+    lamp.channel
+        .files
+        .insert(format!("{CHANNEL}{}", manifest::ENVELOPE), envelope);
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::Refused(why) if why.contains("signed with key")),
+        "{outcome:?}"
+    );
+
+    // Signed rightly, and one binary is not what it says.
+    build_two(&mut lamp);
+    lamp.channel.files.insert(
+        "https://channel.test/build-2/lamp-turn-end".into(),
+        b"turn-end 2, changed on the way".to_vec(),
+    );
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::Refused(why) if why.contains("lamp-turn-end")),
+        "{outcome:?}"
+    );
+
+    assert_eq!(lamp.lamp_files(), before);
+    assert!(lamp.calls().is_empty());
+    // Nothing is recorded as installed: only the log says what was refused.
+    assert!(!lamp.exists("/var/lib/lampos-update/state.json"));
+    let log = lamp.read("/var/lib/lampos-update/log.jsonl");
+    assert_eq!(log.matches("\"event\":\"refused\"").count(), 2);
+}
+
+#[test]
+fn a_part_that_dies_is_put_back_and_its_build_refused() {
+    let mut lamp = Lamp::new();
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 2, which crashes"),
+            ("lamp-turn-end", "turn-end 1"),
+            ("lamp-body", "body 2"),
+            ("lamp-controls", "controls 1"),
+        ],
+        &[],
+    );
+    let before = lamp.lamp_files();
+    let outcome = lamp.round();
+    let Outcome::RolledBack {
+        sequence,
+        why,
+        after,
+    } = &outcome
+    else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(*sequence, 2);
+    assert!(why.contains("lamp-voice.service ended"), "{why}");
+    assert_eq!(after, &Ok(()));
+    // Switched voice first, then the body; put back the body first, then
+    // the voice (which failed, so without waiting).
+    assert_eq!(
+        lamp.calls(),
+        [
+            "reload",
+            "restart lamp-voice.service",
+            "restart lamp-body.service",
+            "reload",
+            "restart lamp-body.service",
+            "restart lamp-voice.service",
+        ]
+    );
+    // Every unit as it was, and the new folders removed again.
+    assert_eq!(lamp.lamp_files(), before);
+    assert_eq!(lamp.state()["refused"][0]["sequence"], 2);
+
+    // The same build is not tried again.
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::Refused(why) if why.contains("was put back")),
+        "{outcome:?}"
+    );
+    assert_eq!(lamp.calls().len(), 6);
+}
+
+#[test]
+fn a_part_that_says_it_is_in_error_is_put_back_after_its_minute() {
+    let mut lamp = Lamp::new();
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 1"),
+            ("lamp-turn-end", "turn-end 1"),
+            ("lamp-body", "body 2, unwell"),
+            ("lamp-controls", "controls 1"),
+        ],
+        &[],
+    );
+    let outcome = lamp.round();
+    let Outcome::RolledBack { why, after, .. } = &outcome else {
+        panic!("{outcome:?}");
+    };
+    assert!(why.contains("body says it is in error"), "{why}");
+    assert_eq!(after, &Ok(()));
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-body.service"),
+        body_unit(&sha("body 1"), "")
+    );
+}
+
+#[test]
+fn no_network_changes_nothing_and_says_so() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    lamp.channel.offline = true;
+    let before = lamp.lamp_files();
+    let outcome = lamp.round();
+    assert_eq!(
+        outcome,
+        Outcome::Unreachable("the channel cannot be reached: no network".into())
+    );
+    assert_eq!(
+        outcome.to_string(),
+        "nothing changed: the channel cannot be reached: no network"
+    );
+    assert_eq!(lamp.lamp_files(), before);
+    assert!(lamp.calls().is_empty());
+    assert!(
+        lamp.read("/var/lib/lampos-update/log.jsonl")
+            .contains("unreachable")
+    );
+
+    // Nothing published yet is not an error either.
+    let mut lamp = Lamp::new();
+    assert_eq!(lamp.round(), Outcome::NothingPublished);
+}
+
+#[test]
+fn the_voice_is_not_switched_while_someone_talks_to_the_lamp() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    // Someone speaks every 30 seconds, for the whole wait.
+    lamp.talking = Some(Box::new(|at| at % 30_000 == 0));
+    lamp.config.quiet_wait = Duration::from_secs(300);
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::NotQuiet(why) if why.contains("someone was heard")),
+        "{outcome:?}"
+    );
+    assert!(lamp.calls().is_empty());
+    let new = sha("voice 2");
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&sha("voice 1"))
+    );
+    // Installed beside, waiting: the next quiet round switches to it.
+    assert!(lamp.exists(&format!("/opt/lampOS/releases/{new}/lamp-voice")));
+    lamp.talking = Some(Box::new(|_| false));
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&new)
+    );
+}
+
+#[test]
+fn a_disk_too_full_for_a_second_copy_is_refused_before_anything_is_written() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    lamp.free = 256_000_010;
+    let before = lamp.lamp_files();
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::Refused(why) if why.starts_with("the disk has 256 MB free")),
+        "{outcome:?}"
+    );
+    assert_eq!(lamp.lamp_files(), before);
+    assert!(lamp.calls().is_empty());
+}
+
+#[test]
+fn without_apply_nothing_is_written_and_what_would_change_is_said() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    lamp.config.apply = false;
+    let before = lamp.files();
+    let outcome = lamp.round();
+    let Outcome::Would(lines) = &outcome else {
+        panic!("{outcome:?}");
+    };
+    assert!(lines[0].starts_with("build 2 of lamp-voice"));
+    assert!(
+        lines[1].starts_with("lamp-voice.service: /opt/lampOS/releases/"),
+        "{lines:?}"
+    );
+    // Everything as it was, the records too, and systemd not even asked.
+    assert_eq!(lamp.files(), before);
+    assert!(!lamp.exists("/var/lib/lampos-update"));
+    assert!(lamp.calls().is_empty());
+}
+
+#[test]
+fn an_older_build_is_not_taken() {
+    let mut lamp = Lamp::new();
+    build_two(&mut lamp);
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+    lamp.publish(1, &[("lamp-voice", "voice 1")], &[]);
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::Refused(why) if why.contains("older")),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn a_switch_cut_short_is_put_back_at_the_next_start() {
+    let mut lamp = Lamp::new();
+    // As a switch to build 2 leaves it when the lamp loses power after the
+    // units are written: the journal, the units kept, the new unit in place.
+    let (old, new) = (sha("voice 1"), sha("voice 2"));
+    let records = lamp.root.join("var/lib/lampos-update");
+    fs::create_dir_all(records.join("previous")).unwrap();
+    fs::write(
+        records.join("previous/lamp-voice.service"),
+        voice_unit(&old),
+    )
+    .unwrap();
+    fs::write(
+        records.join("journal.json"),
+        format!(
+            "{{\"build\":{{\"sequence\":2,\"commit\":\"{}\"}},\"units\":[{{\"unit\":\"lamp-voice.service\",\"was_active\":true}}]}}",
+            "2".repeat(40)
+        ),
+    )
+    .unwrap();
+    fs::create_dir_all(lamp.root.join(format!("opt/lampOS/releases/{new}"))).unwrap();
+    fs::write(
+        lamp.root
+            .join(format!("opt/lampOS/releases/{new}/lamp-voice")),
+        "voice 2",
+    )
+    .unwrap();
+    fs::write(
+        lamp.root.join("etc/systemd/system/lamp-voice.service"),
+        voice_unit(&new),
+    )
+    .unwrap();
+
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::RolledBack { sequence: 2, why, after: Ok(()) } if why.contains("cut short")),
+        "{outcome:?}"
+    );
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&old)
+    );
+    assert_eq!(lamp.calls(), ["reload", "restart lamp-voice.service"]);
+    assert!(!lamp.exists("/var/lib/lampos-update/journal.json"));
+    // Build 2 is not taken again once published.
+    build_two(&mut lamp);
+    assert!(matches!(lamp.round(), Outcome::Refused(why) if why.contains("was put back")));
+}
+
+#[test]
+fn a_new_worker_beside_an_unchanged_voice_gets_a_folder_named_by_its_list() {
+    let mut lamp = Lamp::new();
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 1"),
+            ("lamp-turn-end", "turn-end 2"),
+            ("lamp-body", "body 1"),
+            ("lamp-controls", "controls 1"),
+        ],
+        &[],
+    );
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+    // As SHA256SUMS would list the build's two binaries in it, in order.
+    let mut lines = [
+        format!("{}  lamp-turn-end\n", sha("turn-end 2")),
+        format!("{}  lamp-voice\n", sha("voice 1")),
+    ];
+    lines.sort();
+    let list = sha256_hex(lines.concat().as_bytes());
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&list)
+    );
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/releases/{list}/lamp-turn-end")),
+        "turn-end 2"
+    );
+    // The folder named by the voice itself is untouched.
+    assert_eq!(
+        lamp.read(&format!(
+            "/opt/lampOS/releases/{}/lamp-turn-end",
+            sha("voice 1")
+        )),
+        "turn-end 1"
+    );
+}
+
+#[test]
+fn a_folder_made_two_builds_ago_is_removed_and_one_never_made_is_kept() {
+    let mut lamp = Lamp::new();
+    for sequence in 2..=4u64 {
+        let voice = format!("voice {sequence}");
+        lamp.publish(
+            sequence,
+            &[("lamp-voice", &voice), ("lamp-turn-end", "turn-end 1")],
+            &[],
+        );
+        assert_eq!(lamp.round(), Outcome::Switched(sequence));
+    }
+    let folder = |text: &str| format!("/opt/lampOS/releases/{}/", sha(text));
+    // The build and the one before it stay, and the first, which this
+    // program did not make.
+    assert!(lamp.exists(&folder("voice 4")));
+    assert!(lamp.exists(&folder("voice 3")));
+    assert!(!lamp.exists(&folder("voice 2")));
+    assert!(lamp.exists(&folder("voice 1")));
+    let made: Vec<String> = serde_json::from_value(lamp.state()["made"].clone()).unwrap();
+    assert_eq!(made, [folder("voice 3"), folder("voice 4")]);
+}
+
+#[test]
+fn a_part_whose_folder_is_gone_is_installed_afresh() {
+    let mut lamp = Lamp::new();
+    fs::remove_dir_all(lamp.root.join(format!("opt/lampOS/body/{}", sha("body 1")))).unwrap();
+    lamp.publish(2, &[("lamp-body", "body 2")], &[]);
+    assert_eq!(lamp.round(), Outcome::Switched(2));
+    assert_eq!(
+        lamp.read(&format!("/opt/lampOS/body/{}/lamp-body", sha("body 2"))),
+        "body 2"
+    );
+}
+
+#[test]
+fn a_voice_that_is_well_is_put_back_between_two_turns() {
+    let mut lamp = Lamp::new();
+    lamp.publish(
+        2,
+        &[
+            ("lamp-voice", "voice 2"),
+            ("lamp-turn-end", "turn-end 1"),
+            ("lamp-body", "body 2, unwell"),
+        ],
+        &[],
+    );
+    // Quiet until the switch, 45 s after the round begins. Toward the end
+    // of the minute the body is watched, someone talks to the new voice,
+    // and goes on after the body has been found unwell.
+    lamp.talking = Some(Box::new(|at| (1_100_000..=1_110_000).contains(&at)));
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::RolledBack { why, after: Ok(()), .. } if why.contains("body says it is in error")),
+        "{outcome:?}"
+    );
+    let at: BTreeMap<&str, Vec<u64>> =
+        lamp.systemd
+            .restarted_at
+            .iter()
+            .fold(BTreeMap::new(), |mut at, (unit, when)| {
+                at.entry(unit.as_str()).or_default().push(*when);
+                at
+            });
+    // Switched at the quiet moment and watched for a minute; the body put
+    // back at once; the voice only once five seconds have passed since the
+    // last word.
+    assert_eq!(at["lamp-voice.service"][0], 1_045_000);
+    assert_eq!(at["lamp-body.service"], [1_045_000, 1_105_000]);
+    assert!(at["lamp-voice.service"][1] >= 1_115_000, "{at:?}");
+    assert!(at["lamp-voice.service"][1] <= 1_117_000, "{at:?}");
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&sha("voice 1"))
+    );
+}

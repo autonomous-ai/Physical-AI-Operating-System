@@ -51,9 +51,11 @@ pub enum Room {
 
 /// A complete, explicitly supplied snapshot of the strict rule's inputs.
 ///
-/// Every field is required in JSON. `facing: null` means the rule itself had
-/// no fresh eyes result; an unrecorded result instead makes the snapshot
-/// unavailable. For a live-gate comparison, `going_on` must be Voice's value,
+/// Every field is required in JSON. For a live gate, `facing: null` records
+/// its actual None argument, including when eyes were not queried. A false
+/// argument can include a fresh message with only unknown poses or no faces.
+/// An unrecorded argument instead makes the snapshot unavailable. For a
+/// live-gate comparison, `going_on` must be Voice's value,
 /// `named_sure` must be its retained per-request latch, and `text` must be its
 /// prefix at first output, not a later transcript. Missing latch evidence
 /// cannot be converted to false; omit the snapshot instead.

@@ -1,0 +1,246 @@
+    Checking lamp-policy v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/policy)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.10s
+   Compiling lamp-policy v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/policy)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.79s
+     Running unittests src/lib.rs (target/debug/deps/lamp_policy-429752afc40ce1bf)
+
+running 76 tests
+test attention::tests::a_conversation_is_the_lamp_speaking_or_words_from_it_in_the_last_twenty_seconds ... ok
+test attention::tests::a_quiet_room_adds_to_the_sum_and_a_conversation_takes_a_little_away ... ok
+test attention::tests::answers_are_the_seven_yes_or_no_ones_or_the_name_of_the_one_missing ... ok
+test attention::tests::in_a_conversation_the_state_says_what_the_lamp_said_and_how_long_ago ... ok
+test attention::tests::outside_a_conversation_the_state_is_exactly_the_one_the_model_was_measured_with ... ok
+test attention::tests::the_choice_changes_at_the_two_thresholds_and_nowhere_else ... ok
+test attention::tests::the_four_measured_examples_come_to_the_measured_probabilities ... ok
+test attention::tests::the_seven_questions_are_asked_by_name_in_order_each_after_the_same_opening ... ok
+test attention::tests::what_the_lamp_last_said_is_cut_to_its_last_200_bytes_at_a_whole_character ... ok
+test attention::tests::with_no_model_the_rule_answers_in_a_quiet_room_or_a_conversation ... ok
+test attention::tests::with_something_listening_for_the_name_the_sum_is_the_one_fitted_with_that_sign ... ok
+test decide::tests::a_body_that_is_not_an_answer_is_unreadable ... ok
+test decide::tests::a_connection_is_kept_for_the_next_asking ... ok
+test decide::tests::a_connection_is_not_kept_longer_than_it_is_taken_to_last ... ok
+test decide::tests::a_connection_whose_answer_did_not_end_cleanly_is_not_used_again ... ok
+test decide::tests::a_good_answer_is_read_by_its_length_and_the_request_is_the_one_the_service_takes ... ok
+test decide::tests::a_handshake_that_never_finishes_ends_at_the_deadline ... ok
+test decide::tests::a_kept_connection_the_service_has_closed_is_replaced_and_nothing_fails ... ok
+test decide::tests::a_key_file_that_is_missing_or_holds_no_key_is_refused_without_showing_it ... ok
+test decide::tests::a_name_that_is_not_found_is_unreachable ... ok
+test decide::tests::a_probability_of_one_and_a_half_is_no_answer ... ok
+test decide::tests::a_secure_connection_is_kept_and_made_ahead_like_any_other ... ok
+test decide::tests::a_server_whose_certificate_is_not_trusted_is_never_sent_the_key ... ok
+test decide::tests::a_service_that_names_no_model_is_taken_to_have_used_the_one_asked_for ... ok
+test decide::tests::a_service_that_says_it_will_close_is_asked_again_on_a_new_connection ... ok
+test decide::tests::a_slow_lookup_is_not_waited_for_past_the_deadline_and_is_not_begun_twice ... ok
+test decide::tests::a_slow_server_does_not_hold_the_asker_past_the_deadline ... ok
+test decide::tests::a_status_other_than_200_is_a_refusal_and_its_body_is_not_passed_on ... ok
+test decide::tests::an_answer_larger_than_the_cap_is_not_read ... ok
+test decide::tests::an_answer_that_comes_a_little_at_a_time_cannot_stretch_the_deadline ... ok
+test decide::tests::an_answer_that_is_cut_short_or_cannot_be_measured_is_unreadable ... ok
+test decide::tests::an_answer_that_leaves_out_a_question_has_failed_whole ... ok
+test decide::tests::an_endpoint_is_a_scheme_a_host_perhaps_a_port_and_a_path ... ok
+test decide::tests::every_answer_is_held_to_its_question ... ok
+test decide::tests::getting_ready_for_a_service_that_is_not_there_is_silent_and_the_asking_says_so ... ok
+test decide::tests::getting_ready_makes_the_connection_the_question_is_then_asked_on ... ok
+test decide::tests::over_a_secure_connection_the_same_request_gets_the_same_answer ... ok
+test decide::tests::plain_http_is_never_sent_to_another_machine_whatever_a_name_is_looked_up_to ... ok
+test decide::tests::the_same_answer_sent_in_chunks_is_read ... ok
+test decide::tests::with_nothing_listening_the_service_is_unreachable ... ok
+test gather::tests::a_long_answer_is_kept_by_its_end ... ok
+test gather::tests::a_piece_marked_finished_ends_the_utterance_at_once ... ok
+test gather::tests::a_piece_that_comes_after_an_unnoticed_pause_begins_another_utterance ... ok
+test gather::tests::once_the_person_has_stopped_an_utterance_waits_a_moment_and_not_the_whole_pause ... ok
+test gather::tests::pieces_are_put_end_to_end_and_a_pause_ends_the_utterance ... ok
+test gather::tests::talk_that_never_pauses_is_judged_in_parts_cut_at_a_whole_character ... ok
+test gather::tests::the_lamp_keeps_its_newest_answer_and_when_it_last_spoke ... ok
+test gather::tests::what_the_lamp_was_doing_is_taken_when_the_utterance_begins_and_not_after ... ok
+test outcome::tests::a_lamp_that_answers_after_the_decision_spoke_and_the_times_are_from_the_decision ... ok
+test outcome::tests::a_lamp_that_began_before_the_decision_is_counted_and_the_time_is_less_than_nothing ... ok
+test outcome::tests::a_lamp_that_says_nothing_is_silent_once_its_time_is_up ... ok
+test outcome::tests::a_voice_that_went_away_while_speaking_begins_again_when_it_is_back ... ok
+test outcome::tests::words_that_are_written_and_never_played_are_not_speaking ... ok
+test policy::judge_log::tests::a_full_stalled_queue_is_bounded_and_acceptance_never_claims_a_write ... ok
+test policy::judge_log::tests::actual_append_failure_is_counted_and_does_not_block_other_record_kinds ... ok
+test policy::judge_log::tests::dropping_without_finish_cancels_queued_work_without_joining ... ok
+test policy::judge_log::tests::finish_returns_without_waiting_for_a_stalled_sink_and_never_acknowledges_it ... ok
+test policy::judge_log::tests::invalid_or_exposed_directory_fails_before_a_worker_is_returned ... ok
+test policy::judge_log::tests::jsonl_byte_limit_includes_the_newline_and_rejects_before_acceptance ... ok
+test policy::judge_log::tests::real_records_keep_kinds_days_order_and_private_modes ... ok
+test policy::judge_log::tests::serialization_errors_are_rejected_and_stats_contain_no_error_text ... ok
+test policy::judge_log::tests::streaming_serialization_stops_at_the_bound_without_building_the_whole_record ... ok
+test policy::judges::tests::both_completion_and_receipt_must_precede_the_original_deadline ... ok
+test policy::judges::tests::busy_weak_name_is_not_a_call_but_sure_name_conversation_text_and_fresh_pose_are ... ok
+test policy::judges::tests::cue_receipt_history_excludes_future_faces_and_later_voice_knowledge ... ok
+test policy::judges::tests::invalid_budgets_are_rejected_before_startup ... ok
+test policy::judges::tests::malformed_answers_fail_whole_judge_and_notes_never_hold_service_text ... ok
+test policy::judges::tests::missing_pose_is_not_away_and_an_empty_or_distant_view_is_unknown ... ok
+test policy::judges::tests::one_judge_failure_preserves_the_other_probability_and_both_use_separate_probabilities ... ok
+test policy::judges::tests::quiet_room_without_call_or_slow_answer_looks_up_even_if_local_is_confident ... ok
+test policy::judges::tests::stale_and_evicted_cues_stay_unknown_and_cut_text_has_no_length ... ok
+test record::tests::a_directory_removed_under_the_program_is_made_again_private ... ok
+test record::tests::a_moment_is_filed_under_its_day_by_utc ... ok
+test record::tests::a_write_that_fails_is_told_and_the_next_line_is_whole ... ok
+test record::tests::each_line_goes_to_its_days_file_which_only_its_owner_can_read ... ok
+test record::tests::the_directory_is_made_private_and_one_others_can_enter_is_refused ... ok
+
+test result: ok. 76 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.17s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_policy-1acb313ffaf9e326)
+
+running 2 tests
+test tests::anything_else_is_refused_with_the_reason ... ok
+test tests::the_options_are_read_and_the_rest_have_their_defaults ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/lamp-policy-fit.rs (target/debug/deps/lamp_policy_fit-87d0f3ba79d0f242)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/lamp-policy-judges.rs (target/debug/deps/lamp_policy_judges-77f1e4120d4fba22)
+
+running 3 tests
+test tests::explicit_switch_and_mode_are_required ... ok
+test tests::reject_ambiguous_unbounded_and_relative_options ... ok
+test tests::service_options_and_numeric_boundaries_are_preserved ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/baseline.rs (target/debug/deps/baseline-2bc6f8d2a5ec9bd3)
+
+running 16 tests
+test a_30_second_exchange_is_not_the_policy_20_second_conversation_flag ... ok
+test a_later_transcript_must_not_be_substituted_for_the_first_output_prefix ... ok
+test a_small_facing_face_opens_voice_even_when_the_policy_near_count_is_zero ... ok
+test absent_or_invalid_snapshot_is_excluded_even_with_a_label ... ok
+test counts_saturate_instead_of_wrapping_or_panicking ... ok
+test every_snapshot_field_is_required_and_explicit_null_facing_round_trips ... ok
+test first_output_and_same_snapshot_comparisons_have_independent_totals ... ok
+test literal_name_is_a_whole_word_anywhere ... ok
+test only_the_exact_misheard_aliases_in_the_first_non_greeting_position_match ... ok
+test six_authored_rows_preserve_all_choices_and_known_label_denominators ... ok
+test strict_busy_truth_table_covers_each_permission_and_unknown ... ok
+test sure_name_threshold_preserves_unknown_and_the_upstream_score_boundary ... ok
+test text_bound_is_utf8_bytes_and_never_silently_truncates ... ok
+test unknown_duplicate_mistyped_and_invalid_unicode_fields_are_rejected ... ok
+test unknown_labels_compare_permissions_without_creating_errors ... ok
+test unknown_room_plays_but_unknown_eyes_do_not_open_a_busy_room ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fit_lamp_scenes.rs (target/debug/deps/fit_lamp_scenes-c931f824957dd658)
+
+running 1 test
+test recorded_played_scenes_reproduce_the_abstaining_local_fit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/judges.rs (target/debug/deps/judges-bc5f5a2e73bd4567)
+
+running 8 tests
+test a_dead_slow_worker_keeps_local_decisions_and_reports_the_actual_fallback ... ok
+test failed_slow_judge_leaves_local_probability_and_recovers_for_the_next ... ok
+test late_slow_answer_is_audited_and_cannot_change_this_or_the_next_utterance ... ok
+test log_write_failure_reports_incomplete_evidence_but_decisions_continue ... ok
+test measure_shadow_choices_while_slow_is_held ... ignored, host measurement: run alone with --release --ignored --nocapture
+test newer_utterance_closes_the_older_choice_before_its_own ... ok
+test shutdown_finishes_a_pending_local_choice_without_waiting_for_the_remote ... ok
+test timely_answer_logs_both_and_publishes_their_probability_combination_once ... ok
+
+test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.37s
+
+     Running tests/judges_program.rs (target/debug/deps/judges_program-0212c26dc417379d)
+
+running 3 tests
+test disabled_program_and_invalid_arguments_create_no_bus_or_log ... ok
+test one_command_shows_both_judges_and_exits_with_a_truthful_private_log_receipt ... ok
+test subscription_failure_cancels_the_sixty_second_timer ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.75s
+
+     Running tests/local_comparison.rs (target/debug/deps/local_comparison-808a98b038a27743)
+
+running 1 test
+test authored_snapshots_show_where_local_only_choices_differ_from_the_busy_floor ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/local_fit.rs (target/debug/deps/local_fit-7bdbd1084188e655)
+
+running 7 tests
+test absent_baselines_are_counted_without_inventing_voice_evidence ... ok
+test deterministic_fit_roundtrips_and_never_uses_test_labels_to_fit ... ok
+test fit_export_paths_refuse_symlinks_and_input_overwrite ... ok
+test fitter_command_produces_private_loadable_weights_and_report_without_overwriting ... ok
+test reader_rejects_malformed_oversized_empty_and_unknown_field_rows_without_echoing_text ... ok
+test sessions_ids_labels_sources_and_optimizer_are_checked_before_fitting ... ok
+test unknown_and_single_class_question_labels_become_prior_only_without_feature_effects ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.28s
+
+     Running tests/local_model.rs (target/debug/deps/local_model-5528639adde685f5)
+
+running 7 tests
+test all_unknown_is_exactly_the_choice_prior_and_not_jev_calibration ... ok
+test each_known_cue_alone_moves_the_seed_in_the_declared_direction ... ok
+test malformed_and_oversized_cues_fail_without_echoing_private_content ... ok
+test model_loading_checks_shape_names_coefficients_provenance_and_status ... ok
+test only_the_exact_seven_typed_questions_are_accepted ... ok
+test unknown_pose_age_old_faces_and_negative_text_call_are_neutral ... ok
+test zero_and_expired_deadlines_fail_without_partial_answers ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/local_timing.rs (target/debug/deps/local_timing-942619329d567800)
+
+running 1 test
+test measure_local_first_and_repeated ... ignored, host measurement: run alone with --release --ignored --nocapture
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/policy.rs (target/debug/deps/policy-5784071b3b4ceab8)
+
+running 18 tests
+test a_bus_that_cannot_be_published_to_is_said_once_and_decisions_are_still_written ... ok
+test a_judge_that_breaks_down_leaves_the_rule_to_decide ... ok
+test a_lamp_that_spoke_before_it_was_decided_is_written_with_a_time_less_than_nothing ... ok
+test a_log_that_cannot_be_written_is_said_once_and_decisions_go_on ... ok
+test a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request ... ok
+test a_voice_that_is_not_there_yet_is_said_once_and_waited_for ... ok
+test every_note_is_a_line_of_counts_and_kinds_and_can_hold_no_text ... ok
+test how_the_room_is_and_who_the_eyes_see_are_taken_from_the_bus ... ok
+test messages_that_are_not_of_their_type_are_passed_over_and_nothing_of_them_is_said ... ok
+test once_the_voice_is_no_longer_listening_a_decision_does_not_wait_the_pause ... ok
+test one_question_is_out_at_a_time_and_at_most_eight_utterances_wait ... ok
+test pieces_become_one_utterance_and_one_decision_is_published_and_logged ... ok
+test the_judge_is_told_to_get_ready_each_time_someone_begins_to_speak ... ok
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+test the_policy_says_how_it_is_once_a_second_and_that_it_decides_without_a_model ... ok
+test what_the_lamp_did_after_each_decision_is_written_beside_it ... ok
+test what_the_lamp_last_said_is_in_the_context_as_it_was_when_the_utterance_began ... ok
+test when_the_model_fails_the_rule_decides_and_the_failure_is_said_once ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.21s
+
+     Running tests/program.rs (target/debug/deps/program-b57fac27a5f8860a)
+
+running 3 tests
+test a_log_directory_others_can_enter_or_a_missing_key_ends_it_before_it_listens ... ok
+test bad_arguments_print_the_usage_and_end_with_status_2 ... ok
+test the_program_judges_what_the_voice_hears_and_prints_nothing_of_it ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+   Doc-tests lamp_policy
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling lamp-voice v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/voice)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/policy)
+   Compiling lamp-records v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/records)
+   Compiling lamp-body v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/body)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.28s

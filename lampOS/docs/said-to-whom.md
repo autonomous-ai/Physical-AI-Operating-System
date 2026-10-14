@@ -384,7 +384,7 @@ Two tracks remain separate:
 | Track | Evidence needed | Claim it supports |
 |---|---|---|
 | `same_snapshot` | Explicit inputs at a declared comparison point; the runtime uses the Policy's completed text, 20-second conversation and near-face view | What the two decision rules choose on those supplied inputs |
-| `voice_first_output` | Actual inputs available when Voice first proposes output: its transcript prefix, own-turn flag, retained `named_sure` bit, 45-second conversation flag, room and newest fresh **any-face** result | Reproduction of that gate's permission, provided the input provenance and time join are established independently |
+| `voice_first_output` | Actual inputs used when Voice first evaluates proposed output: its transcript prefix, own-turn flag, retained `named_sure` bit, 45-second conversation flag, room and supplied **any-face** argument | Reproduction of that strict gate's permission, provided the input provenance and time join are established independently |
 
 Do not substitute one track for the other. Policy counts only facing faces
 whose boxes are at least 15% of the image height; Voice accepts any facing
@@ -401,10 +401,16 @@ The optional `baseline` member of a fitting row has this complete shape:
 ```
 
 This is an **authored schema example**, not a captured utterance. Every
-member is required; unknown members are rejected. `facing: null` explicitly
-means the gate had no fresh eyes result. If the observation itself is absent
-from the record, omit the whole baseline snapshot rather than inventing that
-null. `named_sure` is a required boolean, not an optional score. For
+member is required; unknown members are rejected. For `same_snapshot`,
+`facing: null` declares an unknown supplied cue. For `voice_first_output`,
+it records the actual `turned: None` argument: Voice queries eyes only in a
+busy room under the strict rule, so quiet and unknown rooms pass `None`
+without a query. A missing, expired or unreadable eyes result can also give
+`None`. With a valid fresh message, Voice passes `false` if no face has
+`facing: true`, including an empty list or all unknown poses; this is not
+proof of a measured turned-away speaker. If the argument itself was not
+recorded, omit the whole baseline snapshot rather than inventing null.
+`named_sure` is a required boolean, not an optional score. For
 `voice_first_output`, record Voice's actual retained bit; a missing bit
 is not false. For `same_snapshot`, declare the bit from the supplied
 score at the 0.999 threshold, which does not reconstruct Voice's name
@@ -413,6 +419,13 @@ UTF-8, at most 2,048 bytes; oversized input is rejected, not truncated by
 the comparison. The containing fitting input has its own
 file, row and count limits. Source and rights metadata do not independently
 prove labels, clock alignment or first-output provenance.
+
+The [proposed first-output capture contract](verification/local-judge-fit-20261014/voice-first-output.md)
+specifies where to capture these existing fields and a separate sidecar for
+their provenance, request outcomes and Policy row joins. It is a documentation
+proposal, not an implemented Voice event or recorder. The schema reproduces
+the binary `strict = true` rule; ordinary attention mode also depends on
+freshness and the ordinary name latch, which are not in this snapshot.
 
 Counts retain separate 2×3 tables for the two tracks. The columns are the
 supplied Policy choices `answer`, `look_up` and `stay_quiet`; rows are the
@@ -444,9 +457,23 @@ null: `Gather` measures first-to-last transcript receipt, which is zero for
 a single-piece transcript and is not speech duration. `voice/heard` can have
 `request: null`, and the current Voice publisher uses that form. Policy's
 existing receipt-time joins discard bus source timestamps; a delayed name
-or face update can therefore attach to the wrong speech. Publisher monotonic
-timestamps do not automatically share an epoch. A log snapshot and a fitting
-program make these limitations visible; they do not repair the attribution.
+or face update can therefore attach to the wrong speech. The local
+[`lamp_ipc::monotonic_us`](../crates/ipc/src/lib.rs) clock is host-wide
+`CLOCK_MONOTONIC`: timestamps from that clock are comparable across local
+processes within the same OS boot, not across boots or machines. Record the
+machine, OS boot and clock source; the bus's publisher `boot` nonce identifies
+a publisher instance, not an OS boot. Cross-machine scene timestamps need
+explicit alignment. A log snapshot and a fitting program make these
+limitations visible; they do not repair the attribution.
+
+The [played-scene dataset](verification/policy-scenes-lamp-4ace-20261014/README.md)
+reports both counterfactual `same_snapshot` errors and a separate audible
+result for the two-people scenes. They are different cohorts and stages.
+Voice evaluates attention only for proposed output; when the provider
+proposes none, there is no first-output gate verdict. The dataset contains
+no actual `voice_first_output` snapshots, so it cannot establish a paired comparison
+with the live gate. The capture contract keeps silent requests in coverage
+accounting without turning their missing gate decisions into holds.
 
 ## A bounded first lamp observation
 
@@ -514,8 +541,10 @@ utterance tests and independent positive-call tests are also necessary.
 Task 14 performed no lamp trial, runtime change, new model training, acoustic
 benchmark, power measurement or end-to-end latency measurement. Task 17's
 local model and comparison do not establish lamp accuracy, calibrated real
-probabilities or causal improvement over `LAMP_ATTENTION=busy`. No independently
-labelled lamp corpus is supplied with these authored comparison tests.
+probabilities or causal improvement over `LAMP_ATTENTION=busy`. The separately
+recorded played-scene file supplies script labels, but no actual first-output
+snapshots or exact joins to Voice's gate. The proposed capture contract changes
+no Voice behavior and supplies no new recording or latency measurement.
 Published private-corpus results were not reproduced. No account, key or paid
 service was obtained, and no restricted corpus was downloaded. Public access
 does not by itself permit training a model for distribution; record the

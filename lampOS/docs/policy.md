@@ -868,6 +868,8 @@ The deterministic full-batch optimizer uses 300 steps, learning rate 0.25,
 L2 0.01 on coefficients, clipping each coefficient/intercept to ±16; the
 library caps steps at 500. The 0.5 judge mixture remains unfitted.
 
+The thresholds themselves are fixed, not optimized by the fitter. The
+calibration split fits the separate choice head, not an answer threshold.
 Only **test** rows contribute to the reported Brier/log loss, threshold
 choices, per-question metrics and paired baseline errors. Those scores
 describe the fitted local model without the runtime fallback guard or a
@@ -878,6 +880,44 @@ create-new 0600 files and never overwrite an existing path or symlink.
 The two output files are not one atomic transaction: a later write failure
 can leave a partial/new first file, and the command exits unsuccessfully.
 Accept a model only with a successful run and its matching report.
+
+### The first lamp-record fit: abstention, not qualification
+
+First supplied [89 labelled played-scene rows from lamp-4ace](verification/policy-scenes-lamp-4ace-20261014/README.md)
+on 2026-10-14. Fourth reproduced the committed weights and report byte for
+byte on the development Mac. The [fit audit](verification/local-judge-fit-20261014/README.md)
+keeps the commands, input hashes, score ranges, class coverage and limits.
+There are 10 directed training rows: three named calls and seven follow-ups.
+Calibration has nine directed rows, test eight. The question heads learn
+from train; the choice head learns from calibration; neither changes the
+fixed 0.8 answer boundary. Every fitted score is below it, including train
+and calibration, so the zero-answer test result follows from the model.
+No fitting or threshold-mapping defect was found.
+
+That result is consistent with this sparse, overlapping evidence; it is
+not a usable model or proof that the probabilities are calibrated. The
+calibration split contains no near-name negatives, while the held-out test
+has six. Several test negatives score above every test positive. A lower
+threshold selected from this test set would not establish discrimination.
+Keep these rows and splits frozen; collect independent training/calibration
+coverage and a new held-out qualification before choosing another policy.
+
+An explicit-call override would be a separate policy decision, not a
+correction to the fit. The supplied `text_called` cue is true on three
+directed and four non-directed rows; raw name score at least 0.999 occurs
+on three directed and one non-directed row. Neither is a provider-certified
+addressee or Voice's retained name latch. This evidence does not justify
+forcing an answer from either cue. The live Voice rule remains First's
+decision, and the local judge remains opt-in and shadow only.
+
+The 14 `same_snapshot` permission errors and First's reported 0/63 audible
+intrusions concern different stages and cohorts. Policy evaluates completed
+utterances; Voice's attention gate runs only when the provider proposes
+output. Provider silence has no first-output gate verdict. The
+[proposed first-output receipt](verification/local-judge-fit-20261014/voice-first-output.md)
+specifies the existing seven-field baseline object, a separate provenance
+sidecar, and the transcript identities needed for a defensible join. This
+documentation does not add a publisher or reconstruct missing captures.
 
 ### Host verification and what First still must show
 
@@ -918,10 +958,14 @@ and test were not changed by this task.
 
 The historical measurements below belong to First's original Jev-only
 implementation. They are not measurements of task 17 or of Fourth's host.
-Task 17's new judge has not run on a lamp, used a real service, or been fitted
-to independently labelled lamp records. Its new entry point is opt-in and
-shadow only; no existing lamp behavior, deployment or actuator boundary is
-changed by leaving the switch unset.
+First has since run the shadow judge on lamp-4ace and supplied script-labelled
+played-scene records, as the fit audit above describes. Fourth reproduced
+the fit on a Mac; Fourth did not run on a lamp or use a real provider.
+Those selected rows do not establish performance on live human conversation,
+an exact paired comparison against Voice's first-output gate, or a model
+safe to wire to output. The entry point remains opt-in and shadow only;
+leaving the switch unset changes no existing lamp behavior, deployment or
+actuator boundary.
 
 Host tests on one development Mac (x86_64); the same tests as a Linux
 ARM64 build under emulation in a container, each time a build went to the

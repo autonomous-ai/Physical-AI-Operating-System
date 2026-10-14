@@ -144,7 +144,25 @@ pub(crate) struct Listened {
     pub step: Step,
 }
 
+/// A piece of the lamp's own sound that the speaker took: whose turn, how
+/// many frames, how deep the speaker's queue was with them in it and when
+/// that was looked at, and how loud the piece is on the ring's scale.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Taken {
+    pub turn: u64,
+    pub frames: usize,
+    pub queued_frames: usize,
+    pub queue_observed_at_us: u64,
+    pub level: u8,
+}
+
+/// The most pieces kept between two looks: a second and more of sound.
+const MAX_TAKEN: usize = 128;
+
 pub(crate) struct PlaybackMask {
+    /// What the speaker took since this was last asked, oldest first, for
+    /// whoever follows the lamp's own sound (`crate::expression_out`).
+    taken: Vec<Taken>,
     policy: TurnTaking,
     duplex: Option<Duplex>,
     pending: VecDeque<Dispatch>,
@@ -160,6 +178,7 @@ pub(crate) struct PlaybackMask {
 impl PlaybackMask {
     pub fn new(policy: TurnTaking) -> Self {
         Self {
+            taken: Vec::new(),
             policy,
             duplex: None,
             pending: VecDeque::with_capacity(8),
@@ -326,6 +345,18 @@ impl PlaybackMask {
         if let Some(duplex) = self.duplex.as_mut() {
             duplex.matched = MATCHED_BLOCKS;
         }
+    }
+    /// The speaker took a piece of sound. Kept until asked for; if nobody
+    /// asks, the oldest are let go.
+    pub fn speaker_took(&mut self, piece: Taken) {
+        if self.taken.len() == MAX_TAKEN {
+            self.taken.remove(0);
+        }
+        self.taken.push(piece);
+    }
+    /// What the speaker took since the last call, oldest first.
+    pub fn take_taken(&mut self) -> Vec<Taken> {
+        std::mem::take(&mut self.taken)
     }
     /// Whether reply audio is being withheld from the speaker for a person.
     /// Only while hearing is current: see [`HEARING_STALE_US`].

@@ -382,6 +382,70 @@ fn interrupted_light_changes_first_and_body_blend_finishes_in_350ms_despite_hear
     assert_eq!(complete, Catalogue::builtin().postures.listening);
 }
 
+/// On the lamp the person who cuts in is heard at once as a turn of their
+/// own, so the interruption and the next turn's first state arrive in the
+/// same moment. The turn to them goes on into their turn; a voice that
+/// has started again begins with nothing of it.
+#[test]
+fn the_turn_that_cut_the_lamp_off_does_not_end_the_yield_it_caused() {
+    let mut engine = engine();
+    heartbeat(&mut engine, 10_000, Voice::Thinking);
+    heartbeat(&mut engine, 260_000, Voice::Thinking);
+    let before = engine.tick(260_000).body.unwrap().offsets;
+    assert!(before.base_yaw.abs() > 0.01, "the glance had begun");
+    send(
+        &mut engine,
+        Input::Voice(voice(
+            270_000,
+            270_002,
+            Voice::Listening,
+            VoiceEvent::Interrupted,
+        )),
+    );
+    let mut theirs = voice(270_000, 270_003, Voice::Listening, VoiceEvent::State);
+    theirs.turn += 1;
+    theirs.request += 1;
+    send(&mut engine, Input::Voice(theirs.clone()));
+    send(&mut engine, joints(270_000, 270_003));
+    let first = engine.tick(270_000);
+    assert!(has(&first, "yield when interrupted"), "{:?}", first.state);
+    assert_eq!(first.body.unwrap().offsets, before);
+    theirs.stamp = stamp(440_000, 440_000);
+    send(&mut engine, Input::Voice(theirs.clone()));
+    send(&mut engine, joints(440_000, 440_000));
+    let middle = engine.tick(445_000).body.unwrap().offsets;
+    near(middle.base_yaw, before.base_yaw / 2.0);
+    theirs.stamp = stamp(600_000, 600_000);
+    send(&mut engine, Input::Voice(theirs.clone()));
+    send(&mut engine, joints(600_000, 600_000));
+    let complete = engine.tick(620_000);
+    assert_eq!(
+        complete.body.unwrap().offsets,
+        Catalogue::builtin().postures.listening
+    );
+    // That was its last step: the next one is their turn and nothing else.
+    assert!(!has(&engine.tick(640_000), "yield when interrupted"));
+    // The same from a voice that has started again: nothing is carried.
+    let mut engine = self::engine();
+    heartbeat(&mut engine, 10_000, Voice::Thinking);
+    heartbeat(&mut engine, 260_000, Voice::Thinking);
+    engine.tick(260_000);
+    send(
+        &mut engine,
+        Input::Voice(voice(
+            270_000,
+            270_002,
+            Voice::Listening,
+            VoiceEvent::Interrupted,
+        )),
+    );
+    let mut restarted = voice(280_000, 1, Voice::Listening, VoiceEvent::State);
+    restarted.session_id = "voice-two".into();
+    send(&mut engine, Input::Voice(restarted));
+    send(&mut engine, joints(280_000, 280_003));
+    assert!(!has(&engine.tick(280_000), "yield when interrupted"));
+}
+
 #[test]
 fn interruption_must_not_show_listening_until_input_can_be_retained() {
     let mut engine = engine();

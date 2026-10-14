@@ -1115,12 +1115,24 @@ fn service_speaker_control(
                 queue_observed_at_us,
                 turn,
                 sequence,
-                queued_frames: _,
+                queued_frames,
                 accepted_frames,
                 observed_at_us,
             } => {
                 if written_owner.turn() != turn {
                     return Err(io::Error::other("speaker owner/turn mismatch").into());
+                }
+                if accepted_frames > 0 {
+                    playback_mask.speaker_took(crate::turn_taking::Taken {
+                        turn,
+                        frames: accepted_frames,
+                        queued_frames,
+                        queue_observed_at_us,
+                        level: reply
+                            .as_ref()
+                            .filter(|current| current.owner.turn() == turn)
+                            .map_or(0, |current| current.voice_level),
+                    });
                 }
                 playback_mask.accepted(
                     written_owner,
@@ -2130,6 +2142,8 @@ fn conversation(
     // How loud the person's last captured block was, for the ring's face.
     let mut heard_level = 0u8;
     let mut speech_levels: VecDeque<(u64, u8)> = VecDeque::new();
+    // When the detector last called a block speech.
+    let mut last_speech_us = 0u64;
     // A service that runs all day may also tell a body what it is doing.
     let mut body_link = if lifetime.continuous() {
         crate::body_link::BodyLink::from_environment()
@@ -2201,6 +2215,9 @@ fn conversation(
     // What the voice is doing, heard and said, for whoever listens on the
     // lamp's bus. Nothing here waits for a listener.
     let mut bus_out = crate::bus_out::BusOut::from_environment();
+    // The voice's own timing, for the part that plans what the lamp shows
+    // (docs/expression.md). Only if that is switched on.
+    let mut expression_out = crate::expression_out::ExpressionOut::from_environment();
     // And, only if someone switched it on, what the microphone hears, for
     // a part of the lamp that listens for itself.
     let mut mic_out = crate::bus_out::MicOut::from_environment(rig.microphone.as_str());
@@ -2934,6 +2951,7 @@ fn conversation(
             // the record of each utterance: its last eight seconds.
             if probability.is_finite() && probability >= 0.5 {
                 speech_levels.push_back((frame.read_completed_at_us, heard_level));
+                last_speech_us = frame.read_completed_at_us;
             }
             while speech_levels
                 .front()
@@ -3439,6 +3457,41 @@ fn conversation(
         }
         if let Some(mic) = mic_out.as_mut() {
             mic.tick(clock);
+        }
+        let taken = playback_mask.take_taken();
+        if let Some(out) = expression_out.as_mut() {
+            // The first sound of an answer that has come and is not yet
+            // playing: when its start will open, and the speaker's queue
+            // after that.
+            let first_sound_us = reply
+                .as_ref()
+                .filter(|current| current.playback.is_none() && current.local_input_ended)
+                .and_then(|current| {
+                    current
+                        .start
+                        .opens_by(clock, current.pcm.len(), current.generation_done)
+                })
+                .map(|opens| opens.saturating_add(out.ahead_us()));
+            out.tick(crate::expression_out::Seen {
+                now_us: clock,
+                turn: reply.as_ref().map(|current| current.owner.turn()),
+                phase: crate::ring_wire::RingPhase::from_snapshot(snapshot),
+                accepting_input: snapshot.listening_ready(now()),
+                yielding: attending,
+                person_speaking: clock.saturating_sub(last_speech_us)
+                    < crate::expression_out::SPEECH_LASTS_US,
+                first_sound_us,
+            });
+            for piece in taken {
+                out.played(
+                    piece.turn,
+                    piece.frames,
+                    piece.queued_frames,
+                    piece.queue_observed_at_us,
+                    piece.level,
+                    clock,
+                );
+            }
         }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;

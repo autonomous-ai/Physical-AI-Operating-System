@@ -572,7 +572,13 @@ impl Engine {
                 self.marks[1] = None;
                 self.marks[2] = None;
             }
+            // Whoever cuts the lamp off is heard at once, as a turn of
+            // their own. The lamp is still turning from what it was doing
+            // to them, and that goes on into their turn: on a lamp the
+            // interruption and the turn that made it arrive together.
+            let turning = self.interruption.take().filter(|_| !new_session);
             self.clear_transients();
+            self.interruption = turning;
             self.retired_turn = false;
             self.cancelled = false;
             self.last_playout_end = None;

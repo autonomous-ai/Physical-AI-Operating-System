@@ -216,6 +216,35 @@ impl StartGate {
         true
     }
 
+    /// When this start will open if nothing more arrives, for whoever
+    /// wants to be ready a moment before the first sound: `open` asked
+    /// then, with the same audio in hand, says yes. `None` while there is
+    /// nothing to play. More audio arriving can only bring it forward, so
+    /// this is the latest the start can be, never the earliest.
+    pub fn opens_by(&self, now_us: u64, buffered_frames: usize, complete: bool) -> Option<u64> {
+        if let Some(opened) = self.opened {
+            return Some(opened.at_us);
+        }
+        if buffered_frames == 0 {
+            return None;
+        }
+        if complete {
+            return Some(now_us);
+        }
+        let first = self.first_audio_us.unwrap_or(now_us);
+        let covered =
+            first.saturating_add(self.horizon_us.saturating_sub(frames_us(buffered_frames)));
+        let at = match self.continuity {
+            None => covered,
+            Some(policy) => covered.max(
+                first
+                    .saturating_add(policy.margin_us.saturating_sub(self.lead_us))
+                    .min(first.saturating_add(policy.hold_us)),
+            ),
+        };
+        Some(at.max(now_us))
+    }
+
     /// The plain horizon, or the continuity start's cover.
     pub fn horizon_us(&self) -> u64 {
         self.horizon_us
@@ -316,6 +345,50 @@ mod tests {
                 by: OpenedBy::Covered,
             })
         );
+    }
+
+    /// What `opens_by` says is the moment `open` first says yes, when no
+    /// more audio arrives; more audio only brings the start forward.
+    #[test]
+    fn the_start_is_foretold_and_more_audio_only_brings_it_forward() {
+        let mut gate = StartGate::new(HORIZON);
+        assert_eq!(gate.opens_by(0, 0, false), None);
+        gate.audio_arrived(1_000);
+        assert_eq!(gate.opens_by(1_000, BURST, false), Some(71_000));
+        assert_eq!(gate.opens_by(50_000, BURST, false), Some(71_000));
+        // More in hand, or a reply that is complete: now, and never before.
+        assert_eq!(gate.opens_by(50_000, 4_800, false), Some(50_000));
+        assert_eq!(gate.opens_by(50_000, 480, true), Some(50_000));
+        assert!(!gate.open(70_999, BURST, false));
+        assert!(gate.open(71_000, BURST, false));
+        // Once open, it says when it opened.
+        assert_eq!(gate.opens_by(90_000, 240, false), Some(71_000));
+        // The same under continuity, with and without a measured lead:
+        // walk the clock and find where `open` first agrees.
+        for frames in [480, BURST, 4_800, 9_600] {
+            for second_burst_at in [None, Some(30_000u64)] {
+                let mut gate = StartGate::continuous(Continuity::EVALUATED);
+                gate.arrival(0, frames);
+                let mut in_hand = frames;
+                if let Some(at) = second_burst_at {
+                    gate.arrival(at, frames);
+                    in_hand += frames;
+                }
+                let asked_at = second_burst_at.unwrap_or(0);
+                let foretold = gate.opens_by(asked_at, in_hand, false).unwrap();
+                let found = (asked_at..asked_at + 3_000_000)
+                    .step_by(500)
+                    .find(|at| {
+                        let mut copy = gate;
+                        copy.open(*at, in_hand, false)
+                    })
+                    .expect("it opens within three seconds");
+                assert!(
+                    found >= foretold && found - foretold < 500,
+                    "{frames} frames, second burst {second_burst_at:?}: foretold {foretold}, opened {found}"
+                );
+            }
+        }
     }
 
     #[test]

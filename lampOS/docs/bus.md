@@ -322,7 +322,7 @@ of each, and its kind and period as a declaration, are in
 | `voice/heard`, `voice/said` | What was heard and what was said, as text | stream | Voice | With each thing said |
 | `voice/state` | Resting, listening, thinking or speaking | latched | Voice | When it changes, and once a second |
 | `voice/link` | Whether the provider can be reached | latched | Voice | When it changes, and once a second |
-| `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes |
+| `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes, and once a second |
 | `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
 | `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
 | `policy/decisions` | What the policy decided, with the probability and each judgement behind it, and whether it is only watching ([policy.md](policy.md)) | stream | The policy | With each thing heard |
@@ -371,7 +371,8 @@ that owns it:
 
 | Topic | Published by | Read by |
 |---|---|---|
-| `room/state` | the voice's provider worker | the policy |
+| `room/state` | the voice's provider worker, on each change and once a second | the policy, and Expression |
+| `voice/timing`, `voice/activity`, `voice/playout` | the voice, with `LAMP_EXPRESSION_OUT=on` ([expression.md](expression.md), "What the voice says, as built") | Expression |
 | `policy/decisions` | the policy ([policy.md](policy.md)) | nothing yet |
 | `body/joint_states` | the body ([body.md](body.md), "On the bus") | nothing yet; recorded to measure how the lamp moves |
 | `light/command` | the actions program ([actions.md](actions.md)) | the voice's ring worker |
@@ -397,8 +398,8 @@ its `diagnostics`, and only with `--enable` may publish leased
 `expression/body` and `expression/light` requests. It does not publish on
 the existing Actions-owned `light/command`. Their types, periods and
 lifespans are in [msgs.md](msgs.md), with the contract in
-[expression.md](expression.md). First still wires the Voice inputs and
-actuator consumers; these are not topics observed on the lamp.
+[expression.md](expression.md). The voice publishes its three since
+2026-10-14 when switched on; the actuator consumers are still to be wired.
 
 The new payload timestamps explicitly use the shared host monotonic clock
 and boot identity. This does not change the meaning of existing bus header

@@ -6,6 +6,10 @@ and the light on one injected clock. It opens no hardware. It starts in
 and voice on `lamp-voice` do not yet subscribe to those requests. First owns
 that opt-in integration and its physical qualification.
 
+Since 2026-10-14 the voice publishes the three inputs it owes
+(`voice/timing`, `voice/activity`, `voice/playout`) when its unit has
+`LAMP_EXPRESSION_OUT=on`: see "What the voice says, as built" below.
+
 ## What exists and what we take
 
 The [reuse decisions](reuse-decisions.md#expression-authored-timing-and-bounded-requests-2026-10-14)
@@ -101,15 +105,65 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `name/heard` | Name listener: contextual evidence only, never proof of admission or readiness |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
-First must add the three Voice publications. The existing `voice/state` does
-not carry the private BodyLink's pre-audio speaking state or duplex-yield
-mapping, so it cannot substitute for them. The useful speaker boundary is
+The existing `voice/state` does not carry the private BodyLink's pre-audio
+speaking state or duplex-yield mapping, so it cannot substitute for the
+three Voice publications. The useful speaker boundary is
 `WorkerEvent::Playback` in `voice/src/wire.rs`: owner, cursors, observed time,
 accepted frames and queue observation. The coordinator labels the first write
-“ALSA accepted; acoustic onset unmeasured”. Preserve that distinction when
-constructing an estimated committed playout schedule; do not call it a
-measured first audible word. Clock reset, gaps, drained/retired sound and
-cancelled tails also need to invalidate the schedule.
+“ALSA accepted; acoustic onset unmeasured”, and the playout the voice
+publishes keeps that distinction: it is dated from the device's own count of
+what is queued, never from a microphone.
+
+### What the voice says, as built
+
+`crates/voice/src/expression_out.rs`, switched on with
+`LAMP_EXPRESSION_OUT=on` in the voice unit (with the bus on). The rules are
+in `Timing`, which has no bus and takes its clock from the caller; the
+coordinator looks at itself once each pass of its loop and hands that over.
+`clock_id` is the kernel's boot identity, `session_id` the service's
+`INVOCATION_ID`, and `request` is the turn's own number.
+
+| Said | From what | When |
+|---|---|---|
+| `voice/timing`, state | The turn in hand and the phase the ring is shown (listening, waiting, speaking); with no turn, resting | On each change and every 80 ms |
+| `voice/timing`, `Scheduled` | While an answer has arrived and none of it has played: when its start gate will open if nothing more arrives (`StartGate::opens_by`), plus how far ahead of the speaker's queue a write sounded last time (30 ms until one has been measured in this run) | When first known, and again when it moves by 20 ms or more. More sound arriving only brings the start forward, so this is the latest it can be |
+| `voice/timing`, how a turn ended | `Finished` if it spoke, `Interrupted` if it spoke and was holding its sound back for someone when it ended, `Cancelled` if it never spoke | Once, then in every repeat until another turn begins. After an interruption that no turn follows, listening for two seconds and then resting |
+| `voice/activity` | Whether the detector called a block speech within the last 120 ms | Only while the turn is being heard by a voice that can keep it; on each change and every 80 ms |
+| `voice/playout` | Each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Gathered into stretches of 20 ms; a last odd piece after 15 ms. Never overlapping, never for a turn not said to be speaking, never one that has already sounded |
+
+Three things about it that a reader of this page should know:
+
+- **A turn's state never goes back.** The planner takes a step from
+  thinking or speaking back to listening as the end of that turn's sound
+  and then refuses the turn's later sound. So while the lamp holds its
+  sound back for someone speaking over it (a duplex yield, which may yet
+  resume), the voice goes on saying "speaking", and says `Interrupted`
+  only when the turn is given up. The voice's own ring and body show
+  listening from the first moment of a yield, as they did before; a
+  consumer of `expression/light` and `expression/body` inside the voice or
+  the body must let that local knowledge win. A way for the planner to be
+  told "paused, may resume" is the piece that is missing.
+- **The turn that cuts the lamp off begins in the same moment.** On the lamp
+  the person who interrupts is heard at once as a turn of their own, so
+  `Interrupted` and the next turn's first state arrive together. As first
+  built the planner cleared the interruption when a new turn began, and the
+  yield it was written for never showed in a test that passed the voice's
+  messages through it. It now keeps the transition into the next turn of
+  the same voice session (`accept_voice` in `engine.rs`, with a test).
+- **The room is said again every second** (`RoomOut::tell`), so that the
+  planner's five-second limit on that evidence is met by a room that is
+  judged all the time and seldom changes.
+
+Tested on a development Mac: `Timing` by itself (eight tests: a turn from
+listening to its end with its first sound foretold, the repeats, the three
+endings, the listening after a cut-off, nothing a reader would refuse, the
+person's speech and pauses, the stretches of sound, the dating of a write),
+and one test that passes twelve made-up seconds of the voice's loop through
+`Timing` into `lamp_expression::Engine` as the bus would
+(`crates/voice/tests/expression_out.rs`): 155 timing, 39 activity and 70
+playout messages, none refused, and the planner planned the nod in the
+pause (120 ms into it), the glance while the answer was awaited, the sway
+while it played, and the yield when it was cut off.
 
 `voice/timing` is a latest topic, so a terminal edge must remain in its
 heartbeats until a new turn replaces it. A one-shot event followed immediately
@@ -119,11 +173,11 @@ same turn cannot revive it. Session retirement is bounded: after 32 Voice
 restarts, Expression stops issuing requests and reports that it needs a
 restart to renew its session fence.
 
-Room evidence expires after five seconds by default. Today's room publisher
-sends on change, so First must renew the observation or implement a checked
-adapter combining its latest value with publisher liveness. Merely starting
-Expression does not make an old quiet-room observation fresh. Lasting light
-and explicit concentration settings are the persistent exceptions.
+Room evidence expires after five seconds by default. The room publisher
+sent on change only; since 2026-10-14 it says the room again every second.
+Merely starting Expression does not make an old quiet-room observation
+fresh. Lasting light and explicit concentration settings are the persistent
+exceptions.
 
 ## Output contract and First's integration
 

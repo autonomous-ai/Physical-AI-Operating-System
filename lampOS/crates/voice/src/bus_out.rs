@@ -92,19 +92,17 @@ impl RoomOut {
         })
     }
 
-    /// Call every tick: it publishes when the room changes, and otherwise
-    /// says once a second that the voice is still there.
+    /// Call every tick: it publishes when the room changes, and once a
+    /// second says it again. Said again and not only kept alive: a reader
+    /// that acts on a quiet room (`docs/expression.md`) takes a judgement
+    /// a few seconds old as no judgement, and the room is judged all the
+    /// time whether or not it changes.
     pub fn tell(&mut self, room: crate::room_told::Room, now_us: u64) {
-        match self.last {
-            Some((told, _)) if told != room => {}
-            None => {}
-            Some((_, at)) => {
-                if now_us.saturating_sub(at) >= REPEAT_US {
-                    self.last = Some((room, now_us));
-                    let _ = self.room.alive();
-                }
-                return;
-            }
+        if self
+            .last
+            .is_some_and(|(told, at)| told == room && now_us.saturating_sub(at) < REPEAT_US)
+        {
+            return;
         }
         self.last = Some((room, now_us));
         let state = match room {
@@ -682,7 +680,8 @@ mod tests {
     }
 
     #[test]
-    fn the_room_is_published_when_it_changes_and_the_worker_is_given_the_root_by_a_flag() {
+    fn the_room_is_published_when_it_changes_and_every_second_and_the_worker_is_given_the_root_by_a_flag()
+     {
         use crate::room_told::Room as Judged;
         let (bus, root) = bus("room");
         let mut out = RoomOut::on(&root).unwrap();
@@ -693,17 +692,22 @@ mod tests {
         let mut seen = Vec::new();
         for (room, at_us) in [
             (Judged::Unknown, 0),
-            (Judged::Unknown, 2_000_000),
-            (Judged::Busy, 2_100_000),
-            (Judged::Busy, 9_000_000),
-            (Judged::Quiet, 9_500_000),
+            // Within the second: not said again.
+            (Judged::Unknown, 900_000),
+            // A change, at once.
+            (Judged::Busy, 950_000),
+            (Judged::Busy, 1_900_000),
+            // A second on with no change: said again, for a reader that
+            // takes an old judgement as none.
+            (Judged::Busy, 1_950_000),
+            (Judged::Quiet, 2_000_000),
         ] {
             out.tell(room, at_us);
             while let Some(message) = watch.recv(Duration::from_millis(30)).unwrap() {
                 seen.push(message.parse::<RoomState>().unwrap().state);
             }
         }
-        assert_eq!(seen, [Room::Unknown, Room::Busy, Room::Quiet]);
+        assert_eq!(seen, [Room::Unknown, Room::Busy, Room::Busy, Room::Quiet]);
         std::fs::remove_dir_all(root).unwrap();
 
         assert!(worker_arguments(None, None).is_empty());

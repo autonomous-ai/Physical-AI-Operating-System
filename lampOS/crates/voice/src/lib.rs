@@ -16,6 +16,7 @@ pub mod choreography;
 pub mod config;
 pub mod diagnostic_control;
 pub mod diagnostics;
+pub mod expression_out;
 pub mod fixture_provider;
 pub mod head_qualification;
 pub mod local_time;

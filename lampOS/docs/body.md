@@ -1085,10 +1085,11 @@ the code does against simulated servos.
 
 V1's lessons, kept by the fifth builder's person: a short bump should
 give way and come back gently; a person who holds or adjusts the head for
-longer than about a second wants it to stay where they put it; the joints
-that carry the lamp's weight (the shoulder, the elbow) must never go limp,
-since on V1 releasing them dropped the arm with nobody touching it; and a
-joint held still against its goal must not cook.
+longer than about a second wants it to stay where they put it, and on V1
+a hand held for that second made the joint go limp; the joints that carry
+the lamp's weight (the shoulder, the elbow) must never go limp, since on
+V1 releasing them dropped the arm with nobody touching it; and a joint
+held still against its goal must not cook.
 
 `--give-way return|stay`, off unless given. Without it the body does
 exactly what it did before, write for write.
@@ -1108,7 +1109,7 @@ the next start found it 99 counts off its way and the lamp would not
 stand. Otherwise it is held there
 until what is wanted of it moves 20 counts or more from what was wanted
 when it stalled (a new mood, the arm rising or folding), and then follows
-again. Torque is never written off for it. Why these numbers:
+again. Torque is never written off for that. Why these numbers:
 
 - 1.5 s is longer than the rules already there take to stop a joint
   pushing at rest (arrived for 0.3 s, at rest for 1 s), so it catches only
@@ -1169,7 +1170,73 @@ it as often as they like.
   before the second sees the joint go back at the servo's own speed to
   where it gave way, and then to the pose its mood wants.
 
-Asked to stop, the body still goes home, not to where a hand put it.
+**`--limp on` (with `--give-way`, off unless given): a hand makes a joint
+go limp, as V1 did.** For the hardware team's wish that the lamp meets a
+hand hard enough to strain a servo as the old runtime did. Until 2026-10-14 a joint that gave way only had its
+goal set to where it was, its torque left on. On lamp-52e6 that day, run
+with `--give-way stay --overload release`, a person could not push the
+head at all and feared breaking it: the journal shows the roll moved from
+2,019 to 1,958 at a load of 256 and the yaw from 2,035 to 1,986 at 188,
+each giving way by its goal while the servo held stiff. On V1 a hard hand
+made the lamp go limp at once.
+
+V1 (`robots/lamp/servo_overload.json`, `hal/board/servo_overload.py` and
+`hal/drivers/motors/animation_service.py` on `main`) stopped a joint
+whose load read over its contact floor (base yaw 55%, head roll 75%, head
+pitch 65%) for 0.05 s, pinning it where it was; if it was still pushed
+for `release_after_s` (1.0 s), by a load over the floor that stopped it
+or held more than `CONTACT_RELEASE_LAG` (1.0 degree) off where it was
+pinned, the overload cut-off took over and torque went off on every
+servo, so the lamp slumped, and was taken again 120 s later
+(`retry_s`). The shoulder and the elbow had no fixed contact floor there
+(their off-playback floors were load 57% and a lag of 14 and 12
+degrees), but the cut itself dropped them with the rest. V1's overload
+rule alone (80% for 1.5 s) is `--overload release` here, and under a
+600 force limit it does not trip on the base: what made V1 go limp under
+a hand was this contact path. This body does the same for the three it
+commands, but lets go of the pushed joint alone and never the shoulder
+or the elbow:
+
+- **Stopping.** Head pitch over 650, head roll over 750 or base yaw over
+  550 of 1,000 (with `--force-limit`, the yaw's floor is 55% of that
+  limit) for 3 steps (60 ms), or over the joint's own bound for six steps
+  as before, whichever comes first, and the joint stops where it is: its
+  goal becomes its position, as above ("When it stops").
+- **Letting go.** Still pushed in the second after it stopped (50 steps
+  in a row): its load over the lower of the bound that stopped it and its
+  floor, or more than 11 counts (about a degree) from where it stopped.
+  Then torque off (register 40, 0) is written to that joint alone,
+  acknowledged, and tried again on the next step if it is not. The report
+  counts each (`released_by_hand`: pitch, roll, yaw) and the log says so.
+  While it is limp it is read every step and written nothing: a goal
+  written to one of these servos turns its torque back on, so the goals
+  of the other joints go in a sync write that leaves it out. The other
+  joints carry on. Nothing it reads while limp ends the run, and a change
+  of its status byte is judged again once it is held.
+- **Taking it again.** Once it has moved no more than 3 counts for 2 s,
+  it is taken hold of where it is, as `--torque on` does at start: its
+  goal written as its position, then torque on, each acknowledged (more
+  than 12 counts of movement as the torque comes on ends the run). With
+  `stay` it stays there: where it was left becomes its offset from home,
+  inside the same reach and window as every goal (left past the reach, the
+  servo takes it to the edge at its own speed), and later moods are laid
+  from there; the report counts it in `kept_where_put`. With `return` it
+  is brought home along the wake's path ("Waking"): a stir, a pause, then
+  at 20 counts a second at most, never away from home; the other two
+  joints hold their goals meanwhile. One that settles more than 30 short
+  of home rests where it settles.
+- **The shoulder and the elbow** are never let go by this path, standing
+  or folded.
+- **A shorter push** (a bump, or a hand that lets go within the second)
+  gives way and comes back as before, its torque never touched: with the
+  torque on, the servo pulls the joint back to where it stopped, and it
+  is then asked for what its mood wants.
+- **Asked to stop** while a joint is limp, the body leaves that joint as
+  it is, torque off, and brings the others home; a held joint goes home,
+  not to where a hand put it.
+
+`--overload release` (V1's all-servo cut-off, below) is unchanged and
+still acts on top of this. There is no chime: the body has no speaker.
 
 Five tests against the simulated servos and one for the option: a short
 push gives way and comes back, and so does a head moved for half a
@@ -1190,14 +1257,25 @@ option it has no stall rule and its goal never leaves where it rested;
 a light head lifted 40 counts at 120 and held a second and a half stays
 at 1,920 when told to stay, and is back at 1,960 when told to come back.
 
+Two tests for `--limp on`: a base turned 30 counts by a hand and held goes limp 1.0 s after it
+stopped (torque off to servo 1 alone, byte for byte), no goal is written
+to it while the head's go on being written, and 2 s after it was last
+moved its goal and then its torque are written where it was left; with
+`stay` it is there at 9 s, with `return` it is brought home, never away
+from it, and without `--give-way` the run ends on its load with no torque
+ever written. A base pushed for 0.7 s gives way and comes back, its
+torque never written; 700 on the head's pitch for 80 ms gives way only
+with `--limp on`; and an elbow pushed at 900 for 2 s is never let go.
+
 **Not shown:** that any of it is right against a hand. Whether a real
-hand reads over the load bounds while it moves a joint (a servo whose
-goal is where it gave way pushes back at the hand for that second, at
-whatever force it is allowed), how hard that is to the hand, whether
-1.5 s and 100 suit lamp-4ace's or lamp-52e6's servos, and what the
-temperature of a joint held for minutes does with and without it. The
-measurements task 24 asks for (by hand, standing and folded, through a
-kitchen scale) have not been made.
+hand reads over the load bounds and the floors while it moves a joint
+(V1's floors were set on lamp-a0ae and lamp-52e6 with its own loop),
+whether the head drops when its pitch goes limp, how the lamp looks to the
+person while a joint is limp and is taken again, whether 1.5 s and 100
+suit lamp-4ace's or lamp-52e6's servos, and what the temperature of a
+joint held for minutes does with and without it. The measurements task 24
+asks for (by hand, standing and folded, through a kitchen scale) have not
+been made.
 
 ## Letting go under overload
 
@@ -1205,7 +1283,9 @@ Not yet tried on any lamp, by a hand or otherwise. Everything in this
 section is what the code does against simulated servos.
 
 `--overload release`, off unless given. Without it the body does exactly
-what it did before, write for write, and never writes torque off.
+what it did before, write for write, and never writes torque off to all
+five (with `--give-way` a hand may still make one joint of the head or
+the base go limp: "Giving way to a hand").
 
 The hardware team's view, given through the owner's builder: the old
 runtime's answer to a servo pushed hard is the best protection these
@@ -1263,7 +1343,9 @@ under 0.3 s; a hand holding a joint reads 94 to 100%
 
 **With `--give-way`.** Both rules time 1.5 s, and the order is this. A
 commanded joint over its load bound (150 to 240) for 120 ms gives way long
-before either; one still loaded ends the run as before. The stall rule
+before either (V1's contact floor of 550 to 750 for 60 ms, too); one
+still pushed a second later goes limp by itself, torque off on that
+joint alone, which no longer reads 800. The stall rule
 counts from a load of 100 while the joint does not move, and a load
 climbing to 800 passes 100 first, so the stall rule normally acts first
 and the joint stops pushing. A joint told to stop on the very step it
@@ -1290,7 +1372,7 @@ does nothing. One for the option.
 **Not shown:** that any of it is right on a lamp. No hand has tried it;
 whether a slumping lamp falls somewhere it should not (on V1 an arm let
 go dropped with nobody touching it, which is why `--give-way` never
-writes torque off), how far the head drops onto the base and whether the
+lets go of the shoulder or the elbow), how far the head drops onto the base and whether the
 wake then brings it back as tested (after a power cut on lamp-52e6 the
 head drooped some 250 counts, and a standing lamp's shoulder stayed up
 at 2,633 while the elbow fell folded: an arm left like that is off its
@@ -1422,7 +1504,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (264 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (266 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

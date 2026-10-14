@@ -183,6 +183,28 @@ lamp-4ace.
 - Kind: off unless set.
 - Not shown: any hand; `stay`; heat over minutes.
 
+## 2026-10-14 — wake — the first two unplugs
+
+- On lamp-52e6, folded, the person's hand on it, power off about 10 s, lampOS
+  disabled at boot and only a read-only script reading every servo from the
+  port's appearance for 90 s. Twice; the person saw it stay still both
+  times. Raw in `docs/verification/wake-lamp-52e6-20261014/`.
+- What came out: the port appears 14.2 to 14.6 s after power; every servo
+  reads **torque 0 and goal 0**, and nothing moves for the 90 s. The head
+  droops on the cut, toward the base: pitch 1773 before, 2022 and 2034 after;
+  the others move 1 to 82 counts (yaw 2038 to 1958 the second time).
+- So torque written on without a goal first would send every joint to 0;
+  `--torque on` writes the goal first.
+- A failure: the body from `fifth/give-way` with `--wake on`, started on the
+  second cut's pose, did not wake (`woke: null`) and stopped on tracking
+  (pitch asked 2000, at 2032). By hand: from that pose the pitch servo lifts
+  the head only with its goal 40 to 80 counts ahead (a 40-count step moved
+  it 7 counts; a 260-count ramp over 3 s lagged 40 to 80 at loads 200 to
+  320). Being mended (`fifth/wake`, next entry); the standing unplug and
+  the two with `lamp-os` wait for it.
+- The task asks for ten unplugs; the fifth builder's person asked for
+  fewer. Planned: these two, one standing, two with `lamp-os` enabled.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

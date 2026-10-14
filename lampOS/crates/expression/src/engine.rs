@@ -308,6 +308,13 @@ impl Engine {
         self.rejected
     }
 
+    /// What has gone wrong with the planner itself, if anything has: a
+    /// clock that moved backwards, a voice restarted too often. Until it is
+    /// restarted it asks nothing of the body or the light.
+    pub fn fault(&self) -> Option<&'static str> {
+        self.fault
+    }
+
     pub fn queued_playout_frames(&self) -> usize {
         self.playout.len()
     }

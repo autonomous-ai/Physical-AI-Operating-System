@@ -123,6 +123,7 @@ fn the_planner_takes_everything_the_voice_says_and_plans_what_it_was_written_for
     let mut behaviours: Vec<(u64, String)> = Vec::new();
     let mut said = [0usize; 3];
     let mut faces: Vec<(u64, String)> = Vec::new();
+    let mut warned: Vec<(u64, String)> = Vec::new();
     for step in 0..1_200u64 {
         let at = step * 10;
         let now_us = at * MS;
@@ -158,6 +159,11 @@ fn the_planner_takes_everything_the_voice_says_and_plans_what_it_was_written_for
         }
         if step % 2 == 0 {
             let plan = engine.tick(now_us);
+            for warning in plan.state.warnings {
+                if !warned.iter().any(|(_, seen)| *seen == warning) {
+                    warned.push((at, warning));
+                }
+            }
             for behaviour in plan.state.behaviours {
                 if !behaviours.iter().any(|(_, seen)| *seen == behaviour) {
                     behaviours.push((at, behaviour));
@@ -216,6 +222,27 @@ fn the_planner_takes_everything_the_voice_says_and_plans_what_it_was_written_for
     assert!(
         (9_700..10_000).contains(&first("yield when interrupted")),
         "{behaviours:?}"
+    );
+    // After the turn nothing was said to (6.0 to 6.4 s) the planner goes on
+    // asking, for a lamp at rest: an unanswered turn is no fault to it.
+    let shown: Vec<(u64, &str)> = faces
+        .iter()
+        .map(|(at, face)| (*at, face.as_str()))
+        .collect();
+    assert!(
+        shown
+            .windows(2)
+            .any(|pair| pair[0] == (6_000, "Listening") && pair[1] == (6_400, "Resting")),
+        "{faces:?}"
+    );
+    // The planner's one note: the third answer's first sound was foretold
+    // 200 ms ahead, under the 290 ms it wants for an unhurried look back.
+    assert_eq!(
+        warned,
+        [(
+            8_800,
+            "short audio notice; return shortened, arrival unverified".to_owned()
+        )]
     );
     println!("behaviours first planned at (ms): {behaviours:?}");
     println!("faces asked for at (ms): {faces:?}");

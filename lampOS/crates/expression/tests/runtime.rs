@@ -274,3 +274,70 @@ fn a_full_output_record_stops_growing_and_counts_loss() {
     assert_eq!(fs::metadata(&path).unwrap().len(), 0);
     assert!(runtime::Recorder::new(&path, 1_000).is_err());
 }
+
+/// What the planner says of itself for the lamp's health. A note about one
+/// turn's gesture is said and is no warning; a fault, a failing bus, or an
+/// input a switched-on planner lacks is one. (First run on a lamp, with
+/// people in the office: "The lamp has a warning: expression: voice turn
+/// cancelled" after a colleague's remark.)
+#[test]
+fn a_note_about_one_turn_is_not_a_warning_and_a_fault_or_a_lacking_input_is() {
+    use lamp_msgs::Level;
+    let state = |enabled: bool, missing: &[&str], warnings: &[&str]| ExpressionState {
+        stamp: ClockStamp {
+            clock_id: "test".into(),
+            at_us: 1,
+            sequence: 1,
+        },
+        enabled,
+        turn: Some(1),
+        request: Some(1),
+        behaviours: Vec::new(),
+        missing: missing.iter().map(|text| (*text).to_owned()).collect(),
+        warnings: warnings.iter().map(|text| (*text).to_owned()).collect(),
+        body: enabled,
+        light: enabled,
+    };
+    let well = runtime::Counts::default();
+    let note = "short audio notice; return shortened, arrival unverified";
+    // Watching only: well, whatever it lacks, with the note in the message.
+    assert_eq!(
+        runtime::standing(&well, None, &state(false, &["measured body lag"], &[note])),
+        (
+            Level::Ok,
+            format!("shadow mode; no actuator requests; noted: {note}")
+        )
+    );
+    assert_eq!(
+        runtime::standing(&well, None, &state(false, &[], &[])),
+        (Level::Ok, "shadow mode; no actuator requests".to_owned())
+    );
+    // Switched on: an input it lacks is a warning, a note is not.
+    assert_eq!(
+        runtime::standing(&well, None, &state(true, &["fresh room state"], &[note])),
+        (Level::Warn, "waiting for fresh room state".to_owned())
+    );
+    let (level, message) = runtime::standing(&well, None, &state(true, &[], &[note]));
+    assert_eq!(level, Level::Ok);
+    assert!(message.ends_with(&format!("noted: {note}")), "{message}");
+    // A fault of the planner's own is a warning in either mode, and so is
+    // a bus that fails.
+    for enabled in [false, true] {
+        assert_eq!(
+            runtime::standing(
+                &well,
+                Some("clock moved backwards"),
+                &state(enabled, &[], &[])
+            ),
+            (Level::Warn, "clock moved backwards".to_owned())
+        );
+    }
+    let failing = runtime::Counts {
+        input_errors: 1,
+        ..runtime::Counts::default()
+    };
+    assert_eq!(
+        runtime::standing(&failing, None, &state(false, &[], &[])).0,
+        Level::Warn
+    );
+}

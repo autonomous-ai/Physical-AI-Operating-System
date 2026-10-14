@@ -127,7 +127,7 @@ coordinator looks at itself once each pass of its loop and hands that over.
 |---|---|---|
 | `voice/timing`, state | The turn in hand and the phase the ring is shown (listening, waiting, speaking); with no turn, resting | On each change and every 80 ms |
 | `voice/timing`, `Scheduled` | While an answer has arrived and none of it has played: when its start gate will open if nothing more arrives (`StartGate::opens_by`), plus how far ahead of the speaker's queue a write sounded last time (30 ms until one has been measured in this run) | When first known, and again when it moves by 20 ms or more. More sound arriving only brings the start forward, so this is the latest it can be |
-| `voice/timing`, how a turn ended | `Finished` if it spoke, `Interrupted` if it spoke and was holding its sound back for someone when it ended, `Cancelled` if it never spoke | Once, then in every repeat until another turn begins. After an interruption that no turn follows, listening for two seconds and then resting |
+| `voice/timing`, how a turn ended | `Interrupted` if it spoke and was holding its sound back for someone when it ended; otherwise `Finished`, whether or not it spoke. The voice never says `Cancelled` (below) | Once, then in every repeat until another turn begins. After an interruption that no turn follows, listening for two seconds and then resting |
 | `voice/activity` | Whether the detector called a block speech within the last 120 ms | Only while the turn is being heard by a voice that can keep it; on each change and every 80 ms |
 | `voice/playout` | Each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Gathered into stretches of 20 ms; a last odd piece after 15 ms. Never overlapping, never for a turn not said to be speaking, never one that has already sounded |
 
@@ -150,6 +150,15 @@ Three things about it that a reader of this page should know:
   yield it was written for never showed in a test that passed the voice's
   messages through it. It now keeps the transition into the next turn of
   the same voice session (`accept_voice` in `engine.rs`, with a test).
+- **A turn nobody answered is `Finished`, not `Cancelled`.** In an office
+  most turns end that way: something was said that was not for the lamp,
+  or a noise was taken for speech and thrown out. The planner takes
+  `Cancelled` for something gone wrong: it asks nothing of the body or the
+  light until the next turn and reports a warning. On lamp-4ace, in the
+  first ten minutes with people in the office (eight things taken as said,
+  none answered), that made the lamp's own health report read "The lamp
+  has a warning: expression: voice turn cancelled". An ordinary end is now
+  said as one, and the planner goes on planning a lamp at rest.
 - **The room is said again every second** (`RoomOut::tell`), so that the
   planner's five-second limit on that evidence is met by a room that is
   judged all the time and seldom changes.
@@ -161,9 +170,15 @@ person's speech and pauses, the stretches of sound, the dating of a write),
 and one test that passes twelve made-up seconds of the voice's loop through
 `Timing` into `lamp_expression::Engine` as the bus would
 (`crates/voice/tests/expression_out.rs`): 155 timing, 39 activity and 70
-playout messages, none refused, and the planner planned the nod in the
-pause (120 ms into it), the glance while the answer was awaited, the sway
-while it played, and the yield when it was cut off.
+playout messages, none refused and no warning, and the planner planned
+the nod in the pause (120 ms into it), the glance while the answer was
+awaited, the sway while it played, the yield when it was cut off, and a
+resting face after a turn nobody answered.
+
+On lamp-4ace in its first ten minutes (2026-10-14, 09:26 to 09:36, people
+in the office): the planner took 16,971 inputs and refused 1, ran 30,600
+steps with the longest 2.4 ms, and no bus error. Which input was refused
+is not known; the planner now says so in its journal when it refuses one.
 
 `voice/timing` is a latest topic, so a terminal edge must remain in its
 heartbeats until a new turn replaces it. A one-shot event followed immediately

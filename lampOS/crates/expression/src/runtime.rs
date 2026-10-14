@@ -184,6 +184,46 @@ pub fn owner_lock(root: &Path) -> io::Result<File> {
     Ok(file)
 }
 
+/// How the planner is, for the lamp's health: a warning only for what is
+/// wrong with the planner or what it needs and lacks. What it notes about
+/// one turn (an answer that came at short notice, so the look back was
+/// shortened) is said in the message and is not a warning: such a note is
+/// about a gesture, and a lamp whose gesture was shortened is well.
+pub fn standing(counts: &Counts, fault: Option<&str>, state: &ExpressionState) -> (Level, String) {
+    let noted = |message: &str| {
+        if state.warnings.is_empty() {
+            message.to_owned()
+        } else {
+            format!("{message}; noted: {}", state.warnings.join(", "))
+        }
+    };
+    if counts.input_errors > 0 || counts.output_errors > 0 {
+        (
+            Level::Warn,
+            "bus operations have failed; see error counters".to_owned(),
+        )
+    } else if counts.records_lost > 0 {
+        (
+            Level::Warn,
+            "output record is incomplete; see records_lost".to_owned(),
+        )
+    } else if let Some(fault) = fault {
+        (Level::Warn, fault.to_owned())
+    } else if !state.enabled {
+        (Level::Ok, noted("shadow mode; no actuator requests"))
+    } else if !state.missing.is_empty() {
+        (
+            Level::Warn,
+            format!("waiting for {}", state.missing.join(", ")),
+        )
+    } else {
+        (
+            Level::Ok,
+            noted("planning expression; hardware execution is not confirmed"),
+        )
+    }
+}
+
 #[derive(Default)]
 pub struct Counts {
     pub accepted: u64,
@@ -286,10 +326,20 @@ impl Service {
                         .ingest(received, value)
                         .map_err(|error| invalid(error.to_string()))
                 });
-                if accepted.is_ok() {
-                    self.counts.accepted += 1;
-                } else {
-                    self.counts.refused += 1;
+                match accepted {
+                    Ok(()) => self.counts.accepted += 1,
+                    Err(why) => {
+                        self.counts.refused += 1;
+                        // Said for the first few and then ever more
+                        // seldom: which input, and why, is how a fault
+                        // in whoever publishes it is found on a lamp.
+                        let refused = self.counts.refused;
+                        if refused <= 5 || refused.is_power_of_two() {
+                            eprintln!(
+                                "lamp-expression: refused an input ({refused} so far): {why}"
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -335,29 +385,7 @@ impl Service {
     }
 
     fn report(&self, output: &Output) -> Diagnostic {
-        let missing = output.state.missing.join(", ");
-        let (level, message) = if self.counts.input_errors > 0 || self.counts.output_errors > 0 {
-            (
-                Level::Warn,
-                "bus operations have failed; see error counters".to_owned(),
-            )
-        } else if self.counts.records_lost > 0 {
-            (
-                Level::Warn,
-                "output record is incomplete; see records_lost".to_owned(),
-            )
-        } else if !output.state.warnings.is_empty() {
-            (Level::Warn, output.state.warnings.join(", "))
-        } else if !output.state.enabled {
-            (Level::Ok, "shadow mode; no actuator requests".to_owned())
-        } else if !missing.is_empty() {
-            (Level::Warn, format!("waiting for {missing}"))
-        } else {
-            (
-                Level::Ok,
-                "planning expression; hardware execution is not confirmed".to_owned(),
-            )
-        };
+        let (level, message) = standing(&self.counts, self.engine.fault(), &output.state);
         let mut report = Diagnostic::new(level, "expression", &message);
         for (key, value) in [
             ("accepted", self.counts.accepted),

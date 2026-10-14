@@ -7,7 +7,7 @@
 //! - `voice/timing`: which turn is in hand and how far it has got
 //!   (listening, thinking, speaking), whether the voice can keep what a
 //!   person says, when the first sound of an answer is expected, and how
-//!   each turn ended.
+//!   each turn ended: cut off by someone, or over.
 //! - `voice/activity`: whether the person being listened to is speaking at
 //!   this moment, or has paused.
 //! - `voice/playout`: each piece of the lamp's own sound, with when it
@@ -206,10 +206,14 @@ impl Timing {
             return;
         };
         self.piece = None;
-        let event = match (live.spoke, live.yielding) {
-            (true, true) => VoiceEvent::Interrupted,
-            (true, false) => VoiceEvent::Finished,
-            (false, _) => VoiceEvent::Cancelled,
+        // Cut off by someone, or over. A turn nothing was said to is over
+        // like any other: in an office that is most turns, and the planner
+        // takes `Cancelled` for something gone wrong, asks nothing of the
+        // body or the light until the next turn and reports a warning.
+        let event = if live.spoke && live.yielding {
+            VoiceEvent::Interrupted
+        } else {
+            VoiceEvent::Finished
         };
         let state = if followed || event == VoiceEvent::Interrupted {
             Voice::Listening
@@ -697,8 +701,9 @@ mod tests {
         assert_eq!(timings(&timing.tick(deaf)).len(), 1);
     }
 
-    /// A turn nothing was said to is cancelled; one cut off by a person
-    /// is interrupted, and the turn that cut it off follows at once.
+    /// A turn nothing was said to is over like one that was answered; one
+    /// cut off by a person is interrupted, and the turn that cut it off
+    /// follows at once.
     #[test]
     fn how_a_turn_ended_is_told_by_whether_it_spoke_and_whether_it_was_yielding() {
         let mut timing = Timing::new("boot", "voice-1");
@@ -729,7 +734,7 @@ mod tests {
             [
                 (1, Voice::Listening, VoiceEvent::State, None),
                 (1, Voice::Thinking, VoiceEvent::State, None),
-                (1, Voice::Resting, VoiceEvent::Cancelled, None),
+                (1, Voice::Resting, VoiceEvent::Finished, None),
                 (2, Voice::Listening, VoiceEvent::State, None),
                 (2, Voice::Thinking, VoiceEvent::State, None),
                 (2, Voice::Speaking, VoiceEvent::State, None),

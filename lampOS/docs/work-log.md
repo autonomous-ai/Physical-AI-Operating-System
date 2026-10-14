@@ -17,11 +17,105 @@ the lamp, and nothing here was run on a lamp.
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady` |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
-| 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | being built |
+| 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 
 ## Handed back
 
 Newest first.
+
+### Task 19: the end sent early, the answer played only when sure (2026-10-14)
+
+**Built** (`crates/voice`; `docs/faster-answers.md` way 2,
+`docs/conversation-latency.md`, `docs/live-runtime.md`,
+`docs/conversation-thread.md`): `--early-end-ms MS`, off by default;
+100 to 1,000 ms in steps of 10, shorter than the end-of-speech wait in
+force, and refused without `--provider-continuation kept-start`. For the
+lamp: `--early-end-ms 200`.
+
+- At that much quiet the coordinator sends the request's end
+  (`activityEnd`) and keeps listening. The authority goes on saying
+  "listening" until the 600 ms wait, or the end-of-turn model's verdict,
+  confirms; nothing can play before. The answer's sound is held and starts
+  at the confirming moment, or at once if that is already past.
+- Speech again before confirming (six blocks in a row at 0.8 or more, the
+  detector's own start rule) gives the request up exactly as
+  `commit_admitted_input` does: `user_interrupted`, then an Interruption
+  admit with nothing published between, which kept-start treats as a
+  continuation. The blocks heard since the end (at most 30) open the next
+  request.
+- An utterance that would count as a sound gets no early end, so a lone
+  "Lamp," stays one request with its question.
+- The model's words reach `voice/said`, and the body its gestures, only once
+  confirmed. A "..." answer is ended unheard at the confirming moment; the
+  busy-room floor waits for it.
+- **Outside the coordinator, for the first builder to look at:**
+  `provider_worker.rs` and `thread.rs` take a request given up after its
+  end but before confirming out of the conversation thread (`thread::unsay`),
+  so its words are not kept as said. It cannot happen with the option off.
+
+**Tests against the scripted service** (real worker and session,
+kept-start; "start/end" are activityStart/activityEnd):
+
+| Case | Sent to the service | Given up | Last sound to first block to the speaker |
+|---|---|---|---|
+| Quiet to the end | 1 start, 145 blocks, 1 end | 0 | 604 ms, at the confirming moment and not before |
+| Speech again at 0.3 s (vad-only, and duplex 600) | 2 starts, 235 blocks, 2 ends | 1 | about 1,271 ms, the second answer only; the first never played |
+| Answer before confirming | 1 start, 1 end | 0 | 603 ms |
+| A "..." answer before confirming | 2 starts, 1 end | 0 | nothing played |
+| Answer after confirming (option on / off) | 145 / 185 blocks | 0 | 1,269 / 1,670 ms |
+| The link drops between | the first link one request, the next question on a new link | 0 | the first turn `provider_failed`, nothing played; the next 603 ms |
+| "Lamp, stop." over an answer | 3 starts, 3 ends | 1 | 602 ms |
+| A lone "Lamp," a pause, the question | 1 request | 0 | 1,273 ms |
+| Option off | end at 600 ms, no new records, the same worker arguments and `run_start` | 0 | 920 ms |
+
+A transport test shows a name note goes only with the request ended early
+and never reaches the next, continued or abandoned. Measured path from the
+last sound to the first speaker block: with the injected clock at the
+lamp's 1.15 s service time, 1,910 ms off and 1,510 ms on; in a scripted
+session with a 900 ms service, the end sent at 604 against 203 ms and the
+first block at 1,670 against 1,269 ms.
+
+**Gate.** On the Linux ARM64 VM, from `lampOS/`, on `cd815e905`:
+`cargo fmt --all --check` clean; `cargo test --locked -p lamp-voice-eval`
+284 passed; `cargo test --locked -p lamp-voice` 955 passed (5 ignored), the
+library and every test target but `capture_hold_worker`, which does not
+compile on `lamp-voice` itself ("Questions", 1); `cargo build --locked
+--workspace` builds. Clippy for `lamp-voice` and `lamp-voice-eval` lists
+only the older `lamp-body` warning and that same test; with `-D warnings`
+it is clean on the builder's Mac, where that test is not built. On the builder's Mac, the voice library passes test
+by test, and in full parallel runs fails only on timing under load (motor
+and ring timeouts, ENOBUFS; once one "Lamp, stop." session with
+`ConnectionReset`, cause not found, diagnostics added): `origin/lamp-second`
+fails the same motor and ring tests there in the same way.
+
+**On the lamp:**
+
+1. Build, deploy, add `--early-end-ms 200` to `ExecStart`.
+2. `pauses.sh`: an `early_end` record on each line; "Hey Lamp," with a
+   450 ms pause gives one `early_end_given_up` and is answered; a bare
+   "Lamp," gives none; 650 and 900 ms pauses behave as before; the first
+   sound about 0.4 s sooner.
+3. `shorts.sh`: the same words stop the lamp as without the option, and
+   the `not_speech` counts are unchanged.
+4. `checks.sh`: all pass; give-ups only at pauses of 0.2 to 0.6 s.
+5. Watch the journal for `BarrierTimeout`.
+
+**Where it is most likely to be wrong on the lamp:** how the real service
+treats a request committed and given up 0.3 s in, and what the model makes
+of the rest. And a first piece the service never answers ends the link
+(`BarrierTimeout`) unless `provider.json` sets `silent_response:
+assume_over` with `no_reply_after_ms`; whether the lamp's file does is not
+known here.
+
+**`crates/gemini`:** nothing needed. One possible speed-up: if the real
+service confirms an interruption sent before any output, `retire_active`'s
+kept start could be released at once, and short continuations would be
+answered sooner.
+
+**Not shown:** anything on the lamp or with the real service; an answer
+that arrives and completes whole before confirming is still written to the
+memory journal (with the lamp's 600 ms wait and no end-of-turn model that
+cannot happen).
 
 ### Task 20: the replay takes the lamp's own recordings (2026-10-14)
 

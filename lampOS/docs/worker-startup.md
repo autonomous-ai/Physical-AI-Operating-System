@@ -26,6 +26,18 @@ combined source's commands and receipts are recorded in
 [provider flow control](provider-flow-control.md); host results are not a
 Linux/ARM64 or physical-device qualification.
 
+The same interval could still be hit by a connect that did not go through that
+wait: one capture hold worker test failed in a native ARM64 CI run on
+2026-10-14 with this refusal (the refused path's mode was not recorded, so this
+is the likely cause, not a reproduced one). `Endpoint::connect` now answers `WouldBlock` ("peer is not private
+yet") for a socket owned by this user that still has group or other access, and
+the callers that retry on `NotFound` retry on it too. A socket of another user,
+a file or a symlink is still `PermissionDenied`, and a socket that stays open is
+never connected: the caller's deadline ends the wait. After the change, on the
+Mac `lamp-ipc` passed 17/0 and `lamp-voice` 1035/0 (one test at a time); under
+aarch64 emulation `lamp-ipc` passed and `capture_hold_worker` passed 3/3 in each
+of five runs. `crates/ipc/tests/sockets.rs` checks both answers.
+
 
 ## Optional ring startup
 

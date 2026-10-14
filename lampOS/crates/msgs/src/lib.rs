@@ -50,6 +50,8 @@ mod expression;
 pub use expression::*;
 mod controls;
 pub use controls::*;
+mod ears;
+pub use ears::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]

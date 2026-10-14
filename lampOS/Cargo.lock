@@ -1731,6 +1731,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-ears"
+version = "0.1.0"
+dependencies = [
+ "alsa",
+ "hound",
+ "lamp-bus",
+ "lamp-msgs",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-environment"
 version = "0.1.0"
 dependencies = [

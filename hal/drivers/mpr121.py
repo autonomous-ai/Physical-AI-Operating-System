@@ -548,6 +548,7 @@ class MPR121Handler:
         return bool(raw_mask & self._mask)
 
     SIGNAL_INTERVAL_S = 0.05
+    SETTLE_S = 0.3
 
     def _read_signal(self, now):
         """Filtered data (10-bit) and baseline (upper 8 of 10 bits) per electrode."""
@@ -618,6 +619,11 @@ class MPR121Handler:
         self._last_raw_mask = None
         self._touch_since = None
         self._detector = self._new_detector()
+        # Filtered data reads ~0 right after a reset (delta ~700): publish no signal until
+        # the first baseline has settled.
+        with self._signal_lock:
+            self._signal = None
+            self._signal_at = now + self.SETTLE_S
 
     def _check_stuck(self, now):
         stuck_s = self._config.stuck_reset_s

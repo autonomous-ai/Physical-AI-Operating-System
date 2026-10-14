@@ -149,6 +149,9 @@ class TestDriverTuning(unittest.TestCase):
             handler._check_stuck(105)
         self.assertIn(mock.call(0x5A, 0x5E, 0x8F), bus.write_reg.call_args_list)
         self.assertIsNone(handler._touch_since)
+        # no signal published while the reset settles
+        self.assertIsNone(handler.signal())
+        self.assertGreater(handler._signal_at, 105)
 
     def test_stuck_reset_off(self):
         handler = self.handler(stuck_reset_s=0)

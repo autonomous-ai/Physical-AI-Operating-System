@@ -63,6 +63,7 @@ fn arguments(value: Option<&str>) -> Vec<String> {
     match value {
         Some("on") => vec![FLAG.to_owned()],
         Some("busy") => vec![FLAG.to_owned(), BUSY_FLAG.to_owned()],
+        Some("busy-near") => vec![FLAG.to_owned(), BUSY_FLAG.to_owned(), NEAR_FLAG.to_owned()],
         _ => Vec::new(),
     }
 }
@@ -86,6 +87,35 @@ pub const BUSY_FLAG: &str = "--attention-busy";
 pub fn take_busy(flags: &[String]) -> (bool, &[String]) {
     match flags {
         [flag, rest @ ..] if flag == BUSY_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// The provider worker's flag, right after [`BUSY_FLAG`], for a name heard
+/// close to the lamp counting as a call (`LAMP_ATTENTION=busy-near`): in a
+/// busy room, a hearing of the name at [`NEAR_SCORE`] or more, while the
+/// room microphone rose [`NEAR_RISE_DB`] or more over the room's quiet
+/// during the request, is let out though nobody is seen turned to the lamp.
+///
+/// Why: in played busy-room scenes on lamp-4ace on 2026-10-14 the calls
+/// that were held had their name heard at 0.97 to 0.99 with no face seen
+/// (the busy rule wants 0.999 or a face). With the owner at the desk the
+/// same evening, the room microphone rose 19.5 to 26.5 dB over its quiet
+/// for the ten lines said to the lamp, and 9.8 to 15.1 dB for people
+/// farther off (`docs/ears.md`). Someone at the desk can also be talking to
+/// someone else: so the name must be heard as well.
+pub const NEAR_FLAG: &str = "--attention-near";
+/// A name heard at least this surely counts as a call when it is close.
+pub const NEAR_SCORE: f32 = 0.95;
+/// Close: the room microphone this far over its quiet during the request.
+pub const NEAR_RISE_DB: f32 = 18.0;
+const NAMED_NEAR: &str = "its name was heard close to the lamp";
+
+/// Take a leading `--attention-near` off a worker's flags, after
+/// [`take_busy`].
+pub fn take_near(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == NEAR_FLAG => (true, rest),
         _ => (false, flags),
     }
 }
@@ -290,6 +320,10 @@ pub struct Attention {
     /// such a hearing counts for the request in hand.
     named_sure_us: Option<u64>,
     named_sure: bool,
+    /// The surest the name was heard for the request in hand, and
+    /// whether a voice close to the lamp was heard in it.
+    best_score: f32,
+    near: bool,
 }
 
 /// The most text kept for one request.
@@ -339,6 +373,7 @@ impl Attention {
         {
             self.named = true;
             self.named_sure |= sure;
+            self.best_score = self.best_score.max(score);
         }
     }
 
@@ -358,6 +393,20 @@ impl Attention {
         self.ended_us = None;
         self.named = false;
         self.named_sure = false;
+        self.best_score = 0.0;
+        self.near = false;
+    }
+
+    /// When the request in hand began and, if it has, when its sound
+    /// ended, by this process's clock.
+    pub fn window(&self) -> Option<(u64, Option<u64>)> {
+        self.began_us.map(|began| (began, self.ended_us))
+    }
+
+    /// Whether a voice close to the lamp was heard in the request in hand
+    /// (the room microphone, `NEAR_RISE_DB` over its quiet).
+    pub fn set_near(&mut self, near: bool) {
+        self.near = near;
     }
 
     /// The service wrote down more of what it heard.
@@ -398,6 +447,11 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
+        if strict && room == Room::Busy && self.near && self.best_score >= NEAR_SCORE {
+            let verdict = Verdict::Play(NAMED_NEAR);
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
         let verdict = decide_busy(
             room,
             going_on,
@@ -418,6 +472,12 @@ impl Attention {
         self.verdict == Some(Verdict::Play(NAMED))
     }
 
+    /// Whether it was let out because the name was heard close to the
+    /// lamp ([`NEAR_FLAG`]), for the record.
+    pub fn played_for_near(&self) -> bool {
+        self.verdict == Some(Verdict::Play(NAMED_NEAR))
+    }
+
     /// Whether `request`'s answer is being held back.
     pub fn holds(&self, request: u64) -> bool {
         request == self.request && matches!(self.verdict, Some(Verdict::Hold(_)))
@@ -427,6 +487,60 @@ impl Attention {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The calls held in the played scenes of 2026-10-14 had their name
+    /// heard at 0.97 to 0.99 with no face: close to the lamp, with
+    /// `--attention-near`, they are calls; from farther off, or with a
+    /// weaker name, they are not; and in a room not busy nothing changes.
+    #[test]
+    fn a_name_heard_close_to_the_lamp_is_a_call_in_a_busy_room() {
+        let decide = |score: f32, near: bool, room: Room| {
+            let mut attention = Attention::default();
+            for request in 1..=3 {
+                attention.began_at(request, 1, request * 10_000_000);
+            }
+            attention.name_heard_scored(30_000_000, score);
+            attention.set_near(near);
+            let verdict = attention
+                .first_output_busy(3, room, false, true, None)
+                .unwrap();
+            (verdict, attention.played_for_near())
+        };
+        assert_eq!(
+            decide(0.97, true, Room::Busy),
+            (Verdict::Play(NAMED_NEAR), true)
+        );
+        assert!(matches!(
+            decide(0.97, false, Room::Busy).0,
+            Verdict::Hold(_)
+        ));
+        assert!(matches!(decide(0.93, true, Room::Busy).0, Verdict::Hold(_)));
+        assert!(matches!(decide(0.0, true, Room::Busy).0, Verdict::Hold(_)));
+        assert!(matches!(
+            decide(0.97, true, Room::Quiet).0,
+            Verdict::Play(_)
+        ));
+        // A new request forgets that the last one was close.
+        let mut attention = Attention::default();
+        attention.began_at(1, 1, 10_000_000);
+        attention.set_near(true);
+        attention.began_at(2, 1, 20_000_000);
+        attention.name_heard_scored(20_000_000, 0.97);
+        assert!(matches!(
+            attention.first_output_busy(2, Room::Busy, false, true, None),
+            Some(Verdict::Hold(_))
+        ));
+        assert_eq!(attention.window(), Some((20_000_000, None)));
+    }
+
+    #[test]
+    fn busy_near_is_the_busy_rule_with_the_near_call() {
+        assert_eq!(arguments(Some("busy-near")), [FLAG, BUSY_FLAG, NEAR_FLAG]);
+        assert_eq!(arguments(Some("busy")), [FLAG, BUSY_FLAG]);
+        let flags = vec![NEAR_FLAG.to_owned(), "--x".to_owned()];
+        assert_eq!(take_near(&flags), (true, &flags[1..]));
+        assert_eq!(take_near(&flags[1..]), (false, &flags[1..]));
+    }
 
     /// Played calls on 2026-10-14 afternoon: the name heard at 1.000 in a
     /// busy room with no face to see is a call; at 0.997, as people's talk

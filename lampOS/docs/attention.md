@@ -586,6 +586,21 @@ on those numbers three of the four calls are answered and none of the
 seventeen. A second played check at 14:05 does not count: colleagues were
 talking beside the lamp and the service wrote their words.
 
+**A name heard close to the lamp (built 2026-10-14 evening, switch
+`LAMP_ATTENTION=busy-near`, off unless set).** The calls held in the
+afternoon's played rounds had their name heard at 0.97 to 0.99 with no face
+seen. With the owner at lamp-4ace the same evening, the room microphone
+(the ears, `docs/ears.md`) rose 19.5 to 26.5 dB over the room's quiet for
+the ten lines said to the lamp and 9.8 to 15.1 dB for people farther off.
+So in its busy form, a name heard at 0.95 or more (`attention::NEAR_SCORE`)
+while the room microphone rose 18 dB or more over its quiet during the
+request (`NEAR_RISE_DB`; read from `ears/level` every 100 ms, the lamp's
+own voice left out) counts as a call. What it costs: the morning's record
+had the name heard at up to 0.997 in people's talk; if that talk is at the
+desk, close, it is answered. Played scenes cannot show it: the office's
+loudspeaker is a metre away and reaches the room microphone at about 8 to
+16 dB. Not yet run on the lamp.
+
 What each costs. 5: in a busy room a question put to the lamp without
 its name in the service's text and without a face turned to it is not
 answered, nor one from someone whose face the camera cannot see or with the
@@ -610,6 +625,11 @@ default. On on lamp-4ace since 22:15 on 2026-10-13.
 
 `LAMP_ATTENTION=busy` (the worker's `--attention --attention-busy`): the
 rule's busy form, 5 above. On lamp-4ace since 11:52 on 2026-10-14.
+
+`LAMP_ATTENTION=busy-near` (the worker's `--attention --attention-busy
+--attention-near`): the busy form, and a name heard at 0.95 or more close
+to the lamp counts as a call (above). Needs the ears running. Off by
+default; not yet on lamp-4ace.
 
 `LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room

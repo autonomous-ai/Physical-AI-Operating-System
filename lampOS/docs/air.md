@@ -41,9 +41,15 @@ lamp-4ace since 2026-10-14 17:43: CO2 1,856 to 1,872 ppm ("stuffy"), PM2.5
 
 ## What the creature does with it
 
-See [creature.md](creature.md): once, when someone is there and between
-things, a short remark that a window might help; not again for hours. Not
-yet built: the voice's use of `air/state`.
+See [creature.md](creature.md). The voice's part, behind
+`LAMP_AIR_FACTS=on` in its unit (off unless set; `crates/voice/src/air_told.rs`):
+it reads `air/state` every five seconds; once the air has felt stuffy (or
+very stuffy) for ten minutes, the model is told so beside the next thing a
+person says to the lamp, in a room that is not busy, with leave to suggest
+a window once if it fits; not again for three hours. A reading older than
+30 s counts as no reading. Still to build: the quiet droop and dimmer eye
+before anything is said (Expression, with the eye, #712, and the idle
+layer, #714).
 
 ## Not shown
 

@@ -76,6 +76,8 @@ static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLoc
 static SESSION_FACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether the session is told how busy the room is.
 static ROOM_FACTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether a stuffy room is told beside what a person says.
+static AIR_FACTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether the model is told, while a person is still speaking, that the
 /// lamp's name was heard (`crate::called`).
 static NAME_NOTE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -86,6 +88,9 @@ static NAME_NOTE_BUSY_FACE: std::sync::atomic::AtomicBool =
 /// Whether the rule for whom the lamp answers is in its busy form
 /// (`crate::attention::BUSY_FLAG`).
 static ATTENTION_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether a name heard close to the lamp counts as a call
+/// (`crate::attention::NEAR_FLAG`).
+static ATTENTION_NEAR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -98,6 +103,9 @@ pub struct Files {
     pub session_fact: bool,
     /// Whether the session is told how busy the room is (`--room-facts`).
     pub room_facts: bool,
+    /// Whether a stuffy room is told beside what a person says
+    /// (`--air-facts`, `crate::air_told`).
+    pub air_facts: bool,
     /// Whether the link is never given up (`--keep-link`).
     pub keep_link: bool,
     /// What the model may do other than speak (`--tools`, `--actions-dir`).
@@ -107,6 +115,9 @@ pub struct Files {
     pub attention: bool,
     /// Whether that rule is in its busy form (`--attention-busy`).
     pub attention_busy: bool,
+    /// Whether a name heard close to the lamp counts as a call in a busy
+    /// room (`--attention-near`).
+    pub attention_near: bool,
     /// Whether the model is asked to say when it hears the lamp's name
     /// (`--name-signal`).
     pub name_signal: bool,
@@ -628,6 +639,7 @@ pub async fn run_with_continuation(
     }
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
+    AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE.store(files.name_note, std::sync::atomic::Ordering::Relaxed);
     NAME_NOTE_BUSY_FACE.store(
         files.name_note_busy_face,
@@ -635,6 +647,10 @@ pub async fn run_with_continuation(
     );
     ATTENTION_BUSY.store(
         files.attention && files.attention_busy,
+        std::sync::atomic::Ordering::Relaxed,
+    );
+    ATTENTION_NEAR.store(
+        files.attention && files.attention_busy && files.attention_near,
         std::sync::atomic::Ordering::Relaxed,
     );
     // The conversation a service that ended a moment ago was in.
@@ -740,6 +756,21 @@ async fn serve_with_visual<C: Connect>(
     // The session last told how things stand, if new ones are.
     let session_fact = SESSION_FACT.load(std::sync::atomic::Ordering::Relaxed);
     let room_facts = ROOM_FACTS.load(std::sync::atomic::Ordering::Relaxed);
+    // The air, read from the lamp's bus every few seconds when it is told.
+    let air_bus = BUS_ROOT
+        .get()
+        .filter(|_| AIR_FACTS.load(std::sync::atomic::Ordering::Relaxed))
+        .and_then(|root| lamp_bus::Bus::new(root).ok());
+    let mut air_told = crate::air_told::AirTold::default();
+    // The room microphone's rise over its quiet, for whether a voice is
+    // close to the lamp: read from the ears every 100 ms, the last 30 s kept.
+    let ears_bus = BUS_ROOT
+        .get()
+        .filter(|_| ATTENTION_NEAR.load(std::sync::atomic::Ordering::Relaxed))
+        .and_then(|root| lamp_bus::Bus::new(root).ok());
+    let mut ears_levels: VecDeque<(u64, f32)> = VecDeque::new();
+    let mut ears_read_at: Option<Instant> = None;
+    let mut air_read_at: Option<Instant> = None;
     let mut told_session = None;
     // How the room is, for whoever listens on the lamp's bus. A bus that
     // cannot be used is said once and changes nothing else.
@@ -904,6 +935,68 @@ async fn serve_with_visual<C: Connect>(
                         );
                     }
                 }
+                if let Some(bus) = ears_bus.as_ref()
+                    && ears_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(100))
+                {
+                    ears_read_at = Some(Instant::now());
+                    let now = monotonic_us();
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0, |since| since.as_millis() as u64);
+                    if let Some(level) = bus
+                        .latest(lamp_msgs::RoomSound::TOPIC)
+                        .ok()
+                        .flatten()
+                        .filter(|message| now_ms.saturating_sub(message.header.at_unix_ms) < 1_000)
+                        .and_then(|message| message.parse::<lamp_msgs::RoomSound>().ok())
+                        && !level.own_voice
+                        && let Some(floor) = level.floor_db
+                    {
+                        ears_levels.push_back((now, level.level_db - floor));
+                    }
+                    while ears_levels.front().is_some_and(|(at, _)| now.saturating_sub(*at) > 30_000_000) {
+                        ears_levels.pop_front();
+                    }
+                }
+                // The air: read every five seconds; a stuffy room is told
+                // beside what a person is saying to the lamp, not in a busy
+                // room, at most once in three hours (`crate::air_told`).
+                if let Some(bus) = air_bus.as_ref() {
+                    if air_read_at.is_none_or(|at| at.elapsed() >= Duration::from_secs(5)) {
+                        air_read_at = Some(Instant::now());
+                        let fresh_ms = crate::air_told::FRESH_FOR.as_millis() as u64;
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0, |since| since.as_millis() as u64);
+                        let air = bus
+                            .latest(lamp_msgs::AirState::TOPIC)
+                            .ok()
+                            .flatten()
+                            .filter(|message| now_ms.saturating_sub(message.header.at_unix_ms) < fresh_ms)
+                            .and_then(|message| message.parse::<lamp_msgs::AirState>().ok());
+                        let stuffy = air.is_some_and(|air| {
+                            matches!(air.feel, lamp_msgs::AirFeel::Stuffy | lamp_msgs::AirFeel::VeryStuffy)
+                        });
+                        air_told.seen(stuffy, air.and_then(|air| air.co2_ppm), monotonic_us());
+                    }
+                    let now = monotonic_us();
+                    let busy = crate::room_told::ROOM
+                        .lock()
+                        .is_ok_and(|mut room| room.at(now) == crate::room_told::Room::Busy);
+                    if !busy
+                        && let Some(live) = provider.live_session()
+                        && let Some(open) = intake.handoff.visual_turn()
+                        && open.session == live
+                        && let Some(note) = air_told.due(now)
+                        && add_note(&provider, &mut noted, open.request, &note).is_ok()
+                    {
+                        air_told.told(now);
+                        eprintln!(
+                            "lamp-voice provider: request {}: told the session inside it that the air is stuffy",
+                            open.request.get()
+                        );
+                    }
+                }
                 // A new session is told how things stand, once, unless a
                 // conversation is going on.
                 if session_fact {
@@ -1023,9 +1116,23 @@ async fn serve_with_visual<C: Connect>(
                             let turned = (attention_busy && room == crate::room_told::Room::Busy)
                                 .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
                                 .flatten();
+                            if ears_bus.is_some()
+                                && let Some((began, ended)) = attention.window()
+                            {
+                                let until = ended.unwrap_or_else(monotonic_us);
+                                let rise = ears_levels
+                                    .iter()
+                                    .filter(|(at, _)| (began..=until).contains(at))
+                                    .map(|(_, rise)| *rise)
+                                    .fold(f32::MIN, f32::max);
+                                attention.set_near(rise >= crate::attention::NEAR_RISE_DB);
+                            }
                             match attention.first_output_busy(request, room, going_on, attention_busy, turned) {
                                 Some(crate::attention::Verdict::Hold(why)) => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
+                                }
+                                Some(_) if attention.played_for_near() => {
+                                    eprintln!("lamp-voice provider: request {request}: its answer is played: its name was heard close to the lamp");
                                 }
                                 Some(_) if attention.played_for_its_name() => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is played: the lamp's name was heard in the room's sound");

@@ -113,7 +113,7 @@ runs; the rest are to be built (owners in "Order of building").
 
 | It senses | It | Status |
 |---|---|---|
-| CO2 high (stuffy room; 1,900 ppm on 2026-10-14 17:36) | First its posture droops a little and its eye dims a shade while it lasts; it says "it's getting stuffy in here, maybe open a window?" only if someone talks to it or looks at it, at most once in a few hours, and the remark can be switched off | Air part running (`lamp-air`, 17:43); the response to build |
+| CO2 high (stuffy room; 1,900 ppm on 2026-10-14 17:36) | First its posture droops a little and its eye dims a shade while it lasts; it says "it's getting stuffy in here, maybe open a window?" only if someone talks to it or looks at it, at most once in a few hours, and the remark can be switched off | Air part running (`lamp-air`, 17:43); the voice's note built behind `LAMP_AIR_FACTS` (not yet on); the droop to build |
 | Fine dust high (PM2.5 94 ug/m3 the same minute) | Mentions it only if asked about the air, or once a day if it stays very high | To build |
 | Morning | Wakes with a stretch and a hum when the first person comes | To build |
 | Evening and night | Dimmer, warmer, slower; quieter voice; sleeps when nobody is there | To build |

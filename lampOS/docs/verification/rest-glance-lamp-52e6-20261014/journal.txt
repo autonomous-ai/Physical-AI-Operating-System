@@ -1,0 +1,29 @@
+# Folded, at rest (requests from about 18:08:00.6 for 1.6 s)
+18:08:00.624488 step 9995 Resting goals [1740, 2023, 2042] positions [1771, 2023, 2042] loads [0, 0, 0] stand 0.00 arm goals [2060, 2091] positions [2060, 2091] loads [0, 0] warmth [44, 45]
+18:08:01.123733 step 10020 Resting goals [1740, 2024, 2042] positions [1770, 2023, 2042] loads [132, 0, 0] stand 0.00 arm goals [2060, 2091] positions [2060, 2091] loads [0, 0] warmth [44, 44]
+18:08:02.364143 step 10082 Resting goals [1760, 2024, 2042] positions [1770, 2023, 2042] loads [132, 0, 0] stand 0.00 arm goals [2060, 2091] positions [2060, 2091] loads [0, 0] warmth [43, 44]
+18:08:02.863795 step 10107 Resting goals [1770, 2024, 2042] positions [1770, 2023, 2042] loads [0, 0, 0] stand 0.00 arm goals [2060, 2091] positions [2060, 2091] loads [0, 0] warmth [44, 45]
+18:08:03.363971 step 10132 Resting goals [1771, 2024, 2042] positions [1770, 2023, 2042] loads [0, 0, 0] stand 0.00 arm goals [2060, 2091] positions [2060, 2091] loads [0, 0] warmth [44, 44]
+
+# Standing, at rest (requests from about 18:11:23.7 for 1.6 s)
+18:11:18.344428 step 19881 Resting goals [1735, 2035, 2045] positions [1728, 2023, 2040] loads [40, 60, 32] stand 1.00 arm goals [2631, 2616] positions [2634, 2565] loads [24, 208] warmth [44, 45]
+18:11:18.844276 step 19906 Resting goals [1735, 2035, 2039] positions [1728, 2023, 2040] loads [40, 60, 0] stand 1.00 arm goals [2637, 2632] positions [2634, 2593] loads [24, 168] warmth [44, 45]
+18:11:19.344497 step 19931 Resting goals [1735, 2035, 2035] positions [1728, 2023, 2040] loads [40, 60, 32] stand 1.00 arm goals [2655, 2607] positions [2634, 2593] loads [100, 68] warmth [44, 45]
+18:11:19.783769 step 19953 gesture over
+18:11:19.843719 step 19956 Resting goals [1738, 2035, 2035] positions [1728, 2023, 2040] loads [52, 60, 32] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:20.543731 step 19991 Resting goals [1736, 2034, 2040] positions [1736, 2023, 2040] loads [20, 60, 32] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:21.044198 step 20016 Resting goals [1736, 2023, 2040] positions [1736, 2023, 2040] loads [0, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:23.784345 step 20153 Resting goals [1696, 2023, 2040] positions [1736, 2023, 2040] loads [0, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:24.283787 step 20178 Resting goals [1670, 2024, 2040] positions [1696, 2023, 2040] loads [116, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:25.363939 step 20232 Resting goals [1672, 2024, 2040] positions [1695, 2023, 2040] loads [112, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:25.863839 step 20257 Resting goals [1733, 2024, 2040] positions [1728, 2023, 2040] loads [36, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:26.365814 step 20282 Resting goals [1736, 2024, 2040] positions [1733, 2023, 2040] loads [24, 0, 0] stand 1.00 arm goals [2657, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:27.783915 step 20353 gesture idle
+18:11:28.164179 step 20372 Resting goals [1736, 2024, 2040] positions [1734, 2023, 2040] loads [20, 0, 0] stand 1.00 arm goals [2656, 2602] positions [2634, 2593] loads [104, 48] warmth [44, 45]
+18:11:28.664572 step 20397 Resting goals [1736, 2024, 2040] positions [1734, 2023, 2040] loads [20, 0, 0] stand 1.00 arm goals [2634, 2596] positions [2634, 2593] loads [20, 28] warmth [44, 45]
+18:11:29.163996 step 20422 Resting goals [1739, 2024, 2040] positions [1734, 2023, 2040] loads [28, 0, 0] stand 1.00 arm goals [2605, 2591] positions [2611, 2585] loads [32, 36] warmth [44, 44]
+18:11:29.664005 step 20447 Resting goals [1741, 2024, 2040] positions [1736, 2023, 2040] loads [28, 0, 0] stand 1.00 arm goals [2613, 2611] positions [2610, 2585] loads [20, 108] warmth [44, 45]
+18:11:30.163889 step 20472 Resting goals [1741, 2024, 2040] positions [1736, 2023, 2040] loads [32, 0, 0] stand 1.00 arm goals [2623, 2631] positions [2610, 2587] loads [60, 184] warmth [44, 45]
+18:11:30.663897 step 20497 Resting goals [1741, 2024, 2040] positions [1736, 2023, 2040] loads [32, 0, 0] stand 1.00 arm goals [2666, 2640] positions [2617, 2594] loads [196, 192] warmth [44, 45]
+18:11:31.164070 step 20522 Resting goals [1740, 2024, 2040] positions [1736, 2023, 2040] loads [28, 0, 0] stand 1.00 arm goals [2670, 2631] positions [2638, 2598] loads [144, 140] warmth [44, 45]
+18:11:31.664232 step 20547 Resting goals [1740, 2024, 2040] positions [1740, 2023, 2040] loads [0, 0, 0] stand 1.00 arm goals [2649, 2568] positions [2638, 2568] loads [56, 0] warmth [44, 45]

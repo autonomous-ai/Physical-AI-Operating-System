@@ -1,0 +1,21 @@
+{
+  "completed_first_twelve_packages": [
+    1205,
+    0,
+    4
+  ],
+  "continuation_and_all_doctests": [
+    2632,
+    0,
+    25
+  ],
+  "effective_full_workspace": [
+    3837,
+    0,
+    29
+  ],
+  "first_suites": 73,
+  "continuation_suites": 188,
+  "workspace_packages": 33,
+  "failure_retained": "mac-workspace-health-disk-failed.txt"
+}

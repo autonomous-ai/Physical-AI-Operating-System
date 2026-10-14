@@ -1,0 +1,10 @@
+{
+  "suites": 85,
+  "passed": 1764,
+  "failed": 0,
+  "ignored": 11,
+  "suite_results": [
+    "ok"
+  ],
+  "failed_lines": []
+}

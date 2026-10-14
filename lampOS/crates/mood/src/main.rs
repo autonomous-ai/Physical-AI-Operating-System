@@ -1,0 +1,61 @@
+use lamp_mood::runtime::{Config, serve};
+use std::{
+    path::PathBuf,
+    sync::{Arc, atomic::AtomicBool},
+    time::Duration,
+};
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = std::env::args().skip(1);
+    if args.next().as_deref() != Some("serve") {
+        return Err("usage: lamp-mood serve [--enable] [--zone IANA] [--bus-root ABS] [--clock-id TEST_ID] [--run-for-ms N]".into());
+    }
+    let mut config = Config::default();
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some(arg) = args.next() {
+        if !seen.insert(arg.clone()) {
+            return Err("duplicate option".into());
+        }
+        match arg.as_str() {
+            "--enable" => config.enabled = true,
+            "--zone" => config.zone = Some(args.next().ok_or("--zone needs an IANA name")?),
+            "--bus-root" => {
+                config.bus_root =
+                    PathBuf::from(args.next().ok_or("--bus-root needs an absolute path")?)
+            }
+            "--clock-id" => {
+                config.clock_id = Some(args.next().ok_or("--clock-id needs a test identity")?)
+            }
+            "--run-for-ms" => {
+                let ms: u64 = args
+                    .next()
+                    .ok_or("--run-for-ms needs milliseconds")?
+                    .parse()?;
+                if !(1..=86_400_000).contains(&ms) {
+                    return Err("--run-for-ms must be 1..86400000".into());
+                }
+                config.run_for = Some(Duration::from_millis(ms));
+            }
+            _ => return Err("unknown option".into()),
+        }
+    }
+    // Disabled invocation does not read the clock, resolve a zone, open files,
+    // install signal handlers, start threads, subscribe or publish.
+    if !config.enabled {
+        println!("{{\"enabled\":false,\"message\":\"Mood is off; supply --enable to start it.\"}}");
+        return Ok(());
+    }
+    let stop = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
+    let report = serve(config, stop)?;
+    println!("{}", serde_json::to_string(&report)?);
+    Ok(())
+}
+
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("mood: {error}");
+        std::process::exit(1);
+    }
+}

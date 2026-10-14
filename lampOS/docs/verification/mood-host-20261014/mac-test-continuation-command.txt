@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+export PATH="/Users/autonomous/.cargo/bin:$PATH"
+export CARGO_BUILD_JOBS=4
+export RUST_TEST_THREADS=1
+cd /private/tmp/lamp-fourth-mood/lampOS
+cargo test --offline --locked --no-fail-fast -p lamp-health -p lamp-ipc -p lamp-keeper -p lamp-lean -p lamp-memory -p lamp-mood -p lamp-msgs -p lamp-name -p lamp-observer -p lamp-policy -p lamp-records -p lamp-ring -p lamp-schedule -p lamp-sound-fixtures -p lamp-surround -p lamp-tasks -p lamp-turn-end -p lamp-turn-end-wire -p lamp-turn-owner -p lamp-voice -p lamp-voice-eval
+cargo test --doc --offline --locked --no-fail-fast -p lamp-actions -p lamp-air -p lamp-audio -p lamp-body -p lamp-bus -p lamp-camera -p lamp-controls -p lamp-ears -p lamp-environment -p lamp-expression -p lamp-eyes -p lamp-gemini
+cargo build --workspace --offline --locked

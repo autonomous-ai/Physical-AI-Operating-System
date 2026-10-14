@@ -1,0 +1,1 @@
+error: could not find `Cargo.toml` in `/private/tmp/lamp-fourth-mood` or any parent directory

@@ -56,6 +56,8 @@ mod air;
 pub use air::*;
 mod schedule;
 pub use schedule::*;
+mod mood;
+pub use mood::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]

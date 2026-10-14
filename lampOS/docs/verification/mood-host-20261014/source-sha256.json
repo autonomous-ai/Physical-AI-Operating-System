@@ -1,0 +1,20 @@
+{
+  "Cargo.toml": "b182478200e7936d9734747776678bb97f0e7b346dbe461e8d0d1bec4ada757a",
+  "Cargo.lock": "94d8a524c287b754ff9fe208ff38e5a1e5cba4083ecefc7f7fe8e994a91284ec",
+  "crates/msgs/src/lib.rs": "6d7d9b325714e5d88aa95897db347b2673d9172ee882979933ac481bff1578f6",
+  "crates/msgs/src/mood.rs": "b3cc291cda353627c68767df07d8be37c476ab828bc9d90079e841894e19048d",
+  "crates/mood/examples/replay_day.rs": "0524271630d62415cbe38f74763995389861cf106b5b766f4f4aadd0342bccd0",
+  "crates/mood/src/engine.rs": "ce45291ea8cca7210e75729392a2061bf992c2c8ecbfef4ab71649ddca27c235",
+  "crates/mood/src/input.rs": "9e7860bea540928734745b8b133a49427223f8a27e65e5cb16f0ddd3e2d92f6c",
+  "crates/mood/src/lib.rs": "77fdcf14906c12c5a3db45bbc64139aad7f304c3a4176f5c261b88ff1949714f",
+  "crates/mood/src/main.rs": "40dec48ac8b169faf52c06e436b0234cfe4218b725177c81a0021fffdcfc8404",
+  "crates/mood/src/replay.rs": "adc1a1dc660594ddd25577b98c69a6a522892c6bf031a2e4bbe19a136c2d505c",
+  "crates/mood/src/runtime.rs": "bde8e1abef0446cb4149d6bc718cb04f76493e39810f477429fe2cc85a6ee3bb",
+  "crates/mood/tests/engine.rs": "54ea8840718d788481a6b2e6c04d1e7bbc39448c64e7ad251551aed72c5d24dd",
+  "crates/mood/tests/input.rs": "b04a87c2b90b760ea3da22a107da49a399415c4395804ea9fa1a07f54d45089b",
+  "crates/mood/tests/program.rs": "c2a4f364d8224f9bedeac6cf7efbf2ab44cd4aa49da520db8fd0b3e6aeba14d0",
+  "crates/mood/tests/replay.rs": "f48f2f6f9676f95e80aec6e6e2b345fd21832b50c4909ff1d2fa9e73ed60b70e",
+  "crates/mood/tests/runtime.rs": "5775b189b6a533bc08eed1dd14b93ea1198af40fa7feda5849c0f9f3032307d7",
+  "crates/mood/tests/timing.rs": "6b52fce10d8ac95f36739bec1fcf856cc83e1d527e5528d8d8f2ccab00f559dc",
+  "crates/mood/Cargo.toml": "9d88e38545b097c01f8d49f1013004f7b94ab9f04b2739d87d86671268834528"
+}

@@ -252,6 +252,16 @@ pub struct Asked {
 /// reach of each joint like everything else that follows the mood.
 pub const EXPRESSION_REACH: [f32; 3] = [60.0, 45.0, 70.0];
 
+/// The same for a lamp at rest under [`Limits::rest_glance`]: a smaller
+/// glance of the head (about four and two degrees), and the base never
+/// turns.
+pub const REST_GLANCE_REACH: [f32; 3] = [50.0, 25.0, 0.0];
+/// A head lifted from rest by a glance has its goal this far ahead of where
+/// it is asked to go, inside the same bounds: from below, lamp-52e6's head
+/// did not start for a goal 30 counts ahead, and lifted for one 40 to 80
+/// ahead and stopped about 30 short of it (see [`WAKE_LIFT_LEAD`]).
+const GLANCE_LIFT_LEAD: f32 = 40.0;
+
 /// The shoulder and the elbow, in the order of every array of two here.
 /// Read on every step. Written only by a body that was given a pose to
 /// stand in.
@@ -424,6 +434,11 @@ pub struct Limits {
     /// on all five for two minutes, after which the lamp is taken up again
     /// slowly. Off: torque is never written off.
     pub overload_release: bool,
+    /// Let a lamp at rest take what Expression asks of the head, within
+    /// [`REST_GLANCE_REACH`], and come back to rest once it runs out: a
+    /// resting lamp lifts its head at a sudden sound. The arm is not
+    /// stirred. Off: a lamp at rest is not stirred by Expression.
+    pub rest_glance: bool,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -546,6 +561,7 @@ impl Limits {
         wake: false,
         give_way: None,
         overload_release: false,
+        rest_glance: false,
     };
 }
 
@@ -2453,6 +2469,10 @@ pub(crate) fn run_alive(
     let mut leaving: Option<Duration> = None;
     let mut resting_steps = 0u16;
     let mut relaxed = false;
+    // Under `--rest-glance`: where the head and the base rested when a
+    // glance took the head out of rest. The glance is laid on that, and
+    // the head goes back to it; the base is left as it is.
+    let mut glance_from: Option<[f32; 3]> = None;
     // A joint that has arrived and is asked nothing until the wanted pose
     // moves far enough from it; the steps each has been arriving for; and
     // the pose last wanted of each.
@@ -2524,6 +2544,22 @@ pub(crate) fn run_alive(
         } else {
             0
         };
+        // Under `--rest-glance`, what Expression asks of a lamp at rest
+        // takes its head out of rest for as long as it is asked.
+        let glance = limits.rest_glance
+            && mood == Mood::Resting
+            && leaving.is_none()
+            && asked_now.expression.is_some();
+        if glance {
+            if relaxed {
+                glance_from.get_or_insert(commanded);
+            }
+            resting_steps = 0;
+            asleep = [false; 3];
+        }
+        if mood != Mood::Resting || leaving.is_some() {
+            glance_from = None;
+        }
         // The wire is failing: nothing new is asked until it answers again.
         let blind = misses > 0 || unsent > 0;
         // How far up it should be, and this step of the way there. The
@@ -2596,6 +2632,7 @@ pub(crate) fn run_alive(
                 // On its way up or down nothing of the head is left resting
                 // where it was: it has to come along.
                 resting_steps = 0;
+                glance_from = None;
                 asleep = [false; 3];
             }
         }
@@ -2653,7 +2690,9 @@ pub(crate) fn run_alive(
             *now_at += (wanted - *now_at).clamp(-GESTURE_STEP[index], GESTURE_STEP[index]);
         }
         let gesturing = playing.is_some() || gesture_now != [0.0; 5];
-        gesture_cooling = if gesturing {
+        // A glance is a quick move of the head, and is judged as a gesture
+        // is: a head that lags or strains lets the move go, not the run.
+        gesture_cooling = if gesturing || glance_from.is_some() {
             GESTURE_COOL_STEPS
         } else {
             gesture_cooling.saturating_sub(1)
@@ -2691,6 +2730,11 @@ pub(crate) fn run_alive(
         // each joint, the speed and the acceleration the pose follows at,
         // rest, and the hold after resistance. Not while a gesture plays:
         // that is the whole lamp's move, and nothing is laid over it.
+        let reach = if glance {
+            REST_GLANCE_REACH
+        } else {
+            EXPRESSION_REACH
+        };
         let extra = match asked_now.expression {
             Some(asked) if !gesturing => {
                 report.expression_steps += 1;
@@ -2700,7 +2744,7 @@ pub(crate) fn run_alive(
                     } else {
                         0.0
                     };
-                    asked.clamp(-EXPRESSION_REACH[index], EXPRESSION_REACH[index])
+                    asked.clamp(-reach[index], reach[index])
                 })
             }
             _ => [0.0; 3],
@@ -2740,8 +2784,22 @@ pub(crate) fn run_alive(
             if relaxed {
                 continue;
             }
-            commanded[index] += carried[index];
-            let wanted = (home_now[index] + kept[index] + offset).clamp(low[index], high[index]);
+            let wanted = match glance_from {
+                // The base is not turned for a glance.
+                Some(_) if index == 2 => continue,
+                // From where it rested, by no more than the joint's own reach
+                // (a head that does not tilt folded does not tilt for it),
+                // and never farther out than its bounds or where it was.
+                Some(from) => {
+                    let reach = if index == 1 { roll_reach } else { f32::MAX };
+                    (from[index] + extra[index].clamp(-reach, reach))
+                        .clamp(low[index].min(from[index]), high[index].max(from[index]))
+                }
+                None => {
+                    commanded[index] += carried[index];
+                    (home_now[index] + kept[index] + offset).clamp(low[index], high[index])
+                }
+            };
             wanted_of[index] = wanted;
             if asleep[index] {
                 if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() {
@@ -2773,7 +2831,13 @@ pub(crate) fn run_alive(
             } else {
                 gesture_now[index]
             };
-            goals[index] = (commanded[index] + over).round().clamp(least, 4_095.0) as u16;
+            // A head lifting from rest is led, never past its bounds.
+            let led = if index == 0 && glance_from.is_some() && extra[0] < 0.0 {
+                (commanded[index] - GLANCE_LIFT_LEAD).max(low[index].min(commanded[index]))
+            } else {
+                commanded[index]
+            };
+            goals[index] = (led + over).round().clamp(least, 4_095.0) as u16;
         }
         // A joint told to stop pushing is held where it was until something
         // else is wanted of it.
@@ -2860,6 +2924,7 @@ pub(crate) fn run_alive(
                     };
                 if sent {
                     relaxed = true;
+                    glance_from = None;
                     commanded = positions.map(f32::from);
                     velocity = [0.0; 3];
                 }

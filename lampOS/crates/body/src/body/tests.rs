@@ -1973,6 +1973,17 @@ fn expression_run(
     until: Duration,
     seconds: u64,
 ) -> (BodyReport, Vec<(Duration, [u16; 3])>) {
+    expression_run_with(mood, offsets, from, until, seconds, false)
+}
+
+fn expression_run_with(
+    mood: Mood,
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    seconds: u64,
+    rest_glance: bool,
+) -> (BodyReport, Vec<(Duration, [u16; 3])>) {
     let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
     lamp.arm_moves = true;
     lamp.overload_clears = 1;
@@ -1981,6 +1992,10 @@ fn expression_run(
         speed: 120,
         servo_speed: 1_000,
         servo_acceleration: 60,
+    })
+    .map(|limits| Limits {
+        rest_glance,
+        ..limits
     })
     .unwrap();
     let time = clock.time.clone();
@@ -2092,6 +2107,52 @@ fn expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_restin
         .filter(|step| step.0 >= from && step.0 < Duration::from_secs(11))
     {
         assert_eq!(step.1, before, "at {:?}", step.0);
+    }
+}
+
+/// Without `rest_glance`, a lamp at rest writes exactly what it writes
+/// when nothing is asked of it.
+#[test]
+fn without_the_switch_a_resting_lamp_writes_exactly_as_when_nothing_is_asked() {
+    let (from, until) = (Duration::from_secs(8), Duration::from_millis(9_500));
+    let (_, asked) = expression_run(Mood::Resting, [-46.0, 30.0, 40.0], from, until, 14);
+    let (_, quiet) = expression_run(Mood::Resting, [0.0; 3], from, from, 14);
+    assert_eq!(asked, quiet);
+}
+
+/// With `rest_glance`, a lamp at rest lifts its head for as long as it is
+/// asked, within the smaller reach, turns no base, and rests again where it
+/// was.
+#[test]
+fn a_resting_lamp_glances_with_the_switch_and_comes_back_to_rest() {
+    let (from, until) = (Duration::from_secs(8), Duration::from_millis(9_500));
+    let (report, seen) =
+        expression_run_with(Mood::Resting, [-500.0, 500.0, 40.0], from, until, 14, true);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let before = seen.iter().rfind(|step| step.0 < from).unwrap().1;
+    let during: Vec<[u16; 3]> = seen
+        .iter()
+        .filter(|step| step.0 >= from && step.0 < until)
+        .map(|step| step.1)
+        .collect();
+    let highest = during.iter().map(|goals| goals[0]).min().unwrap();
+    let lift = before[0] - highest;
+    // Fifty counts at the most, its goal led forty ahead of that.
+    assert!((80..=90).contains(&lift), "lifted {lift}");
+    let tilt = during.iter().map(|goals| goals[1]).max().unwrap() - before[1];
+    // The roll's own reach here is one count, and it is kept to it.
+    assert!(tilt <= 1, "tilted {tilt}");
+    assert!(during.iter().all(|goals| goals[2] == before[2]));
+    let after = seen
+        .iter()
+        .rfind(|step| step.0 < Duration::from_millis(13_500))
+        .unwrap()
+        .1;
+    for index in 0..3 {
+        assert!(
+            after[index].abs_diff(before[index]) <= 6,
+            "{after:?} against {before:?}"
+        );
     }
 }
 

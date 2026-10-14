@@ -548,7 +548,8 @@ in the body's unit (and the bus on), the body listens to `expression/body`
   the rest of a joint that has arrived, and the hold after resistance. It
   is cut first to 60, 45 and 70 counts (pitch, roll, turn: about five,
   four and six degrees), whatever was asked. Nothing is added while a
-  gesture plays, and a lamp at rest is not stirred by it.
+  gesture plays, and a lamp at rest is not stirred by it (but see "A
+  glance from rest" below).
 - **Which request counts.** One that passes its own check, is of this
   start of the machine (the kernel's boot identity), has not run out, was
   not made ahead of the body's clock, lasts no longer than a request may
@@ -609,6 +610,54 @@ while listening on into thinking.
 Not shown: what it looks like. Five photographs were taken during the
 trial, one every five seconds; a move of a second and three degrees
 needs film, or someone watching.
+
+### A glance from rest
+
+Task 32 (#710), on lamp-52e6 since 2026-10-14, 18:11, for the trial only;
+off unless set. With `--rest-glance on` (and `LAMP_EXPRESSION_BODY=on`), a
+lamp at rest takes what Expression asks of its head, so that a resting
+lamp lifts its head at a sudden sound and lets it go (the repository's
+rule 8). Without it, a lamp at rest is not stirred, exactly as before.
+
+- **What is taken.** The head's pitch and roll only, cut first to 50 and
+  25 counts (`REST_GLANCE_REACH`, about four and two degrees) and then to
+  each joint's own reach and bounds; the roll is held to the reach it has
+  folded or stood (one count on lamp-52e6). Never the base's turn, never
+  the arm.
+- **From where it rested.** Taken out of rest, the glance is laid on where
+  the head and the base came to rest, not on home, and the head goes back
+  there when the requests run out, at the speed the pose follows at, and
+  rests again. The base is not written. Rising or folding, or a mood other
+  than rest, ends the glance and the lamp goes on as before.
+- **Led from below.** A head lifting from rest has its goal 40 counts
+  ahead (`GLANCE_LIFT_LEAD`), never past its bounds: from below,
+  lamp-52e6's head did not start for a goal 30 ahead.
+- **Judged as a gesture.** While it glances and for half a second after,
+  a head that lags or strains is let go as in a gesture, and the run goes
+  on. The load, warmth and wire checks stay.
+
+Against simulated servos, at rest for eight seconds and asked for 500
+counts up, 500 of tilt and 40 of turn for 1.5 s: the goal rose 80 to 90
+(50 and the lead), the tilt stayed within its one count, the turn did not
+move, and four seconds later every goal was within 6 of where it rested.
+Without the switch, the same run writes exactly what a run asked nothing
+writes.
+
+**On lamp-52e6, 2026-10-14, 18:02 to 18:11**
+([readings](verification/rest-glance-lamp-52e6-20261014/README.md)),
+requests published by hand on `expression/body` in the shape of
+lamp-4ace's "glance at a sound" (0.07 rad up in 250 ms, 0.03 rad of
+tilt, back by 1.6 s):
+
+- **Standing, at rest.** The head rose 40 counts (1,736 to 1,696, about
+  3.5 degrees) within half a second, held, came back to 1,733 to 1,740 and
+  rested; the roll moved its goal by one count, the base and the arm not
+  at all.
+- **Folded, at rest.** The head did not move: its goal may not go above
+  `pitch_window` (1,740) while folded, 30 counts over where lamp-52e6's
+  head rests (1,770), and a goal 30 ahead does not lift it. A folded
+  lamp-52e6 glances only if that window is widened, which is not done
+  here.
 
 ## Gestures
 

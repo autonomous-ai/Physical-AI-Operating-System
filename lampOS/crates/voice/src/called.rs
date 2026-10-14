@@ -39,6 +39,12 @@ pub fn arguments_from_environment() -> Vec<String> {
     }
 }
 
+/// Whether the environment switches it on, for the coordinator, which
+/// then takes no second look at a request the model was told in.
+pub fn on() -> bool {
+    std::env::var(ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
 /// Take a leading `--name-note` off a worker's flags.
 pub fn take(flags: &[String]) -> (bool, &[String]) {
     match flags {

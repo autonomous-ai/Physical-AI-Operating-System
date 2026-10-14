@@ -2210,7 +2210,8 @@ fn conversation(
     let mut name_in = crate::second_look::on()
         .then(crate::bus_out::NameIn::from_environment)
         .flatten();
-    let mut second_look = crate::second_look::SecondLook::default();
+    let mut second_look =
+        crate::second_look::SecondLook::default().with_the_note(crate::called::on());
     let policy_detector = match rig.turn_taking {
         // Duplex gates the scores this detector sees; its rule is unchanged.
         TurnTaking::V1Baseline | TurnTaking::Duplex => TurnDetector::v1_baseline(),
@@ -3167,6 +3168,7 @@ fn conversation(
                     let input_end_us = audio.captured_at_us;
                     current.local_input_ended = true;
                     speech_ended = Some((current.owner.turn(), monotonic_us()));
+                    second_look.speech_ended(current.owner.turn());
                     if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
                         said_turn = Some(current.owner.turn());
                     }

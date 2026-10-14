@@ -263,10 +263,15 @@ build's fault, the model answered all four by itself, and in the four
 before those it left two unanswered. Whether it raises the rate needs
 many more rounds than twelve.
 
-One thing to mend: when the model has been told inside a request and
-still says nothing, the second look asks it again. That happened twice
-with the lines to a similar name, and nothing was said either time, but
-one asking is enough.
+One asking is enough. At first, when the model had been told inside a
+request and still said nothing, the second look asked it again: twice
+with the lines to a similar name, and nothing was said either time. Since
+2026-10-14, 08:20, with the note switched on, the second look is taken
+only for a request whose name came too late for the note: heard after the
+person had stopped, as with a lone "Hey Lamp." that is over before the
+name part has said so. (A note the link itself dropped, which it does
+while an earlier answer is still owed, is not known of here, and such a
+request now gets neither. Not seen yet.)
 
 The rule has five tests of its own, and the note inside a request one
 against a scripted service (it goes in order with the sound and the link

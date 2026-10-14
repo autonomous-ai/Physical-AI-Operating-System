@@ -58,17 +58,39 @@ pub struct SecondLook {
     last: Option<(u64, f32)>,
     /// A second look that is owed: for which request, and since when.
     due: Option<(u64, u64)>,
+    /// The model is also told while the person is still speaking
+    /// (`crate::called`), when the name is heard in time for that.
+    told_while_speaking: bool,
+    /// The sound of the request in hand is still going to the service.
+    open: bool,
+    /// The name was heard in time for the model to have been told of it
+    /// inside the request in hand. One asking is enough.
+    told: bool,
 }
 
 impl SecondLook {
+    /// A second look for a lamp whose model is also told of the name while
+    /// the person is still speaking: a request the model was told in is
+    /// not asked about again.
+    pub fn with_the_note(mut self, told_while_speaking: bool) -> Self {
+        self.told_while_speaking = told_while_speaking;
+        self
+    }
+
     /// The name began to be heard at `began_us`, with this score.
     pub fn name_heard(&mut self, began_us: u64, score: f32) {
         self.last = Some((began_us, score));
         if let Some((_, request_began)) = self.began
             && began_us.saturating_add(BEFORE_US) >= request_began
-            && self.named.is_none_or(|(_, best)| score > best)
         {
-            self.named = Some((began_us, score));
+            if self.named.is_none_or(|(_, best)| score > best) {
+                self.named = Some((began_us, score));
+            }
+            // Heard while the request's sound was still being sent: the
+            // note went with it.
+            if self.open && score >= LEAST_SCORE {
+                self.told = true;
+            }
         }
     }
 
@@ -80,6 +102,17 @@ impl SecondLook {
         self.named = self
             .last
             .filter(|(at, _)| at.saturating_add(BEFORE_US) >= now_us);
+        self.open = true;
+        // Heard as the request began: the note goes at its opening.
+        self.told = self.named.is_some_and(|(_, score)| score >= LEAST_SCORE);
+    }
+
+    /// The person has stopped: the sound of `turn` is no longer being
+    /// sent, and a name heard from now on comes too late for a note.
+    pub fn speech_ended(&mut self, turn: u64) {
+        if self.began.is_some_and(|(heard, _)| heard == turn) {
+            self.open = false;
+        }
     }
 
     /// `turn` is over. `said_nothing`: the service gave no answer to it.
@@ -90,8 +123,10 @@ impl SecondLook {
             return None;
         }
         self.began = None;
+        self.open = false;
+        let told = std::mem::take(&mut self.told) && self.told_while_speaking;
         let (_, score) = self.named.take()?;
-        if !said_nothing || score < LEAST_SCORE {
+        if !said_nothing || score < LEAST_SCORE || told {
             return None;
         }
         self.due = Some((turn, now_us));
@@ -198,6 +233,49 @@ mod tests {
         assert_eq!(look.due(36 * SECOND + WAIT_US), Some(3));
         assert_eq!(look.due(36 * SECOND + WAIT_US + 1), None);
         assert_eq!(look.due(36 * SECOND + 10), None);
+    }
+
+    /// With the note switched on, a request the model was told in is not
+    /// asked about again; one whose name came only after the person had
+    /// stopped still is.
+    #[test]
+    fn a_request_the_model_was_told_in_is_not_asked_about_again() {
+        // Heard as the request began: told at its opening.
+        let mut look = SecondLook::default().with_the_note(true);
+        look.name_heard(10 * SECOND - 300_000, 1.0);
+        look.request_began(1, 10 * SECOND);
+        look.speech_ended(1);
+        assert_eq!(look.finished(1, true, 16 * SECOND), None);
+        assert_eq!(look.due(16 * SECOND), None);
+        // Heard in the middle, while the sound was still going: told then.
+        let mut look = SecondLook::default().with_the_note(true);
+        look.request_began(2, 20 * SECOND);
+        look.name_heard(21 * SECOND, 0.95);
+        look.speech_ended(2);
+        assert_eq!(look.finished(2, true, 27 * SECOND), None);
+        // Heard only once the person had stopped: no note could go, and
+        // the second look is what is left.
+        let mut look = SecondLook::default().with_the_note(true);
+        look.request_began(3, 30 * SECOND);
+        look.speech_ended(3);
+        look.name_heard(30 * SECOND + 200_000, 1.0);
+        assert_eq!(look.finished(3, true, 36 * SECOND), Some(1.0));
+        // What was told in one request says nothing of the next.
+        let mut look = SecondLook::default().with_the_note(true);
+        look.name_heard(40 * SECOND, 1.0);
+        look.request_began(4, 40 * SECOND + 100_000);
+        look.speech_ended(4);
+        assert_eq!(look.finished(4, true, 46 * SECOND), None);
+        look.request_began(5, 60 * SECOND);
+        look.speech_ended(5);
+        look.name_heard(60 * SECOND + 300_000, 1.0);
+        assert_eq!(look.finished(5, true, 66 * SECOND), Some(1.0));
+        // Without the note every such request is asked about, as before.
+        let mut look = SecondLook::default();
+        look.name_heard(70 * SECOND, 1.0);
+        look.request_began(6, 70 * SECOND + 100_000);
+        look.speech_ended(6);
+        assert_eq!(look.finished(6, true, 76 * SECOND), Some(1.0));
     }
 
     /// A turn that ends which is not the one in hand changes nothing.

@@ -1,0 +1,25 @@
+# lampOS air: reads the SEN63C air sensor (I2C bus 0, 0x6B) every five seconds and says on air/state what the air is
+# like: particles, humidity and temperature at the sensor, carbon dioxide, and how stuffy (lampOS/docs/air.md).
+# It decides nothing. Its own process and unit: with it stopped the lamp runs on as before.
+[Unit]
+Description=lampOS air (lamp-air)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/air/2060d0a26404c4df3ab55951a152ffe996ec3ed22ce12c3621433d94dc9e6ff9/lamp-air --bus-number 0 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=10s
+SyslogIdentifier=lamp-air
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+DeviceAllow=/dev/i2c-0 rw
+
+[Install]
+WantedBy=multi-user.target

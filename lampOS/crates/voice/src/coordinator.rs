@@ -3679,6 +3679,15 @@ fn conversation_with_controls(
                         second_look.speech_ended(current.owner.turn(), monotonic_us());
                         if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
                             said_turn = Some(current.owner.turn());
+                        } else if crate::not_speech::was_a_sound(
+                            speech_levels.len(),
+                            took_over_turn == Some(current.owner.turn()),
+                            last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                        ) {
+                            // Let through only for the model to judge
+                            // (`LAMP_SHORT_SOUNDS`): unanswered, it is no one
+                            // else's talk.
+                            room.not_counted(current.owner.turn());
                         }
                         asked_in_busy_room = room.busy().then(|| current.owner.turn());
                         queue_input(

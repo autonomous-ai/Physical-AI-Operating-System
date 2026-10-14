@@ -34,6 +34,10 @@ pub struct Attention {
     turn: Option<(u64, bool)>,
     unanswered: u8,
     ended_us: u64,
+    /// A turn let through only for the model to judge (a short sound in a
+    /// quiet room, [`crate::not_speech::sent_anyway`]): left unanswered it is
+    /// not someone else's talk, and does not count toward a busy room.
+    uncounted: Option<u64>,
 }
 
 impl Attention {
@@ -41,10 +45,12 @@ impl Attention {
     /// an answer to it has arrived.
     pub fn observe(&mut self, turn: Option<(u64, bool)>, now_us: u64) {
         if self.turn.map(|(id, _)| id) != turn.map(|(id, _)| id)
-            && let Some((_, answered)) = self.turn
+            && let Some((id, answered)) = self.turn
         {
             self.unanswered = if answered {
                 0
+            } else if self.uncounted == Some(id) {
+                self.unanswered
             } else {
                 self.unanswered.saturating_add(1)
             };
@@ -56,6 +62,12 @@ impl Attention {
         {
             self.unanswered = 0;
         }
+    }
+
+    /// The turn `turn` was let through only for the model to judge: if it
+    /// ends unanswered it is not counted.
+    pub fn not_counted(&mut self, turn: u64) {
+        self.uncounted = Some(turn);
     }
 
     /// The head stays down for listening and thinking.
@@ -319,6 +331,37 @@ impl EyesLink {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_turn_let_through_only_to_be_judged_does_not_make_the_room_busy() {
+        let mut room = Attention::default();
+        let mut now = 0;
+        let mut turn = |room: &mut Attention, id: u64, answered: bool, judged_only: bool| {
+            room.observe(Some((id, false)), now);
+            if judged_only {
+                room.not_counted(id);
+            }
+            room.observe(Some((id, answered)), now + 1);
+            now += 1_000_000;
+            room.observe(None, now);
+        };
+        // Short sounds, each left alone by the model: never busy.
+        for id in 1..=5 {
+            turn(&mut room, id, false, true);
+        }
+        assert!(!room.busy());
+        // Three things said and not answered are someone else's talk.
+        for id in 6..=8 {
+            turn(&mut room, id, false, false);
+        }
+        assert!(room.busy());
+        // A short sound in between neither adds to it nor clears it.
+        turn(&mut room, 9, false, true);
+        assert!(room.busy());
+        // An answer clears it.
+        turn(&mut room, 10, true, false);
+        assert!(!room.busy());
+    }
 
     #[test]
     fn a_gesture_goes_with_how_an_answer_begins_and_most_answers_get_none() {

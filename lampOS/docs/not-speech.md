@@ -160,6 +160,16 @@ that it may not be words said to the lamp, and that if it is not it says
 nothing (`not_for_me`), since the model hears the sound itself. The same two
 played sets measure it: words answered against noises answered.
 
+**Built that evening** (`LAMP_SHORT_SOUNDS=quiet-room`, off unless set;
+`not_speech::sent_anyway`): an utterance the gate would throw out goes to the
+model after all while the room is not busy. Its first try on lamp-4ace
+(22:27, voice `c2ac775f5`) showed a side effect: the short words the model
+left alone counted as unanswered talk, the room was taken for busy after
+three, and from then on even "Good morning." was held back by the busy-room
+rule ([attention.md](attention.md)). So a turn let through only to be judged
+no longer counts toward a busy room, answered or not (`body_link::Attention::
+not_counted`); an answer still clears the count. Measured again after that.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

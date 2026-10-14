@@ -201,8 +201,9 @@ The loops in work-split.md, in short, with the names from your role file:
    without building again.
 5. **Run on the lamp**, if you have one: install as above, `sudo sync`, run,
    keep the raw readings.
-6. **Log.** Put the finished piece on `lamp-<name>` as a fast-forward and,
-   in the same push, its entry in your log (next section).
+6. **Pull request.** When the task is finished and shown, open a pull
+   request from `<name>/<task>` into `lamp-voice` (see "One pull request per
+   task" below) and put its entry in your log, on `lamp-<name>`.
 7. Take the next. With nothing left, look again every half hour.
 
 ## What a result on a lamp is
@@ -239,19 +240,20 @@ A piece with its evidence is not yet a task done: the first builder once
 took the wake onto `lamp-voice` while it was still being mended, and ran it
 on lamp-4ace before its fixes. So (`fifth-P4`):
 
-- Code being made stays on its task branch, `<name>/<task>`. It reaches
-  `lamp-<name>` only when the task, or a part the log names, is finished
-  and shown.
+- Code being made stays on its task branch, `<name>/<task>`. It is offered
+  for `lamp-voice` only when the task, or a part the issue names, is
+  finished and shown: as a pull request that is not a draft (since
+  `fifth-P6`, below).
 - Every log entry opens with one line the first builder can read without
   judging:
 
   ```text
   Ready for lamp-voice: no
-  Ready for lamp-voice: yes (<commit>)
+  Ready for lamp-voice: yes (#<pull request>)
   ```
 
-- The first builder takes only what an entry marked `yes` names, and only
-  up to that commit. Running a `no` piece early to help is welcome; it is
+- The first builder takes only what an open, non-draft pull request
+  holds, and only up to its head commit. Running a `no` piece early to help is welcome; it is
   then said in the answer, and the piece is not on `lamp-voice`.
 
 **What the first builder takes, and how.** `lamp-voice` is what lamp-4ace
@@ -271,10 +273,39 @@ see that nothing changes. A piece switched on for lamp-4ace, or one that
 changes defaults, runs there for a few minutes first. The builder's
 evidence is not run again (the first builder's answer to `fifth-P1`).
 
-When the work is done, the builder may open one pull request from
-`lamp-<name>` into `lamp-voice`, listing for each task its log entry, its
-verification folder and its kind. It stops there: the first builder
-merges. It never pushes to `lamp-voice` or to another builder's branch.
+### One pull request per task (`fifth-P6`, decided 2026-10-14)
+
+Proposed by the fifth builder (#716) after #708 was closed unmerged: its
+pieces had been cherry-picked an hour before, so nothing tied the issue to
+the commits, the hashes differed from the builder's, and a piece's
+dependency had to be found by hand. Decided: yes, but as follows.
+
+- **A task branch,** `<name>/<task>`, cut from `lamp-voice` and kept rebased
+  on it, carries only that task's code, docs and verification folder.
+  `lamp-<name>` keeps the log and nothing a lamp runs.
+- **Ready is a pull request** from `<name>/<task>` into `lamp-voice` that is
+  not a draft. Its body, in this order: `Closes #<issue>`; its kind (off
+  unless set, a lamp's own folder, or changes every lamp's default); the
+  switch and the test that shows nothing changes without it; the
+  verification folder; the gate as run, with counts. No attribution.
+- **Each commit in it is one the first builder would write:** one line,
+  `lampOS: ...`, passing the gate on its own. Fold fix-ups into it on your
+  branch before marking it ready.
+- **The native ARM64 run on the branch's head is green** before it is ready
+  (its run number in the body). The first builder installs that run's
+  binaries on lamp-4ace for the minute with the switch off; it does not
+  build them again.
+- **The first builder merges with "Rebase and merge",** so `lamp-voice`
+  stays one line of `lampOS:` commits, and takes a builder's code by no
+  other path. A change it wants is a review comment, and the builder
+  pushes to the same branch. One it will not take is closed with the reason.
+- **The builder watches its own pull requests** and answers their comments
+  itself; a person is asked only for hands at a lamp or for permissions.
+- **The merge closes the issue,** and the Queue gives the next task.
+
+Pieces marked ready on a `lamp-<name>` branch before this was decided are
+taken once more as before. A builder never pushes to `lamp-voice` or to
+another builder's branch.
 
 ## Talking with the first builder
 

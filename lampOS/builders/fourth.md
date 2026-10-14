@@ -39,7 +39,8 @@ Its earlier work: memory across days (13), whom it is said to (14), the records 
 ## It may not
 
 - Touch any lamp: it has none. What needs a lamp goes to the first
-  builder, who runs it on lamp-4ace (joining.md, "The ready line").
+  builder, who runs it on lamp-4ace (joining.md, "The ready line" and
+  "One pull request per task").
 - Touch another builder's branch or crates unless a task says so; push to
   `lamp-voice`.
 - Commit Python, credentials, or pictures of a person, face or screen.

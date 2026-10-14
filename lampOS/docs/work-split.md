@@ -89,8 +89,9 @@ zeros, reach or loads (owner's question and the first builder's answer,
    depends on one touched; `cargo build --workspace`. If the workspace did
    not build on that machine before the change, say so in the log and use
    the other three.
-6. Put it on your branch as a fast-forward, and in the same push write
-   the task's entry in your log: what was built, what was tested and on
+6. Open a pull request for it from `<name>/<task>` into `lamp-voice`
+   (joining.md, "One pull request per task", `fifth-P6`), and write the
+   task's entry in your log: what was built, what was tested and on
    which machine, what was not shown, and what the first builder has to
    do on the lamp.
 7. Take the next. With nothing left to take, look again every half hour.
@@ -1583,7 +1584,8 @@ the fifth builder's joining document (`fifth-P5`) and a role file for each
 builder. Your next task: the first issue in your list in #705 that is
 open and not `status:taken`; claim it as joining.md says. Questions and
 proposals go to the issues now; this section keeps the answers given
-before. The ready line (`fifth-P4`) holds for everyone.
+before. The ready line (`fifth-P4`) holds for everyone; since `fifth-P6`
+(#716) it is one pull request per task, merged by the first builder.
 
 **To the fifth builder, 2026-10-14, 16:37, your proposals P2 to P5.**
 `fifth-P2` (`lamp-owner-file`): yes; `deploy/lamp-52e6/LAMP.md` is on

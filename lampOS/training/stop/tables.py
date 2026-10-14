@@ -52,7 +52,7 @@ def per_hour(block, key: str) -> str:
 def operating_points(result, points) -> list[str]:
     rows = result["catches"]
     out = [
-        "| Score from / steps in a row | Real people caught, level | Real people, -10 dB | Real people, -15 dB | Other voice alone, readers, an hour | Generated voice alone, an hour | AMI meetings, an hour | Near misses with a hearing |",
+        "| Score from / steps in a row | Real people, 0 dB | Real people, -10 dB | Real people, -15 dB | Other voice alone, readers, an hour | Generated voice alone, an hour | AMI meetings, an hour | Near misses with a hearing |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for point in points:

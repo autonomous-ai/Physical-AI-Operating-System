@@ -166,6 +166,8 @@ has it:
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
+| 19 | The end sent early, the answer played only when sure | `early-end` | Second | open |
+| 20 | The replay takes the lamp's own recordings | `replay-capture-clocked` | Second | open |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | done 2026-10-14: on `lamp-voice`, behind the voice's `--echo-reference steady`; to be played to on the lamp |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
@@ -179,6 +181,7 @@ has it:
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | taken 2026-10-14 |
+| 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | open |
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
@@ -769,6 +772,118 @@ Rest: bounded, never in a busy room, never when concentrating.
 **Hand back:** the change with its tests, the message contract the voice
 must then follow, and a replay fixture for each case. Most likely wrong
 on the lamp: how the rest behaviour looks, which only the camera shows.
+
+## 19. The end sent early, the answer played only when sure
+
+Crate: `crates/voice`, with leave for this task to change the
+coordinator's handling of the end of a person's speech and the start of
+playback, and what those need; nothing else in it. Documents:
+`docs/faster-answers.md` (way 2, whose study this follows),
+`docs/conversation-latency.md`.
+
+**Why.** Half of the lamp's answers begin 1.98 s after the person stops.
+The service takes 1.15 s of that and no answer has ever arrived sooner
+than about 0.85 s after the end was sent. The lamp waits 0.6 s of quiet
+before it sends the end at all. If the end is sent after 0.2 s and what
+comes back is held until the 0.6 s (or the end-of-turn model's verdict)
+confirms the person had finished, every answer begins up to 0.4 s sooner
+and nothing is played that would not have been played.
+
+**Wanted.** Behind an option, off by default. The end is sent to the
+service after a short quiet (a setting; 200 ms to start). The answer's
+sound is taken in as it comes and not played. If the person is quiet to
+the confirming moment, playback starts then, or at once if it is already
+past. If they speak again before it, the request is given up exactly as
+a continued utterance is today (`--provider-continuation kept-start`,
+which the lamp runs): nothing of the answer is played, the model's
+words for it are not recorded as said, and what they go on to say is
+heard as the same turn. Whatever was told with the request (a name note)
+must not survive it: see `docs/voice-review-2026-10-14.md`, finding 1. A
+lone "Hey Lamp," followed by a pause and the question is the case most
+likely to go wrong, and "Lamp, stop." over an answer the next.
+
+**Tests.** Against the scripted service the voice's tests already use:
+quiet to the end, and the answer starts at the confirming moment and not
+before; speech resumed at 0.3 s, and nothing is played and one turn is
+heard; an answer that arrives before the confirming moment; one that
+arrives after; the link dropping in between; an interruption. Count
+what is sent to the service in each. With the option off, every
+argument and every message is what it was.
+
+**Hand back:** the change, its tests, the documents, how many requests
+are given up per turn in each test, and what to play to the lamp
+(`pauses.sh`, `shorts.sh`, `checks.sh`). Most likely wrong on the lamp:
+how the real service treats a request given up a third of a second in,
+and what the model then makes of the rest.
+
+## 20. The replay takes the lamp's own recordings
+
+Crate: `crates/audio` (`replay.rs`). Document: `docs/steady-reference.md`,
+"Taken by the first builder".
+
+**Why.** `lamp-audio replay-aec` is how a change to the canceller is to
+be judged on real sound before it is played to anyone. It does not take
+the recordings the lamp makes as it runs today (the capture-clocked
+reference): over four of them it stopped at the first boundary with
+`insufficient_evidence_for_dsp_replay` and replayed nothing, and the
+fourth's events it could not read. So the steady reference could not be
+judged that way, and nor can the next change.
+
+**Wanted.** The replay follows a capture-clocked recording through: the
+same blocks to the canceller in the same order as the lamp gave them,
+with what the lamp recorded of each (the reference's cursor for every
+capture block is in the capture events). Where a recording truly cannot
+be followed, say which record and why, and replay up to it. Tolerate an
+events file whose last line was cut off. The first builder will put two
+of the lamp's recordings where you can reach them if you ask for them in
+your log, with no speech of people in them (played voices only); until
+then, make recordings of that shape with the voice's own recorder
+against the scripted devices.
+
+**Tests.** A capture-clocked recording made in a test replays whole and
+gives the canceller's own output bit for bit; a cut-off last line; a
+boundary in the middle.
+
+**Hand back:** the change, and the two commands to run over the lamp's
+recordings with what to compare. Most likely wrong on the lamp: a kind
+of record its real recordings have that a made one does not.
+
+## 21. The voice stops and mutes on the hand controls
+
+Crates: `crates/voice`, with leave for this task to add a consumer of
+`controls/state` to the coordinator and what it needs, and
+`crates/controls` (yours to extend). Documents: `docs/controls.md`
+("Topics and the receiver", "Voice and physical privacy", "The board's
+reader").
+
+**Why.** The lamp now reads its real button and head pads
+(`serve --pins`), and nothing acts on them. A lamp on someone's desk
+needs a hand to be able to stop it talking and to silence it, without
+the network and without the model.
+
+**Wanted.** Each behind its own switch, off by default. A Stop from
+`controls/state`, taken through `Receiver` so that a repeated or stale
+one does nothing: the answer in hand is cut off at once, locally, as an
+interruption is (the speaker is told to drop what it holds; nothing
+waits on the service), and the turn is given up. A mute: the microphone
+permission is revoked at once and stays revoked across a restart of the
+voice (`MuteRecord`, restored before any worker is opened), and is
+cleared only by an explicit local act (a second hold, as the controls
+document proposes, or say otherwise and why), never by a restart and
+never by the model. The physical privacy slide stays above all of it. A
+pat is only reported. Measure, with the injected clock, from the
+observation to the speaker being told to stop, and say it.
+
+**Tests.** Stop while speaking, while thinking, while listening, with
+nothing in hand, twice, and a stale one; mute and restart; mute, slide
+closed, slide open; a controls process that dies and comes back; a
+Stop that arrives as the service's link drops.
+
+**Hand back:** the change, its tests, the switches' names, and what a
+person does at the lamp to see each (the first builder has a hand
+available only now and then: make it a list of five actions and what
+each should do). Most likely wrong on the lamp: the polarity of the
+head pads, which is set from the lines at rest and not from a touch.
 
 ## What the lamp showed
 

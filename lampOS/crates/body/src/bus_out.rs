@@ -430,6 +430,7 @@ mod tests {
             gesture: None,
             released: 0,
             limp: false,
+            hand_limp: [false; 3],
         }
     }
 

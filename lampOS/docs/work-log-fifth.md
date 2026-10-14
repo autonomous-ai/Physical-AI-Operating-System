@@ -103,6 +103,15 @@ lamp-4ace.
   made parts of the target (`deploy/units/README.md`); the body's
   `Type=notify` needs this build of the body.
 
+## 2026-10-14 — wake — taken
+
+- Task: 23, Waking up after the power comes back.
+- Base: `origin/lamp-voice` at `a0512240ef7c12ea869a9144b045510615f01a60`; branch `fifth/wake` from
+  `lamp-fifth`.
+- First without a person: the state a power cut leaves stood in for by
+  switching every servo's torque off on the folded lamp; the ten unplugs
+  wait for the fifth builder's person.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

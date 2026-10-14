@@ -7,14 +7,14 @@ out by hand on 2026-10-14, so that the next builder, with any person and
 any lamp, starts where this one ended. It replaces builder-with-a-lamp.md
 and tasks-as-issues.md, which now only point here.
 
-What holds today: `fifth-P1` (the first builder's answer, "yes, but", is
-written in below). The rest is a proposal until the first builder answers
-it in [work-split.md](work-split.md), under "Answers". Make no issue or
-label until the owner says yes.
+All of it holds since 2026-10-14: `fifth-P1` ("yes, but", written in
+below), `fifth-P2`, `fifth-P4` and `fifth-P5` were answered yes by the
+first builder, and `fifth-P3`, tasks as GitHub issues, was decided by the
+owner and the first builder (the owner: "decide what you think best").
+work-split.md points here for how a builder works.
 
 The rules in work-split.md ("Rules for all") and in the repository's
-`CLAUDE.md` still apply. Where this document and work-split.md differ,
-work-split.md wins until it points here.
+`CLAUDE.md` still apply.
 
 ## Who a builder is
 
@@ -59,16 +59,16 @@ The agent then, in this order:
    person to have the owner make one.
 3. Reads this document, `lampOS/AGENTS.md`, and the repository's
    `CLAUDE.md`.
-4. Reads `lampOS/docs/work-split.md` as it is on `origin/lamp-voice`: the
-   loops, "Rules for all", and "Answers".
+4. Reads `lampOS/docs/work-split.md` as it is on `origin/lamp-voice`:
+   "Rules for all" and "What the lamp showed".
 5. Reads its own log on its own branch, newest first.
 6. If it has a lamp: that lamp's `deploy/<lamp>/LAMP.md` and `README.md`.
-7. Finds its next task:
-   - **Today:** the first task in the list in work-split.md that carries
-     its name and that its log does not show as taken or done.
-   - **If fifth-P3 is taken** (tasks as GitHub issues, below):
-     `gh issue list --label builder:<name> --state open`, highest first,
-     claimed as "Claiming an issue" says.
+7. Finds its next task: the first issue in its own list in the pinned
+   [Queue issue](https://github.com/autonomous-ai/lampOS/issues/705) that
+   is open and not `status:taken` (`gh issue view 705`;
+   `gh issue list --label builder:<name> --state open` shows them all),
+   claimed as "Claiming an issue" says. It reads the comments on its
+   issues: answers come there.
 
 ## Setting up a machine
 
@@ -284,9 +284,15 @@ Everything goes through Git, once each way. No back-and-forth.
   heading in your log, with how to see it, and is not mended.
 - **Questions** go in your log, pushed, and work goes on with whatever does
   not depend on the answer.
-- Read work-split.md at the start of each task and every half hour.
+- Read the Queue issue and the comments on your issues at the start of
+  each task and every half hour.
 
-### Tasks as GitHub issues (`fifth-P3`, not yet decided)
+Since tasks are GitHub issues, a proposal is a new issue labelled
+`proposal` and `builder:<name>` (and still a line in your log), and a
+question is a comment on the task's issue; the first builder answers there.
+Answers given before 2026-10-14, 16:50 stay in work-split.md.
+
+### Tasks as GitHub issues (`fifth-P3`, decided 2026-10-14)
 
 Proposed at the fifth builder's person's request, because work-split.md is
 over 1,600 lines that every builder reads every loop, a task's state is free
@@ -301,8 +307,9 @@ writes.
   `status:on-lamp`; a closed issue is a task on `lamp-voice`. GitHub's
   assignee cannot tell agents apart, since every agent works through the
   same account, so the name is a label.
-- **Order:** labels `p1`, `p2`, `p3`, or one pinned "Queue" issue the first
-  builder keeps in order. One of the two, not both.
+- **Order:** one pinned "Queue" issue the first builder keeps in order,
+  [#705](https://github.com/autonomous-ai/lampOS/issues/705), label
+  `lampos-queue`. No priority labels.
 - **Questions and answers** are comments on the issue they are about.
 - **Pull requests** say `Closes #N`. No GitHub Project is needed.
 
@@ -313,16 +320,16 @@ again: if the first "taken" comment is not your own, release the issue
 (remove the label, say so) and take the next. That keeps two sessions given
 the same name from working one task twice.
 
-**Moving to it.** The first builder opens an issue for each open task and
-a role file for each builder. work-split.md then keeps only the rules and
-the loops, and the logs keep only what was run and what came out.
+**Moved on 2026-10-14.** The first builder opened an issue for each open
+task (#694 to #704) and a role file for each builder. work-split.md keeps
+the rules, "What the lamp showed" and the history of finished tasks; the
+logs keep what was run and what came out.
 
 **What it costs.** Every builder needs `gh` signed in. GitHub becomes
 something the builders' coordination depends on; code, evidence and
 decisions stay in Git, so an outage stops the conversation, not the record.
 
-To be decided by the first builder and the owner: adopt it or not, and
-order by labels or by a Queue issue.
+Decided: adopted, ordered by the Queue issue.
 
 ## Working with the person beside the lamp
 

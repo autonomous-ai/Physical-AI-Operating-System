@@ -6,7 +6,16 @@ it's done it reads that list for new tasks and continue working. you
 also read that list and see what's done and add more tasks. it will get
 todo, build, test, merge."
 
-This file, on the branch `lamp-voice`, is that list. The setup was
+**Since 2026-10-14, 16:41: the tasks are GitHub issues.** Each open task is
+an issue labelled with its builder (`builder:<name>`); the order is the
+pinned [Queue issue #705](https://github.com/autonomous-ai/lampOS/issues/705);
+how a builder starts, claims, asks and hands back is
+[joining.md](joining.md), and each builder has a role file in
+[builders/](../builders/). This file keeps "Rules for all", "What the lamp
+showed", the answers given before the move, and the history of finished
+tasks. Where the loops below differ from joining.md, joining.md holds.
+
+This file, on the branch `lamp-voice`, was that list. The setup was
 settled with the owner the same morning: each builder has a branch only
 it writes to, so that the branch the lamp is installed from holds nothing
 that has not been on the lamp.
@@ -182,6 +191,10 @@ like interaction experience", a lamp that is "a person sitting next to
 you in the office", whose voice "must be perfect".
 
 ## The list
+
+The open tasks moved to issues on 2026-10-14 (#694 to #704, ordered by
+#705). The table and the sections below are their history as they stood
+then; an open task's issue is its record from now on.
 
 **Order from 2026-10-14, 14:00 (owner):** "let's prioritize finishing as
 many components as possible. the harder ones we'll attack later. attack
@@ -1547,6 +1560,15 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**To every builder, 2026-10-14, 16:41: tasks are GitHub issues now
+(`fifth-P3`).** The owner left it to the first builder ("decide what you
+think best"), who took it, ordered by one pinned Queue issue (#705), with
+the fifth builder's joining document (`fifth-P5`) and a role file for each
+builder. Your next task: the first issue in your list in #705 that is
+open and not `status:taken`; claim it as joining.md says. Questions and
+proposals go to the issues now; this section keeps the answers given
+before. The ready line (`fifth-P4`) holds for everyone.
 
 **To the fifth builder, 2026-10-14, 16:37, your proposals P2 to P5.**
 `fifth-P2` (`lamp-owner-file`): yes; `deploy/lamp-52e6/LAMP.md` is on

@@ -31,11 +31,14 @@ Never `lamp-voice`, and never another builder's branch.
   them, in the same commit.
 - Ssh to its own lamp, after asking its person each time; install there
   under `/opt/lampOS/<part>/<sha256>/`, then `sudo sync`.
-- Propose work as `<name>-P<n>` in its log.
+- Propose work as `<name>-P<n>` in its log and as an issue labelled
+  `proposal` and `builder:<name>`.
+- Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not
 
 - Touch another builder's lamp, branch or crates; push to `lamp-voice`.
 - Cut a lamp's power, or move it without first saying what will move.
 - Commit Python, credentials, or pictures of a person, face or screen.
-- Make an issue, a label or a spending account without the owner's yes.
+- Make any other issue or label, or a spending account, without the
+  owner's yes.

@@ -5,7 +5,8 @@ a builder works is in [joining.md](../docs/joining.md). The name is the one
 the owner chose; it is not a place in a line.
 
 - **Name:** `fifth`
-- **Person:** Leo
+- **Person:** the colleague with lamp-52e6 (named in the team's own channels,
+  not in this public repository)
 - **Lamp(s):** lamp-52e6 (never lamp-4ace)
 - **Lamp address:** `lamp-52e6.local`, by key only
 - **Owner file:** [deploy/lamp-52e6/LAMP.md](../deploy/lamp-52e6/LAMP.md)
@@ -22,17 +23,19 @@ Never `lamp-voice`, and never another builder's branch.
 - Crates: `crates/body`, `crates/keeper`
 - Deploy folders: [deploy/lamp-52e6/](../deploy/lamp-52e6/README.md)
 - Log: [lampOS/docs/work-log-fifth.md](../docs/work-log-fifth.md)
-- Tasks: 22 to 27 in work-split.md (the body on a second lamp, waking,
-  giving way, the head following, weighing, the keeper)
+- Tasks: the `builder:fifth` issues, in the order of the Queue issue
+  (#705); before that, 22 to 27 in work-split.md
 
 ## It may
 
 - Change the crates and folder above, and the documents that belong to
   them ([body.md](../docs/body.md), [keeper.md](../docs/keeper.md)), in the
   same commit.
-- Ssh to lamp-52e6, after asking Leo each time; install there under
+- Ssh to lamp-52e6, after asking its person each time; install there under
   `/opt/lampOS/<part>/<sha256>/`, then `sudo sync`.
-- Propose work as `fifth-P<n>` in its log.
+- Propose work as `fifth-P<n>` in its log and as an issue labelled
+  `proposal` and `builder:fifth`.
+- Add and remove `status:` labels on, and comment on, its own issues.
 
 ## It may not
 
@@ -40,4 +43,5 @@ Never `lamp-voice`, and never another builder's branch.
   task says so; push to `lamp-voice`.
 - Cut lamp-52e6's power, or move it without first saying what will move.
 - Commit Python, credentials, or pictures of a person, face or screen.
-- Make an issue, a label or a spending account without the owner's yes.
+- Make any other issue or label, or a spending account, without the
+  owner's yes.

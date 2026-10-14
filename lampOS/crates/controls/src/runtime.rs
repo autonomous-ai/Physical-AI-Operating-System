@@ -273,7 +273,11 @@ impl<R: PinReader> Service<R> {
         let (level, message) = if !output.state.ready {
             (Level::Error, "controls input is unavailable or invalid")
         } else if !output.state.enabled {
-            (Level::Warn, "shadow mode; gestures are not commands")
+            // Watching only is how the controls are meant to run until
+            // something acts on them: well, and said so. As a warning it
+            // made the whole lamp report one, all day (lamp-4ace,
+            // 2026-10-14, the morning the controls were first installed).
+            (Level::Ok, "shadow mode; gestures are not commands")
         } else {
             (
                 Level::Ok,

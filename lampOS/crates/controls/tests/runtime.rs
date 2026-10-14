@@ -161,7 +161,9 @@ fn shadow_gestures_remain_observable_but_cannot_become_owner_commands() {
     assert!(owner.observe(1_040_000, &retained).is_err());
     assert!(!owner.mute_record().muted);
     let report = service.report(&output);
-    assert_eq!(report.level, Level::Warn);
+    // Watching only is well, and says so: not a warning for the whole lamp.
+    assert_eq!(report.level, Level::Ok);
+    assert_eq!(report.message, "shadow mode; gestures are not commands");
     assert_eq!(value(&report, "physical_stop_verified"), "false");
     assert_eq!(value(&report, "capture_permission"), "not_owned");
 }

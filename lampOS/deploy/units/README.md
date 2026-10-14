@@ -25,7 +25,10 @@ own folder (`deploy/lamp-4ace/` is the worked example) is made from them:
 `lamp-surround.service` is not part of `lampos.target`: it is what asks for
 an update, and stopping the lamp must not stop it. The keeper's own unit
 comes with `crates/keeper`, and is not part of the target for the same
-reason.
+reason. Nor is `lamp-update.service`, which restarts the parts when it
+switches them to a new build ([updates.md](../../docs/updates.md)): its
+`@UPDATE_CHANNEL_URL@` is the channel's folder and `@UPDATE_APPLY@` its
+switch, `off` for its first minute on a lamp and `on` after.
 
 `lamp-body.service` is `Type=notify` with `WatchdogSec=5`: the body says
 when it is ready and that its loop is alive. The others are `Type=simple`

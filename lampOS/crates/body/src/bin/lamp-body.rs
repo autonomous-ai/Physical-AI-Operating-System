@@ -713,7 +713,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }
         None => (None, None),
     };
-    let mut eyes = || {
+    let eyes = || {
         // Everything waiting, and only the newest of it counts.
         let sights = sights.as_ref()?;
         let mut latest = None;

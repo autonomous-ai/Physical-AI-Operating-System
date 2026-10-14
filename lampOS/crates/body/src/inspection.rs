@@ -612,6 +612,9 @@ fn protocol_fault(error: ReplyError) -> Fault {
     }
 }
 
+/// Only the tests run an inspection without reporting faults; the lamp calls
+/// [`run_with`].
+#[cfg(test)]
 pub(crate) fn run(io: &mut impl PortIo, runtime: &mut impl Runtime) -> InspectionReport {
     run_with(io, runtime, false)
 }

@@ -1,0 +1,15 @@
+{
+  "scope": "inherited ignored cases in the 15-package gate",
+  "new_schedule_tests_ignored": 0,
+  "cases": [
+    "test arithmetic_cost ... ignored, finite release timing; host measurements are not lamp measurements",
+    "test inconclusive_cost ... ignored, finite worst-work release timing; host measurements are not lamp measurements",
+    "test records_cost ... ignored, finite release timing of disposable records; report machine separately",
+    "test coordinator::tests::endpoint_session::real_worker_session_records_verdict_provenance ... ignored, requires a built lamp-turn-end and the pinned model",
+    "test coordinator::tests::hand_controls::local_hand_stop_dispatch_latency ... ignored, manual local-host speaker-control latency probe; no lamp or acoustic claim",
+    "test provider_worker::tests::sixty_second_answer_follows_output_capacity ... ignored, one minute of real time; run explicitly",
+    "test provider_worker::tests::three_minute_answer_follows_output_capacity ... ignored, three minutes of real time; run explicitly",
+    "test reference::recovery::tests::recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift ... ignored",
+    "test reference::tests::four_virtual_hours_capture_clocked ... ignored, four virtual hours; run in release"
+  ]
+}

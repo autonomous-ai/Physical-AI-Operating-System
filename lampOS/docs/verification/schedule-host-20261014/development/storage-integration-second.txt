@@ -1,0 +1,17 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+error[E0277]: the trait bound `Vec<i32>: ToSql` is not satisfied
+   --> crates/schedule/tests/storage.rs:456:13
+    |
+456 |             params![vec![0x55; MAX_STATE_BYTES]],
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `ToSql` is not implemented for `Vec<i32>`
+    |
+help: the trait `ToSql` is implemented for `Vec<u8>`
+   --> /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rusqlite-0.40.2/src/types/to_sql.rs:306:1
+    |
+306 | impl ToSql for Vec<u8> {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: required for the cast from `&Vec<i32>` to `&dyn ToSql`
+    = note: this error originates in the macro `params` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `lamp-schedule` (test "storage") due to 1 previous error

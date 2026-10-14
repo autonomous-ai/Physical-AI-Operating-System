@@ -1,0 +1,38 @@
+[
+  {
+    "stage": "release-build",
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-schedule",
+      "--bin",
+      "lamp-schedule",
+      "--example",
+      "schedule_check"
+    ],
+    "cwd": "/Users/d/code/autonomous-os/lampOS",
+    "started_utc": "2026-10-14T08:36:30.918060+00:00",
+    "elapsed_seconds": 2.8042806,
+    "exit_code": 0,
+    "output": "/private/tmp/lamp-third-schedule-context-diagnosis-release-build.txt"
+  },
+  {
+    "stage": "qualification",
+    "command": [
+      "target/release/examples/schedule_check",
+      "--scratch-parent",
+      "/private/tmp",
+      "--samples",
+      "100"
+    ],
+    "cwd": "/Users/d/code/autonomous-os/lampOS",
+    "started_utc": "2026-10-14T08:36:33.722927+00:00",
+    "elapsed_seconds": 26.863685193000002,
+    "exit_code": 1,
+    "output": "/private/tmp/lamp-third-schedule-context-diagnosis-qualification.json"
+  }
+]

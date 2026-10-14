@@ -1,0 +1,96 @@
+//! One bounded JSON request and response per connection. Mutation guards belong
+//! to the local caller, never to the language model.
+use crate::time::When;
+use serde::{Deserialize, Serialize};
+
+pub const MAX_LINE_BYTES: usize = 8192;
+pub const MAX_REPLY_BYTES: usize = 8192;
+pub const DEFAULT_PAGE_SIZE: u16 = 8;
+pub const MAX_PAGE_SIZE: u16 = 8;
+
+/// A compare-and-set guard prevents a timed-out or reordered mutation from
+/// being performed twice. Reusing the exact most recent mutation returns its
+/// original durable receipt; otherwise the caller must read the current state.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Guard {
+    pub store_id: String,
+    pub revision: u64,
+    pub request_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Request {
+    Status {},
+    List {
+        #[serde(default)]
+        after_id: u64,
+        #[serde(default = "default_page_size")]
+        limit: u16,
+        #[serde(default)]
+        pending_only: bool,
+    },
+    Get {
+        id: u64,
+    },
+    Set {
+        guard: Guard,
+        text: String,
+        when: When,
+    },
+    Cancel {
+        guard: Guard,
+        id: u64,
+    },
+    Snooze {
+        guard: Guard,
+        id: u64,
+        delivery: u64,
+        seconds: u64,
+    },
+    Ack {
+        guard: Guard,
+        id: u64,
+        delivery: u64,
+    },
+}
+
+const fn default_page_size() -> u16 {
+    DEFAULT_PAGE_SIZE
+}
+
+impl Request {
+    pub fn guard(&self) -> Option<&Guard> {
+        match self {
+            Self::Set { guard, .. }
+            | Self::Cancel { guard, .. }
+            | Self::Snooze { guard, .. }
+            | Self::Ack { guard, .. } => Some(guard),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Status {} => "status",
+            Self::List { .. } => "list",
+            Self::Get { .. } => "get",
+            Self::Set { .. } => "set",
+            Self::Cancel { .. } => "cancel",
+            Self::Snooze { .. } => "snooze",
+            Self::Ack { .. } => "ack",
+        }
+    }
+
+    pub fn parse(line: &[u8]) -> Result<Self, &'static str> {
+        if line.len() > MAX_LINE_BYTES {
+            return Err("too_long");
+        }
+        serde_json::from_slice(line).map_err(|_| "bad_request")
+    }
+}
+
+pub fn refusal(code: &str, message: &str) -> serde_json::Value {
+    serde_json::json!({"ok": false, "error": code, "message": message})
+}

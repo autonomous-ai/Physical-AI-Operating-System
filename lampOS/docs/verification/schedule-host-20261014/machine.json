@@ -1,0 +1,133 @@
+{
+  "captured_utc": "2026-10-14T07:46:52.547866+00:00",
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "machine_scope": "Third builder development host; not a lamp",
+  "platform": "macOS-26.6.2-x86_64-i386-64bit",
+  "commands": {
+    "kernel": {
+      "command": [
+        "uname",
+        "-a"
+      ],
+      "exit_code": 0,
+      "output": "Darwin violet4.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:11:49 PDT 2026; root:xnu-12377.161.14~5/RELEASE_X86_64 x86_64"
+    },
+    "os": {
+      "command": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83"
+    },
+    "cpu": {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit_code": 0,
+      "output": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz"
+    },
+    "memory_bytes": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit_code": 0,
+      "output": "68719476736"
+    },
+    "logical_cpus": {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.logicalcpu"
+      ],
+      "exit_code": 0,
+      "output": "16"
+    },
+    "rust": {
+      "command": [
+        "rustc",
+        "--version",
+        "--verbose"
+      ],
+      "exit_code": 0,
+      "output": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-apple-darwin\nrelease: 1.96.0\nLLVM version: 22.1.2"
+    },
+    "cargo": {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exit_code": 0,
+      "output": "cargo 1.96.0 (30a34c682 2026-05-25)"
+    },
+    "installed_targets": {
+      "command": [
+        "rustup",
+        "target",
+        "list",
+        "--installed"
+      ],
+      "exit_code": 0,
+      "output": "x86_64-apple-darwin"
+    },
+    "scratch_filesystem": {
+      "command": [
+        "df",
+        "-T",
+        "/private/tmp"
+      ],
+      "exit_code": 0,
+      "output": ""
+    },
+    "workspace_filesystem": {
+      "command": [
+        "df",
+        "-T",
+        "/Users/d/code/autonomous-os/lampOS"
+      ],
+      "exit_code": 0,
+      "output": ""
+    },
+    "scratch_mount": {
+      "command": [
+        "df",
+        "-h",
+        "/private/tmp"
+      ],
+      "exit_code": 0,
+      "output": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk1s2   466Gi   281Gi   169Gi    63%    4.1M  1.8G    0%   /System/Volumes/Data"
+    },
+    "workspace_mount": {
+      "command": [
+        "df",
+        "-h",
+        "/Users/d/code/autonomous-os/lampOS"
+      ],
+      "exit_code": 0,
+      "output": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk1s2   466Gi   281Gi   169Gi    63%    4.1M  1.8G    0%   /System/Volumes/Data"
+    },
+    "scratch_disk_info": {
+      "command": [
+        "/usr/sbin/diskutil",
+        "info",
+        "-plist",
+        "/private/tmp"
+      ],
+      "exit_code": 1,
+      "selected_fields": {}
+    },
+    "scratch_filesystem_mount": {
+      "command": [
+        "/sbin/mount"
+      ],
+      "exit_code": 0,
+      "selected_line": [
+        "/dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse, root data)"
+      ]
+    }
+  },
+  "filesystem_probe_note": "macOS df -T returned no mount output and diskutil info with a directory path returned exit1; df -h and the selected mount line identify the actual filesystem."
+}

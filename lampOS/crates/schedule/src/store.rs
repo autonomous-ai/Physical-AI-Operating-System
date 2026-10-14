@@ -1,0 +1,410 @@
+//! One opaque, bounded snapshot. Schedule policy and JSON validation belong
+//! to the engine. An acknowledgement requires SQLite commit and directory
+//! sync. A commit error can occur after the new value became durable: discard
+//! this owner and reopen/load before deciding what happened.
+//!
+//! The private directory and its advisory lock exclude other cooperating
+//! owners. A hostile process with the same UID can still modify private files;
+//! this is not a security boundary against that process.
+use rusqlite::{Connection, OpenFlags, TransactionBehavior, config::DbConfig, params};
+use rustix::fs::{self as unix, Mode, OFlags, RenameFlags};
+use std::{
+    fs::{self, File, Metadata, TryLockError},
+    io,
+    os::unix::fs::MetadataExt,
+    path::{Component, Path, PathBuf},
+    time::Duration,
+};
+
+pub const MAX_STATE_BYTES: usize = 1_048_576;
+const MAX_DATABASE_BYTES: u64 = 16 * 1_048_576;
+const PAGE_SIZE: u64 = 4_096;
+const DATABASE: &str = "schedule.sqlite3";
+const INITIALIZING: &str = ".schedule.sqlite3.init";
+const SCHEMA: &str = "CREATE TABLE state (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), snapshot BLOB NOT NULL CHECK (length(snapshot) BETWEEN 1 AND 1048576)) STRICT";
+
+fn invalid(message: &str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, message)
+}
+
+fn sql(error: rusqlite::Error) -> io::Error {
+    // SQLite errors contain no snapshot values for the parameterized SQL here.
+    io::Error::other(format!("schedule storage: {error}"))
+}
+
+fn private(metadata: &Metadata, directory: bool) -> io::Result<()> {
+    let expected_mode = if directory { 0o700 } else { 0o600 };
+    if (directory && !metadata.is_dir())
+        || (!directory && (!metadata.is_file() || metadata.nlink() != 1))
+        || metadata.mode() & 0o7777 != expected_mode
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "schedule storage must be owned by this user, unlinked, and mode 0700/0600",
+        ));
+    }
+    Ok(())
+}
+
+fn same_file(left: &Metadata, right: &Metadata) -> bool {
+    left.dev() == right.dev() && left.ino() == right.ino()
+}
+
+fn check_file(path: &Path, bound: u64) -> io::Result<Option<Metadata>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    private(&metadata, false)?;
+    if metadata.len() > bound {
+        return Err(invalid("schedule storage file exceeds its byte bound"));
+    }
+    Ok(Some(metadata))
+}
+
+fn check_sidecars(path: &Path, name: &str) -> io::Result<()> {
+    // A hot rollback journal is legitimate and SQLite must recover it. Check
+    // its ownership/type/size before allowing the library to open it.
+    check_file(
+        &path.join(format!("{name}-journal")),
+        MAX_DATABASE_BYTES + MAX_STATE_BYTES as u64,
+    )?;
+    for suffix in ["-wal", "-shm"] {
+        if check_file(&path.join(format!("{name}{suffix}")), MAX_DATABASE_BYTES)?.is_some() {
+            return Err(invalid("schedule storage does not accept WAL sidecars"));
+        }
+    }
+    Ok(())
+}
+
+fn directory(path: &Path) -> io::Result<(PathBuf, File)> {
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "schedule directory must be absolute without dot components",
+        ));
+    }
+    let name = path
+        .file_name()
+        .ok_or_else(|| invalid("schedule directory needs a final component"))?;
+    // Resolve ancestors, including /tmp and /var aliases on macOS. Never
+    // resolve the final component: a linked store directory is refused.
+    let parent_path = path
+        .parent()
+        .ok_or_else(|| invalid("schedule directory needs a parent"))?
+        .canonicalize()?;
+    let parent: File = unix::open(
+        &parent_path,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?
+    .into();
+    match unix::mkdirat(&parent, name, Mode::from_bits_retain(0o700)) {
+        Ok(()) => parent.sync_all()?,
+        Err(error) if error == rustix::io::Errno::EXIST => {}
+        Err(error) => return Err(error.into()),
+    }
+    let held: File = unix::openat(
+        &parent,
+        name,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?
+    .into();
+    private(&held.metadata()?, true)?;
+    held.try_lock().map_err(|error| match error {
+        TryLockError::WouldBlock => io::Error::new(
+            io::ErrorKind::WouldBlock,
+            "schedule directory is already owned",
+        ),
+        TryLockError::Error(error) => error,
+    })?;
+    Ok((parent_path.join(name), held))
+}
+
+fn open_file(directory: &File, name: &str, create: bool) -> io::Result<File> {
+    let mut flags = OFlags::RDWR | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK;
+    if create {
+        flags |= OFlags::CREATE | OFlags::EXCL;
+    }
+    let file: File = unix::openat(directory, name, flags, Mode::from_bits_retain(0o600))?.into();
+    private(&file.metadata()?, false)?;
+    Ok(file)
+}
+
+fn connect(path: &Path) -> io::Result<Connection> {
+    let db = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+    )
+    .map_err(sql)?;
+    db.busy_timeout(Duration::from_millis(50)).map_err(sql)?;
+    db.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)
+        .map_err(sql)?;
+    db.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)
+        .map_err(sql)?;
+    db.execute_batch("PRAGMA synchronous=FULL; PRAGMA fullfsync=ON; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-2048; PRAGMA mmap_size=0;").map_err(sql)?;
+    let mode: String = db
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .map_err(sql)?;
+    if mode != "delete" {
+        return Err(invalid("schedule storage requires DELETE journal mode"));
+    }
+    Ok(db)
+}
+
+fn validate(db: &Connection) -> io::Result<()> {
+    let version: u64 = db
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(sql)?;
+    if version != 1 {
+        return Err(invalid("unsupported schedule storage schema version"));
+    }
+    let schemas: Vec<(String, String, String, String)> = db
+        .prepare("SELECT type, name, tbl_name, coalesce(sql, '') FROM sqlite_schema LIMIT 2")
+        .map_err(sql)?
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .map_err(sql)?
+        .collect::<rusqlite::Result<_>>()
+        .map_err(sql)?;
+    if schemas
+        != [(
+            "table".into(),
+            "state".into(),
+            "state".into(),
+            SCHEMA.into(),
+        )]
+    {
+        return Err(invalid("unexpected schedule storage schema"));
+    }
+    let page_size: u64 = db
+        .query_row("PRAGMA page_size", [], |row| row.get(0))
+        .map_err(sql)?;
+    let pages: u64 = db
+        .query_row("PRAGMA page_count", [], |row| row.get(0))
+        .map_err(sql)?;
+    if page_size != PAGE_SIZE || pages > MAX_DATABASE_BYTES / PAGE_SIZE {
+        return Err(invalid(
+            "schedule database exceeds its page bound or format",
+        ));
+    }
+    db.pragma_update(None, "max_page_count", MAX_DATABASE_BYTES / PAGE_SIZE)
+        .map_err(sql)?;
+    let check: String = db
+        .query_row("PRAGMA quick_check(1)", [], |row| row.get(0))
+        .map_err(sql)?;
+    if check != "ok" {
+        return Err(invalid("schedule database integrity check failed"));
+    }
+    load_snapshot(db)?;
+    Ok(())
+}
+
+fn load_snapshot(db: &Connection) -> io::Result<Option<Vec<u8>>> {
+    // SQL bounds the returned allocation even if another writer bypassed a
+    // CHECK constraint. A second row or invalid singleton is never ignored.
+    let mut statement = db.prepare("SELECT singleton, CASE WHEN typeof(snapshot) = 'blob' AND length(snapshot) BETWEEN 1 AND 1048576 THEN snapshot END FROM state ORDER BY singleton LIMIT 2").map_err(sql)?;
+    let mut rows = statement.query([]).map_err(sql)?;
+    let Some(row) = rows.next().map_err(sql)? else {
+        return Ok(None);
+    };
+    let id: i64 = row.get(0).map_err(sql)?;
+    let bytes: Option<Vec<u8>> = row.get(1).map_err(sql)?;
+    if id != 1 || bytes.is_none() || rows.next().map_err(sql)?.is_some() {
+        return Err(invalid("invalid schedule singleton snapshot"));
+    }
+    Ok(bytes)
+}
+
+fn initialize(path: &Path, held: &File) -> io::Result<()> {
+    if check_file(
+        &path.join(format!("{DATABASE}-journal")),
+        MAX_DATABASE_BYTES,
+    )?
+    .is_some()
+    {
+        return Err(invalid(
+            "rollback journal exists without the schedule database",
+        ));
+    }
+    check_sidecars(path, INITIALIZING)?;
+    let existing = check_file(&path.join(INITIALIZING), MAX_DATABASE_BYTES)?.is_some();
+    if !existing
+        && check_file(
+            &path.join(format!("{INITIALIZING}-journal")),
+            MAX_DATABASE_BYTES + MAX_STATE_BYTES as u64,
+        )?
+        .is_some()
+    {
+        return Err(invalid(
+            "initialization journal exists without its database",
+        ));
+    }
+    let file = open_file(held, INITIALIZING, !existing)?;
+    let mut db = connect(&path.join(INITIALIZING))?;
+    let version: u64 = db
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(sql)?;
+    let tables: u64 = db
+        .query_row("SELECT count(*) FROM sqlite_schema", [], |row| row.get(0))
+        .map_err(sql)?;
+    if version == 0 && tables == 0 {
+        // A crash before the initialization transaction committed may leave
+        // this reserved file empty. Only this unpublished file can initialize.
+        db.pragma_update(None, "page_size", PAGE_SIZE)
+            .map_err(sql)?;
+        let tx = db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql)?;
+        tx.execute_batch(SCHEMA).map_err(sql)?;
+        tx.pragma_update(None, "user_version", 1).map_err(sql)?;
+        tx.commit().map_err(sql)?;
+    }
+    validate(&db)?;
+    if load_snapshot(&db)?.is_some() {
+        return Err(invalid(
+            "unpublished initialization file contains a snapshot",
+        ));
+    }
+    db.close().map_err(|(_, error)| sql(error))?;
+    file.sync_all()?;
+    unix::renameat_with(held, INITIALIZING, held, DATABASE, RenameFlags::NOREPLACE)?;
+    held.sync_all()
+}
+
+pub struct Store {
+    // Drop the SQLite connection before closing another descriptor for the
+    // same inode: closing it earlier could release SQLite's POSIX locks.
+    db: Connection,
+    file: File,
+    path: PathBuf,
+    poisoned: bool,
+    held: File,
+}
+
+impl Store {
+    pub fn open(dir: &Path) -> io::Result<Self> {
+        let (path, held) = directory(dir)?;
+        check_sidecars(&path, DATABASE)?;
+        if check_file(&path.join(DATABASE), MAX_DATABASE_BYTES)?.is_none() {
+            initialize(&path, &held)?;
+        } else if check_file(&path.join(INITIALIZING), MAX_DATABASE_BYTES)?.is_some() {
+            return Err(invalid(
+                "both published and initializing schedule databases exist",
+            ));
+        }
+        let file = open_file(&held, DATABASE, false)?;
+        if file.metadata()?.len() == 0 {
+            return Err(invalid("existing schedule database is empty"));
+        }
+        let db = connect(&path.join(DATABASE))?;
+        validate(&db)?;
+        let store = Self {
+            db,
+            file,
+            path,
+            poisoned: false,
+            held,
+        };
+        store.check_files()?;
+        // Also covers a recovered hot journal and a completed initialization
+        // rename whose previous process died before syncing the directory.
+        store.file.sync_all()?;
+        store.held.sync_all()?;
+        Ok(store)
+    }
+
+    pub fn load(&self) -> io::Result<Option<Vec<u8>>> {
+        self.check_files()?;
+        load_snapshot(&self.db)
+    }
+
+    pub fn commit(&mut self, bytes: &[u8]) -> io::Result<()> {
+        if bytes.is_empty() || bytes.len() > MAX_STATE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "snapshot must contain 1..1048576 bytes",
+            ));
+        }
+        let result = self.write(bytes);
+        if result.is_err() {
+            self.poisoned = true;
+        }
+        result
+    }
+
+    pub fn poisoned(&self) -> bool {
+        self.poisoned
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.check_files()?;
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql)?;
+        tx.execute("INSERT INTO state(singleton, snapshot) VALUES (1, ?1) ON CONFLICT(singleton) DO UPDATE SET snapshot=excluded.snapshot", params![bytes]).map_err(sql)?;
+        tx.commit().map_err(sql)?;
+        // FULL synchronizes database/journal contents. DELETE journal mode
+        // additionally needs this directory sync before a durable ack.
+        self.held.sync_all()?;
+        self.check_files()
+    }
+
+    fn check_files(&self) -> io::Result<()> {
+        if self.poisoned {
+            return Err(io::Error::other(
+                "schedule store needs restart after a storage error",
+            ));
+        }
+        let directory = fs::symlink_metadata(&self.path)?;
+        private(&directory, true)?;
+        if !same_file(&directory, &self.held.metadata()?) {
+            return Err(invalid("schedule directory changed while owned"));
+        }
+        let file = check_file(&self.path.join(DATABASE), MAX_DATABASE_BYTES)?
+            .ok_or_else(|| invalid("schedule database disappeared while owned"))?;
+        if !same_file(&file, &self.file.metadata()?) {
+            return Err(invalid("schedule database changed while owned"));
+        }
+        check_sidecars(&self.path, DATABASE)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn live_connection_uses_full_sync_delete_journal_and_bounded_pages() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(&root.path().join("private")).unwrap();
+        for (name, expected) in [
+            ("synchronous", 2),
+            ("fullfsync", 1),
+            ("temp_store", 2),
+            ("max_page_count", 4096),
+        ] {
+            let actual: u64 = store
+                .db
+                .query_row(&format!("PRAGMA {name}"), [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(actual, expected, "{name}");
+        }
+        let journal: String = store
+            .db
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(journal, "delete");
+    }
+}

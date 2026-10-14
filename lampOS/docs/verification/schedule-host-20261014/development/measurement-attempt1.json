@@ -1,0 +1,44 @@
+{
+  "scope": "Third development host; not a lamp",
+  "machine_record": "machine.json",
+  "runs": [
+    {
+      "name": "release-build",
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-schedule",
+        "--bin",
+        "lamp-schedule",
+        "--example",
+        "schedule_check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T08:26:32.236979+00:00",
+      "elapsed_seconds": 32.255693206,
+      "exit_code": 0,
+      "output": "/private/tmp/lamp-third-schedule-release-build.txt"
+    },
+    {
+      "name": "qualification",
+      "command": [
+        "target/release/examples/schedule_check",
+        "--scratch-parent",
+        "/private/tmp",
+        "--samples",
+        "100"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T08:27:04.492162+00:00",
+      "elapsed_seconds": 26.871581701000004,
+      "exit_code": 1,
+      "output": "/private/tmp/lamp-third-schedule-qualification.json"
+    }
+  ],
+  "other_third_builds_or_tests_during_measurement": false,
+  "unrelated_host_load_controlled": false
+}

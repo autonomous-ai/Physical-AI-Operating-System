@@ -1,0 +1,90 @@
+{
+  "scope": "Third development host; not a lamp",
+  "machine_record": "machine.json",
+  "runs": [
+    {
+      "name": "release-build",
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-schedule",
+        "--bin",
+        "lamp-schedule",
+        "--example",
+        "schedule_check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T08:48:08.513915+00:00",
+      "elapsed_seconds": 9.024656861,
+      "exit_code": 0,
+      "output": "release-build.txt",
+      "original_output": "/private/tmp/lamp-third-schedule-release-build.txt"
+    },
+    {
+      "name": "qualification",
+      "command": [
+        "target/release/examples/schedule_check",
+        "--scratch-parent",
+        "/private/tmp",
+        "--samples",
+        "100"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T08:48:17.539031+00:00",
+      "elapsed_seconds": 26.364343387000005,
+      "exit_code": 0,
+      "output": "qualification.json",
+      "original_output": "/private/tmp/lamp-third-schedule-qualification.json"
+    }
+  ],
+  "other_third_builds_or_tests_during_measurement": false,
+  "unrelated_host_load_controlled": false,
+  "source_gate": "supplement-results.json",
+  "source_hashes": {
+    "crates/schedule/Cargo.toml": "a4e928f93f986d6d6aa821c7eafa9f1d32ba3cb845f4597570554701b5efc33d",
+    "crates/schedule/examples/schedule_check.rs": "e43db41c6f043d1a2baad9d122749622da477de10c17e745e2b58a250c65aa73",
+    "crates/schedule/src/engine.rs": "9f8018e3fa5f9c17aa9c499e7c1c36184c348f7c95e13b65499c842f4a3be38a",
+    "crates/schedule/src/lib.rs": "9db0d307f9cf6020b4cc67a83eeaa579fce011df19292dc092a7d4c05451bc72",
+    "crates/schedule/src/main.rs": "6dcd506d02e271ecc6b6e547cd4c016c7482342d12e0901765bc45d47eb40abe",
+    "crates/schedule/src/protocol.rs": "1ca1396c74b88926b7f6b13b096df52776cd6cea63094ba79697daf1db4366f1",
+    "crates/schedule/src/runtime.rs": "b6331d983a06b744c3d4bf14b5c0fd3aa7988f3f93a0bec1dd0afa62cc1c5e80",
+    "crates/schedule/src/store.rs": "2b6a2334d4078197496ee15287dab4d8490891b137566a7c2b0f0900c2ed3fb1",
+    "crates/schedule/src/time.rs": "89bf1b03294944fbfc51ef71d9b94c86fa5a149399832075ead0739d8b38959c",
+    "crates/schedule/tests/calendar.rs": "5493ab576a3b4cd790ea82cc1580be7d6d91da8c2e9ade79bd165a3326a73152",
+    "crates/schedule/tests/engine.rs": "d2e33765fb2874a20ebcbdf9ca2de248d21429cdd60f62d379fcfd1551a7f820",
+    "crates/schedule/tests/protocol.rs": "ea4c373f0d700baf4df5daef822f5eabce14efae73317e8d591af80447fcd06a",
+    "crates/schedule/tests/runtime.rs": "35bb97c3d1ccd9a69bc7cf4b728b1e7cf102a3b9785cfb02874167aed1c43f5c",
+    "crates/schedule/tests/runtime_failures.rs": "d833aa0bca5e3ee0c8f9d91ad6498bdb3d1e75be1d68292352a548aaa5b9396c",
+    "crates/schedule/tests/storage.rs": "7665c25a051752708a3604a66db100850834af97d4e95184c6b2ac0c018fa20e",
+    "crates/msgs/Cargo.toml": "4baec082004389cd0a6422e285fe7a8c42ba3bfb936fa531940dee4db5d6d925",
+    "crates/msgs/src/controls.rs": "d37f9945a055aae7d29379571da5b4d8638a145b29499f35306f0607e9554263",
+    "crates/msgs/src/expression.rs": "2bad3b9779276ec2b3396d7bbdd503d5b6ceb1e46b992cc8c485cf27536cbce9",
+    "crates/msgs/src/lib.rs": "2d40c1e377a50fb955a99e778b2d5bb7c81a0ef7dc75eccf188b2822a57fe1ce",
+    "crates/msgs/src/schedule.rs": "75e57f233884ba7478fb3c917c93baa14b18bf0bf1b4007d542bab9a737a793f",
+    "crates/msgs/tests/bus.rs": "68464bf9055a5d4b9da90aa685adecd75defc0e00ed2b57ea46cac7e06c182e5",
+    "crates/msgs/tests/controls.rs": "b6d2f57b661ddea523c5041b9525f8e184c15273effb3c6c6ee1a0acf433aaaf",
+    "crates/msgs/tests/expression.rs": "3926c6a98e7186556eec208a50e0f55c23441927903827ad0f9a7c7a26eea70c",
+    "crates/msgs/tests/expression_rest.rs": "2a91e975fb4f0072a6e645acbde1ca7190ba9a22d4ddc38fd1e2e6b15688506b",
+    "crates/msgs/tests/schedule.rs": "a1ce35440837caf1ec264239c29f3fac19593842122773cd8dc1c895c655a192",
+    "Cargo.toml": "3caa5c163ca188bc0f5ef8c659e02471c19e78b9d4abbfd0720427000228e153",
+    "Cargo.lock": "69a9061a1a9077c2370945916e9595a5938c3f1a3ca280236d12e643608f8ce8",
+    "rust-toolchain.toml": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749"
+  },
+  "scratch_cleanup_verified": true,
+  "binaries": {
+    "target/release/lamp-schedule": {
+      "bytes": 3894400,
+      "sha256": "e2e7eddebb2781b3e2571d43bbfe4439a96c614698afc366f17fb52a5693a683"
+    },
+    "target/release/examples/schedule_check": {
+      "bytes": 4061568,
+      "sha256": "83a534294772a478c14517f0ac91083b11a36f89f852e596fd9b0a9aa9028710"
+    }
+  },
+  "runtime_hashes_match_after_measurement": true,
+  "timing_samples": 510
+}

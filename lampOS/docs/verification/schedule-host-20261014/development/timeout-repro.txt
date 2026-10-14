@@ -1,0 +1,127 @@
+platform=macos/x86_64
+closed=false timeout_ns=2000000000 before_read: ok
+closed=false timeout_ns=2000000000 chunk=0 read=1024 total=1024
+closed=false timeout_ns=2000000000 after_chunk=0: ok
+closed=false timeout_ns=2000000000 chunk=1 read=1024 total=2048
+closed=false timeout_ns=2000000000 after_chunk=1: ok
+closed=false timeout_ns=2000000000 chunk=2 read=1024 total=3072
+closed=false timeout_ns=2000000000 after_chunk=2: ok
+closed=false timeout_ns=2000000000 chunk=3 read=1024 total=4096
+closed=false timeout_ns=2000000000 after_chunk=3: ok
+closed=false timeout_ns=1999999999 before_read: ok
+closed=false timeout_ns=1999999999 chunk=0 read=1024 total=1024
+closed=false timeout_ns=1999999999 after_chunk=0: ok
+closed=false timeout_ns=1999999999 chunk=1 read=1024 total=2048
+closed=false timeout_ns=1999999999 after_chunk=1: ok
+closed=false timeout_ns=1999999999 chunk=2 read=1024 total=3072
+closed=false timeout_ns=1999999999 after_chunk=2: ok
+closed=false timeout_ns=1999999999 chunk=3 read=1024 total=4096
+closed=false timeout_ns=1999999999 after_chunk=3: ok
+closed=false timeout_ns=1999123456 before_read: ok
+closed=false timeout_ns=1999123456 chunk=0 read=1024 total=1024
+closed=false timeout_ns=1999123456 after_chunk=0: ok
+closed=false timeout_ns=1999123456 chunk=1 read=1024 total=2048
+closed=false timeout_ns=1999123456 after_chunk=1: ok
+closed=false timeout_ns=1999123456 chunk=2 read=1024 total=3072
+closed=false timeout_ns=1999123456 after_chunk=2: ok
+closed=false timeout_ns=1999123456 chunk=3 read=1024 total=4096
+closed=false timeout_ns=1999123456 after_chunk=3: ok
+closed=false timeout_ns=1000000000 before_read: ok
+closed=false timeout_ns=1000000000 chunk=0 read=1024 total=1024
+closed=false timeout_ns=1000000000 after_chunk=0: ok
+closed=false timeout_ns=1000000000 chunk=1 read=1024 total=2048
+closed=false timeout_ns=1000000000 after_chunk=1: ok
+closed=false timeout_ns=1000000000 chunk=2 read=1024 total=3072
+closed=false timeout_ns=1000000000 after_chunk=2: ok
+closed=false timeout_ns=1000000000 chunk=3 read=1024 total=4096
+closed=false timeout_ns=1000000000 after_chunk=3: ok
+closed=false timeout_ns=999999999 before_read: ok
+closed=false timeout_ns=999999999 chunk=0 read=1024 total=1024
+closed=false timeout_ns=999999999 after_chunk=0: ok
+closed=false timeout_ns=999999999 chunk=1 read=1024 total=2048
+closed=false timeout_ns=999999999 after_chunk=1: ok
+closed=false timeout_ns=999999999 chunk=2 read=1024 total=3072
+closed=false timeout_ns=999999999 after_chunk=2: ok
+closed=false timeout_ns=999999999 chunk=3 read=1024 total=4096
+closed=false timeout_ns=999999999 after_chunk=3: ok
+closed=false timeout_ns=50000000 before_read: ok
+closed=false timeout_ns=50000000 chunk=0 read=1024 total=1024
+closed=false timeout_ns=50000000 after_chunk=0: ok
+closed=false timeout_ns=50000000 chunk=1 read=1024 total=2048
+closed=false timeout_ns=50000000 after_chunk=1: ok
+closed=false timeout_ns=50000000 chunk=2 read=1024 total=3072
+closed=false timeout_ns=50000000 after_chunk=2: ok
+closed=false timeout_ns=50000000 chunk=3 read=1024 total=4096
+closed=false timeout_ns=50000000 after_chunk=3: ok
+closed=false timeout_ns=1 before_read: ok
+closed=false timeout_ns=1 chunk=0 read=1024 total=1024
+closed=false timeout_ns=1 after_chunk=0: ok
+closed=false timeout_ns=1 chunk=1 read=1024 total=2048
+closed=false timeout_ns=1 after_chunk=1: ok
+closed=false timeout_ns=1 chunk=2 read=1024 total=3072
+closed=false timeout_ns=1 after_chunk=2: ok
+closed=false timeout_ns=1 chunk=3 read=1024 total=4096
+closed=false timeout_ns=1 after_chunk=3: ok
+closed=true timeout_ns=2000000000 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=2000000000 chunk=0 read=1024 total=1024
+closed=true timeout_ns=2000000000 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=2000000000 chunk=1 read=1024 total=2048
+closed=true timeout_ns=2000000000 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=2000000000 chunk=2 read=1024 total=3072
+closed=true timeout_ns=2000000000 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=2000000000 chunk=3 read=1024 total=4096
+closed=true timeout_ns=2000000000 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999999999 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999999999 chunk=0 read=1024 total=1024
+closed=true timeout_ns=1999999999 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999999999 chunk=1 read=1024 total=2048
+closed=true timeout_ns=1999999999 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999999999 chunk=2 read=1024 total=3072
+closed=true timeout_ns=1999999999 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999999999 chunk=3 read=1024 total=4096
+closed=true timeout_ns=1999999999 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999123456 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999123456 chunk=0 read=1024 total=1024
+closed=true timeout_ns=1999123456 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999123456 chunk=1 read=1024 total=2048
+closed=true timeout_ns=1999123456 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999123456 chunk=2 read=1024 total=3072
+closed=true timeout_ns=1999123456 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1999123456 chunk=3 read=1024 total=4096
+closed=true timeout_ns=1999123456 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1000000000 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1000000000 chunk=0 read=1024 total=1024
+closed=true timeout_ns=1000000000 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1000000000 chunk=1 read=1024 total=2048
+closed=true timeout_ns=1000000000 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1000000000 chunk=2 read=1024 total=3072
+closed=true timeout_ns=1000000000 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1000000000 chunk=3 read=1024 total=4096
+closed=true timeout_ns=1000000000 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=999999999 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=999999999 chunk=0 read=1024 total=1024
+closed=true timeout_ns=999999999 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=999999999 chunk=1 read=1024 total=2048
+closed=true timeout_ns=999999999 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=999999999 chunk=2 read=1024 total=3072
+closed=true timeout_ns=999999999 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=999999999 chunk=3 read=1024 total=4096
+closed=true timeout_ns=999999999 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=50000000 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=50000000 chunk=0 read=1024 total=1024
+closed=true timeout_ns=50000000 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=50000000 chunk=1 read=1024 total=2048
+closed=true timeout_ns=50000000 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=50000000 chunk=2 read=1024 total=3072
+closed=true timeout_ns=50000000 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=50000000 chunk=3 read=1024 total=4096
+closed=true timeout_ns=50000000 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1 before_read: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1 chunk=0 read=1024 total=1024
+closed=true timeout_ns=1 after_chunk=0: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1 chunk=1 read=1024 total=2048
+closed=true timeout_ns=1 after_chunk=1: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1 chunk=2 read=1024 total=3072
+closed=true timeout_ns=1 after_chunk=2: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)
+closed=true timeout_ns=1 chunk=3 read=1024 total=4096
+closed=true timeout_ns=1 after_chunk=3: kind=InvalidInput raw=Some(22) error=Invalid argument (os error 22)

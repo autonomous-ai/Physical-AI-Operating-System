@@ -1,0 +1,36 @@
+# lampOS eyes: finds a face in the head camera's picture and tells the body where it is
+# (lampOS/docs/eyes.md). The camera opens only while the voice keeps permitting it.
+# Template: replace every @NAME@ (README.md here). lamp-4ace's own unit is the worked example.
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS eyes (lamp-eyes)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+# After the body, which is Type=notify: its gaze socket exists before the first look is sent
+# to it, and at stop the eyes end before the body. A look sent with no body is dropped, not an error.
+After=lamp-voice.service lamp-body.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+SupplementaryGroups=video
+Slice=lampos-parts.slice
+WorkingDirectory=/
+RuntimeDirectory=lampos-eyes
+RuntimeDirectoryMode=0755
+# Looking is never worth a late word.
+Nice=10
+ExecStart=/opt/lampOS/eyes/@EYES_SHA256@/lamp-eyes --device @CAMERA_DEVICE@ --lock-directory @CAMERA_LOCK_DIR@ --usb @CAMERA_USB@ --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-eyes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

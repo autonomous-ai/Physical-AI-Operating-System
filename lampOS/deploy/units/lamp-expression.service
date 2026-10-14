@@ -1,0 +1,27 @@
+# lampOS Expression: the plan of what the lamp shows while it listens, thinks and speaks
+# (lampOS/docs/expression.md). Without --enable it only watches: nothing it plans is sent.
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS Expression (lamp-expression serve)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=lamp-voice.service lamp-body.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+Slice=lampos-parts.slice
+Nice=5
+ExecStart=/opt/lampOS/expression/@EXPRESSION_SHA256@/lamp-expression serve --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-expression
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

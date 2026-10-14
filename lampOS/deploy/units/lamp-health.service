@@ -1,0 +1,27 @@
+# lampOS health: every part's report gathered into one answer on lamp/health (lampOS/docs/health.md).
+# Template: replace every @NAME@ (README.md here).
+# Started first, so that it sees the others come up. Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS health (lamp-health serve)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=local-fs.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@LAMP_USER@
+Group=@LAMP_USER@
+Slice=lampos-parts.slice
+Nice=5
+# @HEALTH_EXPECT@: one --expect NAME for each part that reports on this lamp; @JUDGE_ZONES@: --judge-zone for each thermal zone to judge.
+ExecStart=/opt/lampOS/health/@HEALTH_SHA256@/lamp-health serve --bus-root /run/lampos-bus @HEALTH_EXPECT@ @JUDGE_ZONES@
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-health
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

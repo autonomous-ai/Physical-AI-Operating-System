@@ -1,0 +1,26 @@
+# lampOS memory: what the lamp keeps from one day to the next (lampOS/docs/memory.md).
+# Template: replace every @NAME@ (README.md here).
+# Type=simple until it calls the keeper's helper.
+[Unit]
+Description=lampOS memory (lamp-memory)
+ConditionHost=@UNIT_ID@
+PartOf=lampos.target
+After=local-fs.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Its own user: no other part reads its records.
+User=@MEMORY_USER@
+Group=@MEMORY_USER@
+Slice=lampos-parts.slice
+ExecStart=/opt/lampOS/memory/@MEMORY_SHA256@/lamp-memory --dir @MEMORY_DIR@ --socket @MEMORY_SOCKET@
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+SyslogIdentifier=lamp-memory
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

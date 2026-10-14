@@ -1,0 +1,9 @@
+Filesystem   1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on
+/dev/disk1s2   488245288 439730756  27612084    95% 5982615 276120840    2%   /System/Volumes/Data
+     Removed 30615 files, 5.5GiB total
+     Removed 35655 files, 5.9GiB total
+Filesystem   1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on
+/dev/disk1s2   488245288 419870280  47472560    90% 5943695 474725600    1%   /System/Volumes/Data
+     Removed 122262 files, 13.7GiB total
+Filesystem   1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on
+/dev/disk1s2   488245288 408140956  59201884    88% 5868676 592018840    1%   /System/Volumes/Data

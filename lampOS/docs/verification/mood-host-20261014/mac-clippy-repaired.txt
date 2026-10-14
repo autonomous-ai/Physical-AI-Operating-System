@@ -1,0 +1,2 @@
+    Checking lamp-mood v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/mood)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.09s

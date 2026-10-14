@@ -1,0 +1,18 @@
+{
+  "base": "a9992f272d302e3ce79a889faa2a88c5867af79d",
+  "upstream_changed": [
+    "lamp-eyes",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-ring",
+    "lamp-voice"
+  ],
+  "affected": [
+    "lamp-eyes",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-ring",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ]
+}

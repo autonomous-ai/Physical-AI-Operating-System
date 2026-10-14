@@ -1,0 +1,4 @@
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/msgs)
+   Compiling lamp-mood v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/mood)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.26s
+     Running `target/debug/examples/replay_day`

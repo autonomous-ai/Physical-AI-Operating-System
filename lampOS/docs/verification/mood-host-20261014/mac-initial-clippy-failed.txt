@@ -1,0 +1,50 @@
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking bitflags v2.13.2
+    Checking jiff-core v0.1.1
+    Checking jiff-tzdb v0.1.9
+    Checking cfg-if v1.0.5
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking libc v0.2.190
+    Checking fastrand v2.5.0
+    Checking once_cell v1.21.4
+    Checking errno v0.3.14
+    Checking getrandom v0.4.3
+    Checking jiff v0.2.38
+    Checking rustix v1.1.5
+    Checking signal-hook-registry v1.4.8
+    Checking signal-hook v0.4.4
+    Checking tempfile v3.27.0
+    Checking serde v1.0.229
+    Checking serde_json v1.0.151
+    Checking lamp-bus v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/msgs)
+    Checking lamp-mood v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/mood)
+error: large size difference between variants
+   --> crates/mood/src/input.rs:208:1
+    |
+208 | / enum Payload {
+209 | |     Voice(VoiceState),
+210 | |     Heard(bool),
+211 | |     Faces(Faces),
+212 | |     Controls(ControlsState),
+    | |     ----------------------- the largest variant contains at least 352 bytes
+...   |
+217 | |     Schedule(ScheduleDue),
+    | |     --------------------- the second-largest variant contains at least 136 bytes
+218 | | }
+    | |_^ the entire enum is at least 352 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#large_enum_variant
+    = note: `-D clippy::large-enum-variant` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::large_enum_variant)]`
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+212 -     Controls(ControlsState),
+212 +     Controls(Box<ControlsState>),
+    |
+
+error: could not compile `lamp-mood` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lamp-mood` (lib test) due to 1 previous error

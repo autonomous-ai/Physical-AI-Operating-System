@@ -1,0 +1,3 @@
+   Compiling lamp-mood v0.1.0 (/private/tmp/lamp-fourth-mood/lampOS/crates/mood)
+    Finished `release` profile [optimized] target(s) in 1.09s
+  Executable tests/timing.rs (target/release/deps/timing-4cd95ead72db81e8)

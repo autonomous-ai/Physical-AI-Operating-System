@@ -1,0 +1,52 @@
+    Checking memchr v2.8.3
+    Checking serde_core v1.0.229
+    Checking rustix v1.1.5
+    Checking subtle v2.6.1
+    Checking ring v0.17.14
+   Compiling signal-hook v0.4.4
+    Checking smallvec v1.16.3
+    Checking futures-core v0.3.34
+    Checking thiserror v2.0.21
+    Checking futures-sink v0.3.34
+    Checking tokio v1.53.1
+    Checking rustls-webpki v0.103.15
+    Checking rustls v0.23.45
+    Checking serde v1.0.229
+    Checking serde_json v1.0.151
+    Checking lamp-bus v0.1.0 (/source/crates/bus)
+    Checking lamp-msgs v0.1.0 (/source/crates/msgs)
+    Checking lamp-ipc v0.1.0 (/source/crates/ipc)
+    Checking lamp-turn-owner v0.1.0 (/source/crates/turn-owner)
+    Checking futures-channel v0.3.34
+    Checking futures-io v0.3.34
+    Checking futures-util v0.3.34
+    Checking tungstenite v0.30.0
+    Checking tokio-rustls v0.26.6
+    Checking alsa-sys v0.6.1
+    Checking lamp-keeper v0.1.0 (/source/crates/keeper)
+    Checking bytemuck v1.25.2
+    Checking lamp-body v0.1.0 (/source/crates/body)
+    Checking sonora-agc2 v0.2.0
+    Checking alsa v0.12.1
+    Checking sonora v0.2.0
+    Checking gpiocdev-uapi v0.7.0
+    Checking lamp-audio v0.1.0 (/source/crates/audio)
+    Checking gpiocdev v0.8.0
+   Compiling v4l2r v0.0.8
+    Checking tokio-tungstenite v0.30.0
+    Checking lamp-gemini v0.1.0 (/source/crates/gemini)
+error: function `run` is never used
+   --> crates/body/src/inspection.rs:615:15
+    |
+615 | pub(crate) fn run(io: &mut impl PortIo, runtime: &mut impl Runtime) -> InspectionReport {
+    |               ^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+   Compiling lamp-camera v0.1.0 (/source/crates/camera)
+    Checking lamp-controls v0.1.0 (/source/crates/controls)
+    Checking lamp-turn-end-wire v0.1.0 (/source/crates/turn-end-wire)
+    Checking lamp-ring v0.1.0 (/source/crates/ring)
+error: could not compile `lamp-body` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

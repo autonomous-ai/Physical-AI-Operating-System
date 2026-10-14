@@ -986,3 +986,82 @@ audible delivery or end-to-end latency. Storage test evidence and runtime
 limits are reported separately in [tasks.md](tasks.md); V1 tests cited here
 were inspected as cases, not rerun. No permission, completion or successful
 speech is inferred from a process exit or observed transcript.
+
+## Mood: bounded inner state (task 35, 2026-10-14)
+
+This review starts from `79c98be3b67015f9e305f1a4dcea4040191895f0` and
+[Creature](creature.md), for [#713](https://github.com/autonomous-ai/lampOS/issues/713).
+[Mood](mood.md) records the component contract, authored constants and
+qualification boundaries. Research and source inspection precede building;
+neither establishes a result on the lamp.
+
+**Keep character state separate from output ownership.** Anki's
+[goal-based animation patent](https://patents.google.com/patent/US11203122B2/en)
+describes a simulated state with one or several dimensions that influences a
+separate animation selector. It explicitly allows dimensions that are not
+identifiable human emotions. This is a vendor design disclosure, not a
+validation of emotion inference, decay rates or companionship. Take that
+separation and a small state representation; do not import its animation
+search, behavior engine or a dependency on an Anki runtime.
+
+**Prefer continuous style with exact sleep rules.** A discrete collection of
+calm/curious/glad/startled/shy states makes combinations and transitions harder
+to explain. A larger appraisal model or language-model judgment would add
+inputs, latency and private content without evidence of benefit here. Use
+bounded awake, energy and warmth values, one attention target and a separate
+sleep latch. The numeric nudges, decay, day bands, cooldowns and thresholds
+are authored controls to qualify, not biological constants. In particular,
+quiet returns warmth to its calm baseline; it does not punish being ignored.
+
+**Use movement evidence within its actual limits.**
+[Lasseter's original paper](https://www.cs.cmu.edu/afs/cs/academic/class/15462-f13/www/lec_slides/Lesseter.pdf)
+supports readable staging and changing the style of the same action with
+character state; it is animation practice. The
+[ELEGNT study](https://arxiv.org/html/2501.12493v1) compared video ratings from
+21 valid participants. Its stronger social-task results and complaints about
+unexplained or exaggerated movement favor restrained, contextual expression.
+Its functional-task result is no significant difference in selected metrics,
+not proof that expression never helps a functional task. The
+[Haptic Creature study](https://doi.org/10.1145/1957656.1957820) found arousal
+easier to communicate than valence through touch; it does not validate a
+brightness-to-emotion mapping for this lamp. Mood therefore publishes facts
+about its own authored state, with no new motion, light or speech consumer.
+
+**Keep sleep stable, without acquiring privacy authority.** Amazon's
+[Astro documentation](https://digprjsurvey.amazon.com/csad/help/node/G2HDFAZG923JG4W7)
+provides a vendor example of do-not-disturb exceptions for scheduled items;
+it is not measured evidence of noise immunity. Creature's stricter allowlist
+is the requirement here: after sleep, only a fresh name, touch or permitted
+user-set reminder wakes. Morning, company and incidental noise do not.
+V1 `system/ambient/service.go` clears its local sleep flag for broad sensing
+and chat events; change that policy rather than porting it. Its
+`system/ambient/sleep_test.go` and `hal/test/test_sleep_persistence.py` expose
+useful boundaries: restart must not silently clear an authoritative mute,
+and an unavailable owner must not be guessed ready. Keep those boundaries,
+but do not copy HAL sidecars or add private Mood persistence. Task 35 starts
+neutral from the current local clock, with no attention; any durable privacy
+state remains with its existing owner. Mood waking is never permission to
+open a microphone, clear a mute, move, light the eye or speak.
+
+**Reuse typed observations and bounded expiry.** Existing name, Controls,
+Eyes, Ears, Air and Schedule metadata provide the available inputs. A current
+face track is temporary and scoped to its publisher, not an identity or a
+familiarity history. Keep freshness, source ordering and bounded input work;
+do not classify voice words to invent thanks, laughter or a sleep outcome.
+The Speech adapter checks only whether text is blank before discarding it;
+no words enter retained state. First's
+[#713 resolution](https://github.com/autonomous-ai/lampOS/issues/713#issuecomment-6167222890)
+keeps thanks/laughter engine/replay-only and leaves future #711 Sleep/Wake
+intents distinct from mute. Current Stop/Pet metadata is advisory. The pure
+state engine owns no inference, file, socket, bus call or worker; reuse Jiff
+for named local time and rustix for the monotonic clock outside it. Bounded
+publication belongs to a separate worker, with freshness checked by any
+future final consumer.
+
+Not shown: calibrated emotional interpretation, live semantic feedback or
+completed Controls sleep integration, any recorded real day, real-device
+latency or a change in the lamp's visible behavior. First accepted a synthetic
+24-hour replay for handoff; it is authored evidence of deterministic policy,
+not observation of desk life. The promised real-day recording is still pending.
+Host gates and timing results must be reported separately after they run;
+the V1 tests above were inspected, not executed for this review.

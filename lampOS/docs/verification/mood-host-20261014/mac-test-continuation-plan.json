@@ -1,0 +1,44 @@
+{
+  "completed_executables": 76,
+  "completed_packages": [
+    "lamp-actions",
+    "lamp-air",
+    "lamp-audio",
+    "lamp-body",
+    "lamp-bus",
+    "lamp-camera",
+    "lamp-controls",
+    "lamp-ears",
+    "lamp-environment",
+    "lamp-expression",
+    "lamp-eyes",
+    "lamp-gemini"
+  ],
+  "remaining_packages": [
+    "lamp-health",
+    "lamp-ipc",
+    "lamp-keeper",
+    "lamp-lean",
+    "lamp-memory",
+    "lamp-mood",
+    "lamp-msgs",
+    "lamp-name",
+    "lamp-observer",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-ring",
+    "lamp-schedule",
+    "lamp-sound-fixtures",
+    "lamp-surround",
+    "lamp-tasks",
+    "lamp-turn-end",
+    "lamp-turn-end-wire",
+    "lamp-turn-owner",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "failed_executables": [
+    "program-3fd9c2419e6d7279"
+  ],
+  "unmapped_passed": []
+}

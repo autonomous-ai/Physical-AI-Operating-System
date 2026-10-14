@@ -32,6 +32,41 @@ lamp-4ace.
   runtime is stopped and disabled.
 - Questions: none yet.
 
+## 2026-10-14 — body-second-lamp — done on lamp-fifth
+
+- Task branch `fifth/body-second-lamp`. Code: `lampOS: let the body take
+  hold of a joint found without torque, goal first, behind a switch`
+  (`--torque on`, off unless given). Documents and units: [body.md](body.md),
+  "lamp-52e6", and `deploy/lamp-52e6/`.
+- Gate on the Mac (macOS, arm64), from `lampOS/`: `cargo fmt --all --check`
+  clean; `cargo clippy -p lamp-body --all-targets -- -D warnings` clean;
+  `cargo test -p lamp-body` 240 passed, 0 failed; `cargo build --workspace`
+  clean. Built for the lamp in `rust:1.96.0-bookworm` (linux/arm64): two
+  warnings that are already on `lamp-voice` (`let mut eyes` in
+  `src/bin/lamp-body.rs`, `inspection::run` unused on Linux).
+- On lamp-52e6: what it ran written down and backed up to
+  `~/fifth-backup-20261014` (units, `/var/lib/hal`); the body installed from
+  this branch (`22e595c4…`) with `--torque on` and `--gaze 782,557`.
+  - `--torque on`, once: yaw and roll with torque off; without the option
+    refused ("wrist_roll torque is not on"); with it two torque writes, no
+    joint moved (2061, 2049 before and after), 282 steps, stopped by hand.
+  - Gaze, once each axis, with the eyes stopped and the face told on the
+    body's socket: 782 and 557 counts a half-picture, both positive.
+  - Driven by mood, twice (13:46 to 13:51 on the installed build, 14:05 to
+    14:11 on this one): eleven exchanges, five nods, folded four times and
+    stood twice; no stop, nothing gave way, no retreat.
+  - Steps by hand with the body stopped, folded: roll moves 23 and 27
+    counts and stops 13 to 17 short of a goal 40 away; the gains in the
+    servos are the old runtime's (P 16/16/32/16/32, D 32, I 10 on 3 and 5).
+- Failures and oddities kept: a goal written to a servo with torque off
+  turns its torque back on (so the first try at a stale goal moved yaw and
+  roll 10 to 18 counts); single warmth readings of 65 to 109; the shoulder
+  standing 22 to 34 counts short and pushing at 100 to 150; the elbow folded
+  at its goal reading 120 to 140.
+- Not shown: a power cut (task 23), a hand (task 24), roll in use, leaning.
+- For lamp-4ace: nothing changes without `--torque on`; with it, a lamp
+  whose old runtime is gone starts by itself.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

@@ -1,0 +1,159 @@
+//! A software inhibit belongs to the input/output owner, not to a GPIO reader.
+//! Disk I/O here is explicit and must run outside the owner's urgent stop path.
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Write},
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    path::Path,
+};
+
+const MAX_BYTES: u64 = 4096;
+
+/// Boot-scoped state. A process restart preserves mute; a new machine boot
+/// starts a new software preference, while physical privacy still applies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MuteRecord {
+    pub version: u32,
+    pub clock_id: String,
+    pub muted: bool,
+    /// Mute requests at or before this time have already been considered.
+    /// An explicit clear advances this watermark so retained requests do not
+    /// undo it after an owner restart.
+    pub through_us: u64,
+}
+
+fn invalid(why: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, why.into())
+}
+
+impl MuteRecord {
+    pub fn new(clock_id: &str) -> io::Result<Self> {
+        let out = Self {
+            version: 1,
+            clock_id: clock_id.to_owned(),
+            muted: false,
+            through_us: 0,
+        };
+        out.check()?;
+        Ok(out)
+    }
+
+    pub fn check(&self) -> io::Result<()> {
+        if self.version != 1
+            || self.clock_id.is_empty()
+            || self.clock_id.len() > 128
+            || self.clock_id.chars().any(char::is_control)
+        {
+            return Err(invalid("invalid mute record version or clock identity"));
+        }
+        Ok(())
+    }
+
+    /// A one-way request, with its original observation time. Call only after
+    /// validating the Controls publisher, session and enclosing fresh state.
+    pub fn request_mute(&mut self, at_us: u64) -> bool {
+        if at_us <= self.through_us {
+            return false;
+        }
+        self.through_us = at_us;
+        self.muted = true;
+        true
+    }
+
+    /// For a separate, explicit user action at the owner. This never grants
+    /// capture or output permission, resets a privacy gate, or proves readiness.
+    /// Persist the result before acknowledging the clear or opening anything.
+    pub fn clear_after_explicit_user_request(&mut self, now_us: u64) -> io::Result<()> {
+        if now_us < self.through_us {
+            return Err(invalid(
+                "cannot clear mute with a clock older than its watermark",
+            ));
+        }
+        self.through_us = now_us;
+        self.muted = false;
+        Ok(())
+    }
+
+    /// Load before starting capture/provider/output workers. Corruption and I/O
+    /// failure are errors, never an unmuted default. Missing means first use.
+    pub fn load(path: &Path, clock_id: &str, now_us: u64) -> io::Result<Self> {
+        if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+            let pending = parent.join(format!(".{}.pending", name.to_string_lossy()));
+            match fs::symlink_metadata(pending) {
+                Ok(_) => return Err(invalid("an interrupted mute write requires owner recovery")),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error),
+            }
+        }
+        match fs::symlink_metadata(path) {
+            Ok(metadata) => {
+                if !metadata.is_file() || metadata.permissions().mode() & 0o077 != 0 {
+                    return Err(invalid("mute state must be a private regular file"));
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Self::new(clock_id),
+            Err(error) => return Err(error),
+        }
+        let mut bytes = Vec::new();
+        File::open(path)?
+            .take(MAX_BYTES + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > MAX_BYTES {
+            return Err(invalid("mute state exceeds 4096 bytes"));
+        }
+        let state: Self =
+            serde_json::from_slice(&bytes).map_err(|error| invalid(error.to_string()))?;
+        state.check()?;
+        if state.clock_id != clock_id {
+            return Self::new(clock_id);
+        }
+        if state.through_us > now_us {
+            return Err(invalid("mute state watermark is in the future"));
+        }
+        Ok(state)
+    }
+
+    /// Atomic replace followed by file and directory sync. The owner supplies
+    /// a trusted, private directory and serializes access. A write failure must
+    /// retain live inhibition and prevent a success acknowledgement.
+    pub fn save(&self, path: &Path) -> io::Result<()> {
+        self.check()?;
+        if !path.is_absolute() || path.file_name().is_none() {
+            return Err(invalid("mute state needs an absolute file path"));
+        }
+        let parent = path.parent().ok_or_else(|| invalid("missing parent"))?;
+        let metadata = fs::symlink_metadata(parent)?;
+        if !metadata.is_dir() || metadata.permissions().mode() & 0o077 != 0 {
+            return Err(invalid("mute state directory must be private (0700)"));
+        }
+        if let Ok(metadata) = fs::symlink_metadata(path)
+            && !metadata.is_file()
+        {
+            return Err(invalid("mute state target is not a regular file"));
+        }
+        // A fixed sibling deliberately refuses another outstanding writer;
+        // never overwrite or follow a pre-existing temporary path.
+        let temp = parent.join(format!(
+            ".{}.pending",
+            path.file_name().unwrap().to_string_lossy()
+        ));
+        let mut file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(&temp)?;
+        let result = (|| {
+            serde_json::to_writer(&mut file, self)?;
+            file.write_all(b"\n")?;
+            file.sync_all()?;
+            fs::rename(&temp, path)?;
+            File::open(parent)?.sync_all()
+        })();
+        // Leave a failed temporary write as fault evidence. Removing it would
+        // let a later owner load an older unmuted preference after this failed
+        // attempt to persist a mute. Recovery is an explicit owner operation.
+        result
+    }
+}

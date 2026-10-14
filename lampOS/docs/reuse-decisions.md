@@ -308,3 +308,79 @@ the inherited Disney attribution, doubled-stumble figure and 0.6/0.3-second
 gaze claim were not verified here. Playback prediction error, motor lag, gaze
 calibration, glare, acoustic interference and whether the result looks natural
 still require the first builder's measurements and observation on the lamp.
+
+## Controls: keep the recognition cases, change the actions (2026-10-14)
+
+This is a source review of the current V1 checkout for [Controls](controls.md),
+not another hardware measurement. The control surface on the base is MPR121;
+the TTP223 pads on the head are pet input only. GPIO and the base must stop
+speech; a pet must not interrupt it. The detailed V1 behavior is in
+[`physical-controls.md`](../../robots/lamp/docs/physical-controls.md).
+
+**Keep the button's edge rule:** `hal/drivers/gpio_button.py::_on_edge`
+suppresses repeated presses for 200 ms and repeated releases independently for
+200 ms. A press and release less than 200 ms apart still count. Ignore a release
+without a matching press, commit a hold only on release, and never delay the
+first Stop for the 400 ms multi-click window. V1 measures GPIO hold duration at
+callback arrival; the new injected-clock recognizer instead preserves the
+adapter's acquisition times so delayed delivery cannot lengthen a hold.
+
+**Keep the base's qualification:** `hal/drivers/mpr121.py` separates the
+5 ms footprint filter from the 10 ms contact/chord qualification in the Lamp
+configuration. Three selected pads must be active together; separate short
+intervals do not accumulate. Qualification survives staggered lift, and the
+falling sample closes the qualifying interval before it is cleared. A contact
+held at startup is ignored until release. Keep the tests for these cases,
+stationary footprint growth versus travel, and the measured mask sequences in
+`hal/test/test_mpr121_swipe.py`. The chosen full-release grace for a qualified
+stationary contact is 30 ms, shorter than V1 Automatic's 120 ms handoff grace
+and equal to its fast stationary tap-to-talk floor. Moving/unqualified contacts
+retain 120 ms and produce no tap or mute. This is an explicit change for the
+new Stop-only tap mapping; sampled mask replay cannot establish a physical
+minimum touch duration.
+
+**Keep the head's grouping:** `hal/drivers/ttp223.py` waits 500 ms after
+initialization; either edge restarts its 200 ms contact timer. The first-session
+chime is at that session's end, not the first edge, and does not mean readiness.
+Each completed session restarts a 1.2 s decision window; early pet recognition
+can resolve sooner in V1. Controls keeps generic pet grouping and omits V1's
+directional labels and early spatial-reversal path. Each response attempt starts
+a 1.5 s cooldown, extended by contacts during it. The 20 ms LOW rule qualifies
+only an undetected candidate pad, not every touch. Controls uses explicitly
+configured known pads; discovery, pin polarity and any probe belong to First's
+adapter. Do not guess wiring or
+reuse the legacy fallback pins: V1's button fallback conflicts with the privacy
+switch, and its touch fallback conflicts with the reset button.
+
+**Change the action policy:** short, double and repeated taps request Stop;
+a released hold of at least 2 s requests one-way `SoftwareMute`. Five seconds
+and longer still mean mute, with no shutdown/reset escalation. Neither Stop nor
+a missing Controls process clears a mute. Reboot, reset, sleep, Harness routing
+and voice-mode toggles are not copied. Stop must reach the existing owners of
+following, current and pending speech, and music; it must not cancel agent work
+or directly release motor torque. Pet feedback stays small and non-interrupting;
+V1's brain notification is limited to once per minute.
+
+| Primary source inspected on 2026-10-14 | What is taken |
+|---|---|
+| [gpiocdev 0.8.0](https://docs.rs/gpiocdev/latest/gpiocdev/) and its [upstream repository](https://github.com/warthog618/gpiocdev-rs) provide a pure Rust Linux character-device interface. Voice already pins this version. | Reuse it for First's Linux adapter instead of another GPIO implementation; keep recognition independent of the library. No new hardware adapter is supplied by Third. |
+| [Official libgpiod Rust bindings](https://libgpiod.readthedocs.io/en/master/rust_api.html) wrap the C library. | A maintained alternative where that library is already packaged; no second GPIO dependency is selected here. |
+| [Linux line requests](https://www.kernel.org/doc/html/latest/userspace-api/gpio/gpio-v2-get-line-ioctl.html) are exclusive. Kernel debounce waits for a stable level and timestamps the end of that interval. [Edge events](https://www.kernel.org/doc/html/latest/userspace-api/gpio/gpio-v2-line-event-read.html) carry sequence numbers that reveal queue overflow. | Do not substitute 200 ms kernel debounce for V1's per-polarity suppression. Preserve capture time and report lost transitions as a fault; never manufacture a release from missing input. |
+| [NXP AN3892](https://www.nxp.com/docs/en/application-note/AN3892.pdf) defines MPR121 touch/release hysteresis, chip debounce and overcurrent status. | Preserve the adapter's distinction between a clean electrode mask and a fault. Chip debounce `0x22` means three consecutive detections, independently of the software clocks. OVCF must not become an all-released sample. |
+
+The physical slide remains exclusively with Voice's existing GPIO worker and
+[supervised privacy lifecycle](service-privacy.md): 50 ms observation freshness,
+60 ms stable unmute, and verified cleanup before reopening. A Controls message
+is a request, never a microphone/camera permit. The receiving owner must retain
+an accepted software inhibit through Controls loss/restart, restore it before
+opening workers, and expose a separate explicit clear procedure. Bus delivery
+alone is not proof that capture or playback stopped. The exact persistence and
+consumer integration boundaries belong in [Controls](controls.md).
+
+## What this Controls review has not shown
+
+No tests or benchmarks were run for this review and no lamp was accessed. V1's
+recorded traces and configured timing constants are inherited evidence, not
+new results from Third. Native GPIO/I2C behavior, installed pad sensitivity,
+touch-to-silence latency, physical privacy, output-owner integration and the
+user's interpretation of the feedback still require First's qualification.

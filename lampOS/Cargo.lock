@@ -590,6 +590,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.33.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37bfe73dc8ec21f54d181e5a60554327ec3f1c600c455a75ccbfc65d2106a6c4"
+
+[[package]]
 name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -943,6 +949,17 @@ name = "lamp-ipc"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "serde_json",
+]
+
+[[package]]
+name = "lamp-lean"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "lamp-expression",
+ "lamp-msgs",
+ "serde",
  "serde_json",
 ]
 

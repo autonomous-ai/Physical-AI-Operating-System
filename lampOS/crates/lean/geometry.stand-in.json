@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "measurement": "stand_in",
+  "label": "INVENTED five-rod arithmetic fixture. No lamp measurement. NEVER qualify motion with these values.",
+  "footprint_m": [[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]],
+  "margin_m": 0.01,
+  "base": {"mass_kg": 0.5, "com_m": [0.0, 0.0, 0.0]},
+  "links": [
+    {"joint": "base_yaw", "origin_m": [0.0, 0.0, 0.0], "rpy_rad": [0.0, 0.0, 0.0], "axis": [0.0, 0.0, 1.0], "angle_zero_rad": 0.0, "mass_kg": 0.1, "com_m": [0.0, 0.0, 0.1]},
+    {"joint": "shoulder", "origin_m": [0.0, 0.0, 0.2], "rpy_rad": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0], "angle_zero_rad": 0.0, "mass_kg": 0.1, "com_m": [0.0, 0.0, 0.1]},
+    {"joint": "elbow", "origin_m": [0.0, 0.0, 0.2], "rpy_rad": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0], "angle_zero_rad": 0.0, "mass_kg": 0.1, "com_m": [0.0, 0.0, 0.1]},
+    {"joint": "head_pitch", "origin_m": [0.0, 0.0, 0.2], "rpy_rad": [0.0, 0.0, 0.0], "axis": [0.0, 1.0, 0.0], "angle_zero_rad": 0.0, "mass_kg": 0.1, "com_m": [0.0, 0.0, 0.1]},
+    {"joint": "head_roll", "origin_m": [0.0, 0.0, 0.2], "rpy_rad": [0.0, 0.0, 0.0], "axis": [1.0, 0.0, 0.0], "angle_zero_rad": 0.0, "mass_kg": 0.1, "com_m": [0.0, 0.0, 0.1]}
+  ]
+}

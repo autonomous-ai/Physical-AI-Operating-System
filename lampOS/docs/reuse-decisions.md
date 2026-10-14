@@ -431,3 +431,47 @@ recorded traces and configured timing constants are inherited evidence, not
 new results from Third. Native GPIO/I2C behavior, installed pad sensitivity,
 touch-to-silence latency, physical privacy, output-owner integration and the
 user's interpretation of the feedback still require First's qualification.
+
+## Lean: static COM and a measured support footprint (2026-10-14)
+
+This source review supports [Lean](lean.md), using task base `6a1d2745c`,
+separately from the earlier baseline. It includes no physical measurement.
+The library has no Body wiring; its supplied geometry is wholly synthetic and
+does not borrow V1's estimated masses or limits.
+
+**Keep the whole-body check:** V1's
+[recording gate](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/6a1d2745c/hal/drivers/motors/recording_stability.py#L141)
+uses forward kinematics, mass weighting and an offending-pose report after a
+real fall. Keep that preflight intent. Add local COM vectors for every link
+and the base, an actual contact footprint and explicit inward margin. The
+[URDF](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/6a1d2745c/robots/lamp/urdf/lamp.urdf#L10)
+contains estimated masses and zero COM origins; V1 also treats normalized
+positions as degrees. Its 22/31.6/17.7 figures are not calibrated millimetres.
+Require complete valid input rather than passing missing geometry or joints.
+
+**Check the path, not only authored knots:**
+[V1 resampling](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/6a1d2745c/hal/drivers/motors/recording_timing.py#L55)
+interpolates joint angles after checking endpoints. Nonlinear COM can cross a
+boundary in between. Use a conservative displacement/clearance bound with
+bounded subdivision and an unresolved result when proof runs out. This covers
+the specified interpolation, not asynchronous physical tracking or overshoot;
+[OMPL](https://ompl.kavrakilab.org/core/stateValidation.html) documents the
+corresponding limitation of unbounded claims from discrete validation.
+
+**Reuse maintained rotation math:** pin
+[glam 0.33.12](https://raw.githubusercontent.com/bitshifter/glam-rs/0.33.12/Cargo.toml)
+with `default-features = false`, `std` and `f64`. It is MIT OR Apache-2.0,
+supports Rust 1.68.2, and adds no normal transitive dependencies with those
+features. Its published archive matched the registry checksum. No rotation
+library was already cached; existing ndarray is array algebra.
+[nalgebra](https://www.nalgebra.rs/docs/user_guide/points_and_transformations/)
+and [k](https://docs.rs/k/0.32.0/k/struct.Chain.html) offer broader transform/URDF
+machinery; [geo](https://docs.rs/geo/latest/geo/) offers general polygons.
+The fixed chain and bounded convex footprint need less machinery.
+[Drake](https://drake.mit.edu/doxygen_cxx/classdrake_1_1multibody_1_1_static_equilibrium_problem.html)
+illustrates the contact-force and joint constraints absent from a static COM
+test. Neither library reuse nor a measured-data label establishes motor safety.
+Lean documents the ruler/scale measurements and future final-writer boundary;
+the first builder owns physical calibration and opt-in integration.
+
+Not shown.

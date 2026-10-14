@@ -2564,3 +2564,193 @@ fn the_arm_is_taken_hold_of_only_on_a_lamp_that_may_stand() {
     assert_eq!(report.torque_writes, 0);
     assert!(lamp.registers.iter().all(|(id, _, _)| *id != 2 && *id != 3));
 }
+
+/// The folded limits with waking on.
+fn waking() -> Limits {
+    Limits {
+        wake: true,
+        ..Limits::FOLDED
+    }
+}
+
+/// The goals a joint was written, every write in order.
+fn goals_of(lamp: &Lamp, joint: Joint) -> Vec<u16> {
+    lamp.goals
+        .iter()
+        .map(|write| goal_of(write, joint))
+        .collect()
+}
+
+#[test]
+fn a_head_found_pressed_on_the_base_rises_out_of_it_slowly_and_then_runs() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    let mut first = None;
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |glimpse| {
+            first.get_or_insert(glimpse.positions);
+        },
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.joints, vec!["wrist_pitch"]);
+    assert_eq!((woke.from, woke.to), (vec![2_095], vec![2_000]));
+    // A stir of 24 counts, a second's pause and the rest of the 95, each
+    // eased at 20 counts a second at most: a little over eight seconds.
+    assert!((8.0..9.0).contains(&woke.seconds), "{}", woke.seconds);
+    // It ran once it was up, inside its window.
+    let first = first.unwrap();
+    assert!((1_760..=2_020).contains(&first[0]), "{first:?}");
+    // Never toward the base, and never more than a count a write.
+    let pitch = goals_of(&lamp, Joint::WristPitch);
+    assert_eq!(pitch[0], 2_094);
+    let risen = pitch.iter().position(|goal| *goal == 2_000).unwrap();
+    assert!(
+        pitch[..=risen]
+            .windows(2)
+            .all(|two| two[1] <= two[0] && two[0] - two[1] <= 1)
+    );
+    assert!(
+        pitch[risen..].iter().all(|goal| *goal <= 2_030),
+        "{pitch:?}"
+    );
+
+    // Without waking, the same lamp is refused as it always was.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[PITCH].position = 2_095.0;
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        || None,
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Refused {
+            why: "head pitch 2095 is outside 1760..=2020".into()
+        }
+    );
+    assert!(lamp.nothing_was_written() && report.woke.is_none());
+
+    // Waking needs a home it was given: without one, where it is found is home.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[PITCH].position = 2_095.0;
+    let report = run(&mut lamp, &mut clock, waking(), None, || None, |_| {});
+    assert!(matches!(report.stop, Stop::Refused { .. }), "{report:?}");
+    assert!(lamp.nothing_was_written());
+}
+
+#[test]
+fn a_base_turned_300_counts_comes_home_without_moving_away_or_faster_than_waking() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(28));
+    lamp.servos[YAW].position = 2_315.0;
+    lamp.servos[YAW].goal = 2_315;
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.joints, vec!["base_yaw"]);
+    // 1.8 s of stir, a second, then 276 counts eased at 20 a second at most.
+    assert!((23.0..24.5).contains(&woke.seconds), "{}", woke.seconds);
+    let yaw = goals_of(&lamp, Joint::BaseYaw);
+    assert!(
+        yaw.windows(2)
+            .all(|two| two[1] <= two[0] && two[0] - two[1] <= 1)
+    );
+    assert!(yaw.iter().all(|goal| (2_015..2_315).contains(goal)));
+    assert_eq!(lamp.servos[YAW].goal, 2_015);
+    // The others were never asked to move.
+    assert!(
+        goals_of(&lamp, Joint::WristRoll)
+            .iter()
+            .all(|goal| *goal == 2_044)
+    );
+
+    // The way itself, step by step: never away from home and never over
+    // the wake's speed.
+    let (from, to) = ([2_000, 2_044, 2_315], [2_000, 2_044, 2_015]);
+    let mut was = wake_pose(from, to, 0.0).0;
+    assert_eq!(was, [2_000.0, 2_044.0, 2_315.0]);
+    let mut elapsed = 0.0f32;
+    loop {
+        elapsed += TICK.as_secs_f32();
+        let (now, over) = wake_pose(from, to, elapsed);
+        let moved = was[2] - now[2];
+        assert!((0.0..=WAKE_SPEED * TICK.as_secs_f32() + 0.001).contains(&moved));
+        assert_eq!(&now[..2], &[2_000.0, 2_044.0]);
+        was = now;
+        if over {
+            break;
+        }
+    }
+    assert_eq!(was[2], 2_015.0);
+}
+
+#[test]
+fn a_joint_beyond_what_waking_brings_back_is_refused() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[YAW].position = 2_465.0;
+    lamp.servos[YAW].goal = 2_465;
+    let report = run(&mut lamp, &mut clock, waking(), Some(HOME), || None, |_| {});
+    assert_eq!(
+        report.stop,
+        Stop::Refused {
+            why: "base_yaw is 450 counts from its home, more than waking brings back (400)".into()
+        }
+    );
+    assert!(lamp.nothing_was_written());
+}
+
+#[test]
+fn an_arm_found_off_its_way_is_not_lowered_and_the_lamp_runs_folded() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[1].position = 2_650.0;
+    lamp.servos[1].goal = 2_650;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        Some(standing(100, 60)),
+        || Some((Mood::Listening, 120)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.standing, None);
+    assert!(
+        report
+            .standing_refused
+            .unwrap()
+            .ends_with("waking does not lower an arm found off its way")
+    );
+    // Not a goal to the arm, and nothing to wake.
+    assert!(lamp.goals.iter().all(|write| write.len() == 3));
+    assert!(report.woke.is_none());
+}
+
+#[test]
+fn waking_on_a_lamp_found_as_expected_writes_exactly_what_it_did_without() {
+    let writes = |limits: Limits| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        let news = script(&clock.time);
+        let report = run(&mut lamp, &mut clock, limits, Some(HOME), news, |_| {});
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        assert!(report.woke.is_none());
+        (lamp.goals, lamp.registers)
+    };
+    assert_eq!(writes(waking()), writes(Limits::FOLDED));
+}

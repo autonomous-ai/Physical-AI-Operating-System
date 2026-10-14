@@ -549,7 +549,7 @@ Overview chia thành ba vùng luôn hiển thị: **System health** (Agent, Netw
 
 **Touch Sensitivity** (mục Servo, `?debug=true`; chỉ hiện khi HAL báo có contact profile)
 - Trạng thái lấy từ `GET /hw/health` → `servo_overload.contact.profile`: đang học (kèm animation đang chạy), đã học trên đèn này (số `recordings`), hoặc chưa học (lúc chạy animation chỉ ngưỡng cố định mới dừng được tay đèn)
-- Nút `Learn` gọi `POST /hw/servo/contact/learn` (`{"runs": 2}`): đèn chạy mọi animation trừ `music_*` hai lần và lưu envelope riêng của máy. Dọn trống quanh đèn trước; nút bị khoá trong lúc đang học
+- Nút `Learn` gọi `POST /hw/servo/contact/learn` (`{"runs": 2}`): đèn chạy mọi animation trừ `music_*` hai lần và lưu envelope riêng của máy. Dọn trống quanh đèn trước; nút bị khoá trong lúc đang học. Trước khi bắt đầu, trang đọc `GET /hw/voice/status` và `GET /hw/camera`: khi mic hoặc camera đang bật, một hộp thoại giải thích rằng đèn quay theo giọng nói và khuôn mặt sẽ cắt ngang animation đang học, và cho chọn **Turn off and learn** (`POST /hw/voice/mute` và/hoặc `POST /hw/camera/disable`, rồi mới học; nếu một lệnh thất bại thì không bắt đầu), **Learn anyway**, hoặc **Cancel**. Khi lần học đó kết thúc, xong hay bị abort, trang chỉ bật lại đúng cái mà hộp thoại đã tắt (`POST /hw/voice/unmute`, `POST /hw/camera/enable`); mic hoặc camera người dùng đã tự tắt từ trước thì giữ nguyên. Trang theo dõi `learning` trong `/hw/health` (lần học không xuất hiện ở đó trong 15 s được tính là đã kết thúc), nên đóng trang trước khi học xong thì mic và camera vẫn tắt
 
 > **Bố cục & pill cloud.** Cụm thiết bị (hàng 2) chia thành hai cột bằng nhau:
 > cột phải cho các card biểu cảm (Emotion, Servo Pose, Versions) và cột trái cho

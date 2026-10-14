@@ -573,7 +573,7 @@ export function CardLabel({ icon, text }: { icon: ReactNode; text: string }) {
   );
 }
 
-// Confirmation modal; Esc or backdrop cancels, `destructive` reads red.
+// Confirmation modal; Esc or backdrop cancels, `destructive` reads red, `extraLabel` adds a third choice.
 export function ConfirmDialog({
   title,
   message,
@@ -582,6 +582,8 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
   onCancel,
+  extraLabel,
+  onExtra,
 }: {
   title: string;
   message: ReactNode;
@@ -590,6 +592,9 @@ export function ConfirmDialog({
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  // Optional third choice, shown between Cancel and Confirm.
+  extraLabel?: string;
+  onExtra?: () => void;
 }) {
   const [, , themeClass] = useTheme();
   useEffect(() => {
@@ -620,10 +625,15 @@ export function ConfirmDialog({
       >
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--lm-text)" }}>{title}</div>
         <div style={{ fontSize: 13, lineHeight: 1.55, color: "var(--lm-text-dim)" }}>{message}</div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
           <button onClick={onCancel} className="lm-confirm-btn lm-confirm-btn--cancel">
             {cancelLabel}
           </button>
+          {extraLabel && onExtra && (
+            <button onClick={onExtra} className="lm-confirm-btn lm-confirm-btn--cancel">
+              {extraLabel}
+            </button>
+          )}
           <button
             onClick={onConfirm}
             autoFocus

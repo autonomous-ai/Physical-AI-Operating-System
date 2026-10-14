@@ -120,9 +120,11 @@ samples every joint's `Present_Load` at 20 Hz (`hal/drivers/motors/overload.py`)
   The envelope is learned per unit by `POST /servo/contact/learn`, or the **Learn**
   button on the web Monitor Servo page (each recording
   played free twice, the per-frame max kept, saved to
-  `/var/lib/hal/contact_profile.json`). The frame index it looks up is the playback
+  `/var/lib/hal/contact_profile.json`), and kept current passively from every clean
+  play of a recording (see [safety](../../../docs/safety.md)). The frame index it looks up is the playback
   frame, so the envelope follows the recording after speed-cap resampling; re-learn
-  after recalibration, a `torque_limit` change or new recordings. Outside playback
+  after recalibration. A `torque_limit` change drops the envelope, and a recording
+  whose length changed starts its passive runs over. Outside playback
   (gaze, tracking, `/servo/move`, holds) the fixed `contact.off_playback` floors apply,
   except during a direct move and 0.5 s after it (a fast move outruns the servo's ramp).
   Settled idle uses this unit's own envelope when it has learned idle, else `off_playback`.

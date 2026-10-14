@@ -50,7 +50,7 @@ def test_every_goal_write_is_clamped_into_the_limits():
     robot = SimpleNamespace(
         is_connected=True, goal_writes_blocked=False, _last_limit_log=0.0,
         joint_limits={"base_pitch": (-2.0, 67.0), "base_yaw": (-105.0, 105.0)},
-        config=SimpleNamespace(max_relative_target=None),
+        config=SimpleNamespace(max_relative_target=None), last_goal={},
         bus=SimpleNamespace(sync_write=lambda reg, goal: written.update(goal)),
     )
     sent = LeLampFollower.send_action(

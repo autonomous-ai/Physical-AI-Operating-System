@@ -1,0 +1,17 @@
+[package]
+name = "lamp-controls"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+lamp-msgs = { path = "../msgs" }
+lamp-bus = { path = "../bus" }
+lamp-ipc = { path = "../ipc" }
+signal-hook = { version = "=0.4.4", default-features = false }
+
+[lints]
+workspace = true

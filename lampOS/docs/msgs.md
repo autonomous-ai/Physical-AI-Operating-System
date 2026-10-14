@@ -31,7 +31,8 @@ Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 `VERSION`, `TOPIC` or `TOPICS`, and `declaration()`, which its publisher
 hands to `Bus::publisher_declared`. `first_topics()` keeps the original
 seventeen topics; `expression_topics()` lists the optional Expression
-contracts separately. `declaration_of()` recognizes both catalogues.
+contracts separately, and `controls_topics()` lists the optional Controls
+contracts. `declaration_of()` recognizes all three catalogues.
 
 ## The types
 
@@ -96,6 +97,32 @@ privacy and safety. These types are optional, with no production publishers
 or consumers added to the existing owners by this task. See
 [Expression](expression.md) for exact integration and evidence limits.
 
+## Optional controls contracts
+
+Controls' additive types live in `src/controls.rs` and are re-exported at the
+crate root. They do not change the original topic catalogue:
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `ControlGesture` | `controls/gesture` | event | none / 500 ms | Original release time, duration, source and gesture, with an explicit Stop, SoftwareMute or Pet intent and shadow/enabled status |
+| `ControlsState` | `controls/state` | latest | 100 / 300 ms | Input freshness/fault, button holds, head/base status and independently retained latest Stop and SoftwareMute requests |
+
+Both use `ClockStamp` for shared host monotonic time and boot identity, plus a
+Controls process `session_id`. A gesture's sequence identifies the same request
+on both topics; renewing state preserves that request's original stamp instead
+of refreshing it. The retained fields cannot hide a Stop behind later petting.
+`ready` reports fresh input observations, not Voice readiness or applied mute.
+
+`ControlGesture::fresh_at()` checks shape, enabled status, clock and the 500 ms
+publication-age limit; Stop also expires 500 ms after its original release.
+The owner must additionally fence publisher/session changes, deduplicate
+requests, and apply its own privacy and safety rules. `SoftwareMute` requests
+a lasting software inhibit; neither Stop nor any gesture permits reopening.
+An owner that accepts it retains the inhibit independently of message expiry
+or Controls restart. Physical privacy stays with Voice. These are typed
+handoff contracts; see [Controls](controls.md) for the consumer obligations and
+[service privacy](service-privacy.md) for the existing physical authority.
+
 ## Adding one
 
 1. Write the structure in `crates/msgs/src/lib.rs` with `Serialize` and
@@ -138,3 +165,7 @@ Eight additional Expression contract tests passed on Third's x86_64 Mac:
 declarations and compatibility, required identities, clock/schedule bounds,
 terminal states, finite offsets, normalized gaze, light settings and lease
 expiry. None of the new Expression types has been qualified on the lamp.
+
+The Controls rows describe the source contract, not a measured deployment or a
+test result. No Controls publisher/consumer integration, GPIO/I2C behavior or
+physical stop/mute latency has been established by this documentation review.

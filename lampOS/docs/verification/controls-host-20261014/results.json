@@ -1,0 +1,463 @@
+{
+  "task": "controls",
+  "base_origin_lamp_voice": "8335dfbce6a461963e25695d11cb1f1be792c1a6",
+  "host": {
+    "os": "macOS 26.6.2 / Darwin 25.6.0",
+    "target": "x86_64-apple-darwin",
+    "cpu": "Intel Core i7-10700K @ 3.80 GHz",
+    "memory_bytes": 68719476736,
+    "rustc": "1.96.0 (ac68faa20 2026-05-25)",
+    "lamp_access": false
+  },
+  "baseline_workspace_build": {
+    "command": "cargo build --offline --workspace",
+    "result": "pass",
+    "cargo_reported_seconds": 7.95
+  },
+  "format": {
+    "command": "cargo fmt --all --check",
+    "result": "pass"
+  },
+  "clippy": {
+    "command": "cargo clippy --offline -p lamp-actions -p lamp-body -p lamp-controls -p lamp-expression -p lamp-eyes -p lamp-health -p lamp-msgs -p lamp-name -p lamp-policy -p lamp-voice -p lamp-voice-eval --all-targets -- -D warnings",
+    "result": "pass",
+    "cargo_reported_seconds": 19.78
+  },
+  "standalone": {
+    "copy": "/private/tmp/lamp-controls-standalone-i4bwde4z/lampOS",
+    "target": "/private/tmp/lamp-controls-standalone-i4bwde4z/target",
+    "source_files": 692,
+    "local_packages": 24,
+    "parent_sources_used": false,
+    "build_command": "cargo build --offline --workspace",
+    "build_result": "pass",
+    "cargo_reported_build_seconds": 74,
+    "test_command": "cargo test --offline -p lamp-controls -p lamp-msgs -- --test-threads=1",
+    "tests_passed": 159,
+    "tests_failed": 0,
+    "tests_ignored": 0,
+    "test_suites": 15
+  },
+  "failures_retained": [
+    {
+      "phase": "initial new engine test",
+      "test": "synthetic_first_and_repeated_taps_meet_the_two_millisecond_dispatch_budget",
+      "expected_maximum_us": 1800,
+      "actual_maximum_us": 1001,
+      "initial_phases_us": [
+        0,
+        1,
+        200,
+        999,
+        1000,
+        1999
+      ],
+      "cause": "Incorrect expectation and incomplete phase coverage in the new test.",
+      "correction": "Added phases 1001 and 1200; 16 actions now exercise and assert a 1999 us maximum. Engine unchanged for this failure."
+    }
+  ],
+  "synthetic_timing": {
+    "gpio": {
+      "schedule_us": 2000,
+      "phases": 8,
+      "accepted_actions": 16,
+      "release_to_dispatch_us": {
+        "min": 0,
+        "max": 1999
+      }
+    },
+    "base": {
+      "schedule_us": 10000,
+      "accepted_actions": 40,
+      "written_edge_to_dispatch_us": {
+        "min": 32450,
+        "max": 39950
+      },
+      "sampled_release_to_dispatch_us": 30000
+    },
+    "physical_latency_measured": false
+  },
+  "host_replay_cost": {
+    "boundary": "input parse, engine construction, injected replay and JSON serialization to sink; configuration parsing precedes timing",
+    "first_ns": 3340848,
+    "last_replay": {
+      "end_us": 10200000,
+      "faults": 1,
+      "frames": 98,
+      "gestures": 6,
+      "observations": 900,
+      "records": 901,
+      "rejected": 0,
+      "start_us": 1000000,
+      "ticks": 4601
+    },
+    "median_ns": 2975859,
+    "physical_latency_measured": false,
+    "repetitions": 100,
+    "runs_ns": [
+      3340848,
+      3193200,
+      2975859,
+      2966319,
+      3009164,
+      3130431,
+      2992936,
+      2965656,
+      2938247,
+      3054867,
+      3259318,
+      3098534,
+      2985511,
+      2930885,
+      2976208,
+      2969636,
+      2948132,
+      3022733,
+      2945705,
+      2943487,
+      3044055,
+      2969709,
+      2970149,
+      2978989,
+      3193303,
+      3179773,
+      3106436,
+      3072527,
+      3140030,
+      3055615,
+      3205498,
+      3017060,
+      2944231,
+      2971309,
+      2957108,
+      3004927,
+      2979530,
+      3003756,
+      2953413,
+      2940711,
+      2931027,
+      2954983,
+      3002312,
+      2992028,
+      3139709,
+      2991207,
+      3010297,
+      3006106,
+      2983767,
+      3163972,
+      3014049,
+      3136052,
+      3027038,
+      2957080,
+      2986403,
+      3009092,
+      2946824,
+      2940142,
+      2980737,
+      2993357,
+      2961486,
+      2936299,
+      2959787,
+      2985723,
+      3111931,
+      3006649,
+      2945983,
+      2951918,
+      3035179,
+      2983842,
+      2968934,
+      2964768,
+      2930241,
+      2932777,
+      2939528,
+      2940396,
+      2935657,
+      2941633,
+      2982406,
+      3208695,
+      2989023,
+      2946035,
+      2947778,
+      2929340,
+      2969102,
+      2960600,
+      2965248,
+      2941247,
+      2940272,
+      2930923,
+      2953900,
+      2951506,
+      2954777,
+      2937860,
+      2976099,
+      2963811,
+      2948993,
+      3019686,
+      2948458,
+      2952177
+    ],
+    "worst_ns": 3340848
+  },
+  "source_files": [
+    {
+      "path": "crates/controls/Cargo.toml",
+      "sha256": "c8084ad856256542dd09088641020b38a1e52600e11e99d3daea050fd5679651"
+    },
+    {
+      "path": "crates/controls/examples/replay_cost.rs",
+      "sha256": "89dbd5557c93596a1effa3e4961a9f1d1a8232bd32ccd51cc751c718543ef2df"
+    },
+    {
+      "path": "crates/controls/fixtures/controls.json",
+      "sha256": "d78221c884206e5117d7a5e43a833d86553c32f7f2595d671e50fb41c8cc88c8"
+    },
+    {
+      "path": "crates/controls/fixtures/hand-controls.jsonl",
+      "sha256": "0bbd2359f3c5a7e9c50d4d06a2be5fbbf5d888552ad76f09351bcf76e4339254"
+    },
+    {
+      "path": "crates/controls/src/base.rs",
+      "sha256": "d6a128ab7ace8fbdd167caf665df1f6731467ec06467079e78be93f1afddfbc7"
+    },
+    {
+      "path": "crates/controls/src/engine.rs",
+      "sha256": "85e588cb0e3f12b763b3c6196e05f412b0a499782d5a88fe76be3ebb0c51c499"
+    },
+    {
+      "path": "crates/controls/src/input.rs",
+      "sha256": "3f9964fd9dedc3c7ac32d67b76ec1a78bf433632268ece917c60c9b4a7739832"
+    },
+    {
+      "path": "crates/controls/src/lib.rs",
+      "sha256": "af256a8c0879e2e7b652a7b98465129f2f803d994e99a76a1be58940b46b6e21"
+    },
+    {
+      "path": "crates/controls/src/main.rs",
+      "sha256": "bd92b4fa7fd3c98ea413b86aa15454456dd4dabd2ee7edb783c5cee0e527cf19"
+    },
+    {
+      "path": "crates/controls/src/mute.rs",
+      "sha256": "b32deb65a7d62cf04ce88e51120752d85ada5c62d1d3c07bf107b2c063e067bb"
+    },
+    {
+      "path": "crates/controls/src/receiver.rs",
+      "sha256": "03c6568e831c7b3dc0a85432e40d0e7012001c84d16008a93c3791e5ce67c372"
+    },
+    {
+      "path": "crates/controls/src/record.rs",
+      "sha256": "cb58ff4e82bae8c9c3307c19148594009316882d40706cd4fd0eba33a4830205"
+    },
+    {
+      "path": "crates/controls/src/replay.rs",
+      "sha256": "99018238ffded52e0cae3d7f106ff10d932f1930d316a0e52c178752d3fabc41"
+    },
+    {
+      "path": "crates/controls/src/runtime.rs",
+      "sha256": "53ed2134e4d8e6f911db1e6b0d93e7f37e74e9db4364d8e4becd6857c8136827"
+    },
+    {
+      "path": "crates/controls/tests/base.rs",
+      "sha256": "8f65a029de60dbdd3b675f25787bddb409fc5f052f68006bfc62181b8c772483"
+    },
+    {
+      "path": "crates/controls/tests/engine.rs",
+      "sha256": "e2a52ec8eb01b69596035df7912675a2a295f05a49420d76550934516db68ac1"
+    },
+    {
+      "path": "crates/controls/tests/mute.rs",
+      "sha256": "40a4d1e3239a2f4f223bf61767b4ff7fca27702983562ec2327e50377e9166a8"
+    },
+    {
+      "path": "crates/controls/tests/program.rs",
+      "sha256": "135a3cf82662153f5f9a5951c44aa8cdc071c251a75e1462e83ab8f04dc5c029"
+    },
+    {
+      "path": "crates/controls/tests/receiver.rs",
+      "sha256": "7efaf25a77eadb98a7b3eb457308d7008495df83aedf0c88bedf607563197853"
+    },
+    {
+      "path": "crates/controls/tests/replay.rs",
+      "sha256": "37a732b9214657937b5c6ad30a2142f91ebd88fb0cd8226f65d6768af1629d3e"
+    },
+    {
+      "path": "crates/controls/tests/runtime.rs",
+      "sha256": "b0e133ac2701a26587f419f347cc80e90e066a75cbc71cc9b7f7281979d00e47"
+    },
+    {
+      "path": "crates/msgs/Cargo.toml",
+      "sha256": "4baec082004389cd0a6422e285fe7a8c42ba3bfb936fa531940dee4db5d6d925"
+    },
+    {
+      "path": "crates/msgs/src/controls.rs",
+      "sha256": "d37f9945a055aae7d29379571da5b4d8638a145b29499f35306f0607e9554263"
+    },
+    {
+      "path": "crates/msgs/src/expression.rs",
+      "sha256": "b72e073150bb16ef8ca12a80f8728bf7403b4440a5a19de9de103518b6133e24"
+    },
+    {
+      "path": "crates/msgs/src/lib.rs",
+      "sha256": "5b5a584b216687afe124b009894107a38492dfebc913938de38e966d0c765bac"
+    },
+    {
+      "path": "crates/msgs/tests/bus.rs",
+      "sha256": "68464bf9055a5d4b9da90aa685adecd75defc0e00ed2b57ea46cac7e06c182e5"
+    },
+    {
+      "path": "crates/msgs/tests/controls.rs",
+      "sha256": "b6d2f57b661ddea523c5041b9525f8e184c15273effb3c6c6ee1a0acf433aaaf"
+    },
+    {
+      "path": "crates/msgs/tests/expression.rs",
+      "sha256": "665787d29a0ddb6111ea2cefa4557bd5dda24abb047ba42347d419ee40a7f5e5"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "9086bcddcaf49659955bf087dfb7f7f5565997b6dbec1a41cc863ef146fdb269"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "fc2f74f4c361cb712bf3416f690c90dc38273e4b6871a39c4e971e888f79de4c"
+    }
+  ],
+  "not_shown": [
+    "No GPIO/I2C adapter or on-device build/run",
+    "No Voice or Body subscription or applied stop/mute receipt",
+    "No physical privacy or acoustic/motion latency measurement",
+    "No Linux/ARM64 build or execution",
+    "No live explicit software-mute clear integration",
+    "No crash recovery before an unacknowledged request reaches durable storage"
+  ],
+  "gate": {
+    "completed_utc": "2026-10-14T02:36:17.700303+00:00",
+    "command": "cargo test --offline -p lamp-actions -p lamp-body -p lamp-controls -p lamp-expression -p lamp-eyes -p lamp-health -p lamp-msgs -p lamp-name -p lamp-policy -p lamp-voice -p lamp-voice-eval -- --test-threads=1",
+    "invocations": 1,
+    "result": "pass",
+    "suites": 99,
+    "passed": 1839,
+    "failed": 0,
+    "ignored": 5,
+    "measured": 0,
+    "filtered_out": 0,
+    "ignored_tests": [
+      "test coordinator::tests::endpoint_session::real_worker_session_records_verdict_provenance ... ignored, requires a built lamp-turn-end and the pinned model",
+      "test provider_worker::tests::sixty_second_answer_follows_output_capacity ... ignored, one minute of real time; run explicitly",
+      "test provider_worker::tests::three_minute_answer_follows_output_capacity ... ignored, three minutes of real time; run explicitly",
+      "test reference::recovery::tests::recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift ... ignored",
+      "test reference::tests::four_virtual_hours_capture_clocked ... ignored, four virtual hours; run in release"
+    ],
+    "test_profile": [
+      "Finished `test` profile [unoptimized + debuginfo] target(s) in 35.39s"
+    ],
+    "suite_summaries": [
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.73s",
+      "test result: ok. 99 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.05s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s",
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s",
+      "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s",
+      "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s",
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.16s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s",
+      "test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s",
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s",
+      "test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.05s",
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.26s",
+      "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.18s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.93s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.20s",
+      "test result: ok. 731 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 361.11s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.63s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s",
+      "test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+      "test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 84 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.04s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s",
+      "test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.26s",
+      "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 33.36s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s",
+      "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 246.18s",
+      "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.10s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s",
+      "test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.25s",
+      "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.45s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.89s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.26s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 390.48s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  "workspace_build": {
+    "command": "cargo build --offline --workspace",
+    "result": "pass",
+    "output": [
+      "Compiling lamp-name v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/name)",
+      "   Compiling lamp-eyes v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/eyes)",
+      "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.26s"
+    ]
+  }
+}

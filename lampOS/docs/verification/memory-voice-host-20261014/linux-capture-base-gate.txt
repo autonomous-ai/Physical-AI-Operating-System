@@ -1,0 +1,38 @@
+    Checking lamp-ipc v0.1.0 (/source_memory_capture/crates/ipc)
+    Checking lamp-bus v0.1.0 (/source_memory_capture/crates/bus)
+    Checking lamp-turn-owner v0.1.0 (/source_memory_capture/crates/turn-owner)
+   Compiling v4l2r v0.0.8
+   Compiling lamp-camera v0.1.0 (/source_memory_capture/crates/camera)
+    Checking lamp-gemini v0.1.0 (/source_memory_capture/crates/gemini)
+    Checking lamp-msgs v0.1.0 (/source_memory_capture/crates/msgs)
+    Checking lamp-ring v0.1.0 (/source_memory_capture/crates/ring)
+    Checking lamp-audio v0.1.0 (/source_memory_capture/crates/audio)
+    Checking lamp-turn-end-wire v0.1.0 (/source_memory_capture/crates/turn-end-wire)
+    Checking lamp-observer v0.1.0 (/source_memory_capture/crates/observer)
+    Checking lamp-keeper v0.1.0 (/source_memory_capture/crates/keeper)
+    Checking lamp-controls v0.1.0 (/source_memory_capture/crates/controls)
+    Checking lamp-body v0.1.0 (/source_memory_capture/crates/body)
+    Checking lamp-expression v0.1.0 (/source_memory_capture/crates/expression)
+    Checking lamp-sound-fixtures v0.1.0 (/source_memory_capture/crates/sound-fixtures)
+    Checking lamp-memory v0.1.0 (/source_memory_capture/crates/memory)
+    Checking lamp-voice v0.1.0 (/source_memory_capture/crates/voice)
+    Checking lamp-voice-eval v0.1.0 (/source_memory_capture/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.32s
+   Compiling lamp-ipc v0.1.0 (/source_memory_capture/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/source_memory_capture/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/source_memory_capture/crates/turn-owner)
+   Compiling v4l2r v0.0.8
+   Compiling lamp-camera v0.1.0 (/source_memory_capture/crates/camera)
+   Compiling lamp-gemini v0.1.0 (/source_memory_capture/crates/gemini)
+   Compiling lamp-msgs v0.1.0 (/source_memory_capture/crates/msgs)
+   Compiling lamp-keeper v0.1.0 (/source_memory_capture/crates/keeper)
+   Compiling lamp-controls v0.1.0 (/source_memory_capture/crates/controls)
+   Compiling lamp-body v0.1.0 (/source_memory_capture/crates/body)
+   Compiling lamp-memory v0.1.0 (/source_memory_capture/crates/memory)
+   Compiling lamp-audio v0.1.0 (/source_memory_capture/crates/audio)
+   Compiling lamp-ring v0.1.0 (/source_memory_capture/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/source_memory_capture/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/source_memory_capture/crates/voice)
+    Finished `release` profile [optimized] target(s) in 45.14s
+7bfc2e05eff1dba74ca8fbd1700a48e5530f2fd83b678abe31be048820dbed87  /target/aarch64-unknown-linux-gnu/release/lamp-memory
+4d3a3fe454dcf30f63702546ac6b0d1598672bc54e3853aa1516baf6eb9a66b2  /target/aarch64-unknown-linux-gnu/release/lamp-voice

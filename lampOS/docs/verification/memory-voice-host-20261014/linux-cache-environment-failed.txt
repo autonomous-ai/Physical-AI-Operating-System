@@ -1,0 +1,10 @@
+error: failed to get `cpal` as a dependency of package `lamp-observer v0.1.0 (/source/crates/observer)`
+
+Caused by:
+  failed to load source for dependency `cpal`
+
+Caused by:
+  unable to update https://github.com/RustAudio/cpal.git?rev=79275c2313da30e9f8b1ad8168385d091a2c9ada#79275c23
+
+Caused by:
+  can't checkout from 'https://github.com/RustAudio/cpal.git': you are in the offline mode (--offline)

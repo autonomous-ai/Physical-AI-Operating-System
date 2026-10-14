@@ -1,0 +1,4 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.18s
+    Finished `release` profile [optimized] target(s) in 1.16s
+7bfc2e05eff1dba74ca8fbd1700a48e5530f2fd83b678abe31be048820dbed87  /target/aarch64-unknown-linux-gnu/release/lamp-memory
+f09d9325d1e52d7e72ef1810628b6658a4a19900be4c0e13f12aab0e95c38cad  /target/aarch64-unknown-linux-gnu/release/lamp-voice

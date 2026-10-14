@@ -1,0 +1,13 @@
+{
+  "source_head": "e65c522545eaf381c7a62b1445c8b1af706af0e4",
+  "source_base": "a9992f272d302e3ce79a889faa2a88c5867af79d",
+  "command_exit": 0,
+  "suites": 60,
+  "passed": 1469,
+  "failed": 0,
+  "ignored": 11,
+  "suite_results": [
+    "ok"
+  ],
+  "failure_lines": []
+}

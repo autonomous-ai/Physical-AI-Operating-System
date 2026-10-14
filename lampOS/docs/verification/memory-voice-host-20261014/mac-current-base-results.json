@@ -1,0 +1,10 @@
+{
+  "base": "a9a7262a904d802fa54043fe43cf9e368837349b",
+  "exit_code": 101,
+  "suites": 60,
+  "passed": 1460,
+  "failed": 1,
+  "ignored": 11,
+  "failed_test": "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+  "failure": "ENOENT reading fixture receipt at crates/voice/src/coordinator/motor/tests.rs:896"
+}

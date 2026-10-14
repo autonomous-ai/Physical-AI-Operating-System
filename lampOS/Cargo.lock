@@ -1860,8 +1860,10 @@ name = "lamp-memory"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
+ "lamp-gemini",
  "lamp-ipc",
  "lamp-msgs",
+ "lamp-voice",
  "rusqlite",
  "serde",
  "serde_json",

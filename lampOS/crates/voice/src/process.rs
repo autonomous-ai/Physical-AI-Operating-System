@@ -206,6 +206,10 @@ impl Worker {
             .arg(boot_text(boot))
             .args(extra)
             .env_clear()
+            .envs(memory_days_worker_environment(
+                role,
+                std::env::var_os("LAMP_MEMORY_DAYS").as_deref(),
+            ))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
@@ -564,9 +568,58 @@ impl Drop for Worker {
     }
 }
 
+// Keep the provider's one opt-in explicit. No other coordinator environment
+// reaches a worker, and unset, non-Unicode and unrecognized values stay off.
+fn memory_days_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, &'static str)> {
+    (role == "provider" && value == Some(std::ffi::OsStr::new("on")))
+        .then_some(("LAMP_MEMORY_DAYS", "on"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleared_worker_environment_passes_only_the_exact_provider_opt_in() {
+        use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
+        let values = [
+            None,
+            Some(OsString::from("on")),
+            Some(OsString::from("ON")),
+            Some(OsString::from("true")),
+            Some(OsString::from("1")),
+            Some(OsString::from("off")),
+            Some(OsString::from("")),
+            Some(OsString::from("on ")),
+            Some(OsString::from_vec(vec![0xff])),
+        ];
+        for role in [
+            "provider", "capture", "speaker", "denoise", "echo", "unknown",
+        ] {
+            for value in &values {
+                // Observe an actual child's environment without changing this
+                // test process's environment or exposing any inherited values.
+                let output = Command::new("/usr/bin/env")
+                    .env("LAMP_TEST_UNRELATED", "synthetic")
+                    .env_clear()
+                    .envs(memory_days_worker_environment(role, value.as_deref()))
+                    .output()
+                    .unwrap();
+                assert!(output.status.success());
+                let expected =
+                    if role == "provider" && value.as_deref() == Some(std::ffi::OsStr::new("on")) {
+                        b"LAMP_MEMORY_DAYS=on\n".as_slice()
+                    } else {
+                        b"".as_slice()
+                    };
+                assert_eq!(output.stdout, expected, "role {role}, value {value:?}");
+            }
+        }
+    }
 
     fn child_worker(directory: &SessionDirectory, script: &str) -> Worker {
         let parent = new_boot().unwrap();

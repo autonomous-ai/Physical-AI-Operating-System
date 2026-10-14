@@ -21,6 +21,15 @@ It does not port voice compaction, provider recovery, or hands-free policy;
 their behavior is not established by memory tests. The parent paths are
 reading material only, never build or runtime dependencies.
 
+For task 29, the additional V1 references are
+`hal/realtime/context_manager/base.py` and `hal/realtime/summarizer.py`.
+Keep the immediate return when no summarizer exists, one background owner,
+bounded prompt text, and raw records surviving empty or failed extraction
+(`hal/test/test_realtime_summarizer_health.py`). Use the existing Rust
+prepare/apply boundary instead of V1's provider timeout and retries; no
+inference belongs in a Voice request. These source paths are read-only
+comparison material outside standalone lampOS.
+
 ## Switch and reply path
 
 Start `lamp-memory` with `--memory-days` to enable this store. Without it,
@@ -28,9 +37,11 @@ the existing JSONL implementation is used. No deployment or voice setting
 is changed. The opt-in binary never calls a model, starts a model worker,
 or makes a network request. It logs that the model adapter is unconfigured.
 
-The voice currently allows 300 ms for its initial kept-note fetch and
-1.5 s for a memory tool. The development target for this change is below
-50 ms p95 for reads through the Unix socket with 6,000 exchanges. First
+The legacy Voice path has a 300 ms initial kept-note budget and a 1.5 s
+tool budget. The opt-in client below gives each new session a 300 ms note
+acquisition budget and each explicit call 1.5 s. The original store's
+development target was below 50 ms p95 for reads through the Unix socket
+with 6,000 exchanges. First
 use, repeated reads, import, reopen and a pending model job are measured
 in [memory-evaluation.md](memory-evaluation.md). Those timings do not
 qualify the lamp. The existing single-client socket loop can wait up to
@@ -40,8 +51,118 @@ Import and recovery finish before `ready`. The caller queues journal writes
 off the reply path as before. A caller prepares model input only after a
 conversation ends, then runs inference outside the socket loop and returns
 the result later. An unanswered model cannot hold the store or delay the
-opening of a voice session. The current voice still uses `kept`; adopting
-the new frozen notes and provenance requires the first builder's wiring.
+opening of a voice session. Voice's new submission path returns a truthful
+skip when no model is configured; it does not prepare unused jobs.
+
+## Opt-in Voice client (task 29)
+
+`crates/voice/src/remember.rs` selects the new client only when the
+provider worker receives the exact environment value `LAMP_MEMORY_DAYS=on`
+and already has a Memory socket (`LAMP_MEMORY_SOCKET` in the coordinator,
+`--memory-socket` in the worker). Memory must use `--memory-days`.
+Absence or any other switch value preserves the legacy Voice path.
+
+The coordinator clears worker environments, then forwards only the exact
+`LAMP_MEMORY_DAYS=on` value to the provider role. Unset, invalid and
+non-Unicode values pass nothing; all other roles retain their empty
+environment. This narrow exception was approved in
+[Fourth-Q29](https://github.com/autonomous-ai/lampOS/issues/698#issuecomment-6165838226).
+No deployment has been changed. Host checks, retained failures and first and
+repeated client timings are in
+[task 29's evidence](verification/memory-voice-host-20261014/README.md).
+The task's final native ARM64 run and readiness are recorded in Fourth's log
+and pull request, tied to the exact branch head.
+
+A keyword `recall {about, days_ago?}` now sends `search` with that query
+and, when supplied, the named local day. The previous request already sent
+query/day: the difference is that `search` preserves relevance order and
+includes current observations, whereas compatible `recall` reorders its
+selected raw records chronologically. With no nonempty `about`, Voice
+continues to use `recall` for recent exchanges, optionally restricted to a
+day. Both requests ask for at most six records and 2,400 text bytes. Returned
+observations stay labelled as observations; all results include source IDs,
+an untrusted-data marker and the unknown-speaker scope. Empty results mean
+there is no matching memory, not permission to invent one.
+
+Every new provider session asks `session_open` for a frozen note. Its name
+combines a fresh process nonce and the provider session number. Voice
+validates the complete snapshot and quotes its JSON, retaining its identity,
+generation and source IDs; the inner note is capped at 1,200 bytes. A failed,
+invalidated, malformed or late snapshot gives an explicit unavailable-note
+instruction, with no stale-note fallback. Old sessions and failed opens
+are closed through the background queue, best effort; Memory's 32-session,
+24-hour limits cover lost closes. At the first Days session after a worker
+start, the restored conversation thread is discarded because the thread
+file contains no provenance.
+
+Voice keeps a conservative union of the IDs from accepted snapshots,
+successful remembers and recalls, across provider renewals for the lifetime
+of that worker. This is bounded at 64 distinct IDs; it is not an exact
+per-answer citation list because the existing call interface supplies no
+request lineage. A finished exchange captures the union when queued and
+uses `append_linked`. Missing or deleted sources cause refusal, never a
+retry as an unlinked append. A confirmed forget, an uncertain mutation
+acknowledgement, or source-union overflow inhibits subsequent journalling
+until a fresh worker establishes fresh context. A new provider session alone
+does not clear that inhibition. Forget also invalidates the local recap;
+this code cannot retract words already delivered to a cloud provider.
+Conservative links may delete more derived exchanges than exact citations
+would. Exchanges that use remember/forget still stay out of the journal.
+
+One worker owns a bounded queue of 32 exchanges and cleanup requests. Live
+Voice only attempts to enqueue; full queues drop new work. The worker
+collects IDs from acknowledged appends and sends `conversation_end` with
+`submit:true` after 45 seconds without another finished exchange. This is
+an idle approximation, not speaker recognition or a provider-session end.
+A conversation with lost/failed writes or more than 64 exchanges is skipped
+for tidy-up rather than submitted in part. An admission loss cannot be
+assigned safely to one conversation in a backlog, so it disables all
+subsequent tidy-up submissions until a fresh worker starts; successful
+linked journalling can continue. No result is retried. Each
+background socket request has a two-second budget; the live path waits for
+none of them. With no adapter, Memory validates the references and returns
+`{ok:true,submitted:false,reason:"model_unconfigured"}` without allocating a
+pending job, retrieving its text, running inference or making a network call.
+
+The opt-in socket transport is nonblocking, with one total deadline across
+connect, send, receive and JSON parsing. A saturated listener, a stalled peer
+or one sending bytes slowly cannot extend its budget; incomplete, oversized
+(over the 8,192-byte response cap), malformed and late replies fail honestly.
+Note acquisition is capped at 300 ms and calls at 1,500 ms, including their
+client bookkeeping. These are Memory-client boundaries, excluding the
+existing `local_time::told_here` call, instruction assembly, provider dialling,
+audio and scheduling delays. They are not measured end-to-end lamp latency.
+
+The Days client caches at most 64 KiB of `/etc/localtime` once at startup,
+before readiness (one extra byte is read to detect overflow). Calls use
+that cached TZif data and its listed transitions;
+missing, oversized or unsupported data falls back to UTC. A timezone-file
+change requires a worker restart. Memory's configured day offset must agree
+with Voice's local date; the store still has a fixed offset and no automatic
+summer-time adjustment. Startup file access is outside the note/call budgets.
+
+### Played scenes for First
+
+After the host gate is complete, use First's
+existing `~/lamp-voice-data/tools/memory.sh` workflow in a quiet room, first
+with the Voice switch absent and then enabled. Keep Memory's installed
+`--memory-days` flag: removing it cannot roll back the migrated store.
+The script is not in this checkout; no arguments or new run results are
+claimed here.
+
+| Scene to play | Expected evidence with the client enabled |
+|---|---|
+| Recall a distinctive word from a known earlier-day exchange, then name that day | `search` receives the query/day and returns the matching exchange in relevance order; an absent word gets an honest no-memory answer |
+| Keep a synthetic preference, then ask about it in a fresh provider session | `session_open` supplies a frozen snapshot with provenance; the answer uses the preference only when asked |
+| Finish a short ordinary conversation and leave it idle for at least 45 seconds | Background `append_linked` calls are followed by `conversation_end`; the response is the no-model skip, with no pending tidy job or spoken acknowledgement |
+| Forget the synthetic preference, then open a fresh provider session and ask again | The snapshot no longer contains it; later speech is not re-journalled by the inhibited worker. Already delivered cloud context is not proof of deletion |
+| Make Memory unavailable in an isolated test setup, then open a session and ask recall | The note degrades within its 300 ms client budget and recall fails within 1.5 s; ordinary conversation continues |
+
+Record note/call boundaries separately from first audible response, first
+use separately from repeated calls, and the exact lamp/build/settings.
+Most likely lamp differences are flash write delay, scheduling pressure,
+Memory's single-client queue, local-day configuration, and stale cloud
+context after forgetting. None of these scenes has been run for task 29.
 
 ## Storage and migration
 
@@ -153,7 +274,7 @@ message. A refusal leaves the connection usable.
 | `forget {id}` | `{ok:true,removed:N}` after transitive deletion and verification; missing ID gives zero. |
 | `session_open {session, max_bytes?}` | `{ok:true,snapshot:Note}`. Default/max cap 1,200 UTF-8 bytes for `Note.note`, including its inner JSON framing and escaping. Outer response metadata and re-escaping are outside that cap. |
 | `session_close {session}` | `{ok:true}`; safe to repeat. |
-| `conversation_end {conversation, source_ids, previous_ids?}` | `{ok:true,input:Input}`. Sources: 1–64 distinct journal exchanges that have already happened. Up to 32 optional current observation IDs select known correction context. |
+| `conversation_end {conversation, source_ids, previous_ids?, submit?}` | Absent/false `submit`: `{ok:true,input:Input}`. Sources: 1–64 distinct journal exchanges that have already happened. Up to 32 optional current observation IDs select known correction context. True `submit`: the no-model skipped receipt below. |
 | `tidy_apply {job, observations}` | `{ok:true,ids:[...]}`. Entire validated batch commits or none does. Repeat of a completed, retained job returns its original IDs without duplicating writes. |
 
 Session and conversation names are 1–64 lowercase ASCII letters, digits, `_` or `-`.
@@ -195,6 +316,18 @@ idempotent. There are at most eight pending jobs per person and 32 completed
 receipts. All jobs expire after 24 hours from preparation. Reuse after
 expiry is not protected against duplication: callers need unique names
 and must not blindly replay a day-old conversation.
+
+`submit:true` requests background handoff rather than frozen input. With the
+current absent adapter, it returns
+`{"ok":true,"submitted":false,"reason":"model_unconfigured"}`. It validates
+the conversation name, person, bounded distinct positive IDs, same-person
+exchange sources at or before the store's time, and any selected current
+observations. Validation reads only scalar metadata: it does not construct
+the 32-KiB model payload, search for related observations, reserve a job, or
+change an existing job with the same name. A valid conversation too large
+for model input can therefore be skipped successfully. This receipt means
+no work was submitted; it is not a retained completion receipt. Normal
+absent/false preparation remains unchanged.
 
 ## The model boundary
 
@@ -373,10 +506,16 @@ work unchanged in the new mode.
 The scenes played again at 14:50 do not count: the office was loud, the
 room was busy, and the voice's busy-room rule held the requests (including
 the call to remember: "asked for remember; not done"). To be played in a
-quiet room. Not used yet by the voice: the ranked search in place of the
-newest, the frozen session note and the tidy-up after a conversation.
+quiet room. At that lamp checkpoint, Voice did not use the new ranked
+response order, frozen session note or conversation-end handoff. Task 29's
+client above has not changed that recorded lamp result.
 
 ## Not shown
+
+Task 29's Mac client timings are recorded in
+[the host evidence](verification/memory-voice-host-20261014/README.md). Its new client, linked
+Voice journal and no-model handoff have not been qualified on the lamp.
+Earlier store tests and lamp timings do not establish these new paths.
 
 What follows is as Fourth wrote it, before the above. No new code had run
 on the lamp, on Linux ARM64, or under physical power

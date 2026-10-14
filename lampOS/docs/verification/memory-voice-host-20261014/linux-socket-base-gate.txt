@@ -1,0 +1,81 @@
+    Checking lamp-bus v0.1.0 (/source_memory_socket/crates/bus)
+    Checking lamp-ipc v0.1.0 (/source_memory_socket/crates/ipc)
+    Checking lamp-turn-owner v0.1.0 (/source_memory_socket/crates/turn-owner)
+    Checking lamp-gemini v0.1.0 (/source_memory_socket/crates/gemini)
+   Compiling v4l2r v0.0.8
+    Checking lamp-msgs v0.1.0 (/source_memory_socket/crates/msgs)
+    Checking lamp-audio v0.1.0 (/source_memory_socket/crates/audio)
+   Compiling lamp-camera v0.1.0 (/source_memory_socket/crates/camera)
+    Checking lamp-turn-end-wire v0.1.0 (/source_memory_socket/crates/turn-end-wire)
+    Checking lamp-ring v0.1.0 (/source_memory_socket/crates/ring)
+    Checking lamp-sound-fixtures v0.1.0 (/source_memory_socket/crates/sound-fixtures)
+    Checking lamp-keeper v0.1.0 (/source_memory_socket/crates/keeper)
+    Checking lamp-body v0.1.0 (/source_memory_socket/crates/body)
+    Checking lamp-controls v0.1.0 (/source_memory_socket/crates/controls)
+    Checking lamp-expression v0.1.0 (/source_memory_socket/crates/expression)
+    Checking lamp-observer v0.1.0 (/source_memory_socket/crates/observer)
+    Checking tough v0.24.0 (/source_memory_socket/vendor/tough)
+    Checking lamp-policy v0.1.0 (/source_memory_socket/crates/policy)
+    Checking lamp-memory v0.1.0 (/source_memory_socket/crates/memory)
+    Checking lamp-schedule v0.1.0 (/source_memory_socket/crates/schedule)
+    Checking lamp-surround v0.1.0 (/source_memory_socket/crates/surround)
+    Checking lamp-voice v0.1.0 (/source_memory_socket/crates/voice)
+    Checking lamp-tasks v0.1.0 (/source_memory_socket/crates/tasks)
+    Checking lamp-mood v0.1.0 (/source_memory_socket/crates/mood)
+    Checking lamp-lean v0.1.0 (/source_memory_socket/crates/lean)
+    Checking lamp-health v0.1.0 (/source_memory_socket/crates/health)
+    Checking lamp-turn-end v0.1.0 (/source_memory_socket/crates/turn-end)
+    Checking lamp-eyes v0.1.0 (/source_memory_socket/crates/eyes)
+    Checking lamp-name v0.1.0 (/source_memory_socket/crates/name)
+    Checking lamp-records v0.1.0 (/source_memory_socket/crates/records)
+    Checking lamp-actions v0.1.0 (/source_memory_socket/crates/actions)
+    Checking lamp-air v0.1.0 (/source_memory_socket/crates/air)
+    Checking lamp-ears v0.1.0 (/source_memory_socket/crates/ears)
+    Checking lamp-environment v0.1.0 (/source_memory_socket/crates/environment)
+    Checking lamp-voice-eval v0.1.0 (/source_memory_socket/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 35.93s
+   Compiling lamp-ipc v0.1.0 (/source_memory_socket/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/source_memory_socket/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/source_memory_socket/crates/turn-owner)
+   Compiling v4l2r v0.0.8
+   Compiling lamp-camera v0.1.0 (/source_memory_socket/crates/camera)
+   Compiling lamp-msgs v0.1.0 (/source_memory_socket/crates/msgs)
+   Compiling lamp-audio v0.1.0 (/source_memory_socket/crates/audio)
+   Compiling lamp-ring v0.1.0 (/source_memory_socket/crates/ring)
+   Compiling lamp-gemini v0.1.0 (/source_memory_socket/crates/gemini)
+   Compiling lamp-keeper v0.1.0 (/source_memory_socket/crates/keeper)
+   Compiling lamp-body v0.1.0 (/source_memory_socket/crates/body)
+   Compiling lamp-controls v0.1.0 (/source_memory_socket/crates/controls)
+   Compiling lamp-turn-end-wire v0.1.0 (/source_memory_socket/crates/turn-end-wire)
+   Compiling lamp-expression v0.1.0 (/source_memory_socket/crates/expression)
+   Compiling lamp-voice v0.1.0 (/source_memory_socket/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.09s
+     Running tests/capture_hold_worker.rs (/target/x86_64-unknown-linux-gnu/debug/deps/capture_hold_worker-5063e0246ec60a7c)
+
+running 3 tests
+test another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for ... ok
+test mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held ... ok
+test mic1_muted_while_frames_are_held_hands_none_of_them_on ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.37s
+
+   Compiling lamp-bus v0.1.0 (/source_memory_socket/crates/bus)
+   Compiling lamp-ipc v0.1.0 (/source_memory_socket/crates/ipc)
+   Compiling lamp-turn-owner v0.1.0 (/source_memory_socket/crates/turn-owner)
+   Compiling v4l2r v0.0.8
+   Compiling lamp-camera v0.1.0 (/source_memory_socket/crates/camera)
+   Compiling lamp-audio v0.1.0 (/source_memory_socket/crates/audio)
+   Compiling lamp-msgs v0.1.0 (/source_memory_socket/crates/msgs)
+   Compiling lamp-keeper v0.1.0 (/source_memory_socket/crates/keeper)
+   Compiling lamp-controls v0.1.0 (/source_memory_socket/crates/controls)
+   Compiling lamp-body v0.1.0 (/source_memory_socket/crates/body)
+   Compiling lamp-tasks v0.1.0 (/source_memory_socket/crates/tasks)
+   Compiling lamp-memory v0.1.0 (/source_memory_socket/crates/memory)
+   Compiling lamp-gemini v0.1.0 (/source_memory_socket/crates/gemini)
+   Compiling lamp-ring v0.1.0 (/source_memory_socket/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/source_memory_socket/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/source_memory_socket/crates/voice)
+    Finished `release` profile [optimized] target(s) in 48.18s
+f2907b9024a21e373f723f97342daacc475ac9c4e51d236365ab5e40c1ef557f  /target/aarch64-unknown-linux-gnu/release/lamp-memory
+3f49bdf06bac92ccec7f4b36792639a45fce0fdca53c681b0b1617643ff674c4  /target/aarch64-unknown-linux-gnu/release/lamp-voice
+47f105d7d79ba7216daf3bbf42be2b65432008c80ee4b31faaaf822d0f9c5d89  /target/aarch64-unknown-linux-gnu/release/lamp-tasks

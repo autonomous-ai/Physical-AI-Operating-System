@@ -27,6 +27,14 @@ host results and First's lamp runs are in [memory-days.md](memory-days.md).
 The optional health report below changes no Voice caller or deployment,
 and configures no model.
 
+Task 29 adds an optional Voice client for ranked results, frozen notes with
+provenance, linked journalling and a background conversation-end receipt.
+It requires `LAMP_MEMORY_DAYS=on` in the provider worker as well as the
+existing Memory socket. The coordinator forwards only that exact switch
+value to the provider role; the complete gate remains pending. Its Mac client
+timings are in [the task 29 evidence](verification/memory-voice-host-20261014/README.md).
+See [the client contract and played scenes](memory-days.md#opt-in-voice-client-task-29).
+
 ## The process
 
 Its own process, so that the lamp talks on, without recalling earlier days,
@@ -197,15 +205,19 @@ order; it does not return observations. New operations are:
 {"op":"session_open","session":"voice_1","max_bytes":1200}
 {"op":"session_close","session":"voice_1"}
 {"op":"conversation_end","conversation":"turn_1","source_ids":[1],"previous_ids":[]}
+{"op":"conversation_end","conversation":"voice_1","source_ids":[1],"submit":true}
 {"op":"tidy_apply","job":"j1","observations":[{"text":"Prefers black coffee","category":"preference","source_ids":[1],"supersedes":null}]}
 ```
 
 These are shapes, not an ordered script: IDs must come from successful
 responses in the same person's store. `search` returns ranked records with
 their provenance; `forget` returns a count after removal and index checks.
-`session_open` returns a frozen `snapshot`; `conversation_end` returns
-bounded model `input`, without invoking a model; `tidy_apply` returns the
-new observation `ids`. See [the full wire contract](memory-days.md#request-contract)
+`session_open` returns a frozen `snapshot`; default `conversation_end`
+returns bounded model `input`, without invoking a model. With `submit:true`,
+the current build validates references and returns
+`{ok:true,submitted:false,reason:"model_unconfigured"}`, allocating no job.
+`tidy_apply` returns the new observation `ids`.
+See [the full wire contract](memory-days.md#request-contract)
 for fields, errors, retries, invalidation and caller responsibilities.
 
 ## Limits, and what happens at each
@@ -231,11 +243,12 @@ for fields, errors, retries, invalidation and caller responsibilities.
 
 `crates/voice/src/remember.rs`, switched on by naming the socket in the
 voice unit (`LAMP_MEMORY_SOCKET`, the provider worker's `--memory-socket`).
-Without it the voice knows nothing of this process.
+Without it the voice knows nothing of this process. The following describes
+the unchanged legacy client, used unless the new Days client is selected.
 
 - **Three functions the model may call** ([tools.md](tools.md)):
   `remember {text}`, `recall {about?, days_ago?}` and `forget {}`. Each is
-  one request here, on a thread of its own, waited for 1.5 s at most. With
+  one request here, on a thread of its own, with a 1.5 s budget. With
   no answer the model is told "My memory is not answering right now, so I
   could not do that." and the conversation goes on.
 - **The journal.** When a request is over, the exchange (what the provider
@@ -266,8 +279,20 @@ Without it the voice knows nothing of this process.
   lamp says ("it is off my list"). A later conversation in which the thing
   came up is still in the journal until it is 30 days old. Forgetting that
   reaches everything derived from a thing needs each entry to say what it
-  came from. The opt-in store now supports those links and transitive
-  deletion; the voice does not yet send them or use the new snapshots.
+  came from. The opt-in store supports those links and transitive deletion;
+  the legacy client does not send them or use frozen snapshots.
+
+The [Days client](memory-days.md#opt-in-voice-client-task-29) uses `search`
+for keyword recalls and `session_open` for a fresh session's bounded note.
+It preserves quoted provenance, sends linked journal writes from one
+background worker, and requests tidy-up after 45 seconds without a finished
+exchange. No model is configured, so that request is a skip with no pending
+job. Its 300 ms note and 1.5 s call budgets cover nonblocking socket I/O and
+reply validation; they do not measure provider connection or audible
+response time. Source overflow, uncertain mutations and confirmed forgetting
+inhibit new journal writes until a fresh worker; a restart also discards the
+old thread-file recap because it carries no provenance. These new paths
+have no task 29 lamp measurements.
 
 ### Played on the lamp
 
@@ -330,8 +355,8 @@ record and not what the crate does.**
 |---|---|---|
 | Keep the raw record and search it; treat extracted facts as an index over it, never a replacement (the best-supported finding: replacing sessions with summaries lowered accuracy in LongMemEval) | The journal is the truth. Anything derived points back to the lines it came from and can be rebuilt | Opt-in raw records plus validated observation source links; scripted tests |
 | A fast path for "remember this" | The kept list, written at once | Yes |
-| A small part always in the prompt, under a hard cap, as it stood when the session opened | Open promises, recent threads, lasting preferences | Opt-in frozen snapshot, at most 1,200 UTF-8 bytes including its JSON framing; voice integration pending |
-| Tidy up in the background, never during a reply (Codex, ChatGPT, Letta, OpenClaw) | A pass after a conversation has ended, with a model off the voice path: dated observations, each with its source lines | Bounded prepare/apply protocol and cancellable model interface with scripted tests; real adapter absent |
+| A small part always in the prompt, under a hard cap, as it stood when the session opened | Open promises, recent threads, lasting preferences | Opt-in frozen snapshot, at most 1,200 UTF-8 bytes including its JSON framing; Voice client and service forwarding implemented, final host gate pending |
+| Tidy up in the background, never during a reply (Codex, ChatGPT, Letta, OpenClaw) | A pass after a conversation has ended, with a model off the voice path: dated observations, each with its source lines | Bounded prepare/apply protocol and cancellable model interface; optional Voice handoff explicitly skips without an adapter and retains no job |
 | Stamp time on everything; a newer fact supersedes an older one by a link, and both are kept (overwriting and model-decided deletion were wrong often enough that mem0 gave them up) | Supersession as a link. Nothing derived is destroyed by the pass that made it | Opt-in source-dated observations; correction links preserve history; stale results refused |
 | Keyword search first; meaning-based search only where it is measured to help | SQLite FTS5 ranking; no embeddings without evidence | Opt-in Unicode-normalized English/Vietnamese retrieval; LongMemEval user-session recall-all@5: 69.69% whole-word, 81.86% FTS5, 419 questions on the development Mac |
 | Forgetting that is real: it reaches every summary and index (regulators acted against a product that kept transcripts of "deleted" recordings) | Remove the thing and linked derivatives, and verify the index before acknowledging | Opt-in transaction covers records, source/replacement links, FTS, pending jobs and stored notes; callers must drop already supplied model context |
@@ -372,6 +397,12 @@ whoever the caller says. Files are not encrypted; forgotten text is unlinked,
 not scrubbed from the flash. The offset from UTC is fixed: no summer time.
 
 ## Not shown
+
+Task 29's new Voice client still awaits its complete gate; its first and
+repeated Mac client timings are retained in
+[the host evidence](verification/memory-voice-host-20261014/README.md).
+The historical results below do not validate its new reply order, snapshot
+context, linked journal or background handoff on the lamp.
 
 Host tests on a development Mac: store and protocol in unit tests, the real
 server on a socket in a thread, the built binary killed with SIGKILL and

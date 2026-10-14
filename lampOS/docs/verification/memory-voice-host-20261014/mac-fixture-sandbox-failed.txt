@@ -1,0 +1,20 @@
+Isolated repetition 1/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... 
+thread 'coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly' (557909462) panicked at crates/voice/src/process.rs:132:87:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 836 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`
+Exit status: 101

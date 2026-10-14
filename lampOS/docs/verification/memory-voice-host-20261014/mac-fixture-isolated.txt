@@ -1,0 +1,150 @@
+Isolated repetition 1/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6432 us, refused writes 0, end-to-speaker revocation [(1, 1478)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2501999281441)] stopped ["speaker", "privacy", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0
+Isolated repetition 2/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")"]
+peer privacy gap 6531 us, refused writes 0, end-to-speaker revocation [(1, 1066)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502001846215)] stopped ["speaker", "privacy", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.00s
+
+Exit status: 0
+Isolated repetition 3/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6550 us, refused writes 0, end-to-speaker revocation [(1, 1421)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502004462110)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0
+Isolated repetition 4/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")"]
+peer privacy gap 6540 us, refused writes 0, end-to-speaker revocation [(1, 1135)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502007031777)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0
+Isolated repetition 5/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6492 us, refused writes 0, end-to-speaker revocation [(1, 1136)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502009601469)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.00s
+
+Exit status: 0
+Isolated repetition 6/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6595 us, refused writes 0, end-to-speaker revocation [(1, 1214)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502012191248)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0
+Isolated repetition 7/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6527 us, refused writes 0, end-to-speaker revocation [(1, 1533)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502014791507)] stopped ["speaker", "privacy", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0
+Isolated repetition 8/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6580 us, refused writes 0, end-to-speaker revocation [(1, 1124)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502017379903)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.00s
+
+Exit status: 0
+Isolated repetition 9/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6647 us, refused writes 0, end-to-speaker revocation [(1, 717)] us
+frames 200 starts [1] ends [1] chunks 3 accepted 3 fired [(Sigterm, 2502019992629)] stopped ["speaker", "capture", "provider", "privacy"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.00s
+
+Exit status: 0
+Isolated repetition 10/10
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a98444cc1c3f37e5)
+
+running 1 test
+test coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly ... {"seconds":null,"status":"listening_ready"}
+result Ok(())
+kinds ["endpoint_policy", "turn_taking_availability", "capture_started", "provider_link_current", "listening_ready", "input_candidate", "input_admitted(1)", "provider_input_started", "local_endpoint(1)", "provider_input_abandoned", "provider_turn_failed", "failure_notice_selected", "failure_notice_attempted", "turn_taking_availability", "failure_notice_first_write", "speech_queue_drained", "service_stop_requested", "turn_finished(\"service_stopped\")", "worker_shutdown_event"]
+peer privacy gap 6570 us, refused writes 0, end-to-speaker revocation [(1, 1257)] us
+frames 200 starts [1] ends [1] chunks 4 accepted 4 fired [(Sigterm, 2502022694703)] stopped ["privacy", "speaker", "capture", "provider"] abandoned []
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 2.01s
+
+Exit status: 0

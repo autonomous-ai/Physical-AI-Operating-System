@@ -1,0 +1,10 @@
+{
+  "source_base": "724541a957e5e66bb4c0f4a8de537466c8a9fe55",
+  "source_head": "d89beda40652b10c0e57c13548326b5457eca8c5",
+  "command_exit": 0,
+  "suites": 7,
+  "passed": 167,
+  "failed": 0,
+  "ignored": 2,
+  "scope": "Focused Voice modules: first_output, attention, provider_worker, tools, process, remember, thread; not a full workspace rerun."
+}

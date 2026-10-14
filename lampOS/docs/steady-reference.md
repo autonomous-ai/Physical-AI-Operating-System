@@ -253,9 +253,70 @@ sentences and seven short words played over its own voice with nobody
 in the office (`cutins.sh`), how many stop it, with and without the
 flag, the same evening.
 
+## The replay takes the lamp's recordings (task 20, 2026-10-14)
+
+`lamp-audio replay-aec` now follows a recording made with the
+capture-clocked reference, as the lamp runs, through to its end.
+
+- **How it knows.** The session's `events.jsonl` says, in its `run_start`,
+  `reference_clock` (`fixed` or `capture`) and `echo_reference`. A session
+  too old to say is known by its first capture record: a capture-clocked
+  ring has read nothing past its lead there, a fixed margin has already
+  taken the prime. `report.json` says which (`reference_clock`,
+  `reference_clock_from`).
+- **What it does.** It rebuilds the voice's ring from what the recording
+  kept, as `ReferenceAssembly` builds it (`crates/voice/src/reference.rs`):
+  at each start or reset, the lead and the prime, all silence; before each
+  capture block, every frame the speaker had accepted by then
+  (`reference.accepted_through`); one block taken for the canceller; then
+  the rate for the next, from the ring's fill and the frames owed since the
+  last packet (`reference.analysed_at_us` less `reference.accepted_at_us`,
+  at most 20 ms). After each block its cursor must be the lamp's
+  (`reference.analysed_through`). The canceller is given the same blocks in
+  the same order as on the lamp, so its output is the lamp's, sample for
+  sample.
+- **Where it cannot follow** it stops at that capture record, says which
+  and why in `limitations` ("capture record N: …"), and keeps every block
+  before it, written out as usual.
+- **The session's events** are read a line at a time (up to 4 GiB), keeping
+  only the diagnostics' start and receipt and the run's start. A last line
+  cut off part way, as when the lamp is stopped mid-write, is not read and
+  is reported (`events_cut_off`); a line over 64 KiB is passed over and
+  counted (`events_long_lines`); any other line that is not JSON is an
+  error naming its number.
+- **Which reference.** Without an option the replay gives the canceller the
+  reference the recorded voice used (`echo_reference`). `--steady-reference`
+  or `--as-given-reference` chooses one.
+
+Tested on recordings made in the tests as the voice makes them
+(`crates/audio/tests/replay.rs`): a capture-clocked one of 300 blocks, the
+speaker 1,000 ppm fast and every seventh packet late, replays whole and
+gives the canceller's own output sample for sample; one with a reset in the
+middle, two segments, both exact; one whose events end in a cut-off line;
+one whose 61st capture record has its cursor moved by a frame, which stops
+there, names the record and keeps the 60 blocks before it. Not tested on a
+recording from a lamp: the voice's recorder is not run against scripted
+devices in a capture-clocked session anywhere in the tests.
+
+On the lamp's recordings, with nothing played by people in them:
+
+```sh
+lamp-audio replay-aec RUN artifacts/replay-as-recorded
+lamp-audio replay-aec RUN artifacts/replay-steady --steady-reference
+```
+
+The first should say `replay_complete_for_recorded_capture: true` and,
+for each segment, `aec_only_mismatched_samples_vs_recorded: 0` (the lamp
+runs without noise suppression; with it, `aec_ns_…`). Then compare the two
+reports' `lamp_sounding_internal_alignment_ms`, `…_changes` and
+`lamp_sounding_echo_removed_db`, and listen to `segment-*-aec_only.wav` at
+the words played over the lamp. A mismatch in the first is where the
+replay and the lamp part: its `limitations` name the record.
+
 ## Not shown
 
-The lamp; the lamp's second microphone and its chip, which change the sound
+The replay on a lamp's recording (task 20); the lamp; the lamp's second
+microphone and its chip, which change the sound
 in ways the rig does not copy; a person's voice; whether the 2 dB the rig
 gives back is heard by anyone; the cost on the lamp's processor; the
 steady reference inside a running voice. The causes of the movement are

@@ -307,6 +307,20 @@ Ready for lamp-voice: yes (the commit that adds this entry)
 - Kind: changes only what the keeper does when it is the updater's
   service; nothing on lamp-4ace.
 
+## 2026-10-14 — head-follow — the nod's speed switch, built
+
+Ready for lamp-voice: no (on `fifth/head-follow` only)
+
+- `fifth/head-follow`: `lampOS: let the body pass Expression's nod at the
+  speed a clear nod needs, behind a switch` (`--nod-speed N`, 10 to 300;
+  absent = as before). A nod is known by its shape, since Expression's
+  request has no kind: head pitch only, from zero, for its first 0.5 s and
+  its way back. Gate: green; `cargo test -p lamp-body` 266 passed, 0 failed;
+  Linux arm64 build with only the two old warnings. The values for
+  Expression's catalogue are in the entry on that branch.
+- Not ready because nothing has shown it on a lamp: lamp-52e6 runs no
+  Expression yet, and how the nod looks to a person has not been watched.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

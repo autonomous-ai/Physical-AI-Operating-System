@@ -171,6 +171,7 @@ impl RuntimeFlags {
                 match endpoint {
                     Endpoint::Silence => "silence",
                     Endpoint::SmartTurn => "smart-turn",
+                    Endpoint::SmartTurnFast => "smart-turn-fast",
                 },
             );
         }

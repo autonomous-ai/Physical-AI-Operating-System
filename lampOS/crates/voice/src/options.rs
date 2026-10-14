@@ -148,12 +148,26 @@ impl FromStr for ReferenceClock {
 /// separate `lamp-turn-end` process and its pinned model, both
 /// installed beside this executable, and keeps the silence window as the
 /// fallback for every pause without a usable verdict. It is never a default.
+///
+/// `smart-turn-fast` is the same worker and model run fast (8-bit weights
+/// under ONNX Runtime, whose pinned library must sit beside the worker):
+/// 148 ms a verdict on lamp-4ace where the exact one takes 382 ms, which is
+/// what lets a verdict arrive before the silence window has ended the turn
+/// by itself (docs/endpoint-pilot.md, "The fast model"). Without the
+/// library the worker fails at startup and every pause is the window's.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Endpoint {
     #[default]
     Silence,
     SmartTurn,
+    SmartTurnFast,
+}
+impl Endpoint {
+    /// Whether pauses are put to the end-of-turn model at all.
+    pub fn confirms(self) -> bool {
+        self != Self::Silence
+    }
 }
 impl FromStr for Endpoint {
     type Err = io::Error;
@@ -161,6 +175,7 @@ impl FromStr for Endpoint {
         match value {
             "silence" => Ok(Self::Silence),
             "smart-turn" => Ok(Self::SmartTurn),
+            "smart-turn-fast" => Ok(Self::SmartTurnFast),
             _ => Err(invalid_options()),
         }
     }
@@ -391,7 +406,7 @@ impl DirectedOptions {
         }
         // Confirmation is defined against the baseline detector's silence
         // fallback, which V1-baseline and duplex share; `vad-only` has none.
-        if options.endpoint == Endpoint::SmartTurn && options.turn_taking == TurnTaking::VadOnly {
+        if options.endpoint.confirms() && options.turn_taking == TurnTaking::VadOnly {
             return Err(invalid_options());
         }
         Ok(options)
@@ -807,8 +822,25 @@ mod tests {
         ]))
         .unwrap();
         assert_eq!(duplex.directed.endpoint, Endpoint::SmartTurn);
+        // The fast form is a value of its own and no default either.
+        let fast = SessionOptions::parse(&args(&[
+            "--turn-taking",
+            "duplex",
+            "--endpoint",
+            "smart-turn-fast",
+        ]))
+        .unwrap();
+        assert_eq!(fast.directed.endpoint, Endpoint::SmartTurnFast);
+        assert_eq!(
+            serde_json::to_value(fast.directed.endpoint).unwrap(),
+            "smart-turn-fast"
+        );
+        assert!(Endpoint::SmartTurnFast.confirms() && Endpoint::SmartTurn.confirms());
+        assert!(!Endpoint::Silence.confirms());
         for values in [
             vec!["--endpoint", "smart-turn"],
+            vec!["--endpoint", "smart-turn-fast"],
+            vec!["--turn-taking", "vad-only", "--endpoint", "smart-turn-fast"],
             vec!["--turn-taking", "vad-only", "--endpoint", "smart-turn"],
             vec!["--turn-taking", "v1-baseline", "--endpoint"],
             vec!["--turn-taking", "v1-baseline", "--endpoint", "Smart-Turn"],

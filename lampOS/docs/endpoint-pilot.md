@@ -255,8 +255,23 @@ the lamp's system; the memory cap holds; loading takes 0.6 s. With the
 name part on the same two cores, two threads still beat one by 65 ms.
 
 What it makes possible: asked 200 ms into a pause, a verdict about 350 ms
-after someone stops, where the silence rule alone needs 600 ms. Not shown
-here: any of it in the voice. Nothing uses the fast worker yet.
+after someone stops, where the silence rule alone needs 600 ms.
+
+The voice starts the fast worker with `--endpoint smart-turn-fast`
+(`Endpoint::SmartTurnFast` in `crates/voice/src/options.rs`,
+`EndpointRig::start`), beside `smart-turn`, which stays as it was. With
+lamp-4ace's 600 ms window the voice then uses the policy it already has
+for a short window (`ConfirmPolicy::responsive`): a verdict of 0.9 or
+more ends the turn once the pause is 400 ms long, a verdict under 0.01
+holds it open until 1.5 s, and anything between, or no verdict in time,
+ends on the window as today. So a sentence the model is sure is finished
+is answered 200 ms sooner, and one it is sure is not finished is waited
+for longer.
+
+Not shown: any of it in a session of the voice. The lamp's unit does not
+have the flag. The risk of ending early is cutting someone off in the
+middle of what they are saying, so the scenes with pauses in them are to
+be played to it with nobody in the office before it is on for anyone.
 
 ### Where this is most likely to be wrong on the lamp
 

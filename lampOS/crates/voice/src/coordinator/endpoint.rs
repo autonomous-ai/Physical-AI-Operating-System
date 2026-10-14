@@ -28,14 +28,16 @@ pub(super) struct EndpointRig {
 impl EndpointRig {
     /// Starts loading at once; the session never waits for it.
     pub(super) fn start(options: &DirectedOptions, executable: &Path) -> Option<Self> {
-        if options.endpoint != Endpoint::SmartTurn {
-            return None;
-        }
         let directory = executable.parent().unwrap_or(Path::new("/"));
-        let command = WorkerCommand::smart_turn(
+        let (program, model) = (
             directory.join(WORKER_EXECUTABLE),
             directory.join(SMART_TURN_MODEL_FILE),
         );
+        let command = match options.endpoint {
+            Endpoint::Silence => return None,
+            Endpoint::SmartTurn => WorkerCommand::smart_turn(program, model),
+            Endpoint::SmartTurnFast => WorkerCommand::smart_turn_fast(program, model),
+        };
         Some(Self::process(command, Limits::default()))
     }
 

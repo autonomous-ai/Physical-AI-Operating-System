@@ -26,7 +26,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | pull request #729 into `lamp-voice`, 2026-10-14 |
-| second-P1 | The early end taken back: the study and the probe (issue #723) | `second/early-end-back` | 2026-10-14 | being built |
+| second-P1 | The early end taken back: the study and the probe (issue #723) | `second/early-end-back` | 2026-10-14 | step 1 as pull request #731 into `lamp-voice`, 2026-10-14; step 2 waits for the probe on lamp-4ace |
 
 ## Proposed tasks
 
@@ -51,6 +51,75 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### second-P1, step 1: the early end taken back, study and probe (2026-10-14, issue #723)
+
+Ready for lamp-voice: yes (#731)
+
+**Kind: off unless set.** No library or service code changes: an example
+that runs only when started by hand (`crates/gemini/examples/early_end_probe.rs`),
+`service_probe`'s provider and WAV loaders moved unchanged into
+`examples/shared/provider.rs` for both probes, `[[example]] test = true` in
+the gemini manifest so `cargo test` runs the probe's tests, and
+`docs/early-end-taken-back.md` with a pointer from `faster-answers.md`.
+One commit, `0839cfb4b`, on `lamp-voice` at `3e3de2d7a`.
+
+**The study** (`docs/early-end-taken-back.md`): the Live API has no
+message that takes a request back (an `activityEnd` ends it, client
+content "is unconditionally appended to the conversation history"). A
+resumption handle "represents a state that can be resumed" and is valid
+2 h after the session ends, but neither Google page says whether an
+earlier handle resumes once later ones were given. So (a), resuming from
+the handle before the piece, and (b), a note on the whole utterance, are
+both open, and only the service can say.
+
+**The probe:** five trials of three requests each (15, never over 20,
+ended within 115 s): `control`, `resume`, `resume-late`, `whole-resumed`,
+`whole-labelled`. It reads the voice's provider file by path (never
+printed), sends five recorded utterances from files and opens no
+microphone or speaker. It prints one JSON line a trial of timings and the
+service's words, and `--dry-run` prints the plan without connecting. The
+gemini library keeps only the newest handle and its handles cannot be
+compared outside it, so the probe keeps its own copy of the handle from
+before the piece, and resumes once at once and once after the piece's
+whole answer, when a newer handle has surely been given.
+
+**Tested, on the M2 Max, against the scripted service, not the live one.**
+Five tests, the service given a memory that behaves as (a) needs:
+`control` names orange and purple; `resume` and `resume-late` orange
+only, each presenting the handle from before the piece; both whole-question
+trials say Tokyo, and the note goes once inside the whole question;
+nothing private printed; a refused resume reported and not retried; a
+silent service ends the run within 115 s and 20 requests; the dry run
+shows 15 requests and the note. The built example's `--dry-run` also ran
+here on a placeholder provider file.
+
+**Gate:** `cargo fmt --all --check` passes; `cargo clippy -p lamp-gemini
+--all-targets -- -D warnings` clean; `cargo test -p lamp-gemini` 255
+passed, 2 ignored (the probe's 5 among them); `cargo test -p lamp-gemini
+--examples -- --test-threads=1`: the probe's 5 and `service_probe`'s 23
+passed; `cargo build --workspace` passes. Native ARM64 run 38587667135 on
+`0839cfb4b`: green, 3,822 passed, 0 failed, 29 ignored.
+
+**What to run on the lamp** (`docs/early-end-taken-back.md`): the five WAV
+files (`say` and `afconvert` on a Mac; in this session `say` gave 5 ms
+files, so check that each is a second or two), `cargo build --locked
+--release -p lamp-gemini --example early_end_probe`, then as the voice's
+user `early_end_probe /etc/lampOS/voice/provider.json DIR --dry-run` and
+the same without `--dry-run`. The document's table says which way holds
+from the rows; step 2 is built only on that.
+
+**Where it is most likely wrong on the lamp:** (1) the configured endpoint
+not passing `sessionResumption` both ways, so a refused resume would be
+the road and not the service; (2) no current handle within 3 s of the
+first answer (`handle_before_piece: false`); (3) the model guessing the
+words from the check question itself: the words in each row decide, not
+the `answer_mentions` flags; (4) a slow link ending the last trials as
+`skipped`.
+
+**Not shown:** anything from the live service; a person's voice; how long
+resuming takes on the lamp's link; what a resumed session keeps beyond the
+probe's own instruction.
 
 ### Task 36: always alive, the idle layer, sleep and waking (2026-10-14, issue #714)
 

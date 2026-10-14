@@ -7,22 +7,165 @@ Apple M2 Max laptop (macOS) and a Linux ARM64 virtual machine on that
 laptop (Colima, 6 virtual cores, Debian bookworm, Rust 1.96.0). Neither is
 the lamp, and nothing here was run on a lamp.
 
+Since the evening of 2026-10-14 the tasks are GitHub issues in the order
+of the Queue issue (#705), a finished task is one pull request from its
+`second/<task>` branch into `lamp-voice`, and `lamp-second` carries this
+log and nothing a lamp runs ([joining.md](joining.md),
+[builders/second.md](../builders/second.md)).
+
 ## Taken
 
 | # | Task | Branch | Taken | State |
 |---|---|---|---|---|
-| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-second`, 2026-10-14; on the lamp 148 ms against 382 |
+| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-voice`; on the lamp 148 ms against 382; the voice does not use it yet |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
-| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | on `lamp-second`, 2026-10-14: hears the word alone; under the lamp's voice only through the canceller, partly |
-| 5 | The name, heard as a bare "Lamp" | `second/bare-name` | 2026-10-14 | being built |
-| 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
-| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
-| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`; taken into `lamp-voice`: five of the lamp's recordings followed sample for sample |
-| 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
+| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | on `lamp-voice`: hears the word alone; under the lamp's voice only through the canceller, partly; a first look on lamp-4ace heard no played stop; not wired |
+| 5 | The name, heard as a bare "Lamp" (issue #694) | `second/bare-name` | 2026-10-14 | pull request #725 into `lamp-voice`, 2026-10-14 |
+| 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-voice` (a study, done beside 5 and 10) |
+| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-voice`, behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
+| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
+| 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
+
+## Proposed tasks
+
+| Id | Proposal | Issue | State |
+|---|---|---|---|
+| second-P1 | The early end taken back: resumed from the session's state before the piece, or a labelled continuation, probed once against the service before anything is built | #723 | asked 2026-10-14; no answer means not allowed |
 
 ## Handed back
 
 Newest first.
+
+### Task 5: the name, heard as a bare "Lamp" (2026-10-14, issue #694)
+
+Ready for lamp-voice: yes (#725)
+
+**Kind: off unless set.** No code changes. The new `models/name/name.onnx`
+is a file in the repository that nothing installs: `lamp-name` reads
+`name.onnx` from its `--models` directory (`/opt/lampOS/name/models/` on
+lamp-4ace), and nothing under `deploy/` or `crates/` names
+`models/name/`. Until someone copies it there, every lamp hears its name
+exactly as before.
+
+**Built** (one commit, `78648897c` on `second/bare-name`, on `lamp-voice`
+at `a9a7262a9`): `models/name/name.onnx` (124,135 bytes, 30,913 weights,
+SHA-256 `f376e964…02030`, with `SOURCE.md`), the shape of the name model
+`lamp-name` already loads ([1, 16, 96] openWakeWord embeddings in, one
+score out), so it replaces the lamp's file with no code change; the
+document `docs/bare-name.md`, and one paragraph in `docs/name.md` pointing
+to it; the training code `training/name/` (Python, `sh make.sh` end to
+end, each download checked against `downloads.sha256`). It reuses task 3's
+`training/stop/` by import, with three additions there that are off by
+default, so task 3's results do not change: `store.py` and `train.py` take
+another folder (`--inputs`), `train.py` can leave out one way of calling
+(`--leave-out-way`), and `make.sh` stops after the shared sets when
+`STOP_ONLY_CLIPS` is set. Trained only on speech whose licence allows
+shipping the model (Piper's LibriTTS voices, MSWC English, Speech Commands,
+LibriSpeech, FLEURS Vietnamese: CC BY 4.0 or MIT). EdAcc (CC BY-SA 4.0) and
+AMI were used for testing only. A third of every generated line is read
+with espeak's Vietnamese phonemes as a stand-in for a Vietnamese accent; no
+licence-clean recording of Vietnamese speakers saying English could be
+trained on (the table in the document says why each was not).
+
+The work was done by a sub-agent of this session on the M2 Max. I
+reviewed it and moved its four commits onto the newest `lamp-voice` as
+one; the training code's first version read FLEURS's 32-bit floats as
+silence, and that was mended and the model retrained before it was handed
+over (the document says so under "What went wrong on the way").
+
+**Measured, on the M2 Max laptop, not on a lamp** (`docs/bare-name.md`,
+"Measured": voices and speakers never trained on, a score of 0.9 for one
+step, the rule `lamp-name` uses now):
+
+| Way of calling | English reading | Vietnamese-accent stand-in | Real people (MSWC "lamp", 51) | Both microphone effects (English / accent / real) |
+|---|---:|---:|---:|---:|
+| "Hey Lamp, ..." | 94 % | 87 % | | 95 % / 84 % |
+| "Lamp ơi, ..." | 92 % | 76 % | | 89 % / 77 % |
+| "Lamp, ..." | 86 % | 53 % | 51 % | 72 % / 42 % / 63 % |
+
+A voice from another generator (Piper's British Cori, never trained on)
+is heard far less: "Hey Lamp" 67 %, "Lamp ơi" 5 %, "Lamp," 16 %. The
+comparison model, the same recipe without bare calls, does no better on
+Cori.
+
+What sets it off, at 0.9: "Lamb" at the start of a line in 30 % of
+generated clips, "Lan" and "Lâm" 25 %, "lab" 11 to 21 %, "land" 9 to 17 %,
+rhymes 3 to 14 %; "Sam", "Liam", "ma'am", "plan", "hey" and "lamp" inside a
+sentence 0 to 2 %. Talk: 3.3 an hour of LibriSpeech readers, 10 of AMI
+meetings, 23 of Vietnamese (FLEURS), 36 of Vietnamese speakers of English
+(EdAcc). The lamp-like replies: 8.4 an hour, nearly all "Lamp here, what
+can I do for you?" (24 of its 64).
+
+Beside the same recipe trained without bare calls (the stand-in for the
+lamp's own file, which is in no branch and was not on this machine): the
+bare "Lamp," goes from 1 % to 65 % (all generated voices), "Hey Lamp" 90 %
+to 88 %, any near miss 4.5 % to 9.4 %, readers 3.7 to 3.3 an hour, FLEURS
+17 to 23, EdAcc 48 to 36, the lamp-like replies 1.4 to 8.4. At 0.98
+instead of 0.9: the bare name 59 % / 31 % / 18 % (English / accent /
+real), "Lamb" 5 %, readers 1.3 an hour, EdAcc 16.
+
+**My own check of the file**, on the M2 Max: `lamp-name check` built from
+`second/bare-name` (`--release`, `hear.rs` under tract 0.23.8) with
+openWakeWord's two front-end files (SHA-256 as in `SOURCE.md`) and this
+`name.onnx`, over the sub-agent's three test files of held-out clips laid
+end to end: 18 hearings in 24 generated calls, 6 in 12 real "lamp" words,
+2 in 24 near misses, at 1.4 to 1.5 ms for each 80 ms step of all three
+models. That agrees with the tables; it is a laptop's time, not the
+lamp's.
+
+**Gate:** no Rust changed. `cargo fmt --all --check` passes; the native
+ARM64 run on the branch's head (`78648897c`), run 38569922098: green,
+3,785 tests passed, 0 failed, 29 ignored (summed over its 252 `test result`
+lines). `lamp-voice` then moved nine commits that touch none of these files,
+so the branch was not rebased and the run stays on its head.
+
+**One rule read narrowly.** `builders/second.md` says the second builder
+may not commit Python. The task's hand-back asks for `training/name/` "as
+task 3", whose Python training code is on `lamp-voice`, and the model
+cannot be made again without it. So it is in the pull request. If it is
+not wanted, I take out `training/name/` and the three `training/stop/`
+additions and keep the model, its source and the documents.
+
+**What to run on the lamp**, smallest first:
+
+1. Before installing anything, from a directory holding
+   `melspectrogram.onnx`, `embedding_model.onnx` and this `name.onnx`:
+   `lamp-name check THAT_DIR FILE.wav ...` over the lamp's own microphone
+   recordings of calls (the 2026-10-14 ones in attention.md, or new ones:
+   `lamp-bus record DIR mic2/audio --seconds 600`, then
+   `training/stop/from_bus.py`), and the same files with the lamp's
+   current models directory. It prints each hearing at 0.9 and the highest
+   score per file: the eight bare "Lamp," lines that the current file
+   heard in none are the ones to count.
+2. Ten minutes of the lamp talking with nobody near, recorded the same way
+   and run through `lamp-name check`: how often it hears itself.
+3. Only then, as `docs/bare-name.md` "Wiring it on the lamp" says: keep
+   the current file as `name-hey.onnx`, copy this one in its place,
+   restart `lamp-name.service`; going back is the reverse.
+
+**Where it is most likely to be wrong on the lamp:**
+
+1. **A bare "Lamp" after the microphone's lost onset.** The first tenth
+   of a second of "Lamp" is most of its "l", and the loss trained on is a
+   guess (20 to 40 dB down for 60 to 140 ms), not measured from the lamp.
+   The rows "onset lost" and "both" in the document are where to look
+   first.
+2. **The lamp's own voice.** "Lamp here, ..." set it off 24 times in 64.
+   Gemini's voice through the lamp's loudspeaker and canceller was never
+   heard. Whatever takes `name/heard` must pass over hearings while the
+   lamp's own reply plays, if it does not already.
+3. **Vietnamese voices, and Lan and Lâm.** Every accented call here is a
+   stand-in, and Vietnamese talk was the hardest part before the bare
+   name too (23 and 36 an hour). A colleague called Lan or Lâm sets it off
+   about one time in four.
+4. **Any real voice.** The model leans on the one generator it learned
+   from (Cori: 16 % for a bare "Lamp"); real people's single word "lamp" is
+   at 51 %. Real calls recorded at the lamp are what it needs next.
+
+**Not shown:** anything on a lamp; the lamp's current `name.onnx` beside
+this one (the commands to put it in the same tables are in the document,
+"The lamp's current name.onnx"); a real person saying "Lamp," as a call;
+more than one training run.
 
 ### Task 3: a listener for "stop" under the lamp's own voice (2026-10-14)
 

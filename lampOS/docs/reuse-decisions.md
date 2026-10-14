@@ -252,3 +252,59 @@ cleanup, plus strict separation of mandatory heartbeat errors. It does not copy
 V1 shared callback/thread ownership or add a recovery worker. No new dependency,
 optical measurement, V1 speed claim or physical parity claim is implied. See
 [worker startup](worker-startup.md).
+
+## Expression: authored timing and bounded requests (2026-10-14)
+
+This addition reviews the current checkout, separately from the pinned audit
+above. It is a source review for [Expression](expression.md), with no new
+hardware or performance measurement. The earlier lamp observations below are
+the first builder's records in [Body](body.md), not results from Third's machine.
+
+**Keep from V1:** the named owners in `hal/drivers/motors/hold.py`, and the
+generation checks demonstrated by `hal/test/test_led_restore_generation.py`,
+`test_emotion_status_expiry.py` and `test_rgb_shutdown.py`: an old restore or
+late frame cannot overwrite its successor or relight a stopped output. Keep
+gesture data and explicit joint units. Replace the growing motor event list
+(`animation_service.py::dispatch`) with bounded, expiring requests. Do not copy
+the random values in `rgb/effects.py::speaking_wave` as evidence of speech, or
+the privacy and sleep changes inside `routes/emotion.py` as expression policy.
+
+**Keep the body's measured protections:** `crates/body/src/gaze.rs` waits
+400 ms of stillness, takes the median of three sightings, widens its deadband
+while speaking and never searches. `body.rs` starts a thinking glance at 36
+encoder counts and leaves an arrived joint alone until the new target is at
+least 20 counts away. The first builder recorded three played exchanges each
+way on lamp-4ace: the base was 8.3–11.7 degrees from its listening direction at
+voice onset before the glance, and 1.4–3.2 degrees after it. This showed a
+smaller late return, not return completed before speech, and nobody had judged
+its appearance. Expression must preserve calibrated gaze and local motor
+limits. A tiny requested nod can be swallowed by that real servo deadband.
+The existing `clips/data.rs` nod lasts about 3.1 seconds, with over half a
+second before its offsets start changing; it is not a listening-pause nod.
+
+| What exists; primary source inspected on 2026-10-14 | What Expression takes |
+|---|---|
+| [BML 1.0](https://projects.cs.ru.is/projects/behavior-markup-language/wiki/Wiki) describes gesture sync points, composition, progress and warning feedback, and dropping a behavior whose timing constraints cannot be met. | Preparation, stroke and relaxation in authored data; a late gesture shrinks or is omitted; requested timing is separate from observed completion. No XML realizer dependency or BML compliance claim. |
+| Maintained [ROS `twist_mux`](https://raw.githubusercontent.com/ros-teleop/twist_mux/rolling/include/twist_mux/topic_handle.hpp) selects by priority and expiry. Expired motion is masked; an expired safety lock remains locked. | Short leases and explicit precedence at the output owner. Expression expiry restores fallback; it must never clear a privacy or safety denial. |
+| The current [Reachy Mini API](https://huggingface.co/docs/reachy_mini/API/reachymini) evaluates recorded moves at a chosen frequency, cancels at the next playback iteration, and composes audio-derived motion with the target pose. | Pure sampling on an injected clock, bounded cancellation and additive offsets. Reuse the pattern, without a Python service or SDK dependency. |
+| [ELEGNT](https://arxiv.org/html/2501.12493v1) reports 21 valid video-study participants: expressive motion helped especially in social tasks, while motion and motor noise could interfere with lighting tasks. [Murray et al.](https://proceedings.mlr.press/v164/murray22a.html) found learned nod timing preferable to random and rule-based baselines in their robot study. | Stillness while working and sparse, event-linked listening cues. These published results motivate tests; they do not validate this lamp's pause heuristic or comfort over weeks. |
+
+**Change the timing interface:** reuse `lamp_ipc::monotonic_us()` and identify
+its shared host clock separately from publisher instances and turns. The bus
+header's `at_us` has no cross-publisher clock promise. A real playback deadline
+and stamped level, user speech/pause edges, interruption/cancellation and an
+explicit concentration state are missing from the existing bus types. The
+current `voice/state` also omits the early return and duplex-yield overrides
+sent privately by `coordinator.rs` to `BodyLink`. `room/state` describes room
+speech, not concentration. First wires these inputs and the body/ring owners;
+Expression cannot infer the missing facts from transcript arrival.
+
+## What this Expression review has not shown
+
+No V1 or Rust tests were run for this source review, and no lamp was accessed.
+The reviewed implementations were not benchmarked against each other. The
+100 ms light response and roughly 350 ms body transition remain design targets;
+the inherited Disney attribution, doubled-stumble figure and 0.6/0.3-second
+gaze claim were not verified here. Playback prediction error, motor lag, gaze
+calibration, glare, acoustic interference and whether the result looks natural
+still require the first builder's measurements and observation on the lamp.

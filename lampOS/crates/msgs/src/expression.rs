@@ -1,0 +1,494 @@
+//! Additive contracts for the optional expression planner. Legacy actuator
+//! settings and voice topics keep their original meanings and types.
+use crate::{Invalid, Light, Voice};
+use lamp_bus::{Declaration, Kind};
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
+
+pub const EXPRESSION_LEASE_US: u64 = 200_000;
+pub const EXPRESSION_MAX_OFFSET_RAD: f64 = 0.35;
+pub const EXPRESSION_MAX_FUTURE_US: u64 = 2_000_000;
+
+/// Microseconds on this machine's CLOCK_MONOTONIC, never a publisher's
+/// private process clock or Unix time. `clock_id` identifies the machine boot.
+/// Sequence is monotonic within the publisher session and topic.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClockStamp {
+    pub clock_id: String,
+    pub at_us: u64,
+    pub sequence: u64,
+}
+
+impl ClockStamp {
+    pub fn check(&self) -> Result<(), Invalid> {
+        identifier(&self.clock_id, "clock_id")
+    }
+}
+
+fn identifier(value: &str, field: &str) -> Result<(), Invalid> {
+    if value.is_empty() || value.len() > 128 || value.chars().any(char::is_control) {
+        return Err(Invalid(format!(
+            "{field} must have 1..128 bytes without controls"
+        )));
+    }
+    Ok(())
+}
+
+/// A state heartbeat, an actual playback schedule, or a terminal edge.
+/// Interrupted retires this turn's audio permanently, while reporting whether
+/// the capture path is already able to retain a new person's input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VoiceEvent {
+    State,
+    Scheduled,
+    Interrupted,
+    Cancelled,
+    Finished,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VoiceTiming {
+    pub stamp: ClockStamp,
+    /// A fresh unique identifier every time the voice process starts. A turn
+    /// number alone cannot fence queued audio from a previous process.
+    pub session_id: String,
+    /// Increasing within the session; request identity cannot change in a turn.
+    pub turn: u64,
+    pub request: u64,
+    pub state: Voice,
+    /// True only after the input owner can retain speech, not after a wake word.
+    pub accepting_input: bool,
+    pub event: VoiceEvent,
+    /// The committed first sample's playout time, required only for Scheduled.
+    /// A corrected schedule is another Scheduled event with a newer sequence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_audio_us: Option<u64>,
+}
+
+impl VoiceTiming {
+    pub const TYPE: &str = "lamp_msgs/VoiceTiming";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/timing";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(100))
+            .lasting(Duration::from_millis(500))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        identifier(&self.session_id, "session_id")?;
+        if self.event == VoiceEvent::Scheduled {
+            if self.state != Voice::Thinking
+                || self.first_audio_us.is_none_or(|at| {
+                    at < self.stamp.at_us || at - self.stamp.at_us > EXPRESSION_MAX_FUTURE_US
+                })
+            {
+                return Err(Invalid(
+                    "Scheduled needs Thinking and a first sample within 2 seconds".into(),
+                ));
+            }
+        } else if self.first_audio_us.is_some() {
+            return Err(Invalid(
+                "first_audio_us is only carried by Scheduled".into(),
+            ));
+        }
+        if self.event == VoiceEvent::Interrupted && self.state != Voice::Listening {
+            return Err(Invalid("Interrupted must report Listening".into()));
+        }
+        if matches!(self.event, VoiceEvent::Cancelled | VoiceEvent::Finished)
+            && !matches!(self.state, Voice::Resting | Voice::Listening)
+        {
+            return Err(Invalid(
+                "terminal voice events cannot report Thinking or Speaking".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Actual human speech activity from the voice owner's detector, after its
+/// own echo/attention policy. False is a pause edge or a pause heartbeat; the
+/// planner requires a previous true for the same turn before it can nod.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersonActivity {
+    pub stamp: ClockStamp,
+    pub session_id: String,
+    pub turn: u64,
+    pub request: u64,
+    pub speaking: bool,
+}
+
+impl PersonActivity {
+    pub const TYPE: &str = "lamp_msgs/PersonActivity";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/activity";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(100))
+            .lasting(Duration::from_millis(300))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        identifier(&self.session_id, "session_id")
+    }
+}
+
+/// Level of an interval committed to the physical playout clock. This is
+/// neither a received cloud chunk nor time spent waiting in a software queue.
+/// Half-open intervals [start_us, end_us) are non-overlapping and published
+/// in playout order; cancellation is on voice/timing, never another level.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VoicePlayout {
+    pub stamp: ClockStamp,
+    pub session_id: String,
+    pub turn: u64,
+    pub request: u64,
+    pub start_us: u64,
+    pub end_us: u64,
+    /// RMS/envelope mapped by the voice producer to 0..1, consistently across
+    /// its stream. The mapping and DAC timing still require lamp measurement.
+    pub level: f32,
+}
+
+impl VoicePlayout {
+    pub const TYPE: &str = "lamp_msgs/VoicePlayout";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/playout";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+            .every(Duration::from_millis(20))
+            .lasting(Duration::from_millis(200))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        identifier(&self.session_id, "session_id")?;
+        if !(0.0..=1.0).contains(&self.level) {
+            return Err(Invalid("playout level must be finite and in 0..1".into()));
+        }
+        if self.start_us >= self.end_us || self.end_us - self.start_us > EXPRESSION_LEASE_US {
+            return Err(Invalid(
+                "playout interval must last 1..200000 microseconds".into(),
+            ));
+        }
+        if self.start_us > self.stamp.at_us.saturating_add(EXPRESSION_MAX_FUTURE_US) {
+            return Err(Invalid(
+                "playout cannot be queued over 2 seconds ahead".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// An explicit setting from a trusted attention/user input owner. Quiet room,
+/// silence, a transcript and a wake word must never be substituted for it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Concentration {
+    pub stamp: ClockStamp,
+    pub concentrating: bool,
+}
+
+impl Concentration {
+    pub const TYPE: &str = "lamp_msgs/Concentration";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "attention/concentration";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()
+    }
+}
+
+/// Offsets in radians, not servo counts or absolute readback positions.
+/// The body adds these to its calibrated safe posture / attended heading,
+/// arbitrates deliberate Actions first, and enforces its own motion limits.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct BodyOffsets {
+    pub base_yaw: f64,
+    pub shoulder: f64,
+    pub elbow: f64,
+    pub head_roll: f64,
+    pub head_pitch: f64,
+}
+
+impl BodyOffsets {
+    pub const ZERO: Self = Self {
+        base_yaw: 0.0,
+        shoulder: 0.0,
+        elbow: 0.0,
+        head_roll: 0.0,
+        head_pitch: 0.0,
+    };
+
+    pub fn values(self) -> [f64; 5] {
+        [
+            self.base_yaw,
+            self.shoulder,
+            self.elbow,
+            self.head_roll,
+            self.head_pitch,
+        ]
+    }
+
+    pub fn from_values(v: [f64; 5]) -> Self {
+        Self {
+            base_yaw: v[0],
+            shoulder: v[1],
+            elbow: v[2],
+            head_roll: v[3],
+            head_pitch: v[4],
+        }
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        if self
+            .values()
+            .iter()
+            .any(|v| !v.is_finite() || v.abs() > EXPRESSION_MAX_OFFSET_RAD)
+        {
+            return Err(Invalid(
+                "body offsets must be finite radians within +/-0.35".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Receivers compare all times to their own CLOCK_MONOTONIC for this boot,
+/// reject older sequence/session/turns and expired leases at the hardware
+/// boundary, and stop expression when renewal ceases. `apply_us` is the
+/// command application time, not a claim that the mechanism has arrived.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExpressionLease {
+    pub clock_id: String,
+    /// The expression process session, unique on every planner start.
+    /// Supplied by Engine::with_session_id or its embedding process.
+    pub session_id: String,
+    /// Which voice instance owns this turn; distinct from planner restarts.
+    pub voice_session_id: String,
+    pub sequence: u64,
+    pub turn: u64,
+    pub request: u64,
+    pub issued_us: u64,
+    pub apply_us: u64,
+    pub valid_until_us: u64,
+}
+
+impl ExpressionLease {
+    pub fn check(&self) -> Result<(), Invalid> {
+        identifier(&self.clock_id, "clock_id")?;
+        identifier(&self.session_id, "session_id")?;
+        identifier(&self.voice_session_id, "voice_session_id")?;
+        if self.sequence == 0
+            || self.apply_us < self.issued_us
+            || self.valid_until_us <= self.apply_us
+            || self.valid_until_us - self.issued_us > EXPRESSION_LEASE_US
+        {
+            return Err(Invalid(
+                "lease needs an increasing sequence and ordered times within 200 ms".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// A stateless part of the receiver's final gate. The receiver must also
+    /// compare session/turn/sequence to previously accepted commands.
+    pub fn valid_at(&self, clock_id: &str, now_us: u64) -> bool {
+        self.check().is_ok()
+            && self.clock_id == clock_id
+            && self.apply_us <= now_us
+            && now_us < self.valid_until_us
+    }
+}
+
+/// A normalized target, not a fabricated camera-to-joint calibration. The
+/// body keeps its own stable-sight, camera geometry and velocity policy.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionGaze {
+    pub face_id: String,
+    pub x: f32,
+    pub y: f32,
+    pub observed_us: u64,
+    pub valid_until_us: u64,
+}
+
+impl ExpressionGaze {
+    pub fn check(&self) -> Result<(), Invalid> {
+        identifier(&self.face_id, "face_id")?;
+        if !(-1.0..=1.0).contains(&self.x)
+            || !(-1.0..=1.0).contains(&self.y)
+            || self.valid_until_us <= self.observed_us
+            || self.valid_until_us - self.observed_us > EXPRESSION_MAX_FUTURE_US
+        {
+            return Err(Invalid(
+                "gaze needs normalized coordinates and a bounded fresh interval".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionBody {
+    pub lease: ExpressionLease,
+    pub offsets: BodyOffsets,
+    /// Capture/hold the body's actual safe pose once on entering this mode.
+    /// Ignore offsets and gaze while held; do not return to a guessed home.
+    pub hold: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gaze: Option<ExpressionGaze>,
+}
+
+impl ExpressionBody {
+    pub const TYPE: &str = "lamp_msgs/ExpressionBody";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "expression/body";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(20))
+            .lasting(Duration::from_millis(200))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.lease.check()?;
+        self.offsets.check()?;
+        if let Some(gaze) = &self.gaze {
+            gaze.check()?;
+            if self.hold
+                || gaze.observed_us > self.lease.issued_us
+                || gaze.valid_until_us <= self.lease.apply_us
+                || gaze.valid_until_us > self.lease.valid_until_us
+            {
+                return Err(Invalid(
+                    "a held body has no gaze; gaze must fit the lease".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExpressionFace {
+    Resting,
+    Listening,
+    Thinking,
+    Speaking,
+    /// Input cannot yet be retained; must not be drawn as listening readiness.
+    Unavailable,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionLight {
+    pub lease: ExpressionLease,
+    /// User's lasting setting, using the existing light/command type.
+    pub setting: Light,
+    pub face: ExpressionFace,
+    /// Multiplier of that setting, 0..1, not a replacement brightness level.
+    pub brightness: f32,
+}
+
+impl ExpressionLight {
+    pub const TYPE: &str = "lamp_msgs/ExpressionLight";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "expression/light";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(20))
+            .lasting(Duration::from_millis(200))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.lease.check()?;
+        self.setting.check()?;
+        if !(0.0..=1.0).contains(&self.brightness) || (!self.setting.on && self.brightness != 0.0) {
+            return Err(Invalid(
+                "light brightness must be finite in 0..1, and zero when off".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// What the planner intends, never a hardware completion report. `body` and
+/// `light` say whether this step emits a leased command, so shadow is explicit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExpressionState {
+    pub stamp: ClockStamp,
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<u64>,
+    pub behaviours: Vec<String>,
+    pub missing: Vec<String>,
+    pub warnings: Vec<String>,
+    pub body: bool,
+    pub light: bool,
+}
+
+impl ExpressionState {
+    pub const TYPE: &str = "lamp_msgs/ExpressionState";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "expression/state";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(200))
+            .lasting(Duration::from_millis(500))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        if (!self.enabled && (self.body || self.light))
+            || self.turn.is_some() != self.request.is_some()
+        {
+            return Err(Invalid(
+                "shadow has no commands and turn/request are paired".into(),
+            ));
+        }
+        for (name, values) in [
+            ("behaviours", &self.behaviours),
+            ("missing", &self.missing),
+            ("warnings", &self.warnings),
+        ] {
+            if values.len() > 32
+                || values
+                    .iter()
+                    .any(|v| v.is_empty() || v.len() > 128 || v.chars().any(char::is_control))
+            {
+                return Err(Invalid(format!(
+                    "{name} is at most 32 short plain statements"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Optional topics kept separate from the original first-topic catalogue.
+pub fn expression_topics() -> Vec<(&'static str, Declaration)> {
+    let mut topics = vec![
+        (VoiceTiming::TOPIC, VoiceTiming::declaration()),
+        (PersonActivity::TOPIC, PersonActivity::declaration()),
+        (VoicePlayout::TOPIC, VoicePlayout::declaration()),
+        (Concentration::TOPIC, Concentration::declaration()),
+        (ExpressionBody::TOPIC, ExpressionBody::declaration()),
+        (ExpressionLight::TOPIC, ExpressionLight::declaration()),
+        (ExpressionState::TOPIC, ExpressionState::declaration()),
+    ];
+    topics.sort_by_key(|(name, _)| *name);
+    topics
+}

@@ -160,6 +160,29 @@ lamp-4ace.
 - Not shown, waiting for the person: the ten unplugs (what the servos do
   at power-up, then with `lamp-os` enabled); a power cut while standing.
 
+## 2026-10-14 — give-way — code on lamp-fifth, the hand still to come
+
+- `fifth/give-way`: `lampOS: let the body keep a joint where a hand puts it
+  and stop pushing a stalled one, behind a switch` (`--give-way
+  return|stay`, absent = as before). Rebased onto the wake; both side by
+  side. Gate on the Mac: fmt, clippy clean; `cargo test -p lamp-body` 253
+  passed, 0 failed; workspace builds; Linux arm64 build with only the two
+  old warnings.
+- On lamp-52e6, no hand: two runs standing 26 s, without and with
+  `--give-way return`. With it the shoulder (standing 50 to 60 counts short,
+  pushing) was counted stalled once and stopped pushing; nothing gave way and
+  nothing else changed. Raw in `docs/verification/give-way-lamp-52e6-20261014/`.
+- The old runtime switched every servo's torque off for 120 s when one read
+  80% for 1.5 s, and the arm dropped. This body never switches the arm's
+  torque off: it stops pushing first. The servos' own protection (80% for
+  2 s, then 20% of their force, read on lamp-4ace and lamp-52e6) still lets
+  the arm down under a hand that keeps forcing it; the hardware team's view,
+  through the fifth builder's person, is that dropping is the right
+  protection for the servo. Kept as the last layer; asked of them whether the
+  software should also let go, and why (heat, gears, current).
+- Kind: off unless set.
+- Not shown: any hand; `stay`; heat over minutes.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

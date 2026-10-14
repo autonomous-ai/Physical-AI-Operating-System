@@ -867,6 +867,7 @@ fn run_source(
         "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
         "reference_clock":options.reference_clock,
         "reference_recovery":options.reference_recovery,
+        "echo_reference":options.echo_reference,
         "provider_continuation":options.provider_continuation,
         "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
         "fixture":fixture,"cue_requested":cues.is_some()}),

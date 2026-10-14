@@ -271,6 +271,45 @@ impl FromStr for ReferenceRecovery {
     }
 }
 
+/// How the echo canceller is given the speaker's sound. `steady` puts a
+/// stage before it that follows where the lamp's echo is in the
+/// microphone's sound and delays the reference to match, so that the
+/// canceller finds the echo in one place (docs/steady-reference.md): on
+/// lamp-4ace's voice microphone the echo slides by tens of milliseconds
+/// while the lamp speaks. An experiment, and never a default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EchoReference {
+    #[default]
+    AsGiven,
+    Steady,
+}
+impl EchoReference {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AsGiven => "as-given",
+            Self::Steady => "steady",
+        }
+    }
+    /// What the canceller is made with.
+    pub fn reference(self) -> lamp_audio::Reference {
+        match self {
+            Self::AsGiven => lamp_audio::Reference::AsGiven,
+            Self::Steady => lamp_audio::Reference::Steady,
+        }
+    }
+}
+impl FromStr for EchoReference {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "as-given" => Ok(Self::AsGiven),
+            "steady" => Ok(Self::Steady),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
     pub microphone: Microphone,
@@ -278,6 +317,7 @@ pub struct DirectedOptions {
     pub turn_taking: TurnTaking,
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
+    pub echo_reference: EchoReference,
     /// Explicit opt-in for a person who goes on before the first answer has
     /// begun. Off leaves the provider worker's arguments as they were.
     pub provider_continuation: Continuation,
@@ -306,6 +346,7 @@ impl DirectedOptions {
             noise_suppression: self.noise_suppression,
             reference_clock: self.reference_clock,
             reference_recovery: self.reference_recovery,
+            echo_reference: self.echo_reference,
         }
         .child_arguments(self.microphone.device(), true)
     }
@@ -318,6 +359,7 @@ impl DirectedOptions {
         let mut playout_seen = false;
         let mut reference_seen = false;
         let mut recovery_seen = false;
+        let mut echo_seen = false;
         let mut continuation_seen = false;
         let mut microphone_seen = false;
         let mut arguments = arguments.iter();
@@ -355,6 +397,10 @@ impl DirectedOptions {
                 "--reference-recovery" if !recovery_seen => {
                     options.reference_recovery = required_value(&mut arguments)?.parse()?;
                     recovery_seen = true;
+                }
+                "--echo-reference" if !echo_seen => {
+                    options.echo_reference = required_value(&mut arguments)?.parse()?;
+                    echo_seen = true;
                 }
                 Continuation::FLAG if !continuation_seen => {
                     options.provider_continuation = required_value(&mut arguments)?
@@ -572,6 +618,7 @@ pub struct AudioWorkerOptions {
     pub noise_suppression: NoiseSuppression,
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
+    pub echo_reference: EchoReference,
 }
 impl AudioWorkerOptions {
     /// The exact argv tail used by the supervisor. Values remain individual
@@ -599,8 +646,15 @@ impl AudioWorkerOptions {
                     self.reference_recovery.as_str().to_owned(),
                 ]);
             }
+            if self.echo_reference != EchoReference::AsGiven {
+                arguments.extend([
+                    "--echo-reference".to_owned(),
+                    self.echo_reference.as_str().to_owned(),
+                ]);
+            }
         } else if self.reference_clock != ReferenceClock::Fixed
             || self.reference_recovery != ReferenceRecovery::Off
+            || self.echo_reference != EchoReference::AsGiven
         {
             return Err(invalid_options());
         }
@@ -643,6 +697,15 @@ impl AudioWorkerOptions {
                 {
                     options.reference_recovery = required_value(&mut arguments)?.parse()?;
                     if options.reference_recovery == ReferenceRecovery::Off {
+                        // Never sent: the default argv has no such flag.
+                        return Err(invalid_options());
+                    }
+                }
+                "--echo-reference"
+                    if is_capture && options.echo_reference == EchoReference::AsGiven =>
+                {
+                    options.echo_reference = required_value(&mut arguments)?.parse()?;
+                    if options.echo_reference == EchoReference::AsGiven {
                         // Never sent: the default argv has no such flag.
                         return Err(invalid_options());
                     }
@@ -1133,12 +1196,67 @@ mod tests {
         );
     }
 
+    /// The steady echo reference is a value of its own, reaches only the
+    /// capture worker, and is never sent unless chosen.
+    #[test]
+    fn a_steady_echo_reference_is_explicit_and_reaches_only_the_capture_worker() {
+        assert_eq!(
+            SessionOptions::default().directed.echo_reference,
+            EchoReference::AsGiven
+        );
+        let chosen = DirectedOptions::parse(&args(&["--echo-reference", "steady"])).unwrap();
+        assert_eq!(chosen.echo_reference, EchoReference::Steady);
+        assert_eq!(
+            chosen.echo_reference.reference(),
+            lamp_audio::Reference::Steady
+        );
+        assert_eq!(
+            serde_json::to_value(EchoReference::Steady).unwrap(),
+            "steady"
+        );
+        let capture = chosen.capture_arguments(None).unwrap();
+        assert!(
+            capture
+                .windows(2)
+                .any(|pair| pair == ["--echo-reference", "steady"]),
+            "{capture:?}"
+        );
+        let parsed = AudioWorkerOptions::parse(&capture[1..], true).unwrap();
+        assert_eq!(parsed.echo_reference, EchoReference::Steady);
+        // The default argv has no such flag, and a worker told "as-given"
+        // was started by nobody this program knows.
+        let plain = DirectedOptions::default().capture_arguments(None).unwrap();
+        assert!(!plain.iter().any(|argument| argument == "--echo-reference"));
+        for wrong in [
+            vec!["--echo-reference"],
+            vec!["--echo-reference", "Steady"],
+            vec!["--echo-reference", "steady", "--echo-reference", "steady"],
+        ] {
+            assert!(DirectedOptions::parse(&args(&wrong)).is_err(), "{wrong:?}");
+        }
+        let to_owned = |values: &[&str]| values.iter().map(|v| (*v).to_owned()).collect::<Vec<_>>();
+        assert!(
+            AudioWorkerOptions::parse(&to_owned(&["--echo-reference", "as-given"]), true).is_err()
+        );
+        assert!(
+            AudioWorkerOptions::parse(&to_owned(&["--echo-reference", "steady"]), false).is_err()
+        );
+        // The speaker's worker is never given it.
+        let render = AudioWorkerOptions {
+            echo_reference: EchoReference::Steady,
+            noise_suppression: NoiseSuppression::On,
+            ..AudioWorkerOptions::default()
+        };
+        assert!(render.child_arguments("plug:speaker", false).is_err());
+    }
+
     #[test]
     fn reference_recovery_reaches_only_the_capture_worker_and_only_when_chosen() {
         for clock in [ReferenceClock::Fixed, ReferenceClock::Capture] {
             let chosen = AudioWorkerOptions {
                 reference_clock: clock,
                 reference_recovery: ReferenceRecovery::Bounded,
+                echo_reference: EchoReference::AsGiven,
                 ..AudioWorkerOptions::default()
             };
             let arguments = chosen.child_arguments("plug:device_micro2", true).unwrap();
@@ -1310,6 +1428,7 @@ mod tests {
                         turn_taking: TurnTaking::VadOnly,
                         reference_clock: ReferenceClock::Fixed,
                         reference_recovery: ReferenceRecovery::Off,
+                        echo_reference: EchoReference::AsGiven,
                         provider_continuation: Continuation::Off,
                         endpoint: Endpoint::Silence,
                         diagnostics: true,
@@ -1395,6 +1514,7 @@ mod tests {
                     noise_suppression: mode,
                     reference_clock: ReferenceClock::Fixed,
                     reference_recovery: ReferenceRecovery::Off,
+                    echo_reference: EchoReference::AsGiven,
                 };
                 let arguments = requested
                     .child_arguments("plug:device_micro2", true)

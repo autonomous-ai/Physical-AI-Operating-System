@@ -193,6 +193,7 @@ pub fn capture_with_noise_suppression(
         noise_suppression,
         ReferenceClock::Fixed,
         ReferenceRecovery::Off,
+        lamp_audio::Reference::AsGiven,
     )
 }
 
@@ -216,6 +217,7 @@ pub fn capture_with_options(
         options.noise_suppression,
         options.reference_clock,
         options.reference_recovery,
+        options.echo_reference.reference(),
     )
 }
 
@@ -233,6 +235,7 @@ pub fn capture_on<D: CaptureDevice>(
     noise_suppression: NoiseSuppression,
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
+    echo_reference: lamp_audio::Reference,
 ) -> Result<()> {
     let mut recording = Recording::start(
         diagnostic_directory,
@@ -251,6 +254,7 @@ pub fn capture_on<D: CaptureDevice>(
         noise_suppression,
         reference_clock,
         reference_recovery,
+        echo_reference,
         hold::blocks_for(device, reference_clock),
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
@@ -284,6 +288,7 @@ fn capture_loop<D: CaptureDevice>(
     noise_suppression: NoiseSuppression,
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
+    echo_reference: lamp_audio::Reference,
     hold_blocks: usize,
 ) -> Result<EndReason> {
     // A frame waits this many capture blocks before it is cancelled, so that
@@ -312,7 +317,7 @@ fn capture_loop<D: CaptureDevice>(
             ReferenceAssembly::recovering(RecoveryPolicy::BOUNDED)
         }
     };
-    let mut echo = EchoProcessor::new(noise_suppression.enabled());
+    let mut echo = EchoProcessor::with_reference(noise_suppression.enabled(), echo_reference);
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
     let mut last_diagnostic = 0;

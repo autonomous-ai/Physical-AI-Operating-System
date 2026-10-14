@@ -226,6 +226,33 @@ more, it may hold that for a while. The replay's `steady_reference.echo_ms`
 over time shows which: it should step as the recording's echo stepped, by
 about 5.4 ms.
 
+## Taken by the first builder (2026-10-14)
+
+On `lamp-voice` as it was made (`64ebb8b33`); the audio crate's tests
+pass on the first builder's Mac (153, two ignored) and clippy is clean.
+
+**The replay could not be used on the lamp's recordings.** `lamp-audio
+replay-aec` was run over four of the recordings of 2026-10-14
+(`cut-a`, `cut-b`, `cut-c`, `cut-d`: words played over the lamp's voice),
+as given and with `--steady-reference`. Three stopped at once with
+`insufficient_evidence_for_dsp_replay` and no frame replayed ("stopped at
+first unsupported/ambiguous boundary: capture/analysis cursor, phase
+count or clock continuity is insufficient"), and the fourth could not
+read the recording's events. Those recordings were made as the lamp
+runs, with the capture-clocked reference, and the replay does not take
+them as they are. So nothing was learned from a replay, in either
+direction.
+
+**So it is wired, to be measured live.** The voice has
+`--echo-reference steady` (`EchoReference` in
+`crates/voice/src/options.rs`), which reaches only the capture worker and
+makes its canceller with `Reference::Steady`. Without the flag every
+argument and every canceller is what it was. It is not on the lamp's
+unit. The measure that counts is the one the lamp fails today: of ten
+sentences and seven short words played over its own voice with nobody
+in the office (`cutins.sh`), how many stop it, with and without the
+flag, the same evening.
+
 ## Not shown
 
 The lamp; the lamp's second microphone and its chip, which change the sound

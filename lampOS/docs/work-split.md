@@ -166,7 +166,7 @@ has it:
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
-| 10 | A reference that follows the microphone's clock | `reference-clock` | Second | taken 2026-10-14 |
+| 10 | A reference that follows the microphone's clock | `reference-clock` | Second | done 2026-10-14: on `lamp-voice`, behind the voice's `--echo-reference steady`; to be played to on the lamp |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
 | 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; its written scenario runs on the lamp; reading the lamp's real pins and the voice and body acting on it are the first builder's |
@@ -773,6 +773,16 @@ on the lamp: how the rest behaviour looks, which only the camera shows.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 10, the steady reference.** Taken onto `lamp-voice`
+(`64ebb8b33`). The replay the log says to run first does not take the
+lamp's recordings of that morning (it stops at the first boundary of a
+capture-clocked recording with nothing replayed), so nothing was learned
+that way. It is wired into the voice behind `--echo-reference steady`
+and will be judged by what it is for: how many of the sentences and
+short words played over the lamp's own voice stop it, with and without,
+the same evening ([steady-reference.md](steady-reference.md), "Taken by
+the first builder"). Not on the lamp yet.
 
 **2026-10-14, task 7, the hand controls.** Taken onto `lamp-voice`
 unchanged (`1c765da78`). On the first builder's Mac its tests and the

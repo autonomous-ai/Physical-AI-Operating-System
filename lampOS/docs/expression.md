@@ -159,6 +159,14 @@ Three things about it that a reader of this page should know:
   none answered), that made the lamp's own health report read "The lamp
   has a warning: expression: voice turn cancelled". An ordinary end is now
   said as one, and the planner goes on planning a lamp at rest.
+- **A note about one turn is not a warning.** The planner's report for
+  the lamp's health (`standing` in `runtime.rs`) now warns only for a
+  fault of the planner's own, a failing bus, a lost record, or, once it is
+  switched on, an input it lacks. What it notes about one turn, such as an
+  answer that came at short notice so that the look back was shortened, is
+  said in the report's message and in `expression/state`, and the lamp is
+  well. It also says in its journal which input it refused and why, for
+  the first five and then ever more seldom.
 - **The room is said again every second** (`RoomOut::tell`), so that the
   planner's five-second limit on that evidence is met by a room that is
   judged all the time and seldom changes.

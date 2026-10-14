@@ -76,7 +76,7 @@ It shows the file is what `lamp-policy-fit` takes, from records made on
 the lamp, end to end, and that with this much data the fitted choice is
 far too cautious to use: it would hold every call. It does not show what
 more data would give: the voices are played from one loudspeaker, no face
-was ever seen (nobody sat at the lamp), a call heard as a call is rare
+belonged to a speaker (the voices came from a loudspeaker; nobody sat at the lamp). The eyes did see faces in the office during the runs: colleagues at work, not the played speakers, which is where the rows' 6 true and 8 false `facing` cues come from (75 unknown); they are not ground truth for whether the caller faced the lamp, a call heard as a call is rare
 (the transcript often drops "Hey Lamp" or comes back in another
 language), and in two of the seven two-people rounds the voice received no
 transcript at all for the nine talk lines.

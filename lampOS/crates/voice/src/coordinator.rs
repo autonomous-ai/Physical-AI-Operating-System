@@ -3542,6 +3542,10 @@ fn conversation_with_controls(
                             second_look.speech_ended(turn, sent_at);
                             if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
                                 said_turn = Some(turn);
+                                // Someone was there, for the news: the
+                                // confirmation later skips the usual place
+                                // (found by the third builder on #709).
+                                said_at_us = Some(sent_at);
                             }
                             asked_in_busy_room = room.busy().then_some(turn);
                             record(

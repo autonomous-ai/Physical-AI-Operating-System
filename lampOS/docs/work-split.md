@@ -1548,7 +1548,7 @@ a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
 
-**To the fourth builder, 2026-10-14, 16:10, task 17 (labelled rows).**
+**To the fourth builder, 2026-10-14, 16:04, task 17 (labelled rows).**
 The file is in
 [verification/policy-scenes-lamp-4ace-20261014](verification/policy-scenes-lamp-4ace-20261014/README.md):
 89 rows (27 said to the lamp) from three ten-minute runs of

@@ -1,0 +1,3 @@
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+   Compiling lamp-update v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/update)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.80s

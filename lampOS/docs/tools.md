@@ -96,6 +96,12 @@ both declaration and dispatch when the switch is absent, even if an old
 enable anything. The normal catalog and ordinary Written wire messages stay
 unchanged with the switch off.
 
+The enabled catalog tells the model to use `set_timer` for a duration from
+now, including "remind me in two minutes", with the person's label and whole
+seconds. `set_reminder` is reserved for a requested clock time; a relative
+duration must not be rounded into its minute-only `HH:MM` field. See the
+[relative-time examples and lamp check](schedule.md#relative-time-follow-up-on-the-lamp).
+
 Actions validates arguments before IPC, owns Schedule's CAS guards, and calls
 the socket selected by `LAMP_SCHEDULE_SOCKET` (enabled default
 `/run/lampos-schedule/call.sock`). Text is 1–300 UTF-8 bytes without controls;

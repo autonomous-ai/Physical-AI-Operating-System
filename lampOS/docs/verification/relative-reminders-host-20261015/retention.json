@@ -1,0 +1,68 @@
+[
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first.json",
+    "retained": "focused.json",
+    "bytes": 4009,
+    "sha256": "cef29a2acc7dc0e91802c4543990511a40f11900ccfde02d2c0718ad9af11ace"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first-format.txt",
+    "retained": "format.txt",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first-clippy.txt",
+    "retained": "clippy.txt",
+    "bytes": 1773,
+    "sha256": "f71fd6d5b0e775bd2c2b0f9df10830bcf1b759f5c557f32defc679b193861320"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first-catalog-regression.txt",
+    "retained": "catalog-regression.txt",
+    "bytes": 509,
+    "sha256": "b272e946dec8e0b4b4cf33793b72b4bad482cb0fcc3ee438697bf64bec6b9a27"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first-voice-tools.txt",
+    "retained": "voice-tools.txt",
+    "bytes": 2358,
+    "sha256": "d9a0c0427a05ba18c846dbdc8191609d262faf730f6d31a920605a33e6b7d9ee"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-focused-first-workspace-build.txt",
+    "retained": "workspace-build.txt",
+    "bytes": 240,
+    "sha256": "2557276a82009726f2c2ed8ad9c3653e81a4f78e61a3f86a94fbd6617b115f98"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-source-frozen.json",
+    "retained": "source-frozen.json",
+    "bytes": 77030,
+    "sha256": "517af82a7dde4930ccacc48934bd635dd59df983b9d410e9b8c49e2917822c1c"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-source-prefmt.json",
+    "retained": "source-before-format-correction.json",
+    "bytes": 77030,
+    "sha256": "a726ec7b8999cc9cbd974dd5540a1f8c35c1e3fb5add917069ec1b08ec000788"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-fmt-first.txt",
+    "retained": "initial-format-diff.txt",
+    "bytes": 453,
+    "sha256": "e3e51b030bebc581893888a1e952f40c150116c9107bfaa23729b0c69bec0336"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-affected.json",
+    "retained": "affected-packages.json",
+    "bytes": 203,
+    "sha256": "a1436ccec91b22898f590eb7a3d3109b94981d307d74bd04a1cc5c4003621c2a"
+  },
+  {
+    "source": "/private/tmp/lamp-third-relative-claim-verified.json",
+    "retained": "claim-verified.json",
+    "bytes": 3547,
+    "sha256": "e14956b5c3f77f987cb657af210c949cf3e8d7f75907c96d9f982c5ada7840e8"
+  }
+]

@@ -49,13 +49,13 @@ pub fn catalog() -> Vec<Function> {
     vec![
         function(
             NAMES[0],
-            "Set a timer only when asked. Use a label and whole seconds; confirm the returned time only after durable success. If the outcome is unknown, list current reminders before asking again.",
+            "Set a timer or a relative reminder only when asked. For a duration from now, such as 'in two minutes', 'in ten minutes', or 'in an hour', use this tool with the requested label and whole seconds (120, 600, or 3600 respectively); never round to a clock time. Confirm the returned time only after durable success. If the outcome is unknown, list current reminders before asking again.",
             json!({"text":text,"seconds":seconds}),
             json!(["text", "seconds"]),
         ),
         function(
             NAMES[1],
-            "Set one reminder at a local time. Ask for missing or ambiguous intent; never calculate a Unix timestamp.",
+            "Set one reminder at a requested local clock time, such as 'at nine tomorrow morning'. For relative times from now, use set_timer with the requested label and whole seconds instead; do not round to HH:MM. Ask for missing or ambiguous intent; never calculate a Unix timestamp.",
             json!({"text":text,"time":time,"day":{"type":"string","description":"today, tomorrow, next, or exact YYYY-MM-DD; omitted means the next strictly future occurrence."},"zone":zone,"fold":{"type":"string","enum":["earlier","later","reject"]}}),
             json!(["text", "time"]),
         ),

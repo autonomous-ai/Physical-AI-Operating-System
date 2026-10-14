@@ -1,0 +1,129 @@
+{
+  "machine": "Third Intel i7-10700K x86_64 Mac; macOS 26.6.2/Darwin 25.6.0; 64 GiB RAM; Rust/Cargo 1.96.0; no lamp or live provider",
+  "base": "cf2f5b43c8113a704324c2743af3cd92bbc4fdda",
+  "source_manifest": "/private/tmp/lamp-third-relative-source-frozen.json",
+  "source_manifest_sha256": "517af82a7dde4930ccacc48934bd635dd59df983b9d410e9b8c49e2917822c1c",
+  "source_paths": 711,
+  "extra_environment": {
+    "RUST_BACKTRACE": "1"
+  },
+  "steps": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T21:57:13.274397+00:00",
+      "finished_at": "2026-10-14T21:57:17.260256+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 3.9277702209999994,
+      "log": "/private/tmp/lamp-third-relative-focused-first-format.txt",
+      "log_bytes": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_unchanged": true
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-memory",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T21:57:17.318419+00:00",
+      "finished_at": "2026-10-14T21:58:01.102028+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 43.721301555000004,
+      "log": "/private/tmp/lamp-third-relative-focused-first-clippy.txt",
+      "log_bytes": 1773,
+      "log_sha256": "f71fd6d5b0e775bd2c2b0f9df10830bcf1b759f5c557f32defc679b193861320",
+      "source_unchanged": true
+    },
+    {
+      "name": "catalog-regression",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "--test",
+        "schedule",
+        "published_catalog_routes_relative_reminders_to_elapsed_timers",
+        "--",
+        "--exact",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T21:58:01.159551+00:00",
+      "finished_at": "2026-10-14T21:58:13.734005+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 12.510845971999998,
+      "log": "/private/tmp/lamp-third-relative-focused-first-catalog-regression.txt",
+      "log_bytes": 509,
+      "log_sha256": "b272e946dec8e0b4b4cf33793b72b4bad482cb0fcc3ee438697bf64bec6b9a27",
+      "source_unchanged": true
+    },
+    {
+      "name": "voice-tools",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "tools::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T21:58:13.791983+00:00",
+      "finished_at": "2026-10-14T21:58:29.615063+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 15.757857420999997,
+      "log": "/private/tmp/lamp-third-relative-focused-first-voice-tools.txt",
+      "log_bytes": 2358,
+      "log_sha256": "d9a0c0427a05ba18c846dbdc8191609d262faf730f6d31a920605a33e6b7d9ee",
+      "source_unchanged": true
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T21:58:29.672663+00:00",
+      "finished_at": "2026-10-14T21:58:34.688664+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 4.950818759000001,
+      "log": "/private/tmp/lamp-third-relative-focused-first-workspace-build.txt",
+      "log_bytes": 240,
+      "log_sha256": "2557276a82009726f2c2ed8ad9c3653e81a4f78e61a3f86a94fbd6617b115f98",
+      "source_unchanged": true
+    }
+  ]
+}

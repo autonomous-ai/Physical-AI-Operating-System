@@ -2,11 +2,15 @@
 //! supplied by the caller. Only the runtime module opens bus connections; the
 //! planner opens no device and starts no background worker.
 
+mod alive;
 mod catalogue;
 mod engine;
 pub mod replay;
 pub mod runtime;
 
+pub use alive::{
+    Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, RING_BREATH_US, Sleep, Wake, WorkLight,
+};
 pub use catalogue::*;
 pub use engine::*;
 

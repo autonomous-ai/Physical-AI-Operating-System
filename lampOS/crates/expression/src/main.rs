@@ -1,5 +1,13 @@
 use lamp_bus::Bus;
 use lamp_expression::{Catalogue, Engine, TICK_US, replay, runtime};
+
+fn bounds(long: bool) -> replay::Bounds {
+    if long {
+        replay::LONG_BOUNDS
+    } else {
+        replay::DEFAULT_BOUNDS
+    }
+}
 use std::{
     collections::BTreeSet,
     fs::{File, OpenOptions},
@@ -12,15 +20,17 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N]\n\
-lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N]\n\
-lamp-expression import --clock-id ID FILE...\n\
+const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N]\n\
+lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N] [--long]\n\
+lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N] FILE...\n\
 lamp-expression catalogue\n\
 lamp-expression clock [--clock-id ID]\n\n\
 Default is shadow mode: no body or light command is published.\n\
 Replay writes one JSON line per injected 20 ms clock step and never touches a bus.\n\
 Live timestamps use lamp-ipc CLOCK_MONOTONIC microseconds; Linux defaults to its boot ID.\n\
 Output files are created new, never overwritten. Live --record is bounded to 64 MiB.\n\
+--long lets replay and import take an hour (docs/alive.md). --utc-offset-minutes is the\n\
+local time's minutes east of UTC (420 in Vietnam), which a catalogue with sleep needs.\n\
 No command opens hardware, launches a provider, or changes a device's service settings.";
 
 #[derive(Debug, Default)]
@@ -36,6 +46,8 @@ struct Arguments {
     seconds: Option<u64>,
     until: Option<u64>,
     imports: Vec<PathBuf>,
+    long: bool,
+    utc_offset_minutes: Option<i32>,
 }
 
 fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments>, String> {
@@ -73,6 +85,7 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--catalogue",
                 "--record",
                 "--seconds",
+                "--utc-offset-minutes",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -82,9 +95,11 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--input",
                 "--output",
                 "--until-us",
+                "--long",
             ]
             .contains(&option.as_str()),
-            "clock" | "import" => option == "--clock-id",
+            "import" => ["--clock-id", "--long", "--utc-offset-minutes"].contains(&option.as_str()),
+            "clock" => option == "--clock-id",
             _ => false,
         };
         if !allowed {
@@ -92,6 +107,10 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
         }
         if option == "--enable" {
             out.enabled = true;
+            continue;
+        }
+        if option == "--long" {
+            out.long = true;
             continue;
         }
         let value = arguments
@@ -117,6 +136,15 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                         .ok()
                         .filter(|v| (1..=86_400).contains(v))
                         .ok_or("--seconds must be 1..86400")?,
+                )
+            }
+            "--utc-offset-minutes" => {
+                out.utc_offset_minutes = Some(
+                    value
+                        .parse::<i32>()
+                        .ok()
+                        .filter(|v| (-720..=840).contains(v))
+                        .ok_or("--utc-offset-minutes must be -720..840")?,
                 )
             }
             "--until-us" => {
@@ -180,7 +208,10 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     if args.command == "import" {
-        let imported = replay::import_bus(&args.imports, &clock)?;
+        let mut imported = replay::import_bus_bounded(&args.imports, &clock, bounds(args.long))?;
+        if let Some(offset) = args.utc_offset_minutes {
+            replay::add_daytime(&mut imported, offset)?;
+        }
         let mut stdout = io::stdout().lock();
         for record in imported.records {
             serde_json::to_writer(&mut stdout, &record)?;
@@ -192,13 +223,26 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let catalogue = catalogue(args.catalogue.as_ref())?;
+    if args.command == "serve"
+        && catalogue
+            .alive
+            .as_ref()
+            .is_some_and(|alive| alive.sleep.is_some())
+        && args.utc_offset_minutes.is_none()
+    {
+        return Err(
+            "a catalogue with sleep needs --utc-offset-minutes, or it never knows it is night"
+                .into(),
+        );
+    }
     if args.command == "replay" {
         let mut engine = Engine::new(catalogue, args.enabled, clock)?;
-        let summary = replay::run(
+        let summary = replay::run_bounded(
             BufReader::new(File::open(args.input.as_ref().expect("validated"))?),
             writer(args.output.as_ref())?,
             &mut engine,
             args.until,
+            bounds(args.long),
         )?;
         eprintln!("lamp-expression: replay {summary:?}; simulated request timing only");
         return Ok(());
@@ -213,6 +257,9 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
         .map(|path| runtime::Recorder::new(path, 64 * 1024 * 1024))
         .transpose()?;
     let mut service = runtime::Service::new(&bus, catalogue, args.enabled, &clock)?;
+    if let Some(offset) = args.utc_offset_minutes {
+        service = service.with_local_time(offset);
+    }
     eprintln!(
         "lamp-expression: started mode={} clock_id={} root={}",
         if args.enabled { "enabled" } else { "shadow" },
@@ -317,9 +364,32 @@ mod tests {
             "catalogue --enable",
             "clock --enable",
             "serve --enable true",
+            "serve --long",
+            "serve --utc-offset-minutes 841",
+            "serve --utc-offset-minutes -721",
+            "serve --utc-offset-minutes seven",
+            "replay --input f --clock-id t --utc-offset-minutes 420",
+            "clock --long",
         ] {
             assert!(args(input).is_err(), "{input}");
         }
         assert!(args("--help").unwrap().is_none());
+    }
+
+    #[test]
+    fn the_hour_and_the_time_of_day_are_asked_for_by_name() {
+        let serve = args("serve --utc-offset-minutes 420").unwrap().unwrap();
+        assert_eq!(serve.utc_offset_minutes, Some(420));
+        assert!(!serve.long);
+        let replay = args("replay --input f --clock-id t --long")
+            .unwrap()
+            .unwrap();
+        assert!(replay.long);
+        let import = args("import --clock-id t --long --utc-offset-minutes -300 a b")
+            .unwrap()
+            .unwrap();
+        assert!(import.long);
+        assert_eq!(import.utc_offset_minutes, Some(-300));
+        assert_eq!(import.imports.len(), 2);
     }
 }

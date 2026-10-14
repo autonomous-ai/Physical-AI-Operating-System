@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Alive, Error};
 use lamp_msgs::{BodyOffsets, EXPRESSION_MAX_FUTURE_US, EXPRESSION_MAX_OFFSET_RAD, Voice};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -168,6 +168,10 @@ pub struct Catalogue {
     pub timing: Timing,
     pub gaze: GazeRules,
     pub behaviours: Vec<Behaviour>,
+    /// The idle layer, sleep and waking (docs/alive.md). Without it the
+    /// planner plans exactly as it did before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alive: Option<Alive>,
 }
 
 impl Catalogue {
@@ -437,6 +441,9 @@ impl Catalogue {
                     "concentration must hold still immediately with no movement or pulse".into(),
                 ));
             }
+        }
+        if let Some(alive) = &self.alive {
+            alive.check(self.limits)?;
         }
         for trigger in [
             Trigger::Thinking,

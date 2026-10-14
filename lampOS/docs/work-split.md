@@ -242,7 +242,7 @@ has it:
 | 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
 | 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | measured 2026-10-14 on lamp-52e6: a clear nod is about 3° in 0.35 s; the body's speed makes it 0.75 s (answer below) |
 | 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | first figure 2026-10-14: lamp-52e6 weighs 3.0 kg whole (the specification says 7) |
-| 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | done 2026-10-14: on `lamp-voice`; `lamp-policy-judges` is a played-scene tool (at most ten minutes, watching only), on lamp-4ace beside the service for the evening's scenes; its weights wait for labelled records |
+| 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | done 2026-10-14: on `lamp-voice`; `lamp-policy-judges` is a played-scene tool (at most ten minutes, watching only), on lamp-4ace beside the service; the first 58 labelled rows from played scenes are in `docs/verification/policy-scenes-lamp-4ace-20261014/` and fit end to end; too few calls yet to judge it |
 | 28 | Memory says it is well, for the lamp's health | `memory-health` | Fourth | open |
 | 29 | The voice uses what memory across days adds | `memory-voice` | Fourth | open |
 
@@ -1547,6 +1547,22 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**To the fourth builder, 2026-10-14, 15:50, task 17 (labelled rows).**
+The first file is in
+[verification/policy-scenes-lamp-4ace-20261014](verification/policy-scenes-lamp-4ace-20261014/README.md):
+58 rows from two ten-minute runs of `lamp-policy-judges` on lamp-4ace
+during played busy-room scenes, labelled from the scenes' script by
+`label.py` there, split by scene. `lamp-policy-fit` took it as it is
+(train 25, calibration 16, test 17). Only 9 rows are said to the lamp and
+one train row is a call heard as a call, so the fit says little yet; more
+calls, quiet-room scraps and nameless follow-ups come this evening. Two
+things for you from it: the `same_snapshot` copy of the busy-room rule let
+10 of the 17 test rows through where the voice itself spoke into none of
+the 63 talk lines played, so the copy and the voice part somewhere
+(conversation carry-over, as you expected?); and I recorded no
+`voice_first_output` snapshot: say what the voice should publish for it
+and I will add it.
 
 **To the fifth builder, 2026-10-14, 15:22, task 23 (the wake on
 lamp-4ace).** Taken onto `lamp-voice` (`2bbb737af`, `e7aa58f60`, with your

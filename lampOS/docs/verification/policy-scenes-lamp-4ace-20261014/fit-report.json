@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "method": "deterministic logistic fitting; session-disjoint train/calibration/test",
+  "optimizer": {
+    "epochs": 300,
+    "learning_rate": 0.25,
+    "l2": 0.01
+  },
+  "train_rows": 25,
+  "calibration_rows": 16,
+  "test_rows": 17,
+  "train_sessions": 5,
+  "calibration_sessions": 2,
+  "test_sessions": 2,
+  "question_heads": [
+    {
+      "question": "calls_lamp",
+      "state": "fitted_on_train",
+      "positive_labels": 1,
+      "negative_labels": 24,
+      "unknown_labels": 0
+    },
+    {
+      "question": "names_someone_else",
+      "state": "fitted_on_train",
+      "positive_labels": 4,
+      "negative_labels": 5,
+      "unknown_labels": 16
+    },
+    {
+      "question": "others_business",
+      "state": "fitted_on_train",
+      "positive_labels": 20,
+      "negative_labels": 5,
+      "unknown_labels": 0
+    },
+    {
+      "question": "lamp_could_answer",
+      "state": "fitted_on_train",
+      "positive_labels": 5,
+      "negative_labels": 20,
+      "unknown_labels": 0
+    },
+    {
+      "question": "follows_lamp",
+      "state": "fitted_on_train",
+      "positive_labels": 4,
+      "negative_labels": 21,
+      "unknown_labels": 0
+    },
+    {
+      "question": "listening_noise",
+      "state": "prior_only_insufficient_classes",
+      "positive_labels": 0,
+      "negative_labels": 25,
+      "unknown_labels": 0
+    },
+    {
+      "question": "asks_to_stop",
+      "state": "prior_only_insufficient_classes",
+      "positive_labels": 0,
+      "negative_labels": 25,
+      "unknown_labels": 0
+    }
+  ],
+  "choice_positive_labels": 2,
+  "choice_negative_labels": 14,
+  "mixture": "fixed seed; not fitted or evaluated as a fused runtime policy",
+  "local_share": 0.5,
+  "test": {
+    "labelled": 17,
+    "for_lamp": 2,
+    "not_for_lamp": 15,
+    "answers": 0,
+    "looks_up": 0,
+    "stays_quiet": 17,
+    "false_answers": 0,
+    "missed_calls": 2,
+    "brier": 0.11296716943822695,
+    "log_loss": 0.3827993548932267
+  },
+  "test_questions": {
+    "asks_to_stop": {
+      "labelled": 17,
+      "positive": 0,
+      "negative": 17,
+      "brier": 0.010000000298023226,
+      "log_loss": 0.10536051731351087
+    },
+    "calls_lamp": {
+      "labelled": 17,
+      "positive": 1,
+      "negative": 16,
+      "brier": 0.06174361459454033,
+      "log_loss": 0.3000703200515395
+    },
+    "follows_lamp": {
+      "labelled": 17,
+      "positive": 1,
+      "negative": 16,
+      "brier": 0.12217181498058206,
+      "log_loss": 0.4150061045130841
+    },
+    "lamp_could_answer": {
+      "labelled": 17,
+      "positive": 2,
+      "negative": 15,
+      "brier": 0.15346225053049067,
+      "log_loss": 0.49862402223864577
+    },
+    "listening_noise": {
+      "labelled": 17,
+      "positive": 0,
+      "negative": 17,
+      "brier": 0.09611581881765474,
+      "log_loss": 0.3711006576862578
+    },
+    "names_someone_else": {
+      "labelled": 8,
+      "positive": 6,
+      "negative": 2,
+      "brier": 0.29312405451616186,
+      "log_loss": 0.7678592931052873
+    },
+    "others_business": {
+      "labelled": 17,
+      "positive": 15,
+      "negative": 2,
+      "brier": 0.1534488577523161,
+      "log_loss": 0.4963422414994336
+    }
+  },
+  "baseline_source": "e07449e13:crates/voice/src/attention.rs",
+  "baseline": {
+    "rows": 17,
+    "missing_snapshot": 0,
+    "invalid_snapshot": 0,
+    "same_snapshot": {
+      "compared": 17,
+      "table": {
+        "play": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 10
+        },
+        "hold": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 7
+        }
+      },
+      "permission_disagreements": 10,
+      "labels": {
+        "for_lamp": 2,
+        "not_for_lamp": 15,
+        "unknown": 0,
+        "policy": {
+          "false_answers": 0,
+          "missed_calls": 2
+        },
+        "baseline": {
+          "false_answers": 9,
+          "missed_calls": 1
+        }
+      }
+    },
+    "voice_first_output": {
+      "compared": 0,
+      "table": {
+        "play": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 0
+        },
+        "hold": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 0
+        }
+      },
+      "permission_disagreements": 0,
+      "labels": {
+        "for_lamp": 0,
+        "not_for_lamp": 0,
+        "unknown": 0,
+        "policy": {
+          "false_answers": 0,
+          "missed_calls": 0
+        },
+        "baseline": {
+          "false_answers": 0,
+          "missed_calls": 0
+        }
+      }
+    }
+  },
+  "sources": [
+    "lamp-4ace 2026-10-14 played scene (macOS voices, loudspeaker); lamp-policy-judges choice"
+  ],
+  "rights": [
+    "lampOS project recording, Apache-2.0"
+  ]
+}

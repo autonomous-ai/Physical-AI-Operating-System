@@ -1,0 +1,62 @@
+{
+  "kind": "exact retention of failed dcc gate before subsequent source correction",
+  "created_at": "2026-10-14T17:39:05.663537+00:00",
+  "base": "dcc2e6b1ee67e11e2de89f893696432e47c4d8c5",
+  "source_map_paths": 675,
+  "gate_status": "failed",
+  "test_command_exit_code": 101,
+  "counts": {
+    "harnesses": 16,
+    "passed": 1111,
+    "failed": 3,
+    "ignored": 8
+  },
+  "failed_test_names": [
+    "coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+    "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+    "coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant"
+  ],
+  "source_unchanged_during_recorded_gate": true,
+  "current_worktree_identity_not_asserted": "A separate pending-camera/SecondLook correction is in progress. This failed-attempt map must not be overwritten or relabeled.",
+  "workspace_build_stage": "not reached",
+  "no_cargo_or_tests_executed_during_retention": true,
+  "exact_originals": [
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-voice-dcc-gate-results.json",
+      "retained_file": "raw/lamp-third-schedule-voice-dcc-gate-results.json",
+      "bytes": 3163,
+      "sha256": "883ce8e587716e3b1b5b494410e3807df115a5a13ceea1f275f0506448a8ffe6"
+    },
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-voice-dcc-gate-source.json",
+      "retained_file": "raw/lamp-third-schedule-voice-dcc-gate-source.json",
+      "bytes": 73175,
+      "sha256": "23c00be36460d7cb42b48581065613881a5ebd22266cd6314e8eeb047d260291"
+    },
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-voice-dcc-gate-format.txt",
+      "retained_file": "raw/lamp-third-schedule-voice-dcc-gate-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-voice-dcc-gate-clippy.txt",
+      "retained_file": "raw/lamp-third-schedule-voice-dcc-gate-clippy.txt",
+      "bytes": 1095,
+      "sha256": "c0cb873048588f63a37ff7ab2889182996d97d4c9f15dddb57d93e978a0acd2a"
+    },
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-voice-dcc-gate-tests.txt",
+      "retained_file": "raw/lamp-third-schedule-voice-dcc-gate-tests.txt",
+      "bytes": 119460,
+      "sha256": "ebd8d1df7db8992daabd1b6dd026eba1ede14ba794de570a3c67de25f03377ad"
+    },
+    {
+      "original_file": "/private/tmp/lamp-third-schedule-merge-review-dcc-first.md",
+      "retained_file": "merge-review-dcc.md",
+      "bytes": 2665,
+      "sha256": "a496ae6c242d258157c031e894e3be16804e036622414f2b10e1a9b85cbace43"
+    }
+  ],
+  "index_path_base": "Every retained_file is relative to this verification directory."
+}

@@ -3,9 +3,11 @@
 ## What exists and what we take
 
 `lamp-schedule` owns a private, durable list of timers and reminders. It resolves
-times, retains due occurrences, and serves guarded local requests. It does not
-speak. Actions and Voice have not been wired to it. The executable does nothing
-unless started with `--enable`.
+times, retains due occurrences, and serves guarded local requests. The executable
+does nothing unless started with `--enable`. Actions exposes its six tools only
+with `LAMP_SCHEDULE_TOOLS=on`; Voice declares/routes them with the same exact
+switch. Voice's separate `LAMP_SCHEDULE_SPEAK=on` consumer may speak due work
+under the final Voice owner. Both additions are off unless explicitly set.
 
 The product references were reviewed on 2026-10-14. Apple's
 [HomePod guide](https://support.apple.com/en-nz/guide/homepod/apd82db5cb0d/homepod)
@@ -386,30 +388,43 @@ readiness, publication failures, and refused clients. It does not log reminder
 text or model arguments. Failure diagnostics are not an acknowledgement. There
 is no bus acknowledgement topic: completion is a guarded private `ack` request.
 
-## Proposed model tools: not wired
+## Proposed model tools
 
-The following are adapter proposals in the same name/description/parameter
-object form as [Tools](tools.md). They are not installed in `tools.json`, not
-declared by Voice, and not executed by Actions in this change. First must keep
-their declaration and execution behind explicit switches that default off and
-qualify the provider's schema support on the actual integration.
+The six proposals are now implemented in Actions' optional adapter and Voice's
+declaration/routing gate. Enable `LAMP_SCHEDULE_TOOLS=on` in both processes and
+provide Voice's existing `LAMP_ACTIONS_DIR`. The executable provider declarations
+are in [`actions/src/schedule.rs`](../crates/actions/src/schedule.rs):
 
-```json
-[
-  {"name":"set_timer","description":"Set a timer only when asked. Use a label and whole seconds; confirm the returned time only after success.","parameters":{"type":"object","properties":{"text":{"type":"string","maxLength":300},"seconds":{"type":"integer","minimum":1,"maximum":31536000}},"required":["text","seconds"],"additionalProperties":false}},
-  {"name":"set_reminder","description":"Set one reminder at a local time. Ask for missing or ambiguous intent; never calculate a Unix timestamp.","parameters":{"type":"object","properties":{"text":{"type":"string","maxLength":300},"time":{"type":"string","pattern":"^([01][0-9]|2[0-3]):[0-5][0-9]$"},"day":{"type":"string"},"zone":{"type":"string"},"fold":{"type":"string","enum":["earlier","later","reject"]}},"required":["text","time"],"additionalProperties":false}},
-  {"name":"repeat_reminder","description":"Set a daily or weekly local-time reminder only when asked. A weekly reminder needs a weekday.","parameters":{"type":"object","properties":{"text":{"type":"string","maxLength":300},"time":{"type":"string","pattern":"^([01][0-9]|2[0-3]):[0-5][0-9]$"},"every":{"type":"string","enum":["daily","weekly"]},"weekday":{"type":"string","enum":["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]},"zone":{"type":"string"}},"required":["text","time","every"],"additionalProperties":false}},
-  {"name":"list_reminders","description":"Read active timers and reminders, including pending ones, before resolving an ambiguous request about an existing item.","parameters":{"type":"object","properties":{"pending_only":{"type":"boolean"}},"additionalProperties":false}},
-  {"name":"cancel_reminder","description":"Cancel the selected timer or whole reminder series only when the person asks. Use an ID from the current list.","parameters":{"type":"object","properties":{"id":{"type":"integer","minimum":1}},"required":["id"],"additionalProperties":false}},
-  {"name":"snooze_reminder","description":"Postpone the selected currently due occurrence by whole seconds. This keeps a recurring reminder's original schedule.","parameters":{"type":"object","properties":{"id":{"type":"integer","minimum":1},"seconds":{"type":"integer","minimum":1,"maximum":31536000}},"required":["id","seconds"],"additionalProperties":false}}
-]
-```
+| Tool | Required arguments | Optional arguments | Schedule operation |
+|---|---|---|---|
+| `set_timer` | `text`, `seconds` | none | `Set` with `After` |
+| `set_reminder` | `text`, `time` | `day`, `zone`, `fold` | `Set` with `At` |
+| `repeat_reminder` | `text`, `time`, `every` | `weekday` (required for weekly), `zone` | `Set` with `Daily` or `Weekly` |
+| `list_reminders` | none (empty object allowed) | `pending_only` (default false), `after_id` (default 0) | `List`, at most eight source items per page |
+| `cancel_reminder` | `id` | none | `Cancel` of the selected whole item/series |
+| `snooze_reminder` | `id`, `seconds` | none | `Get` then `Snooze` of the exact pending delivery |
 
-The adapter must enforce 00–23 hours, the service's UTF-8 byte limit, valid
+Text is 1–300 UTF-8 bytes, nonblank and without controls. Seconds are whole
+integers from 1 through 31,536,000. `time` is exact `HH:MM`; `day` is `today`,
+`tomorrow`, `next`, or `YYYY-MM-DD` in 1970–9999. An omitted day means the next
+strictly future occurrence. Zone is a valid IANA name; an omitted zone uses
+Schedule's configured zone. Fold is `earlier`, `later`, or `reject`. `every`
+is `daily` or `weekly`; weekday uses its full lowercase English name. IDs
+must come from a current list, never a guess. Omit optional values rather
+than passing null; unknown or null fields are refused before IPC.
+
+The declarations use Gemini's small `parameters` schema subset, omitting
+`additionalProperties`, `maxLength`, and regex patterns. Runtime validation
+enforces the stricter contract above. First must qualify the declarations on
+the actual model; host acceptance is not provider qualification.
+
+The adapter enforces 00–23 hours, the service's UTF-8 byte limit, valid
 day/zone values, and weekday presence only for weekly requests; the schemas
 above do not replace service validation. It maps `set_timer` to `After`,
 `set_reminder` to `At`, and `repeat_reminder` to `Daily` or `Weekly`. List output
-must remain bounded for the model's separate tool-result budget. The adapter
+remains bounded to 4,080 JSON bytes for the model's separate tool-result budget.
+It returns complete item texts, an explicit next cursor and a truthful page
+boundary, never a silently truncated reminder. The adapter
 obtains current guards and the current pending delivery for snooze. Neither
 guards, delivery acknowledgements, wall-clock trust, nor boot-clock arithmetic
 belong in the model's arguments.
@@ -418,10 +433,22 @@ Example model arguments are `set_timer {"text":"Check the pasta","seconds":480}`
 `set_reminder {"text":"Water the plant","time":"09:00","day":"tomorrow"}`,
 and `repeat_reminder {"text":"Take the bins out","time":"19:00","every":"weekly","weekday":"thursday"}`.
 “Snooze that for ten minutes” can become
-`snooze_reminder {"id":1,"seconds":600}` only after the adapter identifies which
-pending reminder “that” means. The owner resolves the date and returns the
+`snooze_reminder {"id":1,"seconds":600}` only after the caller selects the current
+reminder ID from a list or context. The adapter validates that ID's exact pending
+delivery. The owner resolves the date and returns the
 actual local deadline. If Schedule cannot commit, the lamp must say it cannot
 set the reminder just now; it must not give a success confirmation anyway.
+
+Actions uses `LAMP_SCHEDULE_SOCKET` (default
+`/run/lampos-schedule/call.sock` when enabled). One tool call has one absolute
+1,250 ms deadline across every Status/Get/mutation hop. Voice gives its new
+Schedule-only call 1,500 ms; ordinary tool transport keeps its old behavior.
+The healthy local target is 250 ms, measured separately from model/audio delay.
+A malformed or lost reply after a possible write means confirmation is unknown.
+There is no automatic fresh-guard mutation retry and no exactly-once promise
+for repeated model calls. List current state before deciding whether to ask
+again. Item IDs are meaningful only in the current store: replacing Schedule's
+store requires listing again before selecting an old remembered ID.
 
 ## First's Voice integration contract
 
@@ -437,10 +464,12 @@ for each acknowledgement. Bus sequence is not a delivery identity.
    `get` request; that operation accepts only `op` and `id`. A retained bus file
    alone is not authority to speak. Use the private text and current late
    metadata.
-2. Let final Voice ownership decide whether privacy, interruption, room policy,
-   quiet/busy rules, and current input/output readiness permit speech. Schedule
-   cannot grant microphone/camera permits or override the current owner. Do not
-   copy greeting/“hello” heuristics into reminder eligibility.
+2. Let final Voice ownership decide whether privacy, interruption, local
+   silence, owed follow-ups and current input/output readiness permit speech.
+   A requested due reminder does not wait for a room classification: Unknown,
+   Busy and Quiet are equivalent here. Schedule cannot grant microphone/camera
+   permits or override the current owner. Do not copy greeting/“hello”
+   heuristics into reminder eligibility.
 3. Persist the consumer's delivery identity and its own in-flight correlation
    before starting playout. Recheck current work before a delayed start. A
    cancellation or snooze invalidates the old occurrence; integration must also
@@ -457,14 +486,126 @@ for each acknowledgement. Bus sequence is not a delivery identity.
    old acknowledgement consume the next recurrence.
 
 There is an unavoidable unproven boundary between sound finishing and durable
-completion evidence. A process or power failure there may cause the reminder
-to be spoken again. The implementation does not promise exactly-once speech or
-that anyone heard it. First must test that window together with real playout
+completion evidence. A process or power failure there leaves this consumer's
+attempt uncertain and pending, with no automatic re-speech. An explicit later
+snooze may cause someone to hear it again. The implementation does not promise
+exactly-once speech or that anyone heard it. First must test that window with real playout
 receipts, interruption, process restart, privacy changes, and the chosen
-consumer's persistent deduplication. No Voice, Actions, or device deployment
-change is included here.
+consumer's persistent deduplication. The implementation below adds Voice and
+Actions only; installation and on-lamp qualification remain First's work.
 
-## Verification and handoff
+## Optional Voice consumer
+
+Voice requires exact `LAMP_SCHEDULE_SPEAK=on` and an explicit absolute
+`LAMP_SCHEDULE_DELIVERY_DIR` on persistent storage. Provision its parent for the
+Voice service user; the final directory/database are private 0700/0600. This is
+a separate tagged ledger, never Schedule's item database or an audio session
+directory. It retains no reminder text. Reusing a directory with a different
+schema, a changed store identity, or ambiguous storage failure refuses new
+sound. Never delete this ledger to clear an operational fault.
+
+One child, started by Voice's internal `schedule-consumer` entry, owns all Bus,
+Schedule socket and ledger work. It survives mute/unmute audio cycles. A fixed
+per-UID claim `/run/lock/lampos-schedule-consumer-<uid>.lock` is opened without
+following links, validated as private and locked without waiting. Provision
+permission to create that file for the service user. It is never unlinked. The
+child transfers the same locked descriptor over an inherited private datagram
+socket; Voice retains it even after child failure. This excludes a second
+cooperating consumer with a different ledger on the same host and UID. Different
+UIDs or hosts remain a deployment single-consumer constraint; Schedule has no
+remote claim API.
+
+Before accessing paths or taking the claim, the Linux child sets and reads back
+normal `SCHED_OTHER`, static priority 0 and nice 19. It must not inherit Voice's
+realtime audio priority. Failure leaves the optional consumer unavailable;
+the parent and audio workers keep their policies. Nice 19 deliberately gives
+storage work less CPU under load and may delay a reminder. macOS fixtures do
+not perform or qualify this Linux transition.
+
+The parent performs no ledger, Bus or Schedule filesystem/socket request on the
+urgent path. Its cooperative polling target is 2 ms, with bounded 4,096-byte
+datagrams and four protocol packets per poll. Process creation, OS scheduling,
+kernel calls and physical audio have no claimed hard deadline. A stalled child
+expires offers and cannot create a replacement worker. Optional failure leaves
+ordinary Voice running and reminders pending.
+
+The child checks one current Schedule publisher, the typed declaration, host
+boot, monotonic age at most three seconds, and source/typed sequence ordering.
+It fetches the exact pending occurrence and durably prepares its correlation
+before offering text. Offers last at most 750 ms from the observation preceding
+socket/storage work, bounded also by the original bus timestamp. Revalidation
+starts no sooner than 200 ms after the previous tick completes. Each tick shares
+a 250 ms socket request budget; storage and OS work can extend that interval,
+and slow storage cannot renew an old observation. Cancellation, snooze, changed store, lost freshness or a
+stalled consumer withdraws queued/current reminder audio through Voice's normal
+owner revocation. These are host targets and bounds, not measured acoustic stops.
+
+Admission requires current microphone retention/privacy, ready provider, no
+reply, queued input, speaker receipt or draining/prospective utterance, and one
+second of fresh local silence. A promised camera look and the existing
+unanswered-name second look take their owed turn before a due reminder. The
+prepared reminder remains available afterward; waiting does not consume its
+offer or acknowledge delivery. Room classification changes nothing for a due
+reminder: Unknown, Busy and Quiet all permit the requested reminder at the
+next local silence with normal readiness. A change of room classification
+while the provider prepares or speaks it does not defer it. This follows
+[First's answer on #709](https://github.com/autonomous-ai/lampOS/issues/709#issuecomment-6176285386):
+a timer set after restart must not wait for RoomTold's five-minute quiet
+classification. Actual input, privacy, output ownership and owed follow-ups
+still take precedence; a Busy classification does not mean someone currently
+owns the local input turn.
+
+Reminder text and current lateness are JSON-quoted data in a fixed spoken
+reminder instruction. Every tool call from that due request is denied before
+the tool desk, including Memory, Actions and any future tool. Ordinary written
+requests keep their old wire form and behavior. Reminder attempts do not invent
+heard/unanswered person evidence in RoomTold; actual output speech is still
+recorded there. A silent reminder also does not count toward renewing a
+provider session for unanswered speech. The existing short-sound rule remains:
+an unanswered sound is not talk, while an ordinary unanswered speech request
+still counts. A deferral is silent and leaves intake usable.
+Reminder completions stay out of automatic Memory journalling, including
+`LAMP_MEMORY_DAYS=on`. The Days regression runs in an isolated process with
+the real Voice memory queue and a local socket peer: a kept-out reminder is
+followed by an ordinary exchange and a FIFO conversation-end barrier. The
+peer must receive only the ordinary exchange, with its snapshot provenance.
+This checks Voice's journal handoff; it does not call a real memory extractor
+or establish behavior on a lamp.
+Reminder output also cannot request a follow-up camera turn by beginning with
+"Let me look". A per-conversation turn watermark rejects delayed reminder
+transcripts as well as the current one; future ordinary turns keep their
+existing look policy.
+
+Only a successful provider terminal joined with ended input, empty PCM, no
+speaker work, no playback occurrence, no gaps/reset, and actual final
+provider-origin retirement produces a completion record. Multiple generations
+must all retire. Zero audio, local failure notices, partial acceptance, first
+audio, cancelled tails and late callbacks cannot acknowledge. The receipt is
+the speaker's ALSA cursor evidence, not proof of acoustic fidelity or that a
+person heard it. A failed reminder does not play a local failure recording.
+
+Completion is durably stored before Ack. Exact Ack retries preserve the whole
+guard and request; a newer still-pending observation may durably rebase its CAS
+revision. Lost replies are checked against the actual receipt and exact current
+item. Absence or advancement resolves an occurrence as gone/superseded, never
+as a fabricated acknowledgement. Completed records recover after restart
+without replaying sound. At most 128 unresolved entries are retained; only
+proven resolved entries can be compacted, preserving a revision high-water mark.
+
+An offer withdrawn before admission or a provider deferral before any PCM may
+retry after explicit owner qualification, with at least five seconds between
+attempts. Partially spoken, failed, interrupted or crash-uncertain attempts stay
+pending without automatic re-speech. Inspect the current list and explicitly
+snooze or cancel them. Such an oldest entry does not starve other due work: a
+bounded page scan may select another pending item. There is no automatic replay
+based on elapsed time, a stale PID, a reopened ledger or reacquired claim.
+
+## Task 6 service verification and handoff
+
+This section records the original Schedule service qualification, before the
+Task 31 Voice integration above. Its counts and timing boundaries describe
+that earlier source. The service subsequently went onto lamp-4ace; this
+historical host evidence does not describe that installation.
 
 All evidence below is from Third's development host on **2026-10-14**: Intel
 Core i7-10700K at 3.80 GHz, 16 logical CPUs, 64 GiB RAM, macOS 26.6.2 / Darwin
@@ -579,7 +720,7 @@ must remain a failure, not be silently retried into a timing claim.
 Then qualify the actual enabled service with Linux BOOTTIME, the lamp's boot
 identity and synchronization marker: suspend, restart/reboot, clock trust loss
 and correction, overdue recovery, cancellation and repeating backlog. First
-owns Voice wiring and must test its privacy/quiet admission, exact token fetch,
+qualifies the optional Voice wiring and its privacy/quiet admission, exact token fetch,
 interruption, completed-playout acknowledgement, and consumer crash window.
 Register the private Schedule directory with personal-data reset before use.
 No production deployment is included here.
@@ -589,14 +730,125 @@ fallback after a reboot, storage sync cost or power-loss recovery on its real
 flash, and Voice treating a published due notice as completed speech. The
 qualification binary deliberately does not substitute for those checks.
 
-## What has not been shown
+## What the Task 6 host evidence did not show
 
-Linux/ARM64 execution, Rust 1.91 compatibility, actual Orange Pi storage
+Linux/ARM64 execution, actual Orange Pi storage
 durability under power loss, Linux suspend/reboot and
 clock-synchronization transitions, ARM64 resource use, first and repeated
 durable-request latency, due-to-audible latency, late-reminder wording through
 the real model, provider tool declarations, final privacy/quiet admission,
 interruption and completed-playout receipts, consumer crash deduplication, and
-timezone-database upgrade recovery remain unqualified on the lamp. The service
-has not been deployed, and no reminder has been claimed as heard from these
-host tests.
+timezone-database upgrade recovery were not established by those host tests.
+No reminder was claimed as heard from them. The current supported toolchain
+is the version pinned in `rust-toolchain.toml`.
+
+## Task 31 lamp qualification
+
+First installs the reviewed exact-head ARM64 artifact through the lamp's usual
+process. Keep both new switches absent for the first minute and check ordinary
+conversation, interruptions, privacy, light and volume. Then enable
+`LAMP_SCHEDULE_TOOLS=on` in both Actions and Voice, with their
+`LAMP_SCHEDULE_SOCKET` pointing at the installed service. Voice also needs its
+existing `LAMP_ACTIONS_DIR`, `LAMP_SCHEDULE_SPEAK=on`, and an explicitly
+provisioned private persistent `LAMP_SCHEDULE_DELIVERY_DIR`, separate from
+Schedule's store and from temporary audio sessions. Register that personal
+state with reset. Never delete the ledger to repair uncertain delivery.
+
+For the checked-in lamp-4ace Voice unit at `d5d765862`, Voice runs as root and
+expects Actions at `/run/lampos-actions`. After the off-state minute, First can
+provision `/var/lib/lampOS/voice/schedule-delivery` as root-owned 0700 and add
+these lines to each unit's `[Service]` drop-in, retaining its existing binary
+arguments and provider settings:
+
+```ini
+# lamp-actions.service
+Environment=LAMP_SCHEDULE_TOOLS=on
+Environment=LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock
+```
+
+```ini
+# lamp-voice.service
+Environment=LAMP_SCHEDULE_TOOLS=on
+Environment=LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock
+Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
+Environment=LAMP_SCHEDULE_SPEAK=on
+Environment=LAMP_SCHEDULE_DELIVERY_DIR=/var/lib/lampOS/voice/schedule-delivery
+```
+
+First reloads the units and restarts Actions before Voice. If the installed
+Voice user differs, provision the ledger for that actual UID instead. To
+disable this integration, remove both Schedule switches, run
+`systemctl daemon-reload`, and restart Actions before Voice. Keep the
+persistent ledger and claim file.
+
+Read the parent policy during the off-state minute, then inspect both after
+enabling. These commands read scheduling metadata without printing provider
+arguments or environment values:
+
+```sh
+voice_pid=$(systemctl show -p MainPID --value lamp-voice.service)
+chrt -p "$voice_pid"
+schedule_pid=$(pgrep -P "$voice_pid" -f ' schedule-consumer$')
+chrt -p "$schedule_pid"
+ps -o pid,ppid,ni,comm -p "$voice_pid,$schedule_pid"
+```
+
+Expect exactly one consumer PID, `SCHED_OTHER` with priority 0 and nice 19.
+The parent must retain the policy it had without this integration (the
+checked-in unit requests RR20). No consumer PID means the optional worker
+failed or was not enabled; it is not a successful scheduling check.
+
+Use the existing service options, provider, bus root, microphone and speaker;
+this change supplies no deployment file or new provider configuration. Only
+one Voice process under the service UID can hold the consumer claim. Leave
+the persistent claim file in place. If Schedule restarts more than eight
+times in one consumer lifetime, restart Voice after its old audio workers
+exit; the bounded publisher history otherwise refuses another publisher.
+
+Run these spoken cases, keeping the lamp name, installed binary SHA-256,
+the Schedule switches/path settings above, raw logs and actual timing boundaries:
+
+1. Immediately after restart with the room still Unknown, "Hey Lamp, set a
+   timer for one minute." Verify
+   one durable success and one due occurrence, time from the end of the
+   person's request to the confirmation, and from actual due time to first
+   audible reminder and final audio retirement. Repeat at least ten times;
+   distinguish the first use and every failure. Unknown must not add a
+   five-minute wait; the reminder uses the next qualified local silence.
+2. Set another timer, list it, cancel it and wait beyond its due time. Also
+   cancel or snooze one while the provider is preparing its reminder; it must
+   stop under the 750 ms maximum lease plus existing output-revocation bounds.
+   Measure that boundary on this lamp rather than quoting the host poll cost.
+3. Let a reminder become due in each room state: Unknown, Busy and Quiet.
+   With local silence and normal readiness it must speak in each state,
+   including when the classification changes during provider preparation.
+   Separately try someone speaking, mute and a pending short utterance: no
+   reminder may take that person's turn or bypass privacy. Confirm later
+   delivery when current input and readiness permit it.
+4. Interrupt a multi-generation reminder after its first audio has retired,
+   and mute during the last generation. It must remain pending without Ack
+   or automatic re-speech. Explicitly list and snooze/cancel to resolve it.
+5. Restart Voice with an unknown prepared attempt; it stays pending. Restart
+   after a recorded completion but before Ack; it reconciles without sound.
+   Lose an Ack reply and change another reminder before recovery; an old
+   receipt must not consume the next recurring occurrence.
+6. Stop Schedule or make its ledger unavailable. New requests must report
+   refusal or uncertain commit honestly, while ordinary conversation and
+   physical Stop remain usable. A due text quoting "Let me look" or tool
+   instructions must not cause a camera continuation or execute a tool.
+7. Let a reminder become due while the lamp still owes a promised camera
+   look or a second look after an unanswered named call. Include delayed
+   provider completion after the previous audio has drained. The owed
+   follow-up must get its turn first; the reminder stays pending without
+   Ack and becomes eligible again only after the follow-up and ordinary
+   readiness checks allow it.
+
+Most likely wrong there: Gemini's supported schema subset and faithful
+spoken wording, timely local-silence admission in a busy office,
+real ALSA generation/cursor retirement, and flash stalls extending consumer
+work beyond its offered lease. First should also verify that the child is
+`SCHED_OTHER`/nice 19 while Voice retains its audio policy; the ordinary-user
+Linux test does not exercise a transition from privileged RR20. Socket deadlines do not bound a kernel-stalled
+filesystem operation; process isolation keeps that work outside the urgent
+audio loop. No real provider, audible completion, acoustic latency, physical
+power cut or lamp privacy behavior was established by the new host fixtures.

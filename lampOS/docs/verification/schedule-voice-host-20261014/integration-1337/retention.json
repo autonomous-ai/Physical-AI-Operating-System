@@ -1,0 +1,95 @@
+{
+  "files": [
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-source-frozen.json",
+      "retained": "source-frozen.json",
+      "bytes": 76356,
+      "sha256": "89adaafcd44a51bbd84233abc575dfdc55987499fcc3f1d427825d4829b885fd"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-rebase-record.json",
+      "retained": "rebase.json",
+      "bytes": 238548,
+      "sha256": "d86df95368c94277236256575c3fb6e07f5c7c40f6b8b03f6899951b6d7e2b48"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-incoming-1337-review.md",
+      "retained": "review.md",
+      "bytes": 5380,
+      "sha256": "8b9d8d3acc6249da67cb91dff0ec51139c75d23f3f15941b5033644b0cf2245f"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first.json",
+      "retained": "focused.json",
+      "bytes": 8684,
+      "sha256": "9edf0adc12fad308abe8655f192b3e21fcd0f3a5041d3177f7dd7dd7b3e036d7"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-prelaunch-error.json",
+      "retained": "prelaunch-error.json",
+      "bytes": 497,
+      "sha256": "a2564f194e0c1fb2506dc698267005f901e1529e4814a67365c8519d1a6a5e1d"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-format.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-clippy.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-clippy.txt",
+      "bytes": 500,
+      "sha256": "b9c266cd74bffe85694ddb8deaa9c378f34b029183d3740b6a6c79b9ca5f674c"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-reminder.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-reminder.txt",
+      "bytes": 8994,
+      "sha256": "d63829374536d2f5de18e45d0815f80988248ddcf97fdaf9710b12cdc20f83a5"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-tools.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-tools.txt",
+      "bytes": 2192,
+      "sha256": "d658423ec76f67a0e7bea5cc772f80e505096ae6ba800af68a6ab43f9a748cd3"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-thread.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-thread.txt",
+      "bytes": 978,
+      "sha256": "2a0909d546cde3c27e4b59f7ea644e745f1f799509c3254405024749b43f1ac0"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-remember.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-remember.txt",
+      "bytes": 2502,
+      "sha256": "0792506076ba94adb52fcfcb4395d8fd9d4ada64aa98b86bfe80df5d3350a85b"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-agent-tasks.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-agent-tasks.txt",
+      "bytes": 791,
+      "sha256": "027f551a967b12f49b31fbb4e60aa34d271484f98795f771a1d2dde037837183"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-task-news.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-task-news.txt",
+      "bytes": 721,
+      "sha256": "a650c00e2cfe9ff039a05b713ce57f6003bdc500695dda52db6d3fb2d6ca464a"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-days-worker-environment.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-days-worker-environment.txt",
+      "bytes": 362,
+      "sha256": "8b974f88bc449066f8efb7e7d5de3282406b56aaca9ec571b722490a6ab7f54d"
+    },
+    {
+      "source": "/private/tmp/lamp-third-schedule-1337-focused-first-workspace-build.txt",
+      "retained": "lamp-third-schedule-1337-focused-first-workspace-build.txt",
+      "bytes": 500,
+      "sha256": "4a2eec8d16c921c80fe1e1fce6bc5b64bc639ffa50b6f8b7370024416b9c102b"
+    }
+  ],
+  "no_scripts_or_binary_artifacts": true
+}

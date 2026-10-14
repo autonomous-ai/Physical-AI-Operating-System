@@ -1,0 +1,31 @@
+{
+  "excluded_python_runners": [
+    {
+      "path": "/private/tmp/lm709-e-y5uq6td4/run.py",
+      "bytes": 9569,
+      "sha256": "ea5fe0e8112161518387e3d99ca8c7024f2be7ef84823db00197af70b7c14bda",
+      "reason": "Python runner remains outside repository"
+    },
+    {
+      "path": "/private/tmp/lm709-e-y5uq6td4/module-once.py",
+      "bytes": 4728,
+      "sha256": "e0025ef6d22691b9e9840dd21dcc7cac9628eb3c66b7aec434dd6f79f37a04c9",
+      "reason": "Python runner remains outside repository"
+    }
+  ],
+  "instrumented_binary": {
+    "path": "/private/tmp/lm709-src-qhqu_pyi/target/debug/deps/lamp_voice-a98444cc1c3f37e5",
+    "expected_sha256": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a",
+    "sha256_before": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a",
+    "retained_path": "/private/tmp/lm709-e-y5uq6td4/module-ddbthlnu/instrumented-clean7f-test-binary",
+    "retained_sha256": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a",
+    "sha256_after": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a"
+  },
+  "original_binary_references": "original-failures/binary-references.json",
+  "source_archive": {
+    "path": "/private/tmp/lm709-e-y5uq6td4/clean-7f-lampOS.tar",
+    "sha256": "a0e9064cb86c48e39bf2b97354eb917b6fc9a058292a5116319bb1811adfdb43",
+    "included": false
+  },
+  "note": "Only path/hash metadata is retained here; no binary, archive, or Python source is included."
+}

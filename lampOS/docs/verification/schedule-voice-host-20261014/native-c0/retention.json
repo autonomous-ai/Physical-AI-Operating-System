@@ -1,0 +1,26 @@
+{
+  "run": 38620759412,
+  "head": "c0bd596ac15ca64d7dc09534a65165e2be1eab03",
+  "conclusion": "success",
+  "scope": "Preceding c0 runtime, before room policy revision. Whole workspace release build/tests on GitHub Ubuntu 22.04 ARM64 runner, not a lamp.",
+  "counts": {
+    "harnesses": 279,
+    "passed": 4334,
+    "failed": 0,
+    "ignored": 33
+  },
+  "originals": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-native-38620759412-terminal.json",
+      "retained": "result.json",
+      "bytes": 2549,
+      "sha256": "c21cadeb07b13d70116ea9b4b9acaf2451bc43246b9e7a5c20964089527143f5"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-native-38620759412-terminal-log.txt",
+      "retained": "run.txt",
+      "bytes": 1330225,
+      "sha256": "8d30b25ea62b1885f42ddb58e7df88643968b7f61ca60238ecd2214256c46941"
+    }
+  ]
+}

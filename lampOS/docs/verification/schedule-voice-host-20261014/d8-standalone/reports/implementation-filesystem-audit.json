@@ -1,0 +1,67 @@
+{
+  "scope": "Filesystem-only final report, raw counts and source verification",
+  "verified_at": "2026-10-14T18:59:27.724517+00:00",
+  "report": "/private/tmp/lamp-third-schedule-voice-d8-standalone.json",
+  "report_sha256": "69c16c4a9e334a670abcec55b01fdc0fd2b08dd4b944b576efa0353bc1026569",
+  "status": "passed",
+  "base": "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+  "source_files_verified": 1614,
+  "gate_paths": 697,
+  "helpers_verified": {
+    "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+    "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+  },
+  "old_evidence_paths_unchanged": 1481,
+  "commands": [
+    {
+      "name": "workspace-build-first",
+      "exit_code": 0,
+      "elapsed_seconds": 81.328243692,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/workspace-build-first.txt",
+      "log_sha256": "ce966d5eac642f80d0c531f4bf9c76d17e970780c6d9304ea62b3f7a7a6a60c9"
+    },
+    {
+      "name": "helper-build-first",
+      "exit_code": 0,
+      "elapsed_seconds": 26.886553336000006,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/helper-build-first.txt",
+      "log_sha256": "bb9d01a70b9748819ba1dcb0ca2b13aacec3d06ea468536aba0f190c20f2a1c5"
+    },
+    {
+      "name": "actions-tests-first",
+      "exit_code": 0,
+      "elapsed_seconds": 30.280789030999983,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/actions-tests-first.txt",
+      "log_sha256": "01fc681e5d10b3169ed3e94106c602349270f10e25bed00d1976bcc9da66aca5"
+    },
+    {
+      "name": "schedule-tests-first",
+      "exit_code": 0,
+      "elapsed_seconds": 35.574009613999976,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/schedule-tests-first.txt",
+      "log_sha256": "9947d2dce4f349cfab4852614b0d9bb37fbcb8c8712cb34160fe5eadf3941406"
+    },
+    {
+      "name": "voice-reminder-tests-first",
+      "exit_code": 0,
+      "elapsed_seconds": 33.45753222099998,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/voice-reminder-tests-first.txt",
+      "log_sha256": "83aaeef75e9986859ae99191453f637aab08e1dd455d0373e0a6a3e4805f422a"
+    },
+    {
+      "name": "voice-tools-tests-first",
+      "exit_code": 0,
+      "elapsed_seconds": 2.3523094319999984,
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/voice-tools-tests-first.txt",
+      "log_sha256": "3445c0c84ff422a80310f9486f3a39e9b8cadfbe13333e8940be4be5f89a8b6c"
+    }
+  ],
+  "test_execution_totals": {
+    "passed": 282,
+    "failed": 0,
+    "ignored": 2
+  },
+  "completed_stdout_comparisons": 144,
+  "local_manifests": 34,
+  "source_and_helpers_unchanged": true
+}

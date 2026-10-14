@@ -1,0 +1,182 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 65 tests
+test admission::outage_drain_tests::prospective_speech_blocks_a_reminder_before_it_owns_a_stream ... ok
+test coordinator::tests::reminders::interruption_after_first_retirement_never_acknowledges_later_audio ... 
+thread 'coordinator::tests::reminders::interruption_after_first_retirement_never_acknowledges_later_audio' (112735442) panicked at crates/voice/src/coordinator.rs:5698:82:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test coordinator::tests::reminders::no_audio_or_provider_failure_stays_pending_and_selects_no_failure_recording ... 
+thread 'coordinator::tests::reminders::no_audio_or_provider_failure_stays_pending_and_selects_no_failure_recording' (112735443) panicked at crates/voice/src/coordinator.rs:5698:82:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test coordinator::tests::reminders::only_a_fenced_attempt_without_any_provider_pcm_can_retry ... 
+thread 'coordinator::tests::reminders::only_a_fenced_attempt_without_any_provider_pcm_can_retry' (112735444) panicked at crates/voice/src/coordinator.rs:5698:82:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test coordinator::tests::reminders::reminder_quiet_uses_current_admission_time_after_new_capture_arrived_in_loop ... ok
+test coordinator::tests::reminders::reset_or_playback_gap_cannot_be_relabeled_whole_reminder_completion ... 
+thread 'coordinator::tests::reminders::reset_or_playback_gap_cannot_be_relabeled_whole_reminder_completion' (112735446) panicked at crates/voice/src/coordinator.rs:5698:82:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test coordinator::tests::reminders::stored_reminder_words_cannot_start_a_camera_followup_even_when_transcript_is_late ... ok
+test coordinator::tests::reminders::whole_reminder_joins_two_real_retirements_and_successful_provider_terminal ... 
+thread 'coordinator::tests::reminders::whole_reminder_joins_two_real_retirements_and_successful_provider_terminal' (112735448) panicked at crates/voice/src/coordinator.rs:5698:82:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test fixture_provider::reminder_tests::fixture_refuses_a_reminder_once_without_audio_or_disabling_later_ordinary_input ... ok
+test provider_worker::tests::reminders::an_older_reminder_tool_event_cannot_escape_after_a_new_reminder_replaces_it ... ok
+test provider_worker::tests::reminders::becoming_busy_before_audio_transcript_or_tool_output_defers_and_suppresses_terminal ... 
+thread 'provider_worker::tests::reminders::becoming_busy_before_audio_transcript_or_tool_output_defers_and_suppresses_terminal' (112735451) panicked at crates/voice/src/provider_worker.rs:3162:18:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test provider_worker::tests::reminders::busy_refusal_is_independent_of_attention_and_the_next_ordinary_turn_works ... 
+thread 'provider_worker::tests::reminders::busy_refusal_is_independent_of_attention_and_the_next_ordinary_turn_works' (112735452) panicked at crates/voice/src/provider_worker.rs:3162:18:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test provider_worker::tests::reminders::disabled_and_unknown_refusals_keep_the_worker_alive_without_model_submission ... 
+thread 'provider_worker::tests::reminders::disabled_and_unknown_refusals_keep_the_worker_alive_without_model_submission' (112735453) panicked at crates/voice/src/provider_worker.rs:3162:18:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test provider_worker::tests::reminders::disabled_busy_unknown_and_invalid_reminders_never_reach_the_input_sink ... ok
+test provider_worker::tests::reminders::ordinary_written_wire_bytes_stay_exact_and_reminder_is_a_separate_variant ... ok
+test provider_worker::tests::reminders::pending_deferral_survives_full_output_and_retirement_without_becoming_completion ... ok
+test provider_worker::tests::reminders::reminder_preserves_authority_and_session_validation_before_policy ... ok
+test provider_worker::tests::reminders::reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture ... ok
+test provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn ... 
+thread 'provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn' (112735459) panicked at crates/voice/src/provider_worker/tests/reminders.rs:562:83:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test provider_worker::tests::reminders::unanswered_reminders_are_not_room_activity_but_their_actual_audio_is ... 
+thread 'provider_worker::tests::reminders::unanswered_reminders_are_not_room_activity_but_their_actual_audio_is' (112735460) panicked at crates/voice/src/provider_worker.rs:3162:18:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again ... 
+thread 'reminders::consumer::tests::abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again' (112735461) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::an_offer_is_committed_before_handoff_and_fresh_renewals_keep_the_same_token ... 
+thread 'reminders::consumer::tests::an_offer_is_committed_before_handoff_and_fresh_renewals_keep_the_same_token' (112735462) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::bus_authority_requires_exact_type_source_clock_and_fresh_enabled_payload ... ok
+test reminders::consumer::tests::cancel_snooze_store_switch_and_missing_due_withdraw_existing_offer ... 
+thread 'reminders::consumer::tests::cancel_snooze_store_switch_and_missing_due_withdraw_existing_offer' (112735464) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech ... 
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (112735465) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::delayed_durable_prepare_cannot_publish_an_already_expired_offer ... 
+thread 'reminders::consumer::tests::delayed_durable_prepare_cannot_publish_an_already_expired_offer' (112735506) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::evicted_ack_receipt_resolves_by_current_absence_without_claiming_its_cause ... 
+thread 'reminders::consumer::tests::evicted_ack_receipt_resolves_by_current_absence_without_claiming_its_cause' (112735507) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::full_ledger_refuses_new_admission_without_evicting_any_uncertain_delivery ... 
+thread 'reminders::consumer::tests::full_ledger_refuses_new_admission_without_evicting_any_uncertain_delivery' (112735508) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::lost_committed_ack_is_recovered_after_restart_without_another_offer ... 
+thread 'reminders::consumer::tests::lost_committed_ack_is_recovered_after_restart_without_another_offer' (112735516) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::offered_tuple_must_match_current_private_get_store_delivery_and_revision ... 
+thread 'reminders::consumer::tests::offered_tuple_must_match_current_private_get_store_delivery_and_revision' (112735517) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::old_uncertain_item_does_not_starve_the_next_pending_occurrence ... 
+thread 'reminders::consumer::tests::old_uncertain_item_does_not_starve_the_next_pending_occurrence' (112735518) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::only_exact_qualified_completion_can_change_the_durable_prepared_record ... 
+thread 'reminders::consumer::tests::only_exact_qualified_completion_can_change_the_durable_prepared_record' (112735519) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::outgoing_queue_is_bounded_and_replacing_an_offer_never_discards_settlement ... 
+thread 'reminders::consumer::tests::outgoing_queue_is_bounded_and_replacing_an_offer_never_discards_settlement' (112735520) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::publisher_restart_retires_the_previous_instance_and_has_a_finite_history ... ok
+test reminders::consumer::tests::qualified_pre_audio_retirement_retries_once_with_a_new_durable_correlation ... 
+thread 'reminders::consumer::tests::qualified_pre_audio_retirement_retries_once_with_a_new_durable_correlation' (112735522) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::real_bus_requires_one_live_declared_schedule_publisher ... ok
+test reminders::consumer::tests::retained_bus_message_never_renews_age_and_reused_typed_sequence_is_refused ... ok
+test reminders::consumer::tests::slow_get_withdraws_current_authority_without_refreshing_its_observation ... 
+thread 'reminders::consumer::tests::slow_get_withdraws_current_authority_without_refreshing_its_observation' (112735525) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::storage_failure_before_prepare_withholds_the_offer_and_latches_failure ... 
+thread 'reminders::consumer::tests::storage_failure_before_prepare_withholds_the_offer_and_latches_failure' (112735526) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::consumer::tests::uncommitted_lost_ack_at_the_same_revision_keeps_the_exact_attempt_and_recovers ... 
+thread 'reminders::consumer::tests::uncommitted_lost_ack_at_the_same_revision_keeps_the_exact_attempt_and_recovers' (112735527) panicked at crates/voice/src/reminders/consumer/tests.rs:96:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+FAILED
+test reminders::tests::active_lease_is_exact_and_does_not_revoke_an_unrelated_person_turn ... ok
+test reminders::tests::completion_waits_for_reply_drop_and_durable_worker_settlement ... ok
+test reminders::tests::disabled_switch_never_opens_the_requested_ledger_or_consumer ... ok
+test reminders::tests::failed_worker_invalidates_only_the_due_owner_and_does_not_restart ... ok
+test reminders::tests::offered_lease_is_bounded_and_does_not_gain_age_from_parent_poll ... ok
+test reminders::tests::queued_completion_survives_privacy_cycle_state_dropping_without_new_admission ... ok
+test reminders::tests::withdrawal_before_admission_retires_exact_attempt_and_waits_for_settlement ... ok
+test reminders::transport::tests::child_fixture ... ok
+test reminders::transport::tests::claim_path_traps_are_refused_without_replacing_existing_data ... ok
+test reminders::transport::tests::claim_without_descriptor_and_rights_with_ordinary_json_are_rejected ... ok
+test reminders::transport::tests::duplicate_claim_does_not_replace_or_release_existing_lock ... ok
+test reminders::transport::tests::exact_packet_bound_and_bidirectional_json_roundtrip ... ok
+test reminders::transport::tests::excess_ancillary_descriptors_fault_without_installing_a_claim ... ok
+test reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet ... ok
+test reminders::transport::tests::in_process_test_helper_transfers_and_releases_the_real_claim ... ok
+test reminders::transport::tests::malformed_or_unknown_json_shape_faults_the_receiver ... ok
+test reminders::transport::tests::messages_before_claim_are_never_delivered ... ok
+test reminders::transport::tests::oversize_preflight_sends_nothing_and_leaves_valid_sender_usable ... ok
+test reminders::transport::tests::oversized_raw_datagram_is_rejected_instead_of_truncated_json ... ok
+test reminders::transport::tests::poll_cost ... ignored, host-only timing probe; run alone with --ignored --exact --nocapture
+test reminders::transport::tests::production_retention_survives_drop_until_the_parent_process_exits ... ok
+test reminders::transport::tests::real_child_exit_does_not_drop_the_parent_claim_or_start_replacement ... ok
+test reminders::transport::tests::releasing_a_claim_preserves_its_inode_and_private_mode ... ok
+test reminders::transport::tests::stop_signals_once_and_actual_child_exit_can_be_polled_without_waiting ... ok
+test reminders::transport::tests::transferred_claim_survives_child_side_close_and_is_cloexec ... ok
+
+failures:
+
+failures:
+    coordinator::tests::reminders::interruption_after_first_retirement_never_acknowledges_later_audio
+    coordinator::tests::reminders::no_audio_or_provider_failure_stays_pending_and_selects_no_failure_recording
+    coordinator::tests::reminders::only_a_fenced_attempt_without_any_provider_pcm_can_retry
+    coordinator::tests::reminders::reset_or_playback_gap_cannot_be_relabeled_whole_reminder_completion
+    coordinator::tests::reminders::whole_reminder_joins_two_real_retirements_and_successful_provider_terminal
+    provider_worker::tests::reminders::becoming_busy_before_audio_transcript_or_tool_output_defers_and_suppresses_terminal
+    provider_worker::tests::reminders::busy_refusal_is_independent_of_attention_and_the_next_ordinary_turn_works
+    provider_worker::tests::reminders::disabled_and_unknown_refusals_keep_the_worker_alive_without_model_submission
+    provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn
+    provider_worker::tests::reminders::unanswered_reminders_are_not_room_activity_but_their_actual_audio_is
+    reminders::consumer::tests::abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again
+    reminders::consumer::tests::an_offer_is_committed_before_handoff_and_fresh_renewals_keep_the_same_token
+    reminders::consumer::tests::cancel_snooze_store_switch_and_missing_due_withdraw_existing_offer
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+    reminders::consumer::tests::delayed_durable_prepare_cannot_publish_an_already_expired_offer
+    reminders::consumer::tests::evicted_ack_receipt_resolves_by_current_absence_without_claiming_its_cause
+    reminders::consumer::tests::full_ledger_refuses_new_admission_without_evicting_any_uncertain_delivery
+    reminders::consumer::tests::lost_committed_ack_is_recovered_after_restart_without_another_offer
+    reminders::consumer::tests::offered_tuple_must_match_current_private_get_store_delivery_and_revision
+    reminders::consumer::tests::old_uncertain_item_does_not_starve_the_next_pending_occurrence
+    reminders::consumer::tests::only_exact_qualified_completion_can_change_the_durable_prepared_record
+    reminders::consumer::tests::outgoing_queue_is_bounded_and_replacing_an_offer_never_discards_settlement
+    reminders::consumer::tests::qualified_pre_audio_retirement_retries_once_with_a_new_durable_correlation
+    reminders::consumer::tests::slow_get_withdraws_current_authority_without_refreshing_its_observation
+    reminders::consumer::tests::storage_failure_before_prepare_withholds_the_offer_and_latches_failure
+    reminders::consumer::tests::uncommitted_lost_ack_at_the_same_revision_keeps_the_exact_attempt_and_recovers
+
+test result: FAILED. 38 passed; 26 failed; 1 ignored; 0 measured; 850 filtered out; finished in 13.68s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

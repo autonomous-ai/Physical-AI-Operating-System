@@ -1,0 +1,59 @@
+{
+  "scope": "Completed focused revision checks, original bytes retained",
+  "originals": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first.json",
+      "retained": "focused.json",
+      "bytes": 6265,
+      "sha256": "6a03a3257a0df19a8fbef68a7c146df75088e72d0e2bc09172dd1bba632c338d"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-format.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-clippy.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-clippy.txt",
+      "bytes": 417,
+      "sha256": "d2efac58bef581df72f4f78a9f1cbf14eda7f89ce11f3890d4059f7551d76d48"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-reminder.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-reminder.txt",
+      "bytes": 8900,
+      "sha256": "fd2a9a1f82dad034734bcef5e2b06fbe3b0ad7adef06a930d89b8dedde53af71"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-tools.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-tools.txt",
+      "bytes": 2192,
+      "sha256": "dd330d0232aa09d7ecf969f5f007e8482044d6c81542d946932b8651b746a595"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-task-news.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-task-news.txt",
+      "bytes": 721,
+      "sha256": "1745afde8e9a1dbca48277edbb91acdc118a445ad30bdec8a46cc86c880aab96"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-agent-tasks.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-agent-tasks.txt",
+      "bytes": 791,
+      "sha256": "6faf97eb6a42e0ca2b69483f80cc32607f46e0cc10e813c182014fcc0c8813ab"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-early-end.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-early-end.txt",
+      "bytes": 1526,
+      "sha256": "f50605320d82eba3abddf13ec664df1458e1fcbcc7fc855685df965053c69f19"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-focused-first-workspace-build.txt",
+      "retained": "raw/lamp-third-schedule-room-policy-focused-first-workspace-build.txt",
+      "bytes": 577,
+      "sha256": "50bdbedcaa0fd1fee2083e635cb25ac76a7f0093323c1eb2b1dbec8e1f75eddf"
+    }
+  ]
+}

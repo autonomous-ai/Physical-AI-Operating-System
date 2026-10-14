@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/private/tmp/lamp-third-schedule-1337-focused.py"
+  ],
+  "exit_code": 1,
+  "error": "FileNotFoundError: /private/tmp/lamp-third-schedule-1337-source-frozen.json",
+  "cause": "The source inventory command was still running when the runner was invoked.",
+  "cargo_commands_started": 0,
+  "source_changes": 0,
+  "result_report_created": false,
+  "correction": "Waited for source inventory session 6113 to complete successfully before invoking the actual gate."
+}

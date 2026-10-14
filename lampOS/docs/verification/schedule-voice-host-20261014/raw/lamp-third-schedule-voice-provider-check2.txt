@@ -1,0 +1,11 @@
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Checking lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+error[E0063]: missing fields `schedule_speak` and `schedule_tools` in initializer of `Settings`
+  --> crates/voice/src/main.rs:53:50
+   |
+53 |             let own=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false});
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `schedule_speak` and `schedule_tools`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `lamp-voice` (bin "lamp-voice" test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

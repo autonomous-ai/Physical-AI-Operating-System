@@ -1,0 +1,134 @@
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.67s
+     Running unittests src/lib.rs (target/debug/deps/lamp_actions-d6ab0df2b436130c)
+
+running 14 tests
+test light::tests::a_colour_is_set_by_name_said_by_name_and_switches_the_light_on ... ok
+test light::tests::a_light_that_cannot_be_read_or_does_not_change_is_said_so ... ok
+test light::tests::brighter_and_dimmer_are_one_level_keep_the_colour_and_stop_at_the_ends ... ok
+test light::tests::on_and_off_keep_the_colour_and_the_level_and_neither_is_asked_twice ... ok
+test light::tests::through_the_bus_a_request_is_kept_and_a_stale_state_is_no_light ... ok
+test sound::tests::a_control_that_rounds_by_a_point_is_taken_as_set_and_the_level_read_is_the_one_said ... ok
+test sound::tests::a_failure_is_said_as_a_failure ... ok
+test sound::tests::louder_is_one_step_and_stops_at_the_ceiling ... ok
+test sound::tests::mute_remembers_where_the_volume_was_and_unmute_puts_it_back ... ok
+test sound::tests::one_louder_undoes_one_quieter ... ok
+test sound::tests::quieter_is_one_step_and_stops_where_it_can_still_be_heard ... ok
+test sound::tests::the_level_is_read_from_what_amixer_prints ... ok
+test tests::an_outcome_is_one_line_the_voice_can_hand_to_the_model ... ok
+test tests::only_what_can_be_done_now_is_offered_and_every_function_is_one_the_voice_accepts ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_actions-ff7e65555bcdd868)
+
+running 1 test
+test tests::the_options_are_read_and_anything_else_is_refused_with_the_reason ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/schedule.rs (target/debug/deps/schedule-01024e2bdab4e700)
+
+running 14 tests
+test all_adapter_hops_share_one_deadline_and_uncertain_call_is_not_reissued ... ok
+test all_six_tools_reach_real_schedule_through_the_real_actions_server ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: done in 93 ms
+lamp-actions: set_reminder: done in 87 ms
+lamp-actions: repeat_reminder: done in 85 ms
+lamp-actions: repeat_reminder: done in 90 ms
+lamp-actions: list_reminders: done in 7 ms
+lamp-actions: snooze_reminder: done in 159 ms
+lamp-actions: cancel_reminder: done in 87 ms
+ok
+test definite_conflicts_are_not_retried_and_storage_failures_stay_uncertain ... ok
+test disabled_switch_preserves_the_old_catalog_and_refuses_all_six_names ... lamp-actions: serving; can do now: 
+lamp-actions: set_timer: not done in 0 ms: I can't do that.
+lamp-actions: set_reminder: not done in 0 ms: I can't do that.
+lamp-actions: repeat_reminder: not done in 0 ms: I can't do that.
+lamp-actions: list_reminders: not done in 0 ms: I can't do that.
+lamp-actions: cancel_reminder: not done in 0 ms: I can't do that.
+lamp-actions: snooze_reminder: not done in 0 ms: I can't do that.
+ok
+test empty_filtered_list_and_service_pagination_remain_explicit ... ok
+test host_first_and_repeated_actions_to_durable_schedule_receipts_are_measured ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 84 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 84 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 82 ms
+lamp-actions: set_timer: done in 90 ms
+lamp-actions: set_timer: done in 86 ms
+lamp-actions: set_timer: done in 89 ms
+lamp-actions: set_timer: done in 88 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 92 ms
+lamp-actions: set_timer: done in 88 ms
+lamp-actions: set_timer: done in 89 ms
+lamp-actions: set_timer: done in 93 ms
+lamp-actions: set_timer: done in 88 ms
+lamp-actions: set_timer: done in 84 ms
+lamp-actions: set_timer: done in 89 ms
+lamp-actions: set_timer: done in 90 ms
+schedule_actions_timing {"boundary":"client entry before real Actions socket connect to parsed durable Schedule response through Actions","cold_scope":"first mutation after both newly started host services published readiness; process/store startup excluded","failures":0,"first_us":135160,"fixture":"real Actions server and real Schedule service, private SQLite FULL store, injected Schedule clock; no provider or lamp","machine_arch":"x86_64","machine_os":"macos","repeated_count":20,"repeated_max_us":143420,"repeated_p50_us":88388,"repeated_p95_us":143321,"target_is_not_a_functional_assertion":true,"target_us":250000,"total_count":21}
+ok
+test incorrect_success_identity_revision_or_deadline_never_becomes_confirmation ... ok
+test listing_keeps_complete_escaped_labels_and_returns_the_actual_remaining_cursor ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: list_reminders: done in 7 ms
+lamp-actions: list_reminders: done in 5 ms
+ok
+test lost_commit_reply_is_unknown_and_never_retried_with_another_guard ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 3 ms
+ok
+test malformed_arguments_and_unknown_fields_open_no_schedule_connection ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: bad_arguments in 0 ms
+ok
+test malformed_lists_and_snooze_nonpending_state_never_make_a_mutation ... ok
+test missing_schedule_socket_is_truthful_and_mutation_free ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: unavailable in 0 ms
+lamp-actions: list_reminders: unavailable in 0 ms
+ok
+test new_schemas_use_the_small_provider_vocabulary ... ok
+test real_engine_failure_before_or_after_snapshot_commit_is_never_confirmed ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 4 ms
+lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 3 ms
+ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.70s
+
+     Running tests/server.rs (target/debug/deps/server-72a37ae99a4c25b9)
+
+running 4 tests
+test its_report_says_what_it_can_do_and_how_much_it_did ... ok
+test one_executive_to_a_directory ... lamp-actions: serving; can do now: 
+lamp-actions: serving; can do now: 
+ok
+test the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes ... lamp-actions: serving; can do now: 
+lamp-actions: light_on: not done in 0 ms: I can't do that.
+lamp-actions: can do now: light_on light_off light_colour light_brighter light_dimmer
+lamp-actions: light_on: done in 19 ms
+lamp-actions: light_colour: done in 16 ms
+lamp-actions: light_colour: not done in 0 ms: That is not a colour my light can show.
+lamp-actions: light_colour: not done in 0 ms: That is not a colour my light can show.
+lamp-actions: light_colour: not done in 0 ms: That is not a colour my light can show.
+lamp-actions: light_dimmer: done in 19 ms
+lamp-actions: can do now: 
+lamp-actions: light_off: not done in 0 ms: I can't do that.
+ok
+test the_list_is_there_a_call_changes_the_control_and_anything_else_is_refused_in_words ... lamp-actions: serving; can do now: volume_up volume_down volume_mute volume_unmute
+lamp-actions: volume_up: done in 0 ms
+lamp-actions: volume_down: done in 0 ms
+lamp-actions: light_on: not done in 0 ms: I can't do that.
+lamp-actions: open_the_door: not done in 0 ms: I can't do that.
+lamp-actions: volume_up: not done in 0 ms: I can't do that.
+lamp-actions: (not a call): not done in 0 ms: I can't do that.
+lamp-actions: (not a call): not done in 0 ms: I can't do that.
+lamp-actions: a caller was dropped after 1000 ms: Resource temporarily unavailable (os error 35)
+lamp-actions: volume_mute: done in 0 ms
+ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.39s
+

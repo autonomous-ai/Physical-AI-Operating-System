@@ -310,6 +310,11 @@ impl InputAdmission {
     pub fn owns_stream(&self) -> bool {
         matches!(self.phase, Phase::Streaming(_) | Phase::Draining(Some(_)))
     }
+    /// Due reminders must yield even to a prospective utterance that
+    /// has not acquired a turn yet. Draining is not idle input either.
+    pub(crate) fn idle_for_reminder(&self) -> bool {
+        matches!(self.phase, Phase::Idle) && !self.hand_abandoned
+    }
     pub(crate) fn draining(&self) -> bool {
         self.hand_abandoned && matches!(self.phase, Phase::Draining(_))
     }
@@ -727,6 +732,27 @@ mod outage_drain_tests {
     use lamp_turn_owner::{AdmissionState, CaptureState, Controller, Permission};
 
     const START: u64 = 1_000_000;
+
+    #[test]
+    fn prospective_speech_blocks_a_reminder_before_it_owns_a_stream() {
+        let mut gate = InputAdmission::default();
+        let mut local = LocalInput::new();
+        assert!(gate.idle_for_reminder());
+        let _ = candidate(&mut gate, local.context(START), 1, START);
+        assert!(
+            !gate.owns_stream(),
+            "a pending candidate is not admitted audio"
+        );
+        assert!(
+            !gate.idle_for_reminder(),
+            "a due reminder must yield to that candidate"
+        );
+        gate.abandon_until_end(START + 1).unwrap();
+        assert!(
+            !gate.idle_for_reminder(),
+            "draining for a hand stop cannot admit a reminder"
+        );
+    }
 
     fn at(us: u64) -> MonoTime {
         MonoTime::from_micros(us)

@@ -28,6 +28,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod reminder_policy;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const MAX_QUEUED_OUTPUT: usize = 512;
 /// Above this backlog no further provider event is taken. The transport then
@@ -276,6 +278,16 @@ pub enum ProviderInput {
         #[serde(default)]
         look: bool,
     },
+    /// A due occurrence whose durable identity is owned by the coordinator's
+    /// consumer. The provider receives data, never permission to run tools.
+    Reminder {
+        request: u64,
+        session: u64,
+        privacy_generation: u64,
+        text: String,
+        late: bool,
+        late_by_ms: Option<u64>,
+    },
 }
 impl ProviderInput {
     fn request(&self) -> u64 {
@@ -283,7 +295,8 @@ impl ProviderInput {
             Self::Start { request, .. }
             | Self::Audio { request, .. }
             | Self::End { request, .. }
-            | Self::Written { request, .. } => *request,
+            | Self::Written { request, .. }
+            | Self::Reminder { request, .. } => *request,
         }
     }
     fn privacy_generation(&self) -> u64 {
@@ -298,6 +311,9 @@ impl ProviderInput {
                 privacy_generation, ..
             }
             | Self::Written {
+                privacy_generation, ..
+            }
+            | Self::Reminder {
                 privacy_generation, ..
             } => *privacy_generation,
         }
@@ -344,6 +360,13 @@ pub enum ProviderOutput {
         stage: FailedStage,
         reason: Fault,
     },
+    /// A local policy refusal, not completion or a provider failure. The due
+    /// occurrence stays pending and ordinary input remains available.
+    ReminderDeferred {
+        request: u64,
+        session: u64,
+        reason: ReminderDeferral,
+    },
     /// Input up to `request` was abandoned, not continued, while the
     /// transport still kept some of it or had written some of it without an
     /// End. Only under `Continuation::KeptStart`. `dropped_samples` were
@@ -367,6 +390,13 @@ pub enum ProviderOutput {
         fault: Fault,
         attempts: u32,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReminderDeferral {
+    Disabled,
+    Invalid,
 }
 
 /// Compatibility encoding for explicit Typed mode. Turn failures and ownership
@@ -567,6 +597,7 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
         let request = match event {
             ProviderOutput::Ready { .. }
             | ProviderOutput::TurnFailed { .. }
+            | ProviderOutput::ReminderDeferred { .. }
             // About a retired request by definition, and still owed.
             | ProviderOutput::InputDiscarded { .. }
             | ProviderOutput::OwnershipAssumed { .. }
@@ -593,6 +624,15 @@ fn queue_undelivered(handoff: &mut InputHandoff, output: &mut VecDeque<Outbound>
             request,
             stage: FailedStage::NotDelivered,
             reason: Fault::Local,
+        }));
+    }
+    if output.len() < MAX_QUEUED_OUTPUT
+        && let Some(deferred) = handoff.reminders.pending.take()
+    {
+        output.push_back(Outbound::Output(ProviderOutput::ReminderDeferred {
+            request: deferred.request,
+            session: deferred.session,
+            reason: deferred.reason,
         }));
     }
 }
@@ -759,6 +799,7 @@ async fn serve_with_visual<C: Connect>(
     let mut upstream_ended = false;
     let mut intake = ProviderIntake::new(boot, monotonic_us());
     intake.handoff.tolerate_outage = typed;
+    intake.handoff.reminders.enabled = options.tools.schedule_speak;
     let mut ticker = tokio::time::interval(Duration::from_millis(2));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     // Link status is small and must not wait behind playback-paced audio.
@@ -1127,6 +1168,14 @@ async fn serve_with_visual<C: Connect>(
                 }
             },
             notice=next_notice(&mut provider, coordinated), if !upstream_ended && output.len() < OUTPUT_HIGH_WATER=>{
+                if let Ok(notice) = &notice
+                    && reminder_notice(&intake.handoff, notice, &provider)
+                {
+                    continue;
+                }
+                let reminder_origin = notice.as_ref().ok()
+                    .and_then(reminder_policy::lineage)
+                    .is_some_and(|lineage| intake.handoff.reminders.is_reminder(lineage));
                 if let Ok(Notice::Event(Event::Audio { lineage, .. })) = &notice {
                     desk.sound(lineage.request.get());
                 }
@@ -1242,6 +1291,7 @@ async fn serve_with_visual<C: Connect>(
                     // as something the lamp said.
                     Ok(Notice::Event(Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. }))
                         if desk.declined(lineage.request) || attention.holds(lineage.request.get()) => {},
+                    Ok(Notice::Event(event)) if reminder_origin=>forward_reminder(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Unavailable {error})=>{
                         if typed {
@@ -1284,6 +1334,38 @@ async fn serve_with_visual<C: Connect>(
                 if output.len()>MAX_QUEUED_OUTPUT { return Err(io::Error::other("provider IPC output backlog exceeded bound").into()); }
             }
         }
+    }
+}
+
+/// The reminder tool veto precedes attention's own-request exemption and all
+/// tool execution. Room classification never withholds requested due speech.
+fn reminder_notice<C: Connect>(
+    handoff: &InputHandoff,
+    notice: &Notice,
+    provider: &Supervisor<C>,
+) -> bool {
+    let Some(lineage) = reminder_policy::lineage(notice) else {
+        return false;
+    };
+    let request = lineage.request.get();
+    if handoff.reminders.suppresses(request) {
+        return true;
+    }
+    if !handoff.reminders.is_reminder(lineage) {
+        return false;
+    }
+    if let Notice::Event(Event::ToolCall { call, .. }) = notice {
+        // Answer before any local retirement. The reply is a refusal only;
+        // it cannot invoke Actions, memory, or local name/decline behavior.
+        let _ = provider.try_tool_response(
+            lineage.session,
+            &call.id,
+            &call.name,
+            &serde_json::json!({"error":"A reminder cannot use tools. Say only the reminder."}),
+        );
+        true
+    } else {
+        false
     }
 }
 
@@ -1377,7 +1459,7 @@ impl ToolDesk {
         if held
             && matches!(
                 crate::tools::route(&self.settings, &call.name),
-                Route::Executive(_) | Route::Memory(_) | Route::Tasks(_)
+                Route::Executive(_) | Route::Schedule(_) | Route::Memory(_) | Route::Tasks(_)
             )
         {
             tell(&crate::tools::declined());
@@ -1425,7 +1507,10 @@ impl ToolDesk {
                     "lamp-voice provider: request {request}: the model said it was not for it"
                 );
             }
-            route @ (Route::Executive(_) | Route::Memory(_) | Route::Tasks(_))
+            route @ (Route::Executive(_)
+            | Route::Schedule(_)
+            | Route::Memory(_)
+            | Route::Tasks(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
                 // Being asked to keep or forget something is not itself
@@ -1433,7 +1518,10 @@ impl ToolDesk {
                 if matches!(route, Route::Memory(_)) && call.name != crate::remember::RECALL {
                     crate::remember::keep_out(request);
                 }
-                if matches!(route, Route::Executive(_) | Route::Tasks(_)) {
+                if matches!(
+                    route,
+                    Route::Executive(_) | Route::Schedule(_) | Route::Tasks(_)
+                ) {
                     self.acted = Some(request);
                 }
                 // A request the lamp wrote itself was not heard from anyone:
@@ -1461,6 +1549,10 @@ impl ToolDesk {
                                 "the tasks part",
                                 crate::agent_tasks::run(place, &work, request, heard, deadline),
                             ),
+                            Route::Schedule(directory) => (
+                                "the schedule through the executive",
+                                crate::tools::ask_schedule(directory, &work, deadline),
+                            ),
                             Route::Decline | Route::Clock | Route::Nobody => {
                                 ("nobody", (crate::tools::unavailable(), false))
                             }
@@ -1480,7 +1572,11 @@ impl ToolDesk {
                     Err(_) => tell(&crate::tools::unavailable()),
                 }
             }
-            Route::Executive(_) | Route::Memory(_) | Route::Tasks(_) | Route::Nobody => {
+            Route::Executive(_)
+            | Route::Schedule(_)
+            | Route::Memory(_)
+            | Route::Tasks(_)
+            | Route::Nobody => {
                 tell(&crate::tools::unavailable());
                 eprintln!(
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
@@ -1558,13 +1654,34 @@ fn forward(
     output_sequence: &mut u64,
     discards: &mut DiscardLog,
 ) -> Result<()> {
+    forward_origin(event, output, output_sequence, discards, true)
+}
+
+fn forward_reminder(
+    event: Event,
+    output: &mut VecDeque<Outbound>,
+    output_sequence: &mut u64,
+    discards: &mut DiscardLog,
+) -> Result<()> {
+    // Nothing was heard when the lamp was asked to say a reminder. Its actual
+    // audio still counts as speech, but a silent attempt is not room activity.
+    forward_origin(event, output, output_sequence, discards, false)
+}
+
+fn forward_origin(
+    event: Event,
+    output: &mut VecDeque<Outbound>,
+    output_sequence: &mut u64,
+    discards: &mut DiscardLog,
+    heard_input: bool,
+) -> Result<()> {
     let mut push = |item: ProviderOutput| output.push_back(Outbound::Output(item));
     match event {
         Event::InputStarted {
             lineage,
             waiting_for_barrier,
         } => {
-            if let Ok(mut room) = crate::room_told::ROOM.lock() {
+            if heard_input && let Ok(mut room) = crate::room_told::ROOM.lock() {
                 room.heard(lineage.request.get(), monotonic_us());
             }
             push(ProviderOutput::Started {
@@ -1631,9 +1748,12 @@ fn forward(
         Event::Unanswered { lineage, waited } => {
             // A sound sent on only for the model to judge, left alone, is
             // not a request the session failed to answer, and is not talk.
-            let said = crate::room_told::ROOM.lock().map_or(true, |mut room| {
-                room.unanswered(lineage.request.get(), monotonic_us())
-            });
+            // A reminder attempt has no heard input at all. It must neither
+            // change the room nor renew the session as unanswered speech.
+            let said = heard_input
+                && crate::room_told::ROOM.lock().map_or(true, |mut room| {
+                    room.unanswered(lineage.request.get(), monotonic_us())
+                });
             if said {
                 UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 eprintln!(
@@ -1641,9 +1761,15 @@ fn forward(
                     lineage.request.get(),
                     waited.as_millis()
                 );
-            } else {
+            } else if heard_input {
                 eprintln!(
                     "lamp-voice provider: a sound (request {}) got no answer in {} ms, as a sound should; closed, connection kept",
+                    lineage.request.get(),
+                    waited.as_millis()
+                );
+            } else {
+                eprintln!(
+                    "lamp-voice provider: reminder request {} got no answer in {} ms; closed, connection kept",
                     lineage.request.get(),
                     waited.as_millis()
                 );
@@ -1943,7 +2069,7 @@ impl ProviderIntake {
         self.check_retained(now())?;
         self.handoff.synchronize(input)?;
         for _ in 0..INPUT_SLICE {
-            if self.handoff.undelivered.is_some() {
+            if self.handoff.undelivered.is_some() || self.handoff.reminders.pending.is_some() {
                 break;
             }
             if self.retained.is_none()
@@ -2007,6 +2133,7 @@ struct InputHandoff {
     /// The sole unreported request whose selected connection refused its Start.
     /// Drain it before receiving another command; it is never overwritten.
     undelivered: Option<u64>,
+    reminders: reminder_policy::Policy,
 }
 
 #[derive(Clone, Copy)]
@@ -2020,6 +2147,20 @@ struct SubmittedInput {
 }
 
 impl InputHandoff {
+    fn defer_reminder(
+        &mut self,
+        request: u64,
+        session: u64,
+        reason: ReminderDeferral,
+        input: &impl InputSink,
+    ) {
+        self.reminders.defer(request, session, reason);
+        self.fail(request);
+        // Local revocation is synchronous and independent of provider queue
+        // capacity, even when a refused input has already been retired.
+        input.discard(RequestId::new(request).expect("validated reminder request"));
+    }
+
     fn visual_turn(&self) -> Option<VisualTurn> {
         let submitted = self.submitted?;
         (submitted.open && submitted.request.get() > self.retired_through.max(self.failed_through))
@@ -2213,6 +2354,43 @@ impl InputHandoff {
             return Err(io::Error::other("provider input has no matching current owner").into());
         }
         match command {
+            ProviderInput::Reminder {
+                session,
+                text,
+                late,
+                late_by_ms,
+                ..
+            } => {
+                if self.submitted.is_some() {
+                    return Err(io::Error::other("provider input already started").into());
+                }
+                let expected = SessionId::new(session)?;
+                let note =
+                    match self
+                        .reminders
+                        .prepare(request.get(), session, &text, late, late_by_ms)
+                    {
+                        Ok(note) => note,
+                        Err(reason) => {
+                            self.defer_reminder(request.get(), session, reason, input);
+                            return Ok(());
+                        }
+                    };
+                // Reminder data is not a memory instruction, nor something
+                // to remember automatically merely because it was spoken.
+                crate::remember::keep_out(request.get());
+                crate::attention::OWN_REQUEST
+                    .store(request.get(), std::sync::atomic::Ordering::Release);
+                if let Err(refusal) = input.written(expected, request, &note, None) {
+                    return self.refused_start(request, refusal);
+                }
+                self.submitted = Some(SubmittedInput {
+                    request,
+                    session: expected,
+                    open: false,
+                    captured: None,
+                });
+            }
             ProviderInput::Start { session, .. } => {
                 if self.submitted.is_some() {
                     return Err(io::Error::other("provider input already started").into());
@@ -2489,6 +2667,8 @@ fn push_text(
 
 #[cfg(test)]
 mod tests {
+    mod reminders;
+
     use super::*;
     use lamp_turn_owner::{AdmissionState, AdmittedInput, CaptureState, Controller};
     use std::cell::{Cell, RefCell};
@@ -4380,6 +4560,26 @@ mod tests {
             continuation: Continuation,
             capacity: usize,
         ) -> Self {
+            Self::start_configured(
+                policy,
+                options,
+                barrier,
+                camera,
+                continuation,
+                capacity,
+                |config| config,
+            )
+        }
+
+        fn start_configured(
+            policy: RecoveryPolicy,
+            options: Options,
+            barrier: BarrierPolicy,
+            camera: bool,
+            continuation: Continuation,
+            capacity: usize,
+            configure: impl FnOnce(SessionConfig) -> SessionConfig,
+        ) -> Self {
             let (directory, parent, worker) = intake_channels();
             let boot = BootId::new([9; 16]).unwrap();
             let mut owner = Controller::new(boot, real_time());
@@ -4404,7 +4604,8 @@ mod tests {
                         .collect(),
                 )
                 .unwrap();
-            let (dialer, dials) = lamp_gemini::testing::connector_with_capacity(config, capacity);
+            let (dialer, dials) =
+                lamp_gemini::testing::connector_with_capacity(configure(config), capacity);
             let provider = Supervisor::new(dialer, policy).unwrap();
             let visual = if camera {
                 owner
@@ -5024,7 +5225,7 @@ mod tests {
                 exec: None,
                 memory: None,
                 clock: false,
-                tasks: None,
+                ..Default::default()
             }),
         );
         let mut dial = rig.ready().await;
@@ -5092,7 +5293,7 @@ mod tests {
                 exec: None,
                 memory: None,
                 clock: true,
-                tasks: None,
+                ..Default::default()
             }),
         );
         let mut dial = rig.ready().await;
@@ -5158,7 +5359,7 @@ mod tests {
                 exec: None,
                 memory: Some(socket),
                 clock: false,
-                tasks: None,
+                ..Default::default()
             }),
         );
         let mut dial = rig.ready().await;
@@ -5215,7 +5416,7 @@ mod tests {
                     exec: Some(home.path.clone()),
                     memory: None,
                     clock: false,
-                    tasks: None,
+                    ..Default::default()
                 },
                 attention: Some(busy),
                 name_signal: false,
@@ -5268,7 +5469,7 @@ mod tests {
                 exec: Some(home.path.clone()),
                 memory: None,
                 clock: false,
-                tasks: None,
+                ..Default::default()
             }),
         );
         let mut dial = rig.ready().await;
@@ -5324,7 +5525,7 @@ mod tests {
                 exec: Some(home.path.clone()),
                 memory: None,
                 clock: false,
-                tasks: None,
+                ..Default::default()
             }),
         );
         let mut dial = rig.ready().await;
@@ -5396,7 +5597,7 @@ mod tests {
                     exec: Some(home.path.clone()),
                     memory: None,
                     clock: false,
-                    tasks: None,
+                    ..Default::default()
                 },
                 "light_on",
             ),

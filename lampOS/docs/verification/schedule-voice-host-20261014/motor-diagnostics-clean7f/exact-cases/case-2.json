@@ -1,0 +1,188 @@
+{
+  "command": [
+    "/private/tmp/lm709-src-qhqu_pyi/target/debug/deps/lamp_voice-a98444cc1c3f37e5",
+    "--exact",
+    "coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once",
+    "--test-threads=1",
+    "--nocapture"
+  ],
+  "cwd": "/private/tmp/lm709-src-qhqu_pyi/lampOS",
+  "started_utc": "2026-10-14T17:13:24Z",
+  "exit_code": 0,
+  "outer_timeout": false,
+  "elapsed_seconds": 0.7265397789999994,
+  "raw_log": "/private/tmp/lm709-e-y5uq6td4/run-pkppz5ov/case-2.txt",
+  "raw_sha256": "782dc34ad80fdf4d2b5cc076e078c94534ffac422536fe6dfe49e261db948cf6",
+  "name": "coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once",
+  "explicit_environment": {
+    "CARGO_TARGET_DIR": "/private/tmp/lm709-src-qhqu_pyi/target",
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "RUST_BACKTRACE": "full",
+    "LAMP_MOTOR_DIAGNOSTICS": "/private/tmp/lm709-d-bxvzktai/run-pkppz5ov/2"
+  },
+  "binary_sha256_before": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a",
+  "binary_sha256_after": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a",
+  "source_unchanged": true,
+  "counts": [
+    [
+      1,
+      0,
+      0
+    ]
+  ],
+  "diagnostics": [
+    {
+      "path": "/private/tmp/lm709-d-bxvzktai/run-pkppz5ov/2/85870-1913863080182/wait-1.json",
+      "bytes": 64547,
+      "sha256": "0a0de142a605f719f3f12d189c8465635072fea895e8511f6e634c1caa7589dc",
+      "mode": "gated_exit_failure",
+      "outcome": "predicate_satisfied",
+      "sample_count": 1079,
+      "maximum_gap_us": 39976,
+      "child_markers": [
+        {
+          "marker": {
+            "at_us": 1913863741936,
+            "pid": 85871,
+            "sequence": 0,
+            "stage": "child_entry"
+          },
+          "received_us": 1913863743246
+        },
+        {
+          "marker": {
+            "at_us": 1913863742029,
+            "pid": 85871,
+            "sequence": 1,
+            "stage": "config_read_enter"
+          },
+          "received_us": 1913863743354
+        },
+        {
+          "marker": {
+            "at_us": 1913863742357,
+            "pid": 85871,
+            "sequence": 2,
+            "stage": "config_read_done"
+          },
+          "received_us": 1913863743362
+        },
+        {
+          "marker": {
+            "at_us": 1913863742368,
+            "pid": 85871,
+            "sequence": 3,
+            "stage": "config_validate_enter"
+          },
+          "received_us": 1913863743369
+        },
+        {
+          "marker": {
+            "at_us": 1913863742383,
+            "pid": 85871,
+            "sequence": 4,
+            "stage": "config_validated"
+          },
+          "received_us": 1913863743376
+        },
+        {
+          "marker": {
+            "at_us": 1913863742390,
+            "pid": 85871,
+            "sequence": 5,
+            "stage": "channels_bind_enter"
+          },
+          "received_us": 1913863743383
+        },
+        {
+          "marker": {
+            "at_us": 1913863742669,
+            "pid": 85871,
+            "sequence": 6,
+            "stage": "channels_bound"
+          },
+          "received_us": 1913863743390
+        },
+        {
+          "marker": {
+            "at_us": 1913863742738,
+            "pid": 85871,
+            "sequence": 7,
+            "stage": "channels_connected"
+          },
+          "received_us": 1913863743398
+        },
+        {
+          "marker": {
+            "at_us": 1913863742758,
+            "pid": 85871,
+            "sequence": 8,
+            "stage": "core_new_enter"
+          },
+          "received_us": 1913863743405
+        },
+        {
+          "marker": {
+            "at_us": 1913863742776,
+            "pid": 85871,
+            "sequence": 9,
+            "stage": "core_new_done"
+          },
+          "received_us": 1913863743412
+        },
+        {
+          "marker": {
+            "at_us": 1913863742783,
+            "pid": 85871,
+            "sequence": 10,
+            "stage": "core_qualify_enter"
+          },
+          "received_us": 1913863743419
+        },
+        {
+          "marker": {
+            "at_us": 1913863742801,
+            "pid": 85871,
+            "sequence": 11,
+            "stage": "core_qualify_done"
+          },
+          "received_us": 1913863743427
+        },
+        {
+          "marker": {
+            "at_us": 1913863742818,
+            "pid": 85871,
+            "sequence": 12,
+            "stage": "worker_run_enter"
+          },
+          "received_us": 1913863743437
+        },
+        {
+          "marker": {
+            "at_us": 1913863745481,
+            "pid": 85871,
+            "sequence": 13,
+            "stage": "ready_send_enter"
+          },
+          "received_us": 1913863745905
+        },
+        {
+          "marker": {
+            "at_us": 1913863745516,
+            "pid": 85871,
+            "sequence": 14,
+            "stage": "ready_sent"
+          },
+          "received_us": 1913863745919
+        }
+      ],
+      "events": [
+        {
+          "event_us": 1913863745354,
+          "observed_us": 1913863745989,
+          "stage": "ready"
+        }
+      ]
+    }
+  ]
+}

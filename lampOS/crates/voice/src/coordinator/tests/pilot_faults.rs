@@ -827,6 +827,9 @@ impl Peers {
                     }
                 }
                 Ok(Some(ProviderInput::Audio { .. } | ProviderInput::Written { .. })) => {}
+                Ok(Some(ProviderInput::Reminder { .. })) => {
+                    panic!("reminders are disabled in this fixture")
+                }
                 Ok(None) | Err(_) => break,
             }
         }

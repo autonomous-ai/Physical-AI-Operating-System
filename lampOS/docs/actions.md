@@ -30,8 +30,8 @@ about the provider: a call is one line on a local socket.
     lamp-actions --dir ABSOLUTE_DIR [--mixer-card NAME --mixer-control NAME [--volume-ceiling 1..100]] [--bus-root ABSOLUTE_DIR]
 
 In `--dir` it keeps `tools.json` (what it can do now), `call.sock` and
-`ready`. Calls are taken one at a time: each is a few tens of
-milliseconds, and two changes to one control must not cross. A caller has
+`ready`. Calls are taken one at a time, and two changes to one control
+must not cross. A caller has
 one second to send its line. A second `lamp-actions` on the same directory
 is refused while the first answers. It cannot catch a signal; killed, it
 leaves the call it was in unanswered, and the voice tells its model so.
@@ -40,6 +40,102 @@ Only what can be done now is offered. With no mixer given there are no
 volume actions; the light's are offered only while the ring's owner is
 saying what it shows, and are withdrawn within about two seconds of it
 stopping.
+
+## Optional reminders and timers
+
+With the exact environment value `LAMP_SCHEDULE_TOOLS=on`, Actions appends
+six Schedule tools to its ordinary catalog. Other values, including `ON`,
+leave its original catalog and dispatch unchanged. Voice separately gates
+the same declarations and routing; enabling Actions alone is insufficient.
+`LAMP_SCHEDULE_SOCKET` selects the absolute Schedule socket, defaulting to
+`/run/lampos-schedule/call.sock` only when enabled. A disabled configuration
+does not inspect that setting or connect to Schedule. No deployment file is
+changed by this integration.
+
+```sh
+LAMP_SCHEDULE_TOOLS=on \
+LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock \
+lamp-actions --dir /run/lampos-actions
+```
+
+Schedule must already be configured with its own private store, trusted clock
+and IANA default zone. Actions does not start Schedule or infer its clock.
+The tools remain declared while enabled; an unavailable store produces an
+honest failure when called. It does not disable unrelated volume/light calls.
+
+| Tool | Exact model arguments | Private operation |
+|---|---|---|
+| `set_timer` | `text`, whole `seconds` | Set with an elapsed `After` deadline |
+| `set_reminder` | `text`, exact `time` in `HH:MM`; optional `day`, `zone`, `fold` | Set one civil `At` deadline |
+| `repeat_reminder` | `text`, `time`, `every` (`daily` or `weekly`); `weekday` required only for weekly; optional `zone` | Set a local daily/weekly recurrence |
+| `list_reminders` | Optional boolean `pending_only`, optional nonnegative `after_id` | Read one bounded page |
+| `cancel_reminder` | Positive `id` from the current list | Cancel that timer or whole series |
+| `snooze_reminder` | Positive `id`, whole `seconds` | Get the exact current pending delivery, then snooze it |
+
+Labels contain 1–300 UTF-8 bytes, nonblank, with no control characters.
+Durations are 1–31,536,000 seconds. Time is exactly `00:00` through `23:59`.
+`day` is `today`, `tomorrow`, `next`, or a valid `YYYY-MM-DD`; omission means
+the next strictly future occurrence. `zone`, if supplied, must name an IANA
+zone. `fold` is `earlier`, `later` or `reject`; Schedule rejects an ambiguous
+one-off time unless the caller makes that choice. Weekdays are full lower-case
+English names. Daily requests cannot carry a weekday. Unknown arguments and
+malformed values are refused before any Schedule connection.
+
+The six new model schemas use the existing provider's small Schema vocabulary.
+They deliberately omit `additionalProperties` and `maxLength`; Actions still
+enforces exact fields and UTF-8 byte bounds at runtime. Provider schema
+acceptance must be qualified on the configured lamp model.
+
+For mutations, Actions generates a local random request ID and takes the
+store ID/revision from a fresh Status reply. Snooze obtains both that guard
+and the pending delivery from a single Get reply. The model never supplies a
+guard, delivery token, Unix timestamp or acknowledgement. Schedule resolves
+the time and returns the durable result. Success includes `status:committed`,
+the item ID and the resolved local deadline where relevant; Actions checks
+the returned store/revision, identifiers and canonical deadline before
+confirming it. Setting an item does not claim its future audio was played.
+
+A successful response uses the existing Actions envelope with a structured
+`result`, for example:
+
+```json
+{"ok":true,"result":{"status":"committed","id":1,"cancelled":true,"message":"The selected timer or whole reminder series is cancelled."}}
+```
+
+The timestamp and local string in real replies come from Schedule, never from
+model arithmetic. List results contain complete labels, item IDs, state,
+resolved local time and recurrence metadata. They fit Voice's 4,096-byte
+provider budget with its 16-byte reserve, including JSON escaping. If a page
+is shortened, `next_after_id` is the last included item, `complete` is false,
+and another call with that cursor reads more. A complete `pending_only:true`
+page describes the filtered list, not every active reminder. No label is
+silently cut to fit a page.
+
+Each accepted model call gets one bounded adapter attempt. The 1,250 ms
+absolute deadline covers all status/get/mutation hops, nonblocking socket
+connection, request writes and response reads. JSON on the Schedule link is
+at most 8,192 bytes per object, plus its newline. A full Unix accept queue is
+reported unavailable rather than waited on indefinitely or retried. The
+healthy local target is 250 ms from adapter entry to durable receipt, distinct
+from Voice's spoken feedback and future reminder playout. The target has not
+been measured on a lamp; an operating-system stall is not made impossible by
+a userspace deadline.
+
+A conflict is returned without obtaining a new guard. A lost/malformed reply,
+storage failure after possible commit, or an unknown mutation result says:
+“I could not confirm that change. It may have happened. Please list the current
+reminders before asking me to make the change again.” An unavailable store
+does not produce a success sentence. Arbitrary service errors and reminder
+text are not copied into Actions' failure logs.
+
+There is no new durable Actions call ledger. A call lost between Voice and
+Actions may already have changed Schedule; neither side automatically repeats
+it with a fresh guard. Reissuing the same model intention as a new call can
+create a second reminder, so inspect the current list first. This does not
+promise exactly-once tool execution. The separate due-speech consumer owns
+durable delivery tracking and acknowledges only qualified completed playout;
+these six tools never send `ack` or speak a due reminder themselves. See
+[Schedule](schedule.md) for that boundary.
 
 ## The actions
 
@@ -88,11 +184,29 @@ is judged before anything is carried over. For V1's intent component
 
 ## Not shown
 
-Host tests: the rules against a control that holds, refuses or ignores
-what it is given (seven of the volume, five of the light), the list
-and the answers' form (two), the program through its socket with a
-stand-in control and a real bus in a directory of its own (three), and
-the options (one).
+The 2026-10-14 Mac x86_64 checks passed 33 Actions tests, including 14 new
+Schedule cases, and seven shared-client tests. They exercise all six tools
+through a real Actions server and a real Schedule service, malformed input
+without IPC, bounded escaped list pages, conflicts, lost replies, slow
+dependencies, and a real Schedule engine whose persistence fails before or
+after writing its snapshot. The additional full-accept-queue client test is
+Linux-only and was not run on this Mac. Commands, from `lampOS`:
+
+```sh
+cargo test --offline -p lamp-actions --all-targets -- --test-threads=1 --nocapture
+cargo test --offline -p lamp-schedule --test client -- --test-threads=1 --nocapture
+cargo clippy --offline -p lamp-actions --all-targets -- -D warnings
+cargo clippy --offline -p lamp-schedule --lib --test client -- -D warnings
+```
+
+Both Clippy checks and scoped formatting passed. The timing fixture measured
+21 successful calls from client entry before connecting to the real Actions
+socket until its parsed durable Schedule response. With a private SQLite
+`FULL` store and an injected Schedule clock, the first mutation after both
+new host services became ready took 135.160 ms; the next 20 had p50
+88.388 ms, p95 143.321 ms and maximum 143.420 ms. Process/store startup,
+provider calls and audio are excluded. These are host results, with no lamp
+or provider involved, and are not a filesystem latency guarantee.
 
 On lamp-4ace the volume's functions have been called by the real
 conversation model ([tools.md](tools.md)). The step sizes as a person

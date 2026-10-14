@@ -1,0 +1,678 @@
+//! Real coordinator owner, speaker IPC, partial acceptance and retirement joins.
+//! These synthetic PCM receipts establish neither acoustic nor model fidelity.
+use super::*;
+use crate::reminders::{Probe, RoundtripFixture, ToWorker, receipt_for_test};
+use lamp_audio::ownership::{PlaybackCursor, QueuedRange};
+
+#[test]
+fn reminder_quiet_uses_current_admission_time_after_new_capture_arrived_in_loop() {
+    let loop_start = 2_000_000;
+    let captured = loop_start + 1;
+    let admission_at = loop_start + 2;
+    assert!(!reminder_quiet(loop_start, 0, 0, Some(captured)));
+    assert!(reminder_quiet(admission_at, 0, 0, Some(captured)));
+    assert!(!reminder_quiet(admission_at, 0, 0, None));
+    assert!(!reminder_quiet(admission_at, 0, 0, Some(admission_at + 1)));
+    assert!(reminder_quiet(
+        admission_at,
+        0,
+        0,
+        Some(admission_at - INPUT_LEASE_US)
+    ));
+    assert!(!reminder_quiet(
+        admission_at,
+        0,
+        0,
+        Some(admission_at - INPUT_LEASE_US - 1)
+    ));
+    for (cycle, speech) in [
+        (admission_at - 999_999, 0),
+        (0, admission_at - 999_999),
+        (admission_at + 1, 0),
+    ] {
+        assert!(!reminder_quiet(admission_at, cycle, speech, Some(captured)));
+    }
+    assert!(reminder_quiet(
+        admission_at,
+        admission_at - 1_000_000,
+        0,
+        Some(captured)
+    ));
+}
+
+#[test]
+fn stored_reminder_words_cannot_start_a_camera_followup_even_when_transcript_is_late() {
+    let mut opening = None;
+    let mut wanted = None;
+    let mut trace = SessionState::default();
+    for text in ["Let me ", "take a look"] {
+        record_look_intent(
+            true,
+            Some(1),
+            text,
+            None,
+            &mut opening,
+            &mut wanted,
+            &mut trace,
+        )
+        .unwrap();
+    }
+    assert_eq!(wanted.map(|(turn, _)| turn), Some(1));
+    assert_eq!(trace.len(), 1);
+    wanted = None;
+    for text in ["Let me ", "take a look"] {
+        record_look_intent(
+            true,
+            Some(2),
+            text,
+            Some(2),
+            &mut opening,
+            &mut wanted,
+            &mut trace,
+        )
+        .unwrap();
+    }
+    assert!(wanted.is_none());
+    assert_eq!(opening.as_ref().unwrap().0, 1);
+    assert_eq!(trace.len(), 1);
+    record_look_intent(
+        true,
+        Some(3),
+        "Let me look",
+        Some(2),
+        &mut opening,
+        &mut wanted,
+        &mut trace,
+    )
+    .unwrap();
+    assert_eq!(wanted.map(|(turn, _)| turn), Some(3));
+    assert_eq!(trace.len(), 2);
+    wanted = None;
+    for turn in [1, 2] {
+        record_look_intent(
+            true,
+            Some(turn),
+            "Let me look",
+            Some(2),
+            &mut opening,
+            &mut wanted,
+            &mut trace,
+        )
+        .unwrap();
+    }
+    assert!(wanted.is_none());
+    assert_eq!(opening.as_ref().unwrap().0, 3);
+    assert_eq!(trace.len(), 2);
+}
+
+struct Speaker {
+    channels: WorkerChannels,
+}
+impl SpeakerControlIo for Speaker {
+    fn next_speaker_event(&mut self) -> io::Result<Option<WorkerEvent>> {
+        self.channels.control.receive()
+    }
+    fn publish_speaker_snapshot(&mut self, snapshot: Snapshot) -> io::Result<()> {
+        self.channels.control.send(Control::Authority { snapshot })
+    }
+}
+struct Test {
+    _directory: SessionDirectory,
+    speaker: Speaker,
+    peer: WorkerChannels,
+    owner: Controller,
+    reply: Option<Reply>,
+    probe: Probe,
+    pending: Option<PendingSpeaker>,
+    snapshot: Snapshot,
+    mask: PlaybackMask,
+    trace: SessionState,
+    sequence: u64,
+    cursor: u64,
+}
+impl Test {
+    fn new() -> Self {
+        let directory = SessionDirectory::create().unwrap();
+        let (channels, peer) = pair(&directory, "speaker");
+        let (mut owner, mut reply, _) = active_reply();
+        owner
+            .playback_ended(now(), reply.playback.take().unwrap())
+            .unwrap();
+        reply.pcm.clear();
+        reply.had_audio = false;
+        let snapshot = owner.snapshot(now()).unwrap();
+        let (receipt, probe) = receipt_for_test(reply.owner, snapshot.microphone_generation(), 1);
+        reply.reminder = Some(receipt);
+        let mut trace = SessionState::default();
+        trace
+            .receipts
+            .admitted(reply.owner, monotonic_us())
+            .unwrap();
+        Self {
+            _directory: directory,
+            speaker: Speaker { channels },
+            peer,
+            owner,
+            reply: Some(reply),
+            probe,
+            pending: None,
+            snapshot,
+            mask: PlaybackMask::new(TurnTaking::VadOnly),
+            trace,
+            sequence: 0,
+            cursor: 0,
+        }
+    }
+    fn event(&mut self, event: WorkerEvent) -> Result<()> {
+        self.peer.control.send(event)?;
+        service_speaker_control(
+            &mut self.speaker,
+            &mut self.owner,
+            &mut self.reply,
+            &mut self.pending,
+            &mut self.mask,
+            &mut self.snapshot,
+            &mut 0,
+            &mut 16,
+            &mut self.trace,
+        )?;
+        Ok(())
+    }
+    fn generation(&mut self, value: i16) -> SpeakerChunk {
+        let current = self.reply.as_mut().unwrap();
+        current.append_provider_audio(vec![value; 240], monotonic_us());
+        current.had_audio = true;
+        current.generation_done = true;
+        dispatch_speaker_chunk(
+            &mut self.owner,
+            &mut self.reply,
+            &mut self.speaker.channels.data,
+            &mut self.pending,
+            &mut self.sequence,
+            &mut self.snapshot,
+            &mut self.mask,
+        )
+        .unwrap();
+        let chunk = self.peer.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        assert!(chunk.end_of_speech);
+        assert_eq!(chunk.samples, vec![value; 240]);
+        self.trace
+            .receipts
+            .dispatched(chunk.permit.owner(), chunk.chunk_sequence)
+            .unwrap();
+        chunk
+    }
+    fn accept(&mut self, chunk: &SpeakerChunk, frames: usize) {
+        let at = monotonic_us();
+        self.event(WorkerEvent::Playback {
+            owner: chunk.permit.owner(),
+            turn: chunk.permit.owner().turn(),
+            sequence: chunk.chunk_sequence,
+            first_sample: PlaybackCursor {
+                epoch: 1,
+                frame: self.cursor,
+            },
+            end_sample: PlaybackCursor {
+                epoch: 1,
+                frame: self.cursor + frames as u64,
+            },
+            queue_observed_at_us: at,
+            queued_frames: 0,
+            accepted_frames: frames,
+            observed_at_us: at,
+        })
+        .unwrap();
+        self.cursor += frames as u64;
+    }
+    fn retire(&mut self, chunk: &SpeakerChunk) {
+        self.event(WorkerEvent::SpeechRetired {
+            owner: chunk.permit.owner(),
+            sequence: chunk.chunk_sequence,
+            final_sample: PlaybackCursor {
+                epoch: 1,
+                frame: self.cursor,
+            },
+            observed_at_us: monotonic_us(),
+        })
+        .unwrap();
+    }
+    fn provider_complete(&mut self) {
+        let request = self.reply.as_ref().unwrap().owner.turn();
+        observe_provider_output(
+            &mut CloudAvailability::default(),
+            &mut self.reply,
+            &ProviderOutput::TurnComplete {
+                request,
+                idle: true,
+            },
+        )
+        .unwrap();
+    }
+    fn finish_if_settled(&mut self) -> bool {
+        let current = self.reply.as_mut().unwrap();
+        if !current.settled(&self.pending) {
+            return false;
+        }
+        self.owner.complete_turn(now(), current.owner).unwrap();
+        self.snapshot = self.owner.snapshot(now()).unwrap();
+        self.speaker
+            .publish_speaker_snapshot(self.snapshot)
+            .unwrap();
+        current.complete_reminder(&self.pending, self.snapshot);
+        self.reply = None;
+        true
+    }
+
+    fn renew_input_evidence(&mut self) {
+        // Explicit capture/admission heartbeats after fixture storage work;
+        // provider output and reminder preparation do not renew readiness.
+        let until = MonoTime::from_micros(monotonic_us() + 1_000_000);
+        self.owner
+            .set_capture(now(), CaptureState::RetainingUntil(until))
+            .unwrap();
+        self.owner
+            .set_admission(now(), AdmissionState::OpenUntil(until))
+            .unwrap();
+        self.snapshot = self.owner.snapshot(now()).unwrap();
+    }
+
+    fn followup(&mut self, note: &str, look: bool, basis: &'static str) -> VecDeque<ProviderInput> {
+        let mut queue = VecDeque::new();
+        self.snapshot = commit_written_turn(
+            &mut self.owner,
+            &mut self.reply,
+            &mut queue,
+            note,
+            look,
+            basis,
+            1,
+            PlayoutStart::default(),
+            &mut self.trace,
+            |state| self.speaker.publish_speaker_snapshot(state),
+        )
+        .unwrap();
+        queue
+    }
+}
+
+#[test]
+fn reminder_waits_for_promised_look_after_final_pcm_and_delayed_provider_terminal() {
+    let mut fixture = RoundtripFixture::new();
+    let mut test = Test::new();
+    // The preceding answer is ordinary, not a reminder quoting stored words.
+    test.reply.as_mut().unwrap().reminder = None;
+    test.mask = PlaybackMask::new(TurnTaking::V1Baseline);
+    let previous = test.reply.as_ref().unwrap().owner;
+    let mut opening = None;
+    let mut wanted = None;
+    let mut second_look = crate::second_look::SecondLook::default();
+    record_look_intent(
+        true,
+        Some(previous.turn()),
+        "Let me take a look",
+        None,
+        &mut opening,
+        &mut wanted,
+        &mut test.trace,
+    )
+    .unwrap();
+    assert_eq!(wanted.map(|(turn, _)| turn), Some(previous.turn()));
+
+    let chunk = test.generation(17);
+    test.accept(&chunk, 240);
+    let drained_at = monotonic_us();
+    test.event(WorkerEvent::SpeechDrained {
+        owner: previous,
+        sequence: chunk.chunk_sequence,
+        last_sample: PlaybackCursor {
+            epoch: 1,
+            frame: test.cursor,
+        },
+        observed_at_us: drained_at,
+    })
+    .unwrap();
+    test.retire(&chunk);
+    assert!(!test.reply.as_ref().unwrap().provider_idle);
+    assert!(!test.finish_if_settled());
+    // A delayed provider terminal can arrive after the real mask's tail has
+    // expired. Final speaker retirement alone therefore cannot protect the
+    // promised look from a prepared reminder.
+    std::thread::sleep(Duration::from_micros(crate::turn_taking::TAIL_US + 1_000));
+    assert!(test.mask.available(monotonic_us()));
+    let offer = fixture.offer();
+    test.renew_input_evidence();
+    test.provider_complete();
+    assert!(test.finish_if_settled());
+    test.trace.receipts.completed(previous).unwrap();
+    assert!(test.snapshot.listening_ready(now()));
+    assert!(test.pending.is_none());
+    assert!(fixture.parent().offer(monotonic_us()).is_some());
+
+    assert!(
+        idle_reminder_offer(
+            fixture.parent(),
+            &test.reply,
+            wanted,
+            &mut second_look,
+            monotonic_us(),
+        )
+        .is_none(),
+        "the promised camera action owns the next opportunity"
+    );
+    assert!(test.snapshot.owner().is_none());
+    assert_eq!(wanted.take().unwrap().0, previous.turn());
+    let queue = test.followup(crate::speak_up::LOOK_NOTE, true, "lamp_looks");
+    let following = test.reply.as_ref().unwrap().owner;
+    assert_ne!(following, previous);
+    assert_eq!(queue.len(), 1);
+    assert!(matches!(queue.front(), Some(ProviderInput::Written {
+        request, text, look: true, ..
+    }) if *request == following.turn() && text == crate::speak_up::LOOK_NOTE));
+    assert!(
+        idle_reminder_offer(
+            fixture.parent(),
+            &test.reply,
+            wanted,
+            &mut second_look,
+            monotonic_us(),
+        )
+        .is_none()
+    );
+    assert_eq!(
+        fixture.parent().offer(monotonic_us()).unwrap().token,
+        offer.token
+    );
+    assert_eq!(fixture.settle_parent(), 0);
+    assert!(fixture.ack_requests().is_empty());
+}
+
+#[test]
+fn reminder_waits_for_named_request_second_look_before_its_window_can_expire() {
+    let mut fixture = RoundtripFixture::new();
+    let mut test = Test::new();
+    test.reply.as_mut().unwrap().reminder = None;
+    let previous = test.reply.as_ref().unwrap().owner;
+    let mut second_look = crate::second_look::SecondLook::default();
+    let began = monotonic_us();
+    second_look.name_heard(began, 1.0);
+    second_look.request_began(previous.turn(), began);
+    second_look.speech_ended(previous.turn(), monotonic_us());
+    let offer = fixture.offer();
+    test.renew_input_evidence();
+    test.provider_complete();
+    assert!(!test.reply.as_ref().unwrap().had_audio);
+    assert!(test.finish_if_settled());
+    test.trace.receipts.completed(previous).unwrap();
+    let finished = monotonic_us();
+    assert_eq!(
+        second_look.finished(previous.turn(), true, finished),
+        Some(1.0)
+    );
+    second_look.heard_on(1);
+    assert!(test.snapshot.listening_ready(now()));
+    assert!(test.mask.available(monotonic_us()));
+    assert!(fixture.parent().offer(monotonic_us()).is_some());
+
+    assert!(
+        idle_reminder_offer(
+            fixture.parent(),
+            &test.reply,
+            None,
+            &mut second_look,
+            monotonic_us(),
+        )
+        .is_none(),
+        "a reminder cannot spend the unanswered call's second-look window"
+    );
+    assert_eq!(second_look.due(monotonic_us()), Some(previous.turn()));
+    assert!(second_look.is_for(1));
+    second_look.taken();
+    let queue = test.followup(crate::second_look::NOTE, false, "lamp_looks_again");
+    let following = test.reply.as_ref().unwrap().owner;
+    assert_ne!(following, previous);
+    assert_eq!(queue.len(), 1);
+    assert!(matches!(queue.front(), Some(ProviderInput::Written {
+        request, text, look: false, ..
+    }) if *request == following.turn() && text == crate::second_look::NOTE));
+    assert_eq!(
+        second_look.due(finished + crate::second_look::WAIT_US + 1),
+        None
+    );
+    assert!(
+        idle_reminder_offer(
+            fixture.parent(),
+            &test.reply,
+            None,
+            &mut second_look,
+            monotonic_us(),
+        )
+        .is_none()
+    );
+    // Once the owed follow-up actually finishes, the same prepared reminder
+    // can be considered again; deferral does not consume it or strand it.
+    test.reply
+        .as_mut()
+        .unwrap()
+        .cloud
+        .submitted(queue.front().unwrap())
+        .unwrap();
+    observe_provider_output(
+        &mut CloudAvailability::default(),
+        &mut test.reply,
+        &ProviderOutput::Started {
+            request: following.turn(),
+            session: 1,
+            waiting_for_barrier: false,
+        },
+    )
+    .unwrap();
+    test.provider_complete();
+    assert!(test.finish_if_settled());
+    test.trace.receipts.completed(following).unwrap();
+    assert_eq!(
+        idle_reminder_offer(
+            fixture.parent(),
+            &test.reply,
+            None,
+            &mut second_look,
+            monotonic_us(),
+        )
+        .unwrap()
+        .token,
+        offer.token
+    );
+    assert_eq!(fixture.settle_parent(), 0);
+    assert!(fixture.ack_requests().is_empty());
+}
+
+#[test]
+fn whole_reminder_joins_two_real_retirements_and_successful_provider_terminal() {
+    let mut test = Test::new();
+    let first = test.generation(17);
+    test.accept(&first, 120);
+    assert!(test.pending.is_some());
+    assert!(test.probe.settlement().is_none());
+    test.accept(&first, 120);
+    assert!(test.pending.is_none());
+    assert!(!test.finish_if_settled());
+    test.retire(&first);
+    assert!(
+        !test.finish_if_settled(),
+        "first generation is not the whole turn"
+    );
+    assert!(test.probe.settlement().is_none());
+    let second = test.generation(23);
+    test.provider_complete();
+    test.accept(&second, 240);
+    assert!(
+        !test.finish_if_settled(),
+        "accepted final PCM still needs retirement"
+    );
+    test.retire(&second);
+    assert!(test.finish_if_settled());
+    let Some(ToWorker::Complete { proof, token }) = test.probe.settlement() else {
+        panic!("missing completion");
+    };
+    assert_eq!(proof.retired_generations, 2);
+    assert_eq!(proof.final_frame, 480);
+    assert_eq!(proof.final_epoch, 1);
+    assert_eq!(proof.correlation, token.correlation);
+    assert_eq!(proof.owner_boot, first.permit.owner().boot().bytes());
+    assert_eq!(proof.turn, first.permit.owner().turn());
+}
+
+#[test]
+fn interruption_after_first_retirement_never_acknowledges_later_audio() {
+    for second_started in [false, true] {
+        let mut test = Test::new();
+        let first = test.generation(17);
+        test.accept(&first, 240);
+        test.retire(&first);
+        let second = test.generation(23);
+        if second_started {
+            test.accept(&second, 240);
+        }
+        cancel_reply(
+            &mut test.owner,
+            &mut test.reply,
+            &mut test.trace,
+            "user_interrupted",
+        )
+        .unwrap();
+        assert!(matches!(
+            test.probe.settlement(),
+            Some(ToWorker::Abandon { .. })
+        ));
+        // A late exact old retirement is ignored by the real handler after
+        // cancellation; it cannot revive a detached reminder receipt.
+        test.event(WorkerEvent::SpeechRetired {
+            owner: second.permit.owner(),
+            sequence: second.chunk_sequence,
+            final_sample: PlaybackCursor {
+                epoch: 1,
+                frame: 480,
+            },
+            observed_at_us: monotonic_us(),
+        })
+        .unwrap();
+        assert!(matches!(
+            test.probe.settlement(),
+            Some(ToWorker::Abandon { .. })
+        ));
+    }
+}
+
+#[test]
+fn no_audio_or_provider_failure_stays_pending_and_selects_no_failure_recording() {
+    for had_audio in [false, true] {
+        for failed in [false, true] {
+            let mut test = Test::new();
+            if had_audio {
+                let chunk = test.generation(17);
+                test.accept(&chunk, 240);
+                test.retire(&chunk);
+            }
+            if failed {
+                let request = test.reply.as_ref().unwrap().owner.turn();
+                observe_provider_output(
+                    &mut CloudAvailability::default(),
+                    &mut test.reply,
+                    &ProviderOutput::TurnFailed {
+                        request,
+                        stage: crate::provider_worker::FailedStage::AwaitingResponse,
+                        reason: crate::provider_worker::Fault::Transport,
+                    },
+                )
+                .unwrap();
+            } else {
+                test.provider_complete();
+            }
+            select_failure_notice(
+                &FailureNotices::synthetic(),
+                &mut test.reply,
+                &test.pending,
+                &mut test.trace,
+            )
+            .unwrap();
+            assert!(matches!(
+                test.reply.as_ref().unwrap().notice,
+                NoticeDelivery::Unselected
+            ));
+            assert!(test.finish_if_settled());
+            if had_audio && !failed {
+                assert!(matches!(
+                    test.probe.settlement(),
+                    Some(ToWorker::Complete { .. })
+                ));
+            } else {
+                assert!(matches!(
+                    test.probe.settlement(),
+                    Some(ToWorker::Abandon { .. })
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn reset_or_playback_gap_cannot_be_relabeled_whole_reminder_completion() {
+    for reset in [false, true] {
+        let mut test = Test::new();
+        let chunk = test.generation(17);
+        test.accept(&chunk, 240);
+        test.retire(&chunk);
+        if reset {
+            test.event(WorkerEvent::PlaybackClockReset {
+                previous: QueuedRange {
+                    epoch: 1,
+                    retired_through: 240,
+                    accepted_through: 240,
+                },
+                next_epoch: 2,
+                observed_at_us: monotonic_us(),
+            })
+            .unwrap();
+        } else {
+            test.reply.as_mut().unwrap().playback_gaps = 1;
+        }
+        test.provider_complete();
+        assert!(test.finish_if_settled());
+        assert!(matches!(
+            test.probe.settlement(),
+            Some(ToWorker::Abandon { .. })
+        ));
+    }
+}
+
+#[test]
+fn only_a_fenced_attempt_without_any_provider_pcm_can_retry() {
+    for audio in [false, true] {
+        let mut test = Test::new();
+        if audio {
+            let _ = test.generation(17);
+        }
+        let mut receipt = test.reply.as_mut().unwrap().reminder.take().unwrap();
+        cancel_reply(
+            &mut test.owner,
+            &mut test.reply,
+            &mut test.trace,
+            "reminder_deferred",
+        )
+        .unwrap();
+        let snapshot = test.owner.snapshot(now()).unwrap();
+        test.speaker.publish_speaker_snapshot(snapshot).unwrap();
+        receipt.deferred_before_audio();
+        drop(receipt);
+        if audio {
+            assert!(matches!(
+                test.probe.settlement(),
+                Some(ToWorker::Abandon { .. })
+            ));
+        } else {
+            assert!(matches!(
+                test.probe.settlement(),
+                Some(ToWorker::Retire { .. })
+            ));
+        }
+    }
+}

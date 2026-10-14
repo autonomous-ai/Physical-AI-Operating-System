@@ -1,0 +1,12 @@
+    Updating crates.io index
+     Locking 1 package to latest Rust 1.91 compatible version
+      Adding thread-priority v3.1.1
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Checking lamp-keeper v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/keeper)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Checking lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+    Checking lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+    Checking lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.89s

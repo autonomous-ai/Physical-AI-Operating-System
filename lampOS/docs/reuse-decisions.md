@@ -1100,3 +1100,76 @@ latency or a change in the lamp's visible behavior. First accepted a synthetic
 not observation of desk life. The promised real-day recording is still pending.
 Host gates and timing results must be reported separately after they run;
 the V1 tests above were inspected, not executed for this review.
+
+## Task 31: Schedule tools and due speech
+
+Reviewed 2026-10-14. V1's provider prompts in
+`hal/realtime/resources/system_prompt{,_gemini,_pipecat,_openai}.md` delegate
+reminders because their realtime runtime owns no scheduler. Keep the rule
+that a reminder is confirmed only after the actual service succeeds. Replace
+that delegation narrowly with the six opt-in local Actions tools backed by
+the existing Schedule protocol; do not copy V1's shared callback ownership or
+add a runtime dependency on HAL.
+
+The maintained [Gemini Live tools guide](https://ai.google.dev/gemini-api/docs/live-api/tools),
+[WebSocket contract](https://ai.google.dev/api/live) and
+[FunctionDeclaration reference](https://ai.google.dev/api/generate-content#FunctionDeclaration)
+were checked on that date. Keep the existing session/call-ID response path.
+This link uses `parameters`, not `parametersJsonSchema`, so the new declarations
+use the supported small Schema vocabulary. Actions independently enforces
+unknown-field, byte, time and cross-field constraints. A tool cancellation or
+missing response does not establish that a durable mutation was undone.
+No model migration or shared Gemini wire change is needed.
+
+Reuse Schedule's checked time resolution, stable store/item/delivery identity,
+revision guards, exact mutation receipts and private SQLite DELETE/FULL store.
+Add a separate bounded delivery ledger, without reminder text, that records
+preparation before admission and qualified whole-turn completion before Ack.
+The existing one retained mutation receipt may be overwritten: reconcile it
+with the exact current item, never treat absence as a newly proved Ack. An
+unknown prepared attempt is not automatically spoken again after a crash.
+Explicitly snooze/cancel it after listing the current store.
+
+Reuse Voice's actual Controller, input admission, provider session/privacy
+checks, output permits and speaker `SpeechRetired` handling. One generation's
+retirement is insufficient when more PCM follows; completion joins successful
+provider terminal with every generation's final retirement and the ordinary
+whole-reply settlement. Local failure audio, empty output, reset, gaps,
+interruption and cancellation cannot count. Reminder text cannot invoke any
+tool or request the autonomous camera continuation. First settled the room
+policy on [#709 at 02:13 on 2026-10-15](https://github.com/autonomous-ai/lampOS/issues/709#issuecomment-6176285386):
+a due reminder is requested work and speaks at the next local silence with
+normal readiness, whether RoomTold says Unknown, Busy or Quiet. Room
+classification does not delay submission or withdraw its output. Keep the
+existing actual-input, privacy, owed-follow-up and output-ownership checks.
+
+Use existing serde, rustix and SQLite dependencies. The new cumulative-deadline
+Unix client supplies only Schedule's paths; ordinary off-state tool behavior
+is preserved. All ledger/filesystem/socket work lives in one supervised child
+outside the urgent audio loop and across mute cycles. Anonymous datagrams and
+a shared claim FD bound the parent's polling without trusting a PID, timeout
+or reopened store as proof that old audio retired. No replacement consumer is
+spawned in that process; the claim is held until the actual Voice process
+exits, including after failed cleanup. Process creation and a kernel-stalled
+filesystem operation have no claimed userspace hard deadline.
+
+The checked-in lamp-4ace Voice unit selects realtime RR20. Linux preserves
+that policy across fork/exec; a new process group does not reset it
+([Linux scheduling](https://man7.org/linux/man-pages/man7/sched.7.html),
+[Rust process groups](https://doc.rust-lang.org/std/os/unix/process/trait.CommandExt.html#tymethod.process_group)).
+Use the safe API of MIT-licensed `thread-priority` 3.1.1, pinned only for Linux,
+to put the child in normal Other/static priority 0 with Min/nice 19 before
+claim or storage work. Read back policy and niceness and refuse startup on
+failure. Its [implementation](https://docs.rs/thread-priority/3.1.1/src/thread_priority/unix.rs.html)
+sets policy and niceness separately; partial success is still a startup failure.
+The library's Rust 1.85 minimum fits this workspace's pinned 1.96 toolchain.
+No inline unsafe, parent-policy change, external `chrt` command or privilege
+increase is required. Lower normal priority can delay storage under load;
+this is isolation policy, not a measured latency improvement.
+
+Host fixtures cannot establish real-model schema acceptance, semantic fidelity,
+physical privacy/Stop latency, actual ALSA/acoustic end, Orange Pi flash stall
+cost or power-cut survival. The completion-before-Ack design also cannot close
+the interval after sound finishes but before completion persistence: it keeps
+that occurrence uncertain. The exact boundaries and First's lamp cases are in
+[Schedule](schedule.md#optional-voice-consumer) and [Actions](actions.md).

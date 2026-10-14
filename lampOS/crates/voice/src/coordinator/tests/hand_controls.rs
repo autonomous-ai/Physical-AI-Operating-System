@@ -617,6 +617,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
         &Termination::inactive(),
         &FailureNotices::none(),
         &mut controls,
+        &mut None,
     )
     .unwrap_err();
     assert!(error.to_string().contains("same-tick provider fault"));

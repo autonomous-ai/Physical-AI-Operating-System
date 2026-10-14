@@ -1,0 +1,2 @@
+    Checking schedule-priority-api-check v0.0.0 (/private/tmp/lamp-third-schedule-priority-arm-mye86tiq)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s

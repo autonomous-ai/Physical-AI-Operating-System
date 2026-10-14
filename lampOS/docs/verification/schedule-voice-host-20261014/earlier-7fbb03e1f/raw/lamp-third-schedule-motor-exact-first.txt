@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 1 test
+test coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 926 filtered out; finished in 1.77s
+

@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a714350f33563503)
+
+running 5 tests
+test task_news::tests::each_piece_of_news_is_offered_once_and_told_news_is_kept ... ok
+test task_news::tests::news_waits_once_and_telling_takes_it ... ok
+test task_news::tests::the_newest_finished_look_in_this_boot_is_the_news_and_work_in_progress_is_not ... ok
+test task_news::tests::the_note_names_the_agent_quotes_safely_and_says_how_fresh_it_is ... ok
+test task_news::tests::work_said_yes_to_that_never_reached_its_agent_is_told_soon_after ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 932 filtered out; finished in 0.00s
+

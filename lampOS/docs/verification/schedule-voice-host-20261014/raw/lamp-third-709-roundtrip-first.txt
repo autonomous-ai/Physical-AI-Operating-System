@@ -1,0 +1,14 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 26.65s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 4 tests
+test coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion ... ok
+test coordinator::tests::reminder_roundtrip::completed_real_reply_reopens_before_ack_and_recovers_lost_ack_without_re_speech ... ok
+test coordinator::tests::reminder_roundtrip::interruption_after_final_acceptance_keeps_the_durable_occurrence_pending ... ok
+test coordinator::tests::reminder_roundtrip::microphone_denial_after_final_acceptance_keeps_the_durable_occurrence_pending ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 923 filtered out; finished in 3.29s
+

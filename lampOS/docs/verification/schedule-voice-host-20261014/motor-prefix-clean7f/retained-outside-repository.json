@@ -1,0 +1,76 @@
+{
+  "policy": "Executable payloads and Unix socket files remain outside the repository; metadata only may be retained.",
+  "files": [
+    {
+      "path": "/private/tmp/lamp-third-motor-prefix-once.py",
+      "bytes": 11497,
+      "sha256": "f487ad8dfc85883fcfe93095d5281d56613e2797708745f343f21dab42ef948e"
+    },
+    {
+      "path": "/private/tmp/lm709-prefix-aw1tbo9w/runner.py",
+      "bytes": 11497,
+      "sha256": "f487ad8dfc85883fcfe93095d5281d56613e2797708745f343f21dab42ef948e"
+    },
+    {
+      "path": "/private/tmp/lm709-prefix-aw1tbo9w/prepared-helper.py",
+      "bytes": 9569,
+      "sha256": "ea5fe0e8112161518387e3d99ca8c7024f2be7ef84823db00197af70b7c14bda"
+    },
+    {
+      "path": "/private/tmp/lm709-prefix-aw1tbo9w/analyze.py",
+      "bytes": 8929,
+      "sha256": "357a014acd4c2186256cc189b2e8d368dae735fb88089f3a935e34e5132b3128"
+    },
+    {
+      "path": "/private/tmp/lamp-third-motor-prefix-retention.py",
+      "bytes": 5882,
+      "sha256": "4506c90adacd95f3d3c271186e82ab2704432832bc3ccb75626947abca25d6ed"
+    },
+    {
+      "path": "/private/tmp/lm709-e-y5uq6td4/run.py",
+      "bytes": 9569,
+      "sha256": "ea5fe0e8112161518387e3d99ca8c7024f2be7ef84823db00197af70b7c14bda"
+    },
+    {
+      "path": "/private/tmp/lm709-src-qhqu_pyi/target/debug/deps/lamp_voice-a98444cc1c3f37e5",
+      "bytes": 33316136,
+      "sha256": "e0a5caa128cd7912f507a7e716fc24bde94cb8148480a68a28482341b1a77b5a"
+    }
+  ],
+  "unix_socket_paths": [
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918371993204/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372041821/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372089928/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372133947/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373070303/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918374482010/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375093071/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375672969/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376992317/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377954834/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918378804852/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379375483/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379955746/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918380535521/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381123671/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381704648/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918382297654/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383324023/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383961771/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384005401/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385247024/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385829017/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387753318/d",
+    "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918388357376/d"
+  ],
+  "other_not_selected": [
+    "/private/tmp/lm709-prefix-aw1tbo9w/files.json",
+    "/private/tmp/lm709-prefix-aw1tbo9w/analysis-output.txt"
+  ]
+}

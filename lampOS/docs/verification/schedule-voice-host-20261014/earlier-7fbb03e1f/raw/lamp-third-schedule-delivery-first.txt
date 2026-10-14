@@ -1,0 +1,45 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.03s
+     Running tests/delivery_ledger.rs (target/debug/deps/delivery_ledger-4b74cdc37acd4372)
+
+running 24 tests
+test initial_commit_failure_never_returns_a_usable_ledger ... ok
+test fresh_ledger_initializes_tagged_snapshot_and_reopen_preserves_identity ... ok
+test exact_old_ack_replay_never_consumes_a_later_daily_occurrence ... FAILED
+test identity_bound_but_equal_revision_absence_cannot_contradict_pending_evidence ... ok
+test duplicate_prepare_never_returns_another_admission_and_completion_is_idempotent ... ok
+test completion_requires_nonzero_actual_receipt_fields_and_exact_correlation ... ok
+test all_ack_and_retry_requests_remain_exact_after_reopen ... ok
+test counters_refuse_overflow_without_wrapping_or_writing ... ok
+test prepare_complete_and_ack_intent_each_commit_before_return_without_text ... ok
+test list_absence_requires_exact_unfiltered_page_and_valid_cursor ... ok
+test never_admitted_and_explicit_owner_fence_retry_are_typed_not_timeouts ... ok
+test prepared_restart_is_uncertain_and_retry_requires_retirement_then_new_durable_attempt ... ok
+test overwritten_committed_ack_receipt_resolves_absence_as_gone_not_ack_confirmed ... ok
+test lost_ack_reply_survives_server_restart_and_due_revision_change ... ok
+test status_plus_unbound_not_found_never_proves_absence_in_the_original_store ... ok
+test malformed_or_misbound_get_and_ack_responses_never_create_evidence ... ok
+test store_switch_and_revision_rollback_preserve_all_existing_evidence ... ok
+test repeated_matching_status_receipt_still_persists_its_newer_revision_fence ... ok
+test snooze_advancement_is_superseded_and_old_completion_cannot_ack_next_token ... ok
+test unrelated_mutation_before_ack_requires_explicit_persisted_rebase_of_same_logical_id ... ok
+test strict_snapshot_rejects_engine_json_unknown_missing_duplicate_and_invalid_fields_without_writes ... ok
+test every_durable_transition_poisoned_on_before_or_after_commit_error_recovers_only_from_disk ... ok
+test full_unresolved_ledger_never_evicts_and_only_durable_resolution_frees_capacity ... ok
+test reopened_private_sqlite_store_preserves_completion_and_exact_ack_intent ... ok
+
+failures:
+
+---- exact_old_ack_replay_never_consumes_a_later_daily_occurrence stdout ----
+
+thread 'exact_old_ack_replay_never_consumes_a_later_daily_occurrence' (112654643) panicked at crates/schedule/tests/delivery_ledger.rs:115:75:
+called `Result::unwrap()` on an `Err` value: Error { code: "not_pending" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    exact_old_ack_replay_never_consumes_a_later_daily_occurrence
+
+test result: FAILED. 23 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+error: test failed, to rerun pass `-p lamp-schedule --test delivery_ledger`

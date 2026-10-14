@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "original": "/private/tmp/lamp-third-issue-705-20261014T184739Z.json",
+      "retained": "lamp-third-issue-705-20261014T184739Z.json",
+      "bytes": 9632,
+      "sha256": "f51c7866d3e98b94a0c857936d412311e15538073320666ecf3cbebd733b20c2"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-709-20261014T184739Z.json",
+      "retained": "lamp-third-issue-709-20261014T184739Z.json",
+      "bytes": 13297,
+      "sha256": "398ed44b81da73ff11e754693b1196c61bb6896d72686f687ec54e338097f927"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-711-20261014T184739Z.json",
+      "retained": "lamp-third-issue-711-20261014T184739Z.json",
+      "bytes": 18608,
+      "sha256": "a69ef7e8936b4fdb495475e8b2fdafc187075a27aa2c7578016917191db049c8"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-699-20261014T184739Z.json",
+      "retained": "lamp-third-issue-699-20261014T184739Z.json",
+      "bytes": 2388,
+      "sha256": "cefca93617120a38412a654ee978a3af2188a4dd1eb35f3c7508f2de2cf9cdc4"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-739-20261014T1849.json",
+      "retained": "lamp-third-issue-739-20261014T1849.json",
+      "bytes": 2417,
+      "sha256": "d6731859d90dfea2adaf81751c2d069af9f3b6d62f3d62db2319e9d80ae0e6e8"
+    }
+  ]
+}

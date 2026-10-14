@@ -134,7 +134,7 @@ impl CloudRequest {
                 Ok(())
             }
             // A whole request in writing is its own start and end.
-            ProviderInput::Written { session, .. }
+            ProviderInput::Written { session, .. } | ProviderInput::Reminder { session, .. }
                 if !self.start_submitted && *session == self.session =>
             {
                 Ok(())
@@ -149,7 +149,7 @@ impl CloudRequest {
             ProviderInput::Start { .. } => self.start_submitted = true,
             ProviderInput::End { .. } => self.input_end_submitted = true,
             ProviderInput::Audio { .. } => {}
-            ProviderInput::Written { .. } => {
+            ProviderInput::Written { .. } | ProviderInput::Reminder { .. } => {
                 self.start_submitted = true;
                 self.input_end_submitted = true;
             }
@@ -461,6 +461,7 @@ mod tests {
             .plan_output(at, turn, OutputKind::Speech, None)
             .unwrap();
         let reply = super::super::Reply {
+            reminder: None,
             owner: turn,
             cloud: CloudRequest::new(1).unwrap(),
             local_input_ended: false,

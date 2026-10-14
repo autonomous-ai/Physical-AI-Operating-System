@@ -1,0 +1,45 @@
+   Compiling serde v1.0.229
+   Compiling lamp-turn-end-wire v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end-wire)
+   Compiling lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-owner)
+   Compiling lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+   Compiling lamp-camera v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/camera)
+   Compiling lamp-audio v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ring)
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-keeper v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/keeper)
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+   Compiling lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.63s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-f8d4411d6fb5688c)
+
+running 9 tests
+test provider_worker::tests::reminders::becoming_busy_before_audio_transcript_or_tool_output_defers_and_suppresses_terminal ... ok
+test provider_worker::tests::reminders::busy_refusal_is_independent_of_attention_and_the_next_ordinary_turn_works ... ok
+test provider_worker::tests::reminders::disabled_and_unknown_refusals_keep_the_worker_alive_without_model_submission ... ok
+test provider_worker::tests::reminders::disabled_busy_unknown_and_invalid_reminders_never_reach_the_input_sink ... ok
+test provider_worker::tests::reminders::ordinary_written_wire_bytes_stay_exact_and_reminder_is_a_separate_variant ... ok
+test provider_worker::tests::reminders::pending_deferral_survives_full_output_and_retirement_without_becoming_completion ... ok
+test provider_worker::tests::reminders::reminder_preserves_authority_and_session_validation_before_policy ... ok
+test provider_worker::tests::reminders::reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture ... ok
+test provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn ... FAILED
+
+failures:
+
+---- provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn stdout ----
+lamp-voice provider: request 1: first sound, and the model has not said it heard its name
+
+thread 'provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn' (112626069) panicked at crates/voice/src/provider_worker.rs:4616:17:
+no provider output in time
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 845 filtered out; finished in 5.31s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

@@ -59,9 +59,13 @@ fn listen(directory: &Path) -> io::Result<UnixListener> {
 
 /// One caller: its line, the call, the answer. Names and outcomes are
 /// logged; nothing else of what was asked.
-fn answer<S: Mixer, L: Light>(mut stream: UnixStream, executive: &mut Executive<S, L>) {
+fn answer<S: Mixer, L: Light>(
+    mut stream: UnixStream,
+    executive: &mut Executive<S, L>,
+    schedule: Option<&crate::schedule::Adapter>,
+) {
     let started = Instant::now();
-    let served = (|| -> io::Result<(String, Outcome)> {
+    let served = (|| -> io::Result<(String, Value, Option<Outcome>)> {
         stream.set_nonblocking(false)?;
         stream.set_read_timeout(Some(CALLER_WAIT))?;
         stream.set_write_timeout(Some(CALLER_WAIT))?;
@@ -78,24 +82,54 @@ fn answer<S: Mixer, L: Light>(mut stream: UnixStream, executive: &mut Executive<
                 request.get("args").unwrap_or(&Value::Null),
             ))
         });
-        let (name, outcome) = match call {
-            Some((name, args)) => (name.to_owned(), executive.call(name, args)),
-            None => (
-                "(not a call)".to_owned(),
-                Outcome::Failed("I can't do that.".into()),
-            ),
+        let (name, response, outcome) = match (call, schedule) {
+            (Some((name, args)), Some(adapter)) if crate::schedule::is_tool(name) => {
+                let exact = request
+                    .as_ref()
+                    .and_then(Value::as_object)
+                    .is_some_and(|r| {
+                        r.len() == 3
+                            && r.keys()
+                                .all(|k| matches!(k.as_str(), "op" | "name" | "args"))
+                    });
+                let response = if exact {
+                    adapter.call(name, args)
+                } else {
+                    serde_json::json!({"ok":false,"code":"bad_arguments","error":"I need the exact reminder arguments before I can do that."})
+                };
+                (name.to_owned(), response, None)
+            }
+            (Some((name, args)), _) => {
+                let outcome = executive.call(name, args);
+                (name.to_owned(), outcome.line(), Some(outcome))
+            }
+            (None, _) => {
+                let outcome = Outcome::Failed("I can't do that.".into());
+                ("(not a call)".to_owned(), outcome.line(), Some(outcome))
+            }
         };
-        let mut reply = outcome.line().to_string();
+        let mut reply = response.to_string();
         reply.push('\n');
         stream.write_all(reply.as_bytes())?;
-        Ok((name, outcome))
+        Ok((name, response, outcome))
     })();
     let took = started.elapsed().as_millis();
     match served {
-        Ok((name, Outcome::Done(_))) => eprintln!("lamp-actions: {name}: done in {took} ms"),
-        Ok((name, Outcome::Failed(said))) => {
+        Ok((name, _, Some(Outcome::Done(_)))) => {
+            eprintln!("lamp-actions: {name}: done in {took} ms")
+        }
+        Ok((name, _, Some(Outcome::Failed(said)))) => {
             // Its own fixed sentences, never a caller's words.
             eprintln!("lamp-actions: {name}: not done in {took} ms: {said}");
+        }
+        Ok((name, reply, None)) => {
+            // Neither reminder text nor arbitrary service messages are logged.
+            let status = if reply["ok"] == true {
+                "done"
+            } else {
+                reply["code"].as_str().unwrap_or("unavailable")
+            };
+            eprintln!("lamp-actions: {name}: {status} in {took} ms");
         }
         Err(error) => eprintln!("lamp-actions: a caller was dropped after {took} ms: {error}"),
     }
@@ -137,11 +171,31 @@ pub fn serve_reporting<S: Mixer, L: Light>(
     directory: &Path,
     executive: &mut Executive<S, L>,
     stop: &AtomicBool,
+    health: Option<lamp_bus::Publisher>,
+) -> io::Result<()> {
+    serve_reporting_with_schedule(directory, executive, stop, health, None)
+}
+
+/// Opt-in Schedule entry point. Existing wrappers pass no adapter and keep
+/// their original catalog and dispatch. Schedule owns persistence; this server
+/// never acknowledges reminders, opens an output device or retries a mutation.
+pub fn serve_reporting_with_schedule<S: Mixer, L: Light>(
+    directory: &Path,
+    executive: &mut Executive<S, L>,
+    stop: &AtomicBool,
     mut health: Option<lamp_bus::Publisher>,
+    schedule: Option<&crate::schedule::Adapter>,
 ) -> io::Result<()> {
     std::fs::create_dir_all(directory)?;
     let listener = listen(directory)?;
-    let mut offered: Vec<Function> = executive.offered();
+    let offered_now = |executive: &mut Executive<S, L>| {
+        let mut offered = executive.offered();
+        if schedule.is_some() {
+            offered.extend(crate::schedule::catalog());
+        }
+        offered
+    };
+    let mut offered: Vec<Function> = offered_now(executive);
     put(directory, CATALOG_FILE, &catalog_file(&offered))?;
     put(directory, READY_FILE, "ready\n")?;
     let names = |offered: &[Function]| -> String {
@@ -161,7 +215,7 @@ pub fn serve_reporting<S: Mixer, L: Light>(
         match listener.accept() {
             Ok((stream, _)) => {
                 answered += 1;
-                answer(stream, executive)
+                answer(stream, executive, schedule)
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => std::thread::sleep(IDLE),
             Err(error) => {
@@ -171,7 +225,7 @@ pub fn serve_reporting<S: Mixer, L: Light>(
         }
         if looked.elapsed() >= LOOK_AGAIN {
             looked = Instant::now();
-            let now = executive.offered();
+            let now = offered_now(executive);
             if now != offered {
                 put(directory, CATALOG_FILE, &catalog_file(&now))?;
                 eprintln!("lamp-actions: can do now: {}", names(&now));

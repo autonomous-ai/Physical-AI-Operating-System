@@ -1,0 +1,13 @@
+{
+  "command": [
+    "cargo",
+    "check",
+    "-p",
+    "lamp-voice",
+    "--tests"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 33.01705593,
+  "log": "/private/tmp/lamp-third-schedule-priority-check-first.txt",
+  "scope": "host compile and minimal dependency lock resolution; Linux scheduling branch not executed"
+}

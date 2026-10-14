@@ -1,0 +1,37 @@
+{
+  "inheritance": "Current runner environment inherited, with the explicit overrides below.",
+  "explicit_overrides": {
+    "CARGO_TARGET_DIR": "/private/tmp/lm709-src-qhqu_pyi/target",
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "RUST_BACKTRACE": "full",
+    "LAMP_MOTOR_DIAGNOSTICS": "/private/tmp/lm709-prefix-aw1tbo9w/d"
+  },
+  "removed": {
+    "LAMP_MOTOR_DIAGNOSTIC_SOCKET_was_present": false
+  },
+  "allowlisted_values": {
+    "PATH": "/Users/d/.codex/packages/standalone/releases/0.162.1-x86_64-apple-darwin/codex-path:/Users/d/.grok/bin:/Users/d/.local/bin:/Users/d/.local/bin:/Users/d/.local/bin:/Users/d/.local/share/solana/install/active_release/bin:/Library/Frameworks/Python.framework/Versions/3.9/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/usr/local/share/dotnet:~/.dotnet/tools:/usr/local/go/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/Users/d/.codex/tmp/arg0/codex-arg0n0JxAH:/Users/d/.codex/packages/standalone/releases/0.162.1-x86_64-apple-darwin/codex-path:/Users/d/.harness/runtime/grid-0.3.59-darwin-x64/bin:/Users/d/.grok/bin:/Users/d/.local/bin:/Users/d/miniconda/bin:/Users/d/miniconda/condabin:/Users/d/.local/share/solana/install/active_release/bin:/Library/Frameworks/Python.framework/Versions/3.9/bin:/Users/d/.cargo/bin",
+    "TMPDIR": "/var/folders/cm/6rf6j7pn1ys698mtjh434zsw0000gp/T/",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LC_CTYPE": "C.UTF-8",
+    "TZ": null,
+    "CARGO_TARGET_DIR": "/private/tmp/lm709-src-qhqu_pyi/target",
+    "RUSTUP_TOOLCHAIN": "1.96.0",
+    "RUST_BACKTRACE": "full",
+    "RUST_LIB_BACKTRACE": null,
+    "RUST_TEST_THREADS": null,
+    "RUST_TEST_NOCAPTURE": null,
+    "RUST_TEST_TIME_UNIT": null,
+    "RUST_TEST_TIME_INTEGRATION": null,
+    "RUST_TEST_TIME_DOCTEST": null,
+    "DYLD_INSERT_LIBRARIES": null,
+    "DYLD_LIBRARY_PATH": null,
+    "DYLD_FRAMEWORK_PATH": null,
+    "LD_LIBRARY_PATH": null,
+    "LAMP_MOTOR_DIAGNOSTICS": "/private/tmp/lm709-prefix-aw1tbo9w/d"
+  },
+  "internal_motor_variable_names": [],
+  "other_runtime_variable_names": [],
+  "limitation": "Other inherited values are deliberately not retained; no credentials are dumped."
+}

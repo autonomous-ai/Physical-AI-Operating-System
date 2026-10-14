@@ -1,0 +1,28 @@
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.03s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 20 tests
+test reminders::consumer::tests::abandon_keeps_pending_and_restart_never_grants_the_uncertain_audio_again ... ok
+test reminders::consumer::tests::an_offer_is_committed_before_handoff_and_fresh_renewals_keep_the_same_token ... ok
+test reminders::consumer::tests::bus_authority_requires_exact_type_source_clock_and_fresh_enabled_payload ... ok
+test reminders::consumer::tests::cancel_snooze_store_switch_and_missing_due_withdraw_existing_offer ... ok
+test reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech ... ok
+test reminders::consumer::tests::delayed_durable_prepare_cannot_publish_an_already_expired_offer ... ok
+test reminders::consumer::tests::evicted_ack_receipt_resolves_by_current_absence_without_claiming_its_cause ... ok
+test reminders::consumer::tests::full_ledger_refuses_new_admission_without_evicting_any_uncertain_delivery ... ok
+test reminders::consumer::tests::lost_committed_ack_is_recovered_after_restart_without_another_offer ... ok
+test reminders::consumer::tests::offered_tuple_must_match_current_private_get_store_delivery_and_revision ... ok
+test reminders::consumer::tests::old_uncertain_item_does_not_starve_the_next_pending_occurrence ... ok
+test reminders::consumer::tests::only_exact_qualified_completion_can_change_the_durable_prepared_record ... ok
+test reminders::consumer::tests::outgoing_queue_is_bounded_and_replacing_an_offer_never_discards_settlement ... ok
+test reminders::consumer::tests::publisher_restart_retires_the_previous_instance_and_has_a_finite_history ... ok
+test reminders::consumer::tests::qualified_pre_audio_retirement_retries_once_with_a_new_durable_correlation ... ok
+test reminders::consumer::tests::real_bus_requires_one_live_declared_schedule_publisher ... ok
+test reminders::consumer::tests::retained_bus_message_never_renews_age_and_reused_typed_sequence_is_refused ... ok
+test reminders::consumer::tests::slow_get_withdraws_current_authority_without_refreshing_its_observation ... ok
+test reminders::consumer::tests::storage_failure_before_prepare_withholds_the_offer_and_latches_failure ... ok
+test reminders::consumer::tests::uncommitted_lost_ack_at_the_same_revision_keeps_the_exact_attempt_and_recovers ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 885 filtered out; finished in 2.41s
+

@@ -39,6 +39,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(test)]
+#[path = "tools/schedule_integration_tests.rs"]
+mod schedule_integration_tests;
+
 /// Where the coordinator reads whether the model may say a thing was not
 /// for it. `on` only.
 pub const ENVIRONMENT: &str = "LAMP_TOOLS";
@@ -58,6 +62,20 @@ pub const THE_TIME: &str = "the_time";
 pub const CLOCK_ENVIRONMENT: &str = "LAMP_CLOCK";
 /// The provider worker's flag for it.
 pub const CLOCK_FLAG: &str = "--clock";
+/// Only the exact value `on` permits the six Schedule tool names.
+pub const SCHEDULE_TOOLS_ENVIRONMENT: &str = "LAMP_SCHEDULE_TOOLS";
+pub const SCHEDULE_TOOLS_FLAG: &str = "--schedule-tools";
+/// Independent permission for provider requests carrying a due reminder.
+pub const SCHEDULE_SPEAK_ENVIRONMENT: &str = "LAMP_SCHEDULE_SPEAK";
+pub const SCHEDULE_SPEAK_FLAG: &str = "--schedule-speak";
+pub const SCHEDULE_NAMES: [&str; 6] = [
+    "set_timer",
+    "set_reminder",
+    "repeat_reminder",
+    "list_reminders",
+    "cancel_reminder",
+    "snooze_reminder",
+];
 /// The executive's list of functions, in its directory.
 pub const CATALOG_FILE: &str = "tools.json";
 /// The executive's socket, in its directory.
@@ -82,18 +100,41 @@ pub struct Settings {
     pub clock: bool,
     /// Work handed to an agent elsewhere ([`crate::agent_tasks`]).
     pub tasks: Option<crate::agent_tasks::Place>,
+    /// Schedule tools may be declared and routed to Actions.
+    pub schedule_tools: bool,
+    /// A typed due-reminder request may be considered by the provider.
+    pub schedule_speak: bool,
 }
 
 /// The provider worker's arguments for what the environment says.
 pub fn arguments_from_environment() -> Vec<String> {
-    let mut arguments = arguments(
+    let mut flags = arguments(
         std::env::var(ENVIRONMENT).ok().as_deref(),
         std::env::var(ACTIONS_ENVIRONMENT).ok().as_deref(),
         std::env::var(crate::remember::ENVIRONMENT).ok().as_deref(),
         std::env::var(CLOCK_ENVIRONMENT).ok().as_deref(),
     );
-    arguments.extend(crate::agent_tasks::arguments_from_environment());
-    arguments
+    flags.extend(crate::agent_tasks::arguments_from_environment());
+    flags.extend(schedule_arguments(
+        std::env::var(SCHEDULE_TOOLS_ENVIRONMENT).ok().as_deref(),
+        std::env::var(SCHEDULE_SPEAK_ENVIRONMENT).ok().as_deref(),
+    ));
+    flags
+}
+
+fn schedule_arguments(tools: Option<&str>, speak: Option<&str>) -> Vec<String> {
+    let mut flags = Vec::new();
+    if tools == Some("on") {
+        flags.push(SCHEDULE_TOOLS_FLAG.to_owned());
+    }
+    if speak == Some("on") {
+        flags.push(SCHEDULE_SPEAK_FLAG.to_owned());
+    }
+    flags
+}
+
+pub fn is_schedule_tool(name: &str) -> bool {
+    SCHEDULE_NAMES.contains(&name)
 }
 
 fn arguments(
@@ -161,8 +202,20 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.clock = true;
         flags = rest;
     }
-    let (tasks, flags) = crate::agent_tasks::take(flags)?;
+    let (tasks, mut flags) = crate::agent_tasks::take(flags)?;
     settings.tasks = tasks;
+    if let [flag, rest @ ..] = flags
+        && flag == SCHEDULE_TOOLS_FLAG
+    {
+        settings.schedule_tools = true;
+        flags = rest;
+    }
+    if let [flag, rest @ ..] = flags
+        && flag == SCHEDULE_SPEAK_FLAG
+    {
+        settings.schedule_speak = true;
+        flags = rest;
+    }
     Ok((settings, flags))
 }
 
@@ -234,6 +287,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
                         && tool.name != THE_TIME
                         && !crate::remember::is_tool(&tool.name)
                         && !crate::agent_tasks::is_tool(&tool.name)
+                        && (settings.schedule_tools || !is_schedule_tool(&tool.name))
                 })
                 .take(room),
         );
@@ -276,6 +330,8 @@ pub enum Route {
     Decline,
     /// Ask the executive in this directory.
     Executive(PathBuf),
+    /// A Schedule-only Actions exchange with bounded connect/read/write.
+    Schedule(PathBuf),
     /// Ask the memory on this socket.
     Memory(PathBuf),
     /// The time: answered here, at once.
@@ -287,6 +343,12 @@ pub enum Route {
 }
 
 pub fn route(settings: &Settings, name: &str) -> Route {
+    if is_schedule_tool(name) {
+        return match (&settings.exec, settings.schedule_tools) {
+            (Some(directory), true) => Route::Schedule(directory.clone()),
+            _ => Route::Nobody,
+        };
+    }
     if let (Some(socket), true) = (&settings.memory, crate::remember::is_tool(name)) {
         return Route::Memory(socket.clone());
     }
@@ -340,6 +402,41 @@ pub fn ask(directory: &Path, call: &ToolCall, deadline: Duration) -> (Value, boo
         Some(told) if sendable(&told) => (told, true),
         _ => (unavailable(), false),
     }
+}
+
+/// Only the new Schedule tools use this exchange. A lost or malformed reply
+/// may follow a committed mutation; do not turn it into a claim of failure or
+/// silently repeat the call under a new identity.
+pub fn ask_schedule(directory: &Path, call: &ToolCall, deadline: Duration) -> (Value, bool) {
+    if !is_schedule_tool(&call.name) {
+        return (unavailable(), false);
+    }
+    let Some(until) = Instant::now().checked_add(deadline) else {
+        return (unavailable(), false);
+    };
+    let line = json!({"op":"call","name":call.name,"args":call.args});
+    match lamp_schedule::client::exchange(&directory.join(CALL_SOCKET), &line, until) {
+        Ok(answer) => {
+            let told = match answer.get("ok").and_then(Value::as_bool) {
+                Some(true) => answer.get("result").cloned(),
+                Some(false) => answer
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .map(|error| json!({"error":error})),
+                None => None,
+            };
+            match told {
+                Some(told) if sendable(&told) => (told, true),
+                _ => (schedule_uncertain(), false),
+            }
+        }
+        Err(error) if error.may_have_sent => (schedule_uncertain(), false),
+        Err(_) => (unavailable(), false),
+    }
+}
+
+fn schedule_uncertain() -> Value {
+    json!({"error":"I could not confirm what happened to that reminder. It may have changed; please check the reminders before trying again."})
 }
 
 /// Whether the provider link will carry this to the model.
@@ -409,6 +506,293 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         path
     }
+
+    fn schedule_directory(name: &str) -> PathBuf {
+        let base = if Path::new("/private/tmp").is_dir() {
+            PathBuf::from("/private/tmp")
+        } else {
+            std::env::temp_dir()
+        };
+        let path = base.join(format!(
+            "lvs-{name}-{}-{:x}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn schedule_flags_are_exact_independent_opt_ins_and_leave_old_arguments_unchanged() {
+        let old = arguments(Some("on"), Some("/run/actions"), None, Some("on"));
+        for value in [
+            None,
+            Some("off"),
+            Some("ON"),
+            Some("true"),
+            Some(" on"),
+            Some(""),
+        ] {
+            let mut flags = old.clone();
+            flags.extend(schedule_arguments(value, value));
+            assert_eq!(flags, old);
+            let (settings, rest) = take(&flags).unwrap();
+            assert!(rest.is_empty());
+            assert!(!settings.schedule_tools && !settings.schedule_speak);
+        }
+        for (tools, speak) in [(true, false), (false, true), (true, true)] {
+            let mut flags = old.clone();
+            flags.extend(schedule_arguments(
+                tools.then_some("on"),
+                speak.then_some("on"),
+            ));
+            flags.push("remainder".into());
+            let (settings, rest) = take(&flags).unwrap();
+            assert_eq!(
+                (settings.schedule_tools, settings.schedule_speak),
+                (tools, speak)
+            );
+            assert_eq!(rest, ["remainder"]);
+            assert!(settings.decline && settings.clock);
+            assert_eq!(settings.exec, Some("/run/actions".into()));
+        }
+    }
+
+    #[test]
+    fn tasks_then_schedule_flags_keep_both_owners_and_their_declarations() {
+        let dir = schedule_directory("tasks-schedule");
+        let mut entries = vec![json!({"name":"light_on","description":"Old tool"})];
+        entries.extend(
+            [
+                crate::agent_tasks::START,
+                crate::agent_tasks::CONFIRM,
+                crate::agent_tasks::CHECK,
+            ]
+            .into_iter()
+            .chain(SCHEDULE_NAMES)
+            .map(|name| json!({"name":name,"description":"Executive catalog entry"})),
+        );
+        std::fs::write(dir.join(CATALOG_FILE), json!({"tools":entries}).to_string()).unwrap();
+        let mut flags = arguments(
+            Some("on"),
+            Some(dir.to_str().unwrap()),
+            Some("/run/lampos-memory/memory.sock"),
+            Some("on"),
+        );
+        flags.extend([
+            crate::agent_tasks::FLAG.into(),
+            "/run/lampos-tasks".into(),
+            crate::agent_tasks::TARGET_FLAG.into(),
+            "workstation".into(),
+        ]);
+        flags.extend(schedule_arguments(Some("on"), Some("on")));
+        flags.extend(["--session".into(), "7".into()]);
+        let (settings, rest) = take(&flags).unwrap();
+        let place = crate::agent_tasks::Place {
+            directory: "/run/lampos-tasks".into(),
+            target: "workstation".into(),
+        };
+        assert_eq!(
+            settings,
+            Settings {
+                decline: true,
+                exec: Some(dir.clone()),
+                memory: Some("/run/lampos-memory/memory.sock".into()),
+                clock: true,
+                tasks: Some(place.clone()),
+                schedule_tools: true,
+                schedule_speak: true,
+            }
+        );
+        assert_eq!(rest, ["--session", "7"]);
+        let declared_names = |settings: &Settings| {
+            declared(settings)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect::<Vec<_>>()
+        };
+        let mut expected = vec![
+            NOT_FOR_ME,
+            THE_TIME,
+            "remember",
+            "recall",
+            "forget",
+            crate::agent_tasks::START,
+            crate::agent_tasks::CONFIRM,
+            crate::agent_tasks::CHECK,
+            "light_on",
+        ];
+        expected.extend(SCHEDULE_NAMES);
+        assert_eq!(declared_names(&settings), expected);
+        for tool in crate::agent_tasks::tools() {
+            let declared = declared(&settings)
+                .into_iter()
+                .find(|entry| entry.name == tool.name)
+                .unwrap();
+            assert_eq!(declared.description, tool.description);
+            assert_eq!(declared.parameters, tool.parameters);
+            assert_eq!(route(&settings, &tool.name), Route::Tasks(place.clone()));
+        }
+        for name in SCHEDULE_NAMES {
+            assert_eq!(route(&settings, name), Route::Schedule(dir.clone()));
+        }
+        assert_eq!(route(&settings, "light_on"), Route::Executive(dir.clone()));
+        let schedule_off = Settings {
+            schedule_tools: false,
+            ..settings.clone()
+        };
+        assert_eq!(declared_names(&schedule_off), expected[..9]);
+        for name in SCHEDULE_NAMES {
+            assert_eq!(route(&schedule_off, name), Route::Nobody);
+        }
+        assert_eq!(
+            route(&schedule_off, crate::agent_tasks::START),
+            Route::Tasks(place)
+        );
+        let tasks_off = Settings {
+            tasks: None,
+            ..settings
+        };
+        assert!(
+            declared_names(&tasks_off)
+                .iter()
+                .all(|name| !crate::agent_tasks::is_tool(name))
+        );
+        for name in [
+            crate::agent_tasks::START,
+            crate::agent_tasks::CONFIRM,
+            crate::agent_tasks::CHECK,
+        ] {
+            assert_eq!(route(&tasks_off, name), Route::Nobody);
+        }
+        for name in SCHEDULE_NAMES {
+            assert_eq!(route(&tasks_off, name), Route::Schedule(dir.clone()));
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_stale_or_malicious_schedule_catalog_cannot_declare_or_route_when_off() {
+        let dir = schedule_directory("schedule-catalog");
+        let mut entries = vec![json!({"name":"light_on","description":"Old tool"})];
+        entries.extend(
+            SCHEDULE_NAMES
+                .iter()
+                .map(|name| json!({"name":name,"description":"Stale tool"})),
+        );
+        std::fs::write(dir.join(CATALOG_FILE), json!({"tools":entries}).to_string()).unwrap();
+        let off = Settings {
+            exec: Some(dir.clone()),
+            ..Settings::default()
+        };
+        assert_eq!(
+            declared(&off)
+                .iter()
+                .map(|tool| tool.name.as_str())
+                .collect::<Vec<_>>(),
+            ["light_on"]
+        );
+        for name in SCHEDULE_NAMES {
+            assert_eq!(route(&off, name), Route::Nobody);
+            assert_eq!(
+                route(
+                    &Settings {
+                        schedule_speak: true,
+                        ..off.clone()
+                    },
+                    name
+                ),
+                Route::Nobody
+            );
+        }
+        assert_eq!(route(&off, "light_on"), Route::Executive(dir.clone()));
+        let on = Settings {
+            schedule_tools: true,
+            ..off
+        };
+        assert_eq!(declared(&on).len(), 7);
+        for name in SCHEDULE_NAMES {
+            assert_eq!(route(&on, name), Route::Schedule(dir.clone()));
+            assert_eq!(
+                route(
+                    &Settings {
+                        exec: None,
+                        ..on.clone()
+                    },
+                    name
+                ),
+                Route::Nobody
+            );
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn schedule_exchange_keeps_the_call_envelope_and_committed_result() {
+        let dir = schedule_directory("schedule-answer");
+        let served = executive(
+            &dir,
+            b"{\"ok\":true,\"result\":{\"id\":7,\"state\":\"scheduled\"}}\n",
+            Duration::ZERO,
+        );
+        let request = ToolCall {
+            id: "provider-call-1".into(),
+            name: "set_timer".into(),
+            args: json!({"text":"Tea","seconds":60}),
+        };
+        assert_eq!(
+            ask_schedule(&dir, &request, ASK_DEADLINE),
+            (json!({"id":7,"state":"scheduled"}), true)
+        );
+        assert_eq!(
+            served.join().unwrap(),
+            json!({"op":"call","name":"set_timer","args":{"text":"Tea","seconds":60}})
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn lost_or_unsendable_schedule_results_are_unknown_and_are_never_retried() {
+        for (name, reply) in [
+            ("lost", b"".as_slice()),
+            ("malformed", b"{\"ok\":true}\n".as_slice()),
+        ] {
+            let dir = schedule_directory(name);
+            let served = executive(&dir, reply, Duration::ZERO);
+            let request = ToolCall {
+                id: "1".into(),
+                name: "cancel_reminder".into(),
+                args: json!({"id":7}),
+            };
+            assert_eq!(
+                ask_schedule(&dir, &request, ASK_DEADLINE),
+                (schedule_uncertain(), false)
+            );
+            assert_eq!(served.join().unwrap()["name"], "cancel_reminder");
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+        let dir = schedule_directory("too-large");
+        let listener = UnixListener::bind(dir.join(CALL_SOCKET)).unwrap();
+        let served = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(stream.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            let answer =
+                json!({"ok":true,"result":{"text":"x".repeat(lamp_gemini::MAX_TOOL_JSON_BYTES)}});
+            writeln!(stream, "{answer}").unwrap();
+        });
+        assert_eq!(
+            ask_schedule(&dir, &call("list_reminders"), ASK_DEADLINE),
+            (schedule_uncertain(), false)
+        );
+        served.join().unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     fn call(name: &str) -> ToolCall {
         ToolCall {
             id: "c1".into(),
@@ -451,7 +835,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: Some("/run/lampos-memory/memory.sock".into()),
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
         assert_eq!(
@@ -518,7 +902,7 @@ mod tests {
                 exec: Some("/run/lampos-actions".into()),
                 memory: Some("/run/lampos-memory/memory.sock".into()),
                 clock: false,
-                tasks: None,
+                ..Default::default()
             }
         );
         assert_eq!(rest, ["rest"]);
@@ -546,7 +930,7 @@ mod tests {
             exec: None,
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         let told = declared(&own);
         assert_eq!(told.len(), 1);
@@ -560,7 +944,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         // No file yet: the executive has not started.
         assert_eq!(declared(&with).len(), 1);
@@ -578,7 +962,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         assert_eq!(declared(&alone).len(), 2);
         // One function the link would refuse, a name twice, a file that is
@@ -609,7 +993,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         assert_eq!(route(&all, NOT_FOR_ME), Route::Decline);
         assert_eq!(route(&all, "light_on"), Route::Executive(dir.clone()));
@@ -618,7 +1002,7 @@ mod tests {
             exec: None,
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         assert_eq!(route(&own, "light_on"), Route::Nobody);
         // Not declared, so not meant: it is never handed to the executive.
@@ -627,7 +1011,7 @@ mod tests {
             exec: Some(dir),
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         };
         assert_eq!(route(&exec, NOT_FOR_ME), Route::Nobody);
         assert_eq!(route(&Settings::default(), "light_on"), Route::Nobody);

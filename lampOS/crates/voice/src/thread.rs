@@ -557,7 +557,7 @@ mod tests {
             exec: None,
             memory: None,
             clock: false,
-            tasks: None,
+            ..Default::default()
         });
         let told = setup(&declining);
         let declared = &told["setup"]["tools"][0]["functionDeclarations"];

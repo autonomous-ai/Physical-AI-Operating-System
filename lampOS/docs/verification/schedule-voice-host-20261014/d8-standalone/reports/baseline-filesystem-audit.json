@@ -1,0 +1,31 @@
+{
+  "scope": "Filesystem-only completed d8 clean baseline audit; no Cargo/helper rerun",
+  "verified_at": "2026-10-14T18:56:05.757451+00:00",
+  "source_commit": "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+  "report": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline.json",
+  "report_sha256": "a82bbfcfb2881d9adbc0fe5a6ed045739209db36c5db5b2325a4ce72fcc651c9",
+  "report_bytes": 606915,
+  "status": "passed",
+  "source_file_count": 1596,
+  "source_bytes": 25397904,
+  "helper_files": 2,
+  "helper_bytes_combined": 1755,
+  "helpers_unchanged": {
+    "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+    "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+  },
+  "exact_file_set_unchanged": true,
+  "local_manifests": 34,
+  "all_local_manifests_inside_source_copy": true,
+  "case_count": 72,
+  "stdout_readings": 144,
+  "stdout_bytes": 562392,
+  "empty_stderr_readings": 144,
+  "distinct_stdout_payloads": 3,
+  "old_evidence_paths_unchanged": 1481,
+  "invalid_relative_paths_not_created": true,
+  "metadata_file": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/evidence/cargo-metadata.json",
+  "metadata_sha256": "2517834c36c1e79c2ba41395e860e88189cca8f3a8b4333e0d31cc0b776c54cd",
+  "raw_readings_map": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-readings.json",
+  "raw_readings_map_sha256": "05f8b8bbd149afc08003505743c929ef9050e286b52e967313295639ebf58371"
+}

@@ -275,6 +275,7 @@ fn provider_peer(
                     }
                 }
                 ProviderInput::Written { .. } => seen.provider.push("written"),
+                ProviderInput::Reminder { .. } => panic!("reminders are disabled in this fixture"),
             }
         }
         let now = Instant::now();

@@ -85,6 +85,58 @@ and should be words the lamp can say. The answer may be at most 8,192
 bytes on the line and about 4,000 as JSON to the model; a larger one is
 treated as no answer.
 
+### Schedule tools and due speech
+
+`LAMP_SCHEDULE_TOOLS=on` enables six additional Actions tools:
+`set_timer`, `set_reminder`, `repeat_reminder`, `list_reminders`,
+`cancel_reminder`, and `snooze_reminder`. Both Actions and Voice need that
+exact value. Voice still needs `LAMP_ACTIONS_DIR`; it filters these names from
+both declaration and dispatch when the switch is absent, even if an old
+`tools.json` still lists them. `off`, `ON`, `true`, `1` and padded values do not
+enable anything. The normal catalog and ordinary Written wire messages stay
+unchanged with the switch off.
+
+Actions validates arguments before IPC, owns Schedule's CAS guards, and calls
+the socket selected by `LAMP_SCHEDULE_SOCKET` (enabled default
+`/run/lampos-schedule/call.sock`). Text is 1–300 UTF-8 bytes without controls;
+the adapter refuses unknown fields and invalid civil dates/zones. Model schemas
+use the provider's supported `parameters` subset; runtime checks enforce byte
+and shape limits omitted from those declarations. List replies are bounded
+pages with complete text and an explicit next cursor. The model never supplies
+store revisions, acknowledgement tokens or Unix-clock arithmetic. See
+[Schedule](schedule.md#proposed-model-tools) and [Actions](actions.md).
+
+Only an actual durable mutation receipt is success. An unavailable service or
+proven refusal means the lamp cannot set it just now. A sent request with a
+lost, malformed or oversized reply means confirmation is unknown, not that
+nothing happened. Do not automatically issue a fresh mutation to resolve that
+uncertainty; read current reminders first. The new exchange has a 1,250 ms
+Actions deadline across all hops and a 1,500 ms Voice deadline; ordinary tools
+keep their existing transport.
+
+`LAMP_SCHEDULE_SPEAK=on` is independent of tool declaration. It starts Voice's
+single optional delivery consumer, requiring an explicit persistent
+`LAMP_SCHEDULE_DELIVERY_DIR`. The due text is JSON-quoted reminder data in a
+fixed instruction. Every tool call on that autonomous request is denied before
+the tool desk, so reminder text cannot change the light, memory, schedule or
+another tool. Privacy, current input, normal readiness and final output
+ownership remain authoritative. Unknown, Busy and Quiet room classifications
+all allow a due reminder at the next local silence; they do not defer an
+already requested timer or reminder. A deferral has no failure announcement and
+does not stop ordinary intake. Whole playout evidence is persisted before Ack;
+interrupted or uncertain speech remains pending. Provisioning, recovery and
+the requested-reminder admission policy are described in
+[the consumer contract](schedule.md#optional-voice-consumer).
+
+The schema review used Google's official
+[Live tool guide](https://ai.google.dev/gemini-api/docs/live-api/tools),
+[Live protocol](https://ai.google.dev/api/live), and
+[FunctionDeclaration reference](https://ai.google.dev/api/generate-content#FunctionDeclaration)
+on 2026-10-14. It supports keeping the existing manual function-result path
+and correlated tool names. Cancelling model work does not undo a local mutation
+already committed. These references do not qualify the six declarations or
+spoken confirmations on the model and lamp actually deployed; First runs those.
+
 ### A word that asked for nothing, and a guard that was withdrawn
 
 On lamp-4ace on 2026-10-14 a played "Thank you." was written by the
@@ -186,12 +238,17 @@ the time unless you were asked for it" (not yet played).
 
 - **Every call is answered.** The service generates nothing more for a
   request until its calls are, so a call nobody runs is answered too.
-- **The voice waits 1.5 s for the executive and no longer**
-  (`ASK_DEADLINE`), connecting included, on a thread of its own: the
+- **Executive calls have a 1.5 s budget** (`ASK_DEADLINE`) on a thread of
+  their own. Schedule's client uses one nonblocking connect/read/write
+  deadline; the older ordinary-tool client still uses a blocking initial
+  connect, so its budget is not a hard bound on that OS operation. The
   worker's loop, the microphone and the speaker are never held. With the
   executive gone, late, cut off or answering something that is not an
   answer, the model is told "That part of me is not running right now, so
-  I could not do it." and the conversation goes on.
+  I could not do it." and the conversation goes on. Schedule instead reports
+  an unknown outcome after a possibly sent mutation, with a request to list
+  current reminders before retrying. It never turns a missing answer into
+  proof that nothing was committed.
 - **At most eight calls wait at once.** A ninth is answered as unavailable.
 - **An answer goes only to the connection that made the call.** If the
   link dropped meanwhile, the answer is not sent and the call is over.
@@ -211,6 +268,14 @@ prints which functions were called with what, when, what was said and how
 the request ended. Nothing is captured, played or changed on the lamp.
 
 ## Not shown
+
+Task 31's new fixtures use synthetic provider events, real local Actions and
+Schedule sockets, the durable consumer, and Voice's owner/playout handling.
+They do not qualify the six new schemas on the installed model, faithful
+spoken reminder wording, room admission or final acoustic completion on a
+lamp. Its separate opt-in contract and lamp cases are in
+[schedule.md](schedule.md#task-31-lamp-qualification). The older counts and
+lamp observations below concern the previously existing tools.
 
 Host tests: the router and the executive's client against a scripted
 executive (six tests), the worker against the scripted provider with that

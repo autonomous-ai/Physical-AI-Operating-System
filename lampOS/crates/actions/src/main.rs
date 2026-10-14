@@ -20,7 +20,8 @@ const HELP: &str = "The lamp's executive: carries out what the voice's model ask
   --mixer-card      the ALSA card of the speaker's volume control; with --mixer-control, the volume functions are offered\n\
   --mixer-control   the control's name, as `amixer scontrols` prints it\n\
   --volume-ceiling  the loudest the speaker is allowed, in points of 100 (default 100)\n\
-  --bus-root        the bus's directory; with it the light functions are offered while the ring's owner says what it shows";
+  --bus-root        the bus's directory; with it the light functions are offered while the ring's owner says what it shows\n\
+  LAMP_SCHEDULE_TOOLS=on enables six reminder tools; LAMP_SCHEDULE_SOCKET is an absolute socket path (default /run/lampos-schedule/call.sock). Other switch values leave the old tool list unchanged.";
 
 #[derive(Debug, Default, Eq, PartialEq)]
 struct Arguments {
@@ -86,6 +87,13 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let schedule = match lamp_actions::schedule::Adapter::from_environment() {
+        Ok(adapter) => adapter,
+        Err(error) => {
+            eprintln!("lamp-actions: invalid Schedule configuration: {error}");
+            return ExitCode::from(2);
+        }
+    };
     let sound = arguments
         .mixer
         .map(|(card, control)| Volume::new(Amixer { card, control }, arguments.ceiling));
@@ -117,11 +125,12 @@ fn main() -> ExitCode {
         None => None,
     };
     let mut executive = Executive { sound, light };
-    match lamp_actions::server::serve_reporting(
+    match lamp_actions::server::serve_reporting_with_schedule(
         &arguments.dir,
         &mut executive,
         &AtomicBool::new(false),
         health,
+        schedule.as_ref(),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

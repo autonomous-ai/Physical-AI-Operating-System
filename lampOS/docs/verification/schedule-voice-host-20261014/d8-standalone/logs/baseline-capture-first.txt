@@ -1,0 +1,82 @@
+{
+  "report": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline.json",
+  "source_commit": "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+  "root": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS",
+  "source_files": 1596,
+  "local_manifests": 34,
+  "build": {
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-actions",
+      "-p",
+      "lamp-voice",
+      "--example",
+      "schedule_off_actions",
+      "--example",
+      "schedule_off_voice"
+    ],
+    "cwd": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS",
+    "exit_code": 0,
+    "elapsed_seconds": 29.346817001,
+    "log": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-build-first.txt",
+    "target_directory": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/target"
+  },
+  "profiles": {
+    "ordinary": {
+      "cases": 36,
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "voice_sha256": "4550c21da6cd3f72ac31f6a54eaed88c1d89fa0719d413cccc223900a1b4514e",
+      "actions_bytes": 1194,
+      "voice_bytes": 5902,
+      "declared_names": [
+        "not_for_me",
+        "the_time",
+        "remember",
+        "recall",
+        "forget",
+        "volume_up",
+        "volume_down",
+        "volume_mute",
+        "volume_unmute",
+        "light_on",
+        "light_off",
+        "light_colour",
+        "light_brighter",
+        "light_dimmer"
+      ]
+    },
+    "tasks": {
+      "cases": 36,
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "voice_sha256": "20db351d565d0421cd35c79782d3a783998702fdb37df6a0d339fb9d8ef5e6c1",
+      "actions_bytes": 1194,
+      "voice_bytes": 7332,
+      "declared_names": [
+        "not_for_me",
+        "the_time",
+        "remember",
+        "recall",
+        "forget",
+        "start_agent_task",
+        "confirm_agent_task",
+        "check_agent_task",
+        "volume_up",
+        "volume_down",
+        "volume_mute",
+        "volume_unmute",
+        "light_on",
+        "light_off",
+        "light_colour",
+        "light_brighter",
+        "light_dimmer"
+      ]
+    }
+  },
+  "case_count": 72,
+  "baseline_source_unchanged": true,
+  "old_evidence_unchanged": true
+}

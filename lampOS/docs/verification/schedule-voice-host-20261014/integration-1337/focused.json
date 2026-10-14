@@ -1,0 +1,292 @@
+{
+  "purpose": "Focused revalidation after clean integration of Days memory, Tasks persistence and larger Tasks responses; includes new Days reminder journal-exclusion regression.",
+  "machine": "Third Intel i7-10700K x86_64 Mac; macOS 26.6.2/Darwin 25.6.0; 64 GiB RAM; Rust/Cargo 1.96.0; no lamp or live provider",
+  "source_manifest": "/private/tmp/lamp-third-schedule-1337-source-frozen.json",
+  "source_sha256": "89adaafcd44a51bbd84233abc575dfdc55987499fcc3f1d427825d4829b885fd",
+  "extra_environment": {
+    "RUST_BACKTRACE": "1"
+  },
+  "steps": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:29:24.059659+00:00",
+      "finished_at": "2026-10-14T20:29:28.199743+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 4.139806318,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-format.txt",
+      "log_bytes": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_unchanged": true
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-schedule",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-memory",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:29:28.322099+00:00",
+      "finished_at": "2026-10-14T20:30:27.869944+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 59.549905560999996,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-clippy.txt",
+      "log_bytes": 500,
+      "log_sha256": "b9c266cd74bffe85694ddb8deaa9c378f34b029183d3740b6a6c79b9ca5f674c",
+      "source_unchanged": true
+    },
+    {
+      "name": "reminder",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "reminder",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:30:27.991326+00:00",
+      "finished_at": "2026-10-14T20:31:19.499391+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 51.509622107,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-reminder.txt",
+      "log_bytes": 8994,
+      "log_sha256": "d63829374536d2f5de18e45d0815f80988248ddcf97fdaf9710b12cdc20f83a5",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 75,
+        "failed": 0,
+        "ignored": 2
+      }
+    },
+    {
+      "name": "tools",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "tools::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:19.619024+00:00",
+      "finished_at": "2026-10-14T20:31:23.003434+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 3.3842974060000017,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-tools.txt",
+      "log_bytes": 2192,
+      "log_sha256": "d658423ec76f67a0e7bea5cc772f80e505096ae6ba800af68a6ab43f9a748cd3",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 18,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "thread",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "thread::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:23.124229+00:00",
+      "finished_at": "2026-10-14T20:31:24.548781+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 1.4243814829999906,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-thread.txt",
+      "log_bytes": 978,
+      "log_sha256": "2a0909d546cde3c27e4b59f7ea644e745f1f799509c3254405024749b43f1ac0",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "remember",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "remember::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:24.668637+00:00",
+      "finished_at": "2026-10-14T20:31:34.510143+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 9.841669706000005,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-remember.txt",
+      "log_bytes": 2502,
+      "log_sha256": "0792506076ba94adb52fcfcb4395d8fd9d4ada64aa98b86bfe80df5d3350a85b",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 24,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "agent-tasks",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "agent_tasks::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:34.623267+00:00",
+      "finished_at": "2026-10-14T20:31:36.025403+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 1.4019601319999992,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-agent-tasks.txt",
+      "log_bytes": 791,
+      "log_sha256": "027f551a967b12f49b31fbb4e60aa34d271484f98795f771a1d2dde037837183",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "task-news",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "task_news::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:36.154396+00:00",
+      "finished_at": "2026-10-14T20:31:37.587914+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 1.4332178960000022,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-task-news.txt",
+      "log_bytes": 721,
+      "log_sha256": "a650c00e2cfe9ff039a05b713ce57f6003bdc500695dda52db6d3fb2d6ca464a",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "days-worker-environment",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "process::tests::cleared_worker_environment_passes_only_the_exact_provider_opt_in",
+        "--",
+        "--test-threads=1",
+        "--exact"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:37.706299+00:00",
+      "finished_at": "2026-10-14T20:31:39.214885+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 1.5084528570000089,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-days-worker-environment.txt",
+      "log_bytes": 362,
+      "log_sha256": "8b974f88bc449066f8efb7e7d5de3282406b56aaca9ec571b722490a6ab7f54d",
+      "source_unchanged": true,
+      "counts": {
+        "harnesses": 1,
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_at": "2026-10-14T20:31:39.328860+00:00",
+      "finished_at": "2026-10-14T20:32:08.132736+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 28.80476344799999,
+      "log": "/private/tmp/lamp-third-schedule-1337-focused-first-workspace-build.txt",
+      "log_bytes": 500,
+      "log_sha256": "4a2eec8d16c921c80fe1e1fce6bc5b64bc639ffa50b6f8b7370024416b9c102b",
+      "source_unchanged": true
+    }
+  ],
+  "limits": "Filtered test executions, not a complete affected-package gate. All previous failed runs retain their source identities and actual outcomes."
+}

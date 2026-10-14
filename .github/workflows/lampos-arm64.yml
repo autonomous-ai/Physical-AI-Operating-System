@@ -1,7 +1,9 @@
 name: lampOS on ARM64
 
-# Builds and tests lampOS natively on Linux ARM64, inside Debian 12 like the
-# lamps (glibc 2.36), for every push to a lampOS branch. The binaries are kept
+# Builds and tests lampOS natively on Linux ARM64 for every push to a lampOS
+# branch, on Ubuntu 22.04 (glibc 2.35), so the binaries also run on the
+# lamps' Debian 12 (glibc 2.36). Not in a container: tests that take a
+# permission away must not run as root. The binaries are kept
 # as an artifact for a week, with their SHA-256, so the first builder can put
 # a builder's work on a lamp without building it again. See
 # lampOS/docs/joining.md.
@@ -19,15 +21,14 @@ concurrency:
 
 jobs:
   arm64:
-    name: lampOS — build and test on Linux ARM64 (Debian 12)
-    runs-on: ubuntu-24.04-arm
-    container: debian:12
+    name: lampOS — build and test on Linux ARM64
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     steps:
       - name: system packages
         run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file
       - uses: actions/checkout@v4
       - name: Rust 1.96.0
@@ -40,8 +41,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             lampOS/target
-          key: lampos-arm64-deb12-${{ hashFiles('lampOS/Cargo.lock') }}
-          restore-keys: lampos-arm64-deb12-
+          key: lampos-arm64-u2204-${{ hashFiles('lampOS/Cargo.lock') }}
+          restore-keys: lampos-arm64-u2204-
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples

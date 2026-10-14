@@ -211,12 +211,40 @@ Started that way (`AUTONOMOUS_SERVICE_NAME` set), `lamp-keeper serve`:
 
 1. writes an answer that is not ready, so that one left by the run before
    is never taken for this one;
-2. links every unit in the release's `units/` (`systemctl link --force`),
+2. clears what the old runtime leaves behind (below);
+3. links every unit in the release's `units/` (`systemctl link --force`),
    writes `lampos.target.d/keeper.conf` (`BindsTo=` and `After=` its own
    unit), reloads, and enables each part, which puts it under the target;
-3. starts `lampos.target`, and from then on writes after every look whether
+4. starts `lampos.target`, and from then on writes after every look whether
    every part the release carries is running, with its own process id,
    which `health` prints.
+
+### What the old runtime leaves behind
+
+A lamp that still has the old software has two things in the way, both
+seen on lamp-52e6 on 2026-10-14; lamp-4ace has neither.
+
+- **Its units.** `lamp-voice` refuses to start while `hal.service`,
+  `os-server.service`, `led-boot.service` or `led-shutdown.service` is
+  active (`refuse_legacy_owners`, in the voice and in its camera check).
+  The updater stops `hal` and `os-server`, but `led-shutdown.service`, a
+  static unit, becomes active whenever `hal` stops. Before it starts the
+  lamp the keeper masks each of the four that is active and then stops it
+  (masked first, so that stopping one cannot start another), says each in
+  its journal, and lists them in `health` as `legacy_stopped`. It masks
+  because its unit is the updater's replacement for the old runtime; it
+  deletes nothing, and one that is not active is not touched. Unmasking
+  (`systemctl unmask`) is the updater's rollback's business, not the
+  keeper's.
+- **The bus root.** Made by whichever part comes first, `/run/lampos-bus`
+  was root's on lamp-52e6 (by the voice), and `lamp-health` and
+  `lamp-expression`, run as `orangepi`, failed on it with "Permission
+  denied". The keeper makes it as lamp-4ace has it ([bus.md](bus.md), "On
+  the lamp"): owner root, group the first `Group=` other than root among
+  the release's units, mode 2770, the set-group-ID bit giving everything
+  made below it the group. Made if missing, put right if there, every
+  time; `LAMP_BUS_ROOT` moves it. What is already below the root is left
+  as it is.
 
 systemd still runs every part; the keeper only brings them up together and
 watches. The target itself is not enabled: at power-up it is the keeper's
@@ -253,6 +281,14 @@ keeper's `health` says no more than that.
   from it by hand; its activation, its own health check and a rollback
   through it were not run.
 - A power cut with the keeper's unit enabled.
+- Clearing the old runtime's units and making the bus root, on any lamp:
+  checked only with stand-ins for systemd and `chown`. Whether masking
+  `led-shutdown.service` holds while the updater's own steps run, and a
+  rollback unmasking it, were not run. Topics a root-owned bus made before
+  the keeper are not put right; on lamp-52e6 they go at the next power-up
+  (`/run` is not kept).
+- `lamp-led-shutdown.service`, also seen on lamp-52e6: no part checks it,
+  so the keeper leaves it.
 - The order at power-up and how long each step takes; whether the eyes
   should wait for the body's start checks; whether the voice should wait
   for the memory once it can.

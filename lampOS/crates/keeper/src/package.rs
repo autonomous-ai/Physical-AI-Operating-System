@@ -28,6 +28,9 @@ pub struct Answer {
     /// The parts of the lamp that are not running yet, for a person.
     #[serde(default)]
     pub waiting_for: Vec<String>,
+    /// The old runtime's units this run found running and stopped.
+    #[serde(default)]
+    pub legacy_stopped: Vec<String>,
 }
 
 /// A release: the folder above `bin/`, holding `VERSION` and `units/`.
@@ -67,6 +70,84 @@ impl Release {
         files.sort();
         files
     }
+}
+
+/// The old runtime's units whose running makes a part refuse to start:
+/// exactly the list `lamp-voice` checks (`refuse_legacy_owners`).
+pub const LEGACY: [&str; 4] = [
+    "hal.service",
+    "os-server.service",
+    "led-boot.service",
+    "led-shutdown.service",
+];
+
+/// Stop each of the old runtime's units that is running, and mask it so
+/// that it does not come back: `led-shutdown.service` starts again whenever
+/// `hal` stops. Called only when the keeper's unit is the updater's
+/// replacement for the old runtime, which has already stopped `hal` and
+/// `os-server`. Nothing is deleted; unmasking is the updater's rollback's.
+/// Returns the units it stopped; a unit it could not mask is still stopped,
+/// and said.
+pub fn clear_legacy(systemd: &mut impl Systemd) -> Vec<String> {
+    let mut stopped = Vec::new();
+    for unit in LEGACY {
+        if !systemd.active(unit) {
+            continue;
+        }
+        // Masked first: stopping one may start another (hal's stop starts
+        // led-shutdown), and a masked unit is not started.
+        if let Err(why) = systemd.mask(unit) {
+            eprintln!("lamp-keeper: masking {unit}: {why}");
+        }
+        match systemd.command("stop", unit) {
+            Ok(()) => {
+                eprintln!("lamp-keeper: stopped the old runtime's {unit}");
+                stopped.push(unit.to_owned());
+            }
+            Err(why) => eprintln!("lamp-keeper: stopping {unit}: {why}"),
+        }
+    }
+    stopped
+}
+
+/// The group the parts share: the first `Group=` other than root in the
+/// release's units (lamp-52e6's and lamp-4ace's: `orangepi`).
+pub fn parts_group(release: &Release) -> Option<String> {
+    release.unit_files().iter().find_map(|file| {
+        fs::read_to_string(file).ok()?.lines().find_map(|line| {
+            let group = line.trim().strip_prefix("Group=")?.trim();
+            (!group.is_empty() && group != "root").then(|| group.to_owned())
+        })
+    })
+}
+
+/// A group's id from the text of `/etc/group`.
+pub fn gid_of(groups: &str, name: &str) -> Option<u32> {
+    groups.lines().find_map(|line| {
+        let mut fields = line.split(':');
+        if fields.next()? != name {
+            return None;
+        }
+        fields.nth(1)?.parse().ok()
+    })
+}
+
+/// The bus root as on lamp-4ace (bus.md, "On the lamp"): root's, the
+/// parts' group's, mode 2770, so that the voice (root) and the parts run as
+/// the lamp's user can both use it, and everything made below takes the
+/// group. Made if missing and put right if there; what is already below it
+/// is left as it is. `chown` is `std::os::unix::fs::chown` on a lamp.
+pub fn make_bus_root(
+    root: &Path,
+    gid: u32,
+    chown: impl FnOnce(&Path, u32, u32) -> std::io::Result<()>,
+) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    let at = |error: std::io::Error| format!("{}: {error}", root.display());
+    fs::create_dir_all(root).map_err(at)?;
+    chown(root, 0, gid).map_err(at)?;
+    // After the chown, which may clear the set-group-ID bit.
+    fs::set_permissions(root, fs::Permissions::from_mode(0o2770)).map_err(at)
 }
 
 /// The drop-in that ties the lamp to the keeper's own unit: when the
@@ -179,6 +260,10 @@ mod tests {
             self.said.borrow_mut().push(format!("enable {unit}"));
             Ok(())
         }
+        fn mask(&mut self, unit: &str) -> Result<(), String> {
+            self.said.borrow_mut().push(format!("mask {unit}"));
+            Ok(())
+        }
     }
 
     fn release(units: &[&str]) -> (tempdir::Dir, Release) {
@@ -271,6 +356,7 @@ mod tests {
             version: "0.3.1".into(),
             pid: 4242,
             waiting_for: vec![],
+            legacy_stopped: vec!["led-shutdown.service".into()],
         };
         write_answer(&dir.0, &answer).unwrap();
         assert_eq!(read_answer(&dir.0), answer);
@@ -280,5 +366,56 @@ mod tests {
         assert_eq!(value["ready"], true);
         assert_eq!(value["version"], "0.3.1");
         assert_eq!(value["pid"], 4242);
+    }
+
+    #[test]
+    fn only_the_old_units_that_run_are_masked_and_stopped() {
+        let mut systemd = Fake {
+            running: vec!["led-shutdown.service", "lamp-voice.service"],
+            ..Fake::default()
+        };
+        assert_eq!(clear_legacy(&mut systemd), ["led-shutdown.service"]);
+        assert_eq!(
+            *systemd.said.borrow(),
+            ["mask led-shutdown.service", "stop led-shutdown.service"]
+        );
+        let mut idle = Fake::default();
+        assert!(clear_legacy(&mut idle).is_empty());
+        assert!(idle.said.borrow().is_empty());
+    }
+
+    #[test]
+    fn the_bus_root_is_root_s_with_the_parts_group_and_set_group_id() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, release) = release(&[]);
+        let units = dir.0.join("units");
+        fs::write(
+            units.join("lamp-body.service"),
+            "[Service]\nUser=orangepi\nGroup=orangepi\n",
+        )
+        .unwrap();
+        fs::write(
+            units.join("lamp-actions.service"),
+            "[Service]\nUser=root\nGroup=root\n",
+        )
+        .unwrap();
+        assert_eq!(parts_group(&release).as_deref(), Some("orangepi"));
+        let groups = "root:x:0:\naudio:x:29:orangepi\norangepi:x:1000:\n";
+        assert_eq!(gid_of(groups, "orangepi"), Some(1000));
+        assert_eq!(gid_of(groups, "nobody"), None);
+
+        let root = dir.0.join("run/lampos-bus");
+        // Twice: made, then found and put right the same way.
+        for _ in 0..2 {
+            let mut owned = None;
+            make_bus_root(&root, 1000, |path, uid, gid| {
+                owned = Some((path.to_owned(), uid, gid));
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(owned, Some((root.clone(), 0, 1000)));
+            let mode = fs::metadata(&root).unwrap().permissions().mode() & 0o7777;
+            assert_eq!(mode, 0o2770);
+        }
     }
 }

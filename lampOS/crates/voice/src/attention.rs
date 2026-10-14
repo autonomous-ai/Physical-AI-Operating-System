@@ -324,6 +324,9 @@ pub struct Attention {
     /// whether a voice close to the lamp was heard in it.
     best_score: f32,
     near: bool,
+    /// Whether the request judged last was the lamp's own turn, as the
+    /// judging read it, for the record ([`Attention::baseline`]).
+    judged_own: bool,
 }
 
 /// The most text kept for one request.
@@ -441,6 +444,7 @@ impl Attention {
             return None;
         }
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
+        self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
         if strict && room == Room::Busy && self.named_sure {
             let verdict = Verdict::Play(NAMED_PLAINLY);
@@ -464,6 +468,30 @@ impl Attention {
         );
         self.verdict = Some(verdict);
         Some(verdict)
+    }
+
+    /// What the rule saw when it last judged, with the room, the
+    /// conversation and the eyes it was given, as the Policy's fitting rows
+    /// take it ([`crate::first_output`]).
+    pub fn baseline(
+        &self,
+        room: Room,
+        going_on: bool,
+        turned: Option<bool>,
+    ) -> crate::first_output::Baseline {
+        crate::first_output::Baseline {
+            kind: "voice_first_output",
+            room: match room {
+                Room::Quiet => "quiet",
+                Room::Busy => "busy",
+                Room::Unknown => "unknown",
+            },
+            own_turn: self.judged_own,
+            going_on,
+            named_sure: self.named_sure,
+            text: self.heard.clone(),
+            facing: turned,
+        }
     }
 
     /// Whether the answer to the request in hand was let out because the

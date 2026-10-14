@@ -18,6 +18,7 @@ pub mod config;
 pub mod diagnostic_control;
 pub mod diagnostics;
 pub mod expression_out;
+pub mod first_output;
 pub mod fixture_provider;
 pub mod hand_controls;
 pub mod head_qualification;

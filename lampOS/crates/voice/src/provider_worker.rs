@@ -130,10 +130,15 @@ pub struct Files {
     /// The lamp's bus, if how the room is gets published on it
     /// (`--bus-root`).
     pub bus_root: Option<std::path::PathBuf>,
+    /// Where whom it answered is recorded (`--first-output-log`,
+    /// [`crate::first_output`]), if anywhere.
+    pub first_output: Option<std::path::PathBuf>,
 }
 
 /// The bus's root for this worker, if it publishes.
 static BUS_ROOT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// The directory whom it answered is recorded in, if any.
+static FIRST_OUTPUT: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// The provider worker's flag for a link that is never given up. A service
 /// that runs all day passes it; a bounded run keeps the bounded policy, so
 /// that it ends when its provider cannot be reached.
@@ -666,6 +671,9 @@ pub async fn run_with_continuation(
     if let Some(root) = files.bus_root.clone() {
         let _ = BUS_ROOT.set(root);
     }
+    if let Some(directory) = files.first_output.clone() {
+        let _ = FIRST_OUTPUT.set(directory);
+    }
     // What it remembers from other days, if this lamp has a memory.
     if let Some(socket) = &files.tools.memory {
         crate::remember::start(socket.clone());
@@ -808,6 +816,22 @@ async fn serve_with_visual<C: Connect>(
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
+    // The record of whom it answered, off unless set.
+    let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
+        match crate::first_output::FirstOutputLog::open(directory) {
+            Ok(log) => {
+                eprintln!(
+                    "lamp-voice provider: whom it answers is recorded in {}",
+                    log.path().display()
+                );
+                Some(log)
+            }
+            Err(error) => {
+                eprintln!("lamp-voice provider: whom it answers is not recorded: {error}");
+                None
+            }
+        }
+    });
     // What the request being heard has been given as its note so far.
     let mut noted: Option<(u64, String)> = None;
     // When the name was last heard plainly enough to count as a call.
@@ -1111,11 +1135,13 @@ async fn serve_with_visual<C: Connect>(
                         Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
                         Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } | Event::ToolCall { lineage, .. }
                             if !matches!(event, Event::ToolCall { call, .. } if !crate::attention::answers(&call.name)) => {
+                            let sampled_start_us = monotonic_us();
                             let (room, going_on) = now();
                             let request = lineage.request.get();
                             let turned = (attention_busy && room == crate::room_told::Room::Busy)
                                 .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
                                 .flatten();
+                            let sampled_end_us = monotonic_us();
                             if ears_bus.is_some()
                                 && let Some((began, ended)) = attention.window()
                             {
@@ -1127,7 +1153,33 @@ async fn serve_with_visual<C: Connect>(
                                     .fold(f32::MIN, f32::max);
                                 attention.set_near(rise >= crate::attention::NEAR_RISE_DB);
                             }
-                            match attention.first_output_busy(request, room, going_on, attention_busy, turned) {
+                            let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
+                            if let (Some(log), Some(verdict)) = (first_output.as_mut(), verdict) {
+                                let (play, reason) = match verdict {
+                                    crate::attention::Verdict::Play(why) => (true, why),
+                                    crate::attention::Verdict::Hold(why) => (false, why),
+                                };
+                                let window = attention.window();
+                                log.decided(&crate::first_output::Decision {
+                                    session: lineage.session.get(),
+                                    request,
+                                    trigger: match event {
+                                        Event::Audio { .. } => "audio",
+                                        Event::OutputTranscript { .. } => "output_transcript",
+                                        _ => "tool_call",
+                                    },
+                                    strict: attention_busy,
+                                    baseline: attention.baseline(room, going_on, turned),
+                                    play,
+                                    reason,
+                                    sampled_start_us,
+                                    sampled_end_us,
+                                    evaluated_us: monotonic_us(),
+                                    input_began_us: window.map(|(began, _)| began),
+                                    input_ended_us: window.and_then(|(_, ended)| ended),
+                                });
+                            }
+                            match verdict {
                                 Some(crate::attention::Verdict::Hold(why)) => {
                                     eprintln!("lamp-voice provider: request {request}: its answer is held back: {why}");
                                 }

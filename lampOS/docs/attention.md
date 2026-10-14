@@ -619,6 +619,31 @@ with a person in front of this lamp. The second look (in the coordinator)
 is not gated by the room or the eyes: it comes only when the model said
 nothing and the name was heard, and in this meeting it never came.
 
+## The record of whom it answered
+
+Off unless set: `LAMP_FIRST_OUTPUT=/absolute/private/directory` in the
+voice's unit, passed to the provider worker as `--first-output-log DIR`
+(`crates/voice/src/first_output.rs`, built 2026-10-14 evening for #700,
+after the fourth builder's proposed contract in
+[voice-first-output.md](verification/local-judge-fit-20261014/voice-first-output.md)).
+With it, each time the rule judges the first output of a request, one JSON
+line is written: what the rule was given, as the Policy's fitting rows take
+it (`baseline`: room, own turn, conversation going on, name heard surely,
+the text heard so far, facing), whether it played or held and why, the
+request's session and number, what came first (sound, words or a call),
+when the inputs were read and when it decided, and the machine, boot,
+worker run and the program's SHA-256. Each worker run writes its own file,
+open to its owner only, at most 8 MB; lines wait in a queue of 64 and a
+thread of its own writes them, so the voice never waits on the disk. A full
+queue or a full file is counted, and the run's last line (`capture_end`)
+says how many lines were admitted and how many dropped. A file without that
+line is a run that did not end cleanly.
+
+What was heard is in these files, and so are bystanders' words in an office:
+they stay on the lamp and are not published. Not recorded yet: whether any
+sound of the answer was played (`request_outcome`), when a request began, and
+which transcript, name and eyes messages the rule read.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by

@@ -307,7 +307,35 @@ The producer and planner must agree on these boundaries:
    turn replaces them. An interruption following a hold keeps the blend
    already underway instead of starting it again.
 
-Until First implements those producer rules, use the built-in catalogue and
+**Implemented by First on 2026-10-14** (`1c52cc822`): the voice says the
+second pair beside the first, built from it by `expression_out::Resumable`
+(a turn's sound in generations from 1; holding back for someone drops the
+unsaid piece, starts the next generation and says Listening, held, in
+every heartbeat; after the resume a not-held heartbeat comes before the
+first sound and nothing from before the resume is said; the turn's end is
+said not held). Through the same authored scene as the first pair and the
+rest catalogue, Expression's own engine took 156 progress messages (five
+held) and 78 sound pieces and refused none, and planned the nod as speech
+ends, the glance, the played sound and the yield, the yield at the moment
+of the hold (9.4 s) rather than of the next turn (9.7 s)
+(`the_held_turn_pair_is_taken_whole_by_the_rest_catalogue`). A test of the
+publisher on a real bus (`while_speaking_the_held_sound_reaches_both_sound_topics`)
+sees the held sound on both sound topics.
+
+**On lamp-4ace since 14:27 the same day, acting:** `lamp-expression serve
+--enable --catalogue /opt/lampOS/expression/catalogues/rest-behaviours.json`,
+the body taking its requests (`LAMP_EXPRESSION_BODY=on`, within the
+body's reach and speed). In the first three played questions, in a busy
+office, it planned the glance while each answer was awaited, 0.13 s after
+the end of speech was decided, and the body took 3,734 requests; the nod
+as speech ends, the following of played sound and the rest are quiet-room
+behaviours by the catalogue and did not come in a busy room, as written.
+Its refusals since its start: four, one stale at start and three of
+person activity while no listening input was kept. Not yet seen: any of
+the quiet-room behaviours on the lamp, the light taking its requests (the
+ring does not read `expression/light` yet), and how it looks.
+
+Before that, use the built-in catalogue and
 legacy pair on the lamp. Selecting the new catalogue against the current
 publisher leaves required progress missing; it does not manufacture a hold
 from `voice/state` or a transcript.

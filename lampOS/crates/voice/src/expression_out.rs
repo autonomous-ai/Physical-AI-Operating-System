@@ -1147,6 +1147,50 @@ mod tests {
         assert!(activity(&timing.tick(waiting)).is_empty());
     }
 
+    /// The publishing object itself, on a real bus, as the voice's loop
+    /// drives it while speaking: the speaker takes a piece, then what is
+    /// held is foretold. Pieces arrive on both sound topics.
+    #[test]
+    fn while_speaking_the_held_sound_reaches_both_sound_topics() {
+        use std::time::Duration;
+        let root = std::path::PathBuf::from(format!("/tmp/lve-sound-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut out = ExpressionOut::on(&bus, "boot", "voice-1").unwrap();
+        let mut playout = bus
+            .subscribe_typed(VoicePlayout::TOPIC, "watch", VoicePlayout::TYPE)
+            .unwrap();
+        let mut sound = bus
+            .subscribe_typed(VoiceSound::TOPIC, "watch", VoiceSound::TYPE)
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(250));
+        let now = || lamp_ipc::monotonic_us();
+        for phase in [
+            RingPhase::Listening,
+            RingPhase::Waiting,
+            RingPhase::Speaking,
+        ] {
+            let mut look = seen(now(), Some(4), Some(phase));
+            look.first_sound_us = None;
+            out.tick(look);
+        }
+        let at = now();
+        out.played(4, 240, 480, at, 120, at);
+        out.foretell(4, &vec![5_000i16; foretell_samples()], at);
+        let count = |sub: &mut lamp_bus::Subscriber| {
+            let mut n = 0;
+            while let Ok(Some(_)) = sub.recv(Duration::from_millis(40)) {
+                n += 1;
+            }
+            n
+        };
+        let (on_playout, on_sound) = (count(&mut playout), count(&mut sound));
+        std::fs::remove_dir_all(&root).unwrap();
+        assert!(on_playout >= 9, "{on_playout} on voice/playout");
+        assert!(on_sound >= 9, "{on_sound} on voice/sound");
+    }
+
     /// A held turn on the second pair: the next generation and a held
     /// heartbeat at once; nothing sounds while held; after the resume, a
     /// heartbeat that says so before the first sound, and nothing from

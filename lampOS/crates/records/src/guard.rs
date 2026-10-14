@@ -49,6 +49,9 @@ mod implementation {
     const MAX_PROCESSES: usize = 65_536;
     const MAX_PROCESS_BYTES: usize = 65_536;
     const MAX_FDS: usize = 65_536;
+    /// Programs the voice starts inside its own group as helpers, which
+    /// write no session folder of their own.
+    const VOICE_HELPERS: [&str; 1] = ["lamp-turn-end"];
     const MAX_LINK_BYTES: usize = 4096;
     const MAX_SHOW_BYTES: usize = 65_536;
     const TOTAL_BUDGET: Duration = Duration::from_secs(10);
@@ -639,6 +642,21 @@ mod implementation {
         // Many independent lamp components have a `serve` command. Only an
         // identified voice executable gets the voice argv interpretation.
         let relevant = named_voice || same_group || pid == snapshot.main_pid;
+        // The voice's own helpers, started by it inside its group: known by
+        // name, given no voice argv reading, and their open files still
+        // protected below. On lamp-4ace on 2026-10-14 the end-of-turn
+        // worker refused every check once the voice ran it.
+        let voice_helper = !named_voice
+            && same_group
+            && pid != snapshot.main_pid
+            && [executable.file_name(), Path::new(&argv[0]).file_name()]
+                .into_iter()
+                .flatten()
+                .any(|name| {
+                    VOICE_HELPERS
+                        .iter()
+                        .any(|helper| name == OsStr::new(helper))
+                });
         let mut direct_reference = false;
         for argument in &argv {
             let path = Path::new(argument);
@@ -647,7 +665,7 @@ mod implementation {
                 direct_reference = true;
             }
         }
-        if relevant {
+        if relevant && !voice_helper {
             if !named_voice {
                 return Err(refused("unrecognized process shares voice ownership"));
             }
@@ -1121,6 +1139,38 @@ mod implementation {
             )
             .unwrap();
             assert_eq!(got, BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()]));
+        }
+
+        #[test]
+        fn the_voices_end_of_turn_worker_is_known_and_its_files_still_checked() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            serve(
+                &tree,
+                123,
+                &root.join(CURRENT),
+                "/system.slice/lamp-voice.service",
+            );
+            let helper = process(
+                &tree,
+                124,
+                &[
+                    OsStr::new("/opt/lampOS/releases/x/lamp-turn-end"),
+                    OsStr::new("--model"),
+                ],
+                "/system.slice/lamp-voice.service",
+            );
+            fs::remove_file(helper.join("exe")).unwrap();
+            symlink("/opt/lampOS/releases/x/lamp-turn-end", helper.join("exe")).unwrap();
+            assert!(
+                scan_processes(
+                    &tree.0.join("proc"),
+                    &snapshot(&root),
+                    &root,
+                    Instant::now() + TOTAL_BUDGET
+                )
+                .is_ok()
+            );
         }
 
         #[test]

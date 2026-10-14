@@ -138,6 +138,22 @@ could serve only with the microphone moved or shielded from it, or the
 lamp much quieter. The analysis, its scripts and outputs were kept in the
 first builder's scratch folder, not in the repository.)
 
+Nor is the first microphone a better echo reference for the second than
+the speaker's own sound (same evening, same two runs, the measure above:
+two-second stretches of the lamp's own speech, what a fixed linear filter
+could take off the second microphone). From the speaker's sound: median
+7.6 and 6.8 dB; from the first microphone: 6.8 and 6.6 dB, less in 23 of
+26 stretches. The two agree below 1 kHz and the first microphone is much
+weaker at 2 to 4 kHz (coherence 0.06 to 0.19 against 0.44 to 0.63). So what
+the speaker's sound cannot explain in the second microphone is probably
+not in the sound the speaker makes (guessed, not tested). One more thing
+measured: following the second microphone's moving delay every half
+second, rather than one delay a stretch, raised what the speaker's sound
+explains from about 7 to about 11 dB median (three stretches lost 2.6 to
+11 dB that way; the delay was picked piece by piece, which may flatter it).
+So about 4 dB of what reads as "not linear" above is the echo moving within
+two seconds, which is what the steady reference is for.
+
 The reference that follows the second microphone is built, off unless
 set, with a rig that reproduces the moving echo and a replay option for
 these recordings: [steady-reference.md](steady-reference.md).

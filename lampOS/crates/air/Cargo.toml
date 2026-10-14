@@ -1,0 +1,18 @@
+[package]
+name = "lamp-air"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+lamp-msgs = { path = "../msgs" }
+lamp-bus = { path = "../bus" }
+
+# The sensor's reader (`src/main.rs`): one I2C adapter.
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "=1.1.5", features = ["fs"] }
+
+[lints]
+workspace = true

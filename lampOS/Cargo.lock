@@ -1668,6 +1668,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-air"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-msgs",
+ "rustix",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-audio"
 version = "0.1.0"
 dependencies = [

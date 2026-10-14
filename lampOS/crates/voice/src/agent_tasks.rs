@@ -16,7 +16,7 @@
 //! `--tasks-dir DIR`. The target is the tasks part's alias `office` unless
 //! `LAMP_TASKS_TARGET` names another.
 //!
-//! Hearing back: the tasks part watches what it started (`serve --watch`),
+//! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),
 //! [`crate::task_news`] tells the person unasked when the agent has
 //! finished or asks something, and [`CHECK`] answers "how's it going?" from
 //! what was last seen, at once. What the person heard through [`CHECK`] is

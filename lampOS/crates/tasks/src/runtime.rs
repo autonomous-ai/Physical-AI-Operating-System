@@ -104,7 +104,7 @@ pub struct Config {
     pub targets: BTreeMap<String, Target>,
     pub run_for: Option<Duration>,
     /// Look at each task handed over on its own until its agent has
-    /// finished or asks something (`serve --watch`, [`Engine::watch`]).
+    /// finished or asks something (on unless `serve --no-watch`, [`Engine::watch`]).
     pub watch: bool,
 }
 

@@ -49,7 +49,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus_root = PathBuf::from(lamp_bus::DEFAULT_ROOT);
     let mut run_for = None;
     let mut as_person = false;
-    let mut watch = false;
+    // On unless `--no-watch`: confirmed on lamp-4ace on 2026-10-15
+    // (docs/joining.md). `--watch` is still taken, and changes nothing.
+    let mut watch = true;
     let mut seen = std::collections::BTreeSet::new();
     while let Some(arg) = args.next() {
         if !seen.insert(arg.clone()) {
@@ -59,6 +61,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "--enable" => enabled = true,
             "--harness-as-person" => as_person = true,
             "--watch" => watch = true,
+            "--no-watch" => watch = false,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--voice-socket" => {

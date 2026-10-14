@@ -5,7 +5,7 @@
 //! Codex on another computer ([`crate::agent_tasks`]) and tells the person
 //! when the work comes back, unasked, the way someone at the next desk
 //! would: "Oh, Claude Code just finished the names you asked for." The
-//! tasks part watches each task handed over (`lamp-tasks serve --watch`)
+//! tasks part watches each task handed over (unless `lamp-tasks serve --no-watch`)
 //! and keeps what its agent came back with once it has finished, stopped,
 //! or stopped to ask something. A thread of the voice's own reads that
 //! every ten seconds and offers each piece of news once; the coordinator

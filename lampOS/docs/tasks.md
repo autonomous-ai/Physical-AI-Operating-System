@@ -470,7 +470,7 @@ used only to say it.
 
 - **Handing over.** After the yes, the model is told to say in a few natural
   words that Claude Code has it and that the lamp will say when it is done.
-- **Watching** (`serve --watch`, `Engine::watch`). Each accepted task is read
+- **Watching** (`Engine::watch`; on unless `serve --no-watch`). Each accepted task is read
   on its own, with the same `show --machine` as an asked read: every 30 s for
   its first 10 minutes, then every 2 minutes, for at most a day in one boot.
   A read made by the watch keeps an observation only when the agent has
@@ -506,8 +506,8 @@ used only to say it.
   now, and the model used only to say it.
 
 The voice's side is on wherever the tasks part is (`LAMP_TASKS_DIR`). The
-watch is `--watch` on the tasks service for its first minute on lamp-4ace,
-and then the default, as `docs/joining.md` now asks.
+watch was `--watch` for its first run on lamp-4ace (00:49 on 2026-10-15) and
+is the default since; `--no-watch` turns it off (`docs/joining.md`).
 
 ### The first run end to end on lamp-4ace (2026-10-15, 00:49 to 00:56)
 

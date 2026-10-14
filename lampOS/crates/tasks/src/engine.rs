@@ -18,7 +18,7 @@ pub const MAX_ASK_BYTES: usize = 4096;
 pub const MAX_SPEECH_BYTES: usize = 1000;
 pub const CONFIRM_MS: u64 = 120_000;
 pub const SPEECH_AGE_MS: u64 = 600_000;
-/// How often a task handed over is looked at on its own (`serve --watch`):
+/// How often a task handed over is looked at on its own (unless `serve --no-watch`):
 /// every half minute for its first ten minutes, then every two, until the
 /// agent has finished or asks something, and for at most a day.
 pub const WATCH_EARLY_MS: u64 = 30_000;

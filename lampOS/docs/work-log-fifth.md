@@ -236,6 +236,42 @@ lamp-4ace.
   folded, the pose a standing power cut leaves; and a head held a little
   short of a small goal at rest should rest there, not end the run.
 
+## 2026-10-14 — the state of tasks 22 to 27, by the ready line
+
+Ready for lamp-voice: as each line says (`fifth-P4`, proposed).
+
+- 22 body-second-lamp: yes (`568a27c6a`).
+- 27 keeper: yes for what is built (`82a3b8752`); the update choreography and
+  the pause are not built.
+- 23 wake: no. On `lamp-fifth` up to `e4d1180e4` (the drooped head, the
+  settle) and running on lamp-52e6; being mended for a shoulder left up by a
+  standing power cut, a head held short at rest, and the two ends lamp-4ace
+  showed (the base sticking at a slow goal, the shoulder's 7-count sway).
+- 24 give-way: no. `--give-way` and `--overload release` are on
+  `lamp-fifth` (`3a148c740`); no hand has tried either.
+- 25 head-follow: no. Measured; the nod's speed switch is still to make.
+- 26 weigh: no. Only the whole lamp's weight.
+
+## 2026-10-14 — wake — done for lamp-52e6
+
+Ready for lamp-voice: yes (the commit that adds this entry)
+
+- `fifth/wake`: `lampOS: let a woken lamp lower a shoulder left up by a
+  power cut and rest a head held a little short` (both behind `--wake on`),
+  with the two ends lamp-4ace showed: the base now gets the lifting lead,
+  and an arm may sway 15 counts during a wake. Gate on the Mac: fmt, clippy
+  clean; `cargo test -p lamp-body` 264 passed, 0 failed; workspace and the
+  Linux arm64 build as before. Body `d673c448…` installed on lamp-52e6 under
+  `lamp-os` (`deploy/lamp-52e6/lamp-body.service`).
+- On lamp-52e6, the pose a standing power cut left (shoulder up, elbow
+  folded) made again by a script: shoulder 2588, elbow 2085. The body
+  lowered the shoulder to 2059 before it said ready and ran on: no stop, no
+  restart. The unplug with `lamp-os` enabled (entry above) is the one at
+  power-up; `lamp-os` is enabled at boot on lamp-52e6, which is the unit's
+  `[Install]` the task asks for.
+- Kind: off unless set (`--wake on`). Not shown on lamp-4ace: its base and
+  arm mends; not shown: a standing power cut with this build.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

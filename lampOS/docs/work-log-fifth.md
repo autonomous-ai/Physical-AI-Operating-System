@@ -378,6 +378,26 @@ Ready for lamp-voice: yes (#724)
   Mac's screen was too small in the lamp's picture (about 15% of its
   height; the eyes take a face from 19.2%).
 
+## 2026-10-14 — pitch-window (task 38, #719) — lamp-52e6's own folded head window
+
+Ready for lamp-voice: yes (#726)
+
+- `fifth/pitch-window`, cut from `lamp-voice` (dc5774013), one commit:
+  `--pitch-window LOW,HIGH` gives a lamp its own window for the head's
+  pitch beside the base; without it lamp-4ace's (1,740 to 2,030) and the
+  servo's limits are not read (a test says so). Given, it must hold
+  `--home`'s pitch and lie inside the head pitch servo's own limits, read
+  at start, or nothing is written. Not "contain the start window" as #719
+  asked: this head meets the base at 2,010, inside it. Gate green,
+  `cargo test -p lamp-body` 270 passed, native ARM64 run green.
+- Measured on lamp-52e6 with the body stopped, folded, the head's pitch
+  only, a count at a time at half force: it meets the base at 2,010 and
+  lifts freely to 1,474 (the servo stops it at 1,451). Its unit now runs
+  `--pitch-window 1670,1995` with this build (since 20:43). The folded
+  glance that moved nothing in #718 now lifts the head 57 counts and
+  rests it again (`docs/verification/pitch-window-lamp-52e6-20261014/`, on
+  the branch).
+
 
 Work found while doing a listed task that cannot be folded into it. One
 line each, proposed once; the first builder answers once under "Answers"

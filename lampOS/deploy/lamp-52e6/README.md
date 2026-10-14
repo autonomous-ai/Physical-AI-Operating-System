@@ -21,6 +21,15 @@ under `/opt/lampOS/lamp-os/<version>` carries these units in `units/`.
 The long hexadecimal directories in `ExecStart` are the SHA-256 of the binary
 installed there.
 
+Since 2026-10-15 it runs every part lamp-4ace runs but three (#702): the
+units here for actions, air, controls, ears, expression, health, memory,
+name and schedule, and the voice and eyes, are lamp-4ace's with this lamp's
+name and build, made by one rule (a line at the top of each says so); the
+body is this lamp's own, now on the bus. Not here: policy (no key on this
+lamp), tasks (nothing to hand work to) and records (no settings). The
+keeper's release `0.2.0-fifth` carries them, so a boot brings up the whole
+lamp ([whole-lamp-lamp-52e6-20261015](../../docs/verification/whole-lamp-lamp-52e6-20261015/README.md)).
+
 Back to the old runtime on this lamp:
 
 ```text

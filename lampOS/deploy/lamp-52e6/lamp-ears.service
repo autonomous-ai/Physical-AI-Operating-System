@@ -1,0 +1,25 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-ears.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS ears (lamp-ears)
+After=sound.target local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+SupplementaryGroups=audio
+ExecStart=/opt/lampOS/ears/bb5572fa025b809ff81b380e462c0a0563560a00b5c90d117e63c647058b2a71/lamp-ears --device plug:device_micro1 --rise-db 30 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-ears
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

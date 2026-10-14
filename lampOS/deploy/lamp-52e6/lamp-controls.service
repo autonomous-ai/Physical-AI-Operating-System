@@ -1,0 +1,25 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-controls.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS controls (lamp-controls)
+After=local-fs.target
+ConditionHost=lamp-52e6
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/controls/7db31af79f8f780d88dfb30c186f25d7424664067501a9c03a6ec7686cc64799/lamp-controls serve --config /opt/lampOS/controls/7db31af79f8f780d88dfb30c186f25d7424664067501a9c03a6ec7686cc64799/controls.json --pins /opt/lampOS/controls/7db31af79f8f780d88dfb30c186f25d7424664067501a9c03a6ec7686cc64799/controls-pins.json --bus-root /run/lampos-bus --enable
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-controls
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

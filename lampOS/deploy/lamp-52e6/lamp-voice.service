@@ -1,12 +1,5 @@
-# lampOS voice on lamp-52e6: copied from deploy/lamp-4ace/lamp-voice.service (lamp-voice 3b90bde12).
-# Installed 2026-10-14 as the V1 -> V2 trial; hal and os-server are stopped and disabled.
-# Credential migrated once from V1 /root/config/config.json (llm_api_key).
-# The physical privacy switch is the mute: while it is closed only the GPIO
-# watcher runs. No motor worker is started by this unit.
-# Microphone mic2, turn-taking duplex (a person can interrupt), 600 ms end-of-speech wait.
-# After a failure it is started again in 4 s (15 s until 2026-10-13: a long time to face a dark lamp).
-# It tells the lamp's body its mood on LAMP_BODY_MOOD_SOCKET; lamp-body.service, a
-# separate unit, owns the servo port. This unit can never open that port.
+# lamp-52e6: deploy/lamp-4ace/lamp-voice.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
 [Unit]
 PartOf=lampos.target
 Description=lampOS voice (lamp-voice serve)
@@ -22,7 +15,7 @@ Group=root
 Slice=system.slice
 WorkingDirectory=/
 UMask=0077
-ExecStart=/opt/lampOS/releases/4cd315ee76da251962e60dd2d510efc6879b4285acf59a9a04b36fc6487da981/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600
+ExecStart=/opt/lampOS/releases/e4f1d32bcf44eb446c642d65c2b033be8f64c1d72b59b9a224fed8ef0043cf80/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
 # The microphone and speaker workers may not wait behind other work on the lamp: a read held up
 # for 10 ms, or a reference 20 ms late, ends the service (by design: the echo canceller's timing
 # is then unknown). With every core busy for 40 s (2026-10-13, twelve busy loops) the service
@@ -49,6 +42,42 @@ RuntimeDirectory=lampos-voice
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
 Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json
+# Since 2026-10-14: in a busy room every answer needs a sign it was meant for the lamp (docs/attention.md).
+Environment=LAMP_ATTENTION=busy-near
+# Since 2026-10-14 18:46 (the build of 41d09542f): busy-near is busy, and a name heard at 0.95 or more
+# with the room microphone 18 dB over its floor during the request is a call (docs/attention.md).
+# A stuffy room is told to the model once, beside a request, in a room that is not busy, at most every 3 h (docs/air.md).
+Environment=LAMP_AIR_FACTS=on
+# The ring as the lamp's eye (task 34, #712; lampOS/docs/ring-choreography.md, "The eye"): listening, it looks toward the
+# nearest face the eyes see; at rest it blinks now and then. Take this line out and the ring is as before.
+Environment=LAMP_RING_EYE=on
+# A short utterance in a room that is not busy goes to the model to judge, where the noise gate would drop it
+# (lampOS/docs/not-speech.md; on 2026-10-14 the gate dropped 13 of 36 short words such as "Hi.").
+Environment=LAMP_SHORT_SOUNDS=quiet-room
+# Work for Claude Code on the office computer through lamp-tasks.service (lampOS/docs/tasks.md, "The voice's side").
+# Whom it answered: one line per first output the rule judged, private to root on the lamp, never published
+# (lampOS/docs/attention.md, "The record of whom it answered"). Take this line out and nothing is written.
+Environment=LAMP_FIRST_OUTPUT=/var/lib/lampOS/voice/first-output
+# Said to the lamp by name and nothing answered: the model is told the name was heard (docs/attention.md).
+Environment=LAMP_SECOND_LOOK=on
+# The lamp's name heard as a request begins: the model is told so beside what it hears (docs/attention.md).
+# Off on 2026-10-14 from 08:15 until the build of a3e36ce93: a note sent in a request that was then given up reached the next request (docs/voice-review-2026-10-14.md). Mended: the note is written just before the end of its request's sound.
+Environment=LAMP_NAME_NOTE=on
+Environment=LAMP_NAME_NOTE_BUSY=face
+# The voice says its timing, the person's speech and its own sound on the bus, for the part that plans what the lamp shows (docs/expression.md). Nothing acts on it yet.
+Environment=LAMP_EXPRESSION_OUT=on
+Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
+Environment=LAMP_MEMORY_SOCKET=/run/lampos-memory/memory.sock
+Environment=LAMP_FAINT_HOLD_MS=400
+Environment=LAMP_BUS=on
+# What the microphone hears also goes on the bus (mic2/audio), for the part that hears the lamp's name
+# (lampOS/docs/name.md). The one topic that carries sound; nothing on the lamp writes it down.
+Environment=LAMP_BUS_AUDIO=on
+Environment=LAMP_TOOLS=on
+# The model asks the lamp's clock for the time (docs/tools.md).
+Environment=LAMP_CLOCK=on
+Environment=LAMP_SESSION_FACT=on
+Environment=LAMP_ROOM_FACTS=on
 Environment=LAMP_BODY_MOOD_SOCKET=/run/lampos-body/mood.sock
 # And tell the eyes (lamp-eyes.service) they may look, while the microphone is permitted.
 Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock

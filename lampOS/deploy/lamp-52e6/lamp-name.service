@@ -1,0 +1,26 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-name.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS name (lamp-name)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/name/4b06d9dc77bf5749ad806ef10cc9baa052cdd2c3753f262038486ea46c7378cf/lamp-name --models /opt/lampOS/name/models --microphone mic2 --least 0.9 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-name
+# The two fast cores: a step is 80 ms of sound and must not fall behind it.
+CPUAffinity=6 7
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

@@ -4,6 +4,7 @@ pub mod base;
 pub mod engine;
 pub mod input;
 pub mod mute;
+pub mod pins;
 pub mod receiver;
 pub mod record;
 pub mod replay;

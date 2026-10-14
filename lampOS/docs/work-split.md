@@ -790,10 +790,16 @@ chips, no gpio tools installed, and nothing on its I2C buses at the
 address a base touch controller would have, so on this lamp the controls
 are the button, the reset button and the head's touch pads
 (`robots/lamp/docs/physical-controls.md` in the older software names
-their lines). Still to do, and the first builder's: the reader of those
-lines in place of `MissingPins`, the voice stopping and muting on
-`controls/state`, the body's stop, and a person's hand on the lamp to
-show any of it.
+their lines).
+
+The reader of those lines is built (`crates/controls/src/pins.rs`,
+`serve --pins FILE`, and `probe`; [controls.md](controls.md), "The
+board's reader"). On lamp-4ace the probe found the button and two head
+pads wired, and twenty seconds of watching took 3,232 observations of
+them at rest with none refused. Still to do, and the first builder's: the
+voice stopping and muting on `controls/state`, the body's stop, and a
+person's hand on the lamp, which is also what will show which way the
+pads' lines go when touched.
 
 **2026-10-14, task 1, the fast end-of-turn model.** Taken onto
 `lamp-voice` (`a98e18a3f`); one test mended for a machine no library is

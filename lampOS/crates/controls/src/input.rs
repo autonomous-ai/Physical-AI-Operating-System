@@ -109,6 +109,13 @@ pub trait PinReader {
     fn read(&mut self, now_us: u64) -> Result<Option<Observation>, InputError>;
 }
 
+/// A reader chosen when the program starts: the board's, or none.
+impl<R: PinReader + ?Sized> PinReader for Box<R> {
+    fn read(&mut self, now_us: u64) -> Result<Option<Observation>, InputError> {
+        (**self).read(now_us)
+    }
+}
+
 /// A bounded deterministic stand-in. Each call returns at most one acquisition
 /// due by `now_us`, preserving its original clock stamp and full levels.
 pub struct ScriptedPins {

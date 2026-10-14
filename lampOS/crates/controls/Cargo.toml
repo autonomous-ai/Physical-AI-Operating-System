@@ -13,5 +13,9 @@ lamp-bus = { path = "../bus" }
 lamp-ipc = { path = "../ipc" }
 signal-hook = { version = "=0.4.4", default-features = false }
 
+# The board's reader (`src/pins.rs`): the lamp's button and touch lines.
+[target.'cfg(target_os = "linux")'.dependencies]
+gpiocdev = "=0.8.0"
+
 [lints]
 workspace = true

@@ -135,6 +135,60 @@ step, ages a sample after the adapter returns, and faults on a full drain.
 These are software budgets, not hard scheduling guarantees. `controls.lock`
 allows one process per bus root. The OS releases the lock when a process dies.
 
+## The board's reader (first builder, 2026-10-14)
+
+`src/pins.rs`. `lamp-controls serve --pins FILE` reads the board's GPIO
+lines named in FILE in place of the stand-in that reports Missing.
+Without `--pins` nothing changes.
+
+The file is the board's wiring and nothing else: the chip, and for each
+button and head pad its name (the same names, in the same order, as the
+controls' own configuration), its line, whether a press or a touch pulls
+it low, and how it is held when nothing drives it. A field nobody knows
+is refused. `deploy/lamp-4ace/controls-pins.json` and
+`deploy/lamp-4ace/controls.json` are lamp-4ace's.
+
+Every configured line is read together every `every_ms` (5 on lamp-4ace)
+and given as one complete observation stamped with the moment of the
+reading, numbered one after another, under a session of the reader's own
+that is new at every start. A line that cannot be read is reported as
+Missing, never as released. The lines are taken for this program alone:
+if another holds one, it does not start. The privacy slide is not read
+here; it is the voice's.
+
+`lamp-controls probe --pins FILE` reads each line of the file once with
+a pull-down and once with a pull-up, 10 ms each, and serves nothing: a
+line that reads the same both ways is driven by something, and one that
+follows the pull is not.
+
+**On lamp-4ace, 2026-10-14, 10:50, nobody touching it.** The older
+software's record names the primary button on chip 0, line 99, and four
+places a head pad may be wired, lines 37, 96, 97 and 98
+(`robots/lamp/docs/physical-controls.md`). The probe:
+
+| Line | With a pull-down | With a pull-up | So |
+|---|---|---|---|
+| 99, the button | high | high | Held high by the board: a button to ground, pressed is low |
+| 37 | low | low | Driven low: a pad is wired here |
+| 96 | low | low | Driven low: a pad is wired here |
+| 97 | low | high | Follows the pull: nothing wired |
+| 98 | low | high | Follows the pull: nothing wired |
+
+So this lamp has the button and two head pads. The two pads rest low,
+where the older software's page says a wired pad rests high: lamp-4ace's
+file takes a touch to be high. **That is read from the lines at rest and
+not from a touch.** Twenty seconds of `serve` with the file, watching
+only: 3,232 observations taken, one every 6.2 ms, none refused, no
+reading failed, the longest step 0.5 ms, and all three inputs at rest
+throughout. `controls/state` was published.
+
+Not shown: a press or a touch. Nobody's hand has been on the lamp for
+this. The first press of the button and the first pat of the head, with
+`serve --record`, will show which way each line goes and how long a
+touch lasts, and the file is to be corrected from that before anything
+acts on it. Nothing does yet: the voice does not listen to
+`controls/state`.
+
 ## Topics and the receiver
 
 Both types live in `lamp-msgs` and are additive; the old first-topic table and

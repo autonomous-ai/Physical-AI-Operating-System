@@ -869,6 +869,7 @@ dependencies = [
 name = "lamp-controls"
 version = "0.1.0"
 dependencies = [
+ "gpiocdev",
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",

@@ -19,11 +19,13 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-controls serve [--config FILE] [--enable] [--bus-root PATH] [--clock-id ID] [--record FILE] [--seconds N]\n\
+const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--enable] [--bus-root PATH] [--clock-id ID] [--record FILE] [--seconds N]\n\
 lamp-controls replay --input FILE --config FILE --clock-id ID [--enable] [--output FILE] [--until-us N]\n\
+lamp-controls probe --pins FILE\n\
 lamp-controls clock [--clock-id ID]\n\n\
 Shadow is the default. A config file cannot enable the process without --enable.\n\
-The shipped serve adapter reports Missing: First supplies the verified board reader.\n\
+Without --pins, serve reads nothing and reports Missing. With it, the board's GPIO lines named in FILE are read.\n\
+probe reads each line of FILE once with a pull-down and once with a pull-up, and serves nothing.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
 Record/output files must not already exist. Acquisition records are capped at 32 MiB.\n\
 No controls message grants microphone/camera permission or reports a verified stop.";
@@ -40,6 +42,7 @@ struct Args {
     clock: Option<String>,
     seconds: Option<u64>,
     until: Option<u64>,
+    pins: Option<PathBuf>,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
@@ -48,7 +51,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     if command == "--help" || command == "-h" {
         return Ok(None);
     }
-    if !["serve", "replay", "clock"].contains(&command.as_str()) {
+    if !["serve", "replay", "clock", "probe"].contains(&command.as_str()) {
         return Err(format!("unknown command {command}"));
     }
     let mut out = Args {
@@ -63,6 +66,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
         let allowed = match out.command.as_str() {
             "serve" => [
                 "--config",
+                "--pins",
                 "--enable",
                 "--bus-root",
                 "--clock-id",
@@ -79,6 +83,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                 "--until-us",
             ]
             .contains(&option.as_str()),
+            "probe" => option == "--pins",
             _ => option == "--clock-id",
         };
         if !allowed {
@@ -93,6 +98,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
             .ok_or_else(|| format!("{option} needs a value"))?;
         match option.as_str() {
             "--config" => out.config = Some(value.into()),
+            "--pins" => out.pins = Some(value.into()),
             "--input" => out.input = Some(value.into()),
             "--output" => out.output = Some(value.into()),
             "--record" => out.record = Some(value.into()),
@@ -128,6 +134,9 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     {
         return Err("replay needs --input, --config and the input's --clock-id".into());
     }
+    if out.command == "probe" && out.pins.is_none() {
+        return Err("probe needs --pins".into());
+    }
     Ok(Some(out))
 }
 
@@ -150,7 +159,86 @@ fn config(args: &Args) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(config)
 }
 
+/// The board's wiring, from its file.
+#[cfg(target_os = "linux")]
+fn pins(
+    path: &std::path::Path,
+) -> Result<lamp_controls::pins::PinsConfig, Box<dyn std::error::Error>> {
+    let mut bytes = Vec::new();
+    File::open(path)?.take(16_385).read_to_end(&mut bytes)?;
+    if bytes.len() > 16_384 {
+        return Err("the pins file exceeds 16 KiB".into());
+    }
+    Ok(serde_json::from_slice(&bytes)?)
+}
+
+/// The reader serve uses: the board's lines if a pins file was given, and
+/// otherwise the stand-in that says no input is there.
+#[cfg(target_os = "linux")]
+fn reader(
+    args: &Args,
+    config: &Config,
+    clock: &str,
+) -> Result<Box<dyn lamp_controls::input::PinReader>, Box<dyn std::error::Error>> {
+    use lamp_controls::pins::{GpioLines, LinePins};
+    let Some(path) = &args.pins else {
+        return Ok(Box::new(MissingPins));
+    };
+    let wiring = pins(path)?;
+    wiring.check(config)?;
+    let lines = GpioLines::open(&wiring)?;
+    let session = format!("pins-{}-{}", std::process::id(), lamp_ipc::monotonic_us());
+    Ok(Box::new(LinePins::new(
+        lines, wiring, config, clock, session,
+    )?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reader(
+    args: &Args,
+    _: &Config,
+    _: &str,
+) -> Result<Box<dyn lamp_controls::input::PinReader>, Box<dyn std::error::Error>> {
+    if args.pins.is_some() {
+        return Err("--pins reads GPIO lines, which this system does not have".into());
+    }
+    Ok(Box::new(MissingPins))
+}
+
+#[cfg(target_os = "linux")]
+fn probe(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let wiring = pins(path)?;
+    for (kind, pin) in wiring
+        .buttons
+        .iter()
+        .map(|pin| ("button", pin))
+        .chain(wiring.head_pads.iter().map(|pin| ("head_pad", pin)))
+    {
+        let read = lamp_controls::pins::GpioLines::probe(&wiring.chip, pin.line);
+        println!(
+            "{}",
+            match read {
+                Ok((pulled_down, pulled_up)) =>
+                    serde_json::json!({"kind":kind,"name":pin.name,"line":pin.line,
+                    "high_with_pull_down":pulled_down,"high_with_pull_up":pulled_up,
+                    "reads":if pulled_down == pulled_up {"driven: something holds this line"} else {"follows the pull: nothing drives it now"}}),
+                Err(error) =>
+                    serde_json::json!({"kind":kind,"name":pin.name,"line":pin.line,"error":error.to_string()}),
+            }
+        );
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn probe(_: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    Err("probe reads GPIO lines, which this system does not have".into())
+}
+
 fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+    if args.command == "probe" {
+        return probe(args.pins.as_ref().expect("checked when parsed"));
+    }
     let clock = runtime::clock_id(args.clock.as_deref())?;
     if args.command == "clock" {
         println!(
@@ -177,12 +265,13 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("{}", serde_json::to_string(&result)?);
         return Ok(());
     }
+    let reader = reader(&args, &config, &clock)?;
     let bus = if let Some(root) = args.bus_root {
         Bus::new(root)?
     } else {
         Bus::from_environment()?
     };
-    let mut service = Service::new(&bus, config, MissingPins, &clock)?;
+    let mut service = Service::new(&bus, config, reader, &clock)?;
     if let Some(path) = args.record {
         service.record_to(&path)?;
     }

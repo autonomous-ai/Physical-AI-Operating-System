@@ -1,0 +1,34 @@
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.68s
+     Running tests/operator.rs (target/debug/deps/operator-ec786d9ff3626263)
+
+running 11 tests
+test nonlocal_plaintext_origins_and_weak_codes_are_not_allowed ... ok
+test disabled_operation_never_reaches_worker ... ok
+test duplicate_or_malformed_cookie_cannot_authenticate ... ok
+test storage_refusal_is_not_an_accepted_operation ... ok
+test foreign_missing_duplicate_host_and_origins_and_query_secrets_are_refused ... ok
+test page_is_self_contained_and_status_requires_authentication ... ok
+test sessions_expire_exactly_and_clock_reversal_revokes_them ... ok
+test worker_must_admit_before_http_ack_and_status_is_independent ... ok
+test only_four_sessions_are_kept_and_logout_revokes_all ... ok
+test login_attempts_are_bounded_and_never_echo_credentials ... ok
+test malformed_oversized_and_unknown_requests_are_redacted ... FAILED
+
+failures:
+
+---- malformed_oversized_and_unknown_requests_are_redacted stdout ----
+
+thread 'malformed_oversized_and_unknown_requests_are_redacted' (110056386) panicked at crates/surround/tests/operator.rs:374:9:
+assertion `left == right` failed
+  left: 503
+ right: 400
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    malformed_oversized_and_unknown_requests_are_redacted
+
+test result: FAILED. 10 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.00s
+
+error: test failed, to rerun pass `-p lamp-surround --test operator`

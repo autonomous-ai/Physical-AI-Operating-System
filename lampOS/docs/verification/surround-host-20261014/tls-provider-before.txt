@@ -1,0 +1,26 @@
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.58s
+     Running tests/tls_provider.rs (target/debug/deps/tls_provider-6b4b66d7d3dfdc16)
+
+running 1 test
+test adding_surround_preserves_the_existing_voices_implicit_tls_provider ... FAILED
+
+failures:
+
+---- adding_surround_preserves_the_existing_voices_implicit_tls_provider stdout ----
+
+thread 'adding_surround_preserves_the_existing_voices_implicit_tls_provider' (109979089) panicked at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustls-0.23.45/src/crypto/mod.rs:249:14:
+
+Could not automatically determine the process-level CryptoProvider from Rustls crate features.
+Call CryptoProvider::install_default() before this point to select a provider manually, or make sure exactly one of the 'aws-lc-rs' and 'ring' features is enabled.
+See the documentation of the CryptoProvider type for more information.
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    adding_surround_preserves_the_existing_voices_implicit_tls_provider
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-surround --test tls_provider`

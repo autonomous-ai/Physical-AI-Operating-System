@@ -1,0 +1,363 @@
+{
+  "task": "surround",
+  "base_origin_lamp_voice": "7d3371dd34a4f67480c44f054cc43890322211ab",
+  "claim_commit": "16aee83c8",
+  "test_date_utc": "2026-10-14",
+  "host": {
+    "os": "macOS 26.6.2 / Darwin 25.6.0",
+    "target": "x86_64-apple-darwin",
+    "cpu": "Intel Core i7-10700K @ 3.80 GHz",
+    "memory_bytes": 68719476736,
+    "rustc": "1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "1.96.0 (30a34c682 2026-05-25)",
+    "node": "26.7.0",
+    "profile": "Cargo default unoptimized dev/test with debug information",
+    "lamp_access": false
+  },
+  "baseline_workspace_build": {
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--workspace"
+    ],
+    "result": "pass before Surround implementation",
+    "cargo_reported_seconds": 15.67
+  },
+  "final_gates": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "started_utc": "2026-10-14T04:14:44.919098+00:00",
+      "elapsed_seconds": 2.716265276,
+      "exit_code": 0,
+      "log": "gate-format.txt"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-surround",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-10-14T04:14:47.635934+00:00",
+      "elapsed_seconds": 6.690919620999999,
+      "exit_code": 0,
+      "log": "gate-clippy.txt",
+      "cargo_reported_build_duration": "6.57s"
+    },
+    {
+      "name": "clippy-network",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-surround",
+        "--all-features",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-10-14T04:14:54.327161+00:00",
+      "elapsed_seconds": 7.010248872000002,
+      "exit_code": 0,
+      "log": "gate-clippy-network.txt",
+      "cargo_reported_build_duration": "6.88s"
+    },
+    {
+      "name": "tests-default",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-surround"
+      ],
+      "started_utc": "2026-10-14T04:16:44.758311+00:00",
+      "elapsed_seconds": 191.272838566,
+      "exit_code": 0,
+      "log": "gate-tests-default.txt",
+      "tests": {
+        "suites": 20,
+        "passed": 260,
+        "failed": 0,
+        "ignored": 0
+      },
+      "cargo_reported_build_duration": "8.54s"
+    },
+    {
+      "name": "tests-network",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-surround",
+        "--all-features",
+        "--",
+        "--test-threads=1"
+      ],
+      "started_utc": "2026-10-14T04:19:56.026437+00:00",
+      "elapsed_seconds": 243.213068947,
+      "exit_code": 0,
+      "log": "gate-tests-network.txt",
+      "tests": {
+        "suites": 20,
+        "passed": 263,
+        "failed": 0,
+        "ignored": 0
+      },
+      "cargo_reported_build_duration": "15.29s"
+    },
+    {
+      "name": "gemini-regression",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-gemini",
+        "--",
+        "--test-threads=1"
+      ],
+      "started_utc": "2026-10-14T04:23:59.232179+00:00",
+      "elapsed_seconds": 69.15237286499996,
+      "exit_code": 0,
+      "log": "gate-gemini-regression.txt",
+      "tests": {
+        "suites": 5,
+        "passed": 250,
+        "failed": 0,
+        "ignored": 2
+      },
+      "cargo_reported_build_duration": "14.87s",
+      "ignored_reason": "Two pre-existing long-duration recovery soak tests, explicitly ignored upstream; ordinary 250 tests passed."
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "started_utc": "2026-10-14T04:25:08.463637+00:00",
+      "elapsed_seconds": 58.576299689999985,
+      "exit_code": 0,
+      "log": "gate-workspace-build.txt",
+      "cargo_reported_build_duration": "58.47s"
+    },
+    {
+      "name": "node-syntax",
+      "command": [
+        "node",
+        "--check",
+        "crates/surround/web/app.js"
+      ],
+      "started_utc": "2026-10-14T04:26:07.038837+00:00",
+      "elapsed_seconds": 0.08480125699998098,
+      "exit_code": 0,
+      "log": "gate-node-syntax.txt"
+    },
+    {
+      "name": "node-tests",
+      "command": [
+        "node",
+        "--test",
+        "crates/surround/web/app.test.cjs"
+      ],
+      "started_utc": "2026-10-14T04:26:07.124275+00:00",
+      "elapsed_seconds": 0.1940400139999383,
+      "exit_code": 0,
+      "log": "gate-node-tests.txt",
+      "tests": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "standalone": {
+    "copy": "/private/tmp/lamp-surround-standalone-aue7a241/lampOS",
+    "target": "/private/tmp/lamp-surround-standalone-aue7a241/target",
+    "source_files": 785,
+    "parent_sources_used": false,
+    "status": "passed",
+    "local_packages": 26,
+    "workspace_members": 25,
+    "all_project_path_dependencies_in_copy": true,
+    "source_only": true,
+    "commands": [
+      {
+        "name": "workspace-build",
+        "command": [
+          "cargo",
+          "build",
+          "--offline",
+          "--locked",
+          "--workspace"
+        ],
+        "started_utc": "2026-10-14T04:21:13.217399+00:00",
+        "elapsed_seconds": 303.62364834,
+        "exit_code": 0,
+        "log": "standalone-workspace-build.txt",
+        "build_jobs": 2,
+        "cargo_reported_build_duration": "5m 03s"
+      },
+      {
+        "name": "tests-network",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "lamp-surround",
+          "--all-features",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_utc": "2026-10-14T04:26:16.912616+00:00",
+        "elapsed_seconds": 313.46208977099997,
+        "exit_code": 0,
+        "log": "standalone-tests-network.txt",
+        "build_jobs": 2,
+        "tests": {
+          "suites": 20,
+          "passed": 263,
+          "failed": 0,
+          "ignored": 0
+        },
+        "cargo_reported_build_duration": "1m 37s"
+      },
+      {
+        "name": "node-tests",
+        "command": [
+          "node",
+          "--test",
+          "crates/surround/web/app.test.cjs"
+        ],
+        "started_utc": "2026-10-14T04:31:30.365775+00:00",
+        "elapsed_seconds": 0.19079221100002997,
+        "exit_code": 0,
+        "log": "standalone-node-tests.txt",
+        "build_jobs": 2,
+        "tests": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "runtime_hashes": "runtime-source-sha256.json"
+  },
+  "benchmarks": {
+    "operator_fixture_final": "operator-bench.json",
+    "operator_fixture_runs": 2,
+    "final_run_after_builds_and_tests_completed": true,
+    "earlier_fixture_run": {
+      "warm_status_median_ms": 0.081,
+      "warm_status_max_ms": 0.087,
+      "first_admission_ms": 47.678,
+      "warm_admission_median_ms": 38.642,
+      "warm_admission_max_ms": 44.481,
+      "slow_status_median_ms": 0.092,
+      "slow_status_max_ms": 0.229,
+      "journal_readbacks": 102
+    },
+    "actual_worker_channel_to_durable_admission_us": {
+      "fsync_loaded_initial_failure": 1605898,
+      "isolated_recheck": 330900,
+      "final_focused_serial": 331266
+    },
+    "complete_service_100ms_admission_target_established": false,
+    "lamp_latency_measured": false
+  },
+  "replay": {
+    "command": [
+      "cargo",
+      "run",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-surround",
+      "--example",
+      "update_replay"
+    ],
+    "result": "pass",
+    "scenarios": 5,
+    "artifact": "update-replay.json",
+    "timing_is_authored": true,
+    "update_power_cut_positions": 66,
+    "reset_power_cut_positions": 28
+  },
+  "browser": {
+    "browser": "local Chrome",
+    "fixture": "disabled loopback preview, no owners/provider/network adapter configured",
+    "views": [
+      "default desktop viewport",
+      "390x844"
+    ],
+    "checks": [
+      "login",
+      "all mutation controls disabled",
+      "runtime Unknown",
+      "readable Idle update outcome",
+      "layout fits narrow view",
+      "logout hides workspace"
+    ],
+    "result": "pass",
+    "initial_failure": "Software rendered [object Object]; fixed and regression tested",
+    "other_surface": "in-app browser unavailable; used Chrome",
+    "viewport_restored": true,
+    "test_tab_closed": true
+  },
+  "dependencies": {
+    "existing_lock_packages_removed": 0,
+    "new_lock_packages": 148,
+    "vendor": "Tough 0.24.0",
+    "vendor_source_files_compared_to_verified_archive": 26,
+    "vendor_runtime_source_changes": 0,
+    "vendor_manifest_runtime_change": "rustls default-features=false",
+    "vendor_provenance": "../../../vendor/tough/PROVENANCE.json",
+    "workspace_rustls_provider_features": [
+      "ring"
+    ],
+    "native_signature_library": "aws-lc-rs 1.18.2 / aws-lc-sys 0.46.0 non-FIPS",
+    "native_build_requirement": "target C/C++ compiler; pinned non-FIPS build does not require CMake, bindgen or Go",
+    "macos_debug_binary_bytes": 35565600,
+    "arm64_binary_size_measured": false
+  },
+  "failure_history": "failures.md",
+  "not_shown": [
+    "No lamp, SSH, deployment, production provider/signing key, new account or paid external service used.",
+    "No Linux ARM64 build/execution or Rust 1.91 MSRV validation.",
+    "No real NetworkManager/system-bus change, AP/customer handover, production TLS proxy or release feed.",
+    "No hardware-owner supervisor implementation, actual quiet/worker-exit/servo-rest or acoustic/physical latency proof.",
+    "No real power cut, flash durability, ENOSPC or secure deletion proof; tests use authored crash points, path obstruction and permission faults.",
+    "No full upstream Tough test suite or complete workspace test suite; all touched-crate gates, Gemini regression and workspace builds passed.",
+    "Reset retains a deliberate 64-operation identity bound and trust retains 64 root proofs; neither is silently evicted.",
+    "The actual worker timing exceeds the provisional 100ms admission target on this host."
+  ]
+}

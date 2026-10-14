@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "state_dir": "/var/lib/lampOS/surround/operations",
+  "configuration_dir": "/var/lib/lampOS/surround/configuration",
+  "socket": "/run/lampos-surround/operator.sock",
+  "operator_origin": "https://lamp.local",
+  "operator_code_file": "/etc/lampos/surround/operator.key",
+  "owner_socket": null,
+  "release": null,
+  "network": null,
+  "reset_stores": ["voice", "memory", "schedule", "tasks", "settings", "configuration", "network"],
+  "startup": {
+    "enabled": false,
+    "components": [
+      {"component":"body","configured":false,"binary_available":false,"calibration":"missing","missing_dependencies":["calibration"]},
+      {"component":"eyes","configured":false,"binary_available":false,"calibration":"missing","missing_dependencies":["camera"]},
+      {"component":"voice","configured":false,"binary_available":false,"calibration":"not_required","missing_dependencies":["configuration","provider"]}
+    ]
+  },
+  "bus_root": null
+}

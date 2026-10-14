@@ -1,0 +1,72 @@
+{
+  "authenticated_status": {
+    "first": {
+      "above_target_samples": 0,
+      "max_ms": 0.114197,
+      "median_ms": 0.114197,
+      "samples": 1
+    },
+    "warm": {
+      "above_target_samples": 0,
+      "max_ms": 0.146823,
+      "median_ms": 0.079708,
+      "samples": 100
+    }
+  },
+  "boundary": "in-process Router dispatch through response-body collection; request construction and benchmark JSON parsing excluded",
+  "durable_admission": {
+    "first": {
+      "above_target_samples": 0,
+      "max_ms": 41.014441999999995,
+      "median_ms": 41.014441999999995,
+      "samples": 1
+    },
+    "warm": {
+      "above_target_samples": 0,
+      "max_ms": 76.701022,
+      "median_ms": 39.003407,
+      "samples": 100
+    }
+  },
+  "durable_redacted_journal_readbacks": 102,
+  "excluded": [
+    "TCP/Unix sockets",
+    "browser rendering",
+    "physical lamp",
+    "providers",
+    "network adapters",
+    "production maintenance effects"
+  ],
+  "login": {
+    "above_target_samples": 0,
+    "max_ms": 0.263173,
+    "median_ms": 0.263173,
+    "samples": 1
+  },
+  "measurement_host": {
+    "architecture": "x86_64",
+    "os": "macos"
+  },
+  "schema_version": 1,
+  "slow_dependency": {
+    "admission": {
+      "above_target_samples": 0,
+      "max_ms": 38.81608,
+      "median_ms": 38.81608,
+      "samples": 1
+    },
+    "authored_minimum_ms": 500,
+    "completion_barrier": "also waits for all concurrent-with-work status samples; may extend the minimum on a slow host",
+    "measured_fixture_dependency_ms": 509.58541999999994,
+    "status_while_operation_working": {
+      "above_target_samples": 0,
+      "max_ms": 0.241976,
+      "median_ms": 0.092662,
+      "samples": 100
+    }
+  },
+  "storage": "private 0700 temporary directory on this host's default temporary filesystem; file and directory fsync included in admission",
+  "target_ms": 100.0,
+  "timing_threshold_asserted": false,
+  "worker": "scripted fixture on a separate thread; redacted durable Operation before acknowledgement; no network action"
+}

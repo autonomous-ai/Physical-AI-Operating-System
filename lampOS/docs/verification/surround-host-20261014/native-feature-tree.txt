@@ -1,0 +1,14 @@
+aws-lc-sys v0.46.0
+└── aws-lc-rs v1.18.2
+    ├── aws-lc-rs feature "alloc"
+    │   └── aws-lc-rs feature "default"
+    │       └── tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+    │           └── lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+    │               └── lamp-surround feature "default" (command-line)
+    ├── aws-lc-rs feature "aws-lc-sys"
+    │   └── aws-lc-rs feature "default" (*)
+    ├── aws-lc-rs feature "default" (*)
+    ├── aws-lc-rs feature "ring-io"
+    │   └── aws-lc-rs feature "default" (*)
+    └── aws-lc-rs feature "ring-sig-verify"
+        └── aws-lc-rs feature "default" (*)

@@ -1,0 +1,17 @@
+✔ a failed status poll withdraws live readiness and changes; a fresh reply restores them (7.067675ms)
+✔ live readiness expires while polling is pending and a slow reply cannot renew an old lease (2.785938ms)
+✔ 401 hides private status, disables changes, requires sign-in and stops polling (1.502302ms)
+✔ a status response arriving after logout cannot reveal or repaint the signed-out page (1.357329ms)
+✔ an admitted operation may finish after logout without repainting or restarting status polling (1.282044ms)
+✔ an old unauthorized reply and old logout completion cannot erase a newer signed-in page (1.548105ms)
+✔ an older overlapping status response cannot replace a newer capability (1.306477ms)
+✔ a login response arriving after logout cannot start an authenticated refresh (1.207023ms)
+✔ all serialized Rust update outcomes display customer text, never object coercion or raw details (7.278902ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 117.136601

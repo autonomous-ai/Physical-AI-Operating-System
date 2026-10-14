@@ -1,0 +1,174 @@
+   Compiling memchr v2.8.3
+   Compiling futures-core v0.3.34
+   Compiling stable_deref_trait v1.2.1
+   Compiling futures-sink v0.3.34
+   Compiling futures-io v0.3.34
+   Compiling untrusted v0.7.1
+   Compiling smallvec v1.16.3
+   Compiling litemap v0.8.3
+   Compiling jobserver v0.1.35
+   Compiling serde_core v1.0.229
+   Compiling writeable v0.6.4
+   Compiling tokio v1.53.1
+   Compiling rustls v0.23.45
+   Compiling zerofrom v0.1.8
+   Compiling utf8_iter v1.0.4
+   Compiling http-body v1.1.0
+   Compiling percent-encoding v2.3.2
+   Compiling futures-channel v0.3.34
+   Compiling icu_normalizer_data v2.3.0
+   Compiling icu_properties_data v2.3.0
+   Compiling yoke v0.8.3
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling sync_wrapper v1.0.2
+   Compiling core-foundation-sys v0.8.7
+   Compiling tower-layer v0.3.3
+   Compiling httpdate v1.0.3
+   Compiling cc v1.7.0
+   Compiling atomic-waker v1.1.2
+   Compiling form_urlencoded v1.2.2
+   Compiling tracing v0.1.44
+   Compiling thiserror-impl v2.0.21
+   Compiling base64 v0.23.1
+   Compiling want v0.3.2
+   Compiling ipnet v2.12.2
+   Compiling futures-util v0.3.34
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling semver v1.0.28
+   Compiling core-foundation v0.10.1
+   Compiling security-framework-sys v2.17.0
+   Compiling aho-corasick v1.1.5
+   Compiling http-body-util v0.1.5
+   Compiling regex-syntax v0.8.11
+   Compiling tinyvec v1.13.3
+   Compiling rustc_version v0.4.1
+   Compiling pin-project v1.1.13
+   Compiling bstr v1.13.1
+   Compiling mime v0.3.17
+   Compiling security-framework v3.7.0
+   Compiling fastrand v2.5.0
+   Compiling jiff-core v0.1.1
+   Compiling snafu v0.8.9
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.6
+   Compiling curve25519-dalek v4.1.3
+   Compiling unicode-normalization v0.1.25
+   Compiling cmake v0.1.58
+   Compiling icu_collections v2.3.0
+   Compiling icu_locale_core v2.3.0
+   Compiling tempfile v3.27.0
+   Compiling axum-core v0.5.6
+   Compiling thiserror v2.0.21
+   Compiling pem v3.0.6
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling regex-automata v0.4.18
+   Compiling typed-path v0.9.3
+   Compiling matchit v0.8.4
+   Compiling signature v2.2.0
+   Compiling aws-lc-sys v0.46.0
+   Compiling ring v0.17.14
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling icu_provider v2.3.1
+   Compiling jiff v0.2.38
+   Compiling serde_path_to_error v0.1.20
+   Compiling hex v0.4.3
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling serde_plain v1.0.2
+   Compiling ed25519 v2.2.3
+   Compiling futures-executor v0.3.34
+   Compiling futures v0.3.34
+   Compiling lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+   Compiling olpc-cjson v0.1.4
+   Compiling lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+   Compiling globset v0.4.20
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling tokio-util v0.7.20
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling ed25519-dalek v2.2.0
+   Compiling url v2.5.8
+   Compiling hyper-util v0.1.21
+   Compiling tower-http v0.6.11
+   Compiling axum v0.8.9
+   Compiling aws-lc-rs v1.18.2
+   Compiling rustls-webpki v0.103.15
+   Compiling tokio-rustls v0.26.6
+   Compiling tungstenite v0.30.0
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling tough v0.24.0
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 26.10s
+     Running tests/atomic.rs (target/debug/deps/atomic-004cff5c12032585)
+
+running 9 tests
+test remove_does_not_remove_other_files ... FAILED
+test failure_before_publication_preserves_the_committed_record ... FAILED
+test linked_temp_cannot_truncate_any_record ... FAILED
+test a_partial_uncommitted_temp_does_not_replace_the_journal ... FAILED
+test leaf_and_ancestor_symlinks_are_refused_without_touching_their_targets ... FAILED
+test only_one_writer_holds_the_directory_until_drop ... FAILED
+test replacement_is_whole_private_and_bounded ... FAILED
+test exposed_files_and_directories_are_not_silently_repaired ... ok
+test relative_and_parent_paths_are_refused ... ok
+
+failures:
+
+---- remove_does_not_remove_other_files stdout ----
+
+thread 'remove_does_not_remove_other_files' (109955462) panicked at crates/surround/tests/atomic.rs:100:43:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- failure_before_publication_preserves_the_committed_record stdout ----
+
+thread 'failure_before_publication_preserves_the_committed_record' (109955457) panicked at crates/surround/tests/atomic.rs:41:46:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+---- linked_temp_cannot_truncate_any_record stdout ----
+
+thread 'linked_temp_cannot_truncate_any_record' (109955459) panicked at crates/surround/tests/atomic.rs:69:41:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+---- a_partial_uncommitted_temp_does_not_replace_the_journal stdout ----
+
+thread 'a_partial_uncommitted_temp_does_not_replace_the_journal' (109955455) panicked at crates/surround/tests/atomic.rs:27:46:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+---- leaf_and_ancestor_symlinks_are_refused_without_touching_their_targets stdout ----
+
+thread 'leaf_and_ancestor_symlinks_are_refused_without_touching_their_targets' (109955458) panicked at crates/surround/tests/atomic.rs:52:43:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+---- only_one_writer_holds_the_directory_until_drop stdout ----
+
+thread 'only_one_writer_holds_the_directory_until_drop' (109955460) panicked at crates/surround/tests/atomic.rs:90:52:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+---- replacement_is_whole_private_and_bounded stdout ----
+
+thread 'replacement_is_whole_private_and_bounded' (109955463) panicked at crates/surround/tests/atomic.rs:11:53:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "record must be private, owned by this user, and not linked" }
+
+
+failures:
+    a_partial_uncommitted_temp_does_not_replace_the_journal
+    failure_before_publication_preserves_the_committed_record
+    leaf_and_ancestor_symlinks_are_refused_without_touching_their_targets
+    linked_temp_cannot_truncate_any_record
+    only_one_writer_holds_the_directory_until_drop
+    remove_does_not_remove_other_files
+    replacement_is_whole_private_and_bounded
+
+test result: FAILED. 2 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p lamp-surround --test atomic`

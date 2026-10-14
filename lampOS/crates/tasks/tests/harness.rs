@@ -217,6 +217,33 @@ fn claude_and_explicit_folder_are_preserved_without_shell_expansion() {
     assert_eq!(rig.calls()[1]["args"][4], "~/code/my project");
 }
 
+/// OpenCode, as Harness 0.4.2's `new --help` names it, in auto mode like the
+/// others. Only a receipt that says auto mode binds the task; one that does
+/// not (what a real OpenCode receipt says is not yet seen) leaves it
+/// uncertain, never sent again.
+#[test]
+fn opencode_is_asked_for_by_name_in_auto_mode_and_bound_only_by_its_own_receipt() {
+    let rig = Rig::new();
+    let mut request = launch();
+    request.target.engine = EngineKind::Opencode;
+    assert_eq!(
+        rig.cli().launch(&request),
+        LaunchOutcome::Created {
+            agent_id: AGENT.into()
+        }
+    );
+    let args = &rig.calls()[1]["args"];
+    assert_eq!(args[1], "opencode");
+    assert_eq!((&args[7], &args[8]), (&json!("--mode"), &json!("auto")));
+    for reply in [
+        json!({"ok":true,"machineId":MACHINE,"agent":{"id":AGENT,"name":"lamp-task-001","engine":"opencode","permissionMode":null,"bypassPermission":null}}),
+        json!({"ok":true,"machineId":MACHINE,"agent":{"id":AGENT,"name":"lamp-task-001","engine":"opencode","permissionMode":"ask","bypassPermission":null}}),
+    ] {
+        rig.new_step(step(reply));
+        assert_eq!(rig.cli().launch(&request), uncertain("invalid_reply"));
+    }
+}
+
 #[test]
 fn input_limits_and_parser_ambiguity_are_refused_before_any_process() {
     let rig = Rig::new();

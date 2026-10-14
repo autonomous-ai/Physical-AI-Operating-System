@@ -18,6 +18,9 @@ pub struct Guard {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     Status {},
+    /// Who work can be given to: each target's alias and engine, never its
+    /// machine or project. The voice tells the model of them.
+    Targets {},
     List {
         #[serde(default)]
         after_id: u64,
@@ -111,6 +114,7 @@ impl Request {
     pub fn name(&self) -> &'static str {
         match self {
             Self::Status {} => "status",
+            Self::Targets {} => "targets",
             Self::List { .. } => "list",
             Self::GetTask { .. } => "get_task",
             Self::GetObservation { .. } => "get_observation",
@@ -138,9 +142,14 @@ mod tests {
             br#"{"op":"status","trusted":true}"#.as_slice(),
             br#"{"op":"get_task","id":1,"machine_id":"other"}"#,
             br#"{"op":"list","limit":1,"engine":"claude"}"#,
+            br#"{"op":"targets","engine":"codex"}"#,
         ] {
             assert_eq!(Request::parse(bytes), Err("bad_request"));
         }
+        let targets = Request::parse(br#"{"op":"targets"}"#).unwrap();
+        assert_eq!(targets, Request::Targets {});
+        assert!(targets.guard().is_none() && !targets.trusted());
+        assert_eq!(targets.name(), "targets");
         assert_eq!(
             Request::parse(br#"{"op":"list"}"#).unwrap(),
             Request::List {

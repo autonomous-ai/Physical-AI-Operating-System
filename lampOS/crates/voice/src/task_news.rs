@@ -337,6 +337,7 @@ fn note_failed(task: &Value, unsure: bool) -> Option<String> {
 pub(crate) fn who(task: &Value) -> &'static str {
     match task["target"]["engine"].as_str() {
         Some("codex") => "Codex",
+        Some("opencode") => "OpenCode",
         _ => "Claude Code",
     }
 }

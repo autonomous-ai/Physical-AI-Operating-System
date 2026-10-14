@@ -457,12 +457,18 @@ mod tests {
         );
         // Order does not matter; the library defaults to the worker's own
         // directory.
-        let parsed = parse(arguments("--fast --parent 7 --model m.onnx")).unwrap();
-        let Speed::Fast { runtime, .. } = parsed.speed else {
-            panic!("not fast");
-        };
-        let worker = std::env::current_exe().unwrap();
-        assert_eq!(runtime.parent(), worker.parent());
+        match parse(arguments("--fast --parent 7 --model m.onnx")) {
+            Ok(parsed) => {
+                let Speed::Fast { runtime, .. } = parsed.speed else {
+                    panic!("not fast");
+                };
+                let worker = std::env::current_exe().unwrap();
+                assert_eq!(runtime.parent(), worker.parent());
+            }
+            // A machine no library is pinned for (an Intel Mac, where this
+            // was first run beside the lamp): it says so and starts nothing.
+            Err(why) => assert_eq!(why.to_string(), "no ONNX Runtime is pinned for this target"),
+        }
         for wrong in [
             "--model m.onnx --runtime /x/lib.so",
             "--model m.onnx --fast --fast",

@@ -183,6 +183,16 @@ you in the office", whose voice "must be perfect".
 
 ## The list
 
+**Order from 2026-10-14, 14:00 (owner):** "let's prioritize finishing as
+many components as possible. the harder ones we'll attack later. attack
+the easy components first. we need to get the architecture built out
+asap with as many components as possible". So each builder takes the
+parts that stand on their own first: the third builder reminders and
+timers (6), then a task out to an agent through Harness (11), then the
+shared log and settings (8), and only then Expression's rest and nod
+(18). Stopping and interruption are tested by the first builder in the
+evenings.
+
 The owner, 2026-10-14, 07:45: "let's finish building asap and get lamp in
 front of real customers!" So the order below is the order in which a
 piece gets the lamp nearer to a customer's desk, and each builder takes
@@ -215,11 +225,11 @@ has it:
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
 | 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; reads the lamp's real pins and runs there as its own service since 11:03, watching only; the voice acting on it is task 21 |
-| 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | done 2026-10-14: on `lamp-voice`; built for the lamp and its two checks run there; nothing installed, nothing touches the network |
 | 6 | Reminders and timers | `schedule` | Third | open |
-| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
+| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
+| 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
 | 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; on the lamp in its old mode, the new store not switched on |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |

@@ -337,7 +337,24 @@ Ready for lamp-voice: no (on `fifth/give-way` only; needs a hand)
 - Not shown, and why not tonight: it needs a hand; the body never pushes
   into anything by itself, so nothing on the lamp can stand in for one.
 
-## Proposed tasks
+## 2026-10-14 — rest-glance (task 32, #710) — a resting lamp glances at a sound
+
+Ready for lamp-voice: yes (#718)
+
+- `fifth/rest-glance`, cut from and rebased on `lamp-voice`, one commit:
+  `--rest-glance on` lets a lamp at rest take Expression's head pitch and
+  roll (50 and 25 counts at most, and each joint's own reach), laid on
+  where it rested, the head led 40 counts when it lifts, the base and the
+  arm untouched; back to rest when the requests run out. Off: exactly as
+  before (a test says so). Opened as #718 in the form `fifth-P6` (#716)
+  proposes. Gate green, `cargo test -p lamp-body` 267 passed.
+- On lamp-52e6 (readings in
+  `docs/verification/rest-glance-lamp-52e6-20261014/`, on the branch):
+  standing at rest the head rose 41 counts in half a second and rested
+  again; folded it did not move, because its goal may not go above
+  `pitch_window` (1,740), 30 over where this head rests. lamp-52e6 runs
+  its recorded unit again.
+
 
 Work found while doing a listed task that cannot be folded into it. One
 line each, proposed once; the first builder answers once under "Answers"
@@ -368,3 +385,7 @@ for its owner, not mended here.
 - `/run/lampos-bus` is created owned by root by `lamp-voice`; `lamp-health`
   and `lamp-expression` run as `orangepi` fail on it with "Permission
   denied". (Same source; to be confirmed.)
+- Confirmed for the body on 2026-10-14, 18:05: with `LAMP_BUS=on` it says
+  "bus topic /run/lampos-bus/diagnostics: Permission denied" (that folder
+  is root:root 0770), so `body/joint_states` is not published on
+  lamp-52e6.

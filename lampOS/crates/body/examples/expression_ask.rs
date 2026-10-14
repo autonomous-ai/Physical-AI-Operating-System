@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut says = bus.publisher_declared(
         ExpressionBody::TOPIC,
         &ExpressionBody::declaration(),
-        "expression-trial",
+        "expression_trial",
     )?;
     let clock_id = std::fs::read_to_string("/proc/sys/kernel/random/boot_id")?
         .trim()

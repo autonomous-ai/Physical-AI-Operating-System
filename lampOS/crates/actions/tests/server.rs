@@ -287,3 +287,21 @@ fn one_executive_to_a_directory() {
     serve(&home, &mut second, &AtomicBool::new(true)).unwrap();
     std::fs::remove_dir_all(home).unwrap();
 }
+
+/// The part says it is well, with what it can do now and how many calls it
+/// answered, for the lamp's health.
+#[test]
+fn its_report_says_what_it_can_do_and_how_much_it_did() {
+    use lamp_actions::server::report;
+    let none = report(&[], 0);
+    assert_eq!(none.level, lamp_msgs::Level::Ok);
+    let value = |d: &lamp_msgs::Diagnostic, key: &str| {
+        d.values
+            .iter()
+            .find(|fact| fact.key == key)
+            .map(|fact| fact.value.clone())
+    };
+    assert_eq!(value(&none, "can_do").as_deref(), Some("nothing now"));
+    assert_eq!(value(&none, "answered").as_deref(), Some("0"));
+    assert_eq!(none.name, "actions");
+}

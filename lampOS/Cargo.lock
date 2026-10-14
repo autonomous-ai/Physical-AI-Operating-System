@@ -1660,6 +1660,7 @@ name = "lamp-actions"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "serde",
  "serde_json",

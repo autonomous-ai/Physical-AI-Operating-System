@@ -89,6 +89,19 @@ fn main() -> ExitCode {
     let sound = arguments
         .mixer
         .map(|(card, control)| Volume::new(Amixer { card, control }, arguments.ceiling));
+    // The lamp's health hears from this part on the same bus.
+    let health = arguments.bus.as_ref().and_then(|root| {
+        lamp_bus::Bus::new(root)
+            .and_then(|bus| {
+                bus.publisher_declared(
+                    lamp_msgs::Diagnostic::TOPIC,
+                    &lamp_msgs::Diagnostic::declaration(),
+                    "actions",
+                )
+            })
+            .inspect_err(|error| eprintln!("lamp-actions: its health is not said: {error}"))
+            .ok()
+    });
     let light = match arguments.bus.map(lamp_bus::Bus::new) {
         Some(Ok(bus)) => match BusLight::new(bus) {
             Ok(light) => Some(light),
@@ -104,7 +117,12 @@ fn main() -> ExitCode {
         None => None,
     };
     let mut executive = Executive { sound, light };
-    match lamp_actions::server::serve(&arguments.dir, &mut executive, &AtomicBool::new(false)) {
+    match lamp_actions::server::serve_reporting(
+        &arguments.dir,
+        &mut executive,
+        &AtomicBool::new(false),
+        health,
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("lamp-actions: {error}");

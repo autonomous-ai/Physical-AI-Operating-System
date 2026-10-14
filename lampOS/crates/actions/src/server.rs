@@ -108,6 +108,37 @@ pub fn serve<S: Mixer, L: Light>(
     executive: &mut Executive<S, L>,
     stop: &AtomicBool,
 ) -> io::Result<()> {
+    serve_reporting(directory, executive, stop, None)
+}
+
+/// How often the part says it is well, for the lamp's health
+/// (`diagnostics`, docs/health.md).
+pub const REPORT_EVERY: Duration = Duration::from_secs(1);
+
+/// What the part says of itself: well, with what it can do now and how
+/// many calls it has answered.
+pub fn report(offered: &[Function], answered: u64) -> lamp_msgs::Diagnostic {
+    let names = offered.iter().map(|f| f.name).collect::<Vec<_>>().join(" ");
+    lamp_msgs::Diagnostic::ok("actions")
+        .with(
+            "can_do",
+            if names.is_empty() {
+                "nothing now".to_owned()
+            } else {
+                names
+            },
+        )
+        .with("answered", answered)
+}
+
+/// The same, saying on the bus once a second that it is well, when given
+/// where to say it.
+pub fn serve_reporting<S: Mixer, L: Light>(
+    directory: &Path,
+    executive: &mut Executive<S, L>,
+    stop: &AtomicBool,
+    mut health: Option<lamp_bus::Publisher>,
+) -> io::Result<()> {
     std::fs::create_dir_all(directory)?;
     let listener = listen(directory)?;
     let mut offered: Vec<Function> = executive.offered();
@@ -118,9 +149,20 @@ pub fn serve<S: Mixer, L: Light>(
     };
     eprintln!("lamp-actions: serving; can do now: {}", names(&offered));
     let mut looked = Instant::now();
+    let mut reported: Option<Instant> = None;
+    let mut answered = 0u64;
     while !stop.load(Ordering::Acquire) {
+        if let Some(health) = health.as_mut()
+            && reported.is_none_or(|at| at.elapsed() >= REPORT_EVERY)
+        {
+            reported = Some(Instant::now());
+            let _ = health.publish_json(lamp_ipc::monotonic_us(), &report(&offered, answered));
+        }
         match listener.accept() {
-            Ok((stream, _)) => answer(stream, executive),
+            Ok((stream, _)) => {
+                answered += 1;
+                answer(stream, executive)
+            }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => std::thread::sleep(IDLE),
             Err(error) => {
                 eprintln!("lamp-actions: accept failed: {error}");

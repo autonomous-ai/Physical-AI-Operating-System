@@ -195,7 +195,11 @@ lines in ten seconds, the rest counted. Its first line was
 `hand: button primary released, head not touched`. So the first real press
 or pat is kept whenever it comes, with
 `journalctl -u lamp-controls | grep hand:`. Polling every 5 ms it took 11.5 s
-of processor time in its first 14 minutes, 1.4 % of one core.
+of processor time in its first 14 minutes, 1.4 % of one core. Its own
+report on `diagnostics` said watching only as a warning, so for its first
+hour the lamp's health read "has a warning" all day; since 11:56 watching
+only is reported as well, with the same words, and the lamp is well
+(`496421be0`).
 
 Not shown: a press or a touch. Nobody's hand has been on the lamp for
 this. The first press of the button and the first pat of the head, with

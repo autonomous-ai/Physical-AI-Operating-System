@@ -1,7 +1,9 @@
 //! Offline paired AEC/NS replay of bounded local diagnostic evidence.
 //! No audio device, provider connection, inferred silence, or acoustic verdict.
 use crate::{
-    CAPTURE_RATE, CaptureBlock, EchoProcessor, RENDER_SAMPLES, Reference as Given, Result,
+    CAPTURE_RATE, CaptureBlock, EchoProcessor, RENDER_RATE, RENDER_SAMPLES, Reference as Given,
+    Result,
+    drift::{Controller, Resampler, TARGET_FRAMES},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -9,13 +11,23 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{self, Read, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     os::{fd::OwnedFd, unix::fs::MetadataExt},
     path::{Path, PathBuf},
 };
 
 const STREAM_LIMIT: usize = 160 * 1024 * 1024;
-const TRACE_LIMIT: usize = 32 * 1024 * 1024;
+/// The session's own events grow with a long run: they are read a line at
+/// a time, up to this much in all.
+const TRACE_LIMIT: u64 = 4 * 1024 * 1024 * 1024;
+/// The longest events line read. Longer ones hold nothing the replay uses;
+/// they are counted and passed over.
+const TRACE_LINE_LIMIT: usize = 65_536;
+/// The speaker's prime: accepted silence before the first block.
+const PRIME_FRAMES: usize = 480;
+/// What the voice's capture-clocked ring holds before the prime: its target
+/// less the prime (`LEAD_FRAMES` in `crates/voice/src/reference.rs`).
+const LEAD_FRAMES: usize = TARGET_FRAMES - PRIME_FRAMES;
 const MAX_RECORDS: usize = 120_000;
 const MAX_SEGMENTS: usize = 128;
 const MAX_CAPTURE_FRAMES: u64 = 600 * 16_000;
@@ -36,8 +48,9 @@ pub struct ReplayOptions {
     /// Never substitutes for a diagnostic completion receipt.
     pub historical_processing: Option<HistoricalProcessing>,
     /// How the replayed cancellers are given the recorded render
-    /// (`--steady-reference`; docs/steady-reference.md).
-    pub reference: Given,
+    /// (`--steady-reference`, `--as-given-reference`;
+    /// docs/steady-reference.md). `None` is as the recording was made.
+    pub reference: Option<Given>,
 }
 pub struct HistoricalProcessing {
     pub noise_suppression: bool,
@@ -262,6 +275,17 @@ pub struct ReplayReport {
     pub replayed_capture_frames: u64,
     pub source_render_frames: u64,
     pub segments: Vec<SegmentReport>,
+    /// How the recorded voice kept its reference: `fixed` or `capture`.
+    pub reference_clock: &'static str,
+    /// Where that was read: the run's start in `events.jsonl`, or, for a
+    /// session whose events do not say, the first capture record's cursor.
+    pub reference_clock_from: &'static str,
+    /// The recorded voice's `echo_reference`, when its events say.
+    pub echo_reference_recorded: Option<String>,
+    /// `events.jsonl` ended in a line cut off part way, which was not read.
+    pub events_cut_off: bool,
+    /// `events.jsonl` lines longer than the replay reads, passed over.
+    pub events_long_lines: u64,
     pub limitations: Vec<String>,
     pub acoustic_quality_verdict: Option<bool>,
     pub word_error_rate: Option<f64>,
@@ -280,8 +304,8 @@ pub fn replay(
     if capture.header.boot != render.header.boot {
         return Err(invalid("capture/render session boot mismatch"));
     }
-    let trace = read_bounded(&input.join("events.jsonl"), TRACE_LIMIT)?;
-    let certification = certify(&capture, &render, input, &trace);
+    let trace = read_trace(&input.join("events.jsonl"))?;
+    let certification = certify(&capture, &render, input, &trace.rows);
     if !options.exploratory_prefix {
         certification.as_ref().map_err(|_| invalid("source is not certified; only explicit --exploratory-prefix permits fault diagnostics"))?;
     }
@@ -294,14 +318,54 @@ pub fn replay(
             hashes.insert(format!("{name}/{file}"), hash.clone());
         }
     }
-    hashes.insert("events.jsonl".into(), digest(&trace));
+    hashes.insert("events.jsonl".into(), trace.digest.clone());
+    let run_start = trace
+        .rows
+        .iter()
+        .find(|row| row["kind"] == "run_start")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let (clock, reference_clock_from) = match run_start["reference_clock"].as_str() {
+        Some("capture") => (true, "events.jsonl run_start"),
+        Some("fixed") => (false, "events.jsonl run_start"),
+        // Older sessions do not say. A capture-clocked ring has read
+        // nothing past its lead at the first block; a fixed margin has
+        // already analysed the prime.
+        _ => (
+            steps
+                .iter()
+                .find_map(|step| match step {
+                    CaptureStep::Frame { meta, .. } => {
+                        Some(meta.reference.analysed_through < PRIME_FRAMES as u64)
+                    }
+                    _ => None,
+                })
+                .unwrap_or(false),
+            "the first capture record's cursor",
+        ),
+    };
+    let echo_reference_recorded = run_start["echo_reference"].as_str().map(str::to_owned);
+    let reference =
+        options
+            .reference
+            .unwrap_or(if echo_reference_recorded.as_deref() == Some("steady") {
+                Given::Steady
+            } else {
+                Given::AsGiven
+            });
     let mut report = ReplayReport {
         schema_version: 1, status: "offline_dsp_comparison_not_acoustic_acceptance",
         source_classification: if certification.is_ok() { "certified_diagnostic_recording" } else { "exploratory_fault_prefix_not_benchmark_evidence" },
         source_certified: certification.is_ok(), replay_complete_for_recorded_capture: true,
         capture_boot: capture.header.boot, source_hashes: hashes, processing_provenance: provenance,
         source_capture_frames, replayed_capture_frames: 0, source_render_frames: render.files["render_accepted.pcm16le"].len() as u64 / 2,
-        segments: Vec::new(), limitations: vec![
+        segments: Vec::new(),
+        reference_clock: if clock { "capture" } else { "fixed" },
+        reference_clock_from,
+        echo_reference_recorded: echo_reference_recorded.clone(),
+        events_cut_off: trace.cut_off,
+        events_long_lines: trace.long_lines,
+        limitations: vec![
             "pre_aec is ALSA-resampled 16 kHz mono after hardware/driver processing, not raw capsule audio".into(),
             "accepted render is not proof of physical playback; discarded ranges are retained and only analysed cursors are replayed".into(),
             "recorded host clocks, nominal delay and DSP call order do not establish USB clock synchronization or acoustic latency".into(),
@@ -314,6 +378,11 @@ pub fn replay(
             .limitations
             .push(format!("source certification failed: {reason}"));
     }
+    if trace.cut_off {
+        report.limitations.push(
+            "events.jsonl ends in a line cut off part way (the session was stopped while writing it); that line was not read".into(),
+        );
+    }
     let output = Output::create(workspace, output)?;
     output.json(
         "incomplete.json",
@@ -323,7 +392,8 @@ pub fn replay(
     let mut state: Option<Segment> = None;
     let mut completed = Completed {
         segments: Vec::new(),
-        reference: options.reference,
+        reference,
+        clock,
     };
     for step in steps {
         let result = apply_step(
@@ -469,11 +539,11 @@ fn load_bundle(directory: &Path, stream: &str) -> Result<Bundle> {
         hashes,
     })
 }
-fn certify(capture: &Bundle, render: &Bundle, input: &Path, trace: &[u8]) -> Result<()> {
+fn certify(capture: &Bundle, render: &Bundle, input: &Path, trace: &[Value]) -> Result<()> {
     let mut starts: BTreeMap<String, Value> = BTreeMap::new();
     let mut receipts: BTreeMap<String, Value> = BTreeMap::new();
-    for line in json_lines(trace, 65_536)? {
-        let row: Value = serde_json::from_slice(line)?;
+    for row in trace {
+        let row = row.clone();
         let target = match row["kind"].as_str() {
             Some("audio_diagnostics_started") => &mut starts,
             Some("audio_diagnostics_certified") => &mut receipts,
@@ -801,11 +871,38 @@ struct Segment {
     recorded_observer: crate::evidence::EchoObserver,
     reference: Given,
     sounding: Sounding,
+    clock: Option<ClockReplay>,
 }
-/// Segments replayed, and how their cancellers are given the render.
+/// Segments replayed, how their cancellers are given the render, and
+/// whether the recorded voice's reference was capture-clocked.
 struct Completed {
     segments: Vec<Segment>,
     reference: Given,
+    clock: bool,
+}
+
+/// The voice's capture-clocked reference, rebuilt from what the recording
+/// kept: `ReferenceAssembly::capture_clocked`, `prime`, `accept` and
+/// `render_for_capture` in `crates/voice/src/reference.rs`.
+struct ClockReplay {
+    resampler: Resampler,
+    controller: Controller,
+    /// Accepted frames of the playback epoch put into the ring so far.
+    pushed: u64,
+}
+impl ClockReplay {
+    /// As the voice primes it: the lead and the speaker's prime, all
+    /// silence, waiting in the ring.
+    fn primed() -> Self {
+        let mut resampler = Resampler::new();
+        let primed = resampler.push(&[0; LEAD_FRAMES + PRIME_FRAMES]);
+        debug_assert!(primed.is_ok(), "the lead and prime fit an empty ring");
+        Self {
+            resampler,
+            controller: Controller::default(),
+            pushed: PRIME_FRAMES as u64,
+        }
+    }
 }
 /// What the replayed AEC-only canceller did while the lamp was sounding.
 #[derive(Default)]
@@ -855,7 +952,7 @@ impl Sounding {
     }
 }
 impl Segment {
-    fn new(reset: Reset, next_sequence: u64, reference: Given) -> Self {
+    fn new(reset: Reset, next_sequence: u64, reference: Given, clock: bool) -> Self {
         Self {
             reset,
             next_sequence,
@@ -878,6 +975,7 @@ impl Segment {
             recorded_observer: crate::evidence::EchoObserver::new(),
             reference,
             sounding: Sounding::default(),
+            clock: clock.then(ClockReplay::primed),
         }
     }
 }
@@ -953,7 +1051,12 @@ fn apply_step(
                 operations,
                 &json!({"kind":"dsp_reset","source_reset":reset,"next_capture_sequence":next_sequence}),
             )?;
-            *state = Some(Segment::new(reset, next_sequence, completed.reference));
+            *state = Some(Segment::new(
+                reset,
+                next_sequence,
+                completed.reference,
+                completed.clock,
+            ));
         }
         CaptureStep::Boundary {
             kind,
@@ -987,27 +1090,93 @@ fn apply_step(
                 || reference.playback_epoch != segment.reset.playback_epoch
                 || reference.capture_blocks_processed != segment.frames + 1
                 || reference.analysed_through < segment.analysed
-                || reference.analysed_through < 480
-                || reference.analysed_through % 240 != 0
+                || (segment.clock.is_none()
+                    && (reference.analysed_through < PRIME_FRAMES as u64
+                        || reference.analysed_through % 240 != 0))
                 || reference.accepted_through < reference.analysed_through
                 || reference.analysed_at_us > meta.processing_completed_at_us
                 || reference.queue_observed_at_us > meta.processing_completed_at_us
                 || reference.accepted_at_us > reference.queue_observed_at_us
                 || meta.processing_completed_at_us < segment.reset.at_us
             {
-                return Err(invalid(
+                return Err(at(
+                    sequence,
                     "capture/analysis cursor, phase count or clock continuity is insufficient",
                 ));
             }
             let epoch = epochs
                 .get(&reference.playback_epoch)
-                .ok_or_else(|| invalid("missing accepted render epoch"))?;
+                .ok_or_else(|| at(sequence, "missing accepted render epoch"))?;
             if reference.accepted_through > epoch.frames {
-                return Err(invalid(
+                return Err(at(
+                    sequence,
                     "capture claims render samples absent from recording",
                 ));
             }
-            while segment.analysed < reference.analysed_through {
+            if let Some(clock) = segment.clock.as_mut() {
+                // What the speaker had accepted by this block waits in the
+                // ring, in the order it was accepted.
+                if reference.accepted_through < clock.pushed {
+                    return Err(at(sequence, "the accepted cursor went back"));
+                }
+                let frames = accepted_frames(
+                    epoch,
+                    &render.files["render_accepted.pcm16le"],
+                    clock.pushed..reference.accepted_through,
+                    &mut segment.packet_index,
+                    reference.analysed_at_us,
+                    meta.privacy_generation,
+                )
+                .map_err(|reason| at(sequence, &reason.to_string()))?;
+                if clock.resampler.push(&frames).is_err() {
+                    return Err(at(
+                        sequence,
+                        "more reference would be waiting than the lamp's ring holds",
+                    ));
+                }
+                clock.pushed = reference.accepted_through;
+                let mut samples = [0; RENDER_SAMPLES];
+                if clock.resampler.take(&mut samples).is_err() {
+                    return Err(at(
+                        sequence,
+                        "the lamp's ring gave a block here and the replayed one has none to give",
+                    ));
+                }
+                segment.aec_processor.render(&samples)?;
+                segment.ns_processor.render(&samples)?;
+                segment.recorded_observer.render(&samples);
+                // The rate for the next block, from the fill and what the
+                // speaker had accepted since its last packet, as the voice
+                // sets it.
+                let since = reference
+                    .analysed_at_us
+                    .saturating_sub(reference.accepted_at_us)
+                    .min(20_000);
+                let owed = since as f64 * f64::from(RENDER_RATE) / 1e6;
+                let ppm = clock
+                    .controller
+                    .observe(clock.resampler.unread() as f64 + owed);
+                clock.resampler.set_ppm(ppm);
+                let analysed = clock
+                    .resampler
+                    .consumed()
+                    .saturating_sub(LEAD_FRAMES as u64);
+                if analysed != reference.analysed_through {
+                    return Err(at(
+                        sequence,
+                        &format!(
+                            "after this block the replayed reference had been read to frame {analysed}, and the lamp's to {}",
+                            reference.analysed_through
+                        ),
+                    ));
+                }
+                segment.analysed = analysed;
+                line(
+                    operations,
+                    &json!({"kind":"render_for_capture","dsp_epoch":meta.dsp_epoch,"playback_epoch":reference.playback_epoch,"accepted_through":reference.accepted_through,"analysed_through":analysed,"rate_ppm":ppm,"unread_frames":clock.resampler.unread(),"before_capture_record":sequence,"recorded_analysis_at_us":reference.analysed_at_us}),
+                )?;
+            }
+            while segment.clock.is_none() && segment.analysed < reference.analysed_through {
                 let (samples, first_packet, last_packet) = render_block(
                     epoch,
                     &render.files["render_accepted.pcm16le"],
@@ -1127,6 +1296,48 @@ fn render_block(
         count += take;
     }
     Ok((samples, first_record, last_record))
+}
+/// Accepted render frames `range` of `epoch`, in order, from its packets.
+fn accepted_frames(
+    epoch: &Epoch,
+    pcm: &[u8],
+    range: std::ops::Range<u64>,
+    index: &mut usize,
+    analysed_at: u64,
+    privacy: u64,
+) -> Result<Vec<i16>> {
+    let mut frames = Vec::with_capacity((range.end - range.start) as usize);
+    let mut cursor = range.start;
+    while cursor < range.end {
+        while epoch
+            .packets
+            .get(*index)
+            .is_some_and(|p| p.meta.end_sample <= cursor)
+        {
+            *index += 1;
+        }
+        let packet = epoch
+            .packets
+            .get(*index)
+            .ok_or_else(|| invalid("missing accepted PCM for the ring"))?;
+        if packet.meta.first_sample > cursor
+            || packet.meta.queue_observed_at_us > analysed_at
+            || packet.meta.privacy_generation != privacy
+        {
+            return Err(invalid(
+                "accepted render cannot reproduce the recorded acceptance order",
+            ));
+        }
+        let take = packet.meta.end_sample.min(range.end) - cursor;
+        let begin = packet.offset + (cursor - packet.meta.first_sample) as usize * 2;
+        frames.extend(
+            pcm[begin..begin + take as usize * 2]
+                .chunks_exact(2)
+                .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]])),
+        );
+        cursor += take;
+    }
+    Ok(frames)
 }
 fn block(bytes: &[u8], offset: usize) -> Result<CaptureBlock> {
     let bytes = bytes
@@ -1339,4 +1550,106 @@ fn valid_hash(value: &str) -> bool {
 }
 fn invalid(message: &'static str) -> Box<dyn std::error::Error + Send + Sync> {
     io::Error::new(io::ErrorKind::InvalidData, message).into()
+}
+/// Why the replay cannot follow the recording past capture record `record`.
+fn at(record: u64, message: &str) -> Box<dyn std::error::Error + Send + Sync> {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        format!("capture record {record}: {message}"),
+    )
+    .into()
+}
+
+/// What the replay reads of the session's own events.
+struct Trace {
+    digest: String,
+    /// The records the replay uses: the diagnostics' start and receipt, and
+    /// the run's start.
+    rows: Vec<Value>,
+    cut_off: bool,
+    long_lines: u64,
+}
+
+/// Reads `events.jsonl` a line at a time. A last line without its end (the
+/// session stopped while writing it) is not read and is reported; a line
+/// longer than [`TRACE_LINE_LIMIT`] is passed over and counted; any other
+/// line that is not JSON is an error naming it.
+fn read_trace(path: &Path) -> Result<Trace> {
+    let before = fs::symlink_metadata(path)?;
+    if !before.is_file() || before.len() > TRACE_LIMIT {
+        return Err(invalid("input is not a bounded regular non-symlink file"));
+    }
+    let file: File = rustix::fs::open(
+        path,
+        rustix::fs::OFlags::RDONLY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::NONBLOCK
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )?
+    .into();
+    let opened = file.metadata()?;
+    if (before.dev(), before.ino(), before.len()) != (opened.dev(), opened.ino(), opened.len()) {
+        return Err(invalid("input changed while opening"));
+    }
+    let mut reader = BufReader::new(file.take(TRACE_LIMIT + 1));
+    let (mut hasher, mut total) = (Sha256::new(), 0u64);
+    let (mut line, mut long, mut number) = (Vec::new(), false, 0u64);
+    let mut trace = Trace {
+        digest: String::new(),
+        rows: Vec::new(),
+        cut_off: false,
+        long_lines: 0,
+    };
+    loop {
+        let buffer = reader.fill_buf()?;
+        if buffer.is_empty() {
+            break;
+        }
+        let (chunk, ended) = match buffer.iter().position(|&b| b == b'\n') {
+            Some(end) => (&buffer[..=end], true),
+            None => (buffer, false),
+        };
+        hasher.update(chunk);
+        let used = chunk.len();
+        total += used as u64;
+        let body = if ended { &chunk[..used - 1] } else { chunk };
+        if line.len() + body.len() > TRACE_LINE_LIMIT {
+            long = true;
+        } else if !long {
+            line.extend_from_slice(body);
+        }
+        reader.consume(used);
+        if ended {
+            number += 1;
+            if long {
+                trace.long_lines += 1;
+            } else if !line.is_empty() {
+                let row: Value = serde_json::from_slice(&line).map_err(|error| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("events.jsonl line {number}: {error}"),
+                    )
+                })?;
+                if matches!(
+                    row["kind"].as_str(),
+                    Some("audio_diagnostics_started" | "audio_diagnostics_certified" | "run_start")
+                ) {
+                    trace.rows.push(row);
+                }
+            }
+            line.clear();
+            long = false;
+        }
+    }
+    trace.cut_off = !line.is_empty() || long;
+    let after = fs::symlink_metadata(path)?;
+    if !after.is_file()
+        || total != before.len()
+        || (before.dev(), before.ino(), before.len()) != (after.dev(), after.ino(), after.len())
+    {
+        return Err(invalid("input changed while reading"));
+    }
+    trace.digest = format!("{:x}", hasher.finalize());
+    Ok(trace)
 }

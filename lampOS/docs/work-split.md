@@ -17,6 +17,7 @@ that has not been on the lamp.
 | Second | Another machine, no lamp | `lamp-second` | `second/<task>` | `lampOS/docs/work-log.md` on `lamp-second` |
 | Third | Another machine, no lamp | `lamp-third` | `third/<task>` | `lampOS/docs/work-log-third.md` on `lamp-third` |
 | Fourth | Another machine, no lamp | `lamp-fourth` | `fourth/<task>` | `lampOS/docs/work-log-fourth.md` on `lamp-fourth` |
+| Fifth | Another machine, with a lamp of its own (not lamp-4ace) | `lamp-fifth` | `fifth/<task>` | `lampOS/docs/work-log-fifth.md` on `lamp-fifth` |
 
 - **The first builder** is the only one who can build for the lamp,
   install on it and measure there. It writes the tasks here, takes
@@ -39,6 +40,16 @@ second adds neither; the fourth works inside `crates/memory`.
 That is as many as the lamp can take. Every piece has to be run on the
 one lamp by the one builder who has it, and with three others building,
 what waits for the lamp already grows faster than it can be cleared.
+
+**The fifth builder** (from 2026-10-14, the owner: "let's have that
+machine work on servos, because they have the actual lamp there") has a
+lamp of its own, and the body. `crates/body` is its from now on: the
+first builder stops changing it and only takes its work onto lamp-4ace.
+It builds for its own lamp, installs there and measures there, and what
+it measures there is a result on a lamp, said with that lamp's name. It
+never touches lamp-4ace. Its lamp's folder under `deploy/` is its own.
+Its loop is the one below, with "The loop, for the builder with a lamp"
+in place of steps 5 and 6.
 
 ## The loop, for the builders without a lamp
 
@@ -92,6 +103,31 @@ and where you think it is most likely to be wrong there: that last line
 is worth more than any other, because it is where the first builder will
 look first.
 
+## The loop, for the builder with a lamp
+
+As above, and:
+
+- **Ask your person before every `ssh` to the lamp** (the repository's
+  `CLAUDE.md`), and before anything the lamp does that a person in the
+  room would see or hear. Never ask for or type a password; the person
+  sets up access with a key.
+- **Before installing anything**, write down what the lamp runs (`systemctl
+  list-units 'lamp*' 'hal*'`, the processes on `/dev/ttyACM0` and
+  `/dev/video0`), and back up whatever you stop or replace, under your
+  home folder, with the date. Nothing of the old software is deleted.
+  Never two programs on `/dev/ttyACM0` at once.
+- **Power:** never cut the lamp's power yourself. An unplug is done by
+  your person, with a hand on the lamp, after you have said what will be
+  read before anything moves.
+- **Build for the lamp** either on the lamp itself (`cargo build
+  --release -p lamp-body`, slow but plain) or with the cross-build image
+  the first builder uses ([brain-build.md](brain-build.md)).
+- **The gate** is the one in step 5 for the crates you touch, and then
+  the lamp: the first command, what it showed, and how often, in your log
+  under the task, as "What the lamp showed" is written here.
+- **Photographs** only of the lamp, with no person in them, no face, no
+  screen: the repository is public.
+
 ## Rules for all
 
 - **The repository's own rules apply** (`CLAUDE.md` at the root): a commit
@@ -123,7 +159,8 @@ look first.
   result on the lamp and is never written as one. Every document ends with
   what was not shown.
 - **Hands off, unless a task says otherwise:** `crates/voice`,
-  `crates/gemini`, `crates/name`, `crates/audio`, `crates/body`,
+  `crates/gemini`, `crates/name`, `crates/audio`, `crates/body` (the fifth
+  builder's own),
   `crates/eyes`, `crates/actions`, `crates/policy`, `crates/health` and
   `deploy/`. The first builder changes these by the hour, on the lamp.
 - **No spending, no accounts, no keys.** A task that needs one says so
@@ -151,8 +188,8 @@ has it:
 | It needs | Today | Who |
 |---|---|---|
 | To be stopped and silenced by a hand, whatever the voice is doing | No button or touch pad in V2 | Third: task 7 |
-| To start by itself after power comes back, get onto a network without a builder, and take new software | Voice and light come back; the body and the eyes are started by hand; no setup, no updates | Third: task 12. First: on the lamp |
-| A body that gives way against a hand and cannot tip itself over | The force limit is on the lamp at 600 since 2026-10-14, 08:01, not yet tried by a hand; the lean check runs on the lamp, but nothing of the lamp has been weighed, so it is not wired | First |
+| To start by itself after power comes back, get onto a network without a builder, and take new software | Voice and light come back; the body and the eyes are started by hand; setup and signed updates are built (task 12) and not installed | Fifth: task 23. First: task 12 on the lamp |
+| A body that gives way against a hand and cannot tip itself over (Fifth: tasks 24 and 26) | The force limit is on the lamp at 600 since 2026-10-14, 08:01, not yet tried by a hand; the lean check runs on the lamp, but nothing of the lamp has been weighed, so it is not wired | First |
 | Answers that begin sooner than two seconds after the person stops | Half begin within 1.98 s | Second: task 1. First: on the lamp |
 | To stop when someone says stop | One or two of seven short words | Second: task 3. First: with a person's voice |
 | To hear its name however it is said | "Hey Lamp" and "Lamp ơi", not a bare "Lamp" | Second: task 5 |
@@ -173,7 +210,7 @@ has it:
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
 | 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; reads the lamp's real pins and runs there as its own service since 11:03, watching only; the voice acting on it is task 21 |
 | 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
-| 12 | Starting, setting up and updating a lamp | `surround` | Third | taken 2026-10-14 |
+| 12 | Starting, setting up and updating a lamp | `surround` | Third | done 2026-10-14: on `lamp-voice`; built for the lamp and its two checks run there; nothing installed, nothing touches the network |
 | 6 | Reminders and timers | `schedule` | Third | open |
 | 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
@@ -181,7 +218,12 @@ has it:
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |
-| 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | open |
+| 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | taken 2026-10-14 |
+| 22 | The body on a second lamp | `body-second-lamp` | Fifth | open |
+| 23 | Waking up after the power comes back | `wake` | Fifth | open |
+| 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
+| 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | open |
+| 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | open |
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
@@ -906,9 +948,167 @@ available only now and then: make it a list of five actions and what
 each should do). Most likely wrong on the lamp: the polarity of the
 head pads, which is set from the lines at rest and not from a touch.
 
+## 22. The body on a second lamp
+
+Crate: `crates/body` (yours). Documents: [body.md](body.md), and a folder
+of your lamp's own under `deploy/`, named after its unit (as
+`deploy/lamp-4ace/` is).
+
+**Why.** Only lamp-4ace has ever run lampOS. Every lamp is put together
+by hand: where each servo reads when the head rests, how far each joint
+can go before it meets the lamp itself, how hard each one works. A
+customer's lamp will be a second lamp, so this is its rehearsal.
+
+**What exists.** The body as it runs on lamp-4ace: its unit,
+`deploy/lamp-4ace/lamp-body.service` (`--home`, `--reach`, `--stand`,
+`--folded-arm`, `--gaze`, servo speed and acceleration, the force limit),
+and how those were found: [body.md](body.md), "First run on a lamp" and
+"Second and later runs on the lamp", and `deploy/lamp-4ace/RUNBOOK.md`.
+`lamp-body-inspect` reads every servo without moving anything. The body
+does not need the voice: it takes the voice's states on a socket
+(`--mood-socket`, [body.md](body.md), "What moves it"), and a small
+script that writes them is enough to make it listen, think, speak and
+stand.
+
+**Wanted.** On your lamp, in this order: what it runs today, written
+down and backed up; the servos read at rest with nothing moving; your
+lamp's own home, reach, standing pose and folded arm, found the way
+lamp-4ace's were and written into your folder's `lamp-body.service`;
+then the body running there, driven through listening, thinking,
+speaking, standing up and folding down, a few times each. Every way your
+lamp differs from lamp-4ace goes into a table in [body.md](body.md)
+under a heading with your lamp's name. Where the body refuses to start
+or stops itself (it does: a load, a temperature, a reach), keep the
+refusal, say why, and mend the body if it is the body that is wrong.
+
+**Hand back:** your lamp's folder, the table, and the body as it runs
+there. Most likely wrong: the reach of the roll joint (on lamp-4ace it is
+blocked in the folded pose) and the yaw servo coming to rest short of its
+goal.
+
+## 23. Waking up after the power comes back
+
+Crate: `crates/body`. Document: [body.md](body.md), a new heading.
+
+**Why.** A customer's lamp must come back by itself after a power cut. On
+lamp-4ace the voice and the light do; the body and the eyes are started
+by hand, and the body refuses to start with the head resting on the
+base, which is where a lamp without power ends up. What its servos do at
+power-up has never been looked at on any lamp.
+
+**Wanted.** First, with your person's hand on the lamp and their unplug
+and replug, what every servo reads and does from the moment power comes
+back, before anything of ours runs (five times; say where the head was
+each time). Then a start that works from wherever the lamp is found:
+read every servo before moving one, never jump, and rise the way
+something alive wakes, slowly and a little at a time, not the way a
+machine homes (the repository's rule 8). Then the body's unit with an
+`[Install]` section, so it starts at power-up, behind its own switch,
+off unless set. Measured on five more unplugs with it installed: time
+from power to the first movement and to standing ready, the path the
+joints took, the highest load and temperature on the way.
+
+**Hand back:** the wake, the unit, the ten unplugs' table. Most likely
+wrong: a servo that reports a position before its torque is on, and a
+head that drops when torque comes on.
+
+## 24. Giving way to a hand, and not hurting itself
+
+Crate: `crates/body`. Document: [body.md](body.md), "The force its
+servos are allowed".
+
+**Why.** People will push the lamp's head, hold it, move it to point the
+light. A lamp that fights a hand hurts the hand or itself; one that
+gives way and comes back gently is a joy. On lamp-4ace the three joints
+that carry the lamp push with at most 600 of 1,000 since 2026-10-14, and
+no hand has tried it. The old software had a contact profile and a
+servo overload rule (`robots/lamp/contact_profile.json`,
+`robots/lamp/servo_overload.json`): judge them before taking anything
+([v1-verdicts.md](v1-verdicts.md)).
+
+**Wanted.** Measured by hand on your lamp, standing and folded, still and
+moving: pushing the head and the arm each way, how hard it is to move
+(press through a kitchen scale for a number), what the servos read
+(load, position, temperature, current if there is one) and what the
+lamp does after: holds where it was put, springs back, or comes back
+gently a moment later, which is what a person does. A joint held still
+against its goal must never cook: say how long it may stall and what it
+does then. Then the setting and behaviour you choose, behind a switch,
+and the same pushes again with it.
+
+**Hand back:** the measurements before and after, the behaviour, the
+settings for lamp-4ace. Most likely wrong: the elbow, which on lamp-4ace
+reached 69 °C one day with the head resting on the base.
+
+## 25. How the head follows, and a nod a person can see
+
+Crate: `crates/body`. Documents: [body.md](body.md) and
+[expression.md](expression.md) (the third builder's; propose, do not
+change its catalogue).
+
+**Why.** The part that plans the lamp's movement and light (Expression)
+times its head movements in milliseconds, and does not know how this
+head follows. On lamp-4ace on 2026-10-14, asked for a dip of 3.5 degrees
+in 0.8 s, the head dipped 1.5 to 2.7 degrees about 0.3 s late; a nod
+took about a second, too slow to fit inside a pause in someone's speech.
+The third builder is building a nod as someone finishes speaking (task
+18): it needs to know what this head can do.
+
+**Wanted.** On your lamp, for head pitch, head roll and base yaw: how
+the joint follows a step and a ramp at the body's own settings, read
+from the servos at the body's own step rate (delay, rise time,
+overshoot, where it settles). Then what the servos' own speed,
+acceleration and stiffness settings allow: the quickest small nod (two
+to four degrees, down and back) that still looks soft and natural to
+your person, and what it costs in load and heat. Numbers in
+[body.md](body.md); the values Expression's catalogue should hold, with
+why, in your log.
+
+**Hand back:** the table, the settings, the proposal. Most likely wrong:
+the step rate of the reads, which limits what can be seen.
+
+## 26. Weighing and measuring the lamp for the lean check
+
+Crate: `crates/lean` (the fourth builder's library; add a data file and
+tests, do not change the library). Document: [lean.md](lean.md),
+"Measurements the first builder needs" and "lamp-4ace, 14 October".
+
+**Why.** The check that a pose cannot tip the lamp over runs on lamp-4ace,
+but only with the old software's model of the lamp, whose parts add up
+to 1.5 kg where the lamp's own specification says 7 kg. Until the lamp is
+weighed and its base measured, the body cannot use it.
+
+**Wanted.** With your person: the whole lamp weighed; the base's outline
+where it touches the desk, drawn and measured; and as far as the lamp
+can be taken apart without harm, each moving part weighed and where its
+weight sits, by the methods in [lean.md](lean.md). Your lamp's file in
+the check's form, marked `measured` only if every value was. Then the
+check run with your lamp's real readings at rest and standing, and,
+carefully, with a hand ready and nothing allowed to fall, one pose near
+its predicted edge to see whether the prediction holds.
+
+**Hand back:** the file, the readings, the one test at the edge. Most
+likely wrong: which part each motor and cable belongs to.
+
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 12, setting up and updating a lamp.** Taken onto
+`lamp-voice` unchanged (`4f679d14a`, 107 files with its pinned copy of
+the signed-update library). On the first builder's Mac its 260 tests
+pass. Built for the lamp (13.8 MB; 17.0 MB with the NetworkManager form).
+On lamp-4ace, at 12:25, its two checks that need no hardware: the
+install replay passed all five of its scenarios
+(`all_assertions_passed: true`), and the operator benchmark, in `/tmp`,
+which on this lamp is in memory, not on its flash: status 0.14 ms on
+first use and a median of 0.05 ms over 100 (worst 0.21); a durable
+admission 1.9 ms first and a median of 0.20 ms (worst 1.7). Those
+admissions are not durable figures, because nothing reached the flash.
+Nothing was installed and nothing touched the network; the doctor and
+the disabled service need a provisioned configuration, a service user
+and the supervisor's owner protocol, which are the first builder's and
+not done.
 
 **2026-10-14, a meeting beside the lamp (the first builder's own part,
 for task 17).** From 11:08 a meeting at the next table: 75 things taken

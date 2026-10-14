@@ -168,7 +168,22 @@ fn read_forever(
                 }
             }
         }
-        std::thread::sleep(READ_EVERY);
+        // Wait for the next read, keeping what is told the moment it is
+        // told: on lamp-4ace on 2026-10-15 a build whose provider ended
+        // just after news was told told the same news three times, each
+        // time before this thread's next pass had kept it.
+        let next = std::time::Instant::now() + READ_EVERY;
+        loop {
+            let left = next.saturating_duration_since(std::time::Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            match told.recv_timeout(left) {
+                Ok(key) => keep_told(told_file, &key),
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            }
+        }
     }
 }
 

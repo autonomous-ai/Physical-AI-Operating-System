@@ -325,8 +325,8 @@ async fn calls_arrive_in_order_and_shapes_the_service_may_leave_out_are_filled_i
 }
 
 /// The service waits on every call it makes. One that arrives with no
-/// committed request to own it is answered at once as cancelled, on the
-/// wire, and is not reported as a call: nobody could act on it.
+/// committed request to own it is answered at once as not done, saying why,
+/// on the wire, and is not reported as a call: nobody could act on it.
 #[tokio::test]
 async fn a_call_nobody_can_own_is_answered_as_cancelled_and_not_reported() {
     let (mut connection, mut server) = mock(Timeouts::default()).await;
@@ -334,7 +334,7 @@ async fn a_call_nobody_can_own_is_answered_as_cancelled_and_not_reported() {
     assert_eq!(
         receive(&mut server).await,
         json!({"toolResponse":{"functionResponses":[
-            {"id":"stray","name":"light_on","response":{"error":"cancelled"}}
+            {"id":"stray","name":"light_on","response":{"error":crate::NOT_DONE_STILL_SPEAKING}}
         ]}})
     );
     discarded(&mut connection, Discard::UnownedToolCall).await;
@@ -352,7 +352,7 @@ async fn a_call_nobody_can_own_is_answered_as_cancelled_and_not_reported() {
     send_json(&mut server, call("early", "light_on", json!({}))).await;
     assert_eq!(
         receive(&mut server).await["toolResponse"]["functionResponses"][0]["response"],
-        json!({"error":"cancelled"})
+        json!({"error":crate::NOT_DONE_STILL_SPEAKING})
     );
     discarded(&mut connection, Discard::UnownedToolCall).await;
     assert_eq!(connection.state(), State::Ready);

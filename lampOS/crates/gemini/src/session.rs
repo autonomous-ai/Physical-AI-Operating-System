@@ -1901,7 +1901,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     }
     /// Function calls belong to the committed request, like any output. The
     /// service sends nothing more for it until each is answered, so a call
-    /// nobody can own is answered here as cancelled and not reported.
+    /// nobody can own is answered here as not done, with why
+    /// ([`crate::NOT_DONE_STILL_SPEAKING`]), and not reported.
     async fn tool_calls(&mut self, calls: Vec<crate::ToolCall>) -> Result<()> {
         // Apply any local retirement first so ownership below is current.
         self.retire_active().await?;
@@ -1915,7 +1916,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 let message = wire::encode_tool_response(
                     &call.id,
                     &call.name,
-                    &serde_json::json!({"error": "cancelled"}),
+                    &serde_json::json!({"error": crate::NOT_DONE_STILL_SPEAKING}),
                     silent,
                 )?;
                 self.write(Message::text(message), self.timeouts.write)

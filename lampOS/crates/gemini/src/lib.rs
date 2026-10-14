@@ -56,6 +56,13 @@ pub const MAX_TOOLS: usize = 32;
 /// Calls the service may make in one message, and that one request may have
 /// unanswered at once.
 pub const MAX_TOOL_CALLS: usize = 8;
+/// The answer to a call that arrives while nothing can own it: most often
+/// while the person is still speaking ("Yes." … "please start it."). The
+/// model is told why it was not done and that it may ask again. On
+/// lamp-4ace on 2026-10-15 a bare `cancelled` read to it as the person
+/// changing their mind: in three of five two-breath yeses it never asked
+/// again and the task was not started.
+pub const NOT_DONE_STILL_SPEAKING: &str = "Not done: the person was still speaking when this was asked, so nothing was done. Listen to what they say now; if it still asks for this, call it again.";
 /// The most a call's identifier may be.
 pub const MAX_TOOL_ID_BYTES: usize = 128;
 /// The most a function's declared parameters, a call's arguments or an

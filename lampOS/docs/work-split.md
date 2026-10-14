@@ -98,8 +98,8 @@ branch <date>` (the review), `set aside <date>` with the reason.
 
 | # | Task | Branch | State |
 |---|---|---|---|
-| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | open |
-| 2 | Try to break last night's changes to the voice | `second/voice-review` | open |
+| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | taken 2026-10-14 |
+| 2 | Try to break last night's changes to the voice | `second/voice-review` | taken 2026-10-14 |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | open |
 | 4 | Expression: one part that authors what the lamp shows | `second/expression` | open |
 | 5 | The name, heard as a bare "Lamp" | `second/bare-name` | open |

@@ -90,6 +90,9 @@ pub struct RoomTold {
     open: Option<(u64, bool)>,
     /// When each of the latest things the lamp said nothing to ended.
     unanswered: VecDeque<u64>,
+    /// The request judged a sound and sent only for the model to judge
+    /// (`LAMP_SHORT_SOUNDS`), until it is answered or closed.
+    sound: Option<u64>,
     room: Room,
     /// The session last told, and what it was told.
     told: Option<(u64, Room)>,
@@ -105,6 +108,7 @@ impl RoomTold {
             last_sound_us: 0,
             open: None,
             unanswered: VecDeque::new(),
+            sound: None,
             room: Room::Unknown,
             told: None,
         }
@@ -138,25 +142,47 @@ impl RoomTold {
         self.last_sound_us = now_us;
     }
 
+    /// What was heard in `request` has ended, and it was judged a sound,
+    /// sent on only for the model to judge by its sound. Left unanswered it
+    /// is what a sound the coordinator drops is: not something said, so it
+    /// neither starts the quiet five minutes again nor counts toward a busy
+    /// room. On lamp-4ace on 2026-10-14 at 23:24, in the empty office at
+    /// night, three played alert sounds sent on and left alone inside 37 s
+    /// made the room busy, and the session was told people were talking.
+    /// Answered, it was something said after all.
+    pub fn ended_as_sound(&mut self, request: u64, now_us: u64) {
+        self.sound = Some(request);
+        self.last_sound_us = now_us;
+    }
+
     /// The lamp is speaking in `request`.
     pub fn spoke(&mut self, request: u64, now_us: u64) {
         if self.open.is_some_and(|(open, _)| open == request) {
             self.open = None;
+        }
+        if self.sound == Some(request) {
+            self.sound = None;
         }
         self.unanswered.clear();
         self.quiet_since_us = Some(now_us);
         self.last_sound_us = now_us;
     }
 
-    /// `request` ended with the lamp saying nothing.
-    pub fn unanswered(&mut self, request: u64, now_us: u64) {
+    /// `request` ended with the lamp saying nothing. Whether it counts as
+    /// something said that the lamp left alone: a sound does not.
+    pub fn unanswered(&mut self, request: u64, now_us: u64) -> bool {
         if self.open.is_some_and(|(open, _)| open == request) {
             self.open = None;
+        }
+        if self.sound == Some(request) {
+            self.sound = None;
+            return false;
         }
         if self.unanswered.len() == BUSY_RUN {
             self.unanswered.pop_front();
         }
         self.unanswered.push_back(now_us);
+        true
     }
 
     /// Whether the latest `run` things left unanswered all fell inside a
@@ -331,6 +357,45 @@ mod tests {
         assert_eq!(room.due_in_request(1, 536 * S), None);
         // Busy now takes the run of three to stay as it is, as before.
         assert_eq!(room.at(600 * S), Room::Busy);
+    }
+
+    #[test]
+    fn sounds_sent_on_for_the_model_to_judge_and_left_alone_are_not_talk() {
+        let mut room = RoomTold::new();
+        assert_eq!(room.at(S), Room::Unknown);
+        assert_eq!(room.at(302 * S), Room::Quiet);
+        // Played alert sounds on lamp-4ace, 2026-10-14 from 23:24:20, 15 s
+        // and 16 s apart, each sent on and left alone. Counted, the second
+        // would have made this quiet room busy.
+        for (request, at) in [(1, 400), (2, 415), (3, 431), (4, 501)] {
+            room.heard(request, at * S);
+            room.ended_as_sound(request, (at + 1) * S);
+            assert!(!room.unanswered(request, (at + 5) * S));
+        }
+        assert_eq!(room.at(510 * S), Room::Quiet);
+        // Nor do they hold off the quiet that follows talk: five minutes
+        // after the last thing said, with such sounds all through them, it
+        // is quiet.
+        let mut busy = RoomTold::new();
+        for (request, at) in [(1, 10), (2, 14), (3, 18)] {
+            said(&mut busy, request, at);
+            assert!(busy.unanswered(request, (at + 3) * S));
+        }
+        assert_eq!(busy.at(22 * S), Room::Busy);
+        for (request, at) in (4..40).zip((30..330).step_by(9)) {
+            busy.heard(request, at * S);
+            busy.ended_as_sound(request, (at + 1) * S);
+            busy.unanswered(request, (at + 5) * S);
+        }
+        assert_eq!(busy.at(319 * S), Room::Busy);
+        assert_eq!(busy.at(321 * S), Room::Quiet);
+        // One the model answers was something said after all ("Hi."), and
+        // the next thing left alone counts as it always did.
+        room.heard(5, 520 * S);
+        room.ended_as_sound(5, 521 * S);
+        room.spoke(5, 522 * S);
+        said(&mut room, 6, 530);
+        assert!(room.unanswered(6, 536 * S));
     }
 
     #[test]

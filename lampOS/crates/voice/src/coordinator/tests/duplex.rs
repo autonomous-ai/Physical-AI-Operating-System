@@ -1072,12 +1072,12 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
         );
         assert_eq!(current.input_sequence, input_sequence);
         assert_eq!(queue.len(), bound);
-        queue_input_end(&mut queue, &current, privacy, bound).unwrap();
+        queue_input_end(&mut queue, &current, privacy, bound, false).unwrap();
         assert_eq!(queue.len(), bound + 1);
         assert!(
             matches!(queue.back(),Some(ProviderInput::End {request,..}) if *request==current.owner.turn())
         );
-        assert!(queue_input_end(&mut queue, &current, privacy, bound).is_err());
+        assert!(queue_input_end(&mut queue, &current, privacy, bound, false).is_err());
         assert_eq!(queue.len(), bound + 1);
     }
 }

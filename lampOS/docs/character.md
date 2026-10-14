@@ -142,7 +142,8 @@ is said near it is most likely said to it, called or not, and that when it
 has been told the office is busy, or told nothing, the two cases stand.
 The telling is the runtime's (`crates/voice/src/room_told.rs`,
 `LAMP_ROOM_FACTS=on`): quiet after five minutes in which nothing was
-said (a bump or a click is not something said), busy after three things in a row inside a minute that the lamp
+said (a bump or a click is not something said, nor is one sent on only for
+the model to judge and left alone: [not-speech.md](not-speech.md)), busy after three things in a row inside a minute that the lamp
 said nothing to, or two inside a minute when the room was quiet (since
 2026-10-14: [attention.md](attention.md), "A meeting beside the lamp"),
 each given to the session in a turn that asks for no

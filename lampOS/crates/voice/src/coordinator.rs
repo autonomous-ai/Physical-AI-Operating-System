@@ -2380,6 +2380,10 @@ fn conversation_with_controls(
     let mut took_over_turn: Option<u64> = None;
     // The turn whose speech last ended as something said, not a sound.
     let mut said_turn: Option<u64> = None;
+    // The turn last judged a sound and sent on only for the model to judge
+    // (`LAMP_SHORT_SOUNDS`): until it is answered the lamp does not ponder
+    // it, and the room and the provider do not count it as talk.
+    let mut sound_turn: Option<u64> = None;
     // The answer whose words are arriving, and whether any of them has been
     // a word yet.
     let mut answer_words: Option<(u64, bool)> = None;
@@ -3519,6 +3523,7 @@ fn conversation_with_controls(
                                 current,
                                 snapshot.microphone_generation(),
                                 provider_queue_bound,
+                                false,
                             )?;
                             early.send(turn, sent_at, captured_at_us);
                             // The request's sound has ended, for the floor,
@@ -3688,6 +3693,7 @@ fn conversation_with_controls(
                             // (`LAMP_SHORT_SOUNDS`): unanswered, it is no one
                             // else's talk.
                             room.not_counted(current.owner.turn());
+                            sound_turn = Some(current.owner.turn());
                         }
                         asked_in_busy_room = room.busy().then(|| current.owner.turn());
                         queue_input(
@@ -3702,17 +3708,22 @@ fn conversation_with_controls(
                     snapshot = owner.snapshot(now())?;
                     rig.publish(snapshot)?;
                     last_publish = monotonic_us();
+                    let as_sound = sound_turn == Some(current.owner.turn());
                     if sent.is_none() {
                         queue_input_end(
                             &mut provider_queue,
                             current,
                             snapshot.microphone_generation(),
                             provider_queue_bound,
+                            as_sound,
                         )?;
                     }
                     let mut endpoint_record = json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
                         "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                         "acoustic_speech_end":null});
+                    if as_sound {
+                        endpoint_record["let_through_as_sound"] = json!(true);
+                    }
                     // Baseline records keep exactly their existing fields.
                     if detector.confirmation_policy().is_some() {
                         endpoint_record["endpoint"] = json!(detector.last_endpoint());
@@ -4064,6 +4075,15 @@ fn conversation_with_controls(
                 match phase {
                     Some(RingPhase::Speaking) if attending => Some(RingPhase::Listening),
                     Some(RingPhase::Waiting) if about_to_speak => Some(RingPhase::Speaking),
+                    // A sound sent on for the model to judge is not something
+                    // to think about: the head stays as it was while the
+                    // sound was heard, and an answer brings it back.
+                    Some(RingPhase::Waiting)
+                        if sound_turn.is_some()
+                            && sound_turn == reply.as_ref().map(|current| current.owner.turn()) =>
+                    {
+                        None
+                    }
                     // The talk around it has not been for it: the head
                     // stays where it is until the lamp has something to say.
                     Some(RingPhase::Listening | RingPhase::Waiting) if attention.settled() => None,
@@ -4686,6 +4706,7 @@ fn commit_admitted_input(
             &current,
             snapshot.microphone_generation(),
             bound,
+            false,
         )?;
         snapshot = owner.snapshot(now())?;
         publish(snapshot)?;
@@ -4983,6 +5004,7 @@ fn queue_input_end(
     reply: &Reply,
     privacy_generation: u64,
     pcm_bound: usize,
+    sound: bool,
 ) -> Result<()> {
     if queue.len() > pcm_bound {
         return Err(io::Error::other("provider terminal queue exceeded bound").into());
@@ -4990,6 +5012,7 @@ fn queue_input_end(
     queue.push_back(ProviderInput::End {
         request: reply.owner.turn(),
         privacy_generation,
+        sound,
     });
     Ok(())
 }
@@ -5687,6 +5710,7 @@ mod tests {
             .submitted(&ProviderInput::End {
                 request: 1,
                 privacy_generation: 1,
+                sound: false,
             })
             .unwrap();
         request
@@ -6836,6 +6860,7 @@ mod tests {
         ProviderInput::End {
             request: reply.as_ref().unwrap().owner.turn(),
             privacy_generation: 1,
+            sound: false,
         }
     }
 

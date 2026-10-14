@@ -298,6 +298,7 @@ mod tests {
                     .submitted(&ProviderInput::End {
                         request: 1,
                         privacy_generation: 1,
+                        sound: false,
                     })
                     .unwrap();
             }
@@ -337,6 +338,7 @@ mod tests {
                 .submitted(&ProviderInput::End {
                     request: 1,
                     privacy_generation: 1,
+                    sound: false,
                 })
                 .unwrap();
         }
@@ -643,6 +645,7 @@ mod tests {
                             .submitted(&ProviderInput::End {
                                 request: original.turn(),
                                 privacy_generation: capture.privacy_generation,
+                                sound: false,
                             })
                             .unwrap();
                     } else {

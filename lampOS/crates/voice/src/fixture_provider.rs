@@ -375,6 +375,7 @@ impl FixtureProvider {
             | ProviderInput::End {
                 request,
                 privacy_generation,
+                ..
             }
             | ProviderInput::Written {
                 request,

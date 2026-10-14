@@ -199,6 +199,7 @@ async fn review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_ru
         .send(ProviderInput::End {
             request,
             privacy_generation: rig.snapshot.microphone_generation(),
+            sound: false,
         })
         .unwrap();
     let message = rig.service_message(&mut dial).await;

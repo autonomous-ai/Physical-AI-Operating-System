@@ -256,6 +256,13 @@ pub enum ProviderInput {
     End {
         request: u64,
         privacy_generation: u64,
+        /// Judged a sound and sent only for the model to judge by its sound
+        /// (`LAMP_SHORT_SOUNDS`, [`crate::not_speech::sent_anyway`]): left
+        /// unanswered, it is not talk the lamp ignored, and the room
+        /// ([`crate::room_told`]) and the run of unanswered requests do not
+        /// count it.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        sound: bool,
     },
     /// A whole request in writing, for a turn the lamp begins itself: it is
     /// a start and an end at once and carries no sound.
@@ -1622,15 +1629,25 @@ fn forward(
         // The service chose not to answer. For the coordinator the request is
         // complete and had no audio; the connection and conversation stay.
         Event::Unanswered { lineage, waited } => {
-            UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if let Ok(mut room) = crate::room_told::ROOM.lock() {
-                room.unanswered(lineage.request.get(), monotonic_us());
+            // A sound sent on only for the model to judge, left alone, is
+            // not a request the session failed to answer, and is not talk.
+            let said = crate::room_told::ROOM.lock().map_or(true, |mut room| {
+                room.unanswered(lineage.request.get(), monotonic_us())
+            });
+            if said {
+                UNANSWERED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                eprintln!(
+                    "lamp-voice provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
+                    lineage.request.get(),
+                    waited.as_millis()
+                );
+            } else {
+                eprintln!(
+                    "lamp-voice provider: a sound (request {}) got no answer in {} ms, as a sound should; closed, connection kept",
+                    lineage.request.get(),
+                    waited.as_millis()
+                );
             }
-            eprintln!(
-                "lamp-voice provider: request {} got no answer in {} ms; closed as unanswered, connection kept",
-                lineage.request.get(),
-                waited.as_millis()
-            );
             push(ProviderOutput::TurnComplete {
                 request: lineage.request.get(),
                 idle: true,
@@ -2261,13 +2278,17 @@ impl InputHandoff {
                     room.hearing(now_us);
                 }
             }
-            ProviderInput::End { .. } => {
+            ProviderInput::End { sound, .. } => {
                 self.require_open(request)?;
                 if let Err(error) = input.end(request) {
                     return self.refused(request, error, input);
                 }
                 if let Ok(mut room) = crate::room_told::ROOM.lock() {
-                    room.ended(request.get(), now_us);
+                    if sound {
+                        room.ended_as_sound(request.get(), now_us);
+                    } else {
+                        room.ended(request.get(), now_us);
+                    }
                 }
                 self.ended = Some((request.get(), now_us));
                 if let Some(submitted) = self.submitted.as_mut() {
@@ -2970,6 +2991,7 @@ mod tests {
         ProviderInput::End {
             request,
             privacy_generation: generation(handoff),
+            sound: false,
         }
     }
 
@@ -3169,6 +3191,7 @@ mod tests {
                                 ProviderInput::End {
                                     request: new.turn(),
                                     privacy_generation: state.microphone_generation(),
+                                    sound: false,
                                 },
                             ] {
                                 rig.parent.data.send(command)?;
@@ -3526,6 +3549,7 @@ mod tests {
             ProviderInput::End {
                 request: next.turn(),
                 privacy_generation,
+                sound: false,
             },
         ] {
             parent.data.send(command).unwrap();
@@ -4594,6 +4618,7 @@ mod tests {
                     .send(ProviderInput::End {
                         request,
                         privacy_generation,
+                        sound: false,
                     })
                     .unwrap();
             }
@@ -4665,6 +4690,7 @@ mod tests {
                 .send(ProviderInput::End {
                     request,
                     privacy_generation: rig.snapshot.microphone_generation(),
+                    sound: false,
                 })
                 .unwrap();
             assert!(
@@ -4770,6 +4796,7 @@ mod tests {
             .send(ProviderInput::End {
                 request,
                 privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
             })
             .unwrap();
         assert!(
@@ -6135,6 +6162,7 @@ mod tests {
             .send(ProviderInput::End {
                 request: newer.turn(),
                 privacy_generation,
+                sound: false,
             })
             .unwrap();
         rig.pump(Duration::from_millis(25)).await;
@@ -6856,6 +6884,7 @@ mod tests {
             .send(ProviderInput::End {
                 request: second,
                 privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
             })
             .unwrap();
         rig.pump(Duration::from_millis(40)).await;
@@ -7237,6 +7266,7 @@ mod tests {
             .send(ProviderInput::End {
                 request: new,
                 privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
             })
             .unwrap();
         // The scripted service confirms the interruption and answers. Packets
@@ -7584,6 +7614,7 @@ mod tests {
             .send(ProviderInput::End {
                 request,
                 privacy_generation,
+                sound: false,
             })
             .unwrap();
         // The connection comes back while that question is still the owner.
@@ -7624,6 +7655,7 @@ mod tests {
             .send(ProviderInput::End {
                 request: resumed,
                 privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
             })
             .unwrap();
         // The opening audio was already delivered. Only End must wait. A
@@ -7663,6 +7695,7 @@ mod tests {
                 .send(ProviderInput::End {
                     request: resumed,
                     privacy_generation: rig.snapshot.microphone_generation(),
+                    sound: false,
                 })
                 .unwrap();
             if reporting == Reporting::Typed {
@@ -7769,6 +7802,7 @@ mod tests {
                     .send(ProviderInput::End {
                         request,
                         privacy_generation: self.snapshot.microphone_generation(),
+                        sound: false,
                     })
                     .unwrap();
             }

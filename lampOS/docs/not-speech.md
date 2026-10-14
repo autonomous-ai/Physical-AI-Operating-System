@@ -170,6 +170,47 @@ rule ([attention.md](attention.md)). So a turn let through only to be judged
 no longer counts toward a busy room, answered or not (`body_link::Attention::
 not_counted`); an answer still clears the count. Measured again after that.
 
+**What the played noises did with it** (lamp-4ace, 2026-10-14, the noise set
+of 23:23:56 to 23:34:20, voice `9cdd727f5`, empty office at night): the
+tonal alert sounds the detector takes for a voice were now sent on. Twelve
+requests by 23:31:09, none answered, each 13 to 38 blocks of speech, ten of
+them under the gate's 30, all closed after the four seconds the provider
+waits. The model said nothing to any of them, as it should. Three other parts
+of the lamp still took each one for talk:
+
+- The provider's own room judgement ([room_told](../crates/voice/src/room_told.rs))
+  counted each as something said and left alone. Three of them inside 37 s
+  (38, 17 and 13 blocks) made the room busy at 23:24:39, and the session was
+  told "the office around you is busy, with people talking to each other". It
+  stayed busy until 23:55:14, through the next two played tests.
+- The run of unanswered requests that renews the session after eight
+  counted them too: the session was renewed at 23:52:48.
+- The body went to its thinking pose for each one, rising to full height for
+  four seconds.
+
+So the coordinator now marks such a request when it ends (`ProviderInput::End`
+`sound`, recorded as `let_through_as_sound` on its `local_endpoint`). Left
+unanswered, the provider counts it as it counts a sound it never saw: not in
+the room's run, not in the five quiet minutes, not in the renewal run, and its
+journal line reads "a sound (request N) got no answer", which the played-test
+quiet gate does not count. The body keeps the pose it had while the sound was
+heard instead of thinking, and an answer brings it back as usual. The ring
+still shows its waiting light for those four seconds.
+
+The played sets of that night ran before the change was installed:
+
+- *Noises* (23:23:56 to 23:34:20, the run above): 0 of 48 answered; 15 taken
+  for a voice and listened to, the same six tonal sounds as before (Glass,
+  Hero, Submarine, Blow, Bottle, Funk).
+- *Short words* (23:38 to 23:47): **0 of 36 answered**, 14 heard. The journal
+  says why: "its answer is held back: a busy room, and nothing shows it was
+  called", and for "Hey Lamp." "the lamp's name was heard in a busy room and
+  nobody is turned to the lamp; the model is not told". At 23:52:48 the
+  session was renewed after eight unanswered requests.
+
+So that run measured the side effect, not the switch. It is to be run again with
+the change installed.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

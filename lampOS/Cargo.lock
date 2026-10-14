@@ -1969,6 +1969,7 @@ dependencies = [
  "lamp-body",
  "lamp-bus",
  "lamp-camera",
+ "lamp-controls",
  "lamp-expression",
  "lamp-gemini",
  "lamp-ipc",

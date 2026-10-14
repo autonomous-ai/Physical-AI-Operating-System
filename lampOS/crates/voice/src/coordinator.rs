@@ -15,6 +15,7 @@ use crate::{
     choreography::RingChoreographer,
     diagnostic_control::{self, DiagnosticFinished, DiagnosticStream},
     fixture_provider::{CueSink, Fixture, FixtureInfo, FixtureOptions},
+    hand_controls::{ControlsOptions, HandControls},
     options::{
         AudioWorkerOptions, DirectedOptions, NoiseSuppression, PlayoutStart, SessionOptions,
         TurnTaking,
@@ -25,7 +26,7 @@ use crate::{
     provider_link::{ProviderLink, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
     ring_wire::{RingBlankReason, RingFeedback},
-    service_privacy::{self, PhysicalMute},
+    service_privacy::{self, PhysicalMute, SoftwareMute},
     session_lifetime::{Lifetime, SessionClock},
     session_state::{SessionState, YieldInterval},
     termination::Termination,
@@ -48,6 +49,7 @@ use lamp_turn_owner::{
 };
 use serde_json::{Value, json};
 use std::{
+    cell::RefCell,
     collections::VecDeque,
     fs::{self, OpenOptions},
     io::{self, Write},
@@ -61,6 +63,7 @@ pub mod motor;
 use motor::{OptionalMotor, PreparedMotor};
 mod cloud;
 mod endpoint;
+mod hand;
 mod notices;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
@@ -307,6 +310,33 @@ struct Rig {
     endpoint: Option<EndpointRig>,
 }
 impl Rig {
+    /// A hand cancellation has already reached the speaker. Deliver revocation
+    /// to every remaining child even if one local channel has gone away.
+    fn publish_hand_revocation(&mut self, snapshot: Snapshot) -> io::Result<()> {
+        let mut failure = None;
+        for worker in [&mut self.capture, &mut self.privacy, &mut self.provider] {
+            if let Err(error) = worker
+                .channels
+                .control
+                .send(Control::Authority { snapshot })
+            {
+                failure.get_or_insert(error);
+            }
+        }
+        if let Some(motor) = &mut self.motor {
+            motor.publish(snapshot);
+        }
+        self.ring.publish(snapshot);
+        if let Some(camera) = &mut self.camera {
+            let _ = camera
+                .worker
+                .channels
+                .control
+                .send(Control::Authority { snapshot });
+        }
+        failure.map_or(Ok(()), Err)
+    }
+
     fn publish(&mut self, snapshot: Snapshot) -> io::Result<()> {
         // Motor revocation precedes mandatory audio sends, including their failure.
         if let Some(motor) = &mut self.motor {
@@ -691,6 +721,7 @@ pub fn run_fixture(
         None,
         None,
         Some(info),
+        &ControlsOptions::default(),
         cues,
         &termination,
     )
@@ -733,6 +764,7 @@ pub fn run_directed_with_options(
             camera_config: None,
             motor: None,
             failure_notices: None,
+            controls: ControlsOptions::default(),
         },
     )
 }
@@ -760,6 +792,7 @@ pub fn run_directed_session(
         options.motor.as_ref(),
         options.failure_notices.as_ref(),
         None,
+        &options.controls,
         cues,
         &termination,
     )
@@ -803,6 +836,7 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
         options.motor.as_ref(),
         options.failure_notices.as_ref(),
         None,
+        &options.controls,
         cues,
         &termination,
     );
@@ -834,10 +868,13 @@ fn run_source(
     motor_options: Option<&crate::options::MotorOptions>,
     notice_options: Option<&crate::options::NoticeOptions>,
     fixture: Option<FixtureInfo>,
+    controls_options: &ControlsOptions,
     mut cues: Option<CueSink>,
     termination: &Termination,
 ) -> Result<()> {
     lifetime.validate()?;
+    // Restore the software latch before any worker, including metadata/GPIO.
+    let controls = RefCell::new(HandControls::restore(controls_options)?);
     if lifetime.continuous() && options.diagnostics {
         return Err(io::Error::other("serve does not allow raw audio diagnostics").into());
     }
@@ -880,6 +917,15 @@ fn run_source(
         json!({"kind":"failure_notice_capability","at_us":monotonic_us(),
         "capability":notices.capability(),"automatic_synthesis":false}),
     )?;
+    if controls_options.enabled() {
+        record(
+            &mut trace,
+            json!({"kind":"hand_controls_policy","at_us":monotonic_us(),
+            "stop":controls_options.stop,"software_mute":controls_options.mute_record.is_some(),
+            "clear":"fresh second local hold, durably saved before physical privacy checks",
+            "observation_to_speaker_target_us":2000,"acoustic_stop_measured":false}),
+        )?;
+    }
     let result = (|| {
         let diagnostic_directory = options
             .diagnostics
@@ -892,14 +938,28 @@ fn run_source(
                 &mut cues,
                 termination,
                 |trace, cues| {
-                    service_privacy::wait(&executable, termination, |state, boot, at_us| {
-                        record(
-                            trace,
-                            json!({"kind":"service_privacy_state", "at_us":at_us,"privacy_worker_session":boot,"state":format!("{state:?}"),"audio_workers_open":false}),
-                        )?;
-                        flush_cues(trace, cues);
-                        Ok(())
-                    })
+                    let trace = RefCell::new(trace);
+                    service_privacy::wait_with_gate(
+                        &executable,
+                        termination,
+                        |state, boot, at_us| {
+                            let mut trace = trace.borrow_mut();
+                            record(
+                                &mut trace,
+                                json!({"kind":"service_privacy_state", "at_us":at_us,"privacy_worker_session":boot,"state":format!("{state:?}"),"audio_workers_open":false}),
+                            )?;
+                            flush_cues(&mut trace, cues);
+                            Ok(())
+                        },
+                        || {
+                            let Some(controls) = &mut *controls.borrow_mut() else {
+                                return Ok(true);
+                            };
+                            let (allowed, observation) = controls.quiescent_observation()?;
+                            record_hand_pats(&mut trace.borrow_mut(), observation.pets)?;
+                            Ok(allowed)
+                        },
+                    )
                 },
                 |trace, cues| {
                     run_inner(
@@ -914,6 +974,7 @@ fn run_source(
                         &notices,
                         cues,
                         termination,
+                        &mut controls.borrow_mut(),
                     )
                 },
             )
@@ -930,9 +991,17 @@ fn run_source(
                 &notices,
                 &mut cues,
                 termination,
+                &mut controls.borrow_mut(),
             )
         }
     })();
+    // This runs even after a startup or teardown fault. A previously armed
+    // recovery record already inhibits restart if this update cannot be saved.
+    let persistence = controls
+        .borrow_mut()
+        .as_mut()
+        .map_or(Ok(()), HandControls::persist_muted);
+    let result = service_privacy::finish(result, persistence);
     finish_run(output, &mut trace, &mut cues, result, termination)
 }
 
@@ -1639,6 +1708,30 @@ fn pulse(
     }
     Ok(())
 }
+/// Startup workers have denied capture authority. A mute observed here is
+/// persisted and aborts startup; partial-start teardown is not a resumable cycle.
+fn controls_startup(controls: &mut Option<HandControls>) -> io::Result<()> {
+    if let Some(controls) = controls.as_mut()
+        && controls.poll()?.muted
+    {
+        controls.persist_muted()?;
+        return Err(io::Error::other(
+            "software mute during worker startup; restart remains muted",
+        ));
+    }
+    Ok(())
+}
+
+fn record_hand_pats(trace: &mut SessionState, count: u64) -> Result<()> {
+    if count != 0 {
+        record(
+            trace,
+            json!({"kind":"hand_pat_observed","at_us":monotonic_us(),"count":count,"action":"none"}),
+        )?;
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn spawn_rig(
     source: ProviderSource<'_>,
@@ -1651,7 +1744,9 @@ fn spawn_rig(
     camera: Option<PreparedCamera>,
     lifetime: Lifetime,
     termination: &Termination,
+    controls: &mut Option<HandControls>,
 ) -> Result<Rig> {
+    controls_startup(controls)?;
     termination.check()?;
     let executable = std::env::current_exe()?;
     // Model loading overlaps the remaining startup; nothing waits for it.
@@ -1685,7 +1780,10 @@ fn spawn_rig(
         boot,
         provider_boot,
         &arguments,
-        || termination.check(),
+        || {
+            controls_startup(controls)?;
+            termination.check()
+        },
     )?;
     let mut last = 0;
     let capture_arguments =
@@ -1703,7 +1801,10 @@ fn spawn_rig(
         "capture",
         boot,
         &capture_arguments,
-        || pulse(owner, &mut [&mut provider], &mut last, startup, termination),
+        || {
+            controls_startup(controls)?;
+            pulse(owner, &mut [&mut provider], &mut last, startup, termination)
+        },
     )?;
     let mut speaker = Worker::spawn_with_tick(
         &executable,
@@ -1712,6 +1813,7 @@ fn spawn_rig(
         boot,
         &speaker_arguments,
         || {
+            controls_startup(controls)?;
             pulse(
                 owner,
                 &mut [&mut provider, &mut capture],
@@ -1740,6 +1842,7 @@ fn spawn_rig(
     }
     let mut ring = if options.ring_channel_ceiling.is_some() {
         OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {
+            controls_startup(controls)?;
             pulse(
                 owner,
                 &mut [&mut provider, &mut capture, &mut speaker],
@@ -1777,6 +1880,7 @@ fn spawn_rig(
                 )
             },
             || {
+                controls_startup(controls)?;
                 let previous = last;
                 pulse(
                     owner,
@@ -1803,6 +1907,7 @@ fn spawn_rig(
         None
     };
     let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
+        controls_startup(controls)?;
         let previous = last;
         pulse(
             owner,
@@ -1877,8 +1982,19 @@ fn run_inner(
     notices: &FailureNotices,
     cues: &mut Option<CueSink>,
     termination: &Termination,
+    controls: &mut Option<HandControls>,
 ) -> Result<()> {
     termination.check()?;
+    if let Some(controls) = controls.as_mut() {
+        controls.fence_clear()?;
+        if controls.poll()?.muted {
+            controls.persist_muted()?;
+            return Err(Box::new(SoftwareMute {
+                observed_at_us: monotonic_us(),
+            }));
+        }
+        controls.arm_active()?;
+    }
     let directory = SessionDirectory::create()?;
     let boot = new_boot()?;
     if let Some(sink) = cues.as_mut() {
@@ -1965,6 +2081,7 @@ fn run_inner(
         camera,
         lifetime,
         termination,
+        controls,
     )?;
     rig.motor = motor;
     if let Some(frames) = head_camera {
@@ -1991,7 +2108,7 @@ fn run_inner(
             .send(Control::ConnectReference {
                 peer: rig.capture.boot,
             })?;
-        conversation(
+        conversation_with_controls(
             &mut rig,
             &mut owner,
             lifetime,
@@ -2001,24 +2118,31 @@ fn run_inner(
             cues,
             termination,
             notices,
+            controls,
         )
     })();
-    let physical_mute = result
+    let privacy_mute = result
         .as_ref()
         .err()
-        .is_some_and(|error| error.downcast_ref::<PhysicalMute>().is_some());
+        .is_some_and(|error| error.is::<PhysicalMute>() || error.is::<SoftwareMute>());
     let result = finish_active_run(&mut rig, &mut owner, &mut reply, trace, cues, result);
     if let Some(motor) = &rig.motor {
-        *motor_rearm &= motor.may_rearm_after_cycle(physical_mute);
+        *motor_rearm &= motor.may_rearm_after_cycle(privacy_mute);
     }
     // Reopening is allowed only after all child and local endpoint ownership
     // has ended. Never accumulate per-cycle output/IPC directories.
     drop(rig);
-    if lifetime.continuous() {
+    let result = if lifetime.continuous() {
         service_privacy::finish(result, fs::remove_dir(&directory.path))
     } else {
         result
+    };
+    if result.is_ok()
+        && let Some(controls) = controls.as_mut()
+    {
+        controls.disarm_after_cleanup()?;
     }
+    result
 }
 
 fn service_head(
@@ -2105,6 +2229,7 @@ fn finish_active_run(
     service_privacy::finish(result, shutdown)
 }
 
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 fn conversation(
     rig: &mut Rig,
@@ -2116,6 +2241,33 @@ fn conversation(
     cues: &mut Option<CueSink>,
     termination: &Termination,
     notices: &FailureNotices,
+) -> Result<()> {
+    conversation_with_controls(
+        rig,
+        owner,
+        lifetime,
+        trace,
+        startup,
+        reply,
+        cues,
+        termination,
+        notices,
+        &mut None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn conversation_with_controls(
+    rig: &mut Rig,
+    owner: &mut Controller,
+    lifetime: Lifetime,
+    trace: &mut SessionState,
+    startup: StartupEvents,
+    reply: &mut Option<Reply>,
+    cues: &mut Option<CueSink>,
+    termination: &Termination,
+    notices: &FailureNotices,
+    controls: &mut Option<HandControls>,
 ) -> Result<()> {
     let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
@@ -2132,6 +2284,7 @@ fn conversation(
     let mut last_capture = None;
     let mut last_publish = 0;
     let mut last_health = 0;
+    let mut last_hand_health = 0;
     let mut choreography = if rig.ring.is_active() {
         rig.ring_channel_ceiling
             .map(RingChoreographer::new)
@@ -2288,10 +2441,16 @@ fn conversation(
     let mut submission_draining = false;
     let mut speaker_pending: Option<PendingSpeaker> = None;
     let mut speaker_sequence = 0u64;
+    let mut hand_cancelled_through: Option<u64> = None;
     let mut snapshot = owner.snapshot(now())?;
+    let mut highest_known_turn = snapshot.owner().map(|owner| owner.turn());
     rig.publish(snapshot)?;
     loop {
         let loop_start = Instant::now();
+        if let Some(current) = reply.as_ref() {
+            let turn = current.owner.turn();
+            highest_known_turn = Some(highest_known_turn.map_or(turn, |old| old.max(turn)));
+        }
         if lifetime.continuous() && termination.signal_name().is_some() {
             record(
                 trace,
@@ -2385,6 +2544,72 @@ fn conversation(
                 _ => {}
             }
         }
+        if let Some(controls) = controls.as_mut() {
+            let observation = controls.poll()?;
+            if observation.stop || observation.muted {
+                let observed_at_us = monotonic_us();
+                let cancellation = hand::cancel(
+                    owner,
+                    reply,
+                    &mut rig.speaker.channels.control,
+                    &mut speaker_pending,
+                    &mut provider_queue,
+                    &mut admission,
+                    &mut detector,
+                    observation.muted,
+                    observed_at_us,
+                    monotonic_us,
+                )?;
+                snapshot = cancellation.snapshot;
+                // A reply may already be complete while its independent text
+                // socket still holds a "let me look" tail. Idle Stop also
+                // fences that last known request, not just a currently owned one.
+                if let Some(turn) = cancellation.cancelled_turn.or(highest_known_turn) {
+                    hand_cancelled_through =
+                        Some(hand_cancelled_through.map_or(turn, |old| old.max(turn)));
+                }
+                last_publish = monotonic_us();
+                // No provider, optional presentation, filesystem or trace call
+                // precedes speaker revocation. Capture is next for mute.
+                let publish = rig.publish_hand_revocation(snapshot);
+                submission_draining = admission.draining();
+                look_wanted = None;
+                answer_opening = None;
+                second_look =
+                    crate::second_look::SecondLook::default().with_the_note(crate::called::on());
+                last_turn_us = monotonic_us();
+                speech_ended = None;
+                floor_held_for = None;
+                asked_in_busy_room = None;
+                busy_answer_since = None;
+                let reason = if observation.muted {
+                    "software_muted"
+                } else {
+                    "hand_stop"
+                };
+                record(
+                    trace,
+                    json!({"kind":"hand_control_cancel", "reason":reason,
+                    "at_us":observed_at_us, "acquired_at_us":observation.acquired_at_us,
+                    "speaker_told_at_us":cancellation.speaker_told_at_us,
+                    "observation_to_speaker_dispatch_us":cancellation.speaker_told_at_us.saturating_sub(observed_at_us),
+                    "boundary":"coordinator observation to local speaker control send; excludes bus delivery and acoustic stop"}),
+                )?;
+                if let Some(current) = cancellation.reply {
+                    record_cancelled_reply(
+                        current,
+                        trace,
+                        reason,
+                        cancellation.speaker_told_at_us,
+                    )?;
+                }
+                publish?;
+                if observation.muted {
+                    return Err(Box::new(SoftwareMute { observed_at_us }));
+                }
+            }
+            record_hand_pats(trace, observation.pets)?;
+        }
         let can_open = privacy_state == PrivacyState::Allowed;
         if permitted && !can_open {
             return Err(io::Error::other("physical privacy closed or lost freshness").into());
@@ -2477,6 +2702,9 @@ fn conversation(
                 break;
             };
             output_flow.received()?;
+            if hand::cancelled_output(&event, hand_cancelled_through) {
+                continue;
+            }
             observe_provider_output(&mut cloud, reply, &event)?;
             match event {
                 ProviderOutput::Ready { setup_us } => {
@@ -3667,6 +3895,19 @@ fn conversation(
             rig.running()?;
             last_health = clock;
         }
+        if clock.saturating_sub(last_hand_health) >= 1_000_000
+            && let Some(controls) = controls.as_ref()
+        {
+            let health = controls.health();
+            record(
+                trace,
+                json!({"kind":"hand_controls_health","at_us":monotonic_us(),
+                "received":health.received,"rejected":health.rejected,"lost":health.lost,
+                "reconnects":health.reconnects,"discontinuities":health.discontinuities,
+                "pump_running":health.pump_running,"persistence_failed":health.persistence_failed}),
+            )?;
+            last_hand_health = clock;
+        }
         flush_cues(trace, cues);
         if let Some(wait) = Duration::from_millis(2).checked_sub(loop_start.elapsed()) {
             std::thread::sleep(wait);
@@ -3874,7 +4115,7 @@ fn observe_prospective_input(
         observation.captured_at_us,
         at_us,
     )?;
-    if !admission.owns_stream() && mask.frame() == Disposition::Suppress {
+    if !admission.owns_stream() && !admission.draining() && mask.frame() == Disposition::Suppress {
         let rejection = admission.suppress_prospective(context, at_us)?;
         detector
             .suppress(&observation, probability)
@@ -4473,25 +4714,32 @@ fn cancel_reply(
     reason: &str,
 ) -> Result<()> {
     if let Some(current) = reply.take() {
-        // Cancellation invalidates permits already delivered to the speaker.
-        // Dropping this reply also discards PCM waiting in the controller.
         let cancel = owner.cancel_turn(now(), current.owner);
-        let cancelled_at_us = monotonic_us();
-        finish_duplex_yield(trace, cancelled_at_us, reason, None, None)?;
-        trace
-            .receipts
-            .cancelled(current.owner, cancelled_at_us, reason)?;
-        record(
-            trace,
-            json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":cancelled_at_us,"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
+        record_cancelled_reply(current, trace, reason, monotonic_us())?;
+        cancel?;
+    }
+    Ok(())
+}
+
+fn record_cancelled_reply(
+    current: Reply,
+    trace: &mut SessionState,
+    reason: &str,
+    cancelled_at_us: u64,
+) -> Result<()> {
+    finish_duplex_yield(trace, cancelled_at_us, reason, None, None)?;
+    trace
+        .receipts
+        .cancelled(current.owner, cancelled_at_us, reason)?;
+    record(
+        trace,
+        json!({"kind":"turn_finished","owner":current.owner,"turn":current.owner.turn(),"at_us":cancelled_at_us,"outcome":reason,"provider_audio_seen":current.had_audio,"playback_gaps":current.playback_gaps,
                 "provider_session":current.cloud.session,"provider_outcome":current.cloud.outcome,"failure_notice":current.notice.evidence(),
                 "start_gate":current.start_trace(),"start_deficit_us":current.need.deficit_us(),
                 "start_horizon_needed_us":current.need.horizon_us(),
                 "start_need_scope":"all retained reply arrivals including later generations; excludes local handoff",
                 "start_need_censored":true}),
-        )?;
-        cancel?;
-    }
+    )?;
     Ok(())
 }
 
@@ -4658,6 +4906,7 @@ mod tests {
     mod duplex;
     mod endpoint_session;
     mod failure_notice;
+    mod hand_controls;
     mod pilot_faults;
     mod playout_continuity;
     mod playout_start;

@@ -1012,11 +1012,11 @@ impl OptionalMotor {
                 .is_some_and(|revision| child.privacy_release_confirmed(revision))
         })
     }
-    /// A normal verified physical-mute cycle can reopen idle, with fresh worker
+    /// A verified physical/software mute cycle can reopen idle, with fresh worker
     /// identity and no copied offers. A degraded optional component cannot.
-    pub fn may_rearm_after_cycle(&self, physical_mute: bool) -> bool {
+    pub fn may_rearm_after_cycle(&self, privacy_mute: bool) -> bool {
         self.finish().is_ok()
-            && (self.failure.is_none() || (physical_mute && self.privacy_released()))
+            && (self.failure.is_none() || (privacy_mute && self.privacy_released()))
     }
 }
 

@@ -1,0 +1,270 @@
+{
+  "task": 21,
+  "task_branch": "fourth/controls-voice",
+  "base": "52cc4ec8e4a6e3923eceddb96df36a79cbceb849",
+  "lamp_measurement": false,
+  "native_host": {
+    "os": "macOS 26.6.2 (25G83)",
+    "arch": "x86_64",
+    "cpu": "Intel Core i7-10700K 3.80 GHz",
+    "logical_cpus": 16,
+    "ram_gib": 64,
+    "rust": "1.96.0",
+    "cargo": "1.96.0"
+  },
+  "linux_host": {
+    "kind": "Podman development VM on the same Mac",
+    "vm_name": "lampos-arm64",
+    "arch": "x86_64",
+    "kernel": "6.12.13-200.fc41.x86_64",
+    "vcpus": 6,
+    "ram_gib": 8,
+    "image": "localhost/lampos-fourth-native-check:latest",
+    "network_during_tests": "none",
+    "not_arm_execution": true
+  },
+  "latency_probe": {
+    "boundary": "coordinator observation immediately before hand::cancel to clock sampled after successful local speaker Authority datagram send",
+    "clock": "actual lamp_ipc::monotonic_us",
+    "excludes": [
+      "fixture setup and teardown",
+      "bus delivery",
+      "hand gesture detection",
+      "speaker worker scheduling",
+      "device playback",
+      "acoustic silence"
+    ],
+    "first_us": 41,
+    "host_arch": "x86_64",
+    "host_os": "macos",
+    "injected_clock_target_us": 2000,
+    "injected_clock_test_intervals_us": [
+      0,
+      700,
+      1500,
+      2000
+    ],
+    "lamp_measurement": false,
+    "measurement": "local_hand_stop_dispatch",
+    "repeated_median_us": 6,
+    "repeated_p95_order_statistic_us": 9,
+    "repeated_samples": 99,
+    "repeated_worst_us": 16,
+    "samples": 100,
+    "worst_us": 41,
+    "fixture": {
+      "queued_pcm_samples": 480,
+      "pending_speaker_receipts": 1,
+      "provider_input_commands": 2,
+      "worst_case_backlog": false
+    }
+  },
+  "failed_test_names": {
+    "lamp-fourth-controls-voice-tests.log": [
+      "coordinator::camera::tests::mandatory_fault_consumed_during_camera_spawn_wait_remains_fatal",
+      "coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+      "coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+      "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+      "coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return",
+      "coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap",
+      "coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant",
+      "coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants",
+      "coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches",
+      "coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only",
+      "coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal",
+      "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests",
+      "coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant",
+      "coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate",
+      "coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write",
+      "coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure",
+      "coordinator::motor::tests::readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue",
+      "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write",
+      "coordinator::motor::tests::stale_snapshot_does_not_revoke_newer_idle_authority",
+      "coordinator::motor::tests::unresolved_cleanup_removes_the_service_mute_restart_token",
+      "coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping",
+      "coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure",
+      "coordinator::optional_ring_tests::mandatory_worker_faults_remain_terminal_during_optional_spawn",
+      "coordinator::tests::turn_taking::v1_baseline_privacy_loss_and_capture_lineage_change_never_reopen_old_candidate"
+    ],
+    "lamp-fourth-controls-linux-final.log": [
+      "coordinator::ring_trace_tests::ring_trace_full_600_seconds_keeps_voice_transitions_and_fault_within_cap",
+      "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+      "hand_controls::tests::live_bus::actual_bus_pump_restarts_publisher_fences_old_owner_and_keeps_mute"
+    ]
+  },
+  "linux_repeated_regressions": {
+    "runs_per_case": 3,
+    "passed": 9,
+    "failed": 0,
+    "limits_relaxed": false,
+    "command": "cargo test -p lamp-voice --lib --offline --locked --target x86_64-unknown-linux-gnu TEST_NAME -- --exact --test-threads=1",
+    "log": "lamp-fourth-controls-linux-regressions.log"
+  },
+  "cross_check": {
+    "target": "aarch64-unknown-linux-gnu",
+    "strict_command": "cargo clippy -p lamp-controls -p lamp-voice -p lamp-voice-eval --all-targets --offline --locked --target aarch64-unknown-linux-gnu -- -D warnings",
+    "strict_result": "failed on inherited hands-off lamp-body src/inspection.rs:615 dead_code",
+    "selected_command": "cargo clippy -p lamp-controls -p lamp-voice -p lamp-voice-eval --all-targets --no-deps --offline --locked --target aarch64-unknown-linux-gnu -- -D warnings",
+    "selected_exit": 0,
+    "selected_seconds_reported_by_cargo": 20.02,
+    "dependency_warning_retained": true,
+    "arm_execution": false
+  },
+  "status": "final native and standalone Linux tests and builds passed; strict ARM dependency Clippy limitation retained",
+  "baseline_check": {
+    "base": "52cc4ec8e4a6e3923eceddb96df36a79cbceb849",
+    "test": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+    "exact_passed": 10,
+    "result": "Narrow runs passed; does not reproduce or establish cause of the full-suite scheduling gap."
+  },
+  "linux_second_full_run": {
+    "voice_library_passed": 783,
+    "failed": 1,
+    "ignored": 6,
+    "failure": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+    "reported_privacy_gap_us": 57167,
+    "privacy_limit_us": 50000,
+    "refused_writes": 0,
+    "host_concurrent_work": "Mac final serial suite; no concurrent Linux build"
+  },
+  "intermediate_validation_failures": [
+    "An initial gate invocation used the repository root instead of lampOS and found no Cargo.toml; rerun from lampOS.",
+    "A check during implementation encountered a test module not yet written; final compilation includes it.",
+    "Native Clippy rejected an unnecessary unwrap in the adapter; replaced with an if-let before final strict gate.",
+    "Sandboxed local Unix socket binding was unavailable; authorized native test execution was used.",
+    "Linux image first lacked native ALSA build metadata, then /bin/kill; only the task container image was amended.",
+    "A first image build used an overly broad temporary build context and was interrupted; it was rebuilt successfully with a minimal context."
+  ],
+  "native_final_gate": {
+    "format_exit": 0,
+    "clippy_exit": 0,
+    "clippy_cargo_seconds": 11.65,
+    "test_exit": 0,
+    "test_totals": {
+      "lamp-controls": {
+        "passed": 142,
+        "failed": 0,
+        "ignored": 0
+      },
+      "lamp-voice": {
+        "passed": 973,
+        "failed": 0,
+        "ignored": 6
+      },
+      "lamp-voice-eval": {
+        "passed": 284,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "test_threads": 1,
+    "workspace_build_exit": 0,
+    "workspace_build_cargo_seconds": 17.41,
+    "commands": [
+      "cargo fmt --all --check",
+      "cargo clippy -p lamp-controls -p lamp-voice -p lamp-voice-eval --all-targets --offline -- -D warnings",
+      "RUST_TEST_THREADS=1 cargo test -p lamp-controls -p lamp-voice -p lamp-voice-eval --offline",
+      "cargo build --workspace --offline"
+    ]
+  },
+  "not_shown": [
+    "lamp GPIO polarity or touch recognition",
+    "release-to-acoustic-silence latency",
+    "device speaker scheduling and buffer retirement",
+    "physical slide/capture transitions",
+    "physical power-loss recovery",
+    "Body controlled stop",
+    "Linux ARM64 execution",
+    "end-to-end lamp latency"
+  ],
+  "linux_final_gate": {
+    "test_exit": 0,
+    "test_totals": {
+      "lamp-controls": {
+        "passed": 142,
+        "failed": 0,
+        "ignored": 0
+      },
+      "lamp-voice": {
+        "passed": 977,
+        "failed": 0,
+        "ignored": 6
+      },
+      "lamp-voice-eval": {
+        "passed": 284,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "test_threads": 1,
+    "workspace_build_exit": 0,
+    "cargo_stage_times": [
+      "Finished `test` profile [unoptimized + debuginfo] target(s) in 46.41s",
+      "Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.18s"
+    ],
+    "other_tests_or_builds_from_this_session_running": false,
+    "commands": [
+      "CARGO_TARGET_DIR=/target CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=1 cargo test -p lamp-controls -p lamp-voice -p lamp-voice-eval --offline --locked --target x86_64-unknown-linux-gnu",
+      "CARGO_TARGET_DIR=/target CARGO_BUILD_JOBS=4 cargo build --workspace --offline --locked --target x86_64-unknown-linux-gnu"
+    ],
+    "inherited_warnings": [
+      "lamp-body/src/inspection.rs:615 unused run function",
+      "lamp-body/src/bin/lamp-body.rs:592 unnecessary mut on eyes closure"
+    ]
+  },
+  "source_only_copy": {
+    "files_at_test": 764,
+    "path": "/private/tmp/lamp-fourth-controls-final-s2r9nzee",
+    "parent_repository_present": false,
+    "network": "none",
+    "build_cache": "lamp-fourth-controls-target; read-only Cargo registry and git caches",
+    "clean_build_performance_claim": false
+  },
+  "local_log_sha256": {
+    "lamp-fourth-controls-native-final-clippy.log": "b40f7784254be0f9bdd0b1dfaee6d1c84249d4e5fa66bdde71799fdec2bd5314",
+    "lamp-fourth-controls-native-final-tests.log": "8942ac198efe4adf9060c9ccea618e09d773d79f60765826420aa84f7c871e13",
+    "lamp-fourth-controls-native-final-build.log": "2cc7f9d35fd9ec13c80736a45bcaabf59a5a77b299a6be5812d9a7a6f8cac18f",
+    "lamp-fourth-controls-linux-quiet.log": "f70c3c5f4ab8ddbf9a1181dd081be25062db9609024c2b49482c9cf9d94f35a9",
+    "lamp-fourth-controls-linux-regressions.log": "2f34fc9553219f25f4e31b163186120f42868eec075ff01ba9bd1c1c406fa3c9",
+    "lamp-fourth-controls-linux-baseline.log": "935182e6d3c905ec6e0c1c4207edd8efef3442e4438d8b30e190ed41b5f56a37",
+    "lamp-fourth-controls-voice-tests.log": "8fcd0e10f870902dda19922ae1ad941855378471113977014d1c5183ee7ec19b",
+    "lamp-fourth-controls-linux-final.log": "7bfd105acedea38627a9bc28d427f025aa519c73d23141ca22e9996369e734f0",
+    "lamp-fourth-controls-linux-verified.log": "f501730e09b9d9e8725335c8bd501dda04250f8e0de2c461fb743b73a413a6cd",
+    "lamp-fourth-controls-arm-clippy-final.log": "577bfbe5b670796590749e901d4eb7b815f1fa090a9a0edfdccbf301d1983e03",
+    "lamp-fourth-controls-arm-clippy-nodeps.log": "4a2efacad01e63791910e5786424d2b9ad8226c34c3fdd36a1a52a7a59e61ec6",
+    "lamp-fourth-controls-latency.log": "087285ced697634eccafdba7ef072b7cad09593e008f17bb2486d73c40d2577f"
+  },
+  "changed_rust_and_manifest_sha256": {
+    "Cargo.lock": "603d2b16985936b5b397a85f595dc863e30b5e2e27012a89d212aaeccc86fd91",
+    "crates/controls/src/mute.rs": "70db9210787c6b22b8c301bda98c5025178a33eb692dc8d941cd4c98badadcfc",
+    "crates/controls/src/pins.rs": "95c149688d7bdec24b5baf8a1c55ecb2db1a97d4ce233ea058d4096748949eb0",
+    "crates/controls/src/receiver.rs": "64ac6ab6288bbb979b84b6c7763df9c58722757aff9423754bffa420733e9025",
+    "crates/controls/tests/hold_clear.rs": "cbfdc827c4602ffba47e98820b9993877889f1b0670884cbbcb41af7249d8ed7",
+    "crates/controls/tests/mute.rs": "252b55688c544cf6dc358aa81ae575fb36982ae1c561b757693f69ca78faa0b6",
+    "crates/controls/tests/receiver.rs": "63cd5a9ed432f9ca67e440a33f3e5a5735c902aaab9d0b471e2ecfaea271d73d",
+    "crates/voice/Cargo.toml": "ca92560929ca975c111ad41cb3d02cafe7acc1431d6136fe6ddcb24814752be7",
+    "crates/voice/src/activity.rs": "f0fdde142ec305c0178970a2e3306da7145ccd867e4a658160bc56b55bf3c9aa",
+    "crates/voice/src/admission.rs": "dfd21c5566e0bbcbb27dc6d688c249b9ff33a8bdb2fb0d9a9fb8145e770b4795",
+    "crates/voice/src/coordinator.rs": "1e8879eacf32ba3bf2f6b411b7ad99ef3948bd345cb5ed9683bacba87abe5a1e",
+    "crates/voice/src/coordinator/hand.rs": "743262cced65abe40a59dba85b91cf10a5369bcc492aa079266a820a5428955b",
+    "crates/voice/src/coordinator/motor.rs": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+    "crates/voice/src/coordinator/service.rs": "b7a9a809dc33da65bf0534c25632e8fa14650f4e020736cbf57cc31e53183d9d",
+    "crates/voice/src/coordinator/tests/hand_controls.rs": "f3af526f912613b4ddd4b6637605fbd5b348b40734b8dd4a50f9f1088a82871f",
+    "crates/voice/src/fixture_provider.rs": "7556e2ff0f751579d99d00693084a296f8fe4f7d04b95e3672ad633be02e66b6",
+    "crates/voice/src/hand_controls.rs": "328e833d19091914706297ae4b0dd1bc5402e2792f00ec32cb205363795adf44",
+    "crates/voice/src/hand_controls/tests.rs": "7563f250a327d71d05aa76eadd3359da2622d72bd9d0267c24b7d29df58d747c",
+    "crates/voice/src/lib.rs": "15d2526de8b84e29dac8156c3f216de028b8e3c6e3ba61cd08e92b3750181ba1",
+    "crates/voice/src/main.rs": "11e96173b4e5fe976331ae737c8586a576972d3b3540836b309dfb8d7ce74bd1",
+    "crates/voice/src/options.rs": "efc9e9fe61d6800c0e73fff3672d7bf301ac0f6059f651a7fc324e837f42fe10",
+    "crates/voice/src/service_privacy.rs": "634c93c9640f8230ee7c28eb8961f69cede59d85f14b00b28a2f93aaf41c281d",
+    "crates/voice/tests/capture_hold_worker.rs": "532a5307052c96c312561a82eee15052783bddff55ce60a99c830b3e035d64d4"
+  },
+  "ignored_tests": [
+    "coordinator::tests::endpoint_session::real_worker_session_records_verdict_provenance ... ignored, requires a built lamp-turn-end and the pinned model",
+    "coordinator::tests::hand_controls::local_hand_stop_dispatch_latency ... ignored, manual local-host speaker-control latency probe; no lamp or acoustic claim",
+    "provider_worker::tests::sixty_second_answer_follows_output_capacity ... ignored, one minute of real time; run explicitly",
+    "provider_worker::tests::three_minute_answer_follows_output_capacity ... ignored, three minutes of real time; run explicitly",
+    "reference::recovery::tests::recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift ... ignored",
+    "reference::tests::four_virtual_hours_capture_clocked ... ignored, four virtual hours; run in release"
+  ]
+}

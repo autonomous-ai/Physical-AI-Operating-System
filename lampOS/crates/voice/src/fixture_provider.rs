@@ -148,7 +148,13 @@ impl FixtureOptions {
             camera_config,
             failure_notices,
             motor,
+            controls,
         } = SessionOptions::parse(arguments)?;
+        if controls.enabled() {
+            return Err(invalid(
+                "hand controls are for Gemini voice sessions, never reply fixtures",
+            ));
+        }
         if failure_notices.is_some() {
             return Err(invalid(
                 "local failure notices are only for Gemini chat, never reply fixtures",

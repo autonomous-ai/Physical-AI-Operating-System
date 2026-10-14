@@ -205,8 +205,9 @@ Not shown: a press or a touch. Nobody's hand has been on the lamp for
 this. The first press of the button and the first pat of the head, with
 `serve --record`, will show which way each line goes and how long a
 touch lasts, and the file is to be corrected from that before anything
-acts on it. Nothing does yet: the voice does not listen to
-`controls/state`.
+acts on it. Voice now has an opt-in `controls/state` consumer, described
+below; both hand-action switches remain off by default. That code is not
+new evidence of a press or touch on this board.
 
 ## Topics and the receiver
 
@@ -225,20 +226,51 @@ Quiet gesture topics renew their publisher liveness once a second. A later
 pet never overwrites a Stop/mute. Retained commands keep their original event
 identity and time, so a new heartbeat does not create another action.
 
-Voice and Body subscribe to `controls/state`; optional pet/expression consumers
-also subscribe to `controls/gesture`. `receiver::Receiver` validates the type's
-fields, boot clock, enabled flag, monotonic state, session and freshness, and
-deduplicates requests. It fences 32 retired publisher sessions, then refuses
-further input until recreated with the saved mute. A Stop expires against its
-original release and publication times. An older retained one-way mute can
-still close input, but cannot clear anything. `Receiver::pet` requires a fresh
-known owner and deduplicates advisory events. Missing/stale Controls means no
-new hand gestures; the lamp's other healthy parts continue as before.
+The opt-in Voice consumer subscribes to `controls/state` and advisory
+`controls/gesture`. Body's consumer remains its owner's separate integration.
+`receiver::Receiver` checks the payload, boot clock, enabled flag, monotonic
+state, session and freshness, and deduplicates requests. It fences 32 retired
+publisher sessions, then refuses further input until recreated with the saved
+mute. This exhaustion is counted as unavailable hand input: unmuted Voice may
+continue, while a muted Voice remains inhibited until restart and a fresh local
+hold. Stop requires both original release and publication age below 500 ms;
+state must be younger than 300 ms. A heartbeat cannot renew an old Stop. An
+older retained mute can still close input. `Effects::stop_requested` identifies
+only Stop, keeping Voice's Stop and mute switches independent; the legacy
+combined `stop` field still includes a newly accepted mute.
+
+`Receiver::new` remains one-way. Voice explicitly uses `with_hold_clear` when
+software mute is enabled. A second hold can request clear only after the current
+start/session/fault/gap fence and the previous mute watermark: its press must
+have begun after both, its release and publication must be fresh, and the
+current Controls owner must be ready. The first state after start or publisher
+change cannot clear. Retained holds, duplicate delivery, a tap and a Controls
+restart never clear. `prepare_clear` leaves the live latch muted; its proposed
+record must be saved before `commit_clear`, synchronously with no other writer.
+Voice only performs that transaction with audio workers absent.
+
+`Receiver::pet` requires a fresh known owner and deduplicates advisory events.
+Voice records `hand_pat_observed` with `action: none`; it does not speak, stop or
+open input. Missing/stale Controls means no new hand gestures; otherwise healthy
+Voice continues and an existing mute stays set.
 
 The helper does not grant hardware permissions, authenticate arbitrary local
 processes, or supply an actuator acknowledgement. Use the existing trusted
 bus directory and validate the typed bus header/expiry before calling it.
 Never use the bus header's publisher-relative `at_us` as the shared clock.
+
+`voice/src/hand_controls.rs` keeps one subscriber pump for the entire service,
+including its mute cycles. It checks source `controls`, exact topic/type/kind,
+JSON encoding, declared lifespan, expiry and payload; a state must name its bus
+publisher's instance. Gesture publication has a separate instance, while its
+payload names the state owner. A 32-entry channel uses nonblocking sends;
+coordinator polling consumes at most 16 entries without bus/filesystem I/O.
+Overflow, queued discontinuity and a full poll batch fence pending clear; Stop
+and one-way mute remain recoverable from later retained state. The pump targets
+a 2 ms tick, retries subscription errors after 250 ms, and records bounded
+health counts. Final owner destruction asks it to stop and waits at most 20 ms
+before detaching a thread stuck in an OS read. It is not respawned per audio
+cycle. These are scheduling/resource choices, not measured physical deadlines.
 
 ## Voice and physical privacy
 
@@ -248,45 +280,92 @@ Voice's `PhysicalMute` restart token. The fresh 50 ms observations, stable
 60 ms unmute, verified shutdown, new runtime identities and input-readiness
 checks in [service privacy](service-privacy.md) remain unchanged.
 
-First's Voice subscription goes in the local coordinator loop independently
-of provider traffic and presentation. On Stop, revoke the current reply and
-queued output using the existing owner/cancellation path, including late
-provider chunks, music and any active following intention. Do not wait for a
-network response or a cue, and do not cancel underlying agent work merely
-because its speech was stopped. On software mute, inhibit new microphone,
-camera and output permissions locally, cancel owners, then perform bounded
-cleanup. Use a distinct software-inhibit outcome; do not manufacture a fresh
-physical-switch observation or reuse `PhysicalMute` to reopen the service.
+Voice's switches are independent and absent by default:
 
-`mute::MuteRecord` is an optional owner helper. Load it **before** starting
-capture/provider/output workers, from a private file in a trusted 0700
-directory. Corrupt, future, exposed or interrupted state is an error, not an
-unmuted default. On accepted mute, revoke immediately in memory, persist with
-atomic replace plus file/directory sync outside the urgent loop, and acknowledge
-only after success. Keep inhibition on a write failure and make that failure
-visible; do not automatically restart into an older preference. A crash before
-an unacknowledged request reaches durable storage is not claimed recoverable.
-The physical switch is still the independent privacy control.
+| Option | Effect |
+|---|---|
+| `--controls-stop` | Consume fresh, deduplicated Stop in the coordinator. |
+| `--controls-mute ABS_PRIVATE_RECORD` | Restore software mute and enable released-hold mute/fresh-second-hold clear. The parent directory must already exist, be trusted and private (0700). |
+| `--controls-bus-root ABS_PATH` | Override `LAMP_BUS_ROOT` or `/run/lampos-bus`; this option alone enables nothing. |
 
-The record is **boot-scoped**: an owner/service restart preserves it; a new
-machine boot starts a fresh software preference, still subject to physical
-privacy. Successful explicit clear advances the original-release watermark,
-so a retained or delayed pre-clear hold cannot re-mute after restart.
-`Receiver::clear_after_explicit_user_request(now_us, path)` stages a clone,
-saves/syncs it, and only then changes its live software latch. A save failure
-keeps the live latch. Invoke it only for a separate explicit user request;
-never for a tap, timer, process start, Controls loss, or an open switch reading.
-Even successful clear supplies no capture permission. Voice must pass its
-ordinary fresh privacy, cleanup and readiness checks before opening anything.
+For example, append the selected options to `lamp-voice serve
+PRIVATE_CONFIG.json NEW_OUTPUT`. No controls clock/file read or pump starts
+when both action switches are off. The separate Controls producer must also use
+`--enable`; its default shadow messages are never actions. Changing/removing the
+mute path is an operator configuration change, not a local clear procedure;
+keep the same path and mute option across restarts.
 
-Before enabling this mapping, First must wire and test that explicit clear
-operation in its local operator control, including an applied-state receipt.
-There is intentionally no file-editing CLI that bypasses the live owner.
-Body consumes Stop/mute at its final intention boundary, clears following and
-expression work, and uses its locally safe controlled stop. A gesture never
-commands raw joint targets, torque-off, or a new motion for which clearance is
-unknown. Feedback uses the existing ring owner; no spoken listening cue is
-emitted by Controls and no feedback state claims capture readiness.
+After physical privacy validation and before provider traffic, Voice polls the
+hand controls. Stop revokes the current turn, clears pending local PCM/provider
+input and abandons the current input until its end. It sends fresh authority to
+the speaker before provider, diagnostic, persistence or presentation work. Late
+output of the stopped turn cannot revive the answer or schedule another look.
+The existing playback ownership checks drop held audio. Stop neither admits a
+replacement answer nor clears software/physical mute. This task does not cancel
+unrelated agent work or add a new Body, music, endpoint or Policy action.
+
+Software mute locally revokes microphone/camera/output permission and cancels
+the answer. The already-armed durable guard keeps restart inhibited; after
+teardown the next quiescent poll saves the newly observed request watermark.
+A terminal service exit also attempts that save. `SoftwareMute` is distinct
+from the physical token. `serve` returns to its privacy-only wait
+only after verified cleanup, and polls controls throughout that wait, even when
+the slide remains in one position. A finite `directed` run ends on mute; it does
+not automatically create a new runtime. A fresh explicit clear while the slide
+is closed removes only software inhibition. Opening the slide alone never
+clears it. New audio still requires fresh stable physical permission, verified
+old-worker destruction and the ordinary new-runtime readiness path.
+
+`MuteRecord` is loaded and its initial/rebased state saved before any worker is
+opened. Corrupt, future, exposed or interrupted state refuses startup. The mute
+preference now survives a **machine reboot** as well as a service restart;
+timestamps are rebased to the new boot while the muted value is preserved.
+The same-boot release watermark prevents a retained pre-clear hold from
+re-muting. The JSON file is private; no CLI edits it behind the live owner.
+
+Before audio starts, `arm_active` durably stores a conservative muted recovery
+record without changing the live preference. A crash, provider fault or failed
+cleanup therefore restores muted, even if no hand mute had been requested. This
+is a deliberate availability cost: a fresh local hold is needed after restart.
+Only verified clean destruction permits `disarm_after_cleanup` to store the
+actual unmuted preference. A failed initial arm opens no audio; an accepted mute
+whose subsequent save fails still has the active durable guard. Persistence
+failure stays visible and cannot clear the live latch.
+
+Saves retain a private `.pending` inode while linking/renaming the replacement
+and syncing file and directory; `.replacement` and `.pending` evidence both
+refuse later startup. Removing the pending marker is the final operation.
+A crash may leave or resurrect a marker after an otherwise successful write,
+requiring explicit operator recovery. No arbitrary storage/power-failure
+guarantee is claimed. Clear saves its proposed unmuted record before changing
+the live latch, then normal startup writes the active guard again. Disk sync
+has no hard userspace bound and happens only outside the urgent audio loop.
+
+The design target is **2 ms from coordinator observation to the local speaker
+stop-authority send**. `hand_control_cancel` names both timestamps and the
+original release separately. Injected-clock checks cover that software boundary;
+GPIO recognition, bus/pump delivery, speaker processing and acoustic silence are
+outside it. Measured results belong in the qualification entry, with their
+machine and exact boundary, not inferred from this target.
+
+Before enabling actions, First shadow-records one button press and both head
+pads with `lamp-controls serve --config deploy/lamp-4ace/controls.json --pins
+deploy/lamp-4ace/controls-pins.json --record NEW_RECORD`, without `--enable`.
+Correct polarity from those traces first. Then use the five operator sequences:
+
+| Action at the lamp | Expected result |
+|---|---|
+| 1. During an audible answer, press/release the primary button once; repeat rapidly. | First release cuts the old answer locally; repeated delivery never restores it. No tap unmutes or starts an answer. |
+| 2. Tap while waiting for an answer, then while listening/idle. | Pending/late output is abandoned. Idle Stop produces no spoken acknowledgement or new turn. |
+| 3. Hold at least 2 seconds, release, then restart Voice after the mute save succeeds. | No action before release; capture closes and remains closed after restart using the same record. |
+| 4. While software-muted, close/open the slide, then make a fresh second hold; also check a fresh clear with the slide closed. | Slide opening alone never clears mute. Explicit clear cannot open capture through a closed slide; reopening requires the normal fresh privacy/startup path. |
+| 5. Pat each head pad, and repeat while muted. | Advisory `hand_pat_observed` only: no Stop, speech, mic opening or clear. |
+
+These are First's future physical checks, not Fourth's results. The leading
+board uncertainty remains head-pad polarity inferred only at rest. Body's
+separate final intention boundary must use its locally safe controlled stop;
+no gesture supplies raw joint targets, torque-off or clearance for a new move.
+Controls emits no spoken listening cue and no feedback claims capture readiness.
 
 ## Replay and local records
 
@@ -352,6 +431,33 @@ startup, the bus, disk writing, scheduling jitter and all physical response;
 there is no before/after comparison. Reproduce that host workload with
 `cargo run --offline --release -p lamp-controls --example replay_cost -- 100`.
 
+**Fourth, task 21: local Stop dispatch timing.** A release-mode probe on Fourth's
+macOS 26.6.2 (25G83), x86_64 Intel Core i7-10700K at 3.80 GHz, 16 logical CPUs,
+64 GiB, Rust/Cargo 1.96.0 measured 41 µs on the first call. The next 99 calls
+had median 6 µs, nearest-rank p95 9 µs and worst 16 µs; the worst across all
+100 was 41 µs. Timing began immediately before `hand::cancel` and ended at the
+`lamp_ipc::monotonic_us` sample after a successful local speaker Authority
+datagram send. Fixture setup, allocation and teardown were excluded. This
+fixture holds 480 queued PCM samples, one pending speaker receipt and two
+provider input commands; it is not a worst-case backlog measurement. The probe
+does not include gesture recognition, bus delivery, speaker-worker scheduling,
+device playback or acoustic silence. Other local tests were running; this is
+not a controlled cold-cache or cold-boot measurement. Separate injected cases
+of 0, 700, 1,500 and 2,000 µs use authored clocks to check send-before-sample
+ordering and the 2 ms assertion; they are not wall-clock measurements. From
+`lampOS`, reproduce the release probe with
+`cargo test -p lamp-voice --release --lib coordinator::tests::hand_controls::local_hand_stop_dispatch_latency --offline -- --exact --ignored --nocapture --test-threads=1`.
+Task 21's final serial gates passed separately: on the Mac, 142 Controls,
+973 Voice and 284 Voice-eval tests; in the standalone Linux x86_64 source copy,
+142 Controls, 977 Voice and 284 Voice-eval tests. Each had six opt-in probes
+ignored; the new timing probe was run explicitly above. Both workspace builds
+passed. Native strict Clippy passed; ARM64 strict dependency Clippy found an
+inherited Body dead-code warning, while selected-crate `--no-deps` checking
+passed. Earlier test failures, their fixes and the repeated timing-sensitive
+cases remain in [Fourth's log](work-log-fourth.md) and
+[task 21 evidence](verification/controls-voice-host-20261014/results.json).
+No ARM program or lamp hardware was run by Fourth.
+
 First checks the configured lines and electrodes, then observes real taps,
 holds, repeated panic taps, head pats and untouched motor/speaker activity.
 Measure from a physical input observation to owner revocation, then separately
@@ -369,6 +475,8 @@ transition, electrode-noise acceptance, touch-to-silence latency or safe motion
 stop was run by Third. No hardware feedback or applied mute/clear receipt is
 provided by this process. The most likely lamp mismatch is base qualification
 and release timing under its actual electrodes/noise, followed by lost GPIO
-edges or an acquisition clock converted incorrectly. The shipped process
-cannot operate a hand control until First supplies the real reader and the
-two owners' integration.
+edges or an acquisition clock converted incorrectly. Third's original handback
+could not operate a hand control until First supplied the real reader and the
+owners' integration. First has since added the board reader above, and Fourth's
+task 21 adds the optional Voice consumer. Those additions do not establish a
+physical press, touch, acoustic Stop or Body integration result.

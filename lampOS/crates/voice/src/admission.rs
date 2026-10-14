@@ -194,6 +194,7 @@ enum Phase {
 /// cancels speech, sends provider input, or grants a listening/actuator cue.
 pub struct InputAdmission {
     phase: Phase,
+    hand_abandoned: bool,
     serial: u64,
     last_now_us: u64,
     hold: Hold,
@@ -208,6 +209,7 @@ impl InputAdmission {
     pub fn with_hold(hold: Hold) -> Self {
         Self {
             phase: Phase::Idle,
+            hand_abandoned: false,
             serial: 0,
             last_now_us: 0,
             hold,
@@ -218,6 +220,7 @@ impl InputAdmission {
     /// high-water marks so a delayed decision cannot target a later candidate.
     pub fn reset(&mut self) {
         self.phase = Phase::Idle;
+        self.hand_abandoned = false;
     }
 
     /// Discard an accepted, unsubmitted utterance through its detector endpoint.
@@ -233,6 +236,21 @@ impl InputAdmission {
             }
             Phase::Idle | Phase::Draining(_) => {}
         }
+        Ok(())
+    }
+
+    /// A local Stop abandons even an undecided utterance. Preserve its endpoint
+    /// boundary, so the remainder cannot become another request after the Stop.
+    pub(crate) fn abandon_until_end(&mut self, at_us: u64) -> io::Result<()> {
+        self.advance(at_us)?;
+        match &self.phase {
+            Phase::Pending(_) => {
+                self.reject(RejectReason::Policy);
+            }
+            Phase::Streaming(stream) => self.phase = Phase::Draining(Some(*stream)),
+            Phase::Idle | Phase::Draining(_) => {}
+        }
+        self.hand_abandoned = matches!(self.phase, Phase::Draining(_));
         Ok(())
     }
 
@@ -291,6 +309,9 @@ impl InputAdmission {
     }
     pub fn owns_stream(&self) -> bool {
         matches!(self.phase, Phase::Streaming(_) | Phase::Draining(Some(_)))
+    }
+    pub(crate) fn draining(&self) -> bool {
+        self.hand_abandoned && matches!(self.phase, Phase::Draining(_))
     }
     /// Original bounded prospective audio, never an accepted stream.
     pub(crate) fn pending_audio(&self, candidate: CandidateId) -> Option<&[ObservedAudio]> {
@@ -383,6 +404,7 @@ impl InputAdmission {
                 Step::None
             }
             Activity::Start(audio) if matches!(self.phase, Phase::Idle) => {
+                self.hand_abandoned = false;
                 if !context.ready(at_us) {
                     return Err(io::Error::other("candidate input is unavailable"));
                 }
@@ -442,6 +464,12 @@ impl InputAdmission {
     /// frames and evidence never extend the original decision deadline.
     pub fn maintain(&mut self, context: Context, at_us: u64) -> io::Result<Option<Rejection>> {
         self.advance(at_us)?;
+        if self.draining() && !context.ready(at_us) {
+            self.reset();
+            return Err(io::Error::other(
+                "hand-abandoned input lost capture authority",
+            ));
+        }
         if let Phase::Streaming(stream) | Phase::Draining(Some(stream)) = &self.phase {
             // A planned AEC reset may advance DSP epoch without dropping the
             // accepted utterance. Capture/privacy incarnation must not change.

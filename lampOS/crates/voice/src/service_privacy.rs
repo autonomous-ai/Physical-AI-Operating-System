@@ -1,5 +1,5 @@
-//! A service restart token can come only from a fresh physical mute, followed
-//! by verified cleanup. Unknown privacy and failed cleanup are never resumable.
+//! A service restart token comes from a physical or software mute, followed by
+//! verified cleanup. Unknown privacy and failed cleanup are never resumable.
 use std::{fmt, io};
 
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -14,6 +14,19 @@ impl fmt::Display for PhysicalMute {
     }
 }
 impl std::error::Error for PhysicalMute {}
+
+/// The coordinator has applied its software inhibit. This never asserts that
+/// the physical privacy switch was observed closed.
+#[derive(Debug)]
+pub(crate) struct SoftwareMute {
+    pub(crate) observed_at_us: u64,
+}
+impl fmt::Display for SoftwareMute {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "software mute observed at {} us", self.observed_at_us)
+    }
+}
+impl std::error::Error for SoftwareMute {}
 
 #[derive(Debug)]
 struct CleanupFailed {
@@ -30,7 +43,7 @@ impl fmt::Display for CleanupFailed {
 }
 impl std::error::Error for CleanupFailed {}
 
-/// Cleanup failure must not retain a downcastable physical-mute restart token.
+/// Cleanup failure must not retain a downcastable mute restart token.
 pub(crate) fn finish<T>(result: Result<T>, cleanup: io::Result<()>) -> Result<T> {
     match cleanup {
         Ok(()) => result,
@@ -63,13 +76,33 @@ pub(crate) enum WaitOutcome {
 
 /// Only this GPIO worker exists during the wait. Its authority snapshot remains
 /// denied; observing stable unmute never grants microphone or camera permission.
+#[cfg(test)]
 pub(crate) fn wait(
     executable: &Path,
     termination: &Termination,
     on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
 ) -> Result<WaitOutcome> {
-    if termination.signal_name().is_some() {
-        return Ok(WaitOutcome::Stopped);
+    wait_with_gate(executable, termination, on_state, || Ok(true))
+}
+
+/// Wait without opening a worker until the additional gate allows it. Once the
+/// GPIO worker exists, poll the gate on every loop, including an unchanged
+/// closed slide. A false gate never substitutes for a physical observation.
+/// The callback runs only while audio workers are absent.
+pub(crate) fn wait_with_gate(
+    executable: &Path,
+    termination: &Termination,
+    on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
+    mut additional_gate: impl FnMut() -> Result<bool>,
+) -> Result<WaitOutcome> {
+    loop {
+        if termination.signal_name().is_some() {
+            return Ok(WaitOutcome::Stopped);
+        }
+        if additional_gate()? {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(2));
     }
     let directory = SessionDirectory::create()?;
     let boot = new_boot()?;
@@ -77,30 +110,52 @@ pub(crate) fn wait(
         Worker::spawn_with_tick(executable, &directory.path, "privacy", boot, &[], || {
             termination.check()
         })?;
-    let result = wait_worker(worker, boot, termination, on_state);
+    let result = wait_worker_with_gate(worker, boot, termination, on_state, additional_gate);
     // Worker endpoints and the GPIO owner have gone before removing this empty
     // directory. Refuse another cycle if anything unexpected remains.
     finish(result, fs::remove_dir(&directory.path))
 }
 
+#[cfg(test)]
 pub(crate) fn wait_worker(
-    mut worker: Worker,
+    worker: Worker,
     boot: BootId,
     termination: &Termination,
     on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
 ) -> Result<WaitOutcome> {
-    let result = wait_loop(&mut worker, boot, termination, on_state);
+    wait_worker_with_gate(worker, boot, termination, on_state, || Ok(true))
+}
+
+pub(crate) fn wait_worker_with_gate(
+    mut worker: Worker,
+    boot: BootId,
+    termination: &Termination,
+    on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
+    additional_gate: impl FnMut() -> Result<bool>,
+) -> Result<WaitOutcome> {
+    let result = wait_loop_with_gate(&mut worker, boot, termination, on_state, additional_gate);
     // Bounded cooperative cleanup is outside every active audio loop. A forced
     // kill or abnormal exit stays a failure even when unmute was observed.
     let shutdown = worker.shutdown();
     finish(result, shutdown)
 }
 
+#[cfg(test)]
 fn wait_loop(
     worker: &mut Worker,
     boot: BootId,
     termination: &Termination,
+    on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
+) -> Result<WaitOutcome> {
+    wait_loop_with_gate(worker, boot, termination, on_state, || Ok(true))
+}
+
+fn wait_loop_with_gate(
+    worker: &mut Worker,
+    boot: BootId,
+    termination: &Termination,
     mut on_state: impl FnMut(PrivacyState, BootId, u64) -> Result<()>,
+    mut additional_gate: impl FnMut() -> Result<bool>,
 ) -> Result<WaitOutcome> {
     let mut controller = Controller::new(boot, MonoTime::from_micros(monotonic_us()));
     controller
@@ -115,6 +170,10 @@ fn wait_loop(
         if termination.signal_name().is_some() {
             return Ok(WaitOutcome::Stopped);
         }
+        // This callback may persist a local clear while no audio is open.
+        // Read and validate physical observations afterward: a slow write must
+        // not grant Allowed from the state observed before that write.
+        let additionally_allowed = additional_gate()?;
         worker.check_running()?;
         let at = monotonic_us();
         if sequence != 0 && gate.state(MonoTime::from_micros(at)) == PrivacyState::Unavailable {
@@ -172,7 +231,7 @@ fn wait_loop(
             on_state(state, boot, at)?;
             previous_state = Some(state);
         }
-        if empty && state == PrivacyState::Allowed {
+        if additionally_allowed && empty && state == PrivacyState::Allowed {
             return Ok(WaitOutcome::Allowed);
         }
         std::thread::sleep(Duration::from_millis(2));
@@ -185,6 +244,7 @@ pub(crate) mod tests {
     use crate::transport::WorkerChannels;
     use lamp_turn_owner::Permission;
     use std::{
+        cell::Cell,
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
@@ -212,6 +272,15 @@ pub(crate) mod tests {
         directory: &Path,
         script: Script,
         muted_seen: Arc<AtomicBool>,
+    ) -> (Worker, thread::JoinHandle<Peer>) {
+        mock_with_slide(directory, script, muted_seen, None)
+    }
+
+    fn mock_with_slide(
+        directory: &Path,
+        script: Script,
+        muted_seen: Arc<AtomicBool>,
+        slide: Option<Arc<AtomicBool>>,
     ) -> (Worker, thread::JoinHandle<Peer>) {
         let (worker, mut peer, input) = Worker::cooperative_fixture(directory, "privacy");
         let task = thread::spawn(move || {
@@ -256,7 +325,10 @@ pub(crate) mod tests {
                         }),
                         Script::Invalid if ticks == 0 => Some(WorkerEvent::Ready),
                         Script::Muted | Script::Unmute => {
-                            let muted = matches!(script, Script::Muted) || ticks < 4;
+                            let muted = slide.as_ref().map_or_else(
+                                || matches!(script, Script::Muted) || ticks < 4,
+                                |slide| slide.load(Ordering::SeqCst),
+                            );
                             if muted {
                                 muted_seen.store(true, Ordering::SeqCst);
                             }
@@ -280,6 +352,151 @@ pub(crate) mod tests {
             }
         });
         (worker, task)
+    }
+
+    #[test]
+    fn software_gate_waits_before_opening_any_privacy_worker() {
+        let directory = SessionDirectory::create().unwrap();
+        let absent_worker = directory.path.join("absent-privacy-worker");
+        let ungated = wait(&absent_worker, &Termination::inactive(), |_, _, _| {
+            panic!("the nonexistent worker cannot report a state")
+        })
+        .unwrap_err();
+        assert_eq!(
+            ungated.downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::NotFound
+        );
+        let calls = Cell::new(0);
+        let error = wait_with_gate(
+            // If the wait tries to spawn a child, it fails before the fourth
+            // callback. No executable, GPIO, or audio is used by this test.
+            &absent_worker,
+            &Termination::inactive(),
+            |_, _, _| panic!("no worker should exist behind a closed software gate"),
+            || {
+                calls.set(calls.get() + 1);
+                if calls.get() == 4 {
+                    Err(Box::new(SoftwareMute { observed_at_us: 17 }))
+                } else {
+                    Ok(false)
+                }
+            },
+        )
+        .unwrap_err();
+        assert_eq!(calls.get(), 4);
+        assert_eq!(
+            error.downcast_ref::<SoftwareMute>().unwrap().observed_at_us,
+            17
+        );
+        assert!(error.downcast_ref::<PhysicalMute>().is_none());
+    }
+
+    #[test]
+    fn physically_allowed_wait_stays_closed_until_software_gate_clears() {
+        let directory = SessionDirectory::create().unwrap();
+        let (worker, peer) = mock(
+            &directory.path,
+            Script::Unmute,
+            Arc::new(AtomicBool::new(false)),
+        );
+        let physical_allowed = Cell::new(false);
+        let held_open_ticks = Cell::new(0);
+        let result = wait_worker_with_gate(
+            worker,
+            new_boot().unwrap(),
+            &Termination::inactive(),
+            |state, _, _| {
+                physical_allowed.set(state == PrivacyState::Allowed);
+                Ok(())
+            },
+            || {
+                if physical_allowed.get() {
+                    held_open_ticks.set(held_open_ticks.get() + 1);
+                }
+                Ok(held_open_ticks.get() >= 8)
+            },
+        )
+        .unwrap();
+        assert_eq!(result, WaitOutcome::Allowed);
+        assert_eq!(held_open_ticks.get(), 8);
+        let peer = peer.join().unwrap();
+        assert!(peer.received_stop && peer.denied_heartbeats >= 2);
+        drop(peer.channels);
+        fs::remove_dir(&directory.path).unwrap();
+    }
+
+    #[test]
+    fn software_clear_ticks_under_unchanged_closed_slide_and_still_needs_unmute() {
+        let directory = SessionDirectory::create().unwrap();
+        let slide = Arc::new(AtomicBool::new(true));
+        let (worker, peer) = mock_with_slide(
+            &directory.path,
+            Script::Muted,
+            Arc::new(AtomicBool::new(false)),
+            Some(Arc::clone(&slide)),
+        );
+        let state = Cell::new(PrivacyState::Unavailable);
+        let closed_ticks = Cell::new(0);
+        let mut states = Vec::new();
+        let result = wait_worker_with_gate(
+            worker,
+            new_boot().unwrap(),
+            &Termination::inactive(),
+            |observed, _, _| {
+                state.set(observed);
+                states.push(observed);
+                Ok(())
+            },
+            || {
+                if state.get() == PrivacyState::Muted {
+                    closed_ticks.set(closed_ticks.get() + 1);
+                }
+                // Clear the software gate first, then leave the physical slide
+                // closed for eight more ticks before opening it independently.
+                if closed_ticks.get() >= 16 {
+                    slide.store(false, Ordering::SeqCst);
+                }
+                Ok(closed_ticks.get() >= 8)
+            },
+        )
+        .unwrap();
+        assert_eq!(result, WaitOutcome::Allowed);
+        assert!(closed_ticks.get() >= 16);
+        assert_eq!(
+            states
+                .iter()
+                .filter(|&&state| state == PrivacyState::Muted)
+                .count(),
+            1,
+            "gate ticks must not depend on repeated state-change callbacks"
+        );
+        assert!(states.contains(&PrivacyState::Stabilizing));
+        assert_eq!(states.last(), Some(&PrivacyState::Allowed));
+        let peer = peer.join().unwrap();
+        assert!(peer.received_stop && peer.denied_heartbeats >= 2);
+        drop(peer.channels);
+        fs::remove_dir(&directory.path).unwrap();
+    }
+
+    #[test]
+    fn software_mute_requires_successful_cleanup_to_remain_restartable() {
+        let clean =
+            finish::<()>(Err(Box::new(SoftwareMute { observed_at_us: 29 })), Ok(())).unwrap_err();
+        assert!(clean.downcast_ref::<SoftwareMute>().is_some());
+        assert!(clean.downcast_ref::<PhysicalMute>().is_none());
+        let failed = finish::<()>(
+            Err(clean),
+            Err(io::Error::other("synthetic worker remains open")),
+        )
+        .unwrap_err();
+        assert!(failed.downcast_ref::<SoftwareMute>().is_none());
+        assert!(failed.downcast_ref::<PhysicalMute>().is_none());
+        assert!(
+            failed
+                .to_string()
+                .contains("software mute observed at 29 us")
+        );
+        assert!(failed.to_string().contains("synthetic worker remains open"));
     }
 
     #[test]

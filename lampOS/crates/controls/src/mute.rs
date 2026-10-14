@@ -10,8 +10,17 @@ use std::{
 
 const MAX_BYTES: u64 = 4096;
 
-/// Boot-scoped state. A process restart preserves mute; a new machine boot
-/// starts a new software preference, while physical privacy still applies.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SavePoint {
+    PendingWritten,
+    ReplacementLinked,
+    TargetRenamed,
+    TargetSynced,
+}
+
+/// Durable software preference with a boot-scoped request watermark. Neither
+/// an owner restart nor a new machine boot clears mute. Physical privacy is a
+/// separate authority; this record never grants permission to open a worker.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MuteRecord {
@@ -80,11 +89,15 @@ impl MuteRecord {
     /// failure are errors, never an unmuted default. Missing means first use.
     pub fn load(path: &Path, clock_id: &str, now_us: u64) -> io::Result<Self> {
         if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
-            let pending = parent.join(format!(".{}.pending", name.to_string_lossy()));
-            match fs::symlink_metadata(pending) {
-                Ok(_) => return Err(invalid("an interrupted mute write requires owner recovery")),
-                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error),
+            for suffix in ["pending", "replacement"] {
+                let marker = parent.join(format!(".{}.{suffix}", name.to_string_lossy()));
+                match fs::symlink_metadata(marker) {
+                    Ok(_) => {
+                        return Err(invalid("an interrupted mute write requires owner recovery"));
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                }
             }
         }
         match fs::symlink_metadata(path) {
@@ -107,7 +120,12 @@ impl MuteRecord {
             serde_json::from_slice(&bytes).map_err(|error| invalid(error.to_string()))?;
         state.check()?;
         if state.clock_id != clock_id {
-            return Self::new(clock_id);
+            // Monotonic timestamps cannot cross machine boots, but the user's
+            // preference does. An old boot's watermark must not block a fresh
+            // local hold, and rebasing must never turn a saved mute into clear.
+            let mut rebased = Self::new(clock_id)?;
+            rebased.muted = state.muted;
+            return Ok(rebased);
         }
         if state.through_us > now_us {
             return Err(invalid("mute state watermark is in the future"));
@@ -115,10 +133,20 @@ impl MuteRecord {
         Ok(state)
     }
 
-    /// Atomic replace followed by file and directory sync. The owner supplies
-    /// a trusted, private directory and serializes access. A write failure must
-    /// retain live inhibition and prevent a success acknowledgement.
+    /// Commit a private replacement while retaining a recovery marker until
+    /// the target and its directory are synced. The owner supplies a trusted
+    /// local directory and serializes access. Failures retain live inhibition.
+    /// Marker removal is the final operation: a crash may resurrect that
+    /// marker, which deliberately refuses restart until explicit recovery.
     pub fn save(&self, path: &Path) -> io::Result<()> {
+        self.save_with(path, |_| Ok(()))
+    }
+
+    fn save_with(
+        &self,
+        path: &Path,
+        mut after: impl FnMut(SavePoint) -> io::Result<()>,
+    ) -> io::Result<()> {
         self.check()?;
         if !path.is_absolute() || path.file_name().is_none() {
             return Err(invalid("mute state needs an absolute file path"));
@@ -139,21 +167,108 @@ impl MuteRecord {
             ".{}.pending",
             path.file_name().unwrap().to_string_lossy()
         ));
+        let replacement = parent.join(format!(
+            ".{}.replacement",
+            path.file_name().unwrap().to_string_lossy()
+        ));
+        match fs::symlink_metadata(&replacement) {
+            Ok(_) => return Err(invalid("an interrupted mute replacement requires recovery")),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        let directory = File::open(parent)?;
         let mut file = OpenOptions::new()
             .create_new(true)
             .write(true)
             .mode(0o600)
             .open(&temp)?;
-        let result = (|| {
-            serde_json::to_writer(&mut file, self)?;
-            file.write_all(b"\n")?;
-            file.sync_all()?;
-            fs::rename(&temp, path)?;
-            File::open(parent)?.sync_all()
-        })();
-        // Leave a failed temporary write as fault evidence. Removing it would
-        // let a later owner load an older unmuted preference after this failed
-        // attempt to persist a mute. Recovery is an explicit owner operation.
-        result
+        serde_json::to_writer(&mut file, self)?;
+        file.write_all(b"\n")?;
+        file.sync_all()?;
+        after(SavePoint::PendingWritten)?;
+        directory.sync_all()?;
+        // The original inode stays at .pending even after replacement rename.
+        // A post-rename directory-sync failure must not expose an apparently
+        // successful clear to a restarted owner. All names share one directory.
+        fs::hard_link(&temp, &replacement)?;
+        after(SavePoint::ReplacementLinked)?;
+        fs::rename(&replacement, path)?;
+        after(SavePoint::TargetRenamed)?;
+        directory.sync_all()?;
+        after(SavePoint::TargetSynced)?;
+        // No fallible call follows this unlink. The target is already durable;
+        // not syncing marker removal can only restore a fail-closed marker on
+        // crash. Neither load nor save automatically removes recovery evidence.
+        fs::remove_file(&temp)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        path::PathBuf,
+        sync::atomic::{AtomicU64, Ordering},
+    };
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    struct Root(PathBuf);
+
+    impl Root {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "controls-save-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir(&root).unwrap();
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+            Self(root)
+        }
+    }
+
+    impl Drop for Root {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn failure_before_or_after_replacement_keeps_recovery_evidence() {
+        for point in [
+            SavePoint::PendingWritten,
+            SavePoint::ReplacementLinked,
+            SavePoint::TargetRenamed,
+            SavePoint::TargetSynced,
+        ] {
+            let root = Root::new();
+            let path = root.0.join("mute.json");
+            let mut record = MuteRecord::new("boot").unwrap();
+            record.request_mute(10);
+            record.save(&path).unwrap();
+            record.clear_after_explicit_user_request(20).unwrap();
+            assert!(
+                record
+                    .save_with(&path, |at| {
+                        if at == point {
+                            Err(io::Error::other("injected persistence failure"))
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .is_err()
+            );
+            assert!(root.0.join(".mute.json.pending").exists());
+            assert!(MuteRecord::load(&path, "boot", 30).is_err());
+            assert!(record.save(&path).is_err());
+            let visible: MuteRecord = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert_eq!(
+                visible.muted,
+                matches!(
+                    point,
+                    SavePoint::PendingWritten | SavePoint::ReplacementLinked
+                )
+            );
+        }
     }
 }

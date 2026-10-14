@@ -78,6 +78,8 @@ pub struct TurnDetector {
     last: Option<(u64, u64)>,
     confirmation: Option<Confirmation>,
     decision: Option<EndpointDecision>,
+    abandoned: bool,
+    ignore_through_us: Option<u64>,
 }
 
 impl Default for TurnDetector {
@@ -92,6 +94,8 @@ impl Default for TurnDetector {
             last: None,
             confirmation: None,
             decision: None,
+            abandoned: false,
+            ignore_through_us: None,
         }
     }
 }
@@ -157,6 +161,14 @@ impl TurnDetector {
         if let Err(reason) = self.validate(&frame, probability) {
             return Activity::Fault(reason);
         }
+        if !self.active
+            && self
+                .ignore_through_us
+                .is_some_and(|at| frame.captured_at_us <= at)
+        {
+            return Activity::Quiet;
+        }
+        self.ignore_through_us = None;
         if self.active {
             self.active_blocks += 1;
             if self.active_blocks >= MAX_UTTERANCE_BLOCKS {
@@ -165,7 +177,7 @@ impl TurnDetector {
             }
             let speech = probability >= SILENCE_PROBABILITY;
             self.silence_count = if speech { 0 } else { self.silence_count + 1 };
-            let decision = match self.confirmation.as_mut() {
+            let decision = match self.confirmation.as_mut().filter(|_| !self.abandoned) {
                 Some(confirmation) => confirmation.observe(&frame.samples, speech),
                 None => (self.silence_count >= self.end_silence_blocks)
                     .then(|| EndpointDecision::silence(self.silence_count)),
@@ -174,6 +186,7 @@ impl TurnDetector {
                 self.active = false;
                 self.start_count = 0;
                 self.silence_count = 0;
+                self.abandoned = false;
                 self.decision = Some(decision);
                 return Activity::End(frame);
             }
@@ -236,6 +249,7 @@ impl TurnDetector {
         self.silence_count = 0;
         self.active_blocks = 0;
         self.active = false;
+        self.abandoned = false;
         self.cancel_confirmation();
     }
 
@@ -246,6 +260,8 @@ impl TurnDetector {
         self.active_blocks = 0;
         self.active = false;
         self.last = None;
+        self.abandoned = false;
+        self.ignore_through_us = None;
         self.cancel_confirmation();
     }
 
@@ -263,6 +279,16 @@ impl TurnDetector {
             self.prefix.clear();
             self.start_count = 0;
         }
+    }
+
+    /// Cancel model work and pre-roll, while retaining an active utterance's
+    /// endpoint. Hand Stop must not turn the same person's remaining speech
+    /// into a new request. Its next pause uses the bounded silence fallback.
+    pub(crate) fn abandon_input(&mut self, at_us: u64) {
+        self.discard_inactive_prefix();
+        self.cancel_confirmation();
+        self.abandoned = self.active;
+        self.ignore_through_us = Some(at_us);
     }
 }
 

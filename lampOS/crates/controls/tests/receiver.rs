@@ -59,7 +59,9 @@ fn retained_stop_covers_lost_event_and_does_not_repeat_on_heartbeats() {
     let mut sample = state("one", 1, 3_000_000);
     sample.latest_stop = Some(gesture(ControlIntent::Stop, "one", 1, 2_900_000));
     sample.event_sequence = 1;
-    assert!(receiver.observe(3_000_000, &sample).unwrap().stop);
+    let effect = receiver.observe(3_000_000, &sample).unwrap();
+    assert!(effect.stop && effect.stop_requested);
+    assert!(!effect.mute_changed && !effect.clear_requested);
     assert!(!receiver.observe(3_000_001, &sample).unwrap().stop);
     sample.stamp.sequence += 1;
     sample.stamp.at_us += 100_000;
@@ -75,6 +77,7 @@ fn delayed_stop_expires_but_a_retained_mute_can_still_close_input() {
     sample.event_sequence = 2;
     let effect = receiver.observe(4_000_000, &sample).unwrap();
     assert!(effect.mute_changed && effect.software_muted && effect.stop);
+    assert!(!effect.stop_requested && !effect.clear_requested);
     assert_eq!(receiver.mute_record().through_us, 3_100_000);
 }
 
@@ -87,7 +90,7 @@ fn stop_alone_cannot_clear_the_owners_existing_mute() {
     sample.latest_stop = Some(gesture(ControlIntent::Stop, "one", 1, 3_000_000));
     sample.event_sequence = 1;
     let effect = receiver.observe(3_000_000, &sample).unwrap();
-    assert!(effect.stop && effect.software_muted);
+    assert!(effect.stop && effect.stop_requested && effect.software_muted);
     assert!(!effect.mute_changed);
 }
 

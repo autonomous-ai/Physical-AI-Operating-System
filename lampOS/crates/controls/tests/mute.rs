@@ -62,13 +62,27 @@ fn explicit_clear_survives_owner_restart_and_ignores_retained_mute() {
 }
 
 #[test]
-fn a_new_machine_boot_resets_only_the_software_preference() {
+fn a_new_machine_boot_preserves_mute_and_rebases_only_the_request_clock() {
     let root = Root::new();
     let mut record = MuteRecord::new("old-boot").unwrap();
     record.request_mute(1_000_000);
     record.save(&root.file()).unwrap();
-    let restored = MuteRecord::load(&root.file(), "new-boot", 1).unwrap();
-    assert_eq!(restored, MuteRecord::new("new-boot").unwrap());
+    let mut restored = MuteRecord::load(&root.file(), "new-boot", 1).unwrap();
+    assert!(restored.muted);
+    assert_eq!(restored.clock_id, "new-boot");
+    assert_eq!(restored.through_us, 0);
+    restored.save(&root.file()).unwrap();
+    assert_eq!(
+        MuteRecord::load(&root.file(), "new-boot", 1).unwrap(),
+        restored
+    );
+    assert!(restored.request_mute(1));
+    restored.clear_after_explicit_user_request(2).unwrap();
+    restored.save(&root.file()).unwrap();
+    let next_boot = MuteRecord::load(&root.file(), "third-boot", 0).unwrap();
+    assert!(!next_boot.muted);
+    assert_eq!(next_boot.through_us, 0);
+    assert_eq!(next_boot.version, 1);
 }
 
 #[test]
@@ -127,4 +141,35 @@ fn an_incomplete_other_write_is_not_overwritten() {
         fs::read_to_string(root.0.join(".mute.json.pending")).unwrap(),
         "incomplete"
     );
+}
+
+#[test]
+fn orphan_replacement_is_refused_even_without_a_pending_marker_or_main_file() {
+    let root = Root::new();
+    let replacement = root.0.join(".mute.json.replacement");
+    fs::write(&replacement, "do not overwrite").unwrap();
+    let record = MuteRecord::new("boot").unwrap();
+    assert!(MuteRecord::load(&root.file(), "boot", 100).is_err());
+    assert!(record.save(&root.file()).is_err());
+    assert_eq!(
+        fs::read_to_string(&replacement).unwrap(),
+        "do not overwrite"
+    );
+    assert!(!root.file().exists());
+}
+
+#[test]
+fn completed_replacements_leave_only_a_private_record() {
+    let root = Root::new();
+    let mut record = MuteRecord::new("boot").unwrap();
+    for at in 1..4 {
+        record.request_mute(at);
+        record.save(&root.file()).unwrap();
+        assert_eq!(fs::read_dir(&root.0).unwrap().count(), 1);
+        assert_eq!(MuteRecord::load(&root.file(), "boot", at).unwrap(), record);
+        assert_eq!(
+            fs::metadata(root.file()).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
 }

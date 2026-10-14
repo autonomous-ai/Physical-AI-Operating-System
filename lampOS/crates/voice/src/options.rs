@@ -515,9 +515,12 @@ pub struct SessionOptions {
     pub camera_config: Option<PathBuf>,
     pub failure_notices: Option<NoticeOptions>,
     pub motor: Option<MotorOptions>,
+    /// Independent local hand-control experiments, both off unless selected.
+    pub controls: crate::hand_controls::ControlsOptions,
 }
 impl SessionOptions {
     pub fn validate_serve(&self) -> io::Result<()> {
+        self.controls.validate()?;
         if self.directed.diagnostics || self.motor.as_ref().is_some_and(|m| m.head.is_some()) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -537,6 +540,7 @@ impl SessionOptions {
         let mut head_channel = None;
         let mut notice_directory = None;
         let mut notice_language = None;
+        let mut controls = crate::hand_controls::ControlsOptions::default();
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             if matches!(
@@ -548,6 +552,8 @@ impl SessionOptions {
                     | "--motor-config"
                     | "--head-qualification-plan"
                     | "--head-qualification-channel"
+                    | "--controls-mute"
+                    | "--controls-bus-root"
             ) {
                 let slot = if argument == "--cue-socket" {
                     &mut cue_socket
@@ -561,6 +567,10 @@ impl SessionOptions {
                     &mut head_channel
                 } else if argument == "--motor-config" {
                     &mut motor_config
+                } else if argument == "--controls-mute" {
+                    &mut controls.mute_record
+                } else if argument == "--controls-bus-root" {
+                    &mut controls.bus_root
                 } else {
                     &mut notice_directory
                 };
@@ -572,6 +582,8 @@ impl SessionOptions {
                     return Err(invalid_options());
                 }
                 *slot = Some(path);
+            } else if argument == "--controls-stop" && !controls.stop {
+                controls.stop = true;
             } else if argument == "--failure-notice-language" && notice_language.is_none() {
                 notice_language = Some(required_value(&mut arguments)?.to_owned());
             } else {
@@ -592,8 +604,10 @@ impl SessionOptions {
             }
             _ => return Err(invalid_options()),
         };
+        controls.validate()?;
         Ok(Self {
             directed: DirectedOptions::parse(&remaining)?,
+            controls,
             cue_socket,
             camera_config,
             failure_notices,
@@ -729,6 +743,59 @@ fn invalid_options() -> io::Error {
         io::ErrorKind::InvalidInput,
         "missing, duplicate or unknown audio experiment option",
     )
+}
+
+#[cfg(test)]
+mod hand_option_tests {
+    use super::*;
+    fn parse(arguments: &[&str]) -> io::Result<SessionOptions> {
+        SessionOptions::parse(
+            &arguments
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect::<Vec<_>>(),
+        )
+    }
+    #[test]
+    fn hand_actions_require_independent_explicit_switches() {
+        assert!(!parse(&[]).unwrap().controls.enabled());
+        let stop = parse(&["--controls-stop"]).unwrap().controls;
+        assert!(stop.stop && stop.mute_record.is_none());
+        let mute = parse(&["--controls-mute", "/private/voice/mute.json"])
+            .unwrap()
+            .controls;
+        assert!(!mute.stop && mute.mute_record.is_some());
+        let both = parse(&[
+            "--controls-stop",
+            "--controls-mute",
+            "/private/voice/mute.json",
+            "--controls-bus-root",
+            "/run/lampos-bus",
+        ])
+        .unwrap();
+        both.validate_serve().unwrap();
+        assert!(both.controls.stop && both.controls.mute_record.is_some());
+        // A root is configuration, never permission for either action.
+        assert!(
+            !parse(&["--controls-bus-root", "/tmp/unused"])
+                .unwrap()
+                .controls
+                .enabled()
+        );
+    }
+    #[test]
+    fn hand_switches_reject_missing_duplicate_and_relative_values() {
+        for arguments in [
+            vec!["--controls-stop", "--controls-stop"],
+            vec!["--controls-mute"],
+            vec!["--controls-mute", "relative.json"],
+            vec!["--controls-mute", "/a", "--controls-mute", "/b"],
+            vec!["--controls-bus-root", "relative"],
+            vec!["--controls-bus-root", "/a", "--controls-bus-root", "/b"],
+        ] {
+            assert!(parse(&arguments).is_err(), "{arguments:?}");
+        }
+    }
 }
 
 #[cfg(test)]

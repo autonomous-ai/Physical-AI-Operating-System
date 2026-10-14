@@ -533,3 +533,56 @@ V2 on hardware. No relative V1/V2 performance, actual Wi-Fi/AP handover,
 calibrated Body rest, Voice worker exit, customer setup, real flash power-cut
 durability or production signing/time service was measured. Local signed
 fixtures, mock manager calls and authored owner receipts are not those proofs.
+
+## Hand controls consumed by Voice (task 21, 2026-10-14)
+
+This review used the parent V1 sources at task base `52cc4ec8e` and the existing
+Rust Controls receiver, mute file, turn owner, bus and supervised privacy
+lifecycle. It adds no library or GPIO dependency. The implementation and exact
+operator switches are in [Controls](controls.md#voice-and-physical-privacy).
+
+**Keep local cancellation ahead of network work.** V1's
+[button action](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/52cc4ec8e/hal/drivers/button_actions.py#L69)
+starts remote speech cancellation on another thread while the click stops local
+playback. Its [TTS stop](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/52cc4ec8e/hal/drivers/voice/tts/service.py#L650)
+invalidates synthesis, clears pending speech and wakes parked drain queues.
+Rust reuses owner revocation and the speaker's queued-PCM checks. It sends the
+speaker's authority before provider, metadata or persistence work and rejects
+late stopped-turn output. No new playback flag or provider cancellation wait is
+needed.
+
+**Keep privacy above gestures and teardown behind inhibition.** V1's
+[mute route](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/52cc4ec8e/hal/routes/voice.py#L502)
+sets software state before slow teardown; its
+[hardware reconciliation](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/52cc4ec8e/hal/drivers/privacy_button.py#L158)
+does not mistake an unchanged switch reading for a new user action.
+Rust retains the dedicated physical reader, 50 ms freshness, 60 ms stable-open
+gate and verified cleanup. An explicit software clear grants no physical permit.
+
+**Change the action meanings deliberately.** V1's
+[released holds](https://github.com/autonomous-ai/Physical-AI-Operating-System/blob/52cc4ec8e/hal/drivers/button_actions.py#L479)
+escalate to sleep, shutdown and reset; clicks can unmute/wake, and a head pat can
+speak. The existing Rust recognizer keeps release/debounce discipline but maps
+short taps to Stop and holds of at least 2 seconds to mute, with no escalation.
+Voice explicitly opts into a fresh second-hold clear through Receiver's staged
+save/commit API. A retained one-way mute, publisher restart or stale queue can
+never act as a toggle. Pet is a report with `action: none`.
+
+**Reuse the durable latch, close its restart gaps.** One `HandControls` owner
+survives audio cycles; a bounded pump isolates bus/filesystem reads from the
+coordinator. Before audio, a durable muted recovery record guards against a
+crash before a later hand request can be saved. Clean verified shutdown can
+store the actual preference; a fault restart conservatively stays muted. The
+mute value survives machine reboot while boot-relative timestamps are rebased.
+Retained pending/replacement markers make interrupted commits explicit, at the
+cost of possible operator recovery. No uncontrolled async clear write can
+overtake a newer mute.
+
+First's probe and 20-second watch showed only resting GPIO levels. In
+particular, high-on-touch head polarity was inferred, not physically touched.
+The two-millisecond observation-to-speaker-send target excludes bus delivery and
+acoustic response. Local test/timing results must be reported with their machine;
+none of these source decisions establishes lamp response time.
+
+Not shown: physical press/pat behavior, acoustic Stop latency or fault-recovery
+qualification on the lamp.

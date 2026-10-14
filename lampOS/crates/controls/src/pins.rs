@@ -210,7 +210,7 @@ impl GpioLines {
     /// both ways, and a bare pin follows the pull. For finding out what a
     /// board has, once, with nothing else running on these lines.
     pub fn probe(chip: &str, line: u32) -> io::Result<(bool, bool)> {
-        let mut read = |pull: Pull| -> io::Result<bool> {
+        let read = |pull: Pull| -> io::Result<bool> {
             let mut builder = gpiocdev::Request::builder();
             builder
                 .on_chip(chip)

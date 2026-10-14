@@ -1,6 +1,6 @@
 # Supervised physical mute in serve
 
-`serve` begins with only the GPIO privacy worker. It sends denied microphone and
+By default, `serve` begins with only the GPIO privacy worker. It sends denied microphone and
 camera snapshots to maintain that worker's existing parent heartbeat. No capture,
 speaker, camera, ring or provider worker is created during this wait. Missing,
 malformed, out-of-order, future or stale switch observations are faults, not user
@@ -17,7 +17,7 @@ or a promise that the switch stayed open during startup.
 During an active serve runtime, a current valid physical mute ends the current
 owners. An unfinished reply is cancelled as `privacy_muted`; it is not reported as
 completed. Microphone/camera permissions close, all workers receive Stop before
-any final wait. Only that exact fresh-mute outcome with successful cleanup may
+any final wait. That exact fresh-mute outcome with successful cleanup may
 return to the GPIO-only wait. Optional camera/ring failures disable that capability
 during the active conversation without cancelling healthy audio. Final cleanup
 still verifies their exit and required local-revocation, teardown or black-write
@@ -26,7 +26,30 @@ contained presentation failure alone is not permission to skip cleanup. Lost
 freshness, unknown status, mandatory worker/provider faults and invalid messages
 remain service errors. A previous runtime
 error cannot hide a shutdown failure. The combined error retains both causes
-and does not expose a restartable physical-mute token.
+and does not expose a restartable physical- or software-mute token.
+
+With the independent `--controls-mute ABS_PRIVATE_RECORD` experiment, the
+software latch is restored before any worker, including the metadata writer.
+A restored software mute waits with no GPIO/audio/provider workers until a
+fresh explicit local hold has been durably accepted as clear. If software mute
+arrives while the GPIO worker is already waiting, that worker continues to
+refresh its observations while the software gate inhibits reopening. Clearing
+software mute never replaces the physical checks above; a closed slide stays
+closed. The per-iteration callback runs before physical freshness is checked,
+so a slow durable write cannot grant input using an observation from before it.
+
+An active software mute revokes local ownership and microphone/camera authority,
+tells the speaker to discard its held output, and yields a distinct
+`SoftwareMute` outcome. Successful full cleanup lets the supervisor return to
+the combined wait. A failure in startup or cleanup stays terminal. One optional
+bounded controls pump survives these cycles; it never opens an audio device.
+Accepted head pats remain metadata reports during the quiet wait as well as an
+active conversation; they do not clear either privacy gate or request speech.
+A conservative muted recovery record is saved before audio opens, and is
+disarmed only after verified clean exit. Crash/fault recovery consequently
+requires another explicit hold even if no mute was acknowledged before the
+fault. See [controls](controls.md#voice-and-physical-privacy) for the switches,
+durability protocol, clear fences and physical acceptance procedure.
 
 Unmute creates fresh controller/worker/provider identities. Old PCM, prospective
 input, request IDs, permits and queued output are not replayed. No preservation
@@ -60,4 +83,8 @@ including repeated verified cycles, stale/unknown input, active owned-reply
 cancellation, cleanup failure refusing the next cycle and an actual process
 SIGTERM while muted. They do not establish native GPIO behavior, full-duplex
 quality, continuous-session resource use or acoustic latency. Device qualification
-of the composed optional-camera/ring failure policies remains required. Finite directed/fixture behavior and audio policies are unchanged.
+of the composed optional-camera/ring failure policies remains required. With
+both hand-control switches absent, finite directed/fixture behavior and audio
+policies are unchanged. An explicitly enabled software mute ends a finite
+directed run; only `serve` supervises another cycle. Fixtures reject hand-control
+flags rather than claiming to exercise their hardware lifecycle.

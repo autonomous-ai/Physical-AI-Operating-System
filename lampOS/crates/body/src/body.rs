@@ -11,8 +11,10 @@
 //! - It writes three registers only: the goal position of those joints, and
 //!   once at start their goal speed and acceleration, so that the servo
 //!   itself is slow whatever this process sends.
-//! - It never touches torque. A joint whose torque is off, or whose status
-//!   byte is not clear, is a reason not to start.
+//! - It never touches torque unless told to take hold (`Limits::torque_on`).
+//!   A joint whose torque is off, or whose status byte is not clear, is a
+//!   reason not to start; told to take hold, it first sets the goal of a
+//!   joint found without torque to where it is and then writes torque on.
 //! - Every goal is within a fixed reach of its home (a pose given at start,
 //!   or else the pose found), and the head's pitch also within a fixed
 //!   absolute window short of the base. A head found outside the reach of a
@@ -59,6 +61,9 @@ const EASE_STEPS: u16 = 100;
 const EASES_ALLOWED: usize = 3;
 const EASE_MEMORY_STEPS: u64 = 3_000;
 const REST_SLACK: u16 = 24;
+/// The most a joint it took hold of may have moved when its torque came on:
+/// a goal set where it is moves it by nothing a servo would notice.
+const TAKE_HOLD_SLACK: u16 = 12;
 /// A joint that has arrived is given its own position as its goal, in any
 /// mood, and is left there until the pose wanted of it is this many counts
 /// from where it is. Asked for less, a servo pushes and does not move: on
@@ -287,6 +292,12 @@ pub struct Limits {
     /// lamp may stand. `None`: nothing is written and each keeps what it
     /// holds, which on lamp-4ace is all of it.
     pub force: Option<u16>,
+    /// Write torque on at start to a joint found without it, which this
+    /// body would otherwise refuse, its goal first set to where it is: a
+    /// servo whose torque went off keeps an old goal, and on lamp-52e6 those
+    /// were 18 to 39 counts from where the joints were. Off: torque is
+    /// never written to such a joint.
+    pub torque_on: bool,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -405,6 +416,7 @@ impl Limits {
         temperature_steps: 50,
         start_reach: 60,
         force: None,
+        torque_on: false,
     };
 }
 
@@ -513,9 +525,12 @@ pub struct BodyReport {
     pub standing: Option<Standing>,
     /// Why it would not stand, though it ran as a folded lamp.
     pub standing_refused: Option<String>,
-    /// Writes of torque enable, made only to clear a latched overload on
-    /// the shoulder or the elbow before standing.
+    /// Writes of torque enable: to clear a latched overload on the shoulder
+    /// or the elbow before standing, and, told to take hold, to each joint
+    /// found without torque.
     pub torque_writes: u8,
+    /// The joints found without torque that it took hold of.
+    pub torque_given: Vec<&'static str>,
     /// Writes of the force limit, and the limit every joint it was written
     /// to read back with.
     pub force_writes: u8,
@@ -554,9 +569,9 @@ fn speed_write(joint: Joint, value: u16) -> [u8; 9] {
     packet[8] = checksum(&packet[2..8]);
     packet
 }
-/// The goal position (register 42, two bytes) of one servo. Sent only to a
-/// shoulder or an elbow found pushing under an old overload, with its own
-/// position, so that it stops.
+/// The goal position (register 42, two bytes) of one servo. Sent only with
+/// its own position: to a shoulder or an elbow found pushing under an old
+/// overload, so that it stops, and to a joint it takes hold of.
 fn goal_write(joint: Joint, value: u16) -> [u8; 9] {
     let [low, high] = value.to_le_bytes();
     let mut packet = [0xff, 0xff, joint.id(), 5, 0x03, 42, low, high, 0];
@@ -576,8 +591,9 @@ fn goals_write(goals: [u16; 3]) -> [u8; 17] {
     packet
 }
 
-/// Torque enable (register 40, one byte). Sent only to the shoulder or the
-/// elbow, and only to clear an overload latched before this run.
+/// Torque enable (register 40, one byte). Sent only to clear an overload
+/// latched on the shoulder or the elbow before this run, and to take hold
+/// of a joint found without torque.
 fn torque_write(joint: Joint, value: u8) -> [u8; 8] {
     let mut packet = [0xff, 0xff, joint.id(), 4, 0x03, 40, value, 0];
     packet[7] = checksum(&packet[2..7]);
@@ -972,6 +988,7 @@ pub(crate) fn run_alive(
         standing: None,
         standing_refused: None,
         torque_writes: 0,
+        torque_given: Vec::new(),
         force_writes: 0,
         force: None,
         stood: false,
@@ -997,18 +1014,105 @@ pub(crate) fn run_alive(
     };
     report.found = Some(found);
     report.last = Some(found);
-    let profiles = match bus.profiles() {
+    let mut profiles = match bus.profiles() {
         Ok(profiles) => profiles,
         Err(detail) => {
             report.stop = refused(format!("first read: {detail}"));
             return report;
         }
     };
-    let found_pose = COMMANDED.map(|joint| found[joint.index()].position);
     if standing.is_some() && home.is_none() {
         standing = None;
         report.standing_refused = Some("a lamp that stands needs a home".into());
     }
+
+    // Told to take hold: a joint found without torque, which would be a
+    // reason not to start, is given it. Its goal is set to where it is
+    // first, since a servo whose torque went off keeps whatever goal it
+    // had, and torque on alone would send it there.
+    if limits.torque_on {
+        let mut without = Vec::new();
+        for (index, joint) in COMMANDED.iter().enumerate() {
+            if profiles[index].0 != 1 {
+                without.push(*joint);
+            }
+        }
+        // The shoulder and the elbow only of a lamp that may stand: of
+        // any other they are not this body's to write to.
+        if standing.is_some() {
+            match bus.arm_profiles() {
+                Ok(arm) => {
+                    for (index, joint) in ARM.iter().enumerate() {
+                        if arm[index].0 != 1 {
+                            without.push(*joint);
+                        }
+                    }
+                }
+                Err(detail) => {
+                    report.stop = refused(format!("first read: {detail}"));
+                    return report;
+                }
+            }
+        }
+        if !without.is_empty() {
+            let mut outcome = Ok(());
+            for joint in &without {
+                let at = found[joint.index()].position;
+                // A flag is read and judged with the rest at start.
+                if outcome.is_ok() {
+                    outcome = bus.write_acknowledged(*joint, &goal_write(*joint, at), true);
+                }
+                if outcome.is_ok() {
+                    report.torque_writes += 1;
+                    report.torque_given.push(joint.name());
+                    outcome = bus.write_acknowledged(*joint, &torque_write(*joint, 1), true);
+                }
+            }
+            // A few steps for a goal that was not taken to show.
+            let now = outcome.and_then(|()| {
+                let due = bus.runtime.now() + TICK * 5;
+                bus.sleep_until(due);
+                bus.samples()
+            });
+            let now = match now {
+                Ok(now) => now,
+                Err(detail) => {
+                    report.stop = Stop::Bus {
+                        detail: format!("taking hold: {detail}"),
+                    };
+                    return report;
+                }
+            };
+            report.last = Some(now);
+            let moved: Vec<(Joint, u16)> = without
+                .iter()
+                .map(|joint| {
+                    let index = joint.index();
+                    (*joint, now[index].position.abs_diff(found[index].position))
+                })
+                .filter(|(_, by)| *by > TAKE_HOLD_SLACK)
+                .collect();
+            if let Some((joint, by)) = moved.first() {
+                // Nothing keeps pushing a joint that went somewhere.
+                for (joint, _) in &moved {
+                    let at = now[joint.index()].position;
+                    let _ = bus.write_acknowledged(*joint, &goal_write(*joint, at), true);
+                }
+                report.stop = refused(format!("{joint} moved {by} counts when its torque came on"));
+                return report;
+            }
+            found = now;
+            report.found = Some(found);
+            profiles = match bus.profiles() {
+                Ok(profiles) => profiles,
+                Err(detail) => {
+                    report.stop = refused(format!("first read: {detail}"));
+                    return report;
+                }
+            };
+        }
+    }
+    let found_pose = COMMANDED.map(|joint| found[joint.index()].position);
     let home = home.unwrap_or(found_pose);
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {

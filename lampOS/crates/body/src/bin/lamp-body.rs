@@ -4,7 +4,7 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches torque, the shoulder or the\nelbow. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -20,6 +20,7 @@ struct Arguments {
     standing: Option<StandingChoice>,
     gaze: Option<GazeChoice>,
     stand_roll: Option<u16>,
+    force_limit: Option<u16>,
 }
 
 /// What `--gaze-socket`, `--gaze` and `--gaze-reach` said.
@@ -80,6 +81,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut idle = None;
     let (mut gaze_socket, mut gaze_turn, mut gaze_reach) = (None, None, None);
     let mut stand_roll = None;
+    let mut force_limit = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -102,6 +104,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || gaze_turn.is_some()
                 || gaze_reach.is_some()
                 || stand_roll.is_some()
+                || force_limit.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -221,6 +224,16 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--idle is on or off"),
                 });
             }
+            Some("--force-limit") if force_limit.is_none() => {
+                force_limit = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<1>)
+                        .map(|value| value[0])
+                        .filter(|force| (300..=1_000).contains(force))
+                        .ok_or("--force-limit is a whole number from 300 to 1000")?,
+                );
+            }
             Some("--stand-roll") if stand_roll.is_none() => {
                 stand_roll = Some(
                     value
@@ -263,6 +276,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         (None, None) if gaze_reach.is_none() => None,
         _ => return Err("--gaze-socket and --gaze go together, and --gaze-reach needs them"),
     };
+    // A load bound at or over the force limit could never be read, and the
+    // guard it is would be off.
+    if let (Some(force), Some(load)) = (force_limit, arm_load)
+        && load.iter().any(|bound| *bound >= force)
+    {
+        return Err("--arm-load must be under --force-limit");
+    }
     // Standing is one choice made whole: a pose, the folded arm and a home.
     let standing = match (stand, folded_arm) {
         (Some(pose), Some(folded)) if home.is_some() => Some(StandingChoice {
@@ -271,7 +291,11 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             share: stand_share.unwrap_or(100),
             seconds: stand_seconds.unwrap_or(5),
             awake: awake_seconds.unwrap_or(90),
-            load: arm_load.unwrap_or([950, 950]),
+            // A joint held to a force limit never reads a load above
+            // it: the bound that sends the arm back down sits under the
+            // limit, or the limit would switch that guard off.
+            load: arm_load
+                .unwrap_or_else(|| force_limit.map_or([950, 950], |force| [force - 40; 2])),
             idle: idle.unwrap_or(false),
         }),
         (None, None)
@@ -298,6 +322,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         standing,
         gaze,
         stand_roll,
+        force_limit,
     };
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
@@ -379,6 +404,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.standing,
         arguments.gaze,
         arguments.stand_roll,
+        arguments.force_limit,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -457,6 +483,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // The head's tilt, for a lamp that has stood up.
     let limits = Limits {
         stand_roll: arguments.stand_roll.map_or(folded.stand_roll, f32::from),
+        force: arguments.force_limit,
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
@@ -790,6 +817,50 @@ mod tests {
         ] {
             assert!(with(&refused).is_err(), "{refused:?}");
         }
+    }
+
+    /// The force limit is a number from 300 to 1,000, off unless given;
+    /// and with it the arm's load bound comes down under it.
+    #[test]
+    fn a_force_limit_is_a_number_in_its_range_and_brings_the_load_bound_under_it() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert_eq!(with(&[]).unwrap().unwrap().force_limit, None);
+        assert_eq!(
+            with(&["--force-limit", "600"])
+                .unwrap()
+                .unwrap()
+                .force_limit,
+            Some(600)
+        );
+        for refused in [
+            &["--force-limit", "299"][..],
+            &["--force-limit", "1001"],
+            &["--force-limit", "+600"],
+            &["--force-limit", "six"],
+            &["--force-limit", "600", "--force-limit", "700"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+        let stand = [
+            "--home",
+            "1950,2043,2015",
+            "--stand",
+            "1772,2045,2015,2657,2602",
+            "--folded-arm",
+            "2048,2047",
+        ];
+        let standing = |more: &[&'static str]| {
+            with(&[&stand[..], more].concat()).map(|value| value.unwrap().standing.unwrap().load)
+        };
+        assert_eq!(standing(&[]), Ok([950, 950]));
+        assert_eq!(standing(&["--force-limit", "600"]), Ok([560, 560]));
+        // A bound that was asked for is kept, if it is under the limit.
+        assert_eq!(
+            standing(&["--force-limit", "600", "--arm-load", "500,520"]),
+            Ok([500, 520])
+        );
+        assert!(standing(&["--force-limit", "600", "--arm-load", "500,600"]).is_err());
+        assert!(standing(&["--arm-load", "900,950", "--force-limit", "600"]).is_err());
     }
 
     #[test]

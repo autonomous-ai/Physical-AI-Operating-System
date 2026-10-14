@@ -28,7 +28,10 @@ run on a lamp.
 - It writes three registers: the goal position (42) of those three joints,
   in one sync write, and once at start their goal speed (46) and acceleration
   (41), so that the servo itself is slow whatever this process sends. Unless
-  it was given a pose to stand in it never writes torque.
+  it was given a pose to stand in it never writes torque. With
+  `--force-limit` it writes one more, once at start: the force limit (48)
+  of the joints that carry the lamp (below, "The force its servos are
+  allowed").
 - It starts only if all five joints answer, the three it commands have torque
   on, a clear status byte, a temperature and a load under their bounds, and
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
@@ -437,7 +440,8 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--stand-share N` | how much of the way up it goes, percent | 100 | 1 to 100 |
 | `--stand-seconds N` | fastest the whole way is travelled | 5 | 2 to 20 |
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
-| `--arm-load S,E` | load that sends it back down | 950,950 | 50 to 1,000 |
+| `--arm-load S,E` | load that sends it back down | 950,950, or 40 under `--force-limit` when that is given | 50 to 1,000, and under `--force-limit` |
+| `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
@@ -621,12 +625,25 @@ of them, so on this unit it would cost ordinary movement nothing, and it
 would take four tenths off what the arm can push with against a hand or
 an edge.
 
-Not done yet: the cap itself. It is to be an option that is off unless
-set, written to the three joints at start and read back, with the load
-bound brought under it (a joint capped at 600 never reads 950, so that
-guard would be switched off by the cap otherwise). It needs the lamp in
-view when it is first tried, and a hand on the arm to show that it gives
-way. One oddity in the same report: the highest warmth read was 150 for
+The cap is `--force-limit N`, off unless given. At start, after the
+servos' speed and before anything moves, the body writes it (register
+48, two bytes) to the base's turn, and to the shoulder and the elbow if
+the lamp may stand, and reads it back from each; a joint that reads back
+anything else ends the run there, with nothing moved. The servo keeps it
+until it loses power and then starts again with its own. The load bound
+comes down with it: a joint capped at 600 never reads 950, so a bound
+left there would be a guard switched off. Unless `--arm-load` says
+otherwise the bound is 40 under the limit (560 for 600, over the 490 this
+lamp's own movements reached), and an `--arm-load` at or over the limit
+is refused. The report has `force_writes` and `force`.
+
+Two tests against the simulated servos: the write byte for byte, to
+which joints, before the first goal, and nothing written without the
+option; and a servo that does not keep the limit, which ends the run
+before anything moves. One for the option. **Not yet shown on a lamp:**
+that it stands up and gestures as before under the cap, and that the arm
+gives way against a hand, which needs a hand. One oddity in the same
+report: the highest warmth read was 150 for
 two of the three head and base joints, which no servo here has been; a
 single bad reading counted as a peak is the likely cause, and the guard
 that acts on warmth needs a whole second of it.

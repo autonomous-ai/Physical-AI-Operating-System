@@ -13,6 +13,9 @@ struct Servo {
     load: u16,
     temperature: u8,
     answers: bool,
+    /// Its force limit (register 48), and whether a write of it is kept.
+    force: u16,
+    keeps_force: bool,
 }
 
 /// Something that happens to one servo at a given time.
@@ -85,6 +88,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
         load,
         temperature: 45,
         answers: true,
+        force: 1_000,
+        keeps_force: true,
     };
     let time = Rc::new(Cell::new(Duration::ZERO));
     (
@@ -205,6 +210,8 @@ impl Lamp {
                 43 => servo.goal.to_le_bytes()[1],
                 46 => servo.speed.to_le_bytes()[0],
                 47 => servo.speed.to_le_bytes()[1],
+                48 => servo.force.to_le_bytes()[0],
+                49 => servo.force.to_le_bytes()[1],
                 56 => position.to_le_bytes()[0],
                 57 => position.to_le_bytes()[1],
                 60 => servo.load.to_le_bytes()[0],
@@ -286,6 +293,13 @@ impl Lamp {
                             servo.torque = *value;
                             if *value == 1 && (clears == 1 || (clears == 2 && was == 0)) {
                                 servo.status &= !0x20;
+                            }
+                        }
+                        // The force limit: only ever to the three joints
+                        // that carry the lamp.
+                        (48, [low, high]) if (1..=3).contains(&id) => {
+                            if servo.keeps_force {
+                                servo.force = u16::from_le_bytes([*low, *high]);
                             }
                         }
                         other => panic!("a write this body must never send: {other:?}"),
@@ -1101,6 +1115,100 @@ fn the_two_writes_of_a_lamp_that_stands_are_exactly_these_bytes() {
         "fffffe13832a0205d00704fc0701df0702000803ff0762"
     );
     assert_eq!(hex(&torque_write(Joint::ElbowPitch, 1)), "ffff0304032801cc");
+}
+
+/// The force limit: off unless chosen; written to the joints that carry
+/// the lamp and no other, before anything moves; and read back.
+#[test]
+fn a_force_limit_is_written_to_the_joints_that_carry_the_lamp_and_read_back() {
+    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    assert_eq!(
+        hex(&force_write(Joint::BasePitch, 600)),
+        "ffff0205033058026b"
+    );
+    let force_writes = |lamp: &Lamp| -> Vec<(u8, Vec<u8>)> {
+        lamp.registers
+            .iter()
+            .filter(|(_, address, _)| *address == 48)
+            .map(|(id, _, bytes)| (*id, bytes.clone()))
+            .collect()
+    };
+    let capped = Limits {
+        force: Some(600),
+        ..Limits::FOLDED
+    };
+
+    // A lamp that stays folded: the base's turn alone. The shoulder and
+    // the elbow are not this body's to write to unless it may stand.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, capped, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.force_writes, report.force), (1, Some(600)));
+    assert_eq!(force_writes(&lamp), vec![(1, vec![88, 2])]);
+    assert_eq!(
+        lamp.servos.map(|servo| servo.force),
+        [600, 1_000, 1_000, 1_000, 1_000]
+    );
+    // It was written before the first goal was.
+    assert!(report.moved);
+
+    // A lamp that may stand: the base's turn, the shoulder and the elbow,
+    // and it stands up as before.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(22));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let news = spoken_to(&clock.time);
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        capped,
+        Some(HOME),
+        Some(standing(100, 5)),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood && report.retreats.is_empty());
+    assert_eq!((report.force_writes, report.force), (3, Some(600)));
+    assert_eq!(
+        force_writes(&lamp),
+        vec![(1, vec![88, 2]), (2, vec![88, 2]), (3, vec![88, 2])]
+    );
+    assert_eq!(
+        lamp.servos.map(|servo| servo.force),
+        [600, 600, 600, 1_000, 1_000]
+    );
+
+    // With none chosen nothing is written to that register at all.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+    assert_eq!((report.force_writes, report.force), (0, None));
+    assert!(force_writes(&lamp).is_empty());
+}
+
+/// A servo that does not keep the limit it was given is not moved: the
+/// run ends before the first goal, and says what was read back.
+#[test]
+fn a_force_limit_that_is_not_kept_ends_the_run_before_anything_moves() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[0].keeps_force = false;
+    let news = script(&clock.time);
+    let capped = Limits {
+        force: Some(600),
+        ..Limits::FOLDED
+    };
+    let report = run(&mut lamp, &mut clock, capped, None, news, |_| {});
+    assert_eq!(
+        report.stop,
+        Stop::Bus {
+            detail: "force limit read back as [1000]".into()
+        },
+        "{report:?}"
+    );
+    assert!(!report.moved && lamp.goals.is_empty());
+    assert_eq!(report.force, None);
 }
 
 #[test]

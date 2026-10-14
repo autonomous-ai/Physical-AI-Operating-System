@@ -269,6 +269,12 @@ pub struct Limits {
     /// The profile written to each commanded servo at start.
     pub servo_speed: u16,
     pub servo_acceleration: u8,
+    /// The most force the joints that carry the lamp may push with, of
+    /// 1,000 (the servo's register 48), written to each at start and read
+    /// back: the base's turn always, the shoulder and the elbow when the
+    /// lamp may stand. `None`: nothing is written and each keeps what it
+    /// holds, which on lamp-4ace is all of it.
+    pub force: Option<u16>,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -386,6 +392,7 @@ impl Limits {
         temperature: 62,
         temperature_steps: 50,
         start_reach: 60,
+        force: None,
     };
 }
 
@@ -497,6 +504,10 @@ pub struct BodyReport {
     /// Writes of torque enable, made only to clear a latched overload on
     /// the shoulder or the elbow before standing.
     pub torque_writes: u8,
+    /// Writes of the force limit, and the limit every joint it was written
+    /// to read back with.
+    pub force_writes: u8,
+    pub force: Option<u16>,
     /// It left its folded pose at least once.
     pub stood: bool,
     pub arm_peak_load: [u16; 2],
@@ -556,6 +567,15 @@ fn goals_write(goals: [u16; 3]) -> [u8; 17] {
 fn torque_write(joint: Joint, value: u8) -> [u8; 8] {
     let mut packet = [0xff, 0xff, joint.id(), 4, 0x03, 40, value, 0];
     packet[7] = checksum(&packet[2..7]);
+    packet
+}
+/// The force limit (register 48, two bytes): the most a joint may push
+/// with, of 1,000. The servo keeps it until it loses power, and starts
+/// again with the limit in its register 16.
+fn force_write(joint: Joint, value: u16) -> [u8; 9] {
+    let [low, high] = value.to_le_bytes();
+    let mut packet = [0xff, 0xff, joint.id(), 5, 0x03, 48, low, high, 0];
+    packet[8] = checksum(&packet[2..8]);
     packet
 }
 /// One sync write of the goal position of all five joints: the three of
@@ -730,6 +750,26 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         Ok(profiles)
+    }
+
+    /// The force limit each of `joints` holds, in their order.
+    fn force_limits(&mut self, joints: &[Joint]) -> Result<Vec<u16>, String> {
+        let window = ReadWindow::new(48, 2).map_err(|error| error.to_string())?;
+        let request =
+            ReadOnlyRequest::sync_read(joints, window).map_err(|error| error.to_string())?;
+        let mut limits = vec![0u16; joints.len()];
+        self.read(&request, |reply| {
+            let index = joints
+                .iter()
+                .position(|joint| *joint == reply.joint())
+                .ok_or("a reply from a joint that was not asked")?;
+            let [low, high] = reply.parameters() else {
+                return Err("a force limit that is not two bytes".into());
+            };
+            limits[index] = u16::from_le_bytes([*low, *high]);
+            Ok(())
+        })?;
+        Ok(limits)
     }
 
     /// The goals of the head and base, and with them the arm's for a body
@@ -917,6 +957,8 @@ pub(crate) fn run_alive(
         standing: None,
         standing_refused: None,
         torque_writes: 0,
+        force_writes: 0,
+        force: None,
         stood: false,
         arm_peak_load: [0; 2],
         arm_peak_temperature: [0; 2],
@@ -1223,6 +1265,41 @@ pub(crate) fn run_alive(
                 detail: format!("profile read back: {detail}"),
             };
             return report;
+        }
+    }
+
+    // The most the joints that carry the lamp may push with, if one was
+    // chosen: a lamp that meets a hand or an edge gives way sooner, and
+    // cannot push with more than this while this program is being slow to
+    // notice. Written before anything moves, and read back.
+    if let Some(force) = limits.force {
+        let mut carrying = vec![Joint::BaseYaw];
+        if standing.is_some() {
+            carrying.extend(ARM);
+        }
+        for joint in &carrying {
+            report.force_writes += 1;
+            if let Err(detail) = bus.write_checked(*joint, &force_write(*joint, force)) {
+                report.stop = Stop::Bus {
+                    detail: format!("force limit of {joint}: {detail}"),
+                };
+                return report;
+            }
+        }
+        match bus.force_limits(&carrying) {
+            Ok(now) if now.iter().all(|held| *held == force) => report.force = Some(force),
+            Ok(now) => {
+                report.stop = Stop::Bus {
+                    detail: format!("force limit read back as {now:?}"),
+                };
+                return report;
+            }
+            Err(detail) => {
+                report.stop = Stop::Bus {
+                    detail: format!("force limit read back: {detail}"),
+                };
+                return report;
+            }
         }
     }
 

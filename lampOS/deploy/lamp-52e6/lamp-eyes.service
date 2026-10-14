@@ -6,9 +6,10 @@
 # what a person says; take the option out and no frame leaves the process (lampOS/docs/eyes.md).
 # Not enabled at boot.
 [Unit]
+PartOf=lampos.target
 Description=lampOS eyes (lamp-eyes)
 ConditionHost=lamp-52e6
-After=lamp-voice.service
+After=lamp-voice.service lamp-body.service
 
 [Service]
 Type=exec
@@ -28,3 +29,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lamp-eyes
 NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

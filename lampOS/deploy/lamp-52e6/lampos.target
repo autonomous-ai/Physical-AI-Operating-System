@@ -1,0 +1,15 @@
+# The lamp as one. Every lampOS part is PartOf this target, so
+#   systemctl start lampos.target     starts the lamp's parts, in their order
+#   systemctl stop lampos.target      stops them, in the reverse order
+#   systemctl restart lampos.target   does both
+# A part belongs to the lamp once it is enabled (its [Install] says WantedBy=lampos.target).
+# The lamp starts at power-up only once this target itself is enabled:
+#   systemctl enable lampos.target
+# Copying the files in enables nothing (lampOS/docs/keeper.md).
+[Unit]
+Description=lampOS: the lamp
+After=local-fs.target
+ConditionHost=lamp-52e6
+
+[Install]
+WantedBy=multi-user.target

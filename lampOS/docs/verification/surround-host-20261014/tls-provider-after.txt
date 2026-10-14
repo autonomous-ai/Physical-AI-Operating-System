@@ -1,0 +1,25 @@
+     Locking 1 package to latest Rust 1.91 compatible version
+      Adding tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+   Compiling aws-lc-sys v0.46.0
+   Compiling rustls v0.23.45
+   Compiling rustls-webpki v0.103.15
+   Compiling aws-lc-rs v1.18.2
+   Compiling tokio-rustls v0.26.6
+   Compiling tungstenite v0.30.0
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+   Compiling tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+   Compiling lamp-surround v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/surround)
+error[E0433]: cannot find module or crate `rustls_platform_verifier` in this scope
+    --> crates/surround/src/release.rs:1143:20
+     |
+1143 |     let verifier = rustls_platform_verifier::Verifier::new(provider.clone())
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `rustls_platform_verifier`
+     |
+     = help: if you wanted to use a crate named `rustls_platform_verifier`, use `cargo add rustls_platform_verifier` to add it to your `Cargo.toml`
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `lamp-surround` (lib) due to 1 previous error

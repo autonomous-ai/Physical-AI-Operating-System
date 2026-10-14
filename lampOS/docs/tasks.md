@@ -160,6 +160,7 @@ inspection evidence, not a playback grant.
 | Operation | Fields besides `op` | Route / meaning |
 |---|---|---|
 | `status` | none | Counts, bounds, current identities, last receipt |
+| `targets` | none | Each target's `alias` and `engine`, in alias order; never its machine or project (since task 41, for the voice) |
 | `list` | optional `after_id` (default 0), `limit` (1–8, default 8) | Metadata page; follow `next_after_id` |
 | `get_task` | `id` | Exact task, configured target, dispatch and observation metadata |
 | `get_observation` | `id`, `observation_id` | One stored observation plus its speech record |
@@ -197,7 +198,9 @@ the task was started on. The `@<id>` form before it is refused ("Name the
 machine with --machine <id>."), so a `lamp-tasks` build from before that
 change fails every launch with `new_failed`.
 
-The engine allowlist is `codex` or `claude`. A project is an explicit name
+The engine allowlist is `codex`, `claude` or `opencode` (OpenCode since task
+41: Harness 0.4.2's `harness new --help` names it, and its ask mode passes
+OpenCode no flag; see "Who gets the work"). A project is an explicit name
 (at most 128 UTF-8 bytes) or an absolute/`~/` folder (at most 512 bytes).
 Leading option/target syntax, ambiguous relative folders, control characters
 and whitespace around a project are refused. Text is at most 1,000 UTF-8
@@ -594,6 +597,229 @@ then marked "…(it goes on)". A note that fits is as it was, byte for byte
 Vietnamese, in every state, fits and is taken by the transport (a test).
 The same bound holds for any written turn: a note made from other text
 (progress news, #732) has to fit in it too.
+
+## Who gets the work (task 41, #733, 2026-10-15)
+
+The owner: "you are a boss with many employees (claude code, codex, etc) and
+lamp assists you in delegating tasks to them". So the person names who gets
+the work ("ask Codex to …", "have Claude Code …"), and nobody named is Claude
+Code. Off unless the voice's unit sets `LAMP_TASKS_WHO=on` (`--tasks-who`
+for the provider worker), for its first minute on lamp-4ace; once that has
+passed, it is to become the default, as `docs/joining.md` asks and the issue
+says.
+
+**What exists and what was taken.** `lamp-tasks` already took one target per
+alias, each with its engine (`claude` or `codex`), 1 to 8 of them; the voice
+sent every task to one alias (`office`, or `LAMP_TASKS_TARGET`), and
+`task_news` already named Codex from a task's engine. Harness 0.4.2 (the
+lamp's version, also on the second builder's Mac, read there with `harness
+new --help`, nothing started) takes `claude (default), codex, opencode, …`;
+its own launch table (read in the installed `cli.js`, not run) gives
+OpenCode `--auto` for auto and no flag for ask, and `--prompt` for the first
+message. So OpenCode is now a third engine `lamp-tasks` takes. Whether a real
+OpenCode receipt says `permissionMode: ask`, which `lamp-tasks` requires
+before it binds a task, is not seen: a receipt that does not leaves the task
+`uncertain` (`invalid_reply`) and is never sent again.
+
+**What was built.**
+
+- `lamp-tasks` answers `{"op":"targets"}` on the request socket with each
+  target's alias and engine, in alias order, and nothing of its machine or
+  project. A read: it runs nothing and writes nothing.
+- The voice's provider worker, with the switch, reads that once as it starts
+  (waiting at most 300 ms, as for the memory) and again every 30 s on a
+  thread of its own, so a tasks part started after the voice, or restarted
+  with other targets, is seen by the next session, and opening a session
+  waits for nobody. A failed read keeps what was known. The journal says
+  `lamp-voice provider: work can go to Claude Code (office-claude), Codex
+  (office-codex)` when it changes.
+- The staff are the first target of each engine, in alias order (one per
+  engine: a second machine with the same engine is not offered yet). With
+  two or more, `start_agent_task` takes `who`, an enum of their names, and
+  `check_agent_task` takes the same to ask about one of them. The model is
+  told the names from the targets, not from a list in the prompt:
+
+  ```text
+  start_agent_task: Prepare a piece of computer work for one of the person's agents on their office
+    computer (Claude Code and Codex): … then say the task back in one short sentence, with who will
+    do it, and ask whether to start it.
+  who (enum "Claude Code", "Codex"): Who does it, if the person named one: Claude Code (they may say
+    "Claude" or "Claude Code", which can sound like "cloud" or "cloud code"); Codex (they may say
+    "Codex", which can sound like "codecs" or "code X"). Leave it out if they named nobody: then
+    Claude Code does it.
+  ```
+
+- Nobody named is the target the voice was given (`LAMP_TASKS_TARGET`) if
+  it is one of the staff, else Claude Code, else the first.
+- **"Codex" heard as "codecs", "Claude" as "cloud"** (the issue's most likely
+  failure). The enum and its description are the first guard. The second is
+  in the voice: a name the model gives is taken by its letters and digits in
+  lower case (so "Code X" is "codex"), and only when it is one member's
+  name, a close form of it, or its alias, and nobody else's: `claudecode`,
+  `claude`, `cloudcode`, `cloud` for Claude Code; `codex`, `codecs`, `codec`
+  for Codex; `opencode` for OpenCode. None of these is close to another
+  engine's, and a form of an engine that is not among the staff names
+  nobody. Anything else ("code", "Cursor") prepares nothing and sends
+  nothing to the tasks part; the model is told "Nothing was done: nobody by
+  that name works here. Ask the person who should do it: Claude Code or
+  Codex."
+- The hand-off names the right one: after `prepare` the model is told
+  `"where": "Codex on the office computer"` and to say the task back
+  "saying Codex will do it"; after the yes, `"who": "Codex"` and "Sure, I'm
+  giving that to Codex". The news, a failed hand-over and
+  `check_agent_task` name it from the task's engine (`task_news::who`, now
+  with OpenCode).
+
+**Without the switch, nothing changes.** Tests show that with it off, or on
+with the staff not yet read, or on with one target `office` for Claude Code,
+the three functions declared are exactly the ones before (compared with a
+copy of the old declaration), and the lines sent to the tasks part (`status`,
+`prepare` with target `office`, `status`, `confirm`) and what the model is
+told back are exactly the same, even if a `who` is given. The voice sends no
+`targets` request without the switch.
+
+**Tests** (host only, the second builder's Mac, Apple M2 Max, macOS 26.6.2,
+Rust 1.96.0): in the voice, `agent_tasks` has 14 tests, 9 of them new: the
+old declaration without the switch, the same lines and answers without it,
+naming Codex, "codecs", "cloud code", nobody and a blank name, names that
+are none of the staff, close forms never crossing engines, the staff read
+from `targets` (one per engine, unknown engines left out, an older tasks
+part that refuses `targets`), the switch's flags, and asking about one of
+them. In `lamp-tasks`: `targets` in the protocol, the engine (alias and
+engine only, nothing written) and over the socket, and an OpenCode launch's
+argv and receipt checks. The gate, from `lampOS/`: `cargo fmt --all
+--check`, `cargo clippy -p lamp-tasks -p lamp-voice -p lamp-voice-eval
+-p lamp-memory --all-targets -- -D warnings` (`lamp-memory` now tests
+against the voice), `cargo test -p <crate> -- --test-threads=1` for each,
+and `cargo build --workspace`, on this branch rebased on `lamp-voice`
+`1337e7e1d`: `lamp-tasks` 107 passed; `lamp-voice` 1,065 passed, 6 ignored;
+`lamp-voice-eval` 284 passed; `lamp-memory` 147 passed, 5 ignored. Three
+ring start-up tests far from this change failed in the whole run with the
+Mac loaded and passed run alone three times out of three; they are counted
+above as passed. Earlier runs failed other ring start-up tests, one
+reply-buffer test and one head-motor test the same way, each passing alone.
+The copy of the old declaration in the tests is token for token the one
+`lamp-voice` declares there.
+
+**lamp-4ace's `targets.json`** (`/var/lib/lampos-tasks/targets.json`, owned
+by `orangepi`, mode 0600). `OFFICE_ID` is the office machine's full id, the
+one today's `office` target already holds; it is an account's identifier,
+so it is not written here:
+
+```json
+{"version":1,"targets":{"office-claude":{"machine_id":"OFFICE_ID","project":"~/harnesses/lamp-tasks","engine":"claude"},"office-codex":{"machine_id":"OFFICE_ID","project":"~/harnesses/lamp-tasks-codex","engine":"codex"}}}
+```
+
+Each is a folder, not a project name: since Harness 0.4.2 a project name
+that already exists is refused (above, "The first run end to end"). Claude
+Code keeps today's `~/harnesses/lamp-tasks`. Codex gets a folder of its own,
+which step 1 below has Harness make for it (`harness new codex …
+lamp-tasks-codex`), so that it is a folder Harness made for Codex, which
+Codex should not ask to trust, and the two agents never work in one folder
+at once.
+
+**The played run on lamp-4ace** (first builder), smallest step first:
+
+1. **Codex by hand.** On the lamp, as `orangepi`, one text-only task to Codex
+   in ask mode, which also makes Codex's folder `~/harnesses/lamp-tasks-codex`
+   on the office computer (a new project name, so Harness makes it):
+
+   ```sh
+   harness new codex --machine office lamp-tasks-codex --name lamp-codex-check --mode ask --json \
+     --task "Reply with one sentence: what is a good name for a desk lamp?"
+   ```
+
+   The receipt must say `"engine":"codex"` and `"permissionMode":"ask"`
+   (anything else: `lamp-tasks` would keep the task `uncertain`; stop here and
+   write down the receipt). After about 30 s, `harness show --machine office
+   lamp-codex-check --json` must say `state: idle` with an answer and not
+   `needs-input` (the issue's second most likely failure). Then the same once
+   more with the folder, as `lamp-tasks` will start it: `harness new codex
+   --machine office ~/harnesses/lamp-tasks-codex --name lamp-codex-check-2
+   --mode ask --json --task "…"` must also answer `ok` and not ask to trust
+   the folder. (With `--machine`, a `~/` path is read under the office
+   computer's home.) Codex must be installed and signed in on the office
+   computer for this.
+2. **The minute with the switch off.** Install this branch's `lamp-tasks` and
+   `lamp-voice` from its green ARM64 run, change nothing else, restart both.
+   `printf '%s\n' '{"op":"targets"}' | lamp-tasks request --socket
+   /run/lampos-tasks/request.sock` answers `office` / `claude`; a task by
+   voice goes to `office` as before.
+3. **Room in the store.** `printf '%s\n' '{"op":"status"}' | lamp-tasks
+   request --socket /run/lampos-tasks/request.sock`: `summary.retained` must
+   be 13 or less. The store keeps 16 tasks, every prepared one included, and
+   has no clean-up; this run prepares three.
+4. **Switch on.** Keep the old file, write the new one with the id it holds,
+   and restart the tasks part (its watch is on unless `--no-watch`, so the
+   news comes unasked):
+
+   ```sh
+   cd /var/lib/lampos-tasks
+   sudo cp -p targets.json targets.office.json
+   ID=$(sudo grep -o '[0-9a-f]\{32\}' targets.json | head -1)
+   printf '{"version":1,"targets":{"office-claude":{"machine_id":"%s","project":"~/harnesses/lamp-tasks","engine":"claude"},"office-codex":{"machine_id":"%s","project":"~/harnesses/lamp-tasks-codex","engine":"codex"}}}\n' "$ID" "$ID" \
+     | sudo -u orangepi tee targets.json.new >/dev/null
+   sudo chmod 600 targets.json.new && sudo mv targets.json.new targets.json
+   sudo systemctl restart lamp-tasks
+   printf '%s\n' '{"op":"targets"}' | lamp-tasks request --socket /run/lampos-tasks/request.sock
+   ```
+
+   The last line must list `office-claude` / `claude` and `office-codex` /
+   `codex`. Then add to `lamp-voice.service`, beside `LAMP_TASKS_DIR`:
+
+   ```text
+   Environment=LAMP_TASKS_WHO=on
+   Environment=LAMP_TASKS_TARGET=office-claude
+   ```
+
+   (`LAMP_TASKS_TARGET` keeps tasks going to Claude Code in the moment before
+   the staff are first read), `sudo systemctl daemon-reload && sudo systemctl
+   restart lamp-voice`, and look for `work can go to Claude Code
+   (office-claude), Codex (office-codex)` in its journal.
+5. **One task to each, said in one breath each:**
+   - "Hey Lamp, ask Codex to suggest three friendly names for a desk lamp."
+     The read-back names Codex; "Yes, go ahead." gets "I'm giving that to
+     Codex".
+   - "Hey Lamp, have Claude Code write two short lines on why a desk needs a
+     lamp." The read-back names Claude Code; "Yes, go ahead."
+   - "Hey Lamp, can you get someone to suggest a name for a plant?" (nobody
+     named): the read-back names Claude Code; say "No." Nothing starts.
+6. **Read what went where:** `printf '%s\n' '{"op":"list"}' | lamp-tasks
+   request --socket /run/lampos-tasks/request.sock` (eight a page; then
+   `{"op":"list","after_id":N}` with its `next_after_id`) gives each task's
+   `target_alias` and dispatch state: `office-codex` accepted, `office-claude`
+   accepted, `office-claude` prepared (`invalidated` once its two minutes
+   pass). The voice logs function names only, never arguments, so this is
+   where `who` shows.
+7. **Both answered, both told back.** Within a few minutes, sitting at the
+   lamp and saying nothing, it should say unasked "Oh, Codex just finished…"
+   and "Oh, Claude Code just finished…" (`task_news`, record `task_news`).
+   Then "How's Codex doing?" should be answered about Codex's task
+   (`check_agent_task` with `who`).
+8. **Going back:** `sudo cp -p targets.office.json targets.json`, take the two
+   lines out of `lamp-voice.service`, daemon-reload, restart both.
+
+Keep the read-back sentences, the `list` output and the two journals
+(`journalctl -u lamp-voice -u lamp-tasks --since …`) in the verification
+folder, with no task text that is private.
+
+**Where it is most likely wrong on the lamp.** The model choosing `who` from
+speech: the enum, its hints and the close forms are tested only as text on
+the host, and the model hears sound; a mishearing outside the close forms
+("clawed", "code") prepares nothing and has the model ask, which costs a
+turn. The read-back may still garble the name (on 2026-10-14 it said "the
+code" for Claude Code). Codex in ask mode may stop to ask permission even
+for a text-only task, and then the news says Codex needs the person instead
+of an answer. A Codex receipt or `show` reply shaped otherwise than the
+fixtures leaves the task `uncertain` or unread. Codex may ask to trust its
+folder when `lamp-tasks` names it (step 1 checks this by hand). OpenCode is
+not in lamp-4ace's file: it needs OpenCode installed and signed in on the
+office computer, and its receipt checked by hand first, as step 1 does for
+Codex.
+
+**Not shown.** No task was started anywhere for this; no Harness session,
+receipt or answer from Codex or OpenCode was seen. Nothing was run on a lamp.
+How often the model names the right one from speech is not measured.
 
 ## Real Harness and Voice qualification still required
 

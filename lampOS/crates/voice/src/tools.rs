@@ -274,8 +274,8 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.memory.is_some() {
         tools.extend(crate::remember::tools());
     }
-    if settings.tasks.is_some() {
-        tools.extend(crate::agent_tasks::tools());
+    if let Some(place) = &settings.tasks {
+        tools.extend(crate::agent_tasks::tools(place));
     }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
@@ -594,6 +594,7 @@ mod tests {
         let place = crate::agent_tasks::Place {
             directory: "/run/lampos-tasks".into(),
             target: "workstation".into(),
+            who: false,
         };
         assert_eq!(
             settings,
@@ -627,7 +628,7 @@ mod tests {
         ];
         expected.extend(SCHEDULE_NAMES);
         assert_eq!(declared_names(&settings), expected);
-        for tool in crate::agent_tasks::tools() {
+        for tool in crate::agent_tasks::tools(&place) {
             let declared = declared(&settings)
                 .into_iter()
                 .find(|entry| entry.name == tool.name)
@@ -1022,6 +1023,7 @@ mod tests {
         let place = crate::agent_tasks::Place {
             directory: "/run/lampos-tasks".into(),
             target: "office".into(),
+            who: false,
         };
         let with = Settings {
             tasks: Some(place.clone()),

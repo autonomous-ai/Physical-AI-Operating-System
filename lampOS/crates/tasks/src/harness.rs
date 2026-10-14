@@ -60,11 +60,15 @@ const ENVIRONMENT: &[&str] = &[
     "PORT",
 ];
 
+/// The agents a target may name. `opencode` since Harness 0.4.2 names it
+/// in `harness new --help` ("claude (default), codex, opencode, …"); its ask
+/// mode passes OpenCode no flag, so OpenCode asks as it does by default.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum EngineKind {
     Codex,
     Claude,
+    Opencode,
 }
 
 impl EngineKind {
@@ -72,6 +76,7 @@ impl EngineKind {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
+            Self::Opencode => "opencode",
         }
     }
 }

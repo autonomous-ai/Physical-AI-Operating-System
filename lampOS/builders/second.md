@@ -22,7 +22,7 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Crates: none of its own: those its task names
 - Deploy folders: none
-- Log: [lampOS/docs/work-log.md](../docs/work-log.md)
+- Log: [lampOS/docs/work-log.md](https://github.com/autonomous-ai/lampOS/blob/lamp-second/lampOS/docs/work-log.md) on `lamp-second`
 - Tasks: the `builder:second` issues, in the order of the Queue issue
   ([#705](https://github.com/autonomous-ai/lampOS/issues/705))
 

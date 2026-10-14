@@ -22,7 +22,7 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Crates: `crates/memory`, `crates/records`, `crates/lean`, and in `crates/policy` the local judge's own files (the policy itself is the first builder's), and the crates its tasks name (a new settings part; the log message in `crates/bus` and `crates/msgs`, by the task's leave)
 - Deploy folders: none
-- Log: [lampOS/docs/work-log-fourth.md](../docs/work-log-fourth.md)
+- Log: [lampOS/docs/work-log-fourth.md](https://github.com/autonomous-ai/lampOS/blob/lamp-fourth/lampOS/docs/work-log-fourth.md) on `lamp-fourth`
 - Tasks: the `builder:fourth` issues, in the order of the Queue issue
   ([#705](https://github.com/autonomous-ai/lampOS/issues/705))
 

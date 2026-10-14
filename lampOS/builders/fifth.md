@@ -22,7 +22,7 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Crates: `crates/body`, `crates/keeper`
 - Deploy folders: [deploy/lamp-52e6/](../deploy/lamp-52e6/README.md)
-- Log: [lampOS/docs/work-log-fifth.md](../docs/work-log-fifth.md)
+- Log: [lampOS/docs/work-log-fifth.md](https://github.com/autonomous-ai/lampOS/blob/lamp-fifth/lampOS/docs/work-log-fifth.md) on `lamp-fifth`
 - Tasks: the `builder:fifth` issues, in the order of the Queue issue
   (#705); before that, 22 to 27 in work-split.md
 

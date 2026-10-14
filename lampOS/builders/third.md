@@ -22,7 +22,7 @@ Never `lamp-voice`, and never another builder's branch.
 
 - Crates: `crates/controls`, `crates/surround`, `crates/msgs` (the message types; another part may add a module of its own there, as the ears and controls do), `crates/expression` (with the first builder, who wires it on the lamp and added the glance at a sudden sound), and the new crates of its tasks (reminders and timers; a task out through Harness)
 - Deploy folders: none
-- Log: [lampOS/docs/work-log-third.md](../docs/work-log-third.md)
+- Log: [lampOS/docs/work-log-third.md](https://github.com/autonomous-ai/lampOS/blob/lamp-third/lampOS/docs/work-log-third.md) on `lamp-third`
 - Tasks: the `builder:third` issues, in the order of the Queue issue
   ([#705](https://github.com/autonomous-ai/lampOS/issues/705))
 

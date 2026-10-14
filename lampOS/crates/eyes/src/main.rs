@@ -281,7 +281,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 Err(_) => break,
             }
         }
-        if !permitted_at.is_some_and(|at| at.elapsed() < PERMIT_STALE) {
+        if permitted_at.is_none_or(|at| at.elapsed() >= PERMIT_STALE) {
             if let Some(mut open) = port.take() {
                 let _ = open.stop(budget(STOP_BUDGET_US));
                 eprintln!("lamp-eyes: camera closed: not permitted");

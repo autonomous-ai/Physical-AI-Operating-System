@@ -28,7 +28,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
 | 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | being built |
-| 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | being built |
+| 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | pull request #740 into `lamp-voice`, 2026-10-15 |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
@@ -56,6 +56,51 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Task 44: a yes said in two breaths still starts the task (2026-10-15, issue #736, MVP)
+
+Ready for lamp-voice: yes (#740)
+
+**Kind: off unless set** (`LAMP_CARRY_CALLS=on` in the voice's unit, read
+by its provider worker into `lamp_gemini::SessionConfig::carry_calls`). One
+commit, `df5e5f348`, on `lamp-voice` at `c1b8c7591`.
+
+**The cause**, from the code (the 22:37 record lines are asked for on the
+issue): a function call belongs to the request whose input has ended
+(`crates/gemini/src/session.rs`, `tool_calls`). "Yes." was committed;
+"please start it." began a moment later and "Yes." was given up as
+continued, its response becoming the barrier. The model's
+`confirm_agent_task` for "Yes." came while "please start it." was still
+open, which can own nothing, so it was answered `{"error":"cancelled"}` and
+dropped (`UnownedToolCall`), and the model said it could not start.
+
+**The change.** With the switch, such a call (while the barrier stands for
+the request the open one replaced, that request continued and not
+discarded, within 3 s) is the open request's `ToolCall`, marked
+`carried_from`, and its answer is written when given; every other unowned
+call is cancelled as before. The voice runs it as that request's, except a
+call that changes what the person sees (the executive), which is not done
+and the model told the person went on. A task's yes is still checked by
+the voice's own rule.
+
+**Tests** (M2 Max): transport: the 22:37 case carried and answered once;
+refused without the switch, for an abandoned request, and after the
+window. Voice worker: a carried `light_on` answered "not done" with the
+executive never asked; a carried call for the time answered. **Gate:**
+fmt; strict clippy on gemini, voice, voice-eval, policy, surround; tests
+one at a time: gemini 259 (2 ignored), voice 1,043 (6 ignored), voice-eval
+284, policy 144 (2 ignored), surround 260; the workspace build. Native
+ARM64 run 38616463482 on `df5e5f348`: green, 4,213 passed, 0 failed, 31
+ignored.
+
+**What to run on the lamp:** with `LAMP_CARRY_CALLS=on`, the two-breath yes
+five times and a one-breath yes five times, each after a prepared task;
+the tasks started, what the lamp said, and "carried over" in the journal.
+
+**Where it is most likely wrong on the lamp:** "Yes... no, wait" for a task
+still starts it (the carried yes passes the voice's check); a task call
+answered after the 2.5 s kept-start patience may be withdrawn by the
+service and its answer dropped as stale.
 
 ### second-P1, step 2: the note after an early end (2026-10-15, issue #723)
 

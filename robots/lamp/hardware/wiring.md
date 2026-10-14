@@ -13,17 +13,20 @@ Keep this in sync when wiring changes. Mismatch between this file and the code i
 
 ---
 
-## Button (single)
+## Buttons and mic switch
 
-Single momentary tactile, normally-open. Single-click = stop / unmute. Triple-click = reboot. Long press 3 s = shutdown. 200 ms debounce in software.
+All inputs are pull-up, active-LOW (a press or a "mute" position reads LOW); 200 ms software
+debounce on the buttons. Declared in `robots/lamp/gpio_button.json` and
+`robots/lamp/privacy_button.json`; behaviour in [`physical-controls.md`](../docs/physical-controls.md).
 
-| | Raspberry Pi 5 | OrangePi 4 Pro |
+| Input | Raspberry Pi 5 | OrangePi 4 Pro |
 |---|---|---|
-| Header pin | 11 | 11 |
-| Signal | BCM 17 | PL9 |
-| Char device | `/dev/gpiochip0` line 17 | `/dev/gpiochip1` line 9 |
-| GND | pin 9 | pin 9 |
-| Code | `hal/drivers/gpio_button.py:22-24` | `hal/drivers/gpio_button.py:30-32` |
+| Primary button (click / multi-click / hold) | header pin 11, BCM 17, `/dev/gpiochip0` line 17 | header pin **35**, PD3, `/dev/gpiochip0` line 99 |
+| Reset button (hold ≥ 5 s, release = factory reset) | not wired | header pin **37**, PD4, `/dev/gpiochip0` line 100 |
+| Mic privacy slide switch (LOW = mic muted, camera off, speaker muted) | not wired | header pin **11**, PL9, `/dev/gpiochip1` line 9 |
+| GND | any GND pin | any GND pin (e.g. 9, 39) |
+
+> On the OrangePi, pin 11 is the privacy switch, not a button. The primary button moved to pin 35.
 
 ---
 
@@ -99,7 +102,7 @@ the C-Media adapter handles ambient sensing.
 
 | Role | Device | ALSA alias | Code |
 |---|---|---|---|
-| Voice (Mic 2) | Jieli USB Composite Device | `plug:device_micro2` | `/opt/hal/.env` (`HAL_AUDIO_INPUT_ALSA`) |
+| Voice (Mic 2) | Jieli USB Composite Device (`4c4a:4155`; dual-mic module with on-board noise cancelling, delivers one mono 48 kHz channel) | `plug:device_micro2` | `/opt/hal/.env` (`HAL_AUDIO_INPUT_ALSA`) |
 | Sensing (Mic 1) | C-Media USB Audio Adapter (Unitek Y-247A, `0d8c:0014`) | `plug:device_micro1` | `/opt/hal/.env` (`HAL_AUDIO_SENSING_DEVICE`) |
 
 The OPENAICAM audio endpoint (`device_micro3`) is not selected: a direct tone
@@ -128,20 +131,24 @@ USB UVC. Plug into any free USB port (prefer USB 3 if available for headroom; 10
 
 ---
 
-## TTP223 capacitive touch (optional, OPi only)
+## TTP223 capacitive touch (head pads, OPi only)
 
-Four touch pads for left/right swipe gesture. Factory default mode (AB pads unsoldered): momentary, active-HIGH push-pull output. **The OPi GPIO is 3.3 V only — feeding it 5 V will damage the SoC.** So the TTP223 must run on a 3.3 V VCC (push-pull output then swings 0 ↔ 3.3 V, GPIO-safe).
+Head pads for petting (every gesture gives the same pet response). Four candidate header
+positions are declared; **only two pads are wired, and which two differs per unit**, so HAL
+probes the lines at startup (`"detect": true` in `robots/lamp/ttp223.json`). HAL reads the
+lines with pull-up, active-LOW: pads rest HIGH and a touch is the falling edge (see
+[`physical-controls.md`](../docs/physical-controls.md)). **The OPi GPIO is 3.3 V only — feeding
+it 5 V will damage the SoC**, so the TTP223 modules must run on a 3.3 V VCC.
 
-Signal lines are the same in both options:
-
-| Pad | OPi header pin | GPIO line |
+| Pad | OPi header pin | GPIO |
 |---|---|---|
-| S1 (leftmost) | 29 | gpiochip0 line 96 (PD0) |
-| S2 | 31 | gpiochip0 line 97 (PD1) |
-| S3 | 33 | gpiochip0 line 98 (PD2) |
-| S4 (rightmost) | 35 | gpiochip0 line 99 (PD3) |
+| T1 | 27 | PB5, gpiochip0 line 37 |
+| T2 | 29 | PD0, gpiochip0 line 96 |
+| T3 | 31 | PD1, gpiochip0 line 97 |
+| T4 | 33 | PD2, gpiochip0 line 98 |
 
-GND of all four modules ties to OPi header pin 25 or 39 (any GND).
+GND of the modules ties to any OPi GND pin (e.g. 25 or 39). The bench hardware test passes
+when at least two of the four positions register a touch.
 
 Two ways to deliver 3.3 V to the four VCC pins:
 
@@ -185,6 +192,46 @@ Trade-offs vs Option A:
 - **Option B with high-value resistors (kΩ range)**: a single touch already collapses VCC. The chip browns out, output flickers, neighbouring channels glitch. **Avoid.**
 
 Software side: the swipe gesture detector needs to handle a small overlap (two adjacent pads briefly HIGH together as a finger crosses). With Option A there's no extra coupling concern; with Option B the slight VCC dip during a swipe could shift edge timing by a few ms — negligible for swipe, but tighten debounce if you see issues.
+
+---
+
+## MPR121 capacitive touch strip (OPi only)
+
+12-electrode controller for the touch strip in the base (tap, swipe, hold). Declared in
+`robots/lamp/mpr121.json`; driver and tuning in
+[`physical-controls.md`](../docs/physical-controls.md#mpr121-detection-haldriversmpr121py).
+
+| Signal | OPi header pin | Notes |
+|---|---|---|
+| VCC | 1 (3.3 V) | **3.3 V only**, not 5 V |
+| SDA | 3 (TWI0) | I²C bus 0 — enable the `i2c0` overlay in `/boot/orangepiEnv.txt` |
+| SCL | 5 (TWI0) | |
+| GND | 6 (or any GND) | |
+| Address | — | 0x5A (ADDR pin to GND) |
+| Electrodes | — | E0–E11 to the strip pads; `swipe_axis` E11 → E0 runs physically right → left |
+
+Idle noise differs per unit, and probably with the 3D-print material of the shell (gray
+charcoal, green matcha, white cloud, sand dune). Every unit therefore gets its own per-pad
+thresholds at the bench, stored in `/var/lib/hal/mpr121.factory.json`, and the owner can adjust
+them in the web UI (Settings → Touch pad). See
+[per-unit tuning](../docs/physical-controls.md#per-unit-tuning-that-survives-updates).
+
+---
+
+## Bench hardware test coverage
+
+What the factory bench test checks on every unit before shipping, and its pass criteria:
+
+| Part | Pass when |
+|---|---|
+| Camera | full-resolution frame captured and confirmed by the operator |
+| Mic 1 (C-Media, sensing) / Mic 2 (Jieli, voice) | 4 s recording each while the operator speaks: peak above -50 dBFS, no clipping |
+| Speaker (C-Media line-out → PAM8610) | both recordings play back on `device_speaker`, confirmed by the operator |
+| MPR121 | found on I²C (0x5A–0x5D) and all 12 electrodes register a touch |
+| Buttons / switch | header pins 11, 35 and 37 each change state |
+| TTP223 | at least 2 of header pins 27/29/31/33 register a touch |
+| Servos | all 5 STS3215 answer on the servo bus |
+| MPR121 calibration | per-pad thresholds saved; no touch during a hands-off soak and a 30 min phantom watch with HAL running |
 
 ---
 

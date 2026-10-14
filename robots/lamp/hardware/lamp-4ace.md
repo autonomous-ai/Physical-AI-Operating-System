@@ -1,0 +1,63 @@
+# lamp-4ace as built
+
+One unit, as measured from the running lamp on 2026-10-14 by lampOS's first
+builder (the session that works on lamp-4ace), and, for the touches, with
+the owner's hand. The design every unit follows is the hardware team's:
+[`components.md`](components.md) and [`wiring.md`](wiring.md). This file
+says what this one unit has, how each part shows itself to software, and
+where it differs from that design, for the hardware team to confirm or
+correct. It is kept by lampOS's first builder and updated when the unit
+changes.
+
+## Where lamp-4ace differs from the design
+
+| # | Part | Design (`components.md`, `wiring.md`) | lamp-4ace | To confirm |
+|---|---|---|---|---|
+| 1 | Primary button | header pin 35, chip 0 line 99, pull-up, low when pressed | The owner: there is no button on this lamp. Line 99 reads high (released); it was not pressed with a hand | Is a button fitted on lamp-4ace? |
+| 2 | Reset button | header pin 37, chip 0 line 100 | Not read by lampOS; not checked | Fitted? |
+| 3 | Mic privacy slide switch | header pin 11, chip 1 line 9, low = muted | Reads high (unmuted); the owner did not mention one | Fitted? |
+| 4 | Head pads (TTP223) | two of lines 37, 96, 97, 98; pull-up, rest high, a touch is the falling edge | Lines **37 and 96** answer a touch; read with pull-down they rest **low and go high** on a touch | Are this unit's modules set active-high? |
+| 5 | Base strip (MPR121) | all 12 electrodes register at the bench; per-unit thresholds in `/var/lib/hal/mpr121.factory.json` | Ten answer a finger: 0-3, 5-7, 9-11. **E4 and E8 never did**, and their charge currents are 31 where the others are 41 to 57. The per-unit file is gone (the old software was removed); the chip still holds touch 6 / release 4 on every electrode (`lampOS/deploy/lamp-4ace/mpr121-registers-20261014.txt`) | Are E4 and E8 wired on this unit? |
+| 6 | Environment sensor | optional; declared but disabled | A **SEN63C is fitted and measuring** (I2C bus 0, 0x6B) | Is the SEN63C now standard? Where is it placed (it reads 33 °C, warmed by the lamp)? |
+| 7 | Camera microphone | not selected: near-digital silence, needs repair | Two channels at 22.05 kHz, 8 bits; the left is silent, the right faint (RMS 0.71 of 127) | As the design says |
+
+## Parts the design does not list
+
+| Part | On lamp-4ace |
+|---|---|
+| Single-board computer | Orange Pi 4 Pro, Allwinner A733 (`sun60iw2p1`): 2 x Cortex-A76 at 2.0 GHz + 6 x Cortex-A55 at 1.8 GHz; 6 GB (5.7 GiB usable) |
+| NPU | On the A733 (VeriSilicon VIP), `/dev/vipcore` |
+| Storage | 64 GB microSD (`SN64G`), `/dev/mmcblk1` |
+| Wi-Fi and Bluetooth | AIC8800 on SDIO (`C8A1:0082`): `wlan0`, `hci0` |
+| Real-time clock | HYM8563, I2C bus 15, 0x51 |
+| Power management | AXP515 and AXP8191, I2C bus 13, 0x34 and 0x36; power key `axp8191-pek`; no battery |
+| Onboard audio codec | ES8389, I2C bus 7, 0x10, card `sndi2s4` (unused, as `wiring.md` says) |
+| A declared touch controller | Goodix GT9271 on I2C bus 5, 0x14 in the device tree; no driver bound, a read failed: probably not fitted |
+| USB hubs | Terminus `1a40:0101` then QinHeng `1a86:8091`, 4 ports each, in a chain; on the second: Jieli mic (port 1), servo adapter (port 2), C-Media adapter (port 3), camera (port 4) |
+| Status LED | `gpio-38` |
+| Operating system | Orange Pi 1.0.6 Bookworm (Debian 12), kernel 5.15.147-sun60iw2 |
+
+## Parts as they show themselves to software
+
+| Part (design name) | Identity on lamp-4ace | Read or driven by (lampOS) |
+|---|---|---|
+| Camera, USB ZV A016 V4 | "ZVCAI USB_Camera" `01da:5875`, `/dev/video0`, MJPEG up to 3264 x 2448 | Eyes |
+| Mic 2 (voice), Jieli | `4c4a:4155`, card `device_micro2`; also shows a small USB disk and a key device | Voice, Name |
+| Mic 1 (sensing) + speaker DAC, C-Media | `0d8c:0014`, card `device_cmedia` | Ears (capture), Voice (playback) |
+| Servo control board, Waveshare | QinHeng `1a86:55d3`, serial 5CE4141883, `/dev/ttyACM0` | Body |
+| Servos x5, STS3215 | on the servo bus | Body |
+| RGB LED ring, WS2812B 32 px | SPI bus 3, `spidev3.0` | Voice (ring) |
+| Head pads, TTP223 | chip 0 lines 37, 96 | Controls |
+| Touch strip, MPR121 | I2C bus 0, 0x5A, running (ECR 0x8F) | nothing yet (lampOS task #711) |
+| Environment sensor, SEN63C | I2C bus 0, 0x6B, serial 071F78D689E4A407; 2026-10-14 17:36: CO2 1,931 ppm, PM2.5 92.5 ug/m3, 31.7 % RH, 33.0 °C at the sensor | Air (`lamp-air`), running since 17:43 |
+
+## How each part was checked
+
+Read-only, from the running lamp: `lsusb`, `lsusb -t`; `/sys/bus/i2c/devices/*/name`;
+for parts read from user space, a known register (MPR121 0x5E, SEN63C product name
+0xD014); `/sys/kernel/debug/gpio` for claimed lines; `/proc/asound/cards` and a short
+recording; `v4l2-ctl --list-devices`; `/sys/class/power_supply`, `/sys/class/net`,
+`/proc/device-tree/compatible`. The two touches were confirmed with the owner's hand
+while the lines and the MPR121's touch status were logged (raw log in lampOS issue
+#711). Speakers, amplifier, power supply, fan and the mechanical parts cannot be seen
+from software and were not checked.

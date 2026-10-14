@@ -52,5 +52,6 @@ which, after the downloads, does:
 
 `train.py` with no options is the configuration of this file: `--shape
 time --hidden 64 --steps 12000 --heard 3 --against 3 --hard 0 --seed 0`.
-It ran once. Another number of threads may change the last bits of the
-weights.
+It ran once. Made again, it will not be the same file to the bit: Piper
+draws its own noise when it speaks, and another number of threads changes
+the order of sums. Its measurements are in the document.

@@ -352,6 +352,17 @@ pub fn sendable(told: &Value) -> bool {
 /// an answer that is late, cut off, too long or not JSON. Blocking: for a
 /// thread of its own.
 pub fn exchange(socket: &Path, line: &Value, deadline: Duration) -> Option<Value> {
+    exchange_up_to(socket, line, deadline, MAX_ANSWER_BYTES)
+}
+
+/// [`exchange`] for a part whose answers can be longer than the executive's:
+/// the tasks part's pages of tasks and an agent's answer (up to 16 KiB of it,
+/// and 4 KiB of what it was asked). A page of eight tasks was 9,333 bytes on
+/// lamp-4ace on 2026-10-15, and the 8 KiB bound made both the news and "how
+/// is it going?" fail once the lamp had eight.
+pub const MAX_TASKS_ANSWER_BYTES: u64 = 65_536;
+
+pub fn exchange_up_to(socket: &Path, line: &Value, deadline: Duration, most: u64) -> Option<Value> {
     let started = Instant::now();
     let left = || {
         deadline
@@ -366,7 +377,7 @@ pub fn exchange(socket: &Path, line: &Value, deadline: Duration) -> Option<Value
     out.push(b'\n');
     stream.write_all(&out).ok()?;
     let mut answer = Vec::new();
-    let mut reader = BufReader::new(stream.try_clone().ok()?.take(MAX_ANSWER_BYTES));
+    let mut reader = BufReader::new(stream.try_clone().ok()?.take(most));
     loop {
         // The whole answer inside what is left, however it is cut up.
         stream.set_read_timeout(Some(left()?)).ok()?;

@@ -558,6 +558,22 @@ Two things to improve after the MVP: a short piece of writing (a two-line
 poem) is described instead of read, and asking right after the news repeats
 it.
 
+### The second played day, and a page too long (2026-10-15, 02:54)
+
+The same ten lines on the `lamp-voice` head of 02:53 (`f60d6d6f9`, with
+memory across days on). The hand-over went as before ("I'm passing that over
+to Claude Code now and will let you know when it's ready."), and Claude Code
+answered and the watch kept it, but nothing was told in the 100 s after, and
+"How is that task going?" got "I'm sorry, I can't check on that right now."
+(`check_agent_task`: "the tasks part did not answer in 3 ms"). The night's
+tests had left ten tasks in the store, and a page of eight with their
+records is 9,333 bytes, over the voice's 8 KiB bound on a socket answer
+(`tools::exchange`, set for the executive); both the news reader and the
+check read that page first. Now the tasks part is read with a 64 KiB bound
+(`tools::MAX_TASKS_ANSWER_BYTES`), which also covers an agent's longest
+answer (16 KiB) with what it was asked (4 KiB). The test of "how is it
+going?" now serves a page of over 9,000 bytes.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

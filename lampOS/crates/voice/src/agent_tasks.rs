@@ -413,7 +413,7 @@ fn ask(socket: &Path, line: &Value, deadline: Duration) -> Option<Value> {
     if deadline.is_zero() {
         return None;
     }
-    crate::tools::exchange(socket, line, deadline)
+    crate::tools::exchange_up_to(socket, line, deadline, crate::tools::MAX_TASKS_ANSWER_BYTES)
 }
 
 fn nonce() -> u128 {
@@ -632,7 +632,9 @@ mod tests {
             vec![
                 (
                     "request.sock",
-                    json!({"ok":true,"store_id":"s1","items":[
+                    // Longer than the executive's 8 KiB bound, as a page of
+                    // eight tasks with their records was on lamp-4ace.
+                    json!({"ok":true,"store_id":"s1","padding":"x".repeat(9_000),"items":[
                     {"id":1,"dispatch":{"state":"accepted"}},{"id":2,"dispatch":{"state":"accepted"}},
                     {"id":3,"dispatch":{"state":"invalidated"}}]}),
                 ),

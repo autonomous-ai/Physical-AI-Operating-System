@@ -206,7 +206,13 @@ fn boot_clock() -> Option<BootClock> {
 }
 
 fn ask(socket: &Path, line: &Value) -> Option<Value> {
-    crate::tools::exchange(socket, line, ASK_DEADLINE).filter(|answer| answer["ok"] == json!(true))
+    crate::tools::exchange_up_to(
+        socket,
+        line,
+        ASK_DEADLINE,
+        crate::tools::MAX_TASKS_ANSWER_BYTES,
+    )
+    .filter(|answer| answer["ok"] == json!(true))
 }
 
 /// Every piece of news there is now that has not been told or offered.

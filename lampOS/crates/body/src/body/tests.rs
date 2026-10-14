@@ -1897,6 +1897,7 @@ fn gesture_run(
             Asked {
                 seen: None,
                 gesture: due.then_some(clip),
+                expression: None,
             }
         },
         |glimpse| {
@@ -1909,6 +1910,138 @@ fn gesture_run(
         },
     );
     (report, lamp, seen)
+}
+
+/// A lamp that stands at once and is in one mood throughout, asked by
+/// Expression for `offsets` from `from` until `until`. Each step: when,
+/// and the head's three goals.
+fn expression_run(
+    mood: Mood,
+    offsets: [f32; 3],
+    from: Duration,
+    until: Duration,
+    seconds: u64,
+) -> (BodyReport, Vec<(Duration, [u16; 3])>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(seconds));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits::folded_with(Tuning {
+        reach: [150, 15, 1, 250],
+        speed: 120,
+        servo_speed: 1_000,
+        servo_acceleration: 60,
+    })
+    .unwrap();
+    let time = clock.time.clone();
+    let seen_at = clock.time.clone();
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 60)),
+        None,
+        move || Some((mood, 60)),
+        move || Asked {
+            seen: None,
+            gesture: None,
+            expression: (time.get() >= from && time.get() < until).then_some(offsets),
+        },
+        |glimpse| seen.push((seen_at.get(), glimpse.goals)),
+    );
+    (report, seen)
+}
+
+/// What Expression asks is added to the pose the lamp listens in: the
+/// head dips for as long as it is asked and comes back to where it was,
+/// at the speed everything else moves at, and nothing else turns.
+#[test]
+fn a_listening_lamp_dips_its_head_for_expression_and_comes_back() {
+    let (from, until) = (Duration::from_secs(8), Duration::from_millis(8_600));
+    // The run goes on for four seconds after what is looked at here: a
+    // lamp that is told to stop folds down, and that is not the dip.
+    let watched = Duration::from_secs(12);
+    let (report, seen) = expression_run(Mood::Listening, [40.0, 0.0, 0.0], from, until, 16);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.expression_steps, 30, "0.6 s of 20 ms steps");
+    assert!(report.retreats.is_empty(), "{:?}", report.retreats);
+    let at = |when: Duration| seen.iter().rfind(|step| step.0 < when).unwrap().1;
+    let before = at(from);
+    // It listens with its head lifted, well clear of its home.
+    assert!(before[0] + 40 < HOME[0], "{before:?} against {HOME:?}");
+    let lowest = seen
+        .iter()
+        .filter(|step| step.0 >= from && step.0 < watched)
+        .map(|step| step.1[0])
+        .max()
+        .unwrap();
+    // A dip of 40 was asked for 0.6 s. The pose follows at 120 counts a
+    // second with its own gentle start, so most of it is made.
+    let dip = lowest - before[0];
+    assert!((24..=41).contains(&dip), "the head dipped {dip} counts");
+    // Back where it listened from, and at rest there.
+    let after = at(Duration::from_millis(11_500));
+    assert!(
+        after[0].abs_diff(before[0]) <= 6,
+        "{after:?} against {before:?}"
+    );
+    // Nothing else moved, and no goal leapt.
+    for (index, name) in [(1, "roll"), (2, "yaw")] {
+        let values: Vec<u16> = seen
+            .iter()
+            .filter(|step| step.0 >= from && step.0 < watched)
+            .map(|step| step.1[index])
+            .collect();
+        let swing = values.iter().max().unwrap() - values.iter().min().unwrap();
+        assert!(swing <= 1, "{name} moved {swing}");
+    }
+    for pair in seen
+        .windows(2)
+        .filter(|pair| pair[0].0 >= from && pair[1].0 < watched)
+    {
+        assert!(pair[1].1[0].abs_diff(pair[0].1[0]) <= 3, "{pair:?}");
+    }
+}
+
+/// What is asked is cut to a few degrees and then to the joint's own
+/// reach, a number that is not one is nothing, and a lamp at rest is not
+/// stirred by it.
+#[test]
+fn expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_resting_lamp() {
+    let (from, until) = (Duration::from_secs(8), Duration::from_secs(10));
+    let (report, seen) =
+        expression_run(Mood::Listening, [500.0, f32::NAN, -500.0], from, until, 14);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let before = seen.iter().rfind(|step| step.0 < from).unwrap().1;
+    let during: Vec<[u16; 3]> = seen
+        .iter()
+        .filter(|step| step.0 >= from && step.0 < until)
+        .map(|step| step.1)
+        .collect();
+    let lowest = during.iter().map(|goals| goals[0]).max().unwrap();
+    let leftmost = during.iter().map(|goals| goals[2]).min().unwrap();
+    // Sixty counts of dip at the most, and never past what the head may
+    // dip below its home; seventy of turn.
+    assert!(lowest - before[0] <= 60, "dipped {}", lowest - before[0]);
+    assert!(lowest <= HOME[0] + 15, "{lowest} against {HOME:?}");
+    assert!(
+        (60..=70).contains(&(before[2] - leftmost)),
+        "turned {}",
+        before[2] - leftmost
+    );
+    let roll: Vec<u16> = during.iter().map(|goals| goals[1]).collect();
+    assert!(roll.iter().max().unwrap() - roll.iter().min().unwrap() <= 1);
+    // At rest for eight seconds, and then asked: nothing is written.
+    let (report, seen) = expression_run(Mood::Resting, [40.0, 0.0, 40.0], from, until, 14);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let before = seen.iter().rfind(|step| step.0 < from).unwrap().1;
+    for step in seen
+        .iter()
+        .filter(|step| step.0 >= from && step.0 < Duration::from_secs(11))
+    {
+        assert_eq!(step.1, before, "at {:?}", step.0);
+    }
 }
 
 #[test]
@@ -1993,6 +2126,7 @@ fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
         move || Asked {
             seen: None,
             gesture: (!std::mem::replace(&mut asked_once, true)).then_some(&crate::clips::NOD),
+            expression: None,
         },
         |_| {},
     );
@@ -2065,6 +2199,7 @@ fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
             Asked {
                 seen: None,
                 gesture: due.then_some(&crate::clips::STRETCHING),
+                expression: None,
             }
         },
         |glimpse| {
@@ -2230,6 +2365,7 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
                         }),
                     }),
                     gesture: None,
+                    expression: None,
                 }
             },
             |glimpse| stood.push((watched.get(), glimpse.stand)),

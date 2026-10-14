@@ -620,6 +620,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             .map(|standing| standing.idling(choice.idle))
         })
         .transpose()?;
+    // What Expression asks of the head, if the unit says so. Looked at
+    // each step and never waited for (docs/expression.md).
+    let mut expression = lamp_body::expression_in::ExpressionIn::from_environment(|why| {
+        eprintln!("lamp-body: {why}")
+    });
     let result = run_body(
         &config,
         limits,
@@ -630,6 +635,11 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         || lamp_body::body::Asked {
             seen: eyes(),
             gesture: gesture_asked.take(),
+            expression: expression.as_mut().and_then(|asked| {
+                asked.offsets(lamp_ipc::monotonic_us(), |why| {
+                    eprintln!("lamp-body: {why}")
+                })
+            }),
         },
         watch,
         || {

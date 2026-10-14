@@ -121,7 +121,19 @@ const IDLE_EVERY: Duration = Duration::from_secs(8);
 pub struct Asked {
     pub seen: Option<Seen>,
     pub gesture: Option<&'static Clip>,
+    /// What the part that plans what the lamp shows asks now
+    /// (`crate::expression_in`, `docs/expression.md`): encoder counts to
+    /// add to the pose wanted of the head's pitch, the head's roll and the
+    /// base's turn, in that order. `None` when it asks nothing or what it
+    /// asked has run out.
+    pub expression: Option<[f32; 3]>,
 }
+
+/// The most that may be added to a pose for [`Asked::expression`], in
+/// counts, for the head's pitch, its roll and the base's turn: about five,
+/// four and six degrees. What is asked is cut to this and then to the
+/// reach of each joint like everything else that follows the mood.
+pub const EXPRESSION_REACH: [f32; 3] = [60.0, 45.0, 70.0];
 
 /// The shoulder and the elbow, in the order of every array of two here.
 /// Read on every step. Written only by a body that was given a pose to
@@ -518,6 +530,8 @@ pub struct BodyReport {
     /// did not keep up or strained.
     pub gestures: u32,
     pub gestures_dropped: u32,
+    /// Steps in which something asked by Expression was added to the pose.
+    pub expression_steps: u64,
     /// Times it shifted by itself while standing at rest.
     pub idles: u32,
     pub stop: Stop,
@@ -913,6 +927,7 @@ pub(crate) fn run_looking(
     let asked = move || Asked {
         seen: eyes(),
         gesture: None,
+        expression: None,
     };
     run_alive(
         io, runtime, limits, home, standing, looking, news, asked, watch,
@@ -965,6 +980,7 @@ pub(crate) fn run_alive(
         retreats: Vec::new(),
         gestures: 0,
         gestures_dropped: 0,
+        expression_steps: 0,
         idles: 0,
         stop: Stop::Cancelled,
     };
@@ -1602,6 +1618,25 @@ pub(crate) fn run_alive(
         // tilt has the reach of a lamp that has stood up, as far as it has.
         let roll_reach =
             limits.roll + (limits.stand_roll - limits.roll).max(0.0) * head_share(stand).powi(2);
+        // What Expression asks is added to the pose the mood wants, and so
+        // goes through everything that pose goes through: the reach of
+        // each joint, the speed and the acceleration the pose follows at,
+        // rest, and the hold after resistance. Not while a gesture plays:
+        // that is the whole lamp's move, and nothing is laid over it.
+        let extra = match asked_now.expression {
+            Some(asked) if !gesturing => {
+                report.expression_steps += 1;
+                [0, 1, 2].map(|index| {
+                    let asked = if asked[index].is_finite() {
+                        asked[index]
+                    } else {
+                        0.0
+                    };
+                    asked.clamp(-EXPRESSION_REACH[index], EXPRESSION_REACH[index])
+                })
+            }
+            _ => [0.0; 3],
+        };
         let offsets = [
             pitch
                 * if pitch < 0.0 {
@@ -1609,9 +1644,10 @@ pub(crate) fn run_alive(
                 } else {
                     limits.pitch_down
                 }
-                + look[1],
-            roll * roll_reach,
-            yaw * limits.yaw + look[0],
+                + look[1]
+                + extra[0],
+            roll * roll_reach + extra[1],
+            yaw * limits.yaw + look[0] + extra[2],
         ];
         // A joint that met resistance is asked nothing for now, at rest or not.
         let held = easing.map(|left| left > 0);

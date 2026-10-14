@@ -351,6 +351,52 @@ to 113 (250 less 0.27 of 727 times 0.7) and the face to -0.11, inside what
 counts as looked at. It has not yet been seen with a living person in front
 of it.
 
+## What Expression may add
+
+Not yet run on a lamp. This is what the code does against simulated
+servos.
+
+The part that plans what the lamp shows ([expression.md](expression.md))
+may ask the body to add a little to the pose it is in: a nod while the
+person pauses is the first thing it is for. With `LAMP_EXPRESSION_BODY=on`
+in the body's unit (and the bus on), the body listens to `expression/body`
+(`src/expression_in.rs`). Off by default.
+
+- **What is taken.** The head's pitch, the head's roll and the base's
+  turn, in radians, turned into counts (652 to a radian). A positive pitch
+  dips the head, as in the body's own poses. The shoulder and the elbow
+  are the arm that carries the lamp and are not moved for expression. A
+  gaze is not taken: the body already looks at the face its own eyes
+  report. A request for stillness adds nothing.
+- **How it is applied.** Added to the pose the mood wants, before
+  anything else is done with that pose. So it goes through everything the
+  mood's pose goes through: each joint's reach, the speed and
+  acceleration the pose is followed at (120 counts a second on lamp-4ace),
+  the rest of a joint that has arrived, and the hold after resistance. It
+  is cut first to 60, 45 and 70 counts (pitch, roll, turn: about five,
+  four and six degrees), whatever was asked. Nothing is added while a
+  gesture plays, and a lamp at rest is not stirred by it.
+- **Which request counts.** One that passes its own check, is of this
+  start of the machine (the kernel's boot identity), has not run out, was
+  not made ahead of the body's clock, lasts no longer than a request may
+  (a fifth of a second), and is newer than the one in hand from the same
+  start of the planner. Anything else is not taken, and the body says so
+  in its journal for the first three and then ever more seldom.
+- **When the planner stops.** Its last request runs out 0.2 s later and
+  the pose is the mood's own again, followed back at the same speed.
+- **Never waited for.** A thread of its own takes requests from the bus;
+  the body's loop looks at what has come and goes on.
+
+The body's report at the end of a run has `expression_steps`: the steps
+in which something was added.
+
+Against simulated servos, a lamp standing and listening, asked for a dip
+of 40 counts for 0.6 s: the head's goal dipped 24 to 41 counts and was
+back within 6 of where it listened from, no goal moving more than 3
+counts in a step, and neither the tilt nor the turn moved. Asked for 500
+counts of dip and of turn, it dipped no more than 60 and never under its
+own reach, and turned 60 to 70. Asked while at rest, nothing was written.
+
 ## Gestures
 
 Not yet run on a lamp. This is what the code does against simulated servos.

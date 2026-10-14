@@ -167,6 +167,15 @@ Three things about it that a reader of this page should know:
   said in the report's message and in `expression/state`, and the lamp is
   well. It also says in its journal which input it refused and why, for
   the first five and then ever more seldom.
+- **The body can take its requests** (`crates/body/src/expression_in.rs`,
+  `LAMP_EXPRESSION_BODY=on`, off by default; [body.md](body.md), "What
+  Expression may add"). It takes the head's pitch and roll and the base's
+  turn, adds them to the pose its own mood wants, and holds them to its
+  own reach and speed. The sign it reads: a positive `head_pitch` dips the
+  head. Not yet run on a lamp. On lamp-4ace the head follows a pose at
+  120 counts a second and leaves a move under 20 counts unmade, so the
+  built-in nod (23 counts at its highest, over 0.15 s) will not show
+  there: the lamp needs a catalogue of its own with a slower, larger nod.
 - **The room is said again every second** (`RoomOut::tell`), so that the
   planner's five-second limit on that evidence is met by a room that is
   judged all the time and seldom changes.

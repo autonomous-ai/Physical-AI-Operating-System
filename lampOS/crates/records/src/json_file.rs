@@ -37,6 +37,20 @@ fn no_atime() -> OFlags {
     }
 }
 
+/// Open read-only, without touching the access time where the kernel allows
+/// it. Linux grants `O_NOATIME` only for a file the caller owns (or with
+/// `CAP_FOWNER`) and refuses any other with `EPERM`, so a reader that is not
+/// root opens `/` and root's directories without it. Found on 2026-10-14 when
+/// the ARM64 tests first ran as an ordinary user.
+fn open_read(dir: &OwnedFd, name: &std::ffi::OsStr, flags: OFlags) -> rustix::io::Result<OwnedFd> {
+    match fs::openat(dir, name, flags | no_atime(), Mode::empty()) {
+        Err(rustix::io::Errno::PERM) if !no_atime().is_empty() => {
+            fs::openat(dir, name, flags, Mode::empty())
+        }
+        opened => opened,
+    }
+}
+
 fn owned(stat: &fs::Stat) -> bool {
     stat.st_uid == rustix::process::geteuid().as_raw() || stat.st_uid == 0
 }
@@ -60,9 +74,13 @@ fn trusted_directory(fd: &OwnedFd, last_private: bool) -> io::Result<()> {
 
 fn parent(path: &Path, private: bool) -> io::Result<OwnedFd> {
     absolute_path(path)?;
-    let flags =
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC | no_atime();
-    let mut fd = fs::open("/", flags, Mode::empty())?;
+    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+    let mut fd = match fs::open("/", flags | no_atime(), Mode::empty()) {
+        Err(rustix::io::Errno::PERM) if !no_atime().is_empty() => {
+            fs::open("/", flags, Mode::empty())?
+        }
+        opened => opened?,
+    };
     trusted_directory(&fd, false)?;
     for component in path
         .parent()
@@ -70,7 +88,7 @@ fn parent(path: &Path, private: bool) -> io::Result<OwnedFd> {
         .components()
     {
         if let Component::Normal(name) = component {
-            fd = fs::openat(&fd, name, flags, Mode::empty())?;
+            fd = open_read(&fd, name, flags)?;
             trusted_directory(&fd, false)?;
         }
     }
@@ -111,11 +129,10 @@ pub fn read_changed<T: DeserializeOwned>(
     prior: Option<&Stamp>,
 ) -> io::Result<Option<(T, Stamp)>> {
     let dir = parent(path, false)?;
-    let fd = fs::openat(
+    let fd = open_read(
         &dir,
         path.file_name().unwrap(),
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC | no_atime(),
-        Mode::empty(),
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
     )?;
     let stat = fs::fstat(&fd)?;
     regular(&stat)?;
@@ -157,11 +174,10 @@ pub fn temporary_path(path: &Path) -> io::Result<PathBuf> {
 pub fn same_file(first: &Path, second: &Path) -> io::Result<bool> {
     fn identity(path: &Path) -> io::Result<(u64, u64)> {
         let dir = parent(path, false)?;
-        let file = File::from(fs::openat(
+        let file = File::from(open_read(
             &dir,
             path.file_name().unwrap(),
-            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC | no_atime(),
-            Mode::empty(),
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
         )?);
         regular(&fs::fstat(&file)?)?;
         let metadata = file.metadata()?;

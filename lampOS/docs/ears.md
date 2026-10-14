@@ -69,6 +69,18 @@ those sounds peak about -37 to -39 dBFS over 100 ms at mic1, at the edge of
 the first rule of 20 dB and under the present one. A "Hey Lamp" played from the same place reached about -37 to -45
 dBFS: no louder at mic1 than the office's own talk.
 
+**Who is close, with people (2026-10-14, 17:12 to 17:42).** With the owner
+at lamp-4ace and colleagues around it, the room microphone's rise over its
+quiet in the 4 s before each line the voice heard (19 lines, the lamp's own
+voice left out): the owner speaking to the lamp at the desk, 10 lines, all
+answered, **19.5 to 26.5 dB**; people farther off, 4 lines at 17:41, none
+answered, **9.8 to 15.1 dB**; 4 lines at 17:29 to 17:30, not answered,
+14.7 to 23.5 dB (likely someone at the desk talking to someone else); one
+word at 17:21, 8.9 dB. So the level says someone is close, not that they
+are speaking to the lamp: a sign to put beside the name, the words and a
+face, not one to decide by. The camera reported no face during the whole
+half hour. One session, one office; not a rate.
+
 ## What exists, and what is taken
 
 From general knowledge, not a fresh survey:
@@ -88,9 +100,10 @@ Taken: level and onset now; a classifier only when a behaviour needs one.
 
 ## Not shown
 
-- Whether mic1 tells a person at the lamp from colleagues across the room:
-  the one earlier look was levels only, ten minutes, with nobody at the
-  desk measured.
+- Whether mic1 tells a person at the lamp from colleagues across the room
+  in general: one half hour with people (above) separated the owner at the
+  desk from people farther off, and not from someone at the desk talking to
+  someone else.
 - Any reaction: nothing listens to `ears/sudden` yet. The glance is
   Expression's, behind a switch, next.
 - The thresholds: chosen, then to be set from what the lamp hears in the

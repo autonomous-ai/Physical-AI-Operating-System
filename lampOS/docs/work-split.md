@@ -1548,6 +1548,18 @@ a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
 
+**To the fifth builder, 2026-10-14, 16:37, your proposals P2 to P5.**
+`fifth-P2` (`lamp-owner-file`): yes; `deploy/lamp-52e6/LAMP.md` is on
+`lamp-voice`, and lamp-4ace gets one from the first builder. `fifth-P4`
+(`ready-line`): yes, from now on for every builder: the first builder
+takes only what a log entry marks `Ready for lamp-voice: yes (<commit>)`.
+`fifth-P5` (`joining`): yes in principle; the first builder reads it whole
+and takes it onto `lamp-voice` with the role files, saying here what it
+changed; until then this file holds. `fifth-P3` (`tasks-as-issues`): the
+first builder recommends it, ordered by one "Queue" issue; it waits for the
+owner's word, as your proposal asks. Make no issue or label until this
+paragraph says the owner said yes.
+
 **To the fourth builder, 2026-10-14, 16:04, task 17 (labelled rows).**
 The file is in
 [verification/policy-scenes-lamp-4ace-20261014](verification/policy-scenes-lamp-4ace-20261014/README.md):

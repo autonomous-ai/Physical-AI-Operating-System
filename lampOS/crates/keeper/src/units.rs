@@ -55,6 +55,10 @@ pub trait Systemd {
     fn enable(&mut self, unit: &str) -> Result<(), String> {
         Err(format!("cannot enable {unit}"))
     }
+    /// `systemctl mask <unit>`: the unit cannot be started until unmasked.
+    fn mask(&mut self, unit: &str) -> Result<(), String> {
+        Err(format!("cannot mask {unit}"))
+    }
 }
 
 /// The real one.
@@ -80,6 +84,10 @@ impl Systemd for Systemctl {
 
     fn reload(&mut self) -> Result<(), String> {
         systemctl(&["daemon-reload".as_ref()])
+    }
+
+    fn mask(&mut self, unit: &str) -> Result<(), String> {
+        systemctl(&["mask".as_ref(), unit.as_ref()])
     }
 
     fn enable(&mut self, unit: &str) -> Result<(), String> {

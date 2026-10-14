@@ -28,7 +28,9 @@ With --act it restarts a part in error or stale for --unwell-seconds
 leaves it alone and reports it. The voice is restarted only when it says
 it is resting: never in a turn.
 Started by the old runtime's updater as a service package's bin/service
-(AUTONOMOUS_SERVICE_NAME set), serve first brings the lamp up: it links the
+(AUTONOMOUS_SERVICE_NAME set), serve first stops and masks the old runtime's
+units the voice refuses to start beside, makes the bus root root's and the
+parts' group's (mode 2770), then brings the lamp up: it links the
 units in the release's units/ folder, ties lampos.target to its own unit so
 that stopping it stops the lamp, and starts lampos.target. health prints
 its ready, version and pid as JSON for the updater: ready once every part the release
@@ -102,10 +104,16 @@ fn serve_with(options: &[&str]) -> ExitCode {
                 version: release.version(),
                 pid: std::process::id(),
                 waiting_for: Vec::new(),
+                legacy_stopped: Vec::new(),
             };
             if let Err(why) = package::write_answer(&data_folder(), &not_yet) {
                 eprintln!("lamp-keeper: {why}");
             }
+            // Before any part starts: the voice refuses to start while one
+            // of these runs, and the parts not run as root need the bus root
+            // their group's.
+            let legacy_stopped = package::clear_legacy(&mut Systemctl);
+            make_bus_root(&release);
             let drop_ins = Path::new("/etc/systemd/system").join(format!("{}.d", units::LAMP));
             if let Err(why) = package::bring_up(&mut Systemctl, &release, &service, &drop_ins) {
                 eprintln!("lamp-keeper: bringing the lamp up: {why}");
@@ -115,11 +123,40 @@ fn serve_with(options: &[&str]) -> ExitCode {
                 "lamp-keeper: the lamp is started from {}",
                 release.root.display()
             );
-            Some(release)
+            Some((release, legacy_stopped))
         }
         Err(_) => None,
     };
     serve(rules, package)
+}
+
+/// The bus root, root's and the parts' group's, mode 2770. A failure is
+/// said and the lamp started anyway: the voice, as root, works without it.
+fn make_bus_root(release: &Release) {
+    let Some(group) = package::parts_group(release) else {
+        eprintln!("lamp-keeper: no part runs in a group of its own; the bus root is left");
+        return;
+    };
+    let Some(gid) = std::fs::read_to_string("/etc/group")
+        .ok()
+        .and_then(|groups| package::gid_of(&groups, &group))
+    else {
+        eprintln!("lamp-keeper: no group {group}; the bus root is left");
+        return;
+    };
+    let root = match Bus::from_environment() {
+        Ok(bus) => bus.root().to_owned(),
+        Err(why) => {
+            eprintln!("lamp-keeper: the bus root: {why}");
+            return;
+        }
+    };
+    match package::make_bus_root(&root, gid, |path, uid, gid| {
+        std::os::unix::fs::chown(path, Some(uid), Some(gid))
+    }) {
+        Ok(()) => eprintln!("lamp-keeper: {} is root:{group}, 2770", root.display()),
+        Err(why) => eprintln!("lamp-keeper: the bus root: {why}"),
+    }
 }
 
 /// Where `serve` leaves its answer for `health`: the service's data folder,
@@ -146,7 +183,7 @@ fn voice_resting(bus: &Bus) -> bool {
         .is_some_and(|said| said.state == Voice::Resting)
 }
 
-fn serve(rules: Rules, package: Option<Release>) -> ExitCode {
+fn serve(rules: Rules, package: Option<(Release, Vec<String>)>) -> ExitCode {
     // ponytail: no signal handling (the standard library has none, as for
     // lamp-health): SIGTERM ends it where it stands, between two looks.
     let notify = Notify::from_environment();
@@ -166,13 +203,14 @@ fn serve(rules: Rules, package: Option<Release>) -> ExitCode {
         if bus.is_none() {
             bus = Bus::from_environment().ok();
         }
-        if let Some(release) = &package {
+        if let Some((release, legacy_stopped)) = &package {
             let waiting_for = package::waiting_for(&mut Systemctl, release);
             let answer = Answer {
                 ready: waiting_for.is_empty(),
                 version: release.version(),
                 pid: std::process::id(),
                 waiting_for,
+                legacy_stopped: legacy_stopped.clone(),
             };
             if let Err(why) = package::write_answer(&data_folder(), &answer) {
                 eprintln!("lamp-keeper: {why}");

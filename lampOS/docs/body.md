@@ -231,6 +231,26 @@ by the tests below, not by these runs, whose reports give where each began
 and ended. Every other sentence of this section is what the code does
 against simulated servos.
 
+On lamp-4ace on the same day, 15:16 to 15:20 (first builder, build
+`dd336aef…` of `001bf889f`), folded, its voice running, the same test
+with lamp-4ace's unit options less its standing ones: **the wake ended
+itself both ways before reaching home.** Toward a base home 286 counts
+round (found at 2,029, home 2,315), the base turned 72 counts and stuck at
+2,101 while its goal went on to 2,135: off its goal by more than 30 for
+ten steps, so the run held and ended (`"stop": {"kind": "tracking",
+"joint": 1}`), at a load of 148. The other way (home 1,729, 300 counts),
+the base turned 189 counts and the shoulder moved from 2,050 to 2,057 as
+it went, one more than the 6 a bystander may drift (`"kind": "drift",
+"joint": 2`). No read was missed and the peak loads were 130, 56 and 148.
+In between, the ordinary start (a joint found within the 250 counts it
+may start from) brought the base 177 counts home and the head's pitch 87
+counts, at the body's own speed, with no check tripping. Not tried on
+lamp-4ace: its own case, the head found pressed on the base at 2,095,
+which needs the head's torque let go. The service runs with `--wake on`
+since 15:21: a wake that ends early ends no worse than the refusal
+before it, and each of systemd's three restarts begins from where the
+last one held.
+
 A lamp whose power comes back is found wherever it fell or was pushed: on
 lamp-4ace the head rests pressed on the base (2,095 on 2026-10-12, above
 the start window), and a lamp may also be found turned, or with its arm

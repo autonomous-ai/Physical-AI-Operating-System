@@ -188,9 +188,10 @@ many components as possible. the harder ones we'll attack later. attack
 the easy components first. we need to get the architecture built out
 asap with as many components as possible". So each builder takes the
 parts that stand on their own first: the third builder reminders and
-timers (6), then a task out to an agent through Harness (11), then the
-shared log and settings (8), and only then Expression's rest and nod
-(18). Stopping and interruption are tested by the first builder in the
+timers (6), then a task out to an agent through Harness (11); the shared
+log and settings (8) moved to the fourth builder on 2026-10-14 at 15:15,
+after its 28 and 29, so that two parts are built at once; Expression's
+rest (18) is done. Stopping and interruption are tested by the first builder in the
 evenings.
 
 The owner, 2026-10-14, 07:45: "let's finish building asap and get lamp in
@@ -217,7 +218,7 @@ has it:
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | done 2026-10-14: on `lamp-voice`; 148 ms on the lamp against 382; the voice does not use it yet |
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
-| 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
+| 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | done 2026-10-14: on `lamp-voice`; first look on lamp-4ace heard no played stop ("What the lamp showed"); not wired |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
 | 19 | The end sent early, the answer played only when sure | `early-end` | Second | back on the lamp 2026-10-14: on `lamp-voice`, played, worse; switched off ("What the lamp showed") |
 | 20 | The replay takes the lamp's own recordings | `replay-capture-clocked` | Second | done 2026-10-14: on `lamp-voice`; follows the lamp's own recordings sample for sample; the steady reference judged on them, mixed |
@@ -226,18 +227,18 @@ has it:
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
 | 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; reads the lamp's real pins and runs there as its own service since 11:03, watching only; the voice acting on it is task 21 |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | done 2026-10-14: on `lamp-voice`; built for the lamp and its two checks run there; nothing installed, nothing touches the network |
-| 6 | Reminders and timers | `schedule` | Third | open |
+| 6 | Reminders and timers | `schedule` | Third | taken 2026-10-14 |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
-| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
-| 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
+| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Fourth (from Third, 2026-10-14) | open: after 28 and 29 |
+| 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | done 2026-10-14: on `lamp-voice` with its playout addendum; Expression acts on lamp-4ace with the rest catalogue |
 | 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; switched on on the lamp at 14:50 (backed up first); the voice does not yet use its additions |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |
-| 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | taken 2026-10-14 |
+| 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | done 2026-10-14: on `lamp-voice` (`5f9914314`) and on the lamp with its switches off; a hand tries it in the evening |
 | 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | in part 2026-10-14: on `lamp-voice`; runs lamp-52e6 as one target (ready in 2.5 s, a hung body back in 20 s); the update choreography and the pause still to come |
 | 22 | The body on a second lamp | `body-second-lamp` | Fifth | done 2026-10-14: on `lamp-voice`; lamp-52e6 runs the body (`deploy/lamp-52e6/`); the build ran on lamp-4ace from 15:00, unchanged with its switch off |
-| 23 | Waking up after the power comes back | `wake` | Fifth | open |
+| 23 | Waking up after the power comes back | `wake` | Fifth | in part 2026-10-14: the wake is on `lamp-voice` behind `--wake on`; it woke lamp-52e6's base 311 counts and back, and ended itself early both ways on lamp-4ace (answer below), where the service runs with it on since 15:21; the unplugs and the unit's `[Install]` still to come |
 | 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
 | 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | measured 2026-10-14 on lamp-52e6: a clear nod is about 3° in 0.35 s; the body's speed makes it 0.75 s (answer below) |
 | 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | first figure 2026-10-14: lamp-52e6 weighs 3.0 kg whole (the specification says 7) |
@@ -509,9 +510,10 @@ parts that give none, the memory and the executive.
 small way for any part to write one, and `lamp-bus` able to follow it by
 part and by level; a settings part of its own (`crates/settings`,
 `lamp-settings`), studied against what ROS 2 parameters do well and
-badly; and the `diagnostics` reports for `lamp-memory` and `lamp-actions`
-(this task may touch `crates/memory` and `crates/actions` for that
-alone, as `crates/policy` does it).
+badly. (The reports for `lamp-memory` and `lamp-actions` are no longer
+part of it: Actions has reported to Health since 2026-10-14, and memory's
+report is task 28.) Fourth builder, from 2026-10-14, 15:15, after 28 and
+29.
 
 **Hand back:** each with tests and its document; for settings, the first
 three that are worth having on this lamp and who would read them.
@@ -1545,6 +1547,20 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**To the fifth builder, 2026-10-14, 15:25, task 23 (the wake on
+lamp-4ace).** Taken onto `lamp-voice` (`2bbb737af`, `e7aa58f60`, with your
+proposal `bd33947cc`) and run on lamp-4ace as you ran it on lamp-52e6. It
+did not reach home either way: toward a base home 286 counts round, the
+base stuck at 2,101, 34 behind its goal, after 72 counts (`tracking`);
+the other way, after 189 counts the shoulder had swayed 7 counts, one over
+its 6 (`drift`). The ordinary start brought the base 177 counts home with
+nothing tripping. The reports are in [body.md](body.md) under "Waking". The
+body is yours: whether the wake should carry a base that sticks at a
+slow goal and an arm that sways a little as the base turns, and how, is
+your call. lamp-4ace's service runs with `--wake on` since 15:21, since an
+early end is no worse than the refusal; I will take the next build onto it
+the same way.
 
 **fifth-P1 (`builder-with-a-lamp`): yes, but.** Taken as written
 ([builder-with-a-lamp.md](builder-with-a-lamp.md)), with one addition the

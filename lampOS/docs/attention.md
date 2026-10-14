@@ -647,7 +647,13 @@ wrong-boot runtime message"). Seven restarts and about 45 seconds without a
 voice, then the build before it was put back. The hash is now taken on the
 record's own thread and written as the file's first line (`capture_start`),
 with the machine, the boot and the run; a test checks that opening the
-record is quick.
+record is quick. That build (`bf01f7e6d`) is on lamp-4ace since 20:48 with
+`LAMP_FIRST_OUTPUT=/var/lib/lampOS/voice/first-output`: a minute with no
+restart, then two played lines at 20:50. "Hey Lamp, what is the capital of
+Italy?" gave one line (played; "the room is not known to be busy", as the
+voice had just started; the seven fields as heard; 11 µs from reading the
+inputs to the decision), and "Tom, did you finish the slides for
+tomorrow?", which the model did not answer, gave none, as it should.
 
 What was heard is in these files, and so are bystanders' words in an office:
 they stay on the lamp and are not published. Not recorded yet: whether any

@@ -18,6 +18,9 @@ pub enum Trigger {
     Interrupted,
     Concentrating,
     Rest,
+    /// A short sound rose suddenly out of the room's quiet (`ears/sudden`).
+    /// Optional: a catalogue without such a behaviour does not react.
+    Sudden,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -395,6 +398,29 @@ impl Catalogue {
                         "rest needs one slow quiet-only head clip, zero endpoints, 20 s delay and 60 s cooldown or longer".into(),
                     ));
                 }
+            }
+            if clip.trigger == Trigger::Sudden
+                && (clip.repeat
+                    || clip.hold
+                    || clip
+                        .states
+                        .iter()
+                        .any(|state| !matches!(state, Voice::Resting | Voice::Listening))
+                    || !clip.continue_in.is_empty()
+                    || clip.duration_us() > 2_000_000
+                    || clip.cooldown_us < 5_000_000
+                    || clip.keyframes.first().unwrap().offsets != BodyOffsets::ZERO
+                    || clip.keyframes.last().unwrap().offsets != BodyOffsets::ZERO
+                    || clip.keyframes.iter().any(|frame| {
+                        frame.offsets.base_yaw != 0.0
+                            || frame.offsets.shoulder != 0.0
+                            || frame.offsets.elbow != 0.0
+                            || frame.brightness != 0.0
+                    }))
+            {
+                return Err(Error(
+                    "a glance at a sudden sound is one head clip of at most 2 s from and back to rest, only resting or listening, with a 5 s cooldown or longer".into(),
+                ));
             }
             if clip.repeat && clip.trigger != Trigger::Playout {
                 return Err(Error("only actual playout may repeat a clip".into()));

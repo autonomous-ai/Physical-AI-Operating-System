@@ -3,15 +3,15 @@ use crate::{Catalogue, Error, LEASE_US, Trigger};
 use lamp_msgs::{
     BodyOffsets, ClockStamp, Concentration, ExpressionBody, ExpressionFace, ExpressionGaze,
     ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light, NameHeard,
-    PersonActivity, Room, RoomState, Speech, Voice, VoiceEvent, VoicePlayout, VoiceProgress,
-    VoiceSound, VoiceState, VoiceTiming,
+    PersonActivity, Room, RoomState, Speech, SuddenSound, Voice, VoiceEvent, VoicePlayout,
+    VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
 pub const MAX_VOICE_SESSIONS: usize = 32;
-const STREAMS: usize = 14;
+const STREAMS: usize = 15;
 const CONTEXT_BYTES: usize = 16 * 1024;
 
 /// Arrival time is supplied separately to ingest. Stamps retain the source
@@ -57,6 +57,11 @@ pub enum Input {
         stamp: ClockStamp,
         value: NameHeard,
     },
+    /// A sound that rose suddenly out of the room's quiet (`lamp-ears`).
+    Sudden {
+        stamp: ClockStamp,
+        value: SuddenSound,
+    },
 }
 
 impl Input {
@@ -75,7 +80,8 @@ impl Input {
             | Self::Light { stamp, .. }
             | Self::Heard { stamp, .. }
             | Self::Said { stamp, .. }
-            | Self::Name { stamp, .. } => stamp,
+            | Self::Name { stamp, .. }
+            | Self::Sudden { stamp, .. } => stamp,
         }
     }
 
@@ -95,6 +101,7 @@ impl Input {
             Self::Heard { .. } => Speech::TOPICS[0],
             Self::Said { .. } => Speech::TOPICS[1],
             Self::Name { .. } => NameHeard::TOPIC,
+            Self::Sudden { .. } => SuddenSound::TOPIC,
         }
     }
 
@@ -114,6 +121,7 @@ impl Input {
             Self::Name { .. } => 11,
             Self::Progress(_) => 12,
             Self::Sound(_) => 13,
+            Self::Sudden { .. } => 14,
         }
     }
 
@@ -170,6 +178,7 @@ impl Input {
             }
             Self::Light { value, .. } => value.check()?,
             Self::Name { value, .. } => value.check()?,
+            Self::Sudden { value, .. } => value.check()?,
             Self::Heard { value, .. } | Self::Said { value, .. } => {
                 if value.text.len() > CONTEXT_BYTES
                     || value.locale.as_ref().is_some_and(|v| v.len() > 64)
@@ -197,6 +206,7 @@ pub struct Output {
 #[derive(Clone, Copy, Default)]
 struct ClipState {
     pause_seen: Option<u64>,
+    sudden_seen: Option<u64>,
     started: Option<u64>,
     last_started: Option<u64>,
     last_completed: Option<u64>,
@@ -243,6 +253,8 @@ pub struct Engine {
     activity: Option<PersonActivity>,
     has_speech: bool,
     pause_since: Option<u64>,
+    /// When the newest short sudden sound was heard, as Expression received it.
+    sudden_since: Option<u64>,
     clips: Vec<ClipState>,
     playout: VecDeque<VoicePlayout>,
     recent_playout: Option<RecentLevel>,
@@ -295,6 +307,7 @@ impl Engine {
             activity: None,
             has_speech: false,
             pause_since: None,
+            sudden_since: None,
             clips,
             playout: VecDeque::new(),
             recent_playout: None,
@@ -418,6 +431,8 @@ impl Engine {
         self.activity = None;
         self.has_speech = false;
         self.pause_since = None;
+        // A sudden sound is the room's, not the voice's: it outlives a turn
+        // (a glance already under way stops with the clips below).
         for clip in &mut self.clips {
             clip.started = None;
             clip.pause_seen = None;
@@ -619,6 +634,13 @@ impl Engine {
             // These are context only. No word is invented as a pause, readiness,
             // a timing cue or proof that anything has reached the loudspeaker.
             Input::Heard { .. } | Input::Said { .. } | Input::Name { .. } => {}
+            // Only a short one (a knock, a clap, something dropped) is a
+            // reason to glance; a sound that goes on is a voice or a chair.
+            Input::Sudden { stamp, value } => {
+                if value.short {
+                    self.sudden_since = Some(stamp.at_us);
+                }
+            }
         }
         self.update_rest_eligibility(now_us);
         self.marks[stream] = Some((stamp.at_us, stamp.sequence));
@@ -1079,7 +1101,8 @@ impl Engine {
                 || (!clip.states.contains(&clip_mode) && !continuing)
                 || (clip.quiet_only && room != Room::Quiet)
                 || (clip.stop_when_concentrating && concentrating)
-                || (clip.trigger == Trigger::Pause && (held || !joints_fresh))
+                || (matches!(clip.trigger, Trigger::Pause | Trigger::Sudden)
+                    && (held || !joints_fresh))
             {
                 self.clips[index].started = None;
                 continue;
@@ -1168,6 +1191,29 @@ impl Engine {
                     .as_ref()
                     .and_then(|v| now_us.checked_sub(v.at_us.saturating_add(clip.delay_us))),
                 Trigger::Concentrating if concentrating => Some(0),
+                Trigger::Sudden => {
+                    let runtime = &mut self.clips[index];
+                    if let Some(heard) = self.sudden_since {
+                        let start = heard.saturating_add(clip.delay_us);
+                        if runtime.sudden_seen != Some(heard) && now_us >= start {
+                            runtime.sudden_seen = Some(heard);
+                            // A glance answers a sound now or not at all: one
+                            // heard by a stalled loop is let go, as a living
+                            // thing lets go of a sound it missed, and a second
+                            // inside the cooldown gets nothing.
+                            if runtime.started.is_none()
+                                && now_us <= start.saturating_add(clip.stroke_us)
+                                && runtime.last_started.is_none_or(|last| {
+                                    now_us.saturating_sub(last) >= clip.cooldown_us
+                                })
+                            {
+                                runtime.started = Some(now_us);
+                                runtime.last_started = Some(now_us);
+                            }
+                        }
+                    }
+                    runtime.started.and_then(|at| now_us.checked_sub(at))
+                }
                 _ => {
                     self.clips[index].started = None;
                     None

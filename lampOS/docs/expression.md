@@ -152,6 +152,28 @@ choose one author, decide how an eligible rest request reaches the final
 writer, and preserve Body's local safety and privacy rules. See
 [What Expression may add](body.md#what-expression-may-add).
 
+## Optional glance at a sudden sound
+
+Added by the first builder on 2026-10-14 for the ears ([ears.md](ears.md)).
+A catalogue may carry one or more `sudden` behaviours; one without any does
+not react, so the trigger is off unless a catalogue turns it on. A
+`SuddenSound` marked short (a knock, a clap, something dropped) starts the
+clip once, on the tick it is received, if that tick is inside the clip's
+stroke; a second sound inside the clip's cooldown gets nothing. A sound
+that went on (a voice, a chair) starts nothing. The catalogue refuses a
+`sudden` clip unless it moves the head only, begins and ends at rest, lasts
+at most 2 s, is allowed only while resting or listening, does not repeat or
+hold, and has a cooldown of at least 5 s. Like the pause nod it needs fresh
+joints and an unheld turn. The sound itself is not one of the voice's
+transients: it outlives a turn ending, though a glance under way stops with
+the other clips.
+
+lamp-4ace's catalogue (`deploy/lamp-4ace/expression-rest-lamp-4ace.json`)
+has "glance at a sound": the head up 0.07 rad in 250 ms, a slight tilt
+(0.03 rad) while it holds, back at rest by 1.6 s, then nothing for 30 s,
+so a run of knocks gets one glance, as a person glances at the first and
+lets the rest go (rule 8). Tests: `tests/sudden_engine.rs`.
+
 ## Optional recent playout level
 
 First's task 18 addendum reports 565 cumulative refusals on lamp-4ace since
@@ -243,6 +265,7 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `body/joint_states` | Body: fresh readback is required for body requests; absolute servo-middle angles are not reused as relative offsets |
 | `room/state` | Voice: fresh quiet evidence permits optional nods, sway, unsolicited gaze and rest; unknown, busy or expired evidence suppresses them. A held turn's reactive face target is the gaze exception |
 | `name/heard` | Name listener: contextual evidence only, never proof of admission or readiness |
+| `ears/sudden` / `SuddenSound` | Ears ([ears.md](ears.md)): a short sound that rose suddenly out of the room's quiet starts the optional `sudden` clip; a sound that went on starts nothing |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
 The existing `voice/state` does not carry the private BodyLink's pre-audio

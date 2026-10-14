@@ -3,8 +3,8 @@ use crate::{Catalogue, Engine, Input, Output};
 use lamp_bus::{Bus, Message, Publisher, Subscriber};
 use lamp_msgs::{
     ClockStamp, Concentration, Diagnostic, ExpressionBody, ExpressionLight, ExpressionState, Faces,
-    JointState, Level, Light, NameHeard, PersonActivity, RoomState, Speech, VoicePlayout,
-    VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
+    JointState, Level, Light, NameHeard, PersonActivity, RoomState, Speech, SuddenSound,
+    VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
 };
 use std::{
     fs::{self, File, OpenOptions},
@@ -21,7 +21,7 @@ use std::{
 };
 
 /// Every input has a separate bounded drain so noisy text cannot starve a stop.
-pub const INPUTS: [(&str, &str); 14] = [
+pub const INPUTS: [(&str, &str); 15] = [
     (VoiceTiming::TOPIC, VoiceTiming::TYPE),
     (VoiceProgress::TOPIC, VoiceProgress::TYPE),
     (PersonActivity::TOPIC, PersonActivity::TYPE),
@@ -36,6 +36,7 @@ pub const INPUTS: [(&str, &str); 14] = [
     (Speech::TOPICS[0], Speech::TYPE),
     (Speech::TOPICS[1], Speech::TYPE),
     (NameHeard::TOPIC, NameHeard::TYPE),
+    (SuddenSound::TOPIC, SuddenSound::TYPE),
 ];
 const DRAIN_LIMIT: usize = 32;
 
@@ -163,6 +164,10 @@ pub fn input_from_message(
             value: message.parse()?,
         },
         NameHeard::TOPIC => Input::Name {
+            stamp,
+            value: message.parse()?,
+        },
+        SuddenSound::TOPIC => Input::Sudden {
             stamp,
             value: message.parse()?,
         },

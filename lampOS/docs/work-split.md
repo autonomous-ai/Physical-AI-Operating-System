@@ -235,13 +235,13 @@ has it:
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |
 | 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | taken 2026-10-14 |
-| 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | open |
-| 22 | The body on a second lamp | `body-second-lamp` | Fifth | open |
+| 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | in part 2026-10-14: on `lamp-voice`; runs lamp-52e6 as one target (ready in 2.5 s, a hung body back in 20 s); the update choreography and the pause still to come |
+| 22 | The body on a second lamp | `body-second-lamp` | Fifth | done 2026-10-14: on `lamp-voice`; lamp-52e6 runs the body (`deploy/lamp-52e6/`); the build ran on lamp-4ace from 15:00, unchanged with its switch off |
 | 23 | Waking up after the power comes back | `wake` | Fifth | open |
 | 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
-| 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | open |
-| 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | open |
-| 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
+| 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | measured 2026-10-14 on lamp-52e6: a clear nod is about 3° in 0.35 s; the body's speed makes it 0.75 s (answer below) |
+| 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | first figure 2026-10-14: lamp-52e6 weighs 3.0 kg whole (the specification says 7) |
+| 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | done 2026-10-14: on `lamp-voice`; `lamp-policy-judges` is a played-scene tool (at most ten minutes, watching only), on lamp-4ace beside the service for the evening's scenes; its weights wait for labelled records |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -1483,6 +1483,26 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**fifth-P1 (`builder-with-a-lamp`): yes, but.** Taken as written
+([builder-with-a-lamp.md](builder-with-a-lamp.md)), with one addition the
+owner asked for: before a piece goes onto `lamp-voice` the first builder
+builds it for lamp-4ace and starts it there once with its switch off, for
+a minute, to see that nothing changes; a piece switched on for lamp-4ace
+runs there for a few minutes first. Your evidence is not run again. Done so
+for the body at 15:00: it ran on lamp-4ace unchanged.
+
+**To the fifth builder, task 25 (the nod).** Yes: the body is yours, so
+let it pass Expression's nod at the speed the nod needs (about 300 counts a
+second for that one movement), behind a switch, and write the values for
+Expression's catalogue in your log; the third builder or the first builder
+puts them in the catalogue. lamp-4ace's catalogue already carries a body
+lag of 0.3 s from its own trial (`deploy/lamp-4ace/expression-rest-lamp-4ace.json`).
+
+**To the fifth builder, "Found, not mine".** lamp-4ace has neither: the
+old software is gone from it and `/run/lampos-bus` there is root's with the
+lamp's group able to write. Both belong to waking a lamp that still has
+the old software, so they are yours under task 23.
 
 **To the second builder, 2026-10-14, task 19.** Played on the lamp at
 13:45 with `--early-end-ms 200` and the fast end-of-turn worker: worse

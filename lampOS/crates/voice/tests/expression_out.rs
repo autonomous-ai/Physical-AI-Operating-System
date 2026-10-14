@@ -251,3 +251,101 @@ fn the_planner_takes_everything_the_voice_says_and_plans_what_it_was_written_for
         said[0], said[1], said[2]
     );
 }
+
+/// The same scene as the lamp has it: the speaker's queue holds only the
+/// 10 ms just taken and one more, and what is said reaches the planner
+/// 20 ms after it is said. Said as the speaker takes it, the lamp's sound
+/// is over before the planner reads it (lamp-4ace, 2026-10-14: 565
+/// refused), so almost none of it is worth saying. Said ahead from what
+/// the voice still holds, none of it is refused and the planner follows
+/// it.
+fn run_as_on_the_lamp(foretell: bool) -> (usize, usize, Vec<String>) {
+    let mut engine = Engine::new(Catalogue::builtin(), true, BOOT).unwrap();
+    let mut timing = Timing::new(BOOT, "voice-run-1");
+    let mut late: std::collections::VecDeque<(u64, Input)> = std::collections::VecDeque::new();
+    let (mut playout, mut refused) = (0, 0);
+    let mut behaviours = Vec::new();
+    let rate_per_ms = u64::from(lamp_audio::RENDER_RATE) / 1_000;
+    for step in 0..1_200u64 {
+        let at = step * 10;
+        let now_us = at * MS;
+        if step % 10 == 0 {
+            context(&mut engine, now_us, step / 10 + 1);
+        }
+        let moment = scene(at);
+        let mut out = timing.tick(Seen {
+            now_us,
+            turn: moment.turn,
+            phase: moment.phase,
+            accepting_input: true,
+            yielding: moment.yielding,
+            person_speaking: moment.person_speaking,
+            first_sound_us: moment.first_sound_ms.map(|ms| ms * MS),
+        });
+        if moment.playing {
+            let turn = moment.turn.unwrap();
+            let (start_us, end_us) = sounds(240, 480, now_us);
+            out.extend(timing.played(turn, start_us, end_us, 150, now_us));
+            if foretell {
+                // What the voice still holds: the rest of the answer.
+                let ends_ms: u64 = if turn == 1 { 4_200 } else { 9_700 };
+                let held = ends_ms.saturating_sub(at + 20) * rate_per_ms;
+                let held = (held as usize).min(lamp_voice::expression_out::foretell_samples());
+                out.extend(timing.foretell(turn, end_us, &vec![6_000i16; held], now_us));
+            }
+        }
+        for message in out {
+            let input = match message {
+                Said::Timing(value) => Input::Voice(value),
+                Said::Activity(value) => Input::Activity(value),
+                Said::Playout(value) => {
+                    playout += 1;
+                    Input::Playout(value)
+                }
+            };
+            late.push_back((now_us + 20 * MS, input));
+        }
+        while late.front().is_some_and(|(due, _)| *due <= now_us) {
+            let (_, input) = late.pop_front().unwrap();
+            let shown = format!("{input:?}");
+            if let Err(why) = engine.ingest(now_us, input) {
+                refused += 1;
+                if foretell {
+                    eprintln!(
+                        "refused at {at} ms: {why}: {}",
+                        &shown[..shown.len().min(260)]
+                    );
+                }
+            }
+        }
+        if step % 2 == 0 {
+            for behaviour in engine.tick(now_us).state.behaviours {
+                if !behaviours.contains(&behaviour) {
+                    behaviours.push(behaviour);
+                }
+            }
+        }
+    }
+    (playout, refused, behaviours)
+}
+
+#[test]
+fn said_ahead_the_lamps_sound_reaches_the_planner_in_time() {
+    // Said only as the speaker takes it, almost all of it has too little
+    // left to be worth saying, and is not said.
+    let (said_late, refused_late, _) = run_as_on_the_lamp(false);
+    assert_eq!(refused_late, 0);
+    let (said, refused, behaviours) = run_as_on_the_lamp(true);
+    assert_eq!(refused, 0, "{refused} of {said} refused");
+    assert!(
+        said >= 60 && said_late * 4 < said,
+        "{said_late} against {said}"
+    );
+    assert!(
+        behaviours.iter().any(|name| name == "follow played sound"),
+        "{behaviours:?}"
+    );
+    println!(
+        "said as taken: {said_late}, {refused_late} refused; said ahead: {said}, {refused} refused"
+    );
+}

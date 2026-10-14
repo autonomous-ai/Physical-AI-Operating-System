@@ -129,7 +129,18 @@ coordinator looks at itself once each pass of its loop and hands that over.
 | `voice/timing`, `Scheduled` | While an answer has arrived and none of it has played: when its start gate will open if nothing more arrives (`StartGate::opens_by`), plus how far ahead of the speaker's queue a write sounded last time (30 ms until one has been measured in this run) | When first known, and again when it moves by 20 ms or more. More sound arriving only brings the start forward, so this is the latest it can be |
 | `voice/timing`, how a turn ended | `Interrupted` if it spoke and was holding its sound back for someone when it ended; otherwise `Finished`, whether or not it spoke. The voice never says `Cancelled` (below) | Once, then in every repeat until another turn begins. After an interruption that no turn follows, listening for two seconds and then resting |
 | `voice/activity` | Whether the detector called a block speech within the last 120 ms | Only while the turn is being heard by a voice that can keep it; on each change and every 80 ms |
-| `voice/playout` | Each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Gathered into stretches of 20 ms; a last odd piece after 15 ms. Never overlapping, never for a turn not said to be speaking, never one that has already sounded |
+| `voice/playout` | Since 2026-10-14, 13:00: the sound the voice still holds before the speaker, which plays straight after the speaker's queue, said ahead in whole pieces of 20 ms with each piece's own level (`Timing::foretell`). Before that, and still for a stretch nothing foretold, each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Each piece once, up to 200 ms ahead of now, while the turn is said to be speaking and the voice is not holding back for someone. Never overlapping, never for a turn not said to be speaking, and never one with less than 25 ms left to sound |
+
+Why the sound is said ahead (lamp-4ace, 2026-10-14): the speaker's queue
+there holds about 20 ms, so a piece said as the speaker took it began
+1.7 ms (median) before it was said and had at most 18 ms left (a recording
+of the topic over four answers, 353 messages). The planner, reading it a
+little later, had refused 565 since 09:43 as already over. The voice holds
+some 350 ms of an answer before the speaker; said from there, in a test
+of the planner reading everything 20 ms late with a 20 ms queue
+(`said_ahead_the_lamps_sound_reaches_the_planner_in_time`), 78 pieces are
+taken and none refused. What it costs: when the lamp stops for someone, up
+to 200 ms said ahead never sounds; the planner clears it on `Interrupted`.
 
 Three things about it that a reader of this page should know:
 

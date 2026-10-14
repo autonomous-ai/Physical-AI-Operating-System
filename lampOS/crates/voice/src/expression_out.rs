@@ -47,10 +47,21 @@ pub const CUT_OFF_LISTENING_US: u64 = 2_000_000;
 pub const SPEECH_LASTS_US: u64 = 120_000;
 /// Pieces of the lamp's sound are gathered to about this length.
 pub const PIECE_US: u64 = 20_000;
+/// How far ahead of now the voice says its own sound that is still held
+/// before the speaker. On lamp-4ace on 2026-10-14 each piece said as the
+/// speaker took it had at most 18 ms left, and Expression had refused 565
+/// as over by the time it read them. Short enough that a pause for
+/// someone, which stops the sound, leaves little said that never sounds.
+pub const FORETELL_US: u64 = 200_000;
 /// A piece that has waited this long for more is said as it is.
 pub const PIECE_WAIT_US: u64 = 15_000;
-/// A piece that ends sooner than this from now is not said: it has gone.
-pub const PIECE_LEAST_US: u64 = 2_000;
+/// A piece is said only if it has this much left to sound: on lamp-4ace
+/// what is said reaches Expression some 20 ms later, and a piece over by
+/// then is refused (2026-10-14: 565 such). The voice's sound said ahead
+/// ([`Timing::foretell`]) has more than this; only the first and last few
+/// milliseconds of an answer, taken by the speaker before or after it,
+/// have less, and go unsaid.
+pub const PIECE_LEAST_US: u64 = 25_000;
 /// Pieces this close together are one stretch of sound.
 const JOIN_US: u64 = 5_000;
 
@@ -126,6 +137,8 @@ pub struct Timing {
     said_timing: Option<(VoiceTiming, u64)>,
     said_activity: Option<(u64, bool, u64)>,
     piece: Option<Piece>,
+    /// The end of the voice's own sound said so far, by the speaker's
+    /// pieces or ahead of them.
     played_through_us: u64,
     /// States the voice showed that could not be said: a turn's state
     /// never goes back, and these would have.
@@ -344,6 +357,48 @@ impl Timing {
         out
     }
 
+    /// The voice's own sound for `turn` that is still held before the
+    /// speaker: `ahead`, at the render rate, sounds from `from_us` on,
+    /// straight after the speaker's queue. Each whole piece of it that
+    /// begins before [`FORETELL_US`] from now is said once, before it
+    /// sounds; the speaker's pieces of the same stretch are then not said
+    /// again. Nothing while the voice holds back for someone, since what
+    /// it holds may never sound. Call after [`Self::played`].
+    pub fn foretell(&mut self, turn: u64, from_us: u64, ahead: &[i16], now_us: u64) -> Vec<Said> {
+        let mut said = Vec::new();
+        if !self.live.as_ref().is_some_and(|live| {
+            live.turn == turn && live.state == Voice::Speaking && !live.yielding
+        }) {
+            return said;
+        }
+        if let Some(piece) = self.say_piece(now_us) {
+            said.push(piece);
+        }
+        let rate = u64::from(lamp_audio::RENDER_RATE);
+        let per = (PIECE_US * rate / 1_000_000) as usize;
+        let at = |index: usize| from_us + index as u64 * 1_000_000 / rate;
+        // The first sample not yet said, rounded up to a whole sample.
+        let mut index =
+            (self.played_through_us.saturating_sub(from_us) * rate).div_ceil(1_000_000) as usize;
+        let horizon = now_us.saturating_add(FORETELL_US.min(FARTHEST_US));
+        while index + per <= ahead.len() && at(index) < horizon {
+            let (start_us, end_us) = (at(index), at(index + per));
+            let level = crate::ring_face::level_of(&ahead[index..index + per]);
+            said.push(Said::Playout(VoicePlayout {
+                stamp: self.stamp(2, now_us),
+                session_id: self.session_id.clone(),
+                turn,
+                request: turn,
+                start_us,
+                end_us,
+                level: f32::from(level) / 255.0,
+            }));
+            self.played_through_us = end_us;
+            index += per;
+        }
+        said
+    }
+
     /// The speaker took a piece of `turn`'s sound that reaches the
     /// loudspeaker from `start_us` to `end_us`, this loud (0 to 255, as
     /// the ring's face has it). Call after [`Self::tick`] in the same
@@ -438,6 +493,9 @@ pub struct ExpressionOut {
     /// then begins to sound: the newest measured, for foretelling the
     /// first sound of the next answer.
     ahead_us: u64,
+    /// The turn whose sound the speaker last took, and when its queue
+    /// then ran out: where the voice's held sound begins.
+    queue_end: Option<(u64, u64)>,
     refused: u64,
 }
 
@@ -489,6 +547,7 @@ impl ExpressionOut {
                 source,
             )?,
             ahead_us: AHEAD_AT_FIRST_US,
+            queue_end: None,
             refused: 0,
         })
     }
@@ -549,10 +608,44 @@ impl ExpressionOut {
     ) {
         let (start_us, end_us) = sounds(frames, queued_frames, queue_observed_at_us);
         self.ahead_us = start_us.saturating_sub(queue_observed_at_us);
+        self.queue_end = Some((turn, end_us));
         if let Some(said) = self.timing.played(turn, start_us, end_us, level, now_us) {
             self.put(now_us, said);
         }
     }
+
+    /// Whether the sound said so far ends less than [`FORETELL_US`] and a
+    /// piece ahead of now, so that foretelling has something to add: the
+    /// loop asks this before it copies what is held.
+    pub fn foretell_due(&self, now_us: u64) -> bool {
+        self.timing.played_through_us < now_us.saturating_add(FORETELL_US)
+    }
+
+    /// The voice's sound for `turn` still held before the speaker, at the
+    /// render rate, as it will be handed over: said ahead of time
+    /// ([`Timing::foretell`]). Call after [`Self::played`] in the same
+    /// pass.
+    pub fn foretell(&mut self, turn: u64, ahead: &[i16], now_us: u64) {
+        if !self.foretell_due(now_us) {
+            return;
+        }
+        let Some(from_us) = self
+            .queue_end
+            .filter(|(queued, _)| *queued == turn)
+            .map(|(_, end)| end.max(now_us))
+        else {
+            return;
+        };
+        for said in self.timing.foretell(turn, from_us, ahead, now_us) {
+            self.put(now_us, said);
+        }
+    }
+}
+
+/// How many of the voice's held samples can be foretold at once: the
+/// horizon and one piece more, at the render rate.
+pub fn foretell_samples() -> usize {
+    ((FORETELL_US + PIECE_US) * u64::from(lamp_audio::RENDER_RATE) / 1_000_000) as usize
 }
 
 /// When a piece of `frames` just written sounds, given the speaker's
@@ -892,6 +985,73 @@ mod tests {
         assert!(activity(&timing.tick(waiting)).is_empty());
     }
 
+    /// What is held before the speaker is said ahead, in whole 20 ms
+    /// pieces with their own loudness, up to 200 ms from now and no
+    /// further; the speaker's pieces of the same stretch are not said
+    /// again; nothing is foretold while the voice holds back for someone.
+    #[test]
+    fn the_sound_held_before_the_speaker_is_said_ahead_once() {
+        let mut timing = Timing::new("boot", "voice-1");
+        let pieces = |said: &[Said]| -> Vec<(u64, u64, u8)> {
+            said.iter()
+                .filter_map(|said| match said {
+                    Said::Playout(p) => Some((
+                        p.start_us - SECOND,
+                        p.end_us - SECOND,
+                        (p.level * 255.0).round() as u8,
+                    )),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Half a second held at the render rate: loud, then silent.
+        let per = (PIECE_US * u64::from(lamp_audio::RENDER_RATE) / 1_000_000) as usize;
+        let mut held = vec![8_000i16; 2 * per];
+        held.extend(vec![0i16; 23 * per]);
+        // Not speaking: nothing.
+        timing.tick(seen(SECOND, Some(2), Some(RingPhase::Waiting)));
+        assert!(
+            timing
+                .foretell(2, SECOND + 20 * MS, &held, SECOND)
+                .is_empty()
+        );
+        timing.tick(seen(SECOND + MS, Some(2), Some(RingPhase::Speaking)));
+        let said = pieces(&timing.foretell(2, SECOND + 20 * MS, &held, SECOND + MS));
+        // From the end of the speaker's queue, 20 ms each, until the first
+        // that would begin 200 ms or more from now.
+        assert_eq!(said.len(), 10);
+        assert_eq!(said[0].0, 20 * MS);
+        assert!(
+            said.windows(2)
+                .all(|w| w[0].1 == w[1].0 && w[1].1 - w[1].0 == PIECE_US)
+        );
+        assert!(said.last().unwrap().0 < MS + FORETELL_US);
+        assert!(said[0].2 > 0 && said[1].2 > 0 && said[2].2 == 0);
+        // Asked again at once: nothing new. Later: only what was not said.
+        assert!(
+            timing
+                .foretell(2, SECOND + 20 * MS, &held, SECOND + MS)
+                .is_empty()
+        );
+        let later = pieces(&timing.foretell(2, SECOND + 20 * MS, &held, SECOND + 41 * MS));
+        assert_eq!(later.first().map(|p| p.0), Some(220 * MS));
+        assert_eq!(later.len(), 2);
+        // The speaker then takes a stretch already said: not said again.
+        assert_eq!(
+            timing.played(2, SECOND + 20 * MS, SECOND + 30 * MS, 200, SECOND + 45 * MS),
+            None
+        );
+        // Holding back for someone: nothing foretold.
+        let mut holding = seen(SECOND + 50 * MS, Some(2), Some(RingPhase::Speaking));
+        holding.yielding = true;
+        timing.tick(holding);
+        assert!(
+            timing
+                .foretell(2, SECOND + 20 * MS, &held, SECOND + 300 * MS)
+                .is_empty()
+        );
+    }
+
     /// The speaker takes 10 ms at a time. They are said as stretches of
     /// 20 ms, in order, never overlapping, never for a turn that is not
     /// speaking, and a last odd piece is said when nothing follows it.
@@ -913,8 +1073,9 @@ mod tests {
             all.extend(timing.played(2, now + 30 * MS, now + 40 * MS, level, now));
             all.extend(timing.tick(seen(now + MS, Some(2), Some(RingPhase::Speaking))));
         }
-        // Nothing more comes: the fifth is said once it has waited.
-        all.extend(timing.tick(seen(SECOND + 70 * MS, Some(2), Some(RingPhase::Speaking))));
+        // Nothing more comes: the fifth is said once it has waited, while
+        // it still has the least a reader needs left to sound.
+        all.extend(timing.tick(seen(SECOND + 65 * MS, Some(2), Some(RingPhase::Speaking))));
         let stretches: Vec<(u64, u64, u8)> = all
             .iter()
             .filter_map(|said| match said {
@@ -944,7 +1105,7 @@ mod tests {
             None
         );
         assert_eq!(timing.played(9, now + 30 * MS, now + 40 * MS, 9, now), None);
-        let cut = timing.played(2, SECOND + 85 * MS, SECOND + 130 * MS, 9, now);
+        let cut = timing.played(2, SECOND + 85 * MS, SECOND + 160 * MS, 9, now);
         assert_eq!(cut, None, "a new stretch waits for more or for its time");
         let Some(Said::Playout(said)) = timing
             .tick(seen(now + 20 * MS, Some(2), Some(RingPhase::Speaking)))
@@ -955,7 +1116,7 @@ mod tests {
         };
         assert_eq!(
             (said.start_us, said.end_us),
-            (SECOND + 90 * MS, SECOND + 130 * MS)
+            (SECOND + 90 * MS, SECOND + 160 * MS)
         );
         timing.played(2, now + 30 * MS, now + 40 * MS, 9, now + 20 * MS);
         let late = timing.tick(seen(now + 60 * MS, Some(2), Some(RingPhase::Speaking)));

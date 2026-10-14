@@ -3493,6 +3493,19 @@ fn conversation(
                     clock,
                 );
             }
+            // What is held before the speaker plays next: said ahead, so
+            // that what the lamp shows can move with it.
+            if let Some(current) = reply.as_ref().filter(|current| {
+                current.playback.is_some() && !attending && out.foretell_due(clock)
+            }) {
+                let ahead: Vec<i16> = current
+                    .pcm
+                    .iter()
+                    .take(crate::expression_out::foretell_samples())
+                    .copied()
+                    .collect();
+                out.foretell(current.owner.turn(), &ahead, clock);
+            }
         }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;

@@ -374,6 +374,11 @@ This is First's existing legacy publisher. It does not yet publish
 | `voice/activity` | Whether the detector called a block speech within the last 120 ms | Only while the turn is being heard by a voice that can keep it; on each change and every 80 ms |
 | `voice/playout` | Since 2026-10-14, 13:00: the sound the voice still holds before the speaker, which plays straight after the speaker's queue, said ahead in whole pieces of 20 ms with each piece's own level (`Timing::foretell`). Before that, and still for a stretch nothing foretold, each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Each piece once, up to 200 ms ahead of now, while the turn is said to be speaking and the voice is not holding back for someone. Never overlapping, never for a turn not said to be speaking, and never one with less than 25 ms left to sound |
 
+**On the lamp, recorded from 14:32 to 15:04 that day** (`lamp-bus record
+voice/playout voice/sound` while the lamp answered people): 520 pieces on
+each topic, each said with 37 to 220 ms of it still to sound (median
+219 ms), where before every piece had at most 18 ms left.
+
 Why the sound is said ahead (lamp-4ace, 2026-10-14): the speaker's queue
 there holds about 20 ms, so a piece said as the speaker took it began
 1.7 ms (median) before it was said and had at most 18 ms left (a recording

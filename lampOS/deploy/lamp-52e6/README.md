@@ -12,12 +12,18 @@ lamp's own: its home, standing pose and folded arm as read at rest, its
 a template for another unit. No credential is in them: the provider's are in
 a private file the voice unit only names.
 
+Since 2026-10-14 the three are parts of `lampos.target` (here as
+`lampos.target`), brought up by one service, `lamp-os`, which is the keeper
+installed as the old runtime's updater installs a service package
+([keeper.md](../../docs/keeper.md), "One service for the lamp"): its release
+under `/opt/lampOS/lamp-os/<version>` carries these units in `units/`.
+
 The long hexadecimal directories in `ExecStart` are the SHA-256 of the binary
 installed there.
 
 Back to the old runtime on this lamp:
 
 ```text
-sudo systemctl disable --now lamp-voice lamp-body lamp-eyes
+sudo systemctl disable --now lamp-os
 sudo systemctl enable --now hal os-server
 ```

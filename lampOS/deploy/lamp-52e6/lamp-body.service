@@ -9,6 +9,7 @@
 # runs its checks again and refuses a lamp that is not as expected. After the third it stays
 # stopped until someone has looked. Limits are fixed in the binary (lampOS/docs/body.md).
 [Unit]
+PartOf=lampos.target
 Description=lampOS body (lamp-body)
 ConditionHost=lamp-52e6
 After=lamp-voice.service
@@ -16,7 +17,10 @@ StartLimitIntervalSec=600
 StartLimitBurst=3
 
 [Service]
-Type=exec
+Type=notify
+NotifyAccess=main
+# Its loop says it is alive every step; silent for 5 s it is hung and is started again.
+WatchdogSec=5
 # Never root: the servo port owner refuses a process that could bypass its exclusive lock.
 User=orangepi
 Group=orangepi
@@ -24,7 +28,7 @@ SupplementaryGroups=dialout
 WorkingDirectory=/
 RuntimeDirectory=lampos-body
 RuntimeDirectoryMode=0755
-ExecStart=/opt/lampOS/body/22e595c451c82df60db9fb66a6da6c409e67f9daad3cd9d588a6626cf0eb63bf/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on
+ExecStart=/opt/lampOS/body/91a9d458e8f47c2c64e00c2e4c4d181255c52eb8663e84d1bdadf24734eeffcf/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on
 Restart=on-failure
 RestartSec=15s
 KillMode=mixed
@@ -36,3 +40,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lamp-body
 NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

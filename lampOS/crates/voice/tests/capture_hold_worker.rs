@@ -168,6 +168,7 @@ impl Rig {
                 NoiseSuppression::Off,
                 ReferenceClock::Capture,
                 ReferenceRecovery::Off,
+                lamp_audio::Reference::AsGiven,
             )
             .map_err(|error| error.to_string())
         });

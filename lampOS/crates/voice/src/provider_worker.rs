@@ -996,12 +996,17 @@ async fn serve_with_visual<C: Connect>(
                     desk.sound(lineage.request.get());
                 }
                 // Whom the lamp answers: followed for every request, and
-                // decided when the first of an answer comes.
+                // decided when the first of an answer comes: its sound, its
+                // words, or a call for something to be done, which is
+                // decided before it is run (on lamp-4ace on 2026-10-14 a
+                // light was switched on for the table's talk while the
+                // answer's sound was held).
                 if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
                     match event {
                         Event::InputStarted { lineage, .. } => attention.began_at(lineage.request.get(), lineage.session.get(), monotonic_us()),
                         Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
-                        Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } => {
+                        Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } | Event::ToolCall { lineage, .. }
+                            if !matches!(event, Event::ToolCall { call, .. } if !crate::attention::answers(&call.name)) => {
                             let (room, going_on) = now();
                             let request = lineage.request.get();
                             let turned = (attention_busy && room == crate::room_told::Room::Busy)
@@ -1051,7 +1056,10 @@ async fn serve_with_visual<C: Connect>(
                         request: successor.map(RequestId::get),
                         superseded: superseded.map(RequestId::get),
                     })),
-                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => desk.called(&provider, lineage, call),
+                    Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
+                        let held = attention.holds(lineage.request.get());
+                        desk.called(&provider, lineage, call, held)
+                    }
                     // The model said this request was not for it: none of
                     // its sound is let out, and none of its words are kept
                     // as something the lamp said.
@@ -1180,12 +1188,28 @@ impl ToolDesk {
         provider: &Supervisor<C>,
         lineage: lamp_gemini::Lineage,
         call: lamp_gemini::ToolCall,
+        held: bool,
     ) {
         use crate::tools::Route;
         let request = lineage.request.get();
         let tell = |told: &serde_json::Value| {
             let _ = provider.try_tool_response(lineage.session, &call.id, &call.name, told);
         };
+        // A request whose answer is held back has nothing done for it
+        // either: the call is answered, and not run.
+        if held
+            && matches!(
+                crate::tools::route(&self.settings, &call.name),
+                Route::Executive(_) | Route::Memory(_)
+            )
+        {
+            tell(&crate::tools::declined());
+            eprintln!(
+                "lamp-voice provider: request {request} asked for {}; not done: its answer is held back",
+                call.name
+            );
+            return;
+        }
         if self.name_signal && call.name == crate::attention::HEARD_MY_NAME {
             tell(&crate::tools::declined());
             let now = monotonic_us();
@@ -4875,6 +4899,56 @@ mod tests {
             rig.output().await,
             ProviderOutput::Audio { request: heard, .. } if heard == request
         ));
+        rig.stop().await;
+    }
+
+    /// The table's talk in a busy room, and the model asks for the light
+    /// (lamp-4ace, 2026-10-14, 11:57). The rule decides at the call: the
+    /// answer is held, so the call is answered and never reaches the
+    /// executive.
+    #[tokio::test]
+    async fn a_call_in_a_request_whose_answer_is_held_is_answered_and_not_run() {
+        fn busy() -> (crate::room_told::Room, bool) {
+            (crate::room_told::Room::Busy, false)
+        }
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let listener =
+            std::os::unix::net::UnixListener::bind(home.path.join(crate::tools::CALL_SOCKET))
+                .unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut rig = LiveRig::start_with(
+            quick_policy(),
+            Options {
+                reporting: Reporting::Typed,
+                tools: crate::tools::Settings {
+                    decline: false,
+                    exec: Some(home.path.clone()),
+                    memory: None,
+                    clock: false,
+                },
+                attention: Some(busy),
+                name_signal: false,
+            },
+        );
+        let mut dial = rig.ready().await;
+        rig.speak(&mut dial, false, true).await;
+        dial.service
+            .send(json!({"serverContent":{"inputTranscription":{"text":"Turn on the light, it is dark in here."}}}))
+            .await;
+        assert!(matches!(
+            rig.output().await,
+            ProviderOutput::Transcript { request: None, .. }
+        ));
+        dial.service.send(function_call("c9", "light_on")).await;
+        assert_eq!(
+            rig.service_message(&mut dial).await,
+            json!({"toolResponse":{"functionResponses":[
+                {"id":"c9","name":"light_on","response":{"ok":true}}
+            ]}})
+        );
+        // Nobody knocked on the executive's door. (That the held answer's
+        // sound is dropped is the busy-room test's above.)
+        assert!(listener.accept().is_err());
         rig.stop().await;
     }
 

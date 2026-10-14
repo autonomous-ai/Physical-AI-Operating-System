@@ -175,6 +175,13 @@ pub fn called(heard: &str) -> bool {
     })
 }
 
+/// Whether a call for this function is the start of an answer, to be
+/// decided like one: every call but the two that only say something about
+/// what was heard and do nothing.
+pub fn answers(function: &str) -> bool {
+    function != HEARD_MY_NAME && function != crate::tools::NOT_FOR_ME
+}
+
 /// Whether an answer is played, and why, for the record.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Verdict {

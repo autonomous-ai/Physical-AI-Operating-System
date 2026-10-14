@@ -1,19 +1,21 @@
 """Step 5 of make.sh: train the listener and write `stop.onnx`.
 
-    python train.py [--hidden 128] [--steps 30000] [--out PATH]
+    python train.py [--hidden 128] [--steps 20000] [--lowest -20] [--out PATH]
 
 The model is small and plain, so that tract runs it as it runs name.onnx:
 
     input [1, 16, 96] -> Flatten -> Gemm (1536 -> H) -> Relu -> Gemm (H -> 64) -> Relu
                       -> Gemm (64 -> 1) -> Sigmoid -> output [1, 1]
 
-opset 13. The numbers the embeddings are shifted and scaled by while
-training are folded into the first Gemm, so the file takes the embeddings
-exactly as `hear.rs` makes them.
+opset 13. The shift and scale the embeddings are given while training are
+folded into the first Gemm, so the file takes the embeddings exactly as
+`hear.rs` makes them.
 
 Each batch is a quarter target inputs, a quarter inputs with near misses or
 other words, and half inputs of talk alone or of two voices. After half the
-steps, the negatives the model scores highest are drawn twice as often.
+steps, the negatives the model then scores highest are drawn as often as
+the rest. `--lowest` leaves out of training the targets put more than that
+many dB under the other voice.
 """
 
 from __future__ import annotations
@@ -39,13 +41,13 @@ HERE = Path(__file__).resolve().parent
 MODEL_DIR = HERE.parent.parent / "models" / "stop"
 
 
-def load(pattern: str):
-    xs, ys = [], []
-    for path in sorted(glob.glob(str(INPUTS / pattern))):
-        d = np.load(path)
-        xs.append(d["x"])
-        ys.append(d["y"])
-    return np.concatenate(xs), np.concatenate(ys)
+def load(pattern: str) -> dict:
+    parts = [np.load(p) for p in sorted(glob.glob(str(INPUTS / pattern)))]
+    out = {}
+    for key in parts[0].files:
+        if key != "names":
+            out[key] = np.concatenate([p[key] for p in parts])
+    return out
 
 
 class Listener(torch.nn.Module):
@@ -103,75 +105,93 @@ def export(model: Listener, path: Path) -> None:
     onnx.save(onnx_model, str(path))
 
 
-def scores_of(model: Listener, x: np.ndarray) -> np.ndarray:
+def scores_of(model: Listener, x: torch.Tensor) -> np.ndarray:
     model.eval()
     out = []
     with torch.inference_mode():
-        for i in range(0, len(x), 8192):
-            out.append(torch.sigmoid(model.logits(torch.from_numpy(x[i : i + 8192].astype(np.float32)))).numpy())
+        for i in range(0, len(x), 16384):
+            out.append(torch.sigmoid(model.logits(x[i : i + 16384].float())).numpy())
     model.train()
     return np.concatenate(out) if out else np.zeros(0)
 
 
-def validate(model, check_x, check_y, talk_x) -> dict:
-    """On held-out speakers: recall of the target inputs' best score per example, and hearings an hour in talk."""
-    pos = scores_of(model, check_x[check_y == 1])
+def validate(model, check: dict, check_x: torch.Tensor, talk_x: torch.Tensor) -> dict:
+    """On held-out speakers: the share of target inputs scored at least each threshold, by level,
+    and hearings an hour in an hour of held-out readers."""
+    s = scores_of(model, check_x)
     talk = scores_of(model, talk_x)
-    hours = len(talk_x) * 0.08 / 3600
+    hours = len(talk) * 0.08 / 3600
+    pos = check["y"] == 1
+    level = check["level"].astype(np.float32)
+    bands = {"alone": level > 50, "0..6": (level >= 0) & (level <= 6), "-10..0": (level >= -10) & (level < 0), "-15..-10": (level >= -15) & (level < -10), "-20..-15": level < -15}
     out = {}
-    for least in [0.5, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]:
-        out[least] = (float(np.mean(pos >= least)), len(hearings(talk, least)) / hours)
+    for least in [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]:
+        row = {"fa_per_h": len(hearings(talk, least)) / hours}
+        for band, sel in bands.items():
+            sel = sel & pos
+            row[band] = float(np.mean(s[sel] >= least)) if sel.any() else float("nan")
+        out[least] = row
     return out
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--hidden", type=int, default=128)
-    p.add_argument("--steps", type=int, default=30000)
+    p.add_argument("--steps", type=int, default=20000)
     p.add_argument("--batch", type=int, default=1024)
+    p.add_argument("--lowest", type=float, default=-20.0)
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
 
-    wx, wy = load("words-*.npz")
-    tx, _ = load("talk-*.npz")
-    cx, cy = load("check-[0-9]*.npz")
-    ctx, _ = load("check-talk-*.npz")
-    pos = np.flatnonzero(wy == 1)
+    words = load("words-*.npz")
+    talk = load("talk-*.npz")
+    check = load("check-[0-9]*.npz")
+    check_talk = load("check-talk-*.npz")
+    wy = words["y"]
+    wl = words["level"].astype(np.float32)
+    pos = np.flatnonzero((wy == 1) & (wl >= args.lowest))
     near = np.flatnonzero(wy == 0)
-    print(f"train: {len(pos)} target inputs, {len(near)} other words, {len(tx)} talk; check: {int((cy == 1).sum())} targets, {len(ctx) * 0.08 / 3600:.2f} h talk", flush=True)
+    wx = torch.from_numpy(words["x"])
+    tx = torch.from_numpy(talk["x"])
+    cx = torch.from_numpy(check["x"])
+    ctx = torch.from_numpy(check_talk["x"])
+    print(
+        f"train: {len(pos)} target inputs (of {(wy == 1).sum()}, from {args.lowest} dB up), {len(near)} other words, "
+        f"{len(tx)} talk; check: {int((check['y'] == 1).sum())} targets, {len(ctx) * 0.08 / 3600:.2f} h talk",
+        flush=True,
+    )
 
-    sample = np.concatenate([wx[rng.choice(len(wx), 20000)], tx[rng.choice(len(tx), 20000)]]).astype(np.float32)
+    sample = np.concatenate([words["x"][rng.choice(len(wy), 20000)], talk["x"][rng.choice(len(tx), 20000)]]).astype(np.float32)
     mean = sample.mean(axis=(0, 1))
     scale = sample.std(axis=(0, 1)) + 1e-3
     model = Listener(args.hidden, mean, scale)
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-3)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=2e-3, total_steps=args.steps, pct_start=0.1)
     loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
+    noise_scale = torch.from_numpy(scale.astype(np.float32)) * 0.05
     q = args.batch // 4
-    hard_talk = None
-    hard_near = None
+    hard_talk = hard_near = None
     for step in range(args.steps):
         if step == args.steps // 2:
-            # The negatives it now scores highest, drawn more often from here on.
             ts = scores_of(model, tx)
             ns = scores_of(model, wx[near])
             hard_talk = np.argsort(ts)[-max(1000, len(ts) // 50) :]
-            hard_near = near[np.argsort(ns)[-max(1000, len(ns) // 50) :]]
-            print(f"step {step}: hard negatives from talk score {ts[hard_talk].min():.3f}+, from words {ns[np.argsort(ns)[-len(hard_near):]].min():.3f}+", flush=True)
+            order = np.argsort(ns)[-max(1000, len(ns) // 50) :]
+            hard_near = near[order]
+            print(f"step {step}: hard negatives from talk score {ts[hard_talk].min():.3f} and up, from words {ns[order].min():.3f} and up", flush=True)
         bp = wx[rng.choice(pos, q)]
         if hard_near is not None:
-            bn = np.concatenate([wx[rng.choice(near, q // 2)], wx[rng.choice(hard_near, q - q // 2)]])
-            bt = np.concatenate([tx[rng.choice(len(tx), q)], tx[rng.choice(hard_talk, q)]])
+            bn = torch.cat([wx[rng.choice(near, q // 2)], wx[rng.choice(hard_near, q - q // 2)]])
+            bt = torch.cat([tx[rng.choice(len(tx), q)], tx[rng.choice(hard_talk, q)]])
         else:
             bn = wx[rng.choice(near, q)]
             bt = tx[rng.choice(len(tx), 2 * q)]
-        x = torch.from_numpy(np.concatenate([bp, bn, bt]).astype(np.float32))
-        y = torch.from_numpy(np.concatenate([np.ones(len(bp)), np.zeros(len(bn) + len(bt))]).astype(np.float32))
-        # Light noise on the inputs.
-        x = x + torch.randn_like(x) * 0.05 * torch.from_numpy(scale.astype(np.float32))
+        x = torch.cat([bp, bn, bt]).float()
+        y = torch.cat([torch.ones(len(bp)), torch.zeros(len(bn) + len(bt))])
+        x = x + torch.randn_like(x) * noise_scale
         loss = loss_fn(model.logits(x), y)
         weight = torch.where(y > 0, torch.tensor(1.0), torch.tensor(2.0))
         loss = (loss * weight).mean()
@@ -180,16 +200,16 @@ def main() -> None:
         opt.step()
         sched.step()
         if (step + 1) % 2000 == 0 or step + 1 == args.steps:
-            v = validate(model, cx, cy, ctx)
-            line = "  ".join(f"{k}: {r:.3f}/{f:.1f}" for k, (r, f) in v.items())
-            print(f"step {step + 1} loss {loss.item():.4f} | recall/FA-per-h {line}", flush=True)
+            v = validate(model, check, cx, ctx)
+            line = "  ".join(f"{k}: " + "/".join(f"{x:.2f}" for x in r.values()) for k, r in v.items() if k in (0.5, 0.9, 0.98))
+            print(f"step {step + 1} loss {loss.item():.4f} | thr: FA-per-h/alone/0..6/-10..0/-15..-10/-20..-15 {line}", flush=True)
     model.eval()
     out = Path(args.out)
     export(model, out)
     runs = CACHE / "runs"
     runs.mkdir(parents=True, exist_ok=True)
-    torch.save({"state": model.state_dict(), "hidden": args.hidden}, runs / f"{out.stem}.pt")
-    (runs / f"{out.stem}.validation.json").write_text(json.dumps({str(k): v for k, v in validate(model, cx, cy, ctx).items()}, indent=1))
+    torch.save({"state": model.state_dict(), "hidden": args.hidden, "args": vars(args)}, runs / f"{out.stem}.pt")
+    (runs / f"{out.stem}.validation.json").write_text(json.dumps({str(k): v for k, v in validate(model, check, cx, ctx).items()}, indent=1))
     print(f"wrote {out} ({out.stat().st_size} bytes)")
 
 

@@ -6,142 +6,142 @@
     "learning_rate": 0.25,
     "l2": 0.01
   },
-  "train_rows": 25,
-  "calibration_rows": 16,
-  "test_rows": 17,
-  "train_sessions": 5,
-  "calibration_sessions": 2,
-  "test_sessions": 2,
+  "train_rows": 35,
+  "calibration_rows": 26,
+  "test_rows": 28,
+  "train_sessions": 8,
+  "calibration_sessions": 4,
+  "test_sessions": 4,
   "question_heads": [
     {
       "question": "calls_lamp",
       "state": "fitted_on_train",
-      "positive_labels": 1,
-      "negative_labels": 24,
+      "positive_labels": 3,
+      "negative_labels": 32,
       "unknown_labels": 0
     },
     {
       "question": "names_someone_else",
       "state": "fitted_on_train",
       "positive_labels": 4,
-      "negative_labels": 5,
-      "unknown_labels": 16
+      "negative_labels": 10,
+      "unknown_labels": 21
     },
     {
       "question": "others_business",
       "state": "fitted_on_train",
-      "positive_labels": 20,
-      "negative_labels": 5,
+      "positive_labels": 25,
+      "negative_labels": 10,
       "unknown_labels": 0
     },
     {
       "question": "lamp_could_answer",
       "state": "fitted_on_train",
-      "positive_labels": 5,
-      "negative_labels": 20,
+      "positive_labels": 10,
+      "negative_labels": 25,
       "unknown_labels": 0
     },
     {
       "question": "follows_lamp",
       "state": "fitted_on_train",
-      "positive_labels": 4,
-      "negative_labels": 21,
+      "positive_labels": 7,
+      "negative_labels": 28,
       "unknown_labels": 0
     },
     {
       "question": "listening_noise",
       "state": "prior_only_insufficient_classes",
       "positive_labels": 0,
-      "negative_labels": 25,
+      "negative_labels": 35,
       "unknown_labels": 0
     },
     {
       "question": "asks_to_stop",
       "state": "prior_only_insufficient_classes",
       "positive_labels": 0,
-      "negative_labels": 25,
+      "negative_labels": 35,
       "unknown_labels": 0
     }
   ],
-  "choice_positive_labels": 2,
-  "choice_negative_labels": 14,
+  "choice_positive_labels": 9,
+  "choice_negative_labels": 17,
   "mixture": "fixed seed; not fitted or evaluated as a fused runtime policy",
   "local_share": 0.5,
   "test": {
-    "labelled": 17,
-    "for_lamp": 2,
-    "not_for_lamp": 15,
+    "labelled": 28,
+    "for_lamp": 8,
+    "not_for_lamp": 20,
     "answers": 0,
-    "looks_up": 0,
-    "stays_quiet": 17,
+    "looks_up": 12,
+    "stays_quiet": 16,
     "false_answers": 0,
-    "missed_calls": 2,
-    "brier": 0.11296716943822695,
-    "log_loss": 0.3827993548932267
+    "missed_calls": 8,
+    "brier": 0.22542972802462938,
+    "log_loss": 0.6406479385272718
   },
   "test_questions": {
     "asks_to_stop": {
-      "labelled": 17,
+      "labelled": 28,
       "positive": 0,
-      "negative": 17,
+      "negative": 28,
       "brier": 0.010000000298023226,
-      "log_loss": 0.10536051731351087
+      "log_loss": 0.10536051731351084
     },
     "calls_lamp": {
-      "labelled": 17,
-      "positive": 1,
-      "negative": 16,
-      "brier": 0.06174361459454033,
-      "log_loss": 0.3000703200515395
+      "labelled": 28,
+      "positive": 3,
+      "negative": 25,
+      "brier": 0.0958625254870659,
+      "log_loss": 0.35862736441246124
     },
     "follows_lamp": {
-      "labelled": 17,
-      "positive": 1,
-      "negative": 16,
-      "brier": 0.12217181498058206,
-      "log_loss": 0.4150061045130841
+      "labelled": 28,
+      "positive": 5,
+      "negative": 23,
+      "brier": 0.1419940410234255,
+      "log_loss": 0.45125825482758736
     },
     "lamp_could_answer": {
-      "labelled": 17,
-      "positive": 2,
-      "negative": 15,
-      "brier": 0.15346225053049067,
-      "log_loss": 0.49862402223864577
+      "labelled": 28,
+      "positive": 8,
+      "negative": 20,
+      "brier": 0.22601791979035232,
+      "log_loss": 0.6379629892210981
     },
     "listening_noise": {
-      "labelled": 17,
+      "labelled": 28,
       "positive": 0,
-      "negative": 17,
+      "negative": 28,
       "brier": 0.09611581881765474,
-      "log_loss": 0.3711006576862578
+      "log_loss": 0.3711006576862577
     },
     "names_someone_else": {
-      "labelled": 8,
+      "labelled": 14,
       "positive": 6,
-      "negative": 2,
-      "brier": 0.29312405451616186,
-      "log_loss": 0.7678592931052873
+      "negative": 8,
+      "brier": 0.287331100519264,
+      "log_loss": 0.9779107492683955
     },
     "others_business": {
-      "labelled": 17,
-      "positive": 15,
-      "negative": 2,
-      "brier": 0.1534488577523161,
-      "log_loss": 0.4963422414994336
+      "labelled": 28,
+      "positive": 20,
+      "negative": 8,
+      "brier": 0.22698263345513486,
+      "log_loss": 0.6399250277266331
     }
   },
   "baseline_source": "e07449e13:crates/voice/src/attention.rs",
   "baseline": {
-    "rows": 17,
+    "rows": 28,
     "missing_snapshot": 0,
     "invalid_snapshot": 0,
     "same_snapshot": {
-      "compared": 17,
+      "compared": 28,
       "table": {
         "play": {
           "answer": 0,
-          "look_up": 0,
-          "stay_quiet": 10
+          "look_up": 12,
+          "stay_quiet": 9
         },
         "hold": {
           "answer": 0,
@@ -149,17 +149,17 @@
           "stay_quiet": 7
         }
       },
-      "permission_disagreements": 10,
+      "permission_disagreements": 21,
       "labels": {
-        "for_lamp": 2,
-        "not_for_lamp": 15,
+        "for_lamp": 8,
+        "not_for_lamp": 20,
         "unknown": 0,
         "policy": {
           "false_answers": 0,
-          "missed_calls": 2
+          "missed_calls": 8
         },
         "baseline": {
-          "false_answers": 9,
+          "false_answers": 14,
           "missed_calls": 1
         }
       }

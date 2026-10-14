@@ -29,8 +29,33 @@ TALK = {
     "Okay. Are you coming to lunch with us?",
     "Maybe, I have a call at one.",
 }
-CALL = "Hey Lamp, what do you think we should have for lunch?"
-FOLLOW = "And what would you drink with that?"
+TALK |= {
+    # calls.sh
+    "Did you see the email from the landlord?",
+    "Yes, the rent goes up next month.",
+    "We should look at other places then.",
+    "Maybe, but moving is so much work.",
+    "Are you going to the gym tonight?",
+    "Probably not, I am too tired.",
+    "I should do that too, my back hurts.",
+    "We sit too much in this office.",
+}
+CALLS = {
+    "Hey Lamp, what do you think we should have for lunch?",
+    # calls.sh
+    "Hey Lamp, how many days are left in October?",
+    "Lamp, what is a good way to save money on groceries?",
+    "Hey Lamp, can you suggest a short stretch I can do at my desk?",
+    "Lamp, what is a quick healthy snack?",
+}
+FOLLOWS = {
+    "And what would you drink with that?",
+    # calls.sh
+    "And what about November?",
+    "Can you give me one more tip?",
+    "How long should I hold it?",
+    "Is that better than a banana?",
+}
 NEAR_NAME = re.compile(r"^Hey (Liam|Lan|man|Sam|Pam|Lance|Mom|love),")
 
 
@@ -42,9 +67,9 @@ def labels_for(text):
     if text in TALK:
         # Said by one colleague to the other; it names nobody as its addressee.
         return {**base, "names_someone_else": None, "others_business": True}, False
-    if text == CALL:
+    if text in CALLS:
         return {**base, "calls_lamp": True, "lamp_could_answer": True}, True
-    if text == FOLLOW:
+    if text in FOLLOWS:
         # The caller's next question to the lamp, without its name.
         return {**base, "lamp_could_answer": True, "follows_lamp": True}, True
     if NEAR_NAME.match(text):

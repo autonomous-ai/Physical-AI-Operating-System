@@ -15,11 +15,88 @@ the lamp, and nothing here was run on a lamp.
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
-| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | being built |
+| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 
 ## Handed back
 
 Newest first.
+
+### Task 10: a reference that follows the microphone's clock (2026-10-14)
+
+**Built.** `lamp_audio::steady::SteadyReference`, off unless asked for:
+`EchoProcessor::with_reference(noise_suppression, Reference::Steady)`
+(`EchoProcessor::new` is unchanged), and `lamp-audio replay-aec RUN OUT
+--steady-reference`. A second echo-evidence observer follows where the
+echo is from the sound itself; the reference is delayed, through `drift`'s
+interpolator and at most 2 ms a block, so that the canceller finds the echo
+20 ms after it and keeps finding it there. Everything is in
+`docs/steady-reference.md`.
+
+**Why it follows the sound and not a buffer.** Read from the code: in the
+capture-clocked mode the lamp runs, a jump in the speaker's queue goes into
+the ring too and cannot step the echo; the recorded steps of 5.4 ms back
+and forth are most likely the second microphone's own buffering, which the
+lamp cannot read; and the delay hint the voice passes leaves the speaker's
+queue out in that mode (the queue less the ring's frames is always below
+zero and floored), so the hint is the capture delay alone.
+
+**The rig** (`crates/audio/tests/steady_reference.rs`): speech-like sound,
+the speaker 98 ppm fast, the microphone 200 ppm slow, the delay stepping as
+recorded, a person over the lamp, and the voice's capture-clocked ring as
+`ReferenceAssembly` drives it. **The two measures**, before → after, with a
+moving echo (M2 Max and the Linux ARM64 VM, identical figures):
+
+| Person against the echo | Echo removed | Person kept over the lamp | Echo within 1 ms of its place |
+|---|---|---|---|
+| level | 46.5 → 44.6 dB | −5.9 → −3.7 dB | 7% → 76% |
+| 15 dB under | 45.3 → 43.3 dB | −8.5 → −7.1 dB | 7% → 81% |
+| level, half the echo not linear | 43.9 → 40.4 dB | −5.6 → −3.7 dB | 7% → 71% |
+
+A still echo costs a person 3.8 dB; the moving one 5.9; steadied, 3.7. The
+canceller's own estimate goes from 28–84 ms to 0–20 ms. The rig shows the
+direction and size, not the lamp's figures: on the rig the canceller copes
+with a moving echo better than on the lamp. Cost of the stage: 6 µs a 10 ms
+block on the M2 Max, 12 µs on the VM (99th percentile 24 and 52 µs).
+
+**Tested** on the Linux ARM64 VM, from `lampOS/`, on `5d8093a8e` rebased on
+`lamp-second`: `cargo fmt --all --check` clean;
+`cargo clippy --locked -p lamp-audio --all-targets -- -D warnings` clean;
+for `lamp-voice` and `lamp-voice-eval` the only clippy warning is the same
+one in `lamp-body` as before (`run` in `crates/body/src/inspection.rs`
+never used), in a crate this change does not touch; `cargo test --locked`:
+`lamp-audio` 173 passed (2 ignored: the release-only measures and an older
+one), `lamp-voice` 937 passed, `lamp-voice-eval` every suite passed, no
+failures; `cargo build --locked --workspace` builds. The measures above
+come from `cargo test --release -p lamp-audio --test steady_reference --
+--include-ignored --nocapture` on both machines.
+
+**On the lamp:** first the replay, twice, over the recordings of
+2026-10-14:
+
+```sh
+lamp-audio replay-aec RUN artifacts/replay-given
+lamp-audio replay-aec RUN artifacts/replay-steady --steady-reference
+```
+
+Compare, per segment of `report.json`, `lamp_sounding_internal_alignment_ms`
+and `..._changes` (the canceller's estimate: it should hold within a few
+milliseconds and change rarely with the option, against 80 to 128 ms as
+given), and listen to `segment-*-aec_only.wav` at the words played over the
+lamp. `operations.jsonl` has `steady_reference.echo_ms` for every block: it
+should step by about 5.4 ms where the recording's echo stepped. If it does,
+wire it: where the capture worker makes `EchoProcessor::new(…)`, make it
+`EchoProcessor::with_reference(…, Reference::Steady)` behind a voice option.
+
+**Where it is most likely to be wrong on the lamp:** the follower. It
+needs a linear fit at one alignment to explain at least half of the
+microphone's energy, and on the second microphone little of the echo is a
+linear copy; where it explains less, the reference keeps its last delay.
+And a match one pitch period of Gemini's voice away may be held for a while
+(about a second per step on the rig). `echo_ms` in the replay shows both.
+
+**Not shown:** the lamp, its second microphone's chip, a person, whether
+2 dB is heard, the cost on the lamp's processor, the stage inside a running
+voice. The causes of the movement are read from the code, not measured.
 
 ### Task 9: faster answers, what exists (2026-10-14)
 
